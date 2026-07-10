@@ -43,9 +43,9 @@ test.describe('Neo.ai.services.memory-core.temporalSummaryAggregationEngine', ()
             mergedPrs : [{number: 1}, {number: 2}, {number: 3}],
             devCommits: [{sha: 'a'}, {sha: 'b'}],
             sessions  : [
-                {agentIdentity: '@neo-opus-ada', impact: 95},
-                {agentIdentity: '@neo-opus-ada', impact: 40},
-                {agentIdentity: '@neo-gpt',      impact: HIGH_IMPACT_THRESHOLD}
+                {agentIdentities: ['@neo-opus-ada'], impact: 95},
+                {agentIdentities: ['@neo-opus-ada'], impact: 40},
+                {agentIdentities: ['@neo-gpt'],      impact: HIGH_IMPACT_THRESHOLD}
             ],
             adrsLanded        : [{id: 'ADR-0028'}],
             sandboxesGraduated: [{ref: 'discussion #1'}, {ref: 'discussion #2'}]
@@ -73,9 +73,9 @@ test.describe('Neo.ai.services.memory-core.temporalSummaryAggregationEngine', ()
         })
     });
 
-    test('deriveVelocityFields ignores session rows with no agentIdentity in the per-agent fold', () => {
+    test('deriveVelocityFields ignores session rows with no agentIdentities in the per-agent fold', () => {
         const fields = deriveVelocityFields({
-            sessions: [{impact: 99}, {agentIdentity: '@neo-opus-ada', impact: 10}]
+            sessions: [{impact: 99}, {agentIdentities: ['@neo-opus-ada'], impact: 10}]
         });
 
         expect(fields.sessionsPerAgent).toEqual({'@neo-opus-ada': 1});
@@ -153,7 +153,7 @@ test.describe('Neo.ai.services.memory-core.temporalSummaryAggregationEngine', ()
             level      : 'daily',
             windowStart: '2026-07-05T00:00:00.000Z',
             windowEnd  : '2026-07-06T00:00:00.000Z',
-            sources    : {mergedPrs: [{n: 1}, {n: 2}], sessions: [{agentIdentity: '@neo-opus-ada', impact: 95}]}
+            sources    : {mergedPrs: [{n: 1}, {n: 2}], sessions: [{agentIdentities: ['@neo-opus-ada'], impact: 95}]}
         });
 
         expect(record.metadata.partition).toBe('unified');
@@ -162,6 +162,37 @@ test.describe('Neo.ai.services.memory-core.temporalSummaryAggregationEngine', ()
         expect(record.velocityFields.mergedPrs).toBe(2);
         expect(record.velocityFields.highImpactSessions).toBe(1);
         expect(record.id).toContain('temporal-summary-daily-unified-')
+    });
+
+    test('deriveVelocityFields credits a multi-agent session to each participant but counts it once as high-impact', () => {
+        const fields = deriveVelocityFields({
+            sessions: [
+                {agentIdentities: ['@neo-opus-ada', '@neo-gpt', '@neo-fable'], impact: 95},
+                {agentIdentities: ['@neo-opus-ada'],                           impact: 10}
+            ]
+        });
+
+        // each participant is credited with the shared session
+        expect(fields.sessionsPerAgent).toEqual({'@neo-opus-ada': 2, '@neo-gpt': 1, '@neo-fable': 1});
+        // ...but a 3-agent high-impact session is ONE high-impact session, not three
+        expect(fields.highImpactSessions).toBe(1)
+    });
+
+    test('deriveAgentVelocityFields never leaks a co-participant onto an agent track', () => {
+        const sources = {
+            sessions: [{agentIdentities: ['@neo-opus-ada', '@neo-gpt'], impact: 95}]
+        };
+
+        const ada = deriveAgentVelocityFields({partition: '@neo-opus-ada', sources});
+
+        // the shared session lands on both tracks, but each track names only its own agent
+        expect(ada.sessionsPerAgent).toEqual({'@neo-opus-ada': 1});
+        expect(ada.highImpactSessions).toBe(1);
+
+        const gpt = deriveAgentVelocityFields({partition: '@neo-gpt', sources});
+
+        expect(gpt.sessionsPerAgent).toEqual({'@neo-gpt': 1});
+        expect(gpt.highImpactSessions).toBe(1)
     });
 
     test('WINDOW_SCOPED_VELOCITY_FIELDS pins exactly the four non-agent-attributable window facts', () => {
@@ -181,7 +212,7 @@ test.describe('Neo.ai.services.memory-core.temporalSummaryAggregationEngine', ()
                 devCommits        : [{sha: 'a'}],
                 adrsLanded        : [{id: 'ADR-0028'}],
                 sandboxesGraduated: [{ref: 'd#1'}],
-                sessions          : [{agentIdentity: '@neo-opus-ada', impact: 95}]
+                sessions          : [{agentIdentities: ['@neo-opus-ada'], impact: 95}]
             }
         });
 
@@ -195,9 +226,9 @@ test.describe('Neo.ai.services.memory-core.temporalSummaryAggregationEngine', ()
     test('deriveAgentVelocityFields attributes only the partition agent\'s sessions', () => {
         const sources = {
             sessions: [
-                {agentIdentity: '@neo-opus-ada', impact: 95},
-                {agentIdentity: '@neo-opus-ada', impact: 20},
-                {agentIdentity: '@neo-gpt',      impact: 99}
+                {agentIdentities: ['@neo-opus-ada'], impact: 95},
+                {agentIdentities: ['@neo-opus-ada'], impact: 20},
+                {agentIdentities: ['@neo-gpt'],      impact: 99}
             ]
         };
 
@@ -231,7 +262,7 @@ test.describe('Neo.ai.services.memory-core.temporalSummaryAggregationEngine', ()
     test('composeAgentRecord composes a per-agent track record; the unified track keeps the window facts', () => {
         const
             window  = {level: 'daily', windowStart: '2026-07-05T00:00:00.000Z', windowEnd: '2026-07-06T00:00:00.000Z'},
-            sources = {mergedPrs: [{n: 1}, {n: 2}], sessions: [{agentIdentity: '@neo-opus-ada', impact: 95}]},
+            sources = {mergedPrs: [{n: 1}, {n: 2}], sessions: [{agentIdentities: ['@neo-opus-ada'], impact: 95}]},
             agent   = composeAgentRecord({...window, partition: '@neo-opus-ada', sources}),
             unified = composeUnifiedRecord({...window, sources});
 

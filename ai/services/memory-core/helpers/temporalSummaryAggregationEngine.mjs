@@ -62,10 +62,14 @@ export const HIGH_IMPACT_THRESHOLD = 90;
  * @summary Folds a window's fetched source rows into the six velocity fields. Pure + deterministic:
  * identical input → identical output; an absent or empty source folds to an honest `0` / `{}` (a window
  * with no merged PRs reports `mergedPrs: 0`, never a faked or omitted count).
+ * A session is multi-agent: each row carries `agentIdentities` (every agent that participated). Both folds
+ * respect that shape — `sessionsPerAgent` credits the session to each participant, while `highImpactSessions`
+ * counts the SESSION once regardless of how many agents took part. Exploding one row per participant would
+ * inflate the high-impact count by the size of the swarm.
  * @param {Object} [sources]
  * @param {Array}  [sources.mergedPrs=[]]          Merged-PR rows in the window.
  * @param {Array}  [sources.devCommits=[]]         `dev` first-parent commit rows in the window.
- * @param {Array}  [sources.sessions=[]]           Memory Core session rows (each carries `{agentIdentity, impact}`).
+ * @param {Array}  [sources.sessions=[]]           Memory Core session rows (each carries `{agentIdentities, impact}`).
  * @param {Array}  [sources.adrsLanded=[]]         Decision-record rows landed in the window.
  * @param {Array}  [sources.sandboxesGraduated=[]] Discussion-graduation rows in the window.
  * @returns {{mergedPrs:Number, devCommits:Number, sessionsPerAgent:Object, highImpactSessions:Number, adrsLanded:Number, sandboxesGraduated:Number}}
@@ -80,13 +84,14 @@ export function deriveVelocityFields({
     const sessionsPerAgent = {};
 
     for (const session of sessions) {
-        const agentIdentity = session?.agentIdentity;
-
-        if (agentIdentity) {
-            sessionsPerAgent[agentIdentity] = (sessionsPerAgent[agentIdentity] || 0) + 1
+        for (const agentIdentity of session?.agentIdentities || []) {
+            if (agentIdentity) {
+                sessionsPerAgent[agentIdentity] = (sessionsPerAgent[agentIdentity] || 0) + 1
+            }
         }
     }
 
+    // counts sessions, not (session, agent) pairs — a 3-agent high-impact session is one high-impact session
     const highImpactSessions = sessions.filter(session => Number(session?.impact) >= HIGH_IMPACT_THRESHOLD).length;
 
     return {
@@ -198,8 +203,9 @@ export function composeUnifiedRecord({level, windowStart, windowEnd, version = 1
 
 /**
  * @summary Folds a window's fetched source rows into the six velocity fields for ONE per-agent track. Session
- * rows are filtered to this partition's agent before the fold, so `sessionsPerAgent` / `highImpactSessions`
- * carry that agent's measurements alone; every {@link WINDOW_SCOPED_VELOCITY_FIELDS} entry is `null` (that
+ * rows are filtered to the sessions this agent participated in, so `sessionsPerAgent` / `highImpactSessions`
+ * carry that agent's measurements alone — a co-participant's identity never leaks onto this track, even though
+ * the same session also lands on theirs. Every {@link WINDOW_SCOPED_VELOCITY_FIELDS} entry is `null` (that
  * constant carries the reasoning). Fails closed on the unified track or a malformed identity — folding a
  * per-agent record under the wrong partition would silently mis-attribute the whole window.
  * @param {Object} params
@@ -213,9 +219,10 @@ export function deriveAgentVelocityFields({partition, sources = {}}) {
     }
 
     const
-        agentSessions                          = (sources.sessions || []).filter(session => session?.agentIdentity === partition),
-        {highImpactSessions, sessionsPerAgent} = deriveVelocityFields({sessions: agentSessions}),
-        windowScopedFields                     = Object.fromEntries(WINDOW_SCOPED_VELOCITY_FIELDS.map(field => [field, null]));
+        agentSessions      = (sources.sessions || []).filter(session => (session?.agentIdentities || []).includes(partition)),
+        highImpactSessions = agentSessions.filter(session => Number(session?.impact) >= HIGH_IMPACT_THRESHOLD).length,
+        sessionsPerAgent   = agentSessions.length > 0 ? {[partition]: agentSessions.length} : {},
+        windowScopedFields = Object.fromEntries(WINDOW_SCOPED_VELOCITY_FIELDS.map(field => [field, null]));
 
     return {...windowScopedFields, highImpactSessions, sessionsPerAgent}
 }

@@ -210,7 +210,7 @@ class TemporalSummaryAggregationService extends Base {
      * @protected
      */
     resolveWindowPartitions({sources = {}}) {
-        return resolvePartitionKeys((sources.sessions || []).map(session => session?.agentIdentity))
+        return resolvePartitionKeys((sources.sessions || []).flatMap(session => session?.agentIdentities || []))
     }
 
     /**
@@ -296,8 +296,37 @@ class TemporalSummaryAggregationService extends Base {
         return {
             devCommits        : await this.fetchDevCommits(window),
             adrsLanded        : await this.fetchAdrsLanded(window),
-            sandboxesGraduated: await this.fetchSandboxesGraduated(window)
+            sandboxesGraduated: await this.fetchSandboxesGraduated(window),
+            sessions          : await this.fetchSessions(window)
         }
+    }
+
+    /**
+     * @summary Binds `sessionsPerAgent` + `highImpactSessions` to their named source — the Memory Core session
+     * summaries, window-filtered on the numeric `timestamp` metadata (session last-activity in ms). The
+     * half-open `[start, end)` bound is pushed into the store query, so this is a bounded window read, never a
+     * full-history scan. A session is multi-agent: `participatingAgents` is the per-agent partition key list,
+     * and the row keeps ALL of them so the engine can credit each participant while still counting the session
+     * once toward `highImpactSessions`.
+     * @param {{windowStart:String, windowEnd:String}} window
+     * @returns {Promise<Array<{sessionId:String, impact:Number, agentIdentities:String[]}>>}
+     * @protected
+     */
+    async fetchSessions({windowStart, windowEnd}) {
+        const
+            collection = await StorageRouter.getSummaryCollection(),
+            result     = await collection.get({
+                where: {$and: [
+                    {timestamp: {$gte: Date.parse(windowStart)}},
+                    {timestamp: {$lt : Date.parse(windowEnd)}}
+                ]}
+            });
+
+        return (result?.metadatas || []).map(metadata => ({
+            sessionId      : metadata.sessionId,
+            impact         : Number(metadata.impact) || 0,
+            agentIdentities: String(metadata.participatingAgents || '').split(',').map(entry => entry.trim()).filter(Boolean)
+        }))
     }
 
     /**

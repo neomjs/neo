@@ -28,7 +28,13 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         logger                            = (await import('../../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
         StorageRouter                     = (await import('../../../../../../ai/services.mjs')).Memory_StorageRouter;
 
-        originals = {info: logger.info, debug: logger.debug, error: logger.error, getTemporalSummaryCollection: StorageRouter.getTemporalSummaryCollection};
+        originals = {
+            info                        : logger.info,
+            debug                       : logger.debug,
+            error                       : logger.error,
+            getTemporalSummaryCollection: StorageRouter.getTemporalSummaryCollection,
+            getSummaryCollection        : StorageRouter.getSummaryCollection
+        };
         logger.info  = () => {};
         logger.debug = () => {};
         logger.error = () => {}
@@ -42,12 +48,13 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
 
     test.afterEach(() => {
         StorageRouter.getTemporalSummaryCollection = originals.getTemporalSummaryCollection;
+        StorageRouter.getSummaryCollection         = originals.getSummaryCollection;
         TemporalSummaryAggregationService.stop();
         TemporalSummaryAggregationService.isPolling      = false;
         TemporalSummaryAggregationService.pollIntervalMs = null;
 
         // Drop instance-method seam overrides so the real prototype methods resurface for the next test.
-        for (const seam of ['scheduleNext', 'acquireLease', 'releaseLease', 'collectPendingWindows', 'persistTemporalRecord', 'runCycle', 'resolveAggregationAnchor', 'dailyWindowCount', 'fetchWindowSources', 'fetchDevCommits', 'fetchSandboxesGraduated', 'fetchAdrsLanded', 'execCommand']) {
+        for (const seam of ['scheduleNext', 'acquireLease', 'releaseLease', 'collectPendingWindows', 'persistTemporalRecord', 'runCycle', 'resolveAggregationAnchor', 'dailyWindowCount', 'fetchWindowSources', 'fetchDevCommits', 'fetchSandboxesGraduated', 'fetchAdrsLanded', 'fetchSessions', 'execCommand']) {
             delete TemporalSummaryAggregationService[seam]
         }
     });
@@ -149,6 +156,41 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         expect(JSON.parse(upserts[0].documents[0])).toEqual({mergedPrs: 3})
     });
 
+    test('fetchSessions binds sessions to the summary collection over a bounded half-open window', async () => {
+        const queries = [];
+
+        StorageRouter.getSummaryCollection = async () => ({
+            get: async args => {
+                queries.push(args);
+
+                return {metadatas: [
+                    {sessionId: 's1', impact: 95, participatingAgents: '@neo-opus-ada,@neo-gpt'},
+                    {sessionId: 's2', impact: 10, participatingAgents: '@neo-opus-ada'},
+                    {sessionId: 's3', impact: 40, participatingAgents: ''}
+                ]}
+            }
+        });
+
+        const sessions = await TemporalSummaryAggregationService.fetchSessions({
+            windowStart: '2026-07-05T00:00:00.000Z',
+            windowEnd  : '2026-07-06T00:00:00.000Z'
+        });
+
+        // the half-open [start, end) bound is pushed into the store query — a bounded read, not a full scan
+        expect(queries).toHaveLength(1);
+        expect(queries[0].where).toEqual({$and: [
+            {timestamp: {$gte: Date.parse('2026-07-05T00:00:00.000Z')}},
+            {timestamp: {$lt : Date.parse('2026-07-06T00:00:00.000Z')}}
+        ]});
+
+        // participatingAgents is the per-agent partition key list — a session keeps ALL of its participants
+        expect(sessions[0].agentIdentities).toEqual(['@neo-opus-ada', '@neo-gpt']);
+        expect(sessions[1].agentIdentities).toEqual(['@neo-opus-ada']);
+        // an unattributed session survives as a row (it still counts toward the unified window) with no identities
+        expect(sessions[2].agentIdentities).toEqual([]);
+        expect(sessions[0].impact).toBe(95)
+    });
+
     test('acquireLease forwards the AiConfig stale TTL — the primitive carries no default and throws without it', async () => {
         const
             fs     = await import('node:fs'),
@@ -186,8 +228,8 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
             sources    : {
                 mergedPrs: [{n: 1}, {n: 2}],
                 sessions : [
-                    {agentIdentity: '@neo-opus-ada', impact: 95},
-                    {agentIdentity: '@neo-gpt',      impact: 10}
+                    {agentIdentities: ['@neo-opus-ada'], impact: 95},
+                    {agentIdentities: ['@neo-gpt'],      impact: 10}
                 ]
             }
         }];
@@ -247,6 +289,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         TemporalSummaryAggregationService.execCommand            = command => { commands.push(command); return 'abc123\ndef456\n' };
         TemporalSummaryAggregationService.fetchSandboxesGraduated = async () => [];   // isolate the devCommits binding
         TemporalSummaryAggregationService.fetchAdrsLanded        = async () => [];
+        TemporalSummaryAggregationService.fetchSessions          = async () => [];
 
         const sources = await TemporalSummaryAggregationService.fetchWindowSources({
             windowStart: '2026-07-05T00:00:00.000Z',
@@ -268,6 +311,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
 
         TemporalSummaryAggregationService.fetchDevCommits = async () => [];
         TemporalSummaryAggregationService.fetchAdrsLanded = async () => [];
+        TemporalSummaryAggregationService.fetchSessions   = async () => [];
         TemporalSummaryAggregationService.execCommand     = () => graphqlResponse;
 
         const sources = await TemporalSummaryAggregationService.fetchWindowSources({
@@ -284,6 +328,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
     test('fetchAdrsLanded binds to ADR records added under learn/agentos/decisions within the window', async () => {
         TemporalSummaryAggregationService.fetchDevCommits         = async () => [];
         TemporalSummaryAggregationService.fetchSandboxesGraduated = async () => [];
+        TemporalSummaryAggregationService.fetchSessions           = async () => [];
         TemporalSummaryAggregationService.execCommand            = () => 'learn/agentos/decisions/0034-new-adr.md\nsrc/unrelated.mjs\nlearn/agentos/decisions/README.md\n';
 
         const sources = await TemporalSummaryAggregationService.fetchWindowSources({
