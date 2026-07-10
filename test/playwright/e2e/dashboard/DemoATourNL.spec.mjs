@@ -57,7 +57,10 @@ test.describe('Demo-A dock-choreography tour journey (Neural Link)', () => {
 
                 rails > window.__e2e.maxRailTabs && (window.__e2e.maxRailTabs = rails);
 
-                document.querySelector('[class*="reveal"]')?.offsetParent && (window.__e2e.revealSeen = true);
+                // any-match: the first '[class*="reveal"]' node can be a legitimately HIDDEN
+                // overlay instance (display:none → offsetParent null) while a different one
+                // is genuinely revealed — a single-match read here passes/fails vacuously
+                [...document.querySelectorAll('[class*="dock-reveal-overlay"]')].some(el => el.offsetParent) && (window.__e2e.revealSeen = true);
 
                 window.__e2e.done || requestAnimationFrame(tick)
             };
