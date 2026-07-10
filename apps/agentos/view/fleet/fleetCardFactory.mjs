@@ -1,3 +1,5 @@
+import {mapFleetSessionHealth} from './sourceHealth.mjs';
+
 /**
  * @summary Fleet card-factory — transforms the Body-side fleet-cockpit DTO into per-card descriptors
  * for the workspace dock. This is the UPSTREAM half of the card-wall seam: it registers a stable
@@ -36,12 +38,15 @@ export function agentCardComponentRef(agentId) {
  * {@link AgentOS.model.FleetAgent} field shape the store-backed cards render from, as a plain
  * snapshot), agent-card policy hints, and JSON identity metadata. Field mapping is null-safe and
  * forward-compatible — `engineTag`, `family`, and `laneLine` map through as `null` until the DTO
- * enrichment + activity/runtime wires land, with no change needed here.
+ * enrichment + activity/runtime wires land, with no change needed here. Source-health mapping is
+ * shared with the Store-backed cockpit path so dock restore cannot silently regain placeholder-as-fact.
  * @param {Object} row=({}) A fleet-cockpit DTO row.
  * @returns {Object} `{componentRef, blueprint, policy, metadata}`
  */
 export function toAgentCardDescriptor(row = {}) {
-    const agentId = row.id ?? null;
+    const
+        agentId       = row.id ?? null,
+        sessionHealth = mapFleetSessionHealth(row.lifecycle, row.sources);
 
     return {
         componentRef: agentCardComponentRef(agentId),
@@ -54,7 +59,8 @@ export function toAgentCardDescriptor(row = {}) {
                 engineTag  : row.engineTag ?? null,
                 family     : row.family ?? null,
                 laneLine   : row.laneLine ?? null,
-                state      : row.lifecycle?.state ?? 'off'
+                sources    : sessionHealth.sources,
+                state      : sessionHealth.state
             }
         },
         policy  : {...AGENT_CARD_POLICY},

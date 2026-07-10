@@ -116,6 +116,12 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
 test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
     let FleetAgent, FleetCockpit, FleetRoster;
 
+    const liveSources = (runtimeConfidence = 'observed') => ({
+        roster    : {source: 'fleet:listAgents',    state: 'wired', confidence: 'observed'},
+        repoStatus: {source: 'fleet:fleetStatus',   state: 'wired', confidence: 'observed'},
+        runtime   : {source: 'fleet:runtimeStatus', state: 'wired', confidence: runtimeConfidence}
+    });
+
     // scope the mock to the `fleet` subkey ONLY: `globalThis.AgentOS` is the app's Neo NAMESPACE
     // root — replacing or deleting it wipes every `AgentOS.*` class registration for all later
     // spec files in the shared worker (order-dependent cross-file bleed).
@@ -235,7 +241,8 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             avatarUrl  : 'https://github.com/neo-gpt.png?size=80',
             family     : 'gpt',
             engineTag  : 'GPT-5.6 Sol',
-            lifecycle  : {state: 'running', confidence: 'observed'}
+            lifecycle  : {source: 'fleet:runtimeStatus', state: 'running', confidence: 'observed'},
+            sources    : liveSources()
         });
 
         expect(mapped).toEqual({
@@ -244,6 +251,7 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             displayName: 'Neo GPT',
             engineTag  : 'GPT-5.6 Sol',
             family     : 'gpt',
+            sources    : liveSources(),
             state      : 'ok'
         });
 
@@ -251,13 +259,42 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         expect(Object.hasOwn(mapped, 'laneLine')).toBe(false)
     });
 
-    test('mapRosterRow state vocabulary — running → ok; stopped / not-wired / absent liveness → off (benched, never guessed)', () => {
-        const map = lifecycle => FleetCockpit.prototype.mapRosterRow({id: 'x', lifecycle}).state;
+    test('mapRosterRow state vocabulary — running is healthy only behind wired runtime provenance', () => {
+        const map = (state, sources = liveSources(), confidence = 'observed') => FleetCockpit.prototype.mapRosterRow({
+            id       : 'x',
+            lifecycle: {source: 'fleet:runtimeStatus', state, confidence},
+            sources
+        }).state;
 
-        expect(map({state: 'running'})).toBe('ok');
-        expect(map({state: 'stopped'})).toBe('off');
-        expect(map({state: 'not-wired'})).toBe('off');
+        expect(map('running')).toBe('ok');
+        expect(map('stopped')).toBe('off');
+        expect(map('not-wired')).toBe('off');
         expect(map(undefined)).toBe('off');
+        expect(map('running', {runtime: {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none'}})).toBe('off');
+        expect(map('running', {runtime: {source: 'fleet:runtimeStatus', state: 'missing', confidence: 'none'}})).toBe('off');
+        expect(map('running', {})).toBe('off');
+        expect(map('running', liveSources('inferred'), 'observed')).toBe('off');
+
+        const
+            contradictory = FleetCockpit.prototype.mapRosterRow({
+                id       : 'x',
+                lifecycle: {source: 'fleet:runtimeStatus', state: 'running', confidence: 'inferred'},
+                sources  : liveSources()
+            }),
+            stopped       = FleetCockpit.prototype.mapRosterRow({
+                id       : 'x',
+                lifecycle: {source: 'fleet:runtimeStatus', state: 'stopped', confidence: 'observed'},
+                sources  : liveSources()
+            });
+
+        expect(contradictory).toMatchObject({
+            state  : 'off',
+            sources: {runtime: {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none'}}
+        });
+        expect(stopped).toMatchObject({
+            state  : 'off',
+            sources: {runtime: {source: 'fleet:runtimeStatus', state: 'wired', confidence: 'observed'}}
+        });
 
         // un-enriched identity facts flow as nulls (unclassified / tagless)
         const bare = FleetCockpit.prototype.mapRosterRow({id: 'x'});
@@ -267,7 +304,7 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
 
     test('the FIRST non-empty snapshot populates the Store (replaces the sample seed) and goes live — rows without a durable id are dropped', async () => {
         const {cockpit, grid} = await routeLoadRoster({fleetRoster: async () => ({rows: [
-            {id: 'vega', lifecycle: {state: 'running'}},
+            {id: 'vega', lifecycle: {source: 'fleet:runtimeStatus', state: 'running', confidence: 'observed'}, sources: liveSources()},
             {noId: true},
             {id: 'ada', lifecycle: {state: 'stopped'}}
         ]})});
@@ -285,7 +322,7 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
               ghost  = {agentId: 'removed-agent'};
 
         const {grid} = await routeLoadRoster({fleetRoster: async () => ({rows: [
-            {id: 'vega', family: 'claude', lifecycle: {state: 'running'}},
+            {id: 'vega', family: 'claude', lifecycle: {source: 'fleet:runtimeStatus', state: 'running', confidence: 'observed'}, sources: liveSources()},
             {id: 'joiner', lifecycle: {state: 'stopped'}}
         ]})}, {known: {vega}, items: [vega, ghost], rosterWired: true});
 
@@ -296,6 +333,7 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             displayName: null,
             engineTag  : null,
             family     : 'claude',
+            sources    : liveSources(),
             state      : 'ok'
         }]);
 

@@ -1,0 +1,48 @@
+/* Per-source provenance marker. State + confidence remain visible in text and geometry; color is
+   supplemental and token-only. Source health is not session health, so wired never borrows the
+   green --fm-state-ok token. */
+.fm-source-health-marker {
+    --fm-source-mark: var(--fm-state-off);
+
+    display    : inline-flex;
+    align-items: center;
+    flex       : none;
+    min-width  : 0;
+    color      : var(--fm-ink-dim);
+    font-family: var(--fm-font-mono);
+    font-size  : 9px;
+    line-height: 1;
+    white-space: nowrap;
+
+    &::before {
+        content      : '';
+        width        : 6px;
+        height       : 6px;
+        margin-right : 2px;
+        flex         : none;
+        border       : 1px solid var(--fm-source-mark);
+        border-radius: 50%;
+        box-sizing   : border-box;
+    }
+
+    &.fm-source-wired {
+        --fm-source-mark: var(--fm-ink-dim);
+    }
+
+    &.fm-source-wired.fm-confidence-observed::before {
+        background: var(--fm-source-mark);
+    }
+
+    &.fm-source-wired.fm-confidence-inferred::before {
+        background: linear-gradient(90deg, var(--fm-source-mark) 50%, transparent 50%);
+    }
+
+    &.fm-source-missing::before {
+        border-style : dashed;
+        border-radius: 1px;
+    }
+
+    &.fm-source-not-wired::before {
+        background: linear-gradient(135deg, transparent 42%, var(--fm-source-mark) 43%, var(--fm-source-mark) 57%, transparent 58%);
+    }
+}
