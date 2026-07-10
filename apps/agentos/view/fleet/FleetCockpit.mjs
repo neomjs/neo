@@ -154,14 +154,17 @@ class FleetCockpit extends Container {
      * on the injected registry bridge — the Brain-side assembler DTO (`{sources, capabilities, rows,
      * events}`, identity-enriched per the `resolveIdentityDisplay` join) — map its rows onto the
      * FleetAgent record contract, and route honestly into the Store the grid renders from:
-     * - rows present → the FIRST payload **populates the Store** (replacing the sample seed); every
-     *   later one **merges onto the records** (`record.set(row)` per known `agentId`, `store.add`
-     *   for a new resident) — runtime status refresh, not a re-seed. Grid goes `live`.
-     * - EMPTY rows / absent bridge / no verb / a thrown source → keep the last-known roster (the
-     *   honestly-labelled sample seed at boot); fail closed rather than blanking the fleet. An
-     *   empty roster from an answering producer is indistinguishable from a broken one at this
-     *   seam, and a blanked cockpit hides exactly the fleet the operator must see. (The grid's
-     *   `stale` render remains reserved for a real degraded signal once a producer emits one.)
+     * - a resolved snapshot (rows is an Array — EVEN EMPTY) is **authoritative**: the first one
+     *   replaces the sample seed (a zero-agent fleet renders as the TRUE cold-onboarding zero
+     *   state, never seven sample maintainers masquerading as live); every later one **reconciles**
+     *   the Store — `record.set(row)` per known `agentId`, `store.add` for a joiner, `store.remove`
+     *   for a resident absent from the snapshot (a `removeAgent` must never leave a ghost card).
+     *   Grid goes `live`.
+     * - absent bridge / no verb / a MALFORMED answer (`rows` not an Array) / a thrown source →
+     *   keep the last-known roster; fail closed rather than blanking the fleet. A resolved call is
+     *   mechanically distinguishable from a failed one — only failures preserve last-known state.
+     *   (The grid's `stale` render remains reserved for a real degraded signal once a producer
+     *   emits one.)
      * @protected
      */
     async loadRoster() {
@@ -174,21 +177,23 @@ class FleetCockpit extends Container {
         }
 
         try {
-            const {rows} = await bridge.fleetRoster() ?? {},
-                  mapped = Array.isArray(rows) ? rows.filter(row => row?.id).map(row => me.mapRosterRow(row)) : [];
+            const {rows} = await bridge.fleetRoster() ?? {};
 
-            if (mapped.length > 0) {
-                if (me.rosterWired) {
-                    me.mergeRoster(grid.store, mapped)
-                } else {
-                    grid.store.clear();
-                    grid.store.add(mapped);
-                    me.rosterWired = true
-                }
-
-                grid.adapterState = 'live'
+            if (!Array.isArray(rows)) {
+                return // malformed answer → keep the last-known roster
             }
-            // empty rows / absent bridge → keep the last-known roster
+
+            const mapped = rows.filter(row => row?.id).map(row => me.mapRosterRow(row));
+
+            if (me.rosterWired) {
+                me.reconcileRoster(grid.store, mapped)
+            } else {
+                grid.store.clear();
+                mapped.length > 0 && grid.store.add(mapped);
+                me.rosterWired = true
+            }
+
+            grid.adapterState = 'live'
         } catch (error) {
             // fail-closed: the last-known roster stays rather than blanking the fleet
         }
@@ -217,20 +222,29 @@ class FleetCockpit extends Container {
     }
 
     /**
-     * @summary Merge a wired roster payload onto the Store's records: a known `agentId` updates its
-     * record in place (`record.set(row)` — the store's `recordChange` re-renders just that card), a
-     * new one joins the roster. Rows never silently remove residents; a departure is a `state`
-     * change from the source, not an absent row.
+     * @summary Reconcile an authoritative roster snapshot onto the Store's records: a known
+     * `agentId` updates its record in place (`record.set(row)` — the store's `recordChange`
+     * re-renders just that card, and fields the roster producer does not own — e.g. `laneLine` —
+     * survive because {@link #mapRosterRow} omits them), a new one joins the roster, and a resident
+     * ABSENT from the snapshot is removed (the snapshot is the full fleet: a deregistered agent
+     * must not linger as a ghost card).
      * @param {Neo.data.Store} store The bound roster store.
-     * @param {Object[]} rows Wired roster rows keyed by `agentId`.
+     * @param {Object[]} rows Mapped snapshot rows keyed by `agentId`.
      * @protected
      */
-    mergeRoster(store, rows) {
+    reconcileRoster(store, rows) {
+        const snapshotIds = new Set(rows.map(row => row.agentId));
+
         rows.forEach(row => {
             const record = store.get(row.agentId);
 
             record ? record.set(row) : store.add(row)
-        })
+        });
+
+        store.items
+            .filter(record => !snapshotIds.has(record.agentId))
+            .map(record => record.agentId)
+            .forEach(agentId => store.remove(agentId))
     }
 }
 

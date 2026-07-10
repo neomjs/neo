@@ -42,7 +42,6 @@ These fields are populated at provisioning time (via `ai/scripts/setup/seedAgent
 
 | Property | Type | Description | Example |
 | :--- | :--- | :--- | :--- |
-| `modelDesignation` | `String` | Structured current-model display designation — the machine-readable mirror of the Model-Stats `name` rows (descriptions are prose and do not generalize). Consumed by the fleet↔identity display join (`ai/services/fleet/resolveIdentityDisplay.mjs`) as the cockpit `engineTag`. Rotates with model-rotation PRs; superseded by the `EmbodiedEpisode` era layer when the era schema lands. | `'GPT-5.6 Sol'`, `'Claude Opus 4.8'` |
 | `contextWindowInput` | `Number` (tokens) | Maximum input token capacity. | `1048576` |
 | `contextWindowOutput` | `Number` (tokens, optional) | Output token capacity where distinct from input. | `65536` (Gemini 3.1 Pro) |
 | `parallelToolCalls` | `Boolean` \| `Number` | Whether parallel tool invocation is supported; numeric value indicates max concurrency where bounded. | `true` |

@@ -216,17 +216,17 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
         expect(dto.capabilities.runtime.state).toBe('wired');
     });
 
-    test('fleetRoster defaults the resolver to the identity-roots join when not injected (named maintainers resolve real facts)', () => {
+    test('fleetRoster defaults the resolver to the identity-roots join when not injected — family real, engineTag honestly null', () => {
         registryStub.listAgents        = () => [{id: 'neo-gpt', githubUsername: 'neo-gpt', harnessType: 'codex'}];
         managerStub.fleetRepoStatus    = () => [];
         managerStub.fleetRuntimeStatus = () => [];
 
         const [row] = FleetControlBridge.fleetRoster().rows;
 
-        // compare against the LIVE root (rotation-proof): the default resolver reads identityRoots
+        // compare against the LIVE root: family is the stable identity fact the roots CAN answer;
+        // engineTag stays null until a truthful current-engine source exists (session/era metadata)
         expect(row.family).toBe('gpt');
-        expect(typeof row.engineTag).toBe('string');
-        expect(row.engineTag.length).toBeGreaterThan(0);
+        expect(row.engineTag).toBeNull();
     });
 
     // ---- the security boundary: the allowlist OMITS the Brain-internal secret paths ----

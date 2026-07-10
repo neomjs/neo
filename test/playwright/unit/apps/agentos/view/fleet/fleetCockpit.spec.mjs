@@ -110,30 +110,34 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
 
     const clearBridge = () => { delete globalThis.AgentOS };
 
-    // a spy store + grid: `loadRoster` clears/adds on first wire, merges after, flips adapterState
-    const makeGrid = (known = {}) => {
+    // a spy store + grid: `loadRoster` clears/adds on the first snapshot, reconciles after (upsert +
+    // remove-absent), flips adapterState. `items` feeds the reconciliation's absence sweep.
+    const makeGrid = (known = {}, items = []) => {
         const store = {
             added  : [],
             cleared: 0,
+            removed: [],
+            items,
             clear() { this.cleared++ },
             add(rows) { this.added.push(...[].concat(rows)) },
-            get(id) { return known[id] ?? null }
+            get(id) { return known[id] ?? null },
+            remove(id) { this.removed.push(id) }
         };
 
         return {adapterState: 'sample', store}
     };
 
     const makeCockpit = (grid, rosterWired = false) => ({
-        getReference: reference => reference === 'fleet-grid' ? grid : null,
-        mapRosterRow: FleetCockpit.prototype.mapRosterRow,
-        mergeRoster : FleetCockpit.prototype.mergeRoster,
+        getReference   : reference => reference === 'fleet-grid' ? grid : null,
+        mapRosterRow   : FleetCockpit.prototype.mapRosterRow,
+        reconcileRoster: FleetCockpit.prototype.reconcileRoster,
         rosterWired
     });
 
-    const routeLoadRoster = async (bridge, {known, rosterWired} = {}) => {
+    const routeLoadRoster = async (bridge, {known, items, rosterWired} = {}) => {
         bridge ? (globalThis.AgentOS = {fleet: {registryBridge: bridge}}) : clearBridge();
 
-        const grid    = makeGrid(known),
+        const grid    = makeGrid(known, items),
               cockpit = makeCockpit(grid, rosterWired);
 
         await FleetCockpit.prototype.loadRoster.call(cockpit);
@@ -195,11 +199,13 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         }
     });
 
-    test('an EMPTY roster answer keeps the last-known roster — an empty fleet from an answering producer never blanks the cockpit', async () => {
-        const {grid} = await routeLoadRoster({fleetRoster: async () => ({rows: []})});
+    test('a resolved EMPTY snapshot is the authoritative cold zero-state — the sample clears and the grid goes live (never seven fake maintainers)', async () => {
+        const {cockpit, grid} = await routeLoadRoster({fleetRoster: async () => ({rows: []})});
 
-        expect(grid.adapterState).toBe('sample');
-        expect(grid.store.cleared).toBe(0)
+        expect(grid.store.cleared).toBe(1);   // the sample seed is replaced by the TRUE zero state
+        expect(grid.store.added).toEqual([]);
+        expect(grid.adapterState).toBe('live');
+        expect(cockpit.rosterWired).toBe(true)
     });
 
     test('mapRosterRow maps a DTO row onto the FleetAgent contract — durable id, identity facts, honest state vocabulary', () => {
@@ -239,7 +245,7 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         expect(bare.engineTag).toBeNull()
     });
 
-    test('the FIRST roster payload populates the Store (replaces the sample seed) and goes live — rows without a durable id are dropped', async () => {
+    test('the FIRST non-empty snapshot populates the Store (replaces the sample seed) and goes live — rows without a durable id are dropped', async () => {
         const {cockpit, grid} = await routeLoadRoster({fleetRoster: async () => ({rows: [
             {id: 'vega', lifecycle: {state: 'running'}},
             {noId: true},
@@ -253,24 +259,28 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         expect(cockpit.rosterWired).toBe(true)
     });
 
-    test('later roster payloads MERGE onto records — record.set(mapped row) per known agentId, add for a new resident', async () => {
+    test('later snapshots RECONCILE — record.set per known agentId, add for a joiner, REMOVE for a resident absent from the snapshot (no ghost card)', async () => {
         const writes = [],
-              vega   = {set(row) { writes.push(row) }};
+              vega   = {agentId: 'vega', set(row) { writes.push(row) }},
+              ghost  = {agentId: 'removed-agent'};
 
         const {grid} = await routeLoadRoster({fleetRoster: async () => ({rows: [
-            {id: 'vega', family: 'claude', engineTag: 'Claude Opus 4.8', lifecycle: {state: 'running'}},
+            {id: 'vega', family: 'claude', lifecycle: {state: 'running'}},
             {id: 'joiner', lifecycle: {state: 'stopped'}}
-        ]})}, {known: {vega}, rosterWired: true});
+        ]})}, {known: {vega}, items: [vega, ghost], rosterWired: true});
 
-        // known resident → runtime status merged onto ITS record (the store re-renders just that card)
+        // known resident → runtime status reconciled onto ITS record (the store re-renders just that card)
         expect(writes).toEqual([{
             agentId    : 'vega',
             avatarUrl  : null,
             displayName: null,
-            engineTag  : 'Claude Opus 4.8',
+            engineTag  : null,
             family     : 'claude',
             state      : 'ok'
         }]);
+
+        // a resident ABSENT from the authoritative snapshot is removed — define → remove → no ghost card
+        expect(grid.store.removed).toEqual(['removed-agent']);
         // new resident → joins the roster; the seed is never re-cleared on a merge
         expect(grid.store.added.map(row => row.agentId)).toEqual(['joiner']);
         expect(grid.store.cleared).toBe(0);
