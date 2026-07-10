@@ -112,4 +112,24 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoAWorkspace', () => {
         expect(tourRunner.isDestroyed).toBe(true);
         expect(dockService.isDestroyed).toBe(true)
     });
+
+    test('ClockPane: renders wall time on demand, mount-toggles and destroys without leaking', async () => {
+        const
+            module    = await import('../../../../../../../apps/agentos/childapps/dockdemo/view/ClockPane.mjs'),
+            ClockPane = module.default,
+            clock     = Neo.create(ClockPane, {});
+
+        expect(clock.vdom.cn[1].html).toBe('—');
+
+        clock.updateTime();
+        expect(clock.vdom.cn[1].html).toMatch(/^\d{2}:\d{2}:\d{2}$/);
+
+        // the tick interval follows the mount lifecycle; toggling must never throw or leak
+        clock.mounted = true;
+        clock.mounted = false;
+        clock.mounted = true;
+
+        clock.destroy();
+        expect(clock.isDestroyed).toBe(true)
+    });
 });

@@ -29,6 +29,17 @@
         color        : var(--fm-ground);
         font-family  : var(--fm-font-mono);
         font-weight  : 600;
+
+        // the button's glyph/text descendants own their colors in the theme layer —
+        // the token must be bridged onto them explicitly or it never lands
+        .neo-button-glyph,
+        .neo-button-text {
+            color: var(--fm-ground);
+        }
+
+        .neo-button-text {
+            font-family: var(--fm-font-mono);
+        }
     }
 
     .agentos-dockdemo-tour-caption {
