@@ -30,7 +30,10 @@ import Instance       from '../../../../../../../src/manager/Instance.mjs';
 test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', () => {
     let FleetCockpit;
 
-    const clearBridge = () => { delete globalThis.AgentOS };
+    // scope the mock to the `fleet` subkey ONLY: `globalThis.AgentOS` is the app's Neo NAMESPACE
+    // root — replacing or deleting it wipes every `AgentOS.*` class registration for all later
+    // spec files in the shared worker (order-dependent cross-file bleed).
+    const clearBridge = () => { delete globalThis.AgentOS?.fleet };
 
     // a spy stream: `loadActivity` either assigns `adapterState` directly (stale) or calls `set({...})`
     // (live); both land on the same object so the resulting state is assertable.
@@ -41,7 +44,7 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
      * @returns {Promise<Object>} the spy stream after loadActivity routed to it.
      */
     const routeLoadActivity = async bridge => {
-        bridge ? (globalThis.AgentOS = {fleet: {registryBridge: bridge}}) : clearBridge();
+        bridge ? ((globalThis.AgentOS ??= {}).fleet = {registryBridge: bridge}) : clearBridge();
 
         const stream  = makeStream(),
               cockpit = {getReference: reference => reference === 'activity-stream' ? stream : null};
@@ -108,7 +111,10 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
 test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
     let FleetAgent, FleetCockpit, FleetRoster;
 
-    const clearBridge = () => { delete globalThis.AgentOS };
+    // scope the mock to the `fleet` subkey ONLY: `globalThis.AgentOS` is the app's Neo NAMESPACE
+    // root — replacing or deleting it wipes every `AgentOS.*` class registration for all later
+    // spec files in the shared worker (order-dependent cross-file bleed).
+    const clearBridge = () => { delete globalThis.AgentOS?.fleet };
 
     // a spy store + grid: `loadRoster` clears/adds on the first snapshot, reconciles after (upsert +
     // remove-absent), flips adapterState. `items` feeds the reconciliation's absence sweep.
@@ -135,7 +141,7 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
     });
 
     const routeLoadRoster = async (bridge, {known, items, rosterWired} = {}) => {
-        bridge ? (globalThis.AgentOS = {fleet: {registryBridge: bridge}}) : clearBridge();
+        bridge ? ((globalThis.AgentOS ??= {}).fleet = {registryBridge: bridge}) : clearBridge();
 
         const grid    = makeGrid(known, items),
               cockpit = makeCockpit(grid, rosterWired);
@@ -300,7 +306,7 @@ test.describe('Fleet cockpit — whole-fleet control (B4, #14611)', () => {
         // enumerates the rendered cards — the collapsed-idle fold is filtered by ntype — and dispatches a
         // start intent + each card's roster record to the adapter. No bridge → each card takes an honest
         // `unauthorized` controlReason onto its record, never an optimistic fleet-wide success.
-        delete globalThis.AgentOS;
+        delete globalThis.AgentOS?.fleet;
 
         const mkCard = agentId => {
             const writes = [],
@@ -326,7 +332,7 @@ test.describe('Fleet cockpit — whole-fleet control (B4, #14611)', () => {
         // A card fires intent-only; the cockpit resolves the firing card from the event `source` and
         // hands it + the card's roster record to the adapter. With no registry bridge the adapter fails
         // closed — an `unauthorized` controlReason lands on the record, never an optimistic success.
-        delete globalThis.AgentOS;
+        delete globalThis.AgentOS?.fleet;
 
         const writes  = [],
               record  = {agentId: 'vega', set(values) { writes.push(values) }},
