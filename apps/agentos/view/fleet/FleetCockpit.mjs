@@ -634,9 +634,12 @@ class FleetCockpit extends Container {
      * cockpit's session-state vocabulary only when `sources.runtime` is usable; missing /
      * not-wired / malformed source truth forces `off`, so placeholder can never render as fact.
      * The normalized three-source object remains on the record for the card markers AND the
-     * eligibility partition (an unusable runtime source must fail a fleet start closed). `laneLine`
-     * and `openLaneCount` are deliberately OMITTED (not nulled): the activity/lane capability
-     * owns them, and a merge must never wipe what another producer wrote.
+     * eligibility partition (an unusable runtime source must fail a fleet start closed).
+     * `openLaneCount` rides the same tri-state passthrough — the roster DTO OWNS it end-to-end
+     * (assembler → record → badge), so the FIRST authoritative load carries live truth and a
+     * missing stamp degrades to null (no badge), never to the sample seed's number. `laneLine`
+     * is deliberately OMITTED (not nulled): the activity capability owns it, and a merge must
+     * never wipe what another producer wrote.
      * @param {Object} row One cockpit DTO row (`fleetCockpitStatus` shape).
      * @returns {Object} FleetAgent record field values.
      */
@@ -644,13 +647,14 @@ class FleetCockpit extends Container {
         const sessionHealth = mapFleetSessionHealth(row.lifecycle, row.sources);
 
         return {
-            agentId    : row.id,
-            authMode   : row.authMode ?? null,
-            avatarUrl  : row.avatarUrl ?? null,
-            displayName: row.displayName ?? null,
-            engineTag  : row.engineTag ?? null,
-            family     : row.family ?? null,
-            launchable : row.launchable ?? null,
+            agentId      : row.id,
+            authMode     : row.authMode ?? null,
+            avatarUrl    : row.avatarUrl ?? null,
+            displayName  : row.displayName ?? null,
+            engineTag    : row.engineTag ?? null,
+            family       : row.family ?? null,
+            launchable   : row.launchable ?? null,
+            openLaneCount: row.openLaneCount ?? null,
             // the authoritative identity-root participation fact (tri-state null = no root) —
             // the eligibility partition excludes any KNOWN non-active status before a lifecycle
             // write; null stays eligible (open-set honesty for forks/custom residents)

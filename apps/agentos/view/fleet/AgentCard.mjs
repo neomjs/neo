@@ -268,8 +268,8 @@ class AgentCard extends Container {
             live : displayState === 'ok' && runtime.confidence === 'observed',
             state: displayState
         });
-        // a badge only for a REPORTED positive count: null/absent = the lane producer has not
-        // spoken — rendering "0 lanes" there would fabricate a fact the producer never stated
+        // a badge only for a REPORTED positive count: null/absent = the roster DTO carries no
+        // stamped count — rendering "0 lanes" there would fabricate a fact no producer stated
         const laneCount = Number.isInteger(record.openLaneCount) && record.openLaneCount > 0 ? record.openLaneCount : null;
 
         me.getReference('card-name').text          = record.displayName ?? '';

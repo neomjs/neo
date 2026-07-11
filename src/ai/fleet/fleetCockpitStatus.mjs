@@ -102,6 +102,11 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtime
                 // ("not read back yet"), never a guessed boolean. This pure map derives nothing.
                 launchable : publicAgent.launchable ?? null,
                 authMode   : publicAgent.authMode ?? null,
+                // Open assigned lanes for the resident, stamped by a Brain-side enricher when one
+                // exists — the roster DTO OWNS this field end-to-end (assembler → cockpit record →
+                // card badge). Same tri-state honesty as `launchable`: null = no enricher has
+                // stamped a count, and the card renders NO badge then — never a fabricated zero.
+                openLaneCount: publicAgent.openLaneCount ?? null,
                 displayName: publicAgent.displayName ?? publicAgent.name ?? publicAgent.githubUsername ?? agentId ?? null,
                 avatarUrl  : publicAgent.metadata?.avatarUrl ?? githubAvatarUrl(publicAgent.githubUsername),
                 family     : publicAgent.family ?? null,
