@@ -16,7 +16,7 @@
 | **Parent epic** | #13377 (*Electron shell — package + host the Agent OS*) under #13012 (Agent Harness). |
 | **Depends on** | **ADR 0020** (the embodiment vessel — extended, never superseded; §3 fixes the shell decision, the in-process target + child-process fallback, source-tree discipline, and PATs-Brain-side); **ADR 0029** (docking design — its §2.1 state-class table, window-manager boundaries, and semantic-restore rules are consumed, not reopened). |
 | **Connects to** | #13033 (build-root leaf, owner @neo-opus-ada — its live Contract Ledger is consumed AS-IS; §5 maps the refinement leaves that follow it) · #13025 / #13028 (landed window-manager leaves, consumed as boundaries) · #13446 (NL window ops — gains an Electron backend per §2.4) · #14793 (native-shell UX spec — consumes §2.1's lifecycle decisions) · #14230 (fork-path onboarding — stays the contributor door per §2.5). |
-| **Empirical anchor** | In-tree spike `spikes/14786-electron-sharedworker/` (merged with this record): pinned Electron 43.1.0 · Chromium 150.0.7871.47 · Node 24.18.0 · darwin 25.5.0; raw committed run: `spike-results.json`. Reproduce: `npm install && npm start`. Re-run trigger: every Electron major bump BEFORE adoption; owner: the §5 E2 leaf owner. (The pre-review branch `spike/14786-electron-sharedworker` is superseded by the in-tree copy.) |
+| **Empirical anchor** | Verified empirically on branch `spike/14786-electron-sharedworker` (origin, head `8bf8a915d0`): pinned Electron 43.1.0 · Chromium 150.0.7871.47 · Node 24.18.0 · darwin 25.5.0. The **distilled results are self-contained in this record** (the §6 matrix + the constraint table below); the branch is the runnable reproducer (`npm install && npm start`), recovered by checkout at the next re-run. Re-run trigger: every Electron major bump BEFORE adoption; owner: the §5 E2 leaf owner. (The in-tree copy was removed as repo-root bloat — #15043; the ADR body is the durable authority, the branch the reproducer.) |
 | **Implemented by** | the §5 decomposition — one Contract-Ledgered leaf per row, mapped on the #13377 epic; each cites its section here as upstream contract. |
 | **Anti-anchor for** | **file:// harness loading** (falsified: kills worker sharing, §2.2); **a second window manager** (Electron materializes, the Neo window substrate owns semantics); **serialize-and-recreate across BrowserWindows** (components exist once in the shared App-Worker heap — ADR 0029); **a Brain-daemon fork** (one lifecycle owner, §2.1); **per-window session partitions** (§2.2); **credential or token bytes in renderer-readable state** (§2.3); **auto-spawning OS windows on perspective restore** (ADR 0029's rule, re-bound §2.4). |
 
@@ -83,8 +83,8 @@ recorded topology — this section's five bindings survive unchanged; only the a
 Neo boots **separate SharedWorker identities per role** — App, VDom, Data, Canvas (as configured)
 — and same-origin windows share EACH of those identities. That per-worker sharing is what the
 multi-window architecture rides, and inside Electron it survives **only under specific, now-named
-constraints** — established empirically (in-tree spike `spikes/14786-electron-sharedworker/`,
-raw run committed as `spike-results.json`; method + full matrix in its README):
+constraints** — established empirically on branch `spike/14786-electron-sharedworker`
+(raw run + method + full matrix captured there; the distilled findings are the table below):
 
 | Constraint | Empirical basis |
 |---|---|
@@ -282,10 +282,10 @@ reopen its ledger.
 
 ## 6. Verification
 
-- **Empirical:** in-tree spike `spikes/14786-electron-sharedworker/` — 9-phase matrix (two-window
+- **Empirical:** branch `spike/14786-electron-sharedworker` — 9-phase matrix (two-window
   + popup paths × file/app/http origins, TWO one-variable partition controls on sharing origins
   with both windows reporting, the `app://` fetch smoke), pinned Electron 43.1.0 / Chromium
-  150.0.7871.47 / Node 24.18.0 / darwin 25.5.0, raw run committed (`spike-results.json`).
+  150.0.7871.47 / Node 24.18.0 / darwin 25.5.0, raw run captured on the branch (`spike-results.json`).
   Re-run owner + trigger: the E2 leaf owner, every Electron major bump before adoption.
 - **Authority chain:** ADR 0020 §3 (shell decision, hosting arms, source discipline, PATs) ·
   #13377 epic body (shell-only boundary, operator 2026-06-15; cites this record as design
