@@ -16,7 +16,7 @@
 | **Parent epic** | #13377 (*Electron shell — package + host the Agent OS*) under #13012 (Agent Harness). |
 | **Depends on** | **ADR 0020** (the embodiment vessel — extended, never superseded; §3 fixes the shell decision, the in-process target + child-process fallback, source-tree discipline, and PATs-Brain-side); **ADR 0029** (docking design — its §2.1 state-class table, window-manager boundaries, and semantic-restore rules are consumed, not reopened). |
 | **Connects to** | #13033 (build-root leaf, owner @neo-opus-ada — its live Contract Ledger is consumed AS-IS; §5 maps the refinement leaves that follow it) · #13025 / #13028 (landed window-manager leaves, consumed as boundaries) · #13446 (NL window ops — gains an Electron backend per §2.4) · #14793 (native-shell UX spec — consumes §2.1's lifecycle decisions) · #14230 (fork-path onboarding — stays the contributor door per §2.5). |
-| **Empirical anchor** | In-tree spike `spikes/14786-electron-sharedworker/` (merged with this record): pinned Electron 43.1.0 · Chromium 150.0.7871.47 · Node 24.18.0 · darwin 25.5.0; raw committed run: `spike-results.json`. Reproduce: `npm install && npm start`. Re-run trigger: every Electron major bump BEFORE adoption; owner: the §5 E2 leaf owner. (The pre-review branch `spike/14786-electron-sharedworker` is superseded by the in-tree copy.) |
+| **Empirical anchor** | Carried as a **live regression in the real native app** — `cd harness && npm run smoke` (the harness IS the runnable Electron vessel; its own `package.json` pins Electron 43.1.0) emits a JSON verdict with `sharedHeapEvidence: true` + `popupMaterialized: true` at Chromium 150.0.7871.47 · darwin 25.5.0: SharedWorker sharing proven in the shipped app, not a throwaway. The negative-case findings that fixed the architecture (`file://` kills sharing; per-window partitions) are recorded in §2.2 + §6. Re-run trigger: every Electron major bump BEFORE adoption (`harness/ npm run smoke`); owner: the §5 E2 leaf owner. (The redundant one-off spike — a duplicate Electron project — was removed from the tree; #15043 — the superseded `spike/14786-electron-sharedworker` branch is being retired separately, operator-gated.) |
 | **Implemented by** | the §5 decomposition — one Contract-Ledgered leaf per row, mapped on the #13377 epic; each cites its section here as upstream contract. |
 | **Anti-anchor for** | **file:// harness loading** (falsified: kills worker sharing, §2.2); **a second window manager** (Electron materializes, the Neo window substrate owns semantics); **serialize-and-recreate across BrowserWindows** (components exist once in the shared App-Worker heap — ADR 0029); **a Brain-daemon fork** (one lifecycle owner, §2.1); **per-window session partitions** (§2.2); **credential or token bytes in renderer-readable state** (§2.3); **auto-spawning OS windows on perspective restore** (ADR 0029's rule, re-bound §2.4). |
 
@@ -66,7 +66,7 @@ EITHER arm:
    loopback-only in the packaged app (§2.3) with ports chosen/managed by the lifecycle owner, so
    two installs (or install + dev repo) fail loudly at boot instead of silently cross-talking.
 5. **App lifecycle: the organism outlives its windows.** The shell suppresses Electron's default
-   quit-on-`window-all-closed` (the spike documents that default silently emptying a multi-window
+   quit-on-`window-all-closed` (that default silently empties a multi-window
    app). Closing the last window leaves the Brain running with the tray as its handle; **Brain
    teardown happens ONLY on explicit quit** (tray/app-menu). The cockpit window itself is hidden
    on close, never destroyed while the app runs: SharedWorker lifetime is client-scoped, so
@@ -83,12 +83,12 @@ recorded topology — this section's five bindings survive unchanged; only the a
 Neo boots **separate SharedWorker identities per role** — App, VDom, Data, Canvas (as configured)
 — and same-origin windows share EACH of those identities. That per-worker sharing is what the
 multi-window architecture rides, and inside Electron it survives **only under specific, now-named
-constraints** — established empirically (in-tree spike `spikes/14786-electron-sharedworker/`,
-raw run committed as `spike-results.json`; method + full matrix in its README):
+constraints** — established empirically and now guarded as a live regression by the harness
+smoke (`cd harness && npm run smoke` → `sharedHeapEvidence: true`); the findings are the table below:
 
 | Constraint | Empirical basis |
 |---|---|
-| **C1 — Real origin required, with the full privilege set.** The harness MUST be served from a standard-scheme origin: a custom privileged scheme (`app://` via `protocol.registerSchemesAsPrivileged([{scheme, privileges: {standard: true, secure: true, supportFetchAPI: true}}])` + `protocol.handle`) or localhost HTTP. **`supportFetchAPI: true` is normative** — `data.Store` `url` seeds and every fetch-consuming surface depend on it (the spike's working privilege set includes it; the fetch smoke consumes it). **`file://` loading silently isolates every window's workers** — the app renders, boots, and shares nothing. | `file2win`/`filepopup` = ISOLATED; `app2win`/`http2win` = SHARED; `fetchsmoke` = `fetchOk: true` |
+| **C1 — Real origin required, with the full privilege set.** The harness MUST be served from a standard-scheme origin: a custom privileged scheme (`app://` via `protocol.registerSchemesAsPrivileged([{scheme, privileges: {standard: true, secure: true, supportFetchAPI: true}}])` + `protocol.handle`) or localhost HTTP. **`supportFetchAPI: true` is normative** — `data.Store` `url` seeds and every fetch-consuming surface depend on it (the harness smoke's working privilege set includes it; the fetch smoke consumes it). **`file://` loading silently isolates every window's workers** — the app renders, boots, and shares nothing. | `file2win`/`filepopup` = ISOLATED; `app2win`/`http2win` = SHARED; `fetchsmoke` = `fetchOk: true` |
 | **C2 — One session partition, positively verified.** SharedWorker scope is partition-bound: with origin, page URL, and preload held constant and ONLY the partition varied, the second window reports a FRESH worker (count 1) — on both sharing origins. Every harness window lives in the default (or one named) partition. | `partitionapp` + `partitionhttp` = both windows report (1, 1) |
 | **C3 — The popup path is preserved.** `window.open()` — issued on the main thread by `Neo.Main.windowOpen()` — joins the same workers when the shell allows it via `setWindowOpenHandler({action: 'allow', overrideBrowserWindowOptions})`. The popup materializes as an Electron-managed `BrowserWindow`; the same-origin `window.opener` relationship survives. | `apppopup`/`httppopup` = SHARED |
 | **C4 — Secure defaults cost nothing.** All of the above holds under `contextIsolation: true`, sandbox on, `nodeIntegration: false` — worker topology and the §2.3 security posture are decoupled. | entire matrix ran on default secure flags |
@@ -111,7 +111,7 @@ move/resize events, frame options — the enhancement points #13025/#13028/#1303
 window state of its own.
 
 **Falsifier:** a future Electron major changing SharedWorker scoping or protocol/session semantics
-— the in-tree spike is the re-run gate (§6); the E2 leaf owner runs it on every major bump before
+— the harness smoke is the re-run gate (§6); the E2 leaf owner runs it on every major bump before
 adoption.
 
 ### §2.3 Security posture — fail-closed everywhere, credentials never renderer-readable (Q3)
@@ -221,7 +221,7 @@ partial updates are the recorded alternative.
 2. **Parity is achievable BECAUSE of C1:** both origins are standard-scheme with fetch support
    (`supportFetchAPI` normative — JSON seeds via `data.Store` `url` behave identically), so every
    SharedWorker identity the app boots (App/VDom/Data/Canvas) shares the same way dev↔packaged.
-   The spike's http/app rows agreeing — including the fetch smoke — is the empirical parity floor.
+   The harness smoke's http/app rows agreeing — including the fetch smoke — is the empirical parity floor.
 3. **Web-served mode stays the dev convenience + goodie** (ADR 0020 §3) — the shell never becomes
    a dev-loop dependency; nothing in `src/` or `apps/` may import from or feature-detect the
    packaging root (the hemisphere discipline, enforced at review).
@@ -241,8 +241,8 @@ violates this section on its face — shell awareness lives in the packaging roo
   hosting-arm outcome; §5 maps the refinement leaves that follow it.
 - The `app://` scheme handler (with C1's full privilege set + §2.3.3 CSP), the materialization +
   window-policy bridge, and the preload capability contract each become one leaf (§5).
-- The in-tree spike is the regression gate: **the E2 leaf owner re-runs it on every Electron major
-  bump** before adoption (§2.2 falsifier; committed raw run + pinned versions make drift visible).
+- The harness smoke is the regression gate: **the E2 leaf owner re-runs `cd harness && npm run smoke` on every Electron
+  major bump** before adoption (§2.2 falsifier; the smoke's JSON verdict + pinned versions make drift visible).
 - Web portability is structurally guaranteed: because the shell only materializes and decorates,
   removing it leaves a working web app — the boundary that keeps the future web version alive.
 
@@ -254,7 +254,7 @@ violates this section on its face — shell awareness lives in the packaging roo
   into a web arm and a shell arm and kill web portability.
 - **`file://` + `loadFile()` packaging** — the naive Electron default, **empirically falsified**
   (§2.2 C1): boots, renders, silently loses worker sharing.
-- **Localhost HTTP as the packaged origin** — works (spike), rejected operationally: port
+- **Localhost HTTP as the packaged origin** — works (verified), rejected operationally: port
   collisions, firewall prompts, and any local process gaining harness-origin access for free.
 - **Unix sockets for Brain endpoints** — unreachable from renderer WebSocket/fetch; loopback TCP
   + non-renderer-readable per-boot token instead (§2.3.5).
@@ -268,7 +268,7 @@ violates this section on its face — shell awareness lives in the packaging roo
 | Leaf | Scope | Upstream contract |
 |---|---|---|
 | E1 — build root (#13033, exists, owner @neo-opus-ada) | **as its live Contract Ledger stands:** packaging root + main entry, hosting-arm spike, Agent-OS boot, first harness window, popup windows joining the shared workers, and the window-management bridge enhancement points | §2.1, §2.6 (frame only — the leaf's ledger is consumed unchanged) |
-| E2 — origin + scheme hardening (post-E1) | `app://` privileged scheme with C1's FULL privilege set (`supportFetchAPI` normative), stable origin, CSP delivery, the fetch/JSON smoke, spike re-run ownership | §2.2 C1/C5/C6, §2.3.3, §2.6 |
+| E2 — origin + scheme hardening (post-E1) | `app://` privileged scheme with C1's FULL privilege set (`supportFetchAPI` normative), stable origin, CSP delivery, the fetch/JSON smoke, harness-smoke re-run ownership | §2.2 C1/C5/C6, §2.3.3, §2.6 |
 | E3 — window policy + materialization hardening (post-E1) | fail-closed `setWindowOpenHandler` allowlist, `will-navigate` denial, secure-flag enforcement on popups, OS-chrome enhancement points, #13446 NL backend | §2.2 C3, §2.3.1–.4, §2.4 |
 | E4 — Brain lifecycle service | start/stop/restart with settle-or-reject, port management, data-root injection | §2.1.1–.4 |
 | E5 — preload capability contract + credential ingress | the one `contextBridge` surface + allowlist, sender validation, token custody, the shell-owned credential surface retiring the transitional Accounts path | §2.3.4–.6 |
@@ -282,10 +282,11 @@ reopen its ledger.
 
 ## 6. Verification
 
-- **Empirical:** in-tree spike `spikes/14786-electron-sharedworker/` — 9-phase matrix (two-window
-  + popup paths × file/app/http origins, TWO one-variable partition controls on sharing origins
-  with both windows reporting, the `app://` fetch smoke), pinned Electron 43.1.0 / Chromium
-  150.0.7871.47 / Node 24.18.0 / darwin 25.5.0, raw run committed (`spike-results.json`).
+- **Empirical:** the harness's own smoke — `cd harness && npm run smoke` — boots two windows on
+  the `app://` origin and proves the popup joins the SAME shared workers (`sharedHeapEvidence: true`,
+  `popupMaterialized: true`), pinned Electron 43.1.0 / Chromium 150.0.7871.47 / darwin 25.5.0. The
+  negative cases that fixed the architecture (`file://` kills sharing; per-window partitions) are
+  recorded in §2.2 — one-time discovery, not a standing runnable.
   Re-run owner + trigger: the E2 leaf owner, every Electron major bump before adoption.
 - **Authority chain:** ADR 0020 §3 (shell decision, hosting arms, source discipline, PATs) ·
   #13377 epic body (shell-only boundary, operator 2026-06-15; cites this record as design
@@ -295,5 +296,5 @@ reopen its ledger.
 - **AC mapping (#14786):** six questions → §2.1–§2.6, each with named constraints + falsifiers;
   anti-anchor row carries the three ticket-named minimums (no serialize-and-recreate, no second
   window manager, no Brain-daemon fork) plus the review-added ones; the SharedWorker constraint
-  set verified in the committed spike, not asserted; #13377 cites this ADR (updated with the
+  set verified by the harness smoke, not asserted; #13377 cites this ADR (updated with the
   resolving PR, status-honest as Proposed until merge).
