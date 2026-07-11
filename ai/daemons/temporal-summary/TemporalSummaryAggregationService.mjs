@@ -468,8 +468,11 @@ class TemporalSummaryAggregationService extends Base {
             return
         }
 
-        await collection.delete({ids: pruneIds});
-        GraphService.removeNodes(pruneIds)
+        // graph first, THEN Chroma: the Chroma doc is the "still needs pruning" signal, so deleting it LAST keeps
+        // the prune retry-safe — any failure before the Chroma delete leaves the version visible to re-prune next
+        // cycle, never a Chroma-gone / graph-orphaned record.
+        GraphService.removeNodes(pruneIds);
+        await collection.delete({ids: pruneIds})
     }
 }
 

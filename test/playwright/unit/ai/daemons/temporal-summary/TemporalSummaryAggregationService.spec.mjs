@@ -35,20 +35,23 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
             error                       : logger.error,
             getTemporalSummaryCollection: StorageRouter.getTemporalSummaryCollection,
             getSummaryCollection        : StorageRouter.getSummaryCollection,
-            upsertNode                  : GraphService.upsertNode
+            upsertNode                  : GraphService.upsertNode,
+            removeNodes                 : GraphService.removeNodes
         };
         logger.info  = () => {};
         logger.debug = () => {};
         logger.error = () => {};
-        // default no-op so no test hits the real graph write; the persist tests override to capture
-        GraphService.upsertNode = () => {}
+        // default no-ops so no test hits the real graph writes; the persist/prune tests override to capture
+        GraphService.upsertNode  = () => {};
+        GraphService.removeNodes = () => {}
     });
 
     test.afterAll(() => {
         logger.info            = originals.info;
         logger.debug           = originals.debug;
-        logger.error           = originals.error;
-        GraphService.upsertNode = originals.upsertNode
+        logger.error            = originals.error;
+        GraphService.upsertNode  = originals.upsertNode;
+        GraphService.removeNodes = originals.removeNodes
     });
 
     test.afterEach(() => {
@@ -133,6 +136,25 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
 
         expect(deletedFromChroma).toEqual(['id-v2', 'id-v1']);
         expect(removedFromGraph).toEqual(['id-v2', 'id-v1'])
+    });
+
+    test('pruneOldVersions deletes the graph node BEFORE the Chroma doc, staying retry-safe on a Chroma-delete failure', async () => {
+        const order = [];
+
+        StorageRouter.getTemporalSummaryCollection = async () => ({
+            // five versions → overflow past the retained bound, so there is something to prune
+            get   : async () => ({ids: ['id-v5', 'id-v4', 'id-v3', 'id-v2', 'id-v1'], metadatas: [{version: 5}, {version: 4}, {version: 3}, {version: 2}, {version: 1}]}),
+            delete: async () => { order.push('chroma'); throw new Error('chroma delete failed') }
+        });
+        GraphService.removeNodes = () => { order.push('graph') };
+
+        // graph is deleted first; the Chroma delete then throws → the prune rejects (so the cycle retries) while the
+        // version's Chroma doc — the "needs pruning" signal — is never left silently orphaned behind a dead node
+        await expect(TemporalSummaryAggregationService.pruneOldVersions({
+            level: 'daily', partition: 'unified', windowStart: '2026-07-05T00:00:00.000Z', windowEnd: '2026-07-06T00:00:00.000Z', version: 5
+        })).rejects.toThrow('chroma delete failed');
+
+        expect(order).toEqual(['graph', 'chroma'])
     });
 
     test('pruneOldVersions is a no-op (never queries) at the steady-state contract version', async () => {
