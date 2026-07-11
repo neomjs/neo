@@ -53,6 +53,20 @@ test.describe('fleetCockpitStatus - Body-side cockpit DTO contract', () => {
         expect(snapshot.rows[1]).toMatchObject({id: 'bare', launchable: null, authMode: null})
     })
 
+    test('hoists the assembler-stamped open-lane count — the roster DTO owns the field; un-stamped stays an honest null, never a fabricated zero', () => {
+        const snapshot = createFleetCockpitStatus({
+            agents: [
+                {id: 'busy'},
+                {id: 'counted', openLaneCount: 23}
+            ]
+        })
+
+        // same tri-state contract as `launchable`: a Brain-side enricher stamps the count; this
+        // pure map only hoists it, and a missing stamp reaches the cockpit as null (no badge)
+        expect(snapshot.rows[0]).toMatchObject({id: 'busy', openLaneCount: null})
+        expect(snapshot.rows[1]).toMatchObject({id: 'counted', openLaneCount: 23})
+    })
+
     test('composes runtimeStatus onto row lifecycle — observed process truth when present, honest not-wired when absent', () => {
         const snapshot = createFleetCockpitStatus({
             agents       : [{id: 'alice'}, {id: 'bob'}],
