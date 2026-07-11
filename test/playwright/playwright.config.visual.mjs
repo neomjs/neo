@@ -51,18 +51,23 @@ export default defineConfig({
     use: {
         baseURL      : `http://localhost:${PORT}`,
         reducedMotion: 'reduce',
-        trace        : 'on-first-retry',
-        viewport     : {height: 900, width: 1600}
+        trace        : 'on-first-retry'
     },
 
     webServer: {
-        command            : `npm run server-start -- --port ${PORT} --no-open`,
-        url                : `http://localhost:${PORT}`,
-        reuseExistingServer: !process.env.CI
+        command: `npm run server-start -- --port ${PORT} --no-open`,
+        url    : `http://localhost:${PORT}`,
+        // NEVER reuse: a design-authority suite must render ITS OWN checkout — an already-
+        // listening server from a foreign clone satisfies the readiness URL and silently
+        // bakes the wrong tree's pixels into goldens (the convicted cross-serving class)
+        reuseExistingServer: false
     },
 
     projects: [{
         name: 'chromium',
-        use : {...devices['Desktop Chrome']}
+        // the viewport lands AFTER the device spread on purpose — the spread carries its own
+        // viewport (1280×720), and a project-level `use` merges over the top-level block, so
+        // a top-level declaration is dead config that silently mis-sizes every golden
+        use : {...devices['Desktop Chrome'], viewport: {height: 900, width: 1600}}
     }]
 });
