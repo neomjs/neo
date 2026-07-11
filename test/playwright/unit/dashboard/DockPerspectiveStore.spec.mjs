@@ -301,6 +301,30 @@ test.describe('Neo.dashboard.DockPerspectiveStore (B6 — the named perspective 
         expect(evilRename.errors.join(' ')).toContain('not a usable perspective key')
     });
 
+    test('getPerspective is the read-only inspection seam: clone-isolated, both keys resolve, NOTHING advances', () => {
+        store.savePerspective(makeLayout('l-1', 'Coding'));
+        store.savePerspective(makeLayout('l-2', 'Review', ['beta']), {activate: false});
+        expect(store.collection.activeLayoutId).toBe('l-1');
+
+        const events = [];
+        store.on('perspectiveLoaded', () => events.push(1));
+        store.on('collectionChange',  () => events.push(1));
+
+        // both resolution keys work, same rule as every other verb (name first, id second)
+        expect(store.getPerspective('Review')?.layoutId).toBe('l-2');
+        expect(store.getPerspective('l-2')?.layoutId).toBe('l-2');
+        expect(store.getPerspective('ghost')).toBeNull();
+
+        // the returned record is a CLONE — mutating it cannot reach the held collection
+        const entry = store.getPerspective('Review');
+        entry.layout.title = 'tampered';
+        expect(store.getPerspective('Review').layout.title).toBe('Review title');
+
+        // read-only means READ-ONLY: no active-pointer movement, no migration commit, no event
+        expect(store.collection.activeLayoutId).toBe('l-1');
+        expect(events).toEqual([])
+    });
+
     test('rename with replace retires the target holder atomically and inherits its activeness', () => {
         store.savePerspective(makeLayout('l-1', 'Coding'));
         store.savePerspective(makeLayout('l-2', 'Review', ['beta']));   // active via the default

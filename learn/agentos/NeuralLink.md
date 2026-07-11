@@ -70,7 +70,7 @@ organ.
 
 ```mermaid
 flowchart TD
-    Reader["Human or model<br/>asks to inspect or change the app"] --> Server["Neural Link MCP server<br/>55 OpenAPI operations"]
+    Reader["Human or model<br/>asks to inspect or change the app"] --> Server["Neural Link MCP server<br/>OpenAPI operation surface"]
     Server --> Bridge["WebSocket Bridge<br/>local routing hub"]
     Bridge --> Client["Neo.ai.Client<br/>App Worker singleton"]
     Client --> Services["Domain services<br/>component, data, instance,<br/>interaction, runtime"]
@@ -202,7 +202,7 @@ The authoritative operation surface lives in
 [Neural Link Capability Matrix](./tooling/NeuralLinkCapabilityMatrix.md), and the
 lazy handbook tool `get_mcp_tool_handbook` returns operation-level usage detail
 when an agent needs it. At the time of this rewrite, the OpenAPI surface exposes
-55 operation IDs.
+58 operation IDs.
 
 Keeping the catalog out of the conceptual guide prevents the old failure mode:
 a polished explanation slowly turning into stale reference sludge. When the

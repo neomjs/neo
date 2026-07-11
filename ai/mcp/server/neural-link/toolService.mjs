@@ -20,11 +20,12 @@ import RecorderService    from '../../../services/neural-link/RecorderService.mj
 const serviceMapping = {
     abort_transaction            : InstanceService   .abortTransaction          .bind(InstanceService),
     begin_transaction            : InstanceService   .beginTransaction          .bind(InstanceService),
-    call_method                 : InstanceService   .callMethod              .bind(InstanceService),
+    call_method                  : InstanceService   .callMethod              .bind(InstanceService),
     check_namespace              : RuntimeService    .checkNamespace            .bind(RuntimeService),
     commit_transaction           : InstanceService   .commitTransaction         .bind(InstanceService),
     create_component             : ComponentService  .createComponent           .bind(ComponentService),
     create_instance              : InstanceService   .createInstance            .bind(InstanceService),
+    capture_perspective          : DockService       .capturePerspective        .bind(DockService),
     diff_dock_topology           : DockService       .diffDockTopology          .bind(DockService),
     execute_dock_operation       : DockService       .executeDockOperation      .bind(DockService),
     find_instances               : InstanceService   .findInstances             .bind(InstanceService),
@@ -52,6 +53,7 @@ const serviceMapping = {
     inspect_component_render_tree: ComponentService  .inspectComponentRenderTree.bind(ComponentService),
     inspect_state_provider       : DataService       .inspectStateProvider      .bind(DataService),
     inspect_store                : DataService       .inspectStore              .bind(DataService),
+    list_perspectives            : DockService       .listPerspectives          .bind(DockService),
     list_stores                  : DataService       .listStores                .bind(DataService),
     list_transactions            : InstanceService   .listTransactions          .bind(InstanceService),
     manage_connection            : ConnectionService .manageConnection          .bind(ConnectionService),
@@ -67,6 +69,7 @@ const serviceMapping = {
     reload_page                  : RuntimeService    .reloadPage                .bind(RuntimeService),
     remove_component             : ComponentService  .removeComponent           .bind(ComponentService),
     replay_transaction           : InstanceService   .replayTransaction         .bind(InstanceService),
+    restore_perspective          : DockService       .restorePerspective        .bind(DockService),
     save_transaction             : InstanceService   .saveTransaction           .bind(InstanceService),
     set_instance_properties      : InstanceService   .setInstanceProperties     .bind(InstanceService),
     set_route                    : RuntimeService    .setRoute                  .bind(RuntimeService),
@@ -76,7 +79,7 @@ const serviceMapping = {
 };
 
 const toolService = Neo.create(ToolService, {
-    compactToolDescriptions    : true,
+    compactToolDescriptions     : true,
     openApiFilePath,
     serviceMapping,
     toolListDescriptionMaxLength: 120
