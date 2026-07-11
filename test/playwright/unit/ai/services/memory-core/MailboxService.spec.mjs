@@ -108,8 +108,8 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         fs.removeSync(messageWalDir);
 
         // Seed agents
-        GraphService.upsertNode({ id: '@alice', type: 'AGENT', name: 'Alice', properties: {} });
-        GraphService.upsertNode({ id: '@bob', type: 'AGENT', name: 'Bob', properties: {} });
+        GraphService.upsertNode({ id: '@alice', type: 'AgentIdentity', name: 'Alice', properties: {} });
+        GraphService.upsertNode({ id: '@bob', type: 'AgentIdentity', name: 'Bob', properties: {} });
         GraphService.upsertNode({ id: 'AGENT:*', type: 'BroadcastSentinel', name: 'Broadcast', properties: {} });
     });
 
@@ -126,7 +126,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 
         expect(edge).toBeDefined();
 
-        GraphService.upsertNode({id: target, type: 'AGENT', name: `Legacy ${target}`, properties: {}});
+        GraphService.upsertNode({id: target, type: 'AgentIdentity', name: `Legacy ${target}`, properties: {}});
         GraphService.db.edges.remove([edge]);
         GraphService.linkNodes(messageId, target, type, edge.weight ?? 1, edge.properties || {});
     }
@@ -288,6 +288,82 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 
         expect(sentTo).toBeDefined();
         expect(await readPendingMessageWalRecords({dir: messageWalDir, ids: [res.messageId]})).toHaveLength(0);
+    });
+
+    test('#15038 legacy direct WAL replay persists only canonical identities and is idempotent', async () => {
+        const
+            messageId = 'MESSAGE:legacy-direct-identity-replay',
+            sentAt    = new Date().toISOString(),
+            record    = {
+                id                    : messageId,
+                timestamp             : Date.parse(sentAt),
+                sentAt,
+                graphProjectionVersion: 1,
+                message               : {
+                    id        : messageId,
+                    type      : 'MESSAGE',
+                    name      : 'legacy direct identities',
+                    properties: {
+                        subject     : 'legacy direct identities',
+                        bodyText    : 'canonicalize on replay',
+                        sentAt,
+                        readAt      : null,
+                        from        : '@@alice',
+                        to          : 'AGENT:@bob',
+                        userId      : 'alice',
+                        sharedEntity: true
+                    }
+                },
+                routing: {
+                    sentBy            : 'AGENT:@alice',
+                    to                : 'bob',
+                    senderUserId      : 'alice',
+                    broadcastRecipients: []
+                }
+            };
+
+        await MailboxService._projectMessageWalRecord(record, {pumpWake: false, appendMarker: false});
+        await MailboxService._projectMessageWalRecord(record, {pumpWake: false, appendMarker: false});
+
+        const
+            storedMessage = JSON.parse(GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(messageId).data),
+            routingEdges  = GraphService.db.storage.db.prepare(
+                "SELECT target, type FROM Edges WHERE source = ? AND type IN ('SENT_BY', 'SENT_TO') ORDER BY type"
+            ).all(messageId);
+
+        expect(storedMessage.properties).toMatchObject({from: '@alice', to: '@bob'});
+        expect(routingEdges).toEqual([
+            {target: '@alice', type: 'SENT_BY'},
+            {target: '@bob', type: 'SENT_TO'}
+        ]);
+
+        for (const legacyId of ['@@alice', 'AGENT:@alice', 'bob', 'AGENT:@bob']) {
+            const row = GraphService.db.storage.db.prepare('SELECT count(*) AS count FROM Nodes WHERE id = ?').get(legacyId);
+            expect(row.count).toBe(0);
+        }
+    });
+
+    test('#15038 legacy direct WAL replay refuses an existing wrong-type sender before writing', async () => {
+        GraphService.upsertNode({id: '@alice', type: 'CLASS', name: 'Collision', properties: {}});
+
+        const messageId = 'MESSAGE:wrong-type-direct-replay',
+            record    = {
+                id                    : messageId,
+                timestamp             : Date.now(),
+                graphProjectionVersion: 1,
+                message               : {
+                    id        : messageId,
+                    type      : 'MESSAGE',
+                    properties: {subject: 'refuse collision', bodyText: 'body', from: 'alice', to: 'bob'}
+                },
+                routing: {sentBy: 'alice', to: 'bob', broadcastRecipients: []}
+            };
+
+        await expect(MailboxService._projectMessageWalRecord(record, {pumpWake: false, appendMarker: false}))
+            .rejects.toThrow(/endpoint @alice must be AgentIdentity; found CLASS/);
+
+        expect(GraphService.db.storage.db.prepare('SELECT count(*) AS count FROM Nodes WHERE id = ?').get(messageId).count).toBe(0);
+        expect(GraphService.db.storage.db.prepare('SELECT count(*) AS count FROM Edges WHERE source = ?').get(messageId).count).toBe(0);
     });
 
     test('listMessages/getMessage repair projected direct messages after graph row loss (#14426)', async () => {
@@ -477,7 +553,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     });
 
     test('broadcast replay uses WAL send-time audience snapshot, not the current graph audience (#13892)', async () => {
-        GraphService.upsertNode({ id: '@charlie', type: 'AGENT', name: 'Charlie', properties: {} });
+        GraphService.upsertNode({ id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {} });
 
         const originalLinkNodes = GraphService.linkNodes;
         let   res;
@@ -504,7 +580,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 
         expect(res.projectionStatus).toBe('pending');
 
-        GraphService.upsertNode({ id: '@dana', type: 'AGENT', name: 'Dana', properties: {} });
+        GraphService.upsertNode({ id: '@dana', type: 'AgentIdentity', name: 'Dana', properties: {} });
 
         const summary = await MailboxService.drainPendingMessageGraphProjections({ids: [res.messageId]});
         expect(summary).toEqual({pending: 1, projected: 1, failed: 0});
@@ -516,6 +592,84 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 
         expect(deliveryTargets).toEqual(['@bob', '@charlie']);
         expect(deliveryTargets).not.toContain('@dana');
+    });
+
+    test('#15038 legacy broadcast WAL replay preserves AGENT:* and canonicalizes recipients idempotently', async () => {
+        const
+            messageId = 'MESSAGE:legacy-broadcast-identity-replay',
+            sentAt    = new Date().toISOString(),
+            record    = {
+                id                    : messageId,
+                timestamp             : Date.parse(sentAt),
+                sentAt,
+                graphProjectionVersion: 1,
+                message               : {
+                    id        : messageId,
+                    type      : 'MESSAGE',
+                    name      : 'legacy broadcast identities',
+                    properties: {
+                        subject     : 'legacy broadcast identities',
+                        bodyText    : 'canonicalize broadcast delivery on replay',
+                        sentAt,
+                        readAt      : null,
+                        from        : 'AGENT:@alice',
+                        to          : 'AGENT:*',
+                        userId      : 'alice',
+                        sharedEntity: true
+                    }
+                },
+                routing: {
+                    sentBy            : 'alice',
+                    to                : 'AGENT:*',
+                    senderUserId      : 'alice',
+                    broadcastRecipients: ['bob', '@@bob', 'AGENT:@bob']
+                }
+            };
+
+        await MailboxService._projectMessageWalRecord(record, {pumpWake: false, appendMarker: false});
+        await MailboxService._projectMessageWalRecord(record, {pumpWake: false, appendMarker: false});
+
+        const
+            storedMessage = JSON.parse(GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(messageId).data),
+            routingEdges  = GraphService.db.storage.db.prepare(
+                "SELECT target, type FROM Edges WHERE source = ? AND type IN ('DELIVERED_TO', 'SENT_BY', 'SENT_TO') ORDER BY type"
+            ).all(messageId);
+
+        expect(storedMessage.properties).toMatchObject({from: '@alice', to: 'AGENT:*'});
+        expect(routingEdges).toEqual([
+            {target: '@bob', type: 'DELIVERED_TO'},
+            {target: '@alice', type: 'SENT_BY'},
+            {target: 'AGENT:*', type: 'SENT_TO'}
+        ]);
+        expect(GraphService.db.storage.db.prepare('SELECT count(*) AS count FROM Nodes WHERE id = ?').get('AGENT:*').count).toBe(1);
+
+        for (const legacyId of ['bob', '@@bob', 'AGENT:@bob']) {
+            const row = GraphService.db.storage.db.prepare('SELECT count(*) AS count FROM Nodes WHERE id = ?').get(legacyId);
+            expect(row.count).toBe(0);
+        }
+    });
+
+    test('#15038 legacy broadcast WAL replay refuses a wrong-type recipient before partial projection', async () => {
+        GraphService.upsertNode({id: '@bob', type: 'CLASS', name: 'Collision', properties: {}});
+
+        const messageId = 'MESSAGE:wrong-type-broadcast-replay',
+            record    = {
+                id                    : messageId,
+                timestamp             : Date.now(),
+                graphProjectionVersion: 1,
+                message               : {
+                    id        : messageId,
+                    type      : 'MESSAGE',
+                    properties: {subject: 'refuse broadcast collision', bodyText: 'body', from: 'alice', to: 'AGENT:*'}
+                },
+                routing: {sentBy: 'alice', to: 'AGENT:*', broadcastRecipients: ['bob']}
+            };
+
+        await expect(MailboxService._projectMessageWalRecord(record, {pumpWake: false, appendMarker: false}))
+            .rejects.toThrow(/endpoint @bob must be AgentIdentity; found CLASS/);
+
+        expect(GraphService.db.storage.db.prepare('SELECT count(*) AS count FROM Nodes WHERE id = ?').get(messageId).count).toBe(0);
+        expect(GraphService.db.storage.db.prepare('SELECT count(*) AS count FROM Edges WHERE source = ?').get(messageId).count).toBe(0);
     });
 
     test('optional semantic edge failures do not block message graph completion (#13892)', async () => {
@@ -563,7 +717,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         });
 
             // Charlie is registered before the broadcast, so the send-time audience snapshot includes them.
-        GraphService.upsertNode({ id: '@charlie', type: 'AGENT', name: 'Charlie', properties: {} });
+        GraphService.upsertNode({ id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {} });
 
         // Alice sends to Broadcast
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
@@ -589,7 +743,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(charlieRes.messages[0].subject).toBe('To All');
 
         // Dana was not registered at send time, so the per-recipient receipt snapshot excludes them.
-        GraphService.upsertNode({ id: '@dana', type: 'AGENT', name: 'Dana', properties: {} });
+        GraphService.upsertNode({ id: '@dana', type: 'AgentIdentity', name: 'Dana', properties: {} });
         const danaRes = await RequestContextService.run({ agentIdentityNodeId: '@dana' }, async () => {
             return await MailboxService.listMessages({ status: 'all' });
         });
@@ -622,7 +776,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(aliceRead.body).toBe('123');
 
         // Charlie cannot read
-        GraphService.upsertNode({ id: '@charlie', type: 'AGENT', name: 'Charlie', properties: {} });
+        GraphService.upsertNode({ id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {} });
         await RequestContextService.run({ agentIdentityNodeId: '@charlie' }, async () => {
             await expect(MailboxService.getMessage({ messageId: msgId })).rejects.toThrow(/Unauthorized/);
         });
@@ -1088,7 +1242,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     });
 
     test('listMessages filters by threadId and fromIdentity', async () => {
-        GraphService.upsertNode({ id: '@charlie', type: 'AGENT', name: 'Charlie', properties: {} });
+        GraphService.upsertNode({ id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {} });
         GraphService.upsertNode({ id: 'thread-X', type: 'THREAD', name: 'Thread X', properties: {} });
         GraphService.upsertNode({ id: 'thread-Y', type: 'THREAD', name: 'Thread Y', properties: {} });
 
@@ -1366,7 +1520,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     });
 
     test('#10179 unrelated broadcast does NOT grant DM access to non-broadcaster', async () => {
-        GraphService.upsertNode({ id: '@ed', type: 'AGENT', name: 'Ed', properties: {} });
+        GraphService.upsertNode({ id: '@ed', type: 'AgentIdentity', name: 'Ed', properties: {} });
 
         // Ed broadcasts. Alice and Bob receive it but have no other substrate signal.
         await RequestContextService.run({ agentIdentityNodeId: '@ed' }, async () => {
@@ -1947,7 +2101,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             // preserve the fixture path. Also covers `role:`/`human:` target patterns
             // by the same mechanism. Without this invariant, existing spec scenarios
             // seeded with `@alice` / `role:librarian` / `human:tobiu` would break.
-            GraphService.upsertNode({ id: '@bob', type: 'AGENT', name: 'Bob', properties: {} });
+            GraphService.upsertNode({ id: '@bob', type: 'AgentIdentity', name: 'Bob', properties: {} });
 
             await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
                 await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
@@ -2462,9 +2616,9 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
             }
         }
 
-        GraphService.upsertNode({ id: '@alice', type: 'AGENT', name: 'Alice', properties: {} });
-        GraphService.upsertNode({ id: '@bob', type: 'AGENT', name: 'Bob', properties: {} });
-        GraphService.upsertNode({ id: '@charlie', type: 'AGENT', name: 'Charlie', properties: {} });
+        GraphService.upsertNode({ id: '@alice', type: 'AgentIdentity', name: 'Alice', properties: {} });
+        GraphService.upsertNode({ id: '@bob', type: 'AgentIdentity', name: 'Bob', properties: {} });
+        GraphService.upsertNode({ id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {} });
         GraphService.upsertNode({ id: 'AGENT:*', type: 'BroadcastSentinel', name: 'Broadcast', properties: {} });
     });
 
@@ -2844,9 +2998,9 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
             }
         }
 
-        GraphService.upsertNode({ id: '@alice', type: 'AGENT', name: 'Alice', properties: {} });
-        GraphService.upsertNode({ id: '@bob', type: 'AGENT', name: 'Bob', properties: {} });
-        GraphService.upsertNode({ id: '@charlie', type: 'AGENT', name: 'Charlie', properties: {} });
+        GraphService.upsertNode({ id: '@alice', type: 'AgentIdentity', name: 'Alice', properties: {} });
+        GraphService.upsertNode({ id: '@bob', type: 'AgentIdentity', name: 'Bob', properties: {} });
+        GraphService.upsertNode({ id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {} });
         GraphService.upsertNode({ id: 'AGENT:*', type: 'BroadcastSentinel', name: 'Broadcast', properties: {} });
 
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
@@ -3076,8 +3230,8 @@ test.describe('Neo.ai.services.memory-core.MailboxService — TTL Sweeper (#1033
         // Sweep itself bypasses RBAC; we only need identities for `addMessage` to attach
             // SENT_BY/SENT_TO edges. Default policy is `'open'` outside the strict-isolation pin window,
         // so no `CAN_REPLY_TO` grants are required.
-        GraphService.upsertNode({ id: '@ttl-alice', type: 'AGENT', name: 'TTL-Alice', properties: {} });
-        GraphService.upsertNode({ id: '@ttl-bob',   type: 'AGENT', name: 'TTL-Bob',   properties: {} });
+        GraphService.upsertNode({ id: '@ttl-alice', type: 'AgentIdentity', name: 'TTL-Alice', properties: {} });
+        GraphService.upsertNode({ id: '@ttl-bob',   type: 'AgentIdentity', name: 'TTL-Bob',   properties: {} });
     });
 
     /**
