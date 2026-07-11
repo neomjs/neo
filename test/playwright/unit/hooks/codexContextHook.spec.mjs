@@ -4,16 +4,40 @@ import fs             from 'node:fs';
 import os             from 'node:os';
 import path           from 'node:path';
 
+import {IDENTITIES} from '../../../../ai/graph/identityRoots.mjs';
 import {
     extractPromptingTextFromHookPayload,
     extractWakeSubmitNonce,
     getCodexPromptContextPath,
+    readCodexContext,
     recordTurnStarted,
     writePromptContextFromHookPayload
 } from '../../../../.codex/hooks/codex-context.mjs';
 import {recordClaudeTurnPresence} from '../../../../.claude/hooks/turnPresenceHook.mjs';
 
 test.describe('codex-context hook - wake submit nonce', () => {
+    test('keeps the injected Codex guard card compact and resident-neutral', () => {
+        const context        = readCodexContext(),
+              identityTokens = new Set(IDENTITIES.flatMap(({id, name, properties}) => [
+                  id,
+                  name,
+                  properties?.githubLogin
+              ]).filter(Boolean));
+
+        expect(Buffer.byteLength(context, 'utf8')).toBeLessThanOrEqual(1536);
+        expect(context).toContain('NEO_AGENT_IDENTITY');
+        expect(context).toContain('gh api user --jq .login');
+        expect(context).toContain('.codex/HARNESS_RESTART.md');
+        expect(context).toContain('.codex/rules/');
+
+        identityTokens.forEach(token => expect(context).not.toContain(token));
+
+        expect(context).not.toMatch(/(?:^|[\s`])@?neo-[a-z0-9][a-z0-9-]*/i);
+        expect(context).not.toMatch(/\b(?:Claude|Gemini|GPT)[ -]?\d/i);
+        expect(context).not.toMatch(/\/Users\//);
+        expect(context).not.toMatch(/A2A peers|Expected Codex identity|GitHub username/i);
+    });
+
     test('extracts a wake-submit nonce from nested hook payload text', () => {
         const nonce = '123e4567-e89b-12d3-a456-426614174000';
 
