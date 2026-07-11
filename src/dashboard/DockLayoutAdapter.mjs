@@ -223,8 +223,13 @@ class DockLayoutAdapter extends Base {
         }
 
         let config = this.projectNode(model.root, {
-            applyDockZoneOperation  : options.applyDockZoneOperation,
-            autoHideRevealOnHover   : options.autoHideRevealOnHover === true,
+            applyDockZoneOperation: options.applyDockZoneOperation,
+            autoHideRevealOnHover : options.autoHideRevealOnHover === true,
+            // Cross-WINDOW participation (docking design record §2.3, additive + opt-in): a composition that
+            // supplies a sortGroup makes every projected tab sort zone a coordinator-registered
+            // drag SOURCE (the workspace id rides the drag payload for the receiving window's
+            // `transferItem` resolution). Absent = fully in-window, the unchanged default.
+            crossWindowSortGroup    : options.crossWindowSortGroup ?? null,
             defaultRevealFraction   : Number.isFinite(options.defaultRevealFraction) ? options.defaultRevealFraction : null,
             dockZoneDocument        : options.dockZoneDocument || model,
             items                   : model.items || {},
@@ -232,7 +237,8 @@ class DockLayoutAdapter extends Base {
             onDockCrossZoneDragMove : options.onDockCrossZoneDragMove,
             onDockCrossZoneDrop     : options.onDockCrossZoneDrop,
             onDockZoneDocumentChange: options.onDockZoneDocumentChange,
-            resolveComponentRef     : options.resolveComponentRef || (() => null)
+            resolveComponentRef     : options.resolveComponentRef || (() => null),
+            workspaceId             : options.workspaceId ?? null
         });
 
         config.cls = [...new Set([...(config.cls || []), 'neo-dashboard'])];
@@ -638,7 +644,11 @@ class DockLayoutAdapter extends Base {
                 sortZoneConfig: {
                     module          : DockTabSortZone,
                     dockItemIds     : items,
-                    dockSourceNodeId: nodeId
+                    dockSourceNodeId: nodeId,
+                    // §2.3 source identity (opt-in): the coordinator gates registration on
+                    // sortGroup, so a null group keeps this zone in-window exactly as before.
+                    dockWorkspaceId: context.workspaceId,
+                    sortGroup      : context.crossWindowSortGroup
                 }
             },
             items    : items.map(itemId => this.projectItem(itemId, context)),
