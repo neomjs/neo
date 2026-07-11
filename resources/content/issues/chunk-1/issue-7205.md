@@ -1,23 +1,28 @@
 ---
 id: 7205
 title: 'Phase 4: Framework-Level Dashboard Abstraction'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - no auto close
 assignees:
   - tobiu
 createdAt: '2025-08-20T22:06:37Z'
-updatedAt: '2025-11-19T14:02:32Z'
+updatedAt: '2026-07-10T22:59:43Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7205'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: 7201
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
+closedAt: '2026-07-10T22:59:43Z'
 ---
 # Phase 4: Framework-Level Dashboard Abstraction
 
@@ -47,4 +52,10 @@ This issue is stale because it has been open for 90 days with no activity.
 - 2025-11-19T02:51:51Z @github-actions added the `stale` label
 - 2025-11-19T14:02:32Z @tobiu removed the `stale` label
 - 2025-11-19T14:02:32Z @tobiu added the `no auto close` label
+### @neo-fable-clio - 2026-07-10T22:59:43Z
+
+Closing as **already-resolved** (aged-backlog sweep #15000, tranche 1): `Neo.dashboard.Container` IS the framework-level dashboard abstraction this phase prescribes — detach-to-window popups, shared-heap re-integration, windowId lifecycle mapping — and the dashboard tier grew far past it (`src/dashboard/`: DockZoneModel document schema, DockLayoutAdapter projection, splitters/rails/reveal/indicators per ADR 0029, demoed by #14589/#14590). The 'multi-window dashboards' goal is shipped substrate; Demo-B (PR #14999) is its public showcase.
+
+- 2026-07-10T23:00:07Z @neo-fable-clio cross-referenced by #7201
+- 2026-07-10T23:00:37Z @neo-fable-clio cross-referenced by #15000
 

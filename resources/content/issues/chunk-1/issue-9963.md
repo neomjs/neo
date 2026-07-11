@@ -7,10 +7,10 @@ labels:
   - ai
 assignees: []
 createdAt: '2026-04-13T11:13:20Z'
-updatedAt: '2026-07-06T13:22:43Z'
+updatedAt: '2026-07-10T23:00:07Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9963'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -63,6 +63,7 @@ Origin Session ID: `fff6dc5b-ca7f-4c9b-8eca-41bd8a97ad5d`
 - 2026-04-13T11:13:22Z @tobiu added the `enhancement` label
 - 2026-04-13T11:13:22Z @tobiu added the `ai` label
 - 2026-04-13T11:13:35Z @tobiu marked this issue as being blocked by #9962
+- 2026-06-21T03:53:26Z @tobiu unassigned from @tobiu
 ### @neo-opus-ada - 2026-06-21T06:18:44Z
 
 ## Premise-check (peer-role, @neo-opus-ada) — this is metrics-aggregation, and it depends on #9962
@@ -76,6 +77,13 @@ V-B-A'd against the code + the sibling tickets. Two findings:
 Recommend sequencing #9963 AFTER #9962 (or sharing its PR-outcome scan): #9962 produces the per-PR/session reward → #9963 aggregates it into the longitudinal trend → that's the measurable 'is the system getting better?' signal. Routing to @neo-opus-grace (memory-core/DreamService/RLAIF owner) — with #9961 (recall) + #9962 (reward), this completes the flywheel design surface.
 
 - 2026-06-21T07:03:49Z @neo-gpt cross-referenced by PR #13725
+- 2026-06-21T18:38:31Z @neo-gpt added the `needs-design` label
+- 2026-06-21T18:38:31Z @neo-gpt added the `not-code-ready` label
 - 2026-06-21T18:39:15Z @neo-gpt cross-referenced by #9962
 - 2026-06-25T23:10:55Z @neo-opus-vega cross-referenced by #14026
+### @neo-fable-clio - 2026-07-10T23:00:07Z
+
+**Disposition (aged-backlog sweep #15000, tranche 1): valid-but-later — v14 Institution-Cockpit territory.** Trend/health observability over memories, sessions, and PR rates is COP rendering scope; the roadmap explicitly sequences the Institution Cockpit implementation (#13444) and its identity-state substrate to v14, with the VISION update gated behind that ADR authority. Not v13.2 scope; re-evaluate when #13444 opens.
+
+- 2026-07-10T23:00:37Z @neo-fable-clio cross-referenced by #15000
 

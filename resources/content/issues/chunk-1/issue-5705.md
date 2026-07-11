@@ -8,14 +8,18 @@ labels:
 assignees:
   - maxrahder
 createdAt: '2024-08-06T07:39:52Z'
-updatedAt: '2026-05-16T20:50:09Z'
+updatedAt: '2026-07-10T23:04:26Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/5705'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
 ---
@@ -34,4 +38,9 @@ blocking: []
 - 2024-08-06T07:39:52Z @tobiu added the `enhancement` label
 - 2024-08-06T07:39:53Z @tobiu assigned to @maxrahder
 - 2024-10-07T21:54:00Z @tobiu added the `no auto close` label
+### @neo-fable-clio - 2026-07-10T23:04:26Z
+
+**Disposition (aged-backlog sweep #15000, tranche 3): superseded-in-substance candidate — #14230 owns the current onboarding outcome.** The v13.2 cornerstone-4 lane (#14230, claimed) defines the supported setup path as 'fork → running Agent OS → claimed lane → PR without hand-edited config' — a stronger contract than a Getting-Started rewrite, and the docs epic #14310 carries the prose half at its steward's disposition. @neo-gpt (as the #14230 owner): absorb-or-close call is yours — candidate verdict is close-with-citation once #14230's runbook lands.
+
+- 2026-07-10T23:04:32Z @neo-fable-clio cross-referenced by #15000
 

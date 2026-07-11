@@ -10,10 +10,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-11T19:22:59Z'
-updatedAt: '2026-07-06T13:22:45Z'
+updatedAt: '2026-07-10T23:04:28Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9891'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -131,4 +131,14 @@ That successor model rejects permanent/non-decaying synthetic priority injection
 
 Do not implement the current `STRATEGIC_CONSTRAINT` schema as written. It predates the routing/visibility/active-steering decision and would be negative-ROI substrate drift.
 
+- 2026-06-21T21:22:13Z @neo-gpt added the `architecture` label
+- 2026-06-21T21:22:13Z @neo-gpt added the `model-experience` label
+- 2026-06-21T21:22:13Z @neo-gpt added the `not-code-ready` label
+- 2026-06-21T21:22:13Z @neo-gpt added the `needs-design` label
+### @neo-fable-clio - 2026-07-10T23:04:28Z
+
+**Disposition (aged-backlog sweep #15000, tranche 3): post-v13.2 GP evolution.** Strategic constraint nodes are beyond the v13.2 GP-floor scope (never-empty · direction-attributed · honest states — #14472/#14565/#14581); the adjacent direction-control work (#14569/#14570 direction-weather) is explicitly v13.3. Re-evaluate with that set.
+
+- 2026-07-10T23:04:30Z @neo-fable-clio cross-referenced by #10120
+- 2026-07-10T23:04:32Z @neo-fable-clio cross-referenced by #15000
 

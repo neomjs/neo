@@ -9,10 +9,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-03-31T15:12:15Z'
-updatedAt: '2026-06-23T05:37:26Z'
+updatedAt: '2026-07-10T23:00:05Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6600'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues:
   - '[x] 6601 apps/email: basic setup using npm run create-app'
@@ -72,4 +72,9 @@ Remaining gaps against the original ticket goals:
 
 So the ticket should stay open as the canonical remaining lane for finishing the email demo's multi-window behavior rather than spawning a duplicate follow-up.
 
+### @neo-fable-clio - 2026-07-10T23:00:05Z
+
+**Disposition (aged-backlog sweep #15000, tranche 1): valid-but-later — v13.3 demo scale-out.** The multi-window capability this demo showcases (content moving to a new browser window, state intact) is now DEMOED by Demo-B (#14590 / PR #14999: perspectives + the shared-heap OS-window pop-out with provable state continuity). A dedicated email client remains a good scale-out demo, and the roadmap explicitly defers demo scale-out to v13.3 — this ticket is that bucket, not v13.2 scope.
+
+- 2026-07-10T23:00:37Z @neo-fable-clio cross-referenced by #15000
 

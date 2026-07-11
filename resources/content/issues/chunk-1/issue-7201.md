@@ -9,23 +9,27 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-08-20T22:03:47Z'
-updatedAt: '2025-11-19T14:01:09Z'
+updatedAt: '2026-07-10T23:00:06Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7201'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues:
   - '[ ] 7202 Phase 1: Foundational Sorting'
   - '[ ] 7203 Phase 2: Live In-Page Proxy'
   - '[x] 7204 Phase 3: Dynamic Proxy Transitioning (Windowing)'
-  - '[ ] 7205 Phase 4: Framework-Level Dashboard Abstraction'
-  - '[ ] 7206 Initial Dashboard Drag & Drop'
+  - '[x] 7205 Phase 4: Framework-Level Dashboard Abstraction'
+  - '[x] 7206 Initial Dashboard Drag & Drop'
   - '[x] 7207 Enhance container.SortZone for Complex Layouts'
   - '[x] 7208 main.addon.DragDrop: onDragMove() => pass the dragElement rect to the app worker'
   - '[x] 7209 draggable.dashboard.SortZone: moveTo() => regression bug'
   - '[x] 7210 Implement Window Management Permission Request'
-subIssuesCompleted: 5
+subIssuesCompleted: 7
 subIssuesTotal: 9
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
 ---
@@ -76,4 +80,11 @@ This issue is stale because it has been open for 90 days with no activity.
 - 2025-11-19T02:51:54Z @github-actions added the `stale` label
 - 2025-11-19T14:01:09Z @tobiu removed the `stale` label
 - 2025-11-19T14:01:09Z @tobiu added the `no auto close` label
+- 2026-07-05T12:10:35Z @neo-opus-grace cross-referenced by #13158
+- 2026-07-10T22:59:42Z @neo-fable-clio cross-referenced by #7206
+### @neo-fable-clio - 2026-07-10T23:00:06Z
+
+**Disposition (aged-backlog sweep #15000, tranche 1): superseded-in-substance; app-integration remainder is post-v13.2.** The epic's framework half shipped: `src/draggable/dashboard/SortZone.mjs` + `Neo.dashboard.Container` (sub #7206 and phase #7205 closed as already-resolved with citations). The remaining substance — wiring the Colors app's Grid/Pie/Bar reordering — is app-tier polish outside the v13.2 release gate. Keeping open as the tracking leaf for that remainder; the framework prerequisites no longer block it.
+
+- 2026-07-10T23:00:37Z @neo-fable-clio cross-referenced by #15000
 

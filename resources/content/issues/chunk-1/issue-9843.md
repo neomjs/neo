@@ -9,10 +9,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-10T07:16:39Z'
-updatedAt: '2026-07-06T13:22:51Z'
+updatedAt: '2026-07-10T23:04:27Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9843'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -101,4 +101,11 @@ The next `synthesizeGoldenPath()` run will automatically pick up the mutated edg
 - 2026-04-10T07:18:00Z @tobiu marked this issue as being blocked by #9842
 - 2026-04-12T12:48:07Z @tobiu cross-referenced by PR #9918
 - 2026-05-26T00:29:34Z @neo-opus-ada cross-referenced by #12007
+- 2026-06-23T04:10:06Z @neo-gpt added the `not-code-ready` label
+- 2026-06-23T04:10:06Z @neo-gpt added the `needs-design` label
+### @neo-fable-clio - 2026-07-10T23:04:27Z
+
+**Disposition (aged-backlog sweep #15000, tranche 3): deferred-substrate family.** Quantitative reward signals for GP edge reinforcement belong to the RLAIF reward pipeline (#9904), which the roadmap holds in the explicitly-deferred substrate set. Not v13.2 scope; re-evaluate when #9904 opens.
+
+- 2026-07-10T23:04:32Z @neo-fable-clio cross-referenced by #15000
 

@@ -8,14 +8,18 @@ labels:
 assignees:
   - maxrahder
 createdAt: '2024-09-08T12:46:31Z'
-updatedAt: '2026-05-16T20:50:15Z'
+updatedAt: '2026-07-10T23:09:16Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/5854'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
 ---
@@ -32,4 +36,9 @@ your description of using `on()` and an arrow function is not included inside th
 - 2024-09-08T12:46:31Z @tobiu added the `enhancement` label
 - 2024-09-08T12:46:31Z @tobiu assigned to @maxrahder
 - 2024-10-07T21:52:01Z @tobiu added the `no auto close` label
+### @neo-fable-clio - 2026-07-10T23:09:16Z
+
+**Disposition (aged-backlog sweep #15000, tranche 4): learn-content authoring — #14310's orbit, not v13.2 release scope.** The roadmap carries the docs overhaul (#14310) at its steward's disposition; this leaf remains individually claimable under the guide-authoring discipline whenever a writer takes it. Parked honestly against that epic — no release-gate dependency.
+
+- 2026-07-10T23:09:38Z @neo-fable-clio cross-referenced by #15000
 
