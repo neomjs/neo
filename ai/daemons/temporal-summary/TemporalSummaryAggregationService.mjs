@@ -9,9 +9,11 @@ import {Memory_GraphService as GraphService, Memory_StorageRouter as StorageRout
 import {
     composeAgentRecord,
     composeUnifiedRecord,
+    DEFAULT_RETAINED_VERSIONS,
     planDailyWindows,
     planSessionWindows,
-    resolvePartitionKeys
+    resolvePartitionKeys,
+    versionsToPrune
 } from '../../services/memory-core/helpers/temporalSummaryAggregationEngine.mjs';
 import {execSync}           from 'node:child_process';
 import {parse as parseYaml} from 'yaml';
@@ -395,6 +397,44 @@ class TemporalSummaryAggregationService extends Base {
                 properties      : record.metadata
             });
         }
+
+        await this.pruneOldVersions(record.metadata)
+    }
+
+    /**
+     * @summary Bounded-retention prune for ONE window+track: keeps the newest {@link DEFAULT_RETAINED_VERSIONS}
+     * contract-versions and deletes the older overflow from BOTH stores — the Chroma docs and the `SUMMARY_*`
+     * graph nodes, by the same doc ids. Guarded: it only queries when the record's version could exceed the
+     * retained bound, so re-folds at the steady-state contract version pay nothing. Append-only history stays
+     * bounded. Overridable seam.
+     * @param {Object} metadata The just-persisted record's five-field metadata.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async pruneOldVersions(metadata) {
+        // overflow is impossible until the contract version passes the retained bound — skip the query entirely
+        if (metadata.version <= DEFAULT_RETAINED_VERSIONS) {
+            return
+        }
+
+        const
+            collection = await StorageRouter.getTemporalSummaryCollection(),
+            existing   = await collection.get({where: {$and: [
+                {level      : metadata.level},
+                {partition  : metadata.partition},
+                {windowStart: metadata.windowStart}
+            ]}}),
+            metadatas  = existing?.metadatas || [],
+            ids        = existing?.ids || [],
+            pruneSet   = new Set(versionsToPrune({existingVersions: metadatas.map(entry => entry.version)})),
+            pruneIds   = ids.filter((id, index) => pruneSet.has(metadatas[index]?.version));
+
+        if (pruneIds.length === 0) {
+            return
+        }
+
+        await collection.delete({ids: pruneIds});
+        GraphService.removeNodes(pruneIds)
     }
 }
 

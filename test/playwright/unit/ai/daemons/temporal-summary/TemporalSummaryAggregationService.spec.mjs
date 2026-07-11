@@ -56,7 +56,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         StorageRouter.getSummaryCollection         = originals.getSummaryCollection;
 
         // Drop instance-method seam overrides so the real prototype methods resurface for the next test.
-        for (const seam of ['collectPendingWindows', 'persistTemporalRecord', 'runCycle', 'resolveAggregationAnchor', 'dailyWindowCount', 'sessionWindowCount', 'fetchWindowSources', 'fetchDevCommits', 'fetchSandboxesGraduated', 'extractGraduationActions', 'fetchAdrsLanded', 'fetchSessions', 'fetchMergedPrs', 'readContentRecords', 'execCommand']) {
+        for (const seam of ['collectPendingWindows', 'persistTemporalRecord', 'pruneOldVersions', 'runCycle', 'resolveAggregationAnchor', 'dailyWindowCount', 'sessionWindowCount', 'fetchWindowSources', 'fetchDevCommits', 'fetchSandboxesGraduated', 'extractGraduationActions', 'fetchAdrsLanded', 'fetchSessions', 'fetchMergedPrs', 'readContentRecords', 'execCommand']) {
             delete TemporalSummaryAggregationService[seam]
         }
     });
@@ -111,6 +111,41 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         });
 
         expect(nodes).toHaveLength(0)
+    });
+
+    test('pruneOldVersions keeps the newest retained contract-versions and deletes the older overflow from both stores', async () => {
+        const deletedFromChroma = [], removedFromGraph = [];
+
+        StorageRouter.getTemporalSummaryCollection = async () => ({
+            // five versions persisted for this window+track (a contract that bumped past the retained bound of 3)
+            get: async () => ({
+                ids      : ['id-v5', 'id-v4', 'id-v3', 'id-v2', 'id-v1'],
+                metadatas: [{version: 5}, {version: 4}, {version: 3}, {version: 2}, {version: 1}]
+            }),
+            delete: async ({ids}) => { deletedFromChroma.push(...ids) }
+        });
+        GraphService.removeNodes = ids => { removedFromGraph.push(...ids) };
+
+        // current version 5 > retained 3 → prune the two oldest ({v2, v1}) from BOTH stores, by the same ids
+        await TemporalSummaryAggregationService.pruneOldVersions({
+            level: 'daily', partition: 'unified', windowStart: '2026-07-05T00:00:00.000Z', windowEnd: '2026-07-06T00:00:00.000Z', version: 5
+        });
+
+        expect(deletedFromChroma).toEqual(['id-v2', 'id-v1']);
+        expect(removedFromGraph).toEqual(['id-v2', 'id-v1'])
+    });
+
+    test('pruneOldVersions is a no-op (never queries) at the steady-state contract version', async () => {
+        let queried = 0;
+
+        StorageRouter.getTemporalSummaryCollection = async () => ({get: async () => { queried++; return {} }, delete: async () => {}});
+
+        // version within the retained bound → overflow is impossible → the query is skipped entirely
+        await TemporalSummaryAggregationService.pruneOldVersions({
+            level: 'daily', partition: 'unified', windowStart: '2026-07-05T00:00:00.000Z', windowEnd: '2026-07-06T00:00:00.000Z', version: 1
+        });
+
+        expect(queried).toBe(0)
     });
 
     test('readContentRecords fails loud on a missing sync root — a broken checkout is not an empty window', () => {
