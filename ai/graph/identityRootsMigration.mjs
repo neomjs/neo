@@ -16,9 +16,12 @@ import {buildHydrationIndex}                                                  fr
  *   facts held AS OF migration", never an earlier history the registry does not record.
  * - Documented swap EVENTS whose pre-swap facts are NOT on record are exported as
  *   {@link ERA_BACKFILL_CANDIDATES} — bearer-audited follow-ups, never auto-built eras.
+ * - Residents whose immutable `properties.createdAt` is later than {@link MIGRATION_EPOCH}
+ *   are deferred: their first era opens from live observation, never retroactively at the
+ *   migration epoch. No second resident roster exists in this module.
  *
  * Identity-level operational fields (trust tier, wake routes, mailbox addresses, identity
- * contract, participation status) are deliberately NOT lifted — they describe the RESIDENT, not
+ * configuration and participation status) are deliberately NOT lifted — they describe the RESIDENT, not
  * an embodiment era, and their consumers keep reading the registry until the flat-field
  * retirement leaf migrates each read path onto the hydration index.
  */
@@ -32,9 +35,8 @@ export const MIGRATION_EPOCH = '2026-07-04T00:00:00Z';
 
 /**
  * @summary Per-resident model designations, verbatim from the model-stats registry's `name`
- * rows (the source the registry's own `modelVersionSource` pointers name). Values are recorded
- * designations — where a row is stale, the stale designation is still the recorded fact and
- * eras will version it.
+ * rows. Values are recorded designations — where a row is stale, the stale designation is still
+ * the recorded fact and eras will version it.
  * @type {Object}
  */
 export const REGISTRY_MODEL_DESIGNATIONS = Object.freeze({
@@ -78,6 +80,18 @@ export const LIFTED_CAPABILITY_KEYS = Object.freeze([
 ]);
 
 /**
+ * @summary True when the resident's immutable creation timestamp is later than the migration
+ * epoch and therefore its first embodiment era must open from live observation.
+ * @param {Object} seed A registry entry
+ * @returns {Boolean}
+ */
+export function isPostEpochResident(seed) {
+    const createdAt = Date.parse(seed?.properties?.createdAt);
+
+    return Number.isFinite(createdAt) && createdAt > Date.parse(MIGRATION_EPOCH)
+}
+
+/**
  * @summary Migrates ONE registry seed into the schema view: anchor + seed era. Agent seeds only —
  * human / system / sentinel entries carry no embodiment era by design.
  * @param {Object} seed A registry entry `{id, name, properties}`
@@ -88,6 +102,10 @@ export function migrateResident(seed) {
 
     if (properties?.accountType !== 'agent') {
         return {valid: false, reason: `only agent residents carry embodiment eras — "${seed?.id}" is ${properties?.accountType || 'unknown'}`, identity: null, episodes: null};
+    }
+
+    if (isPostEpochResident(seed)) {
+        return {valid: false, reason: `"${seed.id}" is a post-epoch resident — its first era is observation-owned; never retro-seed it at the migration epoch`, identity: null, episodes: null};
     }
 
     const model = REGISTRY_MODEL_DESIGNATIONS[seed.id];
@@ -147,6 +165,11 @@ export function migrateAllResidents() {
     for (const seed of IDENTITIES) {
         if (seed?.properties?.accountType !== 'agent') {
             skipped.push({id: seed?.id, accountType: seed?.properties?.accountType});
+            continue;
+        }
+
+        if (isPostEpochResident(seed)) {
+            skipped.push({id: seed.id, accountType: 'agent', reason: 'post-epoch-resident-no-seed-era'});
             continue;
         }
 

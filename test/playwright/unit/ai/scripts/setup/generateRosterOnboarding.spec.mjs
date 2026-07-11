@@ -155,12 +155,12 @@ test.describe('generateRosterOnboarding — plan construction (pure half)', () =
         expect(plan.sectionAnchor).toBe('neo_unit_probe');
         expect(plan.since).toBe(FIXED_NOW);
 
-        // github + mailbox default to the resident handle
+        // GitHub defaults to the resident handle; A2A addressing is the identity id itself
         expect(plan.githubUsername).toBe('@neo-unit-probe');
-        expect(plan.mailbox).toBe('@neo-unit-probe');
 
         // helper derivations hold for multi-part handles
         expect(deriveDisplayForm('@neo-fable-clio')).toBe('Neo Fable Clio');
+        expect(deriveDisplayForm('@neo-gpt-emmy')).toBe('Neo GPT Emmy');
         expect(deriveSectionAnchor('@neo-fable-clio')).toBe('neo_fable_clio');
 
         // unknown families render with the bare token — never a guessed vendor
@@ -189,20 +189,19 @@ test.describe('generateRosterOnboarding — plan construction (pure half)', () =
         }
     });
 
-    test('malformed inputs refuse: handle, family, github username, mailbox, timestamp', () => {
+    test('malformed inputs refuse: handle, family, github username, timestamp', () => {
         expect(buildOnboardingPlan({...BASE_OPTIONS, handle: ''}).valid).toBe(false);
         expect(buildOnboardingPlan({...BASE_OPTIONS, handle: '@Neo-Upper'}).valid).toBe(false);
         expect(buildOnboardingPlan({...BASE_OPTIONS, family: 'Claude'}).valid).toBe(false);
         expect(buildOnboardingPlan({...BASE_OPTIONS, family: undefined}).valid).toBe(false);
         expect(buildOnboardingPlan({...BASE_OPTIONS, githubUsername: 'not a handle!'}).valid).toBe(false);
-        expect(buildOnboardingPlan({...BASE_OPTIONS, mailbox: '@@double'}).valid).toBe(false);
         expect(buildOnboardingPlan({...BASE_OPTIONS, now: 'not-a-date'}).valid).toBe(false);
     });
 });
 
 test.describe('generateRosterOnboarding — surface emitters (pure half)', () => {
 
-    test('the roster entry is Layer-1 only: pending lifecycle state, no engine facts, no wake template, no social name', () => {
+    test('the roster entry is schema-backed only: pending lifecycle state, no workflow contract, engine facts, wake template, or social name', () => {
         const entry = renderRosterEntry(buildPlan());
 
         // Layer-1 operational fields
@@ -211,19 +210,25 @@ test.describe('generateRosterOnboarding — surface emitters (pure half)', () =>
         expect(entry).toContain(`displayName     : 'Neo Unit Probe',`);
         expect(entry).toContain(`modelFamily     : 'claude',`);
         expect(entry).toContain('trustTier       : TRUST_TIERS.PEER_TRUSTED,');
-        expect(entry).toContain(`requiredA2aMailboxAddress: '@neo-unit-probe',`);
-        expect(entry).toContain(`modelVersionSource       : 'learn/agentos/ModelStats.md §neo_unit_probe',`);
+        expect(entry).not.toContain('identityContract');
 
         // pending-first-boot lifecycle state with the ACTUAL generation timestamp (no backfill)
         expect(entry).toContain(`participationStatus: 'temporarily_unreachable',`);
         expect(entry).toContain(`since              : '${FIXED_NOW}',`);
+        expect(entry).toContain(`createdAt          : '${FIXED_NOW}'`);
         expect(entry).toContain(`authority          : '@tobiu',`);
 
         // engine facts, wake templates, and social-name material are absent BY CONSTRUCTION —
         // asserted at property-KEY position (the explanatory comments may name the absences)
-        for (const forbidden of ['contextWindowInput', 'pricingInput', 'pricingOutput', 'thoughtBudget', 'releaseDate', 'sunsetTriggers', 'swarmRole', 'subscriptionTemplate', 'modelAssignment', 'socialName']) {
+        for (const forbidden of ['contextWindowInput', 'pricingInput', 'pricingOutput', 'thoughtBudget', 'releaseDate', 'sunsetTriggers', 'swarmRole', 'subscriptionTemplate', 'modelAssignment', 'socialName', 'identityContract']) {
             expect(entry, `roster entry must not carry a '${forbidden}' property`).not.toMatch(new RegExp(`^\\s*${forbidden}\\s*:`, 'm'));
         }
+
+        const gptEntry = renderRosterEntry(buildPlan({family: 'gpt', handle: '@neo-gpt-emmy'}));
+
+        expect(gptEntry).toContain(`name       : 'Neo GPT Emmy'`);
+        expect(gptEntry).toContain(`description: 'OpenAI GPT Agent Identity`);
+        expect(gptEntry).toContain(`reactivationTrigger: 'Operator confirms participation activation after first boot'`);
     });
 
     test('the README row keeps the Name cell bare and the Role cell family-only (engine designation pending)', () => {
@@ -254,6 +259,14 @@ test.describe('generateRosterOnboarding — surface emitters (pure half)', () =>
 
         // no invented numeric capability values anywhere (token counts, prices, dates)
         expect(section).not.toMatch(/\| `(contextWindowInput|pricingInput|pricingOutput|releaseDate)` \| [^(]/);
+        expect(section).not.toContain('`swarmRole`');
+    });
+
+    test('generated identity prose never assigns staffing utility or a fixed character', () => {
+        const plan  = buildPlan(),
+              prose = [renderRosterEntry(plan), renderReadmeRow(plan), renderModelStatsSection(plan)].join('\n');
+
+        expect(prose).not.toMatch(/\b(assigned lane|bandwidth|bottleneck|capacity|force multiplier|generalist|mythos|opening lane|pressure|productivity|redundancy|review coverage|reviewer|staffing utility|throughput|workhorse)\b/i);
     });
 
     test('the spec pin asserts Layer-1 invariants and engine-fact absence', () => {
@@ -381,10 +394,10 @@ test.describe('generateRosterOnboarding — surface planning (anchors + idempote
         expect(report).toContain('[INSERT] test/playwright/unit/ai/graph/identityRoots.spec.mjs');
         expect(report).toContain('anchor: immediately before the');
         expect(report).toContain('advisory (printed, never written)');
-        expect(report).toContain('must NOT retro-seed the migration map');
 
         // EXISTS surfaces report the reason instead of a duplicate snippet
-        const applied  = planOnboardingSurfaces(plan, {...FIXTURE_FILES, readme: planned.surfaces[1].updated});
+        const readme   = planned.surfaces.find(surface => surface.surface === 'readme');
+        const applied  = planOnboardingSurfaces(plan, {...FIXTURE_FILES, readme: readme.updated});
         const rerender = renderOnboardingReport(plan, applied).join('\n');
 
         expect(rerender).toContain('[EXISTS] README.md');
@@ -423,9 +436,10 @@ test.describe('generateRosterOnboarding — live-file anchoring (the anchors mus
         expect(entry.properties.trustTier).toBe('peer-trusted');
         expect(entry.properties.participationStatus).toBe('temporarily_unreachable');
         expect(entry.properties.since).toBe(FIXED_NOW);
+        expect(entry.properties.createdAt).toBe(FIXED_NOW);
 
         // the emitted entry carries NO engine facts and NO wake template
-        for (const forbidden of ['contextWindowInput', 'pricingInput', 'pricingOutput', 'thoughtBudget', 'releaseDate', 'subscriptionTemplate', 'modelAssignment']) {
+        for (const forbidden of ['contextWindowInput', 'pricingInput', 'pricingOutput', 'thoughtBudget', 'releaseDate', 'subscriptionTemplate', 'modelAssignment', 'identityContract', 'swarmRole']) {
             expect(entry.properties, `applied entry must not carry '${forbidden}'`).not.toHaveProperty(forbidden);
         }
 
@@ -474,7 +488,7 @@ test.describe('generateRosterOnboarding — CLI contract + write guard', () => {
 
         expect(missingValue.valid).toBe(false);
 
-        const parsed = parseGenerateArgs(['--handle', '@neo-x', '--family', 'claude', '--github-username', '@neo-x-gh', '--mailbox', '@neo-x-mail', '--write']);
+        const parsed = parseGenerateArgs(['--handle', '@neo-x', '--family', 'claude', '--github-username', '@neo-x-gh', '--write']);
 
         expect(parsed.valid).toBe(true);
         expect(parsed.options).toEqual({
@@ -482,7 +496,6 @@ test.describe('generateRosterOnboarding — CLI contract + write guard', () => {
             githubUsername: '@neo-x-gh',
             handle        : '@neo-x',
             help          : false,
-            mailbox       : '@neo-x-mail',
             write         : true
         });
     });

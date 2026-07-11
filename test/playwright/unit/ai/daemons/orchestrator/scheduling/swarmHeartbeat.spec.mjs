@@ -148,7 +148,7 @@ test.describe('resolveTargets — deployment-portable swarm-heartbeat target res
         }
     });
 
-    test('identityRoots marks @neo-opus-grace active without static wake-route leakage (#12413)', () => {
+    test('identityRoots marks @neo-opus-grace active without static wake-route or role-typing leakage (#12413)', () => {
         const identity = IDENTITIES.find(identity => identity.id === '@neo-opus-grace');
 
         expect(identity).toBeDefined();
@@ -160,8 +160,8 @@ test.describe('resolveTargets — deployment-portable swarm-heartbeat target res
         expect(properties.since).toBeNull();
         expect(properties.reactivationTrigger).toBeNull();
         expect(properties).not.toHaveProperty('subscriptionTemplate');
-        expect(properties.identityContract.reviewSemantics.crossFamilyApprovalQualified).toBe(false);
-        expect(properties.swarmRole).toContain('Active Claude-family generalist maintainer identity');
+        expect(properties).not.toHaveProperty('identityContract');
+        expect(properties).not.toHaveProperty('swarmRole');
     });
 
     test('disabled — returns empty list + logs info', async () => {

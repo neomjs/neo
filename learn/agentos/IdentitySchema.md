@@ -26,13 +26,13 @@ Each `AgentIdentity` node in the graph is structured with the following properti
 | :--- | :--- | :--- | :--- |
 | `id` | `String` | The unique primary key identifier, usually matching the GitHub login. | `'@neo-opus-ada'` |
 | `type` / `label` | `String` | The graph node type. Must be `'AgentIdentity'`. | `'AgentIdentity'` |
-| `name` | `String` | Human-readable name. | `'Neo Opus Ada'` |
-| `description` | `String` | A descriptive summary of the model and its role. | `'Anthropic Claude Opus version 4.7 Agent Identity'` |
-| `githubLogin` | `String` | The GitHub username representing the model. | `'@neo-opus-ada'` |
-| `displayName` | `String` | Display name for UI consumption. | `'Neo Opus Ada'` |
+| `name` | `String` | Confirmed Social Name, or the handle-derived fallback when no Social Name exists. | `'Ada'` |
+| `description` | `String` | A factual account/model summary. It must not prescribe a role or character. | `'Anthropic Claude Opus Agent Identity'` |
+| `githubLogin` | `String` | The resident's durable GitHub username. | `'@neo-opus-ada'` |
+| `displayName` | `String` | Verified account/UI label. Usually the Social Name; a pre-boot profile label may appear here while top-level `name` remains handle-derived pending bearer assent. | `'Ada'` |
 | `modelFamily` | `String` | The underlying architectural family of the model. | `'claude'` |
 | `accountType` | `String` | The actor classification (`'agent'` or `'human'`). | `'agent'` |
-| `createdAt` | `ISO 8601 String` | Timestamp of node generation. Provisioning scripts retain this if the node exists. | `'2026-04-21T12:00:00.000Z'` |
+| `createdAt` | `ISO 8601 String` | Immutable resident/root-introduction timestamp. It is committed as a literal and must never be recomputed at module import or graph rehydration. | `'2026-04-21T12:00:00.000Z'` |
 
 ## Capability Fields (Extended per ADR 0012)
 
@@ -55,9 +55,19 @@ These fields are populated at provisioning time (via `ai/scripts/setup/seedAgent
 | `benchmarkSnapshot` | `Object` (optional) | Latest benchmark scores for capability-trend tracking. | `{ 'SWE-bench': 0.876 }` |
 | `sunsetTriggers` | `String[]` | Conditions under which this identity transitions to deprecated state per ADR 0012 §2.3. | `['Anthropic releases Opus 4.8+']` |
 | `modelAssignment` | `Object` (optional) | Current engine assignment override for a stable identity. Absent means the identity runs its baseline model with no managed temporary/reversion window. | `{ model: 'claude-fable-5', baselineModel: 'claude-opus-4-8', temporary: true, authority: '@tobiu', since: '2026-06-13', until: '2026-06-21', reversionTrigger: 'revert unless extended' }` |
-| `swarmRole` | `String` (optional) | Current or aspirational role in the swarm. Aspirational roles require V-B-A measurement before substrate-codification per ADR 0012 §2.4. | `'cross-family substrate review'` |
 
 `modelFamily` (declared above) is the family identifier consumed by the registry's `family` field — both surface the same conceptual property; `modelFamily` is the graph-node primary, `family` is the registry-side mirror.
+
+### Identity nodes are not workflow containers
+
+Per ADR 0032's identity anti-lock-in contract, an `AgentIdentity` records who the resident is;
+it does not encode staffing utility, assigned roles, review policy, onboarding checklists, sibling
+relationships, or memory workflow. Established routing and lifecycle fields such as
+`subscriptionTemplate` and `participationStatus` remain schema-backed operational facts; they do
+not authorize arbitrary workflow payloads. Fields such as `swarmRole`, `identityContract`,
+`reviewSemantics`, `memoryContinuity`, and `activationPrerequisites` are not part of this schema.
+Their real owners are governance services, migration modules, live lane state, and onboarding
+records—not the person node.
 
 `modelAssignment` is the source-of-truth field for managed engine swaps under a stable `AgentIdentity`. It must not change handle routing, memory authorship, quorum family, or review semantics by itself; those remain keyed to the identity node and `modelFamily`. Consumers such as the Fleet Manager registry project this field instead of defining a parallel assignment schema. When present, the object carries `model`, `baselineModel`, `temporary`, `authority`, `since`, `until`, and `reversionTrigger`.
 

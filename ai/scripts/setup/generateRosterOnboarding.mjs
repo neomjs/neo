@@ -9,8 +9,8 @@ import {normalizeAgentIdentityNodeId} from '../../graph/normalizeAgentIdentityNo
  * @module ai/scripts/setup/generateRosterOnboarding
  * @summary Roster-onboarding artifact generator (R3b of the peer-onboarding rail): derives the
  * FOUR committed-file surfaces a new resident's onboarding PR must touch, as a reviewable
- * payload — the sibling of the Day-0 provisioning script, which owns the Memory Core half and
- * never writes committed files.
+ * payload. After merge, Memory Core seeds the committed root; the real first-boot envelope owns
+ * wake self-registration and the observation-driven first embodiment era.
  *
  * The four surfaces (derived from the live files, never from memory):
  *
@@ -49,7 +49,7 @@ import {normalizeAgentIdentityNodeId} from '../../graph/normalizeAgentIdentityNo
  *
  * **Usage**:
  *   node ai/scripts/setup/generateRosterOnboarding.mjs --handle <s> --family <s>
- *       [--github-username <s>] [--mailbox <s>]        # dry-run (default): print the payload
+ *       [--github-username <s>]                        # dry-run (default): print the payload
  *   node ai/scripts/setup/generateRosterOnboarding.mjs ... --write   # apply on a work branch
  *   node ai/scripts/setup/generateRosterOnboarding.mjs --help        # print usage
  */
@@ -110,6 +110,14 @@ export const FAMILY_DISPLAY = Object.freeze({
 });
 
 /**
+ * @summary Handle-token display overrides for operational acronyms that must not be title-cased.
+ * @type {Object}
+ */
+export const DISPLAY_TOKEN_OVERRIDES = Object.freeze({
+    gpt: 'GPT'
+});
+
+/**
  * @summary Repo-root-relative paths of the four onboarding surfaces.
  * @type {Object}
  */
@@ -161,7 +169,7 @@ export function deriveDisplayForm(handle) {
     return handle
         .replace(/^@/, '')
         .split('-')
-        .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+        .map(part => DISPLAY_TOKEN_OVERRIDES[part] || part.charAt(0).toUpperCase() + part.slice(1))
         .join(' ');
 }
 
@@ -184,7 +192,6 @@ export function deriveSectionAnchor(handle) {
  * @param {String} options.handle The resident handle — the roster id and A2A address
  * @param {String} options.family Model family (e.g. 'claude' | 'gpt' | 'gemini')
  * @param {String} [options.githubUsername] GitHub login (defaults to the handle)
- * @param {String} [options.mailbox] A2A mailbox address (defaults to the handle)
  * @param {Date|String} [options.now] Clock override for deterministic tests; defaults to the real now
  * @returns {{valid: Boolean, reason: String|null, plan: Object|null}}
  */
@@ -217,12 +224,6 @@ export function buildOnboardingPlan(options = {}) {
         return {valid: false, reason: github.reason, plan: null};
     }
 
-    const mailbox = normalizeHandle(options.mailbox === undefined ? resident.handle : options.mailbox, '--mailbox');
-
-    if (!mailbox.valid) {
-        return {valid: false, reason: mailbox.reason, plan: null};
-    }
-
     const nowMs = Date.parse(options.now === undefined ? new Date().toISOString() : options.now);
 
     if (!Number.isFinite(nowMs)) {
@@ -243,7 +244,6 @@ export function buildOnboardingPlan(options = {}) {
             familyDisplay : family ? family.display : options.family,
             githubUsername: github.handle,
             githubBody    : github.handle.slice(1),
-            mailbox       : mailbox.handle,
             displayForm   : deriveDisplayForm(handle),
             sectionAnchor : deriveSectionAnchor(handle),
             since         : new Date(nowMs).toISOString()
@@ -253,50 +253,40 @@ export function buildOnboardingPlan(options = {}) {
 
 /**
  * @summary Renders the resident's `IDENTITIES` roster entry for `ai/graph/identityRoots.mjs`:
- * Layer-1 operational fields only, pending-first-boot lifecycle state, and deliberately NO
- * capability fields (engine facts are observation-owned) and NO static subscriptionTemplate
- * (committing harness metadata at onboarding would fabricate boot facts).
+ * Schema-backed identity fields only, pending-first-boot lifecycle state, and deliberately NO
+ * capability fields (engine facts are observation-owned), workflow contracts, or static
+ * subscriptionTemplate (committing harness metadata at onboarding would fabricate boot facts).
  * @param {Object} plan A valid plan from {@link buildOnboardingPlan}
  * @returns {String} The entry block, indented for the `IDENTITIES` array, ending with `},`
  */
 export function renderRosterEntry(plan) {
+    const familyLabel = plan.familyVendor ? `${plan.familyVendor} ${plan.familyDisplay}` : plan.familyDisplay;
+
     return `    {
         id         : '${plan.handle}',
         type       : 'AgentIdentity',
         name       : '${plan.displayForm}', // Handle-derived display form — the Social Name is the post-boot peer-naming ritual (bearer-assented), never onboarding seed data
-        description: 'Onboarding ${plan.family}-family maintainer identity with version-free handle; engine designation pending first-boot observation.',
+        description: '${familyLabel} Agent Identity with version-free handle; engine designation pending first-boot observation.',
         properties : {
             githubLogin     : '${plan.githubUsername}',
             displayName     : '${plan.displayForm}',
             modelFamily     : '${plan.family}',
             accountType     : 'agent',
             trustTier       : TRUST_TIERS.PEER_TRUSTED,
-            identityContract: {
-                canonicalIdentityId      : '${plan.handle}',
-                requiredGithubLogin      : '${plan.githubUsername}',
-                requiredA2aMailboxAddress: '${plan.mailbox}',
-                handlePolicy             : 'version-free-github-handle',
-                modelVersionSource       : 'learn/agentos/ModelStats.md §${plan.sectionAnchor}',
-                activationPrerequisites  : [
-                    'Operator stands up the isolated harness instance (own user-data-dir, own repo checkout, identity env binding).',
-                    'First-boot wake self-registration verified from the real boot envelope.',
-                    'Naming-round outcome recorded (Social Name assent, or the handle-derived display form stays).'
-                ]
-            },
-            // No static subscriptionTemplate — the Day-0 wake route lives in the Memory Core
-            // (provisioned at onboarding, upgraded by runtime self-registration from the real
-            // boot envelope); committing harness metadata here would fabricate boot facts.
+            // No static subscriptionTemplate — the wake route self-registers in Memory Core
+            // from the real first-boot envelope; committing harness metadata here would
+            // fabricate boot facts.
             // No capability fields — engine facts are observation-owned and land through the
             // source-cited ModelStats.md discipline once the first boot is observed.
             family: '${plan.family}',
             // Pending first boot: excluded from active routing, quorum, and review-approval
             // semantics until the first-boot ritual completes and this flips to 'active'.
             participationStatus: 'temporarily_unreachable',
-            statusReason       : 'Provisioned ahead of first boot — onboarding in progress',
+            statusReason       : 'First boot pending',
             authority          : '@tobiu',
             since              : '${plan.since}',
-            reactivationTrigger: 'First-boot ritual completes: identity bind, runtime wake self-registration, and the naming-round outcome recorded',
-            createdAt          : new Date().toISOString()
+            reactivationTrigger: 'Operator confirms participation activation after first boot',
+            createdAt          : '${plan.since}'
         }
     },`;
 }
@@ -343,7 +333,6 @@ export function renderModelStatsSection(plan) {
         '| `pricingInput` | (V-B-A pending — model card cite needed) |',
         '| `pricingOutput` | (V-B-A pending — model card cite needed) |',
         '| `sunsetTriggers` | (V-B-A pending — defined against the observed engine at the activation flip) |',
-        '| `swarmRole` | Onboarding in progress — recorded at the activation flip |',
         '',
         '**Sources** (primary first):',
         '- **Primary**: (pending — cite the model card / release notes / official docs for the observed engine at first boot; capability values are never guessed at onboarding)',
@@ -584,10 +573,9 @@ export function planOnboardingSurfaces(plan, files = {}) {
 export function renderAdvisoryNotes(plan) {
     return [
         '[generateRosterOnboarding] advisory (printed, never written):',
-        `  - Migration epoch note: post-epoch onboarding must NOT retro-seed the migration map — ${plan.handle}'s era opens at onboarding time via the Day-0 provisioning script; the seed epoch stays untouched.`,
         '  - ModelStats §update_history: add a row citing the onboarding PR number once the PR exists.',
         '  - README credits: the co-developed-by sentence near the end of the README lists maintainer handles; extending it is an editorial call at review time.',
-        '  - Activation flip: participationStatus \'active\', source-cited capability facts, and the swarmRole land in the post-first-boot flip PR — never here.'
+        '  - Activation flip: participationStatus \'active\' and source-cited capability facts land after first boot; never infer a peer role from model family or staffing utility.'
     ];
 }
 
@@ -661,8 +649,7 @@ export function parseGenerateArgs(argv = []) {
     const valueFlags = {
         '--family'         : 'family',
         '--github-username': 'githubUsername',
-        '--handle'         : 'handle',
-        '--mailbox'        : 'mailbox'
+        '--handle'         : 'handle'
     };
 
     const booleanFlags = {
@@ -742,7 +729,7 @@ export function currentGitBranch(repoRoot) {
  */
 function printUsage() {
     console.log('Usage: node ai/scripts/setup/generateRosterOnboarding.mjs --handle <s> --family <s>');
-    console.log('           [--github-username <s>] [--mailbox <s>] [--write]');
+    console.log('           [--github-username <s>] [--write]');
     console.log('');
     console.log('  (no flags)  Dry-run — print the four proposed file modifications without applying them.');
     console.log('  --write     Apply the insertions (branch-guarded: refuses on dev/main; EXISTS surfaces skipped).');
@@ -816,7 +803,7 @@ async function main() {
     }
 
     console.log('');
-    console.log(`[generateRosterOnboarding] applied ${written} of 4 surfaces for ${plan.handle}. Review the diff, commit on this branch, and open the PR through the normal pull-request protocol.`);
+    console.log(`[generateRosterOnboarding] applied ${written} of ${planned.surfaces.length} surfaces for ${plan.handle}. Review the diff, commit on this branch, and open the PR through the normal pull-request protocol.`);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {

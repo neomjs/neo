@@ -26,16 +26,27 @@ test.describe('identityRootsMigration — the flat registry expressed through th
         roots     = await import('../../../../../ai/graph/identityRoots.mjs');
     });
 
-    test('every live agent resident migrates: valid chains, zero failures, non-agents skipped by design', () => {
+    test('every migration-epoch resident migrates; post-epoch residents defer without failure', () => {
         const {valid, residents, report} = migration.migrateAllResidents();
 
         expect(report.failures).toEqual([]);
         expect(valid).toBe(true);
 
-        // the roster is complete: every agent seed migrated, every non-agent skipped
-        const agentSeeds = roots.IDENTITIES.filter(seed => seed?.properties?.accountType === 'agent');
-        expect(residents).toHaveLength(agentSeeds.length);
-        expect(report.skipped.map(entry => entry.accountType)).not.toContain('agent');
+        // The migration roster is complete for the epoch. Post-epoch residents open their first
+        // era from live observation and therefore never receive a retroactive migration seed.
+        const agentSeeds = roots.IDENTITIES.filter(seed => seed?.properties?.accountType === 'agent'),
+              epochSeeds = agentSeeds.filter(seed => !migration.isPostEpochResident(seed));
+
+        expect(residents).toHaveLength(epochSeeds.length);
+        expect(report.skipped.filter(entry => entry.accountType === 'agent')).toEqual([{
+            id         : '@neo-gpt-emmy',
+            accountType: 'agent',
+            reason     : 'post-epoch-resident-no-seed-era'
+        }]);
+        expect(migration.isPostEpochResident(roots.IDENTITIES.find(entry => entry.id === '@neo-gpt-emmy'))).toBe(true);
+        expect(migration.isPostEpochResident(roots.IDENTITIES.find(entry => entry.id === '@neo-gpt'))).toBe(false);
+        expect(migration).not.toHaveProperty('POST_EPOCH_RESIDENT_IDS');
+        expect(roots.IDENTITIES.find(entry => entry.id === '@neo-gpt-emmy').properties).not.toHaveProperty('identityContract');
 
         // every chain re-validates through the schema, independently of the migration's own check
         for (const resident of residents) {
@@ -121,5 +132,9 @@ test.describe('identityRootsMigration — the flat registry expressed through th
         const unmapped = migration.migrateResident({id: '@new-peer', name: 'X', properties: {accountType: 'agent', modelFamily: 'claude'}});
         expect(unmapped.valid).toBe(false);
         expect(unmapped.reason).toContain('never guess');
+
+        const postEpoch = migration.migrateResident(roots.IDENTITIES.find(entry => entry.id === '@neo-gpt-emmy'));
+        expect(postEpoch.valid).toBe(false);
+        expect(postEpoch.reason).toContain('never retro-seed');
     });
 });
