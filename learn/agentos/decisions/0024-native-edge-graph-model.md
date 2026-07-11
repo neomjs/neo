@@ -84,7 +84,7 @@ Four named enums (`CONCEPT_EDGE_TYPES`, `ADR_EDGE_TYPES`, `PROTECTED_EDGE_TYPES`
 > enum stays 14); the dynamic tiers carry reserved label vocabulary but NO durable node class by construction
 > (no compression cascade above daily). Node-side disposition: **orphan-exempt** (an edge-less window record
 > is an aggregation fact, `GraphService.getOrphanedNodes` keep-list) and append-only under the `version`
-> metadata field — re-aggregation mints new documents, never rewrites. Graph-node writes land with the
+> metadata field — a same-`version` re-fold overwrites in place (idempotent replay), while a material aggregation-contract bump mints a new append-only `version` (bounded retention per ADR 0028 §4). Graph-node writes land with the
 > L1/L2 lane leaf (Leaf B); this leaf registers schema + storage only.
 
 ### 2.4 Topology — how it connects

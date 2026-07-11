@@ -360,9 +360,12 @@ class TemporalSummaryAggregationService extends Base {
      * DISCUSSED or quoted — never an action — and is rejected. Graduations are de-duped per discussion+ticket on
      * the earliest evidenced action, so a later quote of the same graduation never re-counts.
      *
-     * The event time is the enclosing `### `@author` commented on <ISO>` comment boundary. A marker outside any
-     * dated comment (e.g. the original post) has no event timestamp — `createdAt` is the creation time, not the
-     * edit time the marker was added — so it FAILS CLOSED (uncounted) rather than proxy the wrong clock.
+     * The event time is the enclosing dated boundary — a top-level `### `@author` commented on <ISO>` comment OR
+     * a nested `#### Reply depth=N by `@author` on <ISO>` reply (a reply marker binds to the reply's own time, not
+     * the parent comment's). A marker outside any dated boundary (e.g. the original post) has no event timestamp —
+     * `createdAt` is the creation time, not the edit time the marker was added — so it FAILS CLOSED (uncounted)
+     * rather than proxy the wrong clock. Both ``` and ~~~ fenced blocks (and blockquotes / indented code) are
+     * examples, never actions.
      * @param {Object} params
      * @param {Object} params.frontmatter The Discussion frontmatter (`number`).
      * @param {String} params.body        The full synced Discussion body (original post + dated comment blocks).
@@ -372,6 +375,9 @@ class TemporalSummaryAggregationService extends Base {
     extractGraduationActions({frontmatter, body}) {
         const
             commentPattern = /^### `@[^`]+` commented on (\S+)\s*$/,
+            // a reply carries its OWN dated boundary — a marker inside a reply binds to the reply's event time,
+            // not the enclosing comment's
+            replyPattern   = /^#### Reply depth=\d+ by `@[^`]+` on (\S+)\s*$/,
             // author-ACTION line: the ticket-naming marker LEADS the line after only allowed wrappers
             actionPattern  = /^(?:#{1,6}\s+|\*{1,2}|`)*\[GRADUATED_TO_TICKET:\s*(?:Epic\s+)?#(\d+)\]/,
             seen           = new Set(),
@@ -380,16 +386,17 @@ class TemporalSummaryAggregationService extends Base {
         let currentAt = null, inFence = false;
 
         for (const line of body.split('\n')) {
-            if (/^\s*```/.test(line)) {
+            // a fence is delimited by ``` OR ~~~ — a marker inside either is a code example, never an author action
+            if (/^\s*(?:```|~~~)/.test(line)) {
                 inFence = !inFence;
                 continue
             }
             if (inFence) continue;
 
-            const comment = commentPattern.exec(line);
+            const boundary = commentPattern.exec(line) || replyPattern.exec(line);
 
-            if (comment) {
-                currentAt = comment[1];
+            if (boundary) {
+                currentAt = boundary[1];
                 continue
             }
 
@@ -438,13 +445,22 @@ class TemporalSummaryAggregationService extends Base {
      * the document body) AND the per-level `SUMMARY_SESSION` / `SUMMARY_DAILY` graph node, keyed by the same
      * deterministic doc id so a re-aggregation of the same window+track+version overwrites in place on both. This
      * deterministic lane is the SOLE writer of those labels (never the semantic extractor); the graph node's
-     * `semanticVectorId` links it back to the Chroma row. Only durable tiers (L1/L2) mint a node — a non-durable
-     * level never breaches the durable/dynamic boundary with a persisted label.
+     * `semanticVectorId` links it back to the Chroma row. The durable/dynamic boundary is enforced BEFORE any
+     * store write: only durable tiers (L1/L2) reach either store — a non-durable level (L3–L5, synthesis-only)
+     * produces ZERO Chroma writes AND zero graph writes, never breaching the durable/dynamic boundary.
      * @param {{id:String, metadata:Object, velocityFields:Object}} record
      * @returns {Promise<void>}
      * @protected
      */
     async persistTemporalRecord(record) {
+        const level = getTemporalSummaryLevel(record.metadata.level);
+
+        // durable/dynamic boundary FIRST: L3–L5 are synthesis-only reserved labels that must never reach a
+        // durable store, so a non-durable level is a complete no-op — no Chroma upsert, no graph node
+        if (!level?.durable) {
+            return
+        }
+
         const collection = await StorageRouter.getTemporalSummaryCollection();
 
         await collection.upsert({
@@ -453,18 +469,13 @@ class TemporalSummaryAggregationService extends Base {
             metadatas: [record.metadata]
         });
 
-        const level = getTemporalSummaryLevel(record.metadata.level);
-
-        // durable/dynamic boundary: only L1/L2 mint a graph node; L3–L5 are synthesis-only reserved labels
-        if (level?.durable) {
-            GraphService.upsertNode({
-                id              : record.id,
-                type            : level.label,
-                name            : record.id,
-                semanticVectorId: record.id,
-                properties      : record.metadata
-            });
-        }
+        GraphService.upsertNode({
+            id              : record.id,
+            type            : level.label,
+            name            : record.id,
+            semanticVectorId: record.id,
+            properties      : record.metadata
+        });
 
         await this.pruneOldVersions(record.metadata)
     }

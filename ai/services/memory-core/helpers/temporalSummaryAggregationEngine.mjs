@@ -132,7 +132,7 @@ export function deriveVelocityFields({
  * @param {String} params.partition      `'unified'` or a per-agent `'@<identity>'` track.
  * @param {String} params.windowStart    ISO 8601 UTC, strictly before `windowEnd`.
  * @param {String} params.windowEnd      ISO 8601 UTC.
- * @param {Number} params.version        Positive-integer append-only re-aggregation counter.
+ * @param {Number} params.version        Positive-integer material contract-version (same-version re-folds overwrite; a contract bump mints a new version).
  * @param {Object} params.velocityFields The {@link deriveVelocityFields} output.
  * @returns {{id:String, metadata:Object, velocityFields:Object}}
  */
@@ -203,7 +203,7 @@ export function resolvePartitionKeys(agentIdentities = []) {
  * @param {String} params.level        `'session'` (L1) or `'daily'` (L2).
  * @param {String} params.windowStart  ISO 8601 UTC.
  * @param {String} params.windowEnd    ISO 8601 UTC.
- * @param {Number} [params.version=1]  Positive-integer append-only re-aggregation counter.
+ * @param {Number} [params.version=1]  Positive-integer material contract-version (same-version re-folds overwrite; a contract bump mints a new version).
  * @param {Object} [params.sources={}] The window's fetched source arrays ({@link deriveVelocityFields} shape).
  * @returns {{id:String, metadata:Object, velocityFields:Object}}
  */
@@ -253,7 +253,7 @@ export function deriveAgentVelocityFields({partition, sources = {}}) {
  * @param {String} params.partition    A per-agent `'@<identity>'` track.
  * @param {String} params.windowStart  ISO 8601 UTC.
  * @param {String} params.windowEnd    ISO 8601 UTC.
- * @param {Number} [params.version=1]  Positive-integer append-only re-aggregation counter.
+ * @param {Number} [params.version=1]  Positive-integer material contract-version (same-version re-folds overwrite; a contract bump mints a new version).
  * @param {Object} [params.sources={}] The window's fetched source arrays ({@link deriveVelocityFields} shape).
  * @returns {{id:String, metadata:Object, velocityFields:Object}}
  */

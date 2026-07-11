@@ -481,14 +481,15 @@ class Config extends ConfigProvider {
              */
             temporalSummary: {
                 /**
-                 * Master opt-in for the temporal-pyramid aggregation daemon.
-                 * Disabled by default; the daemon exits early when false.
+                 * Master opt-in for the temporal-pyramid aggregation lane (an orchestrator-owned supervised
+                 * one-shot child). Disabled by default; the one-shot child exits early when false.
                  * @type {Boolean}
                  */
                 aggregationEnabled: leaf(false, 'NEO_MC_TEMPORAL_SUMMARY_ENABLED', 'boolean'),
                 /**
-                 * Aggregation daemon poll interval in ms (default 1 h). The lane runs under the
-                 * shared heavy-maintenance lease, so it yields to REM / defrag siblings.
+                 * Orchestrator dispatch cadence in ms (default 1 h) — the interval the Orchestrator schedules the
+                 * one-shot aggregation child at (NOT a self-poll loop). The lane runs under the shared
+                 * heavy-maintenance lease, so it yields to REM / defrag siblings.
                  * @type {Number}
                  */
                 aggregationIntervalMs: leaf(60 * 60 * 1000, 'NEO_MC_TEMPORAL_SUMMARY_INTERVAL_MS', 'number')

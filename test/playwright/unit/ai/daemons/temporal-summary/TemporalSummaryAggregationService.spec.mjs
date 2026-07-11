@@ -90,10 +90,10 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         expect(nodes[0].properties).toEqual(record.metadata)
     });
 
-    test('persistTemporalRecord mints SUMMARY_SESSION for L1 and writes NO node for a non-durable tier', async () => {
-        const nodes = [];
+    test('persistTemporalRecord mints SUMMARY_SESSION for L1 and writes NOTHING to EITHER store for a non-durable tier', async () => {
+        const upserts = [], nodes = [];
 
-        StorageRouter.getTemporalSummaryCollection = async () => ({upsert: async () => {}});
+        StorageRouter.getTemporalSummaryCollection = async () => ({upsert: async args => { upserts.push(args) }});
         GraphService.upsertNode                    = node => { nodes.push(node) };
 
         await TemporalSummaryAggregationService.persistTemporalRecord({
@@ -103,17 +103,21 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         });
 
         expect(nodes.map(node => node.type)).toEqual(['SUMMARY_SESSION']);
+        expect(upserts).toHaveLength(1);
 
-        nodes.length = 0;
+        upserts.length = 0;
+        nodes.length   = 0;
 
-        // a non-durable (synthesis-only) tier must NOT breach the durable/dynamic boundary with a persisted node
+        // a non-durable (synthesis-only) tier must NOT breach the durable/dynamic boundary — the level gate runs
+        // BEFORE the Chroma upsert, so a weekly record produces ZERO Chroma writes AND zero graph nodes
         await TemporalSummaryAggregationService.persistTemporalRecord({
             id            : 'temporal-summary-weekly-unified-2026-07-05-v1',
             metadata      : {level: 'weekly', partition: 'unified', windowStart: '2026-07-05T00:00:00.000Z', windowEnd: '2026-07-12T00:00:00.000Z', version: 1},
             velocityFields: {}
         });
 
-        expect(nodes).toHaveLength(0)
+        expect(nodes).toHaveLength(0);
+        expect(upserts).toHaveLength(0)
     });
 
     test('pruneOldVersions keeps the newest retained contract-versions and deletes the older overflow from both stores', async () => {
@@ -255,6 +259,37 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         expect(graduated.map(g => g.ticket)).toEqual(['#900', '#901', '#903']);
         expect(graduated.map(g => g.at)).toEqual(['2026-07-05T10:00:00Z', '2026-07-05T11:00:00Z', '2026-07-05T09:00:00Z']);
         expect(graduated.map(g => g.ref)).toEqual(['discussion #10', 'discussion #10', 'discussion #11'])
+    });
+
+    test('fetchSandboxesGraduated binds a REPLY marker to the reply event time, and rejects a ~~~-fenced marker', async () => {
+        TemporalSummaryAggregationService.execCommand        = () => '';
+        TemporalSummaryAggregationService.readContentRecords = () => [
+            {
+                frontmatter: {number: 20, createdAt: '2026-06-01T00:00:00Z', closedAt: null},
+                body       : [
+                    '### `@neo-gpt` commented on 2026-07-05T08:00:00Z',
+                    'plain discussion prose',
+                    // a marker inside a REPLY binds to the reply event time (10:00), NOT the parent comment's (08:00)
+                    '#### Reply depth=1 by `@neo-opus-ada` on 2026-07-05T10:00:00Z',
+                    '## [GRADUATED_TO_TICKET: #920] — graduated in a reply',
+                    // a marker inside a ~~~ fence is a code example, never an action → rejected
+                    '### `@neo-opus-vega` commented on 2026-07-05T11:00:00Z',
+                    '~~~',
+                    '## [GRADUATED_TO_TICKET: #921] — this is a fenced sample',
+                    '~~~'
+                ].join('\n')
+            }
+        ];
+
+        const graduated = await TemporalSummaryAggregationService.fetchSandboxesGraduated({
+            windowStart: '2026-07-05T00:00:00.000Z',
+            windowEnd  : '2026-07-06T00:00:00.000Z'
+        });
+
+        // only the reply action survives, stamped with the REPLY's own event time (10:00, not the comment's 08:00);
+        // the ~~~-fenced marker is rejected exactly like a ```-fenced one
+        expect(graduated.map(g => g.ticket)).toEqual(['#920']);
+        expect(graduated.map(g => g.at)).toEqual(['2026-07-05T10:00:00Z'])
     });
 
     test('fetchSessions binds sessions to the summary collection over a bounded half-open window', async () => {

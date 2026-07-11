@@ -44,8 +44,9 @@ async function main() {
     });
 
     // gate the graph store ready before the first SUMMARY_* node write (runCycle → persistTemporalRecord →
-    // GraphService.upsertNode) — mirrors the sibling standalone graph consumers; upsertNode does not self-init
-    await GraphService.initAsync();
+    // GraphService.upsertNode). Base forbids awaiting initAsync() externally (it double-inits — Base.mjs:601);
+    // ready() awaits the framework-triggered init exactly once.
+    await GraphService.ready();
 
     await TemporalSummaryAggregationService.runCycle();
     process.exit(0)
