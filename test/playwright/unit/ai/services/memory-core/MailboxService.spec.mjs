@@ -553,7 +553,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     });
 
     test('broadcast replay uses WAL send-time audience snapshot, not the current graph audience (#13892)', async () => {
-        GraphService.upsertNode({ id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {} });
+        GraphService.upsertNode({ id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {accountType: 'agent'} });
 
         const originalLinkNodes = GraphService.linkNodes;
         let   res;
@@ -580,7 +580,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 
         expect(res.projectionStatus).toBe('pending');
 
-        GraphService.upsertNode({ id: '@dana', type: 'AgentIdentity', name: 'Dana', properties: {} });
+        GraphService.upsertNode({ id: '@dana', type: 'AgentIdentity', name: 'Dana', properties: {accountType: 'agent'} });
 
         const summary = await MailboxService.drainPendingMessageGraphProjections({ids: [res.messageId]});
         expect(summary).toEqual({pending: 1, projected: 1, failed: 0});
@@ -717,7 +717,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         });
 
             // Charlie is registered before the broadcast, so the send-time audience snapshot includes them.
-        GraphService.upsertNode({ id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {} });
+        GraphService.upsertNode({ id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {accountType: 'agent'} });
 
         // Alice sends to Broadcast
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
@@ -743,7 +743,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(charlieRes.messages[0].subject).toBe('To All');
 
         // Dana was not registered at send time, so the per-recipient receipt snapshot excludes them.
-        GraphService.upsertNode({ id: '@dana', type: 'AgentIdentity', name: 'Dana', properties: {} });
+        GraphService.upsertNode({ id: '@dana', type: 'AgentIdentity', name: 'Dana', properties: {accountType: 'agent'} });
         const danaRes = await RequestContextService.run({ agentIdentityNodeId: '@dana' }, async () => {
             return await MailboxService.listMessages({ status: 'all' });
         });
@@ -776,7 +776,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(aliceRead.body).toBe('123');
 
         // Charlie cannot read
-        GraphService.upsertNode({ id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {} });
+        GraphService.upsertNode({ id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {accountType: 'agent'} });
         await RequestContextService.run({ agentIdentityNodeId: '@charlie' }, async () => {
             await expect(MailboxService.getMessage({ messageId: msgId })).rejects.toThrow(/Unauthorized/);
         });
@@ -1242,7 +1242,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     });
 
     test('listMessages filters by threadId and fromIdentity', async () => {
-        GraphService.upsertNode({ id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {} });
+        GraphService.upsertNode({ id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {accountType: 'agent'} });
         GraphService.upsertNode({ id: 'thread-X', type: 'THREAD', name: 'Thread X', properties: {} });
         GraphService.upsertNode({ id: 'thread-Y', type: 'THREAD', name: 'Thread Y', properties: {} });
 
@@ -1520,7 +1520,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     });
 
     test('#10179 unrelated broadcast does NOT grant DM access to non-broadcaster', async () => {
-        GraphService.upsertNode({ id: '@ed', type: 'AgentIdentity', name: 'Ed', properties: {} });
+        GraphService.upsertNode({ id: '@ed', type: 'AgentIdentity', name: 'Ed', properties: {accountType: 'agent'} });
 
         // Ed broadcasts. Alice and Bob receive it but have no other substrate signal.
         await RequestContextService.run({ agentIdentityNodeId: '@ed' }, async () => {
@@ -2101,7 +2101,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             // preserve the fixture path. Also covers `role:`/`human:` target patterns
             // by the same mechanism. Without this invariant, existing spec scenarios
             // seeded with `@alice` / `role:librarian` / `human:tobiu` would break.
-            GraphService.upsertNode({ id: '@bob', type: 'AgentIdentity', name: 'Bob', properties: {} });
+            GraphService.upsertNode({ id: '@bob', type: 'AgentIdentity', name: 'Bob', properties: {accountType: 'agent'} });
 
             await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
                 await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
@@ -2616,9 +2616,9 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
             }
         }
 
-        GraphService.upsertNode({ id: '@alice', type: 'AgentIdentity', name: 'Alice', properties: {} });
-        GraphService.upsertNode({ id: '@bob', type: 'AgentIdentity', name: 'Bob', properties: {} });
-        GraphService.upsertNode({ id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {} });
+        GraphService.upsertNode({ id: '@alice', type: 'AgentIdentity', name: 'Alice', properties: {accountType: 'agent'} });
+        GraphService.upsertNode({ id: '@bob', type: 'AgentIdentity', name: 'Bob', properties: {accountType: 'agent'} });
+        GraphService.upsertNode({ id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {accountType: 'agent'} });
         GraphService.upsertNode({ id: 'AGENT:*', type: 'BroadcastSentinel', name: 'Broadcast', properties: {} });
     });
 
@@ -2998,9 +2998,9 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
             }
         }
 
-        GraphService.upsertNode({ id: '@alice', type: 'AgentIdentity', name: 'Alice', properties: {} });
-        GraphService.upsertNode({ id: '@bob', type: 'AgentIdentity', name: 'Bob', properties: {} });
-        GraphService.upsertNode({ id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {} });
+        GraphService.upsertNode({ id: '@alice', type: 'AgentIdentity', name: 'Alice', properties: {accountType: 'agent'} });
+        GraphService.upsertNode({ id: '@bob', type: 'AgentIdentity', name: 'Bob', properties: {accountType: 'agent'} });
+        GraphService.upsertNode({ id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {accountType: 'agent'} });
         GraphService.upsertNode({ id: 'AGENT:*', type: 'BroadcastSentinel', name: 'Broadcast', properties: {} });
 
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
@@ -3230,8 +3230,8 @@ test.describe('Neo.ai.services.memory-core.MailboxService — TTL Sweeper (#1033
         // Sweep itself bypasses RBAC; we only need identities for `addMessage` to attach
             // SENT_BY/SENT_TO edges. Default policy is `'open'` outside the strict-isolation pin window,
         // so no `CAN_REPLY_TO` grants are required.
-        GraphService.upsertNode({ id: '@ttl-alice', type: 'AgentIdentity', name: 'TTL-Alice', properties: {} });
-        GraphService.upsertNode({ id: '@ttl-bob',   type: 'AgentIdentity', name: 'TTL-Bob',   properties: {} });
+        GraphService.upsertNode({ id: '@ttl-alice', type: 'AgentIdentity', name: 'TTL-Alice', properties: {accountType: 'agent'} });
+        GraphService.upsertNode({ id: '@ttl-bob',   type: 'AgentIdentity', name: 'TTL-Bob',   properties: {accountType: 'agent'} });
     });
 
     /**
