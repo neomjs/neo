@@ -108,8 +108,8 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         fs.removeSync(messageWalDir);
 
         // Seed agents
-        GraphService.upsertNode({ id: '@alice', type: 'AgentIdentity', name: 'Alice', properties: {} });
-        GraphService.upsertNode({ id: '@bob', type: 'AgentIdentity', name: 'Bob', properties: {} });
+        GraphService.upsertNode({ id: '@alice', type: 'AgentIdentity', name: 'Alice', properties: {accountType: 'agent'} });
+        GraphService.upsertNode({ id: '@bob', type: 'AgentIdentity', name: 'Bob', properties: {accountType: 'agent'} });
         GraphService.upsertNode({ id: 'AGENT:*', type: 'BroadcastSentinel', name: 'Broadcast', properties: {} });
     });
 
