@@ -11,8 +11,45 @@ import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 import '../../../../../../../src/manager/Instance.mjs'; // defines Neo.get — the container child-add path resolves parents through it
 import DemoBWorkspace from '../../../../../../../apps/agentos/childapps/dockdemo/view/DemoBWorkspace.mjs';
+import DockZoneModel  from '../../../../../../../src/dashboard/DockZoneModel.mjs';
 
 import {initialDocument} from '../../../../../../../apps/agentos/tour/demoBPerspectives.mjs';
+
+/**
+ * @summary Installs deterministic popup-vessel seams for the worker-side workspace specs.
+ * The real OS-window round-trip is owned by the E2E witness; these seams isolate document
+ * ownership, rollback, and no-spawn behavior without weakening their call contract.
+ * @param {Object} [options={}]
+ * @param {Error|null} [options.openError=null]
+ * @param {Error|null} [options.closeError=null]
+ * @returns {{openCount: Number, closeCount: Number, restore: Function}}
+ */
+function installWindowVessel({openError = null, closeError = null} = {}) {
+    let previous = {
+            getWindowData: Neo.Main.getWindowData,
+            windowClose  : Neo.Main.windowClose,
+            windowOpen   : Neo.Main.windowOpen
+        },
+        state = {closeCount: 0, openCount: 0};
+
+    Neo.Main.getWindowData = async () => ({screenLeft: 10, screenTop: 20});
+    Neo.Main.windowOpen    = async () => {
+        state.openCount++;
+        if (openError) throw openError
+    };
+    Neo.Main.windowClose   = async () => {
+        state.closeCount++;
+        if (closeError) throw closeError
+    };
+
+    return {
+        get closeCount() { return state.closeCount },
+        get openCount()  { return state.openCount },
+        restore() {
+            Object.assign(Neo.Main, previous)
+        }
+    }
+}
 
 /**
  * @summary Contract specs for the Demo-B workspace: the dock-holder contract, the live
@@ -103,13 +140,21 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoBWorkspace', () => {
     });
 
     test('reattachPane falls back to the first tabs node when the remembered home left the tree', async () => {
-        // stage: pane cached, marked detached from a node that no longer exists,
-        // and the document no longer contains the item in any tabs node
+        // stage a REAL two-document transfer, then remember a home that no longer exists
         workspace.resolvePane('workbench', initialDocument.items.workbench);
 
-        const detached = workspace.applyDockZoneOperation({operation: 'detachItem', itemId: 'workbench'});
+        const detached = DockZoneModel.transferItem(
+            workspace.dockModel,
+            DemoBWorkspace.createPopupDocument(),
+            {
+                itemId: 'workbench', sourceWorkspaceId: 'main', targetWorkspaceId: 'popup',
+                target: {operation: 'addTab', tabsNodeId: 'popup-tabs'}
+            }
+        );
+
         expect(detached.errors).toEqual([]);
-        workspace.dockModel = detached.document;
+        workspace.dockModel     = detached.sourceDocument;
+        workspace.popupDocument = detached.targetDocument;
 
         workspace.detachedPanes.workbench = {tabsNodeId: 'vanished-tabs', windowId: null};
 
@@ -121,6 +166,120 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoBWorkspace', () => {
         const home = Object.keys(doc.nodes).find(id => doc.nodes[id].type === 'tabs' && doc.nodes[id].items.includes('workbench'));
 
         expect(home, 'the returning pane found a real tabs home').toBeTruthy()
+    });
+
+    test('topology round-trip transfers ownership, reports the missing popup slot, never spawns on restore, and preserves the pane instance', async () => {
+        const vessel = installWindowVessel();
+
+        try {
+            const pane = workspace.resolvePane('workbench', initialDocument.items.workbench);
+
+            pane.frames = 41;
+            expect(workspace.capturePerspective('Focus').saved).toBe(true);
+
+            const popped = await workspace.popOutPane('workbench');
+
+            expect(popped).toEqual({detached: true, errors: []});
+            expect(vessel.openCount).toBe(1);
+            expect(workspace.dockModel.items.workbench).toBeUndefined();
+            expect(workspace.popupDocument.items.workbench).toEqual(initialDocument.items.workbench);
+            expect(DockZoneModel.validate(workspace.dockModel)).toEqual([]);
+            expect(DockZoneModel.validate(workspace.popupDocument)).toEqual([]);
+
+            expect(workspace.capturePerspective('Detached', {scope: 'topology'}).saved).toBe(true);
+
+            const detachedSummary = workspace.perspectiveStore.list().find(entry => entry.perspectiveName === 'Detached'),
+                  detachedLayout  = workspace.perspectiveStore.collection.layouts[detachedSummary.layoutId];
+
+            expect(detachedLayout.captureScope).toBe('topology');
+            expect(detachedLayout.windowDocuments).toHaveLength(1);
+
+            const reattached = await workspace.reattachPane('workbench', {windowAlreadyClosed: true});
+
+            expect(reattached).toEqual({errors: [], reattached: true});
+            expect(workspace.dockModel.items.workbench).toEqual(initialDocument.items.workbench);
+            expect(workspace.popupDocument.items.workbench).toBeUndefined();
+            expect(DockZoneModel.validate(workspace.dockModel)).toEqual([]);
+            expect(DockZoneModel.validate(workspace.popupDocument)).toEqual([]);
+            expect(workspace.resolvePane('workbench', initialDocument.items.workbench)).toBe(pane);
+
+            const opensBeforeRestore = vessel.openCount,
+                  loaded             = workspace.loadPerspectiveByName('Detached');
+
+            expect(loaded.loaded).toBe(true);
+            expect(loaded.errors).toEqual([]);
+            expect(vessel.openCount).toBe(opensBeforeRestore);
+            expect(loaded.report.noWindowSpawned).toBe(true);
+            expect(loaded.report.unrestored).toEqual([
+                {capturedIndex: 1, itemId: 'workbench', reason: 'no-live-window'}
+            ]);
+            expect(loaded.report.displaced).toEqual([{itemId: 'workbench', liveIndex: 0}]);
+            expect(workspace.dockModel.items.workbench).toBeUndefined();
+
+            const report = workspace.getReference('restore-report-b');
+
+            expect(report.hidden).toBe(false);
+            expect(report.html).toContain('no window spawned');
+            expect(report.html).toContain('workbench (no-live-window)');
+
+            expect(workspace.loadPerspectiveByName('Focus').loaded).toBe(true);
+            expect(workspace.resolvePane('workbench', initialDocument.items.workbench)).toBe(pane);
+            expect(pane.frames).toBe(41)
+        } finally {
+            vessel.restore()
+        }
+    });
+
+    test('invalid topology restore leaves both live documents and active selection untouched', async () => {
+        const vessel = installWindowVessel();
+
+        try {
+            workspace.resolvePane('workbench', initialDocument.items.workbench);
+            expect(await workspace.popOutPane('workbench')).toEqual({detached: true, errors: []});
+            expect(workspace.capturePerspective('Detached', {scope: 'topology'}).saved).toBe(true);
+
+            const summary      = workspace.perspectiveStore.list().find(entry => entry.perspectiveName === 'Detached'),
+                  layout       = DockZoneModel.clone(workspace.perspectiveStore.collection.layouts[summary.layoutId]),
+                  dockBefore   = workspace.dockModel,
+                  popupBefore  = workspace.popupDocument,
+                  dockSnapshot = JSON.stringify(dockBefore),
+                  popSnapshot  = JSON.stringify(popupBefore),
+                  activeBefore = workspace.perspectiveStore.collection.activeLayoutId;
+
+            layout.windowDocuments[0].root = 'ghost-root';
+
+            const restored = workspace.restoreTopologyPerspective(layout);
+
+            expect(restored.loaded).toBe(false);
+            expect(restored.errors.length).toBeGreaterThan(0);
+            expect(workspace.dockModel).toBe(dockBefore);
+            expect(workspace.popupDocument).toBe(popupBefore);
+            expect(JSON.stringify(workspace.dockModel)).toBe(dockSnapshot);
+            expect(JSON.stringify(workspace.popupDocument)).toBe(popSnapshot);
+            expect(workspace.perspectiveStore.collection.activeLayoutId).toBe(activeBefore);
+            expect(workspace.getReference('restore-report-b').html).toContain('live documents stayed untouched')
+        } finally {
+            vessel.restore()
+        }
+    });
+
+    test('popup-open failure reverses the transfer instead of orphaning worker truth', async () => {
+        const vessel = installWindowVessel({openError: new Error('popup denied')});
+
+        try {
+            workspace.resolvePane('workbench', initialDocument.items.workbench);
+
+            const before = JSON.stringify(workspace.dockModel),
+                  result = await workspace.popOutPane('workbench');
+
+            expect(result.detached).toBe(false);
+            expect(result.errors.join(' ')).toContain('popup denied');
+            expect(JSON.stringify(workspace.dockModel)).toBe(before);
+            expect(workspace.popupDocument.items.workbench).toBeUndefined();
+            expect(workspace.detachedPanes.workbench).toBeUndefined()
+        } finally {
+            vessel.restore()
+        }
     });
 
     test('the switcher is BORN from store lifecycle: buttons appear per capture', () => {

@@ -30,6 +30,21 @@
     }
 }
 
+.agentos-dockdemo-restore-report {
+    background : color-mix(in srgb, var(--fm-signal) 10%, var(--fm-panel));
+    border-bottom: 1px solid var(--fm-line);
+    color      : var(--fm-ink);
+    flex       : 0 0 auto;
+    font-family: var(--fm-font-mono);
+    font-size  : 11px;
+    line-height: 1.45;
+    padding    : 7px 12px;
+
+    strong {
+        color: var(--fm-signal);
+    }
+}
+
 .agentos-dockdemo-counter-pane {
     align-items    : center;
     background     : var(--fm-panel);
