@@ -1,6 +1,6 @@
 # ADR 0029: Harness Docking Design — Multi-Window Layout Model, Perspectives, Cross-Window Drag
 
-> Architectural Decision Record for the design tier **above** the landed `dockZone.v1` model contract: the multi-window layout model and its SharedWorker seam, named perspectives across a window topology (`dockPerspective.v1`), cross-window drag as semantic operations (`transferItem`), grouped drag (`moveNode` / `transferNode`) and tab overflow, the core-lift disposition, the container contract embedded product surfaces consume, and the auto-hide UI contract. It settles the questions the remaining docking capability leaves share and cannot answer coherently one leaf at a time. Everything is **additive on the landed `dockZone.v1` model — not a redesign**: where this record names a new schema or operation, it extends the existing family; it never alters a landed shape.
+> Architectural Decision Record for the design tier **above** the landed `dockZone.v1` model contract: the multi-window layout model and its SharedWorker seam, named perspectives across a window topology (carried by the `dockLayout.v2` envelope per the §2.2 amendment), cross-window drag as semantic operations (`transferItem`), grouped drag (`moveNode` / `transferNode`) and tab overflow, the core-lift disposition, the container contract embedded product surfaces consume, and the auto-hide UI contract. It settles the questions the remaining docking capability leaves share and cannot answer coherently one leaf at a time. Everything is **additive on the landed `dockZone.v1` model — not a redesign**: where this record names a new schema or operation, it extends the existing family; it never alters a landed shape.
 
 | Attribute | Value |
 |---|---|
@@ -31,7 +31,7 @@
 
 **Design provenance:** Discussion #13370 (graduated 2026-06-15) resolved the cross-window seam contract, the placement-hint layer, and the contract-over-lift constraint absorbed here; issue #14423 carries the criteria mapping. The window-manager leaves #13025 (popup terminal drop) and #13028 (OS-window drag reintegration) are landed and consumed as boundaries — their arbitration substrate is formalized, not reopened, by §2.3.
 
-**Why this is an ADR and not a contract doc (the re-home).** This record settles seven design questions shared by multiple future leaves, defines new persisted schemas (`dockPerspective.v1`, the durable placement-hint layer) and new semantic operations (`transferItem`, `moveNode`, `transferNode`), dispositions the core-lift clause, and binds implementation leaves to amend-this-first semantics. That crosses ADR 0005's `ADR_REQUIRED` threshold on three prongs: it changes durable persisted shapes, it decomposes into multiple future tickets needing one canonical authority, and without a decision record future V-B-A would require archaeology across leaf PRs. The content initially shipped as a public learning-tree contract page citing Discussion #13370's "Decision Record: OPTIONAL" disposition — but that disposition covered only the narrow landed-seam formalization (the §2.3 duck-type table), not the seven-section settled authority this document became. Review cycle 3 on PR #14425 (operator-flagged) corrected the placement: the authority now lives here in `learn/agentos/decisions/`, and the guide-tree page is removed in the same change. `HarnessDockZoneModel.md` keeps its own tier — descriptive contract of record for landed substrate; this ADR is prescriptive authority for the leaves above it.
+**Why this is an ADR and not a contract doc (the re-home).** This record settles seven design questions shared by multiple future leaves, defines new persisted shapes (the perspective fields on the `dockLayout` envelope — see the §2.2 amendment — and the durable placement-hint layer) and new semantic operations (`transferItem`, `moveNode`, `transferNode`), dispositions the core-lift clause, and binds implementation leaves to amend-this-first semantics. That crosses ADR 0005's `ADR_REQUIRED` threshold on three prongs: it changes durable persisted shapes, it decomposes into multiple future tickets needing one canonical authority, and without a decision record future V-B-A would require archaeology across leaf PRs. The content initially shipped as a public learning-tree contract page citing Discussion #13370's "Decision Record: OPTIONAL" disposition — but that disposition covered only the narrow landed-seam formalization (the §2.3 duck-type table), not the seven-section settled authority this document became. Review cycle 3 on PR #14425 (operator-flagged) corrected the placement: the authority now lives here in `learn/agentos/decisions/`, and the guide-tree page is removed in the same change. `HarnessDockZoneModel.md` keeps its own tier — descriptive contract of record for landed substrate; this ADR is prescriptive authority for the leaves above it.
 
 **Escalation boundary, explicitly named:** if a future leaf needs to *change* `DragCoordinator`'s arbitration semantics — its target-resolution order, its registry shape, or its dock-blindness (§2.3 invariant) — that change **amends this ADR before implementation** (ADR-0005 lifecycle), never lands as a leaf-local decision.
 
@@ -75,7 +75,7 @@ Resolved by Discussion #13370 (OQ1) and bound here: window placement intent is a
 
 | State class | Examples | Owner | Persistence |
 |---|---|---|---|
-| **Worker-owned shared truth** | committed `dockZone.v1` documents; the workspace-set registry; `dockLayout.v1` wrappers; `dockLayoutCollection.v1`; `dockPerspective.v1` (§2.2); durable placement hints; item catalogs incl. `pinned` / `autoHidden` | workspace container(s) in the App Worker | Serializable per contract rules |
+| **Worker-owned shared truth** | committed `dockZone.v1` documents; the workspace-set registry; `dockLayout.v2` wrappers (perspectives incl., §2.2 amendment); `dockLayoutCollection.v1`; durable placement hints; item catalogs incl. `pinned` / `autoHidden` | workspace container(s) in the App Worker | Serializable per contract rules |
 | **Per-window render projection** | projected config trees; edge rails; splitter affordances; tab headers; placeholder panes | `DockLayoutAdapter.project()` output per window | Never persisted; derived |
 | **Per-window runtime interaction state** | `dockPreview` payloads; reveal/open state of auto-hidden panes (§2.7); hover state; splitter pixel math mid-drag | the window's drag/interaction surfaces | Never persisted; never crosses the seam except as operation descriptors |
 | **Main-thread-only state** | DOM nodes; `DOMRect`s; screen coordinates; native window geometry; `getWindowAt` lookups | main-thread addons (`Neo.manager.Window`, `WindowPosition`) | Never persisted; consumed by arbitration (§2.3), results delivered as semantic events |
@@ -92,35 +92,27 @@ Every future docking leaf classifies each new piece of state into exactly one ro
 
 Single-workspace persistence is shipped and closed (fail-closed restore and no-secret metadata enforcement — `createSavedLayout`, `restoreSavedLayout`, `validateSavedLayoutCollection`, `createSavedLayoutCollection`, `upsertSavedLayout`, `selectSavedLayout`, `removeSavedLayout`, `restoreActiveSavedLayout` in `DockZoneModel`). `dockLayoutCollection.v1` already gives one workspace named, switchable layouts. This section extends the semantics to the multi-window topology; it does not reopen the landed wrappers.
 
-#### Capture scope
+#### Capture scope (amendment, 2026-07-11 — #14773: the shipped envelope IS the perspective carrier)
+
+**Why this amendment exists.** This section originally projected a NEW persisted schema (`neo.harness.dockPerspective.v1`) for topology-scope perspectives. The perspective substrate that actually landed ships `neo.harness.dockLayout.v2` — the EXISTING envelope family extended with the perspective fields (`captureScope`, `windowFingerprint`, `perspectiveName`, `windowDocuments`) — and it covers BOTH scopes. Minting a second wrapper name for the same capability territory would itself be the shape-proliferation this record's own anti-anchor forbids; the reconciliation therefore RETIRES the `dockPerspective.v1` name entirely: **`dockLayout.v2` is v2 of the ENVELOPE carrying v1 of the perspective CAPABILITY.** Vocabulary mapping, stated once: the capability scope this section calls `workspace` is the envelope value `captureScope: 'window'`; tool-tier surfaces (the NL perspective tools) expose the capability vocabulary and map to the envelope value internally.
 
 Two scopes exist. A perspective declares which one it is; there is no implicit scope.
 
 | Scope | Captures | Wrapper |
 |---|---|---|
-| `workspace` | one workspace document | `neo.harness.dockLayout.v1` (landed, unchanged) |
-| `topology` | every workspace document in the workspace set **plus** the durable half of the placement-hint layer | `neo.harness.dockPerspective.v1` (new, below) |
+| `workspace` | one workspace document | `neo.harness.dockLayout.v2` with `captureScope: 'window'` (shipped) |
+| `topology` | every workspace document in the workspace set **plus** the durable half of the placement-hint layer | `neo.harness.dockLayout.v2` with `captureScope: 'topology'` + `windowDocuments` (multi-document half shipped; hint layer pending, below) |
 
 ```json
 {
-  "schema": "neo.harness.dockPerspective.v1",
-  "perspectiveId": "operator-default",
+  "schema": "neo.harness.dockLayout.v2",
+  "layoutId": "operator-default",
+  "perspectiveName": "Operator Default",
   "title": "Operator Default",
-  "workspaces": {
-    "main": {
-      "schema": "neo.harness.dockLayout.v1",
-      "layoutId": "main",
-      "title": "Main Workspace",
-      "dockZone": {}
-    }
-  },
-  "placementHints": {
-    "terminal": {
-      "detached": true,
-      "owningWorkspaceId": "main",
-      "fallbackTarget": {"workspaceId": "main", "nodeId": "side-tabs"}
-    }
-  },
+  "captureScope": "topology",
+  "windowFingerprint": null,
+  "dockZone": {},
+  "windowDocuments": [],
   "revision": 1,
   "metadata": {}
 }
@@ -128,23 +120,23 @@ Two scopes exist. A perspective declares which one it is; there is no implicit s
 
 Rules, inheriting every `dockLayoutCollection.v1` discipline:
 
-- `workspaces` is keyed by stable workspace ids; each value is a valid `dockLayout.v1` wrapper validated by the landed restore path.
-- `placementHints` contains **durable hint fields only** (§2.1 table). A perspective containing `windowId`, screen coordinates, monitor geometry, or rects is invalid and must be rejected at validation.
+- `dockZone` carries the PRIMARY window's document (slot 0); `windowDocuments` is an array of the ADDITIONAL windows' documents (slots 1..N), valid only on `captureScope: 'topology'` records — each tree validated by the landed path.
+- **The durable placement-hint layer is the REMAINING §2.2 obligation** (detached-item intent, `owningWorkspaceId`, semantic `fallbackTarget` — the §2.1 durable set). It lands as ADDITIVE fields on this same envelope when the multi-window restore leaf files — never as a new schema name. A perspective containing `windowId`, screen coordinates, monitor geometry, or rects remains invalid and must be rejected at validation.
 - `metadata` is JSON-only, no secrets — enforced by the same `findSecretMetadataKey` class of checks that guards saved layouts.
-- Perspective collections (named sets of perspectives) reuse the `dockLayoutCollection.v1` pattern verbatim with `dockPerspective.v1` entries; they must not fork a third collection shape.
+- Perspective collections (named sets of perspectives) reuse `dockLayoutCollection.v1` verbatim with `dockLayout.v2` entries; they must not fork a third collection shape — and after this amendment not even a second WRAPPER shape exists.
 
 #### Restore semantics into a changed window topology
 
 Windows are render targets (§2.1); restoring a perspective restores **worker-owned truth first**, then lets windows catch up:
 
 1. **Validate everything before mutating anything.** Wrapper schema, every inner `dockZone.v1` document, every hint record. Any failure → fail closed: the entire active perspective stays untouched; validation errors surface to the caller. There is no partial restore.
-2. **Restore workspace documents** through the landed `restoreSavedLayout()` path, one per workspace id.
+2. **Restore workspace documents** through the landed `restoreSavedLayout()` path, one per captured document (`dockZone` + each `windowDocuments` entry).
 3. **Reconcile windows.** A workspace whose window is already open re-projects in place. A workspace or detached item whose window does not exist does **not** auto-spawn one: browser popup creation requires user activation, and a restore MUST NOT depend on popup permission. The content is instead placed by semantic recovery — the detached item re-enters at its `fallbackTarget`; a workspace with no window renders when a window next binds to it — and the restore reports which hints were applied vs recovered, so a switcher UI can offer "open as window" affordances behind a user gesture.
 4. **Excess windows** (open windows whose workspace the perspective does not name) keep their workspace documents untouched; the perspective governs only what it captured.
 
 #### Revision migration
 
-`revision` is monotonic per perspective. An unknown *wrapper* schema version fails closed (keep last-good, surface the error) — same rule as the landed wrappers. A future `dockPerspective.v2` must ship a documented `v1 → v2` migration in the same change that introduces it; silent best-effort upgrades are forbidden.
+`revision` is monotonic per perspective. An unknown *wrapper* schema version fails closed (keep last-good, surface the error) — same rule as the landed wrappers. A future envelope revision (`dockLayout.v3`) must ship a documented migration in the same change that introduces it — the shipped `v1 → v2` migration (`migrateSavedLayout`, honest defaults) is the precedent; silent best-effort upgrades are forbidden.
 
 ### §2.3 Cross-Window Drag
 
@@ -359,7 +351,7 @@ Per the parent epic's discipline (one Contract-Ledgered leaf per capability), im
 |---|---|---|
 | Auto-hide UI: reveal overlay + pin control + rail drag source | §2.7 | **#13280 (in flight, Grace)** — held design-first by owner decision; this record is its contract |
 | `CrossWindowDragTarget` formalization + dock workspace target + `transferItem` | §2.3 | unfiled; file at claim time citing §2.3 |
-| Topology perspectives: `dockPerspective.v1` + switcher + restore reconciliation | §2.2 | unfiled; single-workspace substrate landed |
+| Topology perspectives: the hint layer on `dockLayout.v2` + switcher + restore reconciliation | §2.2 | envelope + model-level capture/collection substrate landed; NL capture/list/restore tools are in review (#15019); the placement-hint layer + atomic multi-window restore remain |
 | Grouped drag (`moveNode`/`transferNode`) + tab overflow affordance | §2.4 | unfiled |
 | Core lift to a non-dashboard namespace | §2.5 | **gated** — fires only on the named trigger |
 
@@ -367,7 +359,7 @@ Per the parent epic's discipline (one Contract-Ledgered leaf per capability), im
 
 Inherited unchanged from the model contract's §Serializable vs Runtime State and applied to every shape this record introduces:
 
-- `neo.harness.dockPerspective.v1` persists workspace documents, durable hints, titles, ids, revisions, JSON-only metadata. It MUST NOT contain `DOMRect`s, screen or monitor coordinates, `windowId`s, live components, functions, credentials, or any preview payload.
+- Perspective records (`neo.harness.dockLayout.v2`, §2.2 amendment) persist workspace documents, durable hints, titles, ids, revisions, JSON-only metadata. They MUST NOT contain `DOMRect`s, screen or monitor coordinates, `windowId`s, live components, functions, credentials, or any preview payload.
 - Durable placement hints persist intent and semantic targets only; every geometric or window-identity field is runtime-only (§2.1 hint table).
 - `dockPreview` (including the §2.4 `groupNodeId` field) remains runtime-only in its entirety.
 - Reveal/open state of auto-hidden panes is never serialized (§2.7).
