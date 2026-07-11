@@ -30,19 +30,24 @@ export const REQUIRED_ASSET_PATHS = Object.freeze([
     '/resources/theme-map.json'
 ]);
 
+// Exported (read-only) because the packaging pipeline derives its bundle manifest FROM this
+// allowlist — one authority for "what the renderer may load" and "what the artifact must carry".
+export const ALLOWED_EXACT_PATHS = Object.freeze([
+    '/node_modules/@fortawesome/fontawesome-free/css/all.min.css',
+    '/resources/images/logo/neo_logo_primary.svg',
+    '/resources/theme-map.json'
+]);
+
+export const ALLOWED_PATH_PREFIXES = Object.freeze([
+    '/apps/agentos/',
+    '/dist/development/css/',
+    '/node_modules/@fortawesome/fontawesome-free/webfonts/',
+    '/src/'
+]);
+
 const
-    ALLOWED_EXACT_PATHS = new Set([
-        '/node_modules/@fortawesome/fontawesome-free/css/all.min.css',
-        '/resources/images/logo/neo_logo_primary.svg',
-        '/resources/theme-map.json'
-    ]),
-    ALLOWED_PATH_PREFIXES = Object.freeze([
-        '/apps/agentos/',
-        '/dist/development/css/',
-        '/node_modules/@fortawesome/fontawesome-free/webfonts/',
-        '/src/'
-    ]),
-    MIME_TYPES = Object.freeze({
+    ALLOWED_EXACT_PATH_SET = new Set(ALLOWED_EXACT_PATHS),
+    MIME_TYPES             = Object.freeze({
         '.avif' : 'image/avif',
         '.css'  : 'text/css; charset=utf-8',
         '.gif'  : 'image/gif',
@@ -108,7 +113,7 @@ export function parseHarnessUrl(value) {
  * @returns {Boolean}
  */
 export function isAllowedHarnessAssetPath(pathname) {
-    return ALLOWED_EXACT_PATHS.has(pathname) ||
+    return ALLOWED_EXACT_PATH_SET.has(pathname) ||
         ALLOWED_PATH_PREFIXES.some(prefix => pathname.startsWith(prefix))
 }
 
@@ -166,10 +171,10 @@ export async function createHarnessAssetResolver(repoRoot) {
             return {
                 contentType: MIME_TYPES[path.extname(canonicalFile).toLowerCase()] ?? 'application/octet-stream',
                 filePath   : canonicalFile,
-                isDocument: path.extname(canonicalFile).toLowerCase() === '.html',
-                ok        : true,
-                pathname  : parsed.pathname,
-                reason    : 'allowed'
+                isDocument : path.extname(canonicalFile).toLowerCase() === '.html',
+                ok         : true,
+                pathname   : parsed.pathname,
+                reason     : 'allowed'
             }
         } catch {
             return {ok: false, pathname: parsed.pathname, reason: 'missing'}
