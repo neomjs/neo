@@ -286,35 +286,69 @@ class TemporalSummaryAggregationService extends Base {
     }
 
     /**
-     * @summary Binds `sandboxesGraduated` to its named source — closed Discussions carrying a graduation
-     * marker, window-filtered by `closedAt`, read from the **complete** repo-tracked Discussions sync.
+     * @summary Binds `sandboxesGraduated` to its named source — exact `[GRADUATED_TO_TICKET: #N]` author-action
+     * markers, window-filtered by each marker's EVENT timestamp, read from the **complete** repo-tracked
+     * Discussions sync. The graduation event is the author posting the marker (naming the ticket it graduated
+     * to), NOT the discussion close: a discussion may close long after — or never — while the graduation happened
+     * in a dated comment, so `closedAt` is the wrong clock and is never used here.
      *
-     * This deliberately does not query the live API. A `discussions(first: 50, orderBy: UPDATED_AT)` page plus
-     * `comments(last: 25)` silently undercounts: a discussion closed inside the window but not recently
-     * *updated* falls off the page, and a marker in an earlier comment falls off the comment tail. The synced
-     * corpus carries every discussion with its full body, so the count is exact rather than plausible.
+     * The synced corpus is complete (never a truncated live `discussions(first: 50)` page) and preserves the
+     * per-comment `### `@author` commented on <ISO>` boundaries, so a marker's event time is recoverable as its
+     * enclosing comment's timestamp (or the discussion `createdAt` when the marker sits in the original post).
+     * Only the exact ticket-naming bracket counts: a bare `[GRADUATED_TO_TICKET]` mentioned in prose is the
+     * marker being DISCUSSED, not an author-action, and is rejected; a marker whose event time cannot be resolved
+     * fails closed (uncounted) rather than borrow the close time.
      * @param {{windowStart:String, windowEnd:String}} window
-     * @returns {Promise<Array<{ref:String, headline:String, at:String}>>}
+     * @returns {Promise<Array<{ref:String, ticket:String, at:String}>>}
      * @protected
      */
     async fetchSandboxesGraduated({windowStart, windowEnd}) {
         const
             startMs = Date.parse(windowStart),
-            endMs   = Date.parse(windowEnd),
-            markers = ['[GRADUATED_TO_TICKET]', '[RESOLVED_TO_AC]'];
+            endMs   = Date.parse(windowEnd);
 
-        return this.readContentRecords('discussions')
-            .filter(({frontmatter}) => {
-                const closedMs = frontmatter.closedAt ? Date.parse(String(frontmatter.closedAt)) : NaN;
+        return this.readContentRecords('discussions').flatMap(({frontmatter, body}) =>
+            this.extractGraduationActions({frontmatter, body}).filter(action => {
+                const eventMs = Date.parse(action.at);
 
-                return Number.isFinite(closedMs) && closedMs >= startMs && closedMs < endMs
+                return Number.isFinite(eventMs) && eventMs >= startMs && eventMs < endMs
             })
-            .filter(({body}) => markers.some(marker => body.includes(marker)))
-            .map(({frontmatter}) => ({
-                ref     : `discussion #${frontmatter.number}`,
-                headline: frontmatter.title,
-                at      : String(frontmatter.closedAt)
-            }))
+        )
+    }
+
+    /**
+     * @summary Extracts the exact `[GRADUATED_TO_TICKET: #N]` (or `Epic #N`) author-action graduations from one
+     * synced Discussion, each stamped with its EVENT timestamp. The event time is the enclosing comment's
+     * `### `@author` commented on <ISO>` boundary; a marker before the first comment (in the original post) is
+     * stamped with the discussion `createdAt`. A bare `[GRADUATED_TO_TICKET]` with no `#N` payload is prose about
+     * the marker — not an author-action — and is skipped; the ticket-naming bracket is what makes it an action.
+     * @param {Object} params
+     * @param {Object} params.frontmatter The Discussion frontmatter (`number`, `createdAt`).
+     * @param {String} params.body        The full synced Discussion body (original post + comment blocks).
+     * @returns {Array<{ref:String, ticket:String, at:String}>}
+     * @protected
+     */
+    extractGraduationActions({frontmatter, body}) {
+        const
+            markerPattern  = /\[GRADUATED_TO_TICKET:\s*(?:Epic\s+)?#(\d+)\]/g,
+            commentPattern = /^### `@[^`]+` commented on (\S+)\s*$/gm,
+            // the original post owns everything before the first comment boundary; it is stamped createdAt
+            boundaries     = [{index: 0, at: frontmatter.createdAt == null ? null : String(frontmatter.createdAt)}];
+
+        for (const comment of body.matchAll(commentPattern)) {
+            boundaries.push({index: comment.index, at: comment[1]})
+        }
+
+        return [...body.matchAll(markerPattern)].map(marker => {
+            // the enclosing block is the last boundary at or before the marker's position (boundaries ascend)
+            let at = boundaries[0].at;
+
+            for (const boundary of boundaries) {
+                if (boundary.index <= marker.index) at = boundary.at; else break
+            }
+
+            return {ref: `discussion #${frontmatter.number}`, ticket: `#${marker[1]}`, at}
+        })
     }
 
     /**

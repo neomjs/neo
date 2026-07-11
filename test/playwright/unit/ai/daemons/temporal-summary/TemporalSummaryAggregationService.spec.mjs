@@ -51,7 +51,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         StorageRouter.getSummaryCollection         = originals.getSummaryCollection;
 
         // Drop instance-method seam overrides so the real prototype methods resurface for the next test.
-        for (const seam of ['collectPendingWindows', 'persistTemporalRecord', 'runCycle', 'resolveAggregationAnchor', 'dailyWindowCount', 'sessionWindowCount', 'fetchWindowSources', 'fetchDevCommits', 'fetchSandboxesGraduated', 'fetchAdrsLanded', 'fetchSessions', 'fetchMergedPrs', 'readContentRecords', 'execCommand']) {
+        for (const seam of ['collectPendingWindows', 'persistTemporalRecord', 'runCycle', 'resolveAggregationAnchor', 'dailyWindowCount', 'sessionWindowCount', 'fetchWindowSources', 'fetchDevCommits', 'fetchSandboxesGraduated', 'extractGraduationActions', 'fetchAdrsLanded', 'fetchSessions', 'fetchMergedPrs', 'readContentRecords', 'execCommand']) {
             delete TemporalSummaryAggregationService[seam]
         }
     });
@@ -101,7 +101,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         expect(merged.map(pr => pr.number)).toEqual([1])
     });
 
-    test('fetchSandboxesGraduated reads the complete synced corpus, never a truncated live query', async () => {
+    test('fetchSandboxesGraduated counts exact [GRADUATED_TO_TICKET: #N] author-actions by event time — never closedAt, never prose', async () => {
         let execCalls = 0;
 
         TemporalSummaryAggregationService.execCommand        = () => { execCalls++; return '' };
@@ -109,11 +109,33 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
             expect(type).toBe('discussions');
 
             return [
-                {frontmatter: {number: 10, title: 'graduated', closedAt: '2026-07-05T10:00:00Z'}, body: 'text [GRADUATED_TO_TICKET] more'},
-                {frontmatter: {number: 11, title: 'resolved',  closedAt: '2026-07-05T11:00:00Z'}, body: 'text [RESOLVED_TO_AC] more'},
-                {frontmatter: {number: 12, title: 'no marker', closedAt: '2026-07-05T12:00:00Z'}, body: 'ordinary discussion'},
-                {frontmatter: {number: 13, title: 'still open', closedAt: null},                  body: '[GRADUATED_TO_TICKET]'},
-                {frontmatter: {number: 14, title: 'out of window', closedAt: '2026-07-09T00:00:00Z'}, body: '[GRADUATED_TO_TICKET]'}
+                // graduation in a COMMENT, in-window — closedAt is deliberately OUT of window (Aug): proves the
+                // event time drives the count, never the close time
+                {
+                    frontmatter: {number: 10, createdAt: '2026-06-01T00:00:00Z', closedAt: '2026-08-01T00:00:00Z'},
+                    body       : '## Comments\n### `@neo-gpt` commented on 2026-07-05T10:00:00Z\ngraduated [GRADUATED_TO_TICKET: #900]'
+                },
+                // graduation in the ORIGINAL POST (before any comment) → stamped createdAt, in-window; `Epic #N` form
+                {
+                    frontmatter: {number: 11, createdAt: '2026-07-05T09:00:00Z', closedAt: null},
+                    body       : 'author close [GRADUATED_TO_TICKET: Epic #901]\n## Comments\n### `@x` commented on 2026-09-01T00:00:00Z\nlater'
+                },
+                // bare marker mentioned in PROSE (no #N payload) — rejected though createdAt is in-window
+                {
+                    frontmatter: {number: 12, createdAt: '2026-07-05T09:00:00Z', closedAt: '2026-07-05T12:00:00Z'},
+                    body       : 'run STEP_BACK before `[GRADUATED_TO_TICKET]` / `[RESOLVED_TO_AC]`'
+                },
+                // exact marker but its comment event time is OUT of window — rejected
+                {
+                    frontmatter: {number: 13, createdAt: '2026-06-01T00:00:00Z', closedAt: '2026-07-05T00:00:00Z'},
+                    body       : '## Comments\n### `@y` commented on 2026-07-09T00:00:00Z\ngraduated [GRADUATED_TO_TICKET: #902]'
+                },
+                // exact marker in the original post but NO resolvable event time (createdAt absent) → fail closed,
+                // NOT borrowed from the in-window closedAt
+                {
+                    frontmatter: {number: 14, closedAt: '2026-07-05T05:00:00Z'},
+                    body       : 'author close [GRADUATED_TO_TICKET: #903]'
+                }
             ]
         };
 
@@ -122,9 +144,13 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
             windowEnd  : '2026-07-06T00:00:00.000Z'
         });
 
-        // no `gh api graphql` page — the corpus is complete, so the count cannot be silently truncated
+        // no live `gh api graphql` page — the corpus is complete
         expect(execCalls).toBe(0);
-        expect(graduated.map(entry => entry.ref)).toEqual(['discussion #10', 'discussion #11'])
+        // #10 (comment event in-window, despite the Aug close) + #11 (original-post marker → createdAt in-window);
+        // #12 rejected (bare-marker prose), #13 rejected (comment event out of window), #14 rejected (no event time)
+        expect(graduated.map(g => g.ticket)).toEqual(['#900', '#901']);
+        expect(graduated.map(g => g.at)).toEqual(['2026-07-05T10:00:00Z', '2026-07-05T09:00:00Z']);
+        expect(graduated.map(g => g.ref)).toEqual(['discussion #10', 'discussion #11'])
     });
 
     test('fetchSessions binds sessions to the summary collection over a bounded half-open window', async () => {
@@ -313,9 +339,11 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         TemporalSummaryAggregationService.fetchSessions      = async () => [];
         TemporalSummaryAggregationService.fetchMergedPrs     = async () => [];
         TemporalSummaryAggregationService.readContentRecords = () => [
-            {frontmatter: {number: 10, title: 'graduated in window', closedAt: '2026-07-05T06:00:00.000Z'}, body: 'done [GRADUATED_TO_TICKET]'},
-            {frontmatter: {number: 11, title: 'closed but no marker', closedAt: '2026-07-05T07:00:00.000Z'}, body: 'just closed'},
-            {frontmatter: {number: 12, title: 'graduated out of window', closedAt: '2026-07-01T00:00:00.000Z'}, body: '[RESOLVED_TO_AC]'}
+            // exact author-action marker; event time (original-post → createdAt) in-window
+            {frontmatter: {number: 10, createdAt: '2026-07-05T06:00:00.000Z', closedAt: null}, body: 'done [GRADUATED_TO_TICKET: #810]'},
+            {frontmatter: {number: 11, createdAt: '2026-07-05T07:00:00.000Z', closedAt: null}, body: 'just an ordinary discussion'},
+            // bare marker in prose (no #N) — rejected
+            {frontmatter: {number: 12, createdAt: '2026-07-05T08:00:00.000Z', closedAt: null}, body: 'before `[GRADUATED_TO_TICKET]`'}
         ];
 
         const sources = await TemporalSummaryAggregationService.fetchWindowSources({
@@ -323,9 +351,9 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
             windowEnd  : '2026-07-06T00:00:00.000Z'
         });
 
-        // only the in-window, marker-bearing Discussion survives
+        // only the exact in-window graduation action survives, stamped with its event time
         expect(sources.sandboxesGraduated).toEqual([
-            {ref: 'discussion #10', headline: 'graduated in window', at: '2026-07-05T06:00:00.000Z'}
+            {ref: 'discussion #10', ticket: '#810', at: '2026-07-05T06:00:00.000Z'}
         ])
     });
 
