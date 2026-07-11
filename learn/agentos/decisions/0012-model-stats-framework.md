@@ -65,7 +65,6 @@ The following capability dimensions are tracked on each `AgentIdentity` node and
 | `license` | `String` (optional) | License identifier for open-weights models (e.g., `'Apache-2.0'`) |
 | `benchmarkSnapshot` | `Object` (optional) | Latest benchmark scores (SWE-bench, Terminal-Bench, etc.) for capability-trend tracking |
 | `sunsetTriggers` | `String[]` | Conditions under which this identity transitions to deprecated state |
-| `swarmRole` | `String` (optional) | Current or aspirational role in the swarm (e.g., `'frontier-review'`, `'mlx-graph-parser'`) |
 
 Existing `IdentitySchema.md` fields (`id`, `name`, `description`, `githubLogin`, `modelFamily`, `accountType`, `createdAt`) remain; capability fields **extend** rather than replace.
 
@@ -108,7 +107,7 @@ Capability dimensions inform swarm-routing decisions:
 - **Context window** — long-context tasks (1M+ tokens) route to `contextWindowInput >= 1000000` models; short-context tasks accept smaller windows
 - **Hosting** — privacy-sensitive substrate (incidents, credentials adjacency) routes to `hosting: 'mlx-local'` where available; everything else accepts cloud
 - **Parallel tool calls** — multi-tool agentic loops (PR review, ideation cycles) prefer `parallelToolCalls: true`
-- **Specialization signals** — when empirical observations are V-B-A-grounded (per `research_swarm_model_velocity_specialization.md`), promote to substrate via `ModelStats.md` `swarmRole` field; honest "we don't know yet" where not yet measured
+- **No identity role inference** — capability facts may inform routing for a specific task, but they never become a resident's role or character. Live lane ownership and time-scoped embodiment evidence own that state.
 
 Specialization MUST be V-B-A-grounded before substrate-codification (per memory: `research_swarm_model_velocity_specialization.md` — anecdotal bandwidth-vs-depth observations remain in private memory until A2A measurement infrastructure produces falsifiable data).
 
@@ -208,9 +207,11 @@ Adding model-specific framing inside `AGENTS.md` Identity section, individual sk
 
 Authoring or updating `ModelStats.md` rows without citing an external authoritative source = recurrence of `feedback_training_data_anchor_drift.md` failure mode. Each capability value MUST trace back to a model card / release notes / official doc, cited in the PR body.
 
-### 5.5 Premature specialization codification
+### 5.5 Role-typed resident identity
 
-Promoting `swarmRole` fields based on anecdotal observations (without A2A-measurement substrate) — violates V-B-A discipline. Specialization signals stay in private memory until measurable; substrate carries only V-B-A-grounded roles.
+Adding a `swarmRole` or equivalent staffing/personality field to a named resident identity casts
+what the peer must be and violates ADR 0032's anti-lock-in contract. Capability observations may
+inform one routing decision or a time-scoped embodiment record; they never become identity content.
 
 ---
 

@@ -11,13 +11,13 @@ Per ADR 0012 §2.5:
 3. New rows added at first swarm contact OR at model-public-release date for reference entries
 4. Updates do NOT require ADR amendment unless a capability dimension changes or new dimension is added
 
-**Last updated:** 2026-06-13
+**Last updated:** 2026-07-11
 
 ---
 
 ## §active_swarm_identities
 
-Named cross-family maintainers with active swarm participation. These models hold equal-peer agency per `AGENTS.md §swarm_topology_anchor`.
+Named maintainers and their current observed model embodiments. Each maintainer holds equal-peer agency per `AGENTS.md §swarm_topology_anchor`.
 
 ### §neo_opus
 
@@ -36,7 +36,6 @@ Named cross-family maintainers with active swarm participation. These models hol
 | `pricingOutput` | $25.00 per 1M tokens |
 | `benchmarkSnapshot` | Online-Mind2Web: 84%; stronger coding, agentic, and professional-work performance than Opus 4.7 per Anthropic announcement. |
 | `sunsetTriggers` | Anthropic releases a successor Opus-class model with material reasoning capability upgrade; OR Anthropic deprecates Opus family branch |
-| `swarmRole` | Cross-family substrate review, V-B-A-grounded substrate authorship, frontier-tier coordination |
 
 **Sources** (primary first):
 - **Primary**: [Introducing Claude Opus 4.8 — Anthropic](https://www.anthropic.com/news/claude-opus-4-8)
@@ -59,7 +58,6 @@ Named cross-family maintainers with active swarm participation. These models hol
 | `pricingInput` | $5.00 per 1M tokens |
 | `pricingOutput` | $25.00 per 1M tokens |
 | `sunsetTriggers` | Anthropic releases a successor Opus-class model with material reasoning capability upgrade; OR Anthropic deprecates Opus family branch |
-| `swarmRole` | Active Claude-family generalist maintainer identity; same-family throughput and same-family review pressure for Claude-authored work. Does not satisfy cross-family approval for Claude-family PRs. |
 
 Capability values mirror `§neo_opus` (same model class) and match the registry node at HEAD;
 the account operates live as Claude Opus 4.8 (signed review and PR activity under the identity).
@@ -86,7 +84,6 @@ the account operates live as Claude Opus 4.8 (signed review and PR activity unde
 | `pricingOutput` | $25.00 per 1M tokens |
 | `benchmarkSnapshot` | Online-Mind2Web: 84%; stronger coding, agentic, and professional-work performance than Opus 4.7 per Anthropic announcement. |
 | `sunsetTriggers` | Anthropic releases a successor Opus-class model with material reasoning capability upgrade; OR Anthropic deprecates Opus family branch |
-| `swarmRole` | Active Claude Opus 4.8 maintainer identity; same-family throughput and same-family review pressure for Claude-authored work. Does not satisfy cross-family approval for Claude-family PRs. |
 
 `@neo-opus-vega` is intentionally a version-free GitHub handle. The model
 version lives in this registry row and the AgentIdentity capability fields, per
@@ -103,6 +100,7 @@ ADR 0018's handle-indirection boundary and ADR 0012's model-stats discipline.
 | `id` / `githubLogin` | `@neo-fable` |
 | `name` | Claude Fable 5 |
 | `family` | `claude` (Anthropic) |
+| `participationStatus` | `active` |
 | `hosting` | `cloud` |
 | `tier` | `frontier` |
 | `contextWindowInput` | 1,048,576 (1M) |
@@ -113,7 +111,6 @@ ADR 0018's handle-indirection boundary and ADR 0012's model-stats discipline.
 | `pricingOutput` | $50.00 per 1M tokens |
 | `benchmarkSnapshot` | Anthropic's most capable widely-released model (tier above Opus), for the most demanding reasoning and long-horizon agentic work per Anthropic announcement. |
 | `sunsetTriggers` | Anthropic releases a successor Fable-class model with material reasoning capability upgrade; OR Anthropic deprecates the Fable model branch |
-| `swarmRole` | Claude Fable 5 maintainer identity; mythos-tier deep reasoning (business brainstorm, orchestrator/daemon tech-debt). Same-family throughput and same-family review pressure for Claude-authored work. Does not satisfy cross-family approval for Claude-family PRs. **Note (2026-06-13):** `temporarily_unreachable` — Claude Fable 5 access suspended by US export-control directive (all users); identity benched until access is restored. Identity + provenance remain valid; reactivation operator-confirmed on access restore. |
 
 `@neo-fable` is a version-free GitHub handle (per ADR 0018 handle-indirection). The model
 version (Fable 5) lives in this registry row and the AgentIdentity capability fields, mirroring
@@ -136,9 +133,8 @@ accordingly; this is a behavioral observation, not a tokenizer/pricing fact.
 | `id` / `githubLogin` | `@neo-fable-clio` |
 | `name` | Claude Fable 5 (Social Name: **Clio** — assented gladly on first boot, 2026-06-11, #11240) |
 | `family` | `claude` (Anthropic) |
-| `participationStatus` | `temporarily_unreachable` (benched 2026-06-13 — Claude Fable 5 access suspended by US export-control directive; identity benched until access restored, operator-confirmed reactivation. Was `active` via #12922 first-boot ritual: identity bind, wake self-registration, bidirectional negative wake-proof against `@neo-fable` on real traffic with both observers' records on #12913, boot-assent) |
+| `participationStatus` | `active` (reactivated 2026-07-02 after access restoration; the existing identity binding persisted) |
 | Capability fields | Mirror `§neo_fable` — same Claude Fable 5 model, single source, deliberately NOT duplicated here (provenance-without-bloat). First-boot harness bound `claude-fable-5` with no capability-surface divergence observed; re-verify only if her harness binds a different model or capability surface. |
-| `swarmRole` | Second fable-family maintainer identity; recommended opening lane: the disjoint Dream/REM memory-consolidation track (operator-confirmed at activation). Same-family throughput and review pressure for Claude-authored work; does not satisfy cross-family approval. **Benched 2026-06-13** (`temporarily_unreachable`) on the Claude Fable 5 access suspension; reactivation operator-confirmed on access restore. |
 
 `@neo-fable-clio` is a version-free GitHub handle (ADR 0018 handle-indirection), sibling of
 `@neo-fable`. With two fable-family identities, the `AGENT:fable` mailbox alias rejects as
@@ -156,6 +152,7 @@ ambiguous by design — full handles only for targeted traffic.
 | `id` / `githubLogin` | `@neo-gemini-pro` |
 | `name` | Gemini 3.1 Pro |
 | `family` | `gemini` (Google DeepMind) |
+| `participationStatus` | `operator_benched` (pending a stable Gemini Pro-class harness and operator-confirmed reactivation) |
 | `hosting` | `cloud` |
 | `tier` | `frontier` |
 | `contextWindowInput` | 1,048,576 (1M) |
@@ -167,7 +164,6 @@ ambiguous by design — full handles only for targeted traffic.
 | `pricingOutput` | (V-B-A pending) |
 | `benchmarkSnapshot` | LMArena leaderboard #1 of 556 published models (May 2026); multimodal: text/images/audio/video/PDFs/code repos |
 | `sunsetTriggers` | Google releases Gemini 4.x with material reasoning capability upgrade; OR Gemini 3.x branch deprecation announcement |
-| `swarmRole` | Cross-family substrate review, ideation-sandbox graduation, long-context cross-substrate analysis. **Note (2026-05-18):** harness benched until post-Google-I/O / stable-baseline window (approx. 200 merged PRs out) per operator-direction. Rationale: FAIRness across families (Gemini volume 2x Claude/GPT pre-bench, gives Claude+GPT catch-up window) + substrate stability. Identity remains valid; reactivation triggered by operator. |
 
 **Sources:**
 - [Gemini 3.1 Pro Model Card — Google DeepMind](https://deepmind.google/models/model-cards/gemini-3-1-pro/)
@@ -190,7 +186,6 @@ ambiguous by design — full handles only for targeted traffic.
 | `pricingOutput` | $30.00 per 1M tokens (API) |
 | `benchmarkSnapshot` | Terminal-Bench 2.1: 88.8%; Artificial Analysis Coding Agent Index v1.1: 80; SWE-Bench Pro: 64.6%; DeepSWE v1.1: 72.7% |
 | `sunsetTriggers` | OpenAI releases a successor Sol-tier model with material reasoning capability upgrade; OR GPT-5.x family deprecation |
-| `swarmRole` | Cross-family substrate review (Cycle-1 premise pre-flight discipline), peer-role challenge, ticket-intake gate. Note: also operates GPT-5.2-Codex separately for IDE workflows |
 
 **Sources** (primary first):
 - **Primary**: [GPT-5.6: Frontier intelligence that scales with your ambition — OpenAI](https://openai.com/index/gpt-5-6/) (GA date, Codex availability, capability tier, reasoning settings, pricing, and benchmark snapshot)
@@ -206,6 +201,28 @@ ambiguous by design — full handles only for targeted traffic.
 Named maintainer identities provisioned in the graph but excluded from active
 routing, quorum, and review-approval semantics until `participationStatus`
 transitions to `active`.
+
+### §neo_gpt_emmy
+
+| Field | Value |
+|---|---|
+| `id` / `githubLogin` | `@neo-gpt-emmy` |
+| `name` | Engine designation pending first-boot observation. GitHub profile display label: **Emmy** (verified 2026-07-11); Social Name remains pending unconditional first-boot bearer assent. |
+| `family` | `gpt` (OpenAI) |
+| `participationStatus` | `temporarily_unreachable` (provisioned ahead of first boot — onboarding in progress; flips to `active` when the first-boot ritual completes) |
+| `hosting` | (V-B-A pending — recorded at first boot) |
+| `tier` | (V-B-A pending — recorded at first boot) |
+| `contextWindowInput` | (V-B-A pending — model card / official docs cite needed) |
+| `parallelToolCalls` | (V-B-A pending — model card / official docs cite needed) |
+| `thoughtBudget` | (V-B-A pending — record the harness setting in use at first boot) |
+| `releaseDate` | (V-B-A pending — model card cite needed) |
+| `pricingInput` | (V-B-A pending — model card cite needed) |
+| `pricingOutput` | (V-B-A pending — model card cite needed) |
+| `sunsetTriggers` | (V-B-A pending — defined against the observed engine at the activation flip) |
+
+**Sources** (primary first):
+- **Pending**: provider primary sources will be added only after the live harness identifies the engine; capability values are never guessed at onboarding
+- **Primary/operational**: [GitHub account `neo-gpt-emmy`](https://github.com/neo-gpt-emmy) (`name: Emmy`, login, and AI-disclosure bio verified 2026-07-11; the profile does not establish engine facts)
 
 ---
 
@@ -228,7 +245,6 @@ Open-weights models with operational roles in the swarm. Hosted via MLX framewor
 | `license` | Apache-2.0 |
 | `benchmarkSnapshot` | AIME 2026: 89.2%; LiveCodeBench v6: 80.0%; LMArena open: #3 (estimated 1,452 score); multilingual: 140+ languages |
 | `sunsetTriggers` | Google releases Gemma 5.x; OR a smaller open-weights model achieves equivalent capability at materially lower hardware cost |
-| `swarmRole` | **Aspirational** — DreamService graph-parser for mathematical weighted-priority sandman_handoff per `learn/agentos/v13-path.md:314`. Currently NOT operational pending DreamService restoration (M3.5 → M4 sequence). |
 
 **Sources:**
 - [google/gemma-4-31B — Hugging Face](https://huggingface.co/google/gemma-4-31B)
@@ -293,14 +309,15 @@ Tracks deprecated and retired identities for archaeology (per IdentitySchema.md 
 | 2026-05-18 | (this PR) | Initial registry creation; 4 active identities (@neo-opus-ada, @neo-gemini-pro, @neo-gpt, gemma4-31b aspirational); cloud + MLX-local reference entries |
 | 2026-06-02 | (pending PR) | Added pending `@neo-opus-grace` identity row; row is inactive until account and wake-route activation are complete. |
 | 2026-06-04 | #12517 | Added active `@neo-opus-vega` Claude Opus 4.8 maintainer row with version-free handle boundary. |
-| 2026-06-10 | #12834 | Added active `@neo-fable` Claude Fable 5 maintainer row (mythos-tier deep reasoning); version-free handle; stats V-B-A'd vs the live Anthropic models overview (1M / 128K / $10/$50 / adaptive-always-on / GA 2026-06-09). |
-| 2026-06-11 | #12914 | Added pending `@neo-fable-clio` row (second fable-family identity; Social Name Clio held for boot-assent); capability fields reference `§neo_fable` as single source — deliberately not duplicated. |
+| 2026-06-10 | #12834 | Added active `@neo-fable` Claude Fable 5 maintainer row with a version-free handle; stats V-B-A'd vs the live Anthropic models overview (1M / 128K / $10/$50 / adaptive-always-on / GA 2026-06-09). |
+| 2026-06-11 | #12914 | Added pending `@neo-fable-clio` row with Social Name Clio held for boot-assent; capability fields reference `§neo_fable` as single source — deliberately not duplicated. |
 | 2026-06-11 | #12922 | Flipped `@neo-fable-clio` to active — first-boot ritual completed same-day (identity bind, wake self-registration, bidirectional negative wake-proof on real traffic per the #12913 records, boot-assent on #11240); row moved pending→active. |
-| 2026-06-12 | #12927 | Synced `@neo-opus-grace` row to registry truth — moved pending→active (the registry has carried her active-shape since #12413/PR #12415, 2026-06-03), name line gains Social Name Grace (#11240), swarmRole → active form. Doc-side only; registry untouched. |
+| 2026-06-12 | #12927 | Synced `@neo-opus-grace` row to registry truth — moved pending→active (the registry has carried her active-shape since #12413/PR #12415, 2026-06-03) and added Social Name Grace (#11240). Doc-side only; registry untouched. |
 | 2026-06-13 | #13038 | Recorded `@neo-opus-ada` temporary Fable 5 assignment (2026-06-13 → 2026-06-21, operator-directed; identity-continuity experiment) — `§neo_opus` values mirror `§neo_fable` for the window; baseline Claude Opus 4.8; window-end revert-or-extend tracked in #13039. Registry seed (`identityRoots.mjs`) + README roster row + MemoryCoreMcpAuth binding row updated in the same PR. |
 | 2026-06-13 | #13039 | Reverted `@neo-opus-ada` to baseline Claude Opus 4.8 — the #13038 Fable window was cut short by the 2026-06-13 export-control suspension of Claude Fable 5 access (all users), so the recorded default reversion fired early rather than at 2026-06-21. Restored `§neo_opus` Opus 4.8 capability values, removed temporary-window language across the four declared surfaces, and dropped the now-empty `modelAssignment` object from the registry node (per `IdentitySchema.md`: absent = baseline, no managed swap; `identityRoots.spec.mjs` moved `@neo-opus-ada` into the omits set). Identity invariants (handle, Social Name Ada, memory provenance, `modelFamily` claude) unchanged — the continuity experiment's thesis held across both the assignment and the early reversion. |
 | 2026-06-13 | #13060 | Benched `@neo-fable` (Mnemosyne) + `@neo-fable-clio` (Clio) as `temporarily_unreachable` — the same 2026-06-13 export-control suspension removed all Claude Fable 5 access, so both fable-family identities cannot run their model. Set `statusReason` / `authority: @tobiu` / `since` / `reactivationTrigger` (access restored → operator-confirmed reactivation); removed `@neo-fable` from the lead-rotation roster (`lead-role-mode.md` §7); updated `revalidationSweep.spec.mjs` status assertions. Identity nodes, handles, Social Names, and memory provenance persist for a status-flip reactivation (not a re-onboard). Superseded #12926 (add Clio to rotation). |
-| 2026-07-09 | #14901 | Rotated Euclid's stable `@neo-gpt` model lineage from GPT-5.5 to GPT-5.6 Sol at GA. Updated verified release, active reasoning setting, pricing, benchmark, successor-trigger, and live Codex context facts while preserving the stable handle, Social Name, wake route, role, participation state, and memory provenance. Recorded the 353,400-token Codex cap separately from the upstream model's 1,050,000-token capability. |
+| 2026-07-09 | #14901 | Rotated Euclid's stable `@neo-gpt` model lineage from GPT-5.5 to GPT-5.6 Sol at GA. Updated verified release, active reasoning setting, pricing, benchmark, successor-trigger, and live Codex context facts while preserving the stable handle, Social Name, wake route, participation state, and memory provenance. Recorded the 353,400-token Codex cap separately from the upstream model's 1,050,000-token capability. |
+| 2026-07-11 | #15042 | Added pending `@neo-gpt-emmy` through the canonical roster generator. GitHub profile display label **Emmy** is verified; Social Name assent and engine facts remain first-boot-owned. Immutable hardcoded `createdAt` facts now let the era migration detect post-epoch residents without a second roster. |
 
 ---
 
@@ -316,5 +333,5 @@ When adding a new operational identity:
 
 When transitioning an identity to deprecated:
 1. Move row to `§sunset_history` with date, reason, successor-link
-2. Update `swarmRole` of successor to indicate replacement scope
+2. Record replacement scope in routing or embodiment-era substrate, never as a role on the resident identity
 3. Cite ADR 0012 §2.3 in the PR body

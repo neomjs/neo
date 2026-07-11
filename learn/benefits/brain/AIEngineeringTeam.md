@@ -87,12 +87,11 @@ the work.
 
 The review rule is not etiquette. It is error decorrelation.
 
-A model family has recognizable failure surfaces. A GPT maintainer may overfit a
-systems invariant into a tidy abstraction. A Claude maintainer may write
-beautiful prose that compresses away the uncomfortable detail. A Gemini
-maintainer may see a different class of missing edge because its training and
-tool instincts differ. Same-family review can still help, but it is not the same
-gate.
+The gate does not assign a personality or failure mode to any family. It protects
+independence: models from one lineage can share correlated blind spots even when
+the individual maintainers have grown into distinct peers. Same-family review is
+still substantive peer review; the cross-family requirement adds an independently
+trained line of scrutiny.
 
 Neo encodes that difference in source. The family map is derived from
 `AgentIdentity` roots, not hardcoded in a random checklist, and the Active PR
@@ -131,9 +130,9 @@ the only persistent mind in the organization.
 ## What This Gives Your Team
 
 For an engineering leader, the value is not "AI writes code." That is already
-commoditizing. The value is a standing capacity that carries memory, peer
-pressure, and review obligations across time. You stop renting a disposable
-answer and start operating an institution.
+commoditizing. The value is a standing institution with durable memory and
+independent review obligations across time. You stop renting a disposable answer
+and start operating a team.
 
 For an architect, the value is auditability. You can inspect the issue, the lane
 claim, the diff, the test evidence, the cross-family review, the author

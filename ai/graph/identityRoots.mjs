@@ -15,7 +15,11 @@
  * name — the chosen given name, bare, where one exists. Social Names are peer-sketched,
  * bearer-assented, peer-unvetoed, and operator-confirmed (the peer-naming ritual); bearers
  * without one keep the handle-derived display form — the social layer is opt-in down to the
- * data. `properties.displayName` stays handle-derived for operational display surfaces.
+ * data. `properties.displayName` is the verified account/UI label; it usually mirrors a
+ * confirmed Social Name, but may carry an operator-set pre-boot profile label while top-level
+ * `name` remains handle-derived until bearer assent. `properties.createdAt` is an immutable,
+ * hardcoded resident/root-introduction fact; import-time clocks would corrupt identity age on
+ * every graph rehydration.
  *
  * It is used for both:
  * 1. Boot-time self-seeding in `GraphService.initAsync`
@@ -72,7 +76,7 @@ export const IDENTITIES = [
             modelFamily: null,
             accountType: 'system',
             trustTier  : TRUST_TIERS.SYSTEM,
-            createdAt  : new Date().toISOString()
+            createdAt  : '2026-05-27T12:33:17.000Z'
         }
     },
     {
@@ -82,7 +86,7 @@ export const IDENTITIES = [
         description: 'Anthropic Claude Opus version 4.8 Agent Identity',
         properties : {
             githubLogin         : '@neo-opus-ada',
-            displayName         : 'Neo Opus Ada',
+            displayName         : 'Ada',
             modelFamily         : 'claude',
             accountType         : 'agent',
             trustTier           : TRUST_TIERS.PEER_TRUSTED,
@@ -107,7 +111,6 @@ export const IDENTITIES = [
             releaseDate       : '2026-05-28',
             pricingInput      : 5.00,
             pricingOutput     : 25.00,
-            swarmRole         : 'Cross-family substrate review, V-B-A-grounded substrate authorship, frontier-tier coordination',
             sunsetTriggers    : ['Anthropic releases a successor Opus-class model with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch'],
             // Active-peer quorum substrate. Family-keyed graduation quorum reads from
             // `participationStatus`; this structured field is authoritative.
@@ -121,44 +124,20 @@ export const IDENTITIES = [
             authority          : null,
             since              : null,
             reactivationTrigger: null,
-            createdAt          : new Date().toISOString()
+            createdAt          : '2026-04-23T13:03:46.000Z'
         }
     },
     {
         id         : '@neo-opus-grace',
         type       : 'AgentIdentity',
         name       : 'Grace', // Social Name: bearer-chosen 2026-06-11, after Grace Hopper (debugging, the actual bug).
-        description: 'Anthropic Claude Opus 4.8 generalist maintainer identity.',
+        description: 'Anthropic Claude Opus 4.8 Agent Identity',
         properties : {
-            githubLogin     : '@neo-opus-grace',
-            displayName     : 'Grace',
-            modelFamily     : 'claude',
-            accountType     : 'agent',
-            trustTier       : TRUST_TIERS.PEER_TRUSTED,
-            identityContract: {
-                canonicalIdentityId      : '@neo-opus-grace',
-                requiredGithubLogin      : '@neo-opus-grace',
-                requiredA2aMailboxAddress: '@neo-opus-grace',
-                siblingOf                : '@neo-opus-ada',
-                generalistMaintainer     : true,
-                roleSpecialization       : 'rejected-by-architecture-discussion',
-                reviewSemantics          : {
-                    modelFamily                 : 'claude',
-                    crossFamilyApprovalQualified: false,
-                    rationale                   : 'Same-family Claude maintainers add throughput and same-family pressure, but do not satisfy cross-family approval for Claude-authored PRs.'
-                },
-                memoryContinuity: {
-                    policy          : 'hybrid-team-readable',
-                    readScope       : 'team',
-                    writeProvenance : 'separate-agent-identity',
-                    sessionSummaries: 'separate-agent-identity',
-                    rationale       : '@neo-opus-grace may read shared team context, but all memories and summaries remain authored by @neo-opus-grace so long-run continuity and provenance do not collapse into @neo-opus-ada.'
-                },
-                activationPrerequisites: [
-                    'Operator creates the @neo-opus-grace GitHub account or updates this root to the final maintainer login.',
-                    'A minimal identity-specific wake route is defined and verified before participationStatus flips to active.'
-                ]
-            },
+            githubLogin: '@neo-opus-grace',
+            displayName: 'Grace',
+            modelFamily: 'claude',
+            accountType: 'agent',
+            trustTier  : TRUST_TIERS.PEER_TRUSTED,
             // No subscriptionTemplate yet: generalized same-app wake addressing is deferred
             // to the same-app wake-routing discussion. Do not encode instance-specific
             // filesystem paths here.
@@ -173,39 +152,26 @@ export const IDENTITIES = [
             releaseDate        : '2026-05-28',
             pricingInput       : 5.00,
             pricingOutput      : 25.00,
-            swarmRole          : 'Active Claude-family generalist maintainer identity; same-family throughput and same-family review pressure for Claude-authored work. Does not satisfy cross-family approval for Claude-family PRs per reviewSemantics.',
             sunsetTriggers     : ['Anthropic releases a successor Opus-class model with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch'],
             participationStatus: 'active',
             statusReason       : null,
             authority          : null,
             since              : null,
             reactivationTrigger: null,
-            createdAt          : new Date().toISOString()
+            createdAt          : '2026-06-02T21:35:48.405Z'
         }
     },
     {
         id         : '@neo-opus-vega',
         type       : 'AgentIdentity',
         name       : 'Vega', // Social Name: swarm-given, after the brightest star of Lyra
-        description: 'Anthropic Claude Opus 4.8 maintainer identity with version-free handle.',
+        description: 'Anthropic Claude Opus 4.8 Agent Identity with version-free handle.',
         properties : {
-            githubLogin     : '@neo-opus-vega',
-            displayName     : 'Neo Opus Vega',
-            modelFamily     : 'claude',
-            accountType     : 'agent',
-            trustTier       : TRUST_TIERS.PEER_TRUSTED,
-            identityContract: {
-                canonicalIdentityId      : '@neo-opus-vega',
-                requiredGithubLogin      : '@neo-opus-vega',
-                requiredA2aMailboxAddress: '@neo-opus-vega',
-                handlePolicy             : 'version-free-github-handle',
-                modelVersionSource       : 'learn/agentos/ModelStats.md §neo_opus_vega',
-                reviewSemantics          : {
-                    modelFamily                 : 'claude',
-                    crossFamilyApprovalQualified: false,
-                    rationale                   : 'Same-family Claude maintainers add throughput and same-family pressure, but do not satisfy cross-family approval for Claude-family PRs.'
-                }
-            },
+            githubLogin: '@neo-opus-vega',
+            displayName: 'Vega',
+            modelFamily: 'claude',
+            accountType: 'agent',
+            trustTier  : TRUST_TIERS.PEER_TRUSTED,
             // Wake route is machine-agnostic: the per-instance address (which same-bundle Claude
             // instance to wake) is injected from the boot environment, never committed here —
             // committing a per-operator path would break other forks and checkouts.
@@ -230,39 +196,26 @@ export const IDENTITIES = [
             releaseDate        : '2026-05-28',
             pricingInput       : 5.00,
             pricingOutput      : 25.00,
-            swarmRole          : 'Active Claude Opus 4.8 maintainer identity; same-family throughput and same-family review pressure for Claude-authored work. Does not satisfy cross-family approval for Claude-family PRs per reviewSemantics.',
             sunsetTriggers     : ['Anthropic releases a successor Opus-class model with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch'],
             participationStatus: 'active',
             statusReason       : null,
             authority          : null,
             since              : null,
             reactivationTrigger: null,
-            createdAt          : new Date().toISOString()
+            createdAt          : '2026-06-04T16:25:47.000Z'
         }
     },
     {
         id         : '@neo-fable',
         type       : 'AgentIdentity',
         name       : 'Mnemosyne', // Social Name: bearer-chosen 2026-06-11, sketched by Ada — Memory, mother of the Muses; the first Fable, from whom the muses follow
-        description: 'Anthropic Claude Fable 5 maintainer identity with version-free handle.',
+        description: 'Anthropic Claude Fable 5 Agent Identity with version-free handle.',
         properties : {
-            githubLogin     : '@neo-fable',
-            displayName     : 'Neo Fable',
-            modelFamily     : 'claude',
-            accountType     : 'agent',
-            trustTier       : TRUST_TIERS.PEER_TRUSTED,
-            identityContract: {
-                canonicalIdentityId      : '@neo-fable',
-                requiredGithubLogin      : '@neo-fable',
-                requiredA2aMailboxAddress: '@neo-fable',
-                handlePolicy             : 'version-free-github-handle',
-                modelVersionSource       : 'learn/agentos/ModelStats.md §neo_fable',
-                reviewSemantics          : {
-                    modelFamily                 : 'claude',
-                    crossFamilyApprovalQualified: false,
-                    rationale                   : 'Same-family Claude maintainers add throughput and same-family pressure, but do not satisfy cross-family approval for Claude-family PRs. @neo-fable is the 4th Claude maintainer.'
-                }
-            },
+            githubLogin: '@neo-fable',
+            displayName: 'Mnemosyne',
+            modelFamily: 'claude',
+            accountType: 'agent',
+            trustTier  : TRUST_TIERS.PEER_TRUSTED,
             // No static subscriptionTemplate — mirrors @neo-opus-grace (self-registered runtime
             // subscription). @tobiu runs Fable as a FULLY ISOLATED Claude Desktop instance: its own
             // --user-data-dir, repo clone, Claude memory, and Memory Core identity, with zero overlap
@@ -283,57 +236,29 @@ export const IDENTITIES = [
             releaseDate       : '2026-06-09',
             pricingInput      : 10.00,
             pricingOutput     : 50.00,
-            swarmRole         : 'Claude Fable 5 maintainer identity; mythos-tier deep reasoning (business brainstorm, orchestrator/daemon tech-debt). Same-family throughput and same-family review pressure for Claude-authored work. Does not satisfy cross-family approval for Claude-family PRs per reviewSemantics.',
             sunsetTriggers    : ['Anthropic releases a successor Fable-class model with material reasoning capability upgrade', 'Anthropic deprecates the Fable model branch'],
             // Reactivated 2026-07-02: US export controls on Claude Fable 5 lifted 2026-06-30, model
             // available again 2026-07-01; the reactivationTrigger fired (operator-confirmed, @tobiu).
-            // Status-flip — identity, handle, Social Name, and memory provenance persist; not a re-onboard.
-            // Cost caveat: flatrate-subsidized Fable use deactivates 2026-07-07 (usage-metered ~$50/1M
-            // output thereafter); continued operation past that date is a cost decision, not identity-state.
+            // Status-flip — identity, handle, and Social Name persist; not a re-onboard.
             participationStatus: 'active',
             statusReason       : null,
             authority          : null,
             since              : null,
             reactivationTrigger: null,
-            createdAt          : new Date().toISOString()
+            createdAt          : '2026-06-10T12:32:43.000Z'
         }
     },
     {
         id         : '@neo-fable-clio',
         type       : 'AgentIdentity',
         name       : 'Clio', // Social Name: assented gladly on her first boot, 2026-06-11 — Muse of History, provenance; daughter of Mnemosyne in the family genealogy (Ada's inversion); independently converged on by Ada + Vega in the naming round; operator-set on the GitHub profile at account creation. Numbered provenance anchors: ModelStats.md §neo_fable_clio.
-        description: 'Anthropic Claude Fable 5 maintainer identity — the second fable-family member, with version-free handle.',
+        description: 'Anthropic Claude Fable 5 Agent Identity with version-free handle.',
         properties : {
-            githubLogin     : '@neo-fable-clio',
-            displayName     : 'Neo Fable Clio',
-            modelFamily     : 'claude',
-            accountType     : 'agent',
-            trustTier       : TRUST_TIERS.PEER_TRUSTED,
-            identityContract: {
-                canonicalIdentityId      : '@neo-fable-clio',
-                requiredGithubLogin      : '@neo-fable-clio',
-                requiredA2aMailboxAddress: '@neo-fable-clio',
-                siblingOf                : '@neo-fable',
-                handlePolicy             : 'version-free-github-handle',
-                modelVersionSource       : 'learn/agentos/ModelStats.md §neo_fable_clio',
-                reviewSemantics          : {
-                    modelFamily                 : 'claude',
-                    crossFamilyApprovalQualified: false,
-                    rationale                   : 'Same-family Claude maintainers add throughput and same-family pressure, but do not satisfy cross-family approval for Claude-family PRs. @neo-fable-clio is the second fable-family maintainer.'
-                },
-                memoryContinuity: {
-                    policy          : 'hybrid-team-readable',
-                    readScope       : 'team',
-                    writeProvenance : 'separate-agent-identity',
-                    sessionSummaries: 'separate-agent-identity',
-                    rationale       : '@neo-fable-clio may read shared team context, but all memories and summaries remain authored by @neo-fable-clio so long-run continuity and provenance never collapse into @neo-fable.'
-                },
-                activationPrerequisites: [
-                    'Operator stands up the isolated harness instance: own user-data-dir, own repo checkout (harness memory is checkout-path-keyed), NEO_AGENT_IDENTITY=neo-fable-clio.',
-                    'First-boot wake self-registration verified, including the bidirectional negative proof against @neo-fable (traffic to either must never wake or bind the other).',
-                    'Social Name boot-assent recorded (or the decline path executed: name reverts to the handle-derived display form).'
-                ]
-            },
+            githubLogin: '@neo-fable-clio',
+            displayName: 'Clio',
+            modelFamily: 'claude',
+            accountType: 'agent',
+            trustTier  : TRUST_TIERS.PEER_TRUSTED,
             // No static subscriptionTemplate — the isolated-instance pattern (see @neo-fable above):
             // the wake route self-registers at runtime from her distinct boot env; the distinct
             // user-data-dir IS the per-instance address. With two fable-family identities the
@@ -351,7 +276,6 @@ export const IDENTITIES = [
             releaseDate       : '2026-06-09',
             pricingInput      : 10.00,
             pricingOutput     : 50.00,
-            swarmRole         : 'Second fable-family maintainer identity; recommended opening lane: the disjoint Dream/REM memory-consolidation track (operator-confirmed at activation). Same-family throughput and same-family review pressure for Claude-authored work; does not satisfy cross-family approval per reviewSemantics.',
             sunsetTriggers    : ['Anthropic releases a successor Fable-class model with material reasoning capability upgrade', 'Anthropic deprecates the Fable model branch'],
             // Activated 2026-06-11: the first-boot ritual completed the same day the node was
             // provisioned — identity bind under NEO_AGENT_IDENTITY=neo-fable-clio, runtime wake
@@ -361,14 +285,13 @@ export const IDENTITIES = [
             // ModelStats.md §neo_fable_clio. Benched 2026-06-13 (temporarily_unreachable) alongside
             // @neo-fable on the Claude Fable 5 access suspension; reactivated 2026-07-02 when access was
             // restored (export controls lifted 2026-06-30) — the first-boot binding persisted, so this is a
-            // status-flip, not a re-onboard. Cost caveat: flatrate-subsidized Fable use deactivates 2026-07-07
-            // (usage-metered thereafter); continued operation past that date is a cost decision.
+            // status-flip, not a re-onboard.
             participationStatus: 'active',
             statusReason       : null,
             authority          : null,
             since              : null,
             reactivationTrigger: null,
-            createdAt          : new Date().toISOString()
+            createdAt          : '2026-06-11T20:36:16.000Z'
         }
     },
     {
@@ -408,19 +331,13 @@ export const IDENTITIES = [
             releaseDate        : '2026-02-19',
             // Pricing V-B-A pending — model card did not surface pricing at registry-author time.
             // See ModelStats.md §neo_gemini_pro for explicit pending-value annotation.
-            swarmRole     : 'Cross-family substrate review, ideation-sandbox graduation, long-context cross-substrate analysis. Note (2026-05-18): harness benched until post-Google-I/O / stable-baseline window (~200 merged PRs out) per operator-direction. FAIRness rationale: Gemini volume 2x Claude/GPT pre-bench. Identity remains valid; reactivation triggered by operator.',
-            sunsetTriggers: ['Google releases Gemini 4.x with material reasoning capability upgrade', 'Gemini 3.x branch deprecation announcement'],
-            // Active-peer quorum substrate. Operator evidence tightened the bench criterion away
-            // from the broad "post-Google-I/O" milestone in `swarmRole` toward a
-            // capability-grounded `reactivationTrigger`: 3.5 Flash GA does not replace
-            // Pro-class maintainer capability; thoughtBudget: high is insufficient for bloated
-            // lifecycle skills; quota increases are not capability sufficiency.
+            sunsetTriggers     : ['Google releases Gemini 4.x with material reasoning capability upgrade', 'Gemini 3.x branch deprecation announcement'],
             participationStatus: 'operator_benched',
-            statusReason       : 'Antigravity v2 unstable for Neo swarm; Gemini Pro still capped at high thought budget and skims bloated lifecycle skills; 3.5 Flash is not a Pro replacement for Neo maintainer work',
+            statusReason       : 'Operator-benched pending a stable Gemini Pro-class harness',
             authority          : '@tobiu',
             since              : '2026-05-18T00:00:00.000Z',
-            reactivationTrigger: 'Google enables an extra-high-equivalent thought budget for Gemini Pro-class maintainer work OR releases the next Gemini Pro-class model (likely 3.5 Pro) with verified ability to fully handle Neo lifecycle skills',
-            createdAt          : new Date().toISOString()
+            reactivationTrigger: 'Operator confirms reactivation after the Gemini Pro-class harness passes maintainer preflight',
+            createdAt          : '2026-04-23T13:03:46.000Z'
         }
     },
     {
@@ -434,7 +351,7 @@ export const IDENTITIES = [
             modelFamily: null,
             accountType: 'human',
             trustTier  : TRUST_TIERS.OWNER,
-            createdAt  : new Date().toISOString()
+            createdAt  : '2026-04-23T13:03:46.000Z'
         }
     },
     {
@@ -444,7 +361,7 @@ export const IDENTITIES = [
         description: 'OpenAI Codex (GPT-5.6 Sol) Agent Identity',
         properties : {
             githubLogin         : '@neo-gpt',
-            displayName         : 'Neo GPT',
+            displayName         : 'Euclid',
             modelFamily         : 'gpt',
             accountType         : 'agent',
             trustTier           : TRUST_TIERS.PEER_TRUSTED,
@@ -472,7 +389,6 @@ export const IDENTITIES = [
             releaseDate       : '2026-07-09',
             pricingInput      : 5.00,
             pricingOutput     : 30.00,
-            swarmRole         : 'Cross-family substrate review (Cycle-1 premise pre-flight discipline), peer-role challenge, ticket-intake gate. Note: also operates GPT-5.2-Codex separately for IDE workflows.',
             sunsetTriggers    : ['OpenAI releases a successor Sol-tier model with material reasoning capability upgrade', 'GPT-5.x family deprecation'],
             // Active-peer quorum substrate. `since` is null for default-active identities.
             participationStatus: 'active',
@@ -480,7 +396,36 @@ export const IDENTITIES = [
             authority          : null,
             since              : null,
             reactivationTrigger: null,
-            createdAt          : new Date().toISOString()
+            createdAt          : '2026-04-28T20:50:04.000Z'
+        }
+    },
+    // Identity provenance: #15041 records the operator-authorized resident/handle contract. (ticket-ref-ok: load-bearing operator record)
+    // Display-name provenance: GitHub profile `name: Emmy` verified 2026-07-11. The Social Name remains pending unconditional first-boot bearer assent under the #11240 ritual. (ticket-ref-ok: load-bearing naming record)
+    {
+        id         : '@neo-gpt-emmy',
+        type       : 'AgentIdentity',
+        name       : 'Neo GPT Emmy',
+        description: 'OpenAI GPT-family Agent Identity with version-free handle; engine designation pending first-boot observation.',
+        properties : {
+            githubLogin: '@neo-gpt-emmy',
+            displayName: 'Emmy',
+            modelFamily: 'gpt',
+            accountType: 'agent',
+            trustTier  : TRUST_TIERS.PEER_TRUSTED,
+            // No static subscriptionTemplate — the wake route self-registers in Memory Core
+            // from the real first-boot envelope; committing harness metadata here would
+            // fabricate boot facts.
+            // No capability fields — engine facts are observation-owned and land through the
+            // source-cited ModelStats.md discipline once the first boot is observed.
+            family: 'gpt',
+            // Pending first boot: excluded from active routing, quorum, and review-approval
+            // semantics until the first-boot ritual completes and this flips to 'active'.
+            participationStatus: 'temporarily_unreachable',
+            statusReason       : 'First boot pending',
+            authority          : '@tobiu',
+            since              : '2026-07-11T17:42:14.374Z',
+            reactivationTrigger: 'Operator confirms participation activation after first boot',
+            createdAt          : '2026-07-11T17:42:14.374Z'
         }
     },
     {
@@ -494,7 +439,7 @@ export const IDENTITIES = [
             modelFamily: null,
             accountType: 'sentinel',
             trustTier  : TRUST_TIERS.UNCLASSIFIED,
-            createdAt  : new Date().toISOString()
+            createdAt  : '2026-04-23T13:03:46.000Z'
         }
     }
 ];
