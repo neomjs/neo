@@ -351,7 +351,7 @@ Per the parent epic's discipline (one Contract-Ledgered leaf per capability), im
 |---|---|---|
 | Auto-hide UI: reveal overlay + pin control + rail drag source | §2.7 | **#13280 (in flight, Grace)** — held design-first by owner decision; this record is its contract |
 | `CrossWindowDragTarget` formalization + dock workspace target + `transferItem` | §2.3 | unfiled; file at claim time citing §2.3 |
-| Topology perspectives: the hint layer on `dockLayout.v2` + switcher + restore reconciliation | §2.2 | envelope + capture/list/restore tools landed; the placement-hint layer + multi-window restore remain |
+| Topology perspectives: the hint layer on `dockLayout.v2` + switcher + restore reconciliation | §2.2 | envelope + model-level capture/collection substrate landed; NL capture/list/restore tools are in review (#15019); the placement-hint layer + atomic multi-window restore remain |
 | Grouped drag (`moveNode`/`transferNode`) + tab overflow affordance | §2.4 | unfiled |
 | Core lift to a non-dashboard namespace | §2.5 | **gated** — fires only on the named trigger |
 
