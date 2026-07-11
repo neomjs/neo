@@ -159,7 +159,8 @@ export const test = base.extend({
                      * @returns {Promise<Object>}
                      */
                     async inspectClass(className, detail = 'standard') {
-                        return NeuralLink_InstanceService.inspectClass({ sessionId, className, detail });
+                        // RuntimeService owns inspect_class (authority: the MCP toolService routing table)
+                        return NeuralLink_RuntimeService.inspectClass({ sessionId, className, detail });
                     },
 
                     /**
@@ -169,7 +170,8 @@ export const test = base.extend({
                      * @returns {Promise<Object>}
                      */
                     async getMethodSource(className, methodName) {
-                        return NeuralLink_InstanceService.getMethodSource({ sessionId, className, methodName });
+                        // RuntimeService owns get_method_source (authority: the MCP toolService routing table)
+                        return NeuralLink_RuntimeService.getMethodSource({ sessionId, className, methodName });
                     },
 
                     /**
@@ -181,7 +183,8 @@ export const test = base.extend({
                      * @returns {Promise<Object>}
                      */
                     async patchCode(className, methodName, source) {
-                        return NeuralLink_InstanceService.patchCode({ sessionId, className, methodName, source });
+                        // RuntimeService owns patch_code (authority: the MCP toolService routing table)
+                        return NeuralLink_RuntimeService.patchCode({ sessionId, className, methodName, source });
                     },
 
                     // --- Instance Methods ---
@@ -324,7 +327,8 @@ export const test = base.extend({
                      * @returns {Promise<Object>}
                      */
                     async highlightComponent(componentId, options) {
-                        return NeuralLink_ComponentService.highlightComponent({ sessionId, componentId, options });
+                        // InteractionService owns highlight_component (authority: the MCP toolService routing table)
+                        return NeuralLink_InteractionService.highlightComponent({ sessionId, componentId, options });
                     },
 
                     /**
@@ -533,7 +537,8 @@ export const test = base.extend({
                      * @returns {Promise<Object>}
                      */
                     async getConsoleLogs(type, filter) {
-                        return NeuralLink_RuntimeService.getConsoleLogs({ sessionId, type, filter });
+                        // ConnectionService owns get_console_logs (authority: the MCP toolService routing table)
+                        return NeuralLink_ConnectionService.getConsoleLogs({ sessionId, type, filter });
                     },
 
                     /**
@@ -567,7 +572,8 @@ export const test = base.extend({
                      * @returns {Promise<Object>}
                      */
                     async getDragState() {
-                        return NeuralLink_RuntimeService.getDragState({ sessionId });
+                        // InteractionService owns get_drag_state (authority: the MCP toolService routing table)
+                        return NeuralLink_InteractionService.getDragState({ sessionId });
                     },
 
                     /**
