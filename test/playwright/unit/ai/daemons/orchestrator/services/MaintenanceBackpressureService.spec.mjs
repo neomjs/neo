@@ -76,7 +76,8 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
             'message-concept-harvest',
             'primary-dev-sync',
             'tenant-repo-sync',
-            'summary'
+            'summary',
+            'temporal-summary'
         ].sort());
         expect(Object.isFrozen(DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES)).toBe(true);
         // Golden Path is light maintenance and must NOT be in the heavy-maintenance set.

@@ -66,6 +66,32 @@ test.describe('orchestrator/scheduling/registry (#11862 Sub 18)', () => {
         })).toBeNull();
     });
 
+    test('temporal-summary is registered as an exclusive-heavy supervised-child aggregation lane, inert until enabled (#14938)', () => {
+        const descriptor = TASK_REGISTRY.find(d => d.taskName === 'temporal-summary');
+        expect(descriptor, 'temporal-summary is registered').toBeTruthy();
+        expect(descriptor.executionKind).toBe('supervised-child-process');
+        expect(descriptor.maintenanceClass).toBe('heavy');
+        expect(descriptor.backpressure).toBe('exclusive-heavy');
+        expect(descriptor.dependencies).toEqual([]);
+        // disabled (opt-in false OR unset) → never due, even long overdue: the lane never dispatches while off
+        expect(descriptor.getDueTask({
+            state: {}, now: 1e12, intervals: {temporalSummary: 1000}, enables: {temporalSummary: false}
+        })).toBeNull();
+        expect(descriptor.getDueTask({
+            state: {}, now: 1e12, intervals: {temporalSummary: 1000}, enables: {}
+        })).toBeNull();
+        // enabled + cadence elapsed → due
+        expect(descriptor.getDueTask({
+            state    : {'temporal-summary': {lastRunAt: 0}}, now: 6000,
+            intervals: {temporalSummary: 5000}, enables: {temporalSummary: true}
+        })).toMatchObject({taskName: 'temporal-summary', source: 'periodic-temporal-summary'});
+        // enabled but within cadence → not yet due
+        expect(descriptor.getDueTask({
+            state    : {'temporal-summary': {lastRunAt: 2000}}, now: 6000,
+            intervals: {temporalSummary: 5000}, enables: {temporalSummary: true}
+        })).toBeNull();
+    });
+
     test('tenant-repo-sync is registered as an exclusive-heavy cloud-ingestion lane (#14400)', () => {
         const descriptor = TASK_REGISTRY.find(d => d.taskName === 'tenant-repo-sync');
         expect(descriptor, 'tenant-repo-sync is registered').toBeTruthy();

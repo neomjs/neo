@@ -387,6 +387,16 @@ export function buildTaskDefinitions({
             pidFileName    : 'graphlog-compaction.pid',
             expectedCommand: 'compactGraphLog.mjs'
         },
+        // Supervised one-shot: the orchestrator owns cadence + the heavy-maintenance lease and spawns this
+        // child per due tick to run ONE temporal-pyramid aggregation cycle (L1 session + L2 daily) and exit.
+        // No child poller — the entry has no timer and never self-reschedules.
+        'temporal-summary': {
+            label          : 'temporal-pyramid aggregation',
+            command        : nodeBin,
+            args           : [path.join(scriptDir, 'maintenance', 'aggregate-temporal-summary.mjs')],
+            pidFileName    : 'temporal-summary.pid',
+            expectedCommand: 'aggregate-temporal-summary.mjs'
+        },
         // One-shot KB defrag spawned by the chroma max-runtime recycle once the
         // freshly-restarted daemon is connection-ready. Unified-store-safe (rebuilds the KB
         // collection, preserves Memory Core segment dirs). NOT a continuousTask.

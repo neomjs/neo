@@ -35,6 +35,7 @@ export const TASK_STALENESS_CADENCE_KEY = Object.freeze({
     'tenant-repo-sync'       : 'tenantRepoSync',
     dream                    : 'dream',
     'message-concept-harvest': 'messageConceptHarvest',
+    'temporal-summary'       : 'temporalSummary',
     'golden-path'            : 'goldenPath'
 });
 
@@ -122,7 +123,8 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
                 swarmHeartbeat                 : config.orchestrator.intervals.swarmHeartbeatMs,
                 embedDrainLivenessWatchdogCheck: config.orchestrator.intervals.embedDrainLivenessWatchdogCheckMs,
                 remConsolidationWatchdogCheck  : config.orchestrator.intervals.remConsolidationWatchdogCheckMs,
-                dataIntegritySweepCheck        : config.orchestrator.intervals.dataIntegritySweepCheckMs
+                dataIntegritySweepCheck        : config.orchestrator.intervals.dataIntegritySweepCheckMs,
+                temporalSummary                : config.temporalSummary.aggregationIntervalMs
             },
             enables: {
                 kbSync            : orchestrator.kbSyncEnabled,
@@ -130,7 +132,8 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
                 graphLogCompaction: orchestrator.graphLogCompactionEnabled,
                 primaryDevSync    : orchestrator.primaryDevSyncEnabled,
                 tenantRepoSync    : orchestrator.tenantRepoSyncEnabled,
-                swarmHeartbeat    : orchestrator.swarmHeartbeatEnabled
+                swarmHeartbeat    : orchestrator.swarmHeartbeatEnabled,
+                temporalSummary   : orchestrator.temporalSummaryEnabled
             },
             hooks: {
                 log                                 : orchestrator.writeLog.bind(orchestrator),

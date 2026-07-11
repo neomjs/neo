@@ -111,7 +111,8 @@ export function isValidPartition(partition) {
  * (the pyramid contract §2.3), fail-closed with every violation named.
  *
  * Window bounds are ISO 8601 UTC strings with `windowStart` strictly before `windowEnd`;
- * `version` is a positive integer (append-only re-aggregation counter — retention within it is
+ * `version` is a positive integer (the material aggregation-contract version — a same-`version` re-fold
+ * overwrites in place, a contract bump mints a new append-only version; retention within it is
  * Leaf B's contract). Unknown extra fields are rejected: the contract is exactly five fields, and
  * silently-carried extras become undocumented query surface.
  * @param {Object} metadata The candidate metadata object

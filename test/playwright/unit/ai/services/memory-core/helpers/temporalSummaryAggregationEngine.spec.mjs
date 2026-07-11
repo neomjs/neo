@@ -21,11 +21,16 @@ import {
     composeUnifiedRecord,
     deriveAgentVelocityFields,
     deriveVelocityFields,
+    DEFAULT_RETAINED_VERSIONS,
     HIGH_IMPACT_THRESHOLD,
     planDailyWindows,
+    planSessionWindows,
     resolveDailyWindow,
     resolvePartitionKeys,
+    resolveSessionWindow,
+    TEMPORAL_AGGREGATION_VERSION,
     VELOCITY_FIELD_SOURCES,
+    versionsToPrune,
     WINDOW_SCOPED_VELOCITY_FIELDS
 } from '../../../../../../../ai/services/memory-core/helpers/temporalSummaryAggregationEngine.mjs';
 
@@ -288,5 +293,97 @@ test.describe('Neo.ai.services.memory-core.temporalSummaryAggregationEngine', ()
         expect(windows[1].windowEnd).toBe(windows[0].windowStart);
         // dayCount coerces to >= 1
         expect(planDailyWindows({anchor: '2026-07-06T00:00:00.000Z', dayCount: 0})).toHaveLength(1)
+    });
+
+    test('resolveSessionWindow returns half-open UTC-hour bounds for any anchor within the hour', () => {
+        const {windowStart, windowEnd} = resolveSessionWindow('2026-07-05T14:37:12.500Z');
+
+        expect(windowStart).toBe('2026-07-05T14:00:00.000Z');
+        expect(windowEnd).toBe('2026-07-05T15:00:00.000Z')
+    });
+
+    test('resolveSessionWindow rolls the hour over the UTC-day boundary instead of minting an invalid 24:00', () => {
+        const {windowStart, windowEnd} = resolveSessionWindow('2026-07-05T23:59:59.999Z');
+
+        expect(windowStart).toBe('2026-07-05T23:00:00.000Z');
+        expect(windowEnd).toBe('2026-07-06T00:00:00.000Z')
+    });
+
+    test('resolveSessionWindow fails closed on an unparseable anchor', () => {
+        expect(() => resolveSessionWindow('not-a-timestamp')).toThrow(/invalid anchor/)
+    });
+
+    test('planSessionWindows returns contiguous most-recent-first UTC-hour windows, bounded by hourCount', () => {
+        const windows = planSessionWindows({anchor: '2026-07-06T14:20:00.000Z', hourCount: 3});
+
+        expect(windows).toEqual([
+            {windowStart: '2026-07-06T14:00:00.000Z', windowEnd: '2026-07-06T15:00:00.000Z'},
+            {windowStart: '2026-07-06T13:00:00.000Z', windowEnd: '2026-07-06T14:00:00.000Z'},
+            {windowStart: '2026-07-06T12:00:00.000Z', windowEnd: '2026-07-06T13:00:00.000Z'}
+        ]);
+        // contiguous: each window's end is the next-newer window's start
+        expect(windows[1].windowEnd).toBe(windows[0].windowStart);
+        // hourCount coerces to >= 1
+        expect(planSessionWindows({anchor: '2026-07-06T14:00:00.000Z', hourCount: 0})).toHaveLength(1)
+    });
+
+    test('planSessionWindows rolls the trailing batch across the UTC-day boundary', () => {
+        const windows = planSessionWindows({anchor: '2026-07-06T00:30:00.000Z', hourCount: 2});
+
+        expect(windows).toEqual([
+            {windowStart: '2026-07-06T00:00:00.000Z', windowEnd: '2026-07-06T01:00:00.000Z'},
+            {windowStart: '2026-07-05T23:00:00.000Z', windowEnd: '2026-07-06T00:00:00.000Z'}
+        ])
+    });
+
+    test('every hourly L1 window nests within exactly one L2 day — the tiers stay coherent', () => {
+        // a mid-day anchor: the default 24-window batch is a rolling day that straddles two calendar days,
+        // yet no individual hour window may straddle the UTC-day boundary
+        const hourly = planSessionWindows({anchor: '2026-07-05T14:37:00.000Z'});
+
+        expect(hourly).toHaveLength(24);
+
+        for (const window of hourly) {
+            const day = resolveDailyWindow(window.windowStart);
+
+            // opens on/after its day's start and closes on/before that same day's end (half-open: the 23:00
+            // window's end equals the day's end) — so each L1 window rolls up into exactly one L2 day
+            expect(Date.parse(window.windowStart)).toBeGreaterThanOrEqual(Date.parse(day.windowStart));
+            expect(Date.parse(window.windowEnd)).toBeLessThanOrEqual(Date.parse(day.windowEnd))
+        }
+
+        // contiguous with no gaps or overlaps across the whole batch
+        for (let i = 1; i < hourly.length; i++) {
+            expect(hourly[i].windowEnd).toBe(hourly[i - 1].windowStart)
+        }
+    });
+
+    test('records default to the contract version; a version bump mints a new append-only id for the same window', () => {
+        const window = {level: 'daily', windowStart: '2026-07-05T00:00:00.000Z', windowEnd: '2026-07-06T00:00:00.000Z'};
+
+        // both compose paths stamp the CONTRACT version by default → stable id, so a same-contract re-fold overwrites
+        const unified = composeUnifiedRecord(window);
+        expect(unified.metadata.version).toBe(TEMPORAL_AGGREGATION_VERSION);
+        expect(unified.id).toContain(`-v${TEMPORAL_AGGREGATION_VERSION}`);
+        expect(composeAgentRecord({...window, partition: '@neo-opus-ada'}).metadata.version).toBe(TEMPORAL_AGGREGATION_VERSION);
+
+        // a bumped contract version mints a DIFFERENT id for the same window+track — append-only, not overwrite
+        expect(composeUnifiedRecord({...window, version: TEMPORAL_AGGREGATION_VERSION + 1}).id).not.toBe(unified.id)
+    });
+
+    test('versionsToPrune keeps the newest N contract-versions and returns the older overflow to delete', () => {
+        // 5 versions, keep newest 3 → prune {2, 1}
+        expect(versionsToPrune({existingVersions: [1, 2, 3, 4, 5], retainedVersions: 3})).toEqual([2, 1]);
+        // within the bound → nothing to prune
+        expect(versionsToPrune({existingVersions: [1, 2, 3], retainedVersions: 3})).toEqual([]);
+        // sparse/gapped + duplicate + unordered: newest-N by COUNT, not a contiguous range
+        expect(versionsToPrune({existingVersions: [7, 2, 7, 9, 4], retainedVersions: 2})).toEqual([4, 2]);
+        // invalid entries (non-integer / < 1) are ignored — never treated as record ids
+        expect(versionsToPrune({existingVersions: [3, 2, 0, -1, 1.5, 1], retainedVersions: 2})).toEqual([1]);
+        // retainedVersions coerces to >= 1; the default keeps DEFAULT_RETAINED_VERSIONS
+        expect(versionsToPrune({existingVersions: [3, 2, 1], retainedVersions: 0})).toEqual([2, 1]);
+        expect(versionsToPrune({existingVersions: [4, 3, 2, 1]})).toEqual([1]);
+        expect(DEFAULT_RETAINED_VERSIONS).toBe(3);
+        expect(versionsToPrune()).toEqual([])
     })
 });
