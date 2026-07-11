@@ -3,6 +3,7 @@ import {
     buildOrchestratorSchedulingOptions,
     buildSchedulingContext,
     buildTaskStalenessMeta,
+    executeCandidate,
     runSchedulingPipeline,
     TASK_STALENESS_CADENCE_KEY
 } from '../../../../../../../ai/daemons/orchestrator/scheduling/pipeline.mjs';
@@ -129,6 +130,8 @@ function makeOrchestratorAdapterFixture(overrides = {}) {
         embedDaemonEnabled                     : true,
         remConsolidationWatchdogRunStateDir    : '/tmp/rem',
         remConsolidationWatchdogThresholdMs    : 2_000,
+        temporalSummaryEnabled                 : false,
+        temporalSummaryAggregationService      : {runCycle: async () => {}},
         ...overrides
     };
 }
@@ -157,6 +160,9 @@ function makeAdapterConfig({dreamMs = 3_600_000, remBacklogCatchupCooldownMs = 3
                 sweepCadenceMs: 1,
                 jitterRatio   : 0
             }
+        },
+        temporalSummary: {
+            aggregationIntervalMs: 1
         }
     };
 }
@@ -187,6 +193,55 @@ test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
         });
 
         expect(disabledOptions.runtime.remConsolidationWatchdogAlarmEnabled).toBe(false);
+    });
+
+    test('buildOrchestratorSchedulingOptions wires the temporal-summary cadence, enable, and service (#14938)', () => {
+        const svc          = {runCycle: async () => {}};
+        const orchestrator = makeOrchestratorAdapterFixture({
+            temporalSummaryEnabled           : true,
+            temporalSummaryAggregationService: svc
+        });
+
+        const options = buildOrchestratorSchedulingOptions({
+            orchestrator,
+            config  : makeAdapterConfig(),
+            now     : 10,
+            registry: []
+        });
+
+        // cadence read from config.temporalSummary.aggregationIntervalMs; enable + service off the orchestrator
+        expect(options.context.intervals.temporalSummary).toBe(1);
+        expect(options.context.enables.temporalSummary).toBe(true);
+        expect(options.services.temporalSummaryAggregationService).toBe(svc);
+    });
+
+    test('executeCandidate dispatches temporal-summary in-process THROUGH the heavy lease → runCycle (#14938)', async () => {
+        let ranCycle = 0, leasedTask = null;
+
+        const services = {
+            temporalSummaryAggregationService: {runCycle: async () => { ranCycle++ }},
+            taskStateService                 : {markStarted() {}, markCompleted() {}, markFailed() {}, getTaskState: () => ({})},
+            healthService                    : {recordTaskOutcome() {}},
+            // heavy → routes through executeWithMaintenance → acquireLeaseAndExecute (NOT the lease-free swarm path)
+            maintenanceBackpressureService: {
+                acquireLeaseAndExecute({taskName, executeFn}) { leasedTask = taskName; return executeFn(taskName, 'periodic-temporal-summary:1'); }
+            }
+        };
+
+        await executeCandidate({
+            candidate: {
+                taskName  : 'temporal-summary',
+                trigger   : {reason: 'periodic-temporal-summary:1'},
+                descriptor: {executionKind: 'in-process-async', maintenanceClass: 'heavy'}
+            },
+            activeHeavyTask: {name: null},
+            services,
+            runtime        : {writeLog() {}}
+        });
+
+        // it took the heavy lease (exclusive-heavy correctness) and ran exactly one aggregation cycle
+        expect(leasedTask).toBe('temporal-summary');
+        expect(ranCycle).toBe(1);
     });
 
     test('reports descriptor errors and still dispatches the selected candidate', () => {

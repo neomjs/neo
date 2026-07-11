@@ -35,6 +35,7 @@ export const TASK_STALENESS_CADENCE_KEY = Object.freeze({
     'tenant-repo-sync'       : 'tenantRepoSync',
     dream                    : 'dream',
     'message-concept-harvest': 'messageConceptHarvest',
+    'temporal-summary'       : 'temporalSummary',
     'golden-path'            : 'goldenPath'
 });
 
@@ -122,7 +123,8 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
                 swarmHeartbeat                 : config.orchestrator.intervals.swarmHeartbeatMs,
                 embedDrainLivenessWatchdogCheck: config.orchestrator.intervals.embedDrainLivenessWatchdogCheckMs,
                 remConsolidationWatchdogCheck  : config.orchestrator.intervals.remConsolidationWatchdogCheckMs,
-                dataIntegritySweepCheck        : config.orchestrator.intervals.dataIntegritySweepCheckMs
+                dataIntegritySweepCheck        : config.orchestrator.intervals.dataIntegritySweepCheckMs,
+                temporalSummary                : config.temporalSummary.aggregationIntervalMs
             },
             enables: {
                 kbSync            : orchestrator.kbSyncEnabled,
@@ -130,7 +132,8 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
                 graphLogCompaction: orchestrator.graphLogCompactionEnabled,
                 primaryDevSync    : orchestrator.primaryDevSyncEnabled,
                 tenantRepoSync    : orchestrator.tenantRepoSyncEnabled,
-                swarmHeartbeat    : orchestrator.swarmHeartbeatEnabled
+                swarmHeartbeat    : orchestrator.swarmHeartbeatEnabled,
+                temporalSummary   : orchestrator.temporalSummaryEnabled
             },
             hooks: {
                 log                                 : orchestrator.writeLog.bind(orchestrator),
@@ -158,7 +161,8 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
             tenantRepoSyncService                  : orchestrator.tenantRepoSyncService,
             embedDrainLivenessAlarmDispatcher      : orchestrator.embedDrainLivenessAlarmDispatcher,
             remConsolidationLivenessAlarmDispatcher: orchestrator.remConsolidationLivenessAlarmDispatcher,
-            dataIntegrityDiagnosisService          : orchestrator.dataIntegrityDiagnosisService
+            dataIntegrityDiagnosisService          : orchestrator.dataIntegrityDiagnosisService,
+            temporalSummaryAggregationService      : orchestrator.temporalSummaryAggregationService
         },
         runtime: {
             goldenPathRepoEnrichmentEnabled       : orchestrator.goldenPathRepoEnrichmentEnabled,
@@ -437,7 +441,8 @@ function executeInProcessCandidate({candidate, activeHeavyTask, services, runtim
             services,
             repoEnrichmentEnabled: runtime.goldenPathRepoEnrichmentEnabled
         }),
-        'swarm-heartbeat': (taskName, reason) => runSwarmHeartbeatTask({taskName, reason, services})
+        'swarm-heartbeat' : (taskName, reason) => runSwarmHeartbeatTask({taskName, reason, services}),
+        'temporal-summary': (taskName, reason) => runTemporalSummaryTask({taskName, reason, services})
     };
 
     const executeFn = runners[candidate.taskName];
@@ -627,6 +632,40 @@ async function runSwarmHeartbeatTask({taskName, reason, services}) {
     services.healthService?.recordTaskOutcome?.(taskName, 'running', { reason, startedAt: new Date().toISOString() });
     try {
         await services.swarmHeartbeatService.pulse();
+        services.taskStateService.markCompleted(taskName);
+        services.healthService?.recordTaskOutcome?.(taskName, 'completed', {
+            reason,
+            completedAt: new Date().toISOString()
+        });
+    } catch (e) {
+        const state = services.taskStateService.getTaskState(taskName);
+        if (state) state.lastReason = e.message;
+        services.taskStateService.markFailed(taskName, 1);
+        services.healthService?.recordTaskOutcome?.(taskName, 'failed', {
+            reason,
+            error   : e.message,
+            failedAt: new Date().toISOString()
+        });
+    }
+}
+
+/**
+ * @summary Runs one temporal-pyramid aggregation cycle in-process under the heavy-maintenance lease — the
+ * orchestrator owns the cadence + lease (the runner reaches here through the default `executeWithMaintenance`
+ * path), so this just invokes the pure service cycle and records the task outcome. Mirrors the other in-process
+ * runners; a thrown cycle degrades to a recorded `failed` outcome and never breaks the scheduling loop.
+ * @param {Object} options
+ * @param {String} options.taskName
+ * @param {String} options.reason Scheduling reason.
+ * @param {Object} options.services Runtime collaborators (`taskStateService`, `healthService`,
+ *   `temporalSummaryAggregationService`).
+ * @returns {Promise<void>}
+ */
+async function runTemporalSummaryTask({taskName, reason, services}) {
+    services.taskStateService.markStarted(taskName, reason);
+    services.healthService?.recordTaskOutcome?.(taskName, 'running', {reason, startedAt: new Date().toISOString()});
+    try {
+        await services.temporalSummaryAggregationService.runCycle();
         services.taskStateService.markCompleted(taskName);
         services.healthService?.recordTaskOutcome?.(taskName, 'completed', {
             reason,

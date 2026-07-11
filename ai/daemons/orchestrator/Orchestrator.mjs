@@ -51,6 +51,7 @@ import {createLiveDimensionConsistencyGatherer}                                 
 import DreamService                                                                                 from './services/DreamService.mjs';
 import SwarmHeartbeatService                                                                        from './services/SwarmHeartbeatService.mjs';
 import GoldenPathSynthesizer                                                                        from '../../services/graph/GoldenPathSynthesizer.mjs';
+import TemporalSummaryAggregationService                                                            from '../temporal-summary/TemporalSummaryAggregationService.mjs';
 import {getDueTask as tenantRepoSyncGetDueTaskImport}                                               from './scheduling/tenantRepoSync.mjs';
 import {TASK_REGISTRY}                                                                              from './scheduling/registry.mjs';
 import {
@@ -199,12 +200,12 @@ export class Orchestrator extends Base {
         dataDir_                        : null,
         // Same contract as dataDir_: the singleton is constructed during module import, so a
         // class-field leaf read would still be a module-load capture.
-        dbPath_                         : null,
-        taskDefinitions_                : null,
-        taskStateService_               : TaskStateService,
-        healthService_                  : HealthService,
-        spawnFn_                        : spawn,
-        heavyMaintenanceLeasePath_      : null
+        dbPath_                   : null,
+        taskDefinitions_          : null,
+        taskStateService_         : TaskStateService,
+        healthService_            : HealthService,
+        spawnFn_                  : spawn,
+        heavyMaintenanceLeasePath_: null
     }
 
     primaryRepoSyncService   = PrimaryRepoSyncService
@@ -212,6 +213,7 @@ export class Orchestrator extends Base {
     dreamService             = DreamService
     swarmHeartbeatService    = SwarmHeartbeatService
     goldenPathSynthesizer    = GoldenPathSynthesizer
+    temporalSummaryAggregationService = TemporalSummaryAggregationService
     initializeDatabaseFn     = initializeDatabaseSelfBootstrap
     summaryGetDueTask        = summaryGetDueTaskImport
     backupGetDueTask         = backupGetDueTaskImport
@@ -806,6 +808,7 @@ export class Orchestrator extends Base {
     get swarmHeartbeatEnabled()          { return resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
     get goldenPathRepoEnrichmentEnabled(){ return resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
     get graphLogCompactionEnabled()      { return AiConfig.orchestrator.graphLogCompaction.enabled;      }
+    get temporalSummaryEnabled()         { return AiConfig.temporalSummary.aggregationEnabled;           }
     get neuralLinkBridgeLivenessTimeoutMs() { return AiConfig.orchestrator.neuralLinkBridge.livenessProbeTimeoutMs; }
 
     /**
