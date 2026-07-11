@@ -152,6 +152,25 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         expect(sideChildren.map(item => item.flex)).toEqual([0.55, 0.45]);
     });
 
+    test('split children release the flexbox min-content floor: committed sizes stay the sole geometry authority', () => {
+        let result = DockLayoutAdapter.project(createModel(), {
+                resolveComponentRef: componentRef => ({
+                    ntype    : 'dashboard-panel',
+                    reference: componentRef
+                })
+            }),
+            rootChildren = getProjectedChildren(result),
+            sideChildren = getProjectedChildren(rootChildren[1]);
+
+        // without the release, a zone's min-content height/width caps the flex
+        // distribution and the rendered split silently deviates from the document —
+        // every DIRECT split child (tabs zones AND nested splits) carries the release
+        [...rootChildren, ...sideChildren].forEach(child => {
+            expect(child.style.minHeight).toBe(0);
+            expect(child.style.minWidth).toBe(0)
+        })
+    });
+
     test('projects resize splitter affordances between adjacent split children', () => {
         let result = DockLayoutAdapter.project(createModel(), {
                 resolveComponentRef: componentRef => ({
