@@ -55,8 +55,8 @@ for (let i = 0; i < args.length; i++) {
 }
 
 async function run() {
-    logger.info('[priorityBackfill] Bootstrapping Memory Graph Service...');
-    await GraphService.initAsync();
+    logger.info('[priorityBackfill] Awaiting Memory Graph Service readiness...');
+    await GraphService.ready();
 
     const summaryCollection = await StorageRouter.getSummaryCollection();
 

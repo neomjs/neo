@@ -72,10 +72,10 @@ import { checkInflightLock } from './inflightLock.mjs';
  * @returns {Promise<Object>} Structured detector contract consumed by shell and daemon paths.
  */
 export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY || '@neo-gemini-pro') {
-    await LifecycleService.initAsync();
+    await LifecycleService.ready();
 
-    // Ensure GraphService is initialized
-    await GraphService.initAsync();
+    // Ensure GraphService finished initializing
+    await GraphService.ready();
     const db = GraphService.db.storage.db;
 
     // Query all subscriptions for this identity so the detector emits a structured

@@ -27,7 +27,7 @@ const logInfo = message => console.error(`[INFO] ${message}`);
 async function summarize() {
     logInfo('[summarize-sessions] Initializing SessionService...');
     try {
-        await Memory_SessionService.initAsync();
+        await Memory_SessionService.ready();
 
         logInfo('[summarize-sessions] Draining pending session summarization markers...');
         const pendingResult = await Memory_SessionService.summarizePendingSessions();

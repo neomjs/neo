@@ -6,7 +6,8 @@ console.log('ConnectionService imported');
 console.log('Is instance?', ConnectionService instanceof Neo.core.Base);
 
 try {
-    await ConnectionService.initAsync();
+    // construct auto-fires initAsync; ready() resolves once the singleton finished initializing
+    await ConnectionService.ready();
     console.log('ConnectionService initialized');
 
     try {

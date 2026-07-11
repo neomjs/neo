@@ -1,11 +1,11 @@
-import Base  from '../../src/core/Base.mjs';
-import Agent from '../Agent.mjs';
+import Base   from '../../src/core/Base.mjs';
+import Agent  from '../Agent.mjs';
 import crypto from 'crypto';
-import fs    from 'fs';
-import path  from 'path';
+import fs     from 'fs';
+import path   from 'path';
 
 const OUTCOME_STATUSES = new Set(['completed', 'failed', 'blocked', 'expired', 'exhausted', 'crashed']),
-      REASON_CODES      = new Set([
+      REASON_CODES     = new Set([
           'agent-uncaught-error',
           'productive-failure-tripwire',
           'turn-limit',
@@ -89,7 +89,7 @@ class AgentOrchestrator extends Base {
             return null;
         }
 
-        const content = fs.readFileSync(this.handoffPath, 'utf-8');
+        const content         = fs.readFileSync(this.handoffPath, 'utf-8');
         const goldenPathMatch = content.match(/## Computed Golden Path[^\n]*\n([\s\S]*?)(?=\n#|$)/);
 
         if (!goldenPathMatch) {
@@ -407,7 +407,14 @@ class AgentOrchestrator extends Base {
 
             const agent = this.createAgent();
 
-            await agent.initAsync();
+            // construct() auto-fired the agent's initAsync; ready() awaits it without the former
+            // double-run (which created every MCP client twice). Boot failures degrade inside
+            // Agent.initAsync and surface here, keeping this catch block the error path.
+            await agent.ready();
+
+            if (agent.initError) {
+                throw agent.initError;
+            }
 
             console.log('   Injecting Golden Path Directives into Scheduler...');
 

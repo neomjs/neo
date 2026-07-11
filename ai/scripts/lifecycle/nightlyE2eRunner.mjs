@@ -138,8 +138,8 @@ export async function runNightlyE2e() {
         }
 
         const sender = process.env.NEO_AGENT_IDENTITY || '@system';
-        await LifecycleService.initAsync();
-        await GraphService.initAsync();
+        await LifecycleService.ready();
+        await GraphService.ready();
 
         await RequestContextService.run({agentIdentityNodeId: sender}, async () => {
             await MailboxService.addMessage({
