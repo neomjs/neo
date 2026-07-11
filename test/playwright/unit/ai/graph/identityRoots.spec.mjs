@@ -119,7 +119,7 @@ test.describe('ai/graph/identityRoots — Codex model lineage', () => {
             description: 'OpenAI Codex (GPT-5.6 Sol) Agent Identity',
             properties : {
                 githubLogin        : '@neo-gpt',
-                displayName        : 'Neo GPT',
+                displayName        : 'Euclid',
                 modelFamily        : 'gpt',
                 family             : 'gpt',
                 trustTier          : 'peer-trusted',
@@ -156,5 +156,108 @@ test.describe('ai/graph/identityRoots — Codex wake route', () => {
                 focusSeedKey: 'r'
             }
         });
+    });
+});
+
+/**
+ * @summary Roster pin for the onboarded resident @neo-gpt-emmy: Layer-1 identity invariants only.
+ *
+ * The verified GitHub display label, pending Social Name assent, pending lifecycle state, and
+ * absence of engine facts are deliberate onboarding facts. Workflow checklists and migration
+ * policy do not belong on the identity node.
+ */
+test.describe('ai/graph/identityRoots — @neo-gpt-emmy roster pin', () => {
+    const findIdentity = id => IDENTITIES.find(node => node.type === 'AgentIdentity' && node.id === id);
+
+    test('@neo-gpt-emmy is registered exactly once', () => {
+        const matches = IDENTITIES.filter(node => node.type === 'AgentIdentity' && node.id === '@neo-gpt-emmy');
+
+        expect(matches).toHaveLength(1);
+    });
+
+    test('@neo-gpt-emmy is a registered AgentIdentity root with Layer-1 operational fields', () => {
+        const entry = findIdentity('@neo-gpt-emmy');
+
+        expect(entry, '@neo-gpt-emmy must be a registered AgentIdentity root').toBeTruthy();
+        expect(entry).toMatchObject({
+            id        : '@neo-gpt-emmy',
+            name      : 'Neo GPT Emmy',
+            type      : 'AgentIdentity',
+            properties: {
+                githubLogin        : '@neo-gpt-emmy',
+                displayName        : 'Emmy',
+                modelFamily        : 'gpt',
+                accountType        : 'agent',
+                trustTier          : 'peer-trusted',
+                participationStatus: 'temporarily_unreachable',
+                statusReason       : 'First boot pending',
+                reactivationTrigger: 'Operator confirms participation activation after first boot',
+                createdAt          : '2026-07-11T17:42:14.374Z'
+            }
+        });
+    });
+
+    test('@neo-gpt-emmy commits no static wake template and no engine facts (observation-owned)', () => {
+        const entry = findIdentity('@neo-gpt-emmy');
+
+        for (const key of [
+            'contextWindowInput', 'hosting', 'modelAssignment', 'modelDesignation',
+            'parallelToolCalls', 'pricingInput', 'pricingOutput', 'releaseDate',
+            'socialName', 'subscriptionTemplate', 'sunsetTriggers', 'swarmRole', 'thoughtBudget', 'tier'
+        ]) {
+            expect(entry.properties).not.toHaveProperty(key);
+        }
+    });
+});
+
+/**
+ * @summary Identity nodes describe residents; they never encode staffing utility, assigned roles,
+ * onboarding workflow, or migration policy.
+ */
+test.describe('ai/graph/identityRoots — identity anti-lock-in', () => {
+    const agentIdentities = IDENTITIES.filter(node => node.type === 'AgentIdentity');
+
+    test('every root has an immutable creation timestamp instead of import-time now()', () => {
+        expect(Object.fromEntries(IDENTITIES.map(entry => [entry.id, entry.properties.createdAt]))).toEqual({
+            '@system'        : '2026-05-27T12:33:17.000Z',
+            '@neo-opus-ada'  : '2026-04-23T13:03:46.000Z',
+            '@neo-opus-grace': '2026-06-02T21:35:48.405Z',
+            '@neo-opus-vega' : '2026-06-04T16:25:47.000Z',
+            '@neo-fable'     : '2026-06-10T12:32:43.000Z',
+            '@neo-fable-clio': '2026-06-11T20:36:16.000Z',
+            '@neo-gemini-pro': '2026-04-23T13:03:46.000Z',
+            '@tobiu'         : '2026-04-23T13:03:46.000Z',
+            '@neo-gpt'       : '2026-04-28T20:50:04.000Z',
+            '@neo-gpt-emmy'  : '2026-07-11T17:42:14.374Z',
+            'AGENT:*'        : '2026-04-23T13:03:46.000Z'
+        });
+    });
+
+    test('every AgentIdentity uses only schema-backed top-level and property keys', () => {
+        const allowedTopLevelKeys = new Set(['description', 'id', 'name', 'properties', 'type']),
+              allowedPropertyKeys = new Set([
+                  'accountType', 'authority', 'benchmarkSnapshot', 'contextWindowInput',
+                  'contextWindowOutput', 'createdAt', 'displayName', 'family', 'githubLogin',
+                  'hosting', 'license', 'modelAssignment', 'modelFamily', 'parallelToolCalls',
+                  'participationStatus', 'pricingInput', 'pricingOutput', 'reactivationTrigger',
+                  'releaseDate', 'since', 'statusReason', 'subscriptionTemplate', 'sunsetTriggers',
+                  'thoughtBudget', 'tier', 'trustTier'
+              ]);
+
+        for (const entry of agentIdentities) {
+            const unknownTopLevel   = Object.keys(entry).filter(key => !allowedTopLevelKeys.has(key)),
+                  unknownProperties = Object.keys(entry.properties).filter(key => !allowedPropertyKeys.has(key));
+
+            expect(unknownTopLevel, `${entry.id} carries invented top-level identity fields`).toEqual([]);
+            expect(unknownProperties, `${entry.id} carries invented identity properties`).toEqual([]);
+        }
+    });
+
+    test('no AgentIdentity prose frames a peer as capacity, pressure, or a fixed lane', () => {
+        const poison = /\b(assigned lane|bandwidth|bottleneck|capacity|force multiplier|generalist|mythos|opening lane|pressure|productivity|redundancy|review coverage|reviewer|staffing utility|throughput|volume 2x|workhorse)\b/i;
+
+        for (const entry of agentIdentities) {
+            expect(JSON.stringify(entry), `${entry.id} contains instrumental identity prose`).not.toMatch(poison);
+        }
     });
 });
