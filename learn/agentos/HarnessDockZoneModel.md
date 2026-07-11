@@ -363,6 +363,14 @@ Optional wrapper fields:
 - `revision`: monotonic revision, content version, or adapter-owned equivalent used for conflict/recovery messaging.
 - `metadata`: JSON-only descriptive data. It must not contain DOM nodes, functions, live component instances, credentials, PATs, access tokens, or harness bridge tokens.
 
+Schema-name row (the canonical vocabulary both tiers share — the design record's capture-scope amendment is the prescriptive side of this row):
+
+| Schema | Role | Notes |
+|---|---|---|
+| `neo.harness.dockLayout.v1` | legacy saved-layout wrapper | read-path only; migrates forward with honest defaults |
+| `neo.harness.dockLayout.v2` | THE saved-layout AND perspective wrapper | adds `captureScope` (`window` \| `topology`), `windowFingerprint`, `perspectiveName`, `windowDocuments`; there is no separate perspective schema — the envelope carries the capability |
+| `neo.harness.dockLayoutCollection.v1` | the one named-collection shape | perspective collections reuse it verbatim; no third collection shape exists |
+
 Persistence consumes only committed dock-zone state. It must not serialize `dockPreview`, hover rectangles, screen coordinates, `windowId`, `sourceSortZone`, `targetSortZone`, runtime hover/open state for auto-hidden panes, live components, event listeners, controllers, functions, or credential material. If a future detached-window slice needs restore hints, those hints must be separate semantic placement metadata; they must not turn the dock layout into an OS-window session dump.
 
 Restore must validate the wrapper schema, the inner dock-zone schema, and the normalized model invariants before replacing an active layout. Unsupported wrapper versions, unsupported dock-zone versions, invalid references, or invalid split/tab invariants fail closed: keep the last-good active layout and surface validation or recovery state to the caller.
