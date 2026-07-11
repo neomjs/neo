@@ -3,6 +3,254 @@ import DockRestorePlanner from './DockRestorePlanner.mjs';
 import DockZoneModel      from './DockZoneModel.mjs';
 
 /**
+ * @summary Reduces an exact assignment-score fraction to its canonical form.
+ *
+ * The assignment solver keeps overlap evidence as integer ratios. This avoids scalar
+ * weights and floating-point epsilons changing the ordered objective at dense scale.
+ * @param {BigInt|Number} numerator
+ * @param {BigInt|Number} [denominator=1]
+ * @returns {{denominator: BigInt, numerator: BigInt}}
+ * @private
+ */
+function createFraction(numerator, denominator=1) {
+    numerator   = BigInt(numerator);
+    denominator = BigInt(denominator);
+
+    if (denominator === 0n) {
+        throw new Error('Dock topology assignment fraction denominator must be non-zero')
+    }
+
+    if (denominator < 0n) {
+        numerator   = -numerator;
+        denominator = -denominator
+    }
+
+    let a = numerator < 0n ? -numerator : numerator,
+        b = denominator;
+
+    while (b !== 0n) {
+        [a, b] = [b, a % b]
+    }
+
+    let divisor = a || 1n;
+
+    return {denominator: denominator / divisor, numerator: numerator / divisor}
+}
+
+/**
+ * @summary Adds two exact assignment-score fractions.
+ * @param {{denominator: BigInt, numerator: BigInt}} a
+ * @param {{denominator: BigInt, numerator: BigInt}} b
+ * @returns {{denominator: BigInt, numerator: BigInt}}
+ * @private
+ */
+function addFractions(a, b) {
+    return createFraction(
+        a.numerator * b.denominator + b.numerator * a.denominator,
+        a.denominator * b.denominator
+    )
+}
+
+/**
+ * @summary Compares two exact assignment-score fractions.
+ * @param {{denominator: BigInt, numerator: BigInt}} a
+ * @param {{denominator: BigInt, numerator: BigInt}} b
+ * @returns {Number} `-1`, `0`, or `1`
+ * @private
+ */
+function compareFractions(a, b) {
+    let delta = a.numerator * b.denominator - b.numerator * a.denominator;
+
+    return delta < 0n ? -1 : delta > 0n ? 1 : 0
+}
+
+/**
+ * @summary Creates the additive identity for one lexicographic assignment path.
+ * @param {Number} coordinateCount Captured-slot count
+ * @returns {Object}
+ * @private
+ */
+function createZeroCost(coordinateCount) {
+    return {
+        jaccard   : createFraction(0),
+        structural: createFraction(0),
+        signature : Array(coordinateCount).fill(0n),
+        sequence  : Array(coordinateCount).fill(0n)
+    }
+}
+
+/**
+ * @summary Adds two lexicographic assignment-path costs.
+ * @param {Object} a
+ * @param {Object} b
+ * @returns {Object}
+ * @private
+ */
+function addCosts(a, b) {
+    return {
+        jaccard   : addFractions(a.jaccard, b.jaccard),
+        structural: addFractions(a.structural, b.structural),
+        signature : a.signature.map((value, index) => value + b.signature[index]),
+        sequence  : a.sequence.map((value, index) => value + b.sequence[index])
+    }
+}
+
+/**
+ * @summary Negates a lexicographic path cost for a residual reverse edge.
+ * @param {Object} cost
+ * @returns {Object}
+ * @private
+ */
+function negateCost(cost) {
+    return {
+        jaccard   : {denominator: cost.jaccard.denominator, numerator: -cost.jaccard.numerator},
+        structural: {denominator: cost.structural.denominator, numerator: -cost.structural.numerator},
+        signature : cost.signature.map(value => -value),
+        sequence  : cost.sequence.map(value => -value)
+    }
+}
+
+/**
+ * @summary Compares assignment costs in the contract's exact ordered objective.
+ *
+ * Costs are minimized, so affinity fractions enter negated. Content-signature and
+ * live-index coordinates remain ascending, one coordinate per captured slot.
+ * @param {Object} a
+ * @param {Object} b
+ * @returns {Number} `-1`, `0`, or `1`
+ * @private
+ */
+function compareCosts(a, b) {
+    let result = compareFractions(a.jaccard, b.jaccard)
+              || compareFractions(a.structural, b.structural);
+
+    if (result) return result;
+
+    for (let index = 0; index < a.signature.length; index++) {
+        if (a.signature[index] !== b.signature[index]) {
+            return a.signature[index] < b.signature[index] ? -1 : 1
+        }
+    }
+
+    for (let index = 0; index < a.sequence.length; index++) {
+        if (a.sequence[index] !== b.sequence[index]) {
+            return a.sequence[index] < b.sequence[index] ? -1 : 1
+        }
+    }
+
+    return 0
+}
+
+/**
+ * @summary Adds one unit-capacity edge and its exact inverse to a residual graph.
+ * @param {Object[][]} graph
+ * @param {Number} from
+ * @param {Number} to
+ * @param {Object} cost
+ * @param {Object|null} [pair=null] Assignment metadata for captured-to-live edges
+ * @returns {Object} The forward edge
+ * @private
+ */
+function addResidualEdge(graph, from, to, cost, pair=null) {
+    let forward = {capacity: 1, cost, pair, reverseIndex: graph[to].length, to},
+        reverse = {capacity: 0, cost: negateCost(cost), pair: null, reverseIndex: graph[from].length, to: from};
+
+    graph[from].push(forward);
+    graph[to].push(reverse);
+
+    return forward
+}
+
+/**
+ * @summary Finds the cheapest residual augmenting path under the ordered objective.
+ *
+ * Bellman-Ford is intentional: reverse edges are negative and let later flow units repair
+ * earlier pairings. The residual invariant therefore yields a globally optimal matching at
+ * every attained cardinality, while avoiding any unsafe scalarization.
+ * @param {Object[][]} graph
+ * @param {Number} source
+ * @param {Number} coordinateCount
+ * @returns {Object[]} Predecessor edge per graph node
+ * @private
+ */
+function findShortestResidualPath(graph, source, coordinateCount) {
+    let distance = Array(graph.length).fill(null),
+        previous = Array(graph.length).fill(null);
+
+    distance[source] = createZeroCost(coordinateCount);
+
+    for (let pass = 0; pass < graph.length - 1; pass++) {
+        let changed = false;
+
+        graph.forEach((edges, from) => {
+            if (!distance[from]) return;
+
+            edges.forEach((edge, edgeIndex) => {
+                if (edge.capacity === 0) return;
+
+                let candidate = addCosts(distance[from], edge.cost);
+
+                if (!distance[edge.to] || compareCosts(candidate, distance[edge.to]) < 0) {
+                    distance[edge.to] = candidate;
+                    previous[edge.to] = {edgeIndex, from};
+                    changed           = true
+                }
+            })
+        });
+
+        if (!changed) break
+    }
+
+    return previous
+}
+
+/**
+ * @summary Computes numeric affinity plus exact ratios from the same integer evidence.
+ * @param {Object} captured
+ * @param {Object} live
+ * @returns {{affinity: Object, jaccardFraction: Object, structuralFraction: Object}}
+ * @private
+ */
+function createAffinityDetails(captured, live) {
+    const typeCounts = document => {
+        let counts = {};
+
+        Object.values(document?.nodes || {}).forEach(node => {
+            counts[node.type] = (counts[node.type] || 0) + 1
+        });
+
+        return counts
+    };
+
+    let capturedIds     = Object.keys(captured?.items || {}),
+        liveIds         = new Set(Object.keys(live?.items || {})),
+        overlap         = capturedIds.filter(id => liveIds.has(id)).length,
+        itemUnion       = capturedIds.length + liveIds.size - overlap,
+        capturedTypes   = typeCounts(captured),
+        liveTypes       = typeCounts(live),
+        types           = new Set([...Object.keys(capturedTypes), ...Object.keys(liveTypes)]),
+        structuralInter = 0,
+        structuralUnion = 0;
+
+    types.forEach(type => {
+        structuralInter += Math.min(capturedTypes[type] || 0, liveTypes[type] || 0);
+        structuralUnion += Math.max(capturedTypes[type] || 0, liveTypes[type] || 0)
+    });
+
+    let jaccardFraction    = createFraction(overlap, itemUnion || 1),
+        structuralFraction = createFraction(structuralInter, structuralUnion || 1);
+
+    return {
+        affinity: {
+            jaccard   : Number(jaccardFraction.numerator) / Number(jaccardFraction.denominator),
+            structural: Number(structuralFraction.numerator) / Number(structuralFraction.denominator)
+        },
+        jaccardFraction,
+        structuralFraction
+    }
+}
+
+/**
  * @summary Changed-topology perspective restore: assigns captured workspace slots onto live
  * windows by id-free shape affinity (optimal assignment, never greedy order), composes the landed
  * per-window restore, and reports everything it cannot cover — nothing silently drops, in either
@@ -120,15 +368,7 @@ class DockTopologyReconciler extends Base {
      * @static
      */
     static slotAffinity(captured, live) {
-        let capturedIds = Object.keys(captured?.items || {}),
-            liveIds     = new Set(Object.keys(live?.items || {})),
-            overlap     = capturedIds.filter(id => liveIds.has(id)).length,
-            union       = capturedIds.length + liveIds.size - overlap;
-
-        return {
-            jaccard   : union === 0 ? 0 : overlap / union,
-            structural: this.structuralAffinity(captured, live)
-        }
+        return createAffinityDetails(captured, live).affinity
     }
 
     /**
@@ -155,38 +395,24 @@ class DockTopologyReconciler extends Base {
      * @static
      */
     static structuralAffinity(captured, live) {
-        const counts = document => {
-            let map = {};
-            Object.values(document?.nodes || {}).forEach(node => {
-                map[node.type] = (map[node.type] || 0) + 1
-            });
-            return map
-        };
-
-        let a     = counts(captured),
-            b     = counts(live),
-            types = new Set([...Object.keys(a), ...Object.keys(b)]),
-            inter = 0,
-            union = 0;
-
-        types.forEach(type => {
-            inter += Math.min(a[type] || 0, b[type] || 0);
-            union += Math.max(a[type] || 0, b[type] || 0)
-        });
-
-        return union === 0 ? 0 : inter / union
+        return createAffinityDetails(captured, live).affinity.structural
     }
 
     /**
-     * Optimal deterministic slot assignment: exhaustive search over the (small — window-count-
-     * bounded) pairing space, maximizing `(cardinality, Σ jaccard, Σ structural)`, then the
-     * lexicographically smallest CONTENT signature (`capturedIndex>liveContentKey` per pair) —
-     * permutation-stable: equal-affinity candidates with different content resolve to the SAME
-     * content under any live array order. Only fully content-identical candidates fall through
-     * to the smallest live-index sequence, where the pick is content-irrelevant by construction.
-     * A pair requires Jaccard > 0. Greedy captured-order matching is explicitly NOT used — it
-     * can strand a slot whose only viable window was consumed by an earlier slot's marginally
-     * better match (the greedy trap; spec-pinned).
+     * Optimal deterministic slot assignment via exact lexicographic min-cost max-flow. Every
+     * positive-Jaccard pair becomes a unit-capacity captured→live edge. Successive shortest
+     * residual paths maximize cardinality, then minimize the additive cost vector
+     * `(-Σjaccard, -Σstructural, contentSignature, liveIndexSequence)`. Affinity components are
+     * reduced `BigInt` fractions; content and live-index tie coordinates use an explicit
+     * unassigned sentinel per captured row. This preserves content-permutation stability and
+     * makes the final content-identical tie numeric (`2 < 10`) instead of stringifying indices.
+     *
+     * With `C` captured slots, `L` live windows, `P ≤ C·L` viable pairs, `V=C+L+2`, and
+     * `F≤min(C,L)` assignments, Bellman-Ford successive-shortest-path runs in
+     * `O(F·V·(C+L+P)·C)` ordered-coordinate work (plus polynomial exact-integer arithmetic).
+     * Production never falls back to exhaustive traversal. Greedy captured-order matching is
+     * explicitly NOT used — it can strand a slot whose only viable window was consumed by an
+     * earlier slot's marginally better match (the greedy trap; spec-pinned).
      * @param {Object[]} capturedDocs
      * @param {Object[]} liveDocs
      * @returns {{mapping: Object[], unmapped: Object[], unmatchedLive: Number[]}}
@@ -195,48 +421,76 @@ class DockTopologyReconciler extends Base {
      * @static
      */
     static assignSlots(capturedDocs, liveDocs) {
-        let matrix      = capturedDocs.map(captured => liveDocs.map(live => this.slotAffinity(captured, live))),
-            contentKeys = liveDocs.map(live => this.liveContentKey(live)),
-            best        = null;
+        let matrix       = capturedDocs.map(captured => liveDocs.map(live => createAffinityDetails(captured, live))),
+            contentKeys  = liveDocs.map(live => this.liveContentKey(live)),
+            orderedKeys  = [...new Set(contentKeys)].sort(),
+            contentRanks = new Map(orderedKeys.map((key, index) => [key, index])),
+            capturedBase = 1,
+            liveBase     = capturedBase + capturedDocs.length,
+            source       = 0,
+            sink         = liveBase + liveDocs.length,
+            graph        = Array.from({length: sink + 1}, () => []),
+            pairEdges    = [];
 
-        const consider = (slotIndex, used, pairs, cardinality, jaccardSum, structuralSum) => {
-            if (slotIndex === capturedDocs.length) {
-                // Content first (permutation-stable), live-index sequence last (only reachable
-                // between fully content-identical candidates, where the pick is content-free).
-                let signature = pairs.map(pair => `${pair.capturedIndex}>${contentKeys[pair.liveIndex]}`).join('|'),
-                    sequence  = pairs.map(pair => pair.liveIndex).join(',');
+        capturedDocs.forEach((captured, capturedIndex) => {
+            addResidualEdge(graph, source, capturedBase + capturedIndex, createZeroCost(capturedDocs.length));
 
-                if (!best
-                    || cardinality > best.cardinality
-                    || (cardinality === best.cardinality && jaccardSum > best.jaccardSum)
-                    || (cardinality === best.cardinality && jaccardSum === best.jaccardSum && structuralSum > best.structuralSum)
-                    || (cardinality === best.cardinality && jaccardSum === best.jaccardSum && structuralSum === best.structuralSum && signature < best.signature)
-                    || (cardinality === best.cardinality && jaccardSum === best.jaccardSum && structuralSum === best.structuralSum && signature === best.signature && sequence < best.sequence)
-                ) {
-                    best = {cardinality, jaccardSum, pairs: [...pairs], sequence, signature, structuralSum}
-                }
-                return
-            }
+            matrix[capturedIndex].forEach((details, liveIndex) => {
+                if (details.jaccardFraction.numerator === 0n) return;
 
-            // Option A: leave this slot unassigned.
-            consider(slotIndex + 1, used, pairs, cardinality, jaccardSum, structuralSum);
+                let cost            = createZeroCost(capturedDocs.length),
+                    contentSentinel = orderedKeys.length,
+                    liveSentinel    = liveDocs.length;
 
-            // Option B: pair it with any unused positive-affinity window.
-            matrix[slotIndex].forEach((affinity, liveIndex) => {
-                if (affinity.jaccard > 0 && !used.has(liveIndex)) {
-                    used.add(liveIndex);
-                    pairs.push({affinity, capturedIndex: slotIndex, liveIndex});
-                    consider(slotIndex + 1, used, pairs, cardinality + 1, jaccardSum + affinity.jaccard, structuralSum + affinity.structural);
-                    pairs.pop();
-                    used.delete(liveIndex)
-                }
+                cost.jaccard = {
+                    denominator: details.jaccardFraction.denominator,
+                    numerator  : -details.jaccardFraction.numerator
+                };
+                cost.structural = {
+                    denominator: details.structuralFraction.denominator,
+                    numerator  : -details.structuralFraction.numerator
+                };
+                cost.signature[capturedIndex] = BigInt(contentRanks.get(contentKeys[liveIndex]) - contentSentinel);
+                cost.sequence[capturedIndex]  = BigInt(liveIndex - liveSentinel);
+
+                let pair = {affinity: details.affinity, capturedIndex, liveIndex};
+
+                pairEdges.push(addResidualEdge(
+                    graph,
+                    capturedBase + capturedIndex,
+                    liveBase + liveIndex,
+                    cost,
+                    pair
+                ))
             })
-        };
+        });
 
-        consider(0, new Set(), [], 0, 0, 0);
+        liveDocs.forEach((live, liveIndex) => {
+            addResidualEdge(graph, liveBase + liveIndex, sink, createZeroCost(capturedDocs.length))
+        });
 
-        let assigned = new Set(best.pairs.map(pair => pair.capturedIndex)),
-            usedLive = new Set(best.pairs.map(pair => pair.liveIndex)),
+        // Each successful augmentation raises cardinality by one. Reverse edges let the path
+        // re-route previous pairs, so stopping only when the sink is unreachable yields maximum
+        // cardinality and the exact minimum ordered cost at that cardinality.
+        while (true) {
+            let previous = findShortestResidualPath(graph, source, capturedDocs.length);
+
+            if (!previous[sink]) break;
+
+            for (let node = sink; node !== source;) {
+                let {edgeIndex, from} = previous[node],
+                    edge              = graph[from][edgeIndex];
+
+                edge.capacity = 0;
+                graph[node][edge.reverseIndex].capacity = 1;
+                node = from
+            }
+        }
+
+        let pairs = pairEdges.filter(edge => edge.capacity === 0).map(edge => edge.pair)
+                .sort((a, b) => a.capturedIndex - b.capturedIndex),
+            assigned = new Set(pairs.map(pair => pair.capturedIndex)),
+            usedLive = new Set(pairs.map(pair => pair.liveIndex)),
             unmapped = [];
 
         capturedDocs.forEach((doc, capturedIndex) => {
@@ -244,7 +498,7 @@ class DockTopologyReconciler extends Base {
                 // Cardinality-first optimality guarantees: a slot with positive affinity to a
                 // STILL-FREE window would have been assigned — so an unassigned slot either had
                 // zero affinity everywhere, or every viable window went to a better match.
-                let hadAffinity = matrix[capturedIndex].some(affinity => affinity.jaccard > 0);
+                let hadAffinity = matrix[capturedIndex].some(details => details.jaccardFraction.numerator > 0n);
 
                 unmapped.push({
                     capturedIndex,
@@ -254,7 +508,7 @@ class DockTopologyReconciler extends Base {
         });
 
         return {
-            mapping      : best.pairs.sort((a, b) => a.capturedIndex - b.capturedIndex),
+            mapping      : pairs,
             unmapped,
             unmatchedLive: liveDocs.map((doc, index) => index).filter(index => !usedLive.has(index))
         }
