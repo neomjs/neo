@@ -22,6 +22,153 @@ const tabsDoc = ids => ({
     }
 });
 
+// Pure assignment fixtures deliberately omit the persisted-layout envelope. `assignSlots()`
+// owns only item/type affinity, so these isolate the solver from restore/executor behavior.
+const assignmentDoc = (ids, types=['tabs']) => ({
+    items: Object.fromEntries(ids.map(id => [id, {}])),
+    nodes: Object.fromEntries(types.map((type, index) => [`n${index}`, {type}]))
+});
+
+/**
+ * @summary Independent test-only affinity implementation for the exhaustive oracle.
+ * @param {Object} captured
+ * @param {Object} live
+ * @returns {{jaccard: Number, structural: Number}}
+ */
+const oracleAffinity = (captured, live) => {
+    const counts = document => {
+        let result = {};
+
+        Object.values(document?.nodes || {}).forEach(node => {
+            result[node.type] = (result[node.type] || 0) + 1
+        });
+
+        return result
+    };
+
+    let capturedIds = Object.keys(captured?.items || {}),
+        liveIds     = new Set(Object.keys(live?.items || {})),
+        overlap     = capturedIds.filter(id => liveIds.has(id)).length,
+        itemUnion   = capturedIds.length + liveIds.size - overlap,
+        a           = counts(captured),
+        b           = counts(live),
+        types       = new Set([...Object.keys(a), ...Object.keys(b)]),
+        inter       = 0,
+        union       = 0;
+
+    types.forEach(type => {
+        inter += Math.min(a[type] || 0, b[type] || 0);
+        union += Math.max(a[type] || 0, b[type] || 0)
+    });
+
+    return {
+        jaccard   : itemUnion === 0 ? 0 : overlap / itemUnion,
+        structural: union === 0 ? 0 : inter / union
+    }
+};
+
+/**
+ * @summary Independent test-only content key for deterministic tie comparison.
+ * @param {Object} document
+ * @returns {String}
+ */
+const oracleContentKey = document => {
+    let items = Object.keys(document?.items || {}).sort().join(','),
+        types = Object.values(document?.nodes || {}).map(node => node.type).sort().join(',');
+
+    return `${items}#${types}`
+};
+
+/**
+ * @summary Frozen bounded exhaustive oracle for assignment-result equivalence.
+ *
+ * This is the retired production search copied into the spec, with independent affinity and
+ * content-key primitives. It is intentionally exponential and therefore used only at arity ≤ 6.
+ * @param {Object[]} capturedDocs
+ * @param {Object[]} liveDocs
+ * @returns {{mapping: Object[], unmapped: Object[], unmatchedLive: Number[]}}
+ */
+const exhaustiveAssignmentOracle = (capturedDocs, liveDocs) => {
+    let matrix      = capturedDocs.map(captured => liveDocs.map(live => oracleAffinity(captured, live))),
+        contentKeys = liveDocs.map(oracleContentKey),
+        best        = null;
+
+    const consider = (slotIndex, used, pairs, cardinality, jaccardSum, structuralSum) => {
+        if (slotIndex === capturedDocs.length) {
+            let signature = pairs.map(pair => `${pair.capturedIndex}>${contentKeys[pair.liveIndex]}`).join('|'),
+                sequence  = pairs.map(pair => pair.liveIndex).join(',');
+
+            if (!best
+                || cardinality > best.cardinality
+                || (cardinality === best.cardinality && jaccardSum > best.jaccardSum)
+                || (cardinality === best.cardinality && jaccardSum === best.jaccardSum && structuralSum > best.structuralSum)
+                || (cardinality === best.cardinality && jaccardSum === best.jaccardSum && structuralSum === best.structuralSum && signature < best.signature)
+                || (cardinality === best.cardinality && jaccardSum === best.jaccardSum && structuralSum === best.structuralSum && signature === best.signature && sequence < best.sequence)
+            ) {
+                best = {cardinality, jaccardSum, pairs: [...pairs], sequence, signature, structuralSum}
+            }
+            return
+        }
+
+        consider(slotIndex + 1, used, pairs, cardinality, jaccardSum, structuralSum);
+
+        matrix[slotIndex].forEach((affinity, liveIndex) => {
+            if (affinity.jaccard > 0 && !used.has(liveIndex)) {
+                used.add(liveIndex);
+                pairs.push({affinity, capturedIndex: slotIndex, liveIndex});
+                consider(slotIndex + 1, used, pairs, cardinality + 1,
+                    jaccardSum + affinity.jaccard, structuralSum + affinity.structural);
+                pairs.pop();
+                used.delete(liveIndex)
+            }
+        })
+    };
+
+    consider(0, new Set(), [], 0, 0, 0);
+
+    let assigned = new Set(best.pairs.map(pair => pair.capturedIndex)),
+        usedLive = new Set(best.pairs.map(pair => pair.liveIndex));
+
+    return {
+        mapping : best.pairs.sort((a, b) => a.capturedIndex - b.capturedIndex),
+        unmapped: capturedDocs.flatMap((doc, capturedIndex) => {
+            if (assigned.has(capturedIndex)) return [];
+
+            return [{
+                capturedIndex,
+                reason: matrix[capturedIndex].some(affinity => affinity.jaccard > 0)
+                    ? DockTopologyReconciler.REASON_NO_LIVE_WINDOW
+                    : DockTopologyReconciler.REASON_UNMAPPED_SLOT
+            }]
+        }),
+        unmatchedLive: liveDocs.map((doc, index) => index).filter(index => !usedLive.has(index))
+    }
+};
+
+/**
+ * @summary Creates a deterministic pseudo-random stream for reproducible property coverage.
+ * @param {Number} seed
+ * @returns {Function}
+ */
+const seededRandom = seed => () => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed / 0x100000000
+};
+
+/**
+ * @summary Builds one bounded random assignment document.
+ * @param {Function} random
+ * @param {Number} salt
+ * @returns {Object}
+ */
+const randomAssignmentDoc = (random, salt) => {
+    let ids   = Array.from({length: 7}, (item, index) => `item-${index}`).filter(() => random() < 0.42),
+        types = Array.from({length: 1 + Math.floor(random() * 3)}, (item, index) =>
+            ['tabs', 'split-horizontal', 'split-vertical'][(index + salt + Math.floor(random() * 3)) % 3]);
+
+    return assignmentDoc(ids, types)
+};
+
 // Fixtures ride the REAL landed producer — hand-rolled envelopes only appear in the negative
 // cases that deliberately break the envelope contract.
 const capture = docs => {
@@ -45,6 +192,108 @@ const expectConservation = (saved, result) => {
 };
 
 test.describe('Neo.dashboard.DockTopologyReconciler', () => {
+    test('polynomial solver is output-equivalent to the bounded exhaustive oracle on seeded rectangular matrices', () => {
+        for (let seed = 1; seed <= 96; seed++) {
+            let random        = seededRandom(seed),
+                capturedCount = Math.floor(random() * 7),
+                liveCount     = Math.floor(random() * 7),
+                captured      = Array.from({length: capturedCount}, (item, index) =>
+                    randomAssignmentDoc(random, index)),
+                live          = Array.from({length: liveCount}, (item, index) =>
+                    randomAssignmentDoc(random, index + capturedCount));
+
+            expect(
+                DockTopologyReconciler.assignSlots(captured, live),
+                `seed=${seed}, captured=${capturedCount}, live=${liveCount}`
+            ).toEqual(exhaustiveAssignmentOracle(captured, live))
+        }
+    });
+
+    test('objective order keeps structural affinity above content and uses numeric live-index ties at 10+', () => {
+        let captured = [assignmentDoc(['shared'], ['tabs', 'split-horizontal'])],
+            live     = [
+                assignmentDoc(['shared', 'alpha'], ['tabs']),
+                assignmentDoc(['shared', 'zeta'],  ['tabs', 'split-horizontal'])
+            ],
+            result   = DockTopologyReconciler.assignSlots(captured, live);
+
+        // Jaccard ties at 1/2. The structurally exact (but lexically later) window wins.
+        expect(result.mapping).toEqual([
+            expect.objectContaining({capturedIndex: 0, liveIndex: 1})
+        ]);
+
+        live = Array.from({length: 12}, (item, index) => assignmentDoc([`other-${index}`]));
+        live[2]  = assignmentDoc(['shared']);
+        live[10] = assignmentDoc(['shared']);
+        result   = DockTopologyReconciler.assignSlots([assignmentDoc(['shared'])], live);
+
+        // Both viable documents are content-identical. The old string sequence made "10" < "2";
+        // the contract says live-index order, so the exact solver intentionally chooses numeric 2.
+        expect(result.mapping).toEqual([
+            expect.objectContaining({capturedIndex: 0, liveIndex: 2})
+        ])
+    });
+
+    test('captured/live permutations preserve the content-canonical optimum when slot identity is content-derived', () => {
+        let captured = [
+                assignmentDoc(['a', 'b'], ['tabs']),
+                assignmentDoc(['c', 'd'], ['split-horizontal']),
+                assignmentDoc(['e', 'f'], ['split-vertical'])
+            ],
+            live = [
+                assignmentDoc(['a', 'b', 'x'], ['tabs']),
+                assignmentDoc(['c', 'd', 'y'], ['split-horizontal']),
+                assignmentDoc(['e', 'f', 'z'], ['split-vertical'])
+            ];
+
+        const canonicalPairs = (capturedDocs, liveDocs) => DockTopologyReconciler
+            .assignSlots(capturedDocs, liveDocs).mapping
+            .map(({capturedIndex, liveIndex}) => [
+                oracleContentKey(capturedDocs[capturedIndex]),
+                oracleContentKey(liveDocs[liveIndex])
+            ])
+            .sort((a, b) => a[0].localeCompare(b[0]));
+
+        expect(canonicalPairs(captured, live)).toEqual(canonicalPairs([...captured].reverse(), [...live].reverse()))
+    });
+
+    test('dense 8×8 / 9×9 / 12×12 matrices complete with full unique assignment', () => {
+        [8, 9, 12].forEach(size => {
+            let shared   = Array.from({length: size}, (item, index) => `shared-${index}`),
+                captured = Array.from({length: size}, (item, index) =>
+                    assignmentDoc([...shared, `captured-${index}`], ['tabs', `shape-${index % 3}`])),
+                live     = Array.from({length: size}, (item, index) =>
+                    assignmentDoc([`shared-${index}`, `live-${index}`], ['tabs', `shape-${index % 3}`])),
+                samples  = [],
+                result;
+
+            // One unrecorded warmup, then a deterministic fixture / fixed-run-count sample.
+            // Output is evidence, never a hardware-sensitive merge gate.
+            DockTopologyReconciler.assignSlots(captured, live);
+
+            for (let run = 0; run < 5; run++) {
+                let startedAt = performance.now();
+
+                result = DockTopologyReconciler.assignSlots(captured, live);
+                samples.push(performance.now() - startedAt)
+            }
+
+            samples.sort((a, b) => a - b);
+            console.log('[dock-topology-assignment]', JSON.stringify({
+                mapped  : result.mapping.length,
+                medianMs: Math.round(samples[2] * 1000) / 1000,
+                runsMs  : samples.map(value => Math.round(value * 1000) / 1000),
+                size
+            }));
+
+            expect(result.mapping).toHaveLength(size);
+            expect(new Set(result.mapping.map(pair => pair.capturedIndex)).size).toBe(size);
+            expect(new Set(result.mapping.map(pair => pair.liveIndex)).size).toBe(size);
+            expect(result.unmapped).toEqual([]);
+            expect(result.unmatchedLive).toEqual([])
+        })
+    });
+
     test('shrunk topology: best-coverage assignment + reason-classed remainder + conservation', () => {
         let saved = capture([
                 tabsDoc(['alpha', 'beta']),
