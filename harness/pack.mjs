@@ -13,12 +13,11 @@
 //           a minified bundle
 //
 // Native-module runtime decision (the arm this leaf owns, recorded on its ticket): Brain children
-// run under ELECTRON_RUN_AS_NODE. Measured on darwin/Electron 43: a system-Node-built
-// better-sqlite3 (ABI 141) LOADS AND RUNS under electron-as-node (ABI 148) — the dev-tree
-// falsifier was a BROWSER-process incompatibility, not a node-mode one. The stage still attempts
-// @electron/rebuild against the staged tree (never the checkout — rebuilding the shared dev
-// node_modules is the recorded kill-the-dev-loop trap); a rebuild failure downgrades to the
-// measured as-is arm and records it in the build info.
+// run under ELECTRON_RUN_AS_NODE, and the staged node_modules is REBUILT for the bundled
+// Electron's ABI via @electron/rebuild — scoped to the stage, never the checkout (rebuilding the
+// shared dev node_modules is the recorded kill-the-dev-loop trap). A rebuild failure FAILS THE
+// BUILD: ABI-compat of a system-Node build under electron-as-node is not a guaranteed contract
+// (independent probes disagreed), and a silently mis-built native module is a broken artifact.
 
 import {execFileSync}                               from 'node:child_process';
 import fs                                           from 'node:fs';
@@ -53,12 +52,49 @@ export const TREE_EXCLUDES = Object.freeze([
     'ai/daemons/temporal-summary'
 ]);
 
-// Checkout-instance files that must NEVER ship: the gitignored operator config overlay (it CAN
-// carry hand-edited values — the artifact gets a pack-time-fresh template-generated instance
-// instead) and any env file. Matched exactly or by basename pattern in the copy filter.
-export const INSTANCE_FILE_EXCLUDES = Object.freeze([
-    'ai/config.mjs'
-]);
+/**
+ * @summary True when a repo-relative path is a checkout-instance CONFIG OVERLAY — a `config.mjs`
+ * with a `config.template.mjs` sibling. The template marks the overlay slot, so the rule is
+ * DERIVED, never an enumerated list: every gitignored operator overlay (the top-level
+ * `ai/config.mjs` AND each per-server `ai/mcp/server/<name>/config.mjs`) can carry hand-edited
+ * credentials and must never ship; the stage regenerates fresh template-defaults instances. A tracked
+ * standalone `config.mjs` (no template sibling) is ordinary source and ships normally.
+ * @param {String} sourceRoot Absolute root the relative path resolves against.
+ * @param {String} relativePath Repo-relative candidate path.
+ * @returns {Boolean}
+ */
+export function isInstanceOverlayPath(sourceRoot, relativePath) {
+    return path.basename(relativePath) === 'config.mjs' &&
+        fs.existsSync(path.join(sourceRoot, path.dirname(relativePath), 'config.template.mjs'))
+}
+
+/**
+ * @summary Belt-and-braces post-copy assertion: the staged tree must contain ZERO instance
+ * overlays before the fresh-config generation runs. A filter regression here is a
+ * credential-shipping vector, so it fails the build loudly rather than trusting one predicate.
+ * @param {String} stageDir
+ */
+export function assertNoInstanceOverlays(stageDir) {
+    const offenders = [];
+
+    const walk = dir => {
+        for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
+            const fullPath = path.join(dir, entry.name);
+
+            if (entry.isDirectory()) {
+                walk(fullPath)
+            } else if (isInstanceOverlayPath(stageDir, path.relative(stageDir, fullPath))) {
+                offenders.push(path.relative(stageDir, fullPath))
+            }
+        }
+    };
+
+    walk(stageDir);
+
+    if (offenders.length > 0) {
+        throw new Error(`pack: checkout instance overlay(s) reached the stage — refusing to ship: ${offenders.join(', ')}`)
+    }
+}
 
 // Dependencies the bare-import scan cannot see: CSS-linked packages (fontawesome) and
 // dynamic-provider modules resolved at runtime.
@@ -249,7 +285,7 @@ function copyTree(sourceRoot, targetRoot, relative) {
             const rel = path.relative(sourceRoot, entry);
 
             return !TREE_EXCLUDES.some(exclude => rel === exclude || rel.startsWith(exclude + path.sep)) &&
-                !INSTANCE_FILE_EXCLUDES.includes(rel) &&
+                !isInstanceOverlayPath(sourceRoot, rel) &&
                 !/(^|\/)(node_modules|\.git)(\/|$)/.test(rel) &&
                 !/(^|\/)\.env(\.|$)/.test(rel) &&
                 !rel.endsWith('.DS_Store')
@@ -272,6 +308,10 @@ function run(command, args, options = {}) {
  * @returns {Object} build info (also written to `<stageDir>/organism-build-info.json`).
  */
 export function stageOrganism({stageDir = STAGE_DIR, electronVersion} = {}) {
+    if (!electronVersion) {
+        throw new Error('pack: electronVersion is required — the staged natives MUST target the bundled runtime ABI.')
+    }
+
     fs.rmSync(stageDir, {force: true, recursive: true});
     fs.mkdirSync(stageDir, {recursive: true});
 
@@ -286,6 +326,10 @@ export function stageOrganism({stageDir = STAGE_DIR, electronVersion} = {}) {
         fs.copyFileSync(path.join(repoRoot, file), path.join(stageDir, file))
     }
 
+    // Security stop-line: no checkout instance overlay may exist in the stage BEFORE the fresh
+    // template-defaults generation below. Runs pre-install so the walk stays cheap.
+    assertNoInstanceOverlays(stageDir);
+
     const
         repoPackageJson = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8')),
         packages        = [...new Set(trees.flatMap(tree => collectTreeBarePackages({rootDir: path.join(stageDir, tree)})))].sort(),
@@ -296,20 +340,11 @@ export function stageOrganism({stageDir = STAGE_DIR, electronVersion} = {}) {
     console.log(`[pack] staged ${trees.length} trees + ${files.length} files; installing ${Object.keys(manifest.dependencies).length} organism dependencies`);
     run('npm', ['install', '--no-audit', '--no-fund', '--loglevel=error'], {cwd: stageDir});
 
-    // The falsifier-gated runtime arm: rebuild the staged natives for the bundled Electron. A
-    // failure is NOT fatal — the as-is system-Node build is the measured fallback (loads under
-    // ELECTRON_RUN_AS_NODE on this platform); the outcome ships in the build info either way.
-    const buildInfo = {electronVersion, rebuilt: false, rebuiltError: null, stagedAt: new Date().toISOString()};
+    // Mandatory ABI targeting: the staged natives rebuild for the bundled Electron. Failure fails
+    // the build — a catch-and-ship here is a silently-broken-artifact vector.
+    run('npx', ['@electron/rebuild', '--module-dir', stageDir, '--version', electronVersion], {cwd: harnessDir});
 
-    if (electronVersion) {
-        try {
-            run('npx', ['@electron/rebuild', '--module-dir', stageDir, '--version', electronVersion], {cwd: harnessDir});
-            buildInfo.rebuilt = true
-        } catch (error) {
-            buildInfo.rebuiltError = String(error.message).slice(0, 400);
-            console.warn(`[pack] @electron/rebuild failed — shipping the measured as-is arm (system-Node builds under ELECTRON_RUN_AS_NODE): ${buildInfo.rebuiltError}`)
-        }
-    }
+    const buildInfo = {electronVersion, rebuilt: true, stagedAt: new Date().toISOString()};
 
     // Pack-time-fresh instance config: template-current by construction, so the packaged first
     // boot never needs to WRITE into the (possibly read-only, translocated) resources dir.

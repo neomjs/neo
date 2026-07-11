@@ -104,21 +104,37 @@ from the contentPolicy allowlist (one authority — a new allowlist prefix ships
 the Brain tree (`ai/`, minus examples and the not-yet-enabled temporal-summary daemon), a
 GENERATED dependency manifest (this repo declares only devDependencies, so the runtime closure
 is derived from the bundled trees' bare imports and pinned to repo-declared versions —
-fail-loud on any undeclared import), and a pack-time-fresh instance `ai/config.mjs` (generated
-from the staged template, so the packaged first boot never writes into the possibly read-only
-resources dir — and the checkout's gitignored operator overlay NEVER ships).
+fail-loud on any undeclared import), and pack-time-fresh instance configs. **No checkout
+instance overlay ever ships:** any `config.mjs` with a `config.template.mjs` sibling — the
+top-level `ai/config.mjs` AND every per-server MCP overlay, all of which can carry hand-edited
+operator credentials — is excluded by DERIVATION, a post-copy assertion fails the build on any
+survivor, and the stage regenerates fresh template-defaults instances (which also means the
+packaged first boot never writes into the possibly read-only resources dir).
 
-**The packaged runtime arm (the decision the hosting spike recorded for this leaf):** Brain
-children run on the bundled Electron via `ELECTRON_RUN_AS_NODE`; the staged `node_modules` is
-rebuilt for Electron's ABI at pack time (`@electron/rebuild`, scoped to the stage — never the
-checkout, which must keep serving the system-Node dev loop). Shebang children (the chroma CLI)
-resolve `node` through the organism's `shims/` entry, which execs the bundled binary — a
-stranger's machine carries no Node. Mutable data lands under the per-user data root
-(`userData/brain`); a packaged own-mode boot FAILS CLOSED when a checkout Brain already holds
-the Chroma port (the coexistence guard — the spawned supervisor would otherwise reap it).
+**A packaged double-click BOOTS THE BRAIN by default** — Finder supplies no environment, so the
+product default is the supervised organism; `NEO_HARNESS_BRAIN=0` is the explicit opt-out (a
+checkout stays opt-in — see `brain.mjs#resolveBrainMode`). What it boots is
+`brain.mjs#buildPackagedBrainEnv` — THE packaged product profile: every mutable path (graph
+sqlite, Chroma, WAL, embed/message daemon state, backups, fleet root) under the per-user data
+root, plus the artifact's honest lane closure — each gated lane names a resource the bundle does
+not carry (webpack, git-checkout semantics, external model servers, cwd-relative writers); the
+embed + message organism lanes run. A packaged own-mode boot FAILS CLOSED when a checkout Brain
+already holds the Chroma port (the coexistence guard — the spawned supervisor would otherwise
+reap it).
 
-Verification: the SAME smoke contract runs against the artifact —
-`NEO_HARNESS_SMOKE=1 NEO_HARNESS_BRAIN=1 "dist-artifacts/mac-arm64/Neo Harness.app/Contents/MacOS/Neo Harness"`.
+**The packaged runtime arm:** Brain children run on the bundled Electron via
+`ELECTRON_RUN_AS_NODE`; the staged `node_modules` is rebuilt for Electron's ABI at pack time
+(`@electron/rebuild`, scoped to the stage — never the checkout, which must keep serving the
+system-Node dev loop). **A rebuild failure FAILS THE BUILD** — ABI-compat of a system-Node build
+under electron-as-node is not a guaranteed contract, and a silently mis-built native is a broken
+artifact. Shebang children (the chroma CLI) resolve `node` through the organism's `shims/`
+entry, which execs the bundled binary — a stranger's machine carries no Node.
+
+Verification: `NEO_HARNESS_SMOKE=1 "dist-artifacts/mac-arm64/Neo Harness.app/Contents/MacOS/Neo Harness"`
+— no Brain env, deliberately: the smoke proves the double-click default and runs the EXACT
+product profile (`profileMode: 'packaged-product'` in the verdict), shifted only in COORDINATES
+(allocated ports + a throwaway data root) so a dev box's live Brain is never touched. The
+checkout smoke keeps the fully isolated dev profile (`checkout-isolated`).
 Known unsigned-leg limitation: a quarantined zip (browser download) may App-Translocate;
 `xattr -d com.apple.quarantine` or moving the app clears it — signing (E7) dissolves this.
 

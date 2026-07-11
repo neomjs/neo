@@ -45,6 +45,20 @@ function nodeBin() {
 }
 
 /**
+ * @summary The Brain-boot default per launch context. A PACKAGED app is the product — a Finder
+ * double-click supplies no environment, so the Brain boots by default with `NEO_HARNESS_BRAIN=0`
+ * as the explicit opt-out. A CHECKOUT run stays opt-in (`=1`): dev machines carry a canonical
+ * Brain, and the harness UI alone must never surprise-spawn a supervised organism beside it.
+ * @param {Object} options
+ * @param {Boolean} options.packaged `app.isPackaged` at the call site.
+ * @param {Object} options.env The process env (injectable for tests).
+ * @returns {Boolean}
+ */
+export function resolveBrainMode({packaged, env}) {
+    return packaged ? env.NEO_HARNESS_BRAIN !== '0' : env.NEO_HARNESS_BRAIN === '1'
+}
+
+/**
  * @summary Allocates a free loopback TCP port via a zero-port listen. The classic race (another
  * process binding between close and child bind) is accepted: the child's own bind failure exits
  * it early, which the readiness contract converts into a deterministic boot rejection.
@@ -219,22 +233,52 @@ export function resolveRealPath(value) {
 }
 
 /**
- * @summary Builds the PACKAGED product data profile: the organism ships in a read-only(ish)
- * resources dir, so every mutable path moves to the per-user data root — the same leaves the
- * smoke profile binds, WITHOUT the lane gates, test mode, or port shifts (the packaged app runs
- * the real organism on the default ports; a fresh machine has nothing to collide with).
+ * @summary THE packaged product profile — the one resource-closure contract for an installed
+ * artifact, consumed identically by the product boot AND the packaged smoke (the smoke may shift
+ * only COORDINATES — ports/data root — never this lane set, or it stops proving the artifact).
+ *
+ * Mutable paths move to the per-user data root (the organism ships in a read-only(ish) resources
+ * dir). Lane gates encode what an INSTALLED organism can honestly run — each OFF names the
+ * resource the artifact does not carry:
+ * - devServer: no webpack/build tooling ships; `app://` serves the bundled source graph.
+ * - kbSync / githubWorkflowSync / primaryDevSync / goldenPathRepoEnrichment: git-checkout
+ *   semantics; the bundle carries the source graph but is not a repository.
+ * - mlx / ollama / lms: external model servers belong to the MACHINE, not the artifact — a
+ *   packaged supervisor must never adopt or reap a stranger's local AI runtimes.
+ * - neuralLinkBridge: a default-on listener is its own product decision (the ADR E-map owns it).
+ * - deploymentStateBridge: its snapshot path is still cwd-relative and would write into the
+ *   resources dir.
+ * ON by omission (the organism the artifact CAN run): Chroma, the embed + message daemons,
+ * backups (target rides `NEO_BACKUP_PATH`), and local graph maintenance.
  * @param {Object} options
  * @param {String} options.dataRoot Writable per-user root (Electron `userData`-derived).
  * @returns {Object} env fragment to merge over process.env
  */
-export function buildPackagedDataEnv({dataRoot}) {
+export function buildPackagedBrainEnv({dataRoot}) {
     return {
-        NEO_AI_DB_PATH         : path.join(dataRoot, 'sqlite', 'memory-core-graph.sqlite'),
-        NEO_AI_ORCHESTRATOR_DIR: path.join(dataRoot, 'orchestrator'),
-        NEO_BACKUP_PATH        : path.join(dataRoot, 'backups'),
-        NEO_CHROMA_DATA_DIR    : path.join(dataRoot, 'chroma', 'unified'),
-        NEO_FLEET_INSTANCE_ROOT: path.join(dataRoot, 'fleet', 'instances'),
-        NEO_REM_RUN_STATE_DIR  : path.join(dataRoot, 'rem-runs')
+        // Mutable paths → the per-user data root. The WAL + embed/message daemon state dirs are
+        // cwd-relative by default, and cwd is the read-only(ish) organism dir when packaged.
+        NEO_AI_DB_PATH             : path.join(dataRoot, 'sqlite', 'memory-core-graph.sqlite'),
+        NEO_AI_ORCHESTRATOR_DIR    : path.join(dataRoot, 'orchestrator'),
+        NEO_BACKUP_PATH            : path.join(dataRoot, 'backups'),
+        NEO_CHROMA_DATA_DIR        : path.join(dataRoot, 'chroma', 'unified'),
+        NEO_FLEET_INSTANCE_ROOT    : path.join(dataRoot, 'fleet', 'instances'),
+        NEO_MEMORY_EMBED_DAEMON_DIR: path.join(dataRoot, 'embed-daemon'),
+        NEO_MEMORY_WAL_DIR         : path.join(dataRoot, 'memory-wal'),
+        NEO_MESSAGE_WAL_DAEMON_DIR : path.join(dataRoot, 'message-daemon'),
+        NEO_REM_RUN_STATE_DIR      : path.join(dataRoot, 'rem-runs'),
+
+        // The artifact's lane closure (reasons in the summary above)
+        NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED                 : '0',
+        NEO_ORCHESTRATOR_DEV_SERVER_ENABLED                 : '0',
+        NEO_ORCHESTRATOR_GITHUB_WORKFLOW_SYNC_ENABLED       : '0',
+        NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED: '0',
+        NEO_ORCHESTRATOR_KB_SYNC_ENABLED                    : '0',
+        NEO_ORCHESTRATOR_LMS_ENABLED                        : '0',
+        NEO_ORCHESTRATOR_MLX_ENABLED                        : '0',
+        NEO_ORCHESTRATOR_NL_BRIDGE_ENABLED                  : '0',
+        NEO_ORCHESTRATOR_OLLAMA_ENABLED                     : '0',
+        NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED           : '0'
     }
 }
 

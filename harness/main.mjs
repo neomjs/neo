@@ -36,11 +36,13 @@ import {
     awaitOrchestratorReady,
     awaitPortListening,
     buildBrainProfile,
+    buildPackagedBrainEnv,
     clearRunState,
     detectLiveBrain,
     FLEET_SERVER_ENTRY,
     ORCHESTRATOR_ENTRY,
     probePort,
+    resolveBrainMode,
     resolveBrainPaths,
     startBrainChild,
     stopBrainTree,
@@ -59,10 +61,10 @@ const
     // zero-build SOURCE app — Neural Link possession needs real ESM, which minification destroys.
     APP_URL      = `app://${APP_HOST}/apps/agentos/index.html`,
     smokeMode  = process.env.NEO_HARNESS_SMOKE === '1',
-    // The Arm-B Brain leg (opt-in): the main supervises the orchestrator daemon as a system-Node
-    // child. Isolated env by default — on a dev machine the daemon's single-instance takeover
-    // would otherwise SIGTERM the canonical Brain (see brain.mjs).
-    brainMode  = process.env.NEO_HARNESS_BRAIN === '1',
+    // The Arm-B Brain leg: DEFAULT-ON when packaged (a Finder double-click supplies no env — the
+    // product IS the supervised organism; NEO_HARNESS_BRAIN=0 is the explicit opt-out) and opt-in
+    // on a checkout (dev machines carry a canonical Brain; see brain.mjs#resolveBrainMode).
+    brainMode  = resolveBrainMode({env: process.env, packaged: packagedMode}),
     smokeState = {
         assetFailures : new Set(),
         assetsSeen    : new Set(),
@@ -436,7 +438,7 @@ async function bootProductBrain() {
     // shim) run on the BUNDLED Electron runtime — a stranger's machine carries no Node.
     const packagedEnv = packagedMode
         ? {
-            ...buildPackagedDataEnv({dataRoot: path.join(app.getPath('userData'), 'brain')}),
+            ...buildPackagedBrainEnv({dataRoot: path.join(app.getPath('userData'), 'brain')}),
             ELECTRON_RUN_AS_NODE    : '1',
             NEO_HARNESS_ELECTRON_BIN: process.execPath
         }
@@ -487,11 +489,16 @@ async function bootProductBrain() {
 }
 
 /**
- * The smoke Brain boot — the fully ISOLATED profile: allocate ports, bind every mutable path
- * under a throwaway root, then assert the isolation matrix THROUGH the config SSOT before
- * anything spawns. Readiness is genuine service readiness (orchestrator poll-loop marker + a
- * real fleet wire-verb round-trip), never PID existence.
- * @summary Boots the isolated smoke organism, returning every observable the verdict gates on.
+ * The smoke Brain boot. TWO profile shapes, deliberately distinct:
+ * - **Packaged:** the EXACT product profile (`buildPackagedBrainEnv` — the artifact's lane and
+ *   resource closure, unreduced), shifted only in COORDINATES: allocated Chroma/fleet ports and a
+ *   throwaway data root, so a dev box's live Brain is never touched while the smoke still proves
+ *   what a real double-click boots.
+ * - **Checkout:** the fully isolated dev profile (`buildBrainProfile` — every side lane gated),
+ *   because a checkout smoke runs beside a canonical organism whose lanes must not double-run.
+ * Both assert the isolation matrix THROUGH the config SSOT before anything spawns; readiness is
+ * genuine service readiness (poll-loop marker + a real fleet wire verb), never PID existence.
+ * @summary Boots the smoke organism under the mode-correct profile, returning every observable.
  * @returns {Promise<Object>}
  */
 async function bootSmokeBrain() {
@@ -500,8 +507,15 @@ async function bootSmokeBrain() {
             (packagedMode ? path.join(app.getPath('userData'), 'smoke') : path.join(harnessDir, '.brain', 'smoke')),
         sweptPgids              = sweepStaleRunState({isolationRoot}),
         [chromaPort, fleetPort] = await Promise.all([allocatePort(), allocatePort()]),
-        packagedRuntimeEnv      = packagedMode ? {ELECTRON_RUN_AS_NODE: '1', NEO_HARNESS_ELECTRON_BIN: process.execPath} : {},
-        profile                 = {...buildBrainProfile({chromaPort, fleetPort, isolationRoot}), ...packagedRuntimeEnv},
+        profile                 = packagedMode
+            ? {
+                ...buildPackagedBrainEnv({dataRoot: isolationRoot}),
+                ELECTRON_RUN_AS_NODE    : '1',
+                NEO_CHROMA_PORT         : String(chromaPort),
+                NEO_FLEET_PORT          : String(fleetPort),
+                NEO_HARNESS_ELECTRON_BIN: process.execPath
+            }
+            : buildBrainProfile({chromaPort, fleetPort, isolationRoot}),
         resolved                = await resolveBrainPaths({env: profile, repoRoot: organismRoot}),
         matrixViolations        = assertIsolatedProfile({chromaPort, isolationRoot, resolved});
 
@@ -532,7 +546,15 @@ async function bootSmokeBrain() {
         awaitFleetReady({child: fleet, port: fleetPort})
     ]);
 
-    return {chromaPort, fleetPort, isolationRoot, matrixViolations, sweptPgids, up: true}
+    return {
+        chromaPort,
+        fleetPort,
+        isolationRoot,
+        matrixViolations,
+        profileMode: packagedMode ? 'packaged-product' : 'checkout-isolated',
+        sweptPgids,
+        up         : true
+    }
 }
 
 app.on('will-quit', async event => {

@@ -1,13 +1,18 @@
-import {expect, test} from '@playwright/test';
+import {expect, test}             from '@playwright/test';
+import {mkdtemp, rm}              from 'node:fs/promises';
+import {mkdirSync, writeFileSync} from 'node:fs';
+import {tmpdir}                   from 'node:os';
 import {
     BRAIN_TREES,
+    assertNoInstanceOverlays,
     buildNodeShim,
     buildOrganismManifest,
     deriveCopySpecs,
-    extractBarePackages
+    extractBarePackages,
+    isInstanceOverlayPath
 } from '../../../../harness/pack.mjs';
-import {buildPackagedDataEnv} from '../../../../harness/brain.mjs';
-import path                   from 'node:path';
+import {buildPackagedBrainEnv, resolveBrainMode} from '../../../../harness/brain.mjs';
+import path                                      from 'node:path';
 
 test.describe('harness pack stage', () => {
     test('deriveCopySpecs rides the contentPolicy allowlist plus the Brain trees, skipping node_modules entries', () => {
@@ -75,17 +80,70 @@ test.describe('harness pack stage', () => {
         expect(shim).toContain('ELECTRON_RUN_AS_NODE=1 exec "$NEO_HARNESS_ELECTRON_BIN"')
     });
 
-    test('buildPackagedDataEnv moves every mutable Brain leaf under the per-user data root without gates or test mode', () => {
-        const env = buildPackagedDataEnv({dataRoot: '/Users/someone/Library/Application Support/neo-harness/brain'});
+    test('buildPackagedBrainEnv is THE product profile: userData-rooted paths + the exact artifact lane closure', () => {
+        const
+            dataRoot = '/Users/someone/Library/Application Support/neo-harness/brain',
+            env      = buildPackagedBrainEnv({dataRoot});
 
-        for (const value of Object.values(env)) {
-            expect(value.startsWith('/Users/someone/Library/Application Support/neo-harness/brain' + path.sep)).toBe(true)
+        for (const [name, value] of Object.entries(env)) {
+            if (!name.endsWith('_ENABLED')) {
+                expect(value.startsWith(dataRoot + path.sep)).toBe(true)
+            }
         }
 
-        // The product profile is the REAL organism: no lane gates, no UNIT_TEST_MODE, no port shifts.
-        expect(Object.keys(env).some(name => name.endsWith('_ENABLED'))).toBe(false);
+        // The lane closure is an EXACT contract: each OFF names a resource the artifact does not
+        // carry (webpack, git-checkout semantics, external model servers, cwd-relative writers).
+        // A new gate here means the artifact's product behavior changed — update deliberately.
+        expect(Object.keys(env).filter(name => name.endsWith('_ENABLED')).sort()).toEqual([
+            'NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED',
+            'NEO_ORCHESTRATOR_DEV_SERVER_ENABLED',
+            'NEO_ORCHESTRATOR_GITHUB_WORKFLOW_SYNC_ENABLED',
+            'NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED',
+            'NEO_ORCHESTRATOR_KB_SYNC_ENABLED',
+            'NEO_ORCHESTRATOR_LMS_ENABLED',
+            'NEO_ORCHESTRATOR_MLX_ENABLED',
+            'NEO_ORCHESTRATOR_NL_BRIDGE_ENABLED',
+            'NEO_ORCHESTRATOR_OLLAMA_ENABLED',
+            'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED'
+        ]);
+
+        // Product semantics, never test semantics: the embed/message organism lanes stay ON (no
+        // gate present), and UNIT_TEST_MODE must never appear in a product profile.
+        expect(env.NEO_ORCHESTRATOR_EMBED_DAEMON_ENABLED).toBeUndefined();
+        expect(env.NEO_ORCHESTRATOR_MESSAGE_DAEMON_ENABLED).toBeUndefined();
         expect(env.UNIT_TEST_MODE).toBeUndefined();
         expect(env.NEO_CHROMA_DATA_DIR).toBeDefined();
         expect(env.NEO_AI_DB_PATH).toBeDefined()
+    });
+
+    test('resolveBrainMode: packaged double-click boots the Brain by default; checkout stays opt-in', () => {
+        expect(resolveBrainMode({env: {}, packaged: true})).toBe(true);
+        expect(resolveBrainMode({env: {NEO_HARNESS_BRAIN: '0'}, packaged: true})).toBe(false);
+        expect(resolveBrainMode({env: {}, packaged: false})).toBe(false);
+        expect(resolveBrainMode({env: {NEO_HARNESS_BRAIN: '1'}, packaged: false})).toBe(true)
+    });
+
+    // The security stop-line: a checkout's gitignored config overlay (which CAN carry hand-edited
+    // operator credentials) must never reach the stage. The rule is DERIVED — any config.mjs with
+    // a config.template.mjs sibling — so new server overlays are covered without enumeration.
+    test('instance overlays are excluded by template-sibling derivation and the stage assertion fails loud on a sentinel', async () => {
+        const root = await mkdtemp(path.join(tmpdir(), 'neo-pack-overlay-'));
+
+        try {
+            mkdirSync(path.join(root, 'ai', 'mcp', 'server', 'github-workflow'), {recursive: true});
+            mkdirSync(path.join(root, 'ai', 'mcp', 'client'), {recursive: true});
+            writeFileSync(path.join(root, 'ai', 'mcp', 'server', 'github-workflow', 'config.template.mjs'), 'export default {}', 'utf8');
+            writeFileSync(path.join(root, 'ai', 'mcp', 'server', 'github-workflow', 'config.mjs'), "export default {token: 'SENTINEL_MUST_NOT_SHIP'}", 'utf8');
+            writeFileSync(path.join(root, 'ai', 'mcp', 'client', 'config.mjs'), 'export default {}', 'utf8');
+
+            // Overlay (template sibling) → excluded; tracked standalone config.mjs → ships.
+            expect(isInstanceOverlayPath(root, path.join('ai', 'mcp', 'server', 'github-workflow', 'config.mjs'))).toBe(true);
+            expect(isInstanceOverlayPath(root, path.join('ai', 'mcp', 'client', 'config.mjs'))).toBe(false);
+
+            // The belt: a stage that somehow still contains the overlay fails the build loudly.
+            expect(() => assertNoInstanceOverlays(root)).toThrow(/refusing to ship.*github-workflow/)
+        } finally {
+            await rm(root, {force: true, recursive: true})
+        }
     })
 });
