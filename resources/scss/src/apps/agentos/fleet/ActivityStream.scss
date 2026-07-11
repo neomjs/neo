@@ -1,5 +1,6 @@
-/* Activity stream — a liveness header over bounded event rows (time · kind chip · text) plus the
-   "N more" fold, all scoped under the component root. Rail-toned; every color from the token layer. */
+/* Activity stream — a liveness header over bounded event rows (time · kind chip · text; a coalesced
+   same-actor run reads slightly stronger) plus the "N earlier events" fold, all scoped under the
+   component root. Rail-toned; every color from the token layer. */
 .fm-activity-stream {
     padding   : 12px 14px;
     background: var(--fm-rail);
@@ -49,6 +50,12 @@
         overflow     : hidden;
         white-space  : nowrap;
         text-overflow: ellipsis;
+    }
+
+    /* a coalesced same-actor run — the ×N text carries the count; the row reads slightly
+       stronger so a burst is glanceable without flooding the window */
+    .fm-ev-coalesced .fm-ev-text {
+        font-weight: 600;
     }
 
     .fm-stream-fold {
