@@ -151,6 +151,41 @@ test.describe('Fleet cockpit ActivityStream — bounded, backpressure-aware feed
         stream.destroy()
     });
 
+    test('reactive ring: a runtime SHRINK re-bounds the HELD events with cumulative honest drop accounting; an invalid bound is refused', () => {
+        const stream = Neo.create(ActivityStream, {appName, events: makeEvents(250)});
+
+        // intake: 250 → 200 held / 50 dropped / 12 rows / 238 folded+dropped events
+        expect(stream.events.length).toBe(200);
+        expect(stream.droppedCount).toBe(50);
+        expect(rows(stream).length).toBe(12);
+        expect(fold(stream).text).toBe('238 earlier events');
+
+        // the falsifier: shrinking the bound must re-bound the ALREADY-HELD payload — the ring is
+        // reactive for real, not a render-only claim
+        stream.bufferSize = 10;
+        expect(stream.events.length).toBe(10);
+        // drop accounting is cumulative within the payload: 50 intake + 190 shrink = 240 of the
+        // original 250 are gone, and the fold says so (10 held ≤ 12-row window → nothing folded)
+        expect(stream.droppedCount).toBe(240);
+        expect(rows(stream).length).toBe(10);
+        expect(fold(stream).text).toBe('240 earlier events');
+
+        // zero/negative/non-finite bounds would DISABLE the ring (slice(-0) keeps everything) —
+        // refused: the previous bound and the held events stay exactly as they were
+        for (const bad of [0, -5, NaN, Infinity, 2.5]) {
+            stream.bufferSize = bad;
+            expect(stream.bufferSize).toBe(10);
+            expect(stream.events.length).toBe(10)
+        }
+
+        // a fresh payload RESETS the accounting (replace semantics) against the shrunk bound
+        stream.events = makeEvents(25);
+        expect(stream.events.length).toBe(10);
+        expect(stream.droppedCount).toBe(15);
+
+        stream.destroy()
+    });
+
     test('kind rendering delegates entirely to EventChip — unknown types still render a chip (neutral path)', () => {
         const stream = Neo.create(ActivityStream, {
             appName,

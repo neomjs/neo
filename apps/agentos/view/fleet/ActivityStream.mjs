@@ -111,8 +111,11 @@ class ActivityStream extends Container {
         /**
          * The held-event ring bound: a payload longer than this keeps its NEWEST `bufferSize`
          * events (drop-oldest), and the drop is counted into the fold — the feed's memory can
-         * never grow unbounded, and a drop is never silent. 200 holds ~55 minutes of the worst
-         * measured burst (~3.6 events/min p95).
+         * never grow unbounded, and a drop is never silent. Reactive INCLUDING the held payload:
+         * a runtime shrink re-bounds the events already held (their drop joins the fold count); a
+         * grow widens the bound for the next payload only. Positive integers only — an invalid
+         * bound is refused, never a disabled ring. 200 holds ~55 minutes of the worst measured
+         * burst (~3.6 events/min p95).
          * @member {Number} bufferSize_=200
          * @reactive
          */
@@ -150,9 +153,10 @@ class ActivityStream extends Container {
     }
 
     /**
-     * Events the ring dropped from the LAST accepted payload (payload length minus `bufferSize`).
-     * Folded into the "N earlier events" count so a ring drop is never silent. Replace semantics:
-     * each payload replaces the feed, so the count describes the current payload, not a lifetime.
+     * Events the ring dropped from the CURRENT payload: the intake drop (payload length minus
+     * `bufferSize`) plus any later runtime-shrink drops on the same payload — cumulative within
+     * the payload, RESET by the next `events` assignment. Folded into the "N earlier events"
+     * count so no drop is ever silent.
      * @member {Number} droppedCount=0
      * @protected
      */
@@ -178,12 +182,31 @@ class ActivityStream extends Container {
     }
 
     /**
+     * @summary The reactive half of the ring contract: a runtime SHRINK re-bounds the already-held
+     * events (drop-oldest, silently via the raw backing store — no beforeSet re-entry, which would
+     * reset the payload's drop accounting) and ADDS the shrink's drop to {@link #droppedCount}, so
+     * the fold stays honest about everything gone from the current payload. A grow only widens the
+     * bound for the NEXT payload — dropped events are gone, never resurrected.
      * @param {Number} value
      * @param {Number} oldValue
      * @protected
      */
     afterSetBufferSize(value, oldValue) {
-        this.isConstructed && this.refreshFeed()
+        let me = this;
+
+        if (!me.isConstructed) {
+            return
+        }
+
+        const held   = me._events || [],
+              excess = Math.max(0, held.length - value);
+
+        if (excess > 0) {
+            me.droppedCount += excess;
+            me._events = held.slice(-value)   // silent raw update: re-bound without re-entering beforeSetEvents
+        }
+
+        me.refreshFeed()
     }
 
     /**
@@ -211,6 +234,20 @@ class ActivityStream extends Container {
      */
     afterSetMaxVisible(value, oldValue) {
         this.isConstructed && this.refreshFeed()
+    }
+
+    /**
+     * @summary Guard the ring bound itself: only a positive integer can BE a buffer bound — zero,
+     * negatives, and non-finite values would silently disable the ring (`slice(-0)` retains
+     * everything), so an invalid value is refused and the previous bound (or the density default)
+     * stays in force.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @returns {Number}
+     * @protected
+     */
+    beforeSetBufferSize(value, oldValue) {
+        return Number.isInteger(value) && value > 0 ? value : (oldValue ?? 200)
     }
 
     /**
