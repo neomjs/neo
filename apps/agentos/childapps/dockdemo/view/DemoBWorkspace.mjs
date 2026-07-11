@@ -5,6 +5,7 @@ import DockLayoutAdapter                  from '../../../../../src/dashboard/Doc
 import DockMotionSignal                   from '../../../../../src/dashboard/DockMotionSignal.mjs';
 import DockPerspectiveStore               from '../../../../../src/dashboard/DockPerspectiveStore.mjs';
 import DockService                        from '../../../../../src/ai/client/DockService.mjs';
+import DockTopologyReconciler             from '../../../../../src/dashboard/DockTopologyReconciler.mjs';
 import DockZoneModel                      from '../../../../../src/dashboard/DockZoneModel.mjs';
 import TourRunner                         from '../../../../../src/ai/client/TourRunner.mjs';
 import {demoBTourScript, initialDocument} from '../../../tour/demoBPerspectives.mjs';
@@ -20,19 +21,20 @@ import '../../../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype 
  * the single source of truth; the pure reducer + view-sync halves of the dock-holder
  * contract), plus the two capabilities this demo exists to show:
  *
- * - **Perspectives** ride a {@link Neo.dashboard.DockPerspectiveStore}: the tour CAPTURES
- *   three named layouts live through `createSavedLayout` → `savePerspective` (the ADR's
- *   §2.2 capture path — no pre-baked records), and loading one back is a single committed
- *   document swap the FLIP layer animates. The switcher bar rebuilds from the store's
- *   lifecycle events — buttons are born from `perspectiveSaved`, never hardcoded.
+ * - **Perspectives** ride a {@link Neo.dashboard.DockPerspectiveStore}: ordinary views are
+ *   window-scoped; the detached view captures BOTH worker-owned workspace documents through
+ *   `captureTopologyPerspective`. Loading that record composes the real
+ *   {@link Neo.dashboard.DockTopologyReconciler} and renders its structured remainder.
+ *   The switcher bar rebuilds from store lifecycle events — buttons are born from
+ *   `perspectiveSaved`, never hardcoded.
  * - **Pop-out** rides the shared-heap vessel: panes are INSTANCE-CACHED (created once,
  *   parked across every re-projection — the reveal-pane-cache precedent), so detaching the
  *   workbench moves the LIVE component into the popup window's view tree
  *   (`mainView.add(instance)` — both windows share one App Worker) and reattaching moves it
  *   home. The {@link AgentOS.childapps.dockdemo.view.CounterPane} witness makes the
  *   reparent-never-recreate contract visible: its count survives because its instance does.
- *   Document honesty: pop-out commits `detachItem` (the item leaves the tree, keeps its
- *   record), reattach commits `addTab` — the document never lies about what is docked.
+ *   Document honesty: pop-out and reattach use the atomic two-document `transferItem` seam,
+ *   so ownership moves commit-or-neither while component reparenting stays orthogonal.
  *
  * @class AgentOS.childapps.dockdemo.view.DemoBWorkspace
  * @extends Neo.container.Base
@@ -74,6 +76,12 @@ class DemoBWorkspace extends Container {
      */
     dockModel = null
     /**
+     * The popup render target's worker-owned dock-zone document. It participates in topology
+     * capture while the live pane instance remains owned by {@link #paneCache}.
+     * @member {Object|null} popupDocument=null
+     */
+    popupDocument = null
+    /**
      * The app-side Neural Link dock seam (tour + agent drivability).
      * @member {Neo.ai.client.DockService|null} dockService=null
      */
@@ -105,6 +113,12 @@ class DemoBWorkspace extends Container {
      */
     detachedPanes = {}
     /**
+     * Plain structured result of the most recent topology reconciliation. This is rendered
+     * into the workspace so remainder semantics are visible rather than buried in logs.
+     * @member {Object|null} restoreReport=null
+     */
+    restoreReport = null
+    /**
      * Beats executed in the current run — the pip strip's progress counter.
      * @member {Number} beatCount=0
      */
@@ -119,6 +133,7 @@ class DemoBWorkspace extends Container {
         let me = this;
 
         me.dockModel        = DockZoneModel.clone(initialDocument);
+        me.popupDocument    = DemoBWorkspace.createPopupDocument();
         me.dockService      = Neo.create(DockService, {});
         me.perspectiveStore = Neo.create(DockPerspectiveStore, {});
 
@@ -151,6 +166,12 @@ class DemoBWorkspace extends Container {
         });
 
         me.add([me.createTourBar(), me.createSwitcherBar(), {
+            cls      : ['agentos-dockdemo-restore-report'],
+            hidden   : true,
+            html     : '',
+            ntype    : 'component',
+            reference: 'restore-report-b'
+        }, {
             module   : Container,
             cls      : ['agentos-dockdemo-dock-host', 'neo-dashboard'],
             flex     : 1,
@@ -170,20 +191,32 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * Captures the CURRENT committed document as a named perspective through the real
-     * §2.2 path: `createSavedLayout` (validation + normalization) → `savePerspective`.
+     * Captures the CURRENT committed workspace state as a named perspective through the real
+     * §2.2 path. Window scope persists the primary document; topology scope persists the
+     * primary + popup documents with one composed fingerprint.
      * `replace: true` keeps tour reruns idempotent — re-capturing your own name is the
      * demo's update flow, not a collision dispute.
      * @param {String} name
+     * @param {Object} [options={}]
+     * @param {'window'|'topology'} [options.scope='window']
      * @returns {{saved: Boolean, errors: String[]}}
      */
-    capturePerspective(name) {
-        let me      = this,
-            created = DockZoneModel.createSavedLayout(me.dockModel, {
+    capturePerspective(name, {scope = 'window'} = {}) {
+        let me       = this,
+            metadata = {
                 layoutId       : `demo-b-${name.toLowerCase()}`,
                 perspectiveName: name,
                 title          : name
-            });
+            },
+            created;
+
+        if (scope !== 'window' && scope !== 'topology') {
+            return {errors: [`unknown perspective capture scope "${scope}"`], saved: false}
+        }
+
+        created = scope === 'topology'
+            ? DockZoneModel.captureTopologyPerspective([me.dockModel, me.popupDocument], metadata)
+            : DockZoneModel.createSavedLayout(me.dockModel, metadata);
 
         if (created.errors.length) {
             return {errors: created.errors, saved: false}
@@ -262,14 +295,38 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * Loads a stored perspective and re-projects from its restored document — one committed
-     * swap, animated by the FLIP layer like every other re-projection.
+     * Loads a stored perspective. Window-scope records commit the restored primary document;
+     * topology-scope records go through the changed-topology reconciler and expose its remainder.
      * @param {String} name
-     * @returns {{loaded: Boolean, errors: String[]}}
+     * @returns {{loaded: Boolean, errors: String[], report: (Object|undefined)}}
      */
     loadPerspectiveByName(name) {
-        let me     = this,
-            result = me.perspectiveStore.loadPerspective(name);
+        let me         = this,
+            summary    = me.perspectiveStore.list().find(entry => entry.perspectiveName === name || entry.layoutId === name),
+            collection = me.perspectiveStore.collection,
+            layout     = summary ? collection.layouts[summary.layoutId] : null;
+
+        // Reconcile BEFORE `loadPerspective` advances the store's active id. A malformed
+        // topology record or live document must leave both layout truth and selection truth
+        // untouched — fail-closed means more than avoiding a document assignment.
+        if (layout?.captureScope === 'topology') {
+            let preview = me.restoreTopologyPerspective(layout, {commit: false});
+
+            if (!preview.loaded) return preview;
+
+            let activated = me.perspectiveStore.loadPerspective(name);
+
+            if (activated.errors.length) {
+                return {errors: activated.errors, loaded: false, report: preview.report}
+            }
+
+            preview.hasLivePopup && (me.popupDocument = preview.documents[1]);
+            me.onDockZoneDocumentChange(preview.documents[0]);
+
+            return {errors: [], loaded: true, report: preview.report}
+        }
+
+        let result = me.perspectiveStore.loadPerspective(name);
 
         if (result.errors.length || !result.document) {
             return {errors: result.errors, loaded: false}
@@ -278,6 +335,70 @@ class DemoBWorkspace extends Container {
         me.onDockZoneDocumentChange(result.document);
 
         return {errors: [], loaded: true}
+    }
+
+    /**
+     * @summary Reconciles one topology record onto the currently live workspace documents.
+     * A connected/detached popup contributes its worker-owned document; otherwise the live
+     * topology is intentionally one window. Validation errors mutate neither document.
+     * @param {Object} layout A topology-scope saved-layout record.
+     * @param {Object} [options={}]
+     * @param {Boolean} [options.commit=true] Commit reconciled documents; false is a preflight.
+     * @returns {{loaded: Boolean, errors: String[], report: Object, documents: Object[], hasLivePopup: Boolean}}
+     */
+    restoreTopologyPerspective(layout, {commit = true} = {}) {
+        let me            = this,
+            hasLivePopup  = Object.keys(me.detachedPanes).length > 0,
+            liveDocuments = hasLivePopup ? [me.dockModel, me.popupDocument] : [me.dockModel],
+            result        = DockTopologyReconciler.reconcile(layout, liveDocuments),
+            report        = DockZoneModel.clone({
+                applied       : result.applied,
+                displaced     : result.displaced,
+                errors        : result.errors,
+                mapping       : result.mapping,
+                noWindowSpawned: true,
+                unmatchedLive : result.unmatchedLive,
+                unrestored    : result.unrestored
+            });
+
+        me.restoreReport = report;
+        me.renderRestoreReport();
+
+        if (result.errors.length) {
+            return {documents: result.documents, errors: result.errors, hasLivePopup, loaded: false, report}
+        }
+
+        if (commit) {
+            hasLivePopup && (me.popupDocument = result.documents[1]);
+            me.onDockZoneDocumentChange(result.documents[0])
+        }
+
+        return {documents: result.documents, errors: [], hasLivePopup, loaded: true, report}
+    }
+
+    /**
+     * @summary Renders the structured topology remainder into a dedicated visible strip.
+     * Item ids are escaped because saved layouts are data, not trusted markup.
+     * @protected
+     */
+    renderRestoreReport() {
+        let me      = this,
+            target  = me.getReference('restore-report-b'),
+            report  = me.restoreReport,
+            escape  = value => String(value)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;'),
+            entries = values => values.length
+                ? values.map(entry => `${escape(entry.itemId)} (${escape(entry.reason)})`).join(', ')
+                : 'none';
+
+        if (!target || !report) return;
+
+        target.html = report.errors.length
+            ? `<strong>Topology restore rejected.</strong> Validation failed; live documents stayed untouched. ${report.errors.map(escape).join('; ')}`
+            : `<strong>Topology restore — no window spawned.</strong> Unrestored: ${entries(report.unrestored)}. Displaced: ${report.displaced.length ? report.displaced.map(entry => escape(entry.itemId)).join(', ') : 'none'}. Unmatched live slots: ${report.unmatchedLive.length ? report.unmatchedLive.join(', ') : 'none'}.`;
+        target.hidden = false
     }
 
     /**
@@ -312,7 +433,7 @@ class DemoBWorkspace extends Container {
 
         if (!cue) return;
 
-        cue.type === 'perspective-save' && me.capturePerspective(cue.name);
+        cue.type === 'perspective-save' && me.capturePerspective(cue.name, {scope: cue.scope});
         cue.type === 'perspective-load' && me.loadPerspectiveByName(cue.name);
         cue.type === 'popout'           && me.popOutPane(cue.itemId);
         cue.type === 'reattach'         && me.reattachPane(cue.itemId)
@@ -365,7 +486,7 @@ class DemoBWorkspace extends Container {
         let entry = me.detachedPanes[itemId],
             pane  = me.paneCache[itemId];
 
-        if (entry && pane) {
+        if (entry && pane && me.popupDocument?.items?.[itemId]) {
             entry.windowId = windowId;
             app.mainView.add(pane)
         }
@@ -390,10 +511,10 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * The pop-out moment: parks the live pane out of the projection, commits `detachItem`
-     * (document honesty — the item leaves the tree, keeps its record), and opens the popup
-     * on the SAME app: the SharedWorker heap makes the new window a second render target
-     * for the one worker, and `onWindowConnect` moves the instance in.
+     * The pop-out moment: atomically transfers the item record + placement from the primary
+     * workspace document into the popup document, parks the live pane out of the projection,
+     * and opens the popup on the SAME app. The SharedWorker heap makes the new window a second
+     * render target for the one worker; `onWindowConnect` moves the cached instance in.
      * @param {String} itemId
      * @returns {Promise<{detached: Boolean, errors: String[]}>}
      */
@@ -406,28 +527,54 @@ class DemoBWorkspace extends Container {
             return {detached: false, errors: [`"${itemId}" is not a docked, cached, attached pane`]}
         }
 
+        // A prior round-trip normalizes the now-empty popup tree. Re-seed its valid landing
+        // tabs before the next transfer; no item state exists there to preserve at that point.
+        let sourceBefore = me.dockModel,
+            popupBefore  = me.popupDocument,
+            popup        = Object.keys(me.popupDocument.items || {}).length
+                ? me.popupDocument
+                : DemoBWorkspace.createPopupDocument(),
+            result       = DockZoneModel.transferItem(sourceBefore, popup, {
+                itemId,
+                sourceWorkspaceId: 'main',
+                targetWorkspaceId: 'popup',
+                target           : {operation: 'addTab', tabsNodeId: 'popup-tabs'}
+            });
+
+        if (result.errors.length) {
+            return {detached: false, errors: result.errors}
+        }
+
         me.detachedPanes[itemId] = {tabsNodeId: home, windowId: null};
 
         // park BEFORE the re-projection tears the old tree down
         pane.parent?.remove(pane, false);
 
-        let result = me.applyDockZoneOperation({operation: 'detachItem', itemId});
+        me.popupDocument = result.targetDocument;
+        me.onDockZoneDocumentChange(result.sourceDocument);
 
-        if (result.errors?.length) {
+        try {
+            let winData = await Neo.Main.getWindowData({windowId: me.windowId});
+
+            await Neo.Main.windowOpen({
+                url           : `./index.html?popout=${itemId}&hostId=${me.id}`,
+                windowFeatures: `height=420,width=560,left=${winData.screenLeft + 120},top=${winData.screenTop + 120}`,
+                windowId      : me.windowId,
+                windowName    : `demo-b-${itemId}`
+            })
+        } catch (error) {
+            // The vessel failed after the pure transfer result was staged. Restore BOTH pristine
+            // inputs: the source's old home may have normalized away after losing its sole item,
+            // so replaying another placement is weaker than the transfer's commit-or-neither truth.
             delete me.detachedPanes[itemId];
-            return {detached: false, errors: result.errors}
+            me.popupDocument = popupBefore;
+            me.onDockZoneDocumentChange(sourceBefore);
+
+            return {
+                detached: false,
+                errors  : [`popup open failed: ${error?.message || error}`]
+            }
         }
-
-        me.onDockZoneDocumentChange(result.document);
-
-        let winData = await Neo.Main.getWindowData({windowId: me.windowId});
-
-        await Neo.Main.windowOpen({
-            url           : `./index.html?popout=${itemId}&hostId=${me.id}`,
-            windowFeatures: `height=420,width=560,left=${winData.screenLeft + 120},top=${winData.screenTop + 120}`,
-            windowId      : me.windowId,
-            windowName    : `demo-b-${itemId}`
-        });
 
         return {detached: true, errors: []}
     }
@@ -447,9 +594,9 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * The reattach: closes the popup (unless it already closed itself), commits `addTab`
-     * back to the pane's home tabs node, and lets the re-projection re-adopt the parked
-     * instance — same count, same instance, home again.
+     * The reattach: atomically transfers the item from the popup document into its primary
+     * tabs home, closes the popup (unless it already closed itself), and lets the projection
+     * re-adopt the parked instance — same count, same instance, home again.
      * @param {String} itemId
      * @param {Object} [options={}]
      * @param {Boolean} [options.windowAlreadyClosed=false]
@@ -464,28 +611,37 @@ class DemoBWorkspace extends Container {
             return {errors: [`"${itemId}" is not detached`], reattached: false}
         }
 
-        delete me.detachedPanes[itemId];
-
-        // pull the instance out of the popup's tree first — parked, never destroyed
-        pane.parent?.remove(pane, false);
-
-        if (!windowAlreadyClosed) {
-            await Neo.Main.windowClose({names: [`demo-b-${itemId}`], windowId: me.windowId})
-        }
-
         // home fallback: if the remembered tabs node left the tree (a perspective moved on),
         // the first tabs node adopts the returning pane — never a dangling reattach
         let home = me.dockModel.nodes[entry.tabsNodeId]?.type === 'tabs'
-            ? entry.tabsNodeId
-            : Object.keys(me.dockModel.nodes).find(id => me.dockModel.nodes[id].type === 'tabs');
+                ? entry.tabsNodeId
+                : Object.keys(me.dockModel.nodes).find(id => me.dockModel.nodes[id].type === 'tabs'),
+            result = DockZoneModel.transferItem(me.popupDocument, me.dockModel, {
+                itemId,
+                sourceWorkspaceId: 'popup',
+                targetWorkspaceId: 'main',
+                target           : {operation: 'addTab', tabsNodeId: home}
+            });
 
-        let result = me.applyDockZoneOperation({operation: 'addTab', itemId, tabsNodeId: home});
-
-        if (result.errors?.length) {
+        if (result.errors.length) {
             return {errors: result.errors, reattached: false}
         }
 
-        me.onDockZoneDocumentChange(result.document);
+        delete me.detachedPanes[itemId];
+
+        // Commit model ownership before awaiting the vessel. The deleted bookkeeping entry is
+        // the disconnect re-entrancy guard; a close failure leaves an empty popup, not split truth.
+        pane.parent?.remove(pane, false);
+        me.popupDocument = result.sourceDocument;
+        me.onDockZoneDocumentChange(result.targetDocument);
+
+        if (!windowAlreadyClosed) {
+            try {
+                await Neo.Main.windowClose({names: [`demo-b-${itemId}`], windowId: me.windowId})
+            } catch (error) {
+                return {errors: [`popup close failed: ${error?.message || error}`], reattached: true}
+            }
+        }
 
         return {errors: [], reattached: true}
     }
@@ -598,7 +754,8 @@ class DemoBWorkspace extends Container {
         }
 
         if (me.tourRunner.log.length) {
-            me.dockModel = DockZoneModel.clone(initialDocument);
+            me.dockModel     = DockZoneModel.clone(initialDocument);
+            me.popupDocument = DemoBWorkspace.createPopupDocument();
             me.refreshDockWorkspace()
         }
 
@@ -647,6 +804,25 @@ class DemoBWorkspace extends Container {
      */
     static totalBeats() {
         return demoBTourScript.scenes.flatMap(scene => scene.steps)
+    }
+
+    /**
+     * @summary Creates the valid empty popup workspace used as the target of an atomic transfer.
+     * The empty tabs node is intentional: it is the landing slot and is normalized away when
+     * the last item transfers home, after which the next pop-out creates a fresh target.
+     * @returns {Object}
+     * @static
+     */
+    static createPopupDocument() {
+        return {
+            schema: DockZoneModel.SCHEMA,
+            root  : 'popup-root',
+            items : {},
+            nodes : {
+                'popup-root': {type: 'edge-zone', zones: {center: 'popup-tabs'}},
+                'popup-tabs': {type: 'tabs', items: [], activeItemId: null}
+            }
+        }
     }
 
     /**
