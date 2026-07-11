@@ -10,8 +10,9 @@
  *    FLIP layer glides every surviving pane to its new geometry; the counter keeps counting.
  * 3. **Pop-out** — the workbench pane detaches to a real OS window on the SAME SharedWorker
  *    heap and reattaches, its instance-bound counter unbroken: reparent, never recreate.
- * 4. **Honest limits** — a perspective captured while the pane was detached restores into a
- *    one-window world through the §2.2 fail-closed path, shown, not hidden.
+ * 4. **Changed topology** — the detached two-workspace record restores into a one-window
+ *    world through the real reconciler. Its no-live-window remainder is rendered, and no
+ *    popup is auto-spawned.
  *
  * Store/pop-out beats ride surface CUES (the Demo-A reveal-cue pattern): perspectives are
  * store operations and window moves are vessel operations — neither is a dock-zone document
@@ -119,20 +120,20 @@ export const demoBTourScript = Object.freeze({
             {type: 'pause', ms: 900},
             {type: 'pause', ms: 900, cue: {type: 'popout', itemId: 'workbench'}, caption: 'pop-out(workbench): a real OS window opens on the shared heap. Watch the counter — it does not reset.'},
             {type: 'pause', ms: 2000},
-            {type: 'pause', ms: 600, cue: {type: 'perspective-save', name: 'Detached'}, caption: 'save("Detached"): capturing THIS state — a perspective that remembers the workbench being elsewhere'},
+            {type: 'pause', ms: 600, cue: {type: 'perspective-save', name: 'Detached', scope: 'topology'}, caption: 'save("Detached"): topology capture records BOTH worker-owned workspace documents — main plus popup'},
             {type: 'pause', ms: 900, cue: {type: 'reattach', itemId: 'workbench'}, caption: 'reattach(workbench): home again. Same instance, same count — reparent, never recreate.'},
             {type: 'pause', ms: 1200}
         ]
     }, {
         id     : 's4',
-        title  : 'Detached intent — one workspace, two render targets',
-        caption: '"Detached" captured the worker-owned workspace while the workbench rendered in the popup. Restoring it preserves that detached catalog state without persisting window identity or geometry.',
+        title  : 'Changed topology — restore truth, never summon a window',
+        caption: '"Detached" captured two worker-owned workspace documents. Only the main window is live now, so reconciliation applies what fits and renders the exact remainder.',
         steps  : [
-            {type: 'pause', ms: 1400, cue: {type: 'perspective-load', name: 'Detached'}, caption: 'load("Detached"): the workbench leaves the primary tree because the saved workspace records it detached. Window-scope restore, shown, never silent.'},
+            {type: 'pause', ms: 1400, cue: {type: 'perspective-load', name: 'Detached'}, caption: 'reconcile("Detached"): no popup is spawned; Workbench is reported unrestored with reason no-live-window, and displaced primary content is named'},
             {
                 type   : 'topology-assert',
-                caption: 'the catalog still knows the workbench (nothing was deleted) — the layout simply has no slot for it, visibly',
-                expect : [{path: 'items.workbench.title', equals: 'Workbench'}]
+                caption: 'the coverable primary slot committed, while the dedicated report strip keeps the missing popup slot visible',
+                expect : [{path: 'items.inspector.title', equals: 'Inspector'}]
             },
             {type: 'pause', ms: 1400, cue: {type: 'perspective-load', name: 'Focus'}, caption: 'load("Focus"): the finale brings it home — and the counter STILL never reset, even undocked'},
             {type: 'pause', ms: 900}
