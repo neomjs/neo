@@ -324,6 +324,7 @@ test.describe('Tier 1 Config Immutability', () => {
             primaryDevSyncEnabled          : null,
             kbSyncEnabled                  : null,
             githubWorkflowSyncEnabled      : null,
+            temporalSummaryEnabled         : null,
             chromaDaemonEnabled            : null,
             bridgeDaemonEnabled            : false,
             neuralLinkBridgeEnabled        : null,

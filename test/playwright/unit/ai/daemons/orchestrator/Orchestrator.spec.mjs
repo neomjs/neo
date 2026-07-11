@@ -234,7 +234,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             neuralLinkBridgeLivenessTimeoutMs: 50
         }));
 
-        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'neuralLinkBridge', 'embedDaemon', 'messageDaemon', 'summary', 'memory-summary-backfill', 'kbSync', 'githubWorkflowSync', 'backup', 'graphlog-compaction', 'chromaDefrag', 'primary-dev-sync', 'tenant-repo-sync', 'dream', 'message-concept-harvest', 'golden-path', 'swarm-heartbeat', 'embed-drain-liveness-watchdog', 'rem-consolidation-liveness-watchdog']);
+        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'neuralLinkBridge', 'embedDaemon', 'messageDaemon', 'summary', 'memory-summary-backfill', 'kbSync', 'githubWorkflowSync', 'backup', 'graphlog-compaction', 'temporal-summary', 'chromaDefrag', 'primary-dev-sync', 'tenant-repo-sync', 'dream', 'message-concept-harvest', 'golden-path', 'swarm-heartbeat', 'embed-drain-liveness-watchdog', 'rem-consolidation-liveness-watchdog']);
         expect(state.mlx).toBeUndefined();
         expect(state.memoryCoreChroma).toBeUndefined();
         expect(state.summary).toMatchObject({
@@ -1409,7 +1409,8 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             'primary-dev-sync',
             'tenant-repo-sync',
             'dream',
-            'summary'
+            'summary',
+            'temporal-summary'
         ].sort());
         expect(Object.isFrozen(DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES)).toBe(true);
         // Defensive: golden-path is intentionally OUT as light maintenance.

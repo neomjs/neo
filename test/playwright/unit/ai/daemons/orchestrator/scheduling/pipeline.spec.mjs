@@ -3,6 +3,7 @@ import {
     buildOrchestratorSchedulingOptions,
     buildSchedulingContext,
     buildTaskStalenessMeta,
+    executeCandidate,
     runSchedulingPipeline,
     TASK_STALENESS_CADENCE_KEY
 } from '../../../../../../../ai/daemons/orchestrator/scheduling/pipeline.mjs';
@@ -129,6 +130,8 @@ function makeOrchestratorAdapterFixture(overrides = {}) {
         embedDaemonEnabled                     : true,
         remConsolidationWatchdogRunStateDir    : '/tmp/rem',
         remConsolidationWatchdogThresholdMs    : 2_000,
+        temporalSummaryEnabled                 : false,
+        temporalSummaryAggregationService      : {runCycle: async () => {}},
         ...overrides
     };
 }
@@ -157,6 +160,9 @@ function makeAdapterConfig({dreamMs = 3_600_000, remBacklogCatchupCooldownMs = 3
                 sweepCadenceMs: 1,
                 jitterRatio   : 0
             }
+        },
+        temporalSummary: {
+            aggregationIntervalMs: 1
         }
     };
 }
@@ -187,6 +193,49 @@ test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
         });
 
         expect(disabledOptions.runtime.remConsolidationWatchdogAlarmEnabled).toBe(false);
+    });
+
+    test('buildOrchestratorSchedulingOptions wires the temporal-summary cadence + enable (#14938)', () => {
+        const orchestrator = makeOrchestratorAdapterFixture({temporalSummaryEnabled: true});
+
+        const options = buildOrchestratorSchedulingOptions({
+            orchestrator,
+            config  : makeAdapterConfig(),
+            now     : 10,
+            registry: []
+        });
+
+        // cadence read from config.temporalSummary.aggregationIntervalMs; enable off the orchestrator's getter.
+        // The supervised child runs the service in its own process — nothing is injected in-process here.
+        expect(options.context.intervals.temporalSummary).toBe(1);
+        expect(options.context.enables.temporalSummary).toBe(true);
+    });
+
+    test('executeCandidate dispatches temporal-summary as a supervised child THROUGH the heavy lease (#14938)', () => {
+        let leasedTask = null, spawnedTask = null;
+
+        const services = {
+            // supervised-child heavy → executeSupervisedCandidate → executeWithMaintenance → acquireLeaseAndExecute → processSupervisorService.runTask
+            processSupervisorService      : {runTask: taskName => { spawnedTask = taskName; return true }},
+            maintenanceBackpressureService: {
+                acquireLeaseAndExecute({taskName, executeFn}) { leasedTask = taskName; return executeFn(taskName, 'periodic-temporal-summary:1') }
+            }
+        };
+
+        executeCandidate({
+            candidate: {
+                taskName  : 'temporal-summary',
+                trigger   : {reason: 'periodic-temporal-summary:1'},
+                descriptor: {executionKind: 'supervised-child-process', maintenanceClass: 'heavy'}
+            },
+            activeHeavyTask: {name: null},
+            services,
+            runtime        : {writeLog() {}}
+        });
+
+        // took the heavy lease (exclusive-heavy correctness) and SPAWNED the supervised child — not an in-process call
+        expect(leasedTask).toBe('temporal-summary');
+        expect(spawnedTask).toBe('temporal-summary');
     });
 
     test('reports descriptor errors and still dispatches the selected candidate', () => {

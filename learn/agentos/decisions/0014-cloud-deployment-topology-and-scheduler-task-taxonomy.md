@@ -176,6 +176,20 @@ Epic [#11731](https://github.com/neomjs/neo/issues/11731) (*Server-side tenant-r
 
 **Forward-looking taxonomy.** The lane does not yet exist in `buildTaskDefinitions()`; #11790 adds it. When #11790 lands, the `Orchestrator` will drive **eleven** scheduler lanes, and the cloud-deployable set becomes `{summary, backup, dream, golden-path, tenant-repo-sync}` (the local-only and shared-primitive sets unchanged).
 
+### 2026-07-11 — temporal-pyramid aggregation lane classification (#14938)
+
+Epic #12679's temporal-pyramid substrate (ADR 0028) adds a durable L1/L2 aggregation lane to the `Orchestrator`. This amendment fires per §9's re-review trigger — #14938 introduces a new `Orchestrator` scheduler lane — and classifies it here at the decision level. ADR successor-risk verdict: `adr-amendment-required` — the §2.1–§2.4 D0 MVP decision is **not** invalidated.
+
+**New lane — decision-level classification (implementation: #14938).** The lane is a supervised one-shot child (`supervised-child-process`, spawned per due tick — no independent poller), owning the `buildTaskDefinitions()` key `temporal-summary`, the `intervals.temporalSummary` cadence, and the `localOnly.temporalSummaryEnabled` disable toggle.
+
+| Lane | Kind | Classification | Rationale |
+|---|---|---|---|
+| `temporal-summary` | periodic, heavy | **local-only** | The aggregation folds checkout-bound sources — the repo-tracked GitHub sync under `AiConfig.projectRoot/resources/content` (PRs, Discussions), `git log --first-parent origin/dev`, and `learn/agentos/decisions/` — into the durable `SUMMARY_SESSION` / `SUMMARY_DAILY` records. A cloud tenant deployment has neither the Neo-maintainer checkout nor `origin/dev`; its corpus arrives via push-ingest (the §2.1 `kbSync` / `tenant-repo-sync` boundary), not this local scan. Mirror of the other local-only heavy lanes. |
+
+**Cloud disable is a config default, not a hardcode.** The cloud profile disables the lane via `localOnly.temporalSummaryEnabled` (`NEO_ORCHESTRATOR_TEMPORAL_SUMMARY_ENABLED` env override), resolved by the same deployment-mode mechanism the other local-only lanes use. The `temporalSummaryEnabled` getter ANDs that deployment gate with the ADR 0028 opt-in (`AiConfig.temporalSummary.aggregationEnabled`), so the lane runs only in a local profile that has explicitly opted in. Forward-compat seam: a future container deployment with a mounted corpus could flip it back on with no code redesign.
+
+**Updated summary:** local-only = `{bridgeDaemon, mlx, kbSync, primary-dev-sync, swarm-heartbeat, temporal-summary}` (cloud-deployable + shared-primitive sets unchanged).
+
 ## 9. Status / Lifecycle
 
 - **Accepted** after PR #11738 merged to `dev` with cross-family review. Re-open the decision only if Sub B / C / D discovers evidence that invalidates the taxonomy.

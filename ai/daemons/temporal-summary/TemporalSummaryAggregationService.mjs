@@ -1,69 +1,59 @@
-// Class-only daemon implementation. Entry-point bootstrap (Neo + core/_export +
-// InstanceManager) lives in `ai/daemons/temporal-summary/daemon.mjs`, following the
-// canonical Orchestrator class+wrapper pattern. `Neo.setupClass(...)` at file bottom
-// uses `globalThis.Neo`, populated by the entry-point bootstrap chain.
-import AiConfig                                from '../../config.mjs';
-import Base                                    from '../../../src/core/Base.mjs';
-import logger                                  from '../../mcp/server/memory-core/logger.mjs';
-import {UNIFIED_PARTITION}                     from '../../graph/temporalSummarySchema.mjs';
-import {Memory_StorageRouter as StorageRouter} from '../../services.mjs';
+// Class-only implementation. The Orchestrator imports this service and drives `runCycle()`; the
+// orchestrator's own entry-point bootstrap populates `globalThis.Neo` (used by `Neo.setupClass(...)`
+// at file bottom) before this module loads. This lane has NO standalone daemon — the orchestrator owns
+// its cadence, dispatch, and heavy-maintenance lease.
+import AiConfig                                                                     from '../../config.mjs';
+import Base                                                                         from '../../../src/core/Base.mjs';
+import {getTemporalSummaryLevel, UNIFIED_PARTITION}                                 from '../../graph/temporalSummarySchema.mjs';
+import {Memory_GraphService as GraphService, Memory_StorageRouter as StorageRouter} from '../../services.mjs';
 import {
     composeAgentRecord,
     composeUnifiedRecord,
+    DEFAULT_RETAINED_VERSIONS,
     planDailyWindows,
-    resolvePartitionKeys
+    planSessionWindows,
+    resolvePartitionKeys,
+    versionsToPrune
 } from '../../services/memory-core/helpers/temporalSummaryAggregationEngine.mjs';
-import {
-    acquireHeavyMaintenanceLeaseSync,
-    releaseHeavyMaintenanceLeaseSync
-} from '../orchestrator/services/heavyMaintenanceLeasePrimitives.mjs';
 import {execSync}           from 'node:child_process';
 import {parse as parseYaml} from 'yaml';
 import fs                   from 'node:fs';
 import path                 from 'node:path';
 
 /**
- * @summary The heavy-maintenance lease owner label for this lane — the backpressure invariant keys on it
- * so REM / defrag / this lane never run heavy maintenance concurrently.
- * @type {String}
- */
-const LEASE_OWNER = 'temporal-summary-aggregation';
-
-/**
- * @summary Default trailing daily-window batch per pulse — the bounded, most-recent-first cap the lane
+ * @summary Default trailing daily-window batch per cycle — the bounded, most-recent-first cap the lane
  * re-aggregates each cycle (recent days are re-folded as their sources settle; older days are frozen).
  * @type {Number}
  */
 const DEFAULT_DAILY_WINDOW_COUNT = 7;
 
 /**
- * @summary The temporal-pyramid L1/L2 durable aggregation daemon — the deterministic lane that writes the
+ * @summary Default trailing session-window batch per cycle — 24 hour-aligned L1 windows, a day's worth. Each
+ * hourly window nests within one L2 day, so the two durable tiers stay coherent; recent hours are re-folded as
+ * their sources settle.
+ * @type {Number}
+ */
+const DEFAULT_SESSION_WINDOW_COUNT = 24;
+
+/**
+ * @summary The temporal-pyramid L1/L2 durable aggregation service — the deterministic lane that writes the
  * durable session/daily temporal-summary records + their velocity fields.
  *
- * **Shape** — the canonical poll-loop daemon (the `KbGarbageCollectionService` precedent): a
- * `Neo.core.Base` singleton with `start()` / `stop()` / `scheduleNext()` / `pulse()`. The entry-point
- * wrapper `ai/daemons/temporal-summary/daemon.mjs` owns the Neo bootstrap + SIGTERM.
- *
- * **Backpressure** — every `pulse()` runs under the shared heavy-maintenance lease (the landed
- * cross-daemon fairness primitive): it acquires the lease, defers the whole pulse without work when
- * another heavy-maintenance task holds it, and always releases in `finally`. This is the non-negotiable
- * fairness contract — the lane must never starve the REM / defrag siblings.
+ * **Ownership** — the Orchestrator owns this lane's cadence, dispatch, and heavy-maintenance lease: it is
+ * registered in the orchestrator task registry (heavy / exclusive-heavy) and dispatched as a supervised
+ * one-shot child under the shared lease. This service holds NO poll loop and NO lease of its own — a second scheduler beside
+ * the orchestrator is exactly the anti-pattern this lane forbids. It exposes one entry point the orchestrator
+ * drives: `runCycle()`.
  *
  * **Split** — the *pure* aggregation (velocity fold + record composition) lives in
- * `temporalSummaryAggregationEngine.mjs` and is unit-tested in isolation; this class owns only the I/O:
- * the poll loop, the lease, the window/source reads, and the Chroma + graph upsert. The read + upsert
- * seams (`collectPendingWindows` / `persistTemporalRecord`) are overridable so the lifecycle + lease
- * behavior test hermetically; their durable-store implementations land with the source-fetch increment.
- *
- * **Opt-in** — `start()` is a no-op unless called with `enabled: true`, and requires a positive
- * `pollIntervalMs` (the entry wrapper injects both from config; no hidden default).
+ * `temporalSummaryAggregationEngine.mjs` and is unit-tested in isolation; this class owns only the I/O: the
+ * window/source reads and the Chroma + graph upsert. The read + upsert seams (`collectPendingWindows` /
+ * `persistTemporalRecord`) are overridable so the cycle tests hermetically.
  *
  * @class Neo.ai.daemons.TemporalSummaryAggregationService
  * @extends Neo.core.Base
  * @singleton
- * @see ai/daemons/temporal-summary/daemon.mjs — the entry-point wrapper.
  * @see ai/services/memory-core/helpers/temporalSummaryAggregationEngine.mjs — the pure aggregation engine.
- * @see ai/daemons/kb-gc/KbGarbageCollectionService.mjs — the sibling poll-loop daemon precedent.
  */
 class TemporalSummaryAggregationService extends Base {
     static config = {
@@ -76,112 +66,7 @@ class TemporalSummaryAggregationService extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true,
-        /**
-         * Whether the poll loop is running. Plain singleton state; no reactive hooks.
-         * @member {Boolean} isPolling=false
-         * @protected
-         */
-        isPolling: false,
-        /**
-         * Active `setTimeout` handle for the next pulse; `null` when not scheduled.
-         * @member {Object|null} pollHandle=null
-         * @protected
-         */
-        pollHandle: null,
-        /**
-         * Interval between aggregation pulses in ms; injected by `start()` from config.
-         * @member {Number|null} pollIntervalMs=null
-         * @protected
-         */
-        pollIntervalMs: null
-    }
-
-    /**
-     * @summary Starts the aggregation poll loop. Idempotent; a no-op while already polling and a no-op
-     * when `enabled` is false (the daemon process then has nothing keeping the event loop alive).
-     * @param {Object}   [options]
-     * @param {Boolean}  [options.enabled=false]  Opt-in gate; injected from config by the entry wrapper.
-     * @param {Number}   [options.pollIntervalMs]  Interval between pulses; required + positive when enabled.
-     * @returns {void}
-     */
-    start({enabled = false, pollIntervalMs} = {}) {
-        if (this.isPolling) {
-            logger.debug('[TemporalSummaryAggregationService] Already polling; start() is a no-op.');
-            return
-        }
-
-        if (!enabled) {
-            logger.info('[TemporalSummaryAggregationService] Disabled (enabled=false); not starting.');
-            return
-        }
-
-        if (!Number.isFinite(pollIntervalMs) || pollIntervalMs <= 0) {
-            throw new Error('[TemporalSummaryAggregationService] start() requires a positive pollIntervalMs when enabled.')
-        }
-
-        this.pollIntervalMs = pollIntervalMs;
-        this.isPolling      = true;
-
-        logger.info(`[TemporalSummaryAggregationService] Starting temporal-pyramid aggregation (interval: ${pollIntervalMs}ms).`);
-
-        this.scheduleNext()
-    }
-
-    /**
-     * @summary Stops the poll loop. Idempotent. Cancels any pending pulse so a clean SIGTERM does not
-     * leave a timer wedging the event loop.
-     * @returns {void}
-     */
-    stop() {
-        if (this.pollHandle) {
-            clearTimeout(this.pollHandle);
-            this.pollHandle = null
-        }
-
-        this.isPolling = false;
-        logger.info('[TemporalSummaryAggregationService] Aggregation stopped.')
-    }
-
-    /**
-     * @summary Schedules the next pulse. Called after each pulse settles so a single thrown error never
-     * breaks the loop.
-     * @returns {void}
-     * @protected
-     */
-    scheduleNext() {
-        if (!this.isPolling) return;
-
-        this.pollHandle = setTimeout(() => this.pulse().catch(err => {
-            logger.error('[TemporalSummaryAggregationService] Pulse threw uncaught error:', err);
-            this.scheduleNext()
-        }), this.pollIntervalMs)
-    }
-
-    /**
-     * @summary Executes one aggregation pulse under the shared heavy-maintenance lease. Acquires the
-     * lease; if another heavy-maintenance task holds it, defers the whole pulse (no work) and reschedules;
-     * otherwise runs the bounded cycle and always releases the lease in `finally`.
-     * @returns {Promise<void>}
-     * @protected
-     */
-    async pulse() {
-        const lease = this.acquireLease();
-
-        if (!lease.acquired) {
-            logger.info(`[TemporalSummaryAggregationService] Heavy-maintenance lease held by ${lease.lease?.owner ?? 'another task'}; deferring this pulse.`);
-            this.scheduleNext();
-            return
-        }
-
-        try {
-            await this.runCycle()
-        } catch (err) {
-            logger.error('[TemporalSummaryAggregationService] Aggregation cycle failed:', err)
-        } finally {
-            this.releaseLease(lease.lease?.token);
-            this.scheduleNext()
-        }
+        singleton: true
     }
 
     /**
@@ -217,50 +102,24 @@ class TemporalSummaryAggregationService extends Base {
     }
 
     /**
-     * @summary Acquires the shared heavy-maintenance lease for this lane. The stale TTL is read from the
-     * config SSOT at the use site — the lease primitive is Neo-free and carries no TTL default by design, so
-     * omitting it makes the primitive throw at the production boundary. Overridable seam (tests inject a
-     * deterministic acquire result without touching the on-disk lease file).
-     * @returns {{acquired:Boolean, lease:Object}}
-     * @protected
-     */
-    acquireLease() {
-        return acquireHeavyMaintenanceLeaseSync({
-            owner       : LEASE_OWNER,
-            reason      : 'temporal-pyramid-l1-l2',
-            staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs
-        })
-    }
-
-    /**
-     * @summary Releases the heavy-maintenance lease held by this lane. Overridable seam. A missing token
-     * (a deferred pulse never acquired) is a no-op.
-     * @param {String} [token] The acquired lease token.
-     * @returns {void}
-     * @protected
-     */
-    releaseLease(token) {
-        if (token) {
-            releaseHeavyMaintenanceLeaseSync({token})
-        }
-    }
-
-    /**
-     * @summary Reads the most-recent-first, bounded batch of windows still needing aggregation, each with
-     * its fetched source rows (the {@link composeUnifiedRecord} input shape). The durable-store
-     * implementation (the six source fetches + the persisted-version diff) lands with the source-fetch
-     * increment; the default no-op keeps the loop inert until it does.
-     * @returns {Promise<Array<Object>>}
+     * @summary Reads the most-recent-first, bounded batch of windows still needing aggregation across BOTH
+     * durable tiers — the trailing L1 session (hourly) windows and the trailing L2 daily windows — each tagged
+     * with its `level` so {@link runCycle} mints the matching `SUMMARY_SESSION` / `SUMMARY_DAILY` records, and
+     * each carrying its fetched source rows (the {@link composeUnifiedRecord} input shape). Both tiers re-fold
+     * their recent windows every cycle; the idempotent doc id makes the re-aggregation an in-place overwrite.
+     * @returns {Promise<Array<{level:String, windowStart:String, windowEnd:String, sources:Object}>>}
      * @protected
      */
     async collectPendingWindows() {
         const
-            anchor   = this.resolveAggregationAnchor(),
-            dayCount = this.dailyWindowCount(),
-            plan     = planDailyWindows({anchor, dayCount});
+            anchor = this.resolveAggregationAnchor(),
+            plan   = [
+                ...planSessionWindows({anchor, hourCount: this.sessionWindowCount()}).map(window => ({level: 'session', window})),
+                ...planDailyWindows({anchor, dayCount: this.dailyWindowCount()}).map(window => ({level: 'daily', window}))
+            ];
 
-        return Promise.all(plan.map(async window => ({
-            level      : 'daily',
+        return Promise.all(plan.map(async ({level, window}) => ({
+            level,
             windowStart: window.windowStart,
             windowEnd  : window.windowEnd,
             sources    : await this.fetchWindowSources(window)
@@ -284,6 +143,15 @@ class TemporalSummaryAggregationService extends Base {
      */
     dailyWindowCount() {
         return DEFAULT_DAILY_WINDOW_COUNT
+    }
+
+    /**
+     * @summary The trailing session (hourly) L1 window batch size per pulse. Overridable seam.
+     * @returns {Number}
+     * @protected
+     */
+    sessionWindowCount() {
+        return DEFAULT_SESSION_WINDOW_COUNT
     }
 
     /**
@@ -397,58 +265,167 @@ class TemporalSummaryAggregationService extends Base {
     /**
      * @summary Binds `adrsLanded` to its named source — the ADR decision records added to
      * `learn/agentos/decisions/` within the window (the AdrIngestor's file source), via the git add-log.
+     * `git --since/--until` are inclusive on BOTH ends, so a commit exactly at a window boundary would land in
+     * two adjacent windows; each commit emits its `%cI` date and the half-open `[start, end)` filter on that
+     * date is authoritative (the `--since/--until` bounds only coarse-scope the scan), so a boundary ADR add is
+     * counted in exactly one window.
      * @param {{windowStart:String, windowEnd:String}} window
      * @returns {Promise<Array<{path:String}>>}
      * @protected
      */
     async fetchAdrsLanded({windowStart, windowEnd}) {
-        const raw = this.execCommand(`git log --first-parent origin/dev --since="${windowStart}" --until="${windowEnd}" --diff-filter=A --name-only --format= -- learn/agentos/decisions/`);
+        const
+            startMs = Date.parse(windowStart),
+            endMs   = Date.parse(windowEnd),
+            raw     = this.execCommand(`git log --first-parent origin/dev --since="${windowStart}" --until="${windowEnd}" --diff-filter=A --name-only --format=%cI -- learn/agentos/decisions/`),
+            adrs    = new Set();
 
-        return [...new Set((raw || '').split('\n').filter(line => /^learn\/agentos\/decisions\/\d{4}-.+\.md$/.test(line)))].map(path => ({path}))
+        // walk the log: each commit emits its `%cI` date line, then --name-only lists its added files; ADR paths
+        // are collected only while the current commit's date falls in the half-open window
+        let inWindow = false;
+
+        for (const line of (raw || '').split('\n')) {
+            const commitMs = /^\d{4}-\d{2}-\d{2}T/.test(line) ? Date.parse(line) : NaN;
+
+            if (Number.isFinite(commitMs)) {
+                inWindow = commitMs >= startMs && commitMs < endMs;
+                continue
+            }
+            if (inWindow && /^learn\/agentos\/decisions\/\d{4}-.+\.md$/.test(line)) {
+                adrs.add(line)
+            }
+        }
+
+        return [...adrs].map(path => ({path}))
     }
 
     /**
      * @summary Binds `devCommits` to its named source — the `dev` first-parent commit log over the window.
+     * `git --since/--until` are inclusive on BOTH ends, so a commit exactly at a window boundary would land in
+     * two adjacent windows; each commit emits its `%cI` date and the half-open `[start, end)` filter on that
+     * date is authoritative (`--since/--until` only coarse-scope the scan), so a boundary commit is counted once.
      * @param {{windowStart:String, windowEnd:String}} window
      * @returns {Promise<Array<{sha:String}>>}
      * @protected
      */
     async fetchDevCommits({windowStart, windowEnd}) {
-        const raw = this.execCommand(`git log --first-parent origin/dev --since="${windowStart}" --until="${windowEnd}" --format=%H`);
+        const
+            startMs = Date.parse(windowStart),
+            endMs   = Date.parse(windowEnd),
+            raw     = this.execCommand(`git log --first-parent origin/dev --since="${windowStart}" --until="${windowEnd}" --format=%cI%x09%H`);
 
-        return (raw || '').split('\n').filter(Boolean).map(sha => ({sha}))
+        return (raw || '').split('\n').filter(Boolean)
+            .map(line => { const [at, sha] = line.split('\t'); return {sha, at} })
+            .filter(({at}) => { const commitMs = Date.parse(at); return commitMs >= startMs && commitMs < endMs })
+            .map(({sha}) => ({sha}))
     }
 
     /**
-     * @summary Binds `sandboxesGraduated` to its named source — closed Discussions carrying a graduation
-     * marker, window-filtered by `closedAt`, read from the **complete** repo-tracked Discussions sync.
+     * @summary Binds `sandboxesGraduated` to its named source — exact `[GRADUATED_TO_TICKET: #N]` author-action
+     * markers, window-filtered by each marker's EVENT timestamp, read from the **complete** repo-tracked
+     * Discussions sync. The graduation event is the author posting the marker (naming the ticket it graduated
+     * to), NOT the discussion close: a discussion may close long after — or never — while the graduation happened
+     * in a dated comment, so `closedAt` is the wrong clock and is never used here.
      *
-     * This deliberately does not query the live API. A `discussions(first: 50, orderBy: UPDATED_AT)` page plus
-     * `comments(last: 25)` silently undercounts: a discussion closed inside the window but not recently
-     * *updated* falls off the page, and a marker in an earlier comment falls off the comment tail. The synced
-     * corpus carries every discussion with its full body, so the count is exact rather than plausible.
+     * The synced corpus is complete (never a truncated live `discussions(first: 50)` page) and preserves the
+     * per-comment `### `@author` commented on <ISO>` boundaries, so a marker's event time is its enclosing dated
+     * comment's timestamp; a marker outside any dated comment (e.g. the original post) fails closed, never proxied.
+     * Only the exact ticket-naming bracket counts: a bare `[GRADUATED_TO_TICKET]` mentioned in prose is the
+     * marker being DISCUSSED, not an author-action, and is rejected; a marker whose event time cannot be resolved
+     * fails closed (uncounted) rather than borrow the close time.
      * @param {{windowStart:String, windowEnd:String}} window
-     * @returns {Promise<Array<{ref:String, headline:String, at:String}>>}
+     * @returns {Promise<Array<{ref:String, ticket:String, at:String}>>}
      * @protected
      */
     async fetchSandboxesGraduated({windowStart, windowEnd}) {
         const
             startMs = Date.parse(windowStart),
-            endMs   = Date.parse(windowEnd),
-            markers = ['[GRADUATED_TO_TICKET]', '[RESOLVED_TO_AC]'];
+            endMs   = Date.parse(windowEnd);
 
-        return this.readContentRecords('discussions')
-            .filter(({frontmatter}) => {
-                const closedMs = frontmatter.closedAt ? Date.parse(String(frontmatter.closedAt)) : NaN;
+        return this.readContentRecords('discussions').flatMap(({frontmatter, body}) =>
+            this.extractGraduationActions({frontmatter, body}).filter(action => {
+                const eventMs = Date.parse(action.at);
 
-                return Number.isFinite(closedMs) && closedMs >= startMs && closedMs < endMs
+                return Number.isFinite(eventMs) && eventMs >= startMs && eventMs < endMs
             })
-            .filter(({body}) => markers.some(marker => body.includes(marker)))
-            .map(({frontmatter}) => ({
-                ref     : `discussion #${frontmatter.number}`,
-                headline: frontmatter.title,
-                at      : String(frontmatter.closedAt)
-            }))
+        )
+    }
+
+    /**
+     * @summary Extracts the exact `[GRADUATED_TO_TICKET: #N]` (or `Epic #N`) author-ACTION graduations from one
+     * synced Discussion, each stamped with its event timestamp. An action is a marker that LEADS its line after
+     * only allowed wrappers — heading `#`s, bold `**`, backticks — matching how graduations are actually posted
+     * (`## [GRADUATED_TO_TICKET: #N] …`, `` **`[GRADUATED_TO_TICKET: Epic #N]`** ``). A ticket-bearing marker
+     * inline in prose, inside a blockquote (`>`), or in a fenced/indented code block is the marker being
+     * DISCUSSED or quoted — never an action — and is rejected. Graduations are de-duped per discussion+ticket on
+     * the earliest evidenced action, so a later quote of the same graduation never re-counts.
+     *
+     * The event time is the enclosing dated boundary — a top-level `### `@author` commented on <ISO>` comment OR
+     * a nested `#### Reply depth=N by `@author` on <ISO>` reply (a reply marker binds to the reply's own time, not
+     * the parent comment's). A marker outside any dated boundary (e.g. the original post) has no event timestamp —
+     * `createdAt` is the creation time, not the edit time the marker was added — so it FAILS CLOSED (uncounted)
+     * rather than proxy the wrong clock. Both ``` and ~~~ fenced blocks (and blockquotes / indented code) are
+     * examples, never actions.
+     * @param {Object} params
+     * @param {Object} params.frontmatter The Discussion frontmatter (`number`).
+     * @param {String} params.body        The full synced Discussion body (original post + dated comment blocks).
+     * @returns {Array<{ref:String, ticket:String, at:String}>}
+     * @protected
+     */
+    extractGraduationActions({frontmatter, body}) {
+        const
+            commentPattern = /^### `@[^`]+` commented on (\S+)\s*$/,
+            // a reply carries its OWN dated boundary — a marker inside a reply binds to the reply's event time,
+            // not the enclosing comment's
+            replyPattern   = /^#### Reply depth=\d+ by `@[^`]+` on (\S+)\s*$/,
+            // author-ACTION line: the ticket-naming marker LEADS the line after only allowed wrappers
+            actionPattern  = /^(?:#{1,6}\s+|\*{1,2}|`)*\[GRADUATED_TO_TICKET:\s*(?:Epic\s+)?#(\d+)\]/,
+            seen           = new Set(),
+            actions        = [];
+
+        let currentAt = null, inFence = false;
+
+        for (const line of body.split('\n')) {
+            // a fence is delimited by ``` OR ~~~ — a marker inside either is a code example, never an author action
+            if (/^\s*(?:```|~~~)/.test(line)) {
+                inFence = !inFence;
+                continue
+            }
+            if (inFence) continue;
+
+            const boundary = commentPattern.exec(line) || replyPattern.exec(line);
+
+            if (boundary) {
+                currentAt = boundary[1];
+                continue
+            }
+
+            // blockquotes + indented code are quotes / examples, never an author action
+            if (/^\s*>/.test(line) || /^(?: {4}|\t)/.test(line)) {
+                continue
+            }
+
+            const action = actionPattern.exec(line);
+
+            // fail closed on a marker outside a dated comment: no event timestamp to stand on
+            if (!action || currentAt === null) {
+                continue
+            }
+
+            const
+                ticket = `#${action[1]}`,
+                key    = `${frontmatter.number}:${ticket}`;
+
+            // dedupe per discussion+ticket on the earliest evidenced action (document order is chronological)
+            if (seen.has(key)) {
+                continue
+            }
+
+            seen.add(key);
+            actions.push({ref: `discussion #${frontmatter.number}`, ticket, at: currentAt})
+        }
+
+        return actions
     }
 
     /**
@@ -463,23 +440,83 @@ class TemporalSummaryAggregationService extends Base {
     }
 
     /**
-     * @summary Persists one composed temporal-summary record via the Chroma upsert into the
-     * `temporal-summary` collection: the five-field metadata is the query contract, the velocity payload
-     * is the document body, keyed by the deterministic doc id (so a re-aggregation of the same
-     * window+track+version overwrites in place). The per-level `SUMMARY_*` graph label written by this lane
-     * lands with the node-type-table update.
+     * @summary Persists one composed temporal-summary record to BOTH sides of the unified store: the Chroma
+     * upsert into the `temporal-summary` collection (five-field metadata = the query contract, velocity payload =
+     * the document body) AND the per-level `SUMMARY_SESSION` / `SUMMARY_DAILY` graph node, keyed by the same
+     * deterministic doc id so a re-aggregation of the same window+track+version overwrites in place on both. This
+     * deterministic lane is the SOLE writer of those labels (never the semantic extractor); the graph node's
+     * `semanticVectorId` links it back to the Chroma row. The durable/dynamic boundary is enforced BEFORE any
+     * store write: only durable tiers (L1/L2) reach either store — a non-durable level (L3–L5, synthesis-only)
+     * produces ZERO Chroma writes AND zero graph writes, never breaching the durable/dynamic boundary.
      * @param {{id:String, metadata:Object, velocityFields:Object}} record
      * @returns {Promise<void>}
      * @protected
      */
     async persistTemporalRecord(record) {
+        const level = getTemporalSummaryLevel(record.metadata.level);
+
+        // durable/dynamic boundary FIRST: L3–L5 are synthesis-only reserved labels that must never reach a
+        // durable store, so a non-durable level is a complete no-op — no Chroma upsert, no graph node
+        if (!level?.durable) {
+            return
+        }
+
         const collection = await StorageRouter.getTemporalSummaryCollection();
 
         await collection.upsert({
             ids      : [record.id],
             documents: [JSON.stringify(record.velocityFields)],
             metadatas: [record.metadata]
-        })
+        });
+
+        GraphService.upsertNode({
+            id              : record.id,
+            type            : level.label,
+            name            : record.id,
+            semanticVectorId: record.id,
+            properties      : record.metadata
+        });
+
+        await this.pruneOldVersions(record.metadata)
+    }
+
+    /**
+     * @summary Bounded-retention prune for ONE window+track: keeps the newest {@link DEFAULT_RETAINED_VERSIONS}
+     * contract-versions and deletes the older overflow from BOTH stores — the Chroma docs and the `SUMMARY_*`
+     * graph nodes, by the same doc ids. Guarded: it only queries when the record's version could exceed the
+     * retained bound, so re-folds at the steady-state contract version pay nothing. Append-only history stays
+     * bounded. Overridable seam.
+     * @param {Object} metadata The just-persisted record's five-field metadata.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async pruneOldVersions(metadata) {
+        // overflow is impossible until the contract version passes the retained bound — skip the query entirely
+        if (metadata.version <= DEFAULT_RETAINED_VERSIONS) {
+            return
+        }
+
+        const
+            collection = await StorageRouter.getTemporalSummaryCollection(),
+            existing   = await collection.get({where: {$and: [
+                {level      : metadata.level},
+                {partition  : metadata.partition},
+                {windowStart: metadata.windowStart}
+            ]}}),
+            metadatas  = existing?.metadatas || [],
+            ids        = existing?.ids || [],
+            pruneSet   = new Set(versionsToPrune({existingVersions: metadatas.map(entry => entry.version)})),
+            pruneIds   = ids.filter((id, index) => pruneSet.has(metadatas[index]?.version));
+
+        if (pruneIds.length === 0) {
+            return
+        }
+
+        // graph first, THEN Chroma: the Chroma doc is the "still needs pruning" signal, so deleting it LAST keeps
+        // the prune retry-safe — any failure before the Chroma delete leaves the version visible to re-prune next
+        // cycle, never a Chroma-gone / graph-orphaned record.
+        GraphService.removeNodes(pruneIds);
+        await collection.delete({ids: pruneIds})
     }
 }
 

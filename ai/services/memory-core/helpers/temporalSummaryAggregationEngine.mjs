@@ -59,6 +59,23 @@ export const WINDOW_SCOPED_VELOCITY_FIELDS = Object.freeze([
 export const HIGH_IMPACT_THRESHOLD = 90;
 
 /**
+ * @summary The aggregation CONTRACT version stamped on every record this engine composes. It is NOT a per-cycle
+ * counter: re-folding a window under the same contract keeps the version, so the deterministic doc id is stable
+ * and re-aggregation overwrites in place (the settling-sources case). Bump this ONLY when the fold or source
+ * contract changes materially — then new records mint under the next version while the prior version's records
+ * stay queryable (append-only history), bounded by {@link versionsToPrune}.
+ * @type {Number}
+ */
+export const TEMPORAL_AGGREGATION_VERSION = 1;
+
+/**
+ * @summary How many of the newest contract-versions the retention policy keeps per window+track; older versions
+ * are prune-eligible. Bounds durable-tier growth so append-only version history cannot grow without limit.
+ * @type {Number}
+ */
+export const DEFAULT_RETAINED_VERSIONS = 3;
+
+/**
  * @summary Folds a window's fetched source rows into the six velocity fields. Pure + deterministic:
  * identical input → identical output; an absent or empty source folds to an honest `0` / `{}` (a window
  * with no merged PRs reports `mergedPrs: 0`, never a faked or omitted count).
@@ -115,7 +132,7 @@ export function deriveVelocityFields({
  * @param {String} params.partition      `'unified'` or a per-agent `'@<identity>'` track.
  * @param {String} params.windowStart    ISO 8601 UTC, strictly before `windowEnd`.
  * @param {String} params.windowEnd      ISO 8601 UTC.
- * @param {Number} params.version        Positive-integer append-only re-aggregation counter.
+ * @param {Number} params.version        Positive-integer material contract-version (same-version re-folds overwrite; a contract bump mints a new version).
  * @param {Object} params.velocityFields The {@link deriveVelocityFields} output.
  * @returns {{id:String, metadata:Object, velocityFields:Object}}
  */
@@ -186,11 +203,11 @@ export function resolvePartitionKeys(agentIdentities = []) {
  * @param {String} params.level        `'session'` (L1) or `'daily'` (L2).
  * @param {String} params.windowStart  ISO 8601 UTC.
  * @param {String} params.windowEnd    ISO 8601 UTC.
- * @param {Number} [params.version=1]  Positive-integer append-only re-aggregation counter.
+ * @param {Number} [params.version=1]  Positive-integer material contract-version (same-version re-folds overwrite; a contract bump mints a new version).
  * @param {Object} [params.sources={}] The window's fetched source arrays ({@link deriveVelocityFields} shape).
  * @returns {{id:String, metadata:Object, velocityFields:Object}}
  */
-export function composeUnifiedRecord({level, windowStart, windowEnd, version = 1, sources = {}}) {
+export function composeUnifiedRecord({level, windowStart, windowEnd, version = TEMPORAL_AGGREGATION_VERSION, sources = {}}) {
     return buildTemporalSummaryDocument({
         level,
         partition     : UNIFIED_PARTITION,
@@ -236,11 +253,11 @@ export function deriveAgentVelocityFields({partition, sources = {}}) {
  * @param {String} params.partition    A per-agent `'@<identity>'` track.
  * @param {String} params.windowStart  ISO 8601 UTC.
  * @param {String} params.windowEnd    ISO 8601 UTC.
- * @param {Number} [params.version=1]  Positive-integer append-only re-aggregation counter.
+ * @param {Number} [params.version=1]  Positive-integer material contract-version (same-version re-folds overwrite; a contract bump mints a new version).
  * @param {Object} [params.sources={}] The window's fetched source arrays ({@link deriveVelocityFields} shape).
  * @returns {{id:String, metadata:Object, velocityFields:Object}}
  */
-export function composeAgentRecord({level, partition, windowStart, windowEnd, version = 1, sources = {}}) {
+export function composeAgentRecord({level, partition, windowStart, windowEnd, version = TEMPORAL_AGGREGATION_VERSION, sources = {}}) {
     return buildTemporalSummaryDocument({
         level,
         partition,
@@ -274,4 +291,81 @@ export function planDailyWindows({anchor, dayCount = 7} = {}) {
     }
 
     return windows
+}
+
+/**
+ * @summary Resolves the half-open UTC-hour window for an L1 (session) aggregation anchored at any instant in
+ * the hour: `windowStart` is the hour's `:00:00.000Z`, `windowEnd` is the next hour's `:00:00.000Z`. L1 is the
+ * session tier — `session` names the sub-daily granularity at which work sessions happen, NOT a per-session-id
+ * key: the metadata contract keys every record (all levels) by `{windowStart, windowEnd}` with no session id,
+ * and the document id embeds the window start, so L1 tiles the clock one unit finer than L2 rather than
+ * tracking individual (overlapping, ragged) session spans. Hour-aligned tiling keeps the half-open
+ * `[start, end)` non-overlap invariant — one instant never falls in two windows — so the window-scoped
+ * velocity facts (`mergedPrs`, `devCommits`) land in exactly one L1 window and roll up into the containing L2
+ * day without double-counting, the same single-attribution discipline the per-agent fold carries on the
+ * partition axis.
+ * @param {String|Date} anchor An ISO 8601 timestamp string or Date within the target UTC hour.
+ * @returns {{windowStart:String, windowEnd:String}}
+ */
+export function resolveSessionWindow(anchor) {
+    const anchorMs = anchor instanceof Date ? anchor.getTime() : Date.parse(anchor);
+
+    if (Number.isNaN(anchorMs)) {
+        throw new Error(`resolveSessionWindow: invalid anchor — ${JSON.stringify(anchor)}`)
+    }
+
+    const start = new Date(anchorMs);
+
+    start.setUTCMinutes(0, 0, 0);
+
+    const end = new Date(start.getTime());
+
+    end.setUTCHours(end.getUTCHours() + 1);
+
+    return {windowStart: start.toISOString(), windowEnd: end.toISOString()}
+}
+
+/**
+ * @summary Plans the most-recent-first hourly (L1 session) windows to aggregate: the UTC hour containing
+ * `anchor` plus the preceding `hourCount - 1` hours. Bounded + deterministic — the lane plans a fixed trailing
+ * batch, never an unbounded history scan; the service fetches each window's sources + folds them. The returned
+ * windows are contiguous, non-overlapping, and ordered most-recent-first. The default trailing batch is 24
+ * hourly windows — a day's worth; every hour-aligned window nests within exactly one L2 {@link planDailyWindows}
+ * day (it never straddles the UTC-day boundary), so the L1/L2 tiers stay coherent wherever the batch begins.
+ * @param {Object}      params
+ * @param {String|Date} params.anchor          Instant within the most-recent target hour.
+ * @param {Number}      [params.hourCount=24]  Trailing hour count to plan (coerced to >= 1).
+ * @returns {Array<{windowStart:String, windowEnd:String}>}
+ */
+export function planSessionWindows({anchor, hourCount = 24} = {}) {
+    const
+        count   = Number.isInteger(hourCount) && hourCount > 0 ? hourCount : 1,
+        windows = [resolveSessionWindow(anchor)];
+
+    for (let i = 1; i < count; i++) {
+        // 1ms before the prior window's start lands in the previous UTC hour
+        const previousHourAnchor = new Date(Date.parse(windows[i - 1].windowStart) - 1);
+
+        windows.push(resolveSessionWindow(previousHourAnchor))
+    }
+
+    return windows
+}
+
+/**
+ * @summary The append-only retention decision: given the versions currently persisted for ONE window+track,
+ * returns the versions to prune — everything except the newest {@link DEFAULT_RETAINED_VERSIONS}. Pure +
+ * deterministic; the service applies the delete. Retention is defined by COUNT (keep newest-N), so a sparse or
+ * gapped version sequence still bounds cleanly. Non-integer / `< 1` versions are ignored (never valid record ids).
+ * @param {Object}   params
+ * @param {Number[]} [params.existingVersions=[]]                        Versions currently persisted for the window+track.
+ * @param {Number}   [params.retainedVersions=DEFAULT_RETAINED_VERSIONS] Newest versions to keep (coerced to >= 1).
+ * @returns {Number[]} The older overflow versions to delete (newest retained, the rest returned for pruning).
+ */
+export function versionsToPrune({existingVersions = [], retainedVersions = DEFAULT_RETAINED_VERSIONS} = {}) {
+    const
+        keep     = Number.isInteger(retainedVersions) && retainedVersions > 0 ? retainedVersions : 1,
+        distinct = [...new Set(existingVersions)].filter(version => Number.isInteger(version) && version >= 1).sort((a, b) => b - a);
+
+    return distinct.slice(keep)
 }
