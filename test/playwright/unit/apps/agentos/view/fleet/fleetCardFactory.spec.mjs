@@ -83,6 +83,7 @@ test.describe('fleetCardFactory — cockpit DTO → dock card descriptors (#1479
         expect(data.engineTag).toBeNull()
         expect(data.family).toBeNull()
         expect(data.laneLine).toBeNull()
+        expect(data.openLaneCount).toBeNull()
         expect(data.avatarUrl).toBeNull()
         // no session state known yet → the benched/offline default
         expect(data.state).toBe('off')

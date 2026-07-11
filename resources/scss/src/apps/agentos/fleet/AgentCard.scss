@@ -39,12 +39,32 @@
         color      : var(--fm-ink-dim);
     }
 
+    .fm-card-lane-row {
+        gap      : 6px;
+        min-width: 0;
+    }
+
     .fm-card-lane {
         font-size    : 11px;
         color        : var(--fm-ink-dim);
         overflow     : hidden;
         white-space  : nowrap;
         text-overflow: ellipsis;
+    }
+
+    /* the open-lane count badge — the honest total the single lane line cannot carry; only
+       rendered on a reported count, so an unknown never poses as zero */
+    .fm-card-lane-count {
+        flex         : none;
+        font-family  : var(--fm-font-mono);
+        font-size    : 10px;
+        line-height  : 1;
+        color        : var(--fm-ink-dim);
+        background   : color-mix(in srgb, var(--fm-ink-dim) 12%, transparent);
+        border       : 1px solid color-mix(in srgb, var(--fm-ink-dim) 25%, transparent);
+        border-radius: 999px;
+        padding      : 2px 7px;
+        white-space  : nowrap;
     }
 
     .fm-card-source-health {

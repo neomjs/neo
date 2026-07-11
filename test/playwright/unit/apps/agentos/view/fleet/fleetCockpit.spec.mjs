@@ -243,6 +243,22 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         expect(cockpit.rosterWired).toBe(true)
     });
 
+    test('density: openLaneCount survives the FIRST authoritative load — a stamped live count is stored, a missing stamp degrades to null, the sample number never outlives the replacement (#14598)', async () => {
+        const {grid} = await routeLoadRoster({fleetRoster: async () => ({rows: [
+            {id: 'neo-gpt',   openLaneCount: 23, lifecycle: {source: 'fleet:runtimeStatus', state: 'running', confidence: 'observed'}, sources: liveSources()},
+            {id: 'neo-fable', lifecycle: {source: 'fleet:runtimeStatus', state: 'running', confidence: 'observed'}, sources: liveSources()}
+        ]})});
+
+        // the first authoritative snapshot REPLACES the sample seed (clear + add through the real
+        // loadRoster) — the roster DTO owns the field, so what lands is the DTO's truth:
+        expect(grid.store.cleared).toBe(1);
+        // a live stamped count is stored (the badge renders it) …
+        expect(grid.store.added.find(row => row.agentId === 'neo-gpt').openLaneCount).toBe(23);
+        // … and an un-stamped row degrades to an explicit null (the badge hides) — the seeded
+        // sample's number must never pose as live truth past this replacement
+        expect(grid.store.added.find(row => row.agentId === 'neo-fable').openLaneCount).toBeNull()
+    });
+
     test('mapRosterRow maps a DTO row onto the FleetAgent contract — durable id, identity facts, honest state vocabulary', () => {
         const mapped = FleetCockpit.prototype.mapRosterRow({
             id         : 'neo-gpt',
@@ -255,13 +271,14 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         });
 
         expect(mapped).toEqual({
-            agentId    : 'neo-gpt',
-            authMode   : null,   // tri-state launch facts: absent on the row → honest null, never guessed
-            avatarUrl  : 'https://github.com/neo-gpt.png?size=80',
-            displayName: 'Neo GPT',
-            engineTag  : 'GPT-5.6 Sol',
-            family     : 'gpt',
-            launchable : null,
+            agentId      : 'neo-gpt',
+            authMode     : null,   // tri-state launch facts: absent on the row → honest null, never guessed
+            avatarUrl    : 'https://github.com/neo-gpt.png?size=80',
+            displayName  : 'Neo GPT',
+            engineTag    : 'GPT-5.6 Sol',
+            family       : 'gpt',
+            launchable   : null,
+            openLaneCount: null,   // roster-DTO-owned tri-state: un-stamped → honest null (no badge)
             // the authoritative participation fact: absent on the row → honest null, never guessed
             participationStatus: null,
             sources            : liveSources(),
@@ -348,6 +365,7 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             engineTag          : null,
             family             : 'claude',
             launchable         : null,
+            openLaneCount      : null,
             participationStatus: null,
             sources            : liveSources(),
             state              : 'ok'

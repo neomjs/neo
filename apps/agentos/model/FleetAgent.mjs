@@ -6,10 +6,12 @@ import Model from '../../../src/data/Model.mjs';
  *
  * @summary The cockpit fleet-roster record contract: one row per resident, keyed by the durable
  * `agentId`. The `fields` array IS the card's data contract — display state (`displayName`,
- * `avatarUrl`, `engineTag`, `family`, `laneLine`), session `state` (what the resident is doing
- * now, never identity), per-source `sources` provenance, and the B4/C2 lifecycle-control seam
- * (`pendingAction`, `controlReason`) all live on the record, so one Store of these records is the
- * per-row reactive layer for the whole fleet view. Sibling of {@link AgentOS.model.AgentDefinition}
+ * `avatarUrl`, `engineTag`, `family`, `laneLine`), the roster-DTO tri-state truths (`launchable`,
+ * `openLaneCount`, `participationStatus` — stamped Brain-side, null = not stamped, never guessed),
+ * session `state` (what the resident is doing now, never identity), per-source `sources`
+ * provenance, and the B4/C2 lifecycle-control seam (`pendingAction`, `controlReason`) all live on
+ * the record, so one Store of these records is the per-row reactive layer for the whole fleet
+ * view. Sibling of {@link AgentOS.model.AgentDefinition}
  * (the credential-side definition shape); this model carries no credential field by design.
  */
 class FleetAgent extends Model {
@@ -62,6 +64,15 @@ class FleetAgent extends Model {
             // family), stamped Brain-side on the roster row; tri-state — true / false / null
             // (not read back yet) — so the field carries no type coercion
             name        : 'launchable',
+            defaultValue: null
+        }, {
+            // open assigned lanes for the resident (measured density evidence: 7–17 per active
+            // agent — one lane line cannot carry that truth, the count badge can). Owned by the
+            // roster DTO end-to-end (assembler stamp → mapRosterRow → this record → the badge);
+            // tri-state like `launchable`: null = no enricher has stamped a count, and the card
+            // renders NO badge then, never a fake 0
+            name        : 'openLaneCount',
+            type        : 'Integer',
             defaultValue: null
         }, {
             // the AUTHORITATIVE swarm-participation fact from the identity roots ('active' |

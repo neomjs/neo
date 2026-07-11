@@ -37,8 +37,9 @@ export function agentCardComponentRef(agentId) {
  * serializable creation blueprint (the card's `ntype` + its `record` field bag — the same
  * {@link AgentOS.model.FleetAgent} field shape the store-backed cards render from, as a plain
  * snapshot), agent-card policy hints, and JSON identity metadata. Field mapping is null-safe and
- * forward-compatible — `engineTag`, `family`, and `laneLine` map through as `null` until the DTO
- * enrichment + activity/runtime wires land, with no change needed here. Source-health mapping is
+ * forward-compatible — `engineTag`, `family`, `laneLine`, and `openLaneCount` map through as
+ * `null` until the DTO enrichment + activity/runtime wires land, with no change needed here (a
+ * `null` count renders NO badge on the card — unknown is never rendered as zero). Source-health mapping is
  * shared with the Store-backed cockpit path so dock restore cannot silently regain placeholder-as-fact.
  * @param {Object} row=({}) A fleet-cockpit DTO row.
  * @returns {Object} `{componentRef, blueprint, policy, metadata}`
@@ -54,13 +55,14 @@ export function toAgentCardDescriptor(row = {}) {
             ntype : AGENT_CARD_NTYPE,
             record: {
                 agentId,
-                avatarUrl  : row.avatarUrl ?? null,
-                displayName: row.displayName ?? null,
-                engineTag  : row.engineTag ?? null,
-                family     : row.family ?? null,
-                laneLine   : row.laneLine ?? null,
-                sources    : sessionHealth.sources,
-                state      : sessionHealth.state
+                avatarUrl    : row.avatarUrl ?? null,
+                displayName  : row.displayName ?? null,
+                engineTag    : row.engineTag ?? null,
+                family       : row.family ?? null,
+                laneLine     : row.laneLine ?? null,
+                openLaneCount: row.openLaneCount ?? null,
+                sources      : sessionHealth.sources,
+                state        : sessionHealth.state
             }
         },
         policy  : {...AGENT_CARD_POLICY},

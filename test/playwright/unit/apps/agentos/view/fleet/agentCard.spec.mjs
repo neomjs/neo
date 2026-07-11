@@ -264,6 +264,51 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         card.destroy()
     });
 
+    test('density (#14592): the open-lane count badge renders a REPORTED count beside the lane line — in place, pluralized honestly (#14598)', () => {
+        const card  = createCard({agentId: 'vega', laneLine: 'harness-UI shell + left-rail nav', openLaneCount: 17, state: 'ok'});
+        const badge = () => card.down({reference: 'card-lane-count'});
+
+        // the measured 7–17 open lanes cannot read as one line: the line keeps the CURRENT lane,
+        // the badge carries the honest total
+        expect(card.down({reference: 'card-lane'}).text).toBe('harness-UI shell + left-rail nav');
+        expect(badge().hidden).toBe(false);
+        expect(badge().text).toBe('17 lanes');
+
+        // display state over the durable id — a count change re-renders in place, never a re-key
+        const beforeId = card.id;
+        applySet(card, {openLaneCount: 1});
+        expect(card.id).toBe(beforeId);
+        expect(badge().text).toBe('1 lane');
+
+        // the producer withdraws its report → the badge disappears with it
+        applySet(card, {openLaneCount: null});
+        expect(badge().hidden).toBe(true);
+
+        card.destroy()
+    });
+
+    test('density (#14592): an UNREPORTED lane count renders NO badge — unknown never poses as zero (#14598)', () => {
+        // store-backed record without the field → the model default (null) → no badge
+        const card  = createCard({agentId: 'ada', state: 'ok'});
+        const badge = () => card.down({reference: 'card-lane-count'});
+
+        expect(badge().hidden).toBe(true);
+        expect(badge().text ?? '').toBe('');
+
+        // zero open lanes is a report of NOTHING open — still no badge: the state axis already
+        // reads "free"; a "0 lanes" pill is noise, not glance value
+        applySet(card, {openLaneCount: 0});
+        expect(badge().hidden).toBe(true);
+
+        // the dock-blueprint field bag (perspective restore) renders its snapshot the same way
+        const snapshot = Neo.create(AgentCard, {appName, record: {agentId: 'ghost', openLaneCount: 9, sources: observedSources, state: 'ok'}});
+        expect(snapshot.down({reference: 'card-lane-count'}).hidden).toBe(false);
+        expect(snapshot.down({reference: 'card-lane-count'}).text).toBe('9 lanes');
+
+        card.destroy();
+        snapshot.destroy()
+    });
+
     test('B4 honest state: unauthorized disables the whole cluster with its reason; timeout renders stale-pending with retry still open (#14611)', () => {
         const card   = createCard({agentId: 'vega', state: 'ok'});
         const verbs  = () => card.down({reference: 'control-verbs'}).items;
