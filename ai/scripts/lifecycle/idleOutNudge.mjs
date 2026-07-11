@@ -93,9 +93,9 @@ export async function idleOutNudge(identity) {
         }
     }
 
-    // 2. Initialize Memory Core services before graph access.
-    await LifecycleService.initAsync();
-    await GraphService.initAsync();
+    // 2. Await Memory Core service readiness before graph access.
+    await LifecycleService.ready();
+    await GraphService.ready();
 
     // 3. Defensive in-flight lock check. The detector contract in checkSunsetted.mjs
     //    SHOULD have already filtered this out — it consults the lock and downgrades

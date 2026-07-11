@@ -56,9 +56,9 @@ export async function swarmWakeCooldown(signal) {
 
         console.error(`[swarmWakeCooldown] Firing SYSTEM WAKE for cycle ${signal.cycle_id} to ${signal.coordinator_recommendation}`);
 
-        // Initialize Services to send an A2A message
-        await LifecycleService.initAsync();
-        await GraphService.initAsync();
+        // Await service readiness to send an A2A message (construct auto-fires init; never call initAsync externally)
+        await LifecycleService.ready();
+        await GraphService.ready();
 
         const coordinator = signal.coordinator_recommendation || '@neo-gemini-pro';
         const sender = process.env.NEO_AGENT_IDENTITY || '@system';

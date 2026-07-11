@@ -37,8 +37,8 @@ import { Memory_GraphService } from '../../services.mjs';
 import { IDENTITIES }          from '../../graph/identityRoots.mjs';
 
 async function seed() {
-    console.log('Bootstrapping Memory Graph Service...');
-    await Memory_GraphService.initAsync();
+    console.log('Awaiting Memory Graph Service readiness...');
+    await Memory_GraphService.ready();
 
     console.log('Seeding Agent Identities...');
     let seededCount = 0;

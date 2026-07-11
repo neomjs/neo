@@ -17,7 +17,7 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 import {Readable}     from 'stream';
 
 /**
- * Unit coverage for the tenant-side KB push client (#11743).
+ * Unit coverage for the tenant-side KB push client.
  *
  * The script is the operator-facing StreamableHTTP/SSE invocation primitive for repo-push
  * ingestion envelopes. Tests keep network/client work injected so parsing, auth headers,
@@ -205,7 +205,7 @@ test.describe('ai/scripts/maintenance/kbPushClient — repo-push MCP client (#11
             input        : Readable.from('{"files":[{"sourcePath":"src/a.mjs","content":"x"}]}'),
             clientConfig,
             clientFactory: ({serverName, clientName}) => ({
-                async initAsync() {
+                async ready() {
                     calls.push({type: 'init', serverName, clientName});
                 },
                 async callTool(name, envelope) {

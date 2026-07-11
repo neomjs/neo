@@ -197,7 +197,7 @@ export async function runProbe(args, {aiConfig, graphService, execGit, writeMani
 
     const id = createMetricId({source, metricName: FIRST_CATEGORY, windowSemantics: 'day:utc', periodStart: period});
 
-    await graphService.initAsync();
+    await graphService.ready();
 
     const existing = await graphService.getNodeRecord({id});
     const guard    = isClosedPeriodViolation(existing?.properties, properties);
@@ -237,7 +237,7 @@ export async function runProbe(args, {aiConfig, graphService, execGit, writeMani
  * @returns {Object} `{exitCode, survived, lost}`
  */
 export async function runVerify({manifest}, {graphService}) {
-    await graphService.initAsync();
+    await graphService.ready();
 
     const survived = [];
     const lost     = [];

@@ -20,9 +20,9 @@ import {
  * @module ai/scripts/maintenance/probeCollectionQueryHealth
  */
 async function main() {
-    await LifecycleService.initAsync();
-    await GraphService.initAsync();
-    await StorageRouter.initAsync();
+    await LifecycleService.ready();
+    await GraphService.ready();
+    await StorageRouter.ready();
 
     const result = await StorageRouter.probeCollectionQueryHealth();
 

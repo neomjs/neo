@@ -31,7 +31,7 @@ import LifecycleService from '../../services/memory-core/lifecycle/SystemLifecyc
 import MailboxService   from '../../services/memory-core/MailboxService.mjs';
 
 async function main() {
-    await LifecycleService.initAsync();
+    await LifecycleService.ready();
     const result = await MailboxService.sweepExpiredTasks();
     console.log(JSON.stringify(result));
     process.exit(0)

@@ -110,7 +110,7 @@ export async function runReport({
     logger               = console
 } = {}) {
     await lifecycle.ready();
-    await graphService.initAsync();
+    await graphService.ready();
 
     const census = await graphService.getLifecycleCensus({includeIncidentEdges});
 

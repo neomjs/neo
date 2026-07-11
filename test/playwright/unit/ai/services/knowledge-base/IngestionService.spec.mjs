@@ -80,7 +80,7 @@ function createGraphStub() {
 
     return {
         store,
-        async initAsync() {},
+        async ready() {},
         getNodeRecord({id}) {
             return store.has(id) ? {...store.get(id)} : null;
         },

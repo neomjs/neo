@@ -304,7 +304,7 @@ export async function runAudit({
     logger        = console
 } = {}) {
     await lifecycle.ready();
-    await graphService.initAsync();
+    await graphService.ready();
 
     const [memoryCollection, summaryCollection] = await Promise.all([
         storageRouter.getMemoryCollection(),
