@@ -22,13 +22,21 @@ import {partitionFleetStart, renderFleetStartSummary, summarizeFleetStart} from 
  * bring-up: wire-derived eligibility partition (excluded-with-reason, never silently
  * skipped) and the honest outcome summary (started / rejected-with-reasons / excluded).
  */
+
+/** A usable three-source collection: the runtime axis is WIRED with real confidence. */
+const wiredRuntime = (confidence = 'observed') => ({
+    roster    : {source: 'fleet:listAgents',    state: 'wired', confidence: 'observed'},
+    repoStatus: {source: 'fleet:fleetStatus',   state: 'wired', confidence: 'observed'},
+    runtime   : {source: 'fleet:runtimeStatus', state: 'wired', confidence}
+});
+
 test.describe('fleetStartPlan — the staged morning bring-up (pure half)', () => {
 
     test('partition: every exclusion is wire-derived and carries its reason; the down fleet is what starts', () => {
         const records = [
-            {agentId: 'vega',   state: 'off'},                                          // eligible — down
-            {agentId: 'ada',    state: 'ok'},                                           // up
-            {agentId: 'grace',  state: 'idle'},                                         // up (idle is alive)
+            {agentId: 'vega',   state: 'off',  sources: wiredRuntime()},                // eligible — wired down
+            {agentId: 'ada',    state: 'ok',   sources: wiredRuntime()},                // up
+            {agentId: 'grace',  state: 'idle', sources: wiredRuntime()},                // up (idle is alive)
             {agentId: 'native', state: 'off', launchable: false, family: 'native-neo'}, // no template
             {agentId: 'euclid', state: 'off', pendingAction: 'restart'},                // verb in flight
             {state: 'off'}                                                              // guest — no definition
@@ -51,20 +59,73 @@ test.describe('fleetStartPlan — the staged morning bring-up (pure half)', () =
 
     test('tri-state honesty: launchable null (not read back) stays ELIGIBLE — the bridge owns the real refusal', () => {
         const {eligible, excluded} = partitionFleetStart([
-            {agentId: 'vega', state: 'off', launchable: null},
-            {agentId: 'ada',  state: 'off'}   // field absent entirely
+            {agentId: 'vega', state: 'off', launchable: null, sources: wiredRuntime()},
+            {agentId: 'ada',  state: 'off', sources: wiredRuntime()}   // launchable absent entirely
         ]);
 
         expect(eligible).toHaveLength(2);
         expect(excluded).toHaveLength(0)
     });
 
+    test("authority rule: an 'operator_benched' identity NEVER starts — the recorded operator decision beats every runtime fact", () => {
+        const {eligible, excluded} = partitionFleetStart([
+            // the live-registry shape: defined, launchable, wired, down — and benched
+            {agentId: 'gemini', state: 'off', launchable: true, sources: wiredRuntime(), participationStatus: 'operator_benched'},
+            // active + null (no identity root) + temporarily_unreachable all pass this rule:
+            // unreachable is an A2A-liveness fact, not a start prohibition
+            {agentId: 'vega',  state: 'off', sources: wiredRuntime(), participationStatus: 'active'},
+            {agentId: 'guest-def', state: 'off', sources: wiredRuntime(), participationStatus: null},
+            {agentId: 'ada',   state: 'off', sources: wiredRuntime(), participationStatus: 'temporarily_unreachable'}
+        ]);
+
+        expect(eligible.map(record => record.agentId)).toEqual(['vega', 'guest-def', 'ada']);
+        expect(excluded).toHaveLength(1);
+        expect(excluded[0].agentId).toBe('gemini');
+        expect(excluded[0].reason).toContain('operator_benched')
+    });
+
+    test("authority rule: unusable runtime provenance fails a start closed — projected 'off' is display fallback, not a stopped runtime", () => {
+        const partitionOne = record => partitionFleetStart([record]);
+
+        // the direct probe shape: not-wired/none must never be eligible
+        let {eligible, excluded} = partitionOne({
+            agentId: 'ghost', state: 'off',
+            sources: {...wiredRuntime(), runtime: {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none'}}
+        });
+        expect(eligible).toHaveLength(0);
+        expect(excluded[0].reason).toContain("runtime source 'not-wired'");
+
+        // missing runtime axis → fail closed with the missing state visible
+        ({eligible, excluded} = partitionOne({
+            agentId: 'gone', state: 'off',
+            sources: {...wiredRuntime(), runtime: {source: 'fleet:runtimeStatus', state: 'missing'}}
+        }));
+        expect(eligible).toHaveLength(0);
+        expect(excluded[0].reason).toContain("runtime source 'missing'");
+
+        // no sources at all → the normalizer fails the whole collection closed
+        ({eligible, excluded} = partitionOne({agentId: 'bare', state: 'off'}));
+        expect(eligible).toHaveLength(0);
+        expect(excluded[0].reason).toContain('no usable lifecycle evidence');
+
+        // a malformed fact (wrong producer literal) normalizes closed — cross-axis facts are not evidence
+        ({eligible, excluded} = partitionOne({
+            agentId: 'crossed', state: 'off',
+            sources: {...wiredRuntime(), runtime: {source: 'fleet:fleetStatus', state: 'wired', confidence: 'observed'}}
+        }));
+        expect(eligible).toHaveLength(0);
+
+        // the preserve side: genuinely WIRED stopped records are the morning start's exact target
+        expect(partitionOne({agentId: 'observed-down', state: 'off', sources: wiredRuntime('observed')}).eligible).toHaveLength(1);
+        expect(partitionOne({agentId: 'inferred-down', state: 'off', sources: wiredRuntime('inferred')}).eligible).toHaveLength(1)
+    });
+
     test('mixed settle/reject: the summary counts honestly and keeps every terminal kind visible', () => {
         const partition = partitionFleetStart([
-            {agentId: 'vega',   state: 'off'},
-            {agentId: 'ada',    state: 'off'},
-            {agentId: 'euclid', state: 'off'},
-            {agentId: 'up',     state: 'ok'}
+            {agentId: 'vega',   state: 'off', sources: wiredRuntime()},
+            {agentId: 'ada',    state: 'off', sources: wiredRuntime()},
+            {agentId: 'euclid', state: 'off', sources: wiredRuntime()},
+            {agentId: 'up',     state: 'ok',  sources: wiredRuntime()}
         ]);
 
         // index-aligned per-eligible results in the C2 adapter's vocabulary
@@ -87,8 +148,8 @@ test.describe('fleetStartPlan — the staged morning bring-up (pure half)', () =
 
     test('all-reject: zero started renders honestly — partial success is the normal case, total failure is too', () => {
         const partition = partitionFleetStart([
-            {agentId: 'vega', state: 'off'},
-            {agentId: 'ada',  state: 'off'}
+            {agentId: 'vega', state: 'off', sources: wiredRuntime()},
+            {agentId: 'ada',  state: 'off', sources: wiredRuntime()}
         ]);
 
         const summary = summarizeFleetStart(partition, [

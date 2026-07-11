@@ -22,6 +22,15 @@ import Instance        from '../../../../../../../src/manager/Instance.mjs';
 
 const seedPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../../../apps/agentos/resources/data/fleetRoster.json');
 
+// A usable three-source collection: the runtime axis is WIRED. The eligibility partition fails a
+// fleet start closed without it (projected 'off' over unusable provenance is display fallback,
+// never a stopped runtime), so every fixture that models a startable member carries this shape.
+const wiredSources = () => ({
+    roster    : {source: 'fleet:listAgents',    state: 'wired', confidence: 'observed'},
+    repoStatus: {source: 'fleet:fleetStatus',   state: 'wired', confidence: 'observed'},
+    runtime   : {source: 'fleet:runtimeStatus', state: 'wired', confidence: 'observed'}
+});
+
 /**
  * Covers the fail-closed matrix for `FleetCockpit.loadActivity()` — the app-side consumption of the
  * read-observe `fleetActivity` bridge verb.
@@ -253,8 +262,10 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             engineTag  : 'GPT-5.6 Sol',
             family     : 'gpt',
             launchable : null,
-            sources    : liveSources(),
-            state      : 'ok'
+            // the authoritative participation fact: absent on the row → honest null, never guessed
+            participationStatus: null,
+            sources            : liveSources(),
+            state              : 'ok'
         });
 
         // laneLine is OMITTED, never nulled — a roster merge must not wipe what the activity producer writes
@@ -330,15 +341,16 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
 
         // known resident → runtime status reconciled onto ITS record (the store re-renders just that card)
         expect(writes).toEqual([{
-            agentId    : 'vega',
-            authMode   : null,
-            avatarUrl  : null,
-            displayName: null,
-            engineTag  : null,
-            family     : 'claude',
-            launchable : null,
-            sources    : liveSources(),
-            state      : 'ok'
+            agentId            : 'vega',
+            authMode           : null,
+            avatarUrl          : null,
+            displayName        : null,
+            engineTag          : null,
+            family             : 'claude',
+            launchable         : null,
+            participationStatus: null,
+            sources            : liveSources(),
+            state              : 'ok'
         }]);
 
         // a resident ABSENT from the authoritative snapshot is removed — define → remove → no ghost card
@@ -463,7 +475,7 @@ test.describe('Fleet cockpit — whole-fleet control (B4, #14611)', () => {
 
         const mkCard = agentId => {
             const writes = [],
-                  record = {agentId, writes, set(values) { writes.push(values) }};
+                  record = {agentId, sources: wiredSources(), state: 'off', writes, set(values) { writes.push(values) }};
             return {ntype: 'fm-agent-card', record, writes}
         };
 
@@ -482,10 +494,11 @@ test.describe('Fleet cockpit — whole-fleet control (B4, #14611)', () => {
     });
 
     test('onStartFleet partitions from the wire: excluded members never flip pending, and the summary renders their reasons (#14612)', async () => {
-        // The staged bring-up targets the DOWN fleet: an already-up member, an unlaunchable
-        // family, and a guest row are EXCLUDED-with-reason — no intent fires at them (their
-        // records take zero writes; excluded cards never join the pending cascade) — while the
-        // eligible member drives its round-trip (no bridge → honest unauthorized). The chrome
+        // The staged bring-up targets the WIRED DOWN fleet: an already-up member, an unlaunchable
+        // family, a guest row, an operator-BENCHED identity (the authoritative participation
+        // fact), and a runtime-unwired row are EXCLUDED-with-reason — no intent fires at them
+        // (their records take zero writes; excluded cards never join the pending cascade) — while
+        // the eligible member drives its round-trip (no bridge → honest unauthorized). The chrome
         // summary slot receives the counts line + hover-reachable reasons.
         delete globalThis.AgentOS?.fleet;
 
@@ -495,10 +508,12 @@ test.describe('Fleet cockpit — whole-fleet control (B4, #14611)', () => {
         };
 
         const
-            down     = mkRecord({agentId: 'vega',   state: 'off'}),
-            up       = mkRecord({agentId: 'ada',    state: 'ok'}),
+            down     = mkRecord({agentId: 'vega',   state: 'off', sources: wiredSources()}),
+            up       = mkRecord({agentId: 'ada',    state: 'ok',  sources: wiredSources()}),
             noLaunch = mkRecord({agentId: 'native', state: 'off', launchable: false, family: 'native-neo'}),
             guest    = mkRecord({state: 'off'}),
+            benched  = mkRecord({agentId: 'gemini', state: 'off', sources: wiredSources(), participationStatus: 'operator_benched'}),
+            unwired  = mkRecord({agentId: 'silent', state: 'off'}),   // no sources → runtime normalizes not-wired
             slot     = {
                 sets: [],
                 vdom: {},
@@ -509,31 +524,36 @@ test.describe('Fleet cockpit — whole-fleet control (B4, #14611)', () => {
         const controller = Object.create(FleetCockpitController.prototype);
 
         controller.getReference = name => ({
-            'fleet-grid'         : {store: {items: [down, up, noLaunch, guest]}},
+            'fleet-grid'         : {store: {items: [down, up, noLaunch, guest, benched, unwired]}},
             'fleet-start-summary': slot
         })[name] ?? null;
         controller.refreshRosterOnSettle = async () => {};
 
         const summary = await controller.onStartFleet();
 
-        // eligible: only the down member — it took the honest unauthorized round-trip
+        // eligible: only the wired down member — it took the honest unauthorized round-trip
         expect(down.writes.some(write => write.controlReason?.kind === 'unauthorized')).toBe(true);
-        // excluded members took ZERO writes — never silently skipped, never falsely pending
+        // excluded members took ZERO writes — never silently skipped, never falsely pending;
+        // the benched + unwired rows are the authority witnesses: zero bridge writes
         expect(up.writes).toHaveLength(0);
         expect(noLaunch.writes).toHaveLength(0);
         expect(guest.writes).toHaveLength(0);
+        expect(benched.writes).toHaveLength(0);
+        expect(unwired.writes).toHaveLength(0);
 
         expect(summary.started).toBe(0);
         expect(summary.rejected).toHaveLength(1);
-        expect(summary.excluded.map(entry => entry.agentId)).toEqual(['ada', 'native', null]);
+        expect(summary.excluded.map(entry => entry.agentId)).toEqual(['ada', 'native', null, 'gemini', 'silent']);
 
         // the chrome slot rendered: cleared at action start, then the outcome line + reasons title
         expect(slot.sets[0]).toEqual({hidden: true, html: ''});
         expect(slot.sets[1].hidden).toBe(false);
         expect(slot.sets[1].html).toContain('rejected');
-        expect(slot.sets[1].html).toContain('3 excluded');
+        expect(slot.sets[1].html).toContain('5 excluded');
         expect(slot.vdom.title).toContain('native: not launchable');
-        expect(slot.vdom.title).toContain("ada: already up — session state 'ok'")
+        expect(slot.vdom.title).toContain("ada: already up — session state 'ok'");
+        expect(slot.vdom.title).toContain("gemini: benched — authoritative participation status 'operator_benched'");
+        expect(slot.vdom.title).toContain("silent: runtime source 'not-wired'")
     });
 
     test('onAgentLifecycleIntent resolves the firing card + drives the C2 adapter — no bridge → fail-closed onto the card record, never optimistic', () => {
@@ -646,9 +666,9 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
         const calls      = [],
               controller = makeController(calls),
               cards      = [
-                  {ntype: 'fm-agent-card', record: {agentId: 'vega'}},
-                  {ntype: 'fm-agent-card', record: {agentId: 'ada'}},
-                  {ntype: 'fm-agent-card', record: {agentId: 'grace'}}
+                  {ntype: 'fm-agent-card', record: {agentId: 'vega',  sources: wiredSources(), state: 'off'}},
+                  {ntype: 'fm-agent-card', record: {agentId: 'ada',   sources: wiredSources(), state: 'off'}},
+                  {ntype: 'fm-agent-card', record: {agentId: 'grace', sources: wiredSources(), state: 'off'}}
               ];
 
         controller.getReference = name => name === 'fleet-cards' ? {items: cards} : null;

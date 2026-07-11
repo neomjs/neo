@@ -626,15 +626,17 @@ class FleetCockpit extends Container {
 
     /**
      * @summary Map one assembler DTO row onto the FleetAgent record contract. The durable `id`
-     * becomes `agentId`; identity display facts (`family` / `engineTag`) flow through (null =
-     * unclassified / tagless, never guessed); the launch-derived truths (`launchable` /
-     * `authMode`, stamped Brain-side by the roster assembler) flow through tri-state so the
-     * morning-start eligibility partition reads the wire, never a cockpit guess; the runtime
-     * `lifecycle.state` maps onto the cockpit's session-state vocabulary only when
-     * `sources.runtime` is usable; missing / not-wired / malformed source truth forces `off`, so
-     * placeholder can never render as fact. The normalized three-source object remains on the
-     * record for the card markers. `laneLine` is deliberately OMITTED (not nulled): the activity
-     * capability owns it, and a merge must never wipe what another producer wrote.
+     * becomes `agentId`; identity facts (`family` / `engineTag` / the authoritative
+     * `participationStatus`) flow through (null = unclassified / tagless / no identity root,
+     * never guessed); the launch-derived truths (`launchable` / `authMode`, stamped Brain-side by
+     * the roster assembler) flow through tri-state so the morning-start eligibility partition
+     * reads the wire, never a cockpit guess; the runtime `lifecycle.state` maps onto the
+     * cockpit's session-state vocabulary only when `sources.runtime` is usable; missing /
+     * not-wired / malformed source truth forces `off`, so placeholder can never render as fact.
+     * The normalized three-source object remains on the record for the card markers AND the
+     * eligibility partition (an unusable runtime source must fail a fleet start closed). `laneLine`
+     * is deliberately OMITTED (not nulled): the activity capability owns it, and a merge must
+     * never wipe what another producer wrote.
      * @param {Object} row One cockpit DTO row (`fleetCockpitStatus` shape).
      * @returns {Object} FleetAgent record field values.
      */
@@ -649,8 +651,11 @@ class FleetCockpit extends Container {
             engineTag  : row.engineTag ?? null,
             family     : row.family ?? null,
             launchable : row.launchable ?? null,
-            sources    : sessionHealth.sources,
-            state      : sessionHealth.state
+            // the authoritative identity-root participation fact (tri-state null = no root) —
+            // the eligibility partition excludes 'operator_benched' before any lifecycle write
+            participationStatus: row.participationStatus ?? null,
+            sources            : sessionHealth.sources,
+            state              : sessionHealth.state
         }
     }
 

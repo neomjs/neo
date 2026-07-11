@@ -64,6 +64,13 @@ class FleetAgent extends Model {
             name        : 'launchable',
             defaultValue: null
         }, {
+            // the AUTHORITATIVE swarm-participation fact from the identity roots ('active' |
+            // 'operator_benched' | 'temporarily_unreachable'), resolved Brain-side through the
+            // identity join seam; typeless so null (no identity root / not stamped) survives —
+            // fleet-level eligibility excludes 'operator_benched' before any lifecycle write
+            name        : 'participationStatus',
+            defaultValue: null
+        }, {
             // the verb whose lifecycle round-trip is in flight, written by the C2 adapter;
             // null when settled
             name        : 'pendingAction',

@@ -8,23 +8,40 @@
  * per-verb C2 adapter (`fleetLifecycleIntentAdapter`), so a fleet start stays N per-record honest
  * round-trips — the per-card pending CASCADE — never one optimistic fleet-wide spinner. Every
  * eligibility rule below reads WIRE truth already on the record (`agentId` presence, the
- * launch-seam `launchable` stamp, the C2 `pendingAction` seam, the runtime-derived session
+ * authoritative identity-root `participationStatus`, the launch-seam `launchable` stamp, the C2
+ * `pendingAction` seam, the normalized `sources.runtime` provenance, the runtime-derived session
  * `state`) — nothing is hardcoded per agent, and an excluded member always carries its reason:
  * excluded-with-reason, never silently skipped.
+ *
+ * The two AUTHORITY rules gate before any state read: an `operator_benched` identity is a
+ * recorded operator decision no lifecycle fan-out may override, and a projected `state: 'off'`
+ * over an unusable runtime source is a degraded DISPLAY fallback, not control-plane proof of a
+ * stopped runtime — the same fail-closed contract the per-card controls enforce via
+ * {@link module:apps/agentos/view/fleet/sourceHealth}.
  * @module apps/agentos/view/fleet/fleetStartPlan
  */
+import {normalizeFleetSources} from './sourceHealth.mjs';
 
 /**
  * @summary Partition roster records into start-eligible members and excluded-with-reason entries.
  *
  * Rules, first match wins, each derived from a wire fact on the record:
  * 1. no `agentId` → a guest/identity-only row with no fleet definition — nothing to start;
- * 2. `launchable === false` → the launch seam says this family has no harness template
+ * 2. `participationStatus === 'operator_benched'` → the identity roots' AUTHORITATIVE
+ *    participation fact records an operator bench decision — no lifecycle write may override it
+ *    (`active` / `temporarily_unreachable` / `null` = no root all pass through: unreachable is an
+ *    A2A-liveness fact, not a start prohibition);
+ * 3. `launchable === false` → the launch seam says this family has no harness template
  *    (tri-state honesty: `null` = not read back yet stays ELIGIBLE — the bridge's own refusal is
  *    the truthful outcome, never a cockpit guess);
- * 3. a `pendingAction` in flight → the C2 round-trip seam owns the card until it settles;
- * 4. session `state` other than `off` → the resident is already up (ok / idle / wedged / limited
- *    are all live states) — a morning start targets the DOWN fleet.
+ * 4. a `pendingAction` in flight → the C2 round-trip seam owns the card until it settles;
+ * 5. `sources.runtime` unusable after normalization (`not-wired` / `missing` — the normalizer
+ *    guarantees a `wired` fact carries `observed`/`inferred` confidence, never `none`) → fail
+ *    closed: the projected `state: 'off'` below is a degraded DISPLAY fallback in this case, not
+ *    evidence of a stopped runtime — the same gate that disables the per-card controls;
+ * 6. session `state` other than `off` → the resident is already up (ok / idle / wedged / limited
+ *    are all live states) — a morning start targets the DOWN fleet (a WIRED stopped record —
+ *    `observed` or `inferred` — is exactly that fleet).
  * @param {Object[]} records FleetAgent records (or plain field bags in tests).
  * @returns {{eligible: Object[], excluded: Object[]}} `excluded` entries are
  * `{record, agentId, reason}` — the reason is always present and wire-derived.
@@ -39,14 +56,19 @@ export function partitionFleetStart(records) {
 
         const
             agentId = record.agentId ?? null,
+            runtime = normalizeFleetSources(record.sources).runtime,
             exclude = reason => excluded.push({agentId, reason, record});
 
         if (!agentId) {
             exclude('guest — no fleet definition to start')
+        } else if (record.participationStatus === 'operator_benched') {
+            exclude("benched — authoritative participation status 'operator_benched'")
         } else if (record.launchable === false) {
             exclude(`not launchable — no harness template for the '${record.family ?? 'unknown'}' family`)
         } else if (record.pendingAction) {
             exclude(`'${record.pendingAction}' round-trip already in flight`)
+        } else if (runtime.state !== 'wired') {
+            exclude(`runtime source '${runtime.state}' — no usable lifecycle evidence to start against`)
         } else if ((record.state ?? 'off') !== 'off') {
             exclude(`already up — session state '${record.state}'`)
         } else {
