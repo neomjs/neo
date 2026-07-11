@@ -15,9 +15,10 @@ import DockZoneModel         from './DockZoneModel.mjs';
  * landed pipeline, adding exactly ONE new decision: foreign-vs-local drop discrimination at
  * commit time.
  *
- * - **Local drop** (the dragged item already lives in THIS workspace's committed document): the
- *   converted operation rides the owner's landed single-document commit seam — the identical
- *   pipeline in-window drags use. No parallel drag system (§2.3 inherited guardrail).
+ * - **Local drop** (the payload's source workspace IS this one — two windows may project the
+ *   same document): the converted operation rides the owner's landed single-document commit
+ *   seam — the identical pipeline in-window drags use. No parallel drag system (§2.3 inherited
+ *   guardrail).
  * - **Foreign drop** (the item belongs to a sibling window's workspace on the same App-Worker
  *   heap): the converted `addTab`/`splitNode` descriptor becomes the nested `target` of ONE
  *   semantic `transferItem` operation, executed through the landed atomic two-document executor
@@ -33,8 +34,11 @@ import DockZoneModel         from './DockZoneModel.mjs';
  *
  * The cross-window drag payload contract (stamped by {@link Neo.dashboard.DockTabSortZone} at
  * drag start): `draggedItem.dockItemId` names the dock catalog item, and
- * `draggedItem.dockSourceWorkspaceId` names the workspace document it departs — both required
- * for a foreign commit; a payload without them fails closed (no signal-free guessing).
+ * `draggedItem.dockSourceWorkspaceId` names the workspace document it departs. The local/foreign
+ * discriminator keys on the LATTER's identity with this workspace — item-id presence in the
+ * target catalog is never ownership evidence (a foreign item with a colliding id must reach the
+ * executor's fail-closed collision rejection, not commit the local record) — and a payload
+ * missing either stamp fails closed (no signal-free guessing).
  */
 class DockCrossWindowParticipation extends Base {
     static config = {
@@ -154,14 +158,16 @@ class DockCrossWindowParticipation extends Base {
     }
 
     /**
-     * @summary The discriminated commit — the one decision this class adds. A dragged item found
-     * in THIS workspace's committed catalog commits through the landed single-document seam; a
-     * foreign item composes ONE `transferItem` descriptor (the converted operation nested as its
-     * `target`) and executes the landed atomic two-document transfer, updating the durable
-     * placement hints on the transferred record in the same commit. Every unprovable input —
-     * missing payload identity, unresolvable source document, executor errors — fails closed:
-     * nothing commits, `null` returns, both documents stay untouched (the executor's
-     * commit-or-neither contract).
+     * @summary The discriminated commit — the one decision this class adds. A payload whose
+     * `dockSourceWorkspaceId` IS this workspace commits through the landed single-document seam;
+     * any other source workspace composes ONE `transferItem` descriptor (the converted operation
+     * nested as its `target`) and executes the landed atomic two-document transfer, updating the
+     * durable placement hints on the transferred record in the same commit. Discrimination is
+     * workspace IDENTITY, never item-id presence in the target catalog — an id collision across
+     * workspaces rides the executor's fail-closed rejection. Every unprovable input — missing
+     * payload identity, unresolvable source document, executor errors — fails closed: nothing
+     * commits, `null` returns, both documents stay untouched (the executor's commit-or-neither
+     * contract).
      * @param {Object} operation The converted `addTab`/`splitNode` descriptor from the target's
      *     preview→operation pipeline.
      * @param {Object} draggedItem The coordinator's drag payload — carries `dockItemId` +
@@ -169,22 +175,25 @@ class DockCrossWindowParticipation extends Base {
      * @returns {Object|null} the owner commit result, or null when nothing committed.
      */
     commitDrop(operation, draggedItem) {
-        let me       = this,
-            itemId   = draggedItem?.dockItemId,
-            document = me.getDocument?.();
+        let me                = this,
+            itemId            = draggedItem?.dockItemId,
+            sourceWorkspaceId = draggedItem?.dockSourceWorkspaceId,
+            document          = me.getDocument?.();
 
         if (!operation || !itemId || !document) {
             return null
         }
 
-        // LOCAL: the item already lives in this workspace's committed catalog — the in-window
-        // pipeline commits it (same document, same seam, no transfer semantics).
-        if (Object.hasOwn(document.items ?? {}, itemId)) {
+        // LOCAL means the payload NAMES this workspace as its source (two windows may project the
+        // same document) — workspace IDENTITY, never item-id presence in the target catalog: a
+        // foreign item whose id collides with a local one must reach the executor's fail-closed
+        // collision rejection below, not silently commit the local record. An unstamped payload
+        // proves neither side, so it falls through to the foreign guard and fails closed.
+        if (sourceWorkspaceId != null && sourceWorkspaceId === me.workspaceId) {
             return me.commitLocal?.(operation, draggedItem) ?? null
         }
 
-        const sourceWorkspaceId = draggedItem?.dockSourceWorkspaceId;
-        const sourceDocument    = sourceWorkspaceId != null ? me.getForeignDocument?.(sourceWorkspaceId) : null;
+        const sourceDocument = sourceWorkspaceId != null ? me.getForeignDocument?.(sourceWorkspaceId) : null;
 
         if (!sourceDocument || !me.commitTransfer) {
             return null
