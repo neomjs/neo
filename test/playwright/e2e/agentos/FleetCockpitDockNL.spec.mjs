@@ -111,4 +111,64 @@ test.describe('AgentOS Fleet cockpit — dock projection commit loop (Neural Lin
             return ids.length > 0 && ids.every(id => !ids1.includes(id))
         }, {message: 'the NL operation must re-project like the human gesture', timeout: 10000, intervals: [100]}).toBe(true)
     });
+
+    test('perspective presets switch the committed document — one real click, then NL-verifiable switching through the same loop', async ({page, neuralLink}) => {
+        await page.goto('/apps/agentos/index.html');
+        page.on('pageerror', err => console.error('BROWSER JS ERROR:', err));
+        await expect(page.locator('.agent-shell')).toBeVisible({timeout: 60000});
+
+        // the boot bar renders the three seeded presets, Fleet pressed
+        const focusButton = page.locator('.fm-preset-button', {hasText: 'Focus'}).first();
+        await expect(focusButton, 'the preset bar must render on the boot surface').toBeVisible({timeout: 30000});
+
+        const app      = await neuralLink.connectToApp('AgentOS'),
+              cockpits = await app.findInstances({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']),
+              holderId = Array.isArray(cockpits) ? cockpits[0]?.id : cockpits?.id;
+
+        expect(holderId, 'the FleetCockpit must exist in the App Worker').toBeTruthy();
+
+        const primarySizes = async () => {
+            const topo = await app.getDockTopology(holderId),
+                  doc  = topo?.document ?? topo;
+            return doc.nodes['primary-split'].sizes
+        };
+
+        // 1) the REAL gesture on the live boot bar: one click switches to Focus — worker truth
+        // (post-switch bar re-renders ride the open wholesale-refresh flush defect, so the
+        // remaining switches drive the NL path — which the AC names verbatim)
+        await focusButton.click();
+
+        await expect.poll(primarySizes, {message: 'the Focus click must commit the preset document', timeout: 10000, intervals: [100]})
+            .toEqual([0.85, 0.15]);
+
+        // 2) NL-verifiable switching: the same public seam a switcher UI calls
+        const {NeuralLink_InstanceService} = await import('../../../../ai/services.mjs');
+
+        const review = await NeuralLink_InstanceService.callMethod({
+            sessionId: app.sessionId, id: holderId, method: 'activatePerspective', args: ['Review']
+        });
+        expect(review?.result ?? review).toMatchObject({switched: true});
+
+        await expect.poll(primarySizes, {message: 'the Review switch must commit', timeout: 10000, intervals: [100]})
+            .toEqual([0.45, 0.55]);
+
+        const topoReview = await app.getDockTopology(holderId),
+              docReview  = topoReview?.document ?? topoReview;
+        expect(docReview.items.detail.autoHidden, 'Review must open the detail band').toBe(false);
+
+        // ...and back to the default duty
+        await NeuralLink_InstanceService.callMethod({
+            sessionId: app.sessionId, id: holderId, method: 'activatePerspective', args: ['Fleet']
+        });
+
+        await expect.poll(primarySizes, {message: 'the Fleet switch must restore the default split', timeout: 10000, intervals: [100]})
+            .toEqual([0.6078, 0.3922]);
+
+        // a refused switch fails closed: worker truth unchanged, the refusal recorded
+        const ghost = await NeuralLink_InstanceService.callMethod({
+            sessionId: app.sessionId, id: holderId, method: 'activatePerspective', args: ['Ghost']
+        });
+        expect((ghost?.result ?? ghost)?.switched).toBe(false);
+        expect(await primarySizes()).toEqual([0.6078, 0.3922])
+    });
 });

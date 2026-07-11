@@ -175,3 +175,122 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
         expect(nodes.filter(node => node.cls?.includes('fm-pane-placeholder')).length).toBe(0)
     });
 });
+
+/**
+ * Covers the perspective presets — named workspace-scope layouts switching the committed
+ * document through the SAME commit loop every other dock gesture uses. The units: the seeded
+ * library validates and adopts, a switch restores fail-closed and commits deferred, pane
+ * continuity is STATE continuity (owner-held fields and the preset library untouched by a
+ * switch), a refused switch renders visibly with the live layout byte-untouched, and the
+ * control bar derives from store state.
+ */
+test.describe('Fleet cockpit — perspective presets (the switch through the commit loop)', () => {
+    let DockPerspectiveStore, DockZoneModel, FleetCockpit, cockpitPresetCollection, Neo;
+
+    const makePresetHost = async (overrides = {}) => {
+        const store = Neo.create(DockPerspectiveStore, {collection: cockpitPresetCollection()});
+
+        return Object.assign(Object.create(FleetCockpit.prototype), {
+            dockModel         : (await import('../../../../../../../apps/agentos/view/fleet/cockpitDockDocument.mjs')).default(),
+            gridAdapterState  : 'sample',
+            isDestroyed       : false,
+            perspectiveStore  : store,
+            presetError       : null,
+            streamAdapterState: 'sample',
+            streamEvents      : [],
+            timeout           : ms => new Promise(resolve => setTimeout(resolve, ms))
+        }, overrides)
+    };
+
+    test.beforeAll(async () => {
+        Neo                     = (await import('../../../../../../../src/Neo.mjs')).default;
+        DockPerspectiveStore    = (await import('../../../../../../../src/dashboard/DockPerspectiveStore.mjs')).default;
+        DockZoneModel           = (await import('../../../../../../../src/dashboard/DockZoneModel.mjs')).default;
+        FleetCockpit            = (await import('../../../../../../../apps/agentos/view/fleet/FleetCockpit.mjs')).default;
+        cockpitPresetCollection = (await import('../../../../../../../apps/agentos/view/fleet/cockpitPresets.mjs')).default
+    });
+
+    test('the seeded library validates whole and lists the three duty presets, Fleet active', () => {
+        const collection = cockpitPresetCollection();
+
+        expect(DockZoneModel.validateSavedLayoutCollection(collection)).toEqual([]);
+        expect(collection.activeLayoutId).toBe('fleet');
+
+        const store = Neo.create(DockPerspectiveStore, {collection});
+
+        expect(store.list().map(preset => preset.perspectiveName)).toEqual(['Fleet', 'Focus', 'Review']);
+        store.destroy()
+    });
+
+    test('a switch restores the preset document through the standard commit loop — stored synchronously, re-projected deferred', async () => {
+        let refreshed = 0;
+
+        const host = await makePresetHost({refreshDockWorkspace() { refreshed++ }});
+
+        const verdict = FleetCockpit.prototype.activatePerspective.call(host, 'Focus');
+
+        expect(verdict).toEqual({errors: [], switched: true});
+        expect(host.presetError).toBeNull();
+        // the restored document is the live SSOT immediately, with Focus geometry
+        expect(host.dockModel.nodes['primary-split'].sizes).toEqual([0.85, 0.15]);
+        // the preset library tracks the active record
+        expect(host.perspectiveStore.collection.activeLayoutId).toBe('focus');
+        // deferred view-sync, same as every commit
+        expect(refreshed).toBe(0);
+        await new Promise(resolve => setTimeout(resolve, 5));
+        expect(refreshed).toBe(1);
+
+        // Review opens the detail band and leans the split toward the trail
+        FleetCockpit.prototype.activatePerspective.call(host, 'Review');
+        expect(host.dockModel.nodes['primary-split'].sizes).toEqual([0.45, 0.55]);
+        expect(host.dockModel.items.detail.autoHidden).toBe(false);
+
+        host.perspectiveStore.destroy()
+    });
+
+    test('pane continuity across a switch is STATE continuity: owner-held fields and the resolver output survive untouched', async () => {
+        const events = [{type: 'pr-activity', payload: {text: 'live-held'}}],
+              host   = await makePresetHost({
+                  gridAdapterState  : 'live',
+                  refreshDockWorkspace() {},
+                  streamAdapterState: 'live',
+                  streamEvents      : events
+              });
+
+        FleetCockpit.prototype.activatePerspective.call(host, 'Focus');
+
+        // the switch touched the LAYOUT SSOT only — held pane state is not its surface
+        expect(host.gridAdapterState).toBe('live');
+        expect(host.streamAdapterState).toBe('live');
+        expect(host.streamEvents).toBe(events);
+
+        // and the next re-materialization carries that state into the rebuilt panes
+        const grid = FleetCockpit.prototype.resolveDockComponentRef.call(host, 'fleet-grid', {title: 'Fleet'}, 'fleet');
+        expect(grid.adapterState).toBe('live');
+
+        host.perspectiveStore.destroy()
+    });
+
+    test('a refused switch fails closed VISIBLY: the live layout stays byte-identical and the error renders in the bar', async () => {
+        let refreshed = 0;
+
+        const host   = await makePresetHost({refreshDockWorkspace() { refreshed++ }}),
+              before = JSON.stringify(host.dockModel);
+
+        const verdict = FleetCockpit.prototype.activatePerspective.call(host, 'ghost');
+
+        expect(verdict.switched).toBe(false);
+        expect(verdict.errors.join(' ')).toContain('no perspective named');
+        expect(JSON.stringify(host.dockModel)).toBe(before);
+        expect(host.presetError).toContain('ghost');
+        // the error path re-renders the bar (visible refusal), without a document commit
+        expect(refreshed).toBe(1);
+
+        // the bar derives from state: pressed follows the active record, the error chip renders
+        const bar = FleetCockpit.prototype.buildWorkspaceItems.call(host)[0];
+        expect(bar.items.filter(item => item.cls?.includes('fm-preset-button')).map(item => item.pressed)).toEqual([true, false, false]);
+        expect(bar.items.find(item => item.cls?.includes('fm-preset-error'))?.html).toContain('ghost');
+
+        host.perspectiveStore.destroy()
+    });
+});
