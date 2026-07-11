@@ -635,8 +635,8 @@ class FleetCockpit extends Container {
      * not-wired / malformed source truth forces `off`, so placeholder can never render as fact.
      * The normalized three-source object remains on the record for the card markers AND the
      * eligibility partition (an unusable runtime source must fail a fleet start closed). `laneLine`
-     * is deliberately OMITTED (not nulled): the activity capability owns it, and a merge must
-     * never wipe what another producer wrote.
+     * and `openLaneCount` are deliberately OMITTED (not nulled): the activity/lane capability
+     * owns them, and a merge must never wipe what another producer wrote.
      * @param {Object} row One cockpit DTO row (`fleetCockpitStatus` shape).
      * @returns {Object} FleetAgent record field values.
      */

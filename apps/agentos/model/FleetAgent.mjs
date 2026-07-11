@@ -64,6 +64,13 @@ class FleetAgent extends Model {
             name        : 'launchable',
             defaultValue: null
         }, {
+            // open assigned lanes for the resident (measured density evidence: 7–17 per active
+            // agent — one lane line cannot carry that truth, the count badge can). null = the
+            // lane producer has not reported; the card renders NO badge then, never a fake 0
+            name        : 'openLaneCount',
+            type        : 'Integer',
+            defaultValue: null
+        }, {
             // the AUTHORITATIVE swarm-participation fact from the identity roots ('active' |
             // 'operator_benched' | 'temporarily_unreachable'), resolved Brain-side through the
             // identity join seam; typeless so null (no identity root / not stamped) survives —

@@ -9,8 +9,10 @@ import {normalizeFleetSources} from './sourceHealth.mjs';
 
 /**
  * The resident card: the cockpit's atom. Composes the class-based fleet primitives (FamilyRail +
- * StateDot + SourceHealthMarker) with a profile avatar, name, engine tag, and current-lane line
- * into the SSOT card anatomy.
+ * StateDot + SourceHealthMarker) with a profile avatar, name, engine tag, and the lane row —
+ * current-lane line plus the open-lane count badge (measured density evidence: 7–17 open lanes
+ * per active agent; the badge carries the honest total the single line cannot) — into the SSOT
+ * card anatomy.
  *
  * **Data-driven from its `record`** — one {@link AgentOS.model.FleetAgent} record (a row of the
  * shared {@link AgentOS.store.FleetRoster} Store) is the card's single data surface; there is no
@@ -69,7 +71,8 @@ class AgentCard extends Container {
         record_: null,
         /**
          * The card anatomy — family rail · avatar · body (name-row [state dot + name + engine tag] +
-         * current-lane line + per-source health markers) · controls slot (start/stop/restart → a
+         * lane row [current-lane line + open-lane count badge] + per-source health markers) ·
+         * controls slot (start/stop/restart → a
          * single `lifecycleIntent` event for the Lane C round-trip). Each child is a referenced,
          * in-place-updated surface fed from the record by {@link #applyRecord}; foot meta is a sibling
          * leaf.
@@ -111,9 +114,26 @@ class AgentCard extends Container {
                     reference: 'card-engine'
                 }]
             }, {
-                ntype    : 'component',
-                cls      : ['fm-card-lane'],
-                reference: 'card-lane'
+                // the lane ROW: current-lane text + the open-lane count badge. The measured
+                // density evidence puts 7–17 open lanes on an active agent — one truncated line
+                // cannot carry that, so the line shows the CURRENT lane and the badge carries the
+                // honest total. The badge only renders on a reported count (null = unknown = no badge).
+                ntype : 'container',
+                cls   : ['fm-card-lane-row'],
+                layout: {ntype: 'hbox', align: 'center'},
+
+                items: [{
+                    ntype    : 'component',
+                    cls      : ['fm-card-lane'],
+                    flex     : 1,
+                    reference: 'card-lane'
+                }, {
+                    ntype    : 'component',
+                    cls      : ['fm-card-lane-count'],
+                    flex     : 'none',
+                    hidden   : true,
+                    reference: 'card-lane-count'
+                }]
             }, {
                 ntype    : 'container',
                 cls      : ['fm-card-source-health'],
@@ -248,9 +268,18 @@ class AgentCard extends Container {
             live : displayState === 'ok' && runtime.confidence === 'observed',
             state: displayState
         });
+        // a badge only for a REPORTED positive count: null/absent = the lane producer has not
+        // spoken — rendering "0 lanes" there would fabricate a fact the producer never stated
+        const laneCount = Number.isInteger(record.openLaneCount) && record.openLaneCount > 0 ? record.openLaneCount : null;
+
         me.getReference('card-name').text          = record.displayName ?? '';
         me.getReference('card-engine').text        = record.engineTag ?? '';
         me.getReference('card-lane').text          = record.laneLine ?? '';
+
+        me.getReference('card-lane-count').set({
+            hidden: laneCount === null,
+            text  : laneCount === null ? '' : `${laneCount} ${laneCount === 1 ? 'lane' : 'lanes'}`
+        });
         me.getReference('source-roster').health    = sources.roster;
         me.getReference('source-repo-status').health = sources.repoStatus;
         me.getReference('source-runtime').health   = runtime;
