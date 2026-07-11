@@ -28,6 +28,31 @@ class DockService extends Base {
     }
 
     /**
+     * Captures a live workspace as a named saved-layout record and stores it on the holder's
+     * perspective surface when present — window scope reads the holder's own document, topology
+     * scope reads the holder's ordered multi-window seam.
+     * @param {Object} opts
+     * @param {String}  opts.componentId       The dock workspace / document-holder component id
+     * @param {String}  opts.layoutId          Stable technical id for the record
+     * @param {String} [opts.perspectiveName]  Product-facing name
+     * @param {String} [opts.title]            Display title
+     * @param {String} [opts.captureScope]     'window' (default) | 'topology' — the DockZoneModel.CAPTURE_SCOPES vocabulary
+     * @param {Boolean} [opts.replace]         Explicit name-collision decision
+     * @param {String} [opts.sessionId]
+     * @returns {Promise<Object>}
+     */
+    async capturePerspective({componentId, layoutId, perspectiveName, title, captureScope, replace, sessionId}) {
+        return await ConnectionService.call(sessionId, 'capture_perspective', {
+            captureScope,
+            componentId,
+            layoutId,
+            perspectiveName,
+            replace,
+            title
+        })
+    }
+
+    /**
      * Computes a semantic diff between a supplied before-document and a live workspace's
      * current layout document.
      * @param {Object} opts
@@ -42,6 +67,36 @@ class DockService extends Base {
             beforeDocument,
             componentId,
             sizeEpsilon
+        })
+    }
+
+    /**
+     * Lists a live workspace's stored perspectives — fail-closed structured errors when the
+     * holder exposes no perspective store.
+     * @param {Object} opts
+     * @param {String} opts.componentId The dock workspace / document-holder component id
+     * @param {String} [opts.sessionId]
+     * @returns {Promise<Object>}
+     */
+    async listPerspectives({componentId, sessionId}) {
+        return await ConnectionService.call(sessionId, 'list_perspectives', {
+            componentId
+        })
+    }
+
+    /**
+     * Restores a stored perspective by name through the holder's switch seam (or the store's
+     * fail-closed load) and returns the post-restore document for one-call verification.
+     * @param {Object} opts
+     * @param {String} opts.componentId The dock workspace / document-holder component id
+     * @param {String} opts.name        The perspective's product name (or technical layoutId)
+     * @param {String} [opts.sessionId]
+     * @returns {Promise<Object>}
+     */
+    async restorePerspective({componentId, name, sessionId}) {
+        return await ConnectionService.call(sessionId, 'restore_perspective', {
+            componentId,
+            name
         })
     }
 

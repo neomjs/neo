@@ -845,6 +845,115 @@ paths:
               schema:
                 type: object
 
+  /dock/capturePerspective:
+    post:
+      summary: Capture Perspective
+      operationId: capture_perspective
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: Captures a live dock workspace as a named saved-layout record and stores it on the holder's perspective store when present. captureScope 'window' (default) captures the holder's own document; 'topology' captures the ordered multi-window workspace through the holder's getDockTopologyDocuments() seam. Name collisions return a structured verdict unless replace is true.
+      tags: [Dock]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [componentId, layoutId]
+              properties:
+                sessionId:
+                  type: string
+                  description: Target App Worker Session ID
+                componentId:
+                  type: string
+                  description: The dock workspace / document-holder component id
+                layoutId:
+                  type: string
+                  description: Stable technical id for the captured record
+                perspectiveName:
+                  type: string
+                  description: Product-facing name (resolves first on restore)
+                title:
+                  type: string
+                  description: Display title
+                captureScope:
+                  type: string
+                  enum: [window, topology]
+                  description: window (default) or topology — the DockZoneModel.CAPTURE_SCOPES vocabulary
+                replace:
+                  type: boolean
+                  description: Explicit decision to retire an existing holder of the name
+      responses:
+        '200':
+          description: The capture result with the record and store verdict
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /dock/listPerspectives:
+    post:
+      summary: List Perspectives
+      operationId: list_perspectives
+      x-neo-tool-tier: read
+      x-pass-as-object: true
+      description: Lists a live dock workspace's stored perspectives (summaries plus the active layout id). Fails closed with a structured error when the holder exposes no perspective store.
+      tags: [Dock]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [componentId]
+              properties:
+                sessionId:
+                  type: string
+                  description: Target App Worker Session ID
+                componentId:
+                  type: string
+                  description: The dock workspace / document-holder component id
+      responses:
+        '200':
+          description: Perspective summaries and the active layout id
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /dock/restorePerspective:
+    post:
+      summary: Restore Perspective
+      operationId: restore_perspective
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: Restores a stored perspective by name, routed by the record's own captureScope - window records ride the holder's switch seam (or the store's fail-closed load); topology records reconcile onto the live windows and commit atomically through the holder's multi-document seam, reporting restored/unrestored/displaced. A refused restore leaves the live layout untouched with structured errors.
+      tags: [Dock]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [componentId, name]
+              properties:
+                sessionId:
+                  type: string
+                  description: Target App Worker Session ID
+                componentId:
+                  type: string
+                  description: The dock workspace / document-holder component id
+                name:
+                  type: string
+                  description: The perspective's product name or technical layoutId
+      responses:
+        '200':
+          description: The restore verdict and post-restore document
+          content:
+            application/json:
+              schema:
+                type: object
+
   /component/observeMotion:
     post:
       summary: Observe Motion

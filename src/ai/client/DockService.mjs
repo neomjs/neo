@@ -1,11 +1,13 @@
-import DockTopologyDiff from '../../dashboard/DockTopologyDiff.mjs';
-import DockZoneModel    from '../../dashboard/DockZoneModel.mjs';
-import Service          from './Service.mjs';
+import DockTopologyDiff       from '../../dashboard/DockTopologyDiff.mjs';
+import DockTopologyReconciler from '../../dashboard/DockTopologyReconciler.mjs';
+import DockZoneModel          from '../../dashboard/DockZoneModel.mjs';
+import Service                from './Service.mjs';
 
 /**
- * Handles dock-layout Neural Link requests: topology readout and semantic operation execution
- * against a live dockZone.v1 document holder (contract of record:
- * learn/agentos/HarnessDockZoneModel.md and the harness docking design tier built on it).
+ * Handles dock-layout Neural Link requests: topology readout, semantic operation execution and
+ * the perspective tool trio (capture / list / restore) against a live dockZone.v1 document
+ * holder (contract of record: learn/agentos/HarnessDockZoneModel.md and the harness docking
+ * design tier built on it).
  *
  * The service never mutates layout state outside the landed commit path: operations dispatch
  * through `DockZoneModel.applyOperation()` (or the holder's own `applyDockZoneOperation`
@@ -13,6 +15,12 @@ import Service          from './Service.mjs';
  * `DockSplitter.commitResizeSplit()` does — including the `onDockZoneDocumentChange`
  * notification hook. Policy rejections (e.g. `pinnable: false`) therefore surface as the
  * executor's structured `errors`, never get bypassed.
+ *
+ * Perspective verbs consume the executable substrate directly: capture scope validates against
+ * `DockZoneModel.CAPTURE_SCOPES` (the SSOT — never a hand-listed mirror), capture rides the
+ * landed scope producers, and restore inspects the stored record's own `captureScope` BEFORE
+ * any state moves, routing topology records through `DockTopologyReconciler` plus the holder's
+ * atomic multi-document commit seam.
  * @class Neo.ai.client.DockService
  * @extends Neo.ai.client.Service
  */
@@ -107,6 +115,290 @@ class DockService extends Service {
         const holder = this.resolveHolder(componentId);
 
         return DockTopologyDiff.diffDockDocuments(beforeDocument, this.readDocument(holder), {sizeEpsilon})
+    }
+
+    /**
+     * Captures the holder's CURRENT layout as a named saved-layout record through the landed
+     * scope producers, and stores it when the holder exposes a perspective store — the capture
+     * verb of the perspective tool trio.
+     *
+     * `captureScope` validates against the executable SSOT
+     * ({@link Neo.dashboard.DockZoneModel#CAPTURE_SCOPES}), never a hand-listed mirror:
+     * `window` (the default) captures the holder's own document through
+     * `DockZoneModel.capturePerspective()` (fingerprint-coherent by construction); `topology`
+     * captures the whole multi-window workspace through
+     * `DockZoneModel.captureTopologyPerspective()` over the holder's topology read seam —
+     * `getDockTopologyDocuments()`, returning the ordered committed documents, primary first.
+     * A holder without that seam refuses topology capture with the missing seam declared —
+     * never a silent downgrade to window scope.
+     * @param {Object} params
+     * @param {String}  params.componentId       The dock workspace / holder component id
+     * @param {String}  params.layoutId          Stable technical id for the record
+     * @param {String} [params.perspectiveName]  Product-facing name (resolves first on load)
+     * @param {String} [params.title]            Display title
+     * @param {String} [params.captureScope]     'window' (default) | 'topology' — the CAPTURE_SCOPES SSOT
+     * @param {Boolean} [params.replace]         Explicit collision decision for the store
+     * @returns {Object} `{captured, stored, collision, errors, layout}`
+     */
+    async capturePerspective({componentId, layoutId, perspectiveName, title, captureScope = 'window', replace = false}) {
+        if (!DockZoneModel.CAPTURE_SCOPES.includes(captureScope)) {
+            return {
+                captured : false,
+                collision: null,
+                errors   : [`unknown captureScope "${captureScope}" — the vocabulary is: ${DockZoneModel.CAPTURE_SCOPES.join(', ')}`],
+                layout   : null,
+                stored   : false
+            }
+        }
+
+        const holder   = this.resolveHolder(componentId),
+              metadata = {
+                  layoutId,
+                  metadata: {source: 'neural-link-capture'},
+                  // the wrapper requires a display title; a capture must not refuse over a
+                  // missing label — the name (or id) is the honest default
+                  title   : title ?? perspectiveName ?? layoutId,
+                  // the writer keys on own-property presence: an own `perspectiveName: undefined`
+                  // would fail field validation, so the key only exists when a name was given
+                  ...(perspectiveName !== undefined && {perspectiveName})
+              };
+
+        let produced;
+
+        if (captureScope === 'topology') {
+            if (typeof holder.getDockTopologyDocuments !== 'function') {
+                return {
+                    captured : false,
+                    collision: null,
+                    errors   : [
+                        `Component ${componentId} exposes no getDockTopologyDocuments() seam — topology ` +
+                        'capture needs the holder\'s ordered multi-window documents (primary first)'
+                    ],
+                    layout: null,
+                    stored: false
+                }
+            }
+
+            produced = DockZoneModel.captureTopologyPerspective(holder.getDockTopologyDocuments(), metadata)
+        } else {
+            produced = DockZoneModel.capturePerspective(this.readDocument(holder), metadata)
+        }
+
+        if (produced.errors.length) {
+            return {captured: false, collision: null, errors: produced.errors, layout: null, stored: false}
+        }
+
+        const {layout} = produced,
+              store    = holder.perspectiveStore;
+
+        if (typeof store?.savePerspective !== 'function') {
+            // capture still succeeds — the agent holds the record; storing needs the holder's
+            // perspective surface, and its absence is declared, never silently absorbed
+            return {captured: true, collision: null, errors: [], layout, stored: false}
+        }
+
+        const saved = store.savePerspective(layout, {replace});
+
+        return {
+            captured : true,
+            collision: saved.collision,
+            errors   : saved.errors,
+            layout,
+            stored   : saved.saved
+        }
+    }
+
+    /**
+     * Lists the holder's stored perspectives — the read verb of the trio. Fail-closed when
+     * the holder exposes no perspective store: a structured error, never a crash or an empty
+     * list masquerading as "no perspectives exist".
+     * @param {Object} params
+     * @param {String} params.componentId The dock workspace / holder component id
+     * @returns {Object} `{perspectives, activeLayoutId, errors}`
+     */
+    async listPerspectives({componentId}) {
+        const holder = this.resolveHolder(componentId),
+              store  = holder.perspectiveStore;
+
+        if (typeof store?.list !== 'function') {
+            return {
+                activeLayoutId: null,
+                errors        : [`Component ${componentId} exposes no perspective store — nothing to list`],
+                perspectives  : null
+            }
+        }
+
+        return {
+            activeLayoutId: store.collection?.activeLayoutId ?? null,
+            errors        : [],
+            perspectives  : store.list()
+        }
+    }
+
+    /**
+     * Restores a stored perspective by name, scope-honestly: the record is inspected READ-ONLY
+     * first (the store's `getPerspective()` seam — no store state advances before the workspace
+     * commit is known), then routed by the record's OWN `captureScope`:
+     *
+     * - **window** records prefer the holder's switch seam (`activatePerspective` — commit
+     *   loop, animation and error rendering included), falling back to the store's fail-closed
+     *   load plus the landed plain-holder commit semantics.
+     * - **topology** records route through {@link Neo.dashboard.DockTopologyReconciler} plus the
+     *   holder's atomic multi-document commit seam — see
+     *   {@link #restoreTopologyPerspective}. `windowDocuments` are never dropped: a topology
+     *   record can never report `switched: true` off a single-document commit.
+     *
+     * Fail-closed per the settled restore semantics: validate everything before mutating
+     * anything — a refused restore leaves the live layout byte-untouched, the store's active
+     * pointer unmoved, and surfaces the structured errors.
+     * @param {Object} params
+     * @param {String} params.componentId The dock workspace / holder component id
+     * @param {String} params.name        The perspective's product name (or technical layoutId)
+     * @returns {Object} Window scope / refusals: `{switched, captureScope, errors, document}`;
+     * topology scope additionally carries `{documents, restored, unrestored, displaced}` —
+     * the reconciler's completion/remainder report
+     */
+    async restorePerspective({componentId, name}) {
+        const holder = this.resolveHolder(componentId),
+              store  = holder.perspectiveStore;
+
+        if (typeof store?.getPerspective !== 'function') {
+            return {
+                captureScope: null,
+                document    : this.readDocument(holder),
+                errors      : [
+                    `Component ${componentId} exposes no perspective store with a read-only ` +
+                    'getPerspective() seam — the record\'s captureScope must be inspected before any state moves'
+                ],
+                switched    : false
+            }
+        }
+
+        const entry = store.getPerspective(name);
+
+        if (!entry) {
+            return {
+                captureScope: null,
+                document    : this.readDocument(holder),
+                errors      : [`no perspective named "${name}"`],
+                switched    : false
+            }
+        }
+
+        if (entry.layout?.captureScope === 'topology') {
+            return this.restoreTopologyPerspective({holder, name, record: entry.layout, store})
+        }
+
+        // window scope: the holder's own switch seam rides its full commit loop
+        if (typeof holder.activatePerspective === 'function') {
+            const verdict = holder.activatePerspective(name);
+
+            return {
+                captureScope: 'window',
+                document    : this.readDocument(holder),
+                errors      : verdict.errors,
+                switched    : verdict.switched
+            }
+        }
+
+        if (typeof store.loadPerspective !== 'function') {
+            return {
+                captureScope: 'window',
+                document    : this.readDocument(holder),
+                errors      : [`Component ${componentId}'s perspective store exposes no loadPerspective() seam`],
+                switched    : false
+            }
+        }
+
+        const {document, errors} = store.loadPerspective(name);
+
+        if (errors.length) {
+            return {captureScope: 'window', document: this.readDocument(holder), errors, switched: false}
+        }
+
+        // the same commit semantics executeDockOperation uses for plain holders
+        if (typeof holder.getDockZoneDocument !== 'function') {
+            holder.dockZoneDocument = document
+        }
+
+        if (typeof holder.onDockZoneDocumentChange === 'function') {
+            holder.onDockZoneDocumentChange(document, {name, operation: 'restorePerspective'}, this)
+        }
+
+        return {captureScope: 'window', document, errors: [], switched: true}
+    }
+
+    /**
+     * The topology-scope restore branch: reconciles a multi-window record onto the live
+     * workspace through {@link Neo.dashboard.DockTopologyReconciler#reconcile} and commits
+     * ALL result documents through the holder's atomic seam — all-or-nothing, by contract.
+     *
+     * The holder seam pair a topology-capable workspace exposes:
+     * - `getDockTopologyDocuments()` — the ordered live committed documents, primary first
+     *   (the read seam topology CAPTURE shares).
+     * - `commitDockTopologyDocuments(documents, context)` — the atomic multi-document write:
+     *   the holder commits every document or none, returning `{errors}` on refusal (a missing
+     *   or empty `errors` means committed).
+     *
+     * A holder missing either seam refuses with the gap declared — a topology record must
+     * never be collapsed onto the single-document path. A reconciliation that refuses
+     * (validation errors) mutates nothing: live documents stay byte-untouched and the store's
+     * active pointer only advances AFTER a successful workspace commit.
+     * @param {Object} config
+     * @param {Neo.component.Base} config.holder The resolved dock-document holder
+     * @param {String} config.name               The perspective name being restored
+     * @param {Object} config.record             The stored topology-scope saved-layout record
+     * @param {Neo.dashboard.DockPerspectiveStore} config.store The holder's perspective store
+     * @returns {Object} `{switched, captureScope, errors, document, documents, restored, unrestored, displaced}`
+     * @protected
+     */
+    restoreTopologyPerspective({holder, name, record, store}) {
+        const missing = ['getDockTopologyDocuments', 'commitDockTopologyDocuments']
+            .filter(seam => typeof holder[seam] !== 'function');
+
+        const refusal = (errors, reconcileResult = null) => ({
+            captureScope: 'topology',
+            displaced   : reconcileResult?.displaced  ?? [],
+            document    : this.readDocument(holder),
+            documents   : null,
+            errors,
+            restored    : reconcileResult?.restored   ?? [],
+            switched    : false,
+            unrestored  : reconcileResult?.unrestored ?? []
+        });
+
+        if (missing.length) {
+            return refusal([
+                `Component ${holder.id} cannot restore a topology perspective: missing holder seam(s) ` +
+                `${missing.join(', ')} — a topology record commits ALL window documents atomically or not at all`
+            ])
+        }
+
+        const result = DockTopologyReconciler.reconcile(record, holder.getDockTopologyDocuments());
+
+        if (result.errors.length) {
+            return refusal(result.errors, result)
+        }
+
+        const commit = holder.commitDockTopologyDocuments(result.documents, {name, operation: 'restorePerspective'});
+
+        if (commit?.errors?.length) {
+            return refusal(commit.errors, result)
+        }
+
+        // the workspace advanced — only NOW does the store's active pointer move
+        const activated = store.loadPerspective?.(name);
+
+        return {
+            captureScope: 'topology',
+            displaced   : result.displaced,
+            document    : result.documents[0] ?? this.readDocument(holder),
+            documents   : result.documents,
+            errors      : activated?.errors?.length ? activated.errors.map(error => `store-activation: ${error}`) : [],
+            restored    : result.restored,
+            switched    : true,
+            unrestored  : result.unrestored
+        }
     }
 
     /**
