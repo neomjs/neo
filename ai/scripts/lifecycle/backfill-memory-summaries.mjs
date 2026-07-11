@@ -23,7 +23,7 @@ import MemoryService               from '../../services/memory-core/MemoryServic
 async function main() {
     const outcome = await withHeavyMaintenanceLease(
         async () => {
-            await LifecycleService.initAsync();
+            await LifecycleService.ready();
             return MemoryService.backfillMiniSummaries();
         },
         {

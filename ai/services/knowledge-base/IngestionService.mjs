@@ -698,7 +698,7 @@ class IngestionService extends Base {
     async getTenantManifests({tenantId} = {}) {
         const {tenantId: resolvedTenant} = this.resolveTenantContext({tenantId});
 
-        await this.graphService.initAsync();
+        await this.graphService.ready();
 
         const record = this.graphService.getNodeRecord({id: `kb-manifest:${resolvedTenant}`}),
               source = record?.properties?.manifests;
@@ -765,7 +765,7 @@ class IngestionService extends Base {
                 };
             }
 
-            await this.graphService.initAsync();
+            await this.graphService.ready();
 
             const nodeId    = `kb-manifest:${tenantContext.tenantId}`,
                   existing  = this.graphService.getNodeRecord({id: nodeId}),
@@ -1232,7 +1232,7 @@ class IngestionService extends Base {
     async getTenantConfig({tenantId} = {}) {
         const resolvedTenant = normalizeUserId(tenantId) || aiConfig.defaultTenantId;
 
-        await this.graphService.initAsync();
+        await this.graphService.ready();
 
         const record = this.graphService.getNodeRecord({id: `kb-config:${resolvedTenant}`});
 
@@ -1333,7 +1333,7 @@ class IngestionService extends Base {
      * @returns {Promise<{tenantRepos: Array<Object>}>} Contract-normalized; throws on a malformed entry.
      */
     async listConfiguredTenantRepos() {
-        await this.graphService.initAsync();
+        await this.graphService.ready();
 
         const bootstrap       = this.readKbConfigBootstrap(),
               yamlTenants     = (bootstrap && bootstrap.tenants) || {},
@@ -1440,7 +1440,7 @@ class IngestionService extends Base {
             const {tenantId: resolvedTenant} = this.resolveTenantContext({tenantId}),
                   normalizedConfig           = normalizeTenantRepoConfig(config);
 
-            await this.graphService.initAsync();
+            await this.graphService.ready();
 
             const nodeId   = `kb-config:${resolvedTenant}`,
                   existing = this.graphService.getNodeRecord({id: nodeId}),

@@ -268,7 +268,7 @@ class Server extends BaseServer {
         await this.prepareStartupDependency({
             name      : 'tool-telemetry',
             dependency: RecorderService,
-            start     : () => RecorderService.initAsync(),
+            start     : () => RecorderService.ready(),
             degraded  : 'Memory Core tool telemetry is disabled; tool dispatch remains available'
         });
 

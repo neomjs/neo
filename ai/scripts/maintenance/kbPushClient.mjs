@@ -3,13 +3,13 @@
 // wrapper from a tenant checkout or CI job.
 import 'dotenv/config';
 import {Command}       from 'commander';
-import Neo            from '../../../src/Neo.mjs';
-import * as core      from '../../../src/core/_export.mjs';
+import Neo             from '../../../src/Neo.mjs';
+import * as core       from '../../../src/core/_export.mjs';
 import InstanceManager from '../../../src/manager/Instance.mjs';
-import fs             from 'fs';
+import fs              from 'fs';
 import {pathToFileURL} from 'url';
-import Client         from '../../mcp/client/Client.mjs';
-import ClientConfig   from '../../mcp/client/config.mjs';
+import Client          from '../../mcp/client/Client.mjs';
+import ClientConfig    from '../../mcp/client/config.mjs';
 
 /**
  * @module ai/scripts/maintenance/kbPushClient
@@ -72,8 +72,8 @@ function createArgParser() {
  * @returns {Object}
  */
 function parseArgs(argv, env = process.env) {
-    const program = createArgParser();
-    let parseError = null;
+    const program    = createArgParser();
+    let   parseError = null;
 
     try {
         program.parse(argv, {from: 'user'});
@@ -224,7 +224,7 @@ function hasIngestFailure(payload) {
  * @returns {Promise<*>} Decoded tool payload.
  */
 async function runPush({args, input, clientFactory, clientConfig = ClientConfig}) {
-    const envelope = applyEnvelopeDefaults(await readJsonPayload(input), args),
+    const envelope   = applyEnvelopeDefaults(await readJsonPayload(input), args),
           serverName = `knowledge-base-push-${Date.now()}`;
 
     clientConfig.data.mcpServers[serverName] = buildServerConfig(args);
@@ -234,7 +234,7 @@ async function runPush({args, input, clientFactory, clientConfig = ClientConfig}
         : Neo.create(Client, {serverName, clientName: args.clientName});
 
     try {
-        await client.initAsync?.();
+        await client.ready?.();
         return decodeToolResult(await client.callTool('ingest_source_files', envelope));
     } finally {
         await client.close?.();

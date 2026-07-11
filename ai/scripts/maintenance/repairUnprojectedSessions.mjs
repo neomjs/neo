@@ -285,7 +285,7 @@ export async function createDryRunRuntime() {
     const {default: ChromaManager} = await import('../../services/memory-core/managers/ChromaManager.mjs');
     const {default: Database}      = await import('better-sqlite3');
 
-    await ChromaManager.initAsync();
+    await ChromaManager.ready();
 
     const
         summaryCollection = await ChromaManager.getSummaryCollection(),
@@ -319,9 +319,9 @@ export async function createApplyRuntime() {
     } = await import('../../services.mjs');
     const {default: MemorySessionIngestor} = await import('../../services/ingestion/MemorySessionIngestor.mjs');
 
-    await LifecycleService.initAsync();
-    await GraphService.initAsync();
-    await StorageRouter.initAsync();
+    await LifecycleService.ready();
+    await GraphService.ready();
+    await StorageRouter.ready();
 
     const
         summaryCollection = await StorageRouter.getSummaryCollection(),

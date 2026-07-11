@@ -37,19 +37,13 @@ class SystemLifecycleService extends Base {
 
         logger.info('[SystemLifecycleService] Booting internal memory-core microservices. Please stand by...');
 
-        const GraphService        = (await import('../GraphService.mjs')).default;
-        const StorageRouter       = (await import('../managers/StorageRouter.mjs')).default;
+        const GraphService  = (await import('../GraphService.mjs')).default;
+        const StorageRouter = (await import('../managers/StorageRouter.mjs')).default;
 
-        // 1. Boot External Daemons First
-        if (!ChromaLifecycleService._initPromise) await ChromaLifecycleService.initAsync();
-        if (!InferenceLifecycleService._initPromise) await InferenceLifecycleService.initAsync();
-
-        // 2. Boot Core Storage
-        if (!GraphService._initPromise) await GraphService.initAsync();
-
-        // 3. Boot Router (relies on active Daemons)
-        if (!StorageRouter._initPromise) await StorageRouter.initAsync();
-
+        // Every child is a singleton whose construct() already auto-fired its own initAsync at
+        // import time — awaiting ready() is the whole boot contract. The former external
+        // initAsync() calls here double-initialized StorageRouter on every boot (its guard flag
+        // was never set), which this collapse removes.
         await ChromaLifecycleService.ready();
         await InferenceLifecycleService.ready();
         await GraphService.ready();

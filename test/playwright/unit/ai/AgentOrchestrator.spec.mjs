@@ -1,8 +1,8 @@
-import test         from '@playwright/test';
-import fs           from 'fs';
-import path         from 'path';
+import test              from '@playwright/test';
+import fs                from 'fs';
+import path              from 'path';
 import Neo               from '../../../../src/Neo.mjs';
-import * as core       from '../../../../src/core/_export.mjs';
+import * as core         from '../../../../src/core/_export.mjs';
 import AgentOrchestrator from '../../../../ai/agent/AgentOrchestrator.mjs';
 
 const createTestHandoff = (filename, content) => {
@@ -32,9 +32,13 @@ const createTestHandoff = (filename, content) => {
                   }
               },
               scheduled: [],
-              async initAsync() {
-                  if (initError) {
-                      throw initError;
+              // the Agent readiness contract: construct auto-fires init; ready() resolves on a
+              // healthy boot and re-throws the captured boot failure — the crashed-outcome spec
+              // below pins that a failed boot never looks success-shaped
+              initError,
+              async ready() {
+                  if (this.initError) {
+                      throw this.initError;
                   }
               },
               schedule(event) {
@@ -147,10 +151,10 @@ Based on priorities, the following tasks are mathematically recommended:
 
         try {
             const orchestrator = Neo.create(AgentOrchestrator, {
-                agentFactory     : () => fakeAgent,
-                exitHandler      : code => exitCodes.push(code),
-                handoffPath      : testHandoffPath,
-                healthService    : {
+                agentFactory : () => fakeAgent,
+                exitHandler  : code => exitCodes.push(code),
+                handoffPath  : testHandoffPath,
+                healthService: {
                     recordTaskOutcome: (...args) => healthCalls.push(args)
                 },
                 monitorIntervalMs: 1,
@@ -223,14 +227,14 @@ Based on priorities, the following tasks are mathematically recommended:
 
         try {
             const orchestrator = Neo.create(AgentOrchestrator, {
-                agentFactory     : () => createFakeAgent({failedEvents}),
-                exitHandler      : () => {},
-                handoffEmitter   : outcome => {
+                agentFactory  : () => createFakeAgent({failedEvents}),
+                exitHandler   : () => {},
+                handoffEmitter: outcome => {
                     handoffCalls.push(outcome);
                     return 'MESSAGE:failed';
                 },
-                handoffPath      : testHandoffPath,
-                healthService    : {
+                handoffPath  : testHandoffPath,
+                healthService: {
                     recordTaskOutcome: (...args) => healthCalls.push(args)
                 },
                 monitorIntervalMs: 1,
@@ -277,8 +281,8 @@ Based on priorities, the following tasks are mathematically recommended:
         const testHandoffPath = createTestHandoff('.neo-test-handoff-blocked.md', content),
               outcomePath     = path.resolve(process.cwd(), '.neo-test-agent-orchestrator/blocked.jsonl'),
               failedEvents    = [{
-                  error     : 'blocked-task-state: credentials required',
-                  event     : {
+                  error: 'blocked-task-state: credentials required',
+                  event: {
                       type: 'system:golden-path',
                       data: {
                           issueId: '9900'
@@ -340,8 +344,8 @@ Based on priorities, the following tasks are mathematically recommended:
                     handoffCalls.push(outcome);
                     return 'MESSAGE:expired';
                 },
-                handoffPath       : testHandoffPath,
-                monitorIntervalMs : 50,
+                handoffPath      : testHandoffPath,
+                monitorIntervalMs: 50,
                 outcomePath
             });
 
@@ -390,8 +394,8 @@ Based on priorities, the following tasks are mathematically recommended:
 
         try {
             const orchestrator = Neo.create(AgentOrchestrator, {
-                agentFactory     : () => createFakeAgent({initError}),
-                handoffEmitter   : outcome => {
+                agentFactory  : () => createFakeAgent({initError}),
+                handoffEmitter: outcome => {
                     handoffCalls.push(outcome);
                     return {messageId: 'MESSAGE:crash'};
                 },
@@ -450,10 +454,10 @@ Based on priorities, the following tasks are mathematically recommended:
 
         try {
             const orchestrator = Neo.create(AgentOrchestrator, {
-                agentFactory     : () => createFakeAgent(),
-                exitHandler      : code => exitCodes.push(code),
-                handoffPath      : testHandoffPath,
-                healthService    : {
+                agentFactory : () => createFakeAgent(),
+                exitHandler  : code => exitCodes.push(code),
+                handoffPath  : testHandoffPath,
+                healthService: {
                     recordTaskOutcome: () => {
                         throw new Error('health down');
                     }
@@ -484,8 +488,8 @@ Based on priorities, the following tasks are mathematically recommended:
         const orchestrator = Neo.create(AgentOrchestrator, {});
 
         test.expect(() => orchestrator.createOutcome({
-            runId      : 'run-invalid',
-            directive  : {
+            runId    : 'run-invalid',
+            directive: {
                 issueId    : '1',
                 description: 'invalid vocabulary'
             },

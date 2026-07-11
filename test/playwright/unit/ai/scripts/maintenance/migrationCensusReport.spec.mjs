@@ -66,7 +66,7 @@ test.describe('migrationCensusReport.mjs (#12768)', () => {
 
         const result = await mod.runReport({
             lifecycle    : {ready: async () => { calls.push('ready'); }},
-            graphService : {initAsync: async () => { calls.push('init'); }},
+            graphService : {ready: async () => { calls.push('graph-ready'); }},
             healthService: {
                 getMigrationCensus: async opts => { calls.push(['census', opts.includeChroma]); return census; }
             },
@@ -76,8 +76,8 @@ test.describe('migrationCensusReport.mjs (#12768)', () => {
         });
 
         expect(result).toBe(census);
-        // Readiness + graph init happen before the census query; the opt-in flag threads through.
-        expect(calls).toEqual(['ready', 'init', ['census', true]]);
+        // Both readiness gates precede the census query; the opt-in flag threads through.
+        expect(calls).toEqual(['ready', 'graph-ready', ['census', true]]);
         expect(lines[0]).toContain('"memory": 1');  // --json emits raw payload
     });
 });

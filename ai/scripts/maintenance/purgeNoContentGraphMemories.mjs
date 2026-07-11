@@ -119,7 +119,7 @@ export function countIncidentEdges({db, nodeIds, chunkSize = DEFAULT_CHROMA_FETC
 
     for (const slice of chunk(nodeIds, chunkSize)) {
         const placeholders = slice.map(() => '?').join(',');
-        const row = db.prepare(`
+        const row          = db.prepare(`
             SELECT COUNT(*) AS count
             FROM Edges
             WHERE source IN (${placeholders})
@@ -199,7 +199,7 @@ export async function runNoContentGraphMemoryCleanup({
     }
 
     await lifecycle?.ready?.();
-    await graphService?.initAsync?.();
+    await graphService?.ready?.();
 
     const db = graphService?.db?.storage?.db;
 
@@ -210,7 +210,7 @@ export async function runNoContentGraphMemoryCleanup({
     collection ??= await storageRouter.getMemoryCollection();
 
     const beforePendingSessionSummaryCount = getPendingSessionSummaryCount(db);
-    const plan = await buildCleanupPlan({db, collection, chunkSize});
+    const plan                             = await buildCleanupPlan({db, collection, chunkSize});
 
     let deletedNodes = 0;
 
@@ -220,7 +220,7 @@ export async function runNoContentGraphMemoryCleanup({
     }
 
     const afterPendingSessionSummaryCount = getPendingSessionSummaryCount(db);
-    const result = {
+    const result                          = {
         apply,
         dryRun: !apply,
         beforePendingSessionSummaryCount,
@@ -290,7 +290,7 @@ export async function runCli(argv = process.argv) {
 
     command.parse(argv);
 
-    const options = command.opts();
+    const options   = command.opts();
     const chunkSize = Number(options.chunkSize);
 
     if (!Number.isInteger(chunkSize) || chunkSize <= 0) {

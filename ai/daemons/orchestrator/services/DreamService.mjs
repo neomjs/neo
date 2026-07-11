@@ -234,14 +234,11 @@ class DreamService extends Base {
         await StorageRouter.ready();
         this.sessionsCollection = await StorageRouter.getSummaryCollection();
 
-        // Inter-service dependency lock: ensure DB is ready BEFORE scheduling background work
+        // Inter-service dependency lock: ready() reflects the full lifecycle boot (GraphService.db
+        // mounted included) — the former `_initPromise` reach-in below it was dead code, since
+        // SystemLifecycleService never assigned that field.
         const LifecycleService = (await import('../../../services.mjs')).Memory_LifecycleService;
         await LifecycleService.ready();
-
-        // Wait for the full lifecycle boot to ensure GraphService.db is mounted
-        if (LifecycleService._initPromise) {
-            await LifecycleService._initPromise;
-        }
     }
 
     /**
@@ -739,9 +736,9 @@ class DreamService extends Base {
         includeDecay = true,
         dryRun       = false
     } = {}) {
-        const startedAtMs = Date.now();
-        const startedAt   = new Date(startedAtMs);
-        const runId       = `rem-${crypto.randomUUID()}`;
+        const startedAtMs      = Date.now();
+        const startedAt        = new Date(startedAtMs);
+        const runId            = `rem-${crypto.randomUUID()}`;
         const perPhaseStates   = [];
         let   perSessionStates = [];
 
@@ -888,8 +885,8 @@ class DreamService extends Base {
                     const message = toErrorMessage(e);
                     perPhaseStates.push(finishPhase('decay', decayStart, 'failed', {error: message}));
                     return await finalize('failed', {
-                        reasonCode  : 'decay-failed',
-                        failurePhase: 'decay',
+                        reasonCode       : 'decay-failed',
+                        failurePhase     : 'decay',
                         error            : {message: `decayGlobalTopology threw on zero-session path: ${message}`, stack: e?.stack},
                         sessionsProcessed: 0
                     });

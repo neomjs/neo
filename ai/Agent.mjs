@@ -100,59 +100,91 @@ ALWAYS use your file system or knowledge base tools to read the relevant source 
     subAgentTurns = {}
 
     /**
+     * The captured boot failure when the construct-fired `initAsync()` could not complete.
+     * The framework fires `initAsync()` with no external observer to reject to, and a
+     * rejection there would leave the base ready promise hanging forever — so the boot
+     * captures the failure here and {@link #ready} re-throws it: a broken Agent (no loop,
+     * no clients) must never look success-shaped to ANY consumer boundary.
+     * @member {Error|null} initError=null
+     */
+    initError = null
+
+    /**
+     * Sharpens the base readiness contract: the base promise resolves when the construct-fired
+     * init COMPLETED — including a captured-failure completion — but an Agent whose boot failed
+     * holds no usable runtime. Re-throwing {@link #initError} here makes a failed boot
+     * observable at every direct consumer boundary (the orchestrator, `delegate()`'s sub-agent
+     * cache, standalone scripts) without any of them reaching for the field.
+     * @returns {Promise<void>}
+     */
+    async ready() {
+        await super.ready();
+
+        if (this.initError) {
+            throw this.initError
+        }
+    }
+
+    /**
      * Async initialization sequence.
      * Creates and connects all configured clients, then initializes the Cognitive Runtime.
+     * Failures are captured into {@link #initError}, which {@link #ready} re-throws.
      * @returns {Promise<void>}
      */
     async initAsync() {
         await super.initAsync();
 
-        // 1. Connect to MCP Servers
-        const readyPromises = [];
+        try {
+            // 1. Connect to MCP Servers
+            const readyPromises = [];
 
-        for (const serverName of this.servers) {
-            const client = Neo.create(Client, {
-                serverName,
-                env: process.env // Pass generic env for now
+            for (const serverName of this.servers) {
+                const client = Neo.create(Client, {
+                    serverName,
+                    env: process.env // Pass generic env for now
+                });
+
+                readyPromises.push(client.ready());
+
+                this.clients[Neo.camel(serverName)] = client;
+            }
+
+            await Promise.all(readyPromises);
+            console.log('[Agent] Connected to MCP servers:', Object.keys(this.clients));
+
+            // 2. Initialize Cognitive Runtime
+            console.log('[Agent] Initializing Cognitive Runtime...');
+
+            let providerClass = this.modelProvider;
+
+            if (typeof providerClass === 'string') {
+                providerClass = providerClass.toLowerCase() === 'ollama' ? OllamaProvider : GeminiProvider;
+            }
+
+            const provider = Neo.create(providerClass, this.providerConfig || {});
+
+            const assembler = Neo.create(ContextAssembler);
+            await assembler.ready(); // Connects to Memory Core via Services SDK
+
+            const scheduler = Neo.create(Scheduler);
+
+            // Create the Loop
+            this.loop = Neo.create(Loop, {
+                agent       : this,
+                allowedTools: this.allowedTools,
+                assembler,
+                clients     : this.clients,
+                provider,
+                scheduler
             });
 
-            readyPromises.push(client.ready());
+            await this.loop.ready();
 
-            this.clients[Neo.camel(serverName)] = client;
+            console.log('[Agent] Runtime Ready.');
+        } catch (error) {
+            this.initError = error;
+            console.error('[Agent] Boot failed; runtime degraded:', error.message);
         }
-
-        await Promise.all(readyPromises);
-        console.log('[Agent] Connected to MCP servers:', Object.keys(this.clients));
-
-        // 2. Initialize Cognitive Runtime
-        console.log('[Agent] Initializing Cognitive Runtime...');
-
-        let providerClass = this.modelProvider;
-
-        if (typeof providerClass === 'string') {
-            providerClass = providerClass.toLowerCase() === 'ollama' ? OllamaProvider : GeminiProvider;
-        }
-
-        const provider = Neo.create(providerClass, this.providerConfig || {});
-
-        const assembler = Neo.create(ContextAssembler);
-        await assembler.ready(); // Connects to Memory Core via Services SDK
-
-        const scheduler = Neo.create(Scheduler);
-
-        // Create the Loop
-        this.loop = Neo.create(Loop, {
-            agent       : this,
-            allowedTools: this.allowedTools,
-            assembler,
-            clients     : this.clients,
-            provider,
-            scheduler
-        });
-
-        await this.loop.ready();
-
-        console.log('[Agent] Runtime Ready.');
     }
 
     /**
@@ -239,8 +271,8 @@ ALWAYS use your file system or knowledge base tools to read the relevant source 
             this.subAgentTurns[profileName]++;
 
             const result = await subAgent.loop.processEvent({
-                type: 'delegate',
-                data: request,
+                type        : 'delegate',
+                data        : request,
                 systemPrompt: subAgent.getEnhancedSystemPrompt()
             });
 

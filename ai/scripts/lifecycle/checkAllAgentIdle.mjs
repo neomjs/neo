@@ -54,8 +54,8 @@ export function deriveAllAgentIdleCycleId(identities, details) {
  * @returns {Promise<Object>} All-agent-idle detector signal.
  */
 export async function checkAllAgentIdle() {
-    await LifecycleService.initAsync();
-    await GraphService.initAsync();
+    await LifecycleService.ready();
+    await GraphService.ready();
     const db = GraphService.db.storage.db;
 
     // All-idle check set: the registered active team (deployment-portable via `identityRoots`),
