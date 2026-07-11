@@ -2,10 +2,10 @@
 // orchestrator's own entry-point bootstrap populates `globalThis.Neo` (used by `Neo.setupClass(...)`
 // at file bottom) before this module loads. This lane has NO standalone daemon — the orchestrator owns
 // its cadence, dispatch, and heavy-maintenance lease.
-import AiConfig                                from '../../config.mjs';
-import Base                                    from '../../../src/core/Base.mjs';
-import {UNIFIED_PARTITION}                     from '../../graph/temporalSummarySchema.mjs';
-import {Memory_StorageRouter as StorageRouter} from '../../services.mjs';
+import AiConfig                                                                     from '../../config.mjs';
+import Base                                                                         from '../../../src/core/Base.mjs';
+import {getTemporalSummaryLevel, UNIFIED_PARTITION}                                 from '../../graph/temporalSummarySchema.mjs';
+import {Memory_GraphService as GraphService, Memory_StorageRouter as StorageRouter} from '../../services.mjs';
 import {
     composeAgentRecord,
     composeUnifiedRecord,
@@ -363,11 +363,13 @@ class TemporalSummaryAggregationService extends Base {
     }
 
     /**
-     * @summary Persists one composed temporal-summary record via the Chroma upsert into the
-     * `temporal-summary` collection: the five-field metadata is the query contract, the velocity payload
-     * is the document body, keyed by the deterministic doc id (so a re-aggregation of the same
-     * window+track+version overwrites in place). The per-level `SUMMARY_*` graph label written by this lane
-     * lands with the node-type-table update.
+     * @summary Persists one composed temporal-summary record to BOTH sides of the unified store: the Chroma
+     * upsert into the `temporal-summary` collection (five-field metadata = the query contract, velocity payload =
+     * the document body) AND the per-level `SUMMARY_SESSION` / `SUMMARY_DAILY` graph node, keyed by the same
+     * deterministic doc id so a re-aggregation of the same window+track+version overwrites in place on both. This
+     * deterministic lane is the SOLE writer of those labels (never the semantic extractor); the graph node's
+     * `semanticVectorId` links it back to the Chroma row. Only durable tiers (L1/L2) mint a node — a non-durable
+     * level never breaches the durable/dynamic boundary with a persisted label.
      * @param {{id:String, metadata:Object, velocityFields:Object}} record
      * @returns {Promise<void>}
      * @protected
@@ -379,7 +381,20 @@ class TemporalSummaryAggregationService extends Base {
             ids      : [record.id],
             documents: [JSON.stringify(record.velocityFields)],
             metadatas: [record.metadata]
-        })
+        });
+
+        const level = getTemporalSummaryLevel(record.metadata.level);
+
+        // durable/dynamic boundary: only L1/L2 mint a graph node; L3–L5 are synthesis-only reserved labels
+        if (level?.durable) {
+            GraphService.upsertNode({
+                id              : record.id,
+                type            : level.label,
+                name            : record.id,
+                semanticVectorId: record.id,
+                properties      : record.metadata
+            });
+        }
     }
 }
 

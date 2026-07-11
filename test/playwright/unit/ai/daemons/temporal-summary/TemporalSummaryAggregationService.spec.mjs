@@ -21,29 +21,34 @@ import * as core from '../../../../../../src/core/_export.mjs';
 import {test, expect} from '@playwright/test';
 
 test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
-    let TemporalSummaryAggregationService, logger, StorageRouter, originals = {};
+    let TemporalSummaryAggregationService, logger, StorageRouter, GraphService, originals = {};
 
     test.beforeAll(async () => {
         TemporalSummaryAggregationService = (await import('../../../../../../ai/daemons/temporal-summary/TemporalSummaryAggregationService.mjs')).default;
         logger                            = (await import('../../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
         StorageRouter                     = (await import('../../../../../../ai/services.mjs')).Memory_StorageRouter;
+        GraphService                      = (await import('../../../../../../ai/services.mjs')).Memory_GraphService;
 
         originals = {
             info                        : logger.info,
             debug                       : logger.debug,
             error                       : logger.error,
             getTemporalSummaryCollection: StorageRouter.getTemporalSummaryCollection,
-            getSummaryCollection        : StorageRouter.getSummaryCollection
+            getSummaryCollection        : StorageRouter.getSummaryCollection,
+            upsertNode                  : GraphService.upsertNode
         };
         logger.info  = () => {};
         logger.debug = () => {};
-        logger.error = () => {}
+        logger.error = () => {};
+        // default no-op so no test hits the real graph write; the persist tests override to capture
+        GraphService.upsertNode = () => {}
     });
 
     test.afterAll(() => {
-        logger.info  = originals.info;
-        logger.debug = originals.debug;
-        logger.error = originals.error
+        logger.info            = originals.info;
+        logger.debug           = originals.debug;
+        logger.error           = originals.error;
+        GraphService.upsertNode = originals.upsertNode
     });
 
     test.afterEach(() => {
@@ -56,10 +61,11 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         }
     });
 
-    test('persistTemporalRecord upserts the record into the temporal-summary collection by its doc id', async () => {
-        const upserts = [];
+    test('persistTemporalRecord upserts the Chroma row AND mints the SUMMARY_DAILY graph node by its doc id', async () => {
+        const upserts = [], nodes = [];
 
         StorageRouter.getTemporalSummaryCollection = async () => ({upsert: async args => { upserts.push(args) }});
+        GraphService.upsertNode                    = node => { nodes.push(node) };
 
         const record = {
             id            : 'temporal-summary-daily-unified-2026-07-05-v1',
@@ -69,10 +75,42 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
 
         await TemporalSummaryAggregationService.persistTemporalRecord(record);
 
+        // Chroma side — the query contract + payload keyed by the doc id
         expect(upserts).toHaveLength(1);
         expect(upserts[0].ids).toEqual([record.id]);
         expect(upserts[0].metadatas).toEqual([record.metadata]);
-        expect(JSON.parse(upserts[0].documents[0])).toEqual({mergedPrs: 3})
+        expect(JSON.parse(upserts[0].documents[0])).toEqual({mergedPrs: 3});
+
+        // graph side — the durable SUMMARY_DAILY label, same doc id, linked back to the vector row
+        expect(nodes).toHaveLength(1);
+        expect(nodes[0]).toMatchObject({id: record.id, type: 'SUMMARY_DAILY', name: record.id, semanticVectorId: record.id});
+        expect(nodes[0].properties).toEqual(record.metadata)
+    });
+
+    test('persistTemporalRecord mints SUMMARY_SESSION for L1 and writes NO node for a non-durable tier', async () => {
+        const nodes = [];
+
+        StorageRouter.getTemporalSummaryCollection = async () => ({upsert: async () => {}});
+        GraphService.upsertNode                    = node => { nodes.push(node) };
+
+        await TemporalSummaryAggregationService.persistTemporalRecord({
+            id            : 'temporal-summary-session-neo-opus-ada-2026-07-05-14-v1',
+            metadata      : {level: 'session', partition: '@neo-opus-ada', windowStart: '2026-07-05T14:00:00.000Z', windowEnd: '2026-07-05T15:00:00.000Z', version: 1},
+            velocityFields: {}
+        });
+
+        expect(nodes.map(node => node.type)).toEqual(['SUMMARY_SESSION']);
+
+        nodes.length = 0;
+
+        // a non-durable (synthesis-only) tier must NOT breach the durable/dynamic boundary with a persisted node
+        await TemporalSummaryAggregationService.persistTemporalRecord({
+            id            : 'temporal-summary-weekly-unified-2026-07-05-v1',
+            metadata      : {level: 'weekly', partition: 'unified', windowStart: '2026-07-05T00:00:00.000Z', windowEnd: '2026-07-12T00:00:00.000Z', version: 1},
+            velocityFields: {}
+        });
+
+        expect(nodes).toHaveLength(0)
     });
 
     test('readContentRecords fails loud on a missing sync root — a broken checkout is not an empty window', () => {
