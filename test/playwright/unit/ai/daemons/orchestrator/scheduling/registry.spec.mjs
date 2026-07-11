@@ -66,10 +66,10 @@ test.describe('orchestrator/scheduling/registry (#11862 Sub 18)', () => {
         })).toBeNull();
     });
 
-    test('temporal-summary is registered as an exclusive-heavy in-process aggregation lane, inert until enabled (#14938)', () => {
+    test('temporal-summary is registered as an exclusive-heavy supervised-child aggregation lane, inert until enabled (#14938)', () => {
         const descriptor = TASK_REGISTRY.find(d => d.taskName === 'temporal-summary');
         expect(descriptor, 'temporal-summary is registered').toBeTruthy();
-        expect(descriptor.executionKind).toBe('in-process-async');
+        expect(descriptor.executionKind).toBe('supervised-child-process');
         expect(descriptor.maintenanceClass).toBe('heavy');
         expect(descriptor.backpressure).toBe('exclusive-heavy');
         expect(descriptor.dependencies).toEqual([]);

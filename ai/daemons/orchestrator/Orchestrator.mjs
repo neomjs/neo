@@ -51,7 +51,6 @@ import {createLiveDimensionConsistencyGatherer}                                 
 import DreamService                                                                                 from './services/DreamService.mjs';
 import SwarmHeartbeatService                                                                        from './services/SwarmHeartbeatService.mjs';
 import GoldenPathSynthesizer                                                                        from '../../services/graph/GoldenPathSynthesizer.mjs';
-import TemporalSummaryAggregationService                                                            from '../temporal-summary/TemporalSummaryAggregationService.mjs';
 import {getDueTask as tenantRepoSyncGetDueTaskImport}                                               from './scheduling/tenantRepoSync.mjs';
 import {TASK_REGISTRY}                                                                              from './scheduling/registry.mjs';
 import {
@@ -213,7 +212,6 @@ export class Orchestrator extends Base {
     dreamService             = DreamService
     swarmHeartbeatService    = SwarmHeartbeatService
     goldenPathSynthesizer    = GoldenPathSynthesizer
-    temporalSummaryAggregationService = TemporalSummaryAggregationService
     initializeDatabaseFn     = initializeDatabaseSelfBootstrap
     summaryGetDueTask        = summaryGetDueTaskImport
     backupGetDueTask         = backupGetDueTaskImport

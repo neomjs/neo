@@ -195,12 +195,8 @@ test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
         expect(disabledOptions.runtime.remConsolidationWatchdogAlarmEnabled).toBe(false);
     });
 
-    test('buildOrchestratorSchedulingOptions wires the temporal-summary cadence, enable, and service (#14938)', () => {
-        const svc          = {runCycle: async () => {}};
-        const orchestrator = makeOrchestratorAdapterFixture({
-            temporalSummaryEnabled           : true,
-            temporalSummaryAggregationService: svc
-        });
+    test('buildOrchestratorSchedulingOptions wires the temporal-summary cadence + enable (#14938)', () => {
+        const orchestrator = makeOrchestratorAdapterFixture({temporalSummaryEnabled: true});
 
         const options = buildOrchestratorSchedulingOptions({
             orchestrator,
@@ -209,39 +205,37 @@ test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
             registry: []
         });
 
-        // cadence read from config.temporalSummary.aggregationIntervalMs; enable + service off the orchestrator
+        // cadence read from config.temporalSummary.aggregationIntervalMs; enable off the orchestrator's getter.
+        // The supervised child runs the service in its own process — nothing is injected in-process here.
         expect(options.context.intervals.temporalSummary).toBe(1);
         expect(options.context.enables.temporalSummary).toBe(true);
-        expect(options.services.temporalSummaryAggregationService).toBe(svc);
     });
 
-    test('executeCandidate dispatches temporal-summary in-process THROUGH the heavy lease → runCycle (#14938)', async () => {
-        let ranCycle = 0, leasedTask = null;
+    test('executeCandidate dispatches temporal-summary as a supervised child THROUGH the heavy lease (#14938)', () => {
+        let leasedTask = null, spawnedTask = null;
 
         const services = {
-            temporalSummaryAggregationService: {runCycle: async () => { ranCycle++ }},
-            taskStateService                 : {markStarted() {}, markCompleted() {}, markFailed() {}, getTaskState: () => ({})},
-            healthService                    : {recordTaskOutcome() {}},
-            // heavy → routes through executeWithMaintenance → acquireLeaseAndExecute (NOT the lease-free swarm path)
+            // supervised-child heavy → executeSupervisedCandidate → executeWithMaintenance → acquireLeaseAndExecute → processSupervisorService.runTask
+            processSupervisorService      : {runTask: taskName => { spawnedTask = taskName; return true }},
             maintenanceBackpressureService: {
-                acquireLeaseAndExecute({taskName, executeFn}) { leasedTask = taskName; return executeFn(taskName, 'periodic-temporal-summary:1'); }
+                acquireLeaseAndExecute({taskName, executeFn}) { leasedTask = taskName; return executeFn(taskName, 'periodic-temporal-summary:1') }
             }
         };
 
-        await executeCandidate({
+        executeCandidate({
             candidate: {
                 taskName  : 'temporal-summary',
                 trigger   : {reason: 'periodic-temporal-summary:1'},
-                descriptor: {executionKind: 'in-process-async', maintenanceClass: 'heavy'}
+                descriptor: {executionKind: 'supervised-child-process', maintenanceClass: 'heavy'}
             },
             activeHeavyTask: {name: null},
             services,
             runtime        : {writeLog() {}}
         });
 
-        // it took the heavy lease (exclusive-heavy correctness) and ran exactly one aggregation cycle
+        // took the heavy lease (exclusive-heavy correctness) and SPAWNED the supervised child — not an in-process call
         expect(leasedTask).toBe('temporal-summary');
-        expect(ranCycle).toBe(1);
+        expect(spawnedTask).toBe('temporal-summary');
     });
 
     test('reports descriptor errors and still dispatches the selected candidate', () => {

@@ -223,11 +223,12 @@ export const TASK_REGISTRY = Object.freeze([
     },
     {
         // The temporal-pyramid L1/L2 durable aggregation lane: folds PRs + sessions + graduations into the
-        // durable SUMMARY_SESSION / SUMMARY_DAILY records. A heavy, exclusive-heavy, backpressure-aware task
-        // the orchestrator owns end-to-end — NOT an independent child poller. Inert until the config opt-in
-        // flips: an unset `enables.temporalSummary` fails the guard, so the lane never dispatches while disabled.
+        // durable SUMMARY_SESSION / SUMMARY_DAILY records. A heavy, exclusive-heavy, backpressure-aware
+        // supervised-child task (the landed heavy-maintenance pattern) — the orchestrator owns cadence + lease
+        // and spawns a one-shot child per due tick; NOT an independent child poller. Inert until the config
+        // opt-in flips: an unset `enables.temporalSummary` fails the guard, so the lane never dispatches while off.
         taskName        : 'temporal-summary',
-        executionKind   : 'in-process-async',
+        executionKind   : 'supervised-child-process',
         maintenanceClass: 'heavy',
         backpressure    : 'exclusive-heavy',
         dependencies    : [],
