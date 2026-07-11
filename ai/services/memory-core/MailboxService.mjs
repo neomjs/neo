@@ -373,6 +373,47 @@ function getMessageWalArray(value) {
     return Array.isArray(value) ? value : [];
 }
 
+/**
+ * @summary Builds the single canonical routing view consumed by WAL projection checks and writes.
+ *
+ * Accepted WAL is immutable historical evidence, so old records may retain direct-id spellings
+ * that predate the canonical `@<identity>` write boundary. Normalizing at this projection choke
+ * point prevents graph repair from recreating those spellings without rewriting the WAL itself.
+ * Family aliases remain unresolved so roster drift cannot silently transfer authorization.
+ *
+ * @param {Object} record Accepted message WAL record.
+ * @returns {Object} Canonical routing, mirrored message properties, and raw diagnostics.
+ */
+function getCanonicalMessageWalRouting(record) {
+    const message              = record?.message || {},
+        rawMessageProperties = message.properties || {},
+        routing              = record?.routing || {},
+        rawSentBy            = routing.sentBy || rawMessageProperties.from,
+        rawTo                = routing.to || rawMessageProperties.to,
+        sentBy               = normalizeMailboxIdentityForComparison(rawSentBy),
+        to                   = normalizeMailboxIdentityForComparison(rawTo),
+        broadcastRecipients   = [...new Set(getMessageWalArray(routing.broadcastRecipients)
+            .map(recipient => normalizeMailboxIdentityForComparison(recipient)))],
+        invalidDirectIdentities = [sentBy, to, ...broadcastRecipients]
+            .filter(identity => identity === '@me' || identity === '@');
+
+    return {
+        broadcastRecipients,
+        invalidDirectIdentities,
+        message,
+        messageProperties: {
+            ...rawMessageProperties,
+            ...(sentBy ? {from: sentBy} : {}),
+            ...(to ? {to} : {})
+        },
+        rawSentBy,
+        rawTo,
+        routing,
+        sentBy,
+        to
+    };
+}
+
 function buildTaggedConceptFilterGroups(values = []) {
     if (!Array.isArray(values)) return [];
 
@@ -452,21 +493,36 @@ function getMailboxEndpointRestoreSpec(id) {
 }
 
 /**
- * @summary Ensures a mailbox delivery edge endpoint exists before WAL replay relinks it.
+ * @summary Validates one WAL routing endpoint and returns its missing-node restore plan.
+ *
+ * Endpoint validation happens for the complete routing set before any projection write, so a
+ * wrong-type recipient cannot leave a partially restored message behind. Persisted family aliases
+ * deliberately have no restore spec: replay must fail closed rather than resolve them against a
+ * roster that may have changed since send time.
+ *
  * @param {String} id Endpoint graph node id.
+ * @returns {Object|null} Missing-node restore spec, or null when a valid node already exists.
+ * @throws {Error} When the endpoint grammar is unsupported or an existing node has the wrong type.
  * @private
  */
-function ensureMailboxProjectionEndpoint(id) {
-    if (typeof id !== 'string' || id.length === 0) return;
-
-    const db = GraphService.requireDb('MailboxService.ensureMailboxProjectionEndpoint');
-    db.getAdjacentNodes(id, 'both');
-    if (db.nodes.has(id)) return;
-
+function getMailboxProjectionEndpointRestorePlan(id) {
     const spec = getMailboxEndpointRestoreSpec(id);
-    if (spec) {
-        GraphService.upsertGlobalNode(spec);
+    if (!spec) {
+        throw new Error(`[MailboxService] WAL projection refuses unsupported endpoint ${JSON.stringify(id)}`);
     }
+
+    const db = GraphService.requireDb('MailboxService.getMailboxProjectionEndpointRestorePlan');
+    db.getAdjacentNodes(id, 'both');
+
+    const existing = db.nodes.get(id);
+    if (!existing) return spec;
+
+    const actualType = getRecordField(existing, 'label');
+    if (actualType !== spec.type) {
+        throw new Error(`[MailboxService] WAL projection endpoint ${id} must be ${spec.type}; found ${actualType || 'unknown'}`);
+    }
+
+    return null;
 }
 
 function ensureTaggedConceptNode(id) {
@@ -492,29 +548,42 @@ function ensureTaggedConceptNode(id) {
     }
 }
 
-function hasGraphEdge(source, target, type) {
+/**
+ * @summary Checks a cached mailbox edge using direct-id comparison compatibility.
+ * @param {String} source Message node id.
+ * @param {String} target Canonical identity target or mailbox sentinel.
+ * @param {String} type Mailbox edge type.
+ * @returns {Boolean}
+ */
+function hasMailboxGraphEdge(source, target, type) {
     return (GraphService.db?.edges?.items || []).some(edge =>
         getRecordField(edge, 'source') === source &&
-        getRecordField(edge, 'target') === target &&
+        sameMailboxIdentity(getRecordField(edge, 'target'), target) &&
         getRecordField(edge, 'type') === type
     );
 }
 
 /**
- * @summary Storage-truth existence checks for the repair scan.
+ * @summary Checks storage for a mailbox edge across bounded pre-migration direct-id spellings.
  *
  * The in-memory caches hydrate lazily per vicinity, so a cold cache reads as "missing" for
- * structures SQLite holds — and a phantom missing-flag makes the repair rewrite intact pieces
- * from the WAL, resurrecting send-time mutable state (`readAt: null`) over committed reads.
- * Existence checks that GATE repairs therefore consult storage directly, exactly like
- * `hasMailboxGraphProjectionGap` does; the cache scans above stay as the cheap fast-path.
+ * structures SQLite holds. Repair gates therefore consult storage directly; otherwise a
+ * phantom missing flag can replay send-time mutable state over committed graph state.
+ *
+ * @param {String} source Message node id.
+ * @param {String} target Canonical identity target or mailbox sentinel.
+ * @param {String} type Mailbox edge type.
+ * @returns {Boolean}
  */
-function hasGraphEdgeInStorage(source, target, type) {
+function hasMailboxGraphEdgeInStorage(source, target, type) {
     const sqlite = GraphService.db?.storage?.db;
     if (!sqlite) return false;
 
-    return (sqlite.prepare('SELECT count(*) AS count FROM Edges WHERE source = ? AND target = ? AND type = ?')
-        .get(source, target, type)?.count ?? 0) > 0;
+    const variants     = getMailboxIdentityStorageVariants(target),
+        placeholders = variants.map(() => '?').join(', ');
+
+    return (sqlite.prepare(`SELECT count(*) AS count FROM Edges WHERE source = ? AND target IN (${placeholders}) AND type = ?`)
+        .get(source, ...variants, type)?.count ?? 0) > 0;
 }
 
 function hasMessageNodeInStorage(messageId) {
@@ -576,14 +645,18 @@ function getStorageDeliveryMutableState(messageId, recipient) {
     const sqlite = GraphService.db?.storage?.db;
     if (!sqlite) return {};
 
-    const row = sqlite
-        .prepare(`SELECT json_extract(data, '$.properties.readAt') AS readAt, json_extract(data, '$.properties.archivedAt') AS archivedAt FROM Edges WHERE source = ? AND target = ? AND type = 'DELIVERED_TO'`)
-        .get(messageId, recipient);
-    if (!row) return {};
+    const variants     = getMailboxIdentityStorageVariants(recipient),
+        placeholders = variants.map(() => '?').join(', '),
+        rows         = sqlite
+            .prepare(`SELECT json_extract(data, '$.properties.readAt') AS readAt, json_extract(data, '$.properties.archivedAt') AS archivedAt FROM Edges WHERE source = ? AND target IN (${placeholders}) AND type = 'DELIVERED_TO' ORDER BY id`)
+            .all(messageId, ...variants);
+    if (!rows.length) return {};
 
     const state = {};
-    if (row.readAt != null)     state.readAt     = row.readAt;
-    if (row.archivedAt != null) state.archivedAt = row.archivedAt;
+    for (const row of rows) {
+        if (state.readAt == null && row.readAt != null)         state.readAt     = row.readAt;
+        if (state.archivedAt == null && row.archivedAt != null) state.archivedAt = row.archivedAt;
+    }
     return state;
 }
 
@@ -660,14 +733,10 @@ async function hasMailboxGraphProjectionGap() {
  * @private
  */
 function getMessageGraphProjectionIssues(record) {
-    const db       = GraphService.requireDb('MailboxService.getMessageGraphProjectionIssues'),
-        messageId  = record?.id || record?.message?.id,
-        message    = record?.message || {},
-        properties = message.properties || {},
-        routing    = record?.routing || {},
-        sentBy     = routing.sentBy || properties.from,
-        to         = routing.to || properties.to,
-        issues     = [];
+    const db        = GraphService.requireDb('MailboxService.getMessageGraphProjectionIssues'),
+        messageId = record?.id || record?.message?.id,
+        {broadcastRecipients, invalidDirectIdentities, sentBy, to} = getCanonicalMessageWalRouting(record),
+        issues    = [];
 
     if (typeof messageId !== 'string' || !messageId.startsWith('MESSAGE:')) {
         return ['invalid-message-record'];
@@ -683,17 +752,24 @@ function getMessageGraphProjectionIssues(record) {
         issues.push('missing-message-node');
     }
 
-    if (!sentBy || !to) {
+    if (!sentBy || !to || invalidDirectIdentities.length) {
         issues.push('missing-routing');
         return issues;
     }
 
-    if (!hasGraphEdge(messageId, sentBy, 'SENT_BY') && !hasGraphEdgeInStorage(messageId, sentBy, 'SENT_BY')) issues.push('missing-sent-by');
-    if (!hasGraphEdge(messageId, to, 'SENT_TO') && !hasGraphEdgeInStorage(messageId, to, 'SENT_TO')) issues.push('missing-sent-to');
+    try {
+        [sentBy, to, ...broadcastRecipients].forEach(getMailboxProjectionEndpointRestorePlan);
+    } catch {
+        issues.push('invalid-routing');
+        return issues;
+    }
+
+    if (!hasMailboxGraphEdge(messageId, sentBy, 'SENT_BY') && !hasMailboxGraphEdgeInStorage(messageId, sentBy, 'SENT_BY')) issues.push('missing-sent-by');
+    if (!hasMailboxGraphEdge(messageId, to, 'SENT_TO') && !hasMailboxGraphEdgeInStorage(messageId, to, 'SENT_TO')) issues.push('missing-sent-to');
 
     if (to === 'AGENT:*') {
-        for (const recipient of getMessageWalArray(routing.broadcastRecipients)) {
-            if (!hasGraphEdge(messageId, recipient, 'DELIVERED_TO') && !hasGraphEdgeInStorage(messageId, recipient, 'DELIVERED_TO')) {
+        for (const recipient of broadcastRecipients) {
+            if (!hasMailboxGraphEdge(messageId, recipient, 'DELIVERED_TO') && !hasMailboxGraphEdgeInStorage(messageId, recipient, 'DELIVERED_TO')) {
                 issues.push(`missing-delivered-to:${recipient}`);
             }
         }
@@ -714,11 +790,7 @@ function getMessageGraphProjectionIssues(record) {
 function messageWalRecordMatchesMailboxView(record, {box = 'all', target} = {}) {
     if (!target) return true;
 
-    const properties = record?.message?.properties || {},
-        routing      = record?.routing || {},
-        sentBy       = routing.sentBy || properties.from,
-        to           = routing.to || properties.to,
-        recipients   = getMessageWalArray(routing.broadcastRecipients);
+    const {broadcastRecipients: recipients, sentBy, to} = getCanonicalMessageWalRouting(record);
 
     if (box === 'outbox') return sameMailboxIdentity(sentBy, target);
 
@@ -1224,26 +1296,36 @@ class MailboxService extends Base {
             throw new Error('[MailboxService] message WAL projection requires a MESSAGE:* id');
         }
 
-        const message            = record.message || {};
-        const messageProperties  = message.properties || {};
-        const routing            = record.routing || {};
+        const {
+            broadcastRecipients,
+            invalidDirectIdentities,
+            message,
+            messageProperties,
+            rawTo,
+            routing,
+            sentBy,
+            to
+        } = getCanonicalMessageWalRouting(record);
         const optionalEdges      = record.optionalEdges || {};
-        const sentBy             = routing.sentBy || messageProperties.from;
-        const to                 = routing.to || messageProperties.to;
-        const senderUserId       = routing.senderUserId || normalizeUserId(sentBy);
+        const senderUserId       = normalizeUserId(routing.senderUserId || sentBy);
         const timestamp          = getMessageWalTimestamp(record, messageProperties);
         const edgeProperties     = {timestamp, userId: senderUserId, sharedEntity: true};
         const routingDiagnostics = {
-            preNormalizeTo : routing.preNormalizeTo ?? to,
-            postNormalizeTo: routing.postNormalizeTo ?? to
+            preNormalizeTo : routing.preNormalizeTo ?? rawTo,
+            postNormalizeTo: to
         };
 
-        if (!sentBy || !to) {
+        if (!sentBy || !to || invalidDirectIdentities.length) {
             throw new Error(`[MailboxService] message WAL projection requires routing.sentBy and routing.to for ${messageId}`);
         }
 
-        ensureMailboxProjectionEndpoint(sentBy);
-        ensureMailboxProjectionEndpoint(to);
+        const endpointRestorePlans = [sentBy, to, ...broadcastRecipients]
+            .map(getMailboxProjectionEndpointRestorePlan)
+            .filter(Boolean);
+
+        for (const spec of endpointRestorePlans) {
+            GraphService.upsertGlobalNode(spec);
+        }
 
         const needsPiece = piece => !onlyIssues || onlyIssues.includes(piece);
 
@@ -1265,10 +1347,9 @@ class MailboxService extends Base {
         needsPiece('missing-sent-to') && linkRequiredMailboxEdgeOrThrow(messageId, to, 'SENT_TO', 1.0, edgeProperties, routingDiagnostics);
 
         if (to === 'AGENT:*') {
-            for (const recipient of getMessageWalArray(routing.broadcastRecipients)) {
+            for (const recipient of broadcastRecipients) {
                 if (!needsPiece(`missing-delivered-to:${recipient}`)) continue;
 
-                ensureMailboxProjectionEndpoint(recipient);
                 // Per-recipient read/archive state is graph-owned, never WAL-owned: a FULL replay
                 // re-linking an INTACT delivery edge merges the committed storage truth over the
                 // WAL's send-time nulls, so broadcast reads survive exactly like DM reads. A
