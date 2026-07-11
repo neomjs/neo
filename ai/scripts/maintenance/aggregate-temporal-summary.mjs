@@ -18,11 +18,12 @@ import Neo             from '../../../src/Neo.mjs';
 import * as core       from '../../../src/core/_export.mjs';
 import InstanceManager from '../../../src/manager/Instance.mjs';
 
-import AiConfig                          from '../../config.mjs';
-import logger                            from '../../mcp/server/memory-core/logger.mjs';
-import TemporalSummaryAggregationService from '../../daemons/temporal-summary/TemporalSummaryAggregationService.mjs';
-import {assertConfigFresh}               from '../setup/initServerConfigs.mjs';
-import {fileURLToPath, pathToFileURL}    from 'node:url';
+import AiConfig                              from '../../config.mjs';
+import logger                                from '../../mcp/server/memory-core/logger.mjs';
+import TemporalSummaryAggregationService     from '../../daemons/temporal-summary/TemporalSummaryAggregationService.mjs';
+import {Memory_GraphService as GraphService} from '../../services.mjs';
+import {assertConfigFresh}                   from '../setup/initServerConfigs.mjs';
+import {fileURLToPath, pathToFileURL}        from 'node:url';
 
 /**
  * @summary Runs one temporal-pyramid aggregation cycle and exits. Opt-in gated; runs the stale-overlay boot
@@ -41,6 +42,10 @@ async function main() {
         requiredFindings: findings,
         serverPath      : fileURLToPath(new URL('../../mcp/server/memory-core/', import.meta.url))
     });
+
+    // gate the graph store ready before the first SUMMARY_* node write (runCycle → persistTemporalRecord →
+    // GraphService.upsertNode) — mirrors the sibling standalone graph consumers; upsertNode does not self-init
+    await GraphService.initAsync();
 
     await TemporalSummaryAggregationService.runCycle();
     process.exit(0)

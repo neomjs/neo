@@ -435,7 +435,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
     test('fetchWindowSources binds devCommits to the dev first-parent window log', async () => {
         const commands = [];
 
-        TemporalSummaryAggregationService.execCommand            = command => { commands.push(command); return 'abc123\ndef456\n' };
+        TemporalSummaryAggregationService.execCommand            = command => { commands.push(command); return '2026-07-05T06:00:00Z\tabc123\n2026-07-05T18:00:00Z\tdef456\n' };
         TemporalSummaryAggregationService.fetchSandboxesGraduated = async () => [];   // isolate the devCommits binding
         TemporalSummaryAggregationService.fetchAdrsLanded        = async () => [];
         TemporalSummaryAggregationService.fetchSessions          = async () => [];
@@ -449,7 +449,8 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         expect(sources.devCommits).toEqual([{sha: 'abc123'}, {sha: 'def456'}]);
         expect(commands[0]).toContain('git log --first-parent origin/dev');
         expect(commands[0]).toContain('--since="2026-07-05T00:00:00.000Z"');
-        expect(commands[0]).toContain('--until="2026-07-06T00:00:00.000Z"')
+        expect(commands[0]).toContain('--until="2026-07-06T00:00:00.000Z"');
+        expect(commands[0]).toContain('--format=%cI%x09%H')
     });
 
     test('fetchWindowSources threads the graduated Discussions through from the synced corpus', async () => {
@@ -481,7 +482,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         TemporalSummaryAggregationService.fetchSandboxesGraduated = async () => [];
         TemporalSummaryAggregationService.fetchSessions           = async () => [];
         TemporalSummaryAggregationService.fetchMergedPrs          = async () => [];
-        TemporalSummaryAggregationService.execCommand            = () => 'learn/agentos/decisions/0034-new-adr.md\nsrc/unrelated.mjs\nlearn/agentos/decisions/README.md\n';
+        TemporalSummaryAggregationService.execCommand            = () => '2026-07-05T06:00:00Z\nlearn/agentos/decisions/0034-new-adr.md\nsrc/unrelated.mjs\nlearn/agentos/decisions/README.md\n';
 
         const sources = await TemporalSummaryAggregationService.fetchWindowSources({
             windowStart: '2026-07-05T00:00:00.000Z',
@@ -490,5 +491,76 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
 
         // only the NNNN-*.md ADR record matches — the unrelated file + the README are excluded
         expect(sources.adrsLanded).toEqual([{path: 'learn/agentos/decisions/0034-new-adr.md'}])
+    })
+
+    test('fetchDevCommits half-open: a commit whose %cI equals windowEnd is excluded (git --until is inclusive)', async () => {
+        const commands = [];
+
+        TemporalSummaryAggregationService.execCommand = command => {
+            commands.push(command);
+            return '2026-07-05T00:00:00Z\tsha-start\n2026-07-05T12:00:00Z\tsha-mid\n2026-07-06T00:00:00Z\tsha-end\n'
+        };
+
+        const commits = await TemporalSummaryAggregationService.fetchDevCommits({
+            windowStart: '2026-07-05T00:00:00.000Z',
+            windowEnd  : '2026-07-06T00:00:00.000Z'
+        });
+
+        // windowStart is included; the boundary commit at windowEnd is dropped here so it is counted once — in the
+        // NEXT contiguous window — rather than double-counted across both (git --since/--until are inclusive)
+        expect(commits).toEqual([{sha: 'sha-start'}, {sha: 'sha-mid'}]);
+        expect(commands[0]).toContain('--format=%cI%x09%H')
+    })
+
+    test('fetchAdrsLanded half-open: an ADR added in the boundary commit at windowEnd is excluded', async () => {
+        // each commit emits its %cI date line, then --name-only lists its added files
+        TemporalSummaryAggregationService.execCommand = () =>
+            '2026-07-05T06:00:00Z\nlearn/agentos/decisions/0034-foo.md\n2026-07-06T00:00:00Z\nlearn/agentos/decisions/0035-bar.md\n';
+
+        const adrs = await TemporalSummaryAggregationService.fetchAdrsLanded({
+            windowStart: '2026-07-05T00:00:00.000Z',
+            windowEnd  : '2026-07-06T00:00:00.000Z'
+        });
+
+        // only the in-window commit's ADR survives; the boundary commit's add belongs to the next window
+        expect(adrs).toEqual([{path: 'learn/agentos/decisions/0034-foo.md'}])
+    })
+
+    test('AC7 write-failure: a rejected Chroma upsert aborts before any SUMMARY_* graph label is minted', async () => {
+        const nodes = [];
+
+        StorageRouter.getTemporalSummaryCollection = async () => ({upsert: async () => { throw new Error('chroma upsert rejected') }});
+        GraphService.upsertNode                    = node => { nodes.push(node) };
+
+        await expect(TemporalSummaryAggregationService.persistTemporalRecord({
+            id            : 'temporal-summary-daily-unified-2026-07-05-v1',
+            metadata      : {level: 'daily', partition: 'unified', windowStart: '2026-07-05T00:00:00.000Z', windowEnd: '2026-07-06T00:00:00.000Z', version: 1},
+            velocityFields: {mergedPrs: 3}
+        })).rejects.toThrow('chroma upsert rejected');
+
+        // the Chroma upsert is awaited BEFORE the durable graph write, so a vector-store failure leaves no orphan
+        // SUMMARY_DAILY node pointing at a row that was never persisted
+        expect(nodes).toHaveLength(0)
+    })
+
+    test('AC7 replay: persisting the same record twice re-upserts one deterministic id (idempotent, no duplicate)', async () => {
+        const upserts = [], nodes = [];
+
+        StorageRouter.getTemporalSummaryCollection = async () => ({upsert: async args => { upserts.push(args) }});
+        GraphService.upsertNode                    = node => { nodes.push(node) };
+
+        const record = {
+            id            : 'temporal-summary-daily-unified-2026-07-05-v1',
+            metadata      : {level: 'daily', partition: 'unified', windowStart: '2026-07-05T00:00:00.000Z', windowEnd: '2026-07-06T00:00:00.000Z', version: 1},
+            velocityFields: {mergedPrs: 3}
+        };
+
+        await TemporalSummaryAggregationService.persistTemporalRecord(record);
+        await TemporalSummaryAggregationService.persistTemporalRecord(record);
+
+        // replay overwrites in place: both attempts key the SAME id on both stores, so re-running a window is
+        // idempotent rather than accumulating a second row/node
+        expect(upserts.map(entry => entry.ids[0])).toEqual([record.id, record.id]);
+        expect(nodes.map(node => node.id)).toEqual([record.id, record.id])
     })
 });

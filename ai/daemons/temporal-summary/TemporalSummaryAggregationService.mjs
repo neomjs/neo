@@ -40,8 +40,8 @@ const DEFAULT_SESSION_WINDOW_COUNT = 24;
  * durable session/daily temporal-summary records + their velocity fields.
  *
  * **Ownership** — the Orchestrator owns this lane's cadence, dispatch, and heavy-maintenance lease: it is
- * registered in the orchestrator task registry (heavy / exclusive-heavy) and dispatched in-process under the
- * shared lease. This service therefore holds NO poll loop and NO lease of its own — a second scheduler beside
+ * registered in the orchestrator task registry (heavy / exclusive-heavy) and dispatched as a supervised
+ * one-shot child under the shared lease. This service holds NO poll loop and NO lease of its own — a second scheduler beside
  * the orchestrator is exactly the anti-pattern this lane forbids. It exposes one entry point the orchestrator
  * drives: `runCycle()`.
  *
@@ -265,26 +265,59 @@ class TemporalSummaryAggregationService extends Base {
     /**
      * @summary Binds `adrsLanded` to its named source — the ADR decision records added to
      * `learn/agentos/decisions/` within the window (the AdrIngestor's file source), via the git add-log.
+     * `git --since/--until` are inclusive on BOTH ends, so a commit exactly at a window boundary would land in
+     * two adjacent windows; each commit emits its `%cI` date and the half-open `[start, end)` filter on that
+     * date is authoritative (the `--since/--until` bounds only coarse-scope the scan), so a boundary ADR add is
+     * counted in exactly one window.
      * @param {{windowStart:String, windowEnd:String}} window
      * @returns {Promise<Array<{path:String}>>}
      * @protected
      */
     async fetchAdrsLanded({windowStart, windowEnd}) {
-        const raw = this.execCommand(`git log --first-parent origin/dev --since="${windowStart}" --until="${windowEnd}" --diff-filter=A --name-only --format= -- learn/agentos/decisions/`);
+        const
+            startMs = Date.parse(windowStart),
+            endMs   = Date.parse(windowEnd),
+            raw     = this.execCommand(`git log --first-parent origin/dev --since="${windowStart}" --until="${windowEnd}" --diff-filter=A --name-only --format=%cI -- learn/agentos/decisions/`),
+            adrs    = new Set();
 
-        return [...new Set((raw || '').split('\n').filter(line => /^learn\/agentos\/decisions\/\d{4}-.+\.md$/.test(line)))].map(path => ({path}))
+        // walk the log: each commit emits its `%cI` date line, then --name-only lists its added files; ADR paths
+        // are collected only while the current commit's date falls in the half-open window
+        let inWindow = false;
+
+        for (const line of (raw || '').split('\n')) {
+            const commitMs = /^\d{4}-\d{2}-\d{2}T/.test(line) ? Date.parse(line) : NaN;
+
+            if (Number.isFinite(commitMs)) {
+                inWindow = commitMs >= startMs && commitMs < endMs;
+                continue
+            }
+            if (inWindow && /^learn\/agentos\/decisions\/\d{4}-.+\.md$/.test(line)) {
+                adrs.add(line)
+            }
+        }
+
+        return [...adrs].map(path => ({path}))
     }
 
     /**
      * @summary Binds `devCommits` to its named source — the `dev` first-parent commit log over the window.
+     * `git --since/--until` are inclusive on BOTH ends, so a commit exactly at a window boundary would land in
+     * two adjacent windows; each commit emits its `%cI` date and the half-open `[start, end)` filter on that
+     * date is authoritative (`--since/--until` only coarse-scope the scan), so a boundary commit is counted once.
      * @param {{windowStart:String, windowEnd:String}} window
      * @returns {Promise<Array<{sha:String}>>}
      * @protected
      */
     async fetchDevCommits({windowStart, windowEnd}) {
-        const raw = this.execCommand(`git log --first-parent origin/dev --since="${windowStart}" --until="${windowEnd}" --format=%H`);
+        const
+            startMs = Date.parse(windowStart),
+            endMs   = Date.parse(windowEnd),
+            raw     = this.execCommand(`git log --first-parent origin/dev --since="${windowStart}" --until="${windowEnd}" --format=%cI%x09%H`);
 
-        return (raw || '').split('\n').filter(Boolean).map(sha => ({sha}))
+        return (raw || '').split('\n').filter(Boolean)
+            .map(line => { const [at, sha] = line.split('\t'); return {sha, at} })
+            .filter(({at}) => { const commitMs = Date.parse(at); return commitMs >= startMs && commitMs < endMs })
+            .map(({sha}) => ({sha}))
     }
 
     /**
@@ -295,8 +328,8 @@ class TemporalSummaryAggregationService extends Base {
      * in a dated comment, so `closedAt` is the wrong clock and is never used here.
      *
      * The synced corpus is complete (never a truncated live `discussions(first: 50)` page) and preserves the
-     * per-comment `### `@author` commented on <ISO>` boundaries, so a marker's event time is recoverable as its
-     * enclosing comment's timestamp (or the discussion `createdAt` when the marker sits in the original post).
+     * per-comment `### `@author` commented on <ISO>` boundaries, so a marker's event time is its enclosing dated
+     * comment's timestamp; a marker outside any dated comment (e.g. the original post) fails closed, never proxied.
      * Only the exact ticket-naming bracket counts: a bare `[GRADUATED_TO_TICKET]` mentioned in prose is the
      * marker being DISCUSSED, not an author-action, and is rejected; a marker whose event time cannot be resolved
      * fails closed (uncounted) rather than borrow the close time.
