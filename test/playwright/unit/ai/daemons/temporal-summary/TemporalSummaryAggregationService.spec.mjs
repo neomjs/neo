@@ -49,92 +49,11 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
     test.afterEach(() => {
         StorageRouter.getTemporalSummaryCollection = originals.getTemporalSummaryCollection;
         StorageRouter.getSummaryCollection         = originals.getSummaryCollection;
-        TemporalSummaryAggregationService.stop();
-        TemporalSummaryAggregationService.isPolling      = false;
-        TemporalSummaryAggregationService.pollIntervalMs = null;
 
         // Drop instance-method seam overrides so the real prototype methods resurface for the next test.
-        for (const seam of ['scheduleNext', 'acquireLease', 'releaseLease', 'collectPendingWindows', 'persistTemporalRecord', 'runCycle', 'resolveAggregationAnchor', 'dailyWindowCount', 'sessionWindowCount', 'fetchWindowSources', 'fetchDevCommits', 'fetchSandboxesGraduated', 'fetchAdrsLanded', 'fetchSessions', 'fetchMergedPrs', 'readContentRecords', 'execCommand']) {
+        for (const seam of ['collectPendingWindows', 'persistTemporalRecord', 'runCycle', 'resolveAggregationAnchor', 'dailyWindowCount', 'sessionWindowCount', 'fetchWindowSources', 'fetchDevCommits', 'fetchSandboxesGraduated', 'fetchAdrsLanded', 'fetchSessions', 'fetchMergedPrs', 'readContentRecords', 'execCommand']) {
             delete TemporalSummaryAggregationService[seam]
         }
-    });
-
-    test('start() is a no-op when enabled is false', () => {
-        let scheduled = 0;
-
-        TemporalSummaryAggregationService.scheduleNext = () => { scheduled++ };
-        TemporalSummaryAggregationService.start({enabled: false, pollIntervalMs: 1000});
-
-        expect(TemporalSummaryAggregationService.isPolling).toBe(false);
-        expect(scheduled).toBe(0)
-    });
-
-    test('start() schedules when enabled + is idempotent', () => {
-        let scheduled = 0;
-
-        TemporalSummaryAggregationService.scheduleNext = () => { scheduled++ };
-
-        TemporalSummaryAggregationService.start({enabled: true, pollIntervalMs: 1000});
-        expect(TemporalSummaryAggregationService.isPolling).toBe(true);
-        expect(scheduled).toBe(1);
-
-        // second start() while polling is a no-op — no second schedule
-        TemporalSummaryAggregationService.start({enabled: true, pollIntervalMs: 1000});
-        expect(scheduled).toBe(1)
-    });
-
-    test('start() throws when enabled without a positive pollIntervalMs', () => {
-        expect(() => TemporalSummaryAggregationService.start({enabled: true})).toThrow(/positive pollIntervalMs/)
-    });
-
-    test('pulse() defers the whole cycle when the heavy-maintenance lease is held', async () => {
-        let cycles = 0, releases = 0;
-
-        TemporalSummaryAggregationService.scheduleNext = () => {};
-        TemporalSummaryAggregationService.acquireLease = () => ({acquired: false, lease: {owner: 'rem-daemon'}});
-        TemporalSummaryAggregationService.runCycle     = async () => { cycles++ };
-        TemporalSummaryAggregationService.releaseLease = () => { releases++ };
-
-        await TemporalSummaryAggregationService.pulse();
-
-        expect(cycles).toBe(0);   // deferred — no aggregation runs under a held lease
-        expect(releases).toBe(0)  // never acquired → nothing to release
-    });
-
-    test('pulse() runs the cycle + releases the lease when acquired', async () => {
-        const persisted     = [];
-        let   releasedToken = null;
-
-        TemporalSummaryAggregationService.scheduleNext          = () => {};
-        TemporalSummaryAggregationService.acquireLease          = () => ({acquired: true, lease: {token: 'tok-1'}});
-        TemporalSummaryAggregationService.releaseLease          = token => { releasedToken = token };
-        TemporalSummaryAggregationService.collectPendingWindows = async () => [{
-            level      : 'daily',
-            windowStart: '2026-07-05T00:00:00.000Z',
-            windowEnd  : '2026-07-06T00:00:00.000Z',
-            sources    : {mergedPrs: [{n: 1}]}
-        }];
-        TemporalSummaryAggregationService.persistTemporalRecord = async record => { persisted.push(record) };
-
-        await TemporalSummaryAggregationService.pulse();
-
-        expect(releasedToken).toBe('tok-1');   // lease always released in finally
-        expect(persisted).toHaveLength(1);
-        expect(persisted[0].metadata.partition).toBe('unified');
-        expect(persisted[0].velocityFields.mergedPrs).toBe(1)
-    });
-
-    test('pulse() still releases the lease when the cycle throws', async () => {
-        let releasedToken = null;
-
-        TemporalSummaryAggregationService.scheduleNext = () => {};
-        TemporalSummaryAggregationService.acquireLease = () => ({acquired: true, lease: {token: 'tok-2'}});
-        TemporalSummaryAggregationService.releaseLease = token => { releasedToken = token };
-        TemporalSummaryAggregationService.runCycle     = async () => { throw new Error('boom') };
-
-        await TemporalSummaryAggregationService.pulse();   // pulse swallows the cycle error
-
-        expect(releasedToken).toBe('tok-2')   // finally released despite the throw
     });
 
     test('persistTemporalRecord upserts the record into the temporal-summary collection by its doc id', async () => {
@@ -279,33 +198,6 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         // honest absence: a pre-provenance session gets no per-agent track, and still counts once on unified
         expect(session.agentIdentities).toEqual([]);
         expect(session.impact).toBe(95)
-    });
-
-    test('acquireLease forwards the AiConfig stale TTL — the primitive carries no default and throws without it', async () => {
-        const
-            fs     = await import('node:fs'),
-            path   = await import('node:path'),
-            source = fs.readFileSync(
-                path.resolve(process.cwd(), 'ai/daemons/temporal-summary/TemporalSummaryAggregationService.mjs'),
-                'utf8'
-            );
-
-        // the lease seam is stubbed in every behavioral test above, so a missing staleAfterMs would only
-        // surface at the production boundary — this pins the use-site read that keeps it from regressing
-        expect(source).toContain('staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs');
-
-        const
-            {buildLeasePayload} = await import('../../../../../../ai/daemons/orchestrator/services/heavyMaintenanceLeasePrimitives.mjs'),
-            {default: AiConfig} = await import('../../../../../../ai/config.mjs'),
-            staleAfterMs        = AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs;
-
-        // the guard above is only meaningful if the leaf actually resolves to a positive TTL
-        expect(Number.isFinite(staleAfterMs)).toBe(true);
-        expect(staleAfterMs).toBeGreaterThan(0);
-
-        // the exact options acquireLease() passes are accepted by the primitive that would otherwise throw
-        expect(() => buildLeasePayload({owner: 'temporal-summary-aggregation', reason: 'temporal-pyramid-l1-l2', staleAfterMs})).not.toThrow();
-        expect(() => buildLeasePayload({owner: 'temporal-summary-aggregation', reason: 'temporal-pyramid-l1-l2'})).toThrow(/staleAfterMs/)
     });
 
     test('runCycle persists the unified track plus one record per agent seen in the window', async () => {

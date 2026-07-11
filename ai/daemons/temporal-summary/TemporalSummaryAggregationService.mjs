@@ -1,10 +1,9 @@
-// Class-only daemon implementation. Entry-point bootstrap (Neo + core/_export +
-// InstanceManager) lives in `ai/daemons/temporal-summary/daemon.mjs`, following the
-// canonical Orchestrator class+wrapper pattern. `Neo.setupClass(...)` at file bottom
-// uses `globalThis.Neo`, populated by the entry-point bootstrap chain.
+// Class-only implementation. The Orchestrator imports this service and drives `runCycle()`; the
+// orchestrator's own entry-point bootstrap populates `globalThis.Neo` (used by `Neo.setupClass(...)`
+// at file bottom) before this module loads. This lane has NO standalone daemon — the orchestrator owns
+// its cadence, dispatch, and heavy-maintenance lease.
 import AiConfig                                from '../../config.mjs';
 import Base                                    from '../../../src/core/Base.mjs';
-import logger                                  from '../../mcp/server/memory-core/logger.mjs';
 import {UNIFIED_PARTITION}                     from '../../graph/temporalSummarySchema.mjs';
 import {Memory_StorageRouter as StorageRouter} from '../../services.mjs';
 import {
@@ -14,31 +13,20 @@ import {
     planSessionWindows,
     resolvePartitionKeys
 } from '../../services/memory-core/helpers/temporalSummaryAggregationEngine.mjs';
-import {
-    acquireHeavyMaintenanceLeaseSync,
-    releaseHeavyMaintenanceLeaseSync
-} from '../orchestrator/services/heavyMaintenanceLeasePrimitives.mjs';
 import {execSync}           from 'node:child_process';
 import {parse as parseYaml} from 'yaml';
 import fs                   from 'node:fs';
 import path                 from 'node:path';
 
 /**
- * @summary The heavy-maintenance lease owner label for this lane — the backpressure invariant keys on it
- * so REM / defrag / this lane never run heavy maintenance concurrently.
- * @type {String}
- */
-const LEASE_OWNER = 'temporal-summary-aggregation';
-
-/**
- * @summary Default trailing daily-window batch per pulse — the bounded, most-recent-first cap the lane
+ * @summary Default trailing daily-window batch per cycle — the bounded, most-recent-first cap the lane
  * re-aggregates each cycle (recent days are re-folded as their sources settle; older days are frozen).
  * @type {Number}
  */
 const DEFAULT_DAILY_WINDOW_COUNT = 7;
 
 /**
- * @summary Default trailing session-window batch per pulse — 24 hour-aligned L1 windows, a day's worth. Each
+ * @summary Default trailing session-window batch per cycle — 24 hour-aligned L1 windows, a day's worth. Each
  * hourly window nests within one L2 day, so the two durable tiers stay coherent; recent hours are re-folded as
  * their sources settle.
  * @type {Number}
@@ -46,33 +34,24 @@ const DEFAULT_DAILY_WINDOW_COUNT = 7;
 const DEFAULT_SESSION_WINDOW_COUNT = 24;
 
 /**
- * @summary The temporal-pyramid L1/L2 durable aggregation daemon — the deterministic lane that writes the
+ * @summary The temporal-pyramid L1/L2 durable aggregation service — the deterministic lane that writes the
  * durable session/daily temporal-summary records + their velocity fields.
  *
- * **Shape** — the canonical poll-loop daemon (the `KbGarbageCollectionService` precedent): a
- * `Neo.core.Base` singleton with `start()` / `stop()` / `scheduleNext()` / `pulse()`. The entry-point
- * wrapper `ai/daemons/temporal-summary/daemon.mjs` owns the Neo bootstrap + SIGTERM.
- *
- * **Backpressure** — every `pulse()` runs under the shared heavy-maintenance lease (the landed
- * cross-daemon fairness primitive): it acquires the lease, defers the whole pulse without work when
- * another heavy-maintenance task holds it, and always releases in `finally`. This is the non-negotiable
- * fairness contract — the lane must never starve the REM / defrag siblings.
+ * **Ownership** — the Orchestrator owns this lane's cadence, dispatch, and heavy-maintenance lease: it is
+ * registered in the orchestrator task registry (heavy / exclusive-heavy) and dispatched in-process under the
+ * shared lease. This service therefore holds NO poll loop and NO lease of its own — a second scheduler beside
+ * the orchestrator is exactly the anti-pattern this lane forbids. It exposes one entry point the orchestrator
+ * drives: `runCycle()`.
  *
  * **Split** — the *pure* aggregation (velocity fold + record composition) lives in
- * `temporalSummaryAggregationEngine.mjs` and is unit-tested in isolation; this class owns only the I/O:
- * the poll loop, the lease, the window/source reads, and the Chroma + graph upsert. The read + upsert
- * seams (`collectPendingWindows` / `persistTemporalRecord`) are overridable so the lifecycle + lease
- * behavior test hermetically; their durable-store implementations land with the source-fetch increment.
- *
- * **Opt-in** — `start()` is a no-op unless called with `enabled: true`, and requires a positive
- * `pollIntervalMs` (the entry wrapper injects both from config; no hidden default).
+ * `temporalSummaryAggregationEngine.mjs` and is unit-tested in isolation; this class owns only the I/O: the
+ * window/source reads and the Chroma + graph upsert. The read + upsert seams (`collectPendingWindows` /
+ * `persistTemporalRecord`) are overridable so the cycle tests hermetically.
  *
  * @class Neo.ai.daemons.TemporalSummaryAggregationService
  * @extends Neo.core.Base
  * @singleton
- * @see ai/daemons/temporal-summary/daemon.mjs — the entry-point wrapper.
  * @see ai/services/memory-core/helpers/temporalSummaryAggregationEngine.mjs — the pure aggregation engine.
- * @see ai/daemons/kb-gc/KbGarbageCollectionService.mjs — the sibling poll-loop daemon precedent.
  */
 class TemporalSummaryAggregationService extends Base {
     static config = {
@@ -85,112 +64,7 @@ class TemporalSummaryAggregationService extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true,
-        /**
-         * Whether the poll loop is running. Plain singleton state; no reactive hooks.
-         * @member {Boolean} isPolling=false
-         * @protected
-         */
-        isPolling: false,
-        /**
-         * Active `setTimeout` handle for the next pulse; `null` when not scheduled.
-         * @member {Object|null} pollHandle=null
-         * @protected
-         */
-        pollHandle: null,
-        /**
-         * Interval between aggregation pulses in ms; injected by `start()` from config.
-         * @member {Number|null} pollIntervalMs=null
-         * @protected
-         */
-        pollIntervalMs: null
-    }
-
-    /**
-     * @summary Starts the aggregation poll loop. Idempotent; a no-op while already polling and a no-op
-     * when `enabled` is false (the daemon process then has nothing keeping the event loop alive).
-     * @param {Object}   [options]
-     * @param {Boolean}  [options.enabled=false]  Opt-in gate; injected from config by the entry wrapper.
-     * @param {Number}   [options.pollIntervalMs]  Interval between pulses; required + positive when enabled.
-     * @returns {void}
-     */
-    start({enabled = false, pollIntervalMs} = {}) {
-        if (this.isPolling) {
-            logger.debug('[TemporalSummaryAggregationService] Already polling; start() is a no-op.');
-            return
-        }
-
-        if (!enabled) {
-            logger.info('[TemporalSummaryAggregationService] Disabled (enabled=false); not starting.');
-            return
-        }
-
-        if (!Number.isFinite(pollIntervalMs) || pollIntervalMs <= 0) {
-            throw new Error('[TemporalSummaryAggregationService] start() requires a positive pollIntervalMs when enabled.')
-        }
-
-        this.pollIntervalMs = pollIntervalMs;
-        this.isPolling      = true;
-
-        logger.info(`[TemporalSummaryAggregationService] Starting temporal-pyramid aggregation (interval: ${pollIntervalMs}ms).`);
-
-        this.scheduleNext()
-    }
-
-    /**
-     * @summary Stops the poll loop. Idempotent. Cancels any pending pulse so a clean SIGTERM does not
-     * leave a timer wedging the event loop.
-     * @returns {void}
-     */
-    stop() {
-        if (this.pollHandle) {
-            clearTimeout(this.pollHandle);
-            this.pollHandle = null
-        }
-
-        this.isPolling = false;
-        logger.info('[TemporalSummaryAggregationService] Aggregation stopped.')
-    }
-
-    /**
-     * @summary Schedules the next pulse. Called after each pulse settles so a single thrown error never
-     * breaks the loop.
-     * @returns {void}
-     * @protected
-     */
-    scheduleNext() {
-        if (!this.isPolling) return;
-
-        this.pollHandle = setTimeout(() => this.pulse().catch(err => {
-            logger.error('[TemporalSummaryAggregationService] Pulse threw uncaught error:', err);
-            this.scheduleNext()
-        }), this.pollIntervalMs)
-    }
-
-    /**
-     * @summary Executes one aggregation pulse under the shared heavy-maintenance lease. Acquires the
-     * lease; if another heavy-maintenance task holds it, defers the whole pulse (no work) and reschedules;
-     * otherwise runs the bounded cycle and always releases the lease in `finally`.
-     * @returns {Promise<void>}
-     * @protected
-     */
-    async pulse() {
-        const lease = this.acquireLease();
-
-        if (!lease.acquired) {
-            logger.info(`[TemporalSummaryAggregationService] Heavy-maintenance lease held by ${lease.lease?.owner ?? 'another task'}; deferring this pulse.`);
-            this.scheduleNext();
-            return
-        }
-
-        try {
-            await this.runCycle()
-        } catch (err) {
-            logger.error('[TemporalSummaryAggregationService] Aggregation cycle failed:', err)
-        } finally {
-            this.releaseLease(lease.lease?.token);
-            this.scheduleNext()
-        }
+        singleton: true
     }
 
     /**
@@ -226,40 +100,11 @@ class TemporalSummaryAggregationService extends Base {
     }
 
     /**
-     * @summary Acquires the shared heavy-maintenance lease for this lane. The stale TTL is read from the
-     * config SSOT at the use site — the lease primitive is Neo-free and carries no TTL default by design, so
-     * omitting it makes the primitive throw at the production boundary. Overridable seam (tests inject a
-     * deterministic acquire result without touching the on-disk lease file).
-     * @returns {{acquired:Boolean, lease:Object}}
-     * @protected
-     */
-    acquireLease() {
-        return acquireHeavyMaintenanceLeaseSync({
-            owner       : LEASE_OWNER,
-            reason      : 'temporal-pyramid-l1-l2',
-            staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs
-        })
-    }
-
-    /**
-     * @summary Releases the heavy-maintenance lease held by this lane. Overridable seam. A missing token
-     * (a deferred pulse never acquired) is a no-op.
-     * @param {String} [token] The acquired lease token.
-     * @returns {void}
-     * @protected
-     */
-    releaseLease(token) {
-        if (token) {
-            releaseHeavyMaintenanceLeaseSync({token})
-        }
-    }
-
-    /**
      * @summary Reads the most-recent-first, bounded batch of windows still needing aggregation across BOTH
      * durable tiers — the trailing L1 session (hourly) windows and the trailing L2 daily windows — each tagged
      * with its `level` so {@link runCycle} mints the matching `SUMMARY_SESSION` / `SUMMARY_DAILY` records, and
      * each carrying its fetched source rows (the {@link composeUnifiedRecord} input shape). Both tiers re-fold
-     * their recent windows every pulse; the idempotent doc id makes the re-aggregation an in-place overwrite.
+     * their recent windows every cycle; the idempotent doc id makes the re-aggregation an in-place overwrite.
      * @returns {Promise<Array<{level:String, windowStart:String, windowEnd:String, sources:Object}>>}
      * @protected
      */
