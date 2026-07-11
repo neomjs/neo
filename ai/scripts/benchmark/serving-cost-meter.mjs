@@ -1,0 +1,230 @@
+import {Command}          from 'commander';
+import {execFile}         from 'node:child_process';
+import {mkdir, writeFile} from 'node:fs/promises';
+import os                 from 'node:os';
+import path               from 'node:path';
+import {promisify}        from 'node:util';
+import Neo                from '../../../src/Neo.mjs';
+import '../../../src/core/_export.mjs';
+import aiConfig                           from '../../mcp/server/memory-core/config.mjs';
+import {aggregateWindow, buildMetricBags} from './helpers/servingCostCore.mjs';
+
+const run = promisify(execFile);
+
+/**
+ * @module ai/scripts/benchmark/serving-cost-meter
+ * @summary The steady-state serving-cost meter: samples the RESIDENT model-serving processes
+ * (the always-on inference load) over a configurable window and emits duty-cycle / memory /
+ * cpu figures as business-schema-valid `METRIC` bags plus a provenance-stamped JSON report.
+ *
+ * **Why this exists**: every serving-cost conversation ran on gut-feel figures until the
+ * `[UNMEASURED]` rule landed — a cost claim is invalid until a NAMED measurement exists. This
+ * meter is that measurement's instrument: what does one institution-day actually consume on
+ * named reference hardware, split honestly into idle vs active phases?
+ *
+ * **What this meter actually measures**:
+ * - the processes OWNING the configured endpoint ports (the model server via the
+ *   `openAiCompatible`/`ollama` host leaves, the vector store via the chroma port leaf),
+ *   re-resolved every tick (a mid-window server restart is sampled, not lost);
+ * - scheduler-reported cpu (`ps pcpu`) + resident memory (`ps rss`) per tick;
+ * - phase split via the documented cpu-threshold heuristic — the threshold travels into every
+ *   figure's `confoundDisclaimer` (see the pure core's honesty contract).
+ *
+ * **What this meter does NOT measure** (declared, not hidden):
+ * - request-level token throughput (no provider `/metrics` dependency in v1 — a server that
+ *   exposes one can feed a later leaf);
+ * - per-model attribution when chat + embedding share one server process (the default
+ *   deployment points both at ONE endpoint — the meter then reports ONE honest role for that
+ *   port rather than fabricating a per-model split);
+ * - anything about pricing — figures are public-safe method + raw measurements; derivations
+ *   live in the private substrate only.
+ *
+ * The N-hour institution-day runs on named reference hardware and the hosting-bill console
+ * read are OPERATOR-executed (this CLI is their instrument, not their substitute).
+ *
+ * Run: node ai/scripts/benchmark/serving-cost-meter.mjs --hardware <slug> --window 8h
+ * @see ai/scripts/benchmark/helpers/servingCostCore.mjs — the pure, unit-pinned transforms
+ * @see ai/scripts/benchmark/keep-alive-probe.mjs — the sibling probe pattern
+ * @see learn/agentos/measurements/serving-cost.md — the results doc (numbers only with provenance)
+ */
+
+/**
+ * Parses a `--window` duration ('45m', '8h', '90s') into ms — fail-closed on anything else.
+ * @param {String} value
+ * @returns {Number}
+ */
+export function parseWindow(value) {
+    const match = /^(\d+)([smh])$/.exec(String(value).trim());
+
+    if (!match) {
+        throw new Error(`--window must look like 90s / 45m / 8h, got "${value}"`)
+    }
+
+    return Number(match[1]) * {s: 1000, m: 60000, h: 3600000}[match[2]]
+}
+
+/**
+ * Extracts the port from a configured endpoint URL leaf.
+ * @param {String} hostUrl e.g. 'http://127.0.0.1:11434'
+ * @returns {Number|null}
+ */
+export function portFromHostUrl(hostUrl) {
+    try {
+        const url = new URL(hostUrl);
+        return url.port ? Number(url.port) : (url.protocol === 'https:' ? 443 : 80)
+    } catch (e) {
+        return null
+    }
+}
+
+/**
+ * Resolves the role→port map from the config SSOT — merged honestly when roles share a port.
+ * @param {Object} config The AiConfig data proxy.
+ * @returns {Object[]} `[{role, port}]` with unique ports.
+ */
+export function resolveRolePorts(config) {
+    const candidates = [
+        {port: portFromHostUrl(config.openAiCompatible.host), role: 'model-server-openai-compatible'},
+        {port: portFromHostUrl(config.ollama.host),           role: 'model-server-ollama'},
+        {port: Number(config.engines.chroma.portProd),        role: 'vector-store'}
+    ];
+
+    // one entry per PORT and one ROLE per entry — two configured endpoints on one port
+    // collapse to the first role (same process, one honest stream), while distinct ports
+    // keep distinct roles so their sample streams never interleave
+    const byPort = new Map();
+
+    for (const {port, role} of candidates) {
+        Number.isFinite(port) && port > 0 && !byPort.has(port) && byPort.set(port, {port, role})
+    }
+
+    return [...byPort.values()]
+}
+
+/**
+ * Samples the processes currently owning one port: summed rss bytes + summed pcpu.
+ * Missing owner (server down / restarting) returns null — recorded as a coverage gap by
+ * omission, never as a fabricated zero-load sample.
+ * @param {Number} port
+ * @returns {Promise<{cpuPercent: Number, rssBytes: Number}|null>}
+ */
+export async function samplePort(port) {
+    let pids;
+
+    try {
+        const {stdout} = await run('lsof', ['-ti', `:${port}`]);
+        pids = stdout.trim().split('\n').filter(Boolean)
+    } catch (e) {
+        return null // no owner right now
+    }
+
+    if (!pids.length) {
+        return null
+    }
+
+    try {
+        const {stdout} = await run('ps', ['-o', 'rss=,pcpu=', '-p', pids.join(',')]);
+        let   rssKb    = 0, cpu = 0;
+
+        for (const line of stdout.trim().split('\n')) {
+            const [rss, pcpu] = line.trim().split(/\s+/).map(Number);
+            Number.isFinite(rss)  && (rssKb += rss);
+            Number.isFinite(pcpu) && (cpu   += pcpu)
+        }
+
+        return {cpuPercent: cpu, rssBytes: rssKb * 1024}
+    } catch (e) {
+        return null // pids raced away between lsof and ps — a gap, not a zero
+    }
+}
+
+async function main() {
+    const program = new Command()
+        .requiredOption('--hardware <slug>', 'named reference hardware slug (provenance, e.g. mac-studio-m2ultra-192gb)')
+        .option('--window <duration>',   'sampling window (90s / 45m / 8h)', '8h')
+        .option('--interval <seconds>',  'sampling tick in seconds', '5')
+        .option('--threshold <pcpu>',    'active-phase cpu threshold (percent)', '5')
+        .option('--out <file>',          'report path (default: ~/.neo-ai-data/serving-cost/report-<start>.json)')
+        .parse(process.argv);
+
+    const options    = program.opts(),
+          windowMs   = parseWindow(options.window),
+          intervalMs = Number(options.interval) * 1000,
+          threshold  = Number(options.threshold),
+          config     = aiConfig.data,
+          rolePorts  = resolveRolePorts(config);
+
+    if (!rolePorts.length) {
+        throw new Error('serving-cost-meter: no endpoint ports resolvable from the config SSOT — nothing to measure')
+    }
+
+    const startedAt   = Date.now(),
+          periodStart = new Date(startedAt).toISOString().slice(0, 10),
+          samples     = new Map(rolePorts.map(({role}) => [role, []])),
+          rerun       = `node ai/scripts/benchmark/serving-cost-meter.mjs --hardware ${options.hardware} ` +
+                        `--window ${options.window} --interval ${options.interval} --threshold ${options.threshold}`;
+
+    console.log(`[serving-cost-meter] window=${options.window} interval=${options.interval}s threshold=${threshold}% roles=${rolePorts.map(r => `${r.role}:${r.port}`).join(' ')}`);
+    console.log('[serving-cost-meter] Ctrl-C ends the window early — the report is written either way.');
+
+    let stopped = false;
+    process.on('SIGINT', () => { stopped = true });
+
+    while (!stopped && Date.now() - startedAt < windowMs) {
+        const tickAt = Date.now();
+
+        for (const {port, role} of rolePorts) {
+            const sample = await samplePort(port);
+            sample && samples.get(role).push({atMs: tickAt, cpuPercent: sample.cpuPercent, role, rssBytes: sample.rssBytes})
+        }
+
+        const elapsed = Date.now() - tickAt;
+        elapsed < intervalMs && await new Promise(resolve => setTimeout(resolve, intervalMs - elapsed))
+    }
+
+    const report = {
+        hardware  : options.hardware,
+        host      : {arch: os.arch(), cpuModel: os.cpus()[0]?.model ?? 'unknown', platform: os.platform(), totalMemBytes: os.totalmem()},
+        intervalMs,
+        metricBags: [],
+        periodStart,
+        roles     : {},
+        threshold,
+        windowMs
+    };
+
+    for (const role of samples.keys()) {
+        const roleSamples = samples.get(role);
+
+        if (roleSamples.length < 2) {
+            report.roles[role] = {error: `insufficient samples (${roleSamples.length}) — the endpoint owner was absent for (nearly) the whole window`};
+            continue
+        }
+
+        const aggregate = aggregateWindow(roleSamples, {activeCpuThreshold: threshold, expectedIntervalMs: intervalMs});
+
+        report.roles[role] = aggregate;
+        report.metricBags.push(...buildMetricBags(aggregate, {
+            activeCpuThreshold: threshold,
+            hardwareId        : options.hardware,
+            periodStart,
+            rerunCommand      : rerun,
+            role,
+            windowSemantics   : `rolling-window-${options.window}`
+        }))
+    }
+
+    const outFile = options.out ?? path.join(os.homedir(), '.neo-ai-data', 'serving-cost', `report-${periodStart}-${startedAt}.json`);
+
+    await mkdir(path.dirname(outFile), {recursive: true});
+    await writeFile(outFile, JSON.stringify(report, null, 2));
+
+    console.log(`[serving-cost-meter] report written: ${outFile}`);
+    console.log(`[serving-cost-meter] ${report.metricBags.length} schema-valid metric bags emitted (ingestion is the tenant path's job).`)
+}
+
+// commander parses only when executed directly — importing the pure helpers above never runs a sample
+import.meta.url === `file://${process.argv[1]}` && main().catch(error => {
+    console.error(`[serving-cost-meter] ${error.message}`);
+    process.exit(1)
+});
