@@ -167,7 +167,7 @@ If a future slice needs to restore detached windows, it should persist semantic 
 
 ## Named Layout Collections / Perspectives
 
-Named perspectives collect multiple saved layouts without choosing a storage backend or rendering a switcher. The model shape is pure JSON:
+Named perspectives collect multiple saved layouts without choosing a storage backend or rendering a switcher. Current writers place the `dockLayout.v2` envelope inside the unchanged collection shape:
 
 ```json
 {
@@ -175,10 +175,13 @@ Named perspectives collect multiple saved layouts without choosing a storage bac
   "activeLayoutId": "operator-default",
   "layouts": {
     "operator-default": {
-      "schema": "neo.harness.dockLayout.v1",
+      "schema": "neo.harness.dockLayout.v2",
       "layoutId": "operator-default",
       "title": "Operator Default",
-      "dockZone": {}
+      "dockZone": {},
+      "captureScope": "window",
+      "windowFingerprint": null,
+      "perspectiveName": "Operator Default"
     }
   },
   "metadata": {},
@@ -195,6 +198,8 @@ Rules:
 - Removing the active layout requires an explicit replacement id. Do not silently pick a different active layout.
 
 Storage remains out of scope for this layer. Browser preferences, Memory Core persistence, import/export, and rendered layout switchers consume this collection contract later; they must not fork their own collection shape.
+
+Legacy `dockLayout.v1` entries remain valid on the read path only. `migrateSavedLayout()` upgrades them to v2 with the honest defaults `captureScope: 'window'` and `windowFingerprint: null`; no writer emits v1.
 
 ## Operations
 
@@ -333,11 +338,11 @@ If neither a live component nor a valid `item.blueprint` exists, the adapter mus
 
 Layout persistence owns saved workspace documents, not drag-time state or component lifetime.
 
-A persisted layout is a small versioned wrapper around the normalized dock-zone model:
+A persisted layout is a small versioned wrapper around the normalized dock-zone model. Current writers emit v2:
 
 ```json
 {
-  "schema": "neo.harness.dockLayout.v1",
+  "schema": "neo.harness.dockLayout.v2",
   "layoutId": "operator-default",
   "title": "Operator Default",
   "dockZone": {
@@ -346,6 +351,9 @@ A persisted layout is a small versioned wrapper around the normalized dock-zone 
     "items": {},
     "nodes": {}
   },
+  "captureScope": "window",
+  "windowFingerprint": null,
+  "perspectiveName": "Operator Default",
   "revision": 1,
   "metadata": {}
 }
@@ -357,11 +365,23 @@ Required wrapper fields:
 - `layoutId`: stable user/workspace layout identity, distinct from dock item ids.
 - `title`: display label for layout pickers or recovery UIs.
 - `dockZone`: a normalized `neo.harness.dockZone.v1` model after semantic operations have run.
+- `captureScope`: `window` for one document or `topology` for a multi-window capture.
+- `windowFingerprint`: JSON-only topology-shape evidence, or `null` when a legacy v1 record had no captured fingerprint.
 
 Optional wrapper fields:
 
 - `revision`: monotonic revision, content version, or adapter-owned equivalent used for conflict/recovery messaging.
 - `metadata`: JSON-only descriptive data. It must not contain DOM nodes, functions, live component instances, credentials, PATs, access tokens, or harness bridge tokens.
+- `perspectiveName`: a non-empty display name when the wrapper is used as a named perspective.
+- `windowDocuments`: additional normalized dock-zone documents, valid only for `captureScope: 'topology'`; the primary document remains in `dockZone`.
+
+Schema-name row (the canonical vocabulary both tiers share — the design record's capture-scope amendment is the prescriptive side of this row):
+
+| Schema | Role | Notes |
+|---|---|---|
+| `neo.harness.dockLayout.v1` | legacy saved-layout wrapper | read-path only; migrates forward with honest defaults |
+| `neo.harness.dockLayout.v2` | THE saved-layout AND perspective wrapper | adds `captureScope` (`window` \| `topology`), `windowFingerprint`, `perspectiveName`, `windowDocuments`; there is no separate perspective schema — the envelope carries the capability |
+| `neo.harness.dockLayoutCollection.v1` | the one named-collection shape | perspective collections reuse it verbatim; no third collection shape exists |
 
 Persistence consumes only committed dock-zone state. It must not serialize `dockPreview`, hover rectangles, screen coordinates, `windowId`, `sourceSortZone`, `targetSortZone`, runtime hover/open state for auto-hidden panes, live components, event listeners, controllers, functions, or credential material. If a future detached-window slice needs restore hints, those hints must be separate semantic placement metadata; they must not turn the dock layout into an OS-window session dump.
 
