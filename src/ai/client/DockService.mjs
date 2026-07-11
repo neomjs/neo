@@ -110,6 +110,148 @@ class DockService extends Service {
     }
 
     /**
+     * Captures the holder's CURRENT document as a named saved-layout record (the persistence
+     * wrapper), and stores it when the holder exposes a perspective store — the capture verb
+     * of the perspective tool trio.
+     *
+     * Capture scope follows the settled two-scope vocabulary EXACTLY: `workspace` (one
+     * document — the landed wrapper) is shipped; `topology` (the multi-window tier) fails
+     * closed with a structured error until its wrapper tranche lands — never a silent
+     * downgrade to workspace scope.
+     * @param {Object} params
+     * @param {String}  params.componentId       The dock workspace / holder component id
+     * @param {String}  params.layoutId          Stable technical id for the record
+     * @param {String} [params.perspectiveName]  Product-facing name (resolves first on load)
+     * @param {String} [params.title]            Display title
+     * @param {String} [params.captureScope]     'workspace' (default) | 'topology'
+     * @param {Boolean} [params.replace]         Explicit collision decision for the store
+     * @returns {Object} `{captured, stored, collision, errors, layout}`
+     */
+    async capturePerspective({componentId, layoutId, perspectiveName, title, captureScope = 'workspace', replace = false}) {
+        if (captureScope !== 'workspace') {
+            const errors = captureScope === 'topology'
+                ? ['capture scope "topology" is the multi-window perspective tier — its wrapper has not shipped; the shipped scope is "workspace"']
+                : [`unknown captureScope "${captureScope}" — the vocabulary is: workspace, topology`];
+
+            return {captured: false, collision: null, errors, layout: null, stored: false}
+        }
+
+        const holder           = this.resolveHolder(componentId),
+              {layout, errors} = DockZoneModel.createSavedLayout(this.readDocument(holder), {
+                  layoutId,
+                  metadata: {source: 'neural-link-capture'},
+                  perspectiveName,
+                  // the wrapper requires a display title; a capture must not refuse over a
+                  // missing label — the name (or id) is the honest default
+                  title   : title ?? perspectiveName ?? layoutId
+              });
+
+        if (errors.length) {
+            return {captured: false, collision: null, errors, layout: null, stored: false}
+        }
+
+        const store = holder.perspectiveStore;
+
+        if (typeof store?.savePerspective !== 'function') {
+            // capture still succeeds — the agent holds the record; storing needs the holder's
+            // perspective surface, and its absence is declared, never silently absorbed
+            return {captured: true, collision: null, errors: [], layout, stored: false}
+        }
+
+        const saved = store.savePerspective(layout, {replace});
+
+        return {
+            captured : true,
+            collision: saved.collision,
+            errors   : saved.errors,
+            layout,
+            stored   : saved.saved
+        }
+    }
+
+    /**
+     * Lists the holder's stored perspectives — the read verb of the trio. Fail-closed when
+     * the holder exposes no perspective store: a structured error, never a crash or an empty
+     * list masquerading as "no perspectives exist".
+     * @param {Object} params
+     * @param {String} params.componentId The dock workspace / holder component id
+     * @returns {Object} `{perspectives, activeLayoutId, errors}`
+     */
+    async listPerspectives({componentId}) {
+        const holder = this.resolveHolder(componentId),
+              store  = holder.perspectiveStore;
+
+        if (typeof store?.list !== 'function') {
+            return {
+                activeLayoutId: null,
+                errors        : [`Component ${componentId} exposes no perspective store — nothing to list`],
+                perspectives  : null
+            }
+        }
+
+        return {
+            activeLayoutId: store.collection?.activeLayoutId ?? null,
+            errors        : [],
+            perspectives  : store.list()
+        }
+    }
+
+    /**
+     * Restores a stored perspective by name through the holder's OWN switch seam when present
+     * (`activatePerspective` — rides the holder's commit loop, animation and error rendering
+     * included), else through the store's fail-closed load + the landed commit path. Returns
+     * the post-restore document so agents verify in one call.
+     *
+     * Fail-closed per the settled restore semantics: validate everything before mutating
+     * anything — a refused restore leaves the live layout byte-untouched and surfaces the
+     * store's structured errors.
+     * @param {Object} params
+     * @param {String} params.componentId The dock workspace / holder component id
+     * @param {String} params.name        The perspective's product name (or technical layoutId)
+     * @returns {Object} `{switched, errors, document}`
+     */
+    async restorePerspective({componentId, name}) {
+        const holder = this.resolveHolder(componentId);
+
+        if (typeof holder.activatePerspective === 'function') {
+            const verdict = holder.activatePerspective(name);
+
+            return {
+                document: this.readDocument(holder),
+                errors  : verdict.errors,
+                switched: verdict.switched
+            }
+        }
+
+        const store = holder.perspectiveStore;
+
+        if (typeof store?.loadPerspective !== 'function') {
+            return {
+                document: this.readDocument(holder),
+                errors  : [`Component ${componentId} exposes no perspective surface (neither activatePerspective nor a perspective store)`],
+                switched: false
+            }
+        }
+
+        const {document, errors} = store.loadPerspective(name);
+
+        if (errors.length) {
+            return {document: this.readDocument(holder), errors, switched: false}
+        }
+
+        // the same commit semantics executeDockOperation uses for plain holders
+        if (typeof holder.getDockZoneDocument !== 'function') {
+            holder.dockZoneDocument = document
+        }
+
+        if (typeof holder.onDockZoneDocumentChange === 'function') {
+            holder.onDockZoneDocumentChange(document, {name, operation: 'restorePerspective'}, this)
+        }
+
+        return {document, errors: [], switched: true}
+    }
+
+    /**
      * Applies one semantic dock operation to the holder's document through the landed commit
      * path and returns the post-operation state, so agents can verify without a second call.
      * @param {Object} params

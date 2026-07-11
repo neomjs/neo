@@ -124,9 +124,12 @@ class Client extends Base {
             query_vdom         : component,
             verify_component   : component,
 
+            capture_perspective   : dock,
             diff_dock_topology    : dock,
             execute_dock_operation: dock,
             get_dock_topology     : dock,
+            list_perspectives     : dock,
+            restore_perspective   : dock,
 
             call_method            : instance,
             create_instance        : instance,
