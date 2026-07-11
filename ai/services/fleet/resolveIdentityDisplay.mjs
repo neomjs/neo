@@ -2,8 +2,8 @@ import {IDENTITIES} from '../../graph/identityRoots.mjs';
 
 /**
  * @summary The ONE fleet↔identity join seam (the single ratified resolver site): maps a
- * fleet-registry agent (by GitHub username or registry id) onto its identity-root display facts —
- * `{family, engineTag}` — for the cockpit DTO.
+ * fleet-registry agent (by GitHub username or registry id) onto its identity-root facts —
+ * `{family, engineTag, participationStatus}` — for the cockpit DTO.
  *
  * **Source discipline:** reads the flat `ai/graph/identityRoots.mjs` registry — the ratified
  * migration-safe bridge source (usable-now-must-not-ossify) — READ-ONLY: this seam never writes
@@ -19,10 +19,17 @@ import {IDENTITIES} from '../../graph/identityRoots.mjs';
  * session facts) — the era swap re-points exactly this resolver, zero change for the assembler or
  * any Body-side consumer. Until then, null renders as a hidden tag: honest, never guessed.
  *
+ * **`participationStatus` is the AUTHORITATIVE swarm-participation fact** (the identity roots
+ * document it as such): `active` by default, `operator_benched` / `temporarily_unreachable` when
+ * a transition was recorded. It rides this seam so fleet-level control surfaces (the cockpit's
+ * morning-start eligibility partition) can exclude any KNOWN non-active identity BEFORE a
+ * lifecycle write — the same hard-gate reading the wake-subscription liveness and heartbeat
+ * target-discovery layers apply; heartbeat/recency signals are explicitly not valid substitutes.
+ *
  * **Closed-set honesty:** an agent with no identity root (a guest / freshly-defined fleet agent
- * that is not a named maintainer) resolves to `{family: null, engineTag: null}` — the cockpit's
- * FamilyRail renders unknown families as `unclassified`, so an unresolved identity degrades
- * honestly instead of guessing.
+ * that is not a named maintainer) resolves to `{family: null, engineTag: null,
+ * participationStatus: null}` — the cockpit's FamilyRail renders unknown families as
+ * `unclassified`, so an unresolved identity degrades honestly instead of guessing.
  * @module ai/services/fleet/resolveIdentityDisplay
  */
 
@@ -39,13 +46,15 @@ const identityByLogin = new Map(
 );
 
 /**
- * @summary Resolve a fleet agent's identity display facts from the identity roots.
+ * @summary Resolve a fleet agent's identity facts from the identity roots.
  * @param {String|null} agentIdOrLogin The agent's GitHub username or registry id, with or without
  *     a leading `@` (e.g. `neo-gpt`, `@neo-gpt`).
- * @returns {{family: String|null, engineTag: String|null}} the display facts; `family` is `null`
- *     when the agent has no identity root (rendered as unclassified, never guessed); `engineTag`
- *     is currently ALWAYS `null` (see the module summary — no truthful flat source exists), kept
- *     in the contract shape so the era-layer re-point changes no consumer.
+ * @returns {{family: String|null, engineTag: String|null, participationStatus: String|null}} the
+ *     identity facts; `family` is `null` when the agent has no identity root (rendered as
+ *     unclassified, never guessed); `engineTag` is currently ALWAYS `null` (see the module
+ *     summary — no truthful flat source exists), kept in the contract shape so the era-layer
+ *     re-point changes no consumer; `participationStatus` is the root's authoritative
+ *     participation fact (`null` when no root exists — unknown, never assumed active).
  */
 export function resolveIdentityDisplay(agentIdOrLogin) {
     const node = typeof agentIdOrLogin === 'string'
@@ -53,7 +62,8 @@ export function resolveIdentityDisplay(agentIdOrLogin) {
         : null;
 
     return {
-        family   : node?.properties?.family ?? null,
-        engineTag: null
+        family             : node?.properties?.family ?? null,
+        engineTag          : null,
+        participationStatus: node?.properties?.participationStatus ?? null
     }
 }

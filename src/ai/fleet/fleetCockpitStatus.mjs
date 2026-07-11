@@ -106,9 +106,13 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtime
                 avatarUrl  : publicAgent.metadata?.avatarUrl ?? githubAvatarUrl(publicAgent.githubUsername),
                 family     : publicAgent.family ?? null,
                 engineTag  : publicAgent.engineTag ?? null,
-                agent      : publicAgent,
+                // The AUTHORITATIVE swarm-participation fact, resolved Brain-side through the ONE
+                // identity join seam — hoisted so fleet-level control eligibility can exclude an
+                // operator-benched identity. Tri-state: null = no identity root / not stamped.
+                participationStatus: publicAgent.participationStatus ?? null,
+                agent              : publicAgent,
                 repoStatus,
-                lifecycle  : runtime
+                lifecycle          : runtime
                     ? {
                         source    : FLEET_COCKPIT_SOURCES.runtime,
                         state     : runtime.state ?? 'unknown',
