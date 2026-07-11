@@ -174,7 +174,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         expect(merged.map(pr => pr.number)).toEqual([1])
     });
 
-    test('fetchSandboxesGraduated counts exact [GRADUATED_TO_TICKET: #N] author-actions by event time — never closedAt, never prose', async () => {
+    test('fetchSandboxesGraduated counts only marker-LEADING actions in dated comments — rejects prose/quote/original-post, dedupes, event-windowed', async () => {
         let execCalls = 0;
 
         TemporalSummaryAggregationService.execCommand        = () => { execCalls++; return '' };
@@ -182,32 +182,40 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
             expect(type).toBe('discussions');
 
             return [
-                // graduation in a COMMENT, in-window — closedAt is deliberately OUT of window (Aug): proves the
-                // event time drives the count, never the close time
+                // two real actions — the marker LEADS its line (heading, then bold+backtick wrappers), both in dated
+                // in-window comments. closedAt is deliberately OUT of window (Aug): proves event time, not close time
                 {
                     frontmatter: {number: 10, createdAt: '2026-06-01T00:00:00Z', closedAt: '2026-08-01T00:00:00Z'},
-                    body       : '## Comments\n### `@neo-gpt` commented on 2026-07-05T10:00:00Z\ngraduated [GRADUATED_TO_TICKET: #900]'
+                    body       : [
+                        '## Comments',
+                        '### `@neo-gpt` commented on 2026-07-05T10:00:00Z',
+                        '## [GRADUATED_TO_TICKET: #900] — phase-1 graduated',
+                        '### `@neo-opus-vega` commented on 2026-07-05T11:00:00Z',
+                        '**`[GRADUATED_TO_TICKET: Epic #901]`** — §6.7 executed'
+                    ].join('\n')
                 },
-                // graduation in the ORIGINAL POST (before any comment) → stamped createdAt, in-window; `Epic #N` form
+                // a ticket-bearing marker INLINE in prose (rejected) + a real leading action + a later
+                // BLOCKQUOTE quoting that same action → the action counts exactly once (dedupe + blockquote)
                 {
-                    frontmatter: {number: 11, createdAt: '2026-07-05T09:00:00Z', closedAt: null},
-                    body       : 'author close [GRADUATED_TO_TICKET: Epic #901]\n## Comments\n### `@x` commented on 2026-09-01T00:00:00Z\nlater'
+                    frontmatter: {number: 11, createdAt: '2026-06-01T00:00:00Z', closedAt: null},
+                    body       : [
+                        '### `@neo-gpt` commented on 2026-07-05T09:00:00Z',
+                        'we should do [GRADUATED_TO_TICKET: #902] once OQ3 lands',
+                        '## [GRADUATED_TO_TICKET: #903] — graduated',
+                        '### `@neo-opus-ada` commented on 2026-07-05T12:00:00Z',
+                        '> ## [GRADUATED_TO_TICKET: #903] — graduated'
+                    ].join('\n')
                 },
-                // bare marker mentioned in PROSE (no #N payload) — rejected though createdAt is in-window
+                // marker LEADS its line but sits in the ORIGINAL POST (no dated comment) → fail closed: createdAt is
+                // creation time, not the marker's edit time, so it is not a proxy — even though createdAt is in-window
                 {
-                    frontmatter: {number: 12, createdAt: '2026-07-05T09:00:00Z', closedAt: '2026-07-05T12:00:00Z'},
-                    body       : 'run STEP_BACK before `[GRADUATED_TO_TICKET]` / `[RESOLVED_TO_AC]`'
+                    frontmatter: {number: 12, createdAt: '2026-07-05T05:00:00Z', closedAt: null},
+                    body       : '## [GRADUATED_TO_TICKET: #904] — graduated\n\n## Concept\n…'
                 },
-                // exact marker but its comment event time is OUT of window — rejected
+                // real leading action but its comment event time is OUT of window → rejected
                 {
-                    frontmatter: {number: 13, createdAt: '2026-06-01T00:00:00Z', closedAt: '2026-07-05T00:00:00Z'},
-                    body       : '## Comments\n### `@y` commented on 2026-07-09T00:00:00Z\ngraduated [GRADUATED_TO_TICKET: #902]'
-                },
-                // exact marker in the original post but NO resolvable event time (createdAt absent) → fail closed,
-                // NOT borrowed from the in-window closedAt
-                {
-                    frontmatter: {number: 14, closedAt: '2026-07-05T05:00:00Z'},
-                    body       : 'author close [GRADUATED_TO_TICKET: #903]'
+                    frontmatter: {number: 13, createdAt: '2026-06-01T00:00:00Z', closedAt: null},
+                    body       : '### `@y` commented on 2026-07-09T00:00:00Z\n## [GRADUATED_TO_TICKET: #905] — graduated'
                 }
             ]
         };
@@ -219,11 +227,12 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
 
         // no live `gh api graphql` page — the corpus is complete
         expect(execCalls).toBe(0);
-        // #10 (comment event in-window, despite the Aug close) + #11 (original-post marker → createdAt in-window);
-        // #12 rejected (bare-marker prose), #13 rejected (comment event out of window), #14 rejected (no event time)
-        expect(graduated.map(g => g.ticket)).toEqual(['#900', '#901']);
-        expect(graduated.map(g => g.at)).toEqual(['2026-07-05T10:00:00Z', '2026-07-05T09:00:00Z']);
-        expect(graduated.map(g => g.ref)).toEqual(['discussion #10', 'discussion #11'])
+        // the three leading actions in in-window dated comments survive (despite the Aug close on the first record;
+        // the third's quote is deduped); the inline-prose marker, the original-post marker (no event time), and the
+        // out-of-window action are all rejected
+        expect(graduated.map(g => g.ticket)).toEqual(['#900', '#901', '#903']);
+        expect(graduated.map(g => g.at)).toEqual(['2026-07-05T10:00:00Z', '2026-07-05T11:00:00Z', '2026-07-05T09:00:00Z']);
+        expect(graduated.map(g => g.ref)).toEqual(['discussion #10', 'discussion #10', 'discussion #11'])
     });
 
     test('fetchSessions binds sessions to the summary collection over a bounded half-open window', async () => {
@@ -412,11 +421,11 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         TemporalSummaryAggregationService.fetchSessions      = async () => [];
         TemporalSummaryAggregationService.fetchMergedPrs     = async () => [];
         TemporalSummaryAggregationService.readContentRecords = () => [
-            // exact author-action marker; event time (original-post → createdAt) in-window
-            {frontmatter: {number: 10, createdAt: '2026-07-05T06:00:00.000Z', closedAt: null}, body: 'done [GRADUATED_TO_TICKET: #810]'},
+            // real leading author-action in a dated in-window comment
+            {frontmatter: {number: 10, createdAt: '2026-06-01T00:00:00Z', closedAt: null}, body: '### `@x` commented on 2026-07-05T06:00:00.000Z\n## [GRADUATED_TO_TICKET: #810] — graduated'},
             {frontmatter: {number: 11, createdAt: '2026-07-05T07:00:00.000Z', closedAt: null}, body: 'just an ordinary discussion'},
-            // bare marker in prose (no #N) — rejected
-            {frontmatter: {number: 12, createdAt: '2026-07-05T08:00:00.000Z', closedAt: null}, body: 'before `[GRADUATED_TO_TICKET]`'}
+            // ticket-bearing marker inline in prose — rejected (not marker-leading)
+            {frontmatter: {number: 12, createdAt: '2026-07-05T08:00:00.000Z', closedAt: null}, body: '### `@y` commented on 2026-07-05T08:00:00Z\nwe will do [GRADUATED_TO_TICKET: #811] soon'}
         ];
 
         const sources = await TemporalSummaryAggregationService.fetchWindowSources({
@@ -424,7 +433,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
             windowEnd  : '2026-07-06T00:00:00.000Z'
         });
 
-        // only the exact in-window graduation action survives, stamped with its event time
+        // only the exact in-window graduation action survives, stamped with its comment event time
         expect(sources.sandboxesGraduated).toEqual([
             {ref: 'discussion #10', ticket: '#810', at: '2026-07-05T06:00:00.000Z'}
         ])

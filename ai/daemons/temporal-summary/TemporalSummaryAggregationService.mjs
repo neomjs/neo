@@ -319,38 +319,73 @@ class TemporalSummaryAggregationService extends Base {
     }
 
     /**
-     * @summary Extracts the exact `[GRADUATED_TO_TICKET: #N]` (or `Epic #N`) author-action graduations from one
-     * synced Discussion, each stamped with its EVENT timestamp. The event time is the enclosing comment's
-     * `### `@author` commented on <ISO>` boundary; a marker before the first comment (in the original post) is
-     * stamped with the discussion `createdAt`. A bare `[GRADUATED_TO_TICKET]` with no `#N` payload is prose about
-     * the marker — not an author-action — and is skipped; the ticket-naming bracket is what makes it an action.
+     * @summary Extracts the exact `[GRADUATED_TO_TICKET: #N]` (or `Epic #N`) author-ACTION graduations from one
+     * synced Discussion, each stamped with its event timestamp. An action is a marker that LEADS its line after
+     * only allowed wrappers — heading `#`s, bold `**`, backticks — matching how graduations are actually posted
+     * (`## [GRADUATED_TO_TICKET: #N] …`, `` **`[GRADUATED_TO_TICKET: Epic #N]`** ``). A ticket-bearing marker
+     * inline in prose, inside a blockquote (`>`), or in a fenced/indented code block is the marker being
+     * DISCUSSED or quoted — never an action — and is rejected. Graduations are de-duped per discussion+ticket on
+     * the earliest evidenced action, so a later quote of the same graduation never re-counts.
+     *
+     * The event time is the enclosing `### `@author` commented on <ISO>` comment boundary. A marker outside any
+     * dated comment (e.g. the original post) has no event timestamp — `createdAt` is the creation time, not the
+     * edit time the marker was added — so it FAILS CLOSED (uncounted) rather than proxy the wrong clock.
      * @param {Object} params
-     * @param {Object} params.frontmatter The Discussion frontmatter (`number`, `createdAt`).
-     * @param {String} params.body        The full synced Discussion body (original post + comment blocks).
+     * @param {Object} params.frontmatter The Discussion frontmatter (`number`).
+     * @param {String} params.body        The full synced Discussion body (original post + dated comment blocks).
      * @returns {Array<{ref:String, ticket:String, at:String}>}
      * @protected
      */
     extractGraduationActions({frontmatter, body}) {
         const
-            markerPattern  = /\[GRADUATED_TO_TICKET:\s*(?:Epic\s+)?#(\d+)\]/g,
-            commentPattern = /^### `@[^`]+` commented on (\S+)\s*$/gm,
-            // the original post owns everything before the first comment boundary; it is stamped createdAt
-            boundaries     = [{index: 0, at: frontmatter.createdAt == null ? null : String(frontmatter.createdAt)}];
+            commentPattern = /^### `@[^`]+` commented on (\S+)\s*$/,
+            // author-ACTION line: the ticket-naming marker LEADS the line after only allowed wrappers
+            actionPattern  = /^(?:#{1,6}\s+|\*{1,2}|`)*\[GRADUATED_TO_TICKET:\s*(?:Epic\s+)?#(\d+)\]/,
+            seen           = new Set(),
+            actions        = [];
 
-        for (const comment of body.matchAll(commentPattern)) {
-            boundaries.push({index: comment.index, at: comment[1]})
-        }
+        let currentAt = null, inFence = false;
 
-        return [...body.matchAll(markerPattern)].map(marker => {
-            // the enclosing block is the last boundary at or before the marker's position (boundaries ascend)
-            let at = boundaries[0].at;
+        for (const line of body.split('\n')) {
+            if (/^\s*```/.test(line)) {
+                inFence = !inFence;
+                continue
+            }
+            if (inFence) continue;
 
-            for (const boundary of boundaries) {
-                if (boundary.index <= marker.index) at = boundary.at; else break
+            const comment = commentPattern.exec(line);
+
+            if (comment) {
+                currentAt = comment[1];
+                continue
             }
 
-            return {ref: `discussion #${frontmatter.number}`, ticket: `#${marker[1]}`, at}
-        })
+            // blockquotes + indented code are quotes / examples, never an author action
+            if (/^\s*>/.test(line) || /^(?: {4}|\t)/.test(line)) {
+                continue
+            }
+
+            const action = actionPattern.exec(line);
+
+            // fail closed on a marker outside a dated comment: no event timestamp to stand on
+            if (!action || currentAt === null) {
+                continue
+            }
+
+            const
+                ticket = `#${action[1]}`,
+                key    = `${frontmatter.number}:${ticket}`;
+
+            // dedupe per discussion+ticket on the earliest evidenced action (document order is chronological)
+            if (seen.has(key)) {
+                continue
+            }
+
+            seen.add(key);
+            actions.push({ref: `discussion #${frontmatter.number}`, ticket, at: currentAt})
+        }
+
+        return actions
     }
 
     /**
