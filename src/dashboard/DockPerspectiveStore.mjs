@@ -174,6 +174,21 @@ class DockPerspectiveStore extends Base {
     }
 
     /**
+     * Read-only record resolve by name — the inspection seam for scope-honest consumers (the
+     * Neural Link restore tool reads the record's `captureScope` through this BEFORE any state
+     * moves). Same resolution rule as every other verb (`perspectiveName` first, `layoutId`
+     * second), returns a clone, advances nothing: no `activeLayoutId` movement, no migration
+     * commit, no lifecycle event — the read-path twin of {@link #loadPerspective}.
+     * @param {String} name
+     * @returns {{layoutId: String, layout: Object}|null}
+     */
+    getPerspective(name) {
+        let entry = this.resolveEntry(name);
+
+        return entry ? {layout: DockZoneModel.clone(entry.layout), layoutId: entry.layoutId} : null
+    }
+
+    /**
      * Plain-JSON summaries of every stored perspective, in insertion order — the switcher's
      * list model. Never exposes the records themselves.
      * @returns {Object[]} `[{layoutId, title, perspectiveName, captureScope, revision}]`

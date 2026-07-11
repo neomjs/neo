@@ -1,8 +1,9 @@
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../src/Neo.mjs';
-import * as core      from '../../../../../src/core/_export.mjs';
-import DockService    from '../../../../../src/ai/client/DockService.mjs';
-import DockZoneModel  from '../../../../../src/dashboard/DockZoneModel.mjs';
+import {test, expect}       from '@playwright/test';
+import Neo                  from '../../../../../src/Neo.mjs';
+import * as core            from '../../../../../src/core/_export.mjs';
+import DockService          from '../../../../../src/ai/client/DockService.mjs';
+import DockPerspectiveStore from '../../../../../src/dashboard/DockPerspectiveStore.mjs';
+import DockZoneModel        from '../../../../../src/dashboard/DockZoneModel.mjs';
 
 /**
  * @summary Creates a valid dockZone.v1 fixture for diff-tool assertions.
@@ -24,6 +25,41 @@ function doc() {
             'side-tabs' : {type: 'tabs', items: ['terminal'], activeItemId: 'terminal'}
         }
     }
+}
+
+/**
+ * @summary A second, item-disjoint dockZone.v1 fixture — the ADDITIONAL window for topology-scope
+ * assertions (the reconciler validates workspace-global item disjointness across live windows).
+ * @returns {Object}
+ */
+function doc2() {
+    return {
+        schema: 'neo.harness.dockZone.v1',
+        root  : 'root',
+        items : {
+            alpha: {componentRef: 'alpha', title: 'Alpha', kind: 'panel'},
+            beta : {componentRef: 'beta',  title: 'Beta',  kind: 'panel'}
+        },
+        nodes: {
+            root       : {type: 'edge-zone', zones: {center: 'only-tabs'}},
+            'only-tabs': {type: 'tabs', items: ['alpha', 'beta'], activeItemId: 'alpha'}
+        }
+    }
+}
+
+/**
+ * @summary The doc() catalog rearranged (strategy moved across tabs nodes) — same items, different
+ * shape fingerprint, so a restore toward doc() exercises the reconciler's changed-topology path.
+ * @returns {Object}
+ */
+function docRearranged() {
+    const d = doc();
+
+    d.nodes['main-tabs'].items        = ['swarm'];
+    d.nodes['main-tabs'].activeItemId = 'swarm';
+    d.nodes['side-tabs'].items        = ['terminal', 'strategy'];
+
+    return d
 }
 
 /**
@@ -267,12 +303,11 @@ test.describe.serial('Neo.ai.client.DockService', () => {
         expect(result.document).toBe(malformed)
     });
 
-    test('capturePerspective builds a valid record from the live document; scope vocabulary is exact and topology fails closed', async () => {
+    test('capturePerspective (window default) rides the landed producer — fingerprint-coherent, schema-valid, honest stored:false', async () => {
         const holder = {id: 'zone-6', dockZoneDocument: doc()};
 
         Neo.getComponent = () => holder;
 
-        // workspace scope (the default): a schema-valid record, honest stored:false without a store
         const captured = await service.capturePerspective({
             componentId: 'zone-6', layoutId: 'ws-1', perspectiveName: 'Coding', title: 'Coding view'
         });
@@ -282,17 +317,62 @@ test.describe.serial('Neo.ai.client.DockService', () => {
         expect(captured.errors).toEqual([]);
         expect(captured.layout.layoutId).toBe('ws-1');
         expect(captured.layout.perspectiveName).toBe('Coding');
+        expect(captured.layout.captureScope).toBe('window');
+        // the landed producer computes the fingerprint from the PERSISTED tree — a null
+        // fingerprint would mean the tool bypassed DockZoneModel.capturePerspective()
+        expect(captured.layout.windowFingerprint?.schema).toBe('neo.harness.dockShape.v1');
+        expect(DockZoneModel.restoreSavedLayout(captured.layout).errors).toEqual([])
+    });
+
+    test('capture scope vocabulary IS the CAPTURE_SCOPES SSOT: window accepted, workspace and junk refused with the executable set enumerated', async () => {
+        Neo.getComponent = () => ({id: 'zone-6b', dockZoneDocument: doc()});
+
+        // `window` is the executable SSOT scope — an implementation refusing it contradicts
+        // DockZoneModel.CAPTURE_SCOPES (the review falsifier that convicted the stale vocabulary)
+        const win = await service.capturePerspective({componentId: 'zone-6b', layoutId: 'w-1', captureScope: 'window'});
+        expect(win.captured).toBe(true);
+        expect(win.layout.captureScope).toBe('window');
+
+        // `workspace` is the ADR's capability LABEL, not a runtime enum value — minting it as a
+        // third runtime scope is the drift this spec pins shut
+        for (const bogus of ['workspace', 'teleport']) {
+            const refused = await service.capturePerspective({componentId: 'zone-6b', layoutId: 'x', captureScope: bogus});
+
+            expect(refused.captured).toBe(false);
+            // the enumeration derives from the SSOT, never a hand-listed literal
+            expect(refused.errors[0]).toContain(`the vocabulary is: ${DockZoneModel.CAPTURE_SCOPES.join(', ')}`)
+        }
+    });
+
+    test('capturePerspective (topology) captures the ordered multi-window workspace through the holder seam — and refuses without it', async () => {
+        const holder = {
+            id                      : 'zone-6c',
+            dockZoneDocument        : doc(),
+            getDockTopologyDocuments: () => [doc(), doc2()]
+        };
+
+        Neo.getComponent = () => holder;
+
+        const captured = await service.capturePerspective({
+            componentId: 'zone-6c', layoutId: 'topo-1', perspectiveName: 'Everything', captureScope: 'topology'
+        });
+
+        expect(captured.captured).toBe(true);
+        expect(captured.layout.captureScope).toBe('topology');
+        // slot 0 stays the primary dockZone; the ADDITIONAL window persists in windowDocuments
+        expect(captured.layout.windowDocuments).toHaveLength(1);
+        expect(Object.keys(captured.layout.windowDocuments[0].items)).toEqual(['alpha', 'beta']);
+        expect(captured.layout.windowFingerprint?.schema).toBe('neo.harness.dockTopologyShape.v1');
+        expect(captured.layout.windowFingerprint?.windowCount).toBe(2);
         expect(DockZoneModel.restoreSavedLayout(captured.layout).errors).toEqual([]);
 
-        // the settled two-scope vocabulary, exactly: topology is a declared refusal (not shipped),
-        // anything else is an unknown-vocabulary refusal — never a silent workspace downgrade
-        const topo = await service.capturePerspective({componentId: 'zone-6', layoutId: 'x', captureScope: 'topology'});
-        expect(topo.captured).toBe(false);
-        expect(topo.errors[0]).toContain('multi-window perspective tier');
+        // no topology read seam = a declared refusal naming the seam — never a silent
+        // downgrade to a window-scope record
+        Neo.getComponent = () => ({id: 'zone-6d', dockZoneDocument: doc()});
+        const refused = await service.capturePerspective({componentId: 'zone-6d', layoutId: 'x', captureScope: 'topology'});
 
-        const junk = await service.capturePerspective({componentId: 'zone-6', layoutId: 'x', captureScope: 'window'});
-        expect(junk.captured).toBe(false);
-        expect(junk.errors[0]).toContain('vocabulary is: workspace, topology')
+        expect(refused.captured).toBe(false);
+        expect(refused.errors[0]).toContain('getDockTopologyDocuments')
     });
 
     test('capturePerspective stores through the holder perspective store and surfaces its structured collision verdict', async () => {
@@ -343,63 +423,223 @@ test.describe.serial('Neo.ai.client.DockService', () => {
         expect(bare.errors[0]).toContain('no perspective store')
     });
 
-    test('restorePerspective prefers the holder switch seam and returns the post-restore document', async () => {
-        const calls  = [],
-              after  = doc(),
-              holder = {
-                  id: 'zone-10',
+    test('restorePerspective inspects the record READ-ONLY first: no getPerspective seam and unknown names are declared refusals', async () => {
+        // scope-honesty requires reading captureScope BEFORE any state moves — a store without
+        // the read-only seam cannot make that promise, so the tool refuses rather than guessing
+        Neo.getComponent = () => ({
+            id              : 'zone-10',
+            dockZoneDocument: doc(),
+            perspectiveStore: {loadPerspective: () => ({document: doc(), errors: [], layout: {}})}
+        });
+
+        const blind = await service.restorePerspective({componentId: 'zone-10', name: 'Focus'});
+        expect(blind.switched).toBe(false);
+        expect(blind.errors[0]).toContain('getPerspective');
+
+        Neo.getComponent = () => ({
+            id              : 'zone-10b',
+            dockZoneDocument: doc(),
+            perspectiveStore: {getPerspective: () => null}
+        });
+
+        const missing = await service.restorePerspective({componentId: 'zone-10b', name: 'ghost'});
+        expect(missing.switched).toBe(false);
+        expect(missing.errors[0]).toContain('no perspective named "ghost"');
+
+        // and a holder with no perspective surface at all refuses, never crashes
+        Neo.getComponent = () => ({id: 'zone-10c', dockZoneDocument: doc()});
+        const bare = await service.restorePerspective({componentId: 'zone-10c', name: 'Focus'});
+        expect(bare.switched).toBe(false);
+        expect(bare.errors[0]).toContain('getPerspective')
+    });
+
+    test('restorePerspective routes a WINDOW record through the holder switch seam after the scope inspection', async () => {
+        const calls    = [],
+              after    = doc(),
+              windowed = DockZoneModel.capturePerspective(doc(), {layoutId: 'w-1', perspectiveName: 'Focus', title: 'Focus'}).layout,
+              holder   = {
+                  id: 'zone-11',
                   activatePerspective(name) { calls.push(name); return {errors: [], switched: true} },
-                  getDockZoneDocument: () => after
+                  getDockZoneDocument: () => after,
+                  perspectiveStore   : {getPerspective: () => ({layout: windowed, layoutId: 'w-1'})}
               };
 
         Neo.getComponent = () => holder;
 
-        const result = await service.restorePerspective({componentId: 'zone-10', name: 'Focus'});
+        const result = await service.restorePerspective({componentId: 'zone-11', name: 'Focus'});
         expect(calls).toEqual(['Focus']);
         expect(result.switched).toBe(true);
+        expect(result.captureScope).toBe('window');
         expect(result.document).toBe(after)
     });
 
-    test('restorePerspective store path: fail-closed refusal leaves the holder byte-untouched; success commits through the landed path', async () => {
+    test('restorePerspective window store fallback: refusal leaves the holder byte-untouched; success commits through the landed plain-holder path', async () => {
         const restored = doc(),
+              windowed = DockZoneModel.capturePerspective(doc(), {layoutId: 'w-2', perspectiveName: 'Focus', title: 'Focus'}).layout,
               notified = [];
 
         // refusal: the store's structured errors pass through, the document never moves
         const refusingHolder = {
-            id              : 'zone-11',
+            id              : 'zone-12',
             dockZoneDocument: doc(),
-            perspectiveStore: {loadPerspective: () => ({document: null, errors: ['no perspective named "ghost"'], layout: null})}
+            perspectiveStore: {
+                getPerspective : () => ({layout: windowed, layoutId: 'w-2'}),
+                loadPerspective: () => ({document: null, errors: ['collection validation failed'], layout: null})
+            }
         };
         const before = JSON.stringify(refusingHolder.dockZoneDocument);
 
         Neo.getComponent = () => refusingHolder;
 
-        const refused = await service.restorePerspective({componentId: 'zone-11', name: 'ghost'});
+        const refused = await service.restorePerspective({componentId: 'zone-12', name: 'Focus'});
         expect(refused.switched).toBe(false);
-        expect(refused.errors[0]).toContain('no perspective named');
+        expect(refused.errors[0]).toContain('collection validation failed');
         expect(JSON.stringify(refusingHolder.dockZoneDocument)).toBe(before);
 
         // success on a plain holder: the same commit semantics executeDockOperation uses —
         // dockZoneDocument advances AND the change hook fires with the restore descriptor
         const plainHolder = {
-            id              : 'zone-12',
+            id              : 'zone-13',
             dockZoneDocument: doc(),
             onDockZoneDocumentChange(document, descriptor) { notified.push(descriptor) },
-            perspectiveStore: {loadPerspective: () => ({document: restored, errors: [], layout: {}})}
+            perspectiveStore: {
+                getPerspective : () => ({layout: windowed, layoutId: 'w-2'}),
+                loadPerspective: () => ({document: restored, errors: [], layout: windowed})
+            }
         };
 
         Neo.getComponent = () => plainHolder;
 
-        const result = await service.restorePerspective({componentId: 'zone-12', name: 'Focus'});
+        const result = await service.restorePerspective({componentId: 'zone-13', name: 'Focus'});
         expect(result.switched).toBe(true);
+        expect(result.captureScope).toBe('window');
         expect(result.document).toBe(restored);
         expect(plainHolder.dockZoneDocument).toBe(restored);
-        expect(notified[0]).toMatchObject({name: 'Focus', operation: 'restorePerspective'});
+        expect(notified[0]).toMatchObject({name: 'Focus', operation: 'restorePerspective'})
+    });
 
-        // and a holder with NEITHER seam is a structured refusal, never a crash
-        Neo.getComponent = () => ({id: 'zone-13', dockZoneDocument: doc()});
-        const bare = await service.restorePerspective({componentId: 'zone-13', name: 'Focus'});
-        expect(bare.switched).toBe(false);
-        expect(bare.errors[0]).toContain('no perspective surface')
+    test('restorePerspective routes a TOPOLOGY record through the reconciler + the atomic multi-document seam (real store, changed topology)', async () => {
+        // the REAL producer + REAL store: the record is exactly what capture writes
+        const captured = DockZoneModel.captureTopologyPerspective([doc(), doc2()], {
+                  layoutId: 'topo-1', perspectiveName: 'Everything', title: 'Everything'
+              }).layout,
+              store    = Neo.create(DockPerspectiveStore, {});
+
+        expect(store.savePerspective(captured).saved).toBe(true);
+
+        // live topology CHANGED since capture: primary window rearranged (shape mismatch →
+        // the reconciler's adopt branch), second window byte-equal (incremental no-op branch)
+        const liveDocs = [docRearranged(), doc2()],
+              commits  = [],
+              holder   = {
+                  id                      : 'zone-14',
+                  dockZoneDocument        : liveDocs[0],
+                  perspectiveStore        : store,
+                  getDockTopologyDocuments: () => liveDocs,
+                  commitDockTopologyDocuments(documents, context) {
+                      // the atomic seam sees ALL window documents in one call — and the store's
+                      // active pointer has NOT moved yet at commit time (commit-then-activate)
+                      commits.push({activeAtCommit: store.collection.activeLayoutId, context, documents})
+                  }
+              };
+
+        Neo.getComponent = () => holder;
+
+        const result = await service.restorePerspective({componentId: 'zone-14', name: 'Everything'});
+
+        expect(result.switched).toBe(true);
+        expect(result.captureScope).toBe('topology');
+        expect(result.errors).toEqual([]);
+        expect(commits).toHaveLength(1);
+        expect(commits[0].documents).toHaveLength(2);
+        expect(commits[0].context).toMatchObject({name: 'Everything', operation: 'restorePerspective'});
+        // every captured item id lands in restored — windowDocuments were consumed, not dropped
+        expect([...result.restored].sort()).toEqual(['alpha', 'beta', 'strategy', 'swarm', 'terminal']);
+        expect(result.unrestored).toEqual([]);
+        // the primary window adopted the captured arrangement (strategy back on main-tabs)
+        expect(result.documents[0].nodes['main-tabs'].items).toEqual(['strategy', 'swarm']);
+        expect(result.document).toBe(result.documents[0]);
+        // the store's active pointer advanced only AFTER the workspace commit
+        expect(commits[0].activeAtCommit).toBe('topo-1');
+        expect(store.collection.activeLayoutId).toBe('topo-1');
+
+        store.destroy()
+    });
+
+    test('a TOPOLOGY record without the atomic holder seam refuses — never the window seam, never a partial commit, store pointer unmoved', async () => {
+        const captured = DockZoneModel.captureTopologyPerspective([doc(), doc2()], {
+                  layoutId: 'topo-2', perspectiveName: 'Spread', title: 'Spread'
+              }).layout,
+              windowed = DockZoneModel.capturePerspective(doc(), {layoutId: 'w-9', perspectiveName: 'Decoy', title: 'Decoy'}).layout,
+              store    = Neo.create(DockPerspectiveStore, {});
+
+        expect(store.savePerspective(windowed).saved).toBe(true);              // active: w-9
+        expect(store.savePerspective(captured, {activate: false}).saved).toBe(true);
+
+        const activations = [],
+              liveDocs    = [docRearranged(), doc2()],
+              before      = JSON.stringify(liveDocs),
+              holder      = {
+                  id              : 'zone-15',
+                  dockZoneDocument: liveDocs[0],
+                  perspectiveStore: store,
+                  // a window switch seam EXISTS — a topology record must still never ride it
+                  activatePerspective(name) { activations.push(name); return {errors: [], switched: true} },
+                  getDockTopologyDocuments: () => liveDocs
+                  // no commitDockTopologyDocuments: the atomic seam is missing
+              };
+
+        Neo.getComponent = () => holder;
+
+        const result = await service.restorePerspective({componentId: 'zone-15', name: 'Spread'});
+
+        expect(result.switched).toBe(false);
+        expect(result.captureScope).toBe('topology');
+        expect(result.errors[0]).toContain('commitDockTopologyDocuments');
+        expect(activations).toEqual([]);
+        expect(JSON.stringify(liveDocs)).toBe(before);
+        // the store's active pointer never moved off the decoy
+        expect(store.collection.activeLayoutId).toBe('w-9');
+
+        store.destroy()
+    });
+
+    test('a refused topology reconciliation fails byte-identical: no document commits, no store state advances', async () => {
+        // a corrupt record can only enter through a non-validating surface — the tool must
+        // still fail the ENTIRE restore closed on the reconciler's own validation
+        const corrupt = {
+                  schema         : 'neo.harness.dockLayout.v2',
+                  layoutId       : 'topo-bad',
+                  title          : 'Bad',
+                  captureScope   : 'topology',
+                  dockZone       : doc(),
+                  windowDocuments: 'nonsense'
+              },
+              loads    = [],
+              commits  = [],
+              liveDocs = [doc(), doc2()],
+              before   = JSON.stringify(liveDocs),
+              holder   = {
+                  id                      : 'zone-16',
+                  dockZoneDocument        : liveDocs[0],
+                  getDockTopologyDocuments: () => liveDocs,
+                  commitDockTopologyDocuments(documents) { commits.push(documents) },
+                  perspectiveStore        : {
+                      getPerspective : () => ({layout: corrupt, layoutId: 'topo-bad'}),
+                      loadPerspective: name => { loads.push(name); return {document: null, errors: [], layout: null} }
+                  }
+              };
+
+        Neo.getComponent = () => holder;
+
+        const result = await service.restorePerspective({componentId: 'zone-16', name: 'Bad'});
+
+        expect(result.switched).toBe(false);
+        expect(result.captureScope).toBe('topology');
+        expect(result.errors.length).toBeGreaterThan(0);
+        expect(result.unrestored.length).toBeGreaterThan(0);
+        expect(commits).toEqual([]);
+        expect(loads).toEqual([]);
+        expect(JSON.stringify(liveDocs)).toBe(before)
     });
 });

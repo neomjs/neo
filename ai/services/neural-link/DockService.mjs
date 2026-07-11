@@ -28,14 +28,15 @@ class DockService extends Base {
     }
 
     /**
-     * Captures a live workspace's current layout document as a named saved-layout record and
-     * stores it on the holder's perspective surface when present.
+     * Captures a live workspace as a named saved-layout record and stores it on the holder's
+     * perspective surface when present — window scope reads the holder's own document, topology
+     * scope reads the holder's ordered multi-window seam.
      * @param {Object} opts
      * @param {String}  opts.componentId       The dock workspace / document-holder component id
      * @param {String}  opts.layoutId          Stable technical id for the record
      * @param {String} [opts.perspectiveName]  Product-facing name
      * @param {String} [opts.title]            Display title
-     * @param {String} [opts.captureScope]     'workspace' (default) | 'topology' (fails closed until shipped)
+     * @param {String} [opts.captureScope]     'window' (default) | 'topology' — the DockZoneModel.CAPTURE_SCOPES vocabulary
      * @param {Boolean} [opts.replace]         Explicit name-collision decision
      * @param {String} [opts.sessionId]
      * @returns {Promise<Object>}

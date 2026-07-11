@@ -851,7 +851,7 @@ paths:
       operationId: capture_perspective
       x-neo-tool-tier: write-locked
       x-pass-as-object: true
-      description: Captures a live dock workspace's current layout document as a named saved-layout record and stores it on the holder's perspective store when present. Name collisions return a structured verdict unless replace is true; captureScope 'topology' fails closed until the multi-window tier ships.
+      description: Captures a live dock workspace as a named saved-layout record and stores it on the holder's perspective store when present. captureScope 'window' (default) captures the holder's own document; 'topology' captures the ordered multi-window workspace through the holder's getDockTopologyDocuments() seam. Name collisions return a structured verdict unless replace is true.
       tags: [Dock]
       requestBody:
         required: true
@@ -878,7 +878,8 @@ paths:
                   description: Display title
                 captureScope:
                   type: string
-                  description: workspace (default) or topology
+                  enum: [window, topology]
+                  description: window (default) or topology — the DockZoneModel.CAPTURE_SCOPES vocabulary
                 replace:
                   type: boolean
                   description: Explicit decision to retire an existing holder of the name
@@ -926,7 +927,7 @@ paths:
       operationId: restore_perspective
       x-neo-tool-tier: write-locked
       x-pass-as-object: true
-      description: Restores a stored perspective by name through the holder's own switch seam (or the store's fail-closed load) and returns the post-restore document for one-call verification. A refused restore leaves the live layout untouched with structured errors.
+      description: Restores a stored perspective by name, routed by the record's own captureScope - window records ride the holder's switch seam (or the store's fail-closed load); topology records reconcile onto the live windows and commit atomically through the holder's multi-document seam, reporting restored/unrestored/displaced. A refused restore leaves the live layout untouched with structured errors.
       tags: [Dock]
       requestBody:
         required: true
