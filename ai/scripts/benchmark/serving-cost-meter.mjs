@@ -60,7 +60,14 @@ export function parseWindow(value) {
         throw new Error(`--window must look like 90s / 45m / 8h, got "${value}"`)
     }
 
-    return Number(match[1]) * {s: 1000, m: 60000, h: 3600000}[match[2]]
+    const ms = Number(match[1]) * {s: 1000, m: 60000, h: 3600000}[match[2]];
+
+    if (ms <= 0) {
+        // a zero window would exit 0 with an empty "measurement" — success theater, refused
+        throw new Error(`--window must be a positive duration, got "${value}"`)
+    }
+
+    return ms
 }
 
 /**
@@ -225,6 +232,10 @@ async function main() {
         elapsed < intervalMs && await new Promise(resolve => setTimeout(resolve, intervalMs - elapsed))
     }
 
+    // the REQUESTED bounds travel into every aggregate: a role whose endpoint appeared for
+    // only the tail of the window must read as mostly-unavailable, never as a clean short run
+    const windowBounds = {endMs: Date.now(), startMs: startedAt};
+
     const report = {
         hardware  : options.hardware,
         host      : {arch: os.arch(), cpuModel: os.cpus()[0]?.model ?? 'unknown', platform: os.platform(), totalMemBytes: os.totalmem()},
@@ -234,6 +245,7 @@ async function main() {
         roles     : {},
         skipped, // declared measurement holes (remote endpoints) live in the artifact, not just stdout
         threshold,
+        windowBounds,
         windowMs
     };
 
@@ -245,7 +257,7 @@ async function main() {
             continue
         }
 
-        const aggregate = aggregateWindow(roleSamples, {activeCpuThreshold: threshold, expectedIntervalMs: intervalMs});
+        const aggregate = aggregateWindow(roleSamples, {activeCpuThreshold: threshold, expectedIntervalMs: intervalMs, windowBounds});
 
         report.roles[role] = aggregate;
         report.metricBags.push(...buildMetricBags(aggregate, {

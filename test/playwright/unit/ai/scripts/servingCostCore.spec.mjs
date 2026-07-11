@@ -56,6 +56,46 @@ test.describe('serving-cost meter core (the pure measurement transforms)', () =>
         ], {activeCpuThreshold: 5, expectedIntervalMs: tick})).toEqual(aggregate)
     });
 
+    test('boundary honesty: a tail-only sample stream against the REQUESTED window reads as mostly-unavailable, never as a clean short run', () => {
+        // the reviewer's exact falsifier: a nominal 1h window whose endpoint appeared only for
+        // its final 10s — without bounds this read "10s covered, 0 gaps"; with bounds the
+        // 59m50s leading absence is VISIBLE
+        const aggregate = aggregateWindow([
+            sample(3590000, 50),
+            sample(3600000, 60)
+        ], {activeCpuThreshold: 5, expectedIntervalMs: 5000, windowBounds: {endMs: 3600000, startMs: 0}});
+
+        expect(aggregate.coveredMs).toBe(10000);
+        expect(aggregate.gapCount).toBe(0);
+        expect(aggregate.nominalWindowMs).toBe(3600000);
+        expect(aggregate.leadingUnavailableMs).toBe(3590000);
+        expect(aggregate.trailingUnavailableMs).toBe(0);
+        expect(aggregate.coverageRatio).toBeCloseTo(10000 / 3600000, 10);
+
+        // the disclaimer carries the boundary truth into every published figure
+        const bags = buildMetricBags(aggregate, {
+            activeCpuThreshold: 5,
+            hardwareId        : 'ref',
+            periodStart       : '2026-07-11',
+            rerunCommand      : 'rerun',
+            role              : 'chat-model',
+            windowSemantics   : 'rolling-window-1h'
+        });
+
+        expect(bags[0].properties.confoundDisclaimer).toContain('leading/trailing unavailable 3590000ms/0ms');
+        expect(bags[0].properties.confoundDisclaimer).toContain('coverage ratio 0.0028');
+
+        // bounds sanity fails closed
+        expect(() => aggregateWindow([sample(0, 1), sample(1000, 1)], {activeCpuThreshold: 5, expectedIntervalMs: 1000, windowBounds: {endMs: 0, startMs: 0}}))
+            .toThrow('windowBounds');
+
+        // and WITHOUT bounds the boundary fields are explicitly null — absence of the claim,
+        // never a fabricated zero
+        const unbounded = aggregateWindow([sample(0, 1), sample(1000, 1)], {activeCpuThreshold: 5, expectedIntervalMs: 1000});
+        expect(unbounded.leadingUnavailableMs).toBeNull();
+        expect(unbounded.coverageRatio).toBeNull()
+    });
+
     test('aggregation fails closed on unusable streams', () => {
         expect(() => aggregateWindow([sample(0, 1)], {activeCpuThreshold: 5, expectedIntervalMs: 1000}))
             .toThrow('at least two');
@@ -125,13 +165,16 @@ test.describe('serving-cost meter core (the pure measurement transforms)', () =>
  * port while DECLARING remote skips instead of silently dropping them.
  */
 test.describe('serving-cost meter CLI helpers (resolution honesty)', () => {
-    test('window parsing accepts s/m/h and fails closed on anything else', () => {
+    test('window parsing accepts s/m/h and fails closed on anything else — including the zero-duration success-theater case', () => {
         expect(parseWindow('90s')).toBe(90000);
         expect(parseWindow('45m')).toBe(2700000);
         expect(parseWindow('8h')).toBe(28800000);
         expect(() => parseWindow('8')).toThrow('--window');
         expect(() => parseWindow('8d')).toThrow('--window');
-        expect(() => parseWindow('')).toThrow('--window')
+        expect(() => parseWindow('')).toThrow('--window');
+        // a zero window would exit 0 with an empty "measurement" — refused at parse time
+        expect(() => parseWindow('0s')).toThrow('positive duration');
+        expect(() => parseWindow('0h')).toThrow('positive duration')
     });
 
     test('port extraction handles explicit ports, protocol defaults, and garbage', () => {

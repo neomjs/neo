@@ -56,24 +56,35 @@ export function classifySample(sample, activeCpuThreshold) {
  * as a coverage gap — its duration is EXCLUDED from phase time (never guessed into idle), and
  * the gap count is reported so the window's honesty is inspectable.
  *
+ * Boundary accounting: without the REQUESTED bounds, "covered" only spans first→last sample —
+ * a nominal 1h run whose endpoint appeared for its final 10s would read as a clean 10s window
+ * with zero gaps. Passing `windowBounds` makes the absence VISIBLE: leading/trailing
+ * unavailable durations plus a coverage ratio against the nominal window.
+ *
  * @param {ResourceSample[]} samples Chronologically ordered samples of ONE role.
  * @param {Object} options
  * @param {Number} options.activeCpuThreshold The phase heuristic threshold (travels into disclaimers).
  * @param {Number} options.expectedIntervalMs The sampler's nominal tick.
  * @param {Number} [options.gapFactor=3] Multiples of the nominal tick that constitute a gap.
+ * @param {Object} [options.windowBounds] The REQUESTED sampling window `{startMs, endMs}`.
  * @returns {{
  *     activeMs: Number, idleMs: Number, coveredMs: Number, windowStartMs: Number, windowEndMs: Number,
  *     dutyCycle: Number, sampleCount: Number, gapCount: Number, gapMs: Number,
- *     rssHighWaterBytes: Number, rssMeanBytes: Number, cpuMeanPercent: Number, cpuActiveMeanPercent: Number
+ *     rssHighWaterBytes: Number, rssMeanBytes: Number, cpuMeanPercent: Number, cpuActiveMeanPercent: Number,
+ *     leadingUnavailableMs: Number|null, trailingUnavailableMs: Number|null, nominalWindowMs: Number|null, coverageRatio: Number|null
  * }}
  */
-export function aggregateWindow(samples, {activeCpuThreshold, expectedIntervalMs, gapFactor = 3}) {
+export function aggregateWindow(samples, {activeCpuThreshold, expectedIntervalMs, gapFactor = 3, windowBounds = null}) {
     if (!Array.isArray(samples) || samples.length < 2) {
         throw new Error('aggregateWindow: at least two chronologically ordered samples are required')
     }
 
     if (!Number.isFinite(expectedIntervalMs) || expectedIntervalMs <= 0) {
         throw new Error(`aggregateWindow: expectedIntervalMs must be a positive finite number, got ${expectedIntervalMs}`)
+    }
+
+    if (windowBounds !== null && (!Number.isFinite(windowBounds.startMs) || !Number.isFinite(windowBounds.endMs) || windowBounds.endMs <= windowBounds.startMs)) {
+        throw new Error('aggregateWindow: windowBounds requires finite startMs < endMs')
     }
 
     let activeMs         = 0,
@@ -122,10 +133,25 @@ export function aggregateWindow(samples, {activeCpuThreshold, expectedIntervalMs
         phase === 'active' ? (activeMs += intervalMs) : (idleMs += intervalMs)
     });
 
-    const coveredMs = activeMs + idleMs;
+    const coveredMs     = activeMs + idleMs,
+          firstSampleMs = samples[0].atMs,
+          lastSampleMs  = samples[samples.length - 1].atMs;
+
+    let coverageRatio         = null,
+        leadingUnavailableMs  = null,
+        nominalWindowMs       = null,
+        trailingUnavailableMs = null;
+
+    if (windowBounds !== null) {
+        nominalWindowMs       = windowBounds.endMs - windowBounds.startMs;
+        leadingUnavailableMs  = Math.max(0, firstSampleMs - windowBounds.startMs);
+        trailingUnavailableMs = Math.max(0, windowBounds.endMs - lastSampleMs);
+        coverageRatio         = coveredMs / nominalWindowMs
+    }
 
     return {
         activeMs,
+        coverageRatio,
         coveredMs,
         cpuActiveMeanPercent: activeSampleHits > 0 ? cpuActiveSum / activeSampleHits : 0,
         cpuMeanPercent      : cpuSum / samples.length,
@@ -133,11 +159,14 @@ export function aggregateWindow(samples, {activeCpuThreshold, expectedIntervalMs
         gapCount,
         gapMs,
         idleMs,
+        leadingUnavailableMs,
+        nominalWindowMs,
         rssHighWaterBytes   : rssHighWater,
         rssMeanBytes        : rssSum / samples.length,
         sampleCount         : samples.length,
-        windowEndMs         : samples[samples.length - 1].atMs,
-        windowStartMs       : samples[0].atMs
+        trailingUnavailableMs,
+        windowEndMs         : lastSampleMs,
+        windowStartMs       : firstSampleMs
     }
 }
 
@@ -171,10 +200,14 @@ export function buildMetricBags(aggregate, identity) {
         }
     }
 
-    const source     = `serving-cost-meter:${identity.hardwareId}`,
+    const boundary = aggregate.nominalWindowMs !== null
+              ? `; requested window ${aggregate.nominalWindowMs}ms, coverage ratio ${(aggregate.coverageRatio ?? 0).toFixed(4)}, ` +
+                `leading/trailing unavailable ${aggregate.leadingUnavailableMs}ms/${aggregate.trailingUnavailableMs}ms`
+              : '',
+          source     = `serving-cost-meter:${identity.hardwareId}`,
           disclaimer = `phase split is a cpu-threshold heuristic (active >= ${identity.activeCpuThreshold}% pcpu), ` +
                        `not request tracing; co-resident load on the reference machine is not isolated; ` +
-                       `coverage: ${aggregate.sampleCount} samples, ${aggregate.gapCount} gaps (${aggregate.gapMs}ms excluded)`;
+                       `coverage: ${aggregate.sampleCount} samples, ${aggregate.gapCount} gaps (${aggregate.gapMs}ms excluded)${boundary}`;
 
     const bag = (metricName, value, unit) => ({
         metricName,
