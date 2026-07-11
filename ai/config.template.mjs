@@ -887,6 +887,10 @@ class Config extends ConfigProvider {
                     primaryDevSyncEnabled    : leaf(null, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED', 'boolean'),
                     kbSyncEnabled            : leaf(null, 'NEO_ORCHESTRATOR_KB_SYNC_ENABLED', 'boolean'),
                     githubWorkflowSyncEnabled: leaf(null, 'NEO_ORCHESTRATOR_GITHUB_WORKFLOW_SYNC_ENABLED', 'boolean'),
+                    // Temporal-pyramid aggregation reads checkout-bound sources (resources/content, git log
+                    // origin/dev, learn/agentos/decisions) → local-only. Cloud tenants get their corpus via
+                    // push-ingest, not this local scan.
+                    temporalSummaryEnabled   : leaf(null, 'NEO_ORCHESTRATOR_TEMPORAL_SUMMARY_ENABLED', 'boolean'),
                     // Local profile may supervise a child Chroma process; cloud profile
                     // reaches the compose-owned `chroma` peer container instead.
                     chromaDaemonEnabled    : leaf(null, 'NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED', 'boolean'),
