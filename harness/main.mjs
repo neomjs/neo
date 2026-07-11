@@ -36,11 +36,13 @@ import {
     awaitOrchestratorReady,
     awaitPortListening,
     buildBrainProfile,
+    buildPackagedBrainEnv,
     clearRunState,
     detectLiveBrain,
     FLEET_SERVER_ENTRY,
     ORCHESTRATOR_ENTRY,
     probePort,
+    resolveBrainMode,
     resolveBrainPaths,
     startBrainChild,
     stopBrainTree,
@@ -49,16 +51,20 @@ import {
 } from './brain.mjs';
 
 const
-    harnessDir = path.dirname(fileURLToPath(import.meta.url)),
-    repoRoot   = path.resolve(harnessDir, '..'),
+    harnessDir   = path.dirname(fileURLToPath(import.meta.url)),
+    repoRoot     = path.resolve(harnessDir, '..'),
+    packagedMode = app.isPackaged,
+    // The organism root: the repo checkout in dev, the bundled resources tree when packaged (the
+    // pack stage stages the SAME allowlist-derived source graph — §2.6 one-boot-path parity).
+    organismRoot = packagedMode ? path.join(process.resourcesPath, 'organism') : repoRoot,
     // DEV MODE, deliberately (operator decision 2026-07-10): the harness window loads the
     // zero-build SOURCE app — Neural Link possession needs real ESM, which minification destroys.
-    APP_URL    = `app://${APP_HOST}/apps/agentos/index.html`,
+    APP_URL      = `app://${APP_HOST}/apps/agentos/index.html`,
     smokeMode  = process.env.NEO_HARNESS_SMOKE === '1',
-    // The Arm-B Brain leg (opt-in): the main supervises the orchestrator daemon as a system-Node
-    // child. Isolated env by default — on a dev machine the daemon's single-instance takeover
-    // would otherwise SIGTERM the canonical Brain (see brain.mjs).
-    brainMode  = process.env.NEO_HARNESS_BRAIN === '1',
+    // The Arm-B Brain leg: DEFAULT-ON when packaged (a Finder double-click supplies no env — the
+    // product IS the supervised organism; NEO_HARNESS_BRAIN=0 is the explicit opt-out) and opt-in
+    // on a checkout (dev machines carry a canonical Brain; see brain.mjs#resolveBrainMode).
+    brainMode  = resolveBrainMode({env: process.env, packaged: packagedMode}),
     smokeState = {
         assetFailures : new Set(),
         assetsSeen    : new Set(),
@@ -68,6 +74,12 @@ const
     bootWaiters = new Map();
 
 let resolveHarnessAsset;
+
+// Packaged mode: every parent-side child spawn (Brain children, the config resolver) runs on the
+// bundled Electron runtime — the packaged env fragments add ELECTRON_RUN_AS_NODE per child.
+if (packagedMode && !process.env.NEO_HARNESS_NODE_BIN) {
+    process.env.NEO_HARNESS_NODE_BIN = process.execPath
+}
 
 protocol.registerSchemesAsPrivileged([
     {scheme: 'app', privileges: {standard: true, secure: true, supportFetchAPI: true}}
@@ -421,14 +433,33 @@ async function teardownBrain() {
  * @returns {Promise<Object>}
  */
 async function bootProductBrain() {
+    // Packaged mode: the organism ships read-only(ish), so every mutable path moves to the
+    // per-user data root, and Brain children (plus shebang grandchildren via the organism's node
+    // shim) run on the BUNDLED Electron runtime — a stranger's machine carries no Node.
+    const packagedEnv = packagedMode
+        ? {
+            ...buildPackagedBrainEnv({dataRoot: path.join(app.getPath('userData'), 'brain')}),
+            ELECTRON_RUN_AS_NODE    : '1',
+            NEO_HARNESS_ELECTRON_BIN: process.execPath
+        }
+        : {};
+
     const
         fleetPort = Number(process.env.NEO_FLEET_PORT) || 8083,
-        paths     = await resolveBrainPaths({repoRoot}),
+        paths     = await resolveBrainPaths({env: packagedEnv, repoRoot: organismRoot}),
         live      = await detectLiveBrain({fleetPort, orchestratorDataDir: paths.orchestratorDataDir}),
         mode      = live.orchestratorAlive ? 'attach' : 'own';
 
     if (mode === 'own') {
-        const orchestrator = startBrainChild({entry: ORCHESTRATOR_ENTRY, onLog: brainLog, repoRoot});
+        // Coexistence guard (dev machines): a packaged app's own-mode organism runs the DEFAULT
+        // ports — a checkout Brain's Chroma already on that port would be REAPED by the spawned
+        // supervisor (singleton-port reconciliation). A held Chroma port without a serving fleet
+        // fails the boot closed instead.
+        if (packagedMode && await probePort({host: 'localhost', port: paths.chromaPort})) {
+            throw new Error(`chroma port ${paths.chromaPort} is already held (a checkout Brain?) — the packaged harness cannot own an organism beside it`)
+        }
+
+        const orchestrator = startBrainChild({entry: ORCHESTRATOR_ENTRY, env: packagedEnv, onLog: brainLog, repoRoot: organismRoot});
 
         brainState.children.push({child: orchestrator, label: 'orchestrator'});
         await awaitOrchestratorReady({child: orchestrator})
@@ -443,10 +474,10 @@ async function bootProductBrain() {
         }
 
         const fleet = startBrainChild({
-            entry: FLEET_SERVER_ENTRY,
-            env  : {NEO_FLEET_PORT: String(fleetPort)},
-            onLog: brainLog,
-            repoRoot
+            entry   : FLEET_SERVER_ENTRY,
+            env     : {...packagedEnv, NEO_FLEET_PORT: String(fleetPort)},
+            onLog   : brainLog,
+            repoRoot: organismRoot
         });
 
         brainState.children.push({child: fleet, label: 'fleet'});
@@ -458,20 +489,34 @@ async function bootProductBrain() {
 }
 
 /**
- * The smoke Brain boot — the fully ISOLATED profile: allocate ports, bind every mutable path
- * under a throwaway root, then assert the isolation matrix THROUGH the config SSOT before
- * anything spawns. Readiness is genuine service readiness (orchestrator poll-loop marker + a
- * real fleet wire-verb round-trip), never PID existence.
- * @summary Boots the isolated smoke organism, returning every observable the verdict gates on.
+ * The smoke Brain boot. TWO profile shapes, deliberately distinct:
+ * - **Packaged:** the EXACT product profile (`buildPackagedBrainEnv` — the artifact's lane and
+ *   resource closure, unreduced), shifted only in COORDINATES: allocated Chroma/fleet ports and a
+ *   throwaway data root, so a dev box's live Brain is never touched while the smoke still proves
+ *   what a real double-click boots.
+ * - **Checkout:** the fully isolated dev profile (`buildBrainProfile` — every side lane gated),
+ *   because a checkout smoke runs beside a canonical organism whose lanes must not double-run.
+ * Both assert the isolation matrix THROUGH the config SSOT before anything spawns; readiness is
+ * genuine service readiness (poll-loop marker + a real fleet wire verb), never PID existence.
+ * @summary Boots the smoke organism under the mode-correct profile, returning every observable.
  * @returns {Promise<Object>}
  */
 async function bootSmokeBrain() {
     const
-        isolationRoot           = process.env.NEO_HARNESS_BRAIN_ROOT || path.join(harnessDir, '.brain', 'smoke'),
+        isolationRoot           = process.env.NEO_HARNESS_BRAIN_ROOT ||
+            (packagedMode ? path.join(app.getPath('userData'), 'smoke') : path.join(harnessDir, '.brain', 'smoke')),
         sweptPgids              = sweepStaleRunState({isolationRoot}),
         [chromaPort, fleetPort] = await Promise.all([allocatePort(), allocatePort()]),
-        profile                 = buildBrainProfile({chromaPort, fleetPort, isolationRoot}),
-        resolved                = await resolveBrainPaths({env: profile, repoRoot}),
+        profile                 = packagedMode
+            ? {
+                ...buildPackagedBrainEnv({dataRoot: isolationRoot}),
+                ELECTRON_RUN_AS_NODE    : '1',
+                NEO_CHROMA_PORT         : String(chromaPort),
+                NEO_FLEET_PORT          : String(fleetPort),
+                NEO_HARNESS_ELECTRON_BIN: process.execPath
+            }
+            : buildBrainProfile({chromaPort, fleetPort, isolationRoot}),
+        resolved                = await resolveBrainPaths({env: profile, repoRoot: organismRoot}),
         matrixViolations        = assertIsolatedProfile({chromaPort, isolationRoot, resolved});
 
     if (matrixViolations.length > 0) {
@@ -479,8 +524,8 @@ async function bootSmokeBrain() {
     }
 
     const
-        orchestrator = startBrainChild({entry: ORCHESTRATOR_ENTRY, env: profile, onLog: brainLog, repoRoot}),
-        fleet        = startBrainChild({entry: FLEET_SERVER_ENTRY, env: profile, onLog: brainLog, repoRoot});
+        orchestrator = startBrainChild({entry: ORCHESTRATOR_ENTRY, env: profile, onLog: brainLog, repoRoot: organismRoot}),
+        fleet        = startBrainChild({entry: FLEET_SERVER_ENTRY, env: profile, onLog: brainLog, repoRoot: organismRoot});
 
     brainState.children.push(
         {child: orchestrator, ...orchestrator.neoHarnessIdentity, label: 'orchestrator'},
@@ -501,7 +546,15 @@ async function bootSmokeBrain() {
         awaitFleetReady({child: fleet, port: fleetPort})
     ]);
 
-    return {chromaPort, fleetPort, isolationRoot, matrixViolations, sweptPgids, up: true}
+    return {
+        chromaPort,
+        fleetPort,
+        isolationRoot,
+        matrixViolations,
+        profileMode: packagedMode ? 'packaged-product' : 'checkout-isolated',
+        sweptPgids,
+        up         : true
+    }
 }
 
 app.on('will-quit', async event => {
@@ -514,7 +567,7 @@ app.on('will-quit', async event => {
 });
 
 app.whenReady().then(async () => {
-    resolveHarnessAsset = await createHarnessAssetResolver(repoRoot);
+    resolveHarnessAsset = await createHarnessAssetResolver(organismRoot);
     await protocol.handle('app', serveHarnessContent);
 
     // §2.3.3 deny-by-default; Electron requires BOTH handlers for complete permission coverage.
@@ -570,6 +623,21 @@ app.whenReady().then(async () => {
         };
 
     await awaitRequiredAssets();
+
+    // The VISUAL verdict: mounted-node counts and asset probes cannot see a broken layout (stale
+    // built themes, corrupted template data — a live incident shipped exactly that). Every smoke
+    // run captures the primary window so a human — or the next agent — can LOOK at what actually
+    // rendered. Packaged mode writes to userData (the app bundle is read-only-ish).
+    try {
+        const
+            image    = await win1.capturePage(),
+            shotPath = path.join(packagedMode ? app.getPath('userData') : harnessDir, 'smoke-shot.png');
+
+        (await import('node:fs')).writeFileSync(shotPath, image.toPNG());
+        console.log('HARNESS_SMOKE_SHOT ' + shotPath)
+    } catch (error) {
+        console.log('HARNESS_SMOKE_SHOT_FAIL ' + error.message)
+    }
 
     // The Brain leg (Arm B): the isolated organism proven through its OWN consumable surfaces —
     // the resolved-leaf isolation matrix, genuine orchestrator + fleet readiness, a REAL wire

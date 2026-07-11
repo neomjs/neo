@@ -1,5 +1,6 @@
 import {access}        from 'node:fs/promises';
 import {spawn}         from 'node:child_process';
+import fs              from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import path            from 'node:path';
 
@@ -52,7 +53,54 @@ function buildTheme(theme) {
 }
 
 /**
- * @summary Lazily materializes the exact generated assets the source-mode Agent OS boot requires.
+ * @summary Newest file mtime (ms) under a directory tree, filtered by extension. Used to compare
+ * SCSS sources against built CSS: existence alone cannot see a stale build.
+ * @param {String} dir Absolute directory.
+ * @param {String} extension E.g. `.scss`.
+ * @returns {Number} Epoch ms of the newest matching file; 0 when none exist.
+ */
+function newestMtime(dir, extension) {
+    let newest = 0;
+
+    if (!fs.existsSync(dir)) {
+        return newest
+    }
+
+    for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
+        const fullPath = path.join(dir, entry.name);
+
+        if (entry.isDirectory()) {
+            newest = Math.max(newest, newestMtime(fullPath, extension))
+        } else if (entry.name.endsWith(extension)) {
+            newest = Math.max(newest, fs.statSync(fullPath).mtimeMs)
+        }
+    }
+
+    return newest
+}
+
+/**
+ * @summary True when any SCSS source is newer than the built theme css — the exact failure the
+ * harness cannot see otherwise: a merged theming change leaves EXISTING but WRONG css on disk,
+ * and the window renders fully broken while every existence probe stays green.
+ * @returns {Boolean}
+ */
+function themesAreStale() {
+    const newestScss = newestMtime(path.join(repoRoot, 'resources', 'scss'), '.scss');
+
+    return [assets.dark, assets.light, assets.source].some(asset => {
+        try {
+            return fs.statSync(path.join(repoRoot, asset)).mtimeMs < newestScss
+        } catch {
+            return true
+        }
+    })
+}
+
+/**
+ * @summary Materializes the generated assets the source-mode Agent OS boot requires — and
+ * REBUILDS the themes when any SCSS source is newer than the built css (staleness, not just
+ * existence: the fully-broken-visuals class ships through existence-only checks).
  * @returns {Promise<void>}
  */
 async function prepareAssets() {
@@ -60,7 +108,15 @@ async function prepareAssets() {
         await Promise.all(Object.entries(assets).map(async ([key, value]) => [key, await assetExists(value)]))
     );
 
+    if (Object.values(state).every(Boolean) && !themesAreStale()) {
+        return
+    }
+
     if (Object.values(state).every(Boolean)) {
+        console.log('[harness] built themes are older than the SCSS sources — rebuilding');
+        for (const theme of ['theme-neo-dark', 'theme-neo-light']) {
+            await buildTheme(theme)
+        }
         return
     }
 
