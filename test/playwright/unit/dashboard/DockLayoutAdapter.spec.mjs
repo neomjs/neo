@@ -549,4 +549,83 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
             {dockEdge: 'right', dockItemId: 'terminal', restorable: false, title: 'Terminal'}
         ]);
     });
+
+    test.describe('computeTabOverflow — the pure overflow core (projection concern, zero model state)', () => {
+        const items = widths => Object.entries(widths).map(([id, headerWidth]) => ({id, headerWidth}));
+
+        test('everything fits: empty hidden set, control width NOT reserved', () => {
+            const result = DockLayoutAdapter.computeTabOverflow({
+                activeItemId: 'a',
+                controlWidth: 40,
+                extent      : 300,
+                items       : items({a: 100, b: 100, c: 100})
+            });
+
+            // Σwidths === extent exactly — the control must not push anything out
+            expect(result).toEqual({hidden: [], visible: ['a', 'b', 'c']})
+        });
+
+        test('overflow: control width reserved, in-order packing, remainder hidden in items order', () => {
+            const result = DockLayoutAdapter.computeTabOverflow({
+                activeItemId: 'a',
+                controlWidth: 40,
+                extent      : 300,
+                items       : items({a: 100, b: 100, c: 100, d: 100})
+            });
+
+            // usable = 260 → a + b fit, c and d overflow in order
+            expect(result).toEqual({hidden: ['c', 'd'], visible: ['a', 'b']})
+        });
+
+        test('the ACTIVE item is never hidden: it swaps in, the last-fitting non-active item overflows', () => {
+            const result = DockLayoutAdapter.computeTabOverflow({
+                activeItemId: 'd',
+                controlWidth: 40,
+                extent      : 300,
+                items       : items({a: 100, b: 100, c: 100, d: 100})
+            });
+
+            expect(result.visible).toEqual(['a', 'd']);
+            // hidden preserves items order (b before c) — menus list predictably
+            expect(result.hidden).toEqual(['b', 'c'])
+        });
+
+        test('degenerate: a single item wider than the extent stays visible — you cannot hide the only tab', () => {
+            const result = DockLayoutAdapter.computeTabOverflow({
+                activeItemId: 'a',
+                controlWidth: 40,
+                extent      : 80,
+                items       : items({a: 500})
+            });
+
+            expect(result).toEqual({hidden: [], visible: ['a']})
+        });
+
+        test('active-only survivor: nothing fits, the active tab is force-kept and everything else overflows in order', () => {
+            const result = DockLayoutAdapter.computeTabOverflow({
+                activeItemId: 'c',
+                controlWidth: 60,
+                extent      : 50,
+                items       : items({a: 100, b: 100, c: 100})
+            });
+
+            expect(result.visible).toEqual(['c']);
+            expect(result.hidden).toEqual(['a', 'b'])
+        });
+
+        test('fail-soft measurements: non-finite/negative widths pack as zero, never crash a projection pass', () => {
+            const result = DockLayoutAdapter.computeTabOverflow({
+                activeItemId: 'a',
+                controlWidth: 40,
+                extent      : 100,
+                items       : [{id: 'a', headerWidth: 60}, {id: 'b', headerWidth: NaN}, {id: 'c', headerWidth: -5}, {id: 'd', headerWidth: 80}]
+            });
+
+            // total = 140 > 100 → overflow path; usable = 60 → a fits; b and c pack as zero-width
+            // (fail-SOFT is fail-VISIBLE — an unmeasured tab stays reachable and the next
+            // measurement pass corrects); d (80) is the first real non-fit and overflows
+            expect(result.visible).toEqual(['a', 'b', 'c']);
+            expect(result.hidden).toEqual(['d'])
+        });
+    });
 });

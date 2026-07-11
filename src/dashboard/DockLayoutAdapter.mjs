@@ -109,6 +109,75 @@ class DockLayoutAdapter extends Base {
     }
 
     /**
+     * @summary Computes the visible/hidden tab split for a heavy tabs node — the pure core of
+     * the overflow affordance (a projection concern; nothing here persists or mutates the model).
+     *
+     * Contract (the design record's tab-overflow projection half):
+     * - The ACTIVE item is NEVER hidden — you cannot overflow the tab you are looking at. When
+     *   packing would drop it, it swaps in and the last-fitting non-active item overflows instead.
+     * - `controlWidth` (the overflow control's own extent) is reserved ONLY when overflow occurs:
+     *   a control that exists only when needed must not consume width while everything fits.
+     * - `hidden` preserves `items` order, so an overflow menu lists predictably.
+     * - Fail-soft on malformed measurements: a non-finite/negative width packs as 0 (an
+     *   unmeasured header must never crash a projection pass).
+     * @param {Object} config
+     * @param {Object[]} config.items         Ordered `[{id, headerWidth}]` in projection order
+     * @param {Number}   config.extent        Available header-strip width
+     * @param {String}  [config.activeItemId] The tabs node's active item id
+     * @param {Number}  [config.controlWidth] The overflow control's width (reserved on overflow only)
+     * @returns {{visible: String[], hidden: String[]}}
+     * @static
+     */
+    static computeTabOverflow({items, extent, activeItemId, controlWidth = 0}) {
+        const list  = Array.isArray(items) ? items : [],
+              width = entry => {
+                  const value = Number(entry?.headerWidth);
+                  return Number.isFinite(value) && value > 0 ? value : 0
+              },
+              total = list.reduce((sum, entry) => sum + width(entry), 0);
+
+        if (!(total > extent)) {
+            return {hidden: [], visible: list.map(entry => entry.id)}
+        }
+
+        const usable  = Math.max(0, extent - Math.max(0, Number(controlWidth) || 0)),
+              visible = [],
+              hidden  = [];
+        let used = 0;
+
+        for (const entry of list) {
+            if (used + width(entry) <= usable && hidden.length === 0) {
+                visible.push(entry.id);
+                used += width(entry)
+            } else {
+                hidden.push(entry.id)
+            }
+        }
+
+        // the active item never hides: swap it in, overflow the last-fitting non-active item
+        const activeIndex = hidden.indexOf(activeItemId);
+
+        if (activeIndex !== -1) {
+            hidden.splice(activeIndex, 1);
+
+            if (visible.length > 0) {
+                const displaced = visible.pop(),
+                      // re-insert both in items order so the menu stays predictable
+                      order     = list.map(entry => entry.id);
+
+                visible.push(activeItemId);
+                hidden.push(displaced);
+                hidden.sort((a, b) => order.indexOf(a) - order.indexOf(b))
+            } else {
+                // degenerate: nothing fits — the active tab stays visible regardless
+                visible.push(activeItemId)
+            }
+        }
+
+        return {hidden, visible}
+    }
+
+    /**
      * Returns normalized flex values for split children.
      * @param {Number[]} sizes
      * @param {Number} count
