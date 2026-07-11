@@ -41,6 +41,11 @@ class FleetAgent extends Model {
             type        : 'Object',
             defaultValue: null
         }, {
+            // the launch seam's per-family auth mode ('marker' | 'in-app'), stamped Brain-side on
+            // the roster row; null = not read back / unlaunchable — tri-state, never guessed
+            name        : 'authMode',
+            defaultValue: null
+        }, {
             name: 'displayName',
             type: 'String'
         }, {
@@ -52,6 +57,12 @@ class FleetAgent extends Model {
         }, {
             name: 'laneLine',
             type: 'String'
+        }, {
+            // the launch seam's derived launchability truth (a launch template exists for the
+            // family), stamped Brain-side on the roster row; tri-state — true / false / null
+            // (not read back yet) — so the field carries no type coercion
+            name        : 'launchable',
+            defaultValue: null
         }, {
             // the verb whose lifecycle round-trip is in flight, written by the C2 adapter;
             // null when settled

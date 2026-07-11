@@ -247,10 +247,12 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
 
         expect(mapped).toEqual({
             agentId    : 'neo-gpt',
+            authMode   : null,   // tri-state launch facts: absent on the row → honest null, never guessed
             avatarUrl  : 'https://github.com/neo-gpt.png?size=80',
             displayName: 'Neo GPT',
             engineTag  : 'GPT-5.6 Sol',
             family     : 'gpt',
+            launchable : null,
             sources    : liveSources(),
             state      : 'ok'
         });
@@ -329,10 +331,12 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         // known resident → runtime status reconciled onto ITS record (the store re-renders just that card)
         expect(writes).toEqual([{
             agentId    : 'vega',
+            authMode   : null,
             avatarUrl  : null,
             displayName: null,
             engineTag  : null,
             family     : 'claude',
+            launchable : null,
             sources    : liveSources(),
             state      : 'ok'
         }]);
@@ -475,6 +479,61 @@ test.describe('Fleet cockpit — whole-fleet control (B4, #14611)', () => {
 
         expect(vega.writes.some(write => write.controlReason?.kind === 'unauthorized')).toBe(true);
         expect(ada.writes.some(write => write.controlReason?.kind === 'unauthorized')).toBe(true)
+    });
+
+    test('onStartFleet partitions from the wire: excluded members never flip pending, and the summary renders their reasons (#14612)', async () => {
+        // The staged bring-up targets the DOWN fleet: an already-up member, an unlaunchable
+        // family, and a guest row are EXCLUDED-with-reason — no intent fires at them (their
+        // records take zero writes; excluded cards never join the pending cascade) — while the
+        // eligible member drives its round-trip (no bridge → honest unauthorized). The chrome
+        // summary slot receives the counts line + hover-reachable reasons.
+        delete globalThis.AgentOS?.fleet;
+
+        const mkRecord = fields => {
+            const writes = [];
+            return {...fields, writes, set(values) { writes.push(values) }}
+        };
+
+        const
+            down     = mkRecord({agentId: 'vega',   state: 'off'}),
+            up       = mkRecord({agentId: 'ada',    state: 'ok'}),
+            noLaunch = mkRecord({agentId: 'native', state: 'off', launchable: false, family: 'native-neo'}),
+            guest    = mkRecord({state: 'off'}),
+            slot     = {
+                sets: [],
+                vdom: {},
+                set(values) { this.sets.push(values) },
+                update() {}
+            };
+
+        const controller = Object.create(FleetCockpitController.prototype);
+
+        controller.getReference = name => ({
+            'fleet-grid'         : {store: {items: [down, up, noLaunch, guest]}},
+            'fleet-start-summary': slot
+        })[name] ?? null;
+        controller.refreshRosterOnSettle = async () => {};
+
+        const summary = await controller.onStartFleet();
+
+        // eligible: only the down member — it took the honest unauthorized round-trip
+        expect(down.writes.some(write => write.controlReason?.kind === 'unauthorized')).toBe(true);
+        // excluded members took ZERO writes — never silently skipped, never falsely pending
+        expect(up.writes).toHaveLength(0);
+        expect(noLaunch.writes).toHaveLength(0);
+        expect(guest.writes).toHaveLength(0);
+
+        expect(summary.started).toBe(0);
+        expect(summary.rejected).toHaveLength(1);
+        expect(summary.excluded.map(entry => entry.agentId)).toEqual(['ada', 'native', null]);
+
+        // the chrome slot rendered: cleared at action start, then the outcome line + reasons title
+        expect(slot.sets[0]).toEqual({hidden: true, html: ''});
+        expect(slot.sets[1].hidden).toBe(false);
+        expect(slot.sets[1].html).toContain('rejected');
+        expect(slot.sets[1].html).toContain('3 excluded');
+        expect(slot.vdom.title).toContain('native: not launchable');
+        expect(slot.vdom.title).toContain("ada: already up — session state 'ok'")
     });
 
     test('onAgentLifecycleIntent resolves the firing card + drives the C2 adapter — no bridge → fail-closed onto the card record, never optimistic', () => {

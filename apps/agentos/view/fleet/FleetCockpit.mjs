@@ -364,6 +364,16 @@ class FleetCockpit extends Container {
                     html : me.presetError
                 }] : []),
                 '->', {
+                    // The morning-start outcome summary — written by the controller after the
+                    // staged bring-up settles ("N started · M rejected · K excluded"; per-member
+                    // reasons ride the title). Empty + hidden until a start ran; hover reaches the
+                    // reasons — the honest summary state, no separate progress modal (the health
+                    // bar stays the live progression surface).
+                    ntype    : 'component',
+                    cls      : ['fm-fleet-start-summary'],
+                    hidden   : true,
+                    reference: 'fleet-start-summary'
+                }, {
                     module : Button,
                     cls    : ['fm-fleet-start'],
                     iconCls: 'fa-solid fa-play',
@@ -617,12 +627,14 @@ class FleetCockpit extends Container {
     /**
      * @summary Map one assembler DTO row onto the FleetAgent record contract. The durable `id`
      * becomes `agentId`; identity display facts (`family` / `engineTag`) flow through (null =
-     * unclassified / tagless, never guessed); the runtime `lifecycle.state` maps onto the cockpit's
-     * session-state vocabulary only when `sources.runtime` is usable; missing / not-wired /
-     * malformed source truth forces `off`, so placeholder can never render as fact. The normalized
-     * three-source object remains on the record for the card markers. `laneLine` is deliberately
-     * OMITTED (not nulled): the activity capability owns it, and a merge must never wipe what another
-     * producer wrote.
+     * unclassified / tagless, never guessed); the launch-derived truths (`launchable` /
+     * `authMode`, stamped Brain-side by the roster assembler) flow through tri-state so the
+     * morning-start eligibility partition reads the wire, never a cockpit guess; the runtime
+     * `lifecycle.state` maps onto the cockpit's session-state vocabulary only when
+     * `sources.runtime` is usable; missing / not-wired / malformed source truth forces `off`, so
+     * placeholder can never render as fact. The normalized three-source object remains on the
+     * record for the card markers. `laneLine` is deliberately OMITTED (not nulled): the activity
+     * capability owns it, and a merge must never wipe what another producer wrote.
      * @param {Object} row One cockpit DTO row (`fleetCockpitStatus` shape).
      * @returns {Object} FleetAgent record field values.
      */
@@ -631,10 +643,12 @@ class FleetCockpit extends Container {
 
         return {
             agentId    : row.id,
+            authMode   : row.authMode ?? null,
             avatarUrl  : row.avatarUrl ?? null,
             displayName: row.displayName ?? null,
             engineTag  : row.engineTag ?? null,
             family     : row.family ?? null,
+            launchable : row.launchable ?? null,
             sources    : sessionHealth.sources,
             state      : sessionHealth.state
         }
