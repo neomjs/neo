@@ -22,8 +22,9 @@ import {IDENTITIES} from '../../graph/identityRoots.mjs';
  * **`participationStatus` is the AUTHORITATIVE swarm-participation fact** (the identity roots
  * document it as such): `active` by default, `operator_benched` / `temporarily_unreachable` when
  * a transition was recorded. It rides this seam so fleet-level control surfaces (the cockpit's
- * morning-start eligibility partition) can exclude an operator-benched identity BEFORE any
- * lifecycle write — heartbeat/recency signals are explicitly not valid substitutes for it.
+ * morning-start eligibility partition) can exclude any KNOWN non-active identity BEFORE a
+ * lifecycle write — the same hard-gate reading the wake-subscription liveness and heartbeat
+ * target-discovery layers apply; heartbeat/recency signals are explicitly not valid substitutes.
  *
  * **Closed-set honesty:** an agent with no identity root (a guest / freshly-defined fleet agent
  * that is not a named maintainer) resolves to `{family: null, engineTag: null,

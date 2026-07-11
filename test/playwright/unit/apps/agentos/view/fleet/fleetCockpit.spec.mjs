@@ -495,8 +495,9 @@ test.describe('Fleet cockpit — whole-fleet control (B4, #14611)', () => {
 
     test('onStartFleet partitions from the wire: excluded members never flip pending, and the summary renders their reasons (#14612)', async () => {
         // The staged bring-up targets the WIRED DOWN fleet: an already-up member, an unlaunchable
-        // family, a guest row, an operator-BENCHED identity (the authoritative participation
-        // fact), and a runtime-unwired row are EXCLUDED-with-reason — no intent fires at them
+        // family, a guest row, KNOWN non-active participation statuses (benched AND temporarily
+        // unreachable — the authoritative fact), and a runtime-unwired row are EXCLUDED-with-reason
+        // — no intent fires at them
         // (their records take zero writes; excluded cards never join the pending cascade) — while
         // the eligible member drives its round-trip (no bridge → honest unauthorized). The chrome
         // summary slot receives the counts line + hover-reachable reasons.
@@ -508,13 +509,14 @@ test.describe('Fleet cockpit — whole-fleet control (B4, #14611)', () => {
         };
 
         const
-            down     = mkRecord({agentId: 'vega',   state: 'off', sources: wiredSources()}),
-            up       = mkRecord({agentId: 'ada',    state: 'ok',  sources: wiredSources()}),
-            noLaunch = mkRecord({agentId: 'native', state: 'off', launchable: false, family: 'native-neo'}),
-            guest    = mkRecord({state: 'off'}),
-            benched  = mkRecord({agentId: 'gemini', state: 'off', sources: wiredSources(), participationStatus: 'operator_benched'}),
-            unwired  = mkRecord({agentId: 'silent', state: 'off'}),   // no sources → runtime normalizes not-wired
-            slot     = {
+            down        = mkRecord({agentId: 'vega',   state: 'off', sources: wiredSources()}),
+            up          = mkRecord({agentId: 'ada',    state: 'ok',  sources: wiredSources()}),
+            noLaunch    = mkRecord({agentId: 'native', state: 'off', launchable: false, family: 'native-neo'}),
+            guest       = mkRecord({state: 'off'}),
+            benched     = mkRecord({agentId: 'gemini', state: 'off', sources: wiredSources(), participationStatus: 'operator_benched'}),
+            unreachable = mkRecord({agentId: 'flaky',  state: 'off', sources: wiredSources(), participationStatus: 'temporarily_unreachable'}),
+            unwired     = mkRecord({agentId: 'silent', state: 'off'}),   // no sources → runtime normalizes not-wired
+            slot        = {
                 sets: [],
                 vdom: {},
                 set(values) { this.sets.push(values) },
@@ -524,7 +526,7 @@ test.describe('Fleet cockpit — whole-fleet control (B4, #14611)', () => {
         const controller = Object.create(FleetCockpitController.prototype);
 
         controller.getReference = name => ({
-            'fleet-grid'         : {store: {items: [down, up, noLaunch, guest, benched, unwired]}},
+            'fleet-grid'         : {store: {items: [down, up, noLaunch, guest, benched, unreachable, unwired]}},
             'fleet-start-summary': slot
         })[name] ?? null;
         controller.refreshRosterOnSettle = async () => {};
@@ -534,25 +536,28 @@ test.describe('Fleet cockpit — whole-fleet control (B4, #14611)', () => {
         // eligible: only the wired down member — it took the honest unauthorized round-trip
         expect(down.writes.some(write => write.controlReason?.kind === 'unauthorized')).toBe(true);
         // excluded members took ZERO writes — never silently skipped, never falsely pending;
-        // the benched + unwired rows are the authority witnesses: zero bridge writes
+        // the benched + unreachable + unwired rows are the authority witnesses: zero bridge
+        // writes for EVERY known non-active participation status and unusable runtime source
         expect(up.writes).toHaveLength(0);
         expect(noLaunch.writes).toHaveLength(0);
         expect(guest.writes).toHaveLength(0);
         expect(benched.writes).toHaveLength(0);
+        expect(unreachable.writes).toHaveLength(0);
         expect(unwired.writes).toHaveLength(0);
 
         expect(summary.started).toBe(0);
         expect(summary.rejected).toHaveLength(1);
-        expect(summary.excluded.map(entry => entry.agentId)).toEqual(['ada', 'native', null, 'gemini', 'silent']);
+        expect(summary.excluded.map(entry => entry.agentId)).toEqual(['ada', 'native', null, 'gemini', 'flaky', 'silent']);
 
         // the chrome slot rendered: cleared at action start, then the outcome line + reasons title
         expect(slot.sets[0]).toEqual({hidden: true, html: ''});
         expect(slot.sets[1].hidden).toBe(false);
         expect(slot.sets[1].html).toContain('rejected');
-        expect(slot.sets[1].html).toContain('5 excluded');
+        expect(slot.sets[1].html).toContain('6 excluded');
         expect(slot.vdom.title).toContain('native: not launchable');
         expect(slot.vdom.title).toContain("ada: already up — session state 'ok'");
-        expect(slot.vdom.title).toContain("gemini: benched — authoritative participation status 'operator_benched'");
+        expect(slot.vdom.title).toContain("gemini: not active — authoritative participation status 'operator_benched'");
+        expect(slot.vdom.title).toContain("flaky: not active — authoritative participation status 'temporarily_unreachable'");
         expect(slot.vdom.title).toContain("silent: runtime source 'not-wired'")
     });
 

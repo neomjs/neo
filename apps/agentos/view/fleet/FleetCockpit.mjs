@@ -652,7 +652,8 @@ class FleetCockpit extends Container {
             family     : row.family ?? null,
             launchable : row.launchable ?? null,
             // the authoritative identity-root participation fact (tri-state null = no root) —
-            // the eligibility partition excludes 'operator_benched' before any lifecycle write
+            // the eligibility partition excludes any KNOWN non-active status before a lifecycle
+            // write; null stays eligible (open-set honesty for forks/custom residents)
             participationStatus: row.participationStatus ?? null,
             sources            : sessionHealth.sources,
             state              : sessionHealth.state

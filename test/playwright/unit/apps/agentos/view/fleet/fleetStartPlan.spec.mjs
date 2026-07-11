@@ -67,21 +67,28 @@ test.describe('fleetStartPlan — the staged morning bring-up (pure half)', () =
         expect(excluded).toHaveLength(0)
     });
 
-    test("authority rule: an 'operator_benched' identity NEVER starts — the recorded operator decision beats every runtime fact", () => {
+    test('authority rule: every KNOWN non-active participationStatus is excluded — the wake/heartbeat hard-gate reading; null stays eligible (open set)', () => {
         const {eligible, excluded} = partitionFleetStart([
             // the live-registry shape: defined, launchable, wired, down — and benched
             {agentId: 'gemini', state: 'off', launchable: true, sources: wiredRuntime(), participationStatus: 'operator_benched'},
-            // active + null (no identity root) + temporarily_unreachable all pass this rule:
-            // unreachable is an A2A-liveness fact, not a start prohibition
-            {agentId: 'vega',  state: 'off', sources: wiredRuntime(), participationStatus: 'active'},
+            // active passes; null (no identity root) passes — unknown/custom residents are the
+            // open-set case, an absent root is not a recorded prohibition
+            {agentId: 'vega',      state: 'off', sources: wiredRuntime(), participationStatus: 'active'},
             {agentId: 'guest-def', state: 'off', sources: wiredRuntime(), participationStatus: null},
-            {agentId: 'ada',   state: 'off', sources: wiredRuntime(), participationStatus: 'temporarily_unreachable'}
+            // temporarily_unreachable is a KNOWN non-active status — the wake-subscription
+            // liveness gate and heartbeat target discovery both exclude it, and lifecycle
+            // fan-out follows the same authority
+            {agentId: 'ada', state: 'off', sources: wiredRuntime(), participationStatus: 'temporarily_unreachable'},
+            // a NOVEL non-null status fails closed too: any recorded non-active value is an
+            // exclusion until eligibility is deliberately widened
+            {agentId: 'future', state: 'off', sources: wiredRuntime(), participationStatus: 'hibernating'}
         ]);
 
-        expect(eligible.map(record => record.agentId)).toEqual(['vega', 'guest-def', 'ada']);
-        expect(excluded).toHaveLength(1);
-        expect(excluded[0].agentId).toBe('gemini');
-        expect(excluded[0].reason).toContain('operator_benched')
+        expect(eligible.map(record => record.agentId)).toEqual(['vega', 'guest-def']);
+        expect(excluded.map(entry => entry.agentId)).toEqual(['gemini', 'ada', 'future']);
+        expect(excluded[0].reason).toContain('operator_benched');
+        expect(excluded[1].reason).toContain('temporarily_unreachable');
+        expect(excluded[2].reason).toContain('hibernating')
     });
 
     test("authority rule: unusable runtime provenance fails a start closed — projected 'off' is display fallback, not a stopped runtime", () => {

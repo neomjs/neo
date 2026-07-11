@@ -67,7 +67,8 @@ class FleetAgent extends Model {
             // the AUTHORITATIVE swarm-participation fact from the identity roots ('active' |
             // 'operator_benched' | 'temporarily_unreachable'), resolved Brain-side through the
             // identity join seam; typeless so null (no identity root / not stamped) survives —
-            // fleet-level eligibility excludes 'operator_benched' before any lifecycle write
+            // fleet-level eligibility excludes any KNOWN non-active status before a lifecycle
+            // write (null stays eligible: the open-set case for forks/custom residents)
             name        : 'participationStatus',
             defaultValue: null
         }, {

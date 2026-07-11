@@ -13,11 +13,13 @@
  * `state`) — nothing is hardcoded per agent, and an excluded member always carries its reason:
  * excluded-with-reason, never silently skipped.
  *
- * The two AUTHORITY rules gate before any state read: an `operator_benched` identity is a
- * recorded operator decision no lifecycle fan-out may override, and a projected `state: 'off'`
- * over an unusable runtime source is a degraded DISPLAY fallback, not control-plane proof of a
- * stopped runtime — the same fail-closed contract the per-card controls enforce via
- * {@link module:apps/agentos/view/fleet/sourceHealth}.
+ * The two AUTHORITY rules gate before any state read: a KNOWN non-active `participationStatus`
+ * is a recorded participation fact no lifecycle fan-out may override — the same hard-gate
+ * reading the wake-subscription liveness and heartbeat target-discovery layers apply (known
+ * non-active excluded; `null`/unknown identities pass: open-set honesty for forks and custom
+ * residents) — and a projected `state: 'off'` over an unusable runtime source is a degraded
+ * DISPLAY fallback, not control-plane proof of a stopped runtime — the same fail-closed
+ * contract the per-card controls enforce via {@link module:apps/agentos/view/fleet/sourceHealth}.
  * @module apps/agentos/view/fleet/fleetStartPlan
  */
 import {normalizeFleetSources} from './sourceHealth.mjs';
@@ -27,10 +29,12 @@ import {normalizeFleetSources} from './sourceHealth.mjs';
  *
  * Rules, first match wins, each derived from a wire fact on the record:
  * 1. no `agentId` → a guest/identity-only row with no fleet definition — nothing to start;
- * 2. `participationStatus === 'operator_benched'` → the identity roots' AUTHORITATIVE
- *    participation fact records an operator bench decision — no lifecycle write may override it
- *    (`active` / `temporarily_unreachable` / `null` = no root all pass through: unreachable is an
- *    A2A-liveness fact, not a start prohibition);
+ * 2. any KNOWN non-active `participationStatus` (non-null and not `'active'`, including
+ *    `operator_benched` and `temporarily_unreachable`) → the identity roots' AUTHORITATIVE
+ *    participation fact — the wake-subscription liveness gate and the heartbeat target
+ *    discovery both read every known non-active status as a hard exclusion, and lifecycle
+ *    fan-out follows the same authority; `null` (no identity root) stays ELIGIBLE — the
+ *    open-set case for forks/custom residents, unknown is not a recorded prohibition;
  * 3. `launchable === false` → the launch seam says this family has no harness template
  *    (tri-state honesty: `null` = not read back yet stays ELIGIBLE — the bridge's own refusal is
  *    the truthful outcome, never a cockpit guess);
@@ -61,8 +65,8 @@ export function partitionFleetStart(records) {
 
         if (!agentId) {
             exclude('guest — no fleet definition to start')
-        } else if (record.participationStatus === 'operator_benched') {
-            exclude("benched — authoritative participation status 'operator_benched'")
+        } else if (record.participationStatus != null && record.participationStatus !== 'active') {
+            exclude(`not active — authoritative participation status '${record.participationStatus}'`)
         } else if (record.launchable === false) {
             exclude(`not launchable — no harness template for the '${record.family ?? 'unknown'}' family`)
         } else if (record.pendingAction) {
