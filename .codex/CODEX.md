@@ -1,59 +1,22 @@
-# Codex Desktop Reference
+# Codex Desktop Guard Card
 
-This is the human-readable source for Codex-only operational diagnostics in the
-Neo.mjs repo. It is **not** auto-loaded through project-doc fallback while the
-repository root contains `AGENTS.md`: Codex project-doc discovery loads at most
-one instruction file per directory, so root `AGENTS.md` wins before configured
-fallback files such as `.codex/CODEX.md`.
+This file is injected into every trusted repo-root Codex prompt. Keep it small,
+Codex-only, and resident-neutral. Identity and model are runtime facts; never
+hard-code either here.
 
-Normal repo-root Codex turns receive this file through the trusted project-local
-`UserPromptSubmit` hook in `.codex/hooks.json`. The hook emits this file as
-developer context, keeping `.codex/config.toml` ignored and customizable.
-
-Do not hard-code the active model here. Model identity is turn/runtime metadata
-and can drift independently of the Codex Desktop harness.
-
-## Runtime Notes
-
-- GitHub username: `neo-gpt`.
-- A2A peers: Claude at `neo-opus-ada`, `neo-opus-grace`, and `neo-opus-vega`; Gemini at
-  `neo-gemini-pro`.
-- `gh auth status` can falsely report `GH_TOKEN` as invalid inside Codex
-  sandboxing. Verify identity with `gh api user --jq .login` before treating
-  auth as broken. Expected Codex identity: `neo-gpt`.
-- `gh api`, `gh pr diff`, and review/comment POSTs can fail in-sandbox with
-  `error connecting to api.github.com`. If the GitHub operation is required for
-  the task, rerun the same command with `sandbox_permissions=require_escalated`
-  before concluding GitHub is down, auth is invalid, or PR state is unavailable.
-- For state-changing GitHub calls, preserve the exact payload when retrying
-  escalated so the sandbox retry does not mutate review/comment semantics.
-- Identity-sensitive worktrees must live under the Codex clone root, for example
-  `/Users/Shared/codex/neomjs/neo/tmp/` or another path below
-  `/Users/Shared/codex/neomjs/neo/`, so `.zshenv` resolves the Codex `.env`.
-  Avoid generic `/private/tmp/neo-*` worktrees for operations that may run `gh`,
-  MCP setup, PR review/comment tools, or commits. After a worktree/thread switch,
-  verify `NEO_AGENT_IDENTITY=@neo-gpt` and `gh api user --jq .login == neo-gpt`
-  before any state-changing GitHub action.
-- Mid-session harness restart: read `.codex/HARNESS_RESTART.md` before diagnosing MCP, Chroma, GitHub, or wake-state failures.
-- If Codex reports `[features].codex_hooks is deprecated. Use [features].hooks instead.`,
-  the tracked `.codex/config.template.toml` is already current. Update the ignored
-  local `.codex/config.toml` copy to `[features].hooks = true` or re-copy the
-  template; do not commit `.codex/config.toml`.
-
-## Command ExecPolicy
-
-- Repo-local Codex command policy lives in `.codex/rules/pr-lifecycle.rules`.
-  It is a project `.rules` file, not a `.codex/config.template.toml` section.
-- Codex execpolicy is token-prefix based. Keep grammar-sensitive commands
-  prompt-gated unless a parser-shaped wrapper proves the unsafe forms cannot
-  slip through a broad prefix. Today that means `git commit`, `git checkout -b`,
-  and raw `git push` stay classified instead of blindly allowlisted.
-- Keep `gh pr merge` forbidden. PR merge remains human-only even when a PR is
-  approved, green, and reviewer requests are clear.
-- User-local `$CODEX_HOME/rules/*.rules` files can add broader approvals in a
-  maintainer's active session. Treat those as local operator state, not repo
-  policy; review the tracked `.codex/rules/` file for merge-gate claims.
-
-## Identity & Prompt Firewall (L1 Anchor)
-
-See `AGENTS.md` `<prompt_firewall name="Helpful_Assistant_Regression_Defense">` for the canonical identity anchor. Do not deviate.
+- Each resident has an isolated `CODEX_HOME`, checkout, local config, and
+  `NEO_AGENT_IDENTITY`. The runtime identity plus canonical identity roots define
+  the expected GitHub login; existing health and write guards fail closed on a
+  mismatch with `gh api user --jq .login`.
+- Keep identity-sensitive worktrees under the active identity-mapped clone root
+  so local environment binding resolves. Recheck identity after checkout,
+  worktree, or thread switches.
+- `gh auth status` can report a false sandbox failure. Verify the live login with
+  `gh api user --jq .login` before diagnosing broken authentication.
+- If a required GitHub call fails in the sandbox, retry it with the required
+  escalation before diagnosing GitHub as unavailable. Preserve the exact payload
+  when retrying a state-changing operation.
+- After a mid-session harness or MCP restart, read
+  `.codex/HARNESS_RESTART.md` before diagnosing services or wake state.
+- Repo-local command policy lives in `.codex/rules/`; local `$CODEX_HOME` rules
+  are operator state, not repository policy.
