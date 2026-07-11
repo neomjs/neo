@@ -18,7 +18,7 @@ import * as core      from '../../../../../../../src/core/_export.mjs';
 import Instance       from '../../../../../../../src/manager/Instance.mjs';
 
 test.describe('Fleet cockpit ActivityStream — bounded, backpressure-aware feed (#14606)', () => {
-    let ActivityStream, boundActivity;
+    let ActivityStream, boundActivity, coalesceActivity;
 
     const makeEvents = n => Array.from({length: n}, (_, i) => ({
         type      : 'a2a-activity',
@@ -34,8 +34,9 @@ test.describe('Fleet cockpit ActivityStream — bounded, backpressure-aware feed
 
     test.beforeAll(async () => {
         const mod = await import('../../../../../../../apps/agentos/view/fleet/ActivityStream.mjs');
-        ActivityStream = mod.default;
-        boundActivity  = mod.boundActivity
+        ActivityStream   = mod.default;
+        boundActivity    = mod.boundActivity;
+        coalesceActivity = mod.coalesceActivity
     });
 
     test('boundActivity is the pure backpressure core — bound holds, overflow counted, newest-first', () => {
@@ -56,14 +57,131 @@ test.describe('Fleet cockpit ActivityStream — bounded, backpressure-aware feed
         expect(boundActivity(makeEvents(5), 0)).toEqual({visible: [], overflowCount: 5})
     });
 
-    test('the component bounds the rendered DOM under a 100-event burst + renders the "N more" fold', () => {
+    test('the component bounds the rendered DOM under a 100-event burst + renders the "N earlier events" fold', () => {
         const stream = Neo.create(ActivityStream, {appName, maxVisible: 15, events: makeEvents(100)});
 
         // bounded: the rendered event rows never exceed the window regardless of event volume
         expect(rows(stream).length).toBe(15);
-        // honest overflow: the fold surfaces the folded count — never a silent drop
+        // honest overflow: the fold surfaces the folded EVENT count — never a silent drop
         expect(fold(stream)).toBeTruthy();
-        expect(fold(stream).text).toBe('85 more');
+        expect(fold(stream).text).toBe('85 earlier events');
+
+        stream.destroy()
+    });
+
+    test('density re-freeze: coalesceActivity groups only PROVEN same-actor runs — the pure rule', () => {
+        const at = seconds => `2026-07-04T10:00:${String(seconds).padStart(2, '0')}.000Z`;
+
+        // a >2/min same-actor run (10s gaps) groups into ONE row carrying the count + newest event
+        const run = coalesceActivity([
+            {type: 'a2a-activity', agentId: 'vega', occurredAt: at(0),  payload: {text: 'one'}},
+            {type: 'a2a-activity', agentId: 'vega', occurredAt: at(10), payload: {text: 'two'}},
+            {type: 'pr-activity',  agentId: 'vega', occurredAt: at(20), payload: {text: 'three'}}
+        ], 30000);
+        expect(run.length).toBe(1);
+        expect(run[0]).toMatchObject({agentId: 'vega', count: 3});
+        expect(run[0].newest.payload.text).toBe('three');
+
+        // a gap AT the threshold (30s = exactly 2/min) splits — coalescing is strictly-above-rate
+        expect(coalesceActivity([
+            {agentId: 'vega', occurredAt: at(0)},
+            {agentId: 'vega', occurredAt: at(30)}
+        ], 30000).length).toBe(2);
+
+        // distinct actors never group, however tight the timestamps
+        expect(coalesceActivity([
+            {agentId: 'vega', occurredAt: at(0)},
+            {agentId: 'ada',  occurredAt: at(1)}
+        ], 30000).length).toBe(2);
+
+        // unprovable membership never groups: a missing timestamp breaks the run on BOTH sides,
+        // and anonymous events (no agentId) each stand alone
+        expect(coalesceActivity([
+            {agentId: 'vega', occurredAt: at(0)},
+            {agentId: 'vega'},
+            {agentId: 'vega', occurredAt: at(2)}
+        ], 30000).length).toBe(3);
+        expect(coalesceActivity([
+            {occurredAt: at(0)},
+            {occurredAt: at(1)}
+        ], 30000).length).toBe(2);
+
+        // non-array input degrades to an empty row set
+        expect(coalesceActivity(null, 30000)).toEqual([])
+    });
+
+    test('density re-freeze: a same-actor burst renders as ONE grouped ×N row — one busy actor cannot flood the window', () => {
+        const burst = Array.from({length: 5}, (_, i) => ({
+            type      : 'a2a-activity',
+            agentId   : 'neo-opus-vega',
+            occurredAt: `2026-07-04T10:00:${String(i * 10).padStart(2, '0')}.000Z`,
+            payload   : {text: `vega burst ${i}`}
+        }));
+
+        const stream = Neo.create(ActivityStream, {appName, events: [
+            ...burst,
+            {type: 'review-activity', agentId: 'neo-gpt', occurredAt: '2026-07-04T10:05:00.000Z', payload: {text: 'euclid single'}}
+        ]});
+
+        // 6 events → 2 rows: the run coalesced + the single (newest-first: the single leads)
+        expect(rows(stream).length).toBe(2);
+
+        const [single, grouped] = rows(stream);
+        expect(single.cls).not.toContain('fm-ev-coalesced');
+        expect(single.items.find(item => item.cls.includes('fm-ev-text')).text).toBe('euclid single');
+
+        // the grouped row: ×N carries the run count, the NEWEST event carries text + chip kind
+        expect(grouped.cls).toContain('fm-ev-coalesced');
+        expect(grouped.items.find(item => item.cls.includes('fm-ev-text')).text).toBe('×5 · vega burst 4');
+
+        stream.destroy()
+    });
+
+    test('density re-freeze: the 200-event ring drops oldest COUNTED, and the default window is 12 rows', () => {
+        const stream = Neo.create(ActivityStream, {appName, events: makeEvents(500)});
+
+        // the ring: the held events are capped at bufferSize (200) — memory bounded by construction
+        expect(stream.events.length).toBe(200);
+        // the window: density-frozen 12 rows by default
+        expect(rows(stream).length).toBe(12);
+        // the fold counts EVENTS beyond the glass: 188 folded rows (distinct actors → 1 event each)
+        // + 300 ring-dropped = 488 — a drop is surfaced, never silent
+        expect(fold(stream).text).toBe('488 earlier events');
+
+        stream.destroy()
+    });
+
+    test('reactive ring: a runtime SHRINK re-bounds the HELD events with cumulative honest drop accounting; an invalid bound is refused', () => {
+        const stream = Neo.create(ActivityStream, {appName, events: makeEvents(250)});
+
+        // intake: 250 → 200 held / 50 dropped / 12 rows / 238 folded+dropped events
+        expect(stream.events.length).toBe(200);
+        expect(stream.droppedCount).toBe(50);
+        expect(rows(stream).length).toBe(12);
+        expect(fold(stream).text).toBe('238 earlier events');
+
+        // the falsifier: shrinking the bound must re-bound the ALREADY-HELD payload — the ring is
+        // reactive for real, not a render-only claim
+        stream.bufferSize = 10;
+        expect(stream.events.length).toBe(10);
+        // drop accounting is cumulative within the payload: 50 intake + 190 shrink = 240 of the
+        // original 250 are gone, and the fold says so (10 held ≤ 12-row window → nothing folded)
+        expect(stream.droppedCount).toBe(240);
+        expect(rows(stream).length).toBe(10);
+        expect(fold(stream).text).toBe('240 earlier events');
+
+        // zero/negative/non-finite bounds would DISABLE the ring (slice(-0) keeps everything) —
+        // refused: the previous bound and the held events stay exactly as they were
+        for (const bad of [0, -5, NaN, Infinity, 2.5]) {
+            stream.bufferSize = bad;
+            expect(stream.bufferSize).toBe(10);
+            expect(stream.events.length).toBe(10)
+        }
+
+        // a fresh payload RESETS the accounting (replace semantics) against the shrunk bound
+        stream.events = makeEvents(25);
+        expect(stream.events.length).toBe(10);
+        expect(stream.droppedCount).toBe(15);
 
         stream.destroy()
     });

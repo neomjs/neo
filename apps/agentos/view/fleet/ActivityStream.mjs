@@ -23,16 +23,66 @@ export function boundActivity(events, maxVisible) {
 }
 
 /**
+ * @summary Coalesce same-actor event RUNS into grouped rows — the measured-density consequence:
+ * a sustained burst (above ~2 events/min from one actor) rendered one-row-per-event floods the
+ * window with repetition and pushes every OTHER actor out of view. Consecutive events from the
+ * SAME `agentId` whose timestamps sit closer than `gapMs` join one row carrying the run's count
+ * and its newest event. Honesty bounds the grouping: an event with no/invalid timestamp, an
+ * anonymous event (no `agentId`), or an out-of-order timestamp can never PROVE run membership,
+ * so each renders as its own row and breaks the run — grouping only what is evidenced. Pure +
+ * serializable, so the rule is unit-provable in isolation.
+ * @param {Object[]} events Chronological (oldest→newest) activity events.
+ * @param {Number} gapMs Max gap between consecutive same-actor events to count as one run.
+ * @returns {Object[]} Chronological rows: `{agentId, count, events: Object[], newest: Object}`.
+ */
+export function coalesceActivity(events, gapMs) {
+    const list = Array.isArray(events) ? events : [],
+          gap  = Number.isFinite(gapMs) && gapMs > 0 ? gapMs : 0,
+          rows = [];
+
+    let lastRow  = null,
+        lastTime = NaN;
+
+    list.forEach(event => {
+        const agentId = event?.agentId ?? null,
+              time    = Date.parse(event?.occurredAt);
+
+        const joinsRun = lastRow !== null && agentId !== null && lastRow.agentId === agentId
+            && Number.isFinite(time) && Number.isFinite(lastTime)
+            && time - lastTime >= 0 && time - lastTime < gap;
+
+        if (joinsRun) {
+            lastRow.count++;
+            lastRow.events.push(event);
+            lastRow.newest = event
+        } else {
+            lastRow = {agentId, count: 1, events: [event], newest: event};
+            rows.push(lastRow)
+        }
+
+        // an unprovable timestamp breaks the run for the NEXT event too — a follower cannot
+        // evidence its gap against a row whose newest time is unknown
+        lastTime = time
+    });
+
+    return rows
+}
+
+/**
  * @summary The fleet cockpit's live activity feed — a bounded, backpressure-aware stream of A2A / PR /
  * lane events. Composes {@link EventChip} for the kind chip (kind rendering delegates ENTIRELY to it —
  * this view passes the event's type straight through and holds zero local kind logic; unknown types
- * degrade to EventChip's neutral chip), timestamps each row, and caps the rendered window at
- * `maxVisible` with an honest "N more" fold so a burst can never grow the DOM unbounded or silently
- * drop. On adapter loss it degrades honestly — a stale banner, never a frozen feed. Event application
- * rides the normal data->VDom flow; no manual DOM.
+ * degrade to EventChip's neutral chip) and timestamps each row. On adapter loss it degrades honestly —
+ * a stale banner, never a frozen feed. Event application rides the normal data->VDom flow; no manual DOM.
  *
- * The live-adapter binding and the NL-verified live mount are sibling leaves; this leaf is the component
- * + its bounded-buffer contract, unit-provable against a burst fixture.
+ * Three bounds hold the feed honest under measured burst pressure, each frozen from live density
+ * evidence (sustained 0.5–1 events/min on a sprint day, ~3.6/min p95 burst):
+ * 1. **The ring** — `bufferSize` (200 ≈ 55min of the worst recorded burst) caps the HELD events;
+ *    an overlong payload drops oldest-first and the drop is COUNTED, never silent.
+ * 2. **Coalescing** — same-actor runs above ~2/min ({@link module:apps/agentos/view/fleet/ActivityStream~coalesceActivity})
+ *    group into one row carrying the run count, so one busy actor cannot flood every other off the glass.
+ * 3. **The window** — the newest `maxVisible` rows render; everything older folds into the honest
+ *    "N earlier events" line (N counts EVENTS — folded rows' runs plus ring drops — never rows).
  *
  * @class AgentOS.view.fleet.ActivityStream
  * @extends Neo.container.Base
@@ -59,17 +109,39 @@ class ActivityStream extends Container {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
-         * Chronological (oldest->newest) activity events; the feed renders the newest `maxVisible`.
+         * The held-event ring bound: a payload longer than this keeps its NEWEST `bufferSize`
+         * events (drop-oldest), and the drop is counted into the fold — the feed's memory can
+         * never grow unbounded, and a drop is never silent. Reactive INCLUDING the held payload:
+         * a runtime shrink re-bounds the events already held (their drop joins the fold count); a
+         * grow widens the bound for the next payload only. Positive integers only — an invalid
+         * bound is refused, never a disabled ring. 200 holds ~55 minutes of the worst measured
+         * burst (~3.6 events/min p95).
+         * @member {Number} bufferSize_=200
+         * @reactive
+         */
+        bufferSize_: 200,
+        /**
+         * The same-actor coalescing threshold: consecutive events from one `agentId` closer than
+         * this join one grouped row (~2/min — the measured rate above which one actor's run
+         * floods the window). See {@link module:apps/agentos/view/fleet/ActivityStream~coalesceActivity}.
+         * @member {Number} coalesceGapMs_=30000
+         * @reactive
+         */
+        coalesceGapMs_: 30000,
+        /**
+         * Chronological (oldest->newest) activity events; capped to the newest `bufferSize` on
+         * the way in, then coalesced + windowed for render.
          * @member {Object[]} events_=[]
          * @reactive
          */
         events_: [],
         /**
-         * The render-window bound — the density-derived cap (default 15) beyond which events fold.
-         * @member {Number} maxVisible_=15
+         * The render-window bound — the density-frozen visible ROW cap (10–12 measured; 12)
+         * beyond which rows fold.
+         * @member {Number} maxVisible_=12
          * @reactive
          */
-        maxVisible_: 15,
+        maxVisible_: 12,
         /**
          * Feed liveness — `live` streams; `sample` labels a representative (source-not-wired) feed so it
          * is never mistaken for live; `stale` renders the degrade banner (adapter loss). None of the
@@ -81,6 +153,16 @@ class ActivityStream extends Container {
     }
 
     /**
+     * Events the ring dropped from the CURRENT payload: the intake drop (payload length minus
+     * `bufferSize`) plus any later runtime-shrink drops on the same payload — cumulative within
+     * the payload, RESET by the next `events` assignment. Folded into the "N earlier events"
+     * count so no drop is ever silent.
+     * @member {Number} droppedCount=0
+     * @protected
+     */
+    droppedCount = 0
+
+    /**
      * @summary Build the feed once constructed — the items are data-derived, so the initial render
      * happens here rather than through static config.
      * @param {...*} args
@@ -88,6 +170,52 @@ class ActivityStream extends Container {
     onConstructed(...args) {
         super.onConstructed(...args);
         this.refreshFeed()
+    }
+
+    /**
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetAdapterState(value, oldValue) {
+        this.isConstructed && this.refreshFeed()
+    }
+
+    /**
+     * @summary The reactive half of the ring contract: a runtime SHRINK re-bounds the already-held
+     * events (drop-oldest, silently via the raw backing store — no beforeSet re-entry, which would
+     * reset the payload's drop accounting) and ADDS the shrink's drop to {@link #droppedCount}, so
+     * the fold stays honest about everything gone from the current payload. A grow only widens the
+     * bound for the NEXT payload — dropped events are gone, never resurrected.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetBufferSize(value, oldValue) {
+        let me = this;
+
+        if (!me.isConstructed) {
+            return
+        }
+
+        const held   = me._events || [],
+              excess = Math.max(0, held.length - value);
+
+        if (excess > 0) {
+            me.droppedCount += excess;
+            me._events = held.slice(-value)   // silent raw update: re-bound without re-entering beforeSetEvents
+        }
+
+        me.refreshFeed()
+    }
+
+    /**
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetCoalesceGapMs(value, oldValue) {
+        this.isConstructed && this.refreshFeed()
     }
 
     /**
@@ -109,29 +237,58 @@ class ActivityStream extends Container {
     }
 
     /**
-     * @param {String} value
-     * @param {String} oldValue
+     * @summary Guard the ring bound itself: only a positive integer can BE a buffer bound — zero,
+     * negatives, and non-finite values would silently disable the ring (`slice(-0)` retains
+     * everything), so an invalid value is refused and the previous bound (or the density default)
+     * stays in force.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @returns {Number}
      * @protected
      */
-    afterSetAdapterState(value, oldValue) {
-        this.isConstructed && this.refreshFeed()
+    beforeSetBufferSize(value, oldValue) {
+        return Number.isInteger(value) && value > 0 ? value : (oldValue ?? 200)
     }
 
     /**
-     * @summary Rebuild the bounded feed: the liveness header, the newest `maxVisible` event rows, and
-     * the "N more" fold when the burst exceeds the window. Bounded by construction — the rendered child
-     * count never exceeds the window + header + fold, regardless of event volume.
+     * @summary The ring: an incoming payload keeps only its NEWEST `bufferSize` events
+     * (drop-oldest), and the drop count lands in {@link #droppedCount} for the fold — the feed's
+     * held memory is bounded by construction, and a drop is surfaced, never silent.
+     * @param {Object[]} value
+     * @param {Object[]} oldValue
+     * @returns {Object[]}
+     * @protected
+     */
+    beforeSetEvents(value, oldValue) {
+        const list  = Array.isArray(value) ? value : [],
+              bound = this.bufferSize;
+
+        this.droppedCount = Math.max(0, list.length - bound);
+
+        return this.droppedCount > 0 ? list.slice(-bound) : list
+    }
+
+    /**
+     * @summary Rebuild the bounded feed: the liveness header, the newest `maxVisible` rows (each a
+     * single event or a coalesced same-actor run), and the "N earlier events" fold whenever events
+     * sit beyond the glass — folded rows' runs plus anything the ring dropped. Bounded by
+     * construction — the rendered child count never exceeds the window + header + fold, regardless
+     * of event volume, and the fold counts EVENTS (the honest unit), never rows.
      */
     refreshFeed() {
-        const {visible, overflowCount} = boundActivity(this.events, this.maxVisible),
-              items                    = [this.headerConfig(), ...visible.map(event => this.rowConfig(event))];
+        const me                       = this,
+              rows                     = coalesceActivity(me.events, me.coalesceGapMs),
+              {visible, overflowCount} = boundActivity(rows, me.maxVisible),
+              foldedEventCount         = rows.slice(0, overflowCount).reduce((count, row) => count + row.count, 0),
+              earlierCount             = foldedEventCount + me.droppedCount,
+              items                    = [me.headerConfig(), ...visible.map(row => me.rowConfig(row))];
 
-        if (overflowCount > 0) {
-            items.push(this.foldConfig(overflowCount))
+        if (earlierCount > 0) {
+            items.push(me.foldConfig(earlierCount))
         }
 
-        this.removeAll(true);
-        this.add(items)
+        me.removeAll(true);
+        me.add(items)
     }
 
     /**
@@ -158,37 +315,43 @@ class ActivityStream extends Container {
     }
 
     /**
-     * @summary One event row: timestamp, the kind chip (EventChip), and the text. The chip's kind is the
-     * event's type passed straight through — EventChip + the kind registry own the kind->visual mapping,
-     * so this row holds no kind logic and an unknown type degrades to the neutral chip.
-     * @param {Object} event
+     * @summary One feed row from a coalesced row descriptor: timestamp, the kind chip (EventChip),
+     * and the text — the row's NEWEST event carries all three. The chip's kind is that event's type
+     * passed straight through — EventChip + the kind registry own the kind->visual mapping, so this
+     * row holds no kind logic and an unknown type degrades to the neutral chip. A run (count > 1)
+     * renders as ONE grouped row: the `×N` prefix carries the run count, the newest event the text.
+     * @param {Object} row A `coalesceActivity` row: `{agentId, count, events, newest}`.
      * @returns {Object}
      */
-    rowConfig(event) {
+    rowConfig(row) {
+        const event     = row.newest,
+              coalesced = row.count > 1;
+
         return {
             module: Container,
-            cls   : ['fm-ev-row'],
+            cls   : coalesced ? ['fm-ev-row', 'fm-ev-coalesced'] : ['fm-ev-row'],
             flex  : 'none',
             layout: {ntype: 'hbox', align: 'start'},
             items : [
                 {module: Component, cls: ['fm-ev-time'], flex: 'none', text: this.formatTime(event?.occurredAt)},
                 {module: EventChip, flex: 'none', kind: event?.type},
-                {module: Component, cls: ['fm-ev-text'], flex: 1, text: this.eventText(event)}
+                {module: Component, cls: ['fm-ev-text'], flex: 1, text: coalesced ? `×${row.count} · ${this.eventText(event)}` : this.eventText(event)}
             ]
         }
     }
 
     /**
-     * @summary The overflow fold — the honest count of events beyond the window (never a silent drop).
-     * @param {Number} overflowCount
+     * @summary The overflow fold — the honest count of EVENTS beyond the glass: the folded rows'
+     * runs plus anything the ring dropped (never a silent drop, never a row count posing as one).
+     * @param {Number} earlierCount
      * @returns {Object}
      */
-    foldConfig(overflowCount) {
+    foldConfig(earlierCount) {
         return {
             module: Component,
             cls   : ['fm-stream-fold'],
             flex  : 'none',
-            text  : `${overflowCount} more`
+            text  : `${earlierCount} earlier events`
         }
     }
 
