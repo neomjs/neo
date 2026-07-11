@@ -342,14 +342,14 @@ The `BLOCKED_BY` permission scope acts as a negative-intent override in **both**
 
 If your SQLite graph predates the `#10144` canonical `AgentIdentity` convention, it may contain stale alias nodes (`@opus`, `@gemini`) with null metadata alongside the canonical nodes (`@neo-opus-ada`, `@neo-gemini-pro`). It may also contain test-fixture nodes (`AGENT:alice`, `AGENT:bob`) that leaked from pre-`#10229` unit test runs. Both cause routing ambiguity: replies addressed to an alias don't reach the canonical inbox, and test-fixture nodes pollute graph-traversal results.
 
-The `ai/scripts/normalizeGraphIdentities.mjs` script consolidates the graph in a single idempotent operation.
+The `ai/scripts/migrations/normalizeGraphIdentities.mjs` script consolidates the graph in a single idempotent operation.
 
 ### Running the migration
 
 **1. Dry-run first (default):**
 
 ```bash
-node ai/scripts/normalizeGraphIdentities.mjs
+node ai/scripts/migrations/normalizeGraphIdentities.mjs
 ```
 
 Prints the migration plan — which edges would be rewritten, which nodes would be deleted, and any duplicate-edge collisions the canonical consolidation would encounter. Exits without committing.
@@ -357,7 +357,7 @@ Prints the migration plan — which edges would be rewritten, which nodes would 
 **2. Review the plan, then apply atomically:**
 
 ```bash
-node ai/scripts/normalizeGraphIdentities.mjs --apply
+node ai/scripts/migrations/normalizeGraphIdentities.mjs --apply
 ```
 
 Wraps all writes in a single SQLite transaction. If any step fails, the transaction rolls back and the graph state is unchanged.
@@ -403,6 +403,49 @@ Independent of the migration: `MailboxService.normalizeMailboxTarget` (#10259) h
 The missing-`@` branch is scoped to identifiers that carry NO prefix marker (no leading `@`, no `:` anywhere in the string). Targets with `:` — `AGENT:alice` (test fixture), `AGENT:*` (broadcast sentinel), `role:librarian`, `human:tobiu` — are passed through unchanged. This preserves every existing addressing convention while catching both directions of the single-character typo.
 
 Without these normalizations, `GraphService.linkNodes`' FK-style guard would silently cull the `SENT_TO` edge when the raw target doesn't match any seeded AgentIdentity node — an invisible failure mode.
+
+## Canonical Stored-Identity Migration (#15038)
+
+PR #15032 made new mailbox and permission writes canonical while retaining bounded read compatibility for historical direct-identity spellings. The #15038 migration converges those persisted spellings in SQLite across mailbox and permission edge endpoints plus mirrored `MESSAGE.properties.from` / `to` values. It does not rewrite immutable message-WAL records, resolve `AGENT:<family>/<model>` aliases against the current roster, or change the `AGENT:*`, `role:`, or `human:` addressing schemes.
+
+The guarded WAL projector must be deployed before this migration runs. Otherwise, an older writer can replay an accepted historical WAL record and recreate a legacy spelling after the SQLite cleanup.
+
+### Deployment invariant
+
+Use this order; do not combine or rearrange the steps:
+
+1. **Deploy the guarded projector first.** Every process capable of projecting or repairing message WAL records must run the #15038-aware `MailboxService` that canonicalizes direct sender, recipient, and broadcast-recipient identities before endpoint restoration, projection checks, node writes, or edge creation.
+2. **Quiesce old writers.** Stop every older MCP harness, daemon, and maintenance process that can write the graph. Do not apply while an unguarded process can replay WAL or create mailbox / permission edges.
+3. **Back up the SQLite graph.** With writers quiesced, take and retain a SQLite-safe backup of `.neo-ai-data/sqlite/memory-core-graph.sqlite` before applying any mutation.
+4. **Run the read-only dry run and inspect its census:**
+
+   ```bash
+   node ai/scripts/migrations/canonicalizeStoredAgentIdentities.mjs
+   ```
+
+   Use `--db <path>` for a non-default graph. Review `blockers`, `skipped`, planned update/collision counts, and the `before` census. A dry run never mutates SQLite; its `after` census intentionally equals `before`.
+5. **Apply the reviewed plan atomically:**
+
+   ```bash
+   node ai/scripts/migrations/canonicalizeStoredAgentIdentities.mjs --apply
+   ```
+
+   Add the same `--db <path>` override when the dry run used one. `--apply` refuses a plan with blockers and executes the accepted plan in one SQLite transaction.
+6. **Restart caches using only the guarded build.** Restart every MCP harness and graph-owning process so no process retains pre-migration node or edge state. Do not restart an older binary.
+7. **Prove a clean deployment census.** Re-run the default dry run after restart. It must report `clean: true`, empty `blockers` / `skipped` arrays, and all three `before` census fields as zero:
+
+   ```json
+   {
+     "aliasNodes": 0,
+     "identityEdgeEndpoints": 0,
+     "messageProperties": 0
+   }
+   ```
+
+   A skipped missing/wrong-type destination is unresolved storage, not a clean result, even when the safe update count is zero. Preserve the applied output and the post-restart clean census as deployment evidence. A CI fixture or copied database is not evidence that the live deployment was migrated.
+8. **Retire broad read variants only later.** `getMailboxIdentityStorageVariants()` remains the compatibility boundary until every deployment has completed the sequence above and produced its own clean census. Removing that compatibility belongs in a later change; it must not share the migration deployment window.
+
+Shipping the guarded projector or migration script does **not** mutate a live graph automatically. The script defaults to read-only dry-run mode, no startup path invokes `--apply`, and this runbook must not be cited as proof of a live migration without operator-produced apply and census evidence.
 
 ## See Also
 
