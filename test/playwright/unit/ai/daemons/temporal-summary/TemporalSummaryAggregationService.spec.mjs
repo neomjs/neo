@@ -360,6 +360,21 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         expect(persisted[0].metadata.partition).toBe('unified')
     });
 
+    test('fetchWindowSources fails closed when one source throws — a partial-source failure aborts the window, never half-written', async () => {
+        TemporalSummaryAggregationService.fetchMergedPrs          = async () => { throw new Error('git log failed') };
+        TemporalSummaryAggregationService.fetchDevCommits         = async () => [];
+        TemporalSummaryAggregationService.fetchAdrsLanded         = async () => [];
+        TemporalSummaryAggregationService.fetchSandboxesGraduated = async () => [];
+        TemporalSummaryAggregationService.fetchSessions           = async () => [];
+
+        // one failing source rejects the whole window-source read — the engine never folds a record missing a
+        // source (which would silently undercount a durable metric); the reject propagates up through runCycle
+        await expect(TemporalSummaryAggregationService.fetchWindowSources({
+            windowStart: '2026-07-05T00:00:00.000Z',
+            windowEnd  : '2026-07-06T00:00:00.000Z'
+        })).rejects.toThrow('git log failed')
+    });
+
     test('collectPendingWindows plans both the L1 session + L2 daily trailing windows, each with fetched sources', async () => {
         TemporalSummaryAggregationService.resolveAggregationAnchor = () => '2026-07-06T12:30:00.000Z';
         TemporalSummaryAggregationService.sessionWindowCount       = () => 2;
