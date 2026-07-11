@@ -2,7 +2,7 @@ import {test, expect} from '@playwright/test';
 
 import {aggregateWindow, buildMetricBags, classifySample}                from '../../../../../ai/scripts/benchmark/helpers/servingCostCore.mjs';
 import {createMetricId, validateBusinessProperties}                      from '../../../../../ai/graph/businessSchema.mjs';
-import {isLocalEndpoint, parseWindow, portFromHostUrl, resolveRolePorts} from '../../../../../ai/scripts/benchmark/serving-cost-meter.mjs';
+import {isLocalEndpoint, parseWindow, portFromHostUrl, resolveRolePorts, resolveWindowLifecycle} from '../../../../../ai/scripts/benchmark/serving-cost-meter.mjs';
 
 /**
  * Pins the serving-cost meter's pure core — the deterministic heart of the measurement
@@ -175,6 +175,42 @@ test.describe('serving-cost meter CLI helpers (resolution honesty)', () => {
         // a zero window would exit 0 with an empty "measurement" — refused at parse time
         expect(() => parseWindow('0s')).toThrow('positive duration');
         expect(() => parseWindow('0h')).toThrow('positive duration')
+    });
+
+    test('requested and observed windows stay distinct across early stop and natural completion', () => {
+        const interrupted = resolveWindowLifecycle(1000, 3600000, 23500);
+
+        expect(interrupted).toEqual({
+            interrupted : true,
+            observedEndMs: 23500,
+            windowBounds : {endMs: 3601000, startMs: 1000}
+        });
+
+        const aggregate = aggregateWindow([
+            {atMs: 1000,  cpuPercent: 10, role: 'chat-model', rssBytes: 1000},
+            {atMs: 23500, cpuPercent: 10, role: 'chat-model', rssBytes: 1000}
+        ], {activeCpuThreshold: 5, expectedIntervalMs: 22500, windowBounds: interrupted.windowBounds});
+
+        expect(aggregate.nominalWindowMs).toBe(3600000);
+        expect(aggregate.trailingUnavailableMs).toBe(3577500);
+        expect(aggregate.coverageRatio).toBeCloseTo(22500 / 3600000, 10);
+
+        expect(resolveWindowLifecycle(1000, 3600000, 3601000)).toEqual({
+            interrupted : false,
+            observedEndMs: 3601000,
+            windowBounds : {endMs: 3601000, startMs: 1000}
+        });
+
+        // a final sample may complete after the nominal deadline; this is still a fulfilled
+        // requested window, with the actual stop retained separately for provenance
+        expect(resolveWindowLifecycle(1000, 3600000, 3601250)).toEqual({
+            interrupted : false,
+            observedEndMs: 3601250,
+            windowBounds : {endMs: 3601000, startMs: 1000}
+        });
+
+        expect(() => resolveWindowLifecycle(1000, 0, 1000)).toThrow('positive window');
+        expect(() => resolveWindowLifecycle(1000, 1000, 999)).toThrow('finite start/end')
     });
 
     test('port extraction handles explicit ports, protocol defaults, and garbage', () => {

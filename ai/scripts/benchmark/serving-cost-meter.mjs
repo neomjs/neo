@@ -71,6 +71,30 @@ export function parseWindow(value) {
 }
 
 /**
+ * @summary Separates the requested measurement window from the observed process lifecycle.
+ * An early stop is missing coverage inside the original window, never a shorter requested
+ * window: aggregation keeps the requested bounds while the report records the actual stop.
+ * Pure and clock-free so both early-stop and natural-completion semantics stay unit-pinned.
+ * @param {Number} startedAt Epoch-ms sampling start.
+ * @param {Number} windowMs Requested window duration in ms.
+ * @param {Number} observedEndMs Epoch-ms at which the sampling loop actually stopped.
+ * @returns {{interrupted: Boolean, observedEndMs: Number, windowBounds: {endMs: Number, startMs: Number}}}
+ */
+export function resolveWindowLifecycle(startedAt, windowMs, observedEndMs) {
+    const requestedEndMs = startedAt + windowMs;
+
+    if (![startedAt, windowMs, observedEndMs, requestedEndMs].every(Number.isFinite) || windowMs <= 0 || observedEndMs < startedAt) {
+        throw new Error('resolveWindowLifecycle: finite start/end values and a positive window are required')
+    }
+
+    return {
+        interrupted: observedEndMs < requestedEndMs,
+        observedEndMs,
+        windowBounds: {endMs: requestedEndMs, startMs: startedAt}
+    }
+}
+
+/**
  * Extracts the port from a configured endpoint URL leaf.
  * @param {String} hostUrl e.g. 'http://127.0.0.1:11434'
  * @returns {Number|null}
@@ -232,15 +256,17 @@ async function main() {
         elapsed < intervalMs && await new Promise(resolve => setTimeout(resolve, intervalMs - elapsed))
     }
 
-    // the REQUESTED bounds travel into every aggregate: a role whose endpoint appeared for
-    // only the tail of the window must read as mostly-unavailable, never as a clean short run
-    const windowBounds = {endMs: Date.now(), startMs: startedAt};
+    // REQUESTED and OBSERVED time stay distinct: Ctrl-C creates trailing unavailability inside
+    // the named window, never a shorter nominal window carrying the original rolling identity
+    const {interrupted, observedEndMs, windowBounds} = resolveWindowLifecycle(startedAt, windowMs, Date.now());
 
     const report = {
         hardware  : options.hardware,
         host      : {arch: os.arch(), cpuModel: os.cpus()[0]?.model ?? 'unknown', platform: os.platform(), totalMemBytes: os.totalmem()},
+        interrupted,
         intervalMs,
         metricBags: [],
+        observedEndMs,
         periodStart,
         roles     : {},
         skipped, // declared measurement holes (remote endpoints) live in the artifact, not just stdout
