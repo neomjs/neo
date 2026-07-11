@@ -298,7 +298,7 @@ class DemoBWorkspace extends Container {
      * Loads a stored perspective. Window-scope records commit the restored primary document;
      * topology-scope records go through the changed-topology reconciler and expose its remainder.
      * @param {String} name
-     * @returns {{loaded: Boolean, errors: String[], report?: Object}}
+     * @returns {{loaded: Boolean, errors: String[], report: (Object|undefined)}}
      */
     loadPerspectiveByName(name) {
         let me         = this,
