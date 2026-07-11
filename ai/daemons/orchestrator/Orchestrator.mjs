@@ -26,7 +26,7 @@ import memoryCoreConfig                                                         
 import MailboxService                                                                               from '../../services/memory-core/MailboxService.mjs';
 import WakeSubscriptionService                                                                      from '../../services/memory-core/WakeSubscriptionService.mjs';
 import RequestContextService                                                                        from '../../mcp/server/shared/services/RequestContextService.mjs';
-import {normalizeAgentIdentityNodeId}                                                               from '../../scripts/lifecycle/resumeHarness.mjs';
+import {normalizeAgentIdentityNodeId}                                                               from '../../graph/normalizeAgentIdentityNodeId.mjs';
 import TaskStateService                                                                             from './services/TaskStateService.mjs';
 import ProcessSupervisorService                                                                     from './services/ProcessSupervisorService.mjs';
 import DeploymentRuntimeAccessService                                                               from './services/DeploymentRuntimeAccessService.mjs';
@@ -199,12 +199,12 @@ export class Orchestrator extends Base {
         dataDir_                        : null,
         // Same contract as dataDir_: the singleton is constructed during module import, so a
         // class-field leaf read would still be a module-load capture.
-        dbPath_                         : null,
-        taskDefinitions_                : null,
-        taskStateService_               : TaskStateService,
-        healthService_                  : HealthService,
-        spawnFn_                        : spawn,
-        heavyMaintenanceLeasePath_      : null
+        dbPath_                   : null,
+        taskDefinitions_          : null,
+        taskStateService_         : TaskStateService,
+        healthService_            : HealthService,
+        spawnFn_                  : spawn,
+        heavyMaintenanceLeasePath_: null
     }
 
     primaryRepoSyncService   = PrimaryRepoSyncService

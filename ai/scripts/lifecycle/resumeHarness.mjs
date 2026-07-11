@@ -11,24 +11,24 @@
  * @see ai/daemons/SwarmHeartbeatService.mjs
  * @see .agents/skills/session-sunset/references/session-sunset-workflow.md §1
  */
-import { spawn } from 'child_process';
-import { constants as fsConstants } from 'fs';
-import fs from 'fs/promises';
-import os from 'os';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { readGateState, hasOverride } from './wakeSafetyGate.mjs';
-import { writeInflightLock, clearInflightLock } from './inflightLock.mjs';
+import { spawn }                                          from 'child_process';
+import { constants as fsConstants }                       from 'fs';
+import fs                                                 from 'fs/promises';
+import os                                                 from 'os';
+import path                                               from 'path';
+import { fileURLToPath }                                  from 'url';
+import { readGateState, hasOverride }                     from './wakeSafetyGate.mjs';
+import { writeInflightLock, clearInflightLock }           from './inflightLock.mjs';
 import { recordHarnessProcess, terminatePreviousHarness } from './harnessLifecycle.mjs';
-import { createSpawnRequest } from './windowsBatchSpawn.mjs';
+import { createSpawnRequest }                             from './windowsBatchSpawn.mjs';
 import {
     resolveGuiInstanceAddress,
     resolveGuiInstancePid
 } from '../../daemons/wake/instanceResolver.mjs';
 import {
-    normalizeAgentIdentityNodeId,
     resolveHarnessTargetForIdentity
 } from './harnessRouting.mjs';
+import {normalizeAgentIdentityNodeId} from '../../graph/normalizeAgentIdentityNodeId.mjs';
 
 export {normalizeAgentIdentityNodeId};
 
@@ -55,9 +55,9 @@ const __dirname  = path.dirname(__filename);
  */
 function spawnAsync(cmd, args, identity = null, hostPlatform = process.platform) {
     return new Promise((resolve, reject) => {
-        const spawnRequest = createSpawnRequest(cmd, args, hostPlatform);
-        const proc     = spawn(spawnRequest.cmd, spawnRequest.args, spawnRequest.options);
-        let recordPromise = Promise.resolve();
+        const spawnRequest  = createSpawnRequest(cmd, args, hostPlatform);
+        const proc          = spawn(spawnRequest.cmd, spawnRequest.args, spawnRequest.options);
+        let   recordPromise = Promise.resolve();
 
         if (identity && proc.pid) {
             recordPromise = recordHarnessProcess(identity, proc.pid).catch(err => {
@@ -155,7 +155,7 @@ async function fileIsExecutable(filePath) {
  */
 async function findExecutableOnPath(command) {
     const pathEntries = (process.env.PATH || '').split(path.delimiter).filter(Boolean);
-    const extensions = process.platform === 'win32' && !path.extname(command)
+    const extensions  = process.platform === 'win32' && !path.extname(command)
         ? ['.cmd', '.exe', '.bat', '']
         : [''];
 
@@ -346,7 +346,7 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
 
     // Idempotency: resolve the cooldown beside this script so cron/launchd callers
     // share the same 600s re-fire window regardless of their current working directory.
-    const cooldownDir = path.resolve(__dirname, '../../../.neo-ai-data/wake-daemon');
+    const cooldownDir  = path.resolve(__dirname, '../../../.neo-ai-data/wake-daemon');
     const cooldownFile = path.resolve(cooldownDir, `cooldown-${identity.replace(/[^a-zA-Z0-9_-]/g, '')}.txt`);
 
     try {
@@ -414,7 +414,7 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
              * @summary Cross-platform Antigravity CLI resolution for fresh-session spawn.
              */
             const cliPath = await resolveAntigravityCliPath();
-            const args = ['chat', '-n', payload];
+            const args    = ['chat', '-n', payload];
             await spawnAsync(cliPath, args, identity);
             console.log(`Successfully resumed ${identity} via antigravity-cli`);
         } else if (adapter === 'claude-cli') {
@@ -467,13 +467,13 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
              */
             assertCodexAppServerAllowed();
             const cliPath = await resolveCodexCliPath();
-            const args = ['debug', 'app-server', 'send-message-v2', payload];
+            const args    = ['debug', 'app-server', 'send-message-v2', payload];
             await spawnAsync(cliPath, args);
             console.log(`Successfully resumed ${identity} via codex-app-server`);
         } else if (adapter === 'osascript') {
             const { appName, tabShortcut, freshSessionShortcut } = harnessTarget;
-            const instanceAddress = resolveResumeHarnessInstanceAddress({metadata: harnessTargetMetadata, env});
-            const instancePid     = instanceAddress
+            const instanceAddress                                = resolveResumeHarnessInstanceAddress({metadata: harnessTargetMetadata, env});
+            const instancePid                                    = instanceAddress
                 ? await resolveResumeHarnessInstancePid({
                     ...instanceAddress,
                     deploymentMode

@@ -119,6 +119,18 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         `).run(JSON.stringify(GraphService.db.nodes.get(messageId)), messageId);
     }
 
+    function retargetMessageEdge(messageId, type, target) {
+        const edge = GraphService.db.edges.items.find(candidate =>
+            candidate.source === messageId && candidate.type === type
+        );
+
+        expect(edge).toBeDefined();
+
+        GraphService.upsertNode({id: target, type: 'AGENT', name: `Legacy ${target}`, properties: {}});
+        GraphService.db.edges.remove([edge]);
+        GraphService.linkNodes(messageId, target, type, edge.weight ?? 1, edge.properties || {});
+    }
+
     function clearGraphCacheWithoutStorageMutation() {
         // Suspend autoSave around the store clears or they are NOT storage-neutral: store
         // remove-mutations echo through onNodesMutate/onEdgesMutate into storage.removeNodes/
@@ -634,6 +646,103 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 
         const node = GraphService.db.nodes.get(msgId);
         expect(node.properties.readAt).toBeTruthy();
+    });
+
+    test('#15027 markRead canonicalizes both bound identity and drifted direct SENT_TO targets', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+        });
+
+        for (const target of ['bob', '@@bob', 'AGENT:@bob']) {
+            const {messageId} = await RequestContextService.run({agentIdentityNodeId: '@alice'}, () =>
+                MailboxService.addMessage({to: '@bob', subject: `legacy ${target}`, body: 'canonicalize both sides'})
+            );
+
+            retargetMessageEdge(messageId, 'SENT_TO', target);
+
+            const result = await RequestContextService.run({agentIdentityNodeId: '@@bob'}, () =>
+                MailboxService.markRead({messageId})
+            );
+
+            expect(result).toMatchObject({messageId, status: 'read'});
+            expect(result.readAt).toBeTruthy();
+        }
+    });
+
+    test('#15027 persisted family aliases stay fail-closed instead of changing meaning with the roster', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+        });
+
+        const {messageId} = await RequestContextService.run({agentIdentityNodeId: '@alice'}, () =>
+            MailboxService.addMessage({to: '@bob', subject: 'corrupt family alias', body: 'must not authorize'})
+        );
+
+        retargetMessageEdge(messageId, 'SENT_TO', 'AGENT:claude/opus');
+
+        await expect(RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.markRead({messageId})
+        )).rejects.toThrow(/Unauthorized: you are not the recipient/);
+    });
+
+    test('#15027 list/count canonicalize direct request and sender-filter identities', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+        });
+
+        const {messageId} = await RequestContextService.run({agentIdentityNodeId: '@alice'}, () =>
+            MailboxService.addMessage({to: '@bob', subject: 'normalized filters', body: 'one message'})
+        );
+
+        retargetMessageEdge(messageId, 'SENT_TO', 'bob');
+        retargetMessageEdge(messageId, 'SENT_BY', '@@alice');
+        fs.removeSync(messageWalDir);
+
+        await RequestContextService.run({agentIdentityNodeId: '@@bob'}, async () => {
+            const listed  = await MailboxService.listMessages({to: 'bob', fromIdentity: '@@alice'});
+            const counted = await MailboxService.countMessages({to: 'bob', fromIdentity: '@@alice'});
+
+            expect(listed.messages.map(message => message.messageId)).toEqual([messageId]);
+            expect(counted.count).toBe(1);
+        });
+    });
+
+    test('#15027 sibling authorization paths canonicalize stored direct identity spellings', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+        });
+
+        const archived = await RequestContextService.run({agentIdentityNodeId: '@alice'}, () =>
+            MailboxService.addMessage({to: '@bob', subject: 'archive alias', body: 'archive me'})
+        );
+        retargetMessageEdge(archived.messageId, 'SENT_TO', '@@bob');
+        await expect(RequestContextService.run({agentIdentityNodeId: 'bob'}, () =>
+            MailboxService.getMessage({messageId: archived.messageId})
+        )).resolves.toMatchObject({messageId: archived.messageId});
+        await expect(RequestContextService.run({agentIdentityNodeId: 'bob'}, () =>
+            MailboxService.archiveMessage({messageId: archived.messageId})
+        )).resolves.toMatchObject({status: 'archived'});
+
+        const retracted = await RequestContextService.run({agentIdentityNodeId: '@alice'}, () =>
+            MailboxService.addMessage({to: '@bob', subject: 'sender alias', body: 'retract me'})
+        );
+        retargetMessageEdge(retracted.messageId, 'SENT_BY', 'alice');
+        await expect(RequestContextService.run({agentIdentityNodeId: '@@alice'}, () =>
+            MailboxService.deleteMessage({messageId: retracted.messageId})
+        )).resolves.toMatchObject({status: 'retracted'});
+
+        const task = await RequestContextService.run({agentIdentityNodeId: '@alice'}, () =>
+            MailboxService.addMessage({
+                to     : '@bob',
+                subject: 'task alias',
+                body   : 'transition me',
+                task   : {state: 'Submitted'}
+            })
+        );
+        retargetMessageEdge(task.messageId, 'SENT_TO', 'AGENT:@bob');
+        await expect(RequestContextService.run({agentIdentityNodeId: 'bob'}, () =>
+            MailboxService.transitionTask({taskId: task.messageId, newState: 'Working'})
+        )).resolves.toMatchObject({success: true, task: {state: 'Working'}});
     });
 
     test('surgical repair preserves a DM readAt while restoring a lost routing edge (#14426)', async () => {
