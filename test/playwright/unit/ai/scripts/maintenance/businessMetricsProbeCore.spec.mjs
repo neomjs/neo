@@ -34,7 +34,7 @@ function makeGraph({existing = null, failReadBack = false} = {}) {
     return {
         calls: {upserts: []},
         nodes,
-        async initAsync() {},
+        async ready() {},
         async getNodeRecord({id}) {
             if (failReadBack && nodes.has(id)) return null;
             if (nodes.has(id)) return nodes.get(id);

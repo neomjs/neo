@@ -32,11 +32,11 @@ const createTestHandoff = (filename, content) => {
                   }
               },
               scheduled: [],
-              async initAsync() {
-                  if (initError) {
-                      throw initError;
-                  }
-              },
+              // the core.Base contract surface: construct auto-fires init; consumers await
+              // ready() and read the catch-and-degrade initError field afterwards — the
+              // orchestrator re-throws it, which the crashed-outcome spec below pins
+              initError,
+              async ready() {},
               schedule(event) {
                   this.scheduled.push(event);
                   onSchedule?.(event);

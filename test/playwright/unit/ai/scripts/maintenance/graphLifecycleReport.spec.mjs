@@ -64,7 +64,7 @@ test.describe('graphLifecycleReport.mjs (#10158)', () => {
         const result = await mod.runReport({
             lifecycle   : {ready: async () => { calls.push('ready'); }},
             graphService: {
-                initAsync         : async () => { calls.push('init'); },
+                ready             : async () => { calls.push('graph-ready'); },
                 getLifecycleCensus: async opts => { calls.push(['census', opts.includeIncidentEdges]); return census; }
             },
             includeIncidentEdges: true,
@@ -73,8 +73,8 @@ test.describe('graphLifecycleReport.mjs (#10158)', () => {
         });
 
         expect(result).toBe(census);
-        // Readiness + init happen before the census query; the opt-in flag threads through.
-        expect(calls).toEqual(['ready', 'init', ['census', true]]);
+        // Both readiness gates precede the census query; the opt-in flag threads through.
+        expect(calls).toEqual(['ready', 'graph-ready', ['census', true]]);
         expect(lines[0]).toContain('"memoryNodes": 1');  // --json emits raw payload
     });
 });
