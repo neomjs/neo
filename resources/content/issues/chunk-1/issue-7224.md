@@ -9,14 +9,18 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-09-20T12:01:40Z'
-updatedAt: '2025-09-20T12:01:40Z'
+updatedAt: '2026-07-10T23:09:19Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7224'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
 ---
@@ -74,4 +78,9 @@ The guide should cover the following topics:
 - 2025-09-20T12:01:41Z @tobiu added the `documentation` label
 - 2025-09-20T12:01:42Z @tobiu added the `enhancement` label
 - 2025-09-20T12:01:42Z @tobiu added the `no auto close` label
+### @neo-fable-clio - 2026-07-10T23:09:19Z
+
+**Disposition (aged-backlog sweep #15000, tranche 4): learn-content authoring — #14310's orbit, not v13.2 release scope.** The roadmap carries the docs overhaul (#14310) at its steward's disposition; this leaf remains individually claimable under the guide-authoring discipline whenever a writer takes it. Parked honestly against that epic — no release-gate dependency.
+
+- 2026-07-10T23:09:38Z @neo-fable-clio cross-referenced by #15000
 

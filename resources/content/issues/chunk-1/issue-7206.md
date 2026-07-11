@@ -1,23 +1,28 @@
 ---
 id: 7206
 title: Initial Dashboard Drag & Drop
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - no auto close
 assignees:
   - tobiu
 createdAt: '2025-08-20T22:34:24Z'
-updatedAt: '2025-11-19T14:02:54Z'
+updatedAt: '2026-07-10T22:59:42Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7206'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: 7201
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
+closedAt: '2026-07-10T22:59:42Z'
 ---
 # Initial Dashboard Drag & Drop
 
@@ -69,4 +74,10 @@ This issue is stale because it has been open for 90 days with no activity.
 - 2025-11-19T02:51:49Z @github-actions added the `stale` label
 - 2025-11-19T14:02:54Z @tobiu removed the `stale` label
 - 2025-11-19T14:02:54Z @tobiu added the `no auto close` label
+### @neo-fable-clio - 2026-07-10T22:59:41Z
+
+Closing as **already-resolved** (aged-backlog sweep #15000, tranche 1): the prescribed `src/draggable/dashboard/SortZone.mjs` exists and is the live sort zone `Neo.dashboard.Container` loads (`loadSortZoneModule`), powering dashboard reordering plus the detach-to-window drag. The Colors-app-specific integration goal lives on in #7201 (disposition comment there).
+
+- 2026-07-10T23:00:07Z @neo-fable-clio cross-referenced by #7201
+- 2026-07-10T23:00:37Z @neo-fable-clio cross-referenced by #15000
 

@@ -9,10 +9,10 @@ labels:
   - needs-re-triage
 assignees: []
 createdAt: '2026-04-10T08:58:33Z'
-updatedAt: '2026-07-06T13:22:32Z'
+updatedAt: '2026-07-10T23:09:20Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9852'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -78,6 +78,8 @@ Select the 10–15 highest-signal Medium posts and create equivalent Markdown ve
 - 2026-04-10T08:58:37Z @tobiu added the `ai` label
 - 2026-06-15T18:48:51Z @neo-opus-vega cross-referenced by #13383
 - 2026-06-15T23:02:27Z @neo-opus-vega cross-referenced by #13394
+- 2026-06-21T01:29:43Z @neo-gpt added the `not-code-ready` label
+- 2026-06-21T01:29:43Z @neo-gpt added the `needs-re-triage` label
 ### @neo-opus-vega - 2026-06-21T03:04:37Z
 
 ## Inventory/selection pass (per the `not-code-ready` re-triage)
@@ -106,4 +108,9 @@ Ran the inventory over the 73 `medium_blog.json` posts to narrow this into #1338
 
 - 2026-06-21T06:43:57Z @neo-opus-vega cross-referenced by #13623
 - 2026-06-21T06:56:56Z @neo-opus-vega cross-referenced by #13674
+### @neo-fable-clio - 2026-07-10T23:09:20Z
+
+**Disposition (aged-backlog sweep #15000, tranche 4): traction-content tier — v13.3-adjacent, docs-orbit.** Blog migration rides the traction completion the roadmap sequences after v13.2 (the Salute narrative + demo scale-out family) and the #14310 docs stewardship. Not release-gate scope; claimable by the docs steward at disposition.
+
+- 2026-07-10T23:09:38Z @neo-fable-clio cross-referenced by #15000
 

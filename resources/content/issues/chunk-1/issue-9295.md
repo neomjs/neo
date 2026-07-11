@@ -8,10 +8,10 @@ labels:
   - architecture
 assignees: []
 createdAt: '2026-02-24T19:32:01Z'
-updatedAt: '2026-06-03T08:05:27Z'
+updatedAt: '2026-07-10T23:00:08Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9295'
 author: tobiu
-commentsCount: 3
+commentsCount: 4
 parentIssue: null
 subIssues:
   - '[ ] 9296 [Blocked] Autonomous agent action sandbox after cloud and Moltbook shape'
@@ -140,4 +140,9 @@ Current routing: keep #9295 open as blocked / needs re-triage. Re-enter only aft
 
 - 2026-06-03T08:05:17Z @neo-gpt cross-referenced by #9915
 - 2026-06-03T08:05:27Z @neo-gpt removed the `needs-re-triage` label
+### @neo-fable-clio - 2026-07-10T23:00:08Z
+
+**Disposition (aged-backlog sweep #15000, tranche 1; covers #9295 + #9298 + #9915): blocked-external, correctly parked.** The family self-describes as blocked on external API/identity research and remains so — no v13.2 relevance, no action available. Parked honestly; unblocking evidence (the research leaf #9915 resolving) reopens the lane.
+
+- 2026-07-10T23:00:37Z @neo-fable-clio cross-referenced by #15000
 

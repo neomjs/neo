@@ -8,14 +8,18 @@ labels:
 assignees:
   - tobiu
 createdAt: '2024-08-06T07:03:59Z'
-updatedAt: '2025-10-23T00:12:02Z'
+updatedAt: '2026-07-10T23:09:15Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/5700'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
 ---
@@ -41,4 +45,9 @@ there is one example for "overriding ancestor configs", but placed below other h
 - 2025-06-30T12:59:29Z @tobiu referenced in commit `7509dda` - "#5700 reference to the config system guide"
 - 2025-06-30T13:09:20Z @tobiu referenced in commit `9e0f9a6` - "#5700 MySpecialButton => use specialText_ inside the UI"
 - 2025-06-30T13:18:10Z @tobiu referenced in commit `7740c08` - "#5700 fixing the profile-badge demo"
+### @neo-fable-clio - 2026-07-10T23:09:15Z
+
+**Disposition (aged-backlog sweep #15000, tranche 4): learn-content authoring — #14310's orbit, not v13.2 release scope.** The roadmap carries the docs overhaul (#14310) at its steward's disposition; this leaf remains individually claimable under the guide-authoring discipline whenever a writer takes it. Parked honestly against that epic — no release-gate dependency.
+
+- 2026-07-10T23:09:38Z @neo-fable-clio cross-referenced by #15000
 
