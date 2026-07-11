@@ -1,6 +1,8 @@
 import Controller                   from '../../../../src/controller/Component.mjs';
 import {handleFleetLifecycleIntent} from './fleetLifecycleIntentAdapter.mjs';
 
+import {partitionFleetStart, renderFleetStartSummary, summarizeFleetStart} from './fleetStartPlan.mjs';
+
 /**
  * Controller for {@link AgentOS.view.fleet.FleetCockpit} — the cockpit is the **composition root** of
  * the B4÷C2 seam: the one place that knows both the resident cards and the fleet bridge, so the wire
@@ -26,26 +28,79 @@ class FleetCockpitController extends Controller {
     }
 
     /**
-     * @summary The one-click morning start — fan `start` out to every resident card via the C2 adapter.
+     * @summary The one-click morning start — the STAGED fleet bring-up: partition, cascade,
+     * honest summary.
      *
-     * The cockpit owns the wire (the cards stay intent-only): it enumerates the rendered cards and hands
-     * each a `start` intent + that card's roster record to `handleFleetLifecycleIntent`, so every
-     * resident drives its own honest round-trip (pending → settled / rejected), never an optimistic
-     * fleet-wide success. Starting an already-running resident is the bridge's concern; the per-record
-     * honest state reflects whatever actually happens.
+     * The cockpit owns the wire (the cards stay intent-only). The action reads the roster STORE
+     * (the full fleet truth — a folded idle card is still a member) and partitions it through the
+     * pure {@link module:apps/agentos/view/fleet/fleetStartPlan} rules — every eligibility fact
+     * comes from the wire (guest without a definition, launch-seam `launchable`, an in-flight
+     * verb, a live session state), and every excluded member carries its reason: never silently
+     * skipped, never a hardcoded roster. Each ELIGIBLE record then drives its own honest
+     * round-trip through the C2 adapter — the per-card pending CASCADE (excluded cards never flip
+     * pending; there is no fleet-wide spinner to lie N ways at once).
      *
-     * After the fan-out settles, the roster is re-polled ONCE (not per card) so every resident that
-     * actually started advances from its stale pre-start state to live runtime truth — see
-     * {@link #refreshRosterOnSettle}.
+     * After the cascade settles, the outcome summary renders into the chrome
+     * (`fleet-start-summary`): started / rejected / excluded counts with per-member reasons
+     * reachable from it — and the roster is re-polled ONCE so every resident that actually
+     * started advances to live runtime truth ({@link #refreshRosterOnSettle}).
+     * @returns {Promise<Object>} The outcome summary (see `summarizeFleetStart`) — for tests and
+     *     callers; the chrome render is the operator-facing half.
      */
-    onStartFleet() {
-        const results = this.getAgentCards().map(card => {
-            const {record} = card;
+    async onStartFleet() {
+        const
+            me      = this,
+            records = me.getRosterRecords(),
+            plan    = partitionFleetStart(records);
 
-            return handleFleetLifecycleIntent({action: 'start', agentId: record?.agentId ?? null}, record)
-        });
+        me.renderStartSummary(null);
 
-        return this.refreshRosterOnSettle(Promise.all(results).then(settled => settled.some(result => result?.ok)))
+        const results = await Promise.all(plan.eligible.map(record =>
+            handleFleetLifecycleIntent({action: 'start', agentId: record.agentId}, record)
+        ));
+
+        const summary = summarizeFleetStart(plan, results);
+
+        me.renderStartSummary(summary);
+
+        await me.refreshRosterOnSettle(Promise.resolve(results.some(result => result?.ok)));
+
+        return summary
+    }
+
+    /**
+     * @summary The full roster truth for fleet-level actions: the grid store's records — a folded
+     * idle card is still a fleet member — with the rendered-cards fallback for compositions that
+     * mount the controller without the grid reference.
+     * @returns {Object[]}
+     */
+    getRosterRecords() {
+        const storeItems = this.getReference('fleet-grid')?.store?.items;
+
+        return storeItems?.length ? [...storeItems] : this.getAgentCards().map(card => card.record).filter(Boolean)
+    }
+
+    /**
+     * @summary Write the morning-start outcome into the chrome summary slot: the compact counts
+     * line as the element text, the per-member reasons as its title (hover-reachable), hidden
+     * again when cleared (`null` — a new run starts with no stale outcome showing).
+     * @param {Object|null} summary From `summarizeFleetStart`, or null to clear.
+     */
+    renderStartSummary(summary) {
+        const slot = this.getReference('fleet-start-summary');
+
+        if (!slot) return;
+
+        if (!summary) {
+            slot.set({hidden: true, html: ''});
+            return
+        }
+
+        const {detail, text} = renderFleetStartSummary(summary);
+
+        slot.set({hidden: false, html: text});
+        slot.vdom.title = detail;
+        slot.update()
     }
 
     /**
