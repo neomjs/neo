@@ -4,6 +4,7 @@ import {
     resolveMemoryCoreGraphPath,
     resolveTurnPresenceRuntimeConfig
 } from './TurnPresenceConfig.mjs';
+import {normalizeAgentIdentityNodeId} from '../../../../graph/normalizeAgentIdentityNodeId.mjs';
 
 const WAKE_SUBMIT_NONCE_PATTERN = /NEO_WAKE_SUBMIT_NONCE:([0-9a-fA-F-]{36})/;
 
@@ -158,13 +159,6 @@ async function writeTurnPresenceEvent({
     }
 }
 
-export function normalizeAgentIdentity(value) {
-    if (!value || typeof value !== 'string') return null;
-    const trimmed = value.trim();
-    if (!trimmed) return null;
-    return trimmed.startsWith('@') ? trimmed : `@${trimmed}`;
-}
-
 /**
  * @summary Extracts a wake-submit nonce from hook payload text.
  * @param {*} value Hook payload value.
@@ -243,7 +237,7 @@ export async function recordTurnPresenceFromHook({
     turnId,
     wakeSubmitNonce = extractWakeSubmitNonce(hookPayload)
 } = {}) {
-    const agentIdentity = normalizeAgentIdentity(env.NEO_AGENT_IDENTITY);
+    const agentIdentity = normalizeAgentIdentityNodeId(env.NEO_AGENT_IDENTITY);
     if (!agentIdentity) return;
 
     const validActions = ['start', 'progress', 'terminal'];

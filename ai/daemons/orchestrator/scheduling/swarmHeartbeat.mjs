@@ -1,5 +1,5 @@
 import {IDENTITIES}                   from '../../../graph/identityRoots.mjs';
-import {normalizeAgentIdentityNodeId} from '../../../scripts/lifecycle/resumeHarness.mjs';
+import {normalizeAgentIdentityNodeId} from '../../../graph/normalizeAgentIdentityNodeId.mjs';
 
 /**
  * Valid `targetSource` enum values for `resolveTargets`. Exported so
@@ -191,8 +191,8 @@ export async function resolveTargets({
                 return selfFallback('active-subscribers-missing-provider');
             }
             const subscribers = (await activeSubscribersProvider()) || [];
-            const seen = new Set();
-            const out  = [];
+            const seen        = new Set();
+            const out         = [];
             if (normalizedSelf) {
                 seen.add(normalizedSelf);
                 out.push(normalizedSelf);
@@ -219,8 +219,8 @@ export async function resolveTargets({
                 return selfFallback('active-a2a-participants-missing-provider');
             }
             const participants = (await activeA2aParticipantsProvider()) || [];
-            const seen = new Set();
-            const out  = [];
+            const seen         = new Set();
+            const out          = [];
             if (normalizedSelf) {
                 seen.add(normalizedSelf);
                 out.push(normalizedSelf);

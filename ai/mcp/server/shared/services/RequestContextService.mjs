@@ -1,5 +1,6 @@
-import { AsyncLocalStorage } from 'async_hooks';
-import Base from '../../../../../src/core/Base.mjs';
+import { AsyncLocalStorage }          from 'async_hooks';
+import Base                           from '../../../../../src/core/Base.mjs';
+import {normalizeAgentIdentityNodeId} from '../../../../graph/normalizeAgentIdentityNodeId.mjs';
 
 /**
  * @summary Sentinel `userId` value tagging records that belong to the shared baseline —
@@ -41,7 +42,7 @@ export const CORE_SWARM_USER_IDS = Object.freeze([
  * @member {String[]}
  */
 export const CORE_SWARM_AGENT_IDS = Object.freeze(
-    CORE_SWARM_USER_IDS.map(userId => `@${userId}`)
+    CORE_SWARM_USER_IDS.map(normalizeAgentIdentityNodeId)
 );
 
 /**

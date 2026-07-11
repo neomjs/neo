@@ -16,11 +16,12 @@ import {
     readWalMessagesByIds,
     readPendingMessageWalRecords
 } from './helpers/messageWalStore.mjs';
-import {IDENTITIES}                from '../../graph/identityRoots.mjs';
-import {getMissingMemoryWalLeaves} from './helpers/memoryWalStore.mjs';
-import {execFile}                  from 'child_process';
-import {promisify}                 from 'util';
-import crypto                      from 'crypto';
+import {IDENTITIES}                   from '../../graph/identityRoots.mjs';
+import {normalizeAgentIdentityNodeId} from '../../graph/normalizeAgentIdentityNodeId.mjs';
+import {getMissingMemoryWalLeaves}    from './helpers/memoryWalStore.mjs';
+import {execFile}                     from 'child_process';
+import {promisify}                    from 'util';
+import crypto                         from 'crypto';
 
 const
     execFileAsync                        = promisify(execFile),
@@ -97,16 +98,62 @@ function getRelatedTicketsForMessage(db, messageId, messageNode) {
  */
 function normalizeMailboxTarget(to, sentBy) {
     if (!to) return to;
+    if (typeof to !== 'string') return to;
     if (to === '@me' && sentBy) return sentBy;
     if (to === 'AGENT:*') return to;                                    // sentinel preserved
     if (to.startsWith('AGENT:')) {
         to = to.slice('AGENT:'.length);
-        if (!to.startsWith('@')) return '@' + to;
-        return to;
+        return normalizeAgentIdentityNodeId(to);
     }
-    if (to.startsWith('@@')) return to.slice(1);                        // strip accidental double-@
-    if (!to.startsWith('@') && !to.includes(':')) return '@' + to;      // prepend missing @ on bare names
+    if (!to.includes(':')) return normalizeAgentIdentityNodeId(to);
     return to;
+}
+
+/**
+ * @summary Canonicalizes direct mailbox identities for authorization comparisons.
+ *
+ * Direct legacy `AGENT:<identity>` wrappers remain comparison-compatible, but graph-backed
+ * `AGENT:<family>/<model>` aliases are intentionally not re-resolved after persistence: send-time
+ * validation owns alias resolution and stores the canonical recipient id. Re-resolving a persisted
+ * family alias could change authorization when the roster changes.
+ *
+ * @param {*} identity Stored edge target or request-bound identity.
+ * @returns {*} Canonical direct identity or unchanged non-direct mailbox address.
+ * @private
+ */
+function normalizeMailboxIdentityForComparison(identity) {
+    if (typeof identity === 'string' && identity.startsWith('AGENT:') && identity.includes('/')) {
+        return identity;
+    }
+
+    return normalizeMailboxTarget(identity);
+}
+
+/**
+ * @summary Compares mailbox identity operands after canonicalizing both direct-id forms.
+ * @param {*} left First identity-shaped value.
+ * @param {*} right Second identity-shaped value.
+ * @returns {Boolean}
+ * @private
+ */
+function sameMailboxIdentity(left, right) {
+    return normalizeMailboxIdentityForComparison(left) === normalizeMailboxIdentityForComparison(right);
+}
+
+/**
+ * @summary Enumerates bounded legacy storage spellings equivalent to one direct identity.
+ * @param {*} identity Direct identity or mailbox sentinel.
+ * @returns {Array<*>} De-duplicated values suitable for SQLite `IN (...)` predicates.
+ * @private
+ */
+function getMailboxIdentityStorageVariants(identity) {
+    const canonical = normalizeMailboxIdentityForComparison(identity);
+    if (typeof canonical !== 'string' || !canonical.startsWith('@') || canonical.includes(':')) {
+        return [canonical];
+    }
+
+    const bare = canonical.slice(1);
+    return [...new Set([canonical, bare, `@${canonical}`, `AGENT:${canonical}`, `AGENT:${bare}`])];
 }
 
 /**
@@ -673,12 +720,13 @@ function messageWalRecordMatchesMailboxView(record, {box = 'all', target} = {}) 
         to           = routing.to || properties.to,
         recipients   = getMessageWalArray(routing.broadcastRecipients);
 
-    if (box === 'outbox') return sentBy === target;
+    if (box === 'outbox') return sameMailboxIdentity(sentBy, target);
 
-    const inboxMatch = to === target || to === 'AGENT:*' || recipients.includes(target);
+    const inboxMatch = sameMailboxIdentity(to, target) || to === 'AGENT:*' ||
+        recipients.some(recipient => sameMailboxIdentity(recipient, target));
     if (box === 'inbox') return inboxMatch;
 
-    return sentBy === target || inboxMatch;
+    return sameMailboxIdentity(sentBy, target) || inboxMatch;
 }
 
 /**
@@ -702,7 +750,7 @@ function getBroadcastAudience(sentBy) {
                 properties  = getRecordProperties(node),
                 accountType = properties.accountType;
 
-            if (!id || id === sentBy || id === 'AGENT:*' || !id.startsWith('@')) {
+            if (!id || sameMailboxIdentity(id, sentBy) || id === 'AGENT:*' || !id.startsWith('@')) {
                 return null;
             }
 
@@ -728,7 +776,8 @@ function getBroadcastDeliveryEdges(messageId) {
 }
 
 function getBroadcastDeliveryEdge(messageId, target) {
-    return getBroadcastDeliveryEdges(messageId).find(edge => getRecordField(edge, 'target') === target) || null;
+    return getBroadcastDeliveryEdges(messageId)
+        .find(edge => sameMailboxIdentity(getRecordField(edge, 'target'), target)) || null;
 }
 
 /**
@@ -950,10 +999,11 @@ class MailboxService extends Base {
     async addMessage({ to, subject, body, originSessionId, relatedSessions = [], relatedTickets = [], inReplyTo, priority = 'normal', partOfThread, taggedConcepts = [], wakeSuppressed = false, task }) {
         const db             = GraphService.requireDb('MailboxService.addMessage');
         const preNormalizeTo = to; // diagnostic payload captures caller-supplied target
-        const sentBy         = RequestContextService.getAgentIdentityNodeId();
-        if (!sentBy) {
+        const boundSender    = RequestContextService.getAgentIdentityNodeId();
+        if (!boundSender) {
             throw RequestContextService.unboundIdentityError('send message');
         }
+        const sentBy = normalizeMailboxIdentityForComparison(boundSender);
         // Canonical normalized isolation key for the user_id column. These message nodes/edges are
         // sharedEntity (RLS-moot), but keep the column single-form; `from: sentBy` stays the @-form label.
         const senderUserId = normalizeUserId(sentBy);
@@ -998,13 +1048,13 @@ class MailboxService extends Base {
         // Explicit blocks override both the 'open' default-allow AND the 'blocked'-mode
         // reachable-counterparty trust-lift. Re-granting CAN_REPLY_TO does not silently
         // re-enable reach. To restore reach, the recipient must revoke the BLOCKED_BY edge.
-        if (!isRoleOrHuman && to !== 'AGENT:*' && to !== sentBy) {
+        if (!isRoleOrHuman && to !== 'AGENT:*' && !sameMailboxIdentity(to, sentBy)) {
             if (PermissionService.hasPermission(sentBy, to, 'BLOCKED_BY')) {
                 throw new Error(`Unauthorized: ${to} has blocked messages from ${sentBy}.`);
             }
         }
 
-        if (strictReplyPolicy && !isRoleOrHuman && to !== 'AGENT:*' && to !== sentBy) {
+        if (strictReplyPolicy && !isRoleOrHuman && to !== 'AGENT:*' && !sameMailboxIdentity(to, sentBy)) {
             let canReply = PermissionService.hasPermission(sentBy, to, 'CAN_REPLY_TO');
 
             // Reachable Counterparty trust lift: if `to` ever sent a message that reached the
@@ -1025,7 +1075,7 @@ class MailboxService extends Base {
                 db.getAdjacentNodes('AGENT:*', 'inbound');
 
                 for (const edge of db.edges.items) {
-                    if (edge.type === 'SENT_TO' && (edge.target === sentBy || edge.target === 'AGENT:*')) {
+                    if (edge.type === 'SENT_TO' && (sameMailboxIdentity(edge.target, sentBy) || edge.target === 'AGENT:*')) {
                         // Per-message outbound vicinity lazy-load, symmetric with listMessages'
                         // inner loop. Without this, the SENT_BY edge scan below comes up empty
                         // for peer-process messages because the SENT_BY edge targets the author
@@ -1040,7 +1090,7 @@ class MailboxService extends Base {
                                 break;
                             }
                         }
-                        if (priorSender === to) {
+                        if (sameMailboxIdentity(priorSender, to)) {
                             canReply = true;
                             break;
                         }
@@ -1409,16 +1459,19 @@ class MailboxService extends Base {
      * @returns {Promise<Object>}
      */
     async listMessages({ box = 'inbox', status = 'all', to, threadId, fromIdentity, taggedConcepts, limit = 50, offset = 0, includeArchived = false } = {}) {
-        const me = RequestContextService.getAgentIdentityNodeId();
-        if (!me) {
+        const boundIdentity = RequestContextService.getAgentIdentityNodeId();
+        if (!boundIdentity) {
             throw RequestContextService.unboundIdentityError('list messages');
         }
 
         const
-            target                       = to || me,
+            me                           = normalizeMailboxIdentityForComparison(boundIdentity),
+            target                       = normalizeMailboxIdentityForComparison(to || me),
+            normalizedFromIdentity       = normalizeMailboxIdentityForComparison(fromIdentity),
+            targetStorageVariants        = getMailboxIdentityStorageVariants(target),
             requestedTaggedConceptGroups = buildTaggedConceptFilterGroups(taggedConcepts);
 
-        if (target !== me && target !== 'AGENT:*') {
+        if (!sameMailboxIdentity(target, me) && target !== 'AGENT:*') {
             if (!PermissionService.hasPermission(me, target, 'CAN_READ_INBOX_OF')) {
                 throw new Error(`Unauthorized: no CAN_READ_INBOX_OF permission for ${target}`);
             }
@@ -1442,11 +1495,15 @@ class MailboxService extends Base {
         // writes. Mailbox inbox query maps onto "inbound edges targeting me or the
         // broadcast sentinel" — vicinity of those two nodes.
         if (box === 'inbox' || box === 'all') {
-            db.getAdjacentNodes(target, 'inbound');
+            for (const targetVariant of targetStorageVariants) {
+                db.getAdjacentNodes(targetVariant, 'inbound');
+            }
             db.getAdjacentNodes('AGENT:*', 'inbound');
         }
         if (box === 'outbox' || box === 'all') {
-            db.getAdjacentNodes(target, 'inbound');
+            for (const targetVariant of targetStorageVariants) {
+                db.getAdjacentNodes(targetVariant, 'inbound');
+            }
         }
 
         let messages = [];
@@ -1463,14 +1520,14 @@ class MailboxService extends Base {
 
             if (edgeType === 'DELIVERED_TO') {
                 targetNode = edgeTarget;
-                if ((box === 'inbox' || box === 'all') && targetNode === target) {
+                if ((box === 'inbox' || box === 'all') && sameMailboxIdentity(targetNode, target)) {
                     isMatch = true;
                     deliveryEdge = edge;
                 }
             } else if (edgeType === 'SENT_TO') {
                 targetNode = edgeTarget;
                 if (box === 'inbox' || box === 'all') {
-                    if (targetNode === target) {
+                    if (sameMailboxIdentity(targetNode, target)) {
                         isMatch = true;
                     } else if (targetNode === 'AGENT:*') {
                         // Load the full message vicinity before deciding whether this is a
@@ -1484,7 +1541,7 @@ class MailboxService extends Base {
                 }
             } else if (edgeType === 'SENT_BY') {
                 senderNode = edgeTarget;
-                if ((box === 'outbox' || box === 'all') && senderNode === target) {
+                if ((box === 'outbox' || box === 'all') && sameMailboxIdentity(senderNode, target)) {
                     isMatch = true;
                 }
             }
@@ -1535,7 +1592,7 @@ class MailboxService extends Base {
                         }
                     }
 
-                    if (fromIdentity && sentByNodeId !== fromIdentity) continue;
+                    if (normalizedFromIdentity && !sameMailboxIdentity(sentByNodeId, normalizedFromIdentity)) continue;
                     if (threadId && foundThreadId !== threadId) continue;
 
                     if (requestedTaggedConceptGroups.length > 0) {
@@ -1591,10 +1648,11 @@ class MailboxService extends Base {
      * @returns {Promise<Object>}
      */
     async getMessage({ messageId }) {
-        const me = RequestContextService.getAgentIdentityNodeId();
-        if (!me) {
+        const boundIdentity = RequestContextService.getAgentIdentityNodeId();
+        if (!boundIdentity) {
             throw RequestContextService.unboundIdentityError('get message');
         }
+        const me = normalizeMailboxIdentityForComparison(boundIdentity);
 
         const db = GraphService.requireDb('MailboxService.getMessage');
 
@@ -1625,7 +1683,7 @@ class MailboxService extends Base {
 
                 if (edgeType === 'SENT_TO') {
                     sentTo = edgeTarget;
-                    if (edgeTarget === me) {
+                    if (sameMailboxIdentity(edgeTarget, me)) {
                         isDirectRecipient = true;
                     }
                 }
@@ -1636,13 +1694,13 @@ class MailboxService extends Base {
         }
 
         const deliveryEdge = getBroadcastDeliveryEdge(messageId, me);
-        let   isAuthorized = sentBy === me || isDirectRecipient;
+        let   isAuthorized = sameMailboxIdentity(sentBy, me) || isDirectRecipient;
 
         if (!isAuthorized && sentTo === 'AGENT:*') {
             // Legacy broadcasts without per-recipient receipts retain their historical
             // read-path semantics. Receipt-backed broadcasts authorize only snapshotted recipients.
             isAuthorized = deliveryEdge || !hasBroadcastDeliveryEdges(messageId);
-        } else if (!isAuthorized && sentTo && sentTo !== me && sentTo !== 'AGENT:*') {
+        } else if (!isAuthorized && sentTo && !sameMailboxIdentity(sentTo, me) && sentTo !== 'AGENT:*') {
             // Check if me has permission to read sentTo's inbox
             if (PermissionService.hasPermission(me, sentTo, 'CAN_READ_INBOX_OF')) {
                 isAuthorized = true;
@@ -1782,10 +1840,11 @@ class MailboxService extends Base {
      * @returns {Promise<Object>}
      */
     async markRead({ messageId }) {
-        const me = RequestContextService.getAgentIdentityNodeId();
-        if (!me) {
+        const boundIdentity = RequestContextService.getAgentIdentityNodeId();
+        if (!boundIdentity) {
             throw RequestContextService.unboundIdentityError('mark message read');
         }
+        const me = normalizeMailboxIdentityForComparison(boundIdentity);
 
         const db = GraphService.requireDb('MailboxService.markRead');
 
@@ -1805,7 +1864,7 @@ class MailboxService extends Base {
             if (getRecordField(edge, 'source') === messageId && getRecordField(edge, 'type') === 'SENT_TO') {
                 const edgeTarget = getRecordField(edge, 'target');
 
-                if (edgeTarget === me) {
+                if (sameMailboxIdentity(edgeTarget, me)) {
                     isDirectRecipient = true;
                     break;
                 }
@@ -1862,10 +1921,11 @@ class MailboxService extends Base {
      * @returns {Promise<Object>} `{messageId, archivedAt, status: 'archived'}`.
      */
     async archiveMessage({ messageId }) {
-        const me = RequestContextService.getAgentIdentityNodeId();
-        if (!me) {
+        const boundIdentity = RequestContextService.getAgentIdentityNodeId();
+        if (!boundIdentity) {
             throw RequestContextService.unboundIdentityError('archive message');
         }
+        const me = normalizeMailboxIdentityForComparison(boundIdentity);
 
         const db = GraphService.requireDb('MailboxService.archiveMessage');
 
@@ -1884,7 +1944,7 @@ class MailboxService extends Base {
             if (getRecordField(edge, 'source') === messageId && getRecordField(edge, 'type') === 'SENT_TO') {
                 const edgeTarget = getRecordField(edge, 'target');
 
-                if (edgeTarget === me) {
+                if (sameMailboxIdentity(edgeTarget, me)) {
                     isDirectRecipient = true;
                     break;
                 }
@@ -1941,10 +2001,11 @@ class MailboxService extends Base {
      * @returns {Promise<Object>} `{messageId, retracted: true, status: 'retracted'}`.
      */
     async deleteMessage({ messageId }) {
-        const me = RequestContextService.getAgentIdentityNodeId();
-        if (!me) {
+        const boundIdentity = RequestContextService.getAgentIdentityNodeId();
+        if (!boundIdentity) {
             throw RequestContextService.unboundIdentityError('delete message');
         }
+        const me = normalizeMailboxIdentityForComparison(boundIdentity);
 
         const db = GraphService.requireDb('MailboxService.deleteMessage');
 
@@ -1961,7 +2022,7 @@ class MailboxService extends Base {
         for (const edge of db.edges.items) {
             if (getRecordField(edge, 'source') === messageId
                 && getRecordField(edge, 'type') === 'SENT_BY'
-                && getRecordField(edge, 'target') === me) {
+                && sameMailboxIdentity(getRecordField(edge, 'target'), me)) {
                 isSender = true;
                 break;
             }
@@ -2002,10 +2063,11 @@ class MailboxService extends Base {
             throw new Error(`Invalid new task state: ${newState}. Must be one of: ${MailboxService.VALID_TASK_STATES.join(', ')}`);
         }
 
-        const me = RequestContextService.getAgentIdentityNodeId();
-        if (!me) {
+        const boundIdentity = RequestContextService.getAgentIdentityNodeId();
+        if (!boundIdentity) {
             throw RequestContextService.unboundIdentityError('transition task');
         }
+        const me = normalizeMailboxIdentityForComparison(boundIdentity);
 
         const db = GraphService.requireDb('MailboxService.transitionTask');
 
@@ -2032,8 +2094,8 @@ class MailboxService extends Base {
 
         for (const edge of db.edges.items) {
             if (edge.source === taskId) {
-                if (edge.type === 'SENT_BY' && edge.target === me) isOriginator = true;
-                if (edge.type === 'SENT_TO' && (edge.target === me || edge.target === 'AGENT:*')) isAssignee = true;
+                if (edge.type === 'SENT_BY' && sameMailboxIdentity(edge.target, me)) isOriginator = true;
+                if (edge.type === 'SENT_TO' && (sameMailboxIdentity(edge.target, me) || edge.target === 'AGENT:*')) isAssignee = true;
             }
         }
 
@@ -2230,10 +2292,11 @@ class MailboxService extends Base {
      * @returns {Promise<{count: Number}>}
      */
     async countMessages({ box = 'inbox', status = 'all', to, fromIdentity, includeArchived = false } = {}) {
-        const me = RequestContextService.getAgentIdentityNodeId();
-        if (!me) {
+        const boundIdentity = RequestContextService.getAgentIdentityNodeId();
+        if (!boundIdentity) {
             throw RequestContextService.unboundIdentityError('count messages');
         }
+        const me = normalizeMailboxIdentityForComparison(boundIdentity);
 
         // Reject unsupported `box` values explicitly rather than silently aliasing to the inbox
         // path. The branch-on-outbox shape would otherwise return partial results for `box='all'`
@@ -2242,9 +2305,16 @@ class MailboxService extends Base {
             throw new Error(`Cannot count messages: unsupported box value '${box}'. Supported values: 'inbox', 'outbox' ('all' is deferred to a follow-up).`);
         }
 
-        const target = to || me;
+        const target               = normalizeMailboxIdentityForComparison(to || me),
+            normalizedFromIdentity = normalizeMailboxIdentityForComparison(fromIdentity),
+            targetStorageVariants  = getMailboxIdentityStorageVariants(target),
+            senderStorageVariants  = normalizedFromIdentity
+                ? getMailboxIdentityStorageVariants(normalizedFromIdentity)
+                : [],
+            targetStoragePlaceholders = targetStorageVariants.map(() => '?').join(', '),
+            senderStoragePlaceholders = senderStorageVariants.map(() => '?').join(', ');
 
-        if (target !== me && target !== 'AGENT:*') {
+        if (!sameMailboxIdentity(target, me) && target !== 'AGENT:*') {
             if (!PermissionService.hasPermission(me, target, 'CAN_READ_INBOX_OF')) {
                 throw new Error(`Unauthorized: no CAN_READ_INBOX_OF permission for ${target}`);
             }
@@ -2279,8 +2349,8 @@ class MailboxService extends Base {
             : `AND json_extract(e.data, '$.properties.archivedAt') IS NULL`;
 
         // Optional sender filter — applies to inbox only.
-        const senderFilterSql = fromIdentity
-            ? `AND EXISTS (SELECT 1 FROM Edges sb WHERE sb.source = n.id AND sb.type = 'SENT_BY' AND sb.target = ?)`
+        const senderFilterSql = normalizedFromIdentity
+            ? `AND EXISTS (SELECT 1 FROM Edges sb WHERE sb.source = n.id AND sb.type = 'SENT_BY' AND sb.target IN (${senderStoragePlaceholders}))`
             : '';
 
         try {
@@ -2290,9 +2360,9 @@ class MailboxService extends Base {
                     FROM Edges e
                     JOIN Nodes n ON n.id = e.source
                     WHERE e.type = 'SENT_BY'
-                      AND e.target = ?
+                      AND e.target IN (${targetStoragePlaceholders})
                       AND json_extract(n.data, '$.label') = 'MESSAGE'
-                `).get(target);
+                `).get(...targetStorageVariants);
                 return { count: row?.count ?? 0 };
             }
 
@@ -2304,7 +2374,7 @@ class MailboxService extends Base {
                     FROM Edges e
                     JOIN Nodes n ON n.id = e.source
                     WHERE e.type = 'SENT_TO'
-                      AND e.target = ?
+                      AND e.target IN (${targetStoragePlaceholders})
                       AND json_extract(n.data, '$.label') = 'MESSAGE'
                       ${messageReadAtClause}
                       ${messageArchivedAtClause}
@@ -2316,7 +2386,7 @@ class MailboxService extends Base {
                     FROM Edges e
                     JOIN Nodes n ON n.id = e.source
                     WHERE e.type = 'DELIVERED_TO'
-                      AND e.target = ?
+                      AND e.target IN (${targetStoragePlaceholders})
                       AND json_extract(n.data, '$.label') = 'MESSAGE'
                       ${edgeReadAtClause}
                       ${edgeArchivedAtClause}
@@ -2342,11 +2412,11 @@ class MailboxService extends Base {
                 FROM inbox_messages
             `;
 
-            params.push(target);
-            if (fromIdentity) params.push(fromIdentity);
-            params.push(target);
-            if (fromIdentity) params.push(fromIdentity);
-            if (fromIdentity) params.push(fromIdentity);
+            params.push(...targetStorageVariants);
+            if (normalizedFromIdentity) params.push(...senderStorageVariants);
+            params.push(...targetStorageVariants);
+            if (normalizedFromIdentity) params.push(...senderStorageVariants);
+            if (normalizedFromIdentity) params.push(...senderStorageVariants);
 
             const row = sqlite.prepare(inboxSql).get(...params);
             return { count: row?.count ?? 0 };

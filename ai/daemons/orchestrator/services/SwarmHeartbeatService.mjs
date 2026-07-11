@@ -13,9 +13,9 @@ import {
     Memory_LifecycleService as LifecycleService
 }                    from '../../../services.mjs';
 import {getWakeRelevantNotifications} from '../../../services/github-workflow/HealthService.mjs';
-import MailboxService from '../../../services/memory-core/MailboxService.mjs';
-import RequestContextService from '../../../mcp/server/shared/services/RequestContextService.mjs';
-import logger        from '../../../mcp/server/memory-core/logger.mjs';
+import MailboxService                 from '../../../services/memory-core/MailboxService.mjs';
+import RequestContextService          from '../../../mcp/server/shared/services/RequestContextService.mjs';
+import logger                         from '../../../mcp/server/memory-core/logger.mjs';
 import {
     isGateOpen,
     readGateState
@@ -25,16 +25,16 @@ import {
     releaseHeartbeatLock,
     HEARTBEAT_LOCK_PATH
 } from '../../../scripts/lifecycle/heartbeatLock.mjs';
-import {checkSunsetted as checkSunsettedScript}     from '../../../scripts/lifecycle/checkSunsetted.mjs';
+import {checkSunsetted as checkSunsettedScript} from '../../../scripts/lifecycle/checkSunsetted.mjs';
+import {normalizeAgentIdentityNodeId}           from '../../../graph/normalizeAgentIdentityNodeId.mjs';
 import {
-    normalizeAgentIdentityNodeId,
     resumeHarness as resumeHarnessScript
 } from '../../../scripts/lifecycle/resumeHarness.mjs';
-import {checkAllAgentIdle as checkAllAgentIdleScript} from '../../../scripts/lifecycle/checkAllAgentIdle.mjs';
-import {idleOutNudge as idleOutNudgeScript}         from '../../../scripts/lifecycle/idleOutNudge.mjs';
-import WakeSubscriptionService                       from '../../../services/memory-core/WakeSubscriptionService.mjs';
+import {checkAllAgentIdle as checkAllAgentIdleScript}     from '../../../scripts/lifecycle/checkAllAgentIdle.mjs';
+import {idleOutNudge as idleOutNudgeScript}               from '../../../scripts/lifecycle/idleOutNudge.mjs';
+import WakeSubscriptionService                            from '../../../services/memory-core/WakeSubscriptionService.mjs';
 import wakeDecisionServiceInstance, {WakeDecisionService} from './WakeDecisionService.mjs';
-import {swarmWakeCooldown as swarmWakeCooldownScript} from '../../../scripts/lifecycle/swarmWakeCooldown.mjs';
+import {swarmWakeCooldown as swarmWakeCooldownScript}     from '../../../scripts/lifecycle/swarmWakeCooldown.mjs';
 import {
     resolveTargets        as resolveHeartbeatTargets,
     VALID_TARGET_SOURCES
@@ -453,7 +453,7 @@ class SwarmHeartbeatService extends Base {
      */
     async touchLivenessFile() {
         const alivePath = heartbeatAlivePath();
-        const now = new Date();
+        const now       = new Date();
         try {
             await fs.utimes(alivePath, now, now)
         } catch (err) {
@@ -578,7 +578,7 @@ class SwarmHeartbeatService extends Base {
      */
     async getResumeHarnessTargetMetadata(identity) {
         return RequestContextService.run({agentIdentityNodeId: identity}, async () => {
-            const result = await WakeSubscriptionService.list({});
+            const result     = await WakeSubscriptionService.list({});
             const candidates = (result?.subscriptions || [])
                 .filter(subscription =>
                     subscription.trigger === 'SENT_TO_ME' &&
@@ -691,10 +691,10 @@ class SwarmHeartbeatService extends Base {
      */
     async getActiveA2aParticipants() {
         try {
-            const cutoffMs   = Date.now() - 3 * 60 * 60 * 1000;
-            const cutoffIso  = new Date(cutoffMs).toISOString();
-            const db         = this.getGraphDb();
-            const stmt = db.prepare(`
+            const cutoffMs  = Date.now() - 3 * 60 * 60 * 1000;
+            const cutoffIso = new Date(cutoffMs).toISOString();
+            const db        = this.getGraphDb();
+            const stmt      = db.prepare(`
                 SELECT DISTINCT identity FROM (
                     SELECT e.target AS identity
                     FROM Edges e
@@ -741,7 +741,7 @@ class SwarmHeartbeatService extends Base {
      */
     async getWakeSubscriptionIdentities() {
         try {
-            const db = this.getGraphDb();
+            const db   = this.getGraphDb();
             const stmt = db.prepare(`
                 SELECT DISTINCT json_extract(data, '$.properties.agentIdentity') as identity
                 FROM Nodes
@@ -790,10 +790,10 @@ class SwarmHeartbeatService extends Base {
         const notifications = await this.getGitHubNotifications();
         if (notifications.length === 0) return;
 
-        const durableSeenIds = Array.isArray(state[targetIdentity]) ? state[targetIdentity] : [],
+        const durableSeenIds  = Array.isArray(state[targetIdentity]) ? state[targetIdentity] : [],
               volatileSeenIds = this.getVolatileGitHubNotificationSeenIds(targetIdentity),
-              seenIds = new Set([...durableSeenIds, ...volatileSeenIds]);
-        const unseen  = notifications.filter(notification => !seenIds.has(notification.id));
+              seenIds         = new Set([...durableSeenIds, ...volatileSeenIds]);
+        const unseen = notifications.filter(notification => !seenIds.has(notification.id));
         if (unseen.length === 0) return;
 
         const result = await WakeSubscriptionService.emitHeartbeatPulse({
@@ -903,7 +903,7 @@ class SwarmHeartbeatService extends Base {
      */
     async getGitHubNotifications() {
         try {
-            const output = await this.runCmd('gh', ['api', 'notifications?participating=true']);
+            const output        = await this.runCmd('gh', ['api', 'notifications?participating=true']);
             const notifications = getWakeRelevantNotifications(JSON.parse(output || '[]'));
             return await this.enrichGitHubNotificationsWithPullRequestState(notifications)
         } catch (err) {
@@ -1013,7 +1013,7 @@ class SwarmHeartbeatService extends Base {
      */
     async getUnreadCount() {
         try {
-            const db = this.getGraphDb();
+            const db   = this.getGraphDb();
             const stmt = db.prepare(`
                 WITH unread_messages AS (
                     SELECT n.id AS messageId
@@ -1084,7 +1084,7 @@ class SwarmHeartbeatService extends Base {
      */
     async isPushCapable(identity) {
         try {
-            const db = this.getGraphDb();
+            const db   = this.getGraphDb();
             const stmt = db.prepare(`
                 SELECT count(*) as count
                 FROM Nodes
@@ -1161,9 +1161,9 @@ class SwarmHeartbeatService extends Base {
         try {
             return await RequestContextService.run({agentIdentityNodeId: identity}, async () => {
                 const result = await MailboxService.listMessages({
-                    to            : identity,
-                    taggedConcepts: ['wake-readiness'],
-                    limit         : 20,
+                    to             : identity,
+                    taggedConcepts : ['wake-readiness'],
+                    limit          : 20,
                     includeArchived: false
                 });
                 return result?.messages || [];
@@ -1235,9 +1235,9 @@ class SwarmHeartbeatService extends Base {
      */
     runCmd(command, args = []) {
         return new Promise((resolve, reject) => {
-            const child = spawn(command, args, {stdio: ['ignore', 'pipe', 'pipe']});
-            let stdout = '';
-            let stderr = '';
+            const child  = spawn(command, args, {stdio: ['ignore', 'pipe', 'pipe']});
+            let   stdout = '';
+            let   stderr = '';
             child.stdout.on('data', chunk => { stdout += chunk.toString() });
             child.stderr.on('data', chunk => { stderr += chunk.toString() });
             child.on('error', reject);

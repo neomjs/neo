@@ -56,9 +56,9 @@ import {
     isHarnessPresenceFresh
 } from './queries.mjs';
 import {
-    applyHarnessMetadataDefaults,
-    normalizeAgentIdentityNodeId
+    applyHarnessMetadataDefaults
 } from '../../scripts/lifecycle/harnessRouting.mjs';
+import {normalizeAgentIdentityNodeId} from '../../graph/normalizeAgentIdentityNodeId.mjs';
 import {
     getDefaultInstancePid,
     resolveGuiInstancePid

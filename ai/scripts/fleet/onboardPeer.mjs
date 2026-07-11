@@ -6,6 +6,7 @@ import {fileURLToPath}             from 'node:url';
 import {createFleetRegistryBridge} from '../../../src/ai/fleet/createFleetRegistryBridge.mjs';
 
 import {LAUNCHABLE_HARNESS_TYPES, getHarnessAuthMode} from '../../services/fleet/deriveHarnessLaunchSpec.mjs';
+import {normalizeAgentIdentityNodeId}                 from '../../graph/normalizeAgentIdentityNodeId.mjs';
 
 /**
  * @module ai/scripts/fleet/onboardPeer
@@ -153,7 +154,7 @@ export function originDevRosterHasResident({residentId, repoRoot = REPO_ROOT, ex
         throw new Error('onboardPeer: cannot parse the merged identity roster at origin/dev; refresh the ref and re-run', {cause: error});
     }
 
-    return ids.has(`@${normalized.token}`)
+    return ids.has(normalizeAgentIdentityNodeId(normalized.token))
 }
 
 /**
@@ -606,7 +607,7 @@ async function main() {
         const sqlite              = new Database(graphPath, {readonly: true});
 
         try {
-            graphNodeSeeded = Boolean(sqlite.prepare('SELECT id FROM Nodes WHERE id = ? LIMIT 1').get(`@${intent.residentId}`));
+            graphNodeSeeded = Boolean(sqlite.prepare('SELECT id FROM Nodes WHERE id = ? LIMIT 1').get(normalizeAgentIdentityNodeId(intent.residentId)));
         } finally {
             sqlite.close();
         }
