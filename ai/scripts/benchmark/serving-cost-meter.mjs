@@ -78,32 +78,62 @@ export function portFromHostUrl(hostUrl) {
 }
 
 /**
- * Resolves the role→port map from the config SSOT — merged honestly when roles share a port.
+ * Whether a configured endpoint URL points at THIS machine — the only case where sampling
+ * local PIDs measures the endpoint's true owner. A remote endpoint is skipped WITH a declared
+ * reason at startup, never silently sampled into nonsense.
+ * @param {String} hostUrl
+ * @returns {Boolean}
+ */
+export function isLocalEndpoint(hostUrl) {
+    try {
+        return ['127.0.0.1', 'localhost', '::1', '0.0.0.0'].includes(new URL(hostUrl).hostname)
+    } catch (e) {
+        return false
+    }
+}
+
+/**
+ * Resolves the role→port map from the config SSOT — merged honestly when roles share a port,
+ * and LOCAL endpoints only (a remote host's load cannot be measured from this machine's
+ * process table; such endpoints surface in `skipped` with the reason, never as silent holes).
  * @param {Object} config The AiConfig data proxy.
- * @returns {Object[]} `[{role, port}]` with unique ports.
+ * @returns {{rolePorts: Object[], skipped: Object[]}} unique-port `{role, port}` entries + declared skips.
  */
 export function resolveRolePorts(config) {
     const candidates = [
-        {port: portFromHostUrl(config.openAiCompatible.host), role: 'model-server-openai-compatible'},
-        {port: portFromHostUrl(config.ollama.host),           role: 'model-server-ollama'},
-        {port: Number(config.engines.chroma.portProd),        role: 'vector-store'}
+        {hostUrl: config.openAiCompatible.host,                          role: 'model-server-openai-compatible'},
+        {hostUrl: config.ollama.host,                                    role: 'model-server-ollama'},
+        {hostUrl: `http://127.0.0.1:${config.engines.chroma.portProd}`,  role: 'vector-store'}
     ];
 
     // one entry per PORT and one ROLE per entry — two configured endpoints on one port
     // collapse to the first role (same process, one honest stream), while distinct ports
     // keep distinct roles so their sample streams never interleave
-    const byPort = new Map();
+    const byPort  = new Map(),
+          skipped = [];
 
-    for (const {port, role} of candidates) {
+    for (const {hostUrl, role} of candidates) {
+        if (!isLocalEndpoint(hostUrl)) {
+            skipped.push({reason: `endpoint is not local (${hostUrl}) — its process table is not ours to sample`, role});
+            continue
+        }
+
+        const port = portFromHostUrl(hostUrl);
+
         Number.isFinite(port) && port > 0 && !byPort.has(port) && byPort.set(port, {port, role})
     }
 
-    return [...byPort.values()]
+    return {rolePorts: [...byPort.values()], skipped}
 }
 
 /**
- * Samples the processes currently owning one port: summed rss bytes + summed pcpu.
- * Missing owner (server down / restarting) returns null — recorded as a coverage gap by
+ * Samples the processes LISTENING on one port: summed rss bytes + summed pcpu.
+ *
+ * Listener-only on purpose: a bare port query matches every process with a socket on the
+ * port — INCLUDING connected clients — so a busy client (a summarizer mid-batch) would be
+ * misattributed as server load. `-sTCP:LISTEN` scopes ownership to the actual server.
+ *
+ * Missing listener (server down / restarting) returns null — recorded as a coverage gap by
  * omission, never as a fabricated zero-load sample.
  * @param {Number} port
  * @returns {Promise<{cpuPercent: Number, rssBytes: Number}|null>}
@@ -112,10 +142,10 @@ export async function samplePort(port) {
     let pids;
 
     try {
-        const {stdout} = await run('lsof', ['-ti', `:${port}`]);
+        const {stdout} = await run('lsof', ['-ti', `:${port}`, '-sTCP:LISTEN']);
         pids = stdout.trim().split('\n').filter(Boolean)
     } catch (e) {
-        return null // no owner right now
+        return null // no listener right now
     }
 
     if (!pids.length) {
@@ -151,11 +181,24 @@ async function main() {
           windowMs   = parseWindow(options.window),
           intervalMs = Number(options.interval) * 1000,
           threshold  = Number(options.threshold),
-          config     = aiConfig.data,
-          rolePorts  = resolveRolePorts(config);
+          config     = aiConfig.data;
+
+    // startup validation fails loud BEFORE the first sample — a NaN tick or threshold would
+    // otherwise surface hours later as an empty or garbage window
+    if (!Number.isFinite(intervalMs) || intervalMs <= 0) {
+        throw new Error(`serving-cost-meter: --interval must be a positive number of seconds, got "${options.interval}"`)
+    }
+
+    if (!Number.isFinite(threshold) || threshold <= 0) {
+        throw new Error(`serving-cost-meter: --threshold must be a positive pcpu percentage, got "${options.threshold}"`)
+    }
+
+    const {rolePorts, skipped} = resolveRolePorts(config);
+
+    skipped.forEach(({reason, role}) => console.log(`[serving-cost-meter] skipping ${role}: ${reason}`));
 
     if (!rolePorts.length) {
-        throw new Error('serving-cost-meter: no endpoint ports resolvable from the config SSOT — nothing to measure')
+        throw new Error('serving-cost-meter: no LOCAL endpoint ports resolvable from the config SSOT — nothing to measure on this machine')
     }
 
     const startedAt   = Date.now(),
@@ -189,6 +232,7 @@ async function main() {
         metricBags: [],
         periodStart,
         roles     : {},
+        skipped, // declared measurement holes (remote endpoints) live in the artifact, not just stdout
         threshold,
         windowMs
     };

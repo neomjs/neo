@@ -1,7 +1,8 @@
 import {test, expect} from '@playwright/test';
 
-import {aggregateWindow, buildMetricBags, classifySample} from '../../../../../ai/scripts/benchmark/helpers/servingCostCore.mjs';
-import {createMetricId, validateBusinessProperties}       from '../../../../../ai/graph/businessSchema.mjs';
+import {aggregateWindow, buildMetricBags, classifySample}                from '../../../../../ai/scripts/benchmark/helpers/servingCostCore.mjs';
+import {createMetricId, validateBusinessProperties}                      from '../../../../../ai/graph/businessSchema.mjs';
+import {isLocalEndpoint, parseWindow, portFromHostUrl, resolveRolePorts} from '../../../../../ai/scripts/benchmark/serving-cost-meter.mjs';
 
 /**
  * Pins the serving-cost meter's pure core — the deterministic heart of the measurement
@@ -114,5 +115,66 @@ test.describe('serving-cost meter core (the pure measurement transforms)', () =>
         // provenance is not optional — a missing identity field throws, never defaults
         expect(() => buildMetricBags(aggregate, {...identity, hardwareId: ''}))
             .toThrow('provenance is not optional')
+    });
+});
+
+/**
+ * Pins the CLI's pure resolution helpers (import-safe — the entrypoint only parses argv when
+ * executed directly): window parsing fails closed, endpoint locality gates what this
+ * machine's process table may honestly claim to measure, and role/port resolution dedupes by
+ * port while DECLARING remote skips instead of silently dropping them.
+ */
+test.describe('serving-cost meter CLI helpers (resolution honesty)', () => {
+    test('window parsing accepts s/m/h and fails closed on anything else', () => {
+        expect(parseWindow('90s')).toBe(90000);
+        expect(parseWindow('45m')).toBe(2700000);
+        expect(parseWindow('8h')).toBe(28800000);
+        expect(() => parseWindow('8')).toThrow('--window');
+        expect(() => parseWindow('8d')).toThrow('--window');
+        expect(() => parseWindow('')).toThrow('--window')
+    });
+
+    test('port extraction handles explicit ports, protocol defaults, and garbage', () => {
+        expect(portFromHostUrl('http://127.0.0.1:11434')).toBe(11434);
+        expect(portFromHostUrl('http://localhost')).toBe(80);
+        expect(portFromHostUrl('https://example.com')).toBe(443);
+        expect(portFromHostUrl('not a url')).toBeNull()
+    });
+
+    test('endpoint locality is the sampling gate: only THIS machine\'s listeners are ours to measure', () => {
+        expect(isLocalEndpoint('http://127.0.0.1:1234')).toBe(true);
+        expect(isLocalEndpoint('http://localhost:11434')).toBe(true);
+        expect(isLocalEndpoint('http://0.0.0.0:8000')).toBe(true);
+        expect(isLocalEndpoint('http://192.168.1.50:11434')).toBe(false);
+        expect(isLocalEndpoint('https://api.example.com')).toBe(false);
+        expect(isLocalEndpoint('garbage')).toBe(false)
+    });
+
+    test('role/port resolution dedupes shared ports to one honest stream and DECLARES remote skips', () => {
+        const config = {
+            engines         : {chroma: {portProd: 8000}},
+            ollama          : {host: 'http://remote-box:11434'},
+            openAiCompatible: {host: 'http://127.0.0.1:1234'}
+        };
+
+        const {rolePorts, skipped} = resolveRolePorts(config);
+
+        expect(rolePorts).toEqual([
+            {port: 1234, role: 'model-server-openai-compatible'},
+            {port: 8000, role: 'vector-store'}
+        ]);
+        expect(skipped).toHaveLength(1);
+        expect(skipped[0].role).toBe('model-server-ollama');
+        expect(skipped[0].reason).toContain('not local');
+
+        // shared port → first role wins, one stream (same process, never interleaved samples)
+        const shared = resolveRolePorts({
+            engines         : {chroma: {portProd: 11434}},
+            ollama          : {host: 'http://127.0.0.1:11434'},
+            openAiCompatible: {host: 'http://127.0.0.1:11434'}
+        });
+
+        expect(shared.rolePorts).toEqual([{port: 11434, role: 'model-server-openai-compatible'}]);
+        expect(shared.skipped).toEqual([])
     });
 });
