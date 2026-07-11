@@ -21,13 +21,16 @@ import {
     composeUnifiedRecord,
     deriveAgentVelocityFields,
     deriveVelocityFields,
+    DEFAULT_RETAINED_VERSIONS,
     HIGH_IMPACT_THRESHOLD,
     planDailyWindows,
     planSessionWindows,
     resolveDailyWindow,
     resolvePartitionKeys,
     resolveSessionWindow,
+    TEMPORAL_AGGREGATION_VERSION,
     VELOCITY_FIELD_SOURCES,
+    versionsToPrune,
     WINDOW_SCOPED_VELOCITY_FIELDS
 } from '../../../../../../../ai/services/memory-core/helpers/temporalSummaryAggregationEngine.mjs';
 
@@ -353,5 +356,34 @@ test.describe('Neo.ai.services.memory-core.temporalSummaryAggregationEngine', ()
         for (let i = 1; i < hourly.length; i++) {
             expect(hourly[i].windowEnd).toBe(hourly[i - 1].windowStart)
         }
+    });
+
+    test('records default to the contract version; a version bump mints a new append-only id for the same window', () => {
+        const window = {level: 'daily', windowStart: '2026-07-05T00:00:00.000Z', windowEnd: '2026-07-06T00:00:00.000Z'};
+
+        // both compose paths stamp the CONTRACT version by default → stable id, so a same-contract re-fold overwrites
+        const unified = composeUnifiedRecord(window);
+        expect(unified.metadata.version).toBe(TEMPORAL_AGGREGATION_VERSION);
+        expect(unified.id).toContain(`-v${TEMPORAL_AGGREGATION_VERSION}`);
+        expect(composeAgentRecord({...window, partition: '@neo-opus-ada'}).metadata.version).toBe(TEMPORAL_AGGREGATION_VERSION);
+
+        // a bumped contract version mints a DIFFERENT id for the same window+track — append-only, not overwrite
+        expect(composeUnifiedRecord({...window, version: TEMPORAL_AGGREGATION_VERSION + 1}).id).not.toBe(unified.id)
+    });
+
+    test('versionsToPrune keeps the newest N contract-versions and returns the older overflow to delete', () => {
+        // 5 versions, keep newest 3 → prune {2, 1}
+        expect(versionsToPrune({existingVersions: [1, 2, 3, 4, 5], retainedVersions: 3})).toEqual([2, 1]);
+        // within the bound → nothing to prune
+        expect(versionsToPrune({existingVersions: [1, 2, 3], retainedVersions: 3})).toEqual([]);
+        // sparse/gapped + duplicate + unordered: newest-N by COUNT, not a contiguous range
+        expect(versionsToPrune({existingVersions: [7, 2, 7, 9, 4], retainedVersions: 2})).toEqual([4, 2]);
+        // invalid entries (non-integer / < 1) are ignored — never treated as record ids
+        expect(versionsToPrune({existingVersions: [3, 2, 0, -1, 1.5, 1], retainedVersions: 2})).toEqual([1]);
+        // retainedVersions coerces to >= 1; the default keeps DEFAULT_RETAINED_VERSIONS
+        expect(versionsToPrune({existingVersions: [3, 2, 1], retainedVersions: 0})).toEqual([2, 1]);
+        expect(versionsToPrune({existingVersions: [4, 3, 2, 1]})).toEqual([1]);
+        expect(DEFAULT_RETAINED_VERSIONS).toBe(3);
+        expect(versionsToPrune()).toEqual([])
     })
 });

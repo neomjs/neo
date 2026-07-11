@@ -59,6 +59,23 @@ export const WINDOW_SCOPED_VELOCITY_FIELDS = Object.freeze([
 export const HIGH_IMPACT_THRESHOLD = 90;
 
 /**
+ * @summary The aggregation CONTRACT version stamped on every record this engine composes. It is NOT a per-cycle
+ * counter: re-folding a window under the same contract keeps the version, so the deterministic doc id is stable
+ * and re-aggregation overwrites in place (the settling-sources case). Bump this ONLY when the fold or source
+ * contract changes materially — then new records mint under the next version while the prior version's records
+ * stay queryable (append-only history), bounded by {@link versionsToPrune}.
+ * @type {Number}
+ */
+export const TEMPORAL_AGGREGATION_VERSION = 1;
+
+/**
+ * @summary How many of the newest contract-versions the retention policy keeps per window+track; older versions
+ * are prune-eligible. Bounds durable-tier growth so append-only version history cannot grow without limit.
+ * @type {Number}
+ */
+export const DEFAULT_RETAINED_VERSIONS = 3;
+
+/**
  * @summary Folds a window's fetched source rows into the six velocity fields. Pure + deterministic:
  * identical input → identical output; an absent or empty source folds to an honest `0` / `{}` (a window
  * with no merged PRs reports `mergedPrs: 0`, never a faked or omitted count).
@@ -190,7 +207,7 @@ export function resolvePartitionKeys(agentIdentities = []) {
  * @param {Object} [params.sources={}] The window's fetched source arrays ({@link deriveVelocityFields} shape).
  * @returns {{id:String, metadata:Object, velocityFields:Object}}
  */
-export function composeUnifiedRecord({level, windowStart, windowEnd, version = 1, sources = {}}) {
+export function composeUnifiedRecord({level, windowStart, windowEnd, version = TEMPORAL_AGGREGATION_VERSION, sources = {}}) {
     return buildTemporalSummaryDocument({
         level,
         partition     : UNIFIED_PARTITION,
@@ -240,7 +257,7 @@ export function deriveAgentVelocityFields({partition, sources = {}}) {
  * @param {Object} [params.sources={}] The window's fetched source arrays ({@link deriveVelocityFields} shape).
  * @returns {{id:String, metadata:Object, velocityFields:Object}}
  */
-export function composeAgentRecord({level, partition, windowStart, windowEnd, version = 1, sources = {}}) {
+export function composeAgentRecord({level, partition, windowStart, windowEnd, version = TEMPORAL_AGGREGATION_VERSION, sources = {}}) {
     return buildTemporalSummaryDocument({
         level,
         partition,
@@ -333,4 +350,22 @@ export function planSessionWindows({anchor, hourCount = 24} = {}) {
     }
 
     return windows
+}
+
+/**
+ * @summary The append-only retention decision: given the versions currently persisted for ONE window+track,
+ * returns the versions to prune — everything except the newest {@link DEFAULT_RETAINED_VERSIONS}. Pure +
+ * deterministic; the service applies the delete. Retention is defined by COUNT (keep newest-N), so a sparse or
+ * gapped version sequence still bounds cleanly. Non-integer / `< 1` versions are ignored (never valid record ids).
+ * @param {Object}   params
+ * @param {Number[]} [params.existingVersions=[]]                        Versions currently persisted for the window+track.
+ * @param {Number}   [params.retainedVersions=DEFAULT_RETAINED_VERSIONS] Newest versions to keep (coerced to >= 1).
+ * @returns {Number[]} The older overflow versions to delete (newest retained, the rest returned for pruning).
+ */
+export function versionsToPrune({existingVersions = [], retainedVersions = DEFAULT_RETAINED_VERSIONS} = {}) {
+    const
+        keep     = Number.isInteger(retainedVersions) && retainedVersions > 0 ? retainedVersions : 1,
+        distinct = [...new Set(existingVersions)].filter(version => Number.isInteger(version) && version >= 1).sort((a, b) => b - a);
+
+    return distinct.slice(keep)
 }
