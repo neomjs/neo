@@ -408,13 +408,9 @@ class AgentOrchestrator extends Base {
             const agent = this.createAgent();
 
             // construct() auto-fired the agent's initAsync; ready() awaits it without the former
-            // double-run (which created every MCP client twice). Boot failures degrade inside
-            // Agent.initAsync and surface here, keeping this catch block the error path.
+            // double-run (which created every MCP client twice) and re-throws a captured boot
+            // failure (the Agent readiness contract), keeping this catch block the error path.
             await agent.ready();
-
-            if (agent.initError) {
-                throw agent.initError;
-            }
 
             console.log('   Injecting Golden Path Directives into Scheduler...');
 

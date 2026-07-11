@@ -102,17 +102,33 @@ ALWAYS use your file system or knowledge base tools to read the relevant source 
     /**
      * The captured boot failure when the construct-fired `initAsync()` could not complete.
      * The framework fires `initAsync()` with no external observer to reject to, and a
-     * rejection there would leave `ready()` hanging forever — so boot failures degrade
-     * instead (the GraphService precedent): `ready()` resolves, this field carries the
-     * error, and consumers own the disposition after awaiting `ready()`.
+     * rejection there would leave the base ready promise hanging forever — so the boot
+     * captures the failure here and {@link #ready} re-throws it: a broken Agent (no loop,
+     * no clients) must never look success-shaped to ANY consumer boundary.
      * @member {Error|null} initError=null
      */
     initError = null
 
     /**
+     * Sharpens the base readiness contract: the base promise resolves when the construct-fired
+     * init COMPLETED — including a captured-failure completion — but an Agent whose boot failed
+     * holds no usable runtime. Re-throwing {@link #initError} here makes a failed boot
+     * observable at every direct consumer boundary (the orchestrator, `delegate()`'s sub-agent
+     * cache, standalone scripts) without any of them reaching for the field.
+     * @returns {Promise<void>}
+     */
+    async ready() {
+        await super.ready();
+
+        if (this.initError) {
+            throw this.initError
+        }
+    }
+
+    /**
      * Async initialization sequence.
      * Creates and connects all configured clients, then initializes the Cognitive Runtime.
-     * Failures degrade into {@link #initError} rather than rejecting (see the field JSDoc).
+     * Failures are captured into {@link #initError}, which {@link #ready} re-throws.
      * @returns {Promise<void>}
      */
     async initAsync() {

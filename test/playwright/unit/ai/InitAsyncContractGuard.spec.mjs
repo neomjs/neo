@@ -22,12 +22,38 @@ const SCAN_ROOTS = ['src', 'ai'];
 const EXEMPT_FILES = new Set(['src/core/Base.mjs']);
 
 // Call-anchored, not await-anchored: thunks and passed references (`start: () => X.initAsync()`)
-// are the same double-run bug without an `await` keyword in front.
-const EXTERNAL_INIT_CALL = /(?<!super)\.initAsync\(\)/;
+// are the same double-run bug without an `await` keyword in front. Syntax-tolerant: optional
+// chaining (`.initAsync?.()`) and whitespace variants evaded the first, exact-literal shape of
+// this pattern — the fixture self-test below pins every variant permanently.
+const EXTERNAL_INIT_CALL = /(?<!super)\.initAsync\s*(\?\.)?\s*\(/;
 
 // Any `X._initPromise` where X is not `this`: reads, writes, and null-resets are all reach-ins.
 // Owner-internal `this._initPromise` stays legal until the bespoke guards are deleted.
 const INIT_PROMISE_REACH_IN = /(?<!this)\._initPromise/;
+
+// The permanent regex falsifiers: every syntax variant that MUST flag, and every legitimate
+// form that MUST pass. A future pattern change that un-catches a variant fails here — the
+// tree can be at zero while the regex is wrong, and this is the test that knows.
+const MUST_FLAG = [
+    'await GraphService.initAsync()',
+    'await client.initAsync?.()',
+    'start: () => RecorderService.initAsync(),',
+    'await service.initAsync ()',
+    'await service.initAsync?. ()',
+    'if (LifecycleService._initPromise) {',
+    'await LifecycleService._initPromise;',
+    'GraphService._initPromise = null;',
+    'if (service?._initPromise) {'
+];
+
+const MUST_PASS = [
+    'await super.initAsync();',
+    'async initAsync() {',
+    '// await myInstance.initAsync() would double-run the boot',
+    ' * Calling it externally (e.g. `await myInstance.initAsync()`) duplicates init.',
+    'await this._initPromise;',
+    'this._initPromise = (async () => {'
+];
 
 /**
  * @summary Recursively collects .mjs files under a root, skipping build/dependency output.
@@ -66,12 +92,35 @@ function isCommentLine(line) {
 }
 
 /**
- * @summary Scans the production trees for one violation pattern.
- * @param {RegExp} pattern
+ * @summary The single line classifier BOTH the tree scan and the fixture self-test run through —
+ * one code path, so the fixtures genuinely falsify what the scan executes.
+ * @param {String} line
+ * @returns {String|null} 'external-initAsync' | 'initPromise-reach-in' | null
+ */
+function violationLabel(line) {
+    // definitions (`async initAsync()`) and `super.initAsync()` chains are the contract,
+    // not violations; comment prose is documentation
+    if (isCommentLine(line) || line.includes('async initAsync(')) {
+        return null
+    }
+
+    if (EXTERNAL_INIT_CALL.test(line)) {
+        return 'external-initAsync'
+    }
+
+    if (INIT_PROMISE_REACH_IN.test(line)) {
+        return 'initPromise-reach-in'
+    }
+
+    return null
+}
+
+/**
+ * @summary Scans the production trees for violations of one label class.
  * @param {String} label
  * @returns {String[]} `file:line: source` entries
  */
-function scanFor(pattern, label) {
+function scanFor(label) {
     const violations = [];
 
     for (const root of SCAN_ROOTS) {
@@ -83,13 +132,7 @@ function scanFor(pattern, label) {
             }
 
             fs.readFileSync(file, 'utf8').split('\n').forEach((line, index) => {
-                // definitions (`async initAsync()`) and `super.initAsync()` chains are the contract,
-                // not violations; comment prose is documentation
-                if (isCommentLine(line) || line.includes('async initAsync(')) {
-                    return
-                }
-
-                if (pattern.test(line)) {
+                if (violationLabel(line) === label) {
                     violations.push(`${relative}:${index + 1} [${label}]: ${line.trim()}`)
                 }
             })
@@ -101,7 +144,7 @@ function scanFor(pattern, label) {
 
 test.describe('core.Base init/ready contract guard (production trees)', () => {
     test('no external initAsync() call sites exist in src/ or ai/', () => {
-        const violations = scanFor(EXTERNAL_INIT_CALL, 'external-initAsync');
+        const violations = scanFor('external-initAsync');
 
         expect(violations,
             'External initAsync() calls double-execute init ("fatal duplication bugs" — src/core/Base.mjs warning). ' +
@@ -110,11 +153,23 @@ test.describe('core.Base init/ready contract guard (production trees)', () => {
     });
 
     test('no _initPromise reach-ins exist in src/ or ai/', () => {
-        const violations = scanFor(INIT_PROMISE_REACH_IN, 'initPromise-reach-in');
+        const violations = scanFor('initPromise-reach-in');
 
         expect(violations,
             '`X._initPromise` is a private lifecycle duplication — ready()/isReady are the contract surface. ' +
             'Await the instance\'s ready() instead:\n' + violations.join('\n')
         ).toEqual([])
+    });
+
+    test('the classifier itself is pinned: every syntax variant flags, every legitimate form passes', () => {
+        // a green tree scan through a too-narrow regex is a false zero — this is the test
+        // that fails when the PATTERN regresses, independent of tree state
+        for (const line of MUST_FLAG) {
+            expect(violationLabel(line), `must flag but passed: ${line}`).not.toBeNull()
+        }
+
+        for (const line of MUST_PASS) {
+            expect(violationLabel(line), `must pass but flagged: ${line}`).toBeNull()
+        }
     });
 });

@@ -138,7 +138,7 @@ test.describe('purgeNoContentGraphMemories.mjs', () => {
         const result = await runNoContentGraphMemoryCleanup({
             lifecycle   : {ready: async () => {}},
             graphService: {
-                initAsync  : async () => {},
+                ready      : async () => {},
                 db         : {storage: {db}},
                 removeNodes: ids => removed.push(...ids)
             },
@@ -177,7 +177,7 @@ test.describe('purgeNoContentGraphMemories.mjs', () => {
             confirmation: APPLY_CONFIRMATION_TOKEN,
             lifecycle   : {ready: async () => {}},
             graphService: {
-                initAsync  : async () => {},
+                ready      : async () => {},
                 db         : {storage: {db}},
                 removeNodes: ids => {
                     removed.push(...ids);
