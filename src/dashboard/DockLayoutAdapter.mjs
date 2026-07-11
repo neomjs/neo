@@ -569,9 +569,17 @@ class DockLayoutAdapter extends Base {
             layoutNtype = orientation === 'vertical' ? 'vbox' : 'hbox';
 
         children.forEach((childId, index) => {
+            const projected = this.projectNode(childId, context);
+
             items.push({
-                ...this.projectNode(childId, context),
-                flex: flexValues[index]
+                ...projected,
+                flex : flexValues[index],
+                // The committed sizes are the SOLE geometry authority. Flexbox's default
+                // `min-height/min-width: auto` lets a zone's min-content floor cap the
+                // distribution — the rendered split then silently deviates from the
+                // document (rects freeze while the flex values are correct). Zone content
+                // clips or scrolls internally instead of overruling the document.
+                style: {...projected.style, minHeight: 0, minWidth: 0}
             });
 
             if (index < children.length - 1) {
