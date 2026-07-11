@@ -315,6 +315,13 @@ export function stageOrganism({stageDir = STAGE_DIR, electronVersion} = {}) {
     fs.rmSync(stageDir, {force: true, recursive: true});
     fs.mkdirSync(stageDir, {recursive: true});
 
+    // Deterministic asset freshness: the stage copies dist/development/css AS-IS, and a stale
+    // build renders the packaged window fully broken while every existence probe stays green
+    // (live incident: a theming merge landed after the last local theme build). The artifact
+    // never trusts checkout state — it rebuilds.
+    console.log('[pack] building dev themes from current SCSS');
+    run('node', ['buildScripts/build/themes.mjs', '-f', '-n', '-e', 'dev', '-t', 'all'], {cwd: repoRoot});
+
     const {files, trees} = deriveCopySpecs();
 
     for (const tree of trees) {

@@ -624,6 +624,21 @@ app.whenReady().then(async () => {
 
     await awaitRequiredAssets();
 
+    // The VISUAL verdict: mounted-node counts and asset probes cannot see a broken layout (stale
+    // built themes, corrupted template data — a live incident shipped exactly that). Every smoke
+    // run captures the primary window so a human — or the next agent — can LOOK at what actually
+    // rendered. Packaged mode writes to userData (the app bundle is read-only-ish).
+    try {
+        const
+            image    = await win1.capturePage(),
+            shotPath = path.join(packagedMode ? app.getPath('userData') : harnessDir, 'smoke-shot.png');
+
+        (await import('node:fs')).writeFileSync(shotPath, image.toPNG());
+        console.log('HARNESS_SMOKE_SHOT ' + shotPath)
+    } catch (error) {
+        console.log('HARNESS_SMOKE_SHOT_FAIL ' + error.message)
+    }
+
     // The Brain leg (Arm B): the isolated organism proven through its OWN consumable surfaces —
     // the resolved-leaf isolation matrix, genuine orchestrator + fleet readiness, a REAL wire
     // verb from the renderer (the AC's "window reaches the fleet transport"), then full-tree
