@@ -10,7 +10,10 @@
  * @see ai/scripts/lifecycle/resumeHarness.mjs
  * @see ai/daemons/wake/daemon.mjs
  */
-import {IDENTITIES} from '../../graph/identityRoots.mjs';
+import {IDENTITIES}                   from '../../graph/identityRoots.mjs';
+import {normalizeAgentIdentityNodeId} from '../../graph/normalizeAgentIdentityNodeId.mjs';
+
+export {normalizeAgentIdentityNodeId};
 
 const FAMILY_HARNESS_TARGETS = Object.freeze({
     claude: Object.freeze({
@@ -36,15 +39,6 @@ const APP_HARNESS_DEFAULTS = Object.freeze({
     })
 });
 
-/**
- * @summary Normalize a GitHub-login-style identity into AgentIdentity node-id form.
- * @param {String} identity Raw identity from env/config/CLI.
- * @returns {String} Canonical AgentIdentity node id, or an empty string for empty input.
- */
-export function normalizeAgentIdentityNodeId(identity) {
-    const value = String(identity ?? '').trim();
-    return value && !value.startsWith('@') ? `@${value}` : value;
-}
 /**
  * @summary Apply host-app default shortcuts while preserving explicit metadata.
  *

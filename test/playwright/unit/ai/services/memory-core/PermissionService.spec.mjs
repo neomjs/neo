@@ -171,6 +171,37 @@ test.describe('Neo.ai.services.memory-core.PermissionService', () => {
         expect(PermissionService.hasPermission('@alice', 'AGENT:*', 'CAN_READ_INBOX_OF')).toBe(true);
     });
 
+    test('#15027 canonicalizes permission operands at every public boundary', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@@bob'}, async () => {
+            await PermissionService.grantPermission({to: 'alice', scope: 'CAN_READ_INBOX_OF'});
+        });
+
+        const [edge] = GraphService.db.edges.items;
+        expect(edge.source).toBe('@alice');
+        expect(edge.target).toBe('@bob');
+
+        GraphService.upsertNode({id: 'alice', type: 'AGENT', name: 'Legacy Alice', properties: {}});
+        GraphService.upsertNode({id: '@@bob', type: 'AGENT', name: 'Legacy Bob', properties: {}});
+        GraphService.db.edges.remove([edge]);
+        GraphService.linkNodes('alice', '@@bob', 'CAN_READ_INBOX_OF', 1.0);
+
+        expect(PermissionService.hasPermission('@@alice', 'bob', 'CAN_READ_INBOX_OF')).toBe(true);
+
+        await RequestContextService.run({agentIdentityNodeId: '@@alice'}, async () => {
+            const permissions = await PermissionService.listPermissions({forIdentity: 'alice'});
+            expect(permissions.identity).toBe('@alice');
+            expect(permissions.capabilities).toEqual([
+                expect.objectContaining({target: '@bob', scope: 'CAN_READ_INBOX_OF'})
+            ]);
+        });
+
+        await RequestContextService.run({agentIdentityNodeId: 'bob'}, async () => {
+            await PermissionService.revokePermission({to: '@@alice', scope: 'CAN_READ_INBOX_OF'});
+        });
+
+        expect(GraphService.db.edges.getCount()).toBe(0);
+    });
+
     test('listPermissions denies access when requesting for another identity', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             await expect(PermissionService.listPermissions({ forIdentity: '@bob' }))

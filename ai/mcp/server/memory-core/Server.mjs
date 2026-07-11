@@ -28,9 +28,10 @@ import {
     createMessageGraphProjectionProcessor,
     startMessageDrainLoop
 } from '../../../daemons/message/drainCycle.mjs';
-import {acquireMessageDrainLock}    from '../../../daemons/message/drainLock.mjs';
-import {getMissingMessageWalLeaves} from '../../../services/memory-core/helpers/messageWalStore.mjs';
-import {TRUST_TIERS}                from '../../../graph/identityRoots.mjs';
+import {acquireMessageDrainLock}      from '../../../daemons/message/drainLock.mjs';
+import {getMissingMessageWalLeaves}   from '../../../services/memory-core/helpers/messageWalStore.mjs';
+import {TRUST_TIERS}                  from '../../../graph/identityRoots.mjs';
+import {normalizeAgentIdentityNodeId} from '../../../graph/normalizeAgentIdentityNodeId.mjs';
 
 // Security invariant, not deployment policy: graph ids must remain namespace/path/control safe.
 const AUTH_IDENTITY_USER_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/;
@@ -531,7 +532,7 @@ class Server extends BaseServer {
      */
     async ensureAgentIdentityForAuthContext(reqAuth) {
         const userId      = this.validateAuthProvisionUserId(reqAuth?.userId),
-              graphNodeId = `@${userId}`;
+              graphNodeId = normalizeAgentIdentityNodeId(userId);
 
         try {
             await GraphService.ready();
@@ -616,8 +617,8 @@ class Server extends BaseServer {
     /**
      * @summary Resolves the active stdio agent identity and binds it to its AgentIdentity
      * graph node. Composes three steps: (1) `StdioIdentityResolver.resolve()` returns the
-     * GitHub identity via the env-var → gh-CLI chain; (2) `GraphService.getNode({id: '@' +
-     * githubLogin})` looks up the matching seeded AgentIdentity node; (3)
+     * GitHub identity via the env-var → gh-CLI chain; (2) the shared AgentIdentity node-id
+     * canonicalizer resolves the matching seeded graph node; (3)
      * the composite is shaped for `RequestContextService.run()` consumption.
      *
      * Missing graph node is non-fatal: the identity still flows as `userId` tag, but
@@ -663,7 +664,14 @@ class Server extends BaseServer {
     async bindAgentIdentity(userId) {
         if (!userId) return null;
 
-        const graphNodeId = '@' + userId;
+        const graphNodeId = normalizeAgentIdentityNodeId(userId);
+        if (
+            typeof graphNodeId !== 'string' ||
+            !graphNodeId.startsWith('@') ||
+            !AUTH_IDENTITY_USER_ID_RE.test(graphNodeId.slice(1))
+        ) {
+            return null;
+        }
 
         try {
             await GraphService.ready();
@@ -673,8 +681,12 @@ class Server extends BaseServer {
 
             while (retries > 0) {
                 node = await GraphService.getNode({id: graphNodeId});
-                if (node) {
+                if (node?.type === 'AgentIdentity') {
                     return node.id;
+                }
+                if (node) {
+                    logger.warn(`[neo-memory-core MCP] AgentIdentity graph lookup refused ${graphNodeId}: found ${node.type || 'unknown'} node`);
+                    return null;
                 }
 
                 if (GraphService.db && GraphService.db.vicinityLoadedNodes) {

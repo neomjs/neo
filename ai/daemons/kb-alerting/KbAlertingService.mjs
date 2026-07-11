@@ -8,7 +8,7 @@ import KBRecorderService              from '../../services/knowledge-base/KBReco
 import MailboxService                 from '../../services/memory-core/MailboxService.mjs';
 import RequestContextService          from '../../mcp/server/shared/services/RequestContextService.mjs';
 import logger                         from '../../mcp/server/knowledge-base/logger.mjs';
-import {normalizeAgentIdentityNodeId} from '../../scripts/lifecycle/resumeHarness.mjs';
+import {normalizeAgentIdentityNodeId} from '../../graph/normalizeAgentIdentityNodeId.mjs';
 import {
     evaluateAlertRules,
     formatAlertMessage

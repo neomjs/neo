@@ -1,8 +1,9 @@
-import Base from '../../../src/core/Base.mjs';
-import GraphService from './GraphService.mjs';
-import RequestContextService from '../../mcp/server/shared/services/RequestContextService.mjs';
-import WakeSubscriptionService from './WakeSubscriptionService.mjs';
-import logger from '../../mcp/server/memory-core/logger.mjs';
+import Base                           from '../../../src/core/Base.mjs';
+import GraphService                   from './GraphService.mjs';
+import RequestContextService          from '../../mcp/server/shared/services/RequestContextService.mjs';
+import WakeSubscriptionService        from './WakeSubscriptionService.mjs';
+import logger                         from '../../mcp/server/memory-core/logger.mjs';
+import {normalizeAgentIdentityNodeId} from '../../graph/normalizeAgentIdentityNodeId.mjs';
 
 /**
  * @summary Service for managing cross-tenant permission edges in the Native Graph.
@@ -54,10 +55,13 @@ class PermissionService extends Base {
      * @returns {Promise<Object>}
      */
     async grantPermission({ to, scope }) {
-        const owner = RequestContextService.getAgentIdentityNodeId();
-        if (!owner) throw RequestContextService.unboundIdentityError('grant permission');
+        const boundOwner = RequestContextService.getAgentIdentityNodeId();
+        if (!boundOwner) throw RequestContextService.unboundIdentityError('grant permission');
         if (!to) throw new Error("Missing 'to' parameter.");
         if (!scope) throw new Error("Missing 'scope' parameter.");
+
+        const owner = normalizeAgentIdentityNodeId(boundOwner),
+            grantee = normalizeAgentIdentityNodeId(to);
 
         if (!this.validScopes.includes(scope)) {
             throw new Error(`Invalid scope. Must be one of: ${this.validScopes.join(', ')}`);
@@ -70,15 +74,15 @@ class PermissionService extends Base {
         // foreign-key style existence guard as graph-link writes.
         const db         = GraphService.requireDb('PermissionService.grantPermission');
         const verifyStmt = db.storage.db.prepare('SELECT count(*) as count FROM Nodes WHERE id = ?');
-        if (verifyStmt.get(to).count === 0) {
-            throw new Error(`Cannot grant ${scope} to ${to}: target does not exist. Identity nodes must be pre-seeded via ai/scripts/setup/seedAgentIdentities.mjs.`);
+        if (verifyStmt.get(grantee).count === 0) {
+            throw new Error(`Cannot grant ${scope} to ${grantee}: target does not exist. Identity nodes must be pre-seeded via ai/scripts/setup/seedAgentIdentities.mjs.`);
         }
 
         // The capability belongs to 'to', pointing at 'owner'
         // e.g. "Alice CAN_READ_INBOX_OF Bob" (source: Alice, target: Bob)
-        GraphService.linkNodes(to, owner, scope, 1.0);
+        GraphService.linkNodes(grantee, owner, scope, 1.0);
         WakeSubscriptionService.pump().catch(e => logger.error('[wake-pump]', e));
-        return { success: true, message: `Granted ${scope} to ${to}` };
+        return { success: true, message: `Granted ${scope} to ${grantee}` };
     }
 
     /**
@@ -89,13 +93,20 @@ class PermissionService extends Base {
      * @returns {Promise<Object>}
      */
     async revokePermission({ to, scope }) {
-        const owner = RequestContextService.getAgentIdentityNodeId();
-        if (!owner) throw RequestContextService.unboundIdentityError('revoke permission');
+        const boundOwner = RequestContextService.getAgentIdentityNodeId();
+        if (!boundOwner) throw RequestContextService.unboundIdentityError('revoke permission');
 
-        const db = GraphService.requireDb('PermissionService.revokePermission');
+        const owner = normalizeAgentIdentityNodeId(boundOwner),
+            grantee = normalizeAgentIdentityNodeId(to);
+
+        const db            = GraphService.requireDb('PermissionService.revokePermission');
         const edgesToRemove = [];
         for (const edge of db.edges.items) {
-            if (edge.source === to && edge.target === owner && edge.type === scope) {
+            if (
+                normalizeAgentIdentityNodeId(edge.source) === grantee &&
+                normalizeAgentIdentityNodeId(edge.target) === owner &&
+                edge.type === scope
+            ) {
                 edgesToRemove.push(edge);
             }
         }
@@ -105,7 +116,7 @@ class PermissionService extends Base {
             WakeSubscriptionService.pump().catch(e => logger.error('[wake-pump]', e));
         }
 
-        return { success: true, message: `Revoked ${scope} from ${to}` };
+        return { success: true, message: `Revoked ${scope} from ${grantee}` };
     }
 
     /**
@@ -115,33 +126,34 @@ class PermissionService extends Base {
      * @returns {Promise<Object>}
      */
     async listPermissions({ forIdentity } = {}) {
-        const caller = RequestContextService.getAgentIdentityNodeId();
-        if (!caller) throw RequestContextService.unboundIdentityError('list permissions');
+        const boundCaller = RequestContextService.getAgentIdentityNodeId();
+        if (!boundCaller) throw RequestContextService.unboundIdentityError('list permissions');
 
-        const targetId = forIdentity || caller;
+        const caller = normalizeAgentIdentityNodeId(boundCaller),
+            targetId = normalizeAgentIdentityNodeId(forIdentity || caller);
 
         // Prevent arbitrary enumeration of other agents' permissions unless the caller is the target
         if (targetId !== caller) {
             throw new Error(`Unauthorized: Cannot enumerate permissions for ${targetId}`);
         }
 
-        const db = GraphService.requireDb('PermissionService.listPermissions');
-        const capabilities = [];     // Things targetId can do to others
+        const db              = GraphService.requireDb('PermissionService.listPermissions');
+        const capabilities    = [];     // Things targetId can do to others
         const grantedToOthers = [];  // Things others can do to targetId
 
         for (const edge of db.edges.items) {
             if (this.validScopes.includes(edge.type)) {
-                if (edge.source === targetId) {
+                if (normalizeAgentIdentityNodeId(edge.source) === targetId) {
                     capabilities.push({
-                        target: edge.target,
-                        scope: edge.type,
+                        target   : normalizeAgentIdentityNodeId(edge.target),
+                        scope    : edge.type,
                         timestamp: edge.properties?.timestamp
                     });
                 }
-                if (edge.target === targetId) {
+                if (normalizeAgentIdentityNodeId(edge.target) === targetId) {
                     grantedToOthers.push({
-                        grantedTo: edge.source,
-                        scope: edge.type,
+                        grantedTo: normalizeAgentIdentityNodeId(edge.source),
+                        scope    : edge.type,
                         timestamp: edge.properties?.timestamp
                     });
                 }
@@ -159,6 +171,9 @@ class PermissionService extends Base {
      * @returns {Boolean}
      */
     hasPermission(caller, target, scope) {
+        caller = normalizeAgentIdentityNodeId(caller);
+        target = normalizeAgentIdentityNodeId(target);
+
         // Broadcasts are pseudo-targets; checking permission against broadcast logic
         // is typically handled at the service layer, but structurally always allowed.
         if (target === 'AGENT:*') return true;
@@ -168,7 +183,11 @@ class PermissionService extends Base {
 
         const db = GraphService.requireDb('PermissionService.hasPermission');
         for (const edge of db.edges.items) {
-            if (edge.source === caller && edge.target === target && edge.type === scope) {
+            if (
+                normalizeAgentIdentityNodeId(edge.source) === caller &&
+                normalizeAgentIdentityNodeId(edge.target) === target &&
+                edge.type === scope
+            ) {
                 return true;
             }
         }

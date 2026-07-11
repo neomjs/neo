@@ -13,6 +13,7 @@ import {buildChatModel}                                                         
 import aiConfig                                                                                                                        from '../../mcp/server/memory-core/config.mjs';
 import RequestContextService, {SHARED_USER_ID, normalizeUserId}                                                                        from '../../mcp/server/shared/services/RequestContextService.mjs';
 import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER}                                                                                     from '../../graph/identityRoots.mjs';
+import {normalizeAgentIdentityNodeId}                                                                                                  from '../../graph/normalizeAgentIdentityNodeId.mjs';
 
 /**
  * Re-exported from `./helpers/withTimeout.mjs` (moved there so `SessionService` can share it without
@@ -398,8 +399,7 @@ class MemoryService extends Base {
             // by the SSE transport layer. In stdio mode it is absent — single-tenant fallthrough.
             const requestIdentity   = RequestContextService.getAgentIdentityNodeId();
             const userId            = normalizeUserId(RequestContextService.getUserId());
-            const canonicalIdentity = requestIdentity
-                || (userId ? `@${userId}` : (agent?.startsWith('@') ? agent : (agent ? `@${agent}` : undefined)));
+            const canonicalIdentity = normalizeAgentIdentityNodeId(requestIdentity || userId || agent);
 
             if (userId) metadata.userId = userId;
             if (canonicalIdentity) metadata.agentIdentity = canonicalIdentity;
@@ -1185,13 +1185,15 @@ class MemoryService extends Base {
             }
 
             // AC1 — resolve the agent filter; capture the caller's bound identity for the privacy gate.
-            const callerIdentity = RequestContextService.getAgentIdentityNodeId();
+            const callerIdentity = normalizeAgentIdentityNodeId(RequestContextService.getAgentIdentityNodeId());
             let   identity       = agentIdentity;
             if (!identity || identity === '@me') {
                 identity = callerIdentity;
                 if (!identity) {
                     return {_channelSeparation: channelSeparation, count: 0, turns: [], nextCursor: null, scope: 'fail-closed: no resolvable agent identity'};
                 }
+            } else {
+                identity = normalizeAgentIdentityNodeId(identity);
             }
 
             // Privacy authorization (not a formatting flag): the 'private' projection exposes the

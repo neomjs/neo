@@ -121,10 +121,86 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         // Let the identity node stay in the natural cache (which is the case right after init/upsert)
         const serverInstance = await createServerWithoutBoot();
 
-        const boundId = await serverInstance.bindAgentIdentity('neo-opus-4-7');
-        expect(boundId).toBe('@neo-opus-4-7');
+        for (const input of ['neo-opus-4-7', '@neo-opus-4-7', '@@neo-opus-4-7']) {
+            const boundId = await serverInstance.bindAgentIdentity(input);
+            expect(boundId).toBe('@neo-opus-4-7');
+        }
 
         serverInstance.destroy();
+    });
+
+    test('#15027: bindAgentIdentity refuses mailbox namespaces and non-AgentIdentity collisions', async () => {
+        await GraphService.initAsync();
+
+        GraphService.upsertNode({id: 'AGENT:*', type: 'BroadcastSentinel', name: 'Broadcast'});
+        GraphService.upsertNode({id: '@identity-collision-15027', type: 'Concept', name: 'Not an identity'});
+
+        const serverInstance = await createServerWithoutBoot();
+
+        try {
+            await expect(serverInstance.bindAgentIdentity('AGENT:*')).resolves.toBeNull();
+            await expect(serverInstance.bindAgentIdentity('identity-collision-15027')).resolves.toBeNull();
+        } finally {
+            serverInstance.destroy();
+        }
+    });
+
+    test('#15027: stdio and SSE identity paths bind through the same provider-agnostic canonicalizer', async () => {
+        await GraphService.initAsync();
+
+        GraphService.upsertNode({id: '@identity-topology-15027', type: 'AgentIdentity', name: 'Identity Topology'});
+
+        const serverInstance        = await createServerWithoutBoot();
+        const StdioIdentityResolver = (await import('../../../../../../../ai/mcp/server/shared/services/StdioIdentityResolver.mjs')).default;
+        const originalResolve       = StdioIdentityResolver.resolve;
+
+        try {
+            const sseContext = await serverInstance.buildRequestContext({
+                userId  : 'identity-topology-15027',
+                username: 'Identity Topology',
+                source  : 'oidc'
+            });
+
+            expect(sseContext).toMatchObject({
+                userId             : 'identity-topology-15027',
+                agentIdentityNodeId: '@identity-topology-15027',
+                source             : 'oidc'
+            });
+
+            StdioIdentityResolver.resolve = async () => ({
+                githubLogin: 'identity-topology-15027',
+                username   : 'Identity Topology',
+                source     : 'gh-cli'
+            });
+
+            const stdioContext = await serverInstance.resolveStdioIdentity();
+            expect(stdioContext).toMatchObject({
+                userId             : 'identity-topology-15027',
+                agentIdentityNodeId: '@identity-topology-15027',
+                source             : 'gh-cli'
+            });
+
+            const [{default: RequestContextService}, {default: MailboxService}] = await Promise.all([
+                import('../../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs'),
+                import('../../../../../../../ai/services/memory-core/MailboxService.mjs')
+            ]);
+
+            for (const context of [sseContext, stdioContext]) {
+                const sent = await RequestContextService.run(context, () => MailboxService.addMessage({
+                    to     : '@me',
+                    subject: `topology round-trip ${context.source}`,
+                    body   : 'Both transports must reach the same canonical recipient.'
+                }));
+                const read = await RequestContextService.run(context, () =>
+                    MailboxService.markRead({messageId: sent.messageId})
+                );
+
+                expect(read).toMatchObject({messageId: sent.messageId, status: 'read'});
+            }
+        } finally {
+            StdioIdentityResolver.resolve = originalResolve;
+            serverInstance.destroy();
+        }
     });
 
     test('bindAgentIdentity must await the Promise-returning getNode (regression pin for #10249)', async () => {

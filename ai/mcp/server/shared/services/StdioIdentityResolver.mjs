@@ -25,9 +25,9 @@ import Base       from '../../../../../src/core/Base.mjs';
  * **Intentionally NOT in scope:**
  * - OAuth2/OIDC token validation — that's `AuthService` (SSE transport only)
  * - AgentIdentity graph-node binding — the consumer (`memory-core/Server.mjs`) calls
- *   `Memory_GraphService.getNode({id: '@' + githubLogin})` after resolution, then composes
- *   the full RequestContext. Keeping the graph lookup out of this service preserves the
- *   `shared/` ↔ `memory-core/` layering boundary.
+ *   the shared `normalizeAgentIdentityNodeId()` boundary before the graph lookup, then
+ *   composes the full RequestContext. Keeping the graph lookup out of this service preserves
+ *   the `shared/` ↔ `memory-core/` layering boundary.
  *
  * This class is a key example of the framework's **multi-tenant identity resolution** model
  * and demonstrates concepts like **agent identity**, **OAuth fallback patterns**, **zero-friction
@@ -59,8 +59,8 @@ class StdioIdentityResolver extends Base {
      *
      * **Normalization:** GitHub login strings are stored WITHOUT the leading `@` to match
      * GitHub API conventions (`gh api user .login` returns `neo-opus-ada`, not `@neo-opus-ada`).
-     * Callers that need the `@`-prefixed graph-node-id form prepend
-     * the `@` at lookup time.
+     * Callers that need the `@`-prefixed graph-node-id form use the shared
+     * `normalizeAgentIdentityNodeId()` boundary at lookup time.
      *
      * @returns {Promise<{githubLogin: String|null, username: String|null, source: String}>}
      *     An identity descriptor. `source` is one of `'env-var'`, `'gh-cli'`, or `'unresolved'`.

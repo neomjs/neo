@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-import fs              from 'node:fs';
-import path            from 'node:path';
-import {execFileSync}  from 'node:child_process';
-import {fileURLToPath} from 'node:url';
+import fs                             from 'node:fs';
+import path                           from 'node:path';
+import {execFileSync}                 from 'node:child_process';
+import {fileURLToPath}                from 'node:url';
+import {normalizeAgentIdentityNodeId} from '../../graph/normalizeAgentIdentityNodeId.mjs';
 
 /**
  * @module ai/scripts/setup/generateRosterOnboarding
@@ -146,7 +147,7 @@ export function normalizeHandle(value, label) {
         return {valid: false, reason: `${label} must be a lowercase handle ([a-z0-9-], e.g. '@neo-fable-clio') — received '${value}'`, handle: null};
     }
 
-    return {valid: true, reason: null, handle: `@${body}`}
+    return {valid: true, reason: null, handle: normalizeAgentIdentityNodeId(body)}
 }
 
 /**
