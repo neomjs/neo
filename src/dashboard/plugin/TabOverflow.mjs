@@ -1,3 +1,4 @@
+import Button from '../../button/Base.mjs';
 import Plugin from '../../plugin/Base.mjs';
 
 /**
@@ -11,13 +12,14 @@ import Plugin from '../../plugin/Base.mjs';
  * constraint). `items` order and `activeItemId` already capture the state; overflow is projection only.
  *
  * It attaches to the projected tab header toolbar (`Neo.tab.header.Toolbar`) — it is NOT a dock-specific
- * `tab.Container` fork (the model contract's Split/Tab Adapter Boundary). The overflow control lives as a
- * trailing item of that header toolbar, excluded from `getTabButtons()` by identity so it is never
- * measured, hidden, or counted as a tab. A trailing non-tab item would corrupt `tab.Container`'s
- * interactive insertion index (`getTabBar().items.length`) in the general case — but the dock projects its
- * tabs declaratively (`DockLayoutAdapter` hands a full `items` config and rebuilds on every tab-set change)
- * and never calls `tab.Container.add()`, so that path is never taken. The control also carries none of a
- * tab button's `activeIndex` click wiring (that lives in `getTabButtonConfig`, which the plugin bypasses),
+ * `tab.Container` fork (the model contract's Split/Tab Adapter Boundary). The overflow control is an
+ * OUT-OF-COLLECTION floating button rooted at `document.body`, deliberately NOT a member of `owner.items`:
+ * the dock enables `dragResortable` (`DockLayoutAdapter`), so the header toolbar wires a SortZone that marks
+ * every `owner.items` entry draggable and commits reorders via the `moveTo` the container fires on drop. A
+ * trailing control inside `owner.items` would therefore be drag-reorderable and would corrupt the committed
+ * dock tab order. Keeping the control floating (out of the collection) preserves the collection invariant —
+ * `owner.items` stays exactly the real tabs, so the SortZone never sees it. The control also carries none of
+ * a tab button's `activeIndex` click wiring (that lives in `getTabButtonConfig`, which the plugin bypasses),
  * so selecting it opens its menu rather than activating a phantom card.
  *
  * Natural-width discipline: overflowing buttons are removed from the DOM (Neo's built-in `hidden` /
@@ -248,10 +250,9 @@ class TabOverflow extends Plugin {
      * left in the menu.
      *
      * The control is a `button.Base` with a `menu` config — button.Base builds the dropdown `menu.List`
-     * itself, so no menu is hand-assembled here. It is added as a trailing item of the header toolbar
-     * (which renders its own items), and excluded from `getTabButtons()` by identity so it is never
-     * measured or hidden as a tab — see the class note on why a trailing non-tab item is safe in the dock
-     * projection.
+     * itself, so no menu is hand-assembled here. It is a floating instance rooted at `document.body` (out
+     * of `owner.items`), and excluded from `getTabButtons()` by identity so it is never measured or hidden
+     * as a tab — see the class note on why the control must stay out of the SortZone-draggable collection.
      * @param {Object[]} hiddenMeta  `{text, iconCls, index}` per hidden tab, in header order.
      * @param {Neo.tab.Container} tabContainer
      */
@@ -260,7 +261,7 @@ class TabOverflow extends Plugin {
 
         if (hiddenMeta.length < 1) {
             if (me.control) {
-                me.owner.remove(me.control, true);
+                me.control.destroy(true);
                 me.control = null
             }
             return
@@ -275,19 +276,30 @@ class TabOverflow extends Plugin {
         if (me.control) {
             me.control.menu = menuItems
         } else {
-            // Added as a trailing toolbar item so it actually renders — the header toolbar renders its own
-            // items, whereas a standalone floating instance never mounted (two prior attempts). Excluded
-            // from getTabButtons() by identity, so it is never measured or hidden as a tab. Safe in the dock
-            // projection: tabs come from the projected config (not `tab.Container.add`), and `activeIndex`
-            // only ranges over the real tabs, so a trailing non-tab item never perturbs the index mapping.
-            let added = me.owner.add({
-                cls    : ['neo-dock-tab-overflow-control'],
-                iconCls: 'fa fa-ellipsis',
-                menu   : menuItems,
-                ntype  : 'button'
-            });
-
-            me.control = Array.isArray(added) ? added[added.length - 1] : added
+            // OUT-OF-COLLECTION mount: a floating button rooted directly at document.body, NOT a trailing
+            // toolbar item. The dock sets `dragResortable: true` (DockLayoutAdapter), so the header toolbar
+            // wires a SortZone that marks EVERY `owner.items` entry draggable — a trailing control there
+            // would be drag-reorderable and would corrupt the committed dock tab order via the `moveTo` the
+            // container fires on drop. Keeping the control OUT of `owner.items` preserves the collection
+            // invariant (`owner.items` === exactly the real tabs) so the SortZone never sees it.
+            //
+            // `Neo.create` with `floating:true` + `parentId:'document.body'` roots at document.body directly
+            // (verified: `Container.createItem` is the only path that injects `parentId=owner.id`, and we
+            // bypass it). The parentless `initVnode(true)` autoMount reaches the DOM via the merged
+            // hidden-document render-queue drain — before it, the insertNode reply parked behind a
+            // suspended requestAnimationFrame in an offscreen / hidden document.
+            me.control = Neo.create({
+                module       : Button,
+                appName      : me.owner.appName,
+                autoInitVnode: true,
+                autoMount    : true,
+                cls          : ['neo-dock-tab-overflow-control'],
+                floating     : true,
+                iconCls      : 'fa fa-ellipsis',
+                menu         : menuItems,
+                parentId     : 'document.body',
+                windowId     : me.owner.windowId
+            })
         }
     }
 
