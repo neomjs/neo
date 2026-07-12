@@ -49,6 +49,14 @@ class Config extends ConfigProvider {
              */
             currentReleaseVersion: leaf('v13.2', 'NEO_CURRENT_RELEASE', 'string'),
             /**
+             * Golden Path candidate recency half-life (ms). A candidate's computed priority is scaled by
+             * `2^(-ageMs / halfLife)` from its `createdAt`, so a stale open issue/discussion decays out of
+             * the route while fresh release-relevant work surfaces; a candidate with no parseable
+             * `createdAt` is left unscaled. Consumers read it at the use site; never a hardcoded literal.
+             * @type {number}
+             */
+            goldenPathRecencyHalfLifeMs: leaf(90 * 24 * 60 * 60 * 1000, 'NEO_GOLDEN_PATH_RECENCY_HALF_LIFE_MS', 'number'),
+            /**
              * Universal JSONL backup/export directory for Agent OS databases.
              * @type {string}
              */

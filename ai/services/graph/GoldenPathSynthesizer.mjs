@@ -994,7 +994,13 @@ class GoldenPathSynthesizer extends Base {
                     // Lower distance = Higher significance. (Add 0.1 to avoid div by 0 and curb massive asymptotes)
                     const semanticScore = 1.0 / (semantic_distance + 0.1);
 
-                    const priority = (semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT);
+                    // Recency relevance: scale the priority by 2^(-age / half-life) from the node's createdAt,
+                    // so a stale open issue/discussion decays out of the route while fresh release-relevant work
+                    // surfaces. A node with no parseable createdAt is left unscaled (hermetic-fixture safe).
+                    const createdAtMs   = Date.parse(nodeData?.properties?.createdAt ?? nodeData?.properties?.filedAt ?? ''),
+                          recencyFactor = Number.isNaN(createdAtMs) ? 1 : 2 ** (-Math.max(0, now.getTime() - createdAtMs) / aiConfig.goldenPathRecencyHalfLifeMs);
+
+                    const priority = ((semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT)) * recencyFactor;
 
                     if (!this.constructor.isActionableComputedRecommendation(nodeData || {id: issueId})) {
                         scoringStats.nonActionableCandidates++;
