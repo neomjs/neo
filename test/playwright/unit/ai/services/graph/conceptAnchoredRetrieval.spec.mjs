@@ -253,4 +253,29 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval — enrichWithConc
         expect(event.candidatesAdded).toBe(0);
         expect(event.filteredOut).toBe(2);                                        // MEM:1 deduped BEFORE the gate
     });
+
+    test('resolveCandidate receives the hop neighborLabel + edgeType so the gate can skip by type', async () => {
+        const seenMeta = [];
+
+        // a label-aware gate: authorize MEMORY-labeled neighbors, skip everything else WITHOUT hydrating
+        const labelAwareGate = async (nodeId, meta) => {
+            seenMeta.push(meta);
+            return meta?.neighborLabel === 'MEMORY' ? {id: nodeId} : null
+        };
+
+        const {candidates, event} = await enrichWithConceptWalk({
+            graphService: WALK_GRAPH, query: 'golden path', candidates: [],
+            conceptWalk : true, resolveCandidate: labelAwareGate, maxHops: 1
+        });
+
+        // the gate saw both a MEMORY neighbor and a FILE neighbor, each with an edgeType
+        expect(seenMeta.some(m => m.neighborLabel === 'MEMORY')).toBe(true);
+        expect(seenMeta.some(m => m.neighborLabel === 'FILE')).toBe(true);
+        expect(seenMeta.every(m => 'edgeType' in m)).toBe(true);
+
+        // only MEMORY-labeled nodes authorized; FILE:x skipped by label (never hydrated)
+        expect(candidates.map(c => c.id).sort()).toEqual(['MEM:1', 'MEM:2']);
+        expect(event.candidatesAdded).toBe(2);
+        expect(event.filteredOut).toBe(1);
+    });
 });

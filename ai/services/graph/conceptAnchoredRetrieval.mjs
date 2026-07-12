@@ -166,9 +166,11 @@ export function describeHopProvenance(hop = {}) {
  * @param {String} options.query The caller query, verbatim.
  * @param {Object[]} [options.candidates=[]] The flat embedding top-k — returned untouched AND first.
  * @param {Boolean} [options.conceptWalk=false] The opt-in flag. Falsy → pure pass-through.
- * @param {Function} [options.resolveCandidate] `async (nodeId) => hydratedAuthorizedCandidate | null`
- *     — the caller's hydrate + RLS/tenant/trust gate for a walk-reached node. Absent → every walk
- *     node is `filteredOut` (fail-closed).
+ * @param {Function} [options.resolveCandidate] `async (nodeId, {neighborLabel, edgeType}) =>
+ *     hydratedAuthorizedCandidate | null` — the caller's hydrate + RLS/tenant/trust gate for a
+ *     walk-reached node. The hop's `neighborLabel`/`edgeType` ride along so the gate can reject a
+ *     non-retrievable node type (a FILE/CONCEPT neighbor) WITHOUT a hydration round-trip. Absent →
+ *     every walk node is `filteredOut` (fail-closed).
  * @param {Function} [options.getCandidateId] `(candidate) => String` dedup-id extractor (default `.id`).
  * @param {Function} [options.emit] `(event) => void` retrieval-event sink (default no-op).
  * @param {Number} [options.conceptLimit=5] Max resolved clusters walked.
@@ -230,8 +232,10 @@ export async function enrichWithConceptWalk({
                 walkVisited.add(nodeId);
 
                 // RLS re-entry: the raw-edge walk can reach nodes the caller may not see; the caller's
-                // own gate is the authority, and its absence (or a null return) fails closed.
-                const hydrated = await resolveCandidate?.(nodeId);
+                // own gate is the authority, and its absence (or a null return) fails closed. The hop's
+                // neighborLabel + edgeType ride along so the gate can skip a non-retrievable node type
+                // (a FILE/CONCEPT neighbor) without a hydration round-trip.
+                const hydrated = await resolveCandidate?.(nodeId, {neighborLabel: hop.neighborLabel, edgeType: hop.edgeType});
 
                 if (!hydrated) {
                     filteredOut++;
