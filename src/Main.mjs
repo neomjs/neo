@@ -185,7 +185,7 @@ class Main extends core.Base {
             mozInnerScreenY: win.mozInnerScreenY, // Firefox specific
             outerHeight    : win.outerHeight,
             outerWidth     : win.outerWidth,
-            screen: {
+            screen         : {
                 availHeight: screen.availHeight,
                 availLeft  : screen.availLeft,
                 availTop   : screen.availTop,
@@ -242,9 +242,9 @@ class Main extends core.Base {
      *
      */
     async onDomContentLoaded() {
-        let me       = this,
-            {config} = Neo,
-            imports  = [],
+        let me                                                = this,
+            {config}                                          = Neo,
+            imports                                           = [],
             {environment, mainThreadAddons, useServiceWorker} = config,
             modules;
 
@@ -325,7 +325,7 @@ class Main extends core.Base {
         while (operation = queue.shift()) {
             if (new Date() - start > limit) {
                 queue.unshift(operation);
-                return requestAnimationFrame(me.renderFrame.bind(me))
+                return me.scheduleRenderQueueDrain()
             } else {
                 // Per-operation containment: a throwing delta must neither swallow this operation's
                 // reply nor escape the loop and drop the replies of everything still queued behind it.
@@ -358,7 +358,7 @@ class Main extends core.Base {
 
         if (!me.running) {
             me.running = true;
-            requestAnimationFrame(me.renderFrame.bind(me))
+            me.scheduleRenderQueueDrain()
         }
     }
 
@@ -372,8 +372,30 @@ class Main extends core.Base {
 
         if (!me.running) {
             me.running = true;
-            requestAnimationFrame(me.renderFrame.bind(me))
+            me.scheduleRenderQueueDrain()
         }
+    }
+
+    /**
+     * @summary Schedules the next Main-thread DOM queue drain without stranding hidden documents.
+     *
+     * Visible documents stay aligned to the browser's paint cycle. Hidden documents can suspend
+     * animation frames indefinitely, so their queued operations use a task instead. This preserves
+     * the invariant that delayed worker replies settle only after their DOM operations are applied.
+     *
+     * @returns {Boolean} True once the queue drain has been scheduled
+     * @protected
+     */
+    scheduleRenderQueueDrain() {
+        const callback = this.renderFrame.bind(this);
+
+        if (document.hidden) {
+            setTimeout(callback, 0)
+        } else {
+            requestAnimationFrame(callback)
+        }
+
+        return true
     }
 
     /**
@@ -520,7 +542,7 @@ class Main extends core.Base {
      * @return {Boolean}
      */
     windowOpen({url, useTotalHeight=true, windowFeatures, windowName}) {
-        let existingWin  = this.openWindows[windowName],
+        let existingWin = this.openWindows[windowName],
             targetName;
 
         if (existingWin && !existingWin.win.closed) {
