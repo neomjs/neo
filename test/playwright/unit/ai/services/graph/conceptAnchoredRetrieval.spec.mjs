@@ -498,6 +498,52 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval — enrichWithConc
         expect(event.candidatesAdded).toBe(0);
     });
 
+    test('KB_TERMINAL_EDGE_TYPES admits all 3 concept→FILE ontology edges (IMPLEMENTED_BY / EXPLAINED_BY / EXEMPLIFIED_BY); an arbitrary edge is rejected — #14504 guide/source retrieval (@neo-gpt value correction)', async () => {
+        const fileGate = async nodeId => nodeId.startsWith('FILE:') ? {id: nodeId, source: nodeId} : null;
+        const probe    = async edgeType => {
+            const g = fixtureGraph({
+                concepts: [{type: 'CONCEPT', id: 'golden-path'}],
+                nodes   : {'golden-path': {label: 'CONCEPT'}, 'FILE:doc': {label: 'FILE'}},
+                edges   : [{id: 'f1', source: 'golden-path', target: 'FILE:doc', type: edgeType, properties: {}}]
+            });
+            const r = await enrichWithConceptWalk({
+                graphService     : g, query: 'golden path', candidates: [], conceptWalk: true,
+                resolveCandidate : fileGate, getCandidateId: c => c.source, traversableNodeLabels: ['FILE'],
+                terminalEdgeTypes: KB_TERMINAL_EDGE_TYPES, maxHops: 1
+            });
+            return r.event.candidatesAdded
+        };
+
+        expect(await probe('IMPLEMENTED_BY')).toBe(1);
+        expect(await probe('EXPLAINED_BY')).toBe(1);
+        expect(await probe('EXEMPLIFIED_BY')).toBe(1);
+        expect(await probe('SENT_TO')).toBe(0) // arbitrary edge still rejected
+    });
+
+    test('enrich binds the GraphService isEdgeVisibleToRequester seam BY DEFAULT — a foreign edge between visible nodes contributes zero even past node-RLS (#14504 edge-RLS ruling)', async () => {
+        const base = fixtureGraph({
+            concepts: [{type: 'CONCEPT', id: 'golden-path'}],
+            nodes   : {'golden-path': {label: 'CONCEPT'}, 'FILE:own': {label: 'FILE'}, 'FILE:foreign': {label: 'FILE'}},
+            edges   : [
+                {id: 'own',     source: 'golden-path', target: 'FILE:own',     type: 'IMPLEMENTED_BY', properties: {userId: 'me'}},
+                {id: 'foreign', source: 'golden-path', target: 'FILE:foreign', type: 'IMPLEMENTED_BY', properties: {userId: 'other'}}
+            ]
+        });
+        const fileGate = async nodeId => nodeId.startsWith('FILE:') ? {id: nodeId, source: nodeId} : null; // BOTH FILE nodes pass node-RLS
+        // the GraphService-owned EDGE seam rejects the foreign-owned edge; enrich must bind it with no explicit predicate
+        const graphService = {...base, isEdgeVisibleToRequester: edge => edge.properties?.userId !== 'other'};
+
+        const {candidates, event} = await enrichWithConceptWalk({
+            graphService, query: 'golden path', candidates: [], conceptWalk: true,
+            resolveCandidate : fileGate, getCandidateId: c => c.source, traversableNodeLabels: ['FILE'],
+            terminalEdgeTypes: KB_TERMINAL_EDGE_TYPES, maxHops: 1
+        });
+
+        // only the own-edge FILE surfaces; the foreign-edge FILE contributes zero DESPITE its node passing RLS
+        expect(event.candidatesAdded).toBe(1);
+        expect(candidates.some(c => c.source === 'FILE:foreign')).toBe(false)
+    });
+
     test('conceptPath carries the COMPLETE ordered path with per-hop provenance at depth 2 (not terminal-only)', async () => {
         // golden-path --IMPLEMENTED_BY--> FILE:helper --TAGGED_CONCEPT--> MEM:deep
         const deepGraph = fixtureGraph({

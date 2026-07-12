@@ -845,6 +845,22 @@ class GraphService extends Base {
     }
 
     /**
+     * @summary Per-EDGE RLS visibility for the acting request — the GraphService-owned seam the concept
+     * walk's `edgeRlsPredicate` consumes. A foreign / other-tenant edge between two visible nodes is a
+     * DISTINCT leak surface (relation + provenance), so it must never become a hop / parent / path, nor be
+     * allowed to expand or hydrate a candidate: getNeighbors exposes a neighbor only when BOTH the node AND
+     * the connecting edge pass isRlsVisible, but readRawNodeEdges reads raw rows and otherwise bypasses that
+     * contract. Applies the canonical `isRlsVisible` policy to the already-read edge's properties (the same
+     * source-of-truth predicate the node seam uses — no duplicated tenant logic). A null/absent edge fails
+     * CLOSED.
+     * @param {Object} edge A raw edge object carrying `.properties` (the shape readRawNodeEdges yields).
+     * @returns {Boolean} true when the edge is visible to the acting requester.
+     */
+    isEdgeVisibleToRequester(edge) {
+        return isRlsVisible(edge, resolveRlsUserId(this.db?.storage?.RequestContextService))
+    }
+
+    /**
      * Dynamically computes the structural gravity (inbound/outbound edges) for a node natively via SQLite.
      * @param {String} id
      * @returns {Object} { in_degree, out_degree }

@@ -124,9 +124,14 @@ export function detectAxisPresence(properties = {}) {
  *     NOT expansion edges (candidate admission is a separate, consumer-side gate). The neighbor is still
  *     recorded as a hop (provenance) regardless of this filter.
  *     Default null = no edge-type gate (probe full-reachability mode; the measurement path is untouched).
+ * @param {Function|null} [options.edgeRlsPredicate=null] Opt-in per-EDGE visibility gate `(edge) => Boolean`.
+ *     A foreign / other-tenant edge between two visible nodes is a DISTINCT leak surface — when this returns
+ *     false the edge is skipped ENTIRELY (never a hop / parent / path, never expands or hydrates), because
+ *     node-RLS on the endpoints does not authorize the connecting relation. Default null = no edge gate
+ *     (probe full-graph reachability). Distinct from `rlsPredicate` (which gates NODE traversal).
  * @returns {Object} `{root, hops: [{fromId, edge, neighborId, neighborLabel, axisPresence}], truncated}`
  */
-export function walkConceptNeighborhood({graphService, conceptId, maxHops = 2, hopBudget = 80, traversableLabels = null, traversableEdgeTypes = null, rlsPredicate = null}) {
+export function walkConceptNeighborhood({graphService, conceptId, maxHops = 2, hopBudget = 80, traversableLabels = null, traversableEdgeTypes = null, edgeRlsPredicate = null, rlsPredicate = null}) {
     const
         visited = new Set([conceptId]),
         hops    = [];
@@ -141,6 +146,13 @@ export function walkConceptNeighborhood({graphService, conceptId, maxHops = 2, h
             const edges = readRawNodeEdges({graphService, nodeId: fromId});
 
             for (const edge of edges) {
+                // edge-RLS (retrieval path): a foreign / other-tenant edge between two visible nodes is a
+                // DISTINCT leak surface (relation + provenance). Skip it BEFORE it becomes a hop / parent /
+                // path or consumes budget / expands / hydrates — node-RLS on the endpoints does NOT authorize
+                // the relation that connects them (source-owned edgeRlsPredicate, e.g. isEdgeVisibleToRequester;
+                // mirrors getNeighbors' node-AND-edge gate). Default null = probe full-graph reachability.
+                if (edgeRlsPredicate && !edgeRlsPredicate(edge)) continue;
+
                 if (hops.length >= hopBudget) {
                     truncated = true;
                     break

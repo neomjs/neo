@@ -68,13 +68,15 @@ export const PUBLIC_TRAVERSABLE_LABELS = Object.freeze(['CONCEPT', 'FILE']);
  *    which edge TYPE may admit a reached terminal as a retrieval candidate. This is NOT covered by expansion:
  *    a hop is recorded regardless of its edge type, so WITHOUT this gate an arbitrary `SENT_TO → FILE` edge
  *    still hydrates the FILE — node RLS authorizes the NODE, never the relation that selected it (@neo-gpt
- *    Cycle-4 falsifier). KB admits `IMPLEMENTED_BY → FILE`; Memory admits `MENTIONED_IN`/`TAGGED_CONCEPT →
- *    AGENT_MEMORY`. A concept-relation edge can EXPAND but cannot itself hydrate an artifact.
+ *    Cycle-4 falsifier). KB admits the 3 concept→FILE ontology edges `IMPLEMENTED_BY`/`EXPLAINED_BY`/
+ *    `EXEMPLIFIED_BY` (the concept→FILE guide + source retrieval relations); Memory admits
+ *    `MENTIONED_IN`/`TAGGED_CONCEPT → AGENT_MEMORY`. A concept-relation edge can EXPAND but
+ *    cannot itself hydrate an artifact.
  *
  * Extensible frozen consts; taxonomy V-B-A'd from SemanticGraphExtractor + ConceptService.
  */
 export const CONCEPT_EXPANSION_EDGE_TYPES = Object.freeze(['PARENT_CONCEPT', 'RELATES_TO', 'ANALOGOUS_TO', 'REQUIRES']);
-export const KB_TERMINAL_EDGE_TYPES        = Object.freeze(['IMPLEMENTED_BY']);
+export const KB_TERMINAL_EDGE_TYPES        = Object.freeze(['IMPLEMENTED_BY', 'EXPLAINED_BY', 'EXEMPLIFIED_BY']);
 export const MEMORY_TERMINAL_EDGE_TYPES    = Object.freeze(['MENTIONED_IN', 'TAGGED_CONCEPT']);
 
 /**
@@ -300,6 +302,7 @@ export async function enrichWithConceptWalk({
     traversableEdgeTypes  = null,
     terminalEdgeTypes     = null,
     rlsPredicate          = null,
+    edgeRlsPredicate      = null,
     conceptLimit         = WALK_BUDGET.conceptLimit,
     maxHops              = WALK_BUDGET.maxHops,
     hopBudget            = WALK_BUDGET.hopBudget,
@@ -348,6 +351,14 @@ export async function enrichWithConceptWalk({
             ? nodeId => graphService.isNodeVisibleToRequester(nodeId)
             : null);
 
+    // Security-by-default (edge dimension): with no explicit edgeRlsPredicate, bind the GraphService-owned
+    // per-EDGE RLS seam so a foreign / other-tenant edge between visible nodes never becomes a hop/path or
+    // expands/hydrates a candidate. Absent seam (fixtures / reachability probe) → null → no edge gate.
+    const effectiveEdgeRlsPredicate = edgeRlsPredicate ??
+        (typeof graphService?.isEdgeVisibleToRequester === 'function'
+            ? edge => graphService.isEdgeVisibleToRequester(edge)
+            : null);
+
     for (const cluster of resolved) {
         if (truncated) break;
         // request-global budget spent with clusters still unwalked → honest truncation (more existed)
@@ -366,7 +377,7 @@ export async function enrichWithConceptWalk({
             // candidates stand. augment-never-displace holds even when the graph is down.
             let walk;
             try {
-                walk = walkConceptNeighborhood({graphService, conceptId: memberId, maxHops, hopBudget: remainingHopBudget, traversableLabels, traversableEdgeTypes, rlsPredicate: effectiveRlsPredicate})
+                walk = walkConceptNeighborhood({graphService, conceptId: memberId, maxHops, hopBudget: remainingHopBudget, traversableLabels, traversableEdgeTypes, edgeRlsPredicate: effectiveEdgeRlsPredicate, rlsPredicate: effectiveRlsPredicate})
             } catch {
                 walk = {hops: [], truncated: false}
             }
