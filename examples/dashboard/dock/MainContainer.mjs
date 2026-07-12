@@ -1,7 +1,9 @@
 import DockLayoutAdapter    from '../../../src/dashboard/DockLayoutAdapter.mjs';
 import DockMotionSignal     from '../../../src/dashboard/DockMotionSignal.mjs';
 import DockPreviewProducer  from '../../../src/dashboard/DockPreviewProducer.mjs';
+import DockService          from '../../../src/ai/client/DockService.mjs';
 import DockZoneModel        from '../../../src/dashboard/DockZoneModel.mjs';
+import TourRunner           from '../../../src/ai/client/TourRunner.mjs';
 import Viewport             from '../../../src/container/Viewport.mjs';
 import {previewToOperation} from '../../../src/dashboard/dockPreviewContract.mjs';
 import '../../../src/button/Base.mjs';    // registers the `button` ntype used by the perspective toolbar
@@ -191,6 +193,34 @@ class MainContainer extends Viewport {
      */
     getDockZoneDocument() {
         return this.dockModel
+    }
+
+    /**
+     * The tour-replay seam completing the holder-contract trio: replays one `neo.tour.script.v1`
+     * script against THIS holder in `spec` mode through a fresh app-side dock seam, returning the
+     * runner's structured result. One call = one run — the whitebox-e2e L3 smoke drives it twice
+     * and diffs the operation logs (the determinism falsifier: two runs of one script are
+     * log-identical by the runner's contract, since entries carry descriptors and assertion
+     * outcomes but never timestamps).
+     *
+     * Example-tier by design: the same composition the dockdemo workspaces wire at construct time,
+     * exposed on demand so the shipped dock example is tour-replayable without carrying a tour bar.
+     * Spec mode skips `pause` waits entirely, so a replay never blocks the live surface.
+     * @param {Object} script A `neo.tour.script.v1` script (validated fail-closed by the runner)
+     * @returns {Promise<Object>} The runner's structured `{completed, errors, log}` result
+     */
+    async runTourSpec(script) {
+        const
+            me          = this,
+            dockService = Neo.create(DockService, {}),
+            runner      = Neo.create(TourRunner, {componentId: me.id, dockService, mode: 'spec', script});
+
+        try {
+            return await runner.start()
+        } finally {
+            runner.destroy();
+            dockService.destroy()
+        }
     }
 
     /**
