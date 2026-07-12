@@ -24,6 +24,11 @@ const initialDockModel = {
     items : {
         strategy : {componentRef: 'Strategy',  title: 'Strategy',  kind: 'panel'},
         swarm    : {componentRef: 'Swarm',     title: 'Swarm',     kind: 'panel'},
+        metrics  : {componentRef: 'Metrics',   title: 'Metrics',   kind: 'panel'},
+        timeline : {componentRef: 'Timeline',  title: 'Timeline',  kind: 'panel'},
+        agents   : {componentRef: 'Agents',    title: 'Agents',    kind: 'panel'},
+        alerts   : {componentRef: 'Alerts',    title: 'Alerts',    kind: 'panel'},
+        history  : {componentRef: 'History',   title: 'History',   kind: 'panel'},
         terminal : {componentRef: 'Terminal',  title: 'Terminal',  kind: 'terminal'},
         logs     : {componentRef: 'Logs',      title: 'Logs',      kind: 'panel'},
         inspector: {componentRef: 'Inspector', title: 'Inspector', kind: 'panel'}
@@ -31,7 +36,7 @@ const initialDockModel = {
     nodes: {
         root            : {type: 'edge-zone', zones: {center: 'root-split', right: 'inspector-tabs'}},
         'root-split'    : {type: 'split', orientation: 'horizontal', children: ['main-tabs', 'side-split'], sizes: [0.65, 0.35]},
-        'main-tabs'     : {type: 'tabs',  items: ['strategy', 'swarm'], activeItemId: 'strategy'},
+        'main-tabs'     : {type: 'tabs',  items: ['strategy', 'swarm', 'metrics', 'timeline', 'agents', 'alerts', 'history'], activeItemId: 'strategy'},
         'side-split'    : {type: 'split', orientation: 'vertical', children: ['terminal-tabs', 'logs-tabs'], sizes: [0.6, 0.4]},
         'terminal-tabs' : {type: 'tabs',  items: ['terminal'],  activeItemId: 'terminal'},
         'logs-tabs'     : {type: 'tabs',  items: ['logs'],      activeItemId: 'logs'},

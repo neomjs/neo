@@ -171,7 +171,10 @@ class TabOverflow extends Plugin {
         buttons.forEach((button, index) => {
             let isHidden = hiddenSet.has(button.id);
 
-            button[isHidden ? 'addCls' : 'removeCls']('neo-dock-tab-hidden');
+            // Neo's built-in `hidden` (removeDom) rather than a cls needing an external stylesheet rule —
+            // the natural-width cache (captured while every button was visible) survives the DOM removal,
+            // so a later widen re-measures nothing and simply flips `hidden` back.
+            button.hidden = isHidden;
 
             if (isHidden) {
                 hiddenMeta.push({iconCls: button.iconCls, index, text: button.text})
