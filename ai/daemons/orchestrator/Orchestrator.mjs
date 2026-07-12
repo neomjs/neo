@@ -33,6 +33,8 @@ import DeploymentRuntimeAccessService                                           
 import DeploymentStateBridgeService                                                                 from './services/DeploymentStateBridgeService.mjs';
 import RecoveryActuatorService                                                                      from './services/RecoveryActuatorService.mjs';
 import ContainerHealthDiagnosisService                                                              from './services/ContainerHealthDiagnosisService.mjs';
+import {buildBootIdentitySource}                                                                    from './services/buildBootIdentitySource.mjs';
+import {recordBootIdentityFact}                                                                     from './services/recordBootIdentityFact.mjs';
 import DataIntegrityDiagnosisService                                                                from './services/DataIntegrityDiagnosisService.mjs';
 import DataRecoveryActuatorService                                                                  from './services/DataRecoveryActuatorService.mjs';
 import {auditChromaVectorCoverage}                                                                  from '../../scripts/maintenance/checkChromaIntegrity.mjs';
@@ -865,6 +867,11 @@ export class Orchestrator extends Base {
             writeLogFn     : this.writeLog.bind(this)
         });
 
+        // Boot-identity source: constructed ONCE (so bootAt is the process boot time), read-only advisory.
+        // Each poll persists its fact to the shared runtime-state dir so the separate fleet-bridge-server
+        // process can serve it via getBootIdentity(). Fail-soft — a null source simply writes nothing.
+        this.bootIdentitySource = buildBootIdentitySource({remRunStateDir: this.remConsolidationWatchdogRunStateDir});
+
         this.processSupervisorService = {};
         this.deploymentRuntimeAccessService = {};
         this.containerHealthDiagnosisService = {};
@@ -1024,6 +1031,12 @@ export class Orchestrator extends Base {
         runSchedulingPipeline({
             ...buildOrchestratorSchedulingOptions({orchestrator: this, config: AiConfig, now, registry: TASK_REGISTRY})
         });
+
+        // Persist this process's advisory boot-identity fact to the shared runtime-state dir for the
+        // fleet control-plane's cross-process getBootIdentity() read. Fail-soft inside recordBootIdentityFact
+        // (never gates a cycle); the .catch is belt-and-suspenders matching the sibling writes below.
+        recordBootIdentityFact({source: this.bootIdentitySource, dir: this.dataDir})
+            .catch(error => this.writeLog('ERROR', `[Orchestrator] Boot-identity fact write failed: ${error.message}`));
 
         this.deploymentStateBridgeService?.writeSnapshotIfDue()
             .catch(error => this.writeLog('ERROR', `[Orchestrator] Deployment state bridge failed: ${error.message}`));
