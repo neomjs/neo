@@ -61,6 +61,18 @@ class TabOverflow extends Plugin {
      * @member {Object|null} naturalWidths=null
      */
     naturalWidths = null
+    /**
+     * A project() call arrived while a measure pass was in flight; drained once the pass releases the
+     * latch, so a coalesced resize / activation / tab-set change still applies against current extents.
+     * @member {Boolean} projectQueued=false
+     */
+    projectQueued = false
+    /**
+     * Whether the coalesced re-run must re-read natural widths — sticky-true so a queued `project(true)`
+     * (a tab-set change) is never downgraded to an extent-only pass by a later queued `project(false)`.
+     * @member {Boolean} queuedRecapture=false
+     */
+    queuedRecapture = false
 
     /**
      * @param {Object} config
@@ -128,42 +140,71 @@ class TabOverflow extends Plugin {
             {owner} = me,
             buttons = me.getTabButtons();
 
-        if (me.measuring || !owner.mounted || buttons.length < 1) {
+        if (!owner.mounted || buttons.length < 1) {
+            return
+        }
+
+        // Re-entrancy: getDomRect is an async main-thread round-trip, so a resize / activation / tab-set
+        // storm can overlap passes. Coalesce instead of dropping — remember a re-run is owed (recapture is
+        // sticky) and apply it ONCE after the in-flight pass, so the last state wins over a stale split.
+        if (me.measuring) {
+            me.projectQueued   = true;
+            me.queuedRecapture = me.queuedRecapture || recapture;
             return
         }
 
         me.measuring = true;
 
-        // 1. Natural widths — measured once while every button is visible, then cached.
-        if (recapture || !me.naturalWidths) {
-            let rects = await owner.getDomRect(buttons.map(button => button.id));
+        try {
+            // 1. Natural widths — measured once while every button is visible, then cached.
+            if (recapture || !me.naturalWidths) {
+                let rects = await owner.getDomRect(buttons.map(button => button.id));
 
-            me.naturalWidths = {};
-            buttons.forEach((button, index) => {
-                me.naturalWidths[button.id] = Math.ceil(rects[index]?.width || 0)
-            })
+                me.naturalWidths = {};
+                buttons.forEach((button, index) => {
+                    me.naturalWidths[button.id] = Math.ceil(rects[index]?.width || 0)
+                })
+            }
+
+            // 2. The strip extent — the toolbar itself never hides, so it is always measurable.
+            let extentRect   = await owner.getDomRect(),
+                extent       = Math.floor(extentRect?.width || 0),
+                tabContainer = me.getTabContainer(),
+                activeButton = buttons[tabContainer?.activeIndex] || null,
+                items        = buttons.map(button => ({id: button.id, headerWidth: me.naturalWidths[button.id]})),
+
+                // 3. The pure decision: active-never-hidden packing, overflow-only control reservation.
+                //    Referenced via the Neo namespace (not imported) to keep the adapter→plugin dependency
+                //    one-directional — the adapter imports this plugin for the projection, so importing the
+                //    adapter back would be a cycle.
+                {hidden} = Neo.dashboard.DockLayoutAdapter.computeTabOverflow({
+                    activeItemId: activeButton?.id,
+                    controlWidth: me.controlWidth,
+                    extent,
+                    items
+                });
+
+            me.applySplit(hidden, buttons, tabContainer)
+        } catch {
+            // A measure is best-effort: getDomRect can lose a race with teardown, and a failed pass must
+            // neither reject a fire-and-forget resize/activation handler nor skip the queued-re-run drain
+            // below (re-throwing would strand `projectQueued`). The next event re-projects against a live
+            // owner; a genuine defect surfaces as a missing split in the example / e2e, not a frozen header.
+        } finally {
+            // ALWAYS release the latch: a thrown getDomRect / applySplit must not strand `measuring` at
+            // true, which would silently freeze every future projection (the header stops responding).
+            me.measuring = false
         }
 
-        // 2. The strip extent — the toolbar itself never hides, so it is always measurable.
-        let extentRect   = await owner.getDomRect(),
-            extent       = Math.floor(extentRect?.width || 0),
-            tabContainer = me.getTabContainer(),
-            activeButton = buttons[tabContainer?.activeIndex] || null,
-            items        = buttons.map(button => ({id: button.id, headerWidth: me.naturalWidths[button.id]})),
+        // Drain a coalesced re-run: an event that arrived mid-pass is applied once here, against the
+        // now-current extents, so the split never lags the last resize / activation / tab-set change.
+        if (me.projectQueued) {
+            let queuedRecapture = me.queuedRecapture;
 
-            // 3. The pure decision: active-never-hidden packing, overflow-only control reservation.
-            //    Referenced via the Neo namespace (not imported) to keep the adapter→plugin dependency
-            //    one-directional — the adapter imports this plugin for the projection, so importing the
-            //    adapter back would be a cycle.
-            {hidden} = Neo.dashboard.DockLayoutAdapter.computeTabOverflow({
-                activeItemId: activeButton?.id,
-                controlWidth: me.controlWidth,
-                extent,
-                items
-            });
-
-        me.applySplit(hidden, buttons, tabContainer);
-        me.measuring = false
+            me.projectQueued   = false;
+            me.queuedRecapture = false;
+            me.project(queuedRecapture)
+        }
     }
 
     /**
