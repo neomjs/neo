@@ -5,6 +5,9 @@ import Neo               from '../../../../src/Neo.mjs';
 import * as core         from '../../../../src/core/_export.mjs';
 import AgentOrchestrator from '../../../../ai/agent/AgentOrchestrator.mjs';
 
+import {findComputedFocusContradiction, renderComputedGoldenPathContradictionSection} from '../../../../ai/services/graph/computedGoldenPathRouting.mjs';
+import {rankByDeclaredIntent, renderDeclaredIntentFallback}                           from '../../../../ai/services/graph/goldenPathPickupBridge.mjs';
+
 const createTestHandoff = (filename, content) => {
           const filePath = path.resolve(process.cwd(), filename);
           fs.writeFileSync(filePath, content, 'utf-8');
@@ -123,6 +126,67 @@ Based on priorities, the following tasks are mathematically recommended:
         } finally {
             if (fs.existsSync(testHandoffPath)) {
                 fs.unlinkSync(testHandoffPath);
+            }
+        }
+    });
+
+    test('the current-focus contradiction fallback render round-trips through parseGoldenPath (the never-empty floor actually routes)', async () => {
+        // The producer render (routing module) and the consumer parser (this class) form a byte-format
+        // contract. A render-substring assertion is NOT proof of routability — only feeding the real
+        // render through the real parser is. This guards the regression where the focus-as-route rows
+        // lacked the `- *…*` continuation line and silently extracted ZERO directives.
+        const contradiction = findComputedFocusContradiction({
+            currentFocusCandidates: [{number: 14988, reasons: ['incident'], labels: ['bug'], title: 'Fleet auth restart supervised'}],
+            topNodes              : [{
+                node : {id: 'issue-200', type: 'ISSUE', properties: {labels: ['documentation'], title: 'docs: release notes'}},
+                score: 1, semantic: 1, structural: 0
+            }]
+        });
+
+        test.expect(contradiction).not.toBeNull();
+
+        const section = renderComputedGoldenPathContradictionSection({contradiction, stats: {}, renderLimit: 5}),
+              content = `# Autonomous Handoff\n${section}`,
+              handoff = createTestHandoff('.neo-test-handoff-contradiction.md', content);
+
+        try {
+            const orchestrator = Neo.create(AgentOrchestrator, {handoffPath: handoff}),
+                  directives   = orchestrator.parseGoldenPath();
+
+            test.expect(directives).not.toBeNull();
+            test.expect(directives.length).toBe(1);
+            test.expect(directives[0].issueId).toBe('14988');
+            // the blocked content candidate is diagnostic-only, never a routed directive
+            test.expect(directives.map(directive => directive.issueId)).not.toContain('200');
+        } finally {
+            if (fs.existsSync(handoff)) {
+                fs.unlinkSync(handoff);
+            }
+        }
+    });
+
+    test('the declared-intent frontier-empty fallback render yields ZERO parseGoldenPath directives (advisory, not executed route — by design)', async () => {
+        // The declared-intent fallback is a provisional cold-cache rescue, explicitly "not the semantic
+        // ranking" and additive-never-gating per the direction contract. It renders as a separate `### …`
+        // section with `#N` rows so the executed-route parser deliberately does NOT consume it. Elevating
+        // it into the executed route would make declared intent gate execution — this locks the boundary.
+        const section = renderDeclaredIntentFallback(
+                  rankByDeclaredIntent([{id: '14620', inOpenEpic: true, epicActivity: 3, blocked: false, filedAt: '2026-07-10'}]),
+                  5,
+                  {code: 'COLD_START', phrase: 'cold cache'}
+              ),
+              content = `# Autonomous Handoff\n${section}`,
+              handoff = createTestHandoff('.neo-test-handoff-declared-intent.md', content);
+
+        try {
+            const orchestrator = Neo.create(AgentOrchestrator, {handoffPath: handoff}),
+                  directives   = orchestrator.parseGoldenPath();
+
+            // section-shaped but non-executable: no `**issue-N**:` rows → an empty directive list, never a route
+            test.expect(directives).toEqual([]);
+        } finally {
+            if (fs.existsSync(handoff)) {
+                fs.unlinkSync(handoff);
             }
         }
     });

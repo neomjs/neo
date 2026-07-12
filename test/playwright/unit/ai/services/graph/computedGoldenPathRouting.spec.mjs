@@ -103,9 +103,10 @@ test.describe('computedGoldenPathRouting — the contradiction guard (routing-de
 
         const section = renderComputedGoldenPathContradictionSection({contradiction, stats: {selectedTopNodes: 0}});
 
-        // never empty: the live Current Focus item IS the numbered route (parseGoldenPath-compatible)
-        expect(section).toContain('1. **issue-100**');
-        expect(section).toContain('incident: cockpit auth relaunch');
+        // never empty: the live Current Focus item IS the numbered route. Parser-SHAPED at the render
+        // level — the `**issue-N**:` row is followed by the `- *…*` continuation line the route parser
+        // requires (the full render→parseGoldenPath round-trip is asserted in AgentOrchestrator.spec).
+        expect(section).toMatch(/1\. \*\*issue-100\*\*:[^\n]*\n\s+-\s\*incident: cockpit auth relaunch\*/);
         // the blocked content is filtered-only — it appears in the diagnostic, never as a numbered route
         expect(section).toMatch(/Contradictory computed candidates filtered:.*issue-200/);
         expect(section).not.toMatch(/^\d+\.\s+\*\*issue-20[01]\*\*/m);

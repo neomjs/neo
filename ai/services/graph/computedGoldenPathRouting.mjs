@@ -240,7 +240,13 @@ export function renderComputedGoldenPathContradictionSection({
             const label = candidate.title || candidate.name ||
                 (Array.isArray(candidate.reasons) ? candidate.reasons.join(', ') : 'Current Release / Incident Focus');
 
-            lines.push(`${index + 1}. **issue-${candidate.number}**: Current Release / Incident Focus (${label})`)
+            // Emit the indented `- *…*` continuation line the AgentOrchestrator route parser requires:
+            // a bare `N. **issue-N**:` row without it renders for humans but extracts ZERO directives,
+            // leaving the never-empty floor silently unroutable. Mirrors the canonical route row shape.
+            lines.push(
+                `${index + 1}. **issue-${candidate.number}**: Current Release / Incident Focus`,
+                `   - *${label}*`
+            )
         });
     } else {
         // Epic-only / no-actionable-focus: the honest state is NO immediate route — an epic umbrella or
