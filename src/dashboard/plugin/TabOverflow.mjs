@@ -216,20 +216,25 @@ class TabOverflow extends Plugin {
             me.control.menu = menuItems
         } else {
             me.control = Neo.create({
-                // Floating-component mount, per button.Base#afterSetMenu: a plain `parentId` never
-                // renders — a floating component mounts and self-positions via `align` against a target.
-                // Anchored to the header toolbar's trailing top-right, sitting in the `controlWidth` gap
-                // the pure core reserves; stays out of the toolbar's item collection (tab-insertion safe).
+                // Floating component (per button.Base#afterSetMenu): mounts and self-positions via `align`
+                // against a target — a plain `parentId` never renders. Anchored to the header toolbar's
+                // trailing top-right, in the `controlWidth` gap the pure core reserves; stays out of the
+                // toolbar's item collection (tab-insertion safe). Created `hidden`, then revealed below —
+                // Neo mounts a floating component on the hidden→false transition (the menu's show path,
+                // button.Base#toggleMenu), so one created already-visible never triggers the mount.
                 module         : Button,
                 align          : {edgeAlign: 'tr-tr', target: me.owner.id},
                 appName        : me.owner.appName,
                 cls            : ['neo-dock-tab-overflow-control'],
                 floating       : true,
+                hidden         : true,
                 iconCls        : 'fa fa-ellipsis',
                 menu           : menuItems,
                 parentComponent: me.owner,
                 windowId       : me.owner.windowId
-            })
+            });
+
+            me.control.hidden = false
         }
     }
 
