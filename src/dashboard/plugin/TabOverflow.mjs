@@ -1,4 +1,3 @@
-import Button from '../../button/Base.mjs';
 import Plugin from '../../plugin/Base.mjs';
 
 /**
@@ -86,7 +85,7 @@ class TabOverflow extends Plugin {
      * @returns {Neo.tab.header.Button[]}
      */
     getTabButtons() {
-        return this.owner.items || []
+        return (this.owner.items || []).filter(item => item !== this.control)
     }
 
     /**
@@ -98,6 +97,9 @@ class TabOverflow extends Plugin {
             {owner} = me;
 
         owner.addDomListeners([{resize: me.onResize, scope: me}]);
+        // Re-run on activation too: selecting a hidden tab flips activeIndex, and active-never-hidden must
+        // then surface the newly-active tab into the header (swapping a fitting one into the overflow menu).
+        me.getTabContainer()?.on('activeIndexChange', me.onActiveIndexChange, me);
         me.project(true)
     }
 
@@ -106,6 +108,14 @@ class TabOverflow extends Plugin {
      * @param {Object} data
      */
     onResize(data) {
+        this.project(false)
+    }
+
+    /**
+     * Activation handler — a selection (including from the overflow menu) flipped `activeIndex`; recompute
+     * so active-never-hidden surfaces the newly-active tab.
+     */
+    onActiveIndexChange() {
         this.project(false)
     }
 
@@ -201,8 +211,10 @@ class TabOverflow extends Plugin {
         let me = this;
 
         if (hiddenMeta.length < 1) {
-            me.control?.destroy(true);
-            me.control = null;
+            if (me.control) {
+                me.owner.remove(me.control, true);
+                me.control = null
+            }
             return
         }
 
@@ -215,26 +227,19 @@ class TabOverflow extends Plugin {
         if (me.control) {
             me.control.menu = menuItems
         } else {
-            me.control = Neo.create({
-                // Floating component (per button.Base#afterSetMenu): mounts and self-positions via `align`
-                // against a target — a plain `parentId` never renders. Anchored to the header toolbar's
-                // trailing top-right, in the `controlWidth` gap the pure core reserves; stays out of the
-                // toolbar's item collection (tab-insertion safe). Created `hidden`, then revealed below —
-                // Neo mounts a floating component on the hidden→false transition (the menu's show path,
-                // button.Base#toggleMenu), so one created already-visible never triggers the mount.
-                module         : Button,
-                align          : {edgeAlign: 'tr-tr', target: me.owner.id},
-                appName        : me.owner.appName,
-                cls            : ['neo-dock-tab-overflow-control'],
-                floating       : true,
-                hidden         : true,
-                iconCls        : 'fa fa-ellipsis',
-                menu           : menuItems,
-                parentComponent: me.owner,
-                windowId       : me.owner.windowId
+            // Added as a trailing toolbar item so it actually renders — the header toolbar renders its own
+            // items, whereas a standalone floating instance never mounted (two prior attempts). Excluded
+            // from getTabButtons() by identity, so it is never measured or hidden as a tab. Safe in the dock
+            // projection: tabs come from the projected config (not `tab.Container.add`), and `activeIndex`
+            // only ranges over the real tabs, so a trailing non-tab item never perturbs the index mapping.
+            let added = me.owner.add({
+                cls    : ['neo-dock-tab-overflow-control'],
+                iconCls: 'fa fa-ellipsis',
+                menu   : menuItems,
+                ntype  : 'button'
             });
 
-            me.control.hidden = false
+            me.control = Array.isArray(added) ? added[added.length - 1] : added
         }
     }
 
