@@ -324,7 +324,7 @@ class SearchService extends Base {
                 getCandidateId       : ref => ref.source,
                 traversableNodeLabels: ['FILE'],
                 resolveCandidate     : buildKbFileResolveCandidate({
-                    findKbDocBySource: source => QueryService.findDocBySource(source)
+                    findKbDocBySource: source => QueryService.findDocBySource(source, type)
                 }),
                 emit: retrievalEvent => logger.info?.('[SearchService] concept-walk retrieval', retrievalEvent)
             });
