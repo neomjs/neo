@@ -17,6 +17,8 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 
 import {
     CONCEPT_EXPANSION_EDGE_TYPES,
+    KB_TERMINAL_EDGE_TYPES,
+    MEMORY_TERMINAL_EDGE_TYPES,
     RETRIEVAL_EVENT_SCHEMA,
     WALK_BUDGET,
     describeHopProvenance,
@@ -428,6 +430,46 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval — enrichWithConc
         // no edge-type gate → DISCUSSED_IN is traversed, ISSUE:x expanded, MEM:viaArbitrary also reached
         const ungatedEdges = await enrichWithConceptWalk(opts);
         expect(ungatedEdges.event.candidatesAdded).toBe(2);
+    });
+
+    test('terminalEdgeTypes gates candidate ADMISSION per consumer: an arbitrary SENT_TO edge to an authorized terminal is rejected, the canonical relation admitted — RLS does not authorize the selecting relation (#14504 Cycle-4 falsifier, both consumers)', async () => {
+        // concept --{canonical relation}--> T:canonical  (admitted)   ·   concept --SENT_TO--> T:arbitrary (rejected)
+        const makeGraph = (goodType, terminalLabel) => fixtureGraph({
+            concepts: [{type: 'CONCEPT', id: 'golden-path'}],
+            nodes   : {
+                'golden-path': {label: 'CONCEPT'},
+                'T:canonical': {label: terminalLabel},
+                'T:arbitrary': {label: terminalLabel}
+            },
+            edges: [
+                {id: 't1', source: 'golden-path', target: 'T:canonical', type: goodType,  properties: {}},
+                {id: 't2', source: 'golden-path', target: 'T:arbitrary', type: 'SENT_TO',  properties: {}}
+            ]
+        });
+        const termGate = async nodeId => nodeId.startsWith('T:') ? {id: nodeId, source: nodeId} : null; // BOTH terminals pass RLS
+
+        // KB: IMPLEMENTED_BY→FILE admitted; SENT_TO→FILE rejected DESPITE passing RLS
+        const kb = await enrichWithConceptWalk({
+            graphService     : makeGraph('IMPLEMENTED_BY', 'FILE'), query: 'golden path', candidates: [], conceptWalk: true,
+            resolveCandidate : termGate, getCandidateId: c => c.source, traversableNodeLabels: ['FILE'],
+            terminalEdgeTypes: KB_TERMINAL_EDGE_TYPES, maxHops: 1
+        });
+        expect(kb.event.candidatesAdded).toBe(1);
+
+        // Memory: TAGGED_CONCEPT→AGENT_MEMORY admitted; SENT_TO→AGENT_MEMORY rejected
+        const mem = await enrichWithConceptWalk({
+            graphService     : makeGraph('TAGGED_CONCEPT', 'AGENT_MEMORY'), query: 'golden path', candidates: [], conceptWalk: true,
+            resolveCandidate : termGate, getCandidateId: c => c.source, traversableNodeLabels: ['AGENT_MEMORY'],
+            terminalEdgeTypes: MEMORY_TERMINAL_EDGE_TYPES, maxHops: 1
+        });
+        expect(mem.event.candidatesAdded).toBe(1);
+
+        // default null (probe mode) → the arbitrary SENT_TO terminal is admitted too (byte-identical to pre-gate)
+        const ungated = await enrichWithConceptWalk({
+            graphService    : makeGraph('IMPLEMENTED_BY', 'FILE'), query: 'golden path', candidates: [], conceptWalk: true,
+            resolveCandidate: termGate, getCandidateId: c => c.source, traversableNodeLabels: ['FILE'], maxHops: 1
+        });
+        expect(ungated.event.candidatesAdded).toBe(2);
     });
 
     test('enrich binds the GraphService isNodeVisibleToRequester seam BY DEFAULT — a private intermediate is RLS-blocked with no explicit rlsPredicate (#14504 gate 1 seam)', async () => {

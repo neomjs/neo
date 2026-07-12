@@ -15,7 +15,7 @@ import RequestContextService, {SHARED_USER_ID, normalizeUserId}                 
 import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER}                                                                                     from '../../graph/identityRoots.mjs';
 import {normalizeAgentIdentityNodeId}                                                                                                  from '../../graph/normalizeAgentIdentityNodeId.mjs';
 
-import {CONCEPT_EXPANSION_EDGE_TYPES, enrichWithConceptWalk} from '../graph/conceptAnchoredRetrieval.mjs';
+import {CONCEPT_EXPANSION_EDGE_TYPES, MEMORY_TERMINAL_EDGE_TYPES, enrichWithConceptWalk} from '../graph/conceptAnchoredRetrieval.mjs';
 import {buildMemoryResolveCandidate} from './conceptWalkMemoryGate.mjs';
 
 /**
@@ -1834,7 +1834,8 @@ class MemoryService extends Base {
                     candidates           : memories,
                     conceptWalk          : true,
                     traversableNodeLabels: ['AGENT_MEMORY'], // this surface's eligible candidate type
-                    traversableEdgeTypes : CONCEPT_EXPANSION_EDGE_TYPES, // (i) edge-policy: expand only through concept↔concept relations; terminal memory candidates recorded regardless
+                    traversableEdgeTypes : CONCEPT_EXPANSION_EDGE_TYPES, // (i) expansion: walk THROUGH concept↔concept relations only
+                    terminalEdgeTypes    : MEMORY_TERMINAL_EDGE_TYPES, // (i) terminal admission: only MENTIONED_IN/TAGGED_CONCEPT→AGENT_MEMORY hydrates (an arbitrary SENT_TO→memory is rejected)
                     resolveCandidate     : buildMemoryResolveCandidate({
                         collection,
                         userId,

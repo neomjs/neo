@@ -118,9 +118,11 @@ export function detectAxisPresence(properties = {}) {
  *     mode; the reachability-probe measurement path is untouched).
  * @param {String[]|null} [options.traversableEdgeTypes=null] Opt-in retrieval-bearing edge-type allow-list.
  *     When supplied, the walk expands THROUGH a neighbor only when the connecting `edge.type` is in the list
- *     — so arbitrary/structural edges (DISCUSSED_IN, AUTHORED_BY, PARENT_OF, RESOLVES, social/issue edges) do
- *     not carry the walk into unrelated regions, while concept-relation edges (PARENT_CONCEPT, RELATES_TO,
- *     IMPLEMENTED_BY, TAGGED_CONCEPT, …) do. The neighbor is still recorded as a hop (provenance) regardless.
+ *     — so only concept↔concept relations (PARENT_CONCEPT, RELATES_TO, ANALOGOUS_TO, REQUIRES) carry the walk
+ *     onward, while arbitrary/structural edges (DISCUSSED_IN, AUTHORED_BY, PARENT_OF, RESOLVES, SENT_TO) do
+ *     not. Concept→artifact edges (IMPLEMENTED_BY, TAGGED_CONCEPT, MENTIONED_IN) reach TERMINALS — they are
+ *     NOT expansion edges (candidate admission is a separate, consumer-side gate). The neighbor is still
+ *     recorded as a hop (provenance) regardless of this filter.
  *     Default null = no edge-type gate (probe full-reachability mode; the measurement path is untouched).
  * @returns {Object} `{root, hops: [{fromId, edge, neighborId, neighborLabel, axisPresence}], truncated}`
  */

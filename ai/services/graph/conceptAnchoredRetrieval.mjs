@@ -58,16 +58,24 @@ export const WALK_BUDGET = Object.freeze({conceptLimit: 5, maxHops: 2, hopBudget
 export const PUBLIC_TRAVERSABLE_LABELS = Object.freeze(['CONCEPT', 'FILE']);
 
 /**
- * Retrieval-bearing concept↔concept edge types the walk EXPANDS through (passed to walkConceptNeighborhood
- * as `traversableEdgeTypes`). These carry the neighborhood from a concept to a sibling concept; an arbitrary
- * structural/social edge (DISCUSSED_IN, AUTHORED_BY, PARENT_OF, RESOLVES, …) does not. Concept→artifact edges
- * (TAGGED_CONCEPT, IMPLEMENTED_BY, MENTIONED_IN, …) are deliberately ABSENT: they reach TERMINAL candidates
- * (memory/file) that are recorded as hops and hydrated regardless of this list — the filter gates EXPANSION,
- * not terminal-candidate hydration, so excluding them costs no recall (verified against the walk/enrich hop
- * ordering). Extensible: a newly-minted concept↔concept relation is added here. Taxonomy V-B-A'd from
- * SemanticGraphExtractor + ConceptService.
+ * TWO ORTHOGONAL edge-type policies (the walk records EVERY hop; these two gates decide, separately, what
+ * carries the walk onward vs what may become a candidate). Node-RLS + node-label gates stay as defense in depth.
+ *
+ * 1. EXPANSION — `CONCEPT_EXPANSION_EDGE_TYPES`: retrieval-bearing concept↔concept relations that may carry
+ *    the walk THROUGH a CONCEPT to a sibling concept. Same for both consumers. An arbitrary structural/social
+ *    edge (DISCUSSED_IN, AUTHORED_BY, PARENT_OF, RESOLVES, SENT_TO) does NOT expand.
+ * 2. TERMINAL candidate-admission — `*_TERMINAL_EDGE_TYPES` (per consumer, gated in enrich BEFORE hydration):
+ *    which edge TYPE may admit a reached terminal as a retrieval candidate. This is NOT covered by expansion:
+ *    a hop is recorded regardless of its edge type, so WITHOUT this gate an arbitrary `SENT_TO → FILE` edge
+ *    still hydrates the FILE — node RLS authorizes the NODE, never the relation that selected it (@neo-gpt
+ *    Cycle-4 falsifier). KB admits `IMPLEMENTED_BY → FILE`; Memory admits `MENTIONED_IN`/`TAGGED_CONCEPT →
+ *    AGENT_MEMORY`. A concept-relation edge can EXPAND but cannot itself hydrate an artifact.
+ *
+ * Extensible frozen consts; taxonomy V-B-A'd from SemanticGraphExtractor + ConceptService.
  */
 export const CONCEPT_EXPANSION_EDGE_TYPES = Object.freeze(['PARENT_CONCEPT', 'RELATES_TO', 'ANALOGOUS_TO', 'REQUIRES']);
+export const KB_TERMINAL_EDGE_TYPES        = Object.freeze(['IMPLEMENTED_BY']);
+export const MEMORY_TERMINAL_EDGE_TYPES    = Object.freeze(['MENTIONED_IN', 'TAGGED_CONCEPT']);
 
 /**
  * @summary Tokenizes a retrieval query into candidate cluster-key fragments.
@@ -259,9 +267,15 @@ export function buildConceptPath({rootConcept, nodeId, rootMemberId, parentHop})
  * @param {String[]|null} [options.traversableNodeLabels] Explicit allow-list of neighbor node labels
  *     eligible to become candidates for this surface (e.g. `['AGENT_MEMORY']` for memories, `['FILE']`
  *     for the KB). Null → no type filter. A non-eligible label is skipped before the gate (not `filteredOut`).
- * @param {String[]|null} [options.traversableEdgeTypes] Retrieval-bearing edge-type allow-list gating walk
- *     EXPANSION (default {@link CONCEPT_EXPANSION_EDGE_TYPES}; null = no edge-type gate, probe mode). Passed
- *     to walkConceptNeighborhood; gates expansion-through only — terminal candidates are recorded regardless.
+ * @param {String[]|null} [options.traversableEdgeTypes] EXPANSION gate: edge types that may carry the walk
+ *     THROUGH a node (default null = no gate, probe mode; consumers pass {@link CONCEPT_EXPANSION_EDGE_TYPES}).
+ *     Passed to walkConceptNeighborhood. Gates expansion only — a terminal reached via any edge is still
+ *     RECORDED, which is why {@link options.terminalEdgeTypes} exists as the separate candidate-admission gate.
+ * @param {String[]|null} [options.terminalEdgeTypes] TERMINAL candidate-admission gate: edge types that may
+ *     admit a reached terminal as a retrieval candidate (default null = admit any; consumers pass their
+ *     per-surface {@link KB_TERMINAL_EDGE_TYPES}/{@link MEMORY_TERMINAL_EDGE_TYPES}). Checked BEFORE hydration:
+ *     an arbitrary edge (SENT_TO) to an otherwise-authorized node does NOT make it a candidate — node RLS
+ *     authorizes the node, never the relation that selected it (@neo-gpt Cycle-4 falsifier).
  * @param {Number} [options.conceptLimit] Max resolved clusters walked (default {@link WALK_BUDGET}.conceptLimit).
  * @param {Number} [options.maxHops] Per-member walk depth bound (default {@link WALK_BUDGET}.maxHops).
  * @param {Number} [options.hopBudget] Per-member edge budget (default {@link WALK_BUDGET}.hopBudget).
@@ -284,6 +298,7 @@ export async function enrichWithConceptWalk({
     traversableNodeLabels = null,
     traversableLabels     = PUBLIC_TRAVERSABLE_LABELS,
     traversableEdgeTypes  = null,
+    terminalEdgeTypes     = null,
     rlsPredicate          = null,
     conceptLimit         = WALK_BUDGET.conceptLimit,
     maxHops              = WALK_BUDGET.maxHops,
@@ -388,6 +403,13 @@ export async function enrichWithConceptWalk({
                 // are eligible candidates for its surface (memories → AGENT_MEMORY, KB → FILE); a
                 // non-eligible type is skipped cheaply BEFORE the gate (not an RLS drop → not filteredOut).
                 if (traversableNodeLabels && !traversableNodeLabels.includes(hop.neighborLabel)) continue;
+
+                // config-declared TERMINAL candidate-admission edge filter — an arbitrary relation (SENT_TO,
+                // DISCUSSED_IN) reaching an otherwise-authorized node does NOT admit it as a candidate: node
+                // RLS authorizes the node, never the relation that selected it (@neo-gpt Cycle-4 falsifier).
+                // A concept-relation edge can EXPAND (traversableEdgeTypes) but cannot itself hydrate an
+                // artifact. Skipped cheaply BEFORE the gate (config ineligibility, not an RLS drop).
+                if (terminalEdgeTypes && !terminalEdgeTypes.includes(hop.edgeType)) continue;
 
                 // dedup: already in the embedding set, or already surfaced by an earlier walk hop
                 if (!nodeId || seen.has(nodeId) || walkVisited.has(nodeId)) continue;
