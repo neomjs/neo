@@ -25,11 +25,26 @@ import fs              from 'fs';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 
-const __dirname        = path.dirname(fileURLToPath(import.meta.url)),
-      repoRoot         = path.resolve(__dirname, '../..'),
-      MODE_INVARIANT   = new Set(['--fm-font-mono', '--fm-font-sans']),
-      FM_TOKEN_RE      = /^\s*(--fm-[a-z0-9-]+)\s*:\s*(.+?);\s*$/,
+const __dirname      = path.dirname(fileURLToPath(import.meta.url)),
+      repoRoot       = path.resolve(__dirname, '../..'),
+      MODE_INVARIANT = new Set(['--fm-font-mono', '--fm-font-sans']),
+      FM_TOKEN_RE    = /^\s*(--fm-[a-z0-9-]+)\s*:\s*(.+?);\s*$/,
+      // Color literals: hex + every CSS color function. Named CSS colors are ALSO raw values (policy:
+      // module views consume tokens, never a color keyword); `transparent`/`currentColor` are
+      // keywords-not-colors and stay allowed, so they are absent from NAMED_COLOR_RE by design.
       COLOR_LITERAL_RE = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/,
+      NAMED_COLOR_RE   = /\b(?:aqua|aquamarine|beige|black|blue|brown|chartreuse|chocolate|coral|crimson|cyan|fuchsia|gold|goldenrod|gray|grey|green|indigo|ivory|khaki|lavender|lime|magenta|maroon|navy|olive|orange|orchid|pink|plum|purple|rebeccapurple|red|salmon|silver|tan|teal|tomato|turquoise|violet|wheat|white|yellow|(?:light|dark)(?:blue|gray|grey|green|red|pink|orange|salmon|violet|cyan|khaki))\b/,
+      // The closed design-contract vocabulary — every skin must DEFINE all of these even when a token is
+      // momentarily unconsumed, so a symmetric deletion of a contracted token cannot false-green.
+      CONTRACTED_FM_TOKENS = new Set([
+          '--fm-ground', '--fm-panel', '--fm-panel-2', '--fm-rail', '--fm-line', '--fm-line-soft',
+          '--fm-ink', '--fm-ink-dim', '--fm-ink-faint', '--fm-signal',
+          '--fm-state-ok', '--fm-state-idle', '--fm-state-wedged', '--fm-state-limited',
+          '--fm-state-starting', '--fm-state-stopping', '--fm-state-off',
+          '--fm-family-claude', '--fm-family-gpt', '--fm-family-gemini', '--fm-family-human',
+          '--fm-kind-pr', '--fm-kind-a2a', '--fm-kind-review', '--fm-kind-alert', '--fm-kind-neutral',
+          '--fm-font-mono', '--fm-font-sans'
+      ]),
       // Real-tree paths; the exported collector takes overrides so the guard is testable in isolation.
       DEFAULT_PATHS = {
           darkPath : path.join(repoRoot, 'resources/scss/theme-neo-dark/apps/agentos/Viewport.scss'),
@@ -88,9 +103,10 @@ function stripVarCalls(text) {
  * @returns {String[]} failure messages (empty array = clean)
  */
 export function collectAgentosThemeFailures({
-    darkPath  = DEFAULT_PATHS.darkPath,
-    lightPath = DEFAULT_PATHS.lightPath,
-    viewDir   = DEFAULT_PATHS.viewDir
+    darkPath         = DEFAULT_PATHS.darkPath,
+    lightPath        = DEFAULT_PATHS.lightPath,
+    viewDir          = DEFAULT_PATHS.viewDir,
+    contractedTokens = CONTRACTED_FM_TOKENS
 } = {}) {
     const failures                 = [],
           consumedFmTokens         = new Set(),
@@ -110,6 +126,13 @@ export function collectAgentosThemeFailures({
         if (!dark.has(name)) failures.push(`[parity] ${name} present in light skin, missing in dark skin`);
     }
 
+    // check 1b — closed contracted vocabulary: every skin must DEFINE every contracted token even when it
+    // is momentarily unconsumed, so a symmetric deletion of a contracted token cannot slip past parity.
+    for (const token of contractedTokens) {
+        if (!dark.has(token))  failures.push(`[contract] ${token} is a contracted --fm-* token but undefined in the dark skin`);
+        if (!light.has(token)) failures.push(`[contract] ${token} is a contracted --fm-* token but undefined in the light skin`);
+    }
+
     // check 2 — token-only consumption; also collects the consumed + component-local token sets
     function checkView(file) {
         stripBlockComments(fs.readFileSync(file, 'utf8')).split('\n').forEach((rawLine, index) => {
@@ -125,7 +148,9 @@ export function collectAgentosThemeFailures({
             for (const def of line.matchAll(/(--fm-[a-z0-9-]+)\s*:/g)) componentDefinedFmTokens.add(def[1]);
             for (const match of value.matchAll(/var\(\s*(--fm-[a-z0-9-]+)/g)) consumedFmTokens.add(match[1]);
 
-            if (COLOR_LITERAL_RE.test(stripVarCalls(value))) {
+            // Strip var() fallbacks + quoted strings, then flag a bare hex/functional OR named CSS color.
+            const bareValue = stripVarCalls(value).replace(/(['"]).*?\1/g, '');
+            if (COLOR_LITERAL_RE.test(bareValue) || NAMED_COLOR_RE.test(bareValue)) {
                 failures.push(`[token-only] ${path.relative(repoRoot, file)}:${index + 1} bare color literal — consume a semantic token instead: ${rawLine.trim()}`);
             }
         });

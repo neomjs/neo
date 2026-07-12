@@ -24,19 +24,19 @@ test.describe('check-agentos-theme.mjs', () => {
     });
 
     // Materialize a skin/view fixture set in the temp dir and run the collector against it.
-    const run = ({dark, light, views = {}}) => {
+    const run = ({dark, light, views = {}, contractedTokens = new Set()}) => {
         const darkPath  = path.join(tempDir, 'dark.scss'),
               lightPath = path.join(tempDir, 'light.scss'),
               viewDir   = path.join(tempDir, 'views');
 
         fs.writeFileSync(darkPath, dark, 'utf8');
         fs.writeFileSync(lightPath, light, 'utf8');
-        fs.mkdirSync(viewDir);
+        fs.mkdirSync(viewDir, {recursive: true}); // idempotent — a test may call run() more than once
         for (const [name, content] of Object.entries(views)) {
             fs.writeFileSync(path.join(viewDir, name), content, 'utf8');
         }
 
-        return collectAgentosThemeFailures({darkPath, lightPath, viewDir});
+        return collectAgentosThemeFailures({darkPath, lightPath, viewDir, contractedTokens});
     };
 
     const DARK  = ':root .x {\n    --fm-ink       : #d6dce6;\n    --fm-font-mono : mono;\n}\n';
@@ -90,5 +90,22 @@ test.describe('check-agentos-theme.mjs', () => {
     test('component-local --fm-* alias is exempt from completeness', () => {
         const failures = run({dark: DARK, light: LIGHT, views: {'a.scss': '.a { --fm-dot: var(--fm-ink); box-shadow: 0 0 0 2px var(--fm-dot); }\n'}});
         expect(failures.some(m => m.includes('--fm-dot'))).toBe(false);
+    });
+
+    test('symmetric deletion of an UNCONSUMED contracted token is caught (not a vacuous parity pass)', () => {
+        // --fm-ink is contracted but consumed by no view here; deleting it from BOTH skins passes parity
+        // and completeness, so only the contracted-vocabulary check can catch the design-contract break.
+        const noInk    = ':root .x {\n    --fm-font-mono : mono;\n}\n',
+              failures = run({dark: noInk, light: noInk, contractedTokens: new Set(['--fm-ink'])});
+
+        expect(failures.some(m => m.startsWith('[contract]') && m.includes('--fm-ink'))).toBe(true);
+    });
+
+    test('a bare named CSS color fails token-only; transparent/currentColor and quoted strings do not', () => {
+        const bad = run({dark: DARK, light: LIGHT, views: {'a.scss': '.a { color: crimson; }\n'}}),
+              ok  = run({dark: DARK, light: LIGHT, views: {'a.scss': '.a { background: transparent; border-color: currentColor; content: "red alert"; color: var(--fm-ink); }\n'}});
+
+        expect(bad.some(m => m.startsWith('[token-only]'))).toBe(true);
+        expect(ok.some(m => m.startsWith('[token-only]'))).toBe(false);
     });
 });
