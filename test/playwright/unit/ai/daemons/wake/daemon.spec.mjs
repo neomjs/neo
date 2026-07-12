@@ -208,7 +208,7 @@ test.describe('Wake Daemon', () => {
     });
 
     test('detects and delivers wake events via test adapter', async () => {
-        const subId = 'sub_' + crypto.randomUUID();
+        const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
@@ -391,13 +391,13 @@ test.describe('Wake Daemon', () => {
             }
         });
 
-        let output = '';
+        let output           = '';
         let insertedPresence = false;
         let msgId;
 
         const proofPromise = new Promise((resolve, reject) => {
             const timeout = setTimeout(() => reject(new Error('Daemon did not log Codex turn-start proof')), 10000);
-            const onData = data => {
+            const onData  = data => {
                 output += data.toString();
 
                 const wakeSubmitNonce = extractWakeSubmitNonce(output);
@@ -461,12 +461,12 @@ test.describe('Wake Daemon', () => {
             }
         });
 
-        let output = '';
+        let output           = '';
         let insertedPresence = false;
 
         const proofPromise = new Promise((resolve, reject) => {
             const timeout = setTimeout(() => reject(new Error('Daemon did not log Codex ambiguous turn-start proof')), 10000);
-            const onData = data => {
+            const onData  = data => {
                 output += data.toString();
 
                 if (!insertedPresence && output.includes(`Submit attempted ${subId}`)) {
@@ -531,7 +531,7 @@ test.describe('Wake Daemon', () => {
 
         const proofPromise = new Promise((resolve, reject) => {
             const timeout = setTimeout(() => reject(new Error('Daemon did not log Codex not-started proof')), 10000);
-            const onData = data => {
+            const onData  = data => {
                 output += data.toString();
                 if (output.includes('wake-submit-not-started')) {
                     clearTimeout(timeout);
@@ -655,7 +655,7 @@ test.describe('Wake Daemon', () => {
         // rebuilds a digest over BOTH → "2 new messages". That string proves neither wake was lost.
         const coalescedPromise = new Promise((resolve, reject) => {
             const timeout = setTimeout(() => reject(new Error('Coalesced 2-message retry digest not observed within timeout')), 25000);
-            const onData = (data) => {
+            const onData  = (data) => {
                 if (data.toString().includes('2 new messages')) {
                     clearTimeout(timeout);
                     resolve();
@@ -735,10 +735,10 @@ test.describe('Wake Daemon', () => {
             }), delId);
         };
 
-        let markedRead = false;
+        let   markedRead  = false;
         const dropPromise = new Promise((resolve, reject) => {
             const timeout = setTimeout(() => reject(new Error('Retry was not dropped after the message was read within timeout')), 25000);
-            const onData = (data) => {
+            const onData  = (data) => {
                 const out = data.toString();
                 // First delivery failure → the wake is now queued for retry. Mark the message read so the
                 // retry's read-reconcile must drop it rather than re-deliver the stale digest.
@@ -975,7 +975,7 @@ test.describe('Wake Daemon', () => {
     });
 
     test('delivers GraphLog-only heartbeat pulses via test adapter', async () => {
-        const subId = 'sub_' + crypto.randomUUID();
+        const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-heartbeat';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
@@ -1110,7 +1110,7 @@ test.describe('Wake Daemon', () => {
     });
 
     test('delivers heartbeat pulses through the existing SENT_TO_ME bridge-daemon route', async () => {
-        const subId = 'sub_' + crypto.randomUUID();
+        const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-heartbeat-sent-to-me';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
@@ -1167,7 +1167,7 @@ test.describe('Wake Daemon', () => {
     });
 
     test('does not deliver wake events for wakeSuppressed mailbox-only messages', async () => {
-        const subId = 'sub_' + crypto.randomUUID();
+        const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-suppressed';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
@@ -1236,7 +1236,7 @@ test.describe('Wake Daemon', () => {
 
         expect(deliveryCount).toBe(0);
 
-        const stored = db.prepare('SELECT data FROM Nodes WHERE id = ?').get(msgId);
+        const stored        = db.prepare('SELECT data FROM Nodes WHERE id = ?').get(msgId);
         const storedMessage = JSON.parse(stored.data);
         expect(storedMessage.properties.readAt).toBeNull();
         expect(storedMessage.properties.wakeSuppressed).toBe(true);
@@ -1244,7 +1244,7 @@ test.describe('Wake Daemon', () => {
 
     test('does not queue wake delivery for known non-active identities (#13456)', async () => {
         const agentId = '@neo-gemini-pro';
-        const subId = insertWakeSubscription(db, {
+        const subId   = insertWakeSubscription(db, {
             agentId,
             harnessTargetMetadata: {
                 adapter       : 'test',
@@ -1273,7 +1273,7 @@ test.describe('Wake Daemon', () => {
     });
 
     test('deduplicates multiple triggers for the same message in the coalescing window', async () => {
-        const subId = 'sub_' + crypto.randomUUID();
+        const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-dedup';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
@@ -1304,8 +1304,8 @@ test.describe('Wake Daemon', () => {
             env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
-        let deliveryCount = 0;
-        let finalDigest = '';
+        let   deliveryCount   = 0;
+        let   finalDigest     = '';
         const deliveryPromise = new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
                 resolve(); // Resolve instead of reject because we expect exactly one delivery. We'll wait a bit.
@@ -1405,10 +1405,10 @@ test.describe('Wake Daemon', () => {
             stdio: 'pipe',
             env  : {
                 ...process.env,
-                CODEX_CLI_PATH    : mockCodexPath,
-                NEO_MEMORY_DB_PATH: DB_PATH,
-                NEO_AI_DAEMON_DIR : DAEMON_DIR,
-                PATH              : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
+                NEO_FLEET_CODEX_BIN: mockCodexPath,
+                NEO_MEMORY_DB_PATH : DB_PATH,
+                NEO_AI_DAEMON_DIR  : DAEMON_DIR,
+                PATH               : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
             }
         });
 
@@ -1453,7 +1453,7 @@ test.describe('Wake Daemon', () => {
         );
     });
 
-    test('resolves bundled Codex Desktop CLI when daemon PATH lacks bare codex (#13287)', async () => {
+    test('uses the AiConfig Fleet Codex binary when daemon PATH lacks bare codex (#15054)', async () => {
         test.skip(process.platform !== 'darwin', 'Codex Desktop bundled CLI path is currently mac-specific');
 
         const subId   = 'sub_' + crypto.randomUUID();
@@ -1470,7 +1470,7 @@ test.describe('Wake Daemon', () => {
         });
 
         const binDir           = path.join(DAEMON_DIR, 'bin');
-        const mockCodexPath    = path.join(DAEMON_DIR, 'Codex.app', 'Contents', 'Resources', 'codex');
+        const mockCodexPath    = path.join(DAEMON_DIR, 'ChatGPT.app', 'Contents', 'Resources', 'codex');
         const mockCodexOutPath = path.join(DAEMON_DIR, 'mock_codex_desktop_cli_out.json');
 
         fs.ensureDirSync(binDir);
@@ -1487,11 +1487,10 @@ test.describe('Wake Daemon', () => {
             stdio: 'pipe',
             env  : {
                 ...process.env,
-                CODEX_CLI_PATH        : '',
-                CODEX_DESKTOP_CLI_PATH: mockCodexPath,
-                NEO_MEMORY_DB_PATH    : DB_PATH,
-                NEO_AI_DAEMON_DIR     : DAEMON_DIR,
-                PATH                  : `${path.dirname(process.execPath)}${path.delimiter}${path.resolve(binDir)}`
+                NEO_FLEET_CODEX_BIN: mockCodexPath,
+                NEO_MEMORY_DB_PATH : DB_PATH,
+                NEO_AI_DAEMON_DIR  : DAEMON_DIR,
+                PATH               : `${path.dirname(process.execPath)}${path.delimiter}${path.resolve(binDir)}`
             }
         });
 
@@ -1530,7 +1529,7 @@ test.describe('Wake Daemon', () => {
     });
 
     test('uses the highest coalesced message priority in the wake digest header and preserves divergent latest priority', async () => {
-        const subId = 'sub_' + crypto.randomUUID();
+        const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-priority';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
@@ -1627,7 +1626,7 @@ test.describe('Wake Daemon', () => {
     });
 
     test('skips osascript delivery and logs error when appName is missing', async () => {
-        const subId = 'sub_' + crypto.randomUUID();
+        const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-empty';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
@@ -1697,7 +1696,7 @@ test.describe('Wake Daemon', () => {
     });
 
     test('Antigravity chorded shortcut generates correct osascript using command and shift down', async () => {
-        const subId = 'sub_' + crypto.randomUUID();
+        const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-antigravity';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
@@ -1729,7 +1728,7 @@ test.describe('Wake Daemon', () => {
         fs.ensureDirSync(binDir);
         writeMockPs(binDir);
         const mockOsascriptPath = path.join(binDir, 'osascript');
-        const mockOutPath = path.join(DAEMON_DIR, 'mock_out.json');
+        const mockOutPath       = path.join(DAEMON_DIR, 'mock_out.json');
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockOsascriptPath, 0o755);
 
@@ -1782,7 +1781,7 @@ test.describe('Wake Daemon', () => {
         await deliveryPromise;
 
         const mockOutput = fs.readFileSync(mockOutPath, 'utf8');
-        const args = JSON.parse(mockOutput);
+        const args       = JSON.parse(mockOutput);
 
         expect(args.join(' ')).toContain('keystroke "i" using {command down, shift down}');
         expect(args.join(' ')).toContain('tell application "Antigravity" to activate');
@@ -1794,7 +1793,7 @@ test.describe('Wake Daemon', () => {
     });
 
     test('Claude default focus seed emits r -> Cmd+Z before prompt clear and guards frontmost (#10987, #10422)', async () => {
-        const subId = 'sub_' + crypto.randomUUID();
+        const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-claude';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
@@ -1825,7 +1824,7 @@ test.describe('Wake Daemon', () => {
         fs.ensureDirSync(binDir);
         writeMockPs(binDir);
         const mockOsascriptPath = path.join(binDir, 'osascript');
-        const mockOutPath = path.join(DAEMON_DIR, 'mock_claude_out.json');
+        const mockOutPath       = path.join(DAEMON_DIR, 'mock_claude_out.json');
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockOsascriptPath, 0o755);
 
@@ -1873,13 +1872,13 @@ test.describe('Wake Daemon', () => {
 
         await deliveryPromise;
 
-        const args          = JSON.parse(fs.readFileSync(mockOutPath, 'utf8'));
-        const scriptContent = args.filter((_, i) => args[i - 1] === '-e').join('\n');
-        const activateIndex = scriptContent.indexOf('tell application "Claude" to activate');
-        const tabIndex      = scriptContent.indexOf('keystroke "3" using command down');
-        const rIndex        = scriptContent.indexOf('keystroke "r"');
-        const zIndex        = scriptContent.indexOf('keystroke "z" using command down');
-        const clearIndex    = scriptContent.indexOf('keystroke "a" using command down');
+        const args                      = JSON.parse(fs.readFileSync(mockOutPath, 'utf8'));
+        const scriptContent             = args.filter((_, i) => args[i - 1] === '-e').join('\n');
+        const activateIndex             = scriptContent.indexOf('tell application "Claude" to activate');
+        const tabIndex                  = scriptContent.indexOf('keystroke "3" using command down');
+        const rIndex                    = scriptContent.indexOf('keystroke "r"');
+        const zIndex                    = scriptContent.indexOf('keystroke "z" using command down');
+        const clearIndex                = scriptContent.indexOf('keystroke "a" using command down');
         const guardAfterActivationIndex = scriptContent.indexOf('my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "after activation")');
         const guardBeforeClearIndex     = scriptContent.indexOf('my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "before prompt clear")');
         const guardBeforeWakeSetIndex   = scriptContent.indexOf('my assertTargetFrontmost(targetAppName, targetBundleId, targetProcessId, "before wake clipboard set")');
@@ -1907,9 +1906,159 @@ test.describe('Wake Daemon', () => {
         expect(scriptContent).not.toContain('key code 49');
     });
 
+    test('default Codex route targets the arg-less ChatGPT.app resident by pid (#15054)', async () => {
+        const agentId = '@test-codex-default-resident';
+        const subId   = insertWakeSubscription(db, {
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'osascript',
+                appName       : 'Codex',
+                coalesceWindow: 1,
+                focusSeedKey  : 'r'
+            }
+        });
+
+        const binDir = path.join(DAEMON_DIR, 'bin');
+        fs.ensureDirSync(binDir);
+        writeMockPs(binDir, [
+            '3778 1 /Applications/ChatGPT.app/Contents/MacOS/ChatGPT',
+            '37111 1 /Applications/ChatGPT.app/Contents/MacOS/ChatGPT --user-data-dir=/Users/example/.codex-app-instances/emmy'
+        ].join('\n'));
+        const mockOsascriptPath = path.join(binDir, 'osascript');
+        const mockOutPath       = path.join(DAEMON_DIR, 'mock_codex_default_out.json');
+        fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
+        fs.chmodSync(mockOsascriptPath, 0o755);
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR}
+        });
+
+        const deliveryPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver the default Codex wake within timeout')), 10000);
+
+            daemonProcess.stdout.on('data', data => {
+                if (data.toString().includes(`[Wake Daemon] Submit attempted ${subId}`)) {
+                    clearTimeout(timeout);
+                    resolve()
+                }
+            });
+            daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+            daemonProcess.on('error', reject)
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {agentId, subject: 'Default Codex Resident Wake'});
+        await deliveryPromise;
+
+        const args          = JSON.parse(fs.readFileSync(mockOutPath, 'utf8'));
+        const scriptContent = args.filter((_, i) => args[i - 1] === '-e').join('\n');
+
+        expect(scriptContent).toContain('set targetProcessId to "3778"');
+        expect(scriptContent).toContain('first process whose unix id is 3778')
+    });
+
+    test('ambiguous Codex default route fails closed before osascript (#15054)', async () => {
+        const agentId = '@test-codex-ambiguous-default';
+        const subId   = insertWakeSubscription(db, {
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'osascript',
+                appName       : 'Codex',
+                coalesceWindow: 1,
+                focusSeedKey  : 'r'
+            }
+        });
+
+        const binDir = path.join(DAEMON_DIR, 'bin');
+        fs.ensureDirSync(binDir);
+        writeMockPs(binDir, [
+            '3778 1 /Applications/ChatGPT.app/Contents/MacOS/ChatGPT',
+            '37111 1 /Applications/ChatGPT.app/Contents/MacOS/ChatGPT'
+        ].join('\n'));
+        const mockOsascriptPath = path.join(binDir, 'osascript');
+        const mockOutPath       = path.join(DAEMON_DIR, 'mock_codex_ambiguous_out.json');
+        fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', 'unexpected delivery');\n`);
+        fs.chmodSync(mockOsascriptPath, 0o755);
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR}
+        });
+
+        const refusalPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon did not refuse the ambiguous Codex wake within timeout')), 10000);
+            const inspect = data => {
+                if (data.toString().includes(`Default-instance wake refused for ${subId}`)) {
+                    clearTimeout(timeout);
+                    resolve()
+                }
+            };
+
+            daemonProcess.stdout.on('data', inspect);
+            daemonProcess.stderr.on('data', inspect);
+            daemonProcess.on('error', reject)
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {agentId, subject: 'Ambiguous Codex Resident Wake'});
+        await refusalPromise;
+
+        expect(fs.existsSync(mockOutPath)).toBe(false)
+    });
+
+    test('default Codex route fails closed when only an addressed sibling resident is running (#15054)', async () => {
+        const agentId = '@test-codex-addressed-only';
+        const subId   = insertWakeSubscription(db, {
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'osascript',
+                appName       : 'Codex',
+                coalesceWindow: 1,
+                focusSeedKey  : 'r'
+            }
+        });
+
+        const binDir = path.join(DAEMON_DIR, 'bin');
+        fs.ensureDirSync(binDir);
+        writeMockPs(binDir, [
+            '37111 1 /Applications/ChatGPT.app/Contents/MacOS/ChatGPT --user-data-dir=/Users/example/.codex-app-instances/emmy',
+            '37122 37111 /Applications/ChatGPT.app/Contents/Frameworks/ChatGPT Helper.app/Contents/MacOS/ChatGPT Helper --type=renderer --user-data-dir=/Users/example/.codex-app-instances/emmy'
+        ].join('\n'));
+        const mockOsascriptPath = path.join(binDir, 'osascript');
+        const mockOutPath       = path.join(DAEMON_DIR, 'mock_codex_addressed_only_out.json');
+        fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', 'unexpected delivery');\n`);
+        fs.chmodSync(mockOsascriptPath, 0o755);
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR}
+        });
+
+        const refusalPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon did not refuse the addressed-only Codex wake within timeout')), 10000);
+            const inspect = data => {
+                if (data.toString().includes(`Default-instance wake refused for ${subId}`)) {
+                    clearTimeout(timeout);
+                    resolve()
+                }
+            };
+
+            daemonProcess.stdout.on('data', inspect);
+            daemonProcess.stderr.on('data', inspect);
+            daemonProcess.on('error', reject)
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {agentId, subject: 'Addressed-only Codex Resident Wake'});
+        await refusalPromise;
+
+        expect(fs.existsSync(mockOutPath)).toBe(false)
+    });
+
     test('addressType pid dispatch targets the resolved process id when HarnessPresence is fresh (#12422)', async () => {
         const agentId = '@test-agent-pid-address';
-        const subId = insertWakeSubscription(db, {
+        const subId   = insertWakeSubscription(db, {
             agentId,
             harnessTargetMetadata: {
                 adapter        : 'osascript',
@@ -1925,7 +2074,7 @@ test.describe('Wake Daemon', () => {
         fs.ensureDirSync(binDir);
         writeMockPs(binDir);
         const mockOsascriptPath = path.join(binDir, 'osascript');
-        const mockOutPath = path.join(DAEMON_DIR, 'mock_pid_out.json');
+        const mockOutPath       = path.join(DAEMON_DIR, 'mock_pid_out.json');
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockOsascriptPath, 0o755);
 
@@ -1952,7 +2101,7 @@ test.describe('Wake Daemon', () => {
         insertMessageWake(db, {agentId, subject: 'PID Address Wake'});
         await deliveryPromise;
 
-        const args = JSON.parse(fs.readFileSync(mockOutPath, 'utf8'));
+        const args          = JSON.parse(fs.readFileSync(mockOutPath, 'utf8'));
         const scriptContent = args.filter((_, i) => args[i - 1] === '-e').join('\n');
 
         expect(scriptContent).toContain('set targetProcessId to "4242"');
@@ -1961,7 +2110,7 @@ test.describe('Wake Daemon', () => {
 
     test('stale HarnessPresence refuses targeted GUI delivery instead of falling through to app activate (#12422)', async () => {
         const agentId = '@test-agent-stale-presence';
-        const subId = insertWakeSubscription(db, {
+        const subId   = insertWakeSubscription(db, {
             agentId,
             harnessTargetMetadata: {
                 adapter        : 'osascript',
@@ -1980,7 +2129,7 @@ test.describe('Wake Daemon', () => {
         const binDir = path.join(DAEMON_DIR, 'bin');
         fs.ensureDirSync(binDir);
         const mockOsascriptPath = path.join(binDir, 'osascript');
-        const mockOutPath = path.join(DAEMON_DIR, 'mock_stale_presence_out.json');
+        const mockOutPath       = path.join(DAEMON_DIR, 'mock_stale_presence_out.json');
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockOsascriptPath, 0o755);
 
@@ -2018,7 +2167,7 @@ test.describe('Wake Daemon', () => {
         const agentId     = '@test-agent-userdatadir-live';
         const userDataDir = '/Users/example/.claude-instances/test-live';
         const mainPid     = 47474;
-        const subId = insertWakeSubscription(db, {
+        const subId       = insertWakeSubscription(db, {
             agentId,
             harnessTargetMetadata: {
                 adapter        : 'osascript',
@@ -2073,7 +2222,7 @@ test.describe('Wake Daemon', () => {
     test('userDataDir still fails closed when no live process maps to the address (#12571)', async () => {
         const agentId     = '@test-agent-userdatadir-dead';
         const userDataDir = '/Users/example/.claude-instances/test-dead';
-        const subId = insertWakeSubscription(db, {
+        const subId       = insertWakeSubscription(db, {
             agentId,
             harnessTargetMetadata: {
                 adapter        : 'osascript',
@@ -2128,7 +2277,7 @@ test.describe('Wake Daemon', () => {
         // is a live oracle). `pid` has no equivalent live-target proof, so a stale-presence pid wake
         // must still fail closed — proving the relaxation did not generalize beyond userDataDir.
         const agentId = '@test-agent-pid-boundary-stale';
-        const subId = insertWakeSubscription(db, {
+        const subId   = insertWakeSubscription(db, {
             agentId,
             harnessTargetMetadata: {
                 adapter        : 'osascript',
@@ -2177,7 +2326,7 @@ test.describe('Wake Daemon', () => {
 
     test('addressType tmuxSession dispatch sends the digest to the instanceAddress session (#12422)', async () => {
         const agentId = '@test-agent-tmux-address';
-        const subId = insertWakeSubscription(db, {
+        const subId   = insertWakeSubscription(db, {
             agentId,
             harnessTargetMetadata: {
                 adapter        : 'tmux',
@@ -2192,7 +2341,7 @@ test.describe('Wake Daemon', () => {
         const binDir = path.join(DAEMON_DIR, 'bin');
         fs.ensureDirSync(binDir);
         const mockTmuxPath = path.join(binDir, 'tmux');
-        const mockOutPath = path.join(DAEMON_DIR, 'mock_tmux_out.json');
+        const mockOutPath  = path.join(DAEMON_DIR, 'mock_tmux_out.json');
         fs.writeFileSync(mockTmuxPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockTmuxPath, 0o755);
 
@@ -2228,7 +2377,7 @@ test.describe('Wake Daemon', () => {
 
     test('tmux wake delivers pure-heartbeat interactive submit (idle-gated at emit, not delivery)', async () => {
         const agentId = '@test-agent-tmux-pure-heartbeat';
-        const subId = insertWakeSubscription(db, {
+        const subId   = insertWakeSubscription(db, {
             agentId,
             harnessTargetMetadata: {
                 adapter       : 'tmux',
@@ -2240,7 +2389,7 @@ test.describe('Wake Daemon', () => {
         const binDir = path.join(DAEMON_DIR, 'bin');
         fs.ensureDirSync(binDir);
         const mockTmuxPath = path.join(binDir, 'tmux');
-        const mockOutPath = path.join(DAEMON_DIR, 'mock_tmux_pure_heartbeat_out.json');
+        const mockOutPath  = path.join(DAEMON_DIR, 'mock_tmux_pure_heartbeat_out.json');
         fs.writeFileSync(mockTmuxPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockTmuxPath, 0o755);
 
@@ -2279,9 +2428,9 @@ test.describe('Wake Daemon', () => {
             });
             server.on('error', reject);
             server.listen(0, '127.0.0.1', () => {
-                const {port} = server.address();
+                const {port}  = server.address();
                 const agentId = '@test-agent-webhook-address';
-                const subId = insertWakeSubscription(db, {
+                const subId   = insertWakeSubscription(db, {
                     agentId,
                     harnessTargetMetadata: {
                         adapter        : 'tmux',
@@ -2336,7 +2485,7 @@ test.describe('Wake Daemon', () => {
         // This test is a defense-in-depth check: the bridge refuses to send any
         // osascript keystroke for a Codex subscription that lacks an explicit
         // composer-focus primitive.
-        const subId = 'sub_' + crypto.randomUUID();
+        const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-codex-fail-closed';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
@@ -2368,7 +2517,7 @@ test.describe('Wake Daemon', () => {
         fs.ensureDirSync(binDir);
         writeMockPs(binDir);
         const mockOsascriptPath = path.join(binDir, 'osascript');
-        const mockOutPath = path.join(DAEMON_DIR, 'mock_codex_failclosed_out.json');
+        const mockOutPath       = path.join(DAEMON_DIR, 'mock_codex_failclosed_out.json');
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockOsascriptPath, 0o755);
 
@@ -2432,7 +2581,7 @@ test.describe('Wake Daemon', () => {
     });
 
     test('Codex wake submit attempt emits specific sequence r -> Cmd+Z -> Cmd+A/X -> paste -> Esc -> Enter (#10667, #13287, #13480)', async () => {
-        const subId = 'sub_' + crypto.randomUUID();
+        const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-codex-cleanup';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
@@ -2464,7 +2613,7 @@ test.describe('Wake Daemon', () => {
         fs.ensureDirSync(binDir);
         writeMockPs(binDir);
         const mockOsascriptPath = path.join(binDir, 'osascript');
-        const mockOutPath = path.join(DAEMON_DIR, 'mock_codex_cleanup_out.json');
+        const mockOutPath       = path.join(DAEMON_DIR, 'mock_codex_cleanup_out.json');
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockOsascriptPath, 0o755);
 
@@ -2515,16 +2664,16 @@ test.describe('Wake Daemon', () => {
 
         await deliveryPromise;
 
-        const rawArgs = JSON.parse(fs.readFileSync(mockOutPath, 'utf-8'));
+        const rawArgs       = JSON.parse(fs.readFileSync(mockOutPath, 'utf-8'));
         const scriptContent = rawArgs.filter((_, i) => rawArgs[i - 1] === '-e').join('\n');
 
-        const rIndex = scriptContent.indexOf('keystroke "r"');
-        const zIndex = scriptContent.indexOf('keystroke "z" using command down');
-        const aIndex = scriptContent.indexOf('keystroke "a" using command down');
-        const xIndex = scriptContent.indexOf('keystroke "x" using command down');
-        const pasteIndex = scriptContent.indexOf('keystroke "v" using command down');
+        const rIndex      = scriptContent.indexOf('keystroke "r"');
+        const zIndex      = scriptContent.indexOf('keystroke "z" using command down');
+        const aIndex      = scriptContent.indexOf('keystroke "a" using command down');
+        const xIndex      = scriptContent.indexOf('keystroke "x" using command down');
+        const pasteIndex  = scriptContent.indexOf('keystroke "v" using command down');
         const escapeIndex = scriptContent.indexOf('key code 53');
-        const enterIndex = scriptContent.indexOf('key code 36');
+        const enterIndex  = scriptContent.indexOf('key code 36');
 
         expect(rIndex).toBeGreaterThan(-1);
         expect(zIndex).toBeGreaterThan(rIndex);
@@ -2546,7 +2695,7 @@ test.describe('Wake Daemon', () => {
     });
 
     test('Codex UI wake submits pure-heartbeat interactively (idle-gated at emit, not delivery)', async () => {
-        const subId = 'sub_' + crypto.randomUUID();
+        const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-codex-pure-heartbeat';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
@@ -2578,7 +2727,7 @@ test.describe('Wake Daemon', () => {
         fs.ensureDirSync(binDir);
         writeMockPs(binDir);
         const mockOsascriptPath = path.join(binDir, 'osascript');
-        const mockOutPath = path.join(DAEMON_DIR, 'mock_codex_pure_heartbeat_out.json');
+        const mockOutPath       = path.join(DAEMON_DIR, 'mock_codex_pure_heartbeat_out.json');
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockOsascriptPath, 0o755);
 
@@ -2605,7 +2754,7 @@ test.describe('Wake Daemon', () => {
     });
 
     test('Codex UI wake attempts actionable message submit and drops coalesced heartbeat event (#13456, #13480)', async () => {
-        const subId = 'sub_' + crypto.randomUUID();
+        const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-codex-mixed-submit';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
@@ -2637,7 +2786,7 @@ test.describe('Wake Daemon', () => {
         fs.ensureDirSync(binDir);
         writeMockPs(binDir);
         const mockOsascriptPath = path.join(binDir, 'osascript');
-        const mockOutPath = path.join(DAEMON_DIR, 'mock_codex_mixed_submit_out.json');
+        const mockOutPath       = path.join(DAEMON_DIR, 'mock_codex_mixed_submit_out.json');
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockOsascriptPath, 0o755);
 
@@ -2711,8 +2860,8 @@ test.describe('Wake Daemon', () => {
         };
 
         const overflowAmount = 50;
-        const totalItems = SQLITE_IN_CLAUSE_BATCH_SIZE + overflowAmount;
-        const ids = new Set(Array.from({ length: totalItems }, (_, i) => `id_${i}`));
+        const totalItems     = SQLITE_IN_CLAUSE_BATCH_SIZE + overflowAmount;
+        const ids            = new Set(Array.from({ length: totalItems }, (_, i) => `id_${i}`));
 
         const nodeResults = getNodesData(mockDb, ids);
         expect(prepareCount).toBe(2);

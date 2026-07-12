@@ -38,7 +38,6 @@ import {WAKE_LANE_DIRECTIVE} from './wakeLaneDirective.mjs';
 import fs                               from 'fs-extra';
 import path                             from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
-import { constants as fsConstants }     from 'fs';
 import { spawn, execSync }              from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -60,7 +59,7 @@ import {
 } from '../../scripts/lifecycle/harnessRouting.mjs';
 import {normalizeAgentIdentityNodeId} from '../../graph/normalizeAgentIdentityNodeId.mjs';
 import {
-    getDefaultInstancePid,
+    getDefaultInstanceTarget,
     resolveGuiInstancePid
 } from './instanceResolver.mjs';
 import {HEARTBEAT_PULSE_ENTITY_TYPE, match} from '../../services/memory-core/heartbeatPulseEvaluator.mjs';
@@ -84,7 +83,6 @@ const LOG_RETENTION_DAYS                = 30;
 const POLL_INTERVAL_MS                  = 3000;
 const DEFAULT_COALESCE_WINDOW_MS        = 30000; // 30 seconds
 const CODEX_APP_SERVER_ADAPTER          = 'codex-app-server';
-const DEFAULT_CODEX_DESKTOP_CLI_PATH    = '/Applications/Codex.app/Contents/Resources/codex';
 const CODEX_TURN_START_PROOF_TIMEOUT_MS = Number(process.env.WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS) || 45000;
 const CODEX_TURN_START_PROOF_POLL_MS    = Number(process.env.WAKE_CODEX_TURN_START_PROOF_POLL_MS) || 1000;
 const CODEX_WAKE_SUBMIT_NONCE_PREFIX    = 'NEO_WAKE_SUBMIT_NONCE:';
@@ -780,37 +778,6 @@ function spawnAsync(command, args) {
 }
 
 /**
- * @summary Resolves the Codex CLI used by the app-server wake adapter.
- *
- * `CODEX_CLI_PATH` mirrors the resume-harness test hook and always wins. When
- * unset on macOS, the daemon probes the Codex Desktop bundled CLI path because
- * launchd / daemon environments often lack the user's interactive shell PATH.
- *
- * @returns {String}
- */
-function resolveCodexCliPath() {
-    if (process.env.CODEX_CLI_PATH) return process.env.CODEX_CLI_PATH;
-    const desktopCliPath = process.env.CODEX_DESKTOP_CLI_PATH || DEFAULT_CODEX_DESKTOP_CLI_PATH;
-    if (process.platform === 'darwin' && fileIsExecutableSync(desktopCliPath)) return desktopCliPath;
-    return 'codex';
-}
-
-/**
- * @summary Checks whether a file exists and can be executed.
- *
- * @param {String} filePath
- * @returns {Boolean}
- */
-function fileIsExecutableSync(filePath) {
-    try {
-        fs.accessSync(filePath, fsConstants.X_OK);
-        return true;
-    } catch (err) {
-        return false;
-    }
-}
-
-/**
  * @summary Dispatches a Codex wake digest through the native Codex app-server control plane.
  *
  * This is the explicit wake-daemon route for subscriptions configured as
@@ -836,7 +803,7 @@ async function deliverViaCodexAppServer(subscription, digest, evidenceLabel = ''
         throw new Error(`codex-app-server requires harnessTargetMetadata.appName='Codex' (received '${appName || ''}')`);
     }
 
-    await spawnAsync(resolveCodexCliPath(), ['debug', 'app-server', 'send-message-v2', digest]);
+    await spawnAsync(AiConfig.fleet.harnessBinaries.codex, ['debug', 'app-server', 'send-message-v2', digest]);
     writeLog('INFO', `[Wake Daemon] Dispatched ${subscription.id} via codex-app-server send-message-v2${evidenceLabel}`);
 }
 
@@ -1290,9 +1257,22 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
                 // never carry --user-data-dir without breaking its system app / menu-bar integration).
                 // When a same-bundle sibling instance is running, "activate + frontmost" is ambiguous;
                 // the default is uniquely identifiable by the ABSENCE of the flag, so target its pid
-                // directly. Returns null for single-instance (or ambiguous) — the legacy activate path
-                // below is then kept unchanged, so single-instance behavior is untouched.
-                instancePid = await getDefaultInstancePid({appName});
+                // directly. A proven arg-less singleton or no matching process keeps the legacy
+                // activate path; addressed-only, ambiguous, and probe-failed states fail closed
+                // instead of guessing which window should receive destructive composer keystrokes.
+                const defaultTarget = await getDefaultInstanceTarget({appName});
+
+                if (defaultTarget.status === 'ambiguous' || defaultTarget.status === 'probe-failed') {
+                    writeLog('ERROR',
+                        `[Wake Daemon] Default-instance wake refused for ${subscription.id}: ` +
+                        `process resolution status=${defaultTarget.status}; found ${defaultTarget.instanceCount} ` +
+                        `${defaultTarget.bundleName}.app main processes without exactly one arg-less default. ` +
+                        'Failing closed to avoid wrong-resident delivery.'
+                    );
+                    return;
+                }
+
+                instancePid = defaultTarget.pid;
             }
 
             // [Anchor & Echo] The Electron-Paradox Defense:

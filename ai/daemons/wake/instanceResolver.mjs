@@ -1,8 +1,14 @@
-import {execFile} from 'child_process';
+import {execFile}  from 'child_process';
 import {promisify} from 'util';
 
-const execFileAsync = promisify(execFile);
+const execFileAsync              = promisify(execFile);
 const GUI_INSTANCE_ADDRESS_TYPES = Object.freeze(['userDataDir', 'pid']);
+const GUI_APP_PROCESS_IDENTITIES = Object.freeze({
+    // Codex is the automation/product identity, while the installed Electron bundle and main
+    // executable are both named ChatGPT. Keeping this alias here prevents app-level routing
+    // vocabulary from leaking into process matching at the same-bundle delivery boundary.
+    Codex: Object.freeze({bundleName: 'ChatGPT', executableName: 'ChatGPT'})
+});
 
 /**
  * @summary Resolves the OS process id of a specific GUI harness *instance* from its
@@ -74,7 +80,7 @@ export function resolveInstancePid({userDataDir, psOutput, appExecutableMarker =
     }
 
     // 2) Only helper subprocesses carry the dir: walk parent-pid up to the main app executable.
-    const byPid = new Map(rows.map(row => [row.pid, row]));
+    const byPid  = new Map(rows.map(row => [row.pid, row]));
     let   cursor = matches[0];
     const seen   = new Set();
 
@@ -110,6 +116,28 @@ export async function getInstancePid({userDataDir, exec = execFileAsync} = {}) {
     }
 
     return resolveInstancePid({userDataDir, psOutput});
+}
+
+/**
+ * @summary Resolves the physical macOS process identity for a GUI harness activation name.
+ *
+ * Most harnesses use the same name at both layers (`Claude` -> `Claude.app/Claude`). Codex is the
+ * known exception: AppleScript/subscription routing uses `Codex`, while the installed bundle and
+ * executable are `ChatGPT.app/ChatGPT`. The explicit tuple keeps those contracts separate without
+ * changing the externally validated activation name.
+ *
+ * @param {String} appName Harness activation/product name.
+ * @returns {{bundleName:String, executableName:String}|null} Physical process identity.
+ */
+export function resolveGuiAppProcessIdentity(appName) {
+    const normalized = String(appName ?? '').trim();
+
+    if (!normalized) return null;
+
+    return GUI_APP_PROCESS_IDENTITIES[normalized] || {
+        bundleName    : normalized,
+        executableName: normalized
+    }
 }
 
 /**
@@ -261,33 +289,38 @@ export async function resolveGuiInstancePid({
 }
 
 /**
- * @summary Pure resolver: given a `ps` snapshot, find the pid of the DEFAULT app instance — the one
- * started as the normal macOS app, carrying NO `--user-data-dir`.
+ * @summary Resolves the DEFAULT GUI-app instance and preserves ambiguity evidence.
  *
  * Complement of {@link resolveInstancePid}. The default instance can never carry a `--user-data-dir`
  * (launching the primary macOS app with that flag breaks its system app / menu-bar integration), so
  * it is identified by the *absence* of the flag among the app's main processes.
  *
- * Disambiguates only when it is actually needed: returns the default pid solely when two or more main
- * instances of the app are running and exactly one of them is arg-less. With a single instance, or
- * when the default cannot be uniquely picked (zero or multiple arg-less mains), returns `null` so the
- * caller keeps the unchanged legacy app-activate path.
+ * The structured status keeps the delivery boundary from conflating safe legacy activation with an
+ * ambiguous multi-resident state: `not-found` and `single-instance` retain legacy activation,
+ * `resolved` carries the unique arg-less pid, while `ambiguous` and `probe-failed` must fail closed.
  *
  * @param {Object} options
  * @param {String} options.appName                            The app / bundle name (e.g. `Claude`).
  * @param {String} options.psOutput                           `ps axww -o pid=,ppid=,command=` output.
  * @param {String} [options.appExecutableMarker='Contents/MacOS/'] Marker identifying the main app executable.
- * @returns {Number|null} The default instance's main-process pid, or null (caller keeps legacy activate).
+ * @returns {{bundleName: String|null, executableName: String|null, instanceCount: Number, pid: Number|null, status: String}}
+ * Physical process identity plus default-instance resolution evidence.
  */
-export function resolveDefaultInstancePid({appName, psOutput, appExecutableMarker = 'Contents/MacOS/'} = {}) {
-    if (!appName || !psOutput) {
-        return null;
-    }
+export function resolveDefaultInstanceTarget({appName, psOutput, appExecutableMarker = 'Contents/MacOS/'} = {}) {
+    const processIdentity = resolveGuiAppProcessIdentity(appName),
+          baseResult      = {
+              bundleName    : processIdentity?.bundleName || null,
+              executableName: processIdentity?.executableName || null,
+              instanceCount : 0,
+              pid           : null,
+              status        : 'not-found'
+          };
 
-    const bundleMarker     = `/${appName}.app/${appExecutableMarker}`,
-          isMainExecutable = command =>
-              command.includes(appExecutableMarker) && !/Helper|Framework|crashpad/i.test(command),
-          appMains = psOutput.split('\n')
+    if (!processIdentity || !psOutput) return baseResult;
+
+    const bundleMarker     = `/${processIdentity.bundleName}.app/${appExecutableMarker}${processIdentity.executableName}`,
+          isMainExecutable = command => command.includes(bundleMarker) && !/Helper|Framework|crashpad/i.test(command),
+          appMains         = psOutput.split('\n')
               .map(line => line.trim())
               .filter(Boolean)
               .map(line => {
@@ -295,35 +328,71 @@ export function resolveDefaultInstancePid({appName, psOutput, appExecutableMarke
                   return match ? {pid: Number(match[1]), command: match[3]} : null;
               })
               .filter(Boolean)
-              .filter(row => row.command.includes(bundleMarker) && isMainExecutable(row.command));
+              .filter(row => isMainExecutable(row.command));
 
-    const argless = appMains.filter(row => !row.command.includes('--user-data-dir'));
+    const instanceCount = appMains.length,
+          argless       = appMains.filter(row => !row.command.includes('--user-data-dir'));
 
-    // Disambiguate only when a sibling instance actually exists (>= 2 mains) and exactly one is
-    // arg-less (the default). Otherwise null -> caller keeps the legacy activate path unchanged, so
-    // single-instance behavior is untouched.
-    return appMains.length >= 2 && argless.length === 1 ? argless[0].pid : null;
+    if (instanceCount === 0) return baseResult;
+    if (instanceCount === 1) {
+        return {
+            ...baseResult,
+            instanceCount,
+            status: argless.length === 1 ? 'single-instance' : 'ambiguous'
+        };
+    }
+
+    return {
+        ...baseResult,
+        instanceCount,
+        pid   : argless.length === 1 ? argless[0].pid : null,
+        status: argless.length === 1 ? 'resolved' : 'ambiguous'
+    }
 }
 
 /**
- * @summary Runs `ps` and resolves the DEFAULT (arg-less) app-instance pid. Side-effect wrapper
- * around {@link resolveDefaultInstancePid}.
+ * @summary Compatibility projection returning only the resolved default-instance pid.
+ * Delivery boundaries that must distinguish ambiguous multi-instance state should consume
+ * {@link resolveDefaultInstanceTarget} instead.
+ * @param {Object} options See {@link resolveDefaultInstanceTarget}.
+ * @returns {Number|null}
+ */
+export function resolveDefaultInstancePid(options = {}) {
+    return resolveDefaultInstanceTarget(options).pid;
+}
+
+/**
+ * @summary Runs `ps` and returns structured DEFAULT-instance resolution evidence.
+ * Side-effect wrapper around {@link resolveDefaultInstanceTarget}.
  * @param {Object} options
  * @param {String} options.appName
  * @param {Function} [options.exec=execFileAsync] Injectable `(cmd, args) => Promise<{stdout}>` for tests.
- * @returns {Promise<Number|null>} The default instance pid, or null (caller keeps legacy activate).
+ * @returns {Promise<{bundleName: String|null, executableName: String|null, instanceCount: Number, pid: Number|null, status: String}>}
  */
-export async function getDefaultInstancePid({appName, exec = execFileAsync} = {}) {
-    if (!appName) {
-        return null;
+export async function getDefaultInstanceTarget({appName, exec = execFileAsync} = {}) {
+    let psOutput    = '';
+    let probeFailed = false;
+
+    if (appName) {
+        try {
+            ({stdout: psOutput} = await exec('ps', ['axww', '-o', 'pid=,ppid=,command=']));
+        } catch {
+            probeFailed = true;
+        }
     }
 
-    let psOutput;
-    try {
-        ({stdout: psOutput} = await exec('ps', ['axww', '-o', 'pid=,ppid=,command=']));
-    } catch {
-        return null;
-    }
+    const result = resolveDefaultInstanceTarget({appName, psOutput});
 
-    return resolveDefaultInstancePid({appName, psOutput});
+    return probeFailed ? {...result, status: 'probe-failed'} : result;
+}
+
+/**
+ * @summary Compatibility side-effect wrapper returning only the default-instance pid.
+ * Delivery boundaries that must distinguish ambiguous multi-instance state should consume
+ * {@link getDefaultInstanceTarget} instead.
+ * @param {Object} options See {@link getDefaultInstanceTarget}.
+ * @returns {Promise<Number|null>}
+ */
+export async function getDefaultInstancePid(options = {}) {
+    return (await getDefaultInstanceTarget(options)).pid;
 }

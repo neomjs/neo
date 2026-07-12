@@ -11,6 +11,9 @@
  * @see ai/daemons/SwarmHeartbeatService.mjs
  * @see .agents/skills/session-sunset/references/session-sunset-workflow.md §1
  */
+import Neo                                                from '../../../src/Neo.mjs';
+import * as core                                          from '../../../src/core/_export.mjs';
+import AiConfig                                           from '../../config.mjs';
 import { spawn }                                          from 'child_process';
 import { constants as fsConstants }                       from 'fs';
 import fs                                                 from 'fs/promises';
@@ -117,22 +120,6 @@ async function resolveClaudeCliPath() {
 }
 
 /**
- * @summary Resolve the Codex CLI binary used by the Codex Desktop app-server adapter.
- *
- * `CODEX_CLI_PATH` always wins. When unset on macOS, the resolver probes the
- * Codex Desktop bundled CLI path because daemon / app-spawned environments often
- * lack the user's interactive shell PATH.
- *
- * @returns {Promise<string>} The Codex CLI command or resolved Desktop path.
- */
-async function resolveCodexCliPath() {
-    if (process.env.CODEX_CLI_PATH) return process.env.CODEX_CLI_PATH;
-    const desktopCliPath = process.env.CODEX_DESKTOP_CLI_PATH || '/Applications/Codex.app/Contents/Resources/codex';
-    if (process.platform === 'darwin' && await fileIsExecutable(desktopCliPath)) return desktopCliPath;
-    return 'codex';
-}
-
-/**
  * @summary Check whether a candidate CLI path exists and is executable.
  *
  * @param {string} filePath
@@ -232,19 +219,20 @@ export function selectHarnessAdapter(harnessTarget, hostPlatform = process.platf
  *
  * `codex debug app-server send-message-v2` creates/injects into a real Codex
  * Desktop thread. Live-host probes must require an explicit operator opt-in.
- * Unit tests satisfy this guard with
- * `CODEX_APP_SERVER_MOCK=1` plus `CODEX_CLI_PATH` or `CODEX_DESKTOP_CLI_PATH` pointing at a mock
- * executable, preserving always-on coverage without host side effects.
+ * Unit tests satisfy this guard with `CODEX_APP_SERVER_MOCK=1` plus the canonical
+ * `NEO_FLEET_CODEX_BIN` config-leaf override pointing at a mock executable, preserving always-on
+ * coverage without host side effects.
  */
 function assertCodexAppServerAllowed() {
     const hasLiveOptIn = process.env.RUN_LIVE_CODEX_APP_SERVER === '1';
     const hasMockOptIn = process.env.CODEX_APP_SERVER_MOCK === '1' &&
-        (Boolean(process.env.CODEX_CLI_PATH) || Boolean(process.env.CODEX_DESKTOP_CLI_PATH));
+        Boolean(process.env.NEO_FLEET_CODEX_BIN);
 
     if (!hasLiveOptIn && !hasMockOptIn) {
         throw new Error(
             'Codex app-server adapter is a live-host action. Set RUN_LIVE_CODEX_APP_SERVER=1 ' +
-            'for an operator-controlled probe, or set CODEX_APP_SERVER_MOCK=1 with CODEX_CLI_PATH in tests.'
+            'for an operator-controlled probe, or set CODEX_APP_SERVER_MOCK=1 with ' +
+            'NEO_FLEET_CODEX_BIN in tests.'
         );
     }
 }
@@ -378,7 +366,7 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
     //   same osascript Cmd+3 path is empirically proven by live bridge-daemon wake delivery.
     // - codex-desktop: Codex Desktop app-server debug surface through
     //   `codex debug app-server send-message-v2`; live dispatch remains explicitly
-    //   gated, while tests use CODEX_APP_SERVER_MOCK=1 + CODEX_CLI_PATH.
+    //   gated, while tests use CODEX_APP_SERVER_MOCK=1 + NEO_FLEET_CODEX_BIN.
     // The `claude-cli` adapter (embedded `claude <prompt>` CLI) is retained as a
     // non-routed fallback; no production identity routes there after the Tab-3 remap.
     const harnessTarget = resolveHarnessTargetForIdentity(identity);
@@ -462,11 +450,11 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
              * thread proves healthy Memory Core startup plus a first `add_memory`
              * sessionId change.
              *
-             * Tests use `CODEX_APP_SERVER_MOCK=1` plus a mock CLI path, verifying the
-             * command shape without creating real Codex threads.
+             * Tests use `CODEX_APP_SERVER_MOCK=1` plus a mock `NEO_FLEET_CODEX_BIN`,
+             * verifying the command shape without creating real Codex threads.
              */
             assertCodexAppServerAllowed();
-            const cliPath = await resolveCodexCliPath();
+            const cliPath = AiConfig.fleet.harnessBinaries.codex;
             const args    = ['debug', 'app-server', 'send-message-v2', payload];
             await spawnAsync(cliPath, args);
             console.log(`Successfully resumed ${identity} via codex-app-server`);
