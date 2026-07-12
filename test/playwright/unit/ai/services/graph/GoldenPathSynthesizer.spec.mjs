@@ -26,6 +26,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     test.describe.configure({mode: 'serial'});
 
     let GoldenPathSynthesizer;
+    let Synthesizer;
     let aiConfig;
     let logger;
     let GraphService;
@@ -85,6 +86,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
         const GoldenPathSynthesizerModule = await import('../../../../../../ai/services/graph/GoldenPathSynthesizer.mjs');
         GoldenPathSynthesizer = GoldenPathSynthesizerModule.default;
+        Synthesizer = GoldenPathSynthesizer.constructor;
         issueFocusSections = await import('../../../../../../ai/services/graph/issueFocusSections.mjs');
         buildStaleAssignmentCandidates = GoldenPathSynthesizer.constructor.buildStaleAssignmentCandidates.bind(GoldenPathSynthesizer.constructor);
         renderStaleAssignmentCandidatesSection = GoldenPathSynthesizer.constructor.renderStaleAssignmentCandidatesSection.bind(GoldenPathSynthesizer.constructor);
@@ -159,7 +161,6 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     });
 
     test('derives repo-enrichment identity projections from identityRoots', () => {
-        const Synthesizer = GoldenPathSynthesizer.constructor;
 
         expect(Synthesizer.getCoreSwarmAgentFamilies()).toMatchObject({
             'neo-opus-grace': 'claude',
@@ -256,8 +257,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     });
 
     test('hasCrossFamilyReview accepts injected identity-family maps', () => {
-        const Synthesizer = GoldenPathSynthesizer.constructor;
-        const pr          = {
+        const pr = {
             author : {login: 'author-agent'},
             reviews: [{author: {login: 'reviewer-agent'}}]
         };
@@ -274,9 +274,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     });
 
     test('getRecentSummaryDocuments returns the N most-recent summaries by timestamp, newest-first (#13800)', async () => {
-        const Synthesizer = GoldenPathSynthesizer.constructor;
-        const docMap      = {s1: 'doc-old', s2: 'doc-newest', s3: 'doc-mid'};
-        const collection  = {
+        const docMap     = {s1: 'doc-old', s2: 'doc-newest', s3: 'doc-mid'};
+        const collection = {
             get: async opts => {
                 // metadatas pass: storage-order (s1,s2,s3) with out-of-order timestamps
                 if (opts.include?.includes('metadatas') && !opts.ids) {
@@ -293,15 +292,13 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     });
 
     test('getRecentSummaryDocuments returns empty documents for an empty collection (#13800)', async () => {
-        const Synthesizer = GoldenPathSynthesizer.constructor;
-        const collection  = {get: async () => ({ids: [], metadatas: []})};
+        const collection = {get: async () => ({ids: [], metadatas: []})};
 
         expect(await Synthesizer.getRecentSummaryDocuments(collection, 2)).toEqual({documents: []});
     });
 
     test('findLastQualifyingAssignmentActivity treats owner identity comments as maintainer progress acknowledgements', () => {
-        const Synthesizer = GoldenPathSynthesizer.constructor;
-        const activity    = Synthesizer.findLastQualifyingAssignmentActivity({
+        const activity = Synthesizer.findLastQualifyingAssignmentActivity({
             assignees: ['neo-gpt'],
             author   : 'neo-gpt',
             createdAt: '2026-05-01T00:00:00Z',
@@ -2398,5 +2395,118 @@ test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from
             reviews: [{author: {login: 'neo-opus-ada'}, state: 'APPROVED'}] // both claude
         };
         expect(Synthesizer.hasCrossFamilyReview(pr, agentFamilies)).toBe(false)
+    });
+
+    test('buildRouteAttributionRecords records armingReasons (guard causes only) vs candidateReasons (full set), per-node labels, stamped at (#15057 / RA-2 #15060)', () => {
+
+        const contradiction = {
+            blockedNodes: [
+                {node: {id: 'issue-200', properties: {labels: ['documentation', 'ai']}}},
+                {node: {id: 'issue-201', properties: {labels: ['blog']}}}
+            ],
+            focusCandidates: [
+                {number: 100, reasons: ['incident', 'fresh-updated']},
+                {number: 101, reasons: ['incident', 'prio-zero']}
+            ]
+        };
+
+        const records = Synthesizer.buildRouteAttributionRecords(contradiction, 4242);
+
+        expect(records.map(r => r.blockedNodeId)).toEqual(['issue-200', 'issue-201']);
+        // armingReasons = ONLY the reasons that armed the guard (incident/prio-zero); the incidental
+        // 'fresh-updated' is NEVER attributed as a cause — candidateReasons keeps the full diagnostic set.
+        expect(records[0].armingReasons).toEqual(['incident', 'prio-zero']);
+        expect(records[0].candidateReasons).toEqual(['incident', 'fresh-updated', 'prio-zero']);
+        expect(records[1].armingReasons).toEqual(['incident', 'prio-zero']);
+        expect(records[1].candidateReasons).toEqual(['incident', 'fresh-updated', 'prio-zero']);
+        // every record is stamped with the injected clock; no exclusion-label field (guard-blocked = actionable)
+        expect(records.every(r => r.at === 4242)).toBe(true);
+        expect(records.every(r => !('exclusionLabels' in r))).toBe(true);
+    });
+
+    test('buildRouteAttributionRecords is empty for no contradiction, and drops id-less nodes (#15057)', () => {
+
+        expect(Synthesizer.buildRouteAttributionRecords(null, 1)).toEqual([]);
+        expect(Synthesizer.buildRouteAttributionRecords({blockedNodes: [], focusCandidates: []}, 1)).toEqual([]);
+
+        const records = Synthesizer.buildRouteAttributionRecords({
+            blockedNodes: [
+                {node: {id: 'issue-1', properties: {}}},
+                {node: {properties: {}}},   // no id → dropped
+                {node: {id: '', properties: {}}}  // empty id → dropped
+            ],
+            focusCandidates: [{number: 9, reasons: ['incident']}]
+        }, 7);
+
+        expect(records.map(r => r.blockedNodeId)).toEqual(['issue-1']);
+    });
+
+    test('recordRouteAttribution is a no-op that never throws when there is no contradiction (fail-safe, no ledger touch) (#15057)', async () => {
+        // buildRouteAttributionRecords returns [] → early return BEFORE any config read or disk write.
+        await expect(Synthesizer.recordRouteAttribution(null, new Date())).resolves.toBeUndefined();
+        await expect(Synthesizer.recordRouteAttribution({blockedNodes: [], focusCandidates: []}, 123)).resolves.toBeUndefined();
+    });
+
+    test('recordRouteAttribution writes guard-filtered records to the INJECTED ledger dir — partial-block + no-survivor, hermetic (#15057 / RA-3 #15060)', async () => {
+        const fs   = await import('fs/promises'),
+              os   = await import('os'),
+              path = await import('path');
+        const {readRouteAttributionLedger} = await import('../../../../../../ai/services/graph/routeAttributionLedgerStore.mjs');
+
+        // Per-test temporary ledger boundary — recordRouteAttribution takes the dir as a param (no aiConfig
+        // read of its own), so nothing touches the production `.neo-ai-data` default: the records provably land
+        // in THIS temp dir. Restored in finally.
+        const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'ra-emit-'));
+        try {
+            // Partial-block: one blocked content candidate under incident + an incidental co-reason.
+            await Synthesizer.recordRouteAttribution({
+                blockedNodes   : [{node: {id: 'issue-200', properties: {labels: ['documentation']}}}],
+                focusCandidates: [{number: 100, reasons: ['incident', 'fresh-updated']}]
+            }, 1000, {dir, maxEvents: 100, triggerBytes: 65536});
+
+            // No-survivor: two blocked candidates under a prio-zero focus.
+            await Synthesizer.recordRouteAttribution({
+                blockedNodes   : [{node: {id: 'issue-300', properties: {}}}, {node: {id: 'issue-301', properties: {}}}],
+                focusCandidates: [{number: 400, reasons: ['prio-zero']}]
+            }, 2000, {dir, maxEvents: 100, triggerBytes: 65536});
+
+            const records = await readRouteAttributionLedger({dir});
+            expect(records.map(r => r.blockedNodeId)).toEqual(['issue-200', 'issue-300', 'issue-301']);
+            // arming reasons attributed correctly — the incidental 'fresh-updated' is excluded
+            expect(records[0].armingReasons).toEqual(['incident']);
+            expect(records[0].candidateReasons).toEqual(['incident', 'fresh-updated']);
+            expect(records[1].armingReasons).toEqual(['prio-zero']);
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
+
+    test('recordRouteAttribution is fail-open — a real write failure does not throw, so synthesis is unaffected (#15057 / RA-3)', async () => {
+        const fs   = await import('fs/promises'),
+              os   = await import('os'),
+              path = await import('path');
+
+        const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'ra-fail-'));
+        try {
+            // Point the ledger dir UNDER a regular file → mkdir throws ENOTDIR → the write must be swallowed.
+            const filePath = path.join(tmp, 'blocker');
+            await fs.writeFile(filePath, 'x');
+
+            await expect(Synthesizer.recordRouteAttribution({
+                blockedNodes   : [{node: {id: 'issue-1', properties: {}}}],
+                focusCandidates: [{number: 1, reasons: ['incident']}]
+            }, 1, {dir: path.join(filePath, 'nested'), maxEvents: 100, triggerBytes: 65536})).resolves.toBeUndefined();
+        } finally {
+            await fs.rm(tmp, {recursive: true, force: true});
+        }
+    });
+
+    test('under UNIT_TEST_MODE the synthesis ledger dir resolves to a TEST path — synthesis never writes the prod .neo-ai-data ledger (#15057 / RA-3 #15060)', async () => {
+        const {default: aiConfig} = await import('../../../../../../ai/mcp/server/memory-core/config.mjs');
+        // synthesizeGoldenPath reads aiConfig.goldenPathRouteAttributionLedgerDir at its use site; the config
+        // formula resolves it to the OS-temp test dir under UNIT_TEST_MODE, so the synthesis specs that trigger
+        // the fail-open emit never write the tracked production `.neo-ai-data` ledger.
+        expect(aiConfig.goldenPathRouteAttributionLedgerDir).not.toContain('.neo-ai-data');
+        expect(aiConfig.goldenPathRouteAttributionLedgerDir).toContain('route-attribution-test');
     });
 });

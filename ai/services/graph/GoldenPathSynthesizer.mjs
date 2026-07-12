@@ -29,6 +29,7 @@ import {
     buildFailureOutcome                          as buildRouteFailureOutcome,
     findComputedFocusContradiction               as findRouteFocusContradiction,
     getComputedRecommendationExclusionLabels     as getRouteExclusionLabels,
+    getRoutingConflictReasons                    as getRouteConflictReasons,
     isActionableComputedRecommendation           as isActionableRouteRecommendation,
     isContentComputedRecommendation              as isContentRouteRecommendation,
     isRoutingConflictFocusCandidate              as isRouteConflictFocusCandidate,
@@ -36,6 +37,10 @@ import {
     renderComputedGoldenPathEmptySection         as renderRouteEmptySection,
     renderComputedGoldenPathFailureSection       as renderRouteFailureSection
 } from './computedGoldenPathRouting.mjs';
+import {
+    appendRouteAttribution,
+    validateRouteAttributionRetention
+} from './routeAttributionLedgerStore.mjs';
 import {RETROSPECTIVE_GRAINS, renderHandoffRetrospectiveSection} from './handoffRetrospective.mjs';
 import {assembleRetrospectiveStats}                              from './handoffRetrospectiveAssembler.mjs';
 import {
@@ -364,6 +369,72 @@ class GoldenPathSynthesizer extends Base {
      */
     static renderComputedGoldenPathContradictionSection(options) {
         return renderRouteContradictionSection(options)
+    }
+
+    /**
+     * @summary Maps a routing-guard contradiction into route-attribution ledger records — one per blocked
+     * computed candidate. `armingReasons` are ONLY the reasons that actually armed the guard (via the shared
+     * getRoutingConflictReasons authority), so incidental co-reasons (fresh-updated / agent-os) are never
+     * mis-attributed as causes; `candidateReasons` keeps the full diagnostic set separately. Pure (no I/O, no
+     * config read): the caller persists the result. Reasons are unioned across the armed Current Focus
+     * candidates (all blocked nodes in one contradiction share the live focus context). No exclusion-label
+     * dimension: every guard-blocked node already passed the actionability type-gate, so its exclusion set is
+     * empty by construction — that evidence belongs to the type-gate producer, not this guard-filter one.
+     * @param {{blockedNodes: Array<Object>, focusCandidates: Array<Object>}|null} focusContradiction Result from `findComputedFocusContradiction`.
+     * @param {Number} nowMs Epoch ms stamped onto each record.
+     * @returns {Object[]} `[{blockedNodeId, armingReasons, candidateReasons, at}]` (empty when no contradiction).
+     */
+    static buildRouteAttributionRecords(focusContradiction, nowMs) {
+        if (!focusContradiction) return [];
+
+        const blockedNodes     = Array.isArray(focusContradiction.blockedNodes)    ? focusContradiction.blockedNodes    : [],
+              focusCandidates  = Array.isArray(focusContradiction.focusCandidates) ? focusContradiction.focusCandidates : [],
+              armingReasons    = [...new Set(focusCandidates.flatMap(candidate => getRouteConflictReasons(candidate)))],
+              candidateReasons = [...new Set(focusCandidates.flatMap(candidate => Array.isArray(candidate.reasons) ? candidate.reasons : []))];
+
+        return blockedNodes
+            .filter(item => item?.node?.id)
+            .map(item => ({
+                armingReasons,
+                blockedNodeId: item.node.id,
+                candidateReasons,
+                at           : nowMs
+            }))
+    }
+
+    /**
+     * @summary The route-attribution record-seam: persists which computed candidates the routing guard filtered,
+     * under which arming reasons, per synthesis run. FAIL-OPEN — a ledger-write failure (bad config/dir, I/O
+     * error) is swallowed-logged and never aborts synthesis (the ledger is observability, never a gate); a
+     * missing/empty `dir` is a silent no-op. The ledger directory + retention are supplied by the caller (the
+     * synthesis boundary reads the resolved AiConfig leaves at its use site), which keeps this method a testable
+     * seam (a per-test temporary dir) with no config-SSOT read of its own; retention is validated here before it
+     * reaches the pure store helper.
+     * @param {{blockedNodes: Array<Object>, focusCandidates: Array<Object>}|null} focusContradiction Result from `findComputedFocusContradiction`.
+     * @param {Date|Number} now The synthesis-pass clock (Date or epoch ms).
+     * @param {Object} [ledger] The resolved ledger boundary (from the caller's AiConfig read).
+     * @param {String} [ledger.dir] The runtime ledger directory; absent/empty → no-op.
+     * @param {Number} [ledger.maxEvents] Retention cap (validated here).
+     * @param {Number} [ledger.triggerBytes] Prune byte-trigger (validated here).
+     * @returns {Promise<void>}
+     */
+    static async recordRouteAttribution(focusContradiction, now, {dir, maxEvents, triggerBytes} = {}) {
+        const nowMs   = now instanceof Date ? now.getTime() : now,
+              records = this.buildRouteAttributionRecords(focusContradiction, Number.isFinite(nowMs) ? nowMs : null);
+
+        if (records.length === 0) return;
+
+        try {
+            if (typeof dir !== 'string' || dir.length === 0) return;
+
+            const retention = validateRouteAttributionRetention(maxEvents, triggerBytes);
+
+            for (const record of records) {
+                await appendRouteAttribution(record, {dir, ...retention})
+            }
+        } catch (error) {
+            logger.warn(`[GoldenPathSynthesizer] route-attribution ledger write failed (non-fatal): ${error?.message || error}`)
+        }
     }
 
     /**
@@ -1018,6 +1089,17 @@ class GoldenPathSynthesizer extends Base {
         scoringStats.prunedGuideEdges = this.constructor.pruneStaleFrontierGuideEdges({
             currentTargetIds: goldenIds
         });
+
+        // Record which computed candidates the routing guard filtered — covers BOTH the partial-block branch
+        // (some survived) and the no-survivor branch — into the route-attribution ledger. Fail-open inside the
+        // method; never gates synthesis. This is the live record-seam the one-shot measurement dataset snapshotted.
+        if (focusContradiction) {
+            await this.constructor.recordRouteAttribution(focusContradiction, now, {
+                dir         : aiConfig.goldenPathRouteAttributionLedgerDir,
+                maxEvents   : aiConfig.goldenPathRouteAttributionLedgerMaxEvents,
+                triggerBytes: aiConfig.goldenPathRouteAttributionLedgerPruneTriggerBytes
+            })
+        }
 
         const handoffTimestamp = now instanceof Date ? now : new Date(now);
         let   markdownAppend   = '';
