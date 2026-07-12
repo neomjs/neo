@@ -35,14 +35,17 @@ export function makeRecentTurnsFetchPage({queryRecentTurns, limit = 100} = {}) {
 
         const turns = Array.isArray(result?.turns) ? result.turns : [];
 
-        // Preserve the fidelity fields the downstream synthesis + citation-prominence read — dropping
-        // `impact`/`summary` here forced the narrative to reconstruct from ids alone (a false-narrative
-        // vector). Kept explicit (not a spread) so the window-source item stays a known shape.
+        // Preserve the fidelity fields the downstream synthesis + citation-prominence read: a turn IS a
+        // `memory` record, so it is typed as such — citationProminence classifies memory/session/adr/pr,
+        // and the previous `'turn'` literal fell to its default and could NEVER earn direct citation.
+        // sessionId, impact, and summary carry through for prominence + session drill-down. Explicit
+        // (not a spread) so the window-source item stays a known shape.
         return {
             items: turns.map(turn => ({
                 id       : turn.id,
                 timestamp: turn.timestamp,
-                type     : 'turn',
+                type     : 'memory',
+                sessionId: turn.sessionId,
                 impact   : turn.impact,
                 summary  : turn.summary
             })),

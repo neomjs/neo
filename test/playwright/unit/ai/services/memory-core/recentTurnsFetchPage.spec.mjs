@@ -3,20 +3,21 @@ import {makeRecentTurnsFetchPage}            from '../../../../../../ai/services
 import {enumerateChronologicalWindowSources} from '../../../../../../ai/services/memory-core/helpers/chronologicalWindowSources.mjs';
 
 test.describe('recentTurnsFetchPage — the query_recent_turns → fetchPage seam adapter', () => {
-    test('preserves the fidelity fields (impact, summary), drops arbitrary ones, and passes agentIdentity/before/limit through', async () => {
+    test('types turns as memory + preserves fidelity fields (sessionId, impact, summary), drops arbitrary ones, passes args through', async () => {
         const calls     = [],
               fetchPage = makeRecentTurnsFetchPage({
                   limit           : 50,
                   queryRecentTurns: async args => {
                       calls.push(args);
-                      return {turns: [{id: 't1', timestamp: '2026-07-10T00:00:00Z', impact: 87, summary: 'shipped the thing', extra: 'ignored'}], nextCursor: {timestamp: 'x', id: 'y'}}
+                      return {turns: [{id: 't1', timestamp: '2026-07-10T00:00:00Z', sessionId: 's1', impact: 87, summary: 'shipped the thing', extra: 'ignored'}], nextCursor: {timestamp: 'x', id: 'y'}}
                   }
               });
 
         const page = await fetchPage({identity: '@ada', cursor: {timestamp: 'c', id: 'z'}});
 
-        // impact + summary survive (the synthesis reads them); `extra` is dropped (the item stays a known shape).
-        expect(page.items).toEqual([{id: 't1', timestamp: '2026-07-10T00:00:00Z', type: 'turn', impact: 87, summary: 'shipped the thing'}]);
+        // type is `memory` (so citationProminence can classify it); sessionId + impact + summary survive for
+        // prominence + drill-down; `extra` is dropped (the item stays a known shape).
+        expect(page.items).toEqual([{id: 't1', timestamp: '2026-07-10T00:00:00Z', type: 'memory', sessionId: 's1', impact: 87, summary: 'shipped the thing'}]);
         expect(page.nextCursor).toEqual({timestamp: 'x', id: 'y'});
         expect(calls[0]).toEqual({agentIdentity: '@ada', before: {timestamp: 'c', id: 'z'}, limit: 50})
     });
