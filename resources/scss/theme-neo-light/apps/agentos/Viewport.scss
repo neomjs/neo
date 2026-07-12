@@ -29,40 +29,44 @@
     --agent-font-mono               : 'Courier New', monospace;
     --agent-font-ui                 : system-ui, -apple-system, sans-serif;
 
-    /* Fleet Manager cockpit design tokens. The design SSOT is dark-native; these carry the design
-       values so the FM renders correctly regardless of active theme — light-native FM tuning (a proper
-       light palette for these) is #14681's scope. Structure lives in src/apps/agentos/fleet/*.scss. */
-    --fm-ground        : #0b0e13;
-    --fm-panel         : #141a23;
-    --fm-panel-2       : #1a212c;
-    --fm-rail          : #0e131a;
-    --fm-line          : #262f3d;
-    --fm-line-soft     : #1c242f;
-    --fm-ink           : #d6dce6;
-    --fm-ink-dim       : #8b97a8;
-    --fm-ink-faint     : #5a6575;
-    --fm-signal        : #5eead4;
+    /* Fleet Manager cockpit design tokens — light-native. The dark cockpit is deep-space mission
+       control; the light cockpit is the same instrument in daylight: cool paper surfaces in the house
+       light language, panels floating white above a recessed ground, every state/family/kind hue keeping
+       its dark-mode identity so operator color-memory transfers across modes. Elevation is "whiter =
+       higher" (rail < ground < panel-2 < panel, verified monotonic), structure carried by lines not
+       luminance steps. Computed WCAG-2.1 contrast (vs --fm-panel / vs --fm-ground) is recorded on the PR.
+       Structure lives in src/apps/agentos/fleet/*.scss. */
+    --fm-ground        : #f2f5f9;
+    --fm-panel         : #ffffff;
+    --fm-panel-2       : #f7f9fc;
+    --fm-rail          : #e9edf3;
+    --fm-line          : #d3dae4;
+    --fm-line-soft     : #e4e9f0;
+    --fm-ink           : #1f2733;
+    --fm-ink-dim       : #5a6b80;
+    --fm-ink-faint     : #8494a7;
+    --fm-signal        : #0f766e;
 
-    --fm-state-ok      : #34d399;
-    --fm-state-idle    : #f5b544;
-    --fm-state-wedged  : #f4718b;
-    --fm-state-limited : #a78bfa;
+    --fm-state-ok      : #047857;
+    --fm-state-idle    : #b45309;
+    --fm-state-wedged  : #be123c;
+    --fm-state-limited : #6d28d9;
     // transitional (a lifecycle intent is in flight): sky = activating, slate = winding down.
     // Distinct from the five resolved states; exact palette is design-owner-tunable.
-    --fm-state-starting: #38bdf8;
-    --fm-state-stopping: #94a3b8;
-    --fm-state-off     : #5b6675;
+    --fm-state-starting: #0369a1;
+    --fm-state-stopping: #64748b;
+    --fm-state-off     : #8b95a5;
 
-    --fm-family-claude : #d99a5b;
-    --fm-family-gpt    : #58c093;
-    --fm-family-gemini : #6ba3e8;
-    --fm-family-human  : #c9d2de;
+    --fm-family-claude : #a8621f;
+    --fm-family-gpt    : #2a7d57;
+    --fm-family-gemini : #2b64ab;
+    --fm-family-human  : #4d5866;
 
-    --fm-kind-pr       : #7aa2f7;
-    --fm-kind-a2a      : #2ac3de;
-    --fm-kind-review   : #bb9af7;
-    --fm-kind-alert    : #db4b4b;
-    --fm-kind-neutral  : #737aa2;
+    --fm-kind-pr       : #3b5bdb;
+    --fm-kind-a2a      : #0e7490;
+    --fm-kind-review   : #7e22ce;
+    --fm-kind-alert    : #b91c1c;
+    --fm-kind-neutral  : #5b6285;
 
     --fm-font-mono     : ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     --fm-font-sans     : system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
