@@ -83,6 +83,16 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval (#14504)', () => {
         expect(resolveConcepts({graphService: SPINE, query: ''})).toEqual([]);
     });
 
+    test('resolveConcepts degrades on a not-ready / throwing graph — returns empty, never propagates (#15071 GraphService.ready coverage)', () => {
+        // A not-ready graph (mid-init / locked store) whose listNodeRecordsByType throws must degrade to
+        // no concepts, not propagate. This is why a proactive GraphService.ready() check is redundant:
+        // BOTH enrich graph-read sites are guarded — resolveConcepts here, and the raw-edge walk — so a
+        // not-ready graph simply contributes nothing and the flat embedding path stands untouched.
+        const notReadyGraph = {listNodeRecordsByType: () => { throw new Error('graph not ready'); }};
+
+        expect(resolveConcepts({graphService: notReadyGraph, query: 'golden path'})).toEqual([]);
+    });
+
     test('resolver is deterministic and bounded by limit', () => {
         const a = resolveConcepts({graphService: SPINE, query: 'golden path dream pipeline delta updates', limit: 2});
         const b = resolveConcepts({graphService: SPINE, query: 'golden path dream pipeline delta updates', limit: 2});
