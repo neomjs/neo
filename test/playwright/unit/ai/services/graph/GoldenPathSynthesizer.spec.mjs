@@ -2509,4 +2509,73 @@ test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from
         expect(aiConfig.goldenPathRouteAttributionLedgerDir).not.toContain('.neo-ai-data');
         expect(aiConfig.goldenPathRouteAttributionLedgerDir).toContain('route-attribution-test');
     });
+
+    test('buildTypeGateRejectionRecords stamps nodeId + exclusion bucket + stage + at, drops id-less, defaults a non-array bucket to [] (#15057 AC3)', () => {
+        const records = Synthesizer.buildTypeGateRejectionRecords([
+            {nodeId: 'issue-10', rejectionBucket: ['epic']},
+            {nodeId: 'issue-11', rejectionBucket: ['not-code-ready', 'ai-generated']},
+            {rejectionBucket: ['epic']},              // no nodeId → dropped
+            {nodeId: '', rejectionBucket: ['epic']},   // empty nodeId → dropped
+            {nodeId: 'issue-12', rejectionBucket: 'epic'} // non-array bucket → []
+        ], 4242);
+
+        expect(records.map(r => r.nodeId)).toEqual(['issue-10', 'issue-11', 'issue-12']);
+        expect(records[0]).toEqual({nodeId: 'issue-10', rejectionBucket: ['epic'], stage: 'actionability-type-gate', at: 4242});
+        expect(records[2].rejectionBucket).toEqual([]);        // non-array bucket normalized
+        expect(records.every(r => r.stage === 'actionability-type-gate' && r.at === 4242)).toBe(true);
+    });
+
+    test('buildTypeGateRejectionRecords is empty for no rejections / a non-array input (#15057 AC3)', () => {
+        expect(Synthesizer.buildTypeGateRejectionRecords([], 1)).toEqual([]);
+        expect(Synthesizer.buildTypeGateRejectionRecords(null, 1)).toEqual([]);
+        expect(Synthesizer.buildTypeGateRejectionRecords(undefined, 1)).toEqual([]);
+    });
+
+    test('recordTypeGateRejections is a no-op that never throws when nothing was rejected (fail-safe, no ledger touch) (#15057 AC3)', async () => {
+        await expect(Synthesizer.recordTypeGateRejections([], new Date())).resolves.toBeUndefined();
+        await expect(Synthesizer.recordTypeGateRejections(null, 123)).resolves.toBeUndefined();
+    });
+
+    test('recordTypeGateRejections writes rejection records to the INJECTED ledger dir as a SIBLING file, hermetic (#15057 AC3)', async () => {
+        const fs   = await import('fs/promises'),
+              os   = await import('os'),
+              path = await import('path');
+        const {readTypeGateRejectionLedger} = await import('../../../../../../ai/services/graph/typeGateRejectionLedgerStore.mjs');
+        const {readRouteAttributionLedger}  = await import('../../../../../../ai/services/graph/routeAttributionLedgerStore.mjs');
+
+        const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'tg-emit-'));
+        try {
+            await Synthesizer.recordTypeGateRejections([
+                {nodeId: 'issue-epic', rejectionBucket: ['epic']},
+                {nodeId: 'issue-draft', rejectionBucket: ['not-code-ready']}
+            ], 1000, {dir, maxEvents: 100, triggerBytes: 65536});
+
+            const records = await readTypeGateRejectionLedger({dir});
+            expect(records.map(r => r.nodeId)).toEqual(['issue-epic', 'issue-draft']);
+            expect(records[0]).toMatchObject({rejectionBucket: ['epic'], stage: 'actionability-type-gate', at: 1000});
+            // the type-gate producer writes a SIBLING file — the route-attribution ledger stays empty
+            expect(await readRouteAttributionLedger({dir})).toEqual([]);
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
+
+    test('recordTypeGateRejections is fail-open — a real write failure does not throw, so synthesis is unaffected (#15057 AC3)', async () => {
+        const fs   = await import('fs/promises'),
+              os   = await import('os'),
+              path = await import('path');
+
+        const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'tg-fail-'));
+        try {
+            const filePath = path.join(tmp, 'blocker');
+            await fs.writeFile(filePath, 'x'); // ledger dir UNDER a regular file → mkdir ENOTDIR → swallowed
+
+            await expect(Synthesizer.recordTypeGateRejections(
+                [{nodeId: 'issue-1', rejectionBucket: ['epic']}],
+                1, {dir: path.join(filePath, 'nested'), maxEvents: 100, triggerBytes: 65536}
+            )).resolves.toBeUndefined();
+        } finally {
+            await fs.rm(tmp, {recursive: true, force: true});
+        }
+    });
 });
