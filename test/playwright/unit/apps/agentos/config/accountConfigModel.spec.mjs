@@ -51,6 +51,7 @@ test.describe('FM account configuration model', () => {
         expect(harnessTypes.resolveHarnessType('claude-desktop')?.label).toBe('Claude');
         expect(harnessTypes.resolveHarnessType('claude-code')?.label).toBe('Claude Code');
         expect(harnessTypes.resolveHarnessType('codex')?.label).toBe('Codex');
+        expect(harnessTypes.resolveHarnessType('codex-desktop')?.label).toBe('Codex Desktop');
         expect(harnessTypes.resolveHarnessType('antigravity')?.label).toBe('Antigravity');
 
         // fail-closed: never guess a launcher or a label

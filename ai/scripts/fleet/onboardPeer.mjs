@@ -46,7 +46,7 @@ import {normalizeAgentIdentityNodeId}                 from '../../graph/normaliz
  *
  * **Usage**:
  *   node ai/scripts/fleet/onboardPeer.mjs --resident-id <s> --github-username <s>
- *       --harness-type <antigravity|claude-code|claude-desktop|codex>          # dry-run;
+ *       --harness-type <antigravity|claude-code|claude-desktop|codex|codex-desktop> # dry-run;
  *           [--clone-url <s> --repo-slug <s>]          # pair required unless repo already exists
  *   node ai/scripts/fleet/onboardPeer.mjs ... --commit                          # execute phase delta
  *   node ai/scripts/fleet/onboardPeer.mjs --help
@@ -59,7 +59,8 @@ const
         'antigravity'   : 'gemini',
         'claude-code'   : 'claude',
         'claude-desktop': 'claude',
-        codex           : 'gpt'
+        codex           : 'gpt',
+        'codex-desktop' : 'gpt'
     });
 
 /**
@@ -411,36 +412,45 @@ export function renderPlan(intent, plan) {
 }
 
 /**
- * @summary Build the exact operator-owned login command from the instance home resolved by the
- * lifecycle service. The home and executable are owned launch-contract outputs — never guessed
- * from the resident id or PATH — and are single-quoted so shell metacharacters remain data.
+ * @summary Build the exact operator-owned auth command from typed lifecycle-owned paths. Marker
+ * families consume `authHome` + `authCommand`; in-app families consume `instanceHome` +
+ * `launchCommand`. The split is load-bearing for Codex Desktop: its GUI main is never invoked as a
+ * CLI login command. Paths are never guessed from resident id/PATH and are shell-quoted as data.
  * @param {Object} options
  * @param {String} options.harnessType Curated harness family.
- * @param {String} options.instanceHome Absolute instance home from lifecycle status.
- * @param {String} options.launchCommand Absolute executable path from lifecycle status.
+ * @param {String} [options.instanceHome] GUI profile home for in-app families.
+ * @param {String} [options.launchCommand] GUI executable for in-app families.
+ * @param {String} [options.authHome] Marker/auth home for marker families.
+ * @param {String} [options.authCommand] Auth executable for marker families.
  * @returns {String}
  */
-export function buildLoginCommand({harnessType, instanceHome, launchCommand} = {}) {
+export function buildLoginCommand({harnessType, instanceHome, launchCommand, authHome, authCommand} = {}) {
     if (!CURATED_HARNESS_TYPES.includes(harnessType)) {
         throw new Error(`buildLoginCommand: unsupported harnessType '${String(harnessType)}'.`);
     }
-    if (typeof instanceHome !== 'string' || !path.isAbsolute(instanceHome) || CONTROL_CHARACTERS.test(instanceHome)) {
-        throw new Error('buildLoginCommand: lifecycle status must provide a control-character-free absolute instanceHome.');
+    const
+        markerMode = getHarnessAuthMode(harnessType) === 'marker',
+        home       = markerMode ? authHome : instanceHome,
+        command    = markerMode ? authCommand : launchCommand;
+
+    if (typeof home !== 'string' || !path.isAbsolute(home) || CONTROL_CHARACTERS.test(home)) {
+        throw new Error(`buildLoginCommand: lifecycle status must provide a control-character-free absolute ${markerMode ? 'authHome' : 'instanceHome'}.`);
     }
-    if (typeof launchCommand !== 'string' || !path.isAbsolute(launchCommand) || CONTROL_CHARACTERS.test(launchCommand)) {
-        throw new Error('buildLoginCommand: lifecycle status must provide a control-character-free absolute launchCommand.');
+    if (typeof command !== 'string' || !path.isAbsolute(command) || CONTROL_CHARACTERS.test(command)) {
+        throw new Error(`buildLoginCommand: lifecycle status must provide a control-character-free absolute ${markerMode ? 'authCommand' : 'launchCommand'}.`);
     }
 
     const
         quote         = value => `'${value.replaceAll("'", "'\\''")}'`,
-        quotedHome    = quote(instanceHome),
-        quotedCommand = quote(launchCommand);
+        quotedHome    = quote(home),
+        quotedCommand = quote(command);
 
     // Per-family operator-owned auth step: CLI families have a login command / in-session login;
     // the app-bundle GUI families sign in INSIDE the launched window (no CLI login exists) — the
     // printed line relaunches the same isolated instance if the operator closed it.
     switch (harnessType) {
         case 'codex':
+        case 'codex-desktop':
             return `CODEX_HOME=${quotedHome} ${quotedCommand} login`;
         case 'claude-code':
             return `CLAUDE_CONFIG_DIR=${quotedHome} ${quotedCommand}  # then /login inside the session`;
@@ -458,7 +468,8 @@ export function buildLoginCommand({harnessType, instanceHome, launchCommand} = {
  * @param {Object} options
  * @param {String} options.harnessType Curated harness family.
  * @param {Object} options.status The long-lived owner's `startAgent`/`status` projection —
- *                                `{authRequired, instanceHome, launchCommand}` consumed here.
+ *                                `{authRequired, instanceHome, launchCommand, authHome,
+ *                                  authCommand}` consumed here.
  * @returns {{kind: 'sign-in-app'|'login-required'|'done'|'unknown', lines: String[]}} printable
  * lines in conductor voice; `kind` is the decision itself, assertable without string-matching.
  */
@@ -469,7 +480,7 @@ export function deriveAuthHandoff({harnessType, status} = {}) {
             lines: [
                 '',
                 '  SIGN-IN REQUIRED (operator-owned, inside the launched app window):',
-                `    ${buildLoginCommand({harnessType, instanceHome: status.instanceHome, launchCommand: status.launchCommand})}`
+                `    ${buildLoginCommand({harnessType, instanceHome: status.instanceHome, launchCommand: status.launchCommand, authHome: status.authHome, authCommand: status.authCommand})}`
             ]
         };
     }
@@ -480,7 +491,7 @@ export function deriveAuthHandoff({harnessType, status} = {}) {
             lines: [
                 '',
                 '  LOGIN REQUIRED (operator-owned, exactly once for this home):',
-                `    ${buildLoginCommand({harnessType, instanceHome: status.instanceHome, launchCommand: status.launchCommand})}`
+                `    ${buildLoginCommand({harnessType, instanceHome: status.instanceHome, launchCommand: status.launchCommand, authHome: status.authHome, authCommand: status.authCommand})}`
             ]
         };
     }

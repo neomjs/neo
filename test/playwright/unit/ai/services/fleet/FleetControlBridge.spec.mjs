@@ -260,6 +260,7 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
         registryStub.listAgents = () => [
             {id: 'desk',   githubUsername: 'desk-gh',   harnessType: 'claude-desktop'},
             {id: 'cli',    githubUsername: 'cli-gh',    harnessType: 'codex'},
+            {id: 'codexd', githubUsername: 'codexd-gh', harnessType: 'codex-desktop'},
             {id: 'native', githubUsername: 'native-gh', harnessType: 'native-neo'}
         ];
         managerStub.fleetRepoStatus    = () => [];
@@ -274,7 +275,8 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
         // any wire call: native-neo disables with truth, in-app families announce their sign-in.
         expect(rows[0]).toMatchObject({id: 'desk',   launchable: true,  authMode: 'in-app'});
         expect(rows[1]).toMatchObject({id: 'cli',    launchable: true,  authMode: 'marker'});
-        expect(rows[2]).toMatchObject({id: 'native', launchable: false, authMode: null});
+        expect(rows[2]).toMatchObject({id: 'codexd', launchable: true,  authMode: 'marker'});
+        expect(rows[3]).toMatchObject({id: 'native', launchable: false, authMode: null});
     });
 
     // ---- the security boundary: the allowlist OMITS the Brain-internal secret paths ----
