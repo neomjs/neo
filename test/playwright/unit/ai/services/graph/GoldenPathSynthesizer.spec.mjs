@@ -26,6 +26,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     test.describe.configure({mode: 'serial'});
 
     let GoldenPathSynthesizer;
+    let Synthesizer;
     let aiConfig;
     let logger;
     let GraphService;
@@ -85,6 +86,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
         const GoldenPathSynthesizerModule = await import('../../../../../../ai/services/graph/GoldenPathSynthesizer.mjs');
         GoldenPathSynthesizer = GoldenPathSynthesizerModule.default;
+        Synthesizer = GoldenPathSynthesizer.constructor;
         issueFocusSections = await import('../../../../../../ai/services/graph/issueFocusSections.mjs');
         buildStaleAssignmentCandidates = GoldenPathSynthesizer.constructor.buildStaleAssignmentCandidates.bind(GoldenPathSynthesizer.constructor);
         renderStaleAssignmentCandidatesSection = GoldenPathSynthesizer.constructor.renderStaleAssignmentCandidatesSection.bind(GoldenPathSynthesizer.constructor);
