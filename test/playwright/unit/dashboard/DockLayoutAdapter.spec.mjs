@@ -590,6 +590,21 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
             expect(result.hidden).toEqual(['b', 'c'])
         });
 
+        test('active WIDER than the displaced tab: displace as many trailing tabs as it takes — the active never spills', () => {
+            const result = DockLayoutAdapter.computeTabOverflow({
+                activeItemId: 'd',
+                controlWidth: 0,
+                extent      : 100,
+                items       : items({a: 30, b: 30, c: 30, d: 50})
+            });
+
+            // a+b+c (90) fit; d (active, 50) overflows. Surfacing d needs 50px: displacing only c (30) leaves
+            // a+b+d = 110 > 100 — the under-displacement bug. BOTH b and c must overflow so a+d = 80 fits
+            // within the 100 extent.
+            expect(result.visible).toEqual(['a', 'd']);
+            expect(result.hidden).toEqual(['b', 'c'])
+        });
+
         test('degenerate: a single item wider than the extent stays visible — you cannot hide the only tab', () => {
             const result = DockLayoutAdapter.computeTabOverflow({
                 activeItemId: 'a',

@@ -161,17 +161,28 @@ class DockLayoutAdapter extends Base {
         if (activeIndex !== -1) {
             hidden.splice(activeIndex, 1);
 
-            if (visible.length > 0) {
-                const displaced = visible.pop(),
-                      // re-insert both in items order so the menu stays predictable
-                      order     = list.map(entry => entry.id);
+            const activeWidth = width(list.find(entry => entry.id === activeItemId)),
+                  order       = list.map(entry => entry.id),
+                  displaced   = [];
 
-                visible.push(activeItemId);
-                hidden.push(displaced);
+            // Displace as many TRAILING visible items as it takes to fit the (possibly wider) active item.
+            // Popping exactly one under-displaces when the active tab is wider than that single displaced tab
+            // — the visible strip would then still exceed `usable` and the active spills. Loop until it fits,
+            // or until nothing is left (the degenerate "active alone is wider than the strip" case, where it
+            // stays visible regardless). Popping none is also correct when the active already fits (it was
+            // hidden only because an earlier item overflowed the `hidden.length === 0` gate above).
+            while (visible.length > 0 && used + activeWidth > usable) {
+                const displacedId = visible.pop();
+                used -= width(list.find(entry => entry.id === displacedId));
+                displaced.push(displacedId)
+            }
+
+            visible.push(activeItemId);
+
+            if (displaced.length > 0) {
+                // re-insert the displaced items in list order so the overflow menu stays predictable
+                hidden.push(...displaced);
                 hidden.sort((a, b) => order.indexOf(a) - order.indexOf(b))
-            } else {
-                // degenerate: nothing fits — the active tab stays visible regardless
-                visible.push(activeItemId)
             }
         }
 
