@@ -377,11 +377,12 @@ class GoldenPathSynthesizer extends Base {
      * getRoutingConflictReasons authority), so incidental co-reasons (fresh-updated / agent-os) are never
      * mis-attributed as causes; `candidateReasons` keeps the full diagnostic set separately. Pure (no I/O, no
      * config read): the caller persists the result. Reasons are unioned across the armed Current Focus
-     * candidates (all blocked nodes in one contradiction share the live focus context); exclusion labels are
-     * per-node via the shared actionability contract.
+     * candidates (all blocked nodes in one contradiction share the live focus context). No exclusion-label
+     * dimension: every guard-blocked node already passed the actionability type-gate, so its exclusion set is
+     * empty by construction — that evidence belongs to the type-gate producer, not this guard-filter one.
      * @param {{blockedNodes: Array<Object>, focusCandidates: Array<Object>}|null} focusContradiction Result from `findComputedFocusContradiction`.
      * @param {Number} nowMs Epoch ms stamped onto each record.
-     * @returns {Object[]} `[{blockedNodeId, armingReasons, candidateReasons, exclusionLabels, at}]` (empty when no contradiction).
+     * @returns {Object[]} `[{blockedNodeId, armingReasons, candidateReasons, at}]` (empty when no contradiction).
      */
     static buildRouteAttributionRecords(focusContradiction, nowMs) {
         if (!focusContradiction) return [];
@@ -395,10 +396,9 @@ class GoldenPathSynthesizer extends Base {
             .filter(item => item?.node?.id)
             .map(item => ({
                 armingReasons,
-                blockedNodeId  : item.node.id,
+                blockedNodeId: item.node.id,
                 candidateReasons,
-                exclusionLabels: getRouteExclusionLabels(item.node),
-                at             : nowMs
+                at           : nowMs
             }))
     }
 

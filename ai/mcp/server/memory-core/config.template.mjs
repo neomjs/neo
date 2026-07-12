@@ -568,13 +568,22 @@ class Config extends ConfigProvider {
              */
             goldenPathTopNodeRenderLimit: leaf(10, 'NEO_GOLDEN_PATH_TOP_NODE_RENDER_LIMIT', 'number'),
             /**
-             * Route-attribution ledger directory — the runtime JSONL store recording which computed focus
-             * candidates the routing contradiction guard filtered, under which live focus reasons. Co-located
-             * with the orchestrator-daemon ledgers because the synthesizer runs in that daemon. Read at the
-             * synthesizer boundary and passed EXPLICITLY into the pure `routeAttributionLedgerStore` helper.
+             * Route-attribution ledger directory — the runtime JSONL store recording which computed candidates
+             * the routing contradiction guard filtered, under which arming reasons. The active
+             * `goldenPathRouteAttributionLedgerDir` consumers read is a formula (below) resolving Prod/Test by
+             * construction from `UNIT_TEST_MODE`, so synthesis specs that trigger the fail-open emit never write
+             * the production `.neo-ai-data` ledger. Read at the synthesizer boundary + passed EXPLICITLY into the
+             * pure `routeAttributionLedgerStore` helper. Co-located with the orchestrator-daemon ledgers (the
+             * synthesizer runs in that daemon).
              * @type {string}
              */
-            goldenPathRouteAttributionLedgerDir: leaf(path.resolve(neoRootDir, '.neo-ai-data/orchestrator-daemon/route-attribution'), 'NEO_GOLDEN_PATH_ROUTE_ATTRIBUTION_LEDGER_DIR', 'string'),
+            goldenPathRouteAttributionLedgerDirProd: leaf(path.resolve(neoRootDir, '.neo-ai-data/orchestrator-daemon/route-attribution'), 'NEO_GOLDEN_PATH_ROUTE_ATTRIBUTION_LEDGER_DIR', 'string'),
+            /**
+             * Unit-test ledger directory — under the OS temp root so test-mode emits stay off the production
+             * `.neo-ai-data` path. Declarative leaf; test-mode resolved by construction via the formula below.
+             * @type {string}
+             */
+            goldenPathRouteAttributionLedgerDirTest: leaf(path.join(os.tmpdir(), 'neo-route-attribution-test'), 'NEO_GOLDEN_PATH_ROUTE_ATTRIBUTION_LEDGER_DIR_TEST', 'string'),
             /**
              * Keep-most-recent retention cap for the route-attribution ledger. Read at the boundary and passed
              * into the pure helper (which owns no default — a forgotten policy is visibly unbounded growth,
@@ -800,7 +809,10 @@ class Config extends ConfigProvider {
             // The active handoff path, resolved BY CONSTRUCTION from the canonical UNIT_TEST_MODE toggle
             // (`storagePaths.useTestDatabase` — every `useTestDatabase` leaf binds the same env). Keeps
             // test-mode handoff writes off the tracked `resources/content/sandman_handoff.md`.
-            'handoffFilePath'    : data => data.storagePaths.useTestDatabase ? data.handoffFilePathTest    : data.handoffFilePathProd
+            'handoffFilePath'    : data => data.storagePaths.useTestDatabase ? data.handoffFilePathTest    : data.handoffFilePathProd,
+            // The active route-attribution ledger dir, resolved BY CONSTRUCTION from the canonical UNIT_TEST_MODE
+            // toggle — keeps synthesis-triggered emits off the production `.neo-ai-data` ledger.
+            'goldenPathRouteAttributionLedgerDir': data => data.storagePaths.useTestDatabase ? data.goldenPathRouteAttributionLedgerDirTest : data.goldenPathRouteAttributionLedgerDirProd
         }
     }
 }

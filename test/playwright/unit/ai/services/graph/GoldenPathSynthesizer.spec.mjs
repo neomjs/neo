@@ -2419,9 +2419,9 @@ test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from
         expect(records[0].candidateReasons).toEqual(['incident', 'fresh-updated', 'prio-zero']);
         expect(records[1].armingReasons).toEqual(['incident', 'prio-zero']);
         expect(records[1].candidateReasons).toEqual(['incident', 'fresh-updated', 'prio-zero']);
-        // every record is stamped with the injected clock, and carries its per-node exclusion-label array
+        // every record is stamped with the injected clock; no exclusion-label field (guard-blocked = actionable)
         expect(records.every(r => r.at === 4242)).toBe(true);
-        expect(records.every(r => Array.isArray(r.exclusionLabels))).toBe(true);
+        expect(records.every(r => !('exclusionLabels' in r))).toBe(true);
     });
 
     test('buildRouteAttributionRecords is empty for no contradiction, and drops id-less nodes (#15057)', () => {
@@ -2499,5 +2499,14 @@ test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from
         } finally {
             await fs.rm(tmp, {recursive: true, force: true});
         }
+    });
+
+    test('under UNIT_TEST_MODE the synthesis ledger dir resolves to a TEST path — synthesis never writes the prod .neo-ai-data ledger (#15057 / RA-3 #15060)', async () => {
+        const {default: aiConfig} = await import('../../../../../../ai/mcp/server/memory-core/config.mjs');
+        // synthesizeGoldenPath reads aiConfig.goldenPathRouteAttributionLedgerDir at its use site; the config
+        // formula resolves it to the OS-temp test dir under UNIT_TEST_MODE, so the synthesis specs that trigger
+        // the fail-open emit never write the tracked production `.neo-ai-data` ledger.
+        expect(aiConfig.goldenPathRouteAttributionLedgerDir).not.toContain('.neo-ai-data');
+        expect(aiConfig.goldenPathRouteAttributionLedgerDir).toContain('route-attribution-test');
     });
 });
