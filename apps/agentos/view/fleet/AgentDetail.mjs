@@ -124,6 +124,12 @@ class AgentDetail extends Container {
          */
         now_: null,
         /**
+         * How often (ms) the freshness labels re-age off the wall clock while a record is shown —
+         * a `fresh` pane must decay to `stale` / `lost` over time even with no new data. Tunable.
+         * @member {Number} freshnessRefreshMs=30000
+         */
+        freshnessRefreshMs: 30000,
+        /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @reactive
          */
@@ -212,7 +218,28 @@ class AgentDetail extends Container {
      */
     onConstructed(...args) {
         super.onConstructed(...args);
-        this.applyRecord()
+        this.applyRecord();
+        this.startFreshnessAging()
+    }
+
+    /**
+     * @summary Age the freshness labels over wall-clock time — freshness is time-relative, so a
+     * pane that was `fresh` must mechanically decay to `stale` / `lost` even with no new data. A
+     * self-rescheduling timer re-classifies every {@link #freshnessRefreshMs} while a record is
+     * shown; the `isDestroyed` guard ends the loop on teardown (no explicit clear needed). Uses the
+     * live clock (`applyPaneFreshness` reads `now ?? Date.now()`), so a pinned test `now` ages
+     * deterministically via `afterSetNow` instead.
+     * @protected
+     */
+    startFreshnessAging() {
+        let me = this;
+
+        me.timeout(me.freshnessRefreshMs).then(() => {
+            if (!me.isDestroyed) {
+                me.record && me.applyPaneFreshness();
+                me.startFreshnessAging()
+            }
+        })
     }
 
     /**
@@ -330,8 +357,10 @@ class AgentDetail extends Container {
                 merged       = ledger ? {freshnessTtl: pane.freshnessTtl, ...ledger} : null,
                 {cls, label} = describePaneFreshness(classifyPaneFreshness(merged, now));
 
-            me.getReference(`pane-${pane.key}-freshness`).set({cls, html: label});
-            me.getReference(`pane-${pane.key}-body`).html = me.renderPaneBody(pane.key, record)
+            // .text (never .html): the label is ours but the pane body is record-derived
+            // (laneLine), so it must be escaped text, never interpreted markup — no injection surface
+            me.getReference(`pane-${pane.key}-freshness`).set({cls, text: label});
+            me.getReference(`pane-${pane.key}-body`).text = me.renderPaneBody(pane.key, record)
         })
     }
 

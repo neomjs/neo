@@ -125,8 +125,11 @@
             color: var(--fm-state-wedged);
         }
 
+        /* alert-red TEXT fails AA at 9px (4.26:1); render "lost" as readable ink text on an
+           alert-tinted pill instead — the tint + the label word carry the state, the text stays AA */
         &.is-lost {
-            color: var(--fm-kind-alert);
+            color     : var(--fm-ink);
+            background: color-mix(in srgb, var(--fm-kind-alert) 30%, transparent);
         }
 
         &.is-unobserved {

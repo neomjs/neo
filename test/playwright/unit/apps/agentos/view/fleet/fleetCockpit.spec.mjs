@@ -475,6 +475,31 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
 
         store.destroy()
     });
+
+    test('onDetailRecordChange routes a roster mutation of the inspected agent to the detail — reactive to record MUTATION, not just a re-seat', () => {
+        const
+            record  = {agentId: 'vega'},
+            applied = [],
+            detail  = {applyRecord() { applied.push(true) }},
+            host    = Object.create(FleetCockpit.prototype);
+
+        host.detailRecord = record;
+        host.getReference = name => name === 'agent-detail' ? detail : null;
+
+        // a recordChange for the INSPECTED record re-renders the detail in place — a roster re-poll
+        // mutating state/lane/sources on the open agent must never leave a stale inspector
+        FleetCockpit.prototype.onDetailRecordChange.call(host, {record});
+        expect(applied).toEqual([true]);
+
+        // a recordChange for a DIFFERENT record is ignored — no needless re-render
+        FleetCockpit.prototype.onDetailRecordChange.call(host, {record: {agentId: 'ada'}});
+        expect(applied).toEqual([true]);
+
+        // detail not mounted (auto-hidden, not yet revealed) → the optional chain no-ops safely
+        host.getReference = () => null;
+        FleetCockpit.prototype.onDetailRecordChange.call(host, {record});
+        expect(applied).toEqual([true])
+    });
 });
 
 test.describe('Fleet cockpit — whole-fleet control (B4, #14611)', () => {

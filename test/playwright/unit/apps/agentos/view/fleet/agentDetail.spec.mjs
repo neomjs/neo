@@ -182,11 +182,11 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
         });
 
         expect(chip(detail, 'thought-stream').cls).toContain('is-fresh');
-        expect(chip(detail, 'thought-stream').html).toBe('updated 10s ago');
+        expect(chip(detail, 'thought-stream').text).toBe('updated 10s ago');
         expect(chip(detail, 'lane').cls).toContain('is-stale');
         expect(chip(detail, 'repo').cls).toContain('is-lost');
         expect(chip(detail, 'prs').cls).toContain('is-unobserved');
-        expect(chip(detail, 'prs').html).toBe('not observed — source not wired');
+        expect(chip(detail, 'prs').text).toBe('not observed — source not wired');
 
         detail.destroy()
     });
@@ -200,7 +200,7 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
         // a feed wires the lane ledger → the pane sharpens to timestamped freshness, no re-seat
         detail.paneLedgers = {lane: {observedAt: '2026-07-11T23:59:55.000Z', freshnessTtl: 30_000}}; // 5s → fresh
         expect(chip(detail, 'lane').cls).toContain('is-fresh');
-        expect(chip(detail, 'lane').html).toBe('updated 5s ago');
+        expect(chip(detail, 'lane').text).toBe('updated 5s ago');
 
         detail.destroy()
     });
@@ -208,13 +208,30 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
     test('the lane pane body renders the record-known lane line + open-lane count; feed-gated panes degrade honestly', () => {
         const detail = createDetail({agentId: 'vega', laneLine: 'FM cockpit agent detail view', openLaneCount: 17, state: 'ok'});
 
-        expect(body(detail, 'lane').html).toBe('FM cockpit agent detail view · 17 open lanes');
+        expect(body(detail, 'lane').text).toBe('FM cockpit agent detail view · 17 open lanes');
         // a feed-gated pane never fabricates a stream
-        expect(body(detail, 'thought-stream').html).toBe('awaiting live feed');
+        expect(body(detail, 'thought-stream').text).toBe('awaiting live feed');
 
         // no lane reported → honest fallback, no fabricated count
         applySet(detail, {laneLine: null, openLaneCount: null});
-        expect(body(detail, 'lane').html).toBe('no current lane reported');
+        expect(body(detail, 'lane').text).toBe('no current lane reported');
+
+        detail.destroy()
+    });
+
+    test('§2.2.1 wall-clock aging: a later `now` re-classifies fresh → lost in place (time-reactive, not just re-seat)', () => {
+        const detail = createDetail({agentId: 'vega', state: 'ok'}, {
+            paneLedgers: {lane: {observedAt: '2026-07-11T23:59:50.000Z', freshnessTtl: 30_000}} // 10s before NOW → fresh
+        });
+        expect(chip(detail, 'lane').cls).toContain('is-fresh');
+
+        // 5 minutes of wall clock later (past 4×TTL) → the SAME pane ages to lost, same instance, no
+        // re-seat. Production driver: startFreshnessAging()'s timer re-runs applyPaneFreshness off the
+        // live Date.now(); here the injected clock advances deterministically through afterSetNow.
+        const beforeId = detail.id;
+        detail.now = Date.parse('2026-07-12T00:05:00.000Z');
+        expect(detail.id).toBe(beforeId);
+        expect(chip(detail, 'lane').cls).toContain('is-lost');
 
         detail.destroy()
     });

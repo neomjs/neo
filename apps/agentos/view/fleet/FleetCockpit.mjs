@@ -265,7 +265,7 @@ class FleetCockpit extends Container {
 
         let me = this;
 
-        me.getReference('fleet-grid')?.store?.on({load: me.onRosterStoreLoad, scope: me});
+        me.getReference('fleet-grid')?.store?.on({load: me.onRosterStoreLoad, recordChange: me.onDetailRecordChange, scope: me});
 
         me.loadActivity();
         me.loadRoster()
@@ -535,6 +535,21 @@ class FleetCockpit extends Container {
     }
 
     /**
+     * @summary Keep the open detail inspector truthful over time — route the roster store's
+     * `recordChange` to the mounted {@link AgentOS.view.fleet.AgentDetail} when the changed record
+     * is the one being inspected (mirrors how the grid routes `recordChange` to its cards). A roster
+     * re-poll mutating the selected resident (state, lane, sources) thus re-renders the detail in
+     * place — the view is reactive to record MUTATION, not only to a re-seat onto a new record.
+     * @param {Object} data The store `recordChange` event `{record, ...}`.
+     * @protected
+     */
+    onDetailRecordChange({record}) {
+        if (record === this.detailRecord) {
+            this.getReference('agent-detail')?.applyRecord()
+        }
+    }
+
+    /**
      * @summary Detach the roster-store load guard and release the drop producer; the provider
      * tears the owned store itself down.
      * @param {...*} args
@@ -542,7 +557,7 @@ class FleetCockpit extends Container {
     destroy(...args) {
         let me = this;
 
-        me.getReference('fleet-grid')?.store?.un({load: me.onRosterStoreLoad, scope: me});
+        me.getReference('fleet-grid')?.store?.un({load: me.onRosterStoreLoad, recordChange: me.onDetailRecordChange, scope: me});
         me.dockPreviewProducer?.destroy();
         me.dockPreviewProducer = null;
         me.perspectiveStore?.destroy();
