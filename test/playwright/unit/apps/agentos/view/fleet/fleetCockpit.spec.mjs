@@ -930,16 +930,20 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
         // a REAL store the REAL loadRoster reconciles into — the record is the card's data surface
         const store   = Neo.create(Store, {keyProperty: 'agentId', model: FleetAgent});
         const cockpit = {
-            getReference   : reference => reference === 'fleet-grid' ? {adapterState: 'sample', store} : null,
-            mapRosterRow   : FleetCockpit.prototype.mapRosterRow,
-            reconcileRoster: FleetCockpit.prototype.reconcileRoster,
-            loadRoster     : FleetCockpit.prototype.loadRoster,
-            rosterWired    : false
+            getReference      : reference => reference === 'fleet-grid' ? {adapterState: 'sample', store} : null,
+            mapRosterRow      : FleetCockpit.prototype.mapRosterRow,
+            reconcileRoster   : FleetCockpit.prototype.reconcileRoster,
+            reconcileSelection: FleetCockpit.prototype.reconcileSelection,
+            loadRoster        : FleetCockpit.prototype.loadRoster,
+            rosterWired       : false
         };
 
         // boot: the real loadRoster reads the bridge — the agent is stopped, so the record resolves to 'off'
         await cockpit.loadRoster();
         expect(store.get('vega').state).toBe('off');
+        // success-state proof: the load COMPLETED (reached the post-reconcile adapter-state assignment), not
+        // merely mutated the record before a swallowed missing-reconcileSelection error (Euclid's falsifier)
+        expect(cockpit.gridAdapterState).toBe('live');
 
         // drive the REAL controller path for that record — real onAgentLifecycleIntent -> real adapter ->
         // bridge.startAgent -> refreshRosterOnSettle -> real loadRoster -> reconcile
@@ -957,6 +961,8 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
 
         // the binding witness: the SAME real record advanced off -> ok through reconciliation, no reload/rebuild
         expect(store.get('vega').state).toBe('ok');
+        // and the re-poll load COMPLETED too (reconcile phase reached success state, not a swallowed error)
+        expect(cockpit.gridAdapterState).toBe('live');
 
         store.destroy()
     })
