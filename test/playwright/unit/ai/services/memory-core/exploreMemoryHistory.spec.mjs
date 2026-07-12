@@ -28,6 +28,16 @@ test.describe('exploreMemoryHistory — the full Memory/session Bird View compos
         expect(envelope.window.preset).toBe('weekly')
     });
 
+    test('census-vs-inference flows end-to-end: a within-bounds window marks every citation inSynthesis + reports the input count', async () => {
+        const envelope = await exploreMemoryHistory({partition: 'unified', preset: 'weekly', now: NOW, deps: makeDeps()});
+
+        // the 2 recency turns fit the prompt bound → the manifest reaches the envelope through the full
+        // composition: every citation is an inference input, and the count is exposed beside the census total.
+        expect(envelope.coverage.synthesisInputCount).toBe(2);
+        expect(envelope.coverage.totalResolved).toBe(2);
+        expect(envelope.citations.every(c => c.inSynthesis === true)).toBe(true)
+    });
+
     test('unified surfaces PEER sessions from the team-visible summary leg the tenant-bound recency walk cannot see', async () => {
         // query_recent_turns is caller-userId-bound → a peer's turns come back empty; listSummaries is team-visible.
         const envelope = await exploreMemoryHistory({partition: 'unified', preset: 'weekly', now: NOW, deps: makeDeps({
