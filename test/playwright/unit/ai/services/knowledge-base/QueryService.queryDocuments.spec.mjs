@@ -90,6 +90,26 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
         expect(result.results).toHaveLength(1);
     });
 
+    test('findDocBySource reapplies the caller type filter — a type:guide walk never widens to a src doc (#15071 cycle-2)', async () => {
+        // findDocBySource uses collection.get (by-source, no embedding); capture the where clause it builds
+        let capturedWhere = null;
+        ChromaManager.getKnowledgeBaseCollection = async () => ({
+            get: async ({where}) => {
+                capturedWhere = where;
+                return {metadatas: [{source: 'src/whatever.mjs', type: 'src'}]}
+            }
+        });
+
+        await QueryService.findDocBySource('learn/guides/testing/UnitTesting.md', 'guide');
+
+        // The caller's type predicate MUST cross into the walk-hydration where — else the opt-in walk
+        // widens the type scope past what ask() requested (Emmy's cycle-2 probe: ask({type:'guide'})
+        // admitted a src doc). Before the fix, findDocBySource hardcoded typeFilter:null → no type clause.
+        const whereJson = JSON.stringify(capturedWhere);
+        expect(whereJson).toContain('"type"');
+        expect(whereJson).toContain('guide');
+    });
+
     test('stratifies broad searches into source-first candidate pools (#12719)', async () => {
         const capture = {};
         installQueryStub(options => {

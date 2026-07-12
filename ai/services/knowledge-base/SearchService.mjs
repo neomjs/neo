@@ -1,15 +1,18 @@
-import aiConfig                       from '../../mcp/server/knowledge-base/config.mjs';
-import Base                           from '../../../src/core/Base.mjs';
-import {buildChatModel}               from '../../provider/buildChatModel.mjs';
-import {PROVIDER_TIMEOUT_CODE}        from '../../provider/createTimeoutError.mjs';
-import ChromaManager                  from './ChromaManager.mjs';
-import fs                             from 'fs-extra';
-import logger                         from '../../mcp/server/knowledge-base/logger.mjs';
-import path                           from 'path';
-import QueryService                   from './QueryService.mjs';
-import {checkAskRateLimit}            from './helpers/askRateLimit.mjs';
+import aiConfig                          from '../../mcp/server/knowledge-base/config.mjs';
+import Base                              from '../../../src/core/Base.mjs';
+import {buildChatModel}                  from '../../provider/buildChatModel.mjs';
+import {PROVIDER_TIMEOUT_CODE}           from '../../provider/createTimeoutError.mjs';
+import ChromaManager                     from './ChromaManager.mjs';
+import fs                                from 'fs-extra';
+import logger                            from '../../mcp/server/knowledge-base/logger.mjs';
+import path                              from 'path';
+import QueryService                      from './QueryService.mjs';
+import {checkAskRateLimit}               from './helpers/askRateLimit.mjs';
 import {isRemoteKnowledgeBaseDeployment} from './helpers/deploymentMode.mjs';
-import {getMissingAskSynthesisLeaves} from './helpers/askSynthesisGuard.mjs';
+import {getMissingAskSynthesisLeaves}    from './helpers/askSynthesisGuard.mjs';
+import GraphService                      from '../memory-core/GraphService.mjs';
+import {CONCEPT_EXPANSION_EDGE_TYPES, KB_TERMINAL_EDGE_TYPES, enrichWithConceptWalk} from '../graph/conceptAnchoredRetrieval.mjs';
+import {buildKbFileResolveCandidate}     from './conceptWalkKbFileGate.mjs';
 
 const LOCAL_EMPTY_COLLECTION_ANSWER  = "The knowledge base collection is empty. Populate it with the release artifact via 'npm run ai:download-kb' (or build locally with 'npm run ai:sync-kb').";
 const REMOTE_EMPTY_COLLECTION_ANSWER = "The knowledge base collection is empty. In a cloud or remote tenant-ingestion deployment, inspect ingestion state first: call get_ingestion_progress(), then inspect_deployment or get_deployment_state_snapshot for tenantRepoSync / deployment-state details. For push-mode tenants, run the configured ingest_source_files or bulk tenant-ingest path before retrying the query.";
@@ -267,6 +270,26 @@ class SearchService extends Base {
     }
 
     /**
+     * @summary The honest empty-result envelope — an empty COLLECTION names the download one-liner (the
+     * common cold-start), otherwise a plain no-match. Shared by the flat-empty short-circuit and the
+     * post-walk guard (an empty flat the concept-walk could not rescue).
+     * @returns {Promise<{answer: String, references: Object[]}>}
+     * @private
+     */
+    async #emptyFlatResponse() {
+        const count = await ChromaManager.getKnowledgeBaseCollection()
+            .then(collection => collection.count())
+            .catch(() => null);
+
+        return {
+            answer: count === 0
+                ? this.getEmptyCollectionAnswer()
+                : "No relevant documents found in the knowledge base.",
+            references: []
+        };
+    }
+
+    /**
      * Performs a semantic search via QueryService and synthesizes an answer using the LLM.
      *
      * @param {Object} params
@@ -275,33 +298,82 @@ class SearchService extends Base {
      * @param {Number} [params.limit=5] Number of source files to include in the context.
      * @returns {Promise<Object>} The synthesized answer and references.
      */
-    async ask({query, type = 'all', limit = 5}) {
+    async ask({query, type = 'all', limit = 5, conceptWalk = false}) {
         logger.info(`[SearchService] Processing RAG query: "${query}" (Type: ${type})`);
 
         // 1. Retrieve most relevant files using QueryService's scoring logic
         const queryResult = await QueryService.queryDocuments({query, type, limit, includeMetadata: true});
 
-        if (queryResult.message || !queryResult.results || queryResult.results.length === 0) {
-            // An EMPTY collection is the common cold-start cause since the KB artifact download
-            // left the npm `prepare` chain (it is opt-in now) — name the one-liner so the absence
-            // is discoverable instead of reading like a bad query.
-            const count = await ChromaManager.getKnowledgeBaseCollection()
-                .then(collection => collection.count())
-                .catch(() => null);
+        const emptyFlat = queryResult.message || !queryResult.results || queryResult.results.length === 0;
 
-            return {
-                answer: count === 0
-                    ? this.getEmptyCollectionAnswer()
-                    : "No relevant documents found in the knowledge base.",
-                references: []
-            };
+        // An empty flat result short-circuits to the honest empty answer — UNLESS the concept-walk is
+        // opted in: the walk resolves concepts from the QUERY (not the flat candidates), so it can
+        // structurally RESCUE docs the embedding search missed. A flat miss must not skip the graph; if
+        // the walk ALSO finds nothing, the post-walk guard below returns the same honest empty answer.
+        if (emptyFlat && !conceptWalk) {
+            return this.#emptyFlatResponse();
         }
 
-        const references = queryResult.results.map(r => ({
+        const references = (queryResult.results || []).map(r => ({
             name  : r.source.split('/').pop(),
             source: r.source,
             score : Number(r.score)
         }));
+
+        // Opt-in concept-anchored wrap (default OFF → `references` above is the byte-identical flat
+        // path). The walk augments — never displaces — the embedding references with concept-
+        // neighborhood KB docs (a CONCEPT→FILE edge → the doc whose metadata.source matches), each
+        // re-authorized through the SAME read-side tenant filter via QueryService.findDocBySource
+        // (buildKbFileResolveCandidate fails closed). GraphService is reached directly — the
+        // IngestionService precedent for a KB-domain service reading the graph.
+        let responseReferences = references,
+            walkContextRefs    = references,   // metadata-bearing set, internal to the synthesis context
+            conceptWalkEvent   = null;
+
+        if (conceptWalk) {
+            // Await the graph's canonical lifecycle gate before the opt-in walk. Pre-init `db===null`
+            // makes graph reads return empty WITHOUT throwing (distinct from a hard failure), so without
+            // this wait a request racing transient initialization silently contributes nothing though
+            // the graph is ready moments later. `ready()` also resolves with `db===null` when init
+            // FAILED, so a completed-unavailable graph still degrades to the flat path (byte-identical),
+            // never a wait-forever. KB startup does not otherwise await GraphService (concept-walk gate 4).
+            await GraphService.ready();
+
+            const enriched = await enrichWithConceptWalk({
+                graphService         : GraphService,
+                query,
+                candidates           : references,
+                conceptWalk          : true,
+                getCandidateId       : ref => ref.source,
+                traversableNodeLabels: ['FILE'],
+                traversableLabels    : ['CONCEPT'],   // fork-1: KB expands through CONCEPT only; FILE is terminal (a candidate, never traversed THROUGH past the KB result boundary)
+                traversableEdgeTypes : CONCEPT_EXPANSION_EDGE_TYPES, // (i) expansion: walk THROUGH concept↔concept relations only
+                terminalEdgeTypes    : KB_TERMINAL_EDGE_TYPES,       // (i) terminal admission: only IMPLEMENTED_BY→FILE hydrates a candidate (an arbitrary SENT_TO→FILE is rejected)
+                resolveCandidate     : buildKbFileResolveCandidate({
+                    findKbDocBySource: source => QueryService.findDocBySource(source, type)
+                }),
+                emit: retrievalEvent => logger.info?.('[SearchService] concept-walk retrieval', retrievalEvent)
+            });
+
+            // A walk-surfaced doc's hydrated `metadata` is synthesis-internal (it feeds the context
+            // documents below) — it must NOT leak into the RESPONSE references the caller receives. Keep
+            // the metadata-bearing set for the context build; strip `metadata` from the response set
+            // (flat references carry none, so the strip only affects the walk-added docs).
+            walkContextRefs    = enriched.candidates;
+            responseReferences = enriched.candidates.map(({metadata, ...ref}) => ref);
+            conceptWalkEvent   = enriched.event
+        }
+
+        // Adds the concept-walk event to any return envelope ONLY when the walk ran — the default
+        // path returns the exact legacy shapes.
+        const withWalk = result => conceptWalkEvent ? {...result, conceptWalk: conceptWalkEvent} : result;
+
+        // Post-walk empty guard: an empty flat result the walk could not rescue (empty collection, or no
+        // concept-neighborhood match) returns the honest empty answer — never synthesize on zero context.
+        // The walk event still rides along so the opt-in surface stays observable on a rescue miss.
+        if (responseReferences.length === 0) {
+            return withWalk(await this.#emptyFlatResponse());
+        }
 
         if (!this.model) {
             // Thread the construct-time stale-config reason when present; the legacy
@@ -311,13 +383,22 @@ class SearchService extends Base {
                 code  : 'no_provider'
             };
 
-            return this.#createDegradedSynthesisResponse({references, error: reason, code});
+            return withWalk(this.#createDegradedSynthesisResponse({references: responseReferences, error: reason, code}));
         }
 
-        const contextReferences = queryResult.results.map((r, index) => ({
+        // Flat context mapping stays byte-identical (index-aligned to queryResult.results); walk-
+        // surfaced docs (identified by the `via` marker, order-independent) append their own metadata
+        // so they reach synthesis too.
+        const contextReferences = (queryResult.results || []).map((r, index) => ({
             ...references[index],
             metadata: r.metadata || {}
         }));
+
+        if (conceptWalkEvent) {
+            walkContextRefs
+                .filter(ref => ref.via === 'concept-walk')
+                .forEach(ref => contextReferences.push({...ref, metadata: ref.metadata || {}}));
+        }
 
         // 2. Read source contents for context.
         //
@@ -374,11 +455,11 @@ Instructions:
         this.askCallTimestamps = kept;
         if (limited) {
             logger.warn(`[SearchService] ask synthesis rate cap (${aiConfig.askSynthesis.maxCallsPerMinute}/min) hit; returning degraded references without calling the provider.`);
-            return this.#createDegradedSynthesisResponse({
-                references,
-                error: `ask synthesis rate limit (${aiConfig.askSynthesis.maxCallsPerMinute}/min) exceeded`,
-                code : 'rate_limited'
-            });
+            return withWalk(this.#createDegradedSynthesisResponse({
+                references: responseReferences,
+                error     : `ask synthesis rate limit (${aiConfig.askSynthesis.maxCallsPerMinute}/min) exceeded`,
+                code      : 'rate_limited'
+            }));
         }
         this.askCallTimestamps.push(nowMs);
 
@@ -400,17 +481,17 @@ Instructions:
             });
             answer = result.response.text();
         } catch (error) {
-            const degraded = this.#createDegradedSynthesisResponse({references, error});
+            const degraded = this.#createDegradedSynthesisResponse({references: responseReferences, error});
 
             logger.warn(`[SearchService] Synthesis failed after retrieval; returning degraded references: ${degraded.reason}`);
 
-            return degraded;
+            return withWalk(degraded);
         }
 
-        return {
+        return withWalk({
             answer,
-            references
-        };
+            references: responseReferences
+        });
     }
 }
 

@@ -110,9 +110,28 @@ export function detectAxisPresence(properties = {}) {
  * @param {String} options.conceptId Root concept node id.
  * @param {Number} [options.maxHops=2] Hop bound.
  * @param {Number} [options.hopBudget=80] Max edges consumed across the whole walk.
+ * @param {Function|null} [options.rlsPredicate=null] Opt-in per-intermediate visibility gate
+ *     `(neighborId, neighborLabel) => Boolean`. When supplied, the walk expands THROUGH a neighbor only
+ *     if it returns true — so a private / other-tenant intermediate is never traversed to reach a deeper
+ *     node (the caller supplies the tenant/RLS check, e.g. isRlsVisible; terminal-candidate authorization
+ *     does NOT authorize the PATH crossed to reach it). Default null = no gate (probe full-reachability
+ *     mode; the reachability-probe measurement path is untouched).
+ * @param {String[]|null} [options.traversableEdgeTypes=null] Opt-in retrieval-bearing edge-type allow-list.
+ *     When supplied, the walk expands THROUGH a neighbor only when the connecting `edge.type` is in the list
+ *     — so only concept↔concept relations (PARENT_CONCEPT, RELATES_TO, ANALOGOUS_TO, REQUIRES) carry the walk
+ *     onward, while arbitrary/structural edges (DISCUSSED_IN, AUTHORED_BY, PARENT_OF, RESOLVES, SENT_TO) do
+ *     not. Concept→artifact edges (IMPLEMENTED_BY, TAGGED_CONCEPT, MENTIONED_IN) reach TERMINALS — they are
+ *     NOT expansion edges (candidate admission is a separate, consumer-side gate). The neighbor is still
+ *     recorded as a hop (provenance) regardless of this filter.
+ *     Default null = no edge-type gate (probe full-reachability mode; the measurement path is untouched).
+ * @param {Function|null} [options.edgeRlsPredicate=null] Opt-in per-EDGE visibility gate `(edge) => Boolean`.
+ *     A foreign / other-tenant edge between two visible nodes is a DISTINCT leak surface — when this returns
+ *     false the edge is skipped ENTIRELY (never a hop / parent / path, never expands or hydrates), because
+ *     node-RLS on the endpoints does not authorize the connecting relation. Default null = no edge gate
+ *     (probe full-graph reachability). Distinct from `rlsPredicate` (which gates NODE traversal).
  * @returns {Object} `{root, hops: [{fromId, edge, neighborId, neighborLabel, axisPresence}], truncated}`
  */
-export function walkConceptNeighborhood({graphService, conceptId, maxHops = 2, hopBudget = 80}) {
+export function walkConceptNeighborhood({graphService, conceptId, maxHops = 2, hopBudget = 80, traversableLabels = null, traversableEdgeTypes = null, edgeRlsPredicate = null, rlsPredicate = null}) {
     const
         visited = new Set([conceptId]),
         hops    = [];
@@ -127,15 +146,30 @@ export function walkConceptNeighborhood({graphService, conceptId, maxHops = 2, h
             const edges = readRawNodeEdges({graphService, nodeId: fromId});
 
             for (const edge of edges) {
-                if (hops.length >= hopBudget) {
-                    truncated = true;
-                    break
-                }
+                // edge-RLS (retrieval path): a foreign / other-tenant edge between two visible nodes is a
+                // DISTINCT leak surface (relation + provenance). Skip it BEFORE it becomes a hop / parent /
+                // path or consumes budget / expands / hydrates — node-RLS on the endpoints does NOT authorize
+                // the relation that connects them (source-owned edgeRlsPredicate, e.g. isEdgeVisibleToRequester;
+                // mirrors getNeighbors' node-AND-edge gate). Default null = probe full-graph reachability.
+                if (edgeRlsPredicate && !edgeRlsPredicate(edge)) continue;
 
                 const
                     neighborId = edge.source === fromId ? edge.target : edge.source,
                     node       = graphService?.db?.nodes?.get?.(neighborId),
                     label      = node?.label || 'UNKNOWN';
+
+                // node-RLS (retrieval path): a node-RLS-INVISIBLE neighbor must NEVER become a hop / candidate
+                // / path or consume budget — a VISIBLE edge to a private node (the exact leak Euclid reproduced:
+                // an allowed IMPLEMENTED_BY edge whose FILE target is node-RLS-invisible, then hydrated by a
+                // successful collection hydrator) does NOT authorize the node. Skip it entirely BEFORE
+                // hops.push / budget / path. Measurement mode (rlsPredicate=null) short-circuits → recorded,
+                // privacy applied at render via applyPrivacyContract.
+                if (rlsPredicate && !rlsPredicate(neighborId, label)) continue;
+
+                if (hops.length >= hopBudget) {
+                    truncated = true;
+                    break
+                }
 
                 hops.push({
                     depth,
@@ -152,7 +186,17 @@ export function walkConceptNeighborhood({graphService, conceptId, maxHops = 2, h
 
                 if (!visited.has(neighborId)) {
                     visited.add(neighborId);
-                    next.push(neighborId)
+                    // RLS Depth-Floor (retrieval path): expand THROUGH a neighbor only when it clears BOTH
+                    // (a) the public-structural label allow-list (traversableLabels) and (b) the
+                    // retrieval-bearing edge-type allow-list (traversableEdgeTypes — an arbitrary/structural
+                    // edge like DISCUSSED_IN does not carry the walk onward). Node-RLS is already applied
+                    // ABOVE (pre-push), so a private / other-tenant neighbor never reaches here — its edges are
+                    // never walked to a deeper node. All null = probe measurement mode (full reachability;
+                    // privacy applied at render).
+                    if (
+                        (!traversableLabels    || traversableLabels.includes(label)) &&
+                        (!traversableEdgeTypes || traversableEdgeTypes.includes(edge.type))
+                    ) next.push(neighborId)
                 }
             }
 
