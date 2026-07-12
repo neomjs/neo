@@ -311,7 +311,6 @@ class FleetLifecycleService extends Base {
         // to failed on the child's asynchronous permission error — a transient false-running state
         // no supervisor may emit).
         const resolvedCommand = this.resolveExecutable(command, env.PATH, opts.cwd);
-
         if (!resolvedCommand) {
             throw new Error(`FleetLifecycleService.start: harness binary '${command}' not found or not executable for agent '${id}' (path-shaped commands resolve against the child cwd; bare commands against the child's PATH; executable permission required). Pin the AiConfig fleet.harnessBinaries leaf or the harnessBinaryPaths field to a real executable.`);
         }
@@ -380,7 +379,7 @@ class FleetLifecycleService extends Base {
 
         let child;
         try {
-            child = this.getSpawnFn()(command, args, spawnOptions);
+            child = this.getSpawnFn()(resolvedCommand, args, spawnOptions);
         } catch (error) {
             this.processes.set(id, {id, cwd: opts.cwd ?? null, state: 'failed', pid: null, startedAt: null, exitCode: null, exitedAt: new Date().toISOString(), error: error.message});
             throw error;
@@ -428,7 +427,7 @@ class FleetLifecycleService extends Base {
 
         if (versionProbeArgs) {
             try {
-                this.getExecFileFn()(command, versionProbeArgs, {timeout: 3000, env}, (error, stdout) => {
+                this.getExecFileFn()(resolvedCommand, versionProbeArgs, {timeout: 3000, env}, (error, stdout) => {
                     if (!error && stdout) record.binaryVersion = String(stdout).trim().split('\n')[0].slice(0, 80);
                 });
             } catch (ignored) {}
