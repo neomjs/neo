@@ -16,6 +16,7 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
 import {
+    CONCEPT_EXPANSION_EDGE_TYPES,
     RETRIEVAL_EVENT_SCHEMA,
     WALK_BUDGET,
     describeHopProvenance,
@@ -395,6 +396,38 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval — enrichWithConc
         // no predicate → the walk crosses the private intermediate and reaches MEM:deep
         const ungated = await enrichWithConceptWalk(opts);
         expect(ungated.event.candidatesAdded).toBe(1);
+    });
+
+    test('traversableEdgeTypes gates PATH expansion by edge.type: a candidate reachable ONLY through an arbitrary edge is not surfaced — the (i) edge-policy, threaded enrich→walk (#14504)', async () => {
+        // golden-path --RELATES_TO--> CONCEPT:sib --TAGGED_CONCEPT--> MEM:viaConcept   (retrieval-bearing expansion path)
+        // golden-path --DISCUSSED_IN--> ISSUE:x   --TAGGED_CONCEPT--> MEM:viaArbitrary (arbitrary edge → ISSUE:x never expanded)
+        const edgeGraph = fixtureGraph({
+            concepts: [{type: 'CONCEPT', id: 'golden-path'}],
+            nodes   : {
+                'golden-path'     : {label: 'CONCEPT'},
+                'CONCEPT:sib'     : {label: 'CONCEPT'},
+                'ISSUE:x'         : {label: 'ISSUE'},
+                'MEM:viaConcept'  : {label: 'MEMORY'},
+                'MEM:viaArbitrary': {label: 'MEMORY'}
+            },
+            edges: [
+                {id: 'c1', source: 'golden-path', target: 'CONCEPT:sib',      type: 'RELATES_TO',     properties: {}},
+                {id: 'c2', source: 'CONCEPT:sib', target: 'MEM:viaConcept',   type: 'TAGGED_CONCEPT', properties: {}},
+                {id: 'a1', source: 'golden-path', target: 'ISSUE:x',          type: 'DISCUSSED_IN',   properties: {}},
+                {id: 'a2', source: 'ISSUE:x',     target: 'MEM:viaArbitrary', type: 'TAGGED_CONCEPT', properties: {}}
+            ]
+        });
+        const memGate = async nodeId => nodeId.startsWith('MEM:') ? {id: nodeId, text: 'm'} : null;
+        // permissive labels so ONLY the edge-type gate decides expansion
+        const opts = {graphService: edgeGraph, query: 'golden path', candidates: [], conceptWalk: true, resolveCandidate: memGate, traversableNodeLabels: ['MEMORY'], traversableLabels: ['CONCEPT', 'ISSUE', 'MEMORY'], maxHops: 2};
+
+        // allow-list expands through RELATES_TO (→sib→MEM:viaConcept) but NOT DISCUSSED_IN (ISSUE:x not expanded → MEM:viaArbitrary unreachable)
+        const gated = await enrichWithConceptWalk({...opts, traversableEdgeTypes: CONCEPT_EXPANSION_EDGE_TYPES});
+        expect(gated.event.candidatesAdded).toBe(1);
+
+        // no edge-type gate → DISCUSSED_IN is traversed, ISSUE:x expanded, MEM:viaArbitrary also reached
+        const ungatedEdges = await enrichWithConceptWalk(opts);
+        expect(ungatedEdges.event.candidatesAdded).toBe(2);
     });
 
     test('enrich binds the GraphService isNodeVisibleToRequester seam BY DEFAULT — a private intermediate is RLS-blocked with no explicit rlsPredicate (#14504 gate 1 seam)', async () => {

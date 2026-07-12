@@ -11,7 +11,7 @@ import {checkAskRateLimit}               from './helpers/askRateLimit.mjs';
 import {isRemoteKnowledgeBaseDeployment} from './helpers/deploymentMode.mjs';
 import {getMissingAskSynthesisLeaves}    from './helpers/askSynthesisGuard.mjs';
 import GraphService                      from '../memory-core/GraphService.mjs';
-import {enrichWithConceptWalk}           from '../graph/conceptAnchoredRetrieval.mjs';
+import {CONCEPT_EXPANSION_EDGE_TYPES, enrichWithConceptWalk} from '../graph/conceptAnchoredRetrieval.mjs';
 import {buildKbFileResolveCandidate}     from './conceptWalkKbFileGate.mjs';
 
 const LOCAL_EMPTY_COLLECTION_ANSWER  = "The knowledge base collection is empty. Populate it with the release artifact via 'npm run ai:download-kb' (or build locally with 'npm run ai:sync-kb').";
@@ -347,6 +347,7 @@ class SearchService extends Base {
                 getCandidateId       : ref => ref.source,
                 traversableNodeLabels: ['FILE'],
                 traversableLabels    : ['CONCEPT'],   // fork-1: KB expands through CONCEPT only; FILE is terminal (a candidate, never traversed THROUGH past the KB result boundary)
+                traversableEdgeTypes : CONCEPT_EXPANSION_EDGE_TYPES, // (i) edge-policy: expand only through concept↔concept relations; terminal FILE candidates recorded regardless
                 resolveCandidate     : buildKbFileResolveCandidate({
                     findKbDocBySource: source => QueryService.findDocBySource(source, type)
                 }),

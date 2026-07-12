@@ -58,6 +58,18 @@ export const WALK_BUDGET = Object.freeze({conceptLimit: 5, maxHops: 2, hopBudget
 export const PUBLIC_TRAVERSABLE_LABELS = Object.freeze(['CONCEPT', 'FILE']);
 
 /**
+ * Retrieval-bearing concept↔concept edge types the walk EXPANDS through (passed to walkConceptNeighborhood
+ * as `traversableEdgeTypes`). These carry the neighborhood from a concept to a sibling concept; an arbitrary
+ * structural/social edge (DISCUSSED_IN, AUTHORED_BY, PARENT_OF, RESOLVES, …) does not. Concept→artifact edges
+ * (TAGGED_CONCEPT, IMPLEMENTED_BY, MENTIONED_IN, …) are deliberately ABSENT: they reach TERMINAL candidates
+ * (memory/file) that are recorded as hops and hydrated regardless of this list — the filter gates EXPANSION,
+ * not terminal-candidate hydration, so excluding them costs no recall (verified against the walk/enrich hop
+ * ordering). Extensible: a newly-minted concept↔concept relation is added here. Taxonomy V-B-A'd from
+ * SemanticGraphExtractor + ConceptService.
+ */
+export const CONCEPT_EXPANSION_EDGE_TYPES = Object.freeze(['PARENT_CONCEPT', 'RELATES_TO', 'ANALOGOUS_TO', 'REQUIRES']);
+
+/**
  * @summary Tokenizes a retrieval query into candidate cluster-key fragments.
  * @param {String} query Caller query.
  * @returns {String[]} Lowercased tokens of length >= 3, order-preserved, deduped.
@@ -247,6 +259,9 @@ export function buildConceptPath({rootConcept, nodeId, rootMemberId, parentHop})
  * @param {String[]|null} [options.traversableNodeLabels] Explicit allow-list of neighbor node labels
  *     eligible to become candidates for this surface (e.g. `['AGENT_MEMORY']` for memories, `['FILE']`
  *     for the KB). Null → no type filter. A non-eligible label is skipped before the gate (not `filteredOut`).
+ * @param {String[]|null} [options.traversableEdgeTypes] Retrieval-bearing edge-type allow-list gating walk
+ *     EXPANSION (default {@link CONCEPT_EXPANSION_EDGE_TYPES}; null = no edge-type gate, probe mode). Passed
+ *     to walkConceptNeighborhood; gates expansion-through only — terminal candidates are recorded regardless.
  * @param {Number} [options.conceptLimit] Max resolved clusters walked (default {@link WALK_BUDGET}.conceptLimit).
  * @param {Number} [options.maxHops] Per-member walk depth bound (default {@link WALK_BUDGET}.maxHops).
  * @param {Number} [options.hopBudget] Per-member edge budget (default {@link WALK_BUDGET}.hopBudget).
@@ -268,6 +283,7 @@ export async function enrichWithConceptWalk({
     now                  = () => Date.now(),
     traversableNodeLabels = null,
     traversableLabels     = PUBLIC_TRAVERSABLE_LABELS,
+    traversableEdgeTypes  = null,
     rlsPredicate          = null,
     conceptLimit         = WALK_BUDGET.conceptLimit,
     maxHops              = WALK_BUDGET.maxHops,
@@ -335,7 +351,7 @@ export async function enrichWithConceptWalk({
             // candidates stand. augment-never-displace holds even when the graph is down.
             let walk;
             try {
-                walk = walkConceptNeighborhood({graphService, conceptId: memberId, maxHops, hopBudget: remainingHopBudget, traversableLabels, rlsPredicate: effectiveRlsPredicate})
+                walk = walkConceptNeighborhood({graphService, conceptId: memberId, maxHops, hopBudget: remainingHopBudget, traversableLabels, traversableEdgeTypes, rlsPredicate: effectiveRlsPredicate})
             } catch {
                 walk = {hops: [], truncated: false}
             }
