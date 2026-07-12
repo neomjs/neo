@@ -1366,6 +1366,85 @@ test.describe('Wake Daemon', () => {
         expect(finalDigest).not.toContain('priority: normal');
     });
 
+    test('#15054: one message wakes an identity once across overlapping routes and later GraphLog replay', async () => {
+        const agentId = '@test-agent-stable-message-dedup';
+
+        insertWakeSubscription(db, {
+            agentId,
+            filters              : {},
+            harnessTargetMetadata: {adapter: 'test', coalesceWindow: 0}
+        });
+        insertWakeSubscription(db, {
+            agentId,
+            filters              : {priority: 'high'},
+            harnessTargetMetadata: {adapter: 'test', coalesceWindow: 0}
+        });
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR}
+        });
+
+        let   deliveryCount = 0;
+        const firstDelivery = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('First stable-message wake did not arrive')), 12000);
+
+            daemonProcess.stdout.on('data', data => {
+                const output = data.toString();
+                deliveryCount += (output.match(/\[Wake Daemon Test Adapter\] Delivered/g) || []).length;
+                if (deliveryCount > 0) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const {msgId} = insertMessageWake(db, {
+            agentId,
+            priority: 'high',
+            subject : 'Stable message identity'
+        });
+
+        await firstDelivery;
+
+        // Projection replay: the application MESSAGE id is unchanged, but GraphLog appends a new
+        // position above both per-subscription numeric watermarks. It must not create another prompt.
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
+        await new Promise(resolve => setTimeout(resolve, 4500));
+
+        expect(deliveryCount).toBe(1);
+
+        const durableState = JSON.parse(
+            fs.readFileSync(path.join(DAEMON_DIR, 'woken-watermark.json'), 'utf8')
+        );
+        expect(durableState.__messageIdsByIdentity[agentId]).toContain(msgId);
+
+        // Restart durability: the stable-id claim survives the daemon process. A third GraphLog
+        // emission after restart is still the same logical message and must remain prompt-silent.
+        const firstExit = new Promise(resolve => daemonProcess.once('exit', resolve));
+        daemonProcess.kill('SIGKILL');
+        await firstExit;
+        daemonProcess = null;
+
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
+
+        let restartDeliveryCount = 0;
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR}
+        });
+        daemonProcess.stdout.on('data', data => {
+            restartDeliveryCount += (data.toString().match(/\[Wake Daemon Test Adapter\] Delivered/g) || []).length;
+        });
+        daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+
+        await new Promise(resolve => setTimeout(resolve, 4000));
+        expect(restartDeliveryCount).toBe(0);
+    });
+
     test('delivers Codex wake events via app-server adapter without osascript fallback (#13067)', async () => {
         const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-codex-app-server';
