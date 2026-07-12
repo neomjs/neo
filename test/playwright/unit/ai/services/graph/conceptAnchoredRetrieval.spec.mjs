@@ -23,6 +23,7 @@ import {
     resolveConcepts,
     tokenizeQuery
 } from '../../../../../../ai/services/graph/conceptAnchoredRetrieval.mjs';
+import GraphService from '../../../../../../ai/services/memory-core/GraphService.mjs';
 
 /**
  * Minimal read-only seam fixture: the resolver consumes only listNodeRecordsByType.
@@ -638,5 +639,32 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval — enrichWithConc
         expect(candidates.map(c => c.id)).toEqual(['MEM:1']); // MEM:2 never hydrated — the reject spent the budget
         expect(event.filteredOut).toBe(1);                    // FILE:x
         expect(event.truncated).toBe(true);                   // ceiling hit at 2 attempts
+    });
+});
+
+test.describe('Neo.ai.services.memory-core.GraphService.isNodeVisibleToRequester — path-RLS seam (#14504)', () => {
+    // Exercise the real seam via `.call` with a mock `this.db.storage` — the raw-read → isRlsVisible →
+    // resolveRlsUserId composition + the fail-closed paths, without constructing a live graph db.
+    const mockThis = (nodeRow, userId) => ({
+        db: {
+            storage: {
+                db                   : {prepare: () => ({get: () => nodeRow})},
+                RequestContextService: {getUserId: () => userId}
+            }
+        }
+    });
+    const nodeRow = userId => ({data: JSON.stringify({properties: {userId}})});
+    const call    = (row, requester, id = 'MEM:x') => GraphService.isNodeVisibleToRequester.call(mockThis(row, requester), id);
+
+    test('own-tenant node is visible; other-tenant is not; public (null userId) is visible', () => {
+        expect(call(nodeRow('agent-a'), 'agent-a')).toBe(true);   // own
+        expect(call(nodeRow('agent-b'), 'agent-a')).toBe(false);  // other-tenant → path not authorized
+        expect(call(nodeRow(null),      'agent-a')).toBe(true);   // public (ownerUserId null)
+    });
+
+    test('fail-closed: a missing node, an absent db, and an invalid id all return false', () => {
+        expect(call(undefined, 'agent-a', 'MEM:gone')).toBe(false);                          // raw read yields nothing
+        expect(GraphService.isNodeVisibleToRequester.call({db: {storage: {}}}, 'MEM:x')).toBe(false); // absent db
+        expect(call(nodeRow('agent-a'), 'agent-a', '')).toBe(false);                         // invalid node id
     });
 });
