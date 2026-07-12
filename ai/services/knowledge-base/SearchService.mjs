@@ -270,6 +270,26 @@ class SearchService extends Base {
     }
 
     /**
+     * @summary The honest empty-result envelope — an empty COLLECTION names the download one-liner (the
+     * common cold-start), otherwise a plain no-match. Shared by the flat-empty short-circuit and the
+     * post-walk guard (an empty flat the concept-walk could not rescue).
+     * @returns {Promise<{answer: String, references: Object[]}>}
+     * @private
+     */
+    async #emptyFlatResponse() {
+        const count = await ChromaManager.getKnowledgeBaseCollection()
+            .then(collection => collection.count())
+            .catch(() => null);
+
+        return {
+            answer: count === 0
+                ? this.getEmptyCollectionAnswer()
+                : "No relevant documents found in the knowledge base.",
+            references: []
+        };
+    }
+
+    /**
      * Performs a semantic search via QueryService and synthesizes an answer using the LLM.
      *
      * @param {Object} params
@@ -284,23 +304,17 @@ class SearchService extends Base {
         // 1. Retrieve most relevant files using QueryService's scoring logic
         const queryResult = await QueryService.queryDocuments({query, type, limit, includeMetadata: true});
 
-        if (queryResult.message || !queryResult.results || queryResult.results.length === 0) {
-            // An EMPTY collection is the common cold-start cause since the KB artifact download
-            // left the npm `prepare` chain (it is opt-in now) — name the one-liner so the absence
-            // is discoverable instead of reading like a bad query.
-            const count = await ChromaManager.getKnowledgeBaseCollection()
-                .then(collection => collection.count())
-                .catch(() => null);
+        const emptyFlat = queryResult.message || !queryResult.results || queryResult.results.length === 0;
 
-            return {
-                answer: count === 0
-                    ? this.getEmptyCollectionAnswer()
-                    : "No relevant documents found in the knowledge base.",
-                references: []
-            };
+        // An empty flat result short-circuits to the honest empty answer — UNLESS the concept-walk is
+        // opted in: the walk resolves concepts from the QUERY (not the flat candidates), so it can
+        // structurally RESCUE docs the embedding search missed. A flat miss must not skip the graph; if
+        // the walk ALSO finds nothing, the post-walk guard below returns the same honest empty answer.
+        if (emptyFlat && !conceptWalk) {
+            return this.#emptyFlatResponse();
         }
 
-        const references = queryResult.results.map(r => ({
+        const references = (queryResult.results || []).map(r => ({
             name  : r.source.split('/').pop(),
             source: r.source,
             score : Number(r.score)
@@ -343,6 +357,13 @@ class SearchService extends Base {
         // path returns the exact legacy shapes.
         const withWalk = result => conceptWalkEvent ? {...result, conceptWalk: conceptWalkEvent} : result;
 
+        // Post-walk empty guard: an empty flat result the walk could not rescue (empty collection, or no
+        // concept-neighborhood match) returns the honest empty answer — never synthesize on zero context.
+        // The walk event still rides along so the opt-in surface stays observable on a rescue miss.
+        if (responseReferences.length === 0) {
+            return withWalk(await this.#emptyFlatResponse());
+        }
+
         if (!this.model) {
             // Thread the construct-time stale-config reason when present; the legacy
             // gemini-without-key case keeps its established `no_provider` shape.
@@ -357,7 +378,7 @@ class SearchService extends Base {
         // Flat context mapping stays byte-identical (index-aligned to queryResult.results); walk-
         // surfaced docs (identified by the `via` marker, order-independent) append their own metadata
         // so they reach synthesis too.
-        const contextReferences = queryResult.results.map((r, index) => ({
+        const contextReferences = (queryResult.results || []).map((r, index) => ({
             ...references[index],
             metadata: r.metadata || {}
         }));
