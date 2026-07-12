@@ -566,9 +566,15 @@ class DomEvents extends Base {
 
             // Arrows drive roving focus and Space activates the focused item within a neo-selection
             // region; neither may scroll the page. The app still receives the keydown
-            // (sendMessageToApp above) — this only suppresses the browser's scroll default.
+            // (sendMessageToApp above) — this only suppresses the browser's scroll default. BUT a native
+            // interactive target (button / select / link / contenteditable) OWNS Space (activation / text
+            // entry), so never suppress Space there — only for the roving item / non-interactive nodes.
+            const spaceOwnedByTarget = event.key === ' ' &&
+                (tagName === 'BUTTON' || tagName === 'SELECT' || tagName === 'A' || target.isContentEditable === true);
+
             if (
                 !isInput &&
+                !spaceOwnedByTarget &&
                 ['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp', ' '].includes(event.key) &&
                 me.testPathInclusion(event, ['neo-selection'], true)
             ) {
