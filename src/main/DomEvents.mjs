@@ -564,9 +564,12 @@ class DomEvents extends Base {
                 event.preventDefault()
             }
 
+            // Arrows drive roving focus and Space activates the focused item within a neo-selection
+            // region; neither may scroll the page. The app still receives the keydown
+            // (sendMessageToApp above) — this only suppresses the browser's scroll default.
             if (
                 !isInput &&
-                ['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp'].includes(event.key) &&
+                ['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp', ' '].includes(event.key) &&
                 me.testPathInclusion(event, ['neo-selection'], true)
             ) {
                 event.preventDefault()

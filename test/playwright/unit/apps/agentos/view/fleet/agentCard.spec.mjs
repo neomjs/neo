@@ -212,7 +212,7 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         card.destroy()
     });
 
-    test('a11y focus-order: keyboard-operable drill target — focusable, button-announced, Enter drills, non-Enter + control-cluster keydowns do not (#14619)', () => {
+    test('a11y focus-order: keyboard-operable drill target — focusable, button-announced, Enter/Space drill, non-activation + control-cluster keydowns do not (#14619)', () => {
         const card  = createCard({agentId: 'vega', displayName: 'Vega', state: 'ok'});
         const fired = [];
 
@@ -229,6 +229,12 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
 
         // Enter on the card root drills in — the SAME agentSelect the body click fires
         card.getController().onCardSelect({key: 'Enter', path: [{cls: ['fm-card-name']}, {cls: ['fm-agent-card']}]});
+        expect(fired).toMatchObject([{agentId: 'vega'}]);
+
+        // Space also activates — ARIA button semantics (Enter + Space); the page-scroll default is
+        // suppressed on the main thread by the neo-selection scroll-key rule (DomEvents.onKeyDown)
+        fired.length = 0;
+        card.getController().onCardSelect({key: ' ', path: [{cls: ['fm-card-name']}, {cls: ['fm-agent-card']}]});
         expect(fired).toMatchObject([{agentId: 'vega'}]);
 
         // a non-activation key never drills — Tab must egress focus, not select

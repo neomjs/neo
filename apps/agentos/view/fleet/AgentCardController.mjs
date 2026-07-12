@@ -66,11 +66,11 @@ class AgentCardController extends Controller {
      * @param {Object} data The delegated click event.
      */
     onCardSelect(data) {
-        // Shared by the body click and the keyboard drill. A keydown carries data.key — only Enter
-        // activates; Space's scroll default cannot be cleanly prevented on a raw keydown across the
-        // worker boundary, so it is deferred to the KeyNavigation roving pass. A click has no data.key
-        // and passes straight through.
-        if (data.key && data.key !== 'Enter') {
+        // Shared by the body click and the keyboard drill. A keydown carries data.key — Enter and
+        // Space both activate the drill (ARIA button semantics); the page-scroll default for Space is
+        // suppressed on the main thread by the neo-selection scroll-key rule (DomEvents.onKeyDown), so
+        // activation never scrolls the cockpit. A click has no data.key and passes straight through.
+        if (data.key && data.key !== 'Enter' && data.key !== ' ') {
             return
         }
 
