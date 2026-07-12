@@ -361,4 +361,17 @@ test.describe('Neo.tab.plugin.Overflow (tab-set mutation invalidation)', () => {
 
         expect(projected, 'tab.Container `moveTo` re-runs project so the reordered split stays live').toBe(true)
     });
+
+    test('a tab removal (owner `remove`) re-runs a project pass so stale menu indices are dropped', async () => {
+        const {plugin, owner} = createWiredPlugin();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        let   projected = false;
+        const orig      = plugin.project.bind(plugin);
+        plugin.project = arg => { projected = true; return orig(arg) };
+
+        owner.fire('remove', {index: 1, item: {id: 'b2'}});
+
+        expect(projected, 'owner `remove` re-runs project so a removed tab drops from the split + menu').toBe(true)
+    })
 });

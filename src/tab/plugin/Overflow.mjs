@@ -188,15 +188,14 @@ class Overflow extends Plugin {
      * first (width-capturing) pass.
      *
      * Tab-set-change recapture wires the available header-mutation events: the owner toolbar fires `insert`
-     * on a tab add and the tab.Container fires `moveTo` on a reorder — each re-runs `project(true)` so the
-     * cached natural widths + the split follow the mutated set even when neither a resize nor an
-     * `activeIndexChange` fires (a mid-menu insert/reorder into the hidden range would otherwise strand a
-     * pre-mutation projection and activate the wrong record). This holds whether or not the dock rebuilds the
-     * header on a model change: if an in-place update keeps this plugin instance, these listeners are what
-     * invalidate its cache; if a fresh instance mounts instead, they are a harmless no-op it re-measures
-     * past. (Tab removal has no container event yet; a removed tab's stale cached width is harmless — it
-     * drops from `getTabButtons()` and the next pass re-partitions.) The sticky `queuedRecapture` coalesces a
-     * mutation `project(true)` overlapping an in-flight resize/activation pass.
+     * and `remove` on a tab add/remove, and the tab.Container fires `moveTo` on a reorder — each re-runs
+     * `project(true)` so the cached natural widths, the split, and the overflow menu's indices follow the
+     * mutated set even when neither a resize nor an `activeIndexChange` fires (a mid-menu insert / remove /
+     * reorder into the hidden range would otherwise strand a pre-mutation projection and activate — or list —
+     * the wrong record). This holds whether or not the dock rebuilds the header on a model change: if an
+     * in-place update keeps this plugin instance, these listeners are what invalidate its cache; if a fresh
+     * instance mounts instead, they are a harmless no-op it re-measures past. The sticky `queuedRecapture`
+     * coalesces a mutation `project(true)` overlapping an in-flight resize/activation pass.
      * @override
      */
     onOwnerMounted() {
@@ -207,9 +206,11 @@ class Overflow extends Plugin {
         // Re-run on activation too: selecting a hidden tab flips activeIndex, and active-never-hidden must
         // then surface the newly-active tab into the header (swapping a fitting one into the overflow menu).
         me.getTabContainer()?.on('activeIndexChange', me.onActiveIndexChange, me);
-        // Re-run on a tab-set mutation: an add (owner `insert`) or a reorder (tab.Container `moveTo`) changes
-        // the cached widths / menu indices without a resize or activation, so recapture to keep the split live.
+        // Re-run on a tab-set mutation: an add / remove (owner `insert` / `remove`) or a reorder
+        // (tab.Container `moveTo`) changes the cached widths / menu indices without a resize or activation,
+        // so recapture to keep the split live.
         owner.on('insert', me.onTabSetChange, me);
+        owner.on('remove', me.onTabSetChange, me);
         me.getTabContainer()?.on('moveTo', me.onTabSetChange, me);
         me.project(true)
     }
