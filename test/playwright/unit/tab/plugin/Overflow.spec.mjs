@@ -291,3 +291,74 @@ test.describe('Neo.tab.plugin.Overflow.computeOverflow — the pure overflow cor
         expect(result.hidden).toEqual(['d'])
     });
 });
+
+test.describe('Neo.tab.plugin.Overflow (tab-set mutation invalidation)', () => {
+    let Overflow;
+
+    test.beforeAll(async () => {
+        Overflow = (await import('../../../../../src/tab/plugin/Overflow.mjs')).default
+    });
+
+    // A minimal event bus so firing 'insert' (owner) / 'moveTo' (tab.Container = owner.parent) exercises the
+    // real onOwnerMounted wiring, not a stubbed no-op. A wide extent keeps nothing overflowing so the pass
+    // settles cleanly; the point is only that a tab-set mutation re-runs a project pass without a resize or
+    // activation — the stranding the plugin's cache would otherwise suffer.
+    const createWiredPlugin = () => {
+        const mkBus = () => {
+            const map = {};
+            return {
+                on  : (evt, fn, scope) => { (map[evt] || (map[evt] = [])).push(scope ? fn.bind(scope) : fn) },
+                un  : () => {},
+                fire: (evt, data) => { (map[evt] || []).forEach(fn => fn(data)) }
+            }
+        };
+
+        const parent = Object.assign({activeIndex: 0}, mkBus()),
+              plugin = Neo.create(Overflow, {
+                  owner: Object.assign({
+                      id             : 'wired-owner',
+                      appName        : 'test-app',
+                      mounted        : true,
+                      windowId       : 1,
+                      items          : [{id: 'b1'}, {id: 'b2'}],
+                      parent,
+                      getDomRect     : async ids => ids ? [{width: 10}, {width: 10}] : {width: 1000},
+                      add            : () => ({}),
+                      addDomListeners: () => {},
+                      remove         : () => {},
+                      up             : () => parent
+                  }, mkBus())
+              });
+
+        plugin.control = null;
+
+        return {plugin, owner: plugin.owner, parent}
+    };
+
+    test('a tab add (owner `insert`) re-runs a RECAPTURE project pass so the added tab gets measured', async () => {
+        const {plugin, owner} = createWiredPlugin();
+        await new Promise(resolve => setTimeout(resolve, 0)); // settle the mount project(true)
+
+        let   recapture = null;
+        const orig      = plugin.project.bind(plugin);
+        plugin.project = arg => { recapture = arg; return orig(arg) };
+
+        owner.fire('insert', {index: 2, item: {id: 'b3'}});
+
+        // An added tab has no cached natural width, so the pass must recapture (project(true)).
+        expect(recapture, 'owner `insert` re-runs project(true)').toBe(true)
+    });
+
+    test('a tab reorder (tab.Container `moveTo`) re-runs a project pass so the split follows the new order', async () => {
+        const {plugin, parent} = createWiredPlugin();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        let   projected = false;
+        const orig      = plugin.project.bind(plugin);
+        plugin.project = arg => { projected = true; return orig(arg) };
+
+        parent.fire('moveTo', {fromIndex: 0, toIndex: 1});
+
+        expect(projected, 'tab.Container `moveTo` re-runs project so the reordered split stays live').toBe(true)
+    });
+});
