@@ -1,4 +1,4 @@
-import {conceptClusterKey} from './conceptNeighborhoodProbe.mjs';
+import {conceptClusterKey, walkConceptNeighborhood} from './conceptNeighborhoodProbe.mjs';
 
 /**
  * @module ai/services/graph/conceptAnchoredRetrieval
@@ -112,4 +112,158 @@ export function resolveConcepts({graphService, query, limit = 5, scanLimit = 250
         .sort((a, b) => b.score - a.score || a.clusterKey.localeCompare(b.clusterKey))
         .slice(0, limit)
         .map(c => ({clusterKey: c.clusterKey, members: [...c.members].sort(), matchType: c.matchType, score: c.score}))
+}
+
+/**
+ * @summary Projects a walk hop's four-axis presence into candidate provenance — degrade-by-omission.
+ *
+ * The neighborhood read-probe proved most axes are absent-in-storage (only `authority` partially
+ * materializes, and only on canonical concepts). The degrade-by-omission honesty contract is
+ * therefore load-bearing: an axis present in storage carries the property keys under which it
+ * materialized; an axis absent is OMITTED, never a fabricated null/false. A reader of the provenance can
+ * tell "we know X about this edge" from "we have no stored signal for X" — the two must not blur.
+ * @param {Object} hop A `walkConceptNeighborhood` hop (`{readAt, axisPresence, ...}`).
+ * @returns {Object} `{readAt, axes}` — `axes` maps ONLY present axes to their storage keys.
+ */
+export function describeHopProvenance(hop = {}) {
+    const axes = {};
+
+    for (const [axis, info] of Object.entries(hop.axisPresence || {})) {
+        if (info?.present) {
+            axes[axis] = info.keys
+        }
+    }
+
+    return {readAt: hop.readAt ?? null, axes}
+}
+
+/**
+ * @summary The wrap: augments a flat embedding candidate list with concept-neighborhood-walk
+ * candidates — never replacing, never displacing, always re-filtered through the caller's own gate.
+ *
+ * The contract, in order:
+ * - **Wrap, never replace.** `conceptWalk` falsy (the default) → the caller's `candidates` are
+ *   returned by reference, byte-identical, and NO event is emitted (no walk ran). This is the
+ *   spec-pinned invariant: the flat path is untouched unless the caller explicitly opts in.
+ * - **Resolve → walk → re-filter.** With the flag on, {@link resolveConcepts} maps the query to
+ *   alias-clusters; each member's neighborhood is walked over RAW edges
+ *   ({@link module:ai/services/graph/conceptNeighborhoodProbe.walkConceptNeighborhood} — the graph
+ *   projection exposes only `weight`, so provenance-bearing retrieval MUST read raw). Every
+ *   walk-reached node id is passed back through the caller's injected `resolveCandidate` — the SAME
+ *   RLS/tenant/tombstone/trust gate the flat path already cleared. A raw-edge walk can reach a node
+ *   the caller is not authorized to see; `resolveCandidate` returning null IS that authorization
+ *   boundary, counted as `filteredOut`. Absent gate fails closed (nothing surfaces ungated).
+ * - **Dedup, then append.** A walk node already in the embedding set (by id) is skipped — the wrap
+ *   augments, it never duplicates or reorders. Survivors are appended AFTER the embedding
+ *   candidates, each stamped `{via, conceptPath, provenance}` (degrade-by-omission axes).
+ * - **Emit the event.** One {@link RETRIEVAL_EVENT_SCHEMA}-shaped event per opted-in call feeds the
+ *   measurement leaf (transport = the injected `emit` sink; a logger in production).
+ *
+ * Read-only: the walk substrate asserts zero graph writes; this layer only reads, filters, merges.
+ *
+ * @param {Object} options
+ * @param {Object} options.graphService Bound GraphService (or the resolver/walk seam adapter).
+ * @param {String} options.query The caller query, verbatim.
+ * @param {Object[]} [options.candidates=[]] The flat embedding top-k — returned untouched AND first.
+ * @param {Boolean} [options.conceptWalk=false] The opt-in flag. Falsy → pure pass-through.
+ * @param {Function} [options.resolveCandidate] `async (nodeId) => hydratedAuthorizedCandidate | null`
+ *     — the caller's hydrate + RLS/tenant/trust gate for a walk-reached node. Absent → every walk
+ *     node is `filteredOut` (fail-closed).
+ * @param {Function} [options.getCandidateId] `(candidate) => String` dedup-id extractor (default `.id`).
+ * @param {Function} [options.emit] `(event) => void` retrieval-event sink (default no-op).
+ * @param {Number} [options.conceptLimit=5] Max resolved clusters walked.
+ * @param {Number} [options.maxHops=2] Per-member walk depth bound.
+ * @param {Number} [options.hopBudget=80] Per-member edge budget.
+ * @returns {Promise<Object>} `{candidates: mergedArray, event: eventObject|null}` — `event` is null
+ *     only on pass-through (flag off).
+ */
+export async function enrichWithConceptWalk({
+    graphService,
+    query,
+    candidates     = [],
+    conceptWalk    = false,
+    resolveCandidate,
+    getCandidateId = candidate => candidate?.id,
+    emit,
+    conceptLimit   = 5,
+    maxHops        = 2,
+    hopBudget      = 80
+}) {
+    // Wrap, never replace: no opt-in → the flat path returns byte-identical, no walk, no event.
+    if (!conceptWalk) {
+        return {candidates, event: null}
+    }
+
+    const resolved = resolveConcepts({graphService, query, limit: conceptLimit});
+
+    if (!resolved.length) {
+        const event = {
+            event           : RETRIEVAL_EVENT_SCHEMA.event,
+            query,
+            resolvedConcepts: [],
+            walkContributed : false,
+            candidatesAdded : 0,
+            filteredOut     : 0
+        };
+
+        emit?.(event);
+        return {candidates, event}
+    }
+
+    const
+        seen        = new Set(candidates.map(getCandidateId).filter(Boolean)),
+        walkVisited = new Set(),
+        added       = [];
+
+    let filteredOut = 0;
+
+    for (const cluster of resolved) {
+        for (const memberId of cluster.members) {
+            const walk = walkConceptNeighborhood({graphService, conceptId: memberId, maxHops, hopBudget});
+
+            for (const hop of walk.hops) {
+                const nodeId = hop.neighborId;
+
+                // dedup: already in the embedding set, or already surfaced by an earlier walk hop
+                if (!nodeId || seen.has(nodeId) || walkVisited.has(nodeId)) continue;
+
+                walkVisited.add(nodeId);
+
+                // RLS re-entry: the raw-edge walk can reach nodes the caller may not see; the caller's
+                // own gate is the authority, and its absence (or a null return) fails closed.
+                const hydrated = await resolveCandidate?.(nodeId);
+
+                if (!hydrated) {
+                    filteredOut++;
+                    continue
+                }
+
+                added.push({
+                    ...hydrated,
+                    via        : 'concept-walk',
+                    conceptPath: {
+                        rootConcept  : cluster.clusterKey,
+                        depth        : hop.depth,
+                        edgeType     : hop.edgeType,
+                        neighborLabel: hop.neighborLabel
+                    },
+                    provenance: describeHopProvenance(hop)
+                })
+            }
+        }
+    }
+
+    const event = {
+        event           : RETRIEVAL_EVENT_SCHEMA.event,
+        query,
+        resolvedConcepts: resolved.map(cluster => cluster.clusterKey),
+        walkContributed : added.length > 0,
+        candidatesAdded : added.length,
+        filteredOut
+    };
+
+    emit?.(event);
+
+    // wrap: embedding candidates first + untouched; walk candidates appended.
+    return {candidates: [...candidates, ...added], event}
 }
