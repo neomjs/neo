@@ -1,6 +1,6 @@
 ---
 name: debugging-antigravity
-description: "Authoritative guide on debugging Antigravity IDE MCP servers, preventing language server duplication, mitigating sqlite workspace UI crashes, and configuring mcpServers. Triggers: Use this skill if the user's Antigravity MCP server panel has a perpetual loading spinner, if MCP processes are duplicating, if sqlite workspace states are corrupted (`__store` null error), or if you need to know how to properly scope `.gemini/settings.json` vs global configurations."
+description: "Authoritative guide for Antigravity 2.x MCP authority, duplication forensics, UI-profile isolation, and sqlite workspace recovery. Triggers: Use when the Antigravity MCP panel spins indefinitely, MCP processes appear duplicated, sqlite workspace state throws a `__store` null error, `--user-data-dir` scope is unclear, or global `~/.gemini/config/mcp_config.json` vs workspace `.agents/mcp_config.json` ownership must be established."
 ---
 # Antigravity Debugging Guide
-If you need to debug Antigravity IDE issues, MCP server duplication, database initialization race conditions, or fix workspace UI crashes (loading spinners), you MUST immediately use the `view_file` tool to read and strictly adhere to `.agents/skills/debugging-antigravity/references/debugging-guide.md` before proceeding.
+Before diagnosing Antigravity MCP ownership, process duplication, or workspace UI crashes, read and follow `.agents/skills/debugging-antigravity/references/debugging-guide.md` completely.

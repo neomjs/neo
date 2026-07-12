@@ -473,7 +473,7 @@ Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. L
 - `memory-mining`: Querying Memory Core before diagnosing regressions, proposing architectural claims, or beginning an implementation / PR-review — prevents re-derivation of prior reasoning across sessions and harnesses.
 - `context-recovery`: Reconstructing active lane state after context compaction from Memory Core recency, semantic recall, session rollups, and A2A before resuming.
 - `neo-identity-update`: Updating Neo's identity coherently across all encoding surfaces (README, VISION, package.json, GitHub metadata, portal, SEO generators) — facts, framing, and actions model per ADR 0018.
-- `debugging-antigravity`: Debugging Antigravity IDE MCP servers, language-server duplication, and `mcpServers` configuration.
+- `debugging-antigravity`: Antigravity 2.x MCP-authority selection, process-duplication forensics, UI-profile boundaries, and sqlite workspace recovery.
 
 **Creative:**
 - `ideation-sandbox`: Safe brainstorming pipelines mapped directly into GitHub Discussions (diverts early-stage proposals away from the active Issue queue, and acts as a step-back trigger for high-blast-radius proposals).
