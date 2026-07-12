@@ -221,8 +221,12 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval — enrichWithConc
 
         expect(walked.id).toBe('MEM:1');
         expect(walked.via).toBe('concept-walk');
-        expect(walked.conceptPath).toEqual({rootConcept: 'golden-path', depth: 1, edgeType: 'TAGGED_CONCEPT', neighborLabel: 'MEMORY'});
-        expect(walked.provenance.axes).toEqual({authority: ['trustTier']});   // degrade-by-omission
+        expect(walked.conceptPath.rootConcept).toBe('golden-path');
+        expect(walked.conceptPath.depth).toBe(1);
+        expect(walked.conceptPath.hops).toHaveLength(1);
+        expect(walked.conceptPath.hops[0]).toMatchObject({edgeType: 'TAGGED_CONCEPT', neighborLabel: 'MEMORY', axes: {authority: ['trustTier']}}); // degrade-by-omission
+        expect(typeof walked.conceptPath.hops[0].readAt).toBe('string');     // churn stamp present (value clock-derived — not asserted)
+        expect(walked.provenance).toBeUndefined();                            // provenance now lives PER-HOP inside conceptPath
 
         // event honesty: the two ungated hops (FILE:x, MEM:2) are counted, not hidden
         expect(event).toMatchObject({
@@ -230,6 +234,39 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval — enrichWithConc
             walkContributed: true, candidatesAdded: 1, filteredOut: 2
         });
         expect(events).toHaveLength(1);
+    });
+
+    test('conceptPath carries the COMPLETE ordered path with per-hop provenance at depth 2 (not terminal-only)', async () => {
+        // golden-path --IMPLEMENTED_BY--> FILE:helper --TAGGED_CONCEPT--> MEM:deep
+        const deepGraph = fixtureGraph({
+            concepts: [{type: 'CONCEPT', id: 'golden-path'}],
+            nodes   : {
+                'golden-path': {label: 'CONCEPT'},
+                'FILE:helper': {label: 'FILE'},
+                'MEM:deep'   : {label: 'MEMORY'}
+            },
+            edges: [
+                {id: 'd1', source: 'golden-path', target: 'FILE:helper', type: 'IMPLEMENTED_BY', properties: {}},
+                {id: 'd2', source: 'FILE:helper', target: 'MEM:deep',    type: 'TAGGED_CONCEPT', properties: {trustTier: 'peer-trusted'}}
+            ]
+        });
+
+        // authorize only the terminal MEM:deep — FILE:helper is an intermediate hop, not a candidate
+        const gate = async nodeId => nodeId === 'MEM:deep' ? {id: 'MEM:deep'} : null;
+
+        const {candidates} = await enrichWithConceptWalk({
+            graphService: deepGraph, query: 'golden path', candidates: [], conceptWalk: true, resolveCandidate: gate, maxHops: 2
+        });
+
+        const deep = candidates.find(c => c.id === 'MEM:deep');
+        expect(deep, 'the depth-2 memory surfaced').toBeTruthy();
+        expect(deep.conceptPath.rootConcept).toBe('golden-path');
+        expect(deep.conceptPath.depth).toBe(2);
+        // BOTH hops, ordered root→candidate — hop-1 (the intermediate FILE edge) is NOT dropped
+        expect(deep.conceptPath.hops.map(h => h.edgeType)).toEqual(['IMPLEMENTED_BY', 'TAGGED_CONCEPT']);
+        expect(deep.conceptPath.hops.map(h => h.neighborLabel)).toEqual(['FILE', 'MEMORY']);
+        expect(deep.conceptPath.hops[0].axes).toEqual({});                          // hop-1: absent axes omitted
+        expect(deep.conceptPath.hops[1].axes).toEqual({authority: ['trustTier']})   // hop-2: present axis carried
     });
 
     test('absent resolveCandidate fails closed — every walk node is filteredOut, nothing surfaces', async () => {

@@ -141,6 +141,43 @@ export function describeHopProvenance(hop = {}) {
 }
 
 /**
+ * @summary Reconstructs the COMPLETE ordered walk path root→candidate, each hop carrying its own
+ * degrade-by-omission provenance — the honest lineage, not just the terminal edge.
+ *
+ * `walkConceptNeighborhood` returns FLAT hops; a BFS parent map (each neighbor's first/lowest-depth
+ * reaching hop) lets a depth-N candidate be traced back through its `fromId` chain to the root member.
+ * A depth-2 candidate thus carries BOTH the intermediate hop (edge + axes) AND its own terminal hop,
+ * rather than dropping hop-1 and its authority annotation.
+ * @param {Object} options
+ * @param {String} options.rootConcept The resolved cluster key the walk started from.
+ * @param {String} options.nodeId The candidate node id whose path to reconstruct.
+ * @param {String} options.rootMemberId The walked member id — the path root; the trace stops here.
+ * @param {Map} options.parentHop `neighborId → its reaching hop` (the BFS parent edge).
+ * @returns {Object} `{rootConcept, depth, hops: [{edgeType, neighborLabel, readAt, axes}, …]}` root-first.
+ */
+export function buildConceptPath({rootConcept, nodeId, rootMemberId, parentHop}) {
+    const hops = [];
+
+    let cursor = nodeId,
+        guard  = 0;
+
+    // trace fromId back to the root member; the guard bounds any malformed (cyclic) parent chain
+    while (cursor && cursor !== rootMemberId && parentHop?.has(cursor) && guard++ < 32) {
+        const hop = parentHop.get(cursor);
+
+        hops.unshift({
+            edgeType     : hop.edgeType ?? null,
+            neighborLabel: hop.neighborLabel ?? null,
+            ...describeHopProvenance(hop)
+        });
+
+        cursor = hop.fromId
+    }
+
+    return {rootConcept, depth: hops.length, hops}
+}
+
+/**
  * @summary The wrap: augments a flat embedding candidate list with concept-neighborhood-walk
  * candidates — never replacing, never displacing, always re-filtered through the caller's own gate.
  *
@@ -158,7 +195,8 @@ export function describeHopProvenance(hop = {}) {
  *   boundary, counted as `filteredOut`. Absent gate fails closed (nothing surfaces ungated).
  * - **Dedup, then append.** A walk node already in the embedding set (by id) is skipped — the wrap
  *   augments, it never duplicates or reorders. Survivors are appended AFTER the embedding
- *   candidates, each stamped `{via, conceptPath, provenance}` (degrade-by-omission axes).
+ *   candidates, each stamped `{via, conceptPath}` — `conceptPath` carries the complete ordered path
+ *   with per-hop degrade-by-omission provenance ({@link buildConceptPath}).
  * - **Emit the event.** One {@link RETRIEVAL_EVENT_SCHEMA}-shaped event per opted-in call feeds the
  *   measurement leaf (transport = the injected `emit` sink; a logger in production).
  *
@@ -224,7 +262,17 @@ export async function enrichWithConceptWalk({
 
     for (const cluster of resolved) {
         for (const memberId of cluster.members) {
-            const walk = walkConceptNeighborhood({graphService, conceptId: memberId, maxHops, hopBudget});
+            const
+                walk      = walkConceptNeighborhood({graphService, conceptId: memberId, maxHops, hopBudget}),
+                // BFS parent map for full-path reconstruction: keep each neighbor's FIRST (lowest-depth)
+                // reaching hop — the shortest-path parent edge {@link buildConceptPath} traces back through.
+                parentHop = new Map();
+
+            for (const hop of walk.hops) {
+                if (hop.neighborId && !parentHop.has(hop.neighborId)) {
+                    parentHop.set(hop.neighborId, hop)
+                }
+            }
 
             for (const hop of walk.hops) {
                 const nodeId = hop.neighborId;
@@ -245,16 +293,12 @@ export async function enrichWithConceptWalk({
                     continue
                 }
 
+                // the COMPLETE ordered path root→candidate, per-hop provenance — a depth-2 candidate
+                // carries hop-1's edge + axes too, never only the terminal hop.
                 added.push({
                     ...hydrated,
                     via        : 'concept-walk',
-                    conceptPath: {
-                        rootConcept  : cluster.clusterKey,
-                        depth        : hop.depth,
-                        edgeType     : hop.edgeType,
-                        neighborLabel: hop.neighborLabel
-                    },
-                    provenance: describeHopProvenance(hop)
+                    conceptPath: buildConceptPath({rootConcept: cluster.clusterKey, nodeId, rootMemberId: memberId, parentHop})
                 })
             }
         }
