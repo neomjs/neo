@@ -91,10 +91,15 @@ export async function synthesizeTemporalBirdView({
         return provisional
     }
 
-    let narrative;
+    let narrative, inferenceInputIds;
 
     try {
-        narrative = await synthesize({window, sources})
+        // synthesize may return the bare narrative (legacy / test seam) OR {narrative, inferenceInputIds};
+        // the manifest lets the envelope separate inference inputs from the census on an over-bound window.
+        const synthResult = await synthesize({window, sources});
+
+        narrative         = typeof synthResult === 'string' ? synthResult : synthResult?.narrative;
+        inferenceInputIds = typeof synthResult === 'string' ? undefined   : synthResult?.inferenceInputIds
     } catch (error) {
         return buildTemporalBirdViewEnvelope({
             window,
@@ -104,5 +109,5 @@ export async function synthesizeTemporalBirdView({
         })
     }
 
-    return buildTemporalBirdViewEnvelope({window, sources, coverage, narrative, generatedAt: stamp})
+    return buildTemporalBirdViewEnvelope({window, sources, coverage, narrative, inferenceInputIds, generatedAt: stamp})
 }

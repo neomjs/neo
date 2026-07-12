@@ -60,10 +60,14 @@ function toMs(value) {
  * @param {Object[]} [options.sources=[]] Retrieved source records `[{id, type?, ref?}]`; `id` is required per source.
  * @param {String} [options.narrative=null] The synthesized "what happened" text — used ONLY when coverage is complete.
  * @param {Object} [options.coverage={}] `{totalResolved?, truncated?, degraded?, degradedReason?}` from retrieval.
+ * @param {String[]} [options.inferenceInputIds] The ids the synthesis actually enumerated. When supplied, the
+ *   envelope marks each citation `inSynthesis` and reports `coverage.synthesisInputCount` — so a caller on a
+ *   window larger than the prompt bounds sees which citations the narrative could actually have used, distinct
+ *   from the chronological census. Omitted (degraded path / narrative-only synthesize) → citations are unmarked.
  * @param {Date|String|Number} options.generatedAt Injected generation stamp (never read from a clock internally).
  * @returns {Object} The `notAuthority` Bird View envelope.
  */
-export function buildTemporalBirdViewEnvelope({window, sources = [], narrative = null, coverage = {}, generatedAt} = {}) {
+export function buildTemporalBirdViewEnvelope({window, sources = [], narrative = null, coverage = {}, inferenceInputIds, generatedAt} = {}) {
     const generatedMs = toMs(generatedAt);
 
     if (generatedMs === null) {
@@ -92,6 +96,11 @@ export function buildTemporalBirdViewEnvelope({window, sources = [], narrative =
         if (source?.id) sourceTypeCounts[source.type || 'unknown'] = (sourceTypeCounts[source.type || 'unknown'] || 0) + 1
     }
 
+    // census-vs-inference: when the synthesis reports which sources it actually enumerated, the citations
+    // carry `inSynthesis` and coverage exposes `synthesisInputCount` — so a caller on an over-bound window
+    // never reads a citation the narrative could not have used. Absent the manifest, citations stay unmarked.
+    const inferenceSet = Array.isArray(inferenceInputIds) ? new Set(inferenceInputIds) : null;
+
     let degradedReason = null;
 
     if (incomplete) {
@@ -109,6 +118,7 @@ export function buildTemporalBirdViewEnvelope({window, sources = [], narrative =
             excluded,
             truncated,
             sourceTypeCounts,
+            ...(inferenceSet ? {synthesisInputCount: inferenceSet.size} : {}),
             degraded     : incomplete,
             degradedReason
         },
@@ -119,7 +129,8 @@ export function buildTemporalBirdViewEnvelope({window, sources = [], narrative =
                 type: source.type || 'unknown',
                 id  : source.id,
                 ...(source.sessionId ? {sessionId: source.sessionId} : {}),
-                ...(source.ref ? {ref: source.ref} : {})
+                ...(source.ref ? {ref: source.ref} : {}),
+                ...(inferenceSet ? {inSynthesis: inferenceSet.has(source.id)} : {})
             })),
         synthesis                 : synthesisAvailable ? narrative : null,
         synthesisAvailable,

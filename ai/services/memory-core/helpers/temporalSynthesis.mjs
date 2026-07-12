@@ -29,6 +29,42 @@ function sourceLine(source) {
 }
 
 /**
+ * @summary The bounded prominent + context slices that actually enter the synthesis prompt.
+ *
+ * The prompt cites prominent sources directly and enumerates context sources up to a bound; sources past the
+ * bound are noted only as an overflow count — their facts never reach the model. This is the single place that
+ * decides *what the synthesis actually saw*, so both the prompt renderer and the inference-input manifest
+ * derive from it and can never drift apart.
+ * @param {Object[]} [sources=[]]
+ * @returns {{prominent: Object[], context: Object[], contextOverflow: Number}}
+ */
+function selectSynthesisSources(sources = []) {
+    const {prominent, context} = partitionByProminence(sources);
+
+    return {
+        prominent      : prominent.slice(0, MAX_PROMINENT_CITED),
+        context        : context.slice(0, MAX_CONTEXT_ENUMERATED),
+        contextOverflow: Math.max(0, context.length - MAX_CONTEXT_ENUMERATED)
+    }
+}
+
+/**
+ * @summary The ids of the sources the synthesis actually enumerated in its prompt — its inference inputs.
+ *
+ * For a window whose source count fits the prompt bounds this equals the full chronological census; for a
+ * larger window it is the bounded subset the narrative was built from. Exposing it lets the envelope
+ * distinguish *inference inputs* from the census it also carries, so a caller never reads a citation the
+ * narrative could not have used.
+ * @param {Object[]} [sources=[]]
+ * @returns {String[]}
+ */
+export function selectSynthesisInputIds(sources = []) {
+    const {prominent, context} = selectSynthesisSources(sources);
+
+    return [...prominent, ...context].map(source => source?.id).filter(Boolean)
+}
+
+/**
  * @summary Builds the temporal synthesis prompt from a resolved window, admitted sources, and theme evidence.
  *
  * The concise-narrative instruction foregrounds `prominent` sources (direct citation) and enumerates the
@@ -43,20 +79,19 @@ function sourceLine(source) {
  * @returns {String} The synthesis prompt.
  */
 export function buildTemporalSynthesisPrompt({window, sources = [], themes = []} = {}) {
-    const {prominent, context} = partitionByProminence(sources),
-          citedProminent       = prominent.slice(0, MAX_PROMINENT_CITED),
-          citedThemes          = (Array.isArray(themes) ? themes : []).slice(0, MAX_THEMES);
+    const {prominent, context, contextOverflow} = selectSynthesisSources(sources),
+          citedThemes                           = (Array.isArray(themes) ? themes : []).slice(0, MAX_THEMES);
 
     const lines = [
         `You are summarizing what happened in one time window of an engineering team's activity.`,
         `Window: [${window?.windowStartIso ?? window?.windowStart}, ${window?.windowEndIso ?? window?.windowEnd}) — half-open, partition "${window?.partition ?? 'unified'}".`,
         ``,
         `PROMINENT sources — cite each you use directly by its id:`,
-        ...(citedProminent.length ? citedProminent.map(sourceLine) : ['- (none)']),
+        ...(prominent.length ? prominent.map(sourceLine) : ['- (none)']),
         ``,
         `CONTEXT — further in-window sources; this is what those turns were about, so cite them by id where relevant:`,
-        ...(context.length ? context.slice(0, MAX_CONTEXT_ENUMERATED).map(sourceLine) : ['- (none)']),
-        ...(context.length > MAX_CONTEXT_ENUMERATED ? [`- …and ${context.length - MAX_CONTEXT_ENUMERATED} more in-window source(s), bounded for prompt size`] : []),
+        ...(context.length ? context.map(sourceLine) : ['- (none)']),
+        ...(contextOverflow > 0 ? [`- …and ${contextOverflow} more in-window source(s), bounded for prompt size`] : []),
         ``,
         `THEME EVIDENCE (semantic, best-effort — may be incomplete):`,
         ...(citedThemes.length ? citedThemes.map(theme => `- ${theme.document || theme.text || theme.summary || theme.id}`) : ['- (none surfaced)']),
@@ -72,9 +107,13 @@ export function buildTemporalSynthesisPrompt({window, sources = [], themes = []}
 
 /**
  * @summary Builds a `synthesize({window, sources, themes})` closure over an injected LLM `generate`.
+ *
+ * The closure returns the narrative AND `inferenceInputIds` — the ids the prompt actually enumerated — so the
+ * envelope can distinguish inference inputs from the chronological census on a window larger than the prompt
+ * bounds. The narrative-only `string` shape stays valid for callers/tests that inject a bare `generate`.
  * @param {Object} options
  * @param {Function} options.generate The injected model call — `async ({prompt}) => string | {content: string}`.
- * @returns {Function} `async ({window, sources, themes}) => string` (the narrative).
+ * @returns {Function} `async ({window, sources, themes}) => {narrative: String, inferenceInputIds: String[]}`.
  */
 export function makeTemporalSynthesize({generate} = {}) {
     if (typeof generate !== 'function') {
@@ -90,6 +129,6 @@ export function makeTemporalSynthesize({generate} = {}) {
             throw new Error('temporal synthesis produced no narrative')
         }
 
-        return narrative
+        return {narrative, inferenceInputIds: selectSynthesisInputIds(sources)}
     }
 }

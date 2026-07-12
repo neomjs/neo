@@ -1,5 +1,5 @@
-import {test, expect}                                         from '@playwright/test';
-import {buildTemporalSynthesisPrompt, makeTemporalSynthesize} from '../../../../../../ai/services/memory-core/helpers/temporalSynthesis.mjs';
+import {test, expect}                                                                  from '@playwright/test';
+import {buildTemporalSynthesisPrompt, makeTemporalSynthesize, selectSynthesisInputIds} from '../../../../../../ai/services/memory-core/helpers/temporalSynthesis.mjs';
 
 const WINDOW = {partition: '@ada', windowStartIso: '2026-07-05T00:00:00.000Z', windowEndIso: '2026-07-12T00:00:00.000Z'};
 
@@ -38,15 +38,29 @@ test.describe('temporalSynthesis — the §-fidelity prompt + injected-generate 
         expect(prompt).toMatch(/CONTEXT — further in-window sources/)
     });
 
-    test('makeTemporalSynthesize passes the prompt to generate and returns the narrative (string or {content})', async () => {
+    test('makeTemporalSynthesize passes the prompt to generate and returns {narrative, inferenceInputIds}', async () => {
         let seenPrompt = null;
 
         const fromString  = makeTemporalSynthesize({generate: async ({prompt}) => { seenPrompt = prompt; return 'a narrative' }}),
               fromContent = makeTemporalSynthesize({generate: async () => ({content: 'wrapped narrative'})});
 
-        expect(await fromString({window: WINDOW, sources: [{id: 'x', type: 'session', impact: 99}]})).toBe('a narrative');
+        // the manifest reports the ids the prompt actually enumerated — its inference inputs
+        expect(await fromString({window: WINDOW, sources: [{id: 'x', type: 'session', impact: 99}]}))
+            .toEqual({narrative: 'a narrative', inferenceInputIds: ['x']});
         expect(seenPrompt).toContain('partition "@ada"');
-        expect(await fromContent({window: WINDOW})).toBe('wrapped narrative')
+        expect(await fromContent({window: WINDOW})).toEqual({narrative: 'wrapped narrative', inferenceInputIds: []})
+    });
+
+    test('selectSynthesisInputIds is the bounded prompt subset — the census-vs-inference boundary on a large window', () => {
+        // 70 context (non-prominent) sources exceed the 60-enumeration bound; 2 prominent are always cited.
+        const context   = Array.from({length: 70}, (_, i) => ({id: `ctx-${i}`, type: 'memory', impact: 10})),
+              prominent = [{id: 'hot-a', type: 'session', impact: 99}, {id: 'hot-b', type: 'session', impact: 95}],
+              inputIds  = selectSynthesisInputIds([...prominent, ...context]);
+
+        // prominent (2, both cited) + the first 60 context = 62 inference inputs, NOT the full 72-source census
+        expect(inputIds).toHaveLength(62);
+        expect(inputIds).toEqual(expect.arrayContaining(['hot-a', 'hot-b', 'ctx-0', 'ctx-59']));
+        expect(inputIds).not.toContain('ctx-60')
     });
 
     test('a generation that yields no narrative throws — the orchestrator will degrade the envelope', async () => {

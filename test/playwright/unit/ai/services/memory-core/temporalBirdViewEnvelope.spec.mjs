@@ -44,6 +44,34 @@ test.describe('temporalBirdViewEnvelope — the non-authoritative coverage/citat
         expect(envelope.citations.find(c => c.id === 'mem-1')).toMatchObject({type: 'memory', sessionId: 'sess-1'})
     });
 
+    test('census-vs-inference: an inferenceInputIds manifest marks each citation inSynthesis + reports the input count', () => {
+        const envelope = buildTemporalBirdViewEnvelope({
+            window : WINDOW,
+            sources: [
+                {id: 'in-1',  type: 'memory'},
+                {id: 'in-2',  type: 'memory'},
+                {id: 'census-only', type: 'memory'}   // resolved into coverage but NOT enumerated in the synthesis
+            ],
+            narrative        : 'built from the two inference inputs',
+            coverage         : {totalResolved: 3},
+            inferenceInputIds: ['in-1', 'in-2'],
+            generatedAt      : GEN_ISO
+        });
+
+        // census stays 3; the narrative was built from 2 — a caller can tell inference inputs from the census
+        expect(envelope.coverage.totalResolved).toBe(3);
+        expect(envelope.coverage.synthesisInputCount).toBe(2);
+        expect(envelope.citations.find(c => c.id === 'in-1').inSynthesis).toBe(true);
+        expect(envelope.citations.find(c => c.id === 'census-only').inSynthesis).toBe(false)
+    });
+
+    test('no inferenceInputIds manifest → citations stay unmarked (no false inSynthesis claim)', () => {
+        const envelope = buildTemporalBirdViewEnvelope({window: WINDOW, sources: SOURCES, coverage: {totalResolved: 2}, generatedAt: GEN_ISO});
+
+        expect(envelope.coverage.synthesisInputCount).toBeUndefined();
+        expect(envelope.citations.every(c => !('inSynthesis' in c))).toBe(true)
+    });
+
     test('citations carry per-source type/id/ref for drill-down', () => {
         const envelope = buildTemporalBirdViewEnvelope({window: WINDOW, sources: SOURCES, coverage: {totalResolved: 2}, generatedAt: GEN_ISO});
 
