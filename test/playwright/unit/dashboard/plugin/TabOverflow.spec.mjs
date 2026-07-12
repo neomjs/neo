@@ -49,12 +49,44 @@ test.describe('Neo.dashboard.plugin.TabOverflow (re-entrancy contract)', () => {
         return plugin
     };
 
-    test('project() releases the measuring latch even when getDomRect throws — a measure race with teardown never freezes future passes', async () => {
-        const plugin = createPlugin(async () => { throw new Error('getDomRect teardown race') });
+    test('a getDomRect throw against a LIVE owner surfaces the defect (console.error) and still releases the latch', async () => {
+        const plugin = createPlugin(async () => { throw new Error('live-owner programming defect') }),
+              errors = [],
+              orig   = console.error;
 
-        await plugin.project(true).catch(() => {});
+        console.error = (...args) => { errors.push(args) };
 
+        try {
+            await plugin.project(true).catch(() => {})
+        } finally {
+            console.error = orig
+        }
+
+        // owner.mounted stays true → the throw is a real defect: surfaced, not hidden behind a teardown-race assumption
+        expect(errors.length, 'a throw against a mounted owner is surfaced via console.error').toBeGreaterThan(0);
         expect(plugin.measuring, 'the latch must reset in finally so the header keeps responding').toBe(false)
+    });
+
+    test('a getDomRect throw during a mid-measure TEARDOWN (owner unmounts) is swallowed — the expected race, no defect noise', async () => {
+        // getDomRect is invoked as `owner.getDomRect(...)`, so `this` is the exact owner object project()
+        // holds — flip its `mounted` there (a regular function, not an arrow) to simulate an unmount landing
+        // mid-measure, just before the throw.
+        const plugin = createPlugin(async function () { this.mounted = false; throw new Error('teardown race') });
+
+        const errors = [],
+              orig   = console.error;
+
+        console.error = (...args) => { errors.push(args) };
+
+        try {
+            await plugin.project(true).catch(() => {})
+        } finally {
+            console.error = orig
+        }
+
+        // owner unmounted mid-measure → the throw is the ONE expected race: swallowed, and the latch still resets
+        expect(errors.length, 'a teardown race is swallowed, not logged as a defect').toBe(0);
+        expect(plugin.measuring, 'the latch still resets so future passes are not frozen').toBe(false)
     });
 
     test('a project() arriving during an in-flight pass is coalesced, then drained once — never dropped, so the last state wins', async () => {
