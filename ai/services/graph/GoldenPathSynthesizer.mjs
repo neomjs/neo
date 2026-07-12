@@ -45,8 +45,6 @@ import {
     TYPE_GATE_REJECTION_FILENAME,
     TYPE_GATE_REJECTION_STAGE
 } from './typeGateRejectionLedgerStore.mjs';
-import {RETROSPECTIVE_GRAINS, renderHandoffRetrospectiveSection} from './handoffRetrospective.mjs';
-import {assembleRetrospectiveStats}                              from './handoffRetrospectiveAssembler.mjs';
 import {
     getActivePrCycleStatus                      as resolveActivePrCycleStatus,
     renderActivePrCycleState                    as renderActivePrCycleStateSection,
@@ -855,23 +853,6 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
-     * @summary Assembles + renders the handoff retrospective section (the history leg) from window
-     * facts. Static + pure over its inputs: the assembler folds, the render emits — this shim is
-     * the synthesizer's stable seam to both, mirroring the computed-GP render shims.
-     * @param {Object} options
-     * @param {Object} options.facts `{mergedPrs, openedPrs, closedIssues, openedIssues, graduations, sessions}`
-     * @param {Object} [options.grain=RETROSPECTIVE_GRAINS.THREE_DAY] Retrospective grain
-     * @param {Date|String} [options.now=new Date()] Window anchor
-     * @param {String|String[]} [options.filterSets=[]] Declared filter set(s) the facts were gathered under
-     * @returns {String} Markdown section
-     */
-    static renderHandoffRetrospectiveSection({facts, grain = RETROSPECTIVE_GRAINS.THREE_DAY, now = new Date(), filterSets = []} = {}) {
-        const stats = assembleRetrospectiveStats({facts, grain, now, filterSets});
-
-        return renderHandoffRetrospectiveSection({grain, stats, capturedAt: now})
-    }
-
-    /**
      * @summary Delegates recency-ordered summary reads to `frontierConsolidation.mjs`.
      * @param {Object} collection Summary Chroma collection (exposes async `.get`).
      * @param {Number} n Number of most-recent summaries to return.
@@ -1506,73 +1487,10 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             }
         }
 
-        // --- Handoff Retrospective (the history leg: "what happened since I last looked") ---
-        // Best-effort, like every enrichment block: a failure renders nothing, never crashes the
-        // handoff. Grain fixed to 3-day here — the batch file is not per-reader; staleness-adaptive
-        // grain selection is the interactive boot flow's concern (selectRetrospectiveGrain).
-        let retrospectiveAppend = '';
-        if (repoEnrichmentEnabled) {
-            try {
-                const capturedAt  = now instanceof Date ? now : new Date(now),
-                      windowMs    = RETROSPECTIVE_GRAINS.THREE_DAY.windowHours * 3600 * 1000,
-                      windowStart = new Date(capturedAt.getTime() - windowMs),
-                      mergedPrs   = (await this.fetchRecentMergedPRs(windowStart))
-                          .map(pr => ({ref: `PR #${pr.number}`, headline: pr.title, at: pr.mergedAt})),
-                      // opened-PRs-in-window come free from the already-fetched open-PR list
-                      openedPrs   = (Array.isArray(openPrs) ? openPrs : [])
-                          .map(pr => ({ref: `PR #${pr.number}`, headline: pr.title, at: pr.createdAt}));
-
-                // per-class best-effort: a failing reader drops ITS classes and narrows the
-                // declared label, so coverage is never overstated
-                let closedIssues = [], openedIssues = [], issueClassesLive = false,
-                    sessions     = [], sessionClassLive = false,
-                    graduations  = [], graduationsClassLive = false;
-
-                try {
-                    closedIssues = (await this.fetchRecentClosedIssues(windowStart))
-                        .map(issue => ({ref: `#${issue.number}`, headline: issue.title, at: issue.closedAt}));
-                    openedIssues = (await this.fetchRecentOpenedIssues(windowStart))
-                        .map(issue => ({ref: `#${issue.number}`, headline: issue.title, at: issue.createdAt}));
-                    issueClassesLive = true;
-                } catch (issueError) {
-                    logger.warn('[GoldenPathSynthesizer] Retrospective issue readers failed — dropping the issue classes', issueError);
-                }
-
-                try {
-                    // instance seam like every sibling reader — the singleton export IS the
-                    // patchable surface; a static here silently bypasses test doubles
-                    sessions         = await this.fetchRecentSessions(summaryColl, windowStart);
-                    sessionClassLive = true;
-                } catch (sessionError) {
-                    logger.warn('[GoldenPathSynthesizer] Retrospective session reader failed — dropping the session class', sessionError);
-                }
-
-                try {
-                    graduations          = await this.fetchRecentGraduations(windowStart);
-                    graduationsClassLive = true;
-                } catch (graduationError) {
-                    logger.warn('[GoldenPathSynthesizer] Retrospective graduations reader failed — dropping the graduations class', graduationError);
-                }
-
-                const coveredClasses = [
-                    'merged+opened PRs',
-                    ...(issueClassesLive     ? ['closed+opened issues'] : []),
-                    ...(sessionClassLive     ? ['sessions']             : []),
-                    ...(graduationsClassLive ? ['graduations']          : [])
-                ];
-
-                retrospectiveAppend = this.constructor.renderHandoffRetrospectiveSection({
-                    facts: {mergedPrs, openedPrs, closedIssues, openedIssues, graduations, sessions},
-                    grain: RETROSPECTIVE_GRAINS.THREE_DAY,
-                    now  : capturedAt,
-                    // the label names exactly what these counts cover, per class, so the render
-                    // never overstates the window's coverage
-                    filterSets: `${coveredClasses.join(' · ')}, all authors`
-                })
-            } catch (e) {
-                logger.warn('[GoldenPathSynthesizer] Failed to generate Handoff Retrospective', e);
-            }
-        }
+        // The static Handoff Retrospective section was removed from the Golden Path: a durable Markdown
+        // compression is the wrong shape for "what happened since I last looked" — that surface is the
+        // on-demand runtime query views (memory/session + PR-history), never a blob inside the batch
+        // handoff. The `handoffRetrospective*` modules remain for those runtime consumers to reuse.
 
         // --- Work-Graph Stall Inference ---
         let stallFindingsAppend = '';
@@ -1631,7 +1549,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             }
         }
 
-        handoffContent += `${currentFocusAppend}${staleAssignmentAppend}${silentThreadsAppend}${prStateAppend}${stallFindingsAppend}${backlogAppend}${retrospectiveAppend}${markdownAppend}`;
+        handoffContent += `${currentFocusAppend}${staleAssignmentAppend}${silentThreadsAppend}${prStateAppend}${stallFindingsAppend}${backlogAppend}${markdownAppend}`;
 
         const handoffFile = aiConfig.handoffFilePath;
         fs.mkdirSync(path.dirname(handoffFile), {recursive: true});
