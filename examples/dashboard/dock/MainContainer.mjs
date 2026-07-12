@@ -261,6 +261,9 @@ class MainContainer extends Viewport {
         return {
             cls         : ['neo-dashboard-dock-perspective-toolbar'],
             dockNodeType: 'perspective-toolbar',
+            // Size to content: without this the toolbar inherits the root vbox's growing default and
+            // splits the viewport ~50/50 with the flex:1 dock. `flex:'none'` keeps it a compact strip.
+            flex        : 'none',
             itemDefaults: {
                 ntype: 'button',
                 style: {margin: '0 8px 0 0'}
