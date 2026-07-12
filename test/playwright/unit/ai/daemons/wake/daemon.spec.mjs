@@ -32,7 +32,8 @@ function insertWakeSubscription(db, {
     subId = 'sub_' + crypto.randomUUID(),
     agentId,
     filters = {},
-    harnessTargetMetadata
+    harnessTargetMetadata,
+    trigger = 'SENT_TO_ME'
 }) {
     db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
         id        : agentId,
@@ -48,7 +49,7 @@ function insertWakeSubscription(db, {
             filters,
             harnessTarget: 'bridge-daemon',
             status       : 'active',
-            trigger      : 'SENT_TO_ME',
+            trigger,
             harnessTargetMetadata
         }
     }));
@@ -1364,6 +1365,67 @@ test.describe('Wake Daemon', () => {
         expect(finalDigest).toContain('Test Dedup Event');
         expect(finalDigest).toContain('[WAKE][priority:normal]');
         expect(finalDigest).not.toContain('priority: normal');
+    });
+
+    test('keeps same-state Task transitions at distinct authoritative clocks in one coalescing window', async () => {
+        const agentId = '@test-agent-task-clock';
+        const taskId  = 'MSG:TASK-CLOCK-COALESCE';
+        const subId   = insertWakeSubscription(db, {
+            agentId,
+            trigger              : 'TASK_STATE_CHANGED',
+            harnessTargetMetadata: {
+                adapter       : 'test',
+                coalesceWindow: 10
+            }
+        });
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR}
+        });
+
+        let   stdoutLog       = '';
+        const deliveryPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Task transition digest did not arrive')), 20000);
+
+            daemonProcess.stdout.on('data', data => {
+                stdoutLog += data.toString();
+                if (stdoutLog.includes(`[Wake Daemon Test Adapter] Delivered ${subId}`)) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+            daemonProcess.on('error', reject);
+        });
+
+        const writeTaskTransition = (state, lastModifiedAt) => {
+            db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(taskId, JSON.stringify({
+                id        : taskId,
+                label     : 'MESSAGE',
+                properties: {
+                    from                   : '@task-originator',
+                    lastModifiedAt,
+                    taskAssignmentAuthority: 'memory-core.v1',
+                    task                   : {state, assignee: agentId}
+                }
+            }));
+            db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(taskId, 'nodes');
+        };
+
+        // Keep each mutation in a distinct daemon poll. The final state repeats the first state,
+        // but its later source clock makes it a distinct transition rather than a duplicate.
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        writeTaskTransition('Working',       '2026-07-12T20:01:02.003Z');
+        await new Promise(resolve => setTimeout(resolve, 3500));
+        writeTaskTransition('InputRequired', '2026-07-12T20:01:05.006Z');
+        await new Promise(resolve => setTimeout(resolve, 3500));
+        writeTaskTransition('Working',       '2026-07-12T20:01:08.009Z');
+
+        await deliveryPromise;
+
+        expect(stdoutLog).toContain('3 task transitions');
+        expect(stdoutLog).toContain(`latest: Working on task ${taskId}`);
     });
 
     test('#15054: one message wakes an identity once across overlapping routes and later GraphLog replay', async () => {

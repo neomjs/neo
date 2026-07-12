@@ -483,7 +483,9 @@ async function pollLoop() {
  * delta data source (the `entityData` accessor bag) and its flat coalescing payload shape; all
  * trigger semantics live in `match()`: unread-gating + `DELIVERED_TO` receipt-dedup for
  * `SENT_TO_ME`, the `CAN_*` permission edges (the former `HAS_PERMISSION` branch was dead — those
- * edges are created nowhere), and task `from`-OR-`assignee` targeting (formerly assignee-only).
+ * edges are created nowhere), and task `from`-OR-authoritative-`assignee` targeting. Task matches
+ * retain their source-owned transition clock so coalescing can distinguish same-state transitions
+ * that happened at different times; the clock does not by itself classify every node rewrite.
  */
 function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
     if (!isWakeTargetEligible(sub.properties?.agentIdentity)) return null;
@@ -507,7 +509,15 @@ function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
         case 'sent_to_me':
             return {type: 'message', messageId: payload.messageId, from: payload.from, subject: payload.subject, priority: payload.priority, logId};
         case 'task_state_changed':
-            return {type: 'task', taskId: payload.taskId, newState: payload.newState, logId};
+            return {
+                type          : 'task',
+                taskId        : payload.taskId,
+                newState      : payload.newState,
+                originator    : payload.originator,
+                assignee      : payload.assignee,
+                lastModifiedAt: payload.lastModifiedAt,
+                logId
+            };
         case 'permission_granted':
             return {type: 'permission', scope: payload.scope, grantedBy: payload.grantedBy, logId};
         case 'heartbeat_pulse':
@@ -623,14 +633,18 @@ function queueEvent(subscription, eventPayload, watermarkResetCeiling = 0, water
         );
     }
 
-    // Deduplicate within the coalescing window
+    // Deduplicate within the coalescing window. A Task transition's identity includes its
+    // source-owned clock: Working -> InputRequired -> Working is three transitions even though
+    // the first and last share taskId + newState.
     const isDuplicate = coalesceState[subId].queue.some(existing => {
         if (existing.type !== eventPayload.type) return false;
 
         if (eventPayload.type === 'message') {
             return existing.messageId === eventPayload.messageId;
         } else if (eventPayload.type === 'task') {
-            return existing.taskId === eventPayload.taskId && existing.newState === eventPayload.newState;
+            return existing.taskId === eventPayload.taskId
+                && existing.newState === eventPayload.newState
+                && existing.lastModifiedAt === eventPayload.lastModifiedAt;
         } else if (eventPayload.type === 'permission') {
             return existing.scope === eventPayload.scope && existing.grantedBy === eventPayload.grantedBy;
         } else if (eventPayload.type === 'heartbeat') {
