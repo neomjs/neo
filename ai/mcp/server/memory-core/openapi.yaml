@@ -2645,6 +2645,9 @@ components:
               type: integer
             walkDurationMs:
               type: integer
+            truncated:
+              type: boolean
+              description: "True when hydration hit the maxCandidates ceiling (more candidates existed than were returned)."
 
     MemorySearchResult:
       allOf:

@@ -30,17 +30,20 @@ export const RETRIEVAL_EVENT_SCHEMA = Object.freeze({
     walkContributed : 'Boolean — did any walk candidate survive filtering',
     candidatesAdded : 'Number — walk candidates appended after dedup + filters',
     filteredOut     : 'Number — walk candidates dropped by tenant/tombstone/trust filters',
-    walkDurationMs  : 'Number — wall-clock ms spent in the concept-walk phase (resolve + walk + gate), for the latency budget'
+    walkDurationMs  : 'Number — wall-clock ms spent in the concept-walk phase (resolve + walk + gate), for the latency budget',
+    truncated       : 'Boolean — did hydration hit the maxCandidates ceiling (more candidates existed than were returned)'
 });
 
 /**
  * Config-declared, request-global traversal budget — the bounded-latency contract. A concept walk
  * must never dominate query latency: `conceptLimit` caps how many resolved clusters are walked,
- * `maxHops` the per-member depth, `hopBudget` the per-member edge ceiling. Explicit + frozen so the
- * bound is a stated contract (and the retrieval event's `walkDurationMs` is measured against it),
- * not an inline literal. Callers may override per-call, but these are the documented defaults.
+ * `maxHops` the per-member depth, `hopBudget` the per-member edge ceiling, and `maxCandidates` the
+ * total hydrated walk candidates (the **bounded-hydration** ceiling — hydration stops once it is hit,
+ * and the retrieval event's `truncated` flag reports honestly that more existed). Explicit + frozen so
+ * the bound is a stated contract (measured against by `walkDurationMs`), not an inline literal.
+ * Callers may override per-call, but these are the documented defaults.
  */
-export const WALK_BUDGET = Object.freeze({conceptLimit: 5, maxHops: 2, hopBudget: 80});
+export const WALK_BUDGET = Object.freeze({conceptLimit: 5, maxHops: 2, hopBudget: 80, maxCandidates: 40});
 
 /**
  * @summary Tokenizes a retrieval query into candidate cluster-key fragments.
@@ -231,6 +234,9 @@ export function buildConceptPath({rootConcept, nodeId, rootMemberId, parentHop})
  * @param {Number} [options.conceptLimit] Max resolved clusters walked (default {@link WALK_BUDGET}.conceptLimit).
  * @param {Number} [options.maxHops] Per-member walk depth bound (default {@link WALK_BUDGET}.maxHops).
  * @param {Number} [options.hopBudget] Per-member edge budget (default {@link WALK_BUDGET}.hopBudget).
+ * @param {Number} [options.maxCandidates] Bounded-hydration ceiling — total hydrated walk candidates
+ *     (default {@link WALK_BUDGET}.maxCandidates); hydration stops when hit and the event's `truncated`
+ *     flag reports honestly that more existed.
  * @returns {Promise<Object>} `{candidates: mergedArray, event: eventObject|null}` — `event` is null
  *     only on pass-through (flag off).
  */
@@ -246,7 +252,8 @@ export async function enrichWithConceptWalk({
     traversableNodeLabels = null,
     conceptLimit         = WALK_BUDGET.conceptLimit,
     maxHops              = WALK_BUDGET.maxHops,
-    hopBudget            = WALK_BUDGET.hopBudget
+    hopBudget            = WALK_BUDGET.hopBudget,
+    maxCandidates        = WALK_BUDGET.maxCandidates
 }) {
     // Wrap, never replace: no opt-in → the flat path returns byte-identical, no walk, no event.
     if (!conceptWalk) {
@@ -265,7 +272,8 @@ export async function enrichWithConceptWalk({
             walkContributed : false,
             candidatesAdded : 0,
             filteredOut     : 0,
-            walkDurationMs  : now() - walkStartedAt
+            walkDurationMs  : now() - walkStartedAt,
+            truncated       : false
         };
 
         emit?.(event);
@@ -277,10 +285,15 @@ export async function enrichWithConceptWalk({
         walkVisited = new Set(),
         added       = [];
 
-    let filteredOut = 0;
+    let filteredOut = 0,
+        truncated   = false;
 
     for (const cluster of resolved) {
+        if (truncated) break;
+
         for (const memberId of cluster.members) {
+            if (truncated) break;
+
             const
                 walk      = walkConceptNeighborhood({graphService, conceptId: memberId, maxHops, hopBudget}),
                 // BFS parent map for full-path reconstruction: keep each neighbor's FIRST (lowest-depth)
@@ -294,6 +307,10 @@ export async function enrichWithConceptWalk({
             }
 
             for (const hop of walk.hops) {
+                // bounded-hydration ceiling: stop once maxCandidates is reached — more may exist, so the
+                // event's `truncated` flag reports it honestly (never silently drop the overflow as if absent).
+                if (added.length >= maxCandidates) { truncated = true; break }
+
                 const nodeId = hop.neighborId;
 
                 // explicit config-declared node-type filter — the caller declares which neighbor labels
@@ -335,7 +352,8 @@ export async function enrichWithConceptWalk({
         walkContributed : added.length > 0,
         candidatesAdded : added.length,
         filteredOut,
-        walkDurationMs  : now() - walkStartedAt
+        walkDurationMs  : now() - walkStartedAt,
+        truncated
     };
 
     emit?.(event);

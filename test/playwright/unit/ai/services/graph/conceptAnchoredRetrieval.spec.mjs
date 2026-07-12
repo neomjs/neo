@@ -93,7 +93,7 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval (#14504)', () => {
 
     test('the retrieval-event schema names the #14506 feed contract', () => {
         expect(Object.keys(RETRIEVAL_EVENT_SCHEMA)).toEqual(
-            ['event', 'query', 'resolvedConcepts', 'walkContributed', 'candidatesAdded', 'filteredOut', 'walkDurationMs']
+            ['event', 'query', 'resolvedConcepts', 'walkContributed', 'candidatesAdded', 'filteredOut', 'walkDurationMs', 'truncated']
         );
     });
 });
@@ -324,7 +324,7 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval — enrichWithConc
     });
 
     test('WALK_BUDGET is the frozen, config-declared traversal budget (the bounded-latency defaults)', () => {
-        expect(WALK_BUDGET).toEqual({conceptLimit: 5, maxHops: 2, hopBudget: 80});
+        expect(WALK_BUDGET).toEqual({conceptLimit: 5, maxHops: 2, hopBudget: 80, maxCandidates: 40});
         expect(Object.isFrozen(WALK_BUDGET)).toBe(true);
     });
 
@@ -353,5 +353,19 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval — enrichWithConc
         // FILE:x is skipped by the type allow-list BEFORE the gate; only the two MEMORY nodes reach it
         expect(candidates.map(c => c.id).sort()).toEqual(['MEM:1', 'MEM:2']);
         expect(event.filteredOut).toBe(0); // the FILE skip is a type-filter skip, not a gate/RLS rejection
+    });
+
+    test('maxCandidates bounds hydration and the event flags truncation honestly', async () => {
+        const gate = async nodeId => nodeId.startsWith('MEM:') ? {id: nodeId} : null; // authorize both memories
+
+        const {candidates, event} = await enrichWithConceptWalk({
+            graphService    : WALK_GRAPH, query: 'golden path', candidates: [], conceptWalk: true,
+            resolveCandidate: gate, maxHops: 1, maxCandidates: 1
+        });
+
+        // two memories were authorizable, but the ceiling stops hydration at one — and says so
+        expect(candidates).toHaveLength(1);
+        expect(event.candidatesAdded).toBe(1);
+        expect(event.truncated).toBe(true);
     });
 });
