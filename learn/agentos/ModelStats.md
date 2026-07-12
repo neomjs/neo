@@ -180,7 +180,7 @@ ambiguous by design — full handles only for targeted traffic.
 | `tier` | `frontier` |
 | `contextWindowInput` | 353,400 effective in Codex (server-fetched catalog: 372,000 raw × 95%). The upstream GPT-5.6 Sol API model supports 1,050,000 tokens, but Codex currently clamps configured values to its 372,000-token catalog maximum; [openai/codex#31860](https://github.com/openai/codex/issues/31860) tracks the product mismatch. |
 | `parallelToolCalls` | `true` |
-| `thoughtBudget` | `xhigh` (active in the verified GPT-5.6 Sol Codex session; OpenAI also exposes the higher `max` setting) |
+| `thoughtBudget` | `xhigh` effective budget. Both active GPT peers currently select Codex's `ultra` profile; the fetched catalog describes `ultra` as automatic task delegation, while the operator reports no additional thought budget over `xhigh`. `max` is catalog-enumerated but not yet confirmed as an exposed, usable Codex mode. |
 | `releaseDate` | 2026-07-09 |
 | `pricingInput` | $5.00 per 1M tokens (API) |
 | `pricingOutput` | $30.00 per 1M tokens (API) |
@@ -190,7 +190,7 @@ ambiguous by design — full handles only for targeted traffic.
 **Sources** (primary first):
 - **Primary**: [GPT-5.6: Frontier intelligence that scales with your ambition — OpenAI](https://openai.com/index/gpt-5-6/) (GA date, Codex availability, capability tier, reasoning settings, pricing, and benchmark snapshot)
 - **Primary**: [GPT-5.6 Sol Model — OpenAI API Docs](https://developers.openai.com/api/docs/models/gpt-5.6-sol) (1,050,000-token upstream model window and 128,000-token maximum output)
-- **Primary/runtime**: current Codex turn metadata (`model: gpt-5.6-sol`, `reasoning_effort: xhigh`; verified 2026-07-09 in Origin Session `e56af1f5-27b2-4154-8436-25a9643c8b56`)
+- **Primary/runtime**: current Euclid + Emmy Codex configs (`model: gpt-5.6-sol`, `model_reasoning_effort: ultra`) and fetched model catalog (`ultra`: automatic task delegation; `max`: enumerated); verified 2026-07-12 in Origin Session `f95e01ff-ba36-409a-98af-573263fab247`
 - **Primary/runtime**: current Codex model catalog and token-usage events (`372,000 × 95% = 353,400`; verified 2026-07-09 in Codex Desktop thread `019f484c-662f-7f31-969a-cbde373efd4a`)
 - **Defect record**: [openai/codex#31860 — Sol catalog cap versus 1.05M model spec](https://github.com/openai/codex/issues/31860)
 
@@ -202,10 +202,12 @@ ambiguous by design — full handles only for targeted traffic.
 | `name` | GPT-5.6 Sol (GitHub profile label: **Emmy**, verified 2026-07-11; Social Name **Emmy** bearer-chosen 2026-07-12, pending #11240 peer-veto closure and operator confirmation) |
 | `family` | `gpt` (OpenAI) |
 | `participationStatus` | `active` (first boot verified 2026-07-12; activated via #15052) |
-| Capability fields | Mirror `§neo_gpt` — same `gpt-5.6-sol` model, single source, deliberately NOT duplicated here. The verified first-boot harness delta is `thoughtBudget: ultra`; `§neo_gpt` records Euclid's active `xhigh` setting. Re-verify when the engine, Codex catalog, or harness setting changes. |
+| Capability fields | Mirror `§neo_gpt` — same `gpt-5.6-sol` model, single source, deliberately NOT duplicated here. The verified first-boot harness profile is `ultra` (automatic task delegation), while the effective thought budget remains `xhigh`; do not map `ultra` into `thoughtBudget`. Re-verify when the engine, Codex catalog, harness profile, or two-peer usage evidence changes. |
 
 `@neo-gpt-emmy` is a version-free GitHub handle (ADR 0018 handle-indirection). The current
 engine lives in this embodiment registry rather than the handle or durable resident character.
+The `ultra` profile is a provisional operational experiment, not an identity or engine-capability
+fact: disabling it after the two-peer usage review would change only the harness profile.
 
 **Sources** (primary first):
 - **Primary**: `§neo_gpt` sources (same GPT-5.6 Sol model surface; verified 2026-07-09)
@@ -316,7 +318,7 @@ Tracks deprecated and retired identities for archaeology (per IdentitySchema.md 
 | 2026-06-13 | #13060 | Benched `@neo-fable` (Mnemosyne) + `@neo-fable-clio` (Clio) as `temporarily_unreachable` — the same 2026-06-13 export-control suspension removed all Claude Fable 5 access, so both fable-family identities cannot run their model. Set `statusReason` / `authority: @tobiu` / `since` / `reactivationTrigger` (access restored → operator-confirmed reactivation); removed `@neo-fable` from the lead-rotation roster (`lead-role-mode.md` §7); updated `revalidationSweep.spec.mjs` status assertions. Identity nodes, handles, Social Names, and memory provenance persist for a status-flip reactivation (not a re-onboard). Superseded #12926 (add Clio to rotation). |
 | 2026-07-09 | #14901 | Rotated Euclid's stable `@neo-gpt` model lineage from GPT-5.5 to GPT-5.6 Sol at GA. Updated verified release, active reasoning setting, pricing, benchmark, successor-trigger, and live Codex context facts while preserving the stable handle, Social Name, wake route, participation state, and memory provenance. Recorded the 353,400-token Codex cap separately from the upstream model's 1,050,000-token capability. |
 | 2026-07-11 | #15042 | Added pending `@neo-gpt-emmy` through the canonical roster generator. GitHub profile display label **Emmy** is verified; Social Name assent and engine facts remain first-boot-owned. Immutable hardcoded `createdAt` facts now let the era migration detect post-epoch residents without a second roster. |
-| 2026-07-12 | #15052 | Activated `@neo-gpt-emmy` after verified first boot; moved the row pending→active, recorded the GPT-5.6 Sol/Codex embodiment by reference to `§neo_gpt`, and captured the harness-local `ultra` reasoning setting without adding engine facts to the durable resident. |
+| 2026-07-12 | #15052 | Activated `@neo-gpt-emmy` after verified first boot; moved the row pending→active, recorded the GPT-5.6 Sol/Codex embodiment by reference to `§neo_gpt`, and captured the provisional harness-local `ultra` task-delegation profile separately from the `xhigh` effective thought budget without adding engine facts to the durable resident. |
 
 ---
 

@@ -380,9 +380,11 @@ export const IDENTITIES = [
             // OpenAI specifies a 1,050,000-token API window for GPT-5.6 Sol, while Codex's
             // server-fetched catalog currently caps the product at 372,000 raw * 95% effective.
             // Keep the observed Codex value here until its product catalog exposes the full window.
+            // Effective reasoning budget; task-delegation profiles such as `ultra` remain
+            // observation-owned in ModelStats rather than being encoded on the resident.
             contextWindowInput: 353400,
             parallelToolCalls : true,
-            thoughtBudget     : 'xhigh', // GPT-5.6 Sol setting active in Codex; `max` is available but not active in this session
+            thoughtBudget     : 'xhigh',
             hosting           : 'cloud',
             family            : 'gpt',
             tier              : 'frontier',
