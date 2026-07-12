@@ -1,7 +1,9 @@
 import DockLayoutAdapter    from '../../../src/dashboard/DockLayoutAdapter.mjs';
 import DockMotionSignal     from '../../../src/dashboard/DockMotionSignal.mjs';
 import DockPreviewProducer  from '../../../src/dashboard/DockPreviewProducer.mjs';
+import DockService          from '../../../src/ai/client/DockService.mjs';
 import DockZoneModel        from '../../../src/dashboard/DockZoneModel.mjs';
+import TourRunner           from '../../../src/ai/client/TourRunner.mjs';
 import Viewport             from '../../../src/container/Viewport.mjs';
 import {previewToOperation} from '../../../src/dashboard/dockPreviewContract.mjs';
 import '../../../src/button/Base.mjs';    // registers the `button` ntype used by the perspective toolbar
@@ -150,6 +152,17 @@ class MainContainer extends Viewport {
     layoutCollectionLoadPromise = null
 
     /**
+     * The in-flight deferred re-projection, tracked as an awaitable: every committed operation
+     * defers its view-sync one tick ({@link #onDockZoneDocumentChange}), so any consumer that
+     * must observe a SETTLED surface — the tour-replay adapter, teardown-sensitive probes —
+     * awaits this promise instead of racing that deferral. Stale-safe: each commit overwrites
+     * it, so awaiting always settles on the LATEST projection.
+     * @member {Promise|null} refreshPromise=null
+     * @protected
+     */
+    refreshPromise = null
+
+    /**
      * Monotonic suffix for user-saved example perspectives.
      * @member {Number} savedPerspectiveCount=0
      */
@@ -191,6 +204,49 @@ class MainContainer extends Viewport {
      */
     getDockZoneDocument() {
         return this.dockModel
+    }
+
+    /**
+     * An example-local tour-replay ADAPTER consuming the two-part holder contract (the read half
+     * {@link #getDockZoneDocument} / the write half {@link #applyDockZoneOperation}, driven through
+     * the app-side dock seam) — deliberately NOT a third holder-contract member. It replays one
+     * `neo.tour.script.v1` script against THIS holder in `spec` mode and returns the runner's
+     * structured result plus the SETTLED post-run document. One call = one hydrated, settled run —
+     * the whitebox-e2e L3 smoke drives it twice and diffs the operation logs (the determinism
+     * falsifier: entries carry descriptors and assertion outcomes, never timestamps).
+     *
+     * Two synchronization guarantees callers rely on:
+     * 1. Runs only start against the HYDRATED document (storage restore awaited) — a replay racing
+     *    the restore would mutate a baseline the restore then overwrites.
+     * 2. Resolution only after the LAST deferred re-projection settles ({@link #refreshPromise}),
+     *    so a page error thrown by the projection lands inside the caller's verdict window.
+     *
+     * Example-tier by design: the same composition the dockdemo workspaces wire at construct time,
+     * exposed on demand so the shipped dock example is tour-replayable without carrying a tour bar.
+     * Spec mode skips `pause` waits entirely, so a replay never blocks the live surface.
+     * @param {Object} script A `neo.tour.script.v1` script (validated fail-closed by the runner)
+     * @returns {Promise<Object>} `{completed, errors, log, document}` — the runner's structured
+     * result plus a deep clone of the settled committed document
+     */
+    async runTourSpec(script) {
+        const me = this;
+
+        await me.layoutCollectionLoadPromise;
+
+        const
+            dockService = Neo.create(DockService, {}),
+            runner      = Neo.create(TourRunner, {componentId: me.id, dockService, mode: 'spec', script});
+
+        try {
+            const result = await runner.start();
+
+            await me.refreshPromise;
+
+            return {...result, document: DockZoneModel.clone(me.dockModel)}
+        } finally {
+            runner.destroy();
+            dockService.destroy()
+        }
     }
 
     /**
@@ -347,9 +403,12 @@ class MainContainer extends Viewport {
 
         me.dockModel = document;
 
-        me.timeout(0).then(() => {
+        // Retained as an awaitable (NOT fire-and-forget): a consumer asserting page survival or
+        // settled geometry must be able to await the projection this commit just scheduled —
+        // otherwise its verdict window closes before the remove/add projection has executed.
+        me.refreshPromise = me.timeout(0).then(() => {
             if (!me.isDestroyed) {
-                me.refreshDockWorkspace(tabInsertDescriptor)
+                return me.refreshDockWorkspace(tabInsertDescriptor)
             }
         })
     }
