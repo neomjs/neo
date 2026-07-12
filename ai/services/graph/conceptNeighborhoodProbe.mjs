@@ -116,9 +116,15 @@ export function detectAxisPresence(properties = {}) {
  *     node (the caller supplies the tenant/RLS check, e.g. isRlsVisible; terminal-candidate authorization
  *     does NOT authorize the PATH crossed to reach it). Default null = no gate (probe full-reachability
  *     mode; the reachability-probe measurement path is untouched).
+ * @param {String[]|null} [options.traversableEdgeTypes=null] Opt-in retrieval-bearing edge-type allow-list.
+ *     When supplied, the walk expands THROUGH a neighbor only when the connecting `edge.type` is in the list
+ *     — so arbitrary/structural edges (DISCUSSED_IN, AUTHORED_BY, PARENT_OF, RESOLVES, social/issue edges) do
+ *     not carry the walk into unrelated regions, while concept-relation edges (PARENT_CONCEPT, RELATES_TO,
+ *     IMPLEMENTED_BY, TAGGED_CONCEPT, …) do. The neighbor is still recorded as a hop (provenance) regardless.
+ *     Default null = no edge-type gate (probe full-reachability mode; the measurement path is untouched).
  * @returns {Object} `{root, hops: [{fromId, edge, neighborId, neighborLabel, axisPresence}], truncated}`
  */
-export function walkConceptNeighborhood({graphService, conceptId, maxHops = 2, hopBudget = 80, traversableLabels = null, rlsPredicate = null}) {
+export function walkConceptNeighborhood({graphService, conceptId, maxHops = 2, hopBudget = 80, traversableLabels = null, traversableEdgeTypes = null, rlsPredicate = null}) {
     const
         visited = new Set([conceptId]),
         hops    = [];
@@ -158,16 +164,19 @@ export function walkConceptNeighborhood({graphService, conceptId, maxHops = 2, h
 
                 if (!visited.has(neighborId)) {
                     visited.add(neighborId);
-                    // RLS Depth-Floor (retrieval path): expand THROUGH a neighbor only when it clears BOTH
-                    // (a) the public-structural label allow-list (traversableLabels) and (b) the caller's
-                    // per-intermediate visibility gate (rlsPredicate — e.g. isRlsVisible for tenant/RLS).
+                    // RLS Depth-Floor (retrieval path): expand THROUGH a neighbor only when it clears ALL of
+                    // (a) the public-structural label allow-list (traversableLabels), (b) the retrieval-bearing
+                    // edge-type allow-list (traversableEdgeTypes — an arbitrary/structural edge like
+                    // DISCUSSED_IN does not carry the walk onward), and (c) the caller's per-intermediate
+                    // visibility gate (rlsPredicate — e.g. isRlsVisible for tenant/RLS).
                     // A private / other-tenant / non-structural neighbor is still recorded as a hop above
                     // (and gated as a candidate downstream), but its edges are never walked to reach a
                     // deeper node — terminal-candidate authorization does NOT authorize the PATH crossed to
-                    // reach it. Both null = probe measurement mode (full reachability; privacy at render).
+                    // reach it. All null = probe measurement mode (full reachability; privacy at render).
                     if (
-                        (!traversableLabels || traversableLabels.includes(label)) &&
-                        (!rlsPredicate || rlsPredicate(neighborId, label))
+                        (!traversableLabels    || traversableLabels.includes(label))       &&
+                        (!traversableEdgeTypes || traversableEdgeTypes.includes(edge.type)) &&
+                        (!rlsPredicate         || rlsPredicate(neighborId, label))
                     ) next.push(neighborId)
                 }
             }
