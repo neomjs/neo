@@ -344,6 +344,15 @@ export async function enrichWithConceptWalk({
                     continue
                 }
 
+                // Post-hydration dedup by the RESOLVED identity, not the raw nodeId: two id-dialects
+                // (`file:x` vs `file-x`) are distinct nodes that hydrate to the SAME source, and a walk
+                // node can resolve to a candidate already in the embedding (flat) set (`seen` seeds from
+                // it). Dedup on the hydrated id so neither a dialect twin nor a flat-set duplicate is
+                // appended twice.
+                const hydratedId = getCandidateId(hydrated);
+                if (hydratedId && seen.has(hydratedId)) continue;
+                if (hydratedId) seen.add(hydratedId);
+
                 // the COMPLETE ordered path root→candidate, per-hop provenance — a depth-2 candidate
                 // carries hop-1's edge + axes too, never only the terminal hop.
                 added.push({

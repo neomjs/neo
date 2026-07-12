@@ -325,6 +325,40 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval — enrichWithConc
         expect(event.filteredOut).toBe(2);                                        // MEM:1 deduped BEFORE the gate
     });
 
+    test('post-hydration dedup: two id-dialects hydrating to the same source yield ONE candidate (#15071 cycle-2)', async () => {
+        // file:x and file-x are DISTINCT nodes (both pass the raw-nodeId dedup) that hydrate to the SAME
+        // source — the pre-fix dedup (by raw nodeId) admitted both; the fix dedups by the resolved id.
+        const graph = fixtureGraph({
+            concepts: [{type: 'CONCEPT', id: 'golden-path'}],
+            nodes   : {'golden-path': {label: 'CONCEPT'}, 'file:src/x.mjs': {label: 'FILE'}, 'file-src/x.mjs': {label: 'FILE'}},
+            edges   : [
+                {id: 'e1', source: 'golden-path', target: 'file:src/x.mjs', type: 'IMPLEMENTED_BY', properties: {}},
+                {id: 'e2', source: 'golden-path', target: 'file-src/x.mjs', type: 'IMPLEMENTED_BY', properties: {}}
+            ]
+        });
+        // a FILE resolver that normalizes both id-dialects to the same source (like the KB FILE gate)
+        const fileGate = async nodeId => {
+            const source = String(nodeId).replace(/^file[:-]/, '');
+            return {id: source, source}
+        };
+
+        const {candidates} = await enrichWithConceptWalk({
+            graphService         : graph,
+            query                : 'golden path',
+            candidates           : [{id: 'EMB:1'}],
+            conceptWalk          : true,
+            resolveCandidate     : fileGate,
+            getCandidateId       : c => c.source ?? c.id,
+            traversableNodeLabels: ['FILE'],
+            maxHops              : 1
+        });
+
+        // both dialects resolve to 'src/x.mjs' → exactly ONE walk candidate, not two
+        const walked = candidates.filter(c => c.via === 'concept-walk');
+        expect(walked).toHaveLength(1);
+        expect(walked[0].source).toBe('src/x.mjs');
+    });
+
     test('resolveCandidate receives the hop neighborLabel + edgeType so the gate can skip by type', async () => {
         const seenMeta = [];
 
