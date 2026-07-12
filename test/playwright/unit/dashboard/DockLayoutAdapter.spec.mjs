@@ -6,13 +6,14 @@ setup({
     }
 });
 
-import {test, expect}    from '@playwright/test';
-import Neo               from '../../../../src/Neo.mjs';
-import * as core         from '../../../../src/core/_export.mjs';
-import DockLayoutAdapter from '../../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockRail          from '../../../../src/dashboard/DockRail.mjs';
-import DockSplitter      from '../../../../src/dashboard/DockSplitter.mjs';
-import DockZoneModel     from '../../../../src/dashboard/DockZoneModel.mjs';
+import {test, expect}     from '@playwright/test';
+import Neo                from '../../../../src/Neo.mjs';
+import * as core          from '../../../../src/core/_export.mjs';
+import DockLayoutAdapter  from '../../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockRail           from '../../../../src/dashboard/DockRail.mjs';
+import DockSplitter       from '../../../../src/dashboard/DockSplitter.mjs';
+import DockTabEnterButton from '../../../../src/dashboard/DockTabEnterButton.mjs';
+import DockZoneModel      from '../../../../src/dashboard/DockZoneModel.mjs';
 
 const createModel = () => ({
     schema: 'neo.harness.dockZone.v1',
@@ -261,6 +262,36 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         expect(result.items[0].activeIndex).toBe(1);
         expect(result.items[0].items.map(item => item.header.text)).toEqual(['Strategy', 'Swarm']);
         expect(result.items[0].items.map(item => item.data.dockItemId)).toEqual(['strategy', 'swarm']);
+    });
+
+    test('a transient addTab correlation decorates only the exact target header without mutating the model', () => {
+        let model    = createModel(),
+            snapshot = JSON.parse(JSON.stringify(model)),
+            result   = DockLayoutAdapter.project(model, {
+                resolveComponentRef: componentRef => ({
+                    ntype    : 'dashboard-panel',
+                    reference: componentRef
+                }),
+                tabInsertDescriptor: {operation: 'addTab', itemId: 'swarm', tabsNodeId: 'main-tabs'}
+            }),
+            mainTabs = result.items[0],
+            headers  = mainTabs.items.map(item => item.header);
+
+        expect(headers[0].module).toBeUndefined();
+        expect(headers[0].cls).toBeUndefined();
+        expect(headers[1].module).toBe(DockTabEnterButton);
+        expect(headers[1].cls).toEqual([
+            'neo-dashboard-dock-tab-enter',
+            'dock-tab-enter-item-swarm'
+        ]);
+        expect(model).toEqual(snapshot);
+
+        const unrelated = DockLayoutAdapter.project(model, {
+            resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
+            tabInsertDescriptor: {operation: 'addTab', itemId: 'swarm', tabsNodeId: 'terminal-tabs'}
+        });
+
+        expect(unrelated.items[0].items.every(item => item.header.module === undefined)).toBe(true)
     });
 
     test('projects the documented edge-zone root model through the dashboard adapter', () => {

@@ -281,6 +281,62 @@ test.describe('Dock motion pipeline (Neural Link) — the signal brackets real m
         expect(positions.length, `the FLIP must travel THROUGH intermediate positions (saw ${positions.length})`).toBeGreaterThan(2);
     });
 
+    test('a committed addTab animates exactly the inserted header, signal-bracketed for one projection only', async ({ page, neuralLink }) => {
+        const { app, holderId } = await connect(page, neuralLink);
+
+        // Deterministic state: restore the seeded Operator perspective through the visible product
+        // control. Restore is an unrelated coarse projection and MUST carry no tab-enter class.
+        await page.getByRole('button', {name: 'Operator', exact: true}).click();
+        await expect.poll(async () => {
+            const topo = await app.getDockTopology(holderId);
+            const doc  = topo?.document ?? topo;
+            return doc.nodes['main-tabs']?.items?.join(',')
+        }, {message: 'Operator restore must re-seed the main tab pair', timeout: 10000, intervals: [100]}).toBe('strategy,swarm');
+        await expect(page.locator('.neo-dashboard-dock-tab-enter')).toHaveCount(0);
+
+        // Remove the inactive Swarm tab first. Adding it back into the SAME tab container creates a
+        // new header without changing the container's footprint — the non-FLIP producer must carry
+        // the observable motion even when structural pane geometry has no useful delta.
+        const detached = await app.executeDockOperation(holderId, {operation: 'detachItem', itemId: 'swarm'});
+        expect(detached.errors).toEqual([]);
+
+        await expect.poll(
+            () => page.locator(SIGNAL).count(),
+            {message: 'the detach setup projection must settle before the insertion witness', timeout: 3500, intervals: [50]}
+        ).toBe(0);
+        await expect(page.locator('.neo-dashboard-dock-tab-enter')).toHaveCount(0);
+
+        const ENTER = '.neo-dashboard-dock-tab-enter.dock-tab-enter-item-swarm';
+
+        // Arm both observers before dispatching the operation. The exact marker proves correlation;
+        // the shared signal bracket proves the CSS animation owns a counted lifecycle independently
+        // of whether DockFlip finds geometry to play.
+        const [, , result] = await Promise.all([
+            expectSignalBracket(page),
+            expect.poll(
+                () => page.locator(ENTER).count(),
+                {message: 'only the inserted Swarm header receives the tab-enter class', timeout: 1500, intervals: [20]}
+            ).toBe(1),
+            app.executeDockOperation(holderId, {
+                operation: 'addTab', itemId: 'swarm', tabsNodeId: 'main-tabs', index: 1
+            })
+        ]);
+
+        expect(result.errors).toEqual([]);
+        expect(result.applied).toBe(true);
+        expect(result.document.nodes['main-tabs'].items).toEqual(['strategy', 'swarm']);
+        await expect(page.locator('.neo-dashboard-dock-tab-enter')).toHaveCount(1);
+        await expect(page.locator(`${ENTER}${SIGNAL}`)).toHaveCount(0);
+
+        // A later restore is another full removeAll/rebuild but has no addTab descriptor. The
+        // recreated headers must be inert — the one-use correlation cannot leak across projections.
+        await page.getByRole('button', {name: 'Operator', exact: true}).click();
+        await expect.poll(
+            () => page.locator('.neo-dashboard-dock-tab-enter').count(),
+            {message: 'later coarse projections must not replay tab insertion', timeout: 5000, intervals: [50]}
+        ).toBe(0)
+    });
+
     test('a rail-click reveal SLIDES: the overlay travels through intermediate render states, signal-bracketed', async ({ page, neuralLink }) => {
         const { app, holderId } = await connect(page, neuralLink);
 
@@ -409,5 +465,39 @@ test.describe('Dock motion pipeline — reduced-motion collapses through the tok
             () => page.locator(SIGNAL).count(),
             { message: 'the signal must clear within the fail-safe horizon', timeout: 3500, intervals: [100] }
         ).toBe(0);
+    });
+
+    test('a committed addTab uses the 0ms token and leaves no sustained tab motion', async ({ page, neuralLink }) => {
+        await page.emulateMedia({reducedMotion: 'reduce'});
+
+        const { app, holderId } = await connect(page, neuralLink);
+
+        await page.getByRole('button', {name: 'Operator', exact: true}).click();
+        await expect.poll(async () => {
+            const topo = await app.getDockTopology(holderId);
+            const doc  = topo?.document ?? topo;
+            return doc.nodes['main-tabs']?.items?.join(',')
+        }, {message: 'Operator restore must re-seed the reduced-motion setup', timeout: 10000, intervals: [100]}).toBe('strategy,swarm');
+
+        const detached = await app.executeDockOperation(holderId, {operation: 'detachItem', itemId: 'swarm'});
+        expect(detached.errors).toEqual([]);
+        await expect.poll(() => page.locator(SIGNAL).count(), {timeout: 3500, intervals: [50]}).toBe(0);
+
+        const token = await page.evaluate(() => {
+            const scope = document.querySelector('.neo-dashboard') || document.body;
+            return getComputedStyle(scope).getPropertyValue('--dock-transition-duration').trim()
+        });
+        expect(token).toBe('0ms');
+
+        const result = await app.executeDockOperation(holderId, {
+            operation: 'addTab', itemId: 'swarm', tabsNodeId: 'main-tabs', index: 1
+        });
+
+        expect(result.errors).toEqual([]);
+        await expect(page.locator('.neo-dashboard-dock-tab-enter.dock-tab-enter-item-swarm')).toHaveCount(1);
+        await expect.poll(
+            () => page.locator(SIGNAL).count(),
+            {message: '0ms tab insertion must settle without sustained motion', timeout: 1500, intervals: [25]}
+        ).toBe(0)
     });
 });

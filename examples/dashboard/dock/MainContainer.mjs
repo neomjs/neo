@@ -229,10 +229,12 @@ class MainContainer extends Viewport {
 
     /**
      * Creates the top-level toolbar + dock projection items from current state.
+     * @param {Object|null} [tabInsertDescriptor=null] One-use normalized `addTab` correlation
+     * captured by the committing refresh; omitted for boot, restore, and unrelated projections.
      * @returns {Object[]}
      */
-    buildWorkspaceItems() {
-        let dockConfig = this.projectDockModel();
+    buildWorkspaceItems(tabInsertDescriptor=null) {
+        let dockConfig = this.projectDockModel(tabInsertDescriptor);
 
         dockConfig.flex = 1;
 
@@ -298,22 +300,56 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * The view-sync `DockSplitter` calls after a successful commit: stores the new committed document and re-projects
-     * the layout from it.
+     * Returns the one-use projection correlation only when the committed descriptor actually
+     * inserts a header into its target tabs node. A same-node `addTab` reorder already had that
+     * header and therefore returns `null`; malformed, unrelated, restore, and initial paths fail
+     * closed to an instant projection.
+     *
+     * The returned object is deliberately normalized instead of retaining caller/runtime fields,
+     * and is carried only by the scheduled projection closure — it never enters `dockModel`, a
+     * saved perspective, or persistence.
+     * @param {Object} document The post-commit dock-zone document.
+     * @param {Object|null} descriptor The semantic operation that produced `document`.
+     * @returns {Object|null}
+     * @protected
+     */
+    getTabInsertProjectionDescriptor(document, descriptor) {
+        let {itemId, operation, tabsNodeId} = descriptor || {},
+            oldItems                        = this.dockModel?.nodes?.[tabsNodeId]?.items,
+            newItems                        = document?.nodes?.[tabsNodeId]?.items;
+
+        return operation === 'addTab'
+            && typeof itemId === 'string'
+            && typeof tabsNodeId === 'string'
+            && Array.isArray(oldItems)
+            && Array.isArray(newItems)
+            && !oldItems.includes(itemId)
+            && newItems.includes(itemId)
+                ? {itemId, operation: 'addTab', tabsNodeId}
+                : null
+    }
+
+    /**
+     * The view-sync `DockSplitter` / DockService calls after a successful commit: stores the new
+     * committed document and re-projects the layout from it.
      *
      * Deferred one tick: this fires synchronously from inside the committing splitter's `onDragEnd` (via
      * `commitResizeSplit`). Re-projecting immediately would `removeAll()` — destroying that splitter mid-handler, a
      * use-after-destroy on the rest of `onDragEnd`. The `isDestroyed` guard covers teardown before the tick fires.
+     * A real `addTab` captures its exact normalized correlation in THIS scheduled closure; every
+     * other call carries `null`, so the descriptor is consumed by one projection only.
      * @param {Object} document The committed dock-zone document.
+     * @param {Object|null} [descriptor=null] The semantic operation that produced `document`.
      */
-    onDockZoneDocumentChange(document) {
-        let me = this;
+    onDockZoneDocumentChange(document, descriptor=null) {
+        let me                  = this,
+            tabInsertDescriptor = me.getTabInsertProjectionDescriptor(document, descriptor);
 
         me.dockModel = document;
 
         me.timeout(0).then(() => {
             if (!me.isDestroyed) {
-                me.refreshDockWorkspace()
+                me.refreshDockWorkspace(tabInsertDescriptor)
             }
         })
     }
@@ -392,8 +428,10 @@ class MainContainer extends Viewport {
 
     /**
      * Rebuilds the toolbar and dock projection from current state.
+     * @param {Object|null} [tabInsertDescriptor=null] One-use normalized `addTab` correlation
+     * captured by the commit that scheduled this refresh.
      */
-    async refreshDockWorkspace() {
+    async refreshDockWorkspace(tabInsertDescriptor=null) {
         const flip = Neo.main?.addon?.DockFlip;
 
         // FLIP phase 1 (presentation-only, fail-safe): snapshot outgoing pane geometry so the
@@ -403,7 +441,7 @@ class MainContainer extends Viewport {
         } catch (e) {/* instant landing */}
 
         this.removeAll();
-        this.add(this.buildWorkspaceItems());
+        this.add(this.buildWorkspaceItems(tabInsertDescriptor));
 
         // FLIP phase 2: fire-and-forget — the addon self-waits for the swap, inverts, plays
         // the counted motion signal brackets the awaited animation window — ownership
@@ -535,18 +573,20 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * Projects the live committed {@link #dockModel} into a dock-zone container config, threading the instance-bound
-     * resize-commit-loop callbacks onto every projected splitter affordance.
+     * Projects the live committed {@link #dockModel} into a dock-zone container config, threading
+     * the instance-bound commit-loop callbacks onto every projected affordance.
+     * @param {Object|null} [tabInsertDescriptor=null] One-use normalized `addTab` correlation.
      * @returns {Object}
      */
-    projectDockModel() {
+    projectDockModel(tabInsertDescriptor=null) {
         let me = this;
 
         return DockLayoutAdapter.project(me.dockModel, {
             applyDockZoneOperation  : me.applyDockZoneOperation.bind(me),
             onDockCrossZoneDrop     : me.onDockCrossZoneDrop.bind(me),
             onDockZoneDocumentChange: me.onDockZoneDocumentChange.bind(me),
-            resolveComponentRef
+            resolveComponentRef,
+            tabInsertDescriptor
         })
     }
 
