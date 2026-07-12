@@ -144,13 +144,16 @@ class FleetGrid extends Container {
             ]
         }, {
             ntype    : 'container',
-            // the arrow-scroll preventDefault marker (`neo-selection`) lives on the drill Buttons
-            // themselves (AgentCard), not this region — the Up/Down efficiency jump is scoped to drill
-            // targets, so a plain Tab through the controls scrolls normally.
+            // WCAG: the ranked roster IS a list — this container is the `role=list` owner of the
+            // `role=listitem` AgentCards (a listitem needs a list owner to form a valid topology). The
+            // arrow-scroll preventDefault marker (`neo-selection`) lives on the drill Buttons themselves
+            // (AgentCard), not here — the Up/Down efficiency jump is scoped to drill targets, so a plain
+            // Tab through the controls scrolls normally.
             cls      : ['fm-fleet-cards'],
             flex     : 1,
             layout   : {ntype: 'base'},
             reference: 'fleet-cards',
+            role     : 'list',
             items    : []
         }]
     }

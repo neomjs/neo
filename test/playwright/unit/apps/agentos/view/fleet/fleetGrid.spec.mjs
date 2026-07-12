@@ -100,7 +100,7 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         expect(rankFleet(roster(Array(20).fill('idle')), {foldThreshold: 12}).folded).toBe(true)
     });
 
-    test('a11y: the roster is a named landmark region (#14619)', () => {
+    test('a11y: named landmark region owning a role=list card container (#14619)', () => {
         const grid = Neo.create(FleetGrid, {appName, store: makeStore(roster(['ok', 'idle']))});
 
         // the roster is a named landmark region so screen-reader users can navigate to it as a
@@ -108,6 +108,10 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         // so the region label persists across store-driven re-renders
         expect(grid.vdom.role).toBe('region');
         expect(grid.vdom['aria-label']).toBe('Fleet roster');
+
+        // the card container is the role=list OWNER of the role=listitem AgentCards — a listitem needs a
+        // list owner to form a valid mounted topology (the mounted witness is FleetGridKeyboardA11y.spec)
+        expect(grid.getReference('fleet-cards').vdom.role).toBe('list');
 
         grid.destroy()
     });

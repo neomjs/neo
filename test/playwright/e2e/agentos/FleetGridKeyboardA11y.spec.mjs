@@ -4,26 +4,27 @@ import {NeuralLink_DataService, NeuralLink_InstanceService} from '../../../../ai
 /**
  * @summary The FM cockpit keyboard-a11y contract proven on the MOUNTED grid via Neural Link possession —
  * the mount-authority the unit layer (fleetGrid.spec / agentCard.spec) guards off. The gate-1 shape: a
- * NON-interactive listitem card whose keyboard-operable drill is a dedicated NATIVE `<button>` (the
- * resident name), with lifecycle toggle/restart as sibling native Buttons — every control a real element
- * in ordinary Tab order. An OPTIONAL Up/Down efficiency shortcut jumps focus between drill Buttons only;
- * activation is native Enter/Space; and focus survives a roster rebuild, restored to the resident's EXACT
- * semantic child. This is what catches the class of bug a `.vdom` unit assertion cannot see (a root attr
- * set on the vdom but never flushed to the DOM).
+ * `role=list` owner of NON-interactive `role=listitem` cards, each with a dedicated native drill
+ * `<button>` (the resident name) + sibling lifecycle Buttons in ordinary Tab order. This spec EXECUTES —
+ * not merely infers — every claimed path: native Enter AND Space activation on the drill; a lifecycle
+ * Button that fires its intent WITHOUT drilling; the optional drill-only Up/Down jump with zero page
+ * scroll; and gate-3 focus continuity restoring the resident's EXACT semantic child (drill AND toggle)
+ * across an index-shifting rebuild. Zero uncaught page errors throughout.
  *
  * @see apps/agentos/view/fleet/AgentCard.mjs
  * @see apps/agentos/view/fleet/FleetGrid.mjs
  * @see test/playwright/unit/apps/agentos/view/fleet/fleetGrid.spec.mjs
  */
-test.describe('AgentOS fleet grid — keyboard a11y (native listitem + drill Button, Neural Link, #14619)', () => {
+test.describe('AgentOS fleet grid — keyboard a11y (native list/listitem + drill Button, Neural Link, #14619)', () => {
     test.setTimeout(90000);
 
-    test('listitem topology + native drill Button + drill-only Up/Down jump + gate-3 focus survives rebuild', async ({page, neuralLink}) => {
+    test('list/listitem topology + native drill Enter/Space + lifecycle isolation + drill jump + gate-3 restoration (drill AND toggle)', async ({page, neuralLink}) => {
+        const pageErrors = [];
+        page.on('pageerror', err => pageErrors.push(err.message));
+
         await page.goto('/apps/agentos/index.html');
         await expect(page.locator('.agent-shell')).toBeVisible({timeout: 60000});
         await expect(page.locator('.fm-fleet-grid')).toBeVisible({timeout: 30000});
-
-        // possess only after the async autoLoad seed lands (mirrors the scale spec's ordering)
         await expect(page.locator('.fm-fleet-title')).not.toHaveText('Fleet · 0 agents', {timeout: 30000});
 
         const
@@ -36,10 +37,18 @@ test.describe('AgentOS fleet grid — keyboard a11y (native listitem + drill But
 
         // three ONLINE cards with DISTINCT names so identity is provable across a rebuild (sorted by
         // agentId → Bravo, Charlie, Delta)
+        // wired sources so the lifecycle Buttons are ENABLED (focusable — gate-3 can restore focus to a
+        // control) AND the control-status starts HIDDEN, so its appearance after a lifecycle activation
+        // proves the emitted INTENT rendered, not a not-wired source banner.
+        const wired = {
+            roster    : {source: 'fleet:listAgents',    state: 'wired', confidence: 'observed'},
+            repoStatus: {source: 'fleet:fleetStatus',   state: 'wired', confidence: 'observed'},
+            runtime   : {source: 'fleet:runtimeStatus', state: 'wired', confidence: 'observed'}
+        };
         const fixture = [
-            {agentId: 'a11y-b', state: 'ok', displayName: 'Bravo',   engineTag: 'fixture', family: 'claude', laneLine: 'kbd fixture', avatarUrl: ''},
-            {agentId: 'a11y-c', state: 'ok', displayName: 'Charlie', engineTag: 'fixture', family: 'claude', laneLine: 'kbd fixture', avatarUrl: ''},
-            {agentId: 'a11y-d', state: 'ok', displayName: 'Delta',   engineTag: 'fixture', family: 'claude', laneLine: 'kbd fixture', avatarUrl: ''}
+            {agentId: 'a11y-b', state: 'ok', displayName: 'Bravo',   engineTag: 'fixture', family: 'claude', laneLine: 'kbd fixture', avatarUrl: '', sources: wired},
+            {agentId: 'a11y-c', state: 'ok', displayName: 'Charlie', engineTag: 'fixture', family: 'claude', laneLine: 'kbd fixture', avatarUrl: '', sources: wired},
+            {agentId: 'a11y-d', state: 'ok', displayName: 'Delta',   engineTag: 'fixture', family: 'claude', laneLine: 'kbd fixture', avatarUrl: '', sources: wired}
         ];
 
         await NeuralLink_InstanceService.callMethod({sessionId, id: roster.id, method: 'clear'});
@@ -50,49 +59,74 @@ test.describe('AgentOS fleet grid — keyboard a11y (native listitem + drill But
         await expect(cards).toHaveCount(3);
         await expect(drills).toHaveCount(3);
 
-        // ── TOPOLOGY reaches the mounted DOM (the vdom-flush regression guard) ──
-        // the card ROOT is a NON-interactive listitem: role=listitem and NO tabindex (not focusable)
+        // ── TOPOLOGY: a role=list OWNER of role=listitem cards (a listitem needs a list owner) ──
+        await expect(page.locator('.fm-fleet-cards')).toHaveAttribute('role', 'list');
         await expect(cards.nth(0)).toHaveAttribute('role', 'listitem');
         expect(await cards.nth(0).getAttribute('tabindex')).toBeNull();
 
-        // the drill target is a dedicated NATIVE <button> whose accessible name is the resident's name
+        // the drill is a dedicated NATIVE <button>; the toggle is a SEPARATE native <button> (Tab isolation)
         expect(await drills.nth(0).evaluate(el => el.tagName)).toBe('BUTTON');
         await expect(drills.nth(0)).toContainText('Bravo');
+        const bravoToggle = cards.nth(0).locator('.fm-card-control-verbs button').first();
+        expect(await bravoToggle.evaluate(el => el.tagName)).toBe('BUTTON');
 
-        // lifecycle isolation: the toggle control is ALSO a native button — a SEPARATE element from the
-        // drill (ordinary Tab reaches drill → toggle → restart; they are not nested in one interactive)
-        const toggle0 = cards.nth(0).locator('.fm-card-control-verbs button').first();
-        expect(await toggle0.evaluate(el => el.tagName)).toBe('BUTTON');
-
-        // ── NATIVE drill activation (Enter) ── focus the first drill Button, press Enter → the detail pane
-        // reveals THIS resident (onAgentSelect set its record). Native <button> supplies Enter/Space itself.
+        // ── NATIVE drill activation — BOTH Enter AND Space (native <button> semantics) ──
         await drills.nth(0).focus();
-        expect(await page.evaluate(() => document.activeElement?.textContent)).toContain('Bravo');
         await page.keyboard.press('Enter');
         await expect(page.locator('.fm-agent-detail')).toContainText('Bravo', {timeout: 10000});
 
-        // ── drill-only Up/Down efficiency jump + scroll stability ── focus the first drill, ArrowDown moves
-        // focus to the NEXT card's drill Button (Charlie), and the page does not scroll (neo-selection rule)
+        await drills.nth(1).focus();
+        await page.keyboard.press(' '); // Space activates a native button — the detail switches to Charlie
+        await expect(page.locator('.fm-agent-detail')).toContainText('Charlie', {timeout: 10000});
+
+        // ── drill-only Up/Down jump + scroll stability ──
         await drills.nth(0).focus();
         const scrollBefore = await page.evaluate(() => window.scrollY);
         await page.keyboard.press('ArrowDown');
         await expect.poll(async () => page.evaluate(() => document.activeElement?.textContent)).toContain('Charlie');
         expect(await page.evaluate(() => window.scrollY)).toBe(scrollBefore);
 
-        // ── gate-3: focus survives a roster REBUILD, restored to the resident's EXACT drill Button ──
-        // focus Charlie's drill, then add a joiner (Alpha) that sorts ABOVE it → every index shifts, the card
-        // is destroyed/recreated, and focus must FOLLOW Charlie (identity), never drop to <body> or a neighbor
-        await drills.nth(1).focus();
-        expect(await page.evaluate(() => document.activeElement?.textContent)).toContain('Charlie');
+        // ── LIFECYCLE ISOLATION: activating a control Button fires its lifecycle intent WITHOUT drilling ──
+        // Bravo is 'ok' → its toggle is the STOP verb; activating it must NOT switch the detail pane (no
+        // drill leakage), and the emitted intent → Lane-C round-trip renders a control-status on Bravo's
+        // card (the visible proof the intent was emitted + handled, not swallowed into a drill).
+        await bravoToggle.focus();
+        expect(await page.evaluate(() => !!document.activeElement?.closest?.('.fm-card-control-verbs'))).toBe(true);
+        await page.keyboard.press('Enter');
+        await expect(page.locator('.fm-agent-detail')).toContainText('Charlie'); // no drill leakage — still Charlie
+        await expect(cards.nth(0).locator('.fm-card-control-status')).toBeVisible({timeout: 10000});
 
+        // ── gate-3 focus continuity across an index-shifting rebuild — for BOTH drill AND a lifecycle control ──
+        // (a) DRILL: focus Charlie's drill, add a joiner that sorts above → focus follows Charlie's drill
+        await drills.nth(1).focus();
+        await page.waitForTimeout(500); // let focusin reach the App-Worker (containsFocus) before the rebuild
         await NeuralLink_InstanceService.callMethod({sessionId, id: roster.id, method: 'add', args: [[
-            {agentId: 'a11y-a', state: 'ok', displayName: 'Alpha', engineTag: 'fixture', family: 'claude', laneLine: 'joiner', avatarUrl: ''}
+            {agentId: 'a11y-a', state: 'ok', displayName: 'Alpha', engineTag: 'fixture', family: 'claude', laneLine: 'joiner', avatarUrl: '', sources: wired}
         ]]});
         await expect(cards).toHaveCount(4);
-
-        // focus stayed on Charlie's DRILL Button (the same resident's semantic child) across the rebuild
         await expect.poll(async () => page.evaluate(() => document.activeElement?.textContent)).toContain('Charlie');
-        expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('BUTTON');
-        expect(await page.evaluate(() => document.activeElement?.classList?.contains('fm-card-drill'))).toBe(true)
+        expect(await page.evaluate(() => document.activeElement?.classList?.contains('fm-card-drill'))).toBe(true);
+
+        // (b) TOGGLE: focus Charlie's TOGGLE, add another joiner → focus follows Charlie's TOGGLE (the exact
+        // semantic child, NOT the drill) — proves gate-3 restores the specific control, not just the drill
+        const charlieCard   = cards.filter({has: page.locator('.fm-card-drill', {hasText: 'Charlie'})});
+        const charlieToggle = charlieCard.locator('.fm-card-control-verbs button').first();
+        await charlieToggle.focus();
+        // let the focusin propagate to the App-Worker (manager.Focus → containsFocus) BEFORE the rebuild:
+        // gate-3 reads worker-side containsFocus, which lags the synchronous DOM focus by one main↔worker
+        // hop. A real async roster rebuild never races freshly-set focus this tightly; the wait models that.
+        await page.waitForTimeout(500);
+        await NeuralLink_InstanceService.callMethod({sessionId, id: roster.id, method: 'add', args: [[
+            {agentId: 'a11y-0', state: 'ok', displayName: 'Zero', engineTag: 'fixture', family: 'claude', laneLine: 'joiner2', avatarUrl: '', sources: wired}
+        ]]});
+        await expect(cards).toHaveCount(5);
+        // focus landed on a control-verb Button INSIDE Charlie's card (not the drill, not <body>)
+        await expect.poll(async () => page.evaluate(() => {
+            const el = document.activeElement;
+            return el?.closest?.('.fm-agent-card')?.querySelector('.fm-card-drill')?.textContent ?? null;
+        })).toContain('Charlie');
+        expect(await page.evaluate(() => !!document.activeElement?.closest?.('.fm-card-control-verbs'))).toBe(true);
+
+        expect(pageErrors, 'no uncaught page errors during the keyboard journey').toEqual([])
     })
 });
