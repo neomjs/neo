@@ -78,6 +78,15 @@ test.describe('Fleet cockpit ActivityStream — bounded, backpressure-aware feed
         expect(stream.vdom.role).toBe('log');
         expect(stream.vdom['aria-label']).toBe('Live fleet activity');
 
+        // The region must PERSIST across feed updates — that is the whole point of a live region.
+        // refreshFeed swaps CHILD items (removeAll + add), never the vdom root, so a returning event
+        // must not silently drop the aria-live root (which would re-silence the "live" feed to screen
+        // readers after the very first update — the exact failure mode the region exists to prevent).
+        stream.events = makeEvents(5);
+        expect(stream.vdom['aria-live']).toBe('polite');
+        expect(stream.vdom.role).toBe('log');
+        expect(stream.vdom['aria-label']).toBe('Live fleet activity');
+
         stream.destroy()
     });
 
