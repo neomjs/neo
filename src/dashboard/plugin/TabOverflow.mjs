@@ -319,14 +319,6 @@ class TabOverflow extends Plugin {
                 windowId     : me.owner.windowId
             })
         }
-
-        // Re-align against the CURRENT owner rect: a floating component aligns once at mount and does not
-        // re-align when its target moves, so if the control mounts before the dock translates the toolbar
-        // into its settled slot it stays pinned to a stale rect. Re-aligning on each sync — once the control
-        // is mounted — repositions it on the resize/activation/tab-set passes that follow. Cheap and
-        // idempotent. (The purely-static initial case, where NO follow-up pass fires, may still need a
-        // settle-trigger; tracked with the reviewer's fresh-port geometry evidence.)
-        me.control?.mounted && me.control.alignTo()
     }
 
     /**
