@@ -309,7 +309,12 @@ class FleetGrid extends Container {
         // follow the SAME agent across a roster refresh, not whatever card lands at the old numeric index.
         // A removed/reordered agent above the focus would otherwise silently hand the tab stop to a
         // different agent (@neo-gpt identity-focus falsifier: rebuild follows resident identity, not index).
-        const residentFocusId = me.getAgentCards()[me.focusIndex]?.record?.agentId ?? null;
+        const
+            residentFocusId = me.getAgentCards()[me.focusIndex]?.record?.agentId ?? null,
+            // did the grid hold DOM focus before the rebuild? (manager.Focus maintains containsFocus on
+            // focusin/out) — the destroy/recreate below drops physical focus to <body>, so we restore it
+            // ONLY when it was ours, never stealing it on a background refresh.
+            hadFocus        = me.containsFocus;
 
         cardsContainer.removeAll(true);
         cardsContainer.add(cards);
@@ -324,7 +329,16 @@ class FleetGrid extends Container {
         me.focusIndex = residentIndex > -1
             ? residentIndex
             : (agentCards.length > 0 ? Math.min(me.focusIndex, agentCards.length - 1) : 0);
-        me.applyRovingTabIndex()
+        me.applyRovingTabIndex();
+
+        // focus-continuity: the rebuild dropped physical focus to <body>; if the grid HELD focus, move it to
+        // the resident's replacement (the restored focusIndex card) so keyboard focus survives the refresh —
+        // identity-preserving with the tab-stop restore above. Guarded by hadFocus so a background refresh
+        // never steals focus. Deferred via promiseUpdate: focus is a mounted-DOM side-effect, so it must run
+        // AFTER the recreated cards mount (a synchronous call skips on the not-yet-mounted replacement).
+        if (hadFocus && agentCards.length > 0) {
+            me.promiseUpdate().then(() => me.focusActiveCard())
+        }
     }
 
     /**

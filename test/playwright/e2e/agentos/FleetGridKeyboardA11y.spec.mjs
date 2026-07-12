@@ -63,6 +63,20 @@ test.describe('AgentOS fleet grid — keyboard-a11y roving (Neural Link, #14619)
         await page.keyboard.press('ArrowDown');
         await page.keyboard.press('ArrowDown');
         await expect(cards.nth(2)).toHaveAttribute('tabindex', '0');
-        await expect(page.locator('.fm-fleet-cards .fm-agent-card[tabindex="0"]')).toHaveCount(1)
+        await expect(page.locator('.fm-fleet-cards .fm-agent-card[tabindex="0"]')).toHaveCount(1);
+
+        // focus-continuity (Emmy gate-3): physical focus survives a roster REBUILD — it follows the resident
+        // to its new card, never dropping to <body>. The last card holds focus; a joiner sorting above shifts
+        // every index, and focus (not just the tabindex) stays on a card at the roving stop.
+        expect(await page.evaluate(() => document.activeElement?.classList?.contains('fm-agent-card'))).toBe(true);
+
+        await NeuralLink_InstanceService.callMethod({sessionId, id: roster.id, method: 'add', args: [[{
+            agentId: 'a11y-ok-000', state: 'ok', displayName: 'Joiner', family: 'claude', laneLine: 'a11y rebuild', engineTag: 'fixture', avatarUrl: ''
+        }]]});
+        await expect(cards).toHaveCount(4);
+
+        // physical focus stayed IN the grid on the roving stop (the resident's replacement) — not lost to body
+        await expect.poll(async () => page.evaluate(() => document.activeElement?.getAttribute?.('tabindex'))).toBe('0');
+        expect(await page.evaluate(() => document.activeElement?.classList?.contains('fm-agent-card'))).toBe(true)
     })
 });
