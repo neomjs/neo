@@ -1,8 +1,11 @@
 import {test, expect} from '@playwright/test';
 import {
+    getDefaultInstanceTarget,
     getDefaultInstancePid,
     getInstancePid,
+    resolveDefaultInstanceTarget,
     resolveDefaultInstancePid,
+    resolveGuiAppProcessIdentity,
     resolveInstancePid
 } from '../../../../../../ai/daemons/wake/instanceResolver.mjs';
 
@@ -16,8 +19,10 @@ import {
  * null (caller fails closed) when no instance matches.
  */
 
-const DEFAULT_DIR = '/Users/tobiasuhlig/Library/Application Support/Claude';
-const NEO_DIR      = '/Users/tobiasuhlig/.claude-instances/Neo';
+const DEFAULT_DIR       = '/Users/tobiasuhlig/Library/Application Support/Claude';
+const NEO_DIR           = '/Users/tobiasuhlig/.claude-instances/Neo';
+const CODEX_DEFAULT_DIR = '/Users/tobiasuhlig/Library/Application Support/Codex';
+const EMMY_DIR          = '/Users/tobiasuhlig/.codex-app-instances/neo-gpt-emmy';
 
 // Default instance: main executable has NO --user-data-dir (launched via Finder/dock); only the
 // Electron helper subprocesses carry it. Second (Neo) instance: main executable carries it (--args).
@@ -35,6 +40,15 @@ const PS_SINGLE_DEFAULT = [
     `13119 13106 /Applications/Claude.app/Contents/Frameworks/Claude Helper.app/Contents/MacOS/Claude Helper --type=gpu-process --user-data-dir=${DEFAULT_DIR} --gpu-preferences=xyz`
 ].join('\n');
 
+// Codex's automation/product name does not match its installed physical app identity: AppleScript
+// routes through `Codex`, while the two resident processes live under ChatGPT.app/ChatGPT.
+const PS_TWO_CODEX_RESIDENTS = [
+    `3778 1 /Applications/ChatGPT.app/Contents/MacOS/ChatGPT`,
+    `3788 3778 /Applications/ChatGPT.app/Contents/Frameworks/ChatGPT Helper.app/Contents/MacOS/ChatGPT Helper --type=gpu-process --user-data-dir=${CODEX_DEFAULT_DIR}`,
+    `37111 1 /Applications/ChatGPT.app/Contents/MacOS/ChatGPT --user-data-dir=${EMMY_DIR}`,
+    `37122 37111 /Applications/ChatGPT.app/Contents/Frameworks/ChatGPT Helper.app/Contents/MacOS/ChatGPT Helper --type=renderer --user-data-dir=${EMMY_DIR}`
+].join('\n');
+
 test.describe('wake-daemon instanceResolver', () => {
     test('resolves the second instance main pid directly when the main executable carries --user-data-dir', () => {
         // The Neo instance's main process carries the dir (open --args), and is preferred over its helper.
@@ -47,8 +61,8 @@ test.describe('wake-daemon instanceResolver', () => {
     });
 
     test('distinguishes the two same-bundle instances (never cross-targets)', () => {
-        const neo     = resolveInstancePid({userDataDir: NEO_DIR, psOutput: PS_BOTH_INSTANCES});
-        const dflt    = resolveInstancePid({userDataDir: DEFAULT_DIR, psOutput: PS_BOTH_INSTANCES});
+        const neo  = resolveInstancePid({userDataDir: NEO_DIR, psOutput: PS_BOTH_INSTANCES});
+        const dflt = resolveInstancePid({userDataDir: DEFAULT_DIR, psOutput: PS_BOTH_INSTANCES});
         expect(neo).toBe(20001);
         expect(dflt).toBe(13106);
         expect(neo).not.toBe(dflt);
@@ -99,7 +113,8 @@ test.describe('wake-daemon instanceResolver', () => {
     });
 
     test('resolveDefaultInstancePid returns null when the default cannot be uniquely picked', () => {
-        // Two arg-less mains -> ambiguous -> null (caller keeps legacy activate; never a wrong target).
+        // The pid-only compatibility projection is null; structured delivery callers inspect
+        // `status: ambiguous` and fail closed instead of treating null as legacy activation.
         const twoArgless = [
             `13106 1 /Applications/Claude.app/Contents/MacOS/Claude`,
             `40001 1 /Applications/Claude.app/Contents/MacOS/Claude`
@@ -126,5 +141,78 @@ test.describe('wake-daemon instanceResolver', () => {
         const throwingExec = async () => { throw new Error('ps failed') };
         expect(await getDefaultInstancePid({appName: 'Claude', exec: throwingExec})).toBeNull();
         expect(await getDefaultInstancePid({exec: async () => ({stdout: PS_BOTH_INSTANCES})})).toBeNull();
+    });
+
+    test('separates the Codex activation name from the ChatGPT process identity (#15054)', () => {
+        expect(resolveGuiAppProcessIdentity('Codex')).toEqual({
+            bundleName    : 'ChatGPT',
+            executableName: 'ChatGPT'
+        });
+        expect(resolveGuiAppProcessIdentity('Claude')).toEqual({
+            bundleName    : 'Claude',
+            executableName: 'Claude'
+        });
+    });
+
+    test('resolves the arg-less ChatGPT.app resident as the default Codex target (#15054)', () => {
+        expect(resolveDefaultInstancePid({appName: 'Codex', psOutput: PS_TWO_CODEX_RESIDENTS})).toBe(3778);
+        expect(resolveDefaultInstanceTarget({appName: 'Codex', psOutput: PS_TWO_CODEX_RESIDENTS})).toMatchObject({
+            bundleName    : 'ChatGPT',
+            executableName: 'ChatGPT',
+            instanceCount : 2,
+            pid           : 3778,
+            status        : 'resolved'
+        });
+        expect(resolveInstancePid({userDataDir: EMMY_DIR, psOutput: PS_TWO_CODEX_RESIDENTS})).toBe(37111);
+    });
+
+    test('reports ambiguous instead of authorizing generic activation for two arg-less Codex residents (#15054)', () => {
+        const psOutput = [
+            `3778 1 /Applications/ChatGPT.app/Contents/MacOS/ChatGPT`,
+            `37111 1 /Applications/ChatGPT.app/Contents/MacOS/ChatGPT`
+        ].join('\n');
+
+        expect(resolveDefaultInstanceTarget({appName: 'Codex', psOutput})).toMatchObject({
+            instanceCount: 2,
+            pid          : null,
+            status       : 'ambiguous'
+        });
+    });
+
+    test('does not authorize generic activation when only the addressed Codex resident is running (#15054)', () => {
+        const psOutput = [
+            `37111 1 /Applications/ChatGPT.app/Contents/MacOS/ChatGPT --user-data-dir=${EMMY_DIR}`,
+            `37122 37111 /Applications/ChatGPT.app/Contents/Frameworks/ChatGPT Helper.app/Contents/MacOS/ChatGPT Helper --type=renderer --user-data-dir=${EMMY_DIR}`
+        ].join('\n');
+
+        expect(resolveDefaultInstanceTarget({appName: 'Codex', psOutput})).toMatchObject({
+            instanceCount: 1,
+            pid          : null,
+            status       : 'ambiguous'
+        });
+    });
+
+    test('getDefaultInstanceTarget preserves Codex process-identity evidence from the ps probe (#15054)', async () => {
+        const exec = async () => ({stdout: PS_TWO_CODEX_RESIDENTS});
+
+        await expect(getDefaultInstanceTarget({appName: 'Codex', exec})).resolves.toMatchObject({
+            bundleName   : 'ChatGPT',
+            instanceCount: 2,
+            pid          : 3778,
+            status       : 'resolved'
+        });
+    });
+
+    test('getDefaultInstanceTarget preserves process-probe failure as fail-closed evidence (#15054)', async () => {
+        const exec = async () => {
+            throw new Error('ps unavailable');
+        };
+
+        await expect(getDefaultInstanceTarget({appName: 'Codex', exec})).resolves.toMatchObject({
+            bundleName   : 'ChatGPT',
+            instanceCount: 0,
+            pid          : null,
+            status       : 'probe-failed'
+        });
     });
 });

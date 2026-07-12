@@ -1,6 +1,6 @@
 import {setup} from '../../../../setup.mjs';
 
-const appName = 'ResumeHarnessTest';
+const appName             = 'ResumeHarnessTest';
 const skipCiSubstrateData = !!process.env.NEO_TEST_SKIP_CI;
 
 setup({
@@ -34,7 +34,7 @@ import {
 test.describe('ai/scripts/resumeHarness', () => {
     test.describe.configure({mode: 'serial'});
 
-    const scriptPath = path.resolve(process.cwd(), 'ai/scripts/lifecycle/resumeHarness.mjs');
+    const scriptPath  = path.resolve(process.cwd(), 'ai/scripts/lifecycle/resumeHarness.mjs');
     const cooldownDir = path.resolve(process.cwd(), '.neo-ai-data/wake-daemon');
 
     /**
@@ -65,8 +65,8 @@ test.describe('ai/scripts/resumeHarness', () => {
      *
      * Codex live-host opt-in: `codex debug app-server send-message-v2`
      * creates/injects into a real Codex Desktop thread. Default tests MUST use
-     * `CODEX_APP_SERVER_MOCK=1` plus a mock CLI path (`CODEX_CLI_PATH` or
-     * `CODEX_DESKTOP_CLI_PATH`). Real probes require `RUN_LIVE_CODEX_APP_SERVER=1`.
+     * `CODEX_APP_SERVER_MOCK=1` plus a mock `NEO_FLEET_CODEX_BIN` config-leaf override.
+     * Real probes require `RUN_LIVE_CODEX_APP_SERVER=1`.
      */
     let gatePath, overrideEnv;
     const gateOnlyEnv = () => ({...process.env, WAKE_GATE_FILE_PATH: gatePath});
@@ -157,7 +157,7 @@ test.describe('ai/scripts/resumeHarness', () => {
 
         expect(resolveResumeHarnessInstanceAddress({
             metadata: {},
-            env: {
+            env     : {
                 NEO_HARNESS_INSTANCE_ADDRESS     : '  4242  ',
                 NEO_HARNESS_INSTANCE_ADDRESS_TYPE: '  pid  '
             }
@@ -179,7 +179,7 @@ test.describe('ai/scripts/resumeHarness', () => {
 
         expect(() => resolveResumeHarnessInstanceAddress({
             metadata: {},
-            env: {
+            env     : {
                 NEO_HARNESS_INSTANCE_ADDRESS     : '/tmp/vega',
                 NEO_HARNESS_INSTANCE_ADDRESS_TYPE: 'tmuxSession'
             }
@@ -194,18 +194,18 @@ test.describe('ai/scripts/resumeHarness', () => {
         })).toBe(12345);
 
         expect(await resolveResumeHarnessInstancePid({
-            addressType      : 'userDataDir',
-            instanceAddress  : '/Users/example/.claude-instances/neo-opus-vega',
-            deploymentMode   : 'local',
-            getInstancePidFn : async ({userDataDir}) =>
+            addressType     : 'userDataDir',
+            instanceAddress : '/Users/example/.claude-instances/neo-opus-vega',
+            deploymentMode  : 'local',
+            getInstancePidFn: async ({userDataDir}) =>
                 userDataDir === '/Users/example/.claude-instances/neo-opus-vega' ? 24680 : null
         })).toBe(24680);
 
         await expect(resolveResumeHarnessInstancePid({
-            addressType      : 'userDataDir',
-            instanceAddress  : '/Users/example/.claude-instances/missing',
-            deploymentMode   : 'local',
-            getInstancePidFn : async () => null
+            addressType     : 'userDataDir',
+            instanceAddress : '/Users/example/.claude-instances/missing',
+            deploymentMode  : 'local',
+            getInstancePidFn: async () => null
         })).rejects.toThrow(/No running Claude instance found/);
 
         await expect(resolveResumeHarnessInstancePid({
@@ -269,12 +269,12 @@ test.describe('ai/scripts/resumeHarness', () => {
             focusSeedSequence: 'r-undo'
         });
         expect(applyHarnessMetadataDefaults({appName: 'Antigravity'})).toMatchObject({
-            appName     : 'Antigravity',
-            tabShortcut : 'shift+i'
+            appName    : 'Antigravity',
+            tabShortcut: 'shift+i'
         });
         expect(applyHarnessMetadataDefaults({appName: 'Antigravity', tabShortcut: null})).toMatchObject({
-            appName     : 'Antigravity',
-            tabShortcut : null
+            appName    : 'Antigravity',
+            tabShortcut: null
         });
         expect(applyHarnessMetadataDefaults({appName: 'Claude', focusSeedKey: 'space'})).not.toHaveProperty('focusSeedSequence');
     });
@@ -419,7 +419,7 @@ test.describe('ai/scripts/resumeHarness', () => {
     });
 
     test('wake daemon consumes shared host app defaults instead of duplicating shortcut literals (#12434)', async () => {
-        const bridgePath = path.resolve(process.cwd(), 'ai/daemons/wake/daemon.mjs');
+        const bridgePath    = path.resolve(process.cwd(), 'ai/daemons/wake/daemon.mjs');
         const bridgeContent = fs.readFileSync(bridgePath, 'utf-8');
 
         expect(bridgeContent).toContain('applyHarnessMetadataDefaults(meta)');
@@ -435,7 +435,7 @@ test.describe('ai/scripts/resumeHarness', () => {
         // successful CLI dispatch, resumeHarness records the spawned process's PID via
         // harnessLifecycle.recordHarnessProcess — the PID the NEXT invocation SIGTERMs during cleanup.
         const harnessLifecycle = await import('../../../../../../ai/scripts/lifecycle/harnessLifecycle.mjs');
-        const stateFile = harnessLifecycle.getStateFilePath('@neo-gemini-pro');
+        const stateFile        = harnessLifecycle.getStateFilePath('@neo-gemini-pro');
         if (fs.existsSync(stateFile)) fs.unlinkSync(stateFile);
 
         const mockPath = path.join(os.tmpdir(), `mock-ag-record-${randomUUID()}`);
@@ -464,13 +464,13 @@ test.describe('ai/scripts/resumeHarness', () => {
         // should detect ESRCH and proceed with a fresh spawn — cleanup never blocks fresh-spawn on
         // missing/dead PIDs.
         const harnessLifecycle = await import('../../../../../../ai/scripts/lifecycle/harnessLifecycle.mjs');
-        const stateFile = harnessLifecycle.getStateFilePath('@neo-gemini-pro');
-        const stalePid = 999999; // way above typical pid_max
+        const stateFile        = harnessLifecycle.getStateFilePath('@neo-gemini-pro');
+        const stalePid         = 999999; // way above typical pid_max
         await import('fs/promises').then(({writeFile, mkdir}) => mkdir(path.dirname(stateFile), {recursive: true})
             .then(() => writeFile(stateFile, JSON.stringify({pid: stalePid, spawnedAt: Date.now() - 60000}))));
 
         const mockPath = path.join(os.tmpdir(), `mock-ag-stale-${randomUUID()}`);
-        const outPath = path.join(os.tmpdir(), `out-ag-stale-${randomUUID()}`);
+        const outPath  = path.join(os.tmpdir(), `out-ag-stale-${randomUUID()}`);
         fs.writeFileSync(mockPath, `#!/usr/bin/env node\nconst fs = require('fs');\nfs.writeFileSync('${outPath}', JSON.stringify(process.argv.slice(2)));\n`, { mode: 0o755 });
 
         try {
@@ -498,7 +498,7 @@ test.describe('ai/scripts/resumeHarness', () => {
         // The env override exercises the cross-platform adapter path without depending on
         // host-specific Antigravity installs.
         const mockPath = path.join(os.tmpdir(), `mock-ag-${randomUUID()}`);
-        const outPath = path.join(os.tmpdir(), `out-ag-${randomUUID()}`);
+        const outPath  = path.join(os.tmpdir(), `out-ag-${randomUUID()}`);
         fs.writeFileSync(mockPath, `#!/usr/bin/env node\nconst fs = require('fs');\nfs.writeFileSync('${outPath}', JSON.stringify(process.argv.slice(2)));\n`, { mode: 0o755 });
 
         try {
@@ -595,7 +595,7 @@ test.describe('ai/scripts/resumeHarness', () => {
         test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
 
         const { getLockPath } = await import('../../../../../../ai/scripts/lifecycle/inflightLock.mjs');
-        const lockPath = getLockPath('sunset_restart', '@neo-gpt');
+        const lockPath        = getLockPath('sunset_restart', '@neo-gpt');
         if (fs.existsSync(lockPath)) fs.unlinkSync(lockPath);
 
         try {
@@ -613,16 +613,16 @@ test.describe('ai/scripts/resumeHarness', () => {
         }
     });
 
-    test('Codex app-server: adapter executes send-message-v2 <payload> via CODEX_CLI_PATH mock (#10679)', async () => {
+    test('Codex app-server: adapter executes send-message-v2 via AiConfig Fleet binary (#15054)', async () => {
         test.skip(process.platform !== 'darwin', 'Codex Desktop app-server adapter is currently mac-specific');
         test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
 
         const mockPath = path.join(os.tmpdir(), `mock-codex-${randomUUID()}`);
-        const outPath = path.join(os.tmpdir(), `out-codex-${randomUUID()}`);
+        const outPath  = path.join(os.tmpdir(), `out-codex-${randomUUID()}`);
         fs.writeFileSync(mockPath, `#!/usr/bin/env node\nconst fs = require('fs');\nfs.writeFileSync('${outPath}', JSON.stringify(process.argv.slice(2)));\n`, { mode: 0o755 });
 
         try {
-            const env = { ...overrideEnv, CODEX_APP_SERVER_MOCK: '1', CODEX_CLI_PATH: mockPath };
+            const env = {...overrideEnv, CODEX_APP_SERVER_MOCK: '1', NEO_FLEET_CODEX_BIN: mockPath};
             execFileSync('node', [scriptPath, '@neo-gpt', 'testReason'], { encoding: 'utf-8', stdio: 'pipe', env });
 
             expect(fs.existsSync(outPath)).toBe(true);
@@ -638,7 +638,7 @@ test.describe('ai/scripts/resumeHarness', () => {
         }
     });
 
-    test('Codex app-server: adapter resolves bundled Desktop CLI when PATH lacks bare codex (#13287)', async () => {
+    test('Codex app-server: adapter uses AiConfig Fleet binary when PATH lacks bare codex (#15054)', async () => {
         test.skip(process.platform !== 'darwin', 'Codex Desktop app-server adapter is currently mac-specific');
         test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
 
@@ -655,10 +655,9 @@ test.describe('ai/scripts/resumeHarness', () => {
         try {
             const env = {
                 ...overrideEnv,
-                CODEX_APP_SERVER_MOCK : '1',
-                CODEX_CLI_PATH        : '',
-                CODEX_DESKTOP_CLI_PATH: mockPath,
-                PATH                  : path.dirname(process.execPath)
+                CODEX_APP_SERVER_MOCK: '1',
+                NEO_FLEET_CODEX_BIN  : mockPath,
+                PATH                 : path.dirname(process.execPath)
             };
 
             execFileSync('node', [scriptPath, '@neo-gpt', 'testReason'], { encoding: 'utf-8', stdio: 'pipe', env });
@@ -690,7 +689,7 @@ test.describe('ai/scripts/resumeHarness', () => {
         const missingAgCli = path.join(os.tmpdir(), `missing-ag-fail-${randomUUID()}`);
 
         const { getLockPath } = await import('../../../../../../ai/scripts/lifecycle/inflightLock.mjs');
-        const lockPath = getLockPath('sunset_restart', '@neo-gemini-pro');
+        const lockPath        = getLockPath('sunset_restart', '@neo-gemini-pro');
         if (fs.existsSync(lockPath)) fs.unlinkSync(lockPath);
 
         const env = { ...overrideEnv, ANTIGRAVITY_CLI_PATH: missingAgCli };
