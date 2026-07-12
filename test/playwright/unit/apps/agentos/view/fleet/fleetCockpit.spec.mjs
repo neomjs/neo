@@ -154,9 +154,10 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
     };
 
     const makeCockpit = (grid, rosterWired = false) => ({
-        getReference   : reference => reference === 'fleet-grid' ? grid : null,
-        mapRosterRow   : FleetCockpit.prototype.mapRosterRow,
-        reconcileRoster: FleetCockpit.prototype.reconcileRoster,
+        getReference      : reference => reference === 'fleet-grid' ? grid : null,
+        mapRosterRow      : FleetCockpit.prototype.mapRosterRow,
+        reconcileRoster   : FleetCockpit.prototype.reconcileRoster,
+        reconcileSelection: FleetCockpit.prototype.reconcileSelection,
         rosterWired
     });
 
@@ -384,19 +385,20 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
     // listener attached (the store fires `load` for its own mutations, so the guard's recursion
     // behavior is only observable through the live listener path — a manual handler call is a
     // mock-hole).
-    const makeLiveCockpit = (store, index) => {
+    const makeLiveCockpit = (store, index, detail = null) => {
         const grid = {adapterState: 'sample', store};
 
         const cockpit = {
-            getReference     : reference => reference === 'fleet-grid' ? grid : null,
+            getReference      : reference => reference === 'fleet-grid' ? grid : reference === 'agent-detail' ? detail : null,
             grid,
-            id               : `fake-fleet-cockpit-${index}`,
-            lastLiveRows     : null,
-            mapRosterRow     : FleetCockpit.prototype.mapRosterRow,
-            onRosterStoreLoad: FleetCockpit.prototype.onRosterStoreLoad,
-            reconcileRoster  : FleetCockpit.prototype.reconcileRoster,
-            reconcilingRoster: false,
-            rosterWired      : false
+            id                : `fake-fleet-cockpit-${index}`,
+            lastLiveRows      : null,
+            mapRosterRow      : FleetCockpit.prototype.mapRosterRow,
+            onRosterStoreLoad : FleetCockpit.prototype.onRosterStoreLoad,
+            reconcileRoster   : FleetCockpit.prototype.reconcileRoster,
+            reconcileSelection: FleetCockpit.prototype.reconcileSelection,
+            reconcilingRoster : false,
+            rosterWired       : false
         };
 
         store.on({load: cockpit.onRosterStoreLoad, scope: cockpit});
@@ -472,6 +474,79 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         expect(store.get('agent-0')).toBeTruthy();
         expect(store.get('agent-999')).toBeTruthy();
         expect(store.get('sample-1')).toBeFalsy();
+
+        store.destroy()
+    });
+
+    test('reconcileSelection (real Store): first-live clear/add re-seats a surviving selection onto the new instance', async () => {
+        const store    = Neo.create(FleetRoster, {data: []}),
+              setCalls = [],
+              detail   = {set(config) { setCalls.push(config) }},
+              cockpit  = makeLiveCockpit(store, 4, detail);
+
+        // a sample 'vega' is open in the inspector before live truth resolves
+        store.add([{agentId: 'vega'}, {agentId: 'sample-x'}]);
+        cockpit.detailRecord = store.get('vega');
+        const sampleInstance = cockpit.detailRecord;
+
+        globalThis.AgentOS = {fleet: {registryBridge: {fleetRoster: async () => ({rows: [
+            {id: 'vega', family: 'claude', lifecycle: {state: 'running'}},
+            {id: 'ada',  family: 'claude', lifecycle: {state: 'stopped'}}
+        ]})}}};
+
+        await FleetCockpit.prototype.loadRoster.call(cockpit);   // first-live clear+add replaces the seed
+
+        const liveInstance = store.get('vega');
+        expect(liveInstance).toBeTruthy();
+        expect(liveInstance).not.toBe(sampleInstance);           // a genuinely new record instance
+        expect(cockpit.detailRecord).toBe(liveInstance);         // re-seated onto the live instance
+        expect(setCalls).toEqual([{record: liveInstance}]);      // the inspector re-rendered
+
+        store.destroy()
+    });
+
+    test('reconcileSelection (real Store): a later empty snapshot clears a removed resident to the honest empty state', async () => {
+        const store    = Neo.create(FleetRoster, {data: []}),
+              setCalls = [],
+              detail   = {set(config) { setCalls.push(config) }},
+              cockpit  = makeLiveCockpit(store, 5, detail);
+
+        cockpit.rosterWired = true;                              // past the first-live replacement
+        store.add([{agentId: 'vega'}, {agentId: 'ada'}]);
+        cockpit.detailRecord = store.get('vega');
+
+        globalThis.AgentOS = {fleet: {registryBridge: {fleetRoster: async () => ({rows: []})}}};
+
+        await FleetCockpit.prototype.loadRoster.call(cockpit);   // authoritative empty snapshot → real Store.remove
+
+        expect(store.get('vega')).toBeFalsy();                   // removed via the real Store path
+        expect(cockpit.detailRecord).toBeNull();                // selection cleared
+        expect(setCalls).toEqual([{record: null}]);             // AgentDetail → honest empty state
+
+        store.destroy()
+    });
+
+    test('reconcileSelection (real Store): a surviving same-instance reconcile is a no-op (mutation path owns it)', async () => {
+        const store    = Neo.create(FleetRoster, {data: []}),
+              setCalls = [],
+              detail   = {set(config) { setCalls.push(config) }},
+              cockpit  = makeLiveCockpit(store, 6, detail);
+
+        cockpit.rosterWired = true;
+        store.add([{agentId: 'vega'}, {agentId: 'ada'}]);
+        cockpit.detailRecord = store.get('vega');
+        const instance = cockpit.detailRecord;
+
+        globalThis.AgentOS = {fleet: {registryBridge: {fleetRoster: async () => ({rows: [
+            {id: 'vega', family: 'claude', lifecycle: {state: 'running'}},
+            {id: 'ada',  family: 'claude', lifecycle: {state: 'stopped'}}
+        ]})}}};
+
+        await FleetCockpit.prototype.loadRoster.call(cockpit);   // reconcile: record.set mutates in place (same object)
+
+        expect(store.get('vega')).toBe(instance);               // same instance, mutated in place
+        expect(cockpit.detailRecord).toBe(instance);            // selection unchanged
+        expect(setCalls).toEqual([]);                           // no re-seat — recordChange owns mutation
 
         store.destroy()
     });
