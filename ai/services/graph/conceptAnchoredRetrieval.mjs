@@ -225,6 +225,9 @@ export function buildConceptPath({rootConcept, nodeId, rootMemberId, parentHop})
  * @param {Function} [options.getCandidateId] `(candidate) => String` dedup-id extractor (default `.id`).
  * @param {Function} [options.emit] `(event) => void` retrieval-event sink (default no-op).
  * @param {Function} [options.now] `() => Number` wall-clock source for `walkDurationMs` (default `Date.now`; injectable for tests).
+ * @param {String[]|null} [options.traversableNodeLabels] Explicit allow-list of neighbor node labels
+ *     eligible to become candidates for this surface (e.g. `['AGENT_MEMORY']` for memories, `['FILE']`
+ *     for the KB). Null → no type filter. A non-eligible label is skipped before the gate (not `filteredOut`).
  * @param {Number} [options.conceptLimit] Max resolved clusters walked (default {@link WALK_BUDGET}.conceptLimit).
  * @param {Number} [options.maxHops] Per-member walk depth bound (default {@link WALK_BUDGET}.maxHops).
  * @param {Number} [options.hopBudget] Per-member edge budget (default {@link WALK_BUDGET}.hopBudget).
@@ -239,10 +242,11 @@ export async function enrichWithConceptWalk({
     resolveCandidate,
     getCandidateId = candidate => candidate?.id,
     emit,
-    now            = () => Date.now(),
-    conceptLimit   = WALK_BUDGET.conceptLimit,
-    maxHops        = WALK_BUDGET.maxHops,
-    hopBudget      = WALK_BUDGET.hopBudget
+    now                  = () => Date.now(),
+    traversableNodeLabels = null,
+    conceptLimit         = WALK_BUDGET.conceptLimit,
+    maxHops              = WALK_BUDGET.maxHops,
+    hopBudget            = WALK_BUDGET.hopBudget
 }) {
     // Wrap, never replace: no opt-in → the flat path returns byte-identical, no walk, no event.
     if (!conceptWalk) {
@@ -291,6 +295,11 @@ export async function enrichWithConceptWalk({
 
             for (const hop of walk.hops) {
                 const nodeId = hop.neighborId;
+
+                // explicit config-declared node-type filter — the caller declares which neighbor labels
+                // are eligible candidates for its surface (memories → AGENT_MEMORY, KB → FILE); a
+                // non-eligible type is skipped cheaply BEFORE the gate (not an RLS drop → not filteredOut).
+                if (traversableNodeLabels && !traversableNodeLabels.includes(hop.neighborLabel)) continue;
 
                 // dedup: already in the embedding set, or already surfaced by an earlier walk hop
                 if (!nodeId || seen.has(nodeId) || walkVisited.has(nodeId)) continue;

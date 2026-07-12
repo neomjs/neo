@@ -341,4 +341,17 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval — enrichWithConc
         expect(typeof event.walkDurationMs).toBe('number');
         expect(event.walkDurationMs).toBe(7);
     });
+
+    test('traversableNodeLabels pre-filters candidate types before the gate (a type skip is NOT filteredOut)', async () => {
+        const gate = async nodeId => ({id: nodeId}); // authorize anything asked → filteredOut reflects only the type filter
+
+        const {candidates, event} = await enrichWithConceptWalk({
+            graphService    : WALK_GRAPH, query: 'golden path', candidates: [], conceptWalk: true,
+            resolveCandidate: gate, traversableNodeLabels: ['MEMORY'], maxHops: 1
+        });
+
+        // FILE:x is skipped by the type allow-list BEFORE the gate; only the two MEMORY nodes reach it
+        expect(candidates.map(c => c.id).sort()).toEqual(['MEM:1', 'MEM:2']);
+        expect(event.filteredOut).toBe(0); // the FILE skip is a type-filter skip, not a gate/RLS rejection
+    });
 });

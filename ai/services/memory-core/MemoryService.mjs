@@ -1829,10 +1829,11 @@ class MemoryService extends Base {
             // buildMemoryResolveCandidate (the direct get bypasses the where clause, so the gate re-applies it).
             if (conceptWalk) {
                 const {candidates, event} = await enrichWithConceptWalk({
-                    graphService    : GraphService,
+                    graphService         : GraphService,
                     query,
-                    candidates      : memories,
-                    conceptWalk     : true,
+                    candidates           : memories,
+                    conceptWalk          : true,
+                    traversableNodeLabels: ['AGENT_MEMORY'], // this surface's eligible candidate type
                     resolveCandidate: buildMemoryResolveCandidate({
                         collection,
                         userId,
