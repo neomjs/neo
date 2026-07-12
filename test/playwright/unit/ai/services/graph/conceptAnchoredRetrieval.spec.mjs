@@ -359,6 +359,39 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval — enrichWithConc
         expect(walked[0].source).toBe('src/x.mjs');
     });
 
+    // RLS Depth-Floor (Emmy's KB cycle-2 review): terminal-candidate authorization does NOT authorize the
+    // PATH used to reach it. A KB walk must not traverse THROUGH a private AGENT_MEMORY intermediate
+    // (another tenant's) to reach a public FILE. FIXME until the RLS-safe public-subgraph traversal
+    // lands (restrict the walk to CONCEPT↔CONCEPT + CONCEPT→FILE; never cross AGENT_MEMORY). The
+    // property is fix-design-independent; this is the reserved regression bar.
+    test.fixme('intermediate-hop RLS: a FILE reachable ONLY via a private AGENT_MEMORY intermediate is NOT appended (#15071 cycle-2 Depth-Floor)', async () => {
+        const graph = fixtureGraph({
+            concepts: [{type: 'CONCEPT', id: 'golden-path'}],
+            nodes   : {'golden-path': {label: 'CONCEPT'}, 'mem:other-tenant': {label: 'AGENT_MEMORY'}, 'file:src/x.mjs': {label: 'FILE'}},
+            edges   : [
+                {id: 'e1', source: 'golden-path',      target: 'mem:other-tenant', type: 'TAGGED_CONCEPT', properties: {}},
+                {id: 'e2', source: 'mem:other-tenant', target: 'file:src/x.mjs',   type: 'IMPLEMENTED_BY', properties: {}}
+            ]
+        });
+        // a FILE gate that WOULD authorize the terminal file on its own — the leak is the PATH, not the terminal
+        const fileGate = async (nodeId, {neighborLabel}) =>
+            neighborLabel === 'FILE' ? {id: String(nodeId).replace(/^file[:-]/, ''), source: String(nodeId).replace(/^file[:-]/, '')} : null;
+
+        const {candidates} = await enrichWithConceptWalk({
+            graphService         : graph,
+            query                : 'golden path',
+            candidates           : [{id: 'EMB:1'}],
+            conceptWalk          : true,
+            resolveCandidate     : fileGate,
+            getCandidateId       : c => c.source ?? c.id,
+            traversableNodeLabels: ['FILE'],
+            maxHops              : 2
+        });
+
+        // the FILE is reachable ONLY by crossing the private AGENT_MEMORY intermediate → it must NOT appear
+        expect(candidates.some(c => c.source === 'src/x.mjs')).toBe(false);
+    });
+
     test('resolveCandidate receives the hop neighborLabel + edgeType so the gate can skip by type', async () => {
         const seenMeta = [];
 
