@@ -310,9 +310,14 @@ export async function enrichWithConceptWalk({
 
     for (const cluster of resolved) {
         if (truncated) break;
+        // request-global budget spent with clusters still unwalked → honest truncation (more existed)
+        if (remainingHopBudget <= 0) { truncated = true; break }
 
         for (const memberId of cluster.members) {
             if (truncated) break;
+            // budget spent with members still unwalked → honest truncation; checked at the loop TOP so it
+            // never overfires on an exact fit (the last member consuming the budget with none left to walk)
+            if (remainingHopBudget <= 0) { truncated = true; break }
 
             // A graph-tier read error mid-walk (the SQLite edge query throwing on an unavailable /
             // locked store — readRawNodeEdges guards a MISSING db but not a db that throws on the
@@ -328,11 +333,12 @@ export async function enrichWithConceptWalk({
 
             // Request-global edge budget: `hopBudget` is shared across ALL resolved clusters/members
             // (NOT reset per member), so a wide alias-fan cannot multiply the walk's edge cost. Decrement
-            // by this member's consumed hops; a member walk that hit the remaining budget, or a
-            // now-exhausted request-global budget, sets `truncated` honestly — the outer loops then stop
-            // (this member's already-fetched hops still hydrate; only further members are cut).
+            // by this member's consumed hops. A walk that cut hops WITHIN this member (walk.truncated) is
+            // honest truncation. Request-global EXHAUSTION is flagged at the loop tops instead, so it only
+            // reports truncation when a remaining cluster/member is actually skipped — never on an exact
+            // fit (the last member consuming the budget with nothing left to walk).
             remainingHopBudget -= walk.hops.length;
-            if (walk.truncated || remainingHopBudget <= 0) truncated = true;
+            if (walk.truncated) truncated = true;
 
             // BFS parent map for full-path reconstruction: keep each neighbor's FIRST (lowest-depth)
             // reaching hop — the shortest-path parent edge buildConceptPath traces back through.

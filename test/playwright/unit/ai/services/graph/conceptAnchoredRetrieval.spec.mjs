@@ -260,7 +260,7 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval — enrichWithConc
         expect(events).toHaveLength(1);            // the event still emits — degradation is observable, not silent
     });
 
-    test('request-global hop budget is shared across cluster members — an exhausting first member truncates + stops later members, not a per-member reset (#14504 cycle-2 gate 2)', async () => {
+    test('request-global hop budget: an exhausting first member truncates + stops later members; an exact-fit budget walks all + does NOT overfire truncated (#14504 cycle-2 gate 2)', async () => {
         // Two resolvable concepts, each with one edge to an authorizable memory. With a shared hopBudget
         // of 1, the FIRST member's walk consumes the whole request-global budget (→ 0), so the second
         // member is NOT walked and its memory never surfaces. A per-member reset (the pre-fix behavior)
@@ -290,6 +290,15 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval — enrichWithConc
         expect(event.candidatesAdded).toBe(1);  // only the FIRST member's memory — the shared budget stopped the second
         expect(candidates).toHaveLength(1);
         expect(event.truncated).toBe(true);      // honest: the request-global edge budget was cut short
+
+        // exact-fit: a budget that EXACTLY covers both members walks both and must NOT overfire truncated
+        // (nothing was cut — the last member consumed the budget with nothing left to walk). Euclid falsifier.
+        const exact = await enrichWithConceptWalk({
+            graphService    : budgetGraph, query: 'alpha beta', candidates: [], conceptWalk: true,
+            resolveCandidate: gate, maxHops: 1, hopBudget: 2
+        });
+        expect(exact.event.candidatesAdded).toBe(2);   // both members walked
+        expect(exact.event.truncated).toBe(false);     // exact fit → NOT truncated (the overfire fix)
     });
 
     test('conceptWalk ON: authorized walk candidates append AFTER the untouched flat set, stamped + evented', async () => {
