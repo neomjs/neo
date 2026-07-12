@@ -1,5 +1,5 @@
 import {test, expect}                                                                              from '@playwright/test';
-import {composeBlockDirective, composeDeferenceDirective, decideHookAction, isOperatorInLoop, parseOutcomeToVerdict,
+import {composeBlockDirective, composeValidTerminalNote, composeDeferenceDirective, decideHookAction, isOperatorInLoop, parseOutcomeToVerdict,
         extractFinalAssistantText, extractLastAssistantTextFromJsonl, extractLastUserTextFromJsonl,
         formatLifecycleBoard, formatGoldenPathDirection, formatHoldCostumeCallout} from '../../../../.claude/hooks/laneStateStopHook.mjs';
 import {spawn} from 'node:child_process';
@@ -136,6 +136,25 @@ test.describe('laneStateStopHook — pure idle-out decision logic', () => {
             // Runtime-obey guard: the friction→gold ticket is a design-time lane, never a runtime stop.
             expect(directive).toContain('a license to stop');
             expect(directive).toContain('not itself a valid stop');
+        });
+
+        test('a VALID driven terminal names L3 force-continuation, not a defect (#15001 AC-2) — the mirror stops firing on compliance', () => {
+            const directive = composeBlockDirective('valid lane-state terminal');
+            // the broken-mirror fix: a valid terminal must NOT read as a bare self-contradicting refusal
+            expect(directive).toContain("VALID and this turn's driven work is recognized");
+            expect(directive).toContain('L3 force-continuation to the NEXT lane, not a rejection');
+            expect(directive).toContain('no predicate failed');
+            // the no-hold VALUE is untouched — the full L3 reminder + the trigger cause still ride
+            expect(directive).toContain('there is no hold state');
+            expect(directive).toContain('(Stop-hook trigger: valid lane-state terminal)');
+        });
+
+        test('the clarity note is scoped to valid terminals — a real predicate failure gets NO note, keeping its reason (#15001 AC-2 discriminator)', () => {
+            expect(composeValidTerminalNote('valid lane-state terminal')).toContain('L3 force-continuation');
+            expect(composeValidTerminalNote('no lane-state block emitted at turn-terminal')).toBe('');
+            expect(composeValidTerminalNote('invalid lane-state terminal')).toBe('');
+            expect(composeValidTerminalNote('malformed lane-state emission: bad json')).toBe('');
+            expect(composeValidTerminalNote(null)).toBe('');
         });
     });
 

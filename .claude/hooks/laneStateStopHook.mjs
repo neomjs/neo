@@ -272,12 +272,29 @@ export function formatGoldenPathDirection(state) {
  * @param {String} cause The terminal-evidence violation that triggered the block (the verdict reason).
  * @returns {String}
  */
+/**
+ * @summary Honest-mirror note for a VALID driven terminal (the broken-mirror fix). A valid lane-state terminal
+ * is still force-continued under L3 (no autonomous stop) — but that is force-continuation to the NEXT
+ * lane, NOT a rejection of the turn's work for a failed predicate. Naming that keeps the mirror
+ * honest: a bare `(Stop-hook trigger: valid lane-state terminal)` reads as firing-on-compliance. The
+ * no-hold VALUE is untouched — this is message clarity, not an accept-path (AC-1 stays the L3-value
+ * question). Returns `''` for any non-valid-terminal cause (a real predicate failure keeps its reason).
+ * @param {String} cause The verdict reason that triggered the block.
+ * @returns {String}
+ */
+export function composeValidTerminalNote(cause) {
+    return /^valid lane-state terminal\b/.test(String(cause || ''))
+        ? `\n\nYour lane-state terminal is VALID and this turn's driven work is recognized — no predicate failed. This is L3 force-continuation to the NEXT lane, not a rejection of your turn. Drive another named lane and re-emit lane-state; do not re-litigate the terminal.`
+        : '';
+}
+
 export function composeBlockDirective(cause, holdMatches = []) {
     const state     = readLifecycleState(),
           direction = formatGoldenPathDirection(state),
           board     = formatLifecycleBoard(state),
-          costume   = formatHoldCostumeCallout(holdMatches);
-    return `${IDLE_REMINDER}${direction}${board}${costume}\n\n${MIRROR_POINTER}\n\n${SELF_IMPROVABILITY_CLAUSE}\n\n(Stop-hook trigger: ${cause})`;
+          costume   = formatHoldCostumeCallout(holdMatches),
+          validNote = composeValidTerminalNote(cause);
+    return `${IDLE_REMINDER}${direction}${board}${costume}${validNote}\n\n${MIRROR_POINTER}\n\n${SELF_IMPROVABILITY_CLAUSE}\n\n(Stop-hook trigger: ${cause})`;
 }
 
 /**
