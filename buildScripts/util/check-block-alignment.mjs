@@ -201,9 +201,15 @@ function evaluateColonAlignment(lines, maskedLines = []) {
 
 // ─────────────────────────── `=` declaration blocks (v1b) ───────────────────────────
 
+// The DECL_BINDING pattern-class deliberately EXCLUDES `=` from its `{…}`/`[…]` branches: a destructuring
+// binding that carries a DEFAULT (`{a = []}`, `[x = 0]`) holds an `=` that is NOT the assignment operator.
+// Excluding it makes such a line fail to match as a declaration, so it breaks the alignment run (stays
+// untouched) instead of being mis-split at its first `=` by splitAssignment — which erased a valid
+// `{blockedNodes = [], …} = focusContradiction` into a SyntaxError. Default-FREE patterns (`{record}`) carry
+// no `=`, so they still match and align exactly as before — only defaulted patterns are excluded.
 const
     LONE_KEYWORD = /^\s*(?:const|let|var)\s*$/,        // a lone `const`/`let`/`var` line (opens a comma-block)
-    DECL_BINDING = String.raw`(?:[A-Za-z_$][\w$]*|\{[^}]+\}|\[[^\]]+\])`,
+    DECL_BINDING = String.raw`(?:[A-Za-z_$][\w$]*|\{[^}=]+\}|\[[^\]=]+\])`,
     BARE_DECL    = new RegExp(`^(\\s+)${DECL_BINDING}\\s*=\\s*.+$`); // its indented `binding = value` comma-block continuation
 
 const

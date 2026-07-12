@@ -304,6 +304,27 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
             expect(run(file).status).toBe(0);
         });
 
+        test('#15057: a destructuring-with-defaults declarator is left untouched, never mis-split into invalid JS', () => {
+            // The default `=` inside `{blockedNodes = []}` is NOT the assignment operator. Before the guard,
+            // --fix sliced the line at that first `=` and erased `[], ...} = focusContradiction` into a
+            // SyntaxError. Such a line now fails to match as a declaration, breaks the run, and is preserved
+            // byte-for-byte. Default-FREE destructuring (`{record}`, above) still aligns — this is the only
+            // shape excluded. Pins the exact multi-declarator input the aligner corrupted.
+            const original = [
+                'function buildRouteAttributionRecords(focusContradiction) {',
+                '    const {blockedNodes = [], focusCandidates = []} = focusContradiction,',
+                '          focusReasons = [...new Set(focusCandidates.flatMap(c => Array.isArray(c.reasons) ? c.reasons : []))];',
+                '    return {blockedNodes, focusReasons};',
+                '}'
+            ].join('\n');
+            const file = write('d.mjs', original);
+
+            expect(run('--fix', file).status).toBe(0);
+            expect(fs.readFileSync(file, 'utf8')).toBe(original);    // byte-identical: the default `=` is never an alignment column
+            expect(run(file).status).toBe(0);                        // check mode: no drift, so the author is never told to --fix
+            execFileSync('node', ['--check', file], {stdio: 'pipe'}); // throws if --fix left the file un-parseable
+        });
+
         test('#13896: --fix aligns repeated-keyword declaration blocks', () => {
             const file = write('d.mjs', [
                 "const extra     = extraModels.length ? extraModels.join(', ') : 'none';",
@@ -385,7 +406,7 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
         });
 
         test('a block-opening `=` value participates in lone-keyword block alignment', () => {
-            // Regression guard: #13908 changed `me    = this` to `me = this` before a block-opening
+            // Regression guard: an earlier fix collapsed `me    = this` to `me = this` before a block-opening
             // sibling. That is still one declaration block and must align as a whole.
             const file = write('d.mjs', [
                 'const',
