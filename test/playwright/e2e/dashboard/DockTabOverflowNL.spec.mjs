@@ -12,7 +12,7 @@ import { test, expect } from '../../fixtures.mjs';
  *
  * Asserted against the page's OWN DOM — deliberately NOT via the neuralLink bridge, whose `connectToApp`
  * appName-fallback can latch a long-lived stale resident and read the wrong app. The page DOM is the ground
- * truth for "did it render".
+ * truth for "did it render". Journey core contributed by @neo-gpt's fresh-port review probe.
  *
  * Run: NEO_E2E_PORT=8094 npx playwright test dashboard/DockTabOverflowNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
@@ -20,17 +20,16 @@ test.describe('#14771 dock tab-overflow floating control', () => {
     test.setTimeout(120000);
     test.use({ viewport: { width: 600, height: 800 } });
 
-    test('the floating overflow control renders at document.body and its menu surfaces the hidden tabs', async ({ page }) => {
-        page.on('pageerror', err => console.error('BROWSER JS ERROR:', err));
+    test('the floating overflow control renders at document.body, aligns to its owner toolbar, and its menu surfaces + activates the hidden tabs', async ({ page }) => {
+        const pageErrors = [];
+        page.on('pageerror', err => { pageErrors.push(err.message); console.error('BROWSER JS ERROR:', err) });
         await page.goto('/examples/dashboard/dock/');
 
-        // At 600px the 7 main-tabs overflow → the plugin mounts the floating overflow control at
-        // document.body. Poll (the mount settles a beat after the app boots + measures the header extents).
         const control = page.locator('.neo-dock-tab-overflow-control');
         await expect(control).toHaveCount(1, { timeout: 45000 });
 
-        // Out-of-collection invariant: a FLOATING direct child of document.body, NOT a nested item of the
-        // header toolbar — so `owner.items` stays exactly the real tabs.
+        // Out-of-collection invariant: a FLOATING direct child of document.body, NOT a nested header-toolbar
+        // item — so `owner.items` stays exactly the real tabs (a toolbar item would be SortZone-draggable).
         const parentIsBody = await page.evaluate(() =>
             document.querySelector('.neo-dock-tab-overflow-control')?.parentElement === document.body);
         expect(parentIsBody, 'the overflow control must be a direct floating child of document.body').toBe(true);
@@ -38,29 +37,39 @@ test.describe('#14771 dock tab-overflow floating control', () => {
         // It carries the ellipsis affordance.
         await expect(control.locator('.fa-ellipsis')).toHaveCount(1);
 
-        // Owner-relative geometry: the control must sit within a tab-header toolbar's vertical band (aligned
-        // to its owner's right-edge slot), NOT off at a stale pre-settle position. (A prior cycle mounted it
-        // clickable but at y≈310 while the toolbars sit at y≈64..202 — rendered but wrong-owner geometry.)
-        const geom = await page.evaluate(() => {
-            const ctrl     = document.querySelector('.neo-dock-tab-overflow-control'),
-                  toolbars = [...document.querySelectorAll('.neo-tab-header-toolbar')];
-            if (!ctrl || !toolbars.length) return null;
-            const c = ctrl.getBoundingClientRect();
-            return {
-                top    : c.top,
-                bandTop: Math.min(...toolbars.map(t => t.getBoundingClientRect().top)),
-                bandBot: Math.max(...toolbars.map(t => t.getBoundingClientRect().bottom))
-            }
-        });
-        expect(geom, 'control + at least one tab-header toolbar must be in the DOM').not.toBeNull();
-        expect(geom.top, `control top ${geom?.top} must sit inside the toolbar band [${geom?.bandTop}, ${geom?.bandBot}]`)
-            .toBeGreaterThanOrEqual(geom.bandTop - 4);
-        expect(geom.top).toBeLessThanOrEqual(geom.bandBot + 4);
+        // Owner-EXACT geometry: the control's right edge + top align (within 2px) to its owner toolbar — the
+        // one carrying 'Strategy' — NOT a stale pre-settle position. This requires the
+        // `.neo-button.neo-floating { position: fixed }` cascade fix; without it the control is pinned to its
+        // offsetParent instead of the viewport and lands at the wrong coordinates.
+        const mainToolbar = page.locator('.neo-tab-header-toolbar').filter({ hasText: 'Strategy' }).first(),
+              controlBox  = await control.boundingBox(),
+              toolbarBox  = await mainToolbar.boundingBox();
+        expect(Math.abs((controlBox.x + controlBox.width) - (toolbarBox.x + toolbarBox.width)),
+            'control right edge aligns to the toolbar right edge').toBeLessThanOrEqual(2);
+        expect(Math.abs(controlBox.y - toolbarBox.y), 'control top aligns to the toolbar top').toBeLessThanOrEqual(2);
 
-        // Interaction journey: clicking the control opens its dropdown menu, which lists the hidden tabs
-        // (button.Base builds the menu.List itself). At least one hidden-tab entry must be selectable.
+        // Clicking the control opens its dropdown menu of hidden tabs.
         await control.click();
-        const menuItem = page.locator('.neo-list-item, .neo-menu-item').filter({ hasText: /\S/ });
-        await expect(menuItem.first()).toBeVisible({ timeout: 10000 });
+        const menuItems = page.locator('.neo-menu-list:visible .neo-list-item').filter({ hasText: /\S/ });
+        await expect(menuItems.first()).toBeVisible({ timeout: 10000 });
+
+        // Partition: the visible headers + the hidden (menu) headers together are the full tab set — nothing
+        // is lost or duplicated across the visible/hidden split.
+        const normalize      = values => values.map(value => value.trim()).filter(Boolean),
+              visibleHeaders = normalize(await page.locator('.neo-tab-header-button:visible').allTextContents()),
+              hiddenHeaders  = normalize(await menuItems.allTextContents());
+        expect([...visibleHeaders, ...hiddenHeaders].sort()).toEqual(
+            ['Agents', 'Alerts', 'History', 'Inspector', 'Logs', 'Metrics', 'Strategy', 'Swarm', 'Terminal', 'Timeline'].sort());
+
+        // Selection: picking a hidden tab activates it and surfaces it into the header (pressed + visible),
+        // via the ordinary activeIndex path (active-never-hidden), so the picked tab is never left in the menu.
+        const selectedText = (await menuItems.first().innerText()).trim();
+        await menuItems.first().click();
+        await expect(page.locator('.neo-tab-header-button.pressed:visible').filter({ hasText: selectedText })).toHaveCount(1);
+
+        // No unexpected browser errors across the journey — notably, a fixed-positioned align must NOT trip
+        // `ResizeObserver.observe(null)` (offsetParent is null for `position: fixed`), which the DomAccess
+        // null-guard prevents.
+        expect(pageErrors, 'no unexpected page errors during the overflow journey').toEqual([])
     })
 });
