@@ -112,4 +112,76 @@ test.describe('Neo.ai.services.fleet.FleetManager — fleetRuntimeStatus (roster
             {agentId: 'alice', state: 'stopped', running: false, confidence: 'observed', source: 'fleet:runtimeStatus'}
         ]);
     });
+
+    test('an installed-capability refusal surfaces as observed unavailable with a safe reason', () => {
+        const registryStub = {listAgents: () => [{id: 'desktop'}]};
+
+        FleetManager.lifecycleService = {
+            getRegistry: () => registryStub,
+            status     : id => ({
+                id,
+                state        : 'unavailable',
+                running      : false,
+                pid          : null,
+                startedAt    : null,
+                exitCode     : null,
+                failureReason: 'updater-disable-predicate-missing'
+            })
+        };
+
+        expect(FleetManager.fleetRuntimeStatus()).toEqual([{
+            agentId      : 'desktop',
+            state        : 'unavailable',
+            running      : false,
+            confidence   : 'observed',
+            source       : 'fleet:runtimeStatus',
+            failureReason: 'updater-disable-predicate-missing'
+        }]);
+    });
+});
+
+test.describe('Neo.ai.services.fleet.FleetManager — Codex Desktop cleanup failure gates', () => {
+    let calls, registryStub;
+
+    test.beforeEach(() => {
+        calls = [];
+        registryStub = {
+            removeAgent: id => { calls.push(['removeAgent', id]); return {success: true, id}; }
+        };
+
+        FleetManager.lifecycleService = {
+            getRegistry: () => registryStub,
+            stop       : async id => ({success: false, id, state: 'failed', cleanupUnresolved: true})
+        };
+        FleetManager.provisionAndStartFn = async options => {
+            calls.push(['start', options.agentId]);
+            return {id: options.agentId, state: 'running'};
+        };
+    });
+
+    test.afterEach(() => {
+        FleetManager.lifecycleService   = null;
+        FleetManager.provisionAndStartFn = null;
+    });
+
+    test('restart refuses to spawn over ambiguous residual helpers', async () => {
+        await expect(FleetManager.restartAgent('desktop')).rejects.toThrow(/cleanup failed.*refusing to spawn/);
+
+        expect(calls).toEqual([]);
+    });
+
+    test('remove refuses to deregister the owner of ambiguous residual helpers', async () => {
+        await expect(FleetManager.removeAgent('desktop')).rejects.toThrow(/cleanup failed.*refusing to deregister/);
+
+        expect(calls).toEqual([]);
+    });
+
+    test('ordinary failed harnesses retain the legacy restart and removal recovery paths', async () => {
+        FleetManager.lifecycleService.stop = async id => ({success: false, id, state: 'failed', cleanupUnresolved: false});
+
+        await expect(FleetManager.restartAgent('cli')).resolves.toMatchObject({id: 'cli', state: 'running'});
+        await expect(FleetManager.removeAgent('cli')).resolves.toEqual({success: true, id: 'cli'});
+
+        expect(calls).toEqual([['start', 'cli'], ['removeAgent', 'cli']]);
+    });
 });

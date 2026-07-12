@@ -93,6 +93,8 @@ function install({agents = {}, creds = {}} = {}) {
     // Reset the curated-launch resolution fields too — fallback tests set them explicitly.
     FleetLifecycleService.instanceRoot       = null;
     FleetLifecycleService.harnessBinaryPaths = null;
+    FleetLifecycleService.codexDesktopCapabilityProbeFn = null;
+    FleetLifecycleService.codexDesktopCleanupFn         = null;
     return spawnStub;
 }
 
@@ -232,6 +234,16 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService', () => {
         expect(spawn.calls).toHaveLength(1);
     });
 
+    test('raw compatibility launches expose neither launchCommand nor authCommand through status', () => {
+        install({agents: {a: agentDef('a')}, creds: {}});
+
+        const status = FleetLifecycleService.start('a');
+
+        expect(status.launchCommand).toBeNull();
+        expect(status.authCommand).toBeNull();
+        expect(status.authHome).toBeNull();
+    });
+
     test('stop sends SIGTERM and transitions to stopped', async () => {
         const spawn = install({agents: {a: agentDef('a')}, creds: {a: 'ghp_x'}});
         FleetLifecycleService.start('a');
@@ -328,6 +340,246 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — curated launch + 
         expect(args).toEqual(['app-server']);                                   // the long-lived mode is template-owned
         expect(opts.env.CODEX_HOME.startsWith('/srv/fleet/instances/')).toBe(true);
         expect(opts.env.CODEX_HOME).toContain('peer2');                         // agent.id keys the home, never githubUsername-only grain
+    });
+
+    test('curated codex-desktop derivation composes exact cwd, dual homes, typed auth, and direct packaged-main supervision', () => {
+        const
+            cwd   = '/srv/checkouts/peer-desktop/neomjs/neo',
+            spawn = install({agents: {desktop: curatedAgent('desktop', 'codex-desktop')}, creds: {}});
+
+        FleetLifecycleService.instanceRoot       = '/srv/fleet/instances';
+        FleetLifecycleService.harnessBinaryPaths = {'codex-desktop': process.execPath, codex: '/bin/sh'};
+        FleetLifecycleService.codexDesktopCapabilityProbeFn = () => ({
+            available         : true,
+            reason            : null,
+            crashpadExecutable: '/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Helpers/browser_crashpad_handler'
+        });
+        FleetLifecycleService.codexDesktopCleanupFn = async () => ({terminated: [], escalated: []});
+
+        const status       = FleetLifecycleService.start('desktop', {cwd});
+        const {args, opts} = spawn.calls[0];
+
+        expect(args).toEqual([
+            `--user-data-dir=${opts.env.CODEX_ELECTRON_USER_DATA_PATH}`,
+            `--open-project=${cwd}`
+        ]);
+        expect(opts.cwd).toBe(cwd);
+        expect(opts.env.CODEX_HOME).toBe(status.authHome);
+        expect(opts.env.CODEX_ELECTRON_USER_DATA_PATH).toContain('electron-profile');
+        expect(opts.env.CODEX_SPARKLE_ENABLED).toBe('false');
+        expect(opts.env.CODEX_THREAD_ID).toBeUndefined();
+        expect(status.instanceHome).not.toBe(status.authHome);
+        expect(status.launchCommand).toBe(process.execPath);
+        expect(status.authCommand).toBe('/bin/sh');
+        expect(status.authCommand).not.toBe(status.launchCommand);
+        expect(status.authRequired).toBe(true);
+    });
+
+    test('codex-desktop refuses before capability probe/spawn when the final provisioned cwd is absent', () => {
+        const spawn = install({agents: {desktop: curatedAgent('desktop', 'codex-desktop')}, creds: {}});
+
+        FleetLifecycleService.instanceRoot       = '/srv/fleet/instances';
+        FleetLifecycleService.harnessBinaryPaths = {'codex-desktop': process.execPath, codex: process.execPath};
+        FleetLifecycleService.codexDesktopCapabilityProbeFn = () => {
+            throw new Error('must not run');
+        };
+
+        expect(() => FleetLifecycleService.start('desktop')).toThrow(/cwd.*absolute provisioned checkout/);
+        expect(spawn.calls).toHaveLength(0);
+    });
+
+    test('codex-desktop capability failure publishes unavailable and never spawns', () => {
+        const spawn = install({agents: {desktop: curatedAgent('desktop', 'codex-desktop')}, creds: {}});
+
+        FleetLifecycleService.instanceRoot       = '/srv/fleet/instances';
+        FleetLifecycleService.harnessBinaryPaths = {'codex-desktop': process.execPath, codex: process.execPath};
+        FleetLifecycleService.codexDesktopCapabilityProbeFn = () => ({available: false, reason: 'updater-disable-predicate-missing'});
+
+        expect(() => FleetLifecycleService.start('desktop', {cwd: '/srv/checkouts/desktop'})).toThrow(/codex-desktop is unavailable.*updater-disable-predicate-missing/);
+        expect(spawn.calls).toHaveLength(0);
+        expect(FleetLifecycleService.status('desktop')).toMatchObject({
+            state        : 'unavailable',
+            running      : false,
+            failureReason: 'updater-disable-predicate-missing'
+        });
+    });
+
+    test('codex-desktop missing bundled CLI publishes unavailable before capability probing or spawn', () => {
+        const spawn  = install({agents: {desktop: curatedAgent('desktop', 'codex-desktop')}, creds: {}});
+        let   probed = false;
+
+        FleetLifecycleService.instanceRoot       = '/srv/fleet/instances';
+        FleetLifecycleService.harnessBinaryPaths = {'codex-desktop': process.execPath, codex: '/definitely/missing/codex'};
+        FleetLifecycleService.codexDesktopCapabilityProbeFn = () => {
+            probed = true;
+            return {available: true, crashpadExecutable: '/app/browser_crashpad_handler'};
+        };
+
+        expect(() => FleetLifecycleService.start('desktop', {cwd: '/srv/checkouts/desktop'})).toThrow(/bundled Codex CLI auth command is unavailable/);
+        expect(probed).toBe(false);
+        expect(spawn.calls).toHaveLength(0);
+        expect(FleetLifecycleService.status('desktop')).toMatchObject({
+            state        : 'unavailable',
+            failureReason: 'bundled Codex CLI auth command is unavailable'
+        });
+    });
+
+    test('codex-desktop child never inherits an ambient CODEX_THREAD_ID', () => {
+        const
+            previous = process.env.CODEX_THREAD_ID,
+            spawn    = install({agents: {desktop: curatedAgent('desktop', 'codex-desktop')}, creds: {}});
+
+        FleetLifecycleService.instanceRoot       = '/srv/fleet/instances';
+        FleetLifecycleService.harnessBinaryPaths = {'codex-desktop': process.execPath, codex: process.execPath};
+        FleetLifecycleService.codexDesktopCapabilityProbeFn = () => ({
+            available         : true,
+            crashpadExecutable: '/app/browser_crashpad_handler'
+        });
+        process.env.CODEX_THREAD_ID = 'ambient-thread-must-not-cross';
+
+        try {
+            FleetLifecycleService.start('desktop', {cwd: '/srv/checkouts/desktop'});
+            expect(spawn.calls[0].opts.env.CODEX_THREAD_ID).toBeUndefined();
+        } finally {
+            if (previous === undefined) delete process.env.CODEX_THREAD_ID;
+            else process.env.CODEX_THREAD_ID = previous;
+        }
+    });
+
+    test('codex-desktop auth marker is scoped to the nested authHome, never the parent instanceHome', () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fleet-codex-desktop-auth-'));
+
+        try {
+            install({agents: {desktop: curatedAgent('desktop', 'codex-desktop')}, creds: {}});
+            FleetLifecycleService.instanceRoot       = root;
+            FleetLifecycleService.harnessBinaryPaths = {'codex-desktop': process.execPath, codex: process.execPath};
+            FleetLifecycleService.codexDesktopCapabilityProbeFn = () => ({
+                available         : true,
+                crashpadExecutable: '/app/browser_crashpad_handler'
+            });
+
+            const started = FleetLifecycleService.start('desktop', {cwd: '/srv/checkouts/desktop'});
+
+            fs.mkdirSync(started.instanceHome, {recursive: true});
+            fs.writeFileSync(path.join(started.instanceHome, 'auth.json'), '{}');
+            expect(FleetLifecycleService.status('desktop').authRequired).toBe(true);
+
+            fs.mkdirSync(started.authHome, {recursive: true});
+            fs.writeFileSync(path.join(started.authHome, 'auth.json'), '{}');
+            expect(FleetLifecycleService.status('desktop').authRequired).toBe(false);
+        } finally {
+            fs.rmSync(root, {recursive: true, force: true});
+        }
+    });
+
+    test('codex-desktop stop waits for exact-profile helper cleanup before reporting stopped', async () => {
+        const spawn = install({agents: {desktop: curatedAgent('desktop', 'codex-desktop')}, creds: {}}),
+              calls = [];
+
+        FleetLifecycleService.instanceRoot       = '/srv/fleet/instances';
+        FleetLifecycleService.harnessBinaryPaths = {'codex-desktop': process.execPath, codex: process.execPath};
+        FleetLifecycleService.codexDesktopCapabilityProbeFn = () => ({
+            available         : true,
+            crashpadExecutable: '/app/browser_crashpad_handler'
+        });
+        FleetLifecycleService.codexDesktopCleanupFn = async options => {
+            calls.push(options);
+            await Promise.resolve();
+            return {terminated: [1, 2], escalated: []};
+        };
+
+        FleetLifecycleService.start('desktop', {cwd: '/srv/checkouts/desktop'});
+        const stopped = await FleetLifecycleService.stop('desktop');
+
+        expect(spawn.calls[0].child.signals).toContain('SIGTERM');
+        expect(calls).toHaveLength(1);
+        expect(calls[0].electronProfile).toContain('electron-profile');
+        expect(stopped).toMatchObject({success: true, state: 'stopped'});
+        expect(FleetLifecycleService.status('desktop').state).toBe('stopped');
+    });
+
+    test('codex-desktop stop joins helper finalization already started by a natural main exit', async () => {
+        const spawn = install({agents: {desktop: curatedAgent('desktop', 'codex-desktop')}, creds: {}});
+        let releaseCleanup;
+
+        FleetLifecycleService.instanceRoot       = '/srv/fleet/instances';
+        FleetLifecycleService.harnessBinaryPaths = {'codex-desktop': process.execPath, codex: process.execPath};
+        FleetLifecycleService.codexDesktopCapabilityProbeFn = () => ({
+            available         : true,
+            crashpadExecutable: '/app/browser_crashpad_handler'
+        });
+        FleetLifecycleService.codexDesktopCleanupFn = () => new Promise(resolve => { releaseCleanup = resolve });
+
+        FleetLifecycleService.start('desktop', {cwd: '/srv/checkouts/desktop'});
+        spawn.calls[0].child.emit('exit', 0, null);
+        await Promise.resolve();
+
+        expect(FleetLifecycleService.status('desktop').state).toBe('stopping');
+        expect(() => FleetLifecycleService.start('desktop', {cwd: '/srv/checkouts/desktop'})).toThrow(/still being finalized/);
+        expect(spawn.calls).toHaveLength(1);
+
+        let   settled = false;
+        const stop    = FleetLifecycleService.stop('desktop').then(result => {
+            settled = true;
+            return result;
+        });
+
+        await Promise.resolve();
+        expect(settled).toBe(false);
+
+        releaseCleanup({terminated: [], escalated: []});
+
+        await expect(stop).resolves.toMatchObject({success: true, state: 'stopped'});
+    });
+
+    test('codex-desktop ambiguous helper ownership fails stop status instead of broadening cleanup', async () => {
+        const spawn           = install({agents: {desktop: curatedAgent('desktop', 'codex-desktop')}, creds: {}});
+        let   cleanupAttempts = 0;
+
+        FleetLifecycleService.instanceRoot       = '/srv/fleet/instances';
+        FleetLifecycleService.harnessBinaryPaths = {'codex-desktop': process.execPath, codex: process.execPath};
+        FleetLifecycleService.codexDesktopCapabilityProbeFn = () => ({
+            available         : true,
+            crashpadExecutable: '/app/browser_crashpad_handler'
+        });
+        FleetLifecycleService.codexDesktopCleanupFn = async () => {
+            if (++cleanupAttempts === 1) throw new Error('ambiguous profile-owned process identity');
+            return {terminated: [], escalated: []};
+        };
+
+        FleetLifecycleService.start('desktop', {cwd: '/srv/checkouts/desktop'});
+        const stopped = await FleetLifecycleService.stop('desktop');
+
+        expect(stopped).toMatchObject({success: false, state: 'failed'});
+        expect(stopped.cleanupUnresolved).toBe(true);
+        expect(FleetLifecycleService.status('desktop').failureReason).toContain('ambiguous profile-owned process identity');
+        expect(() => FleetLifecycleService.start('desktop', {cwd: '/srv/checkouts/desktop'})).toThrow(/refusing to spawn.*lifecycle failure/);
+
+        await expect(FleetLifecycleService.stop('desktop')).resolves.toMatchObject({success: true, state: 'stopped', cleanupUnresolved: false});
+        expect(cleanupAttempts).toBe(2);
+
+        expect(FleetLifecycleService.start('desktop', {cwd: '/srv/checkouts/desktop'})).toMatchObject({state: 'running'});
+        expect(spawn.calls).toHaveLength(2);
+    });
+
+    test('codex-desktop child error after spawn preserves stop authority until helper cleanup succeeds', async () => {
+        const spawn = install({agents: {desktop: curatedAgent('desktop', 'codex-desktop')}, creds: {}});
+
+        FleetLifecycleService.instanceRoot       = '/srv/fleet/instances';
+        FleetLifecycleService.harnessBinaryPaths = {'codex-desktop': process.execPath, codex: process.execPath};
+        FleetLifecycleService.codexDesktopCapabilityProbeFn = () => ({
+            available         : true,
+            crashpadExecutable: '/app/browser_crashpad_handler'
+        });
+        FleetLifecycleService.codexDesktopCleanupFn = async () => ({terminated: [], escalated: []});
+
+        FleetLifecycleService.start('desktop', {cwd: '/srv/checkouts/desktop'});
+        spawn.calls[0].child.emit('error', new Error('synthetic child error'));
+
+        expect(FleetLifecycleService.status('desktop')).toMatchObject({state: 'failed', cleanupUnresolved: true});
+        expect(() => FleetLifecycleService.start('desktop', {cwd: '/srv/checkouts/desktop'})).toThrow(/unresolved after a lifecycle failure/);
+
+        await expect(FleetLifecycleService.stop('desktop')).resolves.toMatchObject({state: 'stopped', cleanupUnresolved: false});
     });
 
     test('curated claude-code derivation is reachable (registry vocabulary aligned) and pins the stream-json mode', () => {

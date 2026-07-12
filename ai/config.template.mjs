@@ -99,7 +99,15 @@ class Config extends ConfigProvider {
                      * leaf, and the lifecycle status's `binaryVersion` surfaces what actually ran.
                      * @type {string}
                      */
-                    codex: leaf('/Applications/ChatGPT.app/Contents/Resources/codex', 'NEO_FLEET_CODEX_BIN', 'string')
+                    codex: leaf('/Applications/ChatGPT.app/Contents/Resources/codex', 'NEO_FLEET_CODEX_BIN', 'string'),
+                    /**
+                     * The Codex Desktop packaged MAIN binary — directly spawnable and supervised.
+                     * Its private app-profile/project/updater capabilities are probed from the
+                     * installed bundle before every first spawn; this leaf only owns executable
+                     * location, never compatibility policy.
+                     * @type {string}
+                     */
+                    codexDesktop: leaf('/Applications/ChatGPT.app/Contents/MacOS/ChatGPT', 'NEO_FLEET_CODEX_DESKTOP_BIN', 'string')
                 }
             },
             /**
