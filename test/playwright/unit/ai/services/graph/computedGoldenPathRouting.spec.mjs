@@ -122,6 +122,55 @@ test.describe('computedGoldenPathRouting — the contradiction guard (routing-de
         expect(section).toContain('1. **issue-300**');
         expect(section).toContain('prio-zero');
     });
+
+    test('RA-2 (#15058) — epic + actionable-leaf focus: the leaf routes, the epic umbrella does NOT (single actionability authority)', () => {
+        const contradiction = findComputedFocusContradiction({
+            currentFocusCandidates: [
+                {number: 100, reasons: ['incident'], labels: ['epic', 'bug'], title: 'incident epic umbrella'},
+                {number: 101, reasons: ['incident'], labels: ['bug'],         title: 'incident: the actual leaf fix'}
+            ],
+            topNodes: [contentNode('issue-200')]
+        });
+
+        const section = renderComputedGoldenPathContradictionSection({contradiction, stats: {}, renderLimit: 10});
+
+        // the actionable leaf is a numbered route; the epic umbrella is NOT rendered as a machine route
+        expect(section).toMatch(/^\d+\.\s+\*\*issue-101\*\*/m);
+        expect(section).not.toMatch(/^\d+\.\s+\*\*issue-100\*\*/m);
+        // the epic still appears in the diagnostic focus-candidates line (visibility, not route)
+        expect(section).toMatch(/Active incident\/release focus candidates:.*#100/);
+    });
+
+    test('RA-2 (#15058) — epic-only focus: ZERO numbered routes, surfaced diagnostically (no umbrella-as-route lie)', () => {
+        const contradiction = findComputedFocusContradiction({
+            currentFocusCandidates: [{number: 100, reasons: ['incident'], labels: ['epic'], title: 'incident epic'}],
+            topNodes              : [contentNode('issue-200')]
+        });
+
+        const section = renderComputedGoldenPathContradictionSection({contradiction, stats: {}, renderLimit: 10});
+
+        // no numbered machine route at all — an epic umbrella is not immediate work
+        expect(section).not.toMatch(/^\d+\.\s+\*\*issue-/m);
+        expect(section).toContain('visibility-only');
+        // still surfaced diagnostically so the pass is not context-empty
+        expect(section).toMatch(/Active incident\/release focus candidates:.*#100/);
+    });
+
+    test('RA-2 (#15058) — actionable focus is bounded to the Golden Path render limit (noisy focus set)', () => {
+        const currentFocusCandidates = Array.from({length: 8}, (_, i) => ({
+            number: 200 + i, reasons: ['incident'], labels: ['bug'], title: `incident leaf ${i}`
+        }));
+
+        const contradiction = findComputedFocusContradiction({
+            currentFocusCandidates,
+            topNodes: [contentNode('issue-900')]
+        });
+
+        const section    = renderComputedGoldenPathContradictionSection({contradiction, stats: {}, renderLimit: 3});
+        const routeLines = section.split('\n').filter(line => /^\d+\.\s+\*\*issue-/.test(line));
+
+        expect(routeLines).toHaveLength(3);
+    });
 });
 
 test.describe('computedGoldenPathRouting — the fixture-provenance guard (source-set hygiene)', () => {

@@ -182,8 +182,9 @@ export function findComputedFocusContradiction({
  */
 export function renderComputedGoldenPathContradictionSection({
     contradiction,
-    stats      = {},
-    capturedAt = new Date()
+    stats       = {},
+    capturedAt  = new Date(),
+    renderLimit
 } = {}) {
     const count       = value => Number.isFinite(Number(value)) ? Number(value) : 0;
     const focusItems  = contradiction?.focusCandidates || [];
@@ -192,25 +193,50 @@ export function renderComputedGoldenPathContradictionSection({
         .map(item => item.node.id)
         .join(', ') || 'none';
 
+    // Route ONLY focus candidates that pass the SAME actionability authority the computed surface uses —
+    // an epic umbrella / not-code-ready item is visibility, never an immediate machine route. Reusing
+    // isActionableComputedRecommendation (not a divergent label list) keeps a single authority.
+    const routableFocus = focusItems.filter(candidate => isActionableComputedRecommendation({
+        id        : `issue-${candidate.number}`,
+        type      : 'ISSUE',
+        properties: {labels: candidate.labels, title: candidate.title}
+    }));
+    // Bound to the caller's Golden Path render limit — no hidden default: unbounded only when the caller
+    // supplies none (the synthesizer passes aiConfig.goldenPathTopNodeRenderLimit).
+    const routedFocus = Number.isFinite(renderLimit) ? routableFocus.slice(0, renderLimit) : routableFocus;
+
     const lines = [
         '',
         '## Computed Golden Path (Strategic Recommendation)',
         '',
         `Captured at: ${formatGoldenPathTimestamp(capturedAt)}`,
-        '',
-        'Every surviving computed content/narrative candidate contradicted live Current Release / Incident Focus, so no computed candidate survived the guard. The live focus work is surfaced as the immediate route instead of an empty pass:',
         ''
     ];
 
-    // No-survivor focus-as-route fallback: render the live Current Focus items as the numbered route so
-    // the pass is never empty (the zero-route class). The blocked computed content is NOT routed — it
-    // stays in the diagnostic filtered line below.
-    focusItems.forEach((candidate, index) => {
-        const label = candidate.title || candidate.name ||
-            (Array.isArray(candidate.reasons) ? candidate.reasons.join(', ') : 'Current Release / Incident Focus');
+    if (routedFocus.length > 0) {
+        // No-survivor focus-as-route fallback: render the live ACTIONABLE Current Focus items as the
+        // numbered route so the pass is never empty (the zero-route class). Blocked computed content is
+        // NOT routed — it stays in the diagnostic filtered line below.
+        lines.push(
+            'Every surviving computed content/narrative candidate contradicted live Current Release / Incident Focus, so no computed candidate survived the guard. The live actionable focus work is surfaced as the immediate route instead of an empty pass:',
+            ''
+        );
 
-        lines.push(`${index + 1}. **issue-${candidate.number}**: Current Release / Incident Focus (${label})`)
-    });
+        routedFocus.forEach((candidate, index) => {
+            const label = candidate.title || candidate.name ||
+                (Array.isArray(candidate.reasons) ? candidate.reasons.join(', ') : 'Current Release / Incident Focus');
+
+            lines.push(`${index + 1}. **issue-${candidate.number}**: Current Release / Incident Focus (${label})`)
+        });
+    } else {
+        // Epic-only / no-actionable-focus: the honest state is NO immediate route — an epic umbrella or
+        // not-code-ready item is not immediate machine work. Render the focus diagnostically (named, never
+        // as a numbered route) rather than lying that an umbrella is the immediate route.
+        lines.push(
+            'No computed candidate survived the contradiction guard, and the live Current Release / Incident Focus is visibility-only this pass (epic umbrella / not-code-ready) — there is no actionable immediate computed route. The focus context is surfaced diagnostically below, NOT as a machine route.',
+            ''
+        );
+    }
 
     lines.push(
         '',
@@ -222,7 +248,7 @@ export function renderComputedGoldenPathContradictionSection({
         `- Selected routed nodes: ${count(stats.selectedTopNodes)}`,
         `- Stale frontier GUIDES pruned: ${count(stats.prunedGuideEdges)}`,
         '',
-        '> **Routing Guard:** the numbered items above are the live Current Release / Incident Focus, surfaced as the route ONLY because zero computed candidate survived the contradiction filter. Focus is never boosted into routing while a computed candidate survives — that state routes the computed candidate directly.',
+        '> **Routing Guard:** any numbered items above are the live ACTIONABLE Current Release / Incident Focus, surfaced as the route ONLY because zero computed candidate survived the contradiction filter; epic / visibility-only focus is never rendered as a route. Focus is never boosted into routing while a computed candidate survives — that state routes the computed candidate directly.',
         ''
     );
 
