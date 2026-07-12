@@ -13,12 +13,13 @@ setup({
     }
 });
 
-import {test, expect}       from '@playwright/test';
-import Neo                  from '../../../../../../src/Neo.mjs';
-import * as core            from '../../../../../../src/core/_export.mjs';
-import FleetControlBridge   from '../../../../../../ai/services/fleet/FleetControlBridge.mjs';
-import FleetManager         from '../../../../../../ai/services/fleet/FleetManager.mjs';
-import FleetRegistryService from '../../../../../../ai/services/fleet/FleetRegistryService.mjs';
+import {test, expect}          from '@playwright/test';
+import Neo                     from '../../../../../../src/Neo.mjs';
+import * as core               from '../../../../../../src/core/_export.mjs';
+import FleetControlBridge      from '../../../../../../ai/services/fleet/FleetControlBridge.mjs';
+import FleetManager            from '../../../../../../ai/services/fleet/FleetManager.mjs';
+import FleetRegistryService    from '../../../../../../ai/services/fleet/FleetRegistryService.mjs';
+import {resolveOpenLaneCounts} from '../../../../../../ai/services/fleet/resolveOpenLaneCounts.mjs';
 
 // FleetControlBridge is a singleton — the default export is the instance. Its `registry` / `manager`
 // are plain injectable-seam fields (the sibling FleetManager.lifecycleService precedent), so each test
@@ -50,6 +51,9 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
 
         FleetControlBridge.registry = registryStub;
         FleetControlBridge.manager  = managerStub;
+        // keep every fleetRoster test hermetic by default — a stub empty-count map so the assembler
+        // never scans the live (drifting) issues corpus; the dedicated openLaneCount tests override it
+        FleetControlBridge.laneCountResolver = () => new Map();
     });
 
     test.afterEach(() => {
@@ -58,6 +62,7 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
         FleetControlBridge.bootIdentitySource = null;
         FleetControlBridge.activitySource     = null;
         FleetControlBridge.identityResolver   = null;
+        FleetControlBridge.laneCountResolver  = null;
     });
 
     // ---- delegation: the registry (define / list / get) half ----
@@ -277,6 +282,43 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
         expect(rows[1]).toMatchObject({id: 'cli',    launchable: true,  authMode: 'marker'});
         expect(rows[2]).toMatchObject({id: 'codexd', launchable: true,  authMode: 'marker'});
         expect(rows[3]).toMatchObject({id: 'native', launchable: false, authMode: null});
+    });
+
+    test('fleetRoster stamps openLaneCount per row from the resolver seam — a resident absent from the count map stays null, never 0', () => {
+        registryStub.listAgents = () => [
+            {id: 'neo-opus-ada', githubUsername: 'neo-opus-ada', harnessType: 'codex'},
+            {id: 'idle-agent',   githubUsername: 'idle-agent',   harnessType: 'codex'}
+        ];
+        managerStub.fleetRepoStatus    = () => [];
+        managerStub.fleetRuntimeStatus = () => [];
+        // the seam is injected keyed by githubUsername — ada has open lanes, idle-agent is absent
+        FleetControlBridge.laneCountResolver = () => new Map([['neo-opus-ada', 7]]);
+
+        const rows = FleetControlBridge.fleetRoster().rows;
+
+        expect(rows[0]).toMatchObject({id: 'neo-opus-ada', openLaneCount: 7});
+        // absent from the map -> null (the card renders NO badge); a guessed 0 would be a lie
+        expect(rows[1]).toMatchObject({id: 'idle-agent', openLaneCount: null});
+    });
+
+    test('fleetRoster swallows a throwing lane-count resolver — every openLaneCount is null, the roster read never fails', () => {
+        registryStub.listAgents = () => [
+            {id: 'neo-opus-ada', githubUsername: 'neo-opus-ada', harnessType: 'codex'}
+        ];
+        managerStub.fleetRepoStatus    = () => [];
+        managerStub.fleetRuntimeStatus = () => [];
+        FleetControlBridge.laneCountResolver = () => { throw new Error('corpus read exploded'); };
+
+        // the enricher trouble must degrade the FIELD, not throw the verb (the badge's tri-state rule)
+        const dto = FleetControlBridge.fleetRoster();
+
+        expect(dto.rows[0]).toMatchObject({id: 'neo-opus-ada', openLaneCount: null});
+    });
+
+    test('fleetRoster defaults the lane-count resolver to resolveOpenLaneCounts when not injected', () => {
+        FleetControlBridge.laneCountResolver = null;
+
+        expect(FleetControlBridge.getLaneCountResolver()).toBe(resolveOpenLaneCounts);
     });
 
     // ---- the security boundary: the allowlist OMITS the Brain-internal secret paths ----

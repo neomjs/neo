@@ -2,6 +2,7 @@ import Base                     from '../../../src/core/Base.mjs';
 import FleetManager             from './FleetManager.mjs';
 import FleetRegistryService     from './FleetRegistryService.mjs';
 import {resolveIdentityDisplay} from './resolveIdentityDisplay.mjs';
+import {resolveOpenLaneCounts}  from './resolveOpenLaneCounts.mjs';
 
 import {LAUNCHABLE_HARNESS_TYPES, getHarnessAuthMode} from './deriveHarnessLaunchSpec.mjs';
 
@@ -104,6 +105,17 @@ class FleetControlBridge extends Base {
     identityResolver = null
 
     /**
+     * Open-lane-count resolver seam — reads each resident's OPEN assigned-issue count from the local
+     * synced issues corpus for the {@link #fleetRoster} `openLaneCount` stamp. Defaults (via
+     * {@link getLaneCountResolver}) to `resolveOpenLaneCounts`; inject a stub in tests. A plain
+     * injectable field mirroring `identityResolver`. It returns a `Map<login, count>`; the assembler
+     * stamps a resident ABSENT from the map as `null` (never a guessed zero) and swallows a throw
+     * from this seam to that same null — the roster read never fails on enricher trouble.
+     * @member {Function|null} laneCountResolver=null
+     */
+    laneCountResolver = null
+
+    /**
      * @returns {Object} the registry collaborator (injected stub or the default singleton).
      * @protected
      */
@@ -117,6 +129,14 @@ class FleetControlBridge extends Base {
      */
     getIdentityResolver() {
         return this.identityResolver || resolveIdentityDisplay;
+    }
+
+    /**
+     * @returns {Function} the open-lane-count resolver (injected stub or the module default).
+     * @protected
+     */
+    getLaneCountResolver() {
+        return this.laneCountResolver || resolveOpenLaneCounts;
     }
 
     /**
@@ -318,7 +338,11 @@ class FleetControlBridge extends Base {
      * diff), stamps the launch-derived truth per agent (`launchable` = the family is in the
      * launch-templated subset; `authMode` = `'marker' | 'in-app' | null` — both DERIVED at read
      * time from the launch seam, never a second hand-maintained list, so a family becomes
-     * cockpit-launchable exactly when its template lands), and hands the enriched agents to the
+     * cockpit-launchable exactly when its template lands), stamps each resident's `openLaneCount`
+     * from the local synced issues corpus through the ONE {@link #getLaneCountResolver} seam
+     * (tri-state: `null` when the corpus resolves no count for a resident, never a guessed zero; a
+     * resolver throw degrades every count to null, the read never fails), and hands the enriched
+     * agents to the
      * Body-side pure map (`createFleetCockpitStatus` — which never imports `ai/graph` or the Brain
      * launch seam; the hemisphere boundary holds, the Body only hoists what arrives stamped).
      *
@@ -336,12 +360,28 @@ class FleetControlBridge extends Base {
             manager  = me.getManager(),
             resolve  = me.getIdentityResolver();
 
-        const agents = (registry.listAgents() ?? []).map(agent => ({
-            ...agent,
-            ...resolve(agent.githubUsername ?? agent.id),
-            launchable: LAUNCHABLE_HARNESS_TYPES.includes(agent.harnessType),
-            authMode  : getHarnessAuthMode(agent.harnessType)
-        }));
+        // Scan the open-lane counts ONCE per assembly (not per agent) and stamp them by lookup. A
+        // throw from the injected/default resolver degrades EVERY count to null — the roster read
+        // never fails on enricher trouble (the badge's tri-state honesty: null, never a guessed 0).
+        let laneCounts;
+
+        try {
+            laneCounts = me.getLaneCountResolver()() || new Map();
+        } catch (error) {
+            laneCounts = new Map();
+        }
+
+        const agents = (registry.listAgents() ?? []).map(agent => {
+            const login = agent.githubUsername ?? agent.id;
+
+            return {
+                ...agent,
+                ...resolve(login),
+                launchable   : LAUNCHABLE_HARNESS_TYPES.includes(agent.harnessType),
+                authMode     : getHarnessAuthMode(agent.harnessType),
+                openLaneCount: laneCounts.get(login) ?? null
+            }
+        });
 
         return createFleetCockpitStatus({
             agents,
