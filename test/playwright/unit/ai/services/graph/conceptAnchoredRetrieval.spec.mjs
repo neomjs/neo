@@ -52,14 +52,20 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval (#14504)', () => {
         expect(tokenizeQuery('')).toEqual([]);
     });
 
-    test('exact full-query key beats token matches and unifies ALL aliases in one cluster entry', () => {
+    test('exact full-query key beats token matches and unifies the format/case/separator variants in one cluster', () => {
         const resolved = resolveConcepts({graphService: SPINE, query: 'golden path'});
 
         expect(resolved[0].clusterKey).toBe('golden-path');
         expect(resolved[0].matchType).toBe('exact-key');
         expect(resolved[0].score).toBe(1.0);
-        // Alias tolerance: every minted convention of the fragmented concept in ONE entry.
+        // the case/separator/format variants share the normalized cluster key → one entry
         expect(resolved[0].members).toEqual(['CONCEPT:GoldenPath', 'CONCEPT:Golden_Path', 'golden-path']);
+
+        // honest scope boundary: a semantically-distinct form normalizes to a DIFFERENT key, so it is
+        // correctly ITS OWN cluster — NOT folded into golden-path (unifying true aliasOf synonyms via
+        // the canonical concept-spine map is the follow-up alias RA, not the normalizer's job).
+        const synthesis = resolved.find(c => c.clusterKey === 'golden-path-synthesis');
+        expect(synthesis?.members).toEqual(['CONCEPT:Golden Path Synthesis']);
     });
 
     test('bigram keys outrank single-token containment', () => {

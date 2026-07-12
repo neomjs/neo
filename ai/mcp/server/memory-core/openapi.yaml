@@ -2587,7 +2587,7 @@ components:
         conceptWalk:
           type: boolean
           default: false
-          description: "Opt-in concept-anchored retrieval. When true, augments (never replaces) the flat embedding results with memories reached via a bounded concept-neighborhood graph walk over the query's concepts — each re-authorized through the same tenant/tombstone/trust gate the flat path uses, and stamped with walk provenance (via/conceptPath/present-axis annotations). Default false returns the flat results unchanged."
+          description: "Opt-in: when true, additionally returns memories reached via a bounded concept-graph walk over the query, appended to the embedding results and deduped, each carrying `via`/`conceptPath` provenance. Default false returns the embedding results only."
 
     QueryMemoriesResponse:
       type: object

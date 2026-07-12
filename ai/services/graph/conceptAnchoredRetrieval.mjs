@@ -11,8 +11,11 @@ import {conceptClusterKey, walkConceptNeighborhood} from './conceptNeighborhoodP
  * 2026-07-02), so cluster-key matching over node ids is the full-coverage first slice; semantic
  * assist over the vectored subset is the recall-extender once the canonical spine lands.
  *
- * Alias tolerance: resolution operates on cluster KEYS (the merged probe module's normalizer), so a query hits
- * every minted alias of a fragmented concept (the 5-alias golden-path case) in one entry.
+ * Alias tolerance (mechanical scope): resolution groups CONCEPT/CLASS ids that share a NORMALIZED
+ * cluster key — the case / separator / format variants of one concept (`CONCEPT:GoldenPath` /
+ * `CONCEPT:Golden_Path` / `golden-path`). A form that normalizes to a DIFFERENT key (e.g.
+ * `Golden Path Synthesis` → `golden-path-synthesis`) is correctly its own cluster; unifying true
+ * `aliasOf` synonyms via the canonical concept-spine map is a follow-up (the ticket's alias RA).
  */
 
 /**
