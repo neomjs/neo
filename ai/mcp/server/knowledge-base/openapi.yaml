@@ -550,10 +550,47 @@ paths:
                           type: string
                         score:
                           type: number
+                          nullable: true
+                          description: "Embedding similarity for flat references; null for concept-walk references, which carry graph provenance rather than an embedding score."
+                        via:
+                          type: string
+                          nullable: true
+                          description: "Reference provenance: absent/null for embedding hits; 'concept-walk' for docs reached through the bounded concept-graph walk."
+                        conceptPath:
+                          type: array
+                          nullable: true
+                          items:
+                            type: string
+                          description: "Ordered concept-neighborhood hops (CONCEPT→FILE) by which the walk reached this doc. Null for embedding references."
                   conceptWalk:
                     type: object
                     nullable: true
-                    description: "Present only when the conceptWalk opt-in ran — the retrieval event: which concepts resolved, whether the walk contributed, the added/filtered counts, and walkDurationMs. Absent on the default flat path."
+                    description: "Present only when the conceptWalk opt-in ran (absent on the default flat path) — the retrieval event, mirroring RETRIEVAL_EVENT_SCHEMA."
+                    properties:
+                      event:
+                        type: string
+                        description: "Event name (e.g. 'concept_walk')."
+                      query:
+                        type: string
+                      resolvedConcepts:
+                        type: array
+                        items:
+                          type: string
+                        description: "Concept cluster-keys the query resolved to (the walk roots)."
+                      walkContributed:
+                        type: boolean
+                        description: "Whether the walk appended at least one new reference."
+                      candidatesAdded:
+                        type: integer
+                        description: "Concept-walk references appended after dedup + tenant/type re-authorization."
+                      filteredOut:
+                        type: integer
+                        description: "Walk candidates dropped by re-authorization or dedup."
+                      walkDurationMs:
+                        type: number
+                      truncated:
+                        type: boolean
+                        description: "True when the walk was cut short by its hop/hydration budget."
         '500':
           description: Internal server error.
           content:
