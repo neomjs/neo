@@ -5,7 +5,7 @@ import Plugin from '../../plugin/Base.mjs';
  * @summary The tab-overflow affordance for a projected tab header toolbar: when the headers exceed the
  * available width, the overflowing tabs collapse behind a floating overflow control whose menu reaches them.
  *
- * The pure decision is this plugin's own static {@link Neo.tab.plugin.Overflow.computeTabOverflow} — a
+ * The pure decision is this plugin's own static {@link Neo.tab.plugin.Overflow.computeOverflow} — a
  * projection concern, nothing persists. This plugin is the RUNTIME complement: it measures the live header extents
  * the pure core can only be handed, applies its verdict to the header buttons, and surfaces the hidden
  * remainder through a single overflow control whose selection routes back through the tab.Container's
@@ -66,7 +66,7 @@ class Overflow extends Plugin {
      * @param {Number}   [config.controlWidth=0] Width reserved for the overflow control (only when overflowing).
      * @returns {{visible: String[], hidden: String[]}}
      */
-    static computeTabOverflow({items, extent, activeItemId, controlWidth = 0}) {
+    static computeOverflow({items, extent, activeItemId, controlWidth = 0}) {
         const list  = Array.isArray(items) ? items : [],
               width = entry => {
                   const value = Number(entry?.headerWidth);
@@ -266,7 +266,7 @@ class Overflow extends Plugin {
 
                 // 3. The pure decision: active-never-hidden packing, overflow-only control reservation.
                 //    The pure core is this plugin's own static (below) — no adapter namespace-reach, no cycle.
-                {hidden} = Overflow.computeTabOverflow({
+                {hidden} = Overflow.computeOverflow({
                     activeItemId: activeButton?.id,
                     controlWidth: me.controlWidth,
                     extent,

@@ -22,7 +22,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
     let Overflow;
 
     test.beforeAll(async () => {
-        // The plugin owns computeTabOverflow as its own static — no adapter import needed (the adapter chain
+        // The plugin owns computeOverflow as its own static — no adapter import needed (the adapter chain
         // exits the test path with the tab-native re-home).
         Overflow = (await import('../../../../../src/tab/plugin/Overflow.mjs')).default
     });
@@ -192,7 +192,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
     })
 });
 
-test.describe('Neo.tab.plugin.Overflow.computeTabOverflow — the pure overflow core (projection concern, zero model state)', () => {
+test.describe('Neo.tab.plugin.Overflow.computeOverflow — the pure overflow core (projection concern, zero model state)', () => {
     let Overflow;
 
     test.beforeAll(async () => {
@@ -202,7 +202,7 @@ test.describe('Neo.tab.plugin.Overflow.computeTabOverflow — the pure overflow 
     const items = widths => Object.entries(widths).map(([id, headerWidth]) => ({id, headerWidth}));
 
     test('everything fits: empty hidden set, control width NOT reserved', () => {
-        const result = Overflow.computeTabOverflow({
+        const result = Overflow.computeOverflow({
             activeItemId: 'a',
             controlWidth: 40,
             extent      : 300,
@@ -214,7 +214,7 @@ test.describe('Neo.tab.plugin.Overflow.computeTabOverflow — the pure overflow 
     });
 
     test('overflow: control width reserved, in-order packing, remainder hidden in items order', () => {
-        const result = Overflow.computeTabOverflow({
+        const result = Overflow.computeOverflow({
             activeItemId: 'a',
             controlWidth: 40,
             extent      : 300,
@@ -226,7 +226,7 @@ test.describe('Neo.tab.plugin.Overflow.computeTabOverflow — the pure overflow 
     });
 
     test('the ACTIVE item is never hidden: it swaps in, the last-fitting non-active item overflows', () => {
-        const result = Overflow.computeTabOverflow({
+        const result = Overflow.computeOverflow({
             activeItemId: 'd',
             controlWidth: 40,
             extent      : 300,
@@ -239,7 +239,7 @@ test.describe('Neo.tab.plugin.Overflow.computeTabOverflow — the pure overflow 
     });
 
     test('active WIDER than the displaced tab: displace as many trailing tabs as it takes — the active never spills', () => {
-        const result = Overflow.computeTabOverflow({
+        const result = Overflow.computeOverflow({
             activeItemId: 'd',
             controlWidth: 0,
             extent      : 100,
@@ -254,7 +254,7 @@ test.describe('Neo.tab.plugin.Overflow.computeTabOverflow — the pure overflow 
     });
 
     test('degenerate: a single item wider than the extent stays visible — you cannot hide the only tab', () => {
-        const result = Overflow.computeTabOverflow({
+        const result = Overflow.computeOverflow({
             activeItemId: 'a',
             controlWidth: 40,
             extent      : 80,
@@ -265,7 +265,7 @@ test.describe('Neo.tab.plugin.Overflow.computeTabOverflow — the pure overflow 
     });
 
     test('active-only survivor: nothing fits, the active tab is force-kept and everything else overflows in order', () => {
-        const result = Overflow.computeTabOverflow({
+        const result = Overflow.computeOverflow({
             activeItemId: 'c',
             controlWidth: 60,
             extent      : 50,
@@ -277,7 +277,7 @@ test.describe('Neo.tab.plugin.Overflow.computeTabOverflow — the pure overflow 
     });
 
     test('fail-soft measurements: non-finite/negative widths pack as zero, never crash a projection pass', () => {
-        const result = Overflow.computeTabOverflow({
+        const result = Overflow.computeOverflow({
             activeItemId: 'a',
             controlWidth: 40,
             extent      : 100,
