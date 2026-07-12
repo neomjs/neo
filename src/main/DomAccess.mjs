@@ -140,9 +140,10 @@ class DomAccess extends Base {
 
         // Set up listeners which monitor for changes
         if (!aligns.has(id)) {
-            // Realign when target's layout-controlling element changes size. A fixed-positioned aligned
-            // element has NO offsetParent (it is positioned against the viewport), so guard against observing
-            // null — `ResizeObserver.observe(null)` throws "parameter 1 is not of type 'Element'".
+            // Realign when the target's layout-controlling element changes size. `align()` stores
+            // `alignSpec.offsetParent = targetElement.offsetParent` — the TARGET's layout parent, which is
+            // null when the target is position:fixed (or the body/root). Guard against observing null —
+            // `ResizeObserver.observe(null)` throws "parameter 1 is not of type 'Element'".
             alignSpec.offsetParent && resizeObserver.observe(alignSpec.offsetParent);
 
             // Realign when align to target changes size
@@ -1103,8 +1104,9 @@ class DomAccess extends Base {
                     {_alignResizeObserver} = me,
                     {constrainToElement}   = align;
 
-                // Stop observing the align elements (offsetParent is null for a fixed-positioned subject —
-                // it was never observed, and unobserve(null) throws just like observe(null)).
+                // Stop observing the align elements. `align.offsetParent` is the TARGET's layout parent
+                // (null when the target is position:fixed or the body/root) — never observed in that case,
+                // and unobserve(null) throws just like observe(null).
                 _alignResizeObserver.unobserve(align.subject);
                 align.offsetParent && _alignResizeObserver.unobserve(align.offsetParent);
                 _alignResizeObserver.unobserve(align.targetElement);
