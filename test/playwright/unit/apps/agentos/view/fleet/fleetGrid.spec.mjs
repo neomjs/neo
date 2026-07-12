@@ -100,6 +100,42 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         expect(rankFleet(roster(Array(20).fill('idle')), {foldThreshold: 12}).folded).toBe(true)
     });
 
+    test('a11y: named landmark region owning a role=list card container (#14619)', () => {
+        const grid = Neo.create(FleetGrid, {appName, store: makeStore(roster(['ok', 'idle']))});
+
+        // the roster is a named landmark region so screen-reader users can navigate to it as a
+        // distinct cockpit surface; refreshGrid mutates the child cards container (not the root),
+        // so the region label persists across store-driven re-renders
+        expect(grid.vdom.role).toBe('region');
+        expect(grid.vdom['aria-label']).toBe('Fleet roster');
+
+        // the card container is the role=list OWNER of the role=listitem AgentCards — a listitem needs a
+        // list owner to form a valid mounted topology (the mounted witness is FleetGridKeyboardA11y.spec)
+        expect(grid.getReference('fleet-cards').vdom.role).toBe('list');
+
+        grid.destroy()
+    });
+
+    test('keyboard model (gate-1): drill-only jump handlers exist + no-op off a drill Button; cards are non-interactive listitems, no roving tab stop (#14619)', () => {
+        const grid = Neo.create(FleetGrid, {appName, foldThreshold: 20, store: makeStore(roster(['ok', 'ok', 'ok']))});
+
+        // no roving tab stop: every card is a NON-interactive listitem (keyboard operability lives on the
+        // native child Buttons in ordinary Tab order), so no card carries a tabIndex.
+        expect(agentCards(grid).every(card => (card.vdom.tabIndex ?? null) === null)).toBe(true);
+
+        // the roving handlers are gone, replaced by the OPTIONAL Up/Down drill-to-drill jump. With no drill
+        // focused (a headless unit — containsFocus is a mounted signal), moveDrillFocus is a safe no-op and
+        // never throws; the mounted focus-move + the gate-3 semantic-child restoration across a rebuild are
+        // proven in the whitebox-e2e (the mount authority the unit layer cannot exercise).
+        expect(typeof grid.onDrillNext).toBe('function');
+        expect(typeof grid.onDrillPrev).toBe('function');
+        expect(grid.onRoveNext ?? null).toBeNull();
+        expect(() => grid.moveDrillFocus(1)).not.toThrow();
+        expect(() => grid.moveDrillFocus(-1)).not.toThrow();
+
+        grid.destroy()
+    });
+
     test('below threshold the grid renders every record as a card in ranked order — no fold', () => {
         const grid = Neo.create(FleetGrid, {appName, foldThreshold: 12, store: makeStore(roster(['ok', 'idle', 'off', 'ok', 'idle', 'wedged']))});
 
@@ -242,4 +278,5 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
 
         grid.destroy()
     });
+
 });

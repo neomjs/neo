@@ -564,6 +564,10 @@ class DomEvents extends Base {
                 event.preventDefault()
             }
 
+            // Arrows drive roving / efficiency focus within a neo-selection region and may not scroll the
+            // page. The app still receives the keydown (sendMessageToApp above) — this only suppresses the
+            // browser's scroll default. Space is intentionally NOT suppressed here: native interactive
+            // targets (buttons, selects, links, contenteditable) own Enter/Space activation.
             if (
                 !isInput &&
                 ['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp'].includes(event.key) &&
