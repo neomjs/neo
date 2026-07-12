@@ -17,11 +17,11 @@
     .fm-fleet-title {
         letter-spacing: .14em;
         text-transform: uppercase;
-        color         : var(--fm-ink-faint);
+        color         : var(--fm-ink-dim);
     }
 
     .fm-fleet-stale {
-        color: var(--fm-ink-faint);
+        color: var(--fm-ink-dim);
     }
 
     .fm-fleet-cards {
@@ -44,7 +44,7 @@
         padding      : 8px 0;
         font-family  : var(--fm-font-mono);
         font-size    : 10.5px;
-        color        : var(--fm-ink-faint);
+        color        : var(--fm-ink-dim);
         text-align   : center;
         border       : 1px dashed var(--fm-line-soft);
         border-radius: 8px;

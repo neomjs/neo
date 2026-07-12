@@ -23,11 +23,11 @@
 
     .fm-stream-label {
         text-transform: uppercase;
-        color         : var(--fm-ink-faint);
+        color         : var(--fm-ink-dim);
     }
 
     .fm-stream-state {
-        color: var(--fm-ink-faint);
+        color: var(--fm-ink-dim);
     }
 
     .fm-ev-row {
@@ -40,7 +40,7 @@
         padding-top: 1px;
         font-family: var(--fm-font-mono);
         font-size  : 10.5px;
-        color      : var(--fm-ink-faint);
+        color      : var(--fm-ink-dim);
         white-space: nowrap;
     }
 
@@ -62,7 +62,7 @@
         padding    : 8px 0 0;
         font-family: var(--fm-font-mono);
         font-size  : 10.5px;
-        color      : var(--fm-ink-faint);
+        color      : var(--fm-ink-dim);
         text-align : center;
     }
 }

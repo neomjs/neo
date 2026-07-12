@@ -29,11 +29,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url)),
       LIGHT          = path.join(repoRoot, 'resources/scss/theme-neo-light/apps/agentos/Viewport.scss'),
       MODE_INVARIANT = new Set(['--fm-font-mono', '--fm-font-sans']),
       FM_TOKEN_RE    = /^\s*(--fm-[a-z0-9-]+)\s*:\s*(.+?);\s*$/,
-      // check 2 — token-only consumption
+      // check 2 — token-only consumption. Covers the full CSS color-function surface (legacy + modern
+      // wide-gamut) so a bare `oklch()`/`lab()`/`color()` literal cannot slip past as `rgb`-only did.
       VIEW_DIR         = path.join(repoRoot, 'resources/scss/src/apps/agentos'),
-      COLOR_LITERAL_RE = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/;
+      COLOR_LITERAL_RE = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/;
 
-const failures = [];
+const failures                 = [],
+      consumedFmTokens         = new Set(),
+      componentDefinedFmTokens = new Set();
 
 // ───────────────────────── check 1: skin parity ─────────────────────────
 function extractFmTokens(file) {
@@ -101,7 +104,16 @@ function checkView(file) {
         // Only inspect declaration VALUES (after the first colon) — skips selectors like `#dead {`.
         if (colonIdx === -1) return;
 
-        if (COLOR_LITERAL_RE.test(stripVarCalls(line.slice(colonIdx + 1)))) {
+        const value = line.slice(colonIdx + 1);
+
+        // A `--fm-*:` custom-property declaration anywhere on the line (incl. inline `{ --fm-dot: … }`)
+        // is a component-LOCAL alias, not a skin-token demand — exempt from the completeness check.
+        for (const def of line.matchAll(/(--fm-[a-z0-9-]+)\s*:/g)) componentDefinedFmTokens.add(def[1]);
+
+        // Every --fm-* this view consumes is the demand side of the completeness check below.
+        for (const match of value.matchAll(/var\(\s*(--fm-[a-z0-9-]+)/g)) consumedFmTokens.add(match[1]);
+
+        if (COLOR_LITERAL_RE.test(stripVarCalls(value))) {
             failures.push(`[token-only] ${path.relative(repoRoot, file)}:${index + 1} bare color literal — consume a semantic token instead: ${rawLine.trim()}`);
         }
     });
@@ -120,6 +132,16 @@ function scanScss(dir) {
 }
 
 scanScss(VIEW_DIR);
+
+// ────────── check 3: each skin SUPPLIES every consumed token (completeness) ──────────
+// Symmetry alone false-passes when BOTH skins are equally empty/truncated (vacuous parity). The set
+// of tokens the module views consume is the third source of truth: a skin that fails to define a
+// consumed token is incomplete, even if the other skin omits it too.
+for (const token of consumedFmTokens) {
+    if (componentDefinedFmTokens.has(token)) continue; // component-local alias, supplied by the view itself
+    if (!dark.has(token))  failures.push(`[completeness] ${token} is consumed by a module view but undefined in the dark skin`);
+    if (!light.has(token)) failures.push(`[completeness] ${token} is consumed by a module view but undefined in the light skin`);
+}
 
 // ─────────────────────────────── report ─────────────────────────────────
 if (failures.length) {

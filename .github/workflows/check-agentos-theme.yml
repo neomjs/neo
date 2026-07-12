@@ -9,6 +9,7 @@ on:
       - 'resources/scss/src/apps/agentos/**'
       - 'buildScripts/util/check-agentos-theme.mjs'
       - '.github/workflows/check-agentos-theme.yml'
+      - 'package.json'
   push:
     branches: [dev]
     paths:
@@ -17,6 +18,7 @@ on:
       - 'resources/scss/src/apps/agentos/**'
       - 'buildScripts/util/check-agentos-theme.mjs'
       - '.github/workflows/check-agentos-theme.yml'
+      - 'package.json'
 
 concurrency:
   group: check-agentos-theme-${{ github.ref }}
