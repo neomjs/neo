@@ -246,9 +246,10 @@ export function buildConceptPath({rootConcept, nodeId, rootMemberId, parentHop})
  * @param {Number} [options.conceptLimit] Max resolved clusters walked (default {@link WALK_BUDGET}.conceptLimit).
  * @param {Number} [options.maxHops] Per-member walk depth bound (default {@link WALK_BUDGET}.maxHops).
  * @param {Number} [options.hopBudget] Per-member edge budget (default {@link WALK_BUDGET}.hopBudget).
- * @param {Number} [options.maxCandidates] Bounded-hydration ceiling — total hydrated walk candidates
- *     (default {@link WALK_BUDGET}.maxCandidates); hydration stops when hit and the event's `truncated`
- *     flag reports honestly that more existed.
+ * @param {Number} [options.maxCandidates] Bounded-hydration ceiling — total hydration ATTEMPTS, not just
+ *     successful appends (a rejected hydration still did the gate round-trip, so it counts; default
+ *     {@link WALK_BUDGET}.maxCandidates); hydration stops when hit and the event's `truncated` flag reports
+ *     honestly that more existed.
  * @returns {Promise<Object>} `{candidates: mergedArray, event: eventObject|null}` — `event` is null
  *     only on pass-through (flag off).
  */
@@ -297,8 +298,9 @@ export async function enrichWithConceptWalk({
         walkVisited = new Set(),
         added       = [];
 
-    let filteredOut = 0,
-        truncated   = false;
+    let filteredOut       = 0,
+        hydrationAttempts = 0,
+        truncated         = false;
 
     for (const cluster of resolved) {
         if (truncated) break;
@@ -329,9 +331,11 @@ export async function enrichWithConceptWalk({
             }
 
             for (const hop of walk.hops) {
-                // bounded-hydration ceiling: stop once maxCandidates is reached — more may exist, so the
-                // event's `truncated` flag reports it honestly (never silently drop the overflow as if absent).
-                if (added.length >= maxCandidates) { truncated = true; break }
+                // bounded-hydration ceiling: bounds total hydration ATTEMPTS, not just successful appends —
+                // a rejected hydration still did the expensive gate round-trip, so it counts; otherwise a
+                // flood of unauthorized candidates evades the ceiling (up to hopBudget hydrations for a
+                // maxCandidates of 40). `truncated` reports honestly that more may exist.
+                if (hydrationAttempts >= maxCandidates) { truncated = true; break }
 
                 const nodeId = hop.neighborId;
 
@@ -348,7 +352,9 @@ export async function enrichWithConceptWalk({
                 // RLS re-entry: the raw-edge walk can reach nodes the caller may not see; the caller's
                 // own gate is the authority, and its absence (or a null return) fails closed. The hop's
                 // neighborLabel + edgeType ride along so the gate can skip a non-retrievable node type
-                // (a FILE/CONCEPT neighbor) without a hydration round-trip.
+                // (a FILE/CONCEPT neighbor) without a hydration round-trip. Counts against the ceiling
+                // whether it authorizes or rejects — the round-trip is the bounded resource.
+                hydrationAttempts++;
                 const hydrated = await resolveCandidate?.(nodeId, {neighborLabel: hop.neighborLabel, edgeType: hop.edgeType});
 
                 if (!hydrated) {

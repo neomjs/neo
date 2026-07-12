@@ -463,4 +463,22 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval — enrichWithConc
         expect(event.candidatesAdded).toBe(1);
         expect(event.truncated).toBe(true);
     });
+
+    test('maxCandidates counts rejected hydrations — a reject consumes ceiling budget, bounding total gate round-trips (#15071 cycle-2 overflow)', async () => {
+        // gate rejects FILE:x (a round-trip returning null), authorizes both memories
+        const gate = async nodeId => nodeId.startsWith('MEM:') ? {id: nodeId} : null;
+
+        const {candidates, event} = await enrichWithConceptWalk({
+            graphService    : WALK_GRAPH, query: 'golden path', candidates: [], conceptWalk: true,
+            resolveCandidate: gate, maxHops: 1, maxCandidates: 2
+        });
+
+        // walk order is MEM:1, FILE:x, MEM:2. The FILE:x REJECT is a hydration attempt that counts:
+        // MEM:1 (attempt 1, added) + FILE:x (attempt 2, rejected) hits the ceiling of 2 before MEM:2 is
+        // reached. Without counting rejects, all three would hydrate (3 round-trips for a ceiling of 2) and
+        // MEM:2 would be appended — the overflow the cycle-2 probe caught.
+        expect(candidates.map(c => c.id)).toEqual(['MEM:1']); // MEM:2 never hydrated — the reject spent the budget
+        expect(event.filteredOut).toBe(1);                    // FILE:x
+        expect(event.truncated).toBe(true);                   // ceiling hit at 2 attempts
+    });
 });
