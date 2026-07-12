@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import fs               from 'node:fs';
-import path             from 'node:path';
-import process          from 'node:process';
-import {fileURLToPath}  from 'node:url';
+import fs              from 'node:fs';
+import path            from 'node:path';
+import process         from 'node:process';
+import {fileURLToPath} from 'node:url';
 
 /**
  * Pre-Flight (structural fast-path): authoring `ai/scripts/diagnostics/check-identity-facts.mjs`
@@ -56,11 +56,6 @@ const CONFIG_TEMPLATE_POLICIES = [
         file    : '.codex/config.template.toml',
         audience: 'frontier harness template',
         expected: 'frontier'
-    },
-    {
-        file    : '.gemini/settings.template.json',
-        audience: 'frontier harness template',
-        expected: 'frontier'
     }
 ];
 
@@ -73,7 +68,7 @@ const NODE_MIRRORS = [
 
 const MCP_FACT_MIRRORS = [
     {
-        file       : '.agents/skills/neo-identity-update/references/facts-ledger.md',
+        file        : '.agents/skills/neo-identity-update/references/facts-ledger.md',
         expectations: context => [
             `functional = ${context.functionalServers.length}`,
             `Frontier-harness defaults expose ${context.frontierServers.length}`,
@@ -81,11 +76,11 @@ const MCP_FACT_MIRRORS = [
         ]
     },
     {
-        file       : 'README.md',
+        file        : 'README.md',
         expectations: context => context.functionalServers.map(server => `${server.label} MCP server`)
     },
     {
-        file       : 'learn/benefits/ApplicationEngine.md',
+        file        : 'learn/benefits/body/ApplicationEngine.md',
         expectations: context => [
             `${toWord(context.frontierServers.length)} frontier-harness`,
             ...context.frontierServers.map(server => server.label),
@@ -93,21 +88,14 @@ const MCP_FACT_MIRRORS = [
         ]
     },
     {
-        file       : 'apps/portal/index.html',
+        file        : 'apps/portal/index.html',
         expectations: context => [
             joinLabels(context.frontierServers),
             ...context.internalOnlyServers.map(server => `${server.label} MCP server`)
         ]
     },
     {
-        file       : 'apps/portal/view/home/parts/AiToolchain.mjs',
-        expectations: context => [
-            joinLabels(context.frontierServers),
-            ...context.internalOnlyServers.map(server => `${server.label} MCP server`)
-        ]
-    },
-    {
-        file       : 'buildScripts/docs/seo/generate.mjs',
+        file        : 'buildScripts/docs/seo/generate.mjs',
         expectations: context => [
             joinLabels(context.frontierServers),
             ...context.internalOnlyServers.map(server => server.label)
@@ -278,7 +266,7 @@ function checkServerPolicies(failures, servers) {
  */
 function checkNodeFacts(failures, context) {
     const {root, packageJson} = context;
-    const nodeFloor          = packageJson.engines?.node;
+    const nodeFloor           = packageJson.engines?.node;
 
     if (!nodeFloor) {
         fail(failures, 'package.json', 'missing engines.node.', 'package.json engines.node');
@@ -296,8 +284,8 @@ function checkNodeFacts(failures, context) {
         return;
     }
 
-    const packageLock     = readJson(root, 'package-lock.json');
-    const lockNodeFloor   = packageLock.packages?.['']?.engines?.node;
+    const packageLock   = readJson(root, 'package-lock.json');
+    const lockNodeFloor = packageLock.packages?.['']?.engines?.node;
 
     if (lockNodeFloor !== nodeFloor) {
         fail(
@@ -388,12 +376,12 @@ function checkMcpMirrorFacts(failures, context) {
  * @returns {{failures: Array<Object>, context: Object}}
  */
 export function runCheck({root = ROOT_DIR} = {}) {
-    const packageJson      = readJson(root, 'package.json');
-    const failures         = [];
-    const functionalServers = deriveMcpServers(packageJson);
-    const frontierServers   = functionalServers.filter(server => server.frontier);
+    const packageJson         = readJson(root, 'package.json');
+    const failures            = [];
+    const functionalServers   = deriveMcpServers(packageJson);
+    const frontierServers     = functionalServers.filter(server => server.frontier);
     const internalOnlyServers = functionalServers.filter(server => !server.frontier);
-    const context = {
+    const context             = {
         root,
         packageJson,
         functionalServers,
@@ -442,7 +430,7 @@ function main() {
         process.exit(2);
     }
 
-    const root      = rootIndex === -1 ? ROOT_DIR : path.resolve(process.argv[rootIndex + 1]);
+    const root = rootIndex === -1 ? ROOT_DIR : path.resolve(process.argv[rootIndex + 1]);
 
     const {failures, context} = runCheck({root});
 

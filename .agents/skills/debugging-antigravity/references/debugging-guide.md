@@ -1,112 +1,73 @@
-# Antigravity IDE Debugging Guide
+# Antigravity 2.x Debugging Guide
 
-This guide contains the structural knowledge and troubleshooting playbooks required to keep the Antigravity IDE stable when interacting with the Neo MCP server ecosystem.
+Use this guide to establish the current configuration authority before changing an Antigravity MCP setup. Product documentation and the installed bundle are the evidence sources; old workspace recipes are not.
 
-## 1. The Twin Language Server Bug & MCP Duplication
+## 1. Establish the MCP Authority
 
-### The Problem
-Antigravity natively executes parallel language servers:
-1. A **System/Global** language server.
-2. A **Workspace-specific** language server.
+Antigravity 2.x documents two valid MCP scopes:
 
-Regardless of user configuration (even if workspace `.gemini/settings.json` has an empty `mcpServers` object), both of these language server processes will independently parse the global MCP configuration and spawn overlapping server binaries. This causes unpreventable **2x process duplication** (e.g., 8 server instances instead of 4). This rules out dual-config edge cases; it is an inherent Antigravity architectural behavior.
+- global: `~/.gemini/config/mcp_config.json`
+- workspace: `.agents/mcp_config.json`
 
-### The Fix: Configuration Normalization (`.gemini/settings.json`)
-Since the April 7th release, the IDE's local workspace `.gemini/settings.json` natively reads `mcpServers` definitions. This enables the duplication problem if the user also has a global config.
+Choose one owner for each server. A workspace definition is valid, but declaring the same server globally and in the workspace can create two independently managed subprocesses. The canonical paths come from the current [Antigravity MCP documentation](https://antigravity.google/docs/mcp).
 
-**The Strategy:**
-- **Remove** all `mcpServers` array data from local workspace `.gemini/settings.json` bounds.
-- **Consolidate** all absolute definitions into the global config: `~/.gemini/antigravity/mcp_config.json`.
-- This ensures only a single authority provisions the MCP node processes, preventing race conditions and resource contention.
+Keep adjacent configuration families separate:
 
-## 2. Opt-in vs Opt-out Server Initialization Deadlocks (ChromaDB)
+- Antigravity CLI preferences live at `~/.gemini/antigravity-cli/settings.json`; that preferences file is not the MCP registry.
+- Workspace rules and skills live under `.agents/rules/` and `.agents/skills/`; the [Gemini CLI migration guide](https://antigravity.google/docs/gcli-migration) describes how existing `AGENTS.md`, `GEMINI.md`, skills, and MCP definitions migrate.
+- `--user-data-dir` selects an Electron/Chromium UI profile. It does not prove or relocate the language-server MCP root. Re-probe the installed bundle after a product upgrade instead of deriving an MCP path from the UI-profile flag.
 
-### The Problem
-If the Antigravity IDE spawns MCP processes (via the language server) and those servers are hardcoded to `autoStartDatabase = true` (Opt-Out), the MCP processes will attempt to boot standalone local ChromaDB/SQLite binaries.
-This creates immediate deadlocks when:
-- The user is already manually running ChromaDB on port 8000 via external terminal scripts.
-- Both language servers duplicate the boot routine, competing for the same filesystem lock.
+If installed behavior disagrees with the docs, collect the Antigravity version, resolve symlinks, inspect the running process arguments, and search the installed language-server binary for `mcp_config.json` plus its parent root. Record the version boundary; do not promote a compatibility path into a universal rule.
 
-### The Fix
-When defining MCP server configurations (e.g., `ai/mcp/server/knowledge-base/config.mjs` and `memory-core/config.mjs`), all heavy initialization parameters MUST be `Opt-In`:
-```javascript
-// GOOD: Requires explicit configuration
-autoStartDatabase: process.env.NEO_MEM_AUTO_START_DATABASE === 'true',
+## 2. Diagnose Duplicate Processes Before Explaining Them
 
-// BAD: Will execute by default if undefined
-autoStartDatabase: process.env.NEO_MEM_AUTO_START_DATABASE !== 'false',
-```
-
-## 3. SQLite Workspace Corruption Crash (`__store` / "Loading Spinner")
-
-### The Problem
-The IDE uses an embedded SQLite database to track historical Workspaces. Occasionally, stale, duplicated, or "ghost" workspace folders cause the UI state manager to crash when attempting to render the "Manage MCP Servers" panel.
-
-**Symptoms:**
-- The main MCP panel displays a **perpetual Loading Spinner**.
-- The Advanced Settings tab shows duplicated workspaces (e.g., two entries for `neo`, an entry for `workspace.json`, or a stale `ticket-intake` entry).
-- Clicking any of these throws: `Something went wrong: TypeError: Cannot read properties of null (reading '__store')`.
-
-### The Agent Check (Cosmetic vs Critical)
-A perpetual loading spinner on the main view is largely cosmetic as long as the backend is healthy.
-**For agents, the most critical verification is that all configured MCP server sets load.**
-To verify, bypass the UI and use your healthcheck tools:
-- `mcp_neo-mjs-github-workflow_healthcheck`
-- `mcp_neo-mjs-knowledge-base_healthcheck`
-- `mcp_neo-mjs-memory-core_healthcheck`
-- `mcp_neo-mjs-neural-link_healthcheck`
-
-The File System MCP server is an internal `Neo.ai.Agent` / local-model loop server, not a normal frontier-harness healthcheck item unless you explicitly configured that local agent profile.
-
-If the tools pass, the backend is up. To fix the frontend UI crash, follow the playbook below.
-
-## 4. UI Fix Playbook: Purging Ghost Workspaces
-
-If the user wants you to fix the loading spinner UI crash, you must purge the stale arrays from the vscdb database.
-
-### Step A: SQLite Table Wipe
-Delete the corrupted `antigravityUnifiedStateSync.sidebarWorkspaces` base64 protobuf string from the global state DB. 
-*(Note: paths shown are for macOS (`/Users/<name>/...`), modify accordingly for Linux/Windows).*
+Do not assume a twin-language-server cause. First build a process census:
 
 ```bash
-sqlite3 "$HOME/Library/Application Support/Antigravity/User/globalStorage/state.vscdb" "DELETE FROM ItemTable WHERE key = 'antigravityUnifiedStateSync.sidebarWorkspaces';"
+pgrep -fl 'Antigravity|language_server|mcp-server'
+ps -o pid=,ppid=,pgid=,etime=,command= -p <pid-list>
 ```
 
-### Step B: Prune Ghost Workspace Storage Directories
-Find and destroy orphaned workspace hashes so the IDE does not re-register them on reload:
+For each Neo MCP process, capture its PID, parent PID, process group, working directory, and command. Then inspect both documented MCP authorities. A duplication claim is established only when the same logical server has multiple live owners or definitions.
+
+Correction order:
+
+1. Decide whether the server is global or workspace-owned.
+2. Remove only the duplicate definition from the other authority.
+3. Fully quit and relaunch Antigravity so the MCP client performs a fresh handshake.
+4. Repeat the process census and the server healthchecks.
+
+## 3. Keep Neo Lifecycle Ownership Intact
+
+Neo MCP servers are stdio clients of shared services; the orchestrator owns background Chroma, summary, Dream, and sync schedules. Do not reintroduce per-server `autoStartDatabase` or related auto-* flags to repair an Antigravity symptom. That recreates the retired per-instance lifecycle and can multiply work across harness-spawned servers.
+
+Verify the four frontier-harness servers independently:
+
+- GitHub Workflow
+- Knowledge Base
+- Memory Core
+- Neural Link
+
+A healthy tool surface with a broken MCP settings panel is a UI-state incident, not proof that the backend servers failed.
+
+## 4. Investigate a Spinner or `__store` Failure Safely
+
+The historical `__store` null signature has involved stale workspace UI state, but the signature alone does not establish the current cause. Start read-only:
+
 ```bash
-# Find cached workspaces to inspect
-find "$HOME/Library/Application Support/Antigravity/User/workspaceStorage" -name "workspace.json" 2>/dev/null
-
-# Typically, you delete the folders containing stale mapping values like:
-# {"folder": "file://.agents/skills/ticket-intake"}
+find "$HOME/Library/Application Support/Antigravity/User/workspaceStorage" -name workspace.json 2>/dev/null
+sqlite3 "$HOME/Library/Application Support/Antigravity/User/globalStorage/state.vscdb" \
+  "SELECT key FROM ItemTable WHERE key LIKE '%sidebarWorkspaces%';"
 ```
 
-After performing these purges, closing and restarting the IDE forces the UI to cleanly rebuild the workspace payload based only on the actively opened directory.
+Before mutating sqlite state, quit Antigravity and create a database backup. If the exact stale key is present and the operator has authorized repair, delete only that key, relaunch, and re-run the healthchecks. Do not purge auth tokens, caches, or entire workspace-storage trees as a first response.
 
-### Step C: UI Re-Initialization Toggles
-If the spinner persists but the backend servers are healthy:
-1. **The Model Toggle (Low Risk):** Switch the AI model selection in the bottom-right corner of the IDE. This forces a soft re-initialization of the active session which can sometimes clear the hung UI state.
-2. **The Cache Nuke (High Risk):** Kill the IDE and purge the token and graphics caches:
-   ```bash
-   rm -rf ~/Library/Application\ Support/Antigravity/auth-tokens
-   rm -rf ~/Library/Application\ Support/Antigravity/Cache
-   rm -rf ~/Library/Application\ Support/Antigravity/GPUCache
-   ```
+## 5. Validate Tool-Shape Changes with a Fresh Client
 
-## 5. The Fresh MCP Client Isolation Strategy (Cache Bypass)
+The primary IDE connection can retain an older MCP tool manifest after server code changes. Use Neo's isolated client to prove the live shape:
 
-### The Problem
-Agents operating on MCP servers they themselves are connected to often suffer from "ghost bugs" — where the agent's context or cached tool definitions do not match the live server state. If you modify an MCP tool definition (e.g., adding a new parameter) and attempt to test it via your own primary connection, you will hit a stale cache window. The server has updated, but your host client has not re-handshaked to discover the new shape.
-
-### The Fix
-Never use your own primary tool surface to validate tool-shape changes on the server you are modifying. Instead, use the **Fresh MCP Client Isolation Strategy**.
-
-The `ai/mcp/client` infrastructure allows you to spawn a completely clean, isolated client-server connection, bypassing the agent's primary long-lived host connection.
-
-**Empirical Verification Example:**
-To verify a tool shape change (e.g., in `memory-core`), spawn a fresh client via CLI:
 ```bash
-node ai/mcp/client/mcp-cli.mjs --server memory-core --call-tool "your_modified_tool" '{"param": "test"}'
+node ai/mcp/client/mcp-cli.mjs --server memory-core --call-tool "your_modified_tool" '{"param":"test"}'
 ```
-This forces a clean handshake, parsing the live tool definitions directly from the server process, proving whether your tool-shape changes are actually valid without restarting the entire IDE harness.
+
+This creates a fresh client/server handshake without treating a cached IDE definition as current evidence.

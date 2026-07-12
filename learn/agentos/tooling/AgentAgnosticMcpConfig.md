@@ -9,25 +9,23 @@ The Neo.mjs project provides multiple AI services through MCP (Model Context Pro
 - **Knowledge Base Server**: Provides semantic search across the entire codebase, documentation, guides, and examples.
 - **Memory Core Server**: Offers persistent memory for AI agents, storing conversation history and session context.
 - **GitHub Workflow Server**: Enables interaction with the GitHub repository, including managing issues and pull requests.
-- **Chrome DevTools Server**: Allows for browser automation and debugging capabilities.
+- **Neural Link Server**: Inspects and manipulates live Neo application state. External clients can add optional servers such as Chrome DevTools alongside Neo's four frontier-harness servers.
 
 To ensure these services are accessible to any AI agent, the project uses a simple, standardized configuration format that allows an agent's client environment to launch and communicate with these servers. This guide outlines the schema for this configuration and explains how it enables an "agent-agnostic" approach to tooling.
 
 ## Configuration Principle
 
-Instead of a single, centralized configuration file, the principle is that each agent's client environment has its own configuration for launching MCP servers. This allows for flexibility while maintaining a common pattern.
+Instead of a repository-owned universal configuration file, each agent client owns the definition that launches its MCP servers. This preserves one common process contract without pretending that every harness has the same config path.
 
-For example, the Gemini CLI uses the following file:
-```
-.gemini/settings.json
-```
-This file contains a definition for each MCP server, specifying the command needed to start it.
+For Antigravity 2.x, the documented authorities are global `~/.gemini/config/mcp_config.json` and workspace `.agents/mcp_config.json`. Choose one owner for a given server; defining the same server in both scopes can create duplicate subprocesses. Antigravity CLI preferences live separately at `~/.gemini/antigravity-cli/settings.json`. See the current [Antigravity MCP documentation](https://antigravity.google/docs/mcp).
+
+Consumer Gemini CLI service [transitioned to Antigravity CLI on 2026-06-18](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/). Enterprise and explicit API-key Gemini CLI profiles remain separate supported cases, but Neo no longer ships a workspace MCP template for them.
 
 ## The Lifecycle Protocol
 
-The agent's client environment (e.g., the Gemini CLI) is responsible for managing the server lifecycle. The protocol is straightforward:
+The agent's client environment is responsible for managing the server lifecycle. The protocol is straightforward:
 
-1.  **Read Configuration**: On startup, the client reads its configuration file (e.g., `.gemini/settings.json`).
+1.  **Read Configuration**: On startup, the client reads its own selected MCP authority.
 2.  **Launch Servers**: For each server defined in the `mcpServers` section, the client executes the specified `command` with its `args` as a separate process.
 3.  **Establish Communication**: The client communicates with the launched server process over standard input/output (stdio). The MCP SDK handles the complexities of this communication channel.
 4.  **Discover Tools**: Once the channel is established, the agent can then use tools like `ListTools` to discover the server's capabilities directly through the established MCP channel.
@@ -52,8 +50,8 @@ A server can be defined with the following properties. While the current impleme
 | `capabilities` | array | | Declares the MCP capabilities the server supports, e.g., `["tools", "resources"]`. |
 | `tags` | array | | Keywords for categorizing the server, useful for discovery in UIs. |
 
-### Example (`.gemini/settings.json`)
-The following is a practical, minimal implementation of this schema used by the Gemini CLI. It focuses purely on the properties needed to launch the servers.
+### Example (`mcp_config.json`)
+The following is a practical Antigravity 2.x shape for either the global or workspace authority. It focuses purely on the properties needed to launch the servers.
 
 ```json
 {
@@ -72,7 +70,12 @@ The following is a practical, minimal implementation of this schema used by the 
         },
         "neo.mjs-memory-core": {
             "command": "npm",
-            "args"   : ["run", "ai:mcp-server-memory-core"]
+            "args"   : ["run", "ai:mcp-server-memory-core"],
+            "env"    : {"NEO_AGENT_IDENTITY": "<YOUR_AGENT_GITHUB_LOGIN>"}
+        },
+        "neo.mjs-neural-link": {
+            "command": "npm",
+            "args"   : ["run", "ai:mcp-server-neural-link"]
         }
     }
 }

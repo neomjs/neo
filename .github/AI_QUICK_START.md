@@ -37,7 +37,7 @@ Before you begin, ensure you have the following:
 
 For this workflow, an "AI agent" is a local AI assistant capable of executing shell commands and making architectural decisions.
 
-**Current Support:** This guide covers the setup for three environments: the Google Gemini CLI, the Antigravity OS, and Claude Desktop plus Claude Code (which share a single MCP configuration file). The core infrastructure (MCP servers, knowledge base) is agent-agnostic, but their respective configuration files differ slightly.
+**Current Support:** This guide covers Antigravity 2.x, enterprise/API-key Gemini CLI profiles, and Claude Desktop plus Claude Code. Consumer Gemini CLI free / Google AI Pro / Ultra service [transitioned to Antigravity CLI on 2026-06-18](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/). Neo's MCP infrastructure is client-agnostic, but each harness owns a different configuration surface.
 
 ## 3. Setup the AI Environment (Required)
 
@@ -96,7 +96,7 @@ To ensure your environment is accurately inherited across all local MCP sub-serv
 ### Step 3.4: Understanding the Workflow
 
 **Subsequent Sessions:**
-- The MCP servers are automatically started by the Gemini CLI when you run `gemini`.
+- The selected client starts the MCP servers from its native authority. [Antigravity 2.x](https://antigravity.google/docs/mcp) uses either global `~/.gemini/config/mcp_config.json` or workspace `.agents/mcp_config.json` definitions.
 - The knowledge base is cached. Incremental updates (when you modify files) are fast and consume very little API quota.
 - **You do not need to manually start servers** unless debugging.
 
@@ -123,22 +123,19 @@ If you change the `embeddingModel` in the configuration (e.g., to a newer model)
 
 ## 4. Choosing Your Agent Environment
 
-You can interact with the AI servers using the Gemini CLI, the Antigravity OS, or Claude Desktop / Claude Code.
+You can interact with the AI servers using Antigravity 2.x, an enterprise/API-key Gemini CLI profile, or Claude Desktop / Claude Code.
 
-### Option A: Gemini CLI
+### Option A: Antigravity 2.x
 
-To install the Gemini CLI:
-```bash
-npm i -g @google/gemini-cli
-```
+Install Antigravity from Google's distribution channel. For MCP servers, choose either the [documented](https://antigravity.google/docs/mcp) global `~/.gemini/config/mcp_config.json` authority or the workspace `.agents/mcp_config.json` authority. Do not define the same server in both.
 
-Configuration source: the repository's own `.gemini/settings.json`. See §5 "Core Configuration (Gemini CLI)".
+Configuration source: client-owned `mcp_config.json`. See §5 "Core Configuration (Antigravity 2.x)".
 
-### Option B: Antigravity OS
+### Option B: Gemini CLI (enterprise/API-key)
 
-Antigravity is a desktop agent environment that embeds the Gemini runtime plus its own workflow orchestration. Install from the project's distribution channel, then configure the user-level MCP config file at `~/.gemini/antigravity/mcp_config.json`.
+Gemini CLI remains available for enterprise and explicit API-key use after the consumer transition. Install and configure it from Google's current CLI documentation; Neo no longer provides a tracked workspace MCP template.
 
-Configuration source: user-level `mcp_config.json`. See §5 "Core Configuration (Antigravity OS)".
+Configuration source: the current Gemini CLI product contract, not an Antigravity workspace file.
 
 ### Option C: Claude Desktop / Claude Code
 
@@ -154,11 +151,8 @@ See §5 "Core Configuration (Claude Desktop / Claude Code)" for the complete str
 
 The agent's behavior is controlled by several configuration files depending on your chosen environment:
 
-### Core Configuration (Gemini CLI)
-The repository provides a `.gemini/settings.json` file which automatically activates the four frontier-harness Neo MCP servers for the session: GitHub Workflow, Knowledge Base, Memory Core, and Neural Link.
-
-### Core Configuration (Antigravity OS)
-Antigravity requires a user-level configuration file located at `~/.gemini/antigravity/mcp_config.json`. You must create this file and configure it with your API keys and local paths.
+### Core Configuration (Antigravity 2.x)
+[Antigravity documents](https://antigravity.google/docs/mcp) two MCP authorities: global `~/.gemini/config/mcp_config.json` and workspace `.agents/mcp_config.json`. Create one of them and configure it with your API keys, identity, and local paths. `--user-data-dir` selects an Electron UI profile; it does not relocate this MCP authority.
 
 - **`<DEFAULT_PATH>`**: Your system's default `PATH` environment variable.
   - **M-Series Mac Warning (Apple Silicon):** Desktop GUI applications do **not** inherit Homebrew paths like `/opt/homebrew/bin` since macOS strips out `.zshrc` upon GUI Spotlight launch. If your GitHub CLI (`gh`) or `sqlite3` were installed via Homebrew, you **must** manually prepend `/opt/homebrew/bin:` to this `<DEFAULT_PATH>` string (or symlink them into `/usr/local/bin` using `sudo`), otherwise your MCP servers will silently crash claiming binaries are missing!
@@ -168,13 +162,6 @@ Use the following structure:
 
 ```json
 {
-  "context": {
-    "fileName": [
-      "<YOUR_NEO_REPO_PATH>/.agents/ANTIGRAVITY_RULES.md",
-      "<YOUR_NEO_REPO_PATH>/AGENTS.md",
-      "~/.gemini/GEMINI.md"
-    ]
-  },
   "mcpServers": {
     "neo-mjs-knowledge-base": {
       "command": "<YOUR_NODE_PATH>",
@@ -193,6 +180,7 @@ Use the following structure:
       ],
       "env": {
         "GEMINI_API_KEY": "<YOUR_GEMINI_API_KEY>",
+        "NEO_AGENT_IDENTITY": "<YOUR_AGENT_GITHUB_LOGIN>",
         "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
       }
     },
@@ -220,6 +208,10 @@ Use the following structure:
   }
 }
 ```
+
+### Core Configuration (Gemini CLI, enterprise/API-key)
+
+Use Google's current Gemini CLI configuration contract for enterprise or explicit API-key access. Keep the same `command`, `args`, and per-server `env` semantics shown above, but do not copy an Antigravity path or expect Neo to generate a repository workspace template.
 
 ### Core Configuration (Claude Desktop / Claude Code)
 
@@ -303,32 +295,31 @@ A healthy identity binding returns:
 
 If `identity.bound` is `false` despite `source: 'env-var'`, or if you see any other identity-binding error, see `learn/agentos/tooling/MemoryCoreMcpAuth.md` §Troubleshooting for the full diagnostic flow.
 
-### Multi-Harness Development (`.neo-ai-data` Symlink Convention)
+### Multi-Harness Development (`.neo-ai-data` Granular-Link Convention)
 
-If you run multiple harnesses against the same repository — e.g., Claude Desktop + Antigravity, or a primary checkout plus parallel worktrees — **the configured Neo MCP server processes across every harness must point at the same repository-local `.neo-ai-data/` directory**. Memory Core stores its SQLite graph database at `.neo-ai-data/sqlite/memory-core-graph.sqlite`; `better-sqlite3`'s WAL mode makes this safe for concurrent readers and a serialized single writer at a time.
+If you run multiple harnesses against the same repository — e.g., Claude Desktop + Antigravity, or a primary checkout plus parallel worktrees — **the approved shared data members beneath `.neo-ai-data/` must resolve to the same canonical substrates**. Memory Core stores its SQLite graph database at `.neo-ai-data/sqlite/memory-core-graph.sqlite`; `better-sqlite3`'s WAL mode makes this safe for concurrent readers and a serialized single writer at a time.
 
-Cross-checkout and cross-worktree scenarios need symlinks so every harness points at the same physical `.neo-ai-data/` directory:
+Cross-checkout and cross-worktree scenarios use granular links so shared state converges while process-control state remains clone-local:
 
 **Worktree-to-primary** (Claude Code creates a fresh git worktree per session at `.claude/worktrees/<name>/`):
 ```bash
-node ai/scripts/bootstrapWorktree.mjs --link-data
+node ai/scripts/migrations/bootstrapWorktree.mjs --link-data
 ```
-The `--link-data` flag is idempotent; safe to re-run. It copies the four gitignored `config.mjs` files and symlinks `.neo-ai-data/` to the primary checkout's.
+The `--link-data` flag is idempotent; safe to re-run. It copies the gitignored config overlays and creates approved granular links below `.neo-ai-data/`; it does not replace the parent directory. The interactive CLI completes with `build-all`.
 
 **Cross-checkout** (e.g., a secondary Antigravity checkout at `/Users/Shared/antigravity/neomjs/neo/` pointing at the primary at `/Users/Shared/github/neomjs/neo/`):
 ```bash
-cd /Users/Shared/antigravity/neomjs/neo
-rm -rf .neo-ai-data
-ln -s /Users/Shared/github/neomjs/neo/.neo-ai-data .neo-ai-data
+node ai/scripts/migrations/bootstrapWorktree.mjs --link-data \
+  --canonical-root /Users/Shared/github/neomjs/neo
 ```
 
-**Why this matters**: AgentIdentity nodes seeded in the primary checkout's graph are only visible to harnesses that share the same SQLite file. Without the symlink, each harness has its own empty graph, `bindAgentIdentity` returns null at boot, and A2A handshakes silently fail.
+**Why this matters**: AgentIdentity nodes seeded in the primary checkout's graph are only visible to harnesses that share the same SQLite file. Without the approved links, each harness has its own empty graph, `bindAgentIdentity` returns null at boot, and A2A handshakes silently fail.
 
-**What NOT to symlink**: source-code paths (`src/core/Base.mjs`, `ai/mcp/server/*/config.mjs`). Node's ESM resolver walks to the canonical path and `Neo.setupClass` sees the same namespace registered from two different file paths → `Namespace collision in unitTestMode`. Symlinks are safe ONLY for pure-data directories like `.neo-ai-data/`. Config files MUST be real copies (which is what `bootstrapWorktree.mjs` does by default, without the `--link-data` flag).
+**What NOT to symlink**: source-code paths (`src/core/Base.mjs`, `ai/mcp/server/*/config.mjs`) or the `.neo-ai-data/` parent. Node's ESM resolver can turn source symlinks into duplicate namespace registrations, while sharing process-control directories can make one clone control another clone's daemons. The bootstrap script copies config files and links only its approved data members and handoff files.
 
 ### Agent Guidelines (Repository root)
 - **`AGENTS_STARTUP.md`**: Step-by-step session initialization instructions
-- **`AGENTS.md`**: Per-turn operational mandates (automatically loaded via settings.json)
+- **`AGENTS.md`**: Canonical per-turn operational mandates, loaded through each harness's supported instruction mechanism
 
 ### Developer Guide
 - **[Strategic Workflows](../learn/agentos/StrategicWorkflows.md)**: Best practices for working effectively with the agents — the advanced, integrated workflows they support.
@@ -338,8 +329,8 @@ ln -s /Users/Shared/github/neomjs/neo/.neo-ai-data .neo-ai-data
 ## 6. Your First Agent Session
 
 1. **Start the agent** from the repository root:
-   * **For Gemini CLI:** Run `gemini` in your terminal.
    * **For Antigravity:** Follow the Antigravity launch procedure.
+   * **For enterprise/API-key Gemini CLI:** Run the configured CLI profile from the repository root.
 
 2. **Follow the initialization instructions in AGENTS_STARTUP.md**:
 

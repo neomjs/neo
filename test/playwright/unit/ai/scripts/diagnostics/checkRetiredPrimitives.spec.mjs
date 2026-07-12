@@ -1,7 +1,7 @@
 import {test, expect} from '@playwright/test';
-import {execFileSync}  from 'node:child_process';
+import {execFileSync} from 'node:child_process';
 import fs             from 'node:fs';
-import path            from 'node:path';
+import path           from 'node:path';
 
 // The Playwright unit runner executes with cwd = repo root, so resolve against it rather than
 // __dirname arithmetic — the latter is brittle across nesting depth and git-worktree layouts.
@@ -10,32 +10,44 @@ const
     scriptPath = path.join(repoRoot, 'ai/scripts/diagnostics/check-retired-primitives.mjs');
 
 /**
- * Runs the guard with a throwaway fixture file written under the real SEARCH_ROOT (`ai/`), then
- * cleans up. Returns the script's exit code + combined stdout/stderr. The fixture lives in a
- * dedicated directory so cleanup is a single recursive remove even if the assertion throws.
+ * Runs the guard with a throwaway fixture file on a real scanned surface, then cleans up. Returns
+ * the script's exit code + combined stdout/stderr. Existing parent directories are preserved;
+ * dedicated fixture directories are removed after their file is deleted.
  *
- * @param {string} relFile Path (relative to repo root, under `ai/`) of the fixture file to write.
+ * @param {string} relFile Path relative to the repository root.
  * @param {string} content File contents that should trip exactly one guard category.
  * @returns {{exitCode:number, output:string}}
  */
 function runWithFixture(relFile, content) {
     const
-        fixtureFile = path.join(repoRoot, relFile),
-        fixtureDir  = path.dirname(fixtureFile);
+        fixtureFile      = path.join(repoRoot, relFile),
+        fixtureDir       = path.dirname(fixtureFile),
+        parentPreExisted = fs.existsSync(fixtureDir);
 
-    let exitCode = 0,
-        output   = '';
+    if (fs.existsSync(fixtureFile)) {
+        throw new Error(`Fixture path already exists: ${relFile}`)
+    }
+
+    let exitCode       = 0,
+        fixtureCreated = false,
+        output         = '';
 
     try {
         fs.mkdirSync(fixtureDir, {recursive: true});
         fs.writeFileSync(fixtureFile, content);
+        fixtureCreated = true;
 
-        execFileSync('node', [scriptPath], {cwd: repoRoot, encoding: 'utf8'});
+        output = execFileSync('node', [scriptPath], {cwd: repoRoot, encoding: 'utf8'});
     } catch (err) {
         exitCode = err.status;
         output   = (err.stdout || '') + (err.stderr || '');
     } finally {
-        fs.rmSync(fixtureDir, {recursive: true, force: true});
+        if (fixtureCreated) {
+            fs.rmSync(fixtureFile, {force: true})
+        }
+        if (fixtureCreated && !parentPreExisted) {
+            fs.rmSync(fixtureDir, {recursive: true, force: true})
+        }
     }
 
     return {exitCode, output};
@@ -45,9 +57,10 @@ function runWithFixture(relFile, content) {
  * @summary CI guard test for `check-retired-primitives.mjs`.
  *
  * Verifies the guard distinguishes a clean tree from each re-introduction category: retired module
- * import, retired per-MCP-server config flag (#12139), and retired MCP tool (#12139). Each negative
- * case writes a throwaway fixture under `ai/`, runs the guard as a subprocess, asserts the failure,
- * then cleans up — covering the falsifying input, not just the happy path.
+ * import, retired per-MCP-server config flag, retired MCP tool, exact retired
+ * active path, and stale Antigravity MCP authority. Each negative case writes a throwaway fixture,
+ * runs the guard as a subprocess, asserts the failure, then cleans up — covering the falsifying
+ * input, not just the happy path. A historical-blog fixture proves the active scan stays bounded.
  *
  * @see ai/scripts/diagnostics/check-retired-primitives.mjs
  */
@@ -95,6 +108,37 @@ test.describe.serial('check-retired-primitives CI guard', () => {
         expect(exitCode).toBe(1);
         expect(output).toContain('FAIL');
         expect(output).toContain('retired MCP tool');
+    });
+
+    test('exits 1 (FAIL) when the retired Gemini workspace template path is recreated', () => {
+        const {exitCode, output} = runWithFixture(
+            '.gemini/settings.template.json',
+            '{"mcpServers": {}}\n'
+        );
+
+        expect(exitCode).toBe(1);
+        expect(output).toContain('retired active path');
+        expect(output).toContain('.gemini/settings.template.json');
+    });
+
+    test('exits 1 (FAIL) on active Antigravity guidance using the retired workspace authority', () => {
+        const {exitCode, output} = runWithFixture(
+            'learn/agentos/tooling/__retired_antigravity_fixture__/probe.md',
+            'Configure Antigravity in `.gemini/settings.json`.\n'
+        );
+
+        expect(exitCode).toBe(1);
+        expect(output).toContain('retired Antigravity MCP authority');
+        expect(output).toContain('.gemini/settings.json');
+    });
+
+    test('does NOT scan historical blog archaeology for retired Antigravity paths', () => {
+        const {exitCode} = runWithFixture(
+            'learn/blog/__retired_antigravity_fixture__/historical.md',
+            'In 2025 the Gemini CLI example used `.gemini/settings.json`.\n'
+        );
+
+        expect(exitCode).toBe(0);
     });
 
     test('does NOT false-match a config flag named in a JSDoc/comment line', () => {

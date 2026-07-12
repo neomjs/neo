@@ -81,7 +81,7 @@
     },
     "debugging-antigravity": {
       "name": "debugging-antigravity",
-      "description": "Authoritative guide on debugging Antigravity IDE MCP servers, preventing language server duplication, mitigating sqlite workspace UI crashes, and configuring mcpServers. Triggers: Use this skill if the user's Antigravity MCP server panel has a perpetual loading spinner, if MCP processes are duplicating, if sqlite workspace states are corrupted (`__store` null error), or if you need to know how to properly scope `.gemini/settings.json` vs global configurations.",
+      "description": "Authoritative guide for Antigravity 2.x MCP authority, duplication forensics, UI-profile isolation, and sqlite workspace recovery. Triggers: Use when the Antigravity MCP panel spins indefinitely, MCP processes appear duplicated, sqlite workspace state throws a `__store` null error, `--user-data-dir` scope is unclear, or global `~/.gemini/config/mcp_config.json` vs workspace `.agents/mcp_config.json` ownership must be established.",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
       "claudeSymlinkRequired": false,
