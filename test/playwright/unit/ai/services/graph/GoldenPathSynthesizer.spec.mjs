@@ -191,15 +191,18 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     test('scoreCurrentFocusIssue surfaces focused epic umbrellas without routing them (#14337)', () => {
         const Synthesizer = GoldenPathSynthesizer.constructor;
         const now         = new Date('2026-06-29T12:00:00Z');
-        const candidate   = issueFocusSections.scoreCurrentFocusIssue({
+        // Release-agnostic: read the current release from the SSOT so the fixture never re-stales —
+        // the exact hardcoded-'v13.1' staleness this behavior removes.
+        const release   = aiConfig.currentReleaseVersion;
+        const candidate = issueFocusSections.scoreCurrentFocusIssue({
             meta: {
                 id                : 14310,
-                title             : 'Documentation & learning-experience overhaul (v13.1)',
+                title             : `Documentation & learning-experience overhaul (${release})`,
                 state             : 'OPEN',
                 labels            : ['documentation', 'epic', 'ai', 'architecture'],
                 createdAt         : '2026-06-29T08:46:57Z',
                 updatedAt         : '2026-06-29T09:44:27Z',
-                milestone         : 'v13.1',
+                milestone         : release,
                 subIssuesCompleted: 3,
                 subIssuesTotal    : 22
             },
@@ -208,11 +211,11 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
         expect(candidate).toMatchObject({
             isEpic           : true,
-            milestone        : 'v13.1',
+            milestone        : release,
             number           : 14310,
             openSubIssueCount: 19
         });
-        expect(candidate.reasons).toContain('v13.1');
+        expect(candidate.reasons).toContain(release);
         expect(Synthesizer.isActionableComputedRecommendation({
             id        : 'issue-14310',
             type      : 'ISSUE',
@@ -233,7 +236,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const staleSyncCandidate = issueFocusSections.scoreCurrentFocusIssue({
             meta: {
                 id                : 14310,
-                title             : 'Documentation & learning-experience overhaul (v13.1)',
+                title             : `Documentation & learning-experience overhaul (${release})`,
                 state             : 'OPEN',
                 labels            : ['documentation', 'epic', 'ai', 'architecture'],
                 createdAt         : '2026-06-29T08:46:57Z',
@@ -249,7 +252,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             milestone        : undefined,
             openSubIssueCount: 22
         });
-        expect(staleSyncCandidate.reasons).toContain('v13.1');
+        expect(staleSyncCandidate.reasons).toContain(release);
     });
 
     test('hasCrossFamilyReview accepts injected identity-family maps', () => {
@@ -1001,10 +1004,11 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             '',
             'Agent OS orchestrator regression.'
         ].join('\n'));
+        const release = aiConfig.currentReleaseVersion; // release-agnostic: the current-release epic tracks the SSOT
         fs.writeFileSync(path.join(chunkDir, 'issue-13012.md'), [
             '---',
             'id: 13012',
-            "title: 'Agent Harness v13.1 release epic'",
+            `title: 'Agent Harness ${release} release epic'`,
             'state: OPEN',
             'labels:',
             '  - enhancement',
@@ -1014,11 +1018,11 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             'assignees: []',
             "createdAt: '2026-06-10T00:00:00Z'",
             "updatedAt: '2026-06-21T09:00:00Z'",
-            'milestone: v13.1',
+            `milestone: ${release}`,
             'subIssuesCompleted: 5',
             'subIssuesTotal: 22',
             '---',
-            '# Agent Harness v13.1 release epic'
+            `# Agent Harness ${release} release epic`
         ].join('\n'));
         fs.writeFileSync(path.join(chunkDir, 'issue-12000.md'), [
             '---',
