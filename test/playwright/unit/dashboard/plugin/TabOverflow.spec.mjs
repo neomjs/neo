@@ -32,7 +32,9 @@ test.describe('Neo.dashboard.plugin.TabOverflow (re-entrancy contract)', () => {
         const plugin = Neo.create(TabOverflow, {
             owner: {
                 id             : 'tab-overflow-test-owner',
+                appName        : 'test-app',
                 mounted        : true,
+                windowId       : 1,
                 items          : [{id: 'b1'}, {id: 'b2'}],
                 getDomRect,
                 add            : () => ({}),
@@ -121,5 +123,20 @@ test.describe('Neo.dashboard.plugin.TabOverflow (re-entrancy contract)', () => {
 
         expect(plugin.projectQueued, 'the queued flag is consumed by the drain').toBe(false);
         expect(plugin.measuring, 'no pass is left latched').toBe(false)
+    });
+
+    test('all-fit teardown: syncControl destroys and nulls the control when the overflow set empties (so a later overflow recreates a fresh one, not a dead instance)', async () => {
+        // A wide extent keeps nothing overflowing, so the create-time auto-project (onOwnerMounted) settles
+        // cleanly with no control; await a tick so it does not race the direct syncControl call below.
+        const plugin = createPlugin(async ids => ids ? [{width: 10}, {width: 10}] : {width: 1000});
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        let destroyed = false;
+        plugin.control = {destroy: () => { destroyed = true }};
+
+        plugin.syncControl([], {activeIndex: 0}); // empty hiddenMeta → nothing overflows → teardown
+
+        expect(destroyed, 'the control is destroyed when the overflow set empties').toBe(true);
+        expect(plugin.control, 'the reference is cleared, so the next overflow builds a fresh control').toBe(null)
     })
 });
