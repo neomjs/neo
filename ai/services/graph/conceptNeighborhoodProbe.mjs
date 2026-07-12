@@ -153,15 +153,23 @@ export function walkConceptNeighborhood({graphService, conceptId, maxHops = 2, h
                 // mirrors getNeighbors' node-AND-edge gate). Default null = probe full-graph reachability.
                 if (edgeRlsPredicate && !edgeRlsPredicate(edge)) continue;
 
-                if (hops.length >= hopBudget) {
-                    truncated = true;
-                    break
-                }
-
                 const
                     neighborId = edge.source === fromId ? edge.target : edge.source,
                     node       = graphService?.db?.nodes?.get?.(neighborId),
                     label      = node?.label || 'UNKNOWN';
+
+                // node-RLS (retrieval path): a node-RLS-INVISIBLE neighbor must NEVER become a hop / candidate
+                // / path or consume budget — a VISIBLE edge to a private node (the exact leak Euclid reproduced:
+                // an allowed IMPLEMENTED_BY edge whose FILE target is node-RLS-invisible, then hydrated by a
+                // successful collection hydrator) does NOT authorize the node. Skip it entirely BEFORE
+                // hops.push / budget / path. Measurement mode (rlsPredicate=null) short-circuits → recorded,
+                // privacy applied at render via applyPrivacyContract.
+                if (rlsPredicate && !rlsPredicate(neighborId, label)) continue;
+
+                if (hops.length >= hopBudget) {
+                    truncated = true;
+                    break
+                }
 
                 hops.push({
                     depth,
@@ -178,19 +186,16 @@ export function walkConceptNeighborhood({graphService, conceptId, maxHops = 2, h
 
                 if (!visited.has(neighborId)) {
                     visited.add(neighborId);
-                    // RLS Depth-Floor (retrieval path): expand THROUGH a neighbor only when it clears ALL of
-                    // (a) the public-structural label allow-list (traversableLabels), (b) the retrieval-bearing
-                    // edge-type allow-list (traversableEdgeTypes — an arbitrary/structural edge like
-                    // DISCUSSED_IN does not carry the walk onward), and (c) the caller's per-intermediate
-                    // visibility gate (rlsPredicate — e.g. isRlsVisible for tenant/RLS).
-                    // A private / other-tenant / non-structural neighbor is still recorded as a hop above
-                    // (and gated as a candidate downstream), but its edges are never walked to reach a
-                    // deeper node — terminal-candidate authorization does NOT authorize the PATH crossed to
-                    // reach it. All null = probe measurement mode (full reachability; privacy at render).
+                    // RLS Depth-Floor (retrieval path): expand THROUGH a neighbor only when it clears BOTH
+                    // (a) the public-structural label allow-list (traversableLabels) and (b) the
+                    // retrieval-bearing edge-type allow-list (traversableEdgeTypes — an arbitrary/structural
+                    // edge like DISCUSSED_IN does not carry the walk onward). Node-RLS is already applied
+                    // ABOVE (pre-push), so a private / other-tenant neighbor never reaches here — its edges are
+                    // never walked to a deeper node. All null = probe measurement mode (full reachability;
+                    // privacy applied at render).
                     if (
-                        (!traversableLabels    || traversableLabels.includes(label))       &&
-                        (!traversableEdgeTypes || traversableEdgeTypes.includes(edge.type)) &&
-                        (!rlsPredicate         || rlsPredicate(neighborId, label))
+                        (!traversableLabels    || traversableLabels.includes(label)) &&
+                        (!traversableEdgeTypes || traversableEdgeTypes.includes(edge.type))
                     ) next.push(neighborId)
                 }
             }

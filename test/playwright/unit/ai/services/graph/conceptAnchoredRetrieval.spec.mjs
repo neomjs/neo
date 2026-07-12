@@ -400,6 +400,42 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval — enrichWithConc
         expect(ungated.event.candidatesAdded).toBe(1);
     });
 
+    test('node-RLS gates a DIRECT terminal BEFORE hydration: a visible admitted IMPLEMENTED_BY edge to a node-RLS-invisible FILE is NOT hydrated even with a working hydrator — zero-hydration regression (#15071 private-terminal leak, @neo-gpt exact-head repro)', async () => {
+        // The exact reproduced leak: golden-path --IMPLEMENTED_BY--> FILE:private (1 hop). The edge is
+        // visible, its edge-type is an ADMITTED KB terminal, and the hydrator resolves FILE:private
+        // successfully — yet the FILE is node-RLS-INVISIBLE. Pre-fix the terminal was pushed + hydrated
+        // (candidatesAdded=1, private conceptPath). Node-RLS is applied BEFORE hops.push/budget/path, so the
+        // private terminal never becomes a candidate: terminal-edge-type admission + a working hydrator do
+        // NOT authorize the NODE.
+        const privateTerminalGraph = fixtureGraph({
+            concepts: [{type: 'CONCEPT', id: 'golden-path'}],
+            nodes   : {
+                'golden-path' : {label: 'CONCEPT'},
+                'FILE:private': {label: 'FILE'}
+            },
+            edges: [
+                {id: 'f1', source: 'golden-path', target: 'FILE:private', type: 'IMPLEMENTED_BY', properties: {}}
+            ]
+        });
+        // a SUCCESSFUL collection hydrator — FILE:private resolves to a real doc, so a non-zero result is a
+        // genuine leak, not a broken hydrator or an un-admitted edge type
+        const fileGate = async nodeId => nodeId === 'FILE:private' ? {id: nodeId, source: nodeId} : null;
+        const opts     = {
+            graphService     : privateTerminalGraph, query: 'golden path', candidates: [], conceptWalk: true,
+            resolveCandidate : fileGate, getCandidateId: c => c.source, traversableNodeLabels: ['FILE'],
+            terminalEdgeTypes: KB_TERMINAL_EDGE_TYPES, maxHops: 1
+        };
+
+        // node-RLS rejects the private FILE → ZERO hydration (the terminal never becomes a candidate)
+        const gated = await enrichWithConceptWalk({...opts, rlsPredicate: nodeId => nodeId !== 'FILE:private'});
+        expect(gated.event.candidatesAdded).toBe(0);
+
+        // control: the SAME graph + hydrator with the FILE node-RLS-VISIBLE DOES hydrate — proving the zero
+        // above is the node-RLS gate, not a broken hydrator or an un-admitted edge type
+        const ungated = await enrichWithConceptWalk(opts);
+        expect(ungated.event.candidatesAdded).toBe(1);
+    });
+
     test('traversableEdgeTypes gates PATH expansion by edge.type: a candidate reachable ONLY through an arbitrary edge is not surfaced — the (i) edge-policy, threaded enrich→walk (#14504)', async () => {
         // golden-path --RELATES_TO--> CONCEPT:sib --TAGGED_CONCEPT--> MEM:viaConcept   (retrieval-bearing expansion path)
         // golden-path --DISCUSSED_IN--> ISSUE:x   --TAGGED_CONCEPT--> MEM:viaArbitrary (arbitrary edge → ISSUE:x never expanded)
