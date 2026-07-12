@@ -28,13 +28,17 @@ const UNKNOWN_FACT = Object.freeze({
  * @summary Build a boot-identity read-source over the shared fact-file.
  * @param {Object} options
  * @param {String} options.dir The shared runtime-state directory the orchestrator writes the fact to.
+ * @param {Number} [options.maxAgeMs] Staleness horizon forwarded to the store read; omit to use the
+ *     store's default. This is the mechanical override point the store's contract refers to.
  * @param {Function} [options.readImpl=readBootIdentityFact] The store reader seam (injected in specs).
  * @returns {{produceBootIdentityFact: Function}} the read-source `FleetControlBridge.bootIdentitySource` expects.
  */
-export function createBootIdentityReadSource({dir, readImpl = readBootIdentityFact} = {}) {
+export function createBootIdentityReadSource({dir, maxAgeMs, readImpl = readBootIdentityFact} = {}) {
     return {
         async produceBootIdentityFact() {
-            const fact = await readImpl({dir});
+            // Pass maxAgeMs through so the wiring can tighten/relax the staleness horizon; `undefined`
+            // falls back to the store's default (readBootIdentityFact's own maxAgeMs default).
+            const fact = await readImpl({dir, maxAgeMs});
 
             // A fresh copy of the fallback so a caller can never mutate the shared frozen constant.
             return fact && typeof fact === 'object' ? fact : {...UNKNOWN_FACT};

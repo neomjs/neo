@@ -1,5 +1,6 @@
-import {mkdir, readFile, rename, stat, writeFile} from 'fs/promises';
-import path                                       from 'path';
+import {mkdir, readFile, rename, stat, unlink, writeFile} from 'fs/promises';
+import path                                               from 'path';
+import {BOOT_FRESHNESS_CLASS}                             from './bootIdentityFreshness.mjs';
 
 /**
  * @module ai/daemons/orchestrator/services/bootIdentityFactStore
@@ -14,14 +15,20 @@ import path                                       from 'path';
  *
  * **Explicit cross-process snapshot contract (not a raw blob).** Because a writer and a reader in two
  * OS processes share this file, the on-disk form is a versioned, self-describing envelope
- * `{v, generatedAt, bootId, fact}`:
- *  - **Atomic replace** (write-temp → `rename`) so a concurrent reader never observes a torn,
- *    half-written JSON (which would read as corrupt → a spurious `unknown`).
- *  - **Generation metadata** (`generatedAt`, `bootId`) so the reader can tell a fresh snapshot from a
- *    stale prior-process one, and a future format change from the current version.
+ * `{v, generatedAt, fact}`:
+ *  - **Concurrency-safe atomic replace.** Each write goes to a UNIQUE per-write sibling temp
+ *    (`…json.<pid>.<ts>.<seq>.tmp`) then `rename`s over the target — so overlapping writers (a poll
+ *    racing a restart) never share a temp path and a reader never observes a torn, half-written JSON.
+ *    A fixed temp name would collide under concurrency (one writer's `rename` unlinks the temp another
+ *    is still writing → `ENOENT` / an unreadable final snapshot); the per-write name is the same shape
+ *    `deploymentStateBridgeStore` uses.
+ *  - **Generation metadata** (`generatedAt`) so the reader can tell a fresh snapshot from a stale
+ *    prior-process one, and a future format change from the current version.
  *  - **Byte bound** (`MAX_FACT_BYTES`) so a pathological oversized field can never be written or parsed.
- *  - **Schema validation** on read (version + required-key shape) so a wrong-version / wrong-shape file
- *    degrades to `unknown` rather than serving garbage.
+ *  - **Canonical-codebook validation** on read — the envelope version, plus the fact's `classification`
+ *    against the producer's `BOOT_FRESHNESS_CLASS` codebook, `advisory === true`, and a non-empty
+ *    `reason` — so a wrong-version / wrong-shape / non-codebook file degrades to `unknown`, never a
+ *    fabricated classification served as a real one.
  *
  * **Latest-wins, not a ledger:** the boot-identity fact is a single CURRENT snapshot (which source is
  * this process running, plus the latest scheduler cycle), so the write overwrites rather than appends
@@ -29,11 +36,11 @@ import path                                       from 'path';
  *
  * **Advisory-fail-soft read (the control-plane contract):** the read is on the control-plane path,
  * which must NEVER be gated by this store — so a missing / unreadable / corrupt / wrong-version /
- * **stale-prior-process** file resolves to an honest `unknown` (a `null` for the absent/unreadable
- * classes, or an explicit stale advisory), never a fabricated fact and never a thrown control-plane
- * read. The write, by contrast, fails LOUD (a bad fact / oversized envelope / I/O fault throws) so the
- * orchestrator's per-cycle writer (`recordBootIdentityFact`) can route it to observability instead of
- * swallowing it blind.
+ * non-codebook / **stale-prior-process** file resolves to an honest `unknown` (a `null` for the
+ * absent/unreadable/invalid classes, or an explicit stale advisory), never a fabricated fact and never
+ * a thrown control-plane read. The write, by contrast, fails LOUD (a bad fact / oversized envelope /
+ * I/O fault throws) so the orchestrator's per-cycle writer (`recordBootIdentityFact`) can route it to
+ * observability instead of swallowing it blind.
  */
 
 const
@@ -48,9 +55,13 @@ const
     /**
      * Default staleness horizon. A live orchestrator rewrites the fact every scheduler cycle, so a fact
      * older than this means the producing process is gone → the advisory degrades to `unknown` rather
-     * than serving a dead process's snapshot as if live. The reader wiring overrides it from config.
+     * than serving a dead process's snapshot as if live. The reader wiring overrides it via `maxAgeMs`.
      */
     DEFAULT_MAX_FACT_AGE_MS     = 6 * 60 * 60 * 1000;
+
+// Per-process monotonic write counter — disambiguates two writes within the same millisecond so the
+// unique-temp name never collides even under a tight write loop in one process.
+let writeSeq = 0;
 
 export {BOOT_IDENTITY_FACT_VERSION, DEFAULT_MAX_FACT_AGE_MS, MAX_FACT_BYTES};
 
@@ -69,38 +80,44 @@ export function getBootIdentityFactFilePath(dir) {
 
 /**
  * @summary Validates a parsed envelope against the cross-process snapshot contract: the current
- * version, a finite generation timestamp, and a fact carrying the produce-shape's required keys.
- * A failure degrades the read to `unknown` (never a throw, never a fabricated fact).
+ * version, a finite generation timestamp, and a fact whose `classification` is a member of the
+ * producer's canonical `BOOT_FRESHNESS_CLASS` codebook, is `advisory === true`, and carries a
+ * non-empty `reason`. A failure degrades the read to `unknown` (never a throw, never a fabricated fact).
  * @param {*} envelope The parsed file contents.
  * @returns {Boolean}
  * @protected
  */
 export function isValidBootIdentityEnvelope(envelope) {
-    return !!envelope
-        && typeof envelope === 'object'
-        && envelope.v === BOOT_IDENTITY_FACT_VERSION
-        && Number.isFinite(envelope.generatedAt)
-        && !!envelope.fact
-        && typeof envelope.fact                === 'object'
-        && typeof envelope.fact.classification === 'string'
-        && typeof envelope.fact.advisory       === 'boolean';
+    if (!envelope || typeof envelope !== 'object' || envelope.v !== BOOT_IDENTITY_FACT_VERSION) {
+        return false;
+    }
+    if (!Number.isFinite(envelope.generatedAt)) {
+        return false;
+    }
+
+    const fact = envelope.fact;
+
+    return !!fact
+        && typeof fact === 'object'
+        && Object.values(BOOT_FRESHNESS_CLASS).includes(fact.classification) // the producer's codebook, not any string
+        && fact.advisory === true                                            // advisory-only invariant (never a certainty verdict)
+        && typeof fact.reason === 'string' && fact.reason.length > 0;
 }
 
 /**
- * @summary Persists the latest advisory boot-identity fact as a versioned, atomically-replaced
- * snapshot envelope, creating the dir if needed. The orchestrator calls this at its cycle boundary;
- * `fact` is the full `produceBootIdentityFact()` shape `{fact, classification, advisory, reason}`.
- * Fails LOUD (bad fact / oversized envelope / I/O fault) — the caller routes the error to observability.
+ * @summary Persists the latest advisory boot-identity fact as a versioned, concurrency-safe
+ * atomically-replaced snapshot envelope, creating the dir if needed. The orchestrator calls this at its
+ * cycle boundary; `fact` is the full `produceBootIdentityFact()` shape `{fact, classification, advisory,
+ * reason}`. Fails LOUD (bad fact / oversized envelope / I/O fault) — the caller routes it to observability.
  * @param {Object} fact The advisory boot-identity fact to persist.
  * @param {Object} options
  * @param {String} options.dir The shared runtime state directory.
- * @param {String|Number|null} [options.bootId=null] Producing-process boot generation id (metadata).
  * @param {Function} [options.nowFn=Date.now] Injected epoch-ms clock (stamps `generatedAt`).
  * @returns {Promise<String>} The file path written to.
  * @throws {TypeError} when `fact` is not an object or `dir` is missing/empty.
  * @throws {RangeError} when the serialized envelope exceeds `MAX_FACT_BYTES`.
  */
-export async function writeBootIdentityFact(fact, {dir, bootId = null, nowFn = Date.now} = {}) {
+export async function writeBootIdentityFact(fact, {dir, nowFn = Date.now} = {}) {
     if (!fact || typeof fact !== 'object') {
         throw new TypeError('writeBootIdentityFact: fact object is required');
     }
@@ -109,7 +126,7 @@ export async function writeBootIdentityFact(fact, {dir, bootId = null, nowFn = D
     }
 
     const
-        envelope   = {v: BOOT_IDENTITY_FACT_VERSION, generatedAt: nowFn(), bootId, fact},
+        envelope   = {v: BOOT_IDENTITY_FACT_VERSION, generatedAt: nowFn(), fact},
         serialized = JSON.stringify(envelope);
 
     if (Buffer.byteLength(serialized, 'utf8') > MAX_FACT_BYTES) {
@@ -120,22 +137,30 @@ export async function writeBootIdentityFact(fact, {dir, bootId = null, nowFn = D
 
     const
         filePath = getBootIdentityFactFilePath(dir),
-        tmpPath  = `${filePath}.tmp`;
+        // Unique per-write temp: pid + timestamp + monotonic seq → no two concurrent writers (overlapping
+        // polls / a restart racing a poll) ever share a temp path, so a rename never unlinks a temp another
+        // writer is mid-write to. Matches deploymentStateBridgeStore's atomic-snapshot precedent.
+        tmpPath  = `${filePath}.${process.pid}.${nowFn()}.${++writeSeq}.tmp`;
 
-    // Atomic replace: write the whole envelope to a sibling temp then rename over the target, so a
-    // concurrent cross-process reader observes either the old file or the new one — never a torn write.
-    await writeFile(tmpPath, serialized, 'utf8');
-    await rename(tmpPath, filePath);
+    try {
+        await writeFile(tmpPath, serialized, 'utf8');
+        await rename(tmpPath, filePath);
+    } catch (error) {
+        // Best-effort cleanup so a failed write never orphans its own temp; the original error still throws.
+        await unlink(tmpPath).catch(() => {});
+        throw error;
+    }
 
     return filePath;
 }
 
 /**
  * @summary Reads the latest advisory boot-identity snapshot. ADVISORY-FAIL-SOFT: a missing /
- * unreadable / oversized / corrupt / wrong-version file resolves to `null`; a valid-but-STALE snapshot
- * (older than `maxAgeMs` → the producing process is gone) resolves to an explicit `unknown` advisory
- * carrying a `stale-boot-identity-fact` reason. Either way the control-plane read is never gated and
- * never throws — the consumer degrades to an honest `unknown`, never a dead process's fact-as-live.
+ * unreadable / oversized / corrupt / wrong-version / non-codebook file resolves to `null`; a
+ * valid-but-STALE snapshot (older than `maxAgeMs` → the producing process is gone) resolves to an
+ * explicit `unknown` advisory carrying a `stale-boot-identity-fact` reason. Either way the control-plane
+ * read is never gated and never throws — the consumer degrades to an honest `unknown`, never a dead
+ * process's fact-as-live.
  * @param {Object} options
  * @param {String} options.dir The shared runtime state directory.
  * @param {Number} [options.maxAgeMs=DEFAULT_MAX_FACT_AGE_MS] Staleness horizon; `Infinity` disables it.
@@ -171,14 +196,14 @@ export async function readBootIdentityFact({dir, maxAgeMs = DEFAULT_MAX_FACT_AGE
     }
 
     if (!isValidBootIdentityEnvelope(envelope)) {
-        return null; // wrong version / wrong shape → advisory-unknown, never garbage-as-fact
+        return null; // wrong version / non-codebook shape → advisory-unknown, never garbage-as-fact
     }
 
     // Stale prior-process guard: a fact older than the horizon means the producing orchestrator is
     // gone → surface an explicit `unknown` (never a dead process's snapshot as if live). Distinct from
     // the `null` absent-class so the fleet reader can render the stale reason.
     if (Number.isFinite(maxAgeMs) && (nowFn() - envelope.generatedAt) > maxAgeMs) {
-        return {fact: null, classification: 'unknown', advisory: true, reason: 'stale-boot-identity-fact'};
+        return {fact: null, classification: BOOT_FRESHNESS_CLASS.unknown, advisory: true, reason: 'stale-boot-identity-fact'};
     }
 
     return envelope.fact;

@@ -3,7 +3,7 @@ import Neo                      from '../../../../../../../src/Neo.mjs';
 import * as core                from '../../../../../../../src/core/_export.mjs';
 import {recordBootIdentityFact} from '../../../../../../../ai/daemons/orchestrator/services/recordBootIdentityFact.mjs';
 
-const advisoryFact = () => ({fact: {bootAt: 1000, sourceRef: 'abc'}, classification: 'current', advisory: true, reason: 'fresh'});
+const advisoryFact = () => ({fact: {bootAt: 1000, sourceRef: 'abc'}, classification: 'designed-deferral', advisory: true, reason: 'within-cadence-margin'});
 
 test.describe('recordBootIdentityFact — the orchestrator per-cycle boot-identity writer (#15079)', () => {
     test('produces the fact and persists it to the shared dir', async () => {
@@ -12,10 +12,10 @@ test.describe('recordBootIdentityFact — the orchestrator per-cycle boot-identi
 
         const result = await recordBootIdentityFact({source, dir: '/shared/runtime', writeImpl: async (fact, {dir}) => { written.push({fact, dir}) }});
 
-        expect(result).toMatchObject({classification: 'current'});
+        expect(result).toMatchObject({classification: 'designed-deferral'});
         expect(written).toHaveLength(1);
         expect(written[0].dir).toBe('/shared/runtime');
-        expect(written[0].fact).toMatchObject({classification: 'current'});
+        expect(written[0].fact).toMatchObject({classification: 'designed-deferral'});
     });
 
     test('no-ops (no write) on a missing source / missing produce method / missing dir', async () => {

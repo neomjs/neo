@@ -21,16 +21,18 @@ import {createBootIdentityReadSource} from './createBootIdentityReadSource.mjs';
  * @param {Object} options
  * @param {String} options.dir The shared runtime-state directory the orchestrator writes the fact to
  *     (read from `AiConfig.orchestrator.dataDir` at the caller's boot use site).
+ * @param {Number} [options.maxAgeMs] Staleness horizon forwarded to the read-source; omit for the
+ *     store default. Threaded so the fleet-server boot can tighten/relax the horizon from config.
  * @param {Object} [options.bridge=FleetControlBridge] The control bridge to wire (a stub in specs).
  * @param {Function} [options.createSource=createBootIdentityReadSource] The read-source factory (injected in specs).
  * @returns {Object|null} the wired read-source, or `null` when no dir was supplied (left unwired).
  */
-export function wireBootIdentityReadSource({dir, bridge = FleetControlBridge, createSource = createBootIdentityReadSource} = {}) {
+export function wireBootIdentityReadSource({dir, maxAgeMs, bridge = FleetControlBridge, createSource = createBootIdentityReadSource} = {}) {
     if (typeof dir !== 'string' || dir.length === 0) {
         return null; // no shared dir → leave the seam unwired (honest advisory-unknown), never fabricate a source
     }
 
-    bridge.bootIdentitySource = createSource({dir});
+    bridge.bootIdentitySource = createSource({dir, maxAgeMs});
 
     return bridge.bootIdentitySource;
 }

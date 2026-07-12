@@ -14,6 +14,9 @@ import {
     buildTaskDefinitions
 } from '../../../../../../ai/daemons/orchestrator/taskDefinitions.mjs';
 import TaskStateService, { createInitialTaskState } from '../../../../../../ai/daemons/orchestrator/services/TaskStateService.mjs';
+import os                                           from 'os';
+import {createBootIdentityReadSource}               from '../../../../../../ai/services/fleet/createBootIdentityReadSource.mjs';
+import {BOOT_FRESHNESS_CLASS}                       from '../../../../../../ai/daemons/orchestrator/services/bootIdentityFreshness.mjs';
 
 let   testOrchestratorSeq            = 0;
 const TEST_DEV_SERVER_PORT           = 18080;
@@ -226,6 +229,33 @@ function restoreConfigObject(target, prior) {
 }
 
 test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
+    test('boot-identity caller seam: initBootIdentitySource() + poll() writes a codebook-valid advisory fact the fleet reader serves', async () => {
+        const dir          = fs.mkdtempSync(path.join(os.tmpdir(), 'orch-boot-identity-')),
+              orchestrator = createTestOrchestrator();
+
+        orchestrator.dataDir = dir; // the shared runtime-state dir the fleet reader also reads
+
+        // Both are REAL Orchestrator methods (no free-helper replay): initBootIdentitySource() composes the
+        // source with the orchestrator's OWN cadence getter + process-boot time (exactly what start() calls);
+        // poll() persists it via recordBootIdentityFact(this.bootIdentitySource, this.dataDir, onError).
+        orchestrator.initBootIdentitySource();
+        expect(typeof orchestrator.bootIdentitySource.produceBootIdentityFact).toBe('function');
+
+        orchestrator.poll();
+
+        // poll() writes fire-and-forget → wait for the shared file, then read it back through the fleet seam.
+        await expect.poll(async () =>
+            (await createBootIdentityReadSource({dir}).produceBootIdentityFact()).reason
+        ).not.toBe('no-boot-identity-fact-file');
+
+        const served = await createBootIdentityReadSource({dir}).produceBootIdentityFact();
+        expect(Object.values(BOOT_FRESHNESS_CLASS)).toContain(served.classification); // a real codebook class, cross-process
+        expect(served.advisory).toBe(true);                                           // read-observe advisory, never a command
+        expect(typeof served.reason).toBe('string');
+
+        fs.rmSync(dir, {recursive: true, force: true});
+    });
+
     test('creates an isolated persisted-state envelope per task', () => {
         const state = createInitialTaskState(buildTaskDefinitions({
             scriptDir                        : '/repo/ai/scripts',

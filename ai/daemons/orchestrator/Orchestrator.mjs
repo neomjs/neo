@@ -867,17 +867,7 @@ export class Orchestrator extends Base {
             writeLogFn     : this.writeLog.bind(this)
         });
 
-        // Boot-identity source: constructed ONCE at start with the genuine process-boot time, read-only
-        // advisory. Each poll persists its fact to the shared runtime-state dir so the separate
-        // fleet-bridge-server process can serve it via getBootIdentity(). Fail-soft — a null source simply
-        // writes nothing. The freshness cadence is the REM-consolidation stall threshold (the same one the
-        // consolidation-liveness watchdog uses), so the classifier yields a real designed-deferral /
-        // restart-explains verdict instead of a perpetual `unknown`.
-        this.bootIdentitySource = buildBootIdentitySource({
-            remRunStateDir : this.remConsolidationWatchdogRunStateDir,
-            freshnessConfig: {designedCadenceMs: this.remConsolidationWatchdogThresholdMs, marginMs: 0},
-            bootAt         : Date.now() - Math.round(process.uptime() * 1000)
-        });
+        this.initBootIdentitySource();
 
         this.processSupervisorService = {};
         this.deploymentRuntimeAccessService = {};
@@ -905,6 +895,24 @@ export class Orchestrator extends Base {
         this.isPolling = true;
         this.writeLog('INFO', `[Orchestrator] Started. summaryInterval=${AiConfig.orchestrator.intervals.summarySweepMs}ms kbSyncInterval=${AiConfig.orchestrator.intervals.kbSyncMs}ms poll=${AiConfig.orchestrator.intervals.pollMs}ms.`);
         this.poll();
+    }
+
+    /**
+     * @summary Composes this process's boot-identity source (once, at start): a `BootIdentityHealthService`
+     * over the live REM-run-state fact-gatherer, with the genuine process-boot time and the REM-consolidation
+     * stall threshold as the freshness cadence (the same threshold the consolidation-liveness watchdog uses,
+     * so the classifier yields a real designed-deferral / restart-explains verdict rather than a perpetual
+     * `unknown`). Extracted from `start()` so the caller composition is exercisable through a real Orchestrator
+     * method — `start()` itself is a side-effecting daemon boot the unit suite does not run. Fail-soft: a null
+     * source simply makes each poll write nothing (the fleet reader keeps its honest advisory-`unknown`).
+     * @returns {void}
+     */
+    initBootIdentitySource() {
+        this.bootIdentitySource = buildBootIdentitySource({
+            remRunStateDir : this.remConsolidationWatchdogRunStateDir,
+            freshnessConfig: {designedCadenceMs: this.remConsolidationWatchdogThresholdMs, marginMs: 0},
+            bootAt         : Date.now() - Math.round(process.uptime() * 1000)
+        });
     }
 
     /**
