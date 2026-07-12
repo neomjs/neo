@@ -27,6 +27,23 @@ test.describe('temporalBirdViewEnvelope — the non-authoritative coverage/citat
         expect(envelope.generatedAt).toBe(GEN_ISO)
     });
 
+    test('exposes per-type counts + sessionId drill-down so a caller can pivot from the census into the source', () => {
+        const envelope = buildTemporalBirdViewEnvelope({
+            window : WINDOW,
+            sources: [
+                {id: 'mem-1',       type: 'memory',  sessionId: 'sess-1'},
+                {id: 'mem-2',       type: 'memory',  sessionId: 'sess-2'},
+                {id: 'session-abc', type: 'session', sessionId: 'sess-abc'}
+            ],
+            narrative  : 'stuff happened',
+            coverage   : {totalResolved: 3},
+            generatedAt: GEN_ISO
+        });
+
+        expect(envelope.coverage.sourceTypeCounts).toEqual({memory: 2, session: 1});
+        expect(envelope.citations.find(c => c.id === 'mem-1')).toMatchObject({type: 'memory', sessionId: 'sess-1'})
+    });
+
     test('citations carry per-source type/id/ref for drill-down', () => {
         const envelope = buildTemporalBirdViewEnvelope({window: WINDOW, sources: SOURCES, coverage: {totalResolved: 2}, generatedAt: GEN_ISO});
 

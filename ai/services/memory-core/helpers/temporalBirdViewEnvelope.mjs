@@ -86,6 +86,12 @@ export function buildTemporalBirdViewEnvelope({window, sources = [], narrative =
           hasNarrative      = typeof narrative === 'string' && narrative.length > 0,
           synthesisAvailable = hasNarrative && !incomplete;
 
+    // per-type counts (e.g. {session, memory}) so a caller sees the session/turn split, not just a total
+    const sourceTypeCounts = {};
+    for (const source of (Array.isArray(sources) ? sources : [])) {
+        if (source?.id) sourceTypeCounts[source.type || 'unknown'] = (sourceTypeCounts[source.type || 'unknown'] || 0) + 1
+    }
+
     let degradedReason = null;
 
     if (incomplete) {
@@ -102,6 +108,7 @@ export function buildTemporalBirdViewEnvelope({window, sources = [], narrative =
             included,
             excluded,
             truncated,
+            sourceTypeCounts,
             degraded     : incomplete,
             degradedReason
         },
@@ -111,6 +118,7 @@ export function buildTemporalBirdViewEnvelope({window, sources = [], narrative =
             .map(source => ({
                 type: source.type || 'unknown',
                 id  : source.id,
+                ...(source.sessionId ? {sessionId: source.sessionId} : {}),
                 ...(source.ref ? {ref: source.ref} : {})
             })),
         synthesis                 : synthesisAvailable ? narrative : null,
