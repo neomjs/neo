@@ -30,6 +30,14 @@
     white-space       : nowrap;
     -webkit-appearance: button;
 
+    // A floating button must keep the `.neo-floating` fixed positioning. The `.neo-button` `position:
+    // relative` above otherwise wins the cascade (equal single-class specificity, later source order) and
+    // pins the button to its offsetParent instead of the viewport — so `alignTo`'s computed left/top land
+    // it at the wrong coordinates. This higher-specificity compound selector restores `position: fixed`.
+    &.neo-floating {
+        position: fixed;
+    }
+
     .neo-button-badge {
         background-color: var(--button-badge-background-color);
         border-radius   : 5px;
