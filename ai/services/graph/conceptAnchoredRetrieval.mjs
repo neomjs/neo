@@ -31,7 +31,7 @@ export const RETRIEVAL_EVENT_SCHEMA = Object.freeze({
     candidatesAdded : 'Number — walk candidates appended after dedup + filters',
     filteredOut     : 'Number — walk candidates dropped by tenant/tombstone/trust filters',
     walkDurationMs  : 'Number — wall-clock ms spent in the concept-walk phase (resolve + walk + gate), for the latency budget',
-    truncated       : 'Boolean — did hydration hit the maxCandidates ceiling (more candidates existed than were returned)'
+    truncated       : 'Boolean — did the request-global edge budget OR the hydration maxCandidates ceiling cut work short (more existed than were returned)'
 });
 
 /**
@@ -302,9 +302,10 @@ export async function enrichWithConceptWalk({
         walkVisited = new Set(),
         added       = [];
 
-    let filteredOut       = 0,
-        hydrationAttempts = 0,
-        truncated         = false;
+    let filteredOut        = 0,
+        hydrationAttempts  = 0,
+        remainingHopBudget = hopBudget,
+        truncated          = false;
 
     for (const cluster of resolved) {
         if (truncated) break;
@@ -319,10 +320,18 @@ export async function enrichWithConceptWalk({
             // candidates stand. augment-never-displace holds even when the graph is down.
             let walk;
             try {
-                walk = walkConceptNeighborhood({graphService, conceptId: memberId, maxHops, hopBudget, traversableLabels: PUBLIC_TRAVERSABLE_LABELS})
+                walk = walkConceptNeighborhood({graphService, conceptId: memberId, maxHops, hopBudget: remainingHopBudget, traversableLabels: PUBLIC_TRAVERSABLE_LABELS})
             } catch {
-                walk = {hops: []}
+                walk = {hops: [], truncated: false}
             }
+
+            // Request-global edge budget: `hopBudget` is shared across ALL resolved clusters/members
+            // (NOT reset per member), so a wide alias-fan cannot multiply the walk's edge cost. Decrement
+            // by this member's consumed hops; a member walk that hit the remaining budget, or a
+            // now-exhausted request-global budget, sets `truncated` honestly — the outer loops then stop
+            // (this member's already-fetched hops still hydrate; only further members are cut).
+            remainingHopBudget -= walk.hops.length;
+            if (walk.truncated || remainingHopBudget <= 0) truncated = true;
 
             // BFS parent map for full-path reconstruction: keep each neighbor's FIRST (lowest-depth)
             // reaching hop — the shortest-path parent edge buildConceptPath traces back through.

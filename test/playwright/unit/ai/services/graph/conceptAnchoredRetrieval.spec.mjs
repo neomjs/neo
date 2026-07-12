@@ -260,6 +260,38 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval — enrichWithConc
         expect(events).toHaveLength(1);            // the event still emits — degradation is observable, not silent
     });
 
+    test('request-global hop budget is shared across cluster members — an exhausting first member truncates + stops later members, not a per-member reset (#14504 cycle-2 gate 2)', async () => {
+        // Two resolvable concepts, each with one edge to an authorizable memory. With a shared hopBudget
+        // of 1, the FIRST member's walk consumes the whole request-global budget (→ 0), so the second
+        // member is NOT walked and its memory never surfaces. A per-member reset (the pre-fix behavior)
+        // would have walked both and added two — this asserts the budget is genuinely request-global.
+        const budgetGraph = fixtureGraph({
+            concepts: [{type: 'CONCEPT', id: 'alpha'}, {type: 'CONCEPT', id: 'beta'}],
+            nodes   : {
+                alpha  : {label: 'CONCEPT'},
+                beta   : {label: 'CONCEPT'},
+                'MEM:A': {label: 'MEMORY'},
+                'MEM:B': {label: 'MEMORY'}
+            },
+            edges   : [
+                {id: 'ea', source: 'alpha', target: 'MEM:A', type: 'TAGGED_CONCEPT', properties: {}},
+                {id: 'eb', source: 'beta',  target: 'MEM:B', type: 'TAGGED_CONCEPT', properties: {}}
+            ]
+        });
+        const gate   = async nodeId => (nodeId === 'MEM:A' || nodeId === 'MEM:B') ? {id: nodeId, text: 'mem'} : null;
+        const events = [];
+
+        const {candidates, event} = await enrichWithConceptWalk({
+            graphService    : budgetGraph, query: 'alpha beta', candidates: [], conceptWalk: true,
+            resolveCandidate: gate, emit: e => events.push(e), maxHops: 1, hopBudget: 1
+        });
+
+        expect(event.resolvedConcepts.length).toBeGreaterThanOrEqual(2); // both concepts resolved → 2 members to walk
+        expect(event.candidatesAdded).toBe(1);  // only the FIRST member's memory — the shared budget stopped the second
+        expect(candidates).toHaveLength(1);
+        expect(event.truncated).toBe(true);      // honest: the request-global edge budget was cut short
+    });
+
     test('conceptWalk ON: authorized walk candidates append AFTER the untouched flat set, stamped + evented', async () => {
         const flat   = [{id: 'EMB:1'}];
         const events = [];
