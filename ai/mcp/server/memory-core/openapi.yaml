@@ -2624,6 +2624,27 @@ components:
         message:
           type: string
           description: "Human-readable degraded reason (present when degraded)."
+        conceptWalk:
+          type: object
+          nullable: true
+          description: "Present only when the conceptWalk opt-in ran — the retrieval event: which concepts resolved, whether the walk contributed, the added/filtered counts, and walkDurationMs. Absent on the default flat path."
+          properties:
+            event:
+              type: string
+            query:
+              type: string
+            resolvedConcepts:
+              type: array
+              items:
+                type: string
+            walkContributed:
+              type: boolean
+            candidatesAdded:
+              type: integer
+            filteredOut:
+              type: integer
+            walkDurationMs:
+              type: integer
 
     MemorySearchResult:
       allOf:
@@ -2638,6 +2659,33 @@ components:
               type: number
               description: Normalized relevance score (0-1, higher is more relevant)
               example: 0.8766
+            via:
+              type: string
+              description: "Present only on a concept-walk-derived result — the retrieval-path marker 'concept-walk'. Absent on embedding results."
+              example: "concept-walk"
+            conceptPath:
+              type: object
+              description: "Present only on a concept-walk-derived result — the ordered path root to candidate, each hop carrying its own degrade-by-omission provenance."
+              properties:
+                rootConcept:
+                  type: string
+                depth:
+                  type: integer
+                hops:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      edgeType:
+                        type: string
+                      neighborLabel:
+                        type: string
+                      readAt:
+                        type: string
+                        nullable: true
+                      axes:
+                        type: object
+                        description: "Present axes map to their storage keys; absent axes are omitted (degrade-by-omission)."
 
     SummariesListResponse:
       type: object
