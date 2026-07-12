@@ -627,6 +627,70 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /memories/history:
+    get:
+      summary: Explore Memory History
+      operationId: explore_memory_history
+      x-neo-tool-tier: read
+      x-pass-as-object: true
+      x-neo-tool-summary: Synthesize a non-authoritative "what happened" Bird View over a Memory/session time window.
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        The Memory/session temporal Bird View — a computed-on-demand "what happened this week/month/quarter"
+        synthesis over a time window, never a stored digest. Walks the chronological recency spine
+        (query_recent_turns) to completeness, foregrounds recurring themes via semantic enrichment
+        (query_raw_memories), and returns ONE non-authoritative envelope with cited sources. The narrative is
+        WITHHELD on any coverage gap — honest absence over a plausible-but-partial story. Zero durable output
+        above L2: nothing is written.
+
+        **When to Use:**
+        To orient on a stretch of work ("what happened this week") rather than a point recall. Pass a `preset`
+        grain (weekly/monthly/quarterly, or the finer daily/3-day) OR an explicit windowStart/windowEnd, not
+        both. `partition` is 'unified' (the full maintainer roster, cross-agent de-duplicated) or a single
+        '@<identity>'.
+      tags: [Memories]
+      parameters:
+        - name: partition
+          in: query
+          required: false
+          description: "'unified' (default) walks the full AgentIdentity roster + cross-agent de-duplicates; '@<identity>' walks exactly that identity."
+          schema:
+            type: string
+            default: unified
+        - name: preset
+          in: query
+          required: false
+          description: "Window grain (mutually exclusive with windowStart/windowEnd). weekly=L3, monthly=L4, quarterly=L5; daily / 3-day are finer arbitrary grains."
+          schema:
+            type: string
+            enum: [daily, 3-day, weekly, monthly, quarterly]
+        - name: windowStart
+          in: query
+          required: false
+          description: "Explicit inclusive window start (ISO 8601 / epoch ms). Provide together with windowEnd instead of a preset."
+          schema:
+            type: string
+        - name: windowEnd
+          in: query
+          required: false
+          description: "Explicit exclusive window end (ISO 8601 / epoch ms). Provide together with windowStart instead of a preset."
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Bird View envelope synthesized (non-authoritative; narrative withheld on any coverage gap)
+          content:
+            application/json:
+              schema:
+                type: object
+        '503':
+          description: Cannot connect to database
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /context/frontier:
     get:
       summary: Get Context Frontier

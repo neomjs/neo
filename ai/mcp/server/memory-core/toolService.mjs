@@ -13,6 +13,9 @@ import WakeSubscriptionService       from '../../../services/memory-core/WakeSub
 import TurnPresenceService           from '../../../services/memory-core/TurnPresenceService.mjs';
 import MemoryCoreRecorderService     from '../../../services/memory-core/MemoryCoreRecorderService.mjs';
 import {readDeploymentStateSnapshot} from '../../../services/memory-core/helpers/deploymentStateBridgeStore.mjs';
+import {buildChatModel}              from '../../../provider/buildChatModel.mjs';
+import {exploreMemoryHistory}        from '../../../services/memory-core/helpers/exploreMemoryHistory.mjs';
+import {makeChatModelGenerate}       from '../../../services/memory-core/helpers/chatModelGenerate.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
@@ -24,6 +27,37 @@ const readDeploymentInspection = args => readDeploymentStateSnapshot({
     maxBytes    : AiConfig.orchestrator.deploymentStateBridge.maxSnapshotBytes
 });
 
+// `explore_memory_history` — the Memory/session temporal Bird View runtime op. The pure composition
+// (`exploreMemoryHistory`) is dependency-injected; this handler binds the impure edges at the MC server:
+// the recency spine + semantic enrichment ride `MemoryService`, synthesis rides the `modelProvider`
+// reactive-Provider SSOT through `buildChatModel` (read at use-site, never captured at module load), and
+// the `unified` roster is the union of the who-is-online buckets (every AgentIdentity sits in exactly one).
+// The real clock is injected here; the composition stays deterministic on the value it receives.
+const exploreMemoryHistoryOp = args => exploreMemoryHistory({
+    partition  : args?.partition,
+    preset     : args?.preset,
+    windowStart: args?.windowStart,
+    windowEnd  : args?.windowEnd,
+    now        : new Date(),
+    deps       : {
+        queryRecentTurns: MemoryService.queryRecentTurns.bind(MemoryService),
+        queryMemories   : MemoryService.queryMemories.bind(MemoryService),
+        generate        : makeChatModelGenerate({
+            buildModel: () => buildChatModel({
+                modelProvider         : AiConfig.modelProvider,
+                openAiCompatibleConfig: AiConfig.openAiCompatible,
+                ollamaConfig          : AiConfig.ollama,
+                geminiApiKey          : AiConfig.geminiApiKey,
+                geminiModelName       : AiConfig.modelName
+            })
+        }),
+        listIdentities: async () => {
+            const {online, idle, benched} = await WakeSubscriptionService.whoIsOnline();
+            return [...(online || []), ...(idle || []), ...(benched || [])]
+        }
+    }
+});
+
 const serviceMapping = {
     add_memory           : MemoryService          .addMemory               .bind(MemoryService),
     get_mcp_tool_handbook: toolId => toolService.getToolHandbook(toolId),
@@ -32,19 +66,20 @@ const serviceMapping = {
     // NOT agent-callable: a mass-destructive op does not belong on the MCP surface, and any
     // confirmation an agent can supply is not a guard. An operator path, if ever needed,
     // routes through DestructiveOperationGuard — never through tool re-exposure.
-    get_all_summaries   : SummaryService         .listSummaries           .bind(SummaryService),
-    get_context_frontier: MemoryService          .getContextFrontier      .bind(MemoryService),
-    get_neighbors       : GraphService           .getNeighbors            .bind(GraphService),
-    get_node            : GraphService           .getNode                 .bind(GraphService),
-    get_session_memories: MemoryService          .listMemories            .bind(MemoryService),
-    healthcheck         : HealthService          .healthcheck             .bind(HealthService),
-    mutate_frontier     : MemoryService          .mutateFrontier          .bind(MemoryService),
-    pre_brief_session   : MemoryService          .preBriefSession         .bind(MemoryService),
-    query_hybrid_graph  : GraphService           .queryNodeTopology       .bind(GraphService),
-    query_raw_memories  : MemoryService          .queryMemories           .bind(MemoryService),
-    query_recent_turns  : MemoryService          .queryRecentTurns        .bind(MemoryService),
-    query_summaries     : SummaryService         .querySummaries          .bind(SummaryService),
-    search_nodes        : GraphService           .searchNodes             .bind(GraphService),
+    get_all_summaries     : SummaryService         .listSummaries           .bind(SummaryService),
+    get_context_frontier  : MemoryService          .getContextFrontier      .bind(MemoryService),
+    get_neighbors         : GraphService           .getNeighbors            .bind(GraphService),
+    get_node              : GraphService           .getNode                 .bind(GraphService),
+    get_session_memories  : MemoryService          .listMemories            .bind(MemoryService),
+    healthcheck           : HealthService          .healthcheck             .bind(HealthService),
+    mutate_frontier       : MemoryService          .mutateFrontier          .bind(MemoryService),
+    pre_brief_session     : MemoryService          .preBriefSession         .bind(MemoryService),
+    query_hybrid_graph    : GraphService           .queryNodeTopology       .bind(GraphService),
+    query_raw_memories    : MemoryService          .queryMemories           .bind(MemoryService),
+    query_recent_turns    : MemoryService          .queryRecentTurns        .bind(MemoryService),
+    query_summaries       : SummaryService         .querySummaries          .bind(SummaryService),
+    explore_memory_history: exploreMemoryHistoryOp,
+    search_nodes          : GraphService           .searchNodes             .bind(GraphService),
     get_memory_core_tool_metrics:
                               MemoryCoreRecorderService.getMemoryCoreToolMetrics.bind(MemoryCoreRecorderService),
     add_message           : MailboxService         .addMessage              .bind(MailboxService),
