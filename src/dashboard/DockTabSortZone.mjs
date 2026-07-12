@@ -79,6 +79,32 @@ class DockTabSortZone extends TabHeaderSortZone {
     remoteDropCommitted = false
 
     /**
+     * The resolved {@link Neo.manager.DragCoordinator} singleton, warmed at {@link #construct} for a
+     * cross-window ({@link #sortGroup}) zone so the drag handlers read it SYNCHRONOUSLY — the import
+     * never resolves on the drag hot path. `null` until the preload settles; a zone that never drags
+     * cross-window never sets it (and the module-scope import stays broken either way).
+     * @member {Neo.manager.DragCoordinator|null} dragCoordinator=null
+     * @protected
+     */
+    dragCoordinator = null
+
+    /**
+     * Warms the cross-window {@link Neo.manager.DragCoordinator} OFF the drag hot path: a `sortGroup`
+     * zone kicks off the cached dynamic import at construction so {@link #onDragMove} /
+     * {@link #processDragEnd} read {@link #dragCoordinator} synchronously during a gesture instead of
+     * awaiting a module load while `Neo.manager.DomEvent.fire` events are in flight (it does not await
+     * the drag handlers, so a drag-time async boundary would let a fast release finalize before the
+     * move engages the coordinator). The import stays out of module scope — the adapter's static
+     * import of this class never pulls the `manager.Window` chain into a non-dragging environment —
+     * and never fires for an in-window-only dock.
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+        this.sortGroup && this.resolveDragCoordinator()
+    }
+
+    /**
      * Extends the base drag-start: after the base resolves the dragged tab button, stamps the
      * cross-window payload identity onto it — `dockItemId` (the dock catalog id) +
      * `dockSourceWorkspaceId` (this document's workspace-set key). The coordinator hands exactly
@@ -166,7 +192,7 @@ class DockTabSortZone extends TabHeaderSortZone {
             {clientX, clientY} = data || {};
 
         if (me.sortGroup && me.dragComponent) {
-            (await me.resolveDragCoordinator()).onDragEnd({
+            me.dragCoordinator?.onDragEnd({
                 draggedItem   : me.dragComponent,
                 sourceSortZone: me
             })
@@ -196,19 +222,17 @@ class DockTabSortZone extends TabHeaderSortZone {
      * @param {Object} data
      */
     async onDragMove(data) {
-        await super.onDragMove(data);
+        let me = this;
 
-        let me                 = this,
-            itemId             = me.dockItemIds?.[me.startIndex],
-            tabContainer       = me.owner?.up?.(),
-            {clientX, clientY} = data || {};
-
-        if (itemId && tabContainer && Neo.isNumber(clientX) && Neo.isNumber(clientY)) {
-            tabContainer.fire('dockCrossZoneDragMove', {clientX, clientY, itemId, sourceNodeId: me.dockSourceNodeId})
-        }
-
+        // Engage the cross-window coordinator SYNCHRONOUSLY on entry — BEFORE the base sort's awaits
+        // (the edge auto-scroll branch awaits `timeout(30)`) — so a release arriving mid-move still
+        // finds the engaged remote target: `Neo.manager.DomEvent.fire` does not await drag handlers,
+        // and {@link #processDragEnd}'s coordinator-end is likewise synchronous, so the two stay
+        // ordered move-before-end regardless of the base suspension. Screen-space engagement is
+        // independent of the base's local sort result. `dragCoordinator` is preloaded at
+        // {@link #construct}, so this is a synchronous field read, never a drag-time import.
         if (me.sortGroup && me.dragComponent && data?.proxyRect && Neo.isNumber(data.screenX)) {
-            (await me.resolveDragCoordinator()).onDragMove({
+            me.dragCoordinator?.onDragMove({
                 draggedItem   : me.dragComponent,
                 offsetX       : data.offsetX,
                 offsetY       : data.offsetY,
@@ -218,20 +242,31 @@ class DockTabSortZone extends TabHeaderSortZone {
                 sourceSortZone: me
             })
         }
+
+        await super.onDragMove(data);
+
+        let itemId             = me.dockItemIds?.[me.startIndex],
+            tabContainer       = me.owner?.up?.(),
+            {clientX, clientY} = data || {};
+
+        if (itemId && tabContainer && Neo.isNumber(clientX) && Neo.isNumber(clientY)) {
+            tabContainer.fire('dockCrossZoneDragMove', {clientX, clientY, itemId, sourceNodeId: me.dockSourceNodeId})
+        }
     }
 
     /**
-     * Lazily resolves the `Neo.manager.DragCoordinator` singleton at drag time rather than at module
-     * scope — so the adapter's static import of this SortZone (for its projected `sortZoneConfig`) does
-     * NOT pull the `DragCoordinator → manager.Window` import-time chain (Window's `construct()` touches
+     * Resolves the `Neo.manager.DragCoordinator` singleton via a cached dynamic import and caches it
+     * onto the synchronous {@link #dragCoordinator} handle. Kept OUT of module scope so the adapter's
+     * static import of this SortZone (for its projected `sortZoneConfig`) does NOT pull the
+     * `DragCoordinator → manager.Window` import-time chain (Window's `construct()` touches
      * `Neo.currentWorker.on` at `setupClass`) into environments that never drag, e.g. the unit test
      * loader (which stubs the worker only inside its setup call, after ESM hoists the imports).
-     * Cross-window drag only (both callers gate on `sortGroup`); the import promise is cached, so
-     * per-frame `onDragMove` calls share one load.
+     * {@link #construct} warms it for a cross-window zone so the drag handlers never trigger the load;
+     * the promise is cached, so repeat calls share one import.
      * @returns {Promise<Neo.manager.DragCoordinator>}
      */
     resolveDragCoordinator() {
-        return this._dragCoordinatorPromise ??= import('../manager/DragCoordinator.mjs').then(module => module.default)
+        return this._dragCoordinatorPromise ??= import('../manager/DragCoordinator.mjs').then(module => this.dragCoordinator = module.default)
     }
 }
 
