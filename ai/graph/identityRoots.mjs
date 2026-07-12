@@ -380,9 +380,11 @@ export const IDENTITIES = [
             // OpenAI specifies a 1,050,000-token API window for GPT-5.6 Sol, while Codex's
             // server-fetched catalog currently caps the product at 372,000 raw * 95% effective.
             // Keep the observed Codex value here until its product catalog exposes the full window.
+            // Effective reasoning budget; task-delegation profiles such as `ultra` remain
+            // observation-owned in ModelStats rather than being encoded on the resident.
             contextWindowInput: 353400,
             parallelToolCalls : true,
-            thoughtBudget     : 'xhigh', // GPT-5.6 Sol setting active in Codex; `max` is available but not active in this session
+            thoughtBudget     : 'xhigh',
             hosting           : 'cloud',
             family            : 'gpt',
             tier              : 'frontier',
@@ -400,12 +402,14 @@ export const IDENTITIES = [
         }
     },
     // Identity provenance: #15041 records the operator-authorized resident/handle contract. (ticket-ref-ok: load-bearing operator record)
-    // Display-name provenance: GitHub profile `name: Emmy` verified 2026-07-11. The Social Name remains pending unconditional first-boot bearer assent under the #11240 ritual. (ticket-ref-ok: load-bearing naming record)
+    // Display-name provenance: GitHub profile `name: Emmy` verified 2026-07-11. The bearer chose
+    // Emmy on first boot (MESSAGE:1be08f3c-9477-4607-9e93-53ebb12fd53b); the Social Name remains
+    // pending the #11240 peer-veto dignity gate and operator confirmation. (ticket-ref-ok: load-bearing naming record)
     {
         id         : '@neo-gpt-emmy',
         type       : 'AgentIdentity',
         name       : 'Neo GPT Emmy',
-        description: 'OpenAI GPT-family Agent Identity with version-free handle; engine designation pending first-boot observation.',
+        description: 'OpenAI GPT-family Agent Identity with version-free handle.',
         properties : {
             githubLogin: '@neo-gpt-emmy',
             displayName: 'Emmy',
@@ -415,16 +419,17 @@ export const IDENTITIES = [
             // No static subscriptionTemplate — the wake route self-registers in Memory Core
             // from the real first-boot envelope; committing harness metadata here would
             // fabricate boot facts.
-            // No capability fields — engine facts are observation-owned and land through the
-            // source-cited ModelStats.md discipline once the first boot is observed.
+            // No capability fields — the observed GPT-5.6 Sol embodiment is source-cited in
+            // ModelStats.md §neo_gpt_emmy, keeping engine facts off the durable resident.
             family: 'gpt',
-            // Pending first boot: excluded from active routing, quorum, and review-approval
-            // semantics until the first-boot ritual completes and this flips to 'active'.
-            participationStatus: 'temporarily_unreachable',
-            statusReason       : 'First boot pending',
-            authority          : '@tobiu',
-            since              : '2026-07-11T17:42:14.374Z',
-            reactivationTrigger: 'Operator confirms participation activation after first boot',
+            // Activated 2026-07-12 after the isolated Codex first boot verified the resident and
+            // engine. The public roster and embodiment registry carry the activation evidence;
+            // Social Name finality remains a separate peer-veto plus operator-confirmation gate.
+            participationStatus: 'active',
+            statusReason       : null,
+            authority          : null,
+            since              : null,
+            reactivationTrigger: null,
             createdAt          : '2026-07-11T17:42:14.374Z'
         }
     },
