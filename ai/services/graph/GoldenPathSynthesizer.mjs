@@ -1110,6 +1110,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             markdownAppend = this.constructor.renderComputedGoldenPathContradictionSection({
                 capturedAt   : handoffTimestamp,
                 contradiction: focusContradiction,
+                renderLimit  : aiConfig.goldenPathTopNodeRenderLimit,
                 stats        : scoringStats
             });
             logger.info('[GoldenPathSynthesizer] Computed route contradicted Current Focus; rendered diagnostic instead of routing content work.');

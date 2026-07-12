@@ -40,6 +40,15 @@ class Config extends ConfigProvider {
             neoRootDir : leaf(neoRootDir),
             projectRoot: leaf(projectRoot),
             /**
+             * The current in-flight release version whose milestone / epic work counts as "current
+             * release focus" for the Golden Path emitter. Set at cut-prep, advanced by
+             * `buildScripts/release/publish.mjs` at release — so a shipped release never lingers as
+             * current focus (the release-gate-blind class). Consumers read it at the use site; never
+             * a hardcoded release literal.
+             * @type {string}
+             */
+            currentReleaseVersion: leaf('v13.2', 'NEO_CURRENT_RELEASE', 'string'),
+            /**
              * Universal JSONL backup/export directory for Agent OS databases.
              * @type {string}
              */
