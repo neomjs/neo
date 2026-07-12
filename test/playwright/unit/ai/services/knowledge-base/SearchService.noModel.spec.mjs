@@ -19,7 +19,7 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 
 test.describe('Neo.ai.services.knowledge-base.SearchService model guard', () => {
     let SearchService, QueryService, GraphService;
-    let originalModel, originalModelUnavailable, originalQueryDocuments, originalListNodeRecordsByType;
+    let originalModel, originalModelUnavailable, originalQueryDocuments, originalListNodeRecordsByType, originalReady;
 
     test.beforeAll(async () => {
         SearchService            = (await import('../../../../../../ai/services/knowledge-base/SearchService.mjs')).default;
@@ -29,6 +29,7 @@ test.describe('Neo.ai.services.knowledge-base.SearchService model guard', () => 
         originalModelUnavailable = SearchService.modelUnavailable;
         originalQueryDocuments   = QueryService.queryDocuments;
         originalListNodeRecordsByType = GraphService.listNodeRecordsByType;
+        originalReady                 = GraphService.ready;
     });
 
     test.afterEach(() => {
@@ -36,6 +37,7 @@ test.describe('Neo.ai.services.knowledge-base.SearchService model guard', () => 
         SearchService.modelUnavailable     = originalModelUnavailable;
         QueryService.queryDocuments        = originalQueryDocuments;
         GraphService.listNodeRecordsByType = originalListNodeRecordsByType;
+        GraphService.ready                 = originalReady;
     });
 
     test('ask returns the empty-collection response before requiring a Gemini model', async () => {
@@ -86,6 +88,34 @@ test.describe('Neo.ai.services.knowledge-base.SearchService model guard', () => 
 
         // default (opt-out): NO conceptWalk key — the envelope is byte-identical to the pre-wrap shape
         const flat = await SearchService.ask({query: 'How does KB work?'});
+        expect('conceptWalk' in flat).toBe(false);
+    });
+
+    test('ask({conceptWalk}) awaits GraphService.ready() BEFORE the graph read — the lifecycle gate that stops a transient-init silent no-op; completed-unavailable still degrades flat (#14504 gate 4)', async () => {
+        SearchService.model         = null;
+        QueryService.queryDocuments = async () => ({
+            results: [{source: 'learn/agentos/KnowledgeBase.md', score: '100', metadata: {}}]
+        });
+
+        let readyAwaited = false, readReachedAfterReady = false;
+        // Pre-init `db===null` makes graph reads return empty WITHOUT throwing, so the wait is what lets
+        // a delayed-ready graph contribute instead of silently no-op'ing. Here ready() resolves and the
+        // graph is empty (completed-unavailable / db===null) → the walk contributes nothing and the flat
+        // path is preserved. The read must observe ready() as already awaited.
+        GraphService.ready                 = async () => { readyAwaited = true };
+        GraphService.listNodeRecordsByType = () => { readReachedAfterReady = readyAwaited; return {records: []} };
+
+        const walked = await SearchService.ask({query: 'How does KB work?', conceptWalk: true});
+
+        expect(readyAwaited).toBe(true);             // the opt-in path awaited the lifecycle gate
+        expect(readReachedAfterReady).toBe(true);    // and did so BEFORE reading the graph
+        expect(walked.conceptWalk.walkContributed).toBe(false); // completed-unavailable → flat
+        expect(walked.references).toHaveLength(1);               // flat references intact
+
+        // the flat (opt-out) path never touches the graph lifecycle gate — the wait is inside the opt-in branch
+        readyAwaited = false;
+        const flat = await SearchService.ask({query: 'How does KB work?'});
+        expect(readyAwaited).toBe(false);
         expect('conceptWalk' in flat).toBe(false);
     });
 

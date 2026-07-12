@@ -331,6 +331,14 @@ class SearchService extends Base {
             conceptWalkEvent   = null;
 
         if (conceptWalk) {
+            // Await the graph's canonical lifecycle gate before the opt-in walk. Pre-init `db===null`
+            // makes graph reads return empty WITHOUT throwing (distinct from a hard failure), so without
+            // this wait a request racing transient initialization silently contributes nothing though
+            // the graph is ready moments later. `ready()` also resolves with `db===null` when init
+            // FAILED, so a completed-unavailable graph still degrades to the flat path (byte-identical),
+            // never a wait-forever. KB startup does not otherwise await GraphService (concept-walk gate 4).
+            await GraphService.ready();
+
             const enriched = await enrichWithConceptWalk({
                 graphService         : GraphService,
                 query,
