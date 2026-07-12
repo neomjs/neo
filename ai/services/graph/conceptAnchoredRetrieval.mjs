@@ -294,11 +294,21 @@ export async function enrichWithConceptWalk({
         for (const memberId of cluster.members) {
             if (truncated) break;
 
-            const
-                walk      = walkConceptNeighborhood({graphService, conceptId: memberId, maxHops, hopBudget}),
-                // BFS parent map for full-path reconstruction: keep each neighbor's FIRST (lowest-depth)
-                // reaching hop — the shortest-path parent edge {@link buildConceptPath} traces back through.
-                parentHop = new Map();
+            // A graph-tier read error mid-walk (the SQLite edge query throwing on an unavailable /
+            // locked store — readRawNodeEdges guards a MISSING db but not a db that throws on the
+            // query) must NEVER break the flat path: the walk is pure augmentation. On a walk error,
+            // skip this member (empty hops) — the embedding candidates + any already-added walk
+            // candidates stand. augment-never-displace holds even when the graph is down.
+            let walk;
+            try {
+                walk = walkConceptNeighborhood({graphService, conceptId: memberId, maxHops, hopBudget})
+            } catch {
+                walk = {hops: []}
+            }
+
+            // BFS parent map for full-path reconstruction: keep each neighbor's FIRST (lowest-depth)
+            // reaching hop — the shortest-path parent edge buildConceptPath traces back through.
+            const parentHop = new Map();
 
             for (const hop of walk.hops) {
                 if (hop.neighborId && !parentHop.has(hop.neighborId)) {

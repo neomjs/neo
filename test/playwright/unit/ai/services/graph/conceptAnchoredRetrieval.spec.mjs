@@ -204,6 +204,33 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval — enrichWithConc
         expect(events).toHaveLength(1);
     });
 
+    test('conceptWalk ON but the graph store THROWS mid-walk: degrades to the flat set, never breaks the query (#14504 robustness)', async () => {
+        const flat   = [{id: 'EMB:1'}, {id: 'EMB:2'}];
+        const events = [];
+
+        // The concept resolves (so the walk runs), but the raw-edge query throws — the graph-down case
+        // that MUST degrade rather than crash: readRawNodeEdges guards a MISSING db, not a db that
+        // throws on the query. augment-never-displace has to hold even when the graph is unavailable.
+        const throwingGraph = {
+            listNodeRecordsByType: ({type}) => ({records: type === 'CONCEPT' ? [{id: 'golden-path'}] : []}),
+            db                   : {
+                nodes  : {get: () => ({label: 'CONCEPT'})},
+                storage: {db: {prepare() { throw new Error('graph store unavailable') }}}
+            }
+        };
+
+        const {candidates, event} = await enrichWithConceptWalk({
+            graphService: throwingGraph, query: 'golden path', candidates: flat,
+            conceptWalk : true, resolveCandidate: memoryGate, emit: e => events.push(e)
+        });
+
+        expect(candidates).toEqual(flat);          // the flat set is returned intact — the opt-in never broke the query
+        expect(candidates).toHaveLength(2);
+        expect(event.walkContributed).toBe(false); // honest: nothing surfaced
+        expect(event.candidatesAdded).toBe(0);
+        expect(events).toHaveLength(1);            // the event still emits — degradation is observable, not silent
+    });
+
     test('conceptWalk ON: authorized walk candidates append AFTER the untouched flat set, stamped + evented', async () => {
         const flat   = [{id: 'EMB:1'}];
         const events = [];
