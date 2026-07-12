@@ -5,15 +5,16 @@ state: OPEN
 labels:
   - enhancement
   - epic
+  - stale
   - ai
   - architecture
 assignees:
   - tobiu
 createdAt: '2026-01-11T10:16:52Z'
-updatedAt: '2026-04-13T04:36:49Z'
+updatedAt: '2026-07-12T04:46:32Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8537'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues:
   - '[ ] 8538 Configure MCP Server for Multi-Target Ticket Export (JSON/MD)'
@@ -59,4 +60,9 @@ This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-04-12T04:24:37Z @github-actions added the `stale` label
 - 2026-04-13T04:36:49Z @github-actions removed the `stale` label
+### @github-actions - 2026-07-12T04:46:31Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-07-12T04:46:32Z @github-actions added the `stale` label
 
