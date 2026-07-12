@@ -16,6 +16,10 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
+import Database       from '../../../../../../ai/graph/Database.mjs';
+import SQLite         from '../../../../../../ai/graph/storage/SQLite.mjs';
+import fs             from 'fs-extra';
+import path           from 'path';
 
 /**
  * Graph RLS read-side return boundary.
@@ -40,8 +44,8 @@ function node(id, properties = {}) {
     return {id, label: properties.type || 'TestNode', properties};
 }
 
-function edge(id, source, target, weight = 1.0, props = {}) {
-    return {id, source, target, type: 'REL', properties: {weight, ...props}};
+function edge(id, source, target, weight = 1.0, props = {}, type = 'REL') {
+    return {id, source, target, type, properties: {weight, ...props}};
 }
 
 /**
@@ -233,6 +237,145 @@ test.describe('GraphService — RLS read-side return boundary (#10011)', () => {
         requester.value = '@tenant-b';
 
         expect(GraphService.getNeighbors({id: 'root-b'}).neighbors).toEqual([]);
+    });
+
+    test('getInboundStructuralSupport requires visible root, inbound source node, and edge', () => {
+        const privateSourceEdge = edge('e-private-source', 'source-a', 'root-b', 2),
+              privateEdge       = edge('e-private-edge', 'source-team', 'root-b', 3, {userId: '@tenant-a'}),
+              teamEdge          = edge('e-team', 'source-team', 'root-b', 4, {visibility: 'team'});
+
+        GraphService.db = makeFakeDb([
+            node('root-b',      {userId: '@tenant-b'}),
+            node('root-a',      {userId: '@tenant-a'}),
+            node('source-a',    {userId: '@tenant-a'}),
+            node('source-team', {visibility: 'team'})
+        ], [privateSourceEdge, privateEdge, teamEdge]);
+        requester.value = '@tenant-b';
+
+        expect(GraphService.getInboundStructuralSupport({id: 'root-a'})).toBeNull();
+        expect(GraphService.getInboundStructuralSupport({id: 'root-b'})).toEqual({
+            totalWeight      : 4,
+            decayingWeight   : 4,
+            totalEdgeCount   : 1,
+            decayingEdgeCount: 1,
+            hasOpenBlocker   : false,
+            parentId         : null
+        })
+    });
+
+    test('getInboundStructuralSupport ignores private blockers and parents in a warm cross-tenant cache', () => {
+        GraphService.db = makeFakeDb([
+            node('root-b',         {userId: '@tenant-b'}),
+            node('blocker-a',      {userId: '@tenant-a', state: 'OPEN'}),
+            node('blocker-team',   {visibility: 'team', state: 'OPEN'}),
+            node('parent-a',       {userId: '@tenant-a'}),
+            node('parent-team',    {visibility: 'team'})
+        ], [
+            edge('block-private-source', 'blocker-a',    'root-b', 1, {}, 'BLOCKS'),
+            edge('block-private-edge',   'blocker-team', 'root-b', 1, {userId: '@tenant-a'}, 'BLOCKS'),
+            edge('parent-private',       'parent-a',     'root-b', 1, {}, 'PARENT_OF'),
+            edge('parent-visible',       'parent-team',  'root-b', 1, {visibility: 'team'}, 'PARENT_OF')
+        ]);
+        requester.value = '@tenant-b';
+
+        expect(GraphService.getInboundStructuralSupport({id: 'root-b'})).toEqual({
+            totalWeight      : 1,
+            decayingWeight   : 1,
+            totalEdgeCount   : 1,
+            decayingEdgeCount: 1,
+            hasOpenBlocker   : false,
+            parentId         : 'parent-team'
+        })
+    });
+
+    test('getInboundStructuralSupport lazy-loads the same SQLite vicinity once per requester scope', async () => {
+        const
+            dbPath = path.resolve(
+                process.cwd(),
+                'tmp',
+                `graph-inbound-support-tenant-cache-${globalThis.crypto.randomUUID()}.sqlite`
+            ),
+            storage = Neo.create(SQLite, {dbPath});
+
+        let database,
+            activeRequester = '@tenant-a',
+            loadedScopes    = [];
+
+        try {
+            await storage.initAsync();
+
+            storage.RequestContextService = {
+                getUserId: () => activeRequester
+            };
+
+            const loadNodeVicinitySync = storage.loadNodeVicinitySync.bind(storage);
+            storage.loadNodeVicinitySync = nodeIds => {
+                loadedScopes.push(activeRequester);
+                return loadNodeVicinitySync(nodeIds)
+            };
+
+            storage.addNodes([
+                node('shared-root'),
+                node('support-a', {userId: 'tenant-a'}),
+                node('blocker-a', {userId: 'tenant-a', state: 'OPEN'}),
+                node('parent-a',  {userId: 'tenant-a'}),
+                node('support-b', {userId: 'tenant-b'}),
+                node('blocker-b', {userId: 'tenant-b', state: 'CLOSED'}),
+                node('parent-b',  {userId: 'tenant-b'})
+            ]);
+            storage.addEdges([
+                edge('support-edge-a', 'support-a', 'shared-root', 2, {userId: 'tenant-a'}, 'ADVANCES'),
+                edge('blocker-edge-a', 'blocker-a', 'shared-root', 1, {userId: 'tenant-a'}, 'BLOCKS'),
+                edge('parent-edge-a',  'parent-a',  'shared-root', 1, {userId: 'tenant-a'}, 'PARENT_OF'),
+                edge('support-edge-b', 'support-b', 'shared-root', 5, {userId: 'tenant-b'}, 'ADVANCES'),
+                edge('blocker-edge-b', 'blocker-b', 'shared-root', 1, {userId: 'tenant-b'}, 'BLOCKS'),
+                edge('parent-edge-b',  'parent-b',  'shared-root', 1, {userId: 'tenant-b'}, 'PARENT_OF')
+            ]);
+
+            database = Neo.create(Database, {
+                id: `graph-inbound-support-tenant-cache-${globalThis.crypto.randomUUID()}`,
+                storage
+            });
+            await storage.load();
+            GraphService.db = database;
+
+            const supportA = {
+                totalWeight      : 3,
+                decayingWeight   : 3,
+                totalEdgeCount   : 2,
+                decayingEdgeCount: 2,
+                hasOpenBlocker   : true,
+                parentId         : 'parent-a'
+            };
+
+            expect(GraphService.getInboundStructuralSupport({id: 'shared-root'})).toEqual(supportA);
+            expect(GraphService.getInboundStructuralSupport({id: 'shared-root'})).toEqual(supportA);
+
+            activeRequester = '@tenant-b';
+
+            const supportB = {
+                totalWeight      : 6,
+                decayingWeight   : 6,
+                totalEdgeCount   : 2,
+                decayingEdgeCount: 2,
+                hasOpenBlocker   : false,
+                parentId         : 'parent-b'
+            };
+
+            expect(GraphService.getInboundStructuralSupport({id: 'shared-root'})).toEqual(supportB);
+            expect(GraphService.getInboundStructuralSupport({id: 'shared-root'})).toEqual(supportB);
+            expect(loadedScopes).toEqual(['@tenant-a', '@tenant-b'])
+        } finally {
+            database?.destroy();
+
+            if (storage.db?.open) {
+                storage.db.close()
+            }
+
+            for (const suffix of ['', '-wal', '-shm']) {
+                fs.removeSync(dbPath + suffix)
+            }
+        }
     });
 
     test('queryNodeTopology omits a cross-tenant private edge between visible nodes', () => {

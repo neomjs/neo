@@ -24,6 +24,7 @@ import {getPaths}      from '../../../../../../ai/graph/queries/traversal.mjs';
 
 test.describe('Neo.ai.services.memory-core.GraphService', () => {
     let GraphService;
+    let protectedEdgeTypes;
     let SystemLifecycleService;
     let service;
     const testDbName = `memory-core-graph-test-${process.pid}-${Date.now()}.sqlite`;
@@ -42,7 +43,9 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         // resolve to test values BY CONSTRUCTION under UNIT_TEST_MODE (config.template's
         // `useTestDatabase` toggle). The test never mutates the shared AiConfig singleton.
 
-        GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        const graphModule = await import('../../../../../../ai/services/memory-core/GraphService.mjs');
+        GraphService       = graphModule.default;
+        protectedEdgeTypes = graphModule.PROTECTED_EDGE_TYPES;
         SystemLifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         if (fs.existsSync(testDbPath)) {
             try {
@@ -193,6 +196,52 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         expect(JSON.parse(resolvesRow.data).properties.weight).toBe(0.05);
 
         expect(edgeRow.get('AmbientSource', 'AmbientTarget', 'RELATES_TO')).toBeUndefined();
+    });
+
+    test('getInboundStructuralSupport separates canonical protected facts from current decaying scent', async () => {
+        await GraphService.upsertNode({id: 'discussion-15105', type: 'DISCUSSION'});
+
+        for (const [index, type] of protectedEdgeTypes.entries()) {
+            const source = `protected-source-${index}`;
+            await GraphService.upsertNode({id: source, type: 'TEST_NODE'});
+            GraphService.linkNodes(source, 'discussion-15105', type, 1)
+        }
+
+        await GraphService.upsertNode({id: 'scent-source', type: 'TEST_NODE'});
+        await GraphService.upsertNode({id: 'blocker-source', type: 'TEST_NODE', properties: {state: 'OPEN'}});
+        await GraphService.upsertNode({id: 'parent-source', type: 'ISSUE'});
+        await GraphService.upsertNode({id: 'frontier', type: 'CONTEXT_FRONTIER'});
+        await GraphService.upsertNode({id: 'outbound-target', type: 'TEST_NODE'});
+        GraphService.linkNodes('scent-source', 'discussion-15105', 'GUIDES', 2);
+        GraphService.linkNodes('frontier', 'discussion-15105', 'GUIDES', 3);
+        GraphService.linkNodes('parent-source', 'discussion-15105', 'PARENT_OF', 1);
+        GraphService.linkNodes('blocker-source', 'discussion-15105', 'BLOCKS', 5);
+        GraphService.linkNodes('discussion-15105', 'outbound-target', 'RELATES_TO', 7);
+
+        expect(GraphService.getInboundStructuralSupport({id: 'discussion-15105'})).toEqual({
+            totalWeight      : protectedEdgeTypes.length + 6,
+            decayingWeight   : 3,
+            totalEdgeCount   : protectedEdgeTypes.length + 3,
+            decayingEdgeCount: 2,
+            hasOpenBlocker   : true,
+            parentId         : 'parent-source'
+        })
+    });
+
+    test('getInboundStructuralSupport propagates graph-store failures to the fail-loud caller', async () => {
+        await GraphService.upsertNode({id: 'discussion-support-failure', type: 'DISCUSSION'});
+        const originalGetAdjacentNodes = GraphService.db.getAdjacentNodes;
+
+        GraphService.db.getAdjacentNodes = () => {
+            throw new Error('simulated structural projection failure')
+        };
+
+        try {
+            expect(() => GraphService.getInboundStructuralSupport({id: 'discussion-support-failure'}))
+                .toThrow('simulated structural projection failure')
+        } finally {
+            GraphService.db.getAdjacentNodes = originalGetAdjacentNodes
+        }
     });
 
     test('decayGlobalTopology preserves business ADVANCED_BY edges — advancement is a fact, not scent (#14446)', async () => {

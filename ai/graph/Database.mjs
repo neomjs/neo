@@ -6,6 +6,74 @@ import NodeModel       from './NodeModel.mjs';
 import StorageBase     from './storage/Base.mjs';
 
 /**
+ * @summary Set-compatible lazy-vicinity marker keyed by both node id and the active
+ * requester scope. SQLite vicinity reads are RLS-filtered, so a node loaded for tenant A
+ * cannot satisfy tenant B's cache lookup. Node-wide `delete()` preserves the existing
+ * cross-worker invalidation contract, while `clear()` remains the test/reset boundary.
+ */
+class RequestScopedVicinitySet {
+    scopesByNode = new Map();
+
+    /**
+     * @param {Function} scopeResolver Returns the current requester-scoped RLS cache key.
+     */
+    constructor(scopeResolver) {
+        this.scopeResolver = scopeResolver
+    }
+
+    /**
+     * Marks a node vicinity loaded for the active requester scope.
+     * @param {String} nodeId
+     * @returns {RequestScopedVicinitySet}
+     */
+    add(nodeId) {
+        let scopes = this.scopesByNode.get(nodeId);
+
+        if (!scopes) {
+            scopes = new Set();
+            this.scopesByNode.set(nodeId, scopes)
+        }
+
+        scopes.add(this.scopeResolver());
+
+        return this
+    }
+
+    /**
+     * Clears all requester-scoped vicinity markers.
+     */
+    clear() {
+        this.scopesByNode.clear()
+    }
+
+    /**
+     * Invalidates every requester scope for one node.
+     * @param {String} nodeId
+     * @returns {Boolean}
+     */
+    delete(nodeId) {
+        return this.scopesByNode.delete(nodeId)
+    }
+
+    /**
+     * Tests whether the active requester has loaded this node's RLS-filtered vicinity.
+     * @param {String} nodeId
+     * @returns {Boolean}
+     */
+    has(nodeId) {
+        return this.scopesByNode.get(nodeId)?.has(this.scopeResolver()) ?? false
+    }
+
+    /**
+     * Number of node ids with at least one requester-scoped marker.
+     * @returns {Number}
+     */
+    get size() {
+        return this.scopesByNode.size
+    }
+}
+
+/**
  * The Database class serves as the core coordinator for the Native Edge Graph Database engine.
  * Operating in headless MCP server environments (Sandman, memory-core), it orchestrates local
  * Native Node embeddings tracking alongside Semantic vectors natively inside ChromaDB (GraphRAG).
@@ -67,8 +135,26 @@ class Database extends Base {
         storage_: null
     }
 
-    vicinityLoadedNodes = new Set();
+    vicinityLoadedNodes = new RequestScopedVicinitySet(() => this.getVicinityCacheScope());
     lastAccessMap       = new Map();
+
+    /**
+     * @summary Resolves the same canonical requester key used by SQLite's RLS-filtered
+     * `loadNodeVicinitySync()` query. Null is a real scope: unbound/system callers share the
+     * same public/team/shared projection, while each authenticated tenant gets its own marker.
+     * @returns {String|null} Canonical requester scope for lazy-vicinity caching.
+     * @protected
+     */
+    getVicinityCacheScope() {
+        const
+            storage   = this.storage,
+            rcs       = storage?.RequestContextService,
+            rawUserId = rcs ? (rcs.getUserId?.() ?? rcs.getAgentIdentityNodeId?.()) : null;
+
+        return rawUserId == null
+            ? null
+            : (storage.normalizeUserId ? storage.normalizeUserId(rawUserId) : rawUserId)
+    }
 
     /**
      * Executes strict cache synchronization polling Native SQLite triggers for identical cross-worker coherence cleanly natively.
@@ -113,7 +199,8 @@ class Database extends Base {
             this.isExecutingTransaction = false;
             this.autoSave               = false;
 
-            let edgeIdsToRemove = [];
+            let edgeIdsToRemove = [],
+                indexedEdgeRefs = new Set();
             delta.invalidEdges.forEach(edgeRef => {
                 let edgeId = typeof edgeRef === 'string' ? edgeRef : edgeRef.id;
                 let edge   = this.edges.get(edgeId);
@@ -125,9 +212,24 @@ class Database extends Base {
                 if (target) this.vicinityLoadedNodes.delete(target);
 
                 edgeIdsToRemove.push(edgeId);
+                if (edge) indexedEdgeRefs.add(edge);
+
+                // The Store map owns only one object per id, but a prior refresh can leave an older
+                // same-id object reachable exclusively from an index Set. Collect every indexed copy.
+                for (const [property, value] of [['source', source], ['target', target]]) {
+                    if (!value) continue;
+
+                    this.edges.getByIndex(property, value)
+                        .filter(indexedEdge => indexedEdge.id === edgeId)
+                        .forEach(indexedEdge => indexedEdgeRefs.add(indexedEdge))
+                }
             });
 
             this.edges.remove(edgeIdsToRemove);
+            // Drop the exact references observed before removal as well. A refreshed Store map can
+            // point at a newer object while a secondary index still retains the prior object; without
+            // this cleanup the subsequent lazy reload double-counts the same persisted edge.
+            this.edges.updateIndexMaps?.(null, [...indexedEdgeRefs]);
 
             this.autoSave               = wasAutoSave;
             this.isExecutingTransaction = wasTransacting;

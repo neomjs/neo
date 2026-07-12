@@ -27,6 +27,7 @@ import {
 } from './agentFamilyResolution.mjs';
 import {
     buildFailureOutcome                          as buildRouteFailureOutcome,
+    evaluateDiscussionLiveness                   as evaluateRouteDiscussionLiveness,
     findComputedFocusContradiction               as findRouteFocusContradiction,
     getComputedRecommendationExclusionLabels     as getRouteExclusionLabels,
     getRoutingConflictReasons                    as getRouteConflictReasons,
@@ -42,8 +43,9 @@ import {
     validateRouteAttributionRetention
 } from './routeAttributionLedgerStore.mjs';
 import {
-    TYPE_GATE_REJECTION_FILENAME,
-    TYPE_GATE_REJECTION_STAGE
+    appendTypeGateRejection,
+    TYPE_GATE_REJECTION_STAGE,
+    DISCUSSION_LIVENESS_REJECTION_STAGE
 } from './typeGateRejectionLedgerStore.mjs';
 import {
     getActivePrCycleStatus                      as resolveActivePrCycleStatus,
@@ -91,6 +93,14 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
+
+// Candidate admission widens complete prefixes, but an unhealthy proxy must never drive
+// exponentially large ANN requests or SQLite placeholder lists. The collection count narrows the
+// real ceiling when available; this hard ceiling is an operational failure boundary, not a ranking
+// input. SQLite hydration is chunked independently so the ceiling stays below no variable limit.
+const SEMANTIC_QUERY_INITIAL_WIDTH = 20;
+const SEMANTIC_QUERY_MAX_WIDTH     = 4096;
+const SQLITE_ID_CHUNK_SIZE         = 500;
 
 // The embedding-dimension helpers were extracted to ./embeddingDimension.mjs (the SRP decomposition). They are
 // imported above for the internal dimension guard, and re-exported here so the public API stays stable.
@@ -333,6 +343,16 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
+     * @summary Delegates the distinct Discussion-liveness gate to the pure routing authority.
+     * @param {Object} nodeData Parsed graph node payload.
+     * @param {Number} decayingWeight RLS-visible non-protected inbound support.
+     * @returns {{eligible: Boolean, rejectionBucket: String[]}}
+     */
+    static evaluateDiscussionLiveness(nodeData, decayingWeight) {
+        return evaluateRouteDiscussionLiveness(nodeData, decayingWeight)
+    }
+
+    /**
      * @summary Delegates routing-conflict focus detection to `computedGoldenPathRouting.mjs`.
      * @param {Object} candidate Current Focus candidate.
      * @returns {Boolean}
@@ -440,35 +460,37 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
-     * @summary Pure builder for the type-gate rejection records — the SECOND GP filter point's evidence. Where
-     * `buildRouteAttributionRecords` captures the routing-contradiction GUARD's filtering, this captures the
-     * actionability TYPE-GATE's rejections (`isActionableComputedRecommendation` === false): the visibility-only
-     * candidates (`epic` / `not-code-ready` / …) that never reach scoring. Each record carries the node id, its
-     * exclusion-label bucket (the exact labels that made it non-actionable, from the shared authority), and the
-     * `stage` discriminator so a merged read stays self-describing.
-     * @param {Array<{nodeId: String, rejectionBucket: String[]}>} rejections Collected at the type-gate filter point.
+     * @summary Pure builder for candidate-admission rejection records. Actionability remains the
+     * compatibility-default stage; Discussion liveness supplies its explicit sibling stage. Unknown
+     * stages are dropped so they cannot leak into either stage-specific evidence view.
+     * @param {Array<{nodeId: String, rejectionBucket: String[], stage: (String|undefined)}>} rejections Final-pass rejection rows.
      * @param {Number} nowMs Epoch ms stamped onto each record.
      * @returns {Object[]} `[{nodeId, rejectionBucket, stage, at}]` (empty when nothing was rejected).
      */
     static buildTypeGateRejectionRecords(rejections, nowMs) {
         return (Array.isArray(rejections) ? rejections : [])
-            .filter(item => typeof item?.nodeId === 'string' && item.nodeId.length > 0)
+            .filter(item =>
+                typeof item?.nodeId === 'string' &&
+                item.nodeId.length > 0 &&
+                (item.stage == null || [TYPE_GATE_REJECTION_STAGE, DISCUSSION_LIVENESS_REJECTION_STAGE].includes(item.stage))
+            )
             .map(item => ({
                 nodeId         : item.nodeId,
                 rejectionBucket: Array.isArray(item.rejectionBucket) ? item.rejectionBucket : [],
-                stage          : TYPE_GATE_REJECTION_STAGE,
+                stage          : item.stage || TYPE_GATE_REJECTION_STAGE,
                 at             : nowMs
             }))
     }
 
     /**
-     * @summary The type-gate rejection record-seam: persists which computed candidates the actionability gate
-     * rejected, under which exclusion labels, per synthesis run — the evidence window the 42.2%-type-gate
-     * disposition decides against. FAIL-OPEN, exactly like `recordRouteAttribution` — a ledger-write failure is
+     * @summary The candidate-admission rejection record-seam: persists final-pass actionability and
+     * Discussion-liveness rows into one stage-discriminated physical stream. FAIL-OPEN, exactly like
+     * `recordRouteAttribution` — a ledger-write failure is
      * swallowed-logged and never aborts synthesis (the ledger is observability, never a gate); a missing/empty
-     * `dir` is a silent no-op. Reuses the route-attribution ledger's runtime dir + retention leaves + shape-agnostic
-     * append via the `filename` seam, writing a SIBLING file so the two filter points stay queryable-apart.
-     * @param {Array<{nodeId: String, rejectionBucket: String[]}>} rejections The type-gate rejections for this pass.
+     * `dir` is a silent no-op. Reuses the route-attribution ledger's runtime dir + retention leaves while the
+     * rejection store applies the cap per stage inside one SIBLING file, so liveness pressure cannot evict the
+     * compatibility-default actionability view.
+     * @param {Array<{nodeId: String, rejectionBucket: String[], stage: (String|undefined)}>} rejections Final-pass rejection rows.
      * @param {Date|Number} now The synthesis-pass clock (Date or epoch ms).
      * @param {Object} [ledger] The resolved ledger boundary (from the caller's AiConfig read).
      * @param {String} [ledger.dir] The runtime ledger directory; absent/empty → no-op.
@@ -488,7 +510,7 @@ class GoldenPathSynthesizer extends Base {
             const retention = validateRouteAttributionRetention(maxEvents, triggerBytes);
 
             for (const record of records) {
-                await appendRouteAttribution(record, {dir, filename: TYPE_GATE_REJECTION_FILENAME, ...retention})
+                await appendTypeGateRejection(record, {dir, ...retention})
             }
         } catch (error) {
             logger.warn(`[GoldenPathSynthesizer] type-gate rejection ledger write failed (non-fatal): ${error?.message || error}`)
@@ -877,155 +899,258 @@ class GoldenPathSynthesizer extends Base {
             return this.constructor.buildFailureOutcome('embedding-dimension-mismatch', message);
         }
 
-        const scoredNodes = [];
-        // AC3: the type-gate rejections collected across the scoring loop (emitted once after it, like the
-        // route-attribution record-seam) — the SECOND GP filter point's evidence for the type-gate disposition.
-        const typeGateRejections = [];
-        const scoringStats       = {
-            semanticCandidates     : 0,
-            sqliteOpenMatches      : 0,
-            blockedCandidates      : 0,
-            nonActionableCandidates: 0,
-            scoredCandidates       : 0,
-            selectedTopNodes       : 0,
-            prunedGuideEdges       : 0
+        let   scoredNodes                  = [];
+        let   typeGateRejections           = [];
+        let   discussionLivenessRejections = [];
+        const scoringStats                 = {
+            semanticCandidates          : 0,
+            sqliteOpenMatches           : 0,
+            blockedCandidates           : 0,
+            nonActionableCandidates     : 0,
+            discussionLivenessRejections: 0,
+            scoredCandidates            : 0,
+            selectedTopNodes            : 0,
+            prunedGuideEdges            : 0,
+            semanticQueryPasses         : 0,
+            semanticQueryRequestedWidth : 0,
+            semanticCorpusSize          : null,
+            semanticReturnedCandidates  : 0,
+            semanticUniqueCandidates    : 0,
+            semanticCorpusExhausted     : false,
+            candidateAdmissionStopReason: null
         };
-        let routeFailure = null;
-
-        // Pillar 1: Semantic Distance from ChromaDB
-        let semanticIds       = [];
-        let semanticDistances = [];
-        try {
-            const semanticResults = await graphColl.query({
-                queryEmbeddings: [frontierEmbedding],
-                nResults       : 20,
-                // Scope the candidate pool to actionable ISSUE + DISCUSSION vectors. Without this, the
-                // top-20 is taken across ALL embedded node types (the CONCEPT + ADR/GUIDES meta dominate),
-                // so the downstream state='OPEN' intersection yields nothing and the Computed Golden Path
-                // renders empty even when fresh open issues/discussions exist. Both are execution-steerable
-                // (work-to-do / converge-to-drive) and both embed with state='OPEN' metadata (IssueIngestor).
-                where          : {type: {'$in': ['ISSUE', 'DISCUSSION']}}
-            });
-            if (semanticResults && semanticResults.ids && semanticResults.ids.length > 0) {
-                semanticIds = semanticResults.ids[0];
-                semanticDistances = semanticResults.distances ? semanticResults.distances[0] : new Array(semanticIds.length).fill(0.1);
-            }
-        } catch (e) {
-            logger.warn('[GoldenPathSynthesizer] Failed to query semantic vectors from ChromaDB.', e);
-            routeFailure = this.constructor.buildFailureOutcome('semantic-query-failed', e);
-        }
-
-        if (semanticIds.length === 0) {
-            logger.info('[GoldenPathSynthesizer] No semantic nodes found. Golden path empty.');
-        }
-        scoringStats.semanticCandidates = semanticIds.length;
-
-        // Pillar 2: Structural Weight from SQLite Graph
         const SEMANTIC_WEIGHT   = 2.0;
         const STRUCTURAL_WEIGHT = 1.0;
+        const admissionTarget   = Number.isFinite(Number(aiConfig.goldenPathTopNodeRenderLimit)) && Number(aiConfig.goldenPathTopNodeRenderLimit) > 0
+            ? Math.max(1, Math.floor(Number(aiConfig.goldenPathTopNodeRenderLimit)))
+            : 1;
+        let routeFailure       = null;
+        let semanticCorpusSize = null;
 
-        if (semanticIds.length > 0 && !routeFailure) {
+        try {
+            if (typeof graphColl.count === 'function') {
+                const count = Number(await graphColl.count());
+
+                if (!Number.isInteger(count) || count < 0) {
+                    throw new Error(`Graph collection returned invalid corpus count: ${count}`)
+                }
+
+                semanticCorpusSize = count;
+                scoringStats.semanticCorpusSize = count
+            }
+        } catch (error) {
+            logger.warn('[GoldenPathSynthesizer] Failed to count semantic graph candidates.', error);
+            routeFailure = this.constructor.buildFailureOutcome('semantic-query-failed', error);
+            scoringStats.candidateAdmissionStopReason = 'semantic-query-failed'
+        }
+
+        const admissionCeiling = Math.min(
+            semanticCorpusSize === null ? SEMANTIC_QUERY_MAX_WIDTH : Math.max(1, semanticCorpusSize + 1),
+            SEMANTIC_QUERY_MAX_WIDTH
+        );
+        let requestedWidth = Math.min(SEMANTIC_QUERY_INITIAL_WIDTH, admissionCeiling);
+        let admissionDone  = semanticCorpusSize === 0;
+
+        if (admissionDone) {
+            scoringStats.semanticCorpusExhausted      = true;
+            scoringStats.candidateAdmissionStopReason = 'semantic-corpus-exhausted'
+        }
+
+        // Candidate admission is a bounded whole-prefix loop: every widened pass rebuilds the full
+        // state/blocker/actionability/liveness chain, then commits only the final successful attempt.
+        // A returned prefix shorter than requested is the only corpus-exhaustion proof; equality widens.
+        while (!routeFailure && !admissionDone) {
+            let semanticIds       = [];
+            let semanticDistances = [];
+
+            scoringStats.semanticQueryPasses++;
+            scoringStats.semanticQueryRequestedWidth = requestedWidth;
+
             try {
-                const placeholders = semanticIds.map(() => '?').join(',');
-                const stmt         = GraphService.db.storage.db.prepare(`
-                    SELECT
-                        n.id,
-                        n.data,
-                        COALESCE((
-                            SELECT SUM(json_extract(e.data, '$.properties.weight'))
-                            FROM Edges e
-                            WHERE e.target = n.id AND e.type != 'BLOCKS'
-                        ), 0.0) as struct_score
-                    FROM Nodes n
-                    WHERE (json_extract(n.data, '$.properties.state') = 'OPEN' OR json_extract(n.data, '$.state') = 'OPEN')
-                      AND n.id IN (${placeholders})
-                `);
+                const semanticResults = await graphColl.query({
+                    queryEmbeddings: [frontierEmbedding],
+                    nResults       : requestedWidth,
+                    where          : {type: {'$in': ['ISSUE', 'DISCUSSION']}}
+                });
 
-                const results = stmt.all(...semanticIds);
-                scoringStats.sqliteOpenMatches = results.length;
+                if (semanticResults?._degraded) {
+                    throw new Error(semanticResults._degradedReason || 'Graph semantic query returned a degraded envelope')
+                }
 
-                for (const row of results) {
-                    const issueId = row.id;
+                const
+                    rawIds       = Array.isArray(semanticResults?.ids?.[0]) ? semanticResults.ids[0] : [],
+                    rawDistances = Array.isArray(semanticResults?.distances?.[0]) ? semanticResults.distances[0] : [];
 
-                    // Guarantee graph topology is completely loaded into RAM BEFORE executing cold-cache resistant queries natively!
-                    GraphService.db.getAdjacentNodes(issueId, 'both');
-                    const rawStructScore = parseFloat(row.struct_score) || 0;
+                if (rawIds.length !== rawDistances.length) {
+                    throw new Error(`Graph semantic query returned ${rawIds.length} ids but ${rawDistances.length} distances`)
+                }
+                if (rawDistances.some(distance => typeof distance !== 'number' || !Number.isFinite(distance) || distance < 0)) {
+                    throw new Error('Graph semantic query returned a non-finite, non-numeric, or negative distance')
+                }
 
-                    // #14659 fail-open parent-inheritance (ticket-ref-ok: owning-leaf anchor): a cold-start (~0)
-                    // leaf inherits alpha * its parent-epic structural weight, so tree-filed leaves are visible to
-                    // the normal formula, not just the fallback. Non-cold-start scores pass through untouched, so
-                    // the base route is preserved. Reuses the verified getIssueStructuralWeight query for the parent.
-                    let struct_score = rawStructScore;
-                    if (rawStructScore <= STRUCTURAL_COLD_START_EPSILON) {
-                        const parentEdge = GraphService.db.edges.getByIndex('target', issueId).find(e => e.type === 'PARENT_OF');
-                        if (parentEdge) {
-                            struct_score = inheritParentStructuralWeight({
-                                structuralWeight      : rawStructScore,
-                                parentStructuralWeight: getIssueFocusStructuralWeight(parentEdge.source)
+                const seenIds = new Set();
+                rawIds.forEach((id, index) => {
+                    if (typeof id === 'string' && id.length > 0 && !seenIds.has(id)) {
+                        seenIds.add(id);
+                        semanticIds.push(id);
+                        semanticDistances.push(rawDistances[index])
+                    }
+                });
+
+                scoringStats.semanticUniqueCandidates = semanticIds.length;
+                scoringStats.semanticReturnedCandidates = rawIds.length;
+            } catch (e) {
+                logger.warn('[GoldenPathSynthesizer] Failed to query semantic vectors from ChromaDB.', e);
+                routeFailure = this.constructor.buildFailureOutcome('semantic-query-failed', e);
+                scoringStats.candidateAdmissionStopReason = 'semantic-query-failed';
+                break
+            }
+
+            const attemptScoredNodes                  = [];
+            const attemptTypeGateRejections           = [];
+            const attemptDiscussionLivenessRejections = [];
+            const attemptStats                        = {
+                semanticCandidates          : semanticIds.length,
+                sqliteOpenMatches           : 0,
+                blockedCandidates           : 0,
+                nonActionableCandidates     : 0,
+                discussionLivenessRejections: 0
+            };
+
+            try {
+                if (semanticIds.length > 0) {
+                    const resultById = new Map();
+
+                    for (let offset = 0; offset < semanticIds.length; offset += SQLITE_ID_CHUNK_SIZE) {
+                        const
+                            idChunk      = semanticIds.slice(offset, offset + SQLITE_ID_CHUNK_SIZE),
+                            placeholders = idChunk.map(() => '?').join(','),
+                            stmt         = GraphService.db.storage.db.prepare(`
+                                SELECT n.id, n.data
+                                FROM Nodes n
+                                WHERE (json_extract(n.data, '$.properties.state') = 'OPEN' OR json_extract(n.data, '$.state') = 'OPEN')
+                                  AND n.id IN (${placeholders})
+                            `);
+
+                        stmt.all(...idChunk).forEach(row => resultById.set(row.id, row))
+                    }
+
+                    // Preserve semantic prefix order after chunked SQLite hydration.
+                    for (const issueId of semanticIds) {
+                        const row = resultById.get(issueId);
+                        if (!row) continue;
+                        let   nodeData = null;
+                        try { nodeData = JSON.parse(row.data); } catch (e) {}
+                        nodeData ||= {id: issueId};
+
+                        // One cache-loading, RLS-safe projection owns direct support, blockers, and parent facts.
+                        // Operational failures throw into this pass's fail-loud mapping boundary.
+                        const structuralSupport = GraphService.getInboundStructuralSupport({id: issueId});
+                        if (!structuralSupport) continue;
+                        attemptStats.sqliteOpenMatches++;
+
+                        if (structuralSupport.hasOpenBlocker) {
+                            attemptStats.blockedCandidates++;
+                            continue
+                        }
+
+                        if (!this.constructor.isActionableComputedRecommendation(nodeData)) {
+                            attemptStats.nonActionableCandidates++;
+                            attemptTypeGateRejections.push({
+                                nodeId         : issueId,
+                                rejectionBucket: this.constructor.getComputedRecommendationExclusionLabels(nodeData)
                             });
+                            continue
                         }
-                    }
 
-                    let nodeData = null;
-                    try { nodeData = JSON.parse(row.data); } catch (e) { }
-
-                    // Re-verify blocker topology natively using GraphService API
-                    const blockers       = GraphService.db.edges.getByIndex('target', issueId).filter(e => e.type === 'BLOCKS');
-                    const openBlockerIds = [];
-                    let   isBlocked      = false;
-
-                    for (const bEdge of blockers) {
-                        const blockerNode = GraphService.db.nodes.get(bEdge.source);
-                        if (blockerNode && (blockerNode.properties?.state === 'OPEN' || blockerNode.state === 'OPEN')) {
-                            isBlocked = true;
-                            openBlockerIds.push(bEdge.source);
-                            break;
+                        const liveness = this.constructor.evaluateDiscussionLiveness(nodeData, structuralSupport.decayingWeight);
+                        if (!liveness.eligible) {
+                            attemptStats.discussionLivenessRejections++;
+                            attemptDiscussionLivenessRejections.push({
+                                nodeId         : issueId,
+                                rejectionBucket: liveness.rejectionBucket,
+                                stage          : DISCUSSION_LIVENESS_REJECTION_STAGE
+                            });
+                            continue
                         }
+
+                        const rawStructScore = structuralSupport.totalWeight;
+                        let   struct_score   = rawStructScore;
+
+                        // Parent inheritance can lift an ISSUE score, but never supplies the decaying
+                        // support used by the Discussion-liveness decision above.
+                        if (
+                            issueId.startsWith('issue-') &&
+                            rawStructScore <= STRUCTURAL_COLD_START_EPSILON &&
+                            structuralSupport.parentId
+                        ) {
+                            const parentSupport = GraphService.getInboundStructuralSupport({id: structuralSupport.parentId});
+                            if (parentSupport) {
+                                struct_score = inheritParentStructuralWeight({
+                                    structuralWeight      : rawStructScore,
+                                    parentStructuralWeight: parentSupport.totalWeight
+                                })
+                            }
+                        }
+
+                        const index             = semanticIds.indexOf(issueId);
+                        const semantic_distance = semanticDistances[index];
+
+                        // Lower distance = Higher significance. (Add 0.1 to avoid div by 0 and curb massive asymptotes)
+                        const semanticScore = 1.0 / (semantic_distance + 0.1);
+                        const priority      = (semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT);
+
+                        attemptScoredNodes.push({
+                            node      : nodeData,
+                            score     : priority,
+                            semantic  : semanticScore,
+                            structural: struct_score
+                        })
                     }
-
-                    if (isBlocked) {
-                        scoringStats.blockedCandidates++;
-                        continue; // Architecturally blocked issues cannot be Golden
-                    }
-
-                    const idx               = semanticIds.indexOf(issueId);
-                    const semantic_distance = parseFloat(semanticDistances[idx]) || 0.1;
-
-                    // Lower distance = Higher significance. (Add 0.1 to avoid div by 0 and curb massive asymptotes)
-                    const semanticScore = 1.0 / (semantic_distance + 0.1);
-
-                    const priority = (semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT);
-
-                    if (!this.constructor.isActionableComputedRecommendation(nodeData || {id: issueId})) {
-                        scoringStats.nonActionableCandidates++;
-                        // AC3 evidence: record which exclusion labels made this candidate non-actionable
-                        // (the shared bucket authority), for the type-gate disposition window.
-                        typeGateRejections.push({
-                            nodeId         : issueId,
-                            rejectionBucket: this.constructor.getComputedRecommendationExclusionLabels(nodeData || {id: issueId})
-                        });
-                        logger.debug(`[GoldenPathSynthesizer] Skipping non-actionable computed recommendation: ${issueId}`);
-                        continue;
-                    }
-
-                    scoredNodes.push({
-                        node      : nodeData || { id: issueId },
-                        score     : priority,
-                        semantic  : semanticScore,
-                        structural: struct_score
-                    });
                 }
             } catch (e) {
                 logger.warn('[GoldenPathSynthesizer] Error executing hybrid mapping across local Graph Store.', e);
                 routeFailure = this.constructor.buildFailureOutcome('graph-store-mapping-failed', e);
+                scoringStats.candidateAdmissionStopReason = 'graph-store-mapping-failed';
+                break
             }
+
+            const corpusExhausted      = scoringStats.semanticReturnedCandidates < requestedWidth;
+            const renderableCount      = attemptScoredNodes.filter(node => node.score > -5000).length;
+            const renderLimitSatisfied = renderableCount >= admissionTarget;
+
+            if (renderLimitSatisfied || corpusExhausted) {
+                scoredNodes                  = attemptScoredNodes;
+                typeGateRejections           = attemptTypeGateRejections;
+                discussionLivenessRejections = attemptDiscussionLivenessRejections;
+                Object.assign(scoringStats, attemptStats, {
+                    semanticCorpusExhausted     : corpusExhausted,
+                    candidateAdmissionStopReason: renderLimitSatisfied ? 'render-limit-satisfied' : 'semantic-corpus-exhausted'
+                });
+                admissionDone = true;
+            } else if (requestedWidth >= admissionCeiling) {
+                const message = `Adaptive candidate admission reached its safe width ${admissionCeiling}` +
+                    ` without ${admissionTarget} unique admissible candidates or verified exhaustion.`;
+                scoredNodes                  = attemptScoredNodes;
+                typeGateRejections           = attemptTypeGateRejections;
+                discussionLivenessRejections = attemptDiscussionLivenessRejections;
+                Object.assign(scoringStats, attemptStats, {semanticCorpusExhausted: false});
+                routeFailure = this.constructor.buildFailureOutcome('candidate-admission-budget-exhausted', message);
+                scoringStats.candidateAdmissionStopReason = 'candidate-admission-budget-exhausted';
+            } else {
+                requestedWidth = Math.min(requestedWidth * 2, admissionCeiling)
+            }
+        }
+
+        if (!routeFailure && scoringStats.semanticCandidates === 0) {
+            logger.info('[GoldenPathSynthesizer] No semantic nodes found. Golden path empty.');
         }
 
         // Sort descending by calculated priority
         scoredNodes.sort((a, b) => b.score - a.score);
 
         // Remove mathematically rejected targets (Negative ROI), then slice
-        const topNodes = routeFailure ? [] : scoredNodes.filter(n => n.score > -5000).slice(0, aiConfig.goldenPathTopNodeRenderLimit);
+        const topNodes = routeFailure ? [] : scoredNodes.filter(n => n.score > -5000).slice(0, admissionTarget);
 
         let currentFocusCandidates = [];
         if (repoEnrichmentEnabled) {
@@ -1064,10 +1189,12 @@ class GoldenPathSynthesizer extends Base {
             })
         }
 
-        // AC3: record the actionability type-gate's rejections (the SECOND filter point) into a sibling ledger in
-        // the same runtime dir — the evidence window the 42.2%-type-gate disposition decides against. No-ops
-        // on an empty pass; fail-open inside the method; reuses the route-attribution dir + retention leaves.
-        await this.constructor.recordTypeGateRejections(typeGateRejections, now, {
+        // Record the FINAL adaptive pass's actionability + Discussion-liveness rejections once into the
+        // existing stage-discriminated sibling ledger. Provisional widening passes never write evidence.
+        await this.constructor.recordTypeGateRejections([
+            ...typeGateRejections,
+            ...discussionLivenessRejections
+        ], now, {
             dir         : aiConfig.goldenPathRouteAttributionLedgerDir,
             maxEvents   : aiConfig.goldenPathRouteAttributionLedgerMaxEvents,
             triggerBytes: aiConfig.goldenPathRouteAttributionLedgerPruneTriggerBytes
@@ -1486,12 +1613,14 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             ...routeFailure,
             wroteHandoff    : true,
             selectedTopNodes: scoringStats.selectedTopNodes,
-            prunedGuideEdges: scoringStats.prunedGuideEdges
+            prunedGuideEdges: scoringStats.prunedGuideEdges,
+            scoringStats
         } : {
             status          : 'completed',
             wroteHandoff    : true,
             selectedTopNodes: scoringStats.selectedTopNodes,
-            prunedGuideEdges: scoringStats.prunedGuideEdges
+            prunedGuideEdges: scoringStats.prunedGuideEdges,
+            scoringStats
         };
     }
 }
