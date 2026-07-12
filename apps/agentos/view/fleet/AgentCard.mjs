@@ -54,6 +54,17 @@ class AgentCard extends Container {
          */
         controller: AgentCardController,
         /**
+         * A click anywhere on the card EXCEPT the control cluster (which owns its own
+         * `lifecycleIntent` handlers) fires the drill-in select — the controller carves the controls
+         * out by click path, so the drill target stays robust even when the flex body renders narrow.
+         * The string handler resolves UP the controller chain (card → grid [no controller] → cockpit)
+         * to {@link AgentOS.view.fleet.FleetCockpitController#onAgentSelect}.
+         * @member {Object[]} domListeners
+         */
+        domListeners: [{
+            click: 'onCardSelect'
+        }],
+        /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}
          * @reactive
          */

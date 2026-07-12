@@ -53,6 +53,29 @@ class AgentCardController extends Controller {
 
         me.component.fire('lifecycleIntent', {action, agentId})
     }
+
+    /**
+     * @summary Fires the card's drill-in select — a body click asks the cockpit to inspect this
+     * resident.
+     *
+     * Reads the durable `agentId` from the card's record and fires ONE `agentSelect` event
+     * `{agentId}` on the card. Like `lifecycleIntent`, this controller does NOT act on it — the
+     * cockpit (which owns the detail pane + the roster store) resolves the record and reveals the
+     * inspector via {@link AgentOS.view.fleet.FleetCockpitController#onAgentSelect}. The body
+     * `delegate` keeps control-cluster clicks (start/stop/restart) out of the select path.
+     * @param {Object} data The delegated click event.
+     */
+    onCardSelect(data) {
+        // a click whose path passes through the control cluster is a lifecycle intent, not a drill —
+        // carve it out (the whole card is the drill target, robust to a narrow flex body)
+        const inControls = (data?.path || []).some(node => Array.isArray(node.cls) && node.cls.includes('fm-card-controls'));
+
+        if (inControls) {
+            return
+        }
+
+        this.component.fire('agentSelect', {agentId: this.component.record?.agentId ?? null})
+    }
 }
 
 export default Neo.setupClass(AgentCardController);

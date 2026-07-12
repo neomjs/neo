@@ -1,4 +1,5 @@
 import ActivityStream          from './ActivityStream.mjs';
+import AgentDetail             from './AgentDetail.mjs';
 import Button                  from '../../../../src/button/Base.mjs';
 import Container               from '../../../../src/container/Base.mjs';
 import DockLayoutAdapter       from '../../../../src/dashboard/DockLayoutAdapter.mjs';
@@ -199,6 +200,14 @@ class FleetCockpit extends Container {
      * @protected
      */
     streamEvents = FIXTURE_ACTIVITY
+    /**
+     * The drill-in inspector's selected resident — OWNER-held so a re-projection re-materializes
+     * the {@link AgentOS.view.fleet.AgentDetail} pane at the current selection (`null` = the honest
+     * "select an agent" empty state). The card→detail selection wiring writes it.
+     * @member {Object|null} detailRecord=null
+     * @protected
+     */
+    detailRecord = null
 
     /**
      * @summary Seed the layout SSOT and build the toolbar + dock projection as instance items —
@@ -256,7 +265,7 @@ class FleetCockpit extends Container {
 
         let me = this;
 
-        me.getReference('fleet-grid')?.store?.on({load: me.onRosterStoreLoad, scope: me});
+        me.getReference('fleet-grid')?.store?.on({load: me.onRosterStoreLoad, recordChange: me.onDetailRecordChange, scope: me});
 
         me.loadActivity();
         me.loadRoster()
@@ -435,9 +444,19 @@ class FleetCockpit extends Container {
                     events      : me.streamEvents,
                     reference   : 'activity-stream'
                 };
+            case 'agent-detail':
+                // the drill-in inspector; its selected resident is OWNER-held (re-projections
+                // rebuild instances) so a committed layout change never drops the selection — null
+                // renders the view's honest "select an agent" empty state
+                return {
+                    module   : AgentDetail,
+                    cls      : [marker],
+                    record   : me.detailRecord,
+                    reference: 'agent-detail'
+                };
             default:
-                // agent-detail / perspectives arrive with their own leaves — an honest labelled
-                // placeholder, never a blank pane masquerading as a finished surface
+                // perspectives arrives with its own leaf — an honest labelled placeholder, never a
+                // blank pane masquerading as a finished surface
                 return {
                     ntype: 'component',
                     cls  : [marker, 'fm-pane-placeholder'],
@@ -516,6 +535,54 @@ class FleetCockpit extends Container {
     }
 
     /**
+     * @summary Keep the open detail inspector truthful over time — route the roster store's
+     * `recordChange` to the mounted {@link AgentOS.view.fleet.AgentDetail} when the changed record
+     * is the one being inspected (mirrors how the grid routes `recordChange` to its cards). A roster
+     * re-poll mutating the selected resident (state, lane, sources) thus re-renders the detail in
+     * place — the view is reactive to record MUTATION, not only to a re-seat onto a new record.
+     * @param {Object} data The store `recordChange` event `{record, ...}`.
+     * @protected
+     */
+    onDetailRecordChange({record}) {
+        if (record === this.detailRecord) {
+            this.getReference('agent-detail')?.applyRecord()
+        }
+    }
+
+    /**
+     * @summary Keep the owner-held selection truthful across authoritative roster transitions —
+     * membership reactivity, distinct from the mutation reactivity {@link #onDetailRecordChange} covers.
+     *
+     * `recordChange` fires when the inspected resident MUTATES, but a membership change is a different
+     * Store edge: {@link Neo.data.Store#remove} drops a record WITHOUT firing `recordChange` on it, and
+     * the first-live replacement (`clear` + `add`) swaps the sample instance for a fresh one. Either
+     * leaves `detailRecord` pointing at a record the roster no longer holds — the inspector then
+     * presents a resident the authority says is absent, which is user-visible misinformation. So after
+     * every authoritative reconcile/replace: if the selected durable `agentId` still exists, re-seat
+     * `detailRecord` onto the Store's CURRENT instance (a re-seat only when the object actually changed —
+     * an in-place `record.set` reconcile keeps the same instance, already covered by `recordChange`); if
+     * it is gone (including an empty snapshot), clear the selection so {@link AgentOS.view.fleet.AgentDetail}
+     * renders its honest empty state rather than a ghost resident.
+     * @protected
+     */
+    reconcileSelection() {
+        let me = this;
+
+        if (!me.detailRecord) {
+            return
+        }
+
+        const
+            store   = me.getReference('fleet-grid')?.store,
+            current = store?.get(me.detailRecord.agentId) ?? null;
+
+        if (current !== me.detailRecord) {
+            me.detailRecord = current;
+            me.getReference('agent-detail')?.set({record: current})
+        }
+    }
+
+    /**
      * @summary Detach the roster-store load guard and release the drop producer; the provider
      * tears the owned store itself down.
      * @param {...*} args
@@ -523,7 +590,7 @@ class FleetCockpit extends Container {
     destroy(...args) {
         let me = this;
 
-        me.getReference('fleet-grid')?.store?.un({load: me.onRosterStoreLoad, scope: me});
+        me.getReference('fleet-grid')?.store?.un({load: me.onRosterStoreLoad, recordChange: me.onDetailRecordChange, scope: me});
         me.dockPreviewProducer?.destroy();
         me.dockPreviewProducer = null;
         me.perspectiveStore?.destroy();
@@ -614,7 +681,10 @@ class FleetCockpit extends Container {
             } else {
                 grid.store.clear();
                 mapped.length > 0 && grid.store.add(mapped);
-                me.rosterWired = true
+                me.rosterWired = true;
+                // the first live snapshot replaces the sample seed wholesale — re-seat or clear a
+                // selection made against a now-removed sample record (reconcileRoster owns the later reconciles)
+                me.reconcileSelection()
             }
 
             me.gridAdapterState = 'live';
@@ -692,7 +762,11 @@ class FleetCockpit extends Container {
         store.items
             .filter(record => !snapshotIds.has(record.agentId))
             .map(record => record.agentId)
-            .forEach(agentId => store.remove(agentId))
+            .forEach(agentId => store.remove(agentId));
+
+        // membership may have removed/re-instanced the inspected resident — the removal fires no
+        // recordChange, so reconcile the owner-held selection here (both reconcile callers pass through).
+        this.reconcileSelection()
     }
 }
 
