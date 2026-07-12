@@ -193,6 +193,20 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         card.destroy()
     });
 
+    test('drill-in: a body click fires ONE agentSelect {agentId} — the seam the cockpit resolves up the controller chain', () => {
+        const card  = createCard({agentId: 'vega', state: 'ok'});
+        const fired = [];
+
+        card.on('agentSelect', data => fired.push(data));
+
+        // the body `delegate` routes only identity/lane clicks here (controls fire lifecycleIntent);
+        // the controller reads the durable agentId off the record and fires the intent-only select
+        card.getController().onCardSelect({});
+        expect(fired).toMatchObject([{agentId: 'vega'}]);
+
+        card.destroy()
+    });
+
     test('B4 honest state: a pending action disables every verb + renders it pending; a controlReason renders the reason — no optimistic success (#14611)', () => {
         const card   = createCard({agentId: 'vega', state: 'idle'});
         const verbs  = () => card.down({reference: 'control-verbs'}).items;

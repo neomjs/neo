@@ -1,4 +1,5 @@
 import ActivityStream          from './ActivityStream.mjs';
+import AgentDetail             from './AgentDetail.mjs';
 import Button                  from '../../../../src/button/Base.mjs';
 import Container               from '../../../../src/container/Base.mjs';
 import DockLayoutAdapter       from '../../../../src/dashboard/DockLayoutAdapter.mjs';
@@ -199,6 +200,14 @@ class FleetCockpit extends Container {
      * @protected
      */
     streamEvents = FIXTURE_ACTIVITY
+    /**
+     * The drill-in inspector's selected resident — OWNER-held so a re-projection re-materializes
+     * the {@link AgentOS.view.fleet.AgentDetail} pane at the current selection (`null` = the honest
+     * "select an agent" empty state). The card→detail selection wiring writes it.
+     * @member {Object|null} detailRecord=null
+     * @protected
+     */
+    detailRecord = null
 
     /**
      * @summary Seed the layout SSOT and build the toolbar + dock projection as instance items —
@@ -435,9 +444,19 @@ class FleetCockpit extends Container {
                     events      : me.streamEvents,
                     reference   : 'activity-stream'
                 };
+            case 'agent-detail':
+                // the drill-in inspector; its selected resident is OWNER-held (re-projections
+                // rebuild instances) so a committed layout change never drops the selection — null
+                // renders the view's honest "select an agent" empty state
+                return {
+                    module   : AgentDetail,
+                    cls      : [marker],
+                    record   : me.detailRecord,
+                    reference: 'agent-detail'
+                };
             default:
-                // agent-detail / perspectives arrive with their own leaves — an honest labelled
-                // placeholder, never a blank pane masquerading as a finished surface
+                // perspectives arrives with its own leaf — an honest labelled placeholder, never a
+                // blank pane masquerading as a finished surface
                 return {
                     ntype: 'component',
                     cls  : [marker, 'fm-pane-placeholder'],

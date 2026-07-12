@@ -27,7 +27,7 @@ import * as core      from '../../../../../../../src/core/_export.mjs';
  * docking design's pane contract, and owner-held pane state surviving re-projection.
  */
 test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)', () => {
-    let ActivityStream, DockZoneModel, FleetCockpit, FleetGrid, cockpitDockDocument;
+    let ActivityStream, AgentDetail, DockZoneModel, FleetCockpit, FleetGrid, cockpitDockDocument;
 
     // a projection-capable spy owner: the REAL prototype methods over controlled state, without
     // provider/store/bridge wiring (their routing has its own suite in fleetCockpit.spec.mjs)
@@ -49,6 +49,7 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
 
     test.beforeAll(async () => {
         ActivityStream      = (await import('../../../../../../../apps/agentos/view/fleet/ActivityStream.mjs')).default;
+        AgentDetail         = (await import('../../../../../../../apps/agentos/view/fleet/AgentDetail.mjs')).default;
         DockZoneModel       = (await import('../../../../../../../src/dashboard/DockZoneModel.mjs')).default;
         FleetCockpit        = (await import('../../../../../../../apps/agentos/view/fleet/FleetCockpit.mjs')).default;
         FleetGrid           = (await import('../../../../../../../apps/agentos/view/fleet/FleetGrid.mjs')).default;
@@ -132,7 +133,7 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
     });
 
     test('panes are layout-blind (§2.6) and re-materialize from OWNER-held state — a re-projection can never reset a live surface', () => {
-        const host = makeHost({gridAdapterState: 'live', streamAdapterState: 'stale', streamEvents: [{type: 'pr-activity', payload: {text: 'held'}}]});
+        const host = makeHost({gridAdapterState: 'live', streamAdapterState: 'stale', streamEvents: [{type: 'pr-activity', payload: {text: 'held'}}], detailRecord: {agentId: 'vega', displayName: 'Vega'}});
 
         const grid = FleetCockpit.prototype.resolveDockComponentRef.call(host, 'fleet-grid', {title: 'Fleet'}, 'fleet');
 
@@ -148,19 +149,27 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
         expect(stream.events).toEqual(host.streamEvents);
         expect(stream.cls).toContain('dock-flip-item-stream');
 
+        // agent-detail now renders the real drill-in view, re-materialized from OWNER-held state
+        // (the selected record) so a committed re-projection never drops the selection
+        const detail = FleetCockpit.prototype.resolveDockComponentRef.call(host, 'agent-detail', {title: 'Agent detail'}, 'detail');
+
+        expect(detail.module).toBe(AgentDetail);
+        expect(detail.record).toBe(host.detailRecord);   // owner-held selection survives re-projection
+        expect(detail.cls).toContain('dock-flip-item-detail');
+
         // §2.6 layout-blind: NOTHING dock-specific reaches a pane config beyond the marker class
-        for (const pane of [grid, stream]) {
+        for (const pane of [grid, stream, detail]) {
             for (const forbidden of ['applyDockZoneOperation', 'onDockZoneDocumentChange', 'onDockCrossZoneDrop', 'dockZoneDocument', 'dockNodeId']) {
                 expect(pane[forbidden], `a pane config must not carry ${forbidden}`).toBeUndefined()
             }
         }
 
-        // sibling-leaf refs render an HONEST labelled placeholder, never a blank pane
-        const detail = FleetCockpit.prototype.resolveDockComponentRef.call(host, 'agent-detail', {title: 'Agent detail'}, 'detail');
+        // perspectives remains a sibling-leaf placeholder — an HONEST labelled pane, never a blank one
+        const perspectives = FleetCockpit.prototype.resolveDockComponentRef.call(host, 'perspectives', {title: 'Perspectives'}, 'perspectives');
 
-        expect(detail.cls).toContain('fm-pane-placeholder');
-        expect(detail.cls).toContain('dock-flip-item-detail');
-        expect(detail.html).toContain('Agent detail')
+        expect(perspectives.cls).toContain('fm-pane-placeholder');
+        expect(perspectives.cls).toContain('dock-flip-item-perspectives');
+        expect(perspectives.html).toContain('Perspectives')
     });
 
     test('the projected tree renders the document\'s zones: both live panes present, exactly once each', () => {

@@ -701,6 +701,60 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
         expect(calls.length).toBe(1)   // three residents started, ONE roster re-poll — never N polls
     });
 
+    test('onAgentSelect: a card select holds the owner-side detailRecord + reveals the auto-hidden inspector through the commit loop', () => {
+        const
+            record  = {agentId: 'vega', displayName: 'Vega'},
+            detail  = {record: null, set(cfg) { Object.assign(this, cfg) }},
+            applied = [],
+            cockpit = {
+                detailRecord: null,
+                dockModel   : {items: {detail: {autoHidden: true}}},
+                applyDockZoneOperation(op) { applied.push(op); return {document: {revealed: true}, errors: []} },
+                onDockZoneDocumentChange(doc) { this.committed = doc }
+            },
+            controller = Object.create(FleetCockpitController.prototype);
+
+        controller.component    = cockpit;
+        controller.getReference = name => name === 'fleet-grid' ? {store: {get: id => id === 'vega' ? record : null}} : name === 'agent-detail' ? detail : null;
+
+        controller.onAgentSelect({agentId: 'vega'});
+
+        // owner-held selection (survives a later re-projection — resolveDockComponentRef reads it) +
+        // the live pane updated in place
+        expect(cockpit.detailRecord).toBe(record);
+        expect(detail.record).toBe(record);
+        // the auto-hidden inspector is revealed through the standard commit loop, not a bespoke path
+        expect(applied).toEqual([{operation: 'setItemAutoHidden', itemId: 'detail', autoHidden: false}]);
+        expect(cockpit.committed).toEqual({revealed: true})
+    });
+
+    test('onAgentSelect: an already-revealed inspector updates in place (no re-projection); an unknown agent is a fail-closed no-op', () => {
+        const
+            record  = {agentId: 'ada'},
+            detail  = {record: null, set(cfg) { Object.assign(this, cfg) }},
+            applied = [],
+            cockpit = {
+                detailRecord: null,
+                dockModel   : {items: {detail: {autoHidden: false}}},   // already revealed
+                applyDockZoneOperation(op) { applied.push(op); return {document: {}, errors: []} },
+                onDockZoneDocumentChange() { this.reprojected = true }
+            },
+            controller = Object.create(FleetCockpitController.prototype);
+
+        controller.component    = cockpit;
+        controller.getReference = name => name === 'fleet-grid' ? {store: {get: id => id === 'ada' ? record : null}} : name === 'agent-detail' ? detail : null;
+
+        controller.onAgentSelect({agentId: 'ada'});
+        expect(cockpit.detailRecord).toBe(record);
+        expect(detail.record).toBe(record);
+        expect(applied).toEqual([]);                  // already revealed → no reveal op...
+        expect(cockpit.reprojected).toBeUndefined();  // ...and no full re-projection
+
+        // unknown agentId → fail-closed no-op, the selection stands
+        controller.onAgentSelect({agentId: 'ghost'});
+        expect(cockpit.detailRecord).toBe(record)
+    });
+
     // The composition-root binding witness: not "loadRoster was called" (the spy tests above) but
     // "reconciliation reaches the RECORD". Assembles the REAL path end to end — the real controller
     // onAgentLifecycleIntent, the real C2 adapter, a stateful bridge whose `fleetRoster` reflects the
