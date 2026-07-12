@@ -12,6 +12,7 @@ const makeDeps = (over = {}) => ({
     }),
     queryMemories: async () => ({results: [{id: 'm1', document: 'a recurring theme'}]}),
     generate     : async () => 'Two sessions of work happened this week.',
+    listSummaries: async () => ({summaries: []}),   // team-visible session leg; empty unless a test overrides
     ...over
 });
 
@@ -25,6 +26,18 @@ test.describe('exploreMemoryHistory — the full Memory/session Bird View compos
         expect(envelope.coverage).toMatchObject({totalResolved: 2, degraded: false});
         expect(envelope.citations.map(c => c.id).sort()).toEqual(['turn-@a', 'turn-@b']);
         expect(envelope.window.preset).toBe('weekly')
+    });
+
+    test('unified surfaces PEER sessions from the team-visible summary leg the tenant-bound recency walk cannot see', async () => {
+        // query_recent_turns is caller-userId-bound → a peer's turns come back empty; listSummaries is team-visible.
+        const envelope = await exploreMemoryHistory({partition: 'unified', preset: 'weekly', now: NOW, deps: makeDeps({
+            queryRecentTurns: async () => ({turns: [], nextCursor: null}),
+            listSummaries   : async () => ({summaries: [{id: 'sess-peer', sessionId: 's-peer', timestamp: '2026-07-08T00:00:00.000Z', impact: 95, summary: 'a peer shipped the thing'}]})
+        })});
+
+        // the peer session is admitted into coverage + prominence even though the recency walk saw zero turns
+        expect(envelope.coverage.totalResolved).toBe(1);
+        expect(envelope.citations.map(c => c.id)).toContain('sess-peer')
     });
 
     test('an @identity partition walks exactly that identity — the roster is never consulted', async () => {

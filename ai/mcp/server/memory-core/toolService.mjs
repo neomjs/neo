@@ -54,7 +54,10 @@ const exploreMemoryHistoryOp = args => exploreMemoryHistory({
         listIdentities: async () => {
             const {online, idle, benched} = await WakeSubscriptionService.whoIsOnline();
             return [...(online || []), ...(idle || []), ...(benched || [])]
-        }
+        },
+        // the team-visible session-summary coverage leg — recovers the peer sessions the tenant-bound
+        // recency walk structurally cannot see (query_recent_turns is caller-userId-bound)
+        listSummaries: SummaryService.listSummaries.bind(SummaryService)
     }
 });
 

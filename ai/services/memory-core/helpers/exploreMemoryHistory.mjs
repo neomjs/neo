@@ -1,6 +1,7 @@
 import {enumerateChronologicalWindowSources} from './chronologicalWindowSources.mjs';
 import {makeRecentTurnsFetchPage}            from './recentTurnsFetchPage.mjs';
 import {makeSemanticEnrichment}              from './semanticEnrichment.mjs';
+import {makeSessionSummaryReader}            from './sessionSummaryReader.mjs';
 import {makeTemporalSynthesize}              from './temporalSynthesis.mjs';
 import {synthesizeTemporalBirdView}          from './temporalBirdViewSynthesizer.mjs';
 
@@ -37,29 +38,48 @@ const DEFAULT_ENRICHMENT_QUERY = 'notable engineering decisions, friction, and o
  * @param {Function} options.deps.queryMemories   Bound `queryMemories` (semantic enrichment).
  * @param {Function} options.deps.generate         The LLM `generate` call.
  * @param {Function} options.deps.listIdentities   `async () => string[]` — the roster walked for `unified`.
+ * @param {Function} options.deps.listSummaries    Bound `listSummaries` — the team-visible session-summary coverage leg.
  * @returns {Promise<Object>} The `notAuthority` Bird View envelope.
  */
 export async function exploreMemoryHistory({
     partition = 'unified', preset, windowStart, windowEnd, now, generatedAt,
     enrichmentQuery = DEFAULT_ENRICHMENT_QUERY, deps
 } = {}) {
-    const {queryRecentTurns, queryMemories, generate, listIdentities} = deps || {};
+    const {queryRecentTurns, queryMemories, generate, listIdentities, listSummaries} = deps || {};
 
     if (typeof queryRecentTurns !== 'function' || typeof queryMemories !== 'function' ||
-        typeof generate !== 'function' || typeof listIdentities !== 'function') {
-        throw new Error('exploreMemoryHistory: deps must supply queryRecentTurns, queryMemories, generate, and listIdentities')
+        typeof generate !== 'function' || typeof listIdentities !== 'function' ||
+        typeof listSummaries !== 'function') {
+        throw new Error('exploreMemoryHistory: deps must supply queryRecentTurns, queryMemories, generate, listIdentities, and listSummaries')
     }
 
-    const fetchPage         = makeRecentTurnsFetchPage({queryRecentTurns}),
-          enrich            = makeSemanticEnrichment({queryMemories}),
-          generateNarrative = makeTemporalSynthesize({generate});
+    const fetchPage           = makeRecentTurnsFetchPage({queryRecentTurns}),
+          fetchWindowSessions = makeSessionSummaryReader({listSummaries}),
+          enrich              = makeSemanticEnrichment({queryMemories}),
+          generateNarrative   = makeTemporalSynthesize({generate});
 
-    // the recency spine is the coverage backbone; identities resolve at retrieve time so `unified` walks
-    // the live roster while `@<identity>` walks exactly one.
+    // Coverage has TWO legs: the tenant-scoped recency walk (the caller's own turns) AND the team-visible
+    // session-summary leg (the peer sessions the recency walk structurally cannot see — query_recent_turns
+    // is userId-bound). Merged + deduped by id; a failure in EITHER leg degrades coverage honestly, so the
+    // narrative is withheld rather than served partial.
     const retrieve = async ({window}) => {
-        const identities = window.partition === 'unified' ? await listIdentities() : [window.partition];
+        const identities = window.partition === 'unified' ? await listIdentities() : [window.partition],
+              turnResult = await enumerateChronologicalWindowSources({window, identities, fetchPage}),
+              summaries  = await fetchWindowSessions({windowStart: window.windowStart, windowEnd: window.windowEnd, partition: window.partition});
 
-        return enumerateChronologicalWindowSources({window, identities, fetchPage})
+        const byId = new Map(turnResult.sources.map(source => [source.id, source]));
+        for (const source of summaries.sources) if (!byId.has(source.id)) byId.set(source.id, source);
+        const sources = [...byId.values()];
+
+        return {
+            sources,
+            coverage: {
+                ...turnResult.coverage,
+                totalResolved : sources.length,
+                degraded      : turnResult.coverage.degraded || summaries.degraded,
+                degradedReason: turnResult.coverage.degradedReason || (summaries.degraded ? summaries.reason : null)
+            }
+        }
     };
 
     // synthesis foregrounds themes (best-effort, never coverage) then runs the fidelity-bound generation
