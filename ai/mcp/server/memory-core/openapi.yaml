@@ -2584,6 +2584,10 @@ components:
           type: string
           enum: [system, repo-trusted, owner, self, peer-trusted, internal-authored, external, unclassified]
           description: Optional minimum accepted #10292 provenance trust tier. Results authored by lower-trust or unclassified identities are excluded.
+        conceptWalk:
+          type: boolean
+          default: false
+          description: "Opt-in concept-anchored retrieval. When true, augments (never replaces) the flat embedding results with memories reached via a bounded concept-neighborhood graph walk over the query's concepts — each re-authorized through the same tenant/tombstone/trust gate the flat path uses, and stamped with walk provenance (via/conceptPath/present-axis annotations). Default false returns the flat results unchanged."
 
     QueryMemoriesResponse:
       type: object
