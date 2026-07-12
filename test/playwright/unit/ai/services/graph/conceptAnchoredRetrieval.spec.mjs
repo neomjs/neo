@@ -368,6 +368,34 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval — enrichWithConc
         expect(throughFile.event.candidatesAdded).toBe(1);
     });
 
+    test('rlsPredicate gates PATH traversal: a node reachable ONLY through an RLS-rejected intermediate is not surfaced — terminal-candidate auth does not authorize the crossed path (#14504 gate 1 RLS Depth-Floor)', async () => {
+        // golden-path → MEM:private (other-tenant intermediate) → MEM:deep. The rlsPredicate rejects
+        // MEM:private, so the walk never traverses THROUGH it and MEM:deep — reachable only via the
+        // private intermediate — is unreachable. Without the predicate the walk crosses it to reach deep.
+        const pathGraph = fixtureGraph({
+            concepts: [{type: 'CONCEPT', id: 'golden-path'}],
+            nodes   : {
+                'golden-path': {label: 'CONCEPT'},
+                'MEM:private': {label: 'MEMORY'},
+                'MEM:deep'   : {label: 'MEMORY'}
+            },
+            edges: [
+                {id: 'p1', source: 'golden-path', target: 'MEM:private', type: 'TAGGED_CONCEPT', properties: {}},
+                {id: 'p2', source: 'MEM:private', target: 'MEM:deep',    type: 'TAGGED_CONCEPT', properties: {}}
+            ]
+        });
+        const deepGate = async nodeId => nodeId === 'MEM:deep' ? {id: 'MEM:deep', text: 'deep'} : null;
+        const opts     = {graphService: pathGraph, query: 'golden path', candidates: [], conceptWalk: true, resolveCandidate: deepGate, traversableNodeLabels: ['MEMORY'], traversableLabels: ['CONCEPT', 'MEMORY'], maxHops: 2};
+
+        // rlsPredicate rejects the private intermediate → the path THROUGH it is not walked → MEM:deep absent
+        const gated = await enrichWithConceptWalk({...opts, rlsPredicate: nodeId => nodeId !== 'MEM:private'});
+        expect(gated.event.candidatesAdded).toBe(0);
+
+        // no predicate → the walk crosses the private intermediate and reaches MEM:deep
+        const ungated = await enrichWithConceptWalk(opts);
+        expect(ungated.event.candidatesAdded).toBe(1);
+    });
+
     test('conceptPath carries the COMPLETE ordered path with per-hop provenance at depth 2 (not terminal-only)', async () => {
         // golden-path --IMPLEMENTED_BY--> FILE:helper --TAGGED_CONCEPT--> MEM:deep
         const deepGraph = fixtureGraph({

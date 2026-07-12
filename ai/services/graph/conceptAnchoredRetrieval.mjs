@@ -268,6 +268,7 @@ export async function enrichWithConceptWalk({
     now                  = () => Date.now(),
     traversableNodeLabels = null,
     traversableLabels     = PUBLIC_TRAVERSABLE_LABELS,
+    rlsPredicate          = null,
     conceptLimit         = WALK_BUDGET.conceptLimit,
     maxHops              = WALK_BUDGET.maxHops,
     hopBudget            = WALK_BUDGET.hopBudget,
@@ -326,7 +327,7 @@ export async function enrichWithConceptWalk({
             // candidates stand. augment-never-displace holds even when the graph is down.
             let walk;
             try {
-                walk = walkConceptNeighborhood({graphService, conceptId: memberId, maxHops, hopBudget: remainingHopBudget, traversableLabels})
+                walk = walkConceptNeighborhood({graphService, conceptId: memberId, maxHops, hopBudget: remainingHopBudget, traversableLabels, rlsPredicate})
             } catch {
                 walk = {hops: [], truncated: false}
             }

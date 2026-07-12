@@ -110,9 +110,15 @@ export function detectAxisPresence(properties = {}) {
  * @param {String} options.conceptId Root concept node id.
  * @param {Number} [options.maxHops=2] Hop bound.
  * @param {Number} [options.hopBudget=80] Max edges consumed across the whole walk.
+ * @param {Function|null} [options.rlsPredicate=null] Opt-in per-intermediate visibility gate
+ *     `(neighborId, neighborLabel) => Boolean`. When supplied, the walk expands THROUGH a neighbor only
+ *     if it returns true — so a private / other-tenant intermediate is never traversed to reach a deeper
+ *     node (the caller supplies the tenant/RLS check, e.g. isRlsVisible; terminal-candidate authorization
+ *     does NOT authorize the PATH crossed to reach it). Default null = no gate (probe full-reachability
+ *     mode; the reachability-probe measurement path is untouched).
  * @returns {Object} `{root, hops: [{fromId, edge, neighborId, neighborLabel, axisPresence}], truncated}`
  */
-export function walkConceptNeighborhood({graphService, conceptId, maxHops = 2, hopBudget = 80, traversableLabels = null}) {
+export function walkConceptNeighborhood({graphService, conceptId, maxHops = 2, hopBudget = 80, traversableLabels = null, rlsPredicate = null}) {
     const
         visited = new Set([conceptId]),
         hops    = [];
@@ -152,13 +158,17 @@ export function walkConceptNeighborhood({graphService, conceptId, maxHops = 2, h
 
                 if (!visited.has(neighborId)) {
                     visited.add(neighborId);
-                    // RLS Depth-Floor (retrieval path): when traversableLabels is supplied, expand ONLY
-                    // through those public-structural labels. A private/terminal neighbor is still recorded
-                    // as a hop above (and gated as a candidate downstream), but its edges are never walked
-                    // to reach a deeper node — terminal-candidate authorization does NOT authorize the PATH
-                    // crossed to reach it. Default null = probe measurement mode (full reachability,
-                    // privacy applied at render via applyPrivacyContract).
-                    if (!traversableLabels || traversableLabels.includes(label)) next.push(neighborId)
+                    // RLS Depth-Floor (retrieval path): expand THROUGH a neighbor only when it clears BOTH
+                    // (a) the public-structural label allow-list (traversableLabels) and (b) the caller's
+                    // per-intermediate visibility gate (rlsPredicate — e.g. isRlsVisible for tenant/RLS).
+                    // A private / other-tenant / non-structural neighbor is still recorded as a hop above
+                    // (and gated as a candidate downstream), but its edges are never walked to reach a
+                    // deeper node — terminal-candidate authorization does NOT authorize the PATH crossed to
+                    // reach it. Both null = probe measurement mode (full reachability; privacy at render).
+                    if (
+                        (!traversableLabels || traversableLabels.includes(label)) &&
+                        (!rlsPredicate || rlsPredicate(neighborId, label))
+                    ) next.push(neighborId)
                 }
             }
 
