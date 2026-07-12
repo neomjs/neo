@@ -165,6 +165,10 @@ class FleetGrid extends Container {
 
         let me = this;
 
+        // a11y: the roster is a named landmark region so screen-reader users can navigate to it as a
+        // distinct cockpit surface. Set on the root before refreshGrid's first render flushes the vdom.
+        Object.assign(me.vdom, {role: 'region', 'aria-label': 'Fleet roster'});
+
         // the health bar tallies from the SAME bound store (its own reactive record seam, no array copy)
         me.getReference('fleet-health').store = me.store;
         me.refreshGrid()

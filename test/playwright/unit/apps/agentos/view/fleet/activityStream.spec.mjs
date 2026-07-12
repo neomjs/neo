@@ -69,6 +69,27 @@ test.describe('Fleet cockpit ActivityStream — bounded, backpressure-aware feed
         stream.destroy()
     });
 
+    test('a11y: the live feed is an aria-live log region so screen readers hear new rows (#14619)', () => {
+        const stream = Neo.create(ActivityStream, {appName, events: makeEvents(3)});
+
+        // a live-updating feed with no aria-live is silent to assistive tech — this makes it a named,
+        // polite log region (announces new rows without interrupting)
+        expect(stream.vdom['aria-live']).toBe('polite');
+        expect(stream.vdom.role).toBe('log');
+        expect(stream.vdom['aria-label']).toBe('Live fleet activity');
+
+        // The region must PERSIST across feed updates — that is the whole point of a live region.
+        // refreshFeed swaps CHILD items (removeAll + add), never the vdom root, so a returning event
+        // must not silently drop the aria-live root (which would re-silence the "live" feed to screen
+        // readers after the very first update — the exact failure mode the region exists to prevent).
+        stream.events = makeEvents(5);
+        expect(stream.vdom['aria-live']).toBe('polite');
+        expect(stream.vdom.role).toBe('log');
+        expect(stream.vdom['aria-label']).toBe('Live fleet activity');
+
+        stream.destroy()
+    });
+
     test('density re-freeze: coalesceActivity groups only PROVEN same-actor runs — the pure rule', () => {
         const at = seconds => `2026-07-04T10:00:${String(seconds).padStart(2, '0')}.000Z`;
 
