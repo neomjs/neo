@@ -902,6 +902,11 @@ class Container extends Component {
 
             !silent && me.update();
 
+            // Mirror `insert`'s signal so structural listeners (e.g. Neo.tab.plugin.Overflow) can re-project
+            // on a removal — removeAt was previously silent, stranding a cached projection with stale menu
+            // indices. `items` is already spliced above, so a listener re-reads the post-removal set.
+            !silent && me.fire('remove', {index, item});
+
             if (destroyItem) {
                 item.destroy(true, silent);
                 return null
