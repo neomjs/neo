@@ -112,7 +112,7 @@ export function detectAxisPresence(properties = {}) {
  * @param {Number} [options.hopBudget=80] Max edges consumed across the whole walk.
  * @returns {Object} `{root, hops: [{fromId, edge, neighborId, neighborLabel, axisPresence}], truncated}`
  */
-export function walkConceptNeighborhood({graphService, conceptId, maxHops = 2, hopBudget = 80}) {
+export function walkConceptNeighborhood({graphService, conceptId, maxHops = 2, hopBudget = 80, traversableLabels = null}) {
     const
         visited = new Set([conceptId]),
         hops    = [];
@@ -152,7 +152,13 @@ export function walkConceptNeighborhood({graphService, conceptId, maxHops = 2, h
 
                 if (!visited.has(neighborId)) {
                     visited.add(neighborId);
-                    next.push(neighborId)
+                    // RLS Depth-Floor (retrieval path): when traversableLabels is supplied, expand ONLY
+                    // through those public-structural labels. A private/terminal neighbor is still recorded
+                    // as a hop above (and gated as a candidate downstream), but its edges are never walked
+                    // to reach a deeper node — terminal-candidate authorization does NOT authorize the PATH
+                    // crossed to reach it. Default null = probe measurement mode (full reachability,
+                    // privacy applied at render via applyPrivacyContract).
+                    if (!traversableLabels || traversableLabels.includes(label)) next.push(neighborId)
                 }
             }
 

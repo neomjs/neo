@@ -361,10 +361,11 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval — enrichWithConc
 
     // RLS Depth-Floor (Emmy's KB cycle-2 review): terminal-candidate authorization does NOT authorize the
     // PATH used to reach it. A KB walk must not traverse THROUGH a private AGENT_MEMORY intermediate
-    // (another tenant's) to reach a public FILE. FIXME until the RLS-safe public-subgraph traversal
-    // lands (restrict the walk to CONCEPT↔CONCEPT + CONCEPT→FILE; never cross AGENT_MEMORY). The
-    // property is fix-design-independent; this is the reserved regression bar.
-    test.fixme('intermediate-hop RLS: a FILE reachable ONLY via a private AGENT_MEMORY intermediate is NOT appended (#15071 cycle-2 Depth-Floor)', async () => {
+    // (another tenant's) to reach a public FILE. Fixed via the enrich-scoped PUBLIC_TRAVERSABLE_LABELS
+    // allow-list (CONCEPT + FILE only, fail-closed) passed to walkConceptNeighborhood as traversableLabels:
+    // the AGENT_MEMORY intermediate is recorded as a hop but never expanded through, so the FILE beyond it
+    // is unreachable. This is the reserved regression bar for that fix.
+    test('intermediate-hop RLS: a FILE reachable ONLY via a private AGENT_MEMORY intermediate is NOT appended (#15071 cycle-2 Depth-Floor)', async () => {
         const graph = fixtureGraph({
             concepts: [{type: 'CONCEPT', id: 'golden-path'}],
             nodes   : {'golden-path': {label: 'CONCEPT'}, 'mem:other-tenant': {label: 'AGENT_MEMORY'}, 'file:src/x.mjs': {label: 'FILE'}},

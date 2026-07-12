@@ -46,6 +46,18 @@ export const RETRIEVAL_EVENT_SCHEMA = Object.freeze({
 export const WALK_BUDGET = Object.freeze({conceptLimit: 5, maxHops: 2, hopBudget: 80, maxCandidates: 40});
 
 /**
+ * RLS Depth-Floor allow-list: the public-structural node labels the RETRIEVAL walk may traverse THROUGH
+ * to reach a deeper candidate. Fail-closed — a neighbor whose label is absent (private or person-scoped
+ * substrate: AGENT_MEMORY, MEMORY, SESSION, MESSAGE, SUMMARY variants, presence/subscription state, or any
+ * unknown/new label) is recorded as a hop and gated as a candidate, but never expanded through: a terminal
+ * candidate's own authorization does NOT authorize the private PATH crossed to reach it (Emmy cycle-2
+ * Depth-Floor). Passed to walkConceptNeighborhood as `traversableLabels`; the reachability probe passes
+ * nothing (null = full-reachability measurement, privacy applied at render). An allow-list (not a private
+ * deny-list) fails closed: a newly-added private label leaks nothing until explicitly allow-listed.
+ */
+export const PUBLIC_TRAVERSABLE_LABELS = Object.freeze(['CONCEPT', 'FILE']);
+
+/**
  * @summary Tokenizes a retrieval query into candidate cluster-key fragments.
  * @param {String} query Caller query.
  * @returns {String[]} Lowercased tokens of length >= 3, order-preserved, deduped.
@@ -301,7 +313,7 @@ export async function enrichWithConceptWalk({
             // candidates stand. augment-never-displace holds even when the graph is down.
             let walk;
             try {
-                walk = walkConceptNeighborhood({graphService, conceptId: memberId, maxHops, hopBudget})
+                walk = walkConceptNeighborhood({graphService, conceptId: memberId, maxHops, hopBudget, traversableLabels: PUBLIC_TRAVERSABLE_LABELS})
             } catch {
                 walk = {hops: []}
             }
