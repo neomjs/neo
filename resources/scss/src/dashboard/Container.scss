@@ -55,6 +55,21 @@
 @keyframes neo-dock-reveal-from-top    { from { opacity: 0.4; transform: translateY(8px) } }
 @keyframes neo-dock-reveal-from-bottom { from { opacity: 0.4; transform: translateY(-8px) } }
 
+// Operation-correlated tab insertion. The adapter stamps this class on ONE recreated header only
+// when its item + target tabs node match the committed addTab descriptor carried by that projection.
+// No broad tab selector: boot, restore, reorder and unrelated coarse refreshes remain motion-free.
+.neo-dashboard-dock-tab-enter {
+    animation       : neo-dock-tab-enter var(--dock-transition-duration) var(--dock-transition-easing);
+    transform-origin: center left;
+}
+
+@keyframes neo-dock-tab-enter {
+    from {
+        opacity  : 0.35;
+        transform: scaleX(0.82);
+    }
+}
+
 // Arrival settle: a brief outline pulse on the pane that just landed from another window
 // (§2.3 cross-window arrival) — the workspace toggles the class; the animation completes
 // itself. transform/opacity/outline only: no layout thrash.

@@ -34,9 +34,10 @@ import {normalizeAgentIdentityNodeId}                 from '../../graph/normaliz
  *      seeded (read-only probe). Refuse with the exact missing operator step named.
  *   5. `launch`    — `FleetManager.startAgent(id)` (provision-then-start, supervised child in
  *      its isolated instance home via the curated per-family template).
- *   6. `auth`      — take `instanceHome` + `authRequired` from the long-lived lifecycle owner's
- *      `startAgent` status and print the exact per-home login line. Secrets never touch this script:
- *      authentication is the operator-owned step by design.
+ *   6. `auth`      — use the long-lived lifecycle owner's auth-mode/status projection to hand off
+ *      the operator step: marker families receive the exact per-home login line; GUI families sign
+ *      in inside the Fleet-launched window and return to Fleet for any restart. Secrets never touch
+ *      this script.
  *
  * Idempotent per segment because every underlying contract already is (definition conflicts refuse,
  * repo drift reconciles through `setRepo`, repo ensure-or-reuse, start short-circuits when running,
@@ -46,7 +47,7 @@ import {normalizeAgentIdentityNodeId}                 from '../../graph/normaliz
  *
  * **Usage**:
  *   node ai/scripts/fleet/onboardPeer.mjs --resident-id <s> --github-username <s>
- *       --harness-type <antigravity|claude-code|claude-desktop|codex>          # dry-run;
+ *       --harness-type <antigravity|claude-code|claude-desktop|codex|codex-desktop> # dry-run;
  *           [--clone-url <s> --repo-slug <s>]          # pair required unless repo already exists
  *   node ai/scripts/fleet/onboardPeer.mjs ... --commit                          # execute phase delta
  *   node ai/scripts/fleet/onboardPeer.mjs --help
@@ -59,7 +60,8 @@ const
         'antigravity'   : 'gemini',
         'claude-code'   : 'claude',
         'claude-desktop': 'claude',
-        codex           : 'gpt'
+        codex           : 'gpt',
+        'codex-desktop' : 'gpt'
     });
 
 /**
@@ -378,7 +380,7 @@ export function planOnboarding({intent, facts = {}} = {}) {
     // decision `deriveAuthHandoff` makes post-launch (dry-run and --commit cannot drift).
     push('auth', 'PRINT',
         getHarnessAuthMode(intent.harnessType) === 'in-app'
-            ? 'in-app sign-in inside the launched window (operator-owned; the isolated relaunch line prints after launch)'
+            ? 'in-app sign-in inside the Fleet-launched window (operator-owned; if closed, restart through this command --commit or Fleet cockpit Start)'
             : facts.authRequired === false
                 ? 'per-home credentials already present — no login step required'
                 : facts.authRequired === true
@@ -411,41 +413,45 @@ export function renderPlan(intent, plan) {
 }
 
 /**
- * @summary Build the exact operator-owned login command from the instance home resolved by the
- * lifecycle service. The home and executable are owned launch-contract outputs — never guessed
- * from the resident id or PATH — and are single-quoted so shell metacharacters remain data.
+ * @summary Build the exact operator-owned login command for marker-auth families from the typed
+ * auth home + executable resolved by the lifecycle service. In-app GUI families never enter this
+ * helper: authentication happens inside the already Fleet-launched window, and any restart stays
+ * owned by Fleet. The split is load-bearing for Codex Desktop: its bundled CLI authenticates the
+ * nested Codex home, while its GUI main is never invoked as a login command. Paths are never
+ * guessed from resident id/PATH and are shell-quoted as data.
  * @param {Object} options
- * @param {String} options.harnessType Curated harness family.
- * @param {String} options.instanceHome Absolute instance home from lifecycle status.
- * @param {String} options.launchCommand Absolute executable path from lifecycle status.
+ * @param {String} options.harnessType Curated marker-auth family.
+ * @param {String} options.authHome Absolute marker/auth home from lifecycle status.
+ * @param {String} options.authCommand Absolute auth executable from lifecycle status.
  * @returns {String}
  */
-export function buildLoginCommand({harnessType, instanceHome, launchCommand} = {}) {
+export function buildLoginCommand({harnessType, authHome, authCommand} = {}) {
     if (!CURATED_HARNESS_TYPES.includes(harnessType)) {
         throw new Error(`buildLoginCommand: unsupported harnessType '${String(harnessType)}'.`);
     }
-    if (typeof instanceHome !== 'string' || !path.isAbsolute(instanceHome) || CONTROL_CHARACTERS.test(instanceHome)) {
-        throw new Error('buildLoginCommand: lifecycle status must provide a control-character-free absolute instanceHome.');
+    if (getHarnessAuthMode(harnessType) !== 'marker') {
+        throw new Error(`buildLoginCommand: harnessType '${harnessType}' authenticates in-app; login commands are marker-family only.`);
     }
-    if (typeof launchCommand !== 'string' || !path.isAbsolute(launchCommand) || CONTROL_CHARACTERS.test(launchCommand)) {
-        throw new Error('buildLoginCommand: lifecycle status must provide a control-character-free absolute launchCommand.');
+    if (typeof authHome !== 'string' || !path.isAbsolute(authHome) || CONTROL_CHARACTERS.test(authHome)) {
+        throw new Error('buildLoginCommand: lifecycle status must provide a control-character-free absolute authHome.');
+    }
+    if (typeof authCommand !== 'string' || !path.isAbsolute(authCommand) || CONTROL_CHARACTERS.test(authCommand)) {
+        throw new Error('buildLoginCommand: lifecycle status must provide a control-character-free absolute authCommand.');
     }
 
     const
         quote         = value => `'${value.replaceAll("'", "'\\''")}'`,
-        quotedHome    = quote(instanceHome),
-        quotedCommand = quote(launchCommand);
+        quotedHome    = quote(authHome),
+        quotedCommand = quote(authCommand);
 
-    // Per-family operator-owned auth step: CLI families have a login command / in-session login;
-    // the app-bundle GUI families sign in INSIDE the launched window (no CLI login exists) — the
-    // printed line relaunches the same isolated instance if the operator closed it.
     switch (harnessType) {
         case 'codex':
+        case 'codex-desktop':
             return `CODEX_HOME=${quotedHome} ${quotedCommand} login`;
         case 'claude-code':
             return `CLAUDE_CONFIG_DIR=${quotedHome} ${quotedCommand}  # then /login inside the session`;
         default:
-            return `${quotedCommand} --user-data-dir=${quotedHome}  # sign in inside the app window (relaunch if closed)`;
+            throw new Error(`buildLoginCommand: marker-family '${harnessType}' has no login renderer.`);
     }
 }
 
@@ -453,12 +459,14 @@ export function buildLoginCommand({harnessType, instanceHome, launchCommand} = {
  * @summary The post-launch auth handoff DECISION — the one branch `--commit` executes after
  * `startAgent` returns, extracted pure so tests enter where the real conductor does. Mode-first:
  * an `'in-app'` family (permanently-null `authRequired` — no marker exists) ALWAYS hands off the
- * in-window sign-in instruction; a `'marker'` family branches on the live heuristic (`true` →
- * the login command, `false` → done, `null` → an honest WARN, never a guessed command).
+ * in-window sign-in instruction and routes a closed-window recovery back through Fleet; a
+ * `'marker'` family branches on the live heuristic (`true` → the login command, `false` → done,
+ * `null` → an honest WARN, never a guessed command).
  * @param {Object} options
  * @param {String} options.harnessType Curated harness family.
  * @param {Object} options.status The long-lived owner's `startAgent`/`status` projection —
- *                                `{authRequired, instanceHome, launchCommand}` consumed here.
+ *                                marker branches consume `{authRequired, authHome, authCommand}`;
+ *                                in-app branches deliberately emit none of the launch details.
  * @returns {{kind: 'sign-in-app'|'login-required'|'done'|'unknown', lines: String[]}} printable
  * lines in conductor voice; `kind` is the decision itself, assertable without string-matching.
  */
@@ -468,8 +476,9 @@ export function deriveAuthHandoff({harnessType, status} = {}) {
             kind : 'sign-in-app',
             lines: [
                 '',
-                '  SIGN-IN REQUIRED (operator-owned, inside the launched app window):',
-                `    ${buildLoginCommand({harnessType, instanceHome: status.instanceHome, launchCommand: status.launchCommand})}`
+                '  SIGN-IN REQUIRED (operator-owned, inside the already Fleet-launched app window):',
+                '    Sign in inside that window.',
+                '    If it was closed, restart through Fleet: re-run this onboardPeer command with --commit, or use Start in the Fleet cockpit.'
             ]
         };
     }
@@ -480,7 +489,7 @@ export function deriveAuthHandoff({harnessType, status} = {}) {
             lines: [
                 '',
                 '  LOGIN REQUIRED (operator-owned, exactly once for this home):',
-                `    ${buildLoginCommand({harnessType, instanceHome: status.instanceHome, launchCommand: status.launchCommand})}`
+                `    ${buildLoginCommand({harnessType, authHome: status.authHome, authCommand: status.authCommand})}`
             ]
         };
     }

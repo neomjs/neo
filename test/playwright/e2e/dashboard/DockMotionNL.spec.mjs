@@ -16,6 +16,33 @@ import { test, expect } from '../../fixtures.mjs';
 
 const SIGNAL = '.neo-dashboard-dock-animating';
 
+// The projection stamps a URL-encoded logical item id as one class token. Match that WHOLE token:
+// substring matching can silently switch to a different pane when reprojection changes DOM order.
+const getItemMarkerSelector = itemId => `[class~="dock-flip-item-${encodeURIComponent(itemId)}"]`;
+
+// Resolve a real logical item beneath a dock node. Tabs contribute their active item because that
+// is the pane the projection lays out; splits recurse in document order. The caller still asserts
+// the exact marker's positive geometry, keeping stale topology or an absent projection fail-closed.
+const findActiveItemId = (dockDocument, nodeId) => {
+    const node = dockDocument.nodes[nodeId];
+
+    if (node?.type === 'tabs') {
+        return node.items?.includes(node.activeItemId) ? node.activeItemId : node.items?.[0] || null
+    }
+
+    if (node?.type === 'split') {
+        return node.children?.map(childId => findActiveItemId(dockDocument, childId)).find(Boolean) || null
+    }
+
+    return null
+};
+
+const findResizeWitnessItemId = dockDocument => {
+    const split = dockDocument.nodes['root-split'];
+
+    return split?.children?.map(nodeId => findActiveItemId(dockDocument, nodeId)).find(Boolean) || null
+};
+
 const connect = async (page, neuralLink) => {
     await page.goto('/examples/dashboard/dock/');
     page.on('pageerror', err => console.error('BROWSER JS ERROR:', err));
@@ -105,19 +132,74 @@ test.describe('Dock motion pipeline (Neural Link) — the signal brackets real m
     test.setTimeout(90000);
     test.use({ viewport: { width: 1600, height: 900 } });
 
+    test('an exact item marker stays pinned when reprojection reorders marker nodes', async ({ page }) => {
+        await page.goto('/examples/dashboard/dock/');
+
+        const pinnedItemId    = 'alpha / one';
+        const genericSelector = '[class*="dock-flip-item-"]';
+        const exactSelector   = getItemMarkerSelector(pinnedItemId);
+        const observations    = await page.evaluate(({exactSelector, genericSelector, pinnedItemId}) => {
+            const root = document.createElement('div');
+            root.id    = 'motion-marker-falsifier';
+
+            const createMarker = itemId => {
+                const marker = document.createElement('div');
+                marker.className      = `dock-flip-item-${encodeURIComponent(itemId)}`;
+                marker.dataset.itemId = itemId;
+
+                return marker
+            };
+            const identify = selector => root.querySelector(selector)?.dataset.itemId || null;
+
+            document.body.append(root);
+            root.replaceChildren(createMarker(pinnedItemId), createMarker('beta'));
+
+            const before = {
+                exact  : identify(exactSelector),
+                generic: identify(genericSelector)
+            };
+
+            // Model removeAll()+rebuild reprojection with fresh nodes and the opposite DOM order.
+            root.replaceChildren(createMarker('beta'), createMarker(pinnedItemId));
+
+            const afterReprojection = {
+                exact  : identify(exactSelector),
+                generic: identify(genericSelector)
+            };
+
+            root.querySelector(exactSelector).remove();
+
+            const afterRemoval = {
+                exact  : identify(exactSelector),
+                generic: identify(genericSelector)
+            };
+
+            root.remove();
+
+            return {afterRemoval, afterReprojection, before}
+        }, {exactSelector, genericSelector, pinnedItemId});
+
+        expect(observations.before).toEqual({exact: pinnedItemId, generic: pinnedItemId});
+        expect(observations.afterReprojection).toEqual({exact: pinnedItemId, generic: 'beta'});
+        expect(observations.afterRemoval).toEqual({exact: null, generic: 'beta'});
+    });
+
     test('a committed resizeSplit GLIDES: real geometry motion over time, signal-bracketed', async ({ page, neuralLink }) => {
         const { app, holderId } = await connect(page, neuralLink);
-        const MARKER            = '[class*="dock-flip-item-"]';
-
-        await expectMarkerLaidOut(page, MARKER);
-        await startMotionSampler(page, MARKER);
 
         // state-relative: the app heap is SHARED across the sweep (SharedWorker), so derive a
-        // guaranteed-delta target from the CURRENT committed sizes rather than assuming seeds
-        const topo0  = await app.getDockTopology(holderId);
-        const doc0   = topo0?.document ?? topo0;
-        const cur    = doc0.nodes['root-split'].sizes;
-        const target = cur[0] < 0.5 ? [0.65, 0.35] : [0.3, 0.7];
+        // guaranteed-delta target from the CURRENT committed sizes rather than assuming seeds.
+        // Pin the witness to one REAL logical item beneath that split across all re-projections.
+        const topo0         = await app.getDockTopology(holderId);
+        const doc0          = topo0?.document ?? topo0;
+        const witnessItemId = findResizeWitnessItemId(doc0);
+        const itemMarker    = getItemMarkerSelector(witnessItemId);
+        const cur           = doc0.nodes['root-split'].sizes;
+        const target        = cur[0] < 0.5 ? [0.65, 0.35] : [0.3, 0.7];
+
+        expect(witnessItemId, 'a real logical item must exist beneath root-split').toBeTruthy();
+        await expectMarkerLaidOut(page, itemMarker);
+        await startMotionSampler(page, itemMarker);
 
         // the bracket is armed CONCURRENTLY with the operation: the appear-poll races the op's
         // delivery into the browser, so the witness cannot miss a motion window that opens
@@ -157,7 +239,7 @@ test.describe('Dock motion pipeline (Neural Link) — the signal brackets real m
 
         // the moved pane's OWN marker (the per-item correlation key the projection stamps) —
         // geometry is asserted on the item that moves, not on whichever pane matches first
-        const itemMarker = `[class*="dock-flip-item-${encodeURIComponent(move.itemId)}"]`;
+        const itemMarker = getItemMarkerSelector(move.itemId);
         await expectMarkerLaidOut(page, itemMarker);
 
         const before = await page.evaluate(sel => {
@@ -187,6 +269,7 @@ test.describe('Dock motion pipeline (Neural Link) — the signal brackets real m
         // it THROUGH intermediate positions (a hard cut yields at most the two endpoints)
         const { samples } = await readMotionSamples(page);
         expect(samples.length, 'the FLIP witness must have observed real frames').toBeGreaterThan(5);
+        expect(samples.every(s => s.w > 0), 'a zero-width sample means the witness watched a dead node').toBe(true);
 
         const last = samples[samples.length - 1];
         expect(
@@ -196,6 +279,62 @@ test.describe('Dock motion pipeline (Neural Link) — the signal brackets real m
 
         const positions = [...new Set(samples.map(s => `${s.x},${s.y}`))];
         expect(positions.length, `the FLIP must travel THROUGH intermediate positions (saw ${positions.length})`).toBeGreaterThan(2);
+    });
+
+    test('a committed addTab animates exactly the inserted header, signal-bracketed for one projection only', async ({ page, neuralLink }) => {
+        const { app, holderId } = await connect(page, neuralLink);
+
+        // Deterministic state: restore the seeded Operator perspective through the visible product
+        // control. Restore is an unrelated coarse projection and MUST carry no tab-enter class.
+        await page.getByRole('button', {name: 'Operator', exact: true}).click();
+        await expect.poll(async () => {
+            const topo = await app.getDockTopology(holderId);
+            const doc  = topo?.document ?? topo;
+            return doc.nodes['main-tabs']?.items?.join(',')
+        }, {message: 'Operator restore must re-seed the main tab pair', timeout: 10000, intervals: [100]}).toBe('strategy,swarm');
+        await expect(page.locator('.neo-dashboard-dock-tab-enter')).toHaveCount(0);
+
+        // Remove the inactive Swarm tab first. Adding it back into the SAME tab container creates a
+        // new header without changing the container's footprint — the non-FLIP producer must carry
+        // the observable motion even when structural pane geometry has no useful delta.
+        const detached = await app.executeDockOperation(holderId, {operation: 'detachItem', itemId: 'swarm'});
+        expect(detached.errors).toEqual([]);
+
+        await expect.poll(
+            () => page.locator(SIGNAL).count(),
+            {message: 'the detach setup projection must settle before the insertion witness', timeout: 3500, intervals: [50]}
+        ).toBe(0);
+        await expect(page.locator('.neo-dashboard-dock-tab-enter')).toHaveCount(0);
+
+        const ENTER = '.neo-dashboard-dock-tab-enter.dock-tab-enter-item-swarm';
+
+        // Arm both observers before dispatching the operation. The exact marker proves correlation;
+        // the shared signal bracket proves the CSS animation owns a counted lifecycle independently
+        // of whether DockFlip finds geometry to play.
+        const [, , result] = await Promise.all([
+            expectSignalBracket(page),
+            expect.poll(
+                () => page.locator(ENTER).count(),
+                {message: 'only the inserted Swarm header receives the tab-enter class', timeout: 1500, intervals: [20]}
+            ).toBe(1),
+            app.executeDockOperation(holderId, {
+                operation: 'addTab', itemId: 'swarm', tabsNodeId: 'main-tabs', index: 1
+            })
+        ]);
+
+        expect(result.errors).toEqual([]);
+        expect(result.applied).toBe(true);
+        expect(result.document.nodes['main-tabs'].items).toEqual(['strategy', 'swarm']);
+        await expect(page.locator('.neo-dashboard-dock-tab-enter')).toHaveCount(1);
+        await expect(page.locator(`${ENTER}${SIGNAL}`)).toHaveCount(0);
+
+        // A later restore is another full removeAll/rebuild but has no addTab descriptor. The
+        // recreated headers must be inert — the one-use correlation cannot leak across projections.
+        await page.getByRole('button', {name: 'Operator', exact: true}).click();
+        await expect.poll(
+            () => page.locator('.neo-dashboard-dock-tab-enter').count(),
+            {message: 'later coarse projections must not replay tab insertion', timeout: 5000, intervals: [50]}
+        ).toBe(0)
     });
 
     test('a rail-click reveal SLIDES: the overlay travels through intermediate render states, signal-bracketed', async ({ page, neuralLink }) => {
@@ -244,27 +383,43 @@ test.describe('Dock motion pipeline (Neural Link) — the signal brackets real m
 
 test.describe('Dock motion pipeline — reduced-motion collapses through the token layer', () => {
     test.setTimeout(90000);
-    test.use({ viewport: { width: 1600, height: 900 }, reducedMotion: 'reduce' });
+    test.use({ viewport: { width: 1600, height: 900 } });
 
     test('a committed resizeSplit lands INSTANTLY: correct document, no sustained motion, signal clears within the fail-safe', async ({ page, neuralLink }) => {
-        const { app, holderId } = await connect(page, neuralLink);
-        const MARKER            = '[class*="dock-flip-item-"]';
+        await page.emulateMedia({reducedMotion: 'reduce'});
 
-        await expectMarkerLaidOut(page, MARKER);
+        const { app, holderId } = await connect(page, neuralLink);
+
+        const reducedMotionContract = await page.evaluate(() => {
+            const scope = document.querySelector('.neo-dashboard');
+
+            return {
+                duration: scope && getComputedStyle(scope).getPropertyValue('--dock-transition-duration').trim(),
+                matches : matchMedia('(prefers-reduced-motion: reduce)').matches
+            }
+        });
+        expect(reducedMotionContract.matches, 'the browser context must emulate reduced motion').toBe(true);
+        expect(reducedMotionContract.duration, 'the dock token layer must collapse motion').toBe('0ms');
 
         // state-relative target (shared heap): derive a guaranteed-delta ratio from the
         // CURRENT committed sizes — a hardcoded target the document already holds would make
-        // the whole spec a no-op that "lands instantly" without any resize happening
-        const topo0  = await app.getDockTopology(holderId);
-        const doc0   = topo0?.document ?? topo0;
-        const cur    = doc0.nodes['root-split'].sizes;
-        const target = cur[0] < 0.5 ? [0.65, 0.35] : [0.3, 0.7];
+        // the whole spec a no-op that "lands instantly" without any resize happening. The
+        // exact marker keeps every before/sample/after read bound to that same logical pane.
+        const topo0         = await app.getDockTopology(holderId);
+        const doc0          = topo0?.document ?? topo0;
+        const witnessItemId = findResizeWitnessItemId(doc0);
+        const itemMarker    = getItemMarkerSelector(witnessItemId);
+        const cur           = doc0.nodes['root-split'].sizes;
+        const target        = cur[0] < 0.5 ? [0.65, 0.35] : [0.3, 0.7];
+
+        expect(witnessItemId, 'a real logical item must exist beneath root-split').toBeTruthy();
+        await expectMarkerLaidOut(page, itemMarker);
 
         const beforeW = await page.evaluate(
-            sel => Math.round(document.querySelector(sel).getBoundingClientRect().width), MARKER
+            sel => Math.round(document.querySelector(sel).getBoundingClientRect().width), itemMarker
         );
 
-        await startMotionSampler(page, MARKER);
+        await startMotionSampler(page, itemMarker);
 
         // no bracket arming here: with 0ms durations an instant settle may never paint the
         // signal class at all — the signal claim under reduced motion is the fail-safe clear
@@ -288,7 +443,7 @@ test.describe('Dock motion pipeline — reduced-motion collapses through the tok
                 const w = await page.evaluate(sel => {
                     const el = document.querySelector(sel);
                     return el ? Math.round(el.getBoundingClientRect().width) : 0
-                }, MARKER);
+                }, itemMarker);
                 return w > 0 ? Math.abs(w - beforeW) : 0
             },
             { message: 'the replacement pane must land at the NEW geometry (real resize, no dead-node read)', timeout: 5000, intervals: [100] }
@@ -310,5 +465,39 @@ test.describe('Dock motion pipeline — reduced-motion collapses through the tok
             () => page.locator(SIGNAL).count(),
             { message: 'the signal must clear within the fail-safe horizon', timeout: 3500, intervals: [100] }
         ).toBe(0);
+    });
+
+    test('a committed addTab uses the 0ms token and leaves no sustained tab motion', async ({ page, neuralLink }) => {
+        await page.emulateMedia({reducedMotion: 'reduce'});
+
+        const { app, holderId } = await connect(page, neuralLink);
+
+        await page.getByRole('button', {name: 'Operator', exact: true}).click();
+        await expect.poll(async () => {
+            const topo = await app.getDockTopology(holderId);
+            const doc  = topo?.document ?? topo;
+            return doc.nodes['main-tabs']?.items?.join(',')
+        }, {message: 'Operator restore must re-seed the reduced-motion setup', timeout: 10000, intervals: [100]}).toBe('strategy,swarm');
+
+        const detached = await app.executeDockOperation(holderId, {operation: 'detachItem', itemId: 'swarm'});
+        expect(detached.errors).toEqual([]);
+        await expect.poll(() => page.locator(SIGNAL).count(), {timeout: 3500, intervals: [50]}).toBe(0);
+
+        const token = await page.evaluate(() => {
+            const scope = document.querySelector('.neo-dashboard') || document.body;
+            return getComputedStyle(scope).getPropertyValue('--dock-transition-duration').trim()
+        });
+        expect(token).toBe('0ms');
+
+        const result = await app.executeDockOperation(holderId, {
+            operation: 'addTab', itemId: 'swarm', tabsNodeId: 'main-tabs', index: 1
+        });
+
+        expect(result.errors).toEqual([]);
+        await expect(page.locator('.neo-dashboard-dock-tab-enter.dock-tab-enter-item-swarm')).toHaveCount(1);
+        await expect.poll(
+            () => page.locator(SIGNAL).count(),
+            {message: '0ms tab insertion must settle without sustained motion', timeout: 1500, intervals: [25]}
+        ).toBe(0)
     });
 });

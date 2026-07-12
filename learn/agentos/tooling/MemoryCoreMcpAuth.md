@@ -60,13 +60,11 @@ The resolved identity is cached on the running server instance and wrapped aroun
 
 ## Harness Configuration
 
-> [!WARNING]
-> Antigravity natively runs both a system-scope and a workspace-scope language server
-> that each independently parse MCP configurations. Place `mcpServers` only in the
-> global `~/.gemini/antigravity/mcp_config.json` — DO NOT populate the workspace
-> `.gemini/settings.json`. A workspace-level config causes 2× MCP process duplication
-> (Twin Language Server Bug). See `.agents/skills/debugging-antigravity/references/debugging-guide.md` §1
-> for the full pattern.
+> [!IMPORTANT]
+> [Antigravity 2.x](https://antigravity.google/docs/mcp) supports a global MCP authority at `~/.gemini/config/mcp_config.json`
+> and a workspace authority at `.agents/mcp_config.json`. Choose one owner per server;
+> do not define the same server in both scopes. `--user-data-dir` changes the UI profile,
+> not this MCP-root contract. See `.agents/skills/debugging-antigravity/references/debugging-guide.md`.
 
 Each AI harness pins its model's identity at session start by setting `NEO_AGENT_IDENTITY`. Matches the per-model GitHub-account convention from ticket #10144 (`@neo-opus-ada`, `@neo-gemini-pro`, `@tobiu`).
 
@@ -86,7 +84,9 @@ Each AI harness pins its model's identity at session start by setting `NEO_AGENT
 }
 ```
 
-### Gemini CLI / Antigravity (`~/.gemini/antigravity/mcp_config.json`)
+### Antigravity 2.x (global or workspace MCP authority)
+
+Place this server definition in either `~/.gemini/config/mcp_config.json` or `.agents/mcp_config.json`:
 
 ```json
 {

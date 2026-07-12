@@ -883,7 +883,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/devindex/index.html</loc>
-    <lastmod>2026-07-11T23:15:48Z</lastmod>
+    <lastmod>2026-07-12T03:48:29Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/email/index.html</loc>
@@ -903,7 +903,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/portal/index.html</loc>
-    <lastmod>2026-07-11T23:24:12Z</lastmod>
+    <lastmod>2026-07-12T09:13:05Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld/index.html</loc>
@@ -1092,6 +1092,10 @@
   <url>
     <loc>https://neomjs.com/examples/core/config/index.html</loc>
     <lastmod>2025-07-11T21:54:21+02:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/examples/dashboard/crossWindowWitness/index.html</loc>
+    <lastmod>2026-07-12T08:09:48+02:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/dashboard/dock/index.html</loc>
@@ -2243,16 +2247,64 @@
     <priority>0.4</priority>
   </url>
   <url>
+    <loc>https://neomjs.com/news/tickets/15083</loc>
+    <lastmod>2026-07-12T09:12:49Z</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/tickets/15079</loc>
+    <lastmod>2026-07-12T09:12:49Z</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/tickets/15076</loc>
+    <lastmod>2026-07-12T06:52:59Z</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/tickets/15072</loc>
+    <lastmod>2026-07-12T06:52:59Z</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/tickets/15068</loc>
+    <lastmod>2026-07-12T06:52:59Z</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/tickets/15066</loc>
+    <lastmod>2026-07-12T04:31:00Z</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/tickets/15065</loc>
+    <lastmod>2026-07-12T06:52:59Z</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/tickets/15057</loc>
+    <lastmod>2026-07-12T06:53:04Z</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/tickets/15056</loc>
+    <lastmod>2026-07-12T04:31:01Z</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/tickets/15054</loc>
+    <lastmod>2026-07-12T04:31:00Z</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/tickets/15052</loc>
+    <lastmod>2026-07-12T04:31:04Z</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/tickets/15050</loc>
+    <lastmod>2026-07-12T01:29:54Z</lastmod>
+  </url>
+  <url>
     <loc>https://neomjs.com/news/tickets/15049</loc>
-    <lastmod>2026-07-11T23:23:54Z</lastmod>
+    <lastmod>2026-07-12T04:31:01Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/15048</loc>
-    <lastmod>2026-07-11T23:23:54Z</lastmod>
+    <lastmod>2026-07-12T01:29:54Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/15047</loc>
-    <lastmod>2026-07-11T23:23:54Z</lastmod>
+    <lastmod>2026-07-12T06:52:59Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/15045</loc>
@@ -2276,7 +2328,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/15036</loc>
-    <lastmod>2026-07-11T14:28:42Z</lastmod>
+    <lastmod>2026-07-12T06:52:59Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/15035</loc>
@@ -2284,7 +2336,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/15034</loc>
-    <lastmod>2026-07-11T12:20:31Z</lastmod>
+    <lastmod>2026-07-12T04:31:01Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/15033</loc>
@@ -2336,7 +2388,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/15001</loc>
-    <lastmod>2026-07-11T00:35:52Z</lastmod>
+    <lastmod>2026-07-12T09:12:49Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/15000</loc>
@@ -2356,11 +2408,11 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14989</loc>
-    <lastmod>2026-07-10T20:22:28Z</lastmod>
+    <lastmod>2026-07-12T06:52:59Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14988</loc>
-    <lastmod>2026-07-10T20:22:28Z</lastmod>
+    <lastmod>2026-07-12T06:52:59Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14987</loc>
@@ -2380,7 +2432,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14980</loc>
-    <lastmod>2026-07-11T10:14:18Z</lastmod>
+    <lastmod>2026-07-12T06:53:03Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14978</loc>
@@ -2728,7 +2780,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14789</loc>
-    <lastmod>2026-07-11T00:35:52Z</lastmod>
+    <lastmod>2026-07-12T04:31:03Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14788</loc>
@@ -2756,7 +2808,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14780</loc>
-    <lastmod>2026-07-10T07:12:53Z</lastmod>
+    <lastmod>2026-07-12T06:52:59Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14779</loc>
@@ -2772,11 +2824,11 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14772</loc>
-    <lastmod>2026-07-06T13:27:08Z</lastmod>
+    <lastmod>2026-07-12T09:12:49Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14771</loc>
-    <lastmod>2026-07-11T16:30:51Z</lastmod>
+    <lastmod>2026-07-12T09:12:49Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14770</loc>
@@ -2784,7 +2836,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14769</loc>
-    <lastmod>2026-07-11T16:30:51Z</lastmod>
+    <lastmod>2026-07-12T06:53:02Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14768</loc>
@@ -2852,7 +2904,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14745</loc>
-    <lastmod>2026-07-04T12:32:12Z</lastmod>
+    <lastmod>2026-07-12T09:12:49Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14743</loc>
@@ -2964,11 +3016,11 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14681</loc>
-    <lastmod>2026-07-11T00:35:52Z</lastmod>
+    <lastmod>2026-07-12T09:12:49Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14680</loc>
-    <lastmod>2026-07-04T06:11:04Z</lastmod>
+    <lastmod>2026-07-12T09:12:49Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14677</loc>
@@ -3152,7 +3204,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14619</loc>
-    <lastmod>2026-07-04T03:59:48Z</lastmod>
+    <lastmod>2026-07-12T09:12:49Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14618</loc>
@@ -3192,19 +3244,19 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14609</loc>
-    <lastmod>2026-07-04T14:35:19Z</lastmod>
+    <lastmod>2026-07-12T04:31:05Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14608</loc>
-    <lastmod>2026-07-04T03:59:48Z</lastmod>
+    <lastmod>2026-07-12T06:52:59Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14607</loc>
-    <lastmod>2026-07-11T12:20:31Z</lastmod>
+    <lastmod>2026-07-12T06:52:59Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14606</loc>
-    <lastmod>2026-07-11T14:28:42Z</lastmod>
+    <lastmod>2026-07-12T01:29:56Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14605</loc>
@@ -3352,7 +3404,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14560</loc>
-    <lastmod>2026-07-11T16:30:58Z</lastmod>
+    <lastmod>2026-07-12T09:12:56Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14559</loc>
@@ -3528,7 +3580,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14477</loc>
-    <lastmod>2026-07-04T16:43:37Z</lastmod>
+    <lastmod>2026-07-12T09:12:49Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14476</loc>
@@ -3596,7 +3648,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14442</loc>
-    <lastmod>2026-07-11T00:35:52Z</lastmod>
+    <lastmod>2026-07-12T06:52:59Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14440</loc>
@@ -4320,7 +4372,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14093</loc>
-    <lastmod>2026-07-06T13:27:09Z</lastmod>
+    <lastmod>2026-07-12T09:12:49Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/14089</loc>
@@ -5740,7 +5792,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/13377</loc>
-    <lastmod>2026-07-11T23:23:54Z</lastmod>
+    <lastmod>2026-07-12T01:30:04Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/13376</loc>
@@ -6188,7 +6240,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/13158</loc>
-    <lastmod>2026-07-11T12:20:35Z</lastmod>
+    <lastmod>2026-07-12T06:53:02Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/13157</loc>
@@ -6408,7 +6460,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/13033</loc>
-    <lastmod>2026-07-10T22:29:07Z</lastmod>
+    <lastmod>2026-07-12T01:29:54Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/13032</loc>
@@ -6460,11 +6512,11 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/13015</loc>
-    <lastmod>2026-07-11T23:23:57Z</lastmod>
+    <lastmod>2026-07-12T06:53:07Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/13012</loc>
-    <lastmod>2026-07-11T00:35:57Z</lastmod>
+    <lastmod>2026-07-12T04:31:10Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/13011</loc>
@@ -6512,7 +6564,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/12986</loc>
-    <lastmod>2026-06-12T15:27:26+02:00</lastmod>
+    <lastmod>2026-07-12T09:12:53Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/12983</loc>
@@ -7492,7 +7544,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/12456</loc>
-    <lastmod>2026-07-10T13:35:56Z</lastmod>
+    <lastmod>2026-07-12T04:31:01Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/12455</loc>
@@ -12424,7 +12476,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/9940</loc>
-    <lastmod>2026-05-26T06:59:19Z</lastmod>
+    <lastmod>2026-07-12T06:52:59Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/9939</loc>
@@ -17616,11 +17668,11 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/8540</loc>
-    <lastmod>2026-05-16T20:39:28+02:00</lastmod>
+    <lastmod>2026-07-12T06:52:59Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/8539</loc>
-    <lastmod>2026-05-16T20:39:28+02:00</lastmod>
+    <lastmod>2026-07-12T06:52:59Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/8538</loc>
@@ -17628,7 +17680,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/8537</loc>
-    <lastmod>2026-06-23T04:40:23Z</lastmod>
+    <lastmod>2026-07-12T06:52:59Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/8536</loc>
@@ -43163,6 +43215,121 @@
     <lastmod>2026-05-30T17:22:01+02:00</lastmod>
   </url>
   <url>
+    <loc>https://neomjs.com/news/pulls/15084</loc>
+    <lastmod>2026-07-12T09:13:04Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/15082</loc>
+    <lastmod>2026-07-12T09:13:04Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/15081</loc>
+    <lastmod>2026-07-12T09:13:04Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/15080</loc>
+    <lastmod>2026-07-12T09:13:04Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/15078</loc>
+    <lastmod>2026-07-12T09:13:04Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/15077</loc>
+    <lastmod>2026-07-12T06:53:18Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/15075</loc>
+    <lastmod>2026-07-12T06:53:18Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/15074</loc>
+    <lastmod>2026-07-12T09:13:04Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/15073</loc>
+    <lastmod>2026-07-12T06:53:18Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/15071</loc>
+    <lastmod>2026-07-12T09:13:04Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/15070</loc>
+    <lastmod>2026-07-12T06:53:18Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/15069</loc>
+    <lastmod>2026-07-12T06:53:18Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/15067</loc>
+    <lastmod>2026-07-12T06:53:18Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/15064</loc>
+    <lastmod>2026-07-12T04:31:22Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/15063</loc>
+    <lastmod>2026-07-12T09:13:04Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/15062</loc>
+    <lastmod>2026-07-12T09:13:04Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/15061</loc>
+    <lastmod>2026-07-12T04:31:22Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/15060</loc>
+    <lastmod>2026-07-12T06:53:18Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/15059</loc>
+    <lastmod>2026-07-12T04:31:22Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/15058</loc>
+    <lastmod>2026-07-12T04:31:22Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/15055</loc>
+    <lastmod>2026-07-12T06:53:18Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/15053</loc>
+    <lastmod>2026-07-12T04:31:22Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/15051</loc>
+    <lastmod>2026-07-12T01:30:15Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://neomjs.com/news/pulls/15046</loc>
     <lastmod>2026-07-11T23:24:09Z</lastmod>
     <priority>0.6</priority>
@@ -65944,7 +66111,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/discussions/14561</loc>
-    <lastmod>2026-07-04T04:00:04Z</lastmod>
+    <lastmod>2026-07-12T01:30:14Z</lastmod>
     <priority>0.4</priority>
   </url>
   <url>

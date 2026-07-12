@@ -40,6 +40,15 @@ class Config extends ConfigProvider {
             neoRootDir : leaf(neoRootDir),
             projectRoot: leaf(projectRoot),
             /**
+             * The current in-flight release version whose milestone / epic work counts as "current
+             * release focus" for the Golden Path emitter. Set at cut-prep, advanced by
+             * `buildScripts/release/publish.mjs` at release — so a shipped release never lingers as
+             * current focus (the release-gate-blind class). Consumers read it at the use site; never
+             * a hardcoded release literal.
+             * @type {string}
+             */
+            currentReleaseVersion: leaf('v13.2', 'NEO_CURRENT_RELEASE', 'string'),
+            /**
              * Universal JSONL backup/export directory for Agent OS databases.
              * @type {string}
              */
@@ -90,7 +99,15 @@ class Config extends ConfigProvider {
                      * leaf, and the lifecycle status's `binaryVersion` surfaces what actually ran.
                      * @type {string}
                      */
-                    codex: leaf('/Applications/ChatGPT.app/Contents/Resources/codex', 'NEO_FLEET_CODEX_BIN', 'string')
+                    codex: leaf('/Applications/ChatGPT.app/Contents/Resources/codex', 'NEO_FLEET_CODEX_BIN', 'string'),
+                    /**
+                     * The Codex Desktop packaged MAIN binary — directly spawnable and supervised.
+                     * Its private app-profile/project/updater capabilities are probed from the
+                     * installed bundle before every first spawn; this leaf only owns executable
+                     * location, never compatibility policy.
+                     * @type {string}
+                     */
+                    codexDesktop: leaf('/Applications/ChatGPT.app/Contents/MacOS/ChatGPT', 'NEO_FLEET_CODEX_DESKTOP_BIN', 'string')
                 }
             },
             /**

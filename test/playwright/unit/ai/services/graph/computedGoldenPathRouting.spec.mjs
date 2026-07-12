@@ -18,7 +18,7 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
 test.describe('computedGoldenPathRouting — the contradiction guard (routing-decision surface, #14588)', () => {
-    let findComputedFocusContradiction, isRoutingConflictFocusCandidate;
+    let findComputedFocusContradiction, isRoutingConflictFocusCandidate, renderComputedGoldenPathContradictionSection;
 
     const contentNode = id => ({
         node: {
@@ -40,8 +40,9 @@ test.describe('computedGoldenPathRouting — the contradiction guard (routing-de
 
     test.beforeAll(async () => {
         const mod = await import('../../../../../../ai/services/graph/computedGoldenPathRouting.mjs');
-        findComputedFocusContradiction  = mod.findComputedFocusContradiction;
-        isRoutingConflictFocusCandidate = mod.isRoutingConflictFocusCandidate;
+        findComputedFocusContradiction               = mod.findComputedFocusContradiction;
+        isRoutingConflictFocusCandidate              = mod.isRoutingConflictFocusCandidate;
+        renderComputedGoldenPathContradictionSection = mod.renderComputedGoldenPathContradictionSection;
     });
 
     test('a release-version reason does NOT arm the routing guard (the stale-boundary class, #14588 / #14531 sibling)', () => {
@@ -88,6 +89,87 @@ test.describe('computedGoldenPathRouting — the contradiction guard (routing-de
         });
 
         expect(result).toBeNull();
+    });
+
+    test('behavior 1 (#14609) — the no-survivor state renders the focus items as numbered routes, never empty', () => {
+        // Every computed candidate is content that contradicts live incident focus → zero survive the guard.
+        const contradiction = findComputedFocusContradiction({
+            currentFocusCandidates: [{number: 100, reasons: ['incident'], title: 'incident: cockpit auth relaunch'}],
+            topNodes              : [contentNode('issue-200'), contentNode('issue-201')]
+        });
+
+        expect(contradiction).not.toBeNull();
+        expect([...contradiction.blockedIds].sort()).toEqual(['issue-200', 'issue-201']);
+
+        const section = renderComputedGoldenPathContradictionSection({contradiction, stats: {selectedTopNodes: 0}});
+
+        // never empty: the live Current Focus item IS the numbered route (parseGoldenPath-compatible)
+        expect(section).toContain('1. **issue-100**');
+        expect(section).toContain('incident: cockpit auth relaunch');
+        // the blocked content is filtered-only — it appears in the diagnostic, never as a numbered route
+        expect(section).toMatch(/Contradictory computed candidates filtered:.*issue-200/);
+        expect(section).not.toMatch(/^\d+\.\s+\*\*issue-20[01]\*\*/m);
+    });
+
+    test('behavior 1 (#14609) — a title-less focus candidate still routes, labelled by its reasons', () => {
+        const contradiction = findComputedFocusContradiction({
+            currentFocusCandidates: [{number: 300, reasons: ['prio-zero']}],
+            topNodes              : [contentNode('issue-400')]
+        });
+
+        const section = renderComputedGoldenPathContradictionSection({contradiction, stats: {}});
+
+        expect(section).toContain('1. **issue-300**');
+        expect(section).toContain('prio-zero');
+    });
+
+    test('RA-2 (#15058) — epic + actionable-leaf focus: the leaf routes, the epic umbrella does NOT (single actionability authority)', () => {
+        const contradiction = findComputedFocusContradiction({
+            currentFocusCandidates: [
+                {number: 100, reasons: ['incident'], labels: ['epic', 'bug'], title: 'incident epic umbrella'},
+                {number: 101, reasons: ['incident'], labels: ['bug'],         title: 'incident: the actual leaf fix'}
+            ],
+            topNodes: [contentNode('issue-200')]
+        });
+
+        const section = renderComputedGoldenPathContradictionSection({contradiction, stats: {}, renderLimit: 10});
+
+        // the actionable leaf is a numbered route; the epic umbrella is NOT rendered as a machine route
+        expect(section).toMatch(/^\d+\.\s+\*\*issue-101\*\*/m);
+        expect(section).not.toMatch(/^\d+\.\s+\*\*issue-100\*\*/m);
+        // the epic still appears in the diagnostic focus-candidates line (visibility, not route)
+        expect(section).toMatch(/Active incident\/release focus candidates:.*#100/);
+    });
+
+    test('RA-2 (#15058) — epic-only focus: ZERO numbered routes, surfaced diagnostically (no umbrella-as-route lie)', () => {
+        const contradiction = findComputedFocusContradiction({
+            currentFocusCandidates: [{number: 100, reasons: ['incident'], labels: ['epic'], title: 'incident epic'}],
+            topNodes              : [contentNode('issue-200')]
+        });
+
+        const section = renderComputedGoldenPathContradictionSection({contradiction, stats: {}, renderLimit: 10});
+
+        // no numbered machine route at all — an epic umbrella is not immediate work
+        expect(section).not.toMatch(/^\d+\.\s+\*\*issue-/m);
+        expect(section).toContain('visibility-only');
+        // still surfaced diagnostically so the pass is not context-empty
+        expect(section).toMatch(/Active incident\/release focus candidates:.*#100/);
+    });
+
+    test('RA-2 (#15058) — actionable focus is bounded to the Golden Path render limit (noisy focus set)', () => {
+        const currentFocusCandidates = Array.from({length: 8}, (_, i) => ({
+            number: 200 + i, reasons: ['incident'], labels: ['bug'], title: `incident leaf ${i}`
+        }));
+
+        const contradiction = findComputedFocusContradiction({
+            currentFocusCandidates,
+            topNodes: [contentNode('issue-900')]
+        });
+
+        const section    = renderComputedGoldenPathContradictionSection({contradiction, stats: {}, renderLimit: 3});
+        const routeLines = section.split('\n').filter(line => /^\d+\.\s+\*\*issue-/.test(line));
+
+        expect(routeLines).toHaveLength(3);
     });
 });
 

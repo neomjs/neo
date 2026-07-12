@@ -38,7 +38,6 @@ import {WAKE_LANE_DIRECTIVE} from './wakeLaneDirective.mjs';
 import fs                               from 'fs-extra';
 import path                             from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
-import { constants as fsConstants }     from 'fs';
 import { spawn, execSync }              from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -60,7 +59,7 @@ import {
 } from '../../scripts/lifecycle/harnessRouting.mjs';
 import {normalizeAgentIdentityNodeId} from '../../graph/normalizeAgentIdentityNodeId.mjs';
 import {
-    getDefaultInstancePid,
+    getDefaultInstanceTarget,
     resolveGuiInstancePid
 } from './instanceResolver.mjs';
 import {HEARTBEAT_PULSE_ENTITY_TYPE, match} from '../../services/memory-core/heartbeatPulseEvaluator.mjs';
@@ -69,8 +68,13 @@ import {
     isHeavyDeltaPoll,
     shouldDeferFlush
 } from './flushDeferPolicy.mjs';
-import {clampWatermark, filterEventsByWatermark, maxLogId} from './wokenWatermark.mjs';
-import {IDENTITIES}                                        from '../../graph/identityRoots.mjs';
+import {
+    claimUnwokenMessages,
+    clampWatermark,
+    filterEventsByWatermark,
+    maxLogId
+} from './wokenWatermark.mjs';
+import {IDENTITIES} from '../../graph/identityRoots.mjs';
 
 // Config-derived paths + PID_FILE (below) are declared here but ASSIGNED in initConfigDerivedState()
 // (called from the guarded main(), never at module-load): a stale memory-core overlay would otherwise
@@ -84,10 +88,10 @@ const LOG_RETENTION_DAYS                = 30;
 const POLL_INTERVAL_MS                  = 3000;
 const DEFAULT_COALESCE_WINDOW_MS        = 30000; // 30 seconds
 const CODEX_APP_SERVER_ADAPTER          = 'codex-app-server';
-const DEFAULT_CODEX_DESKTOP_CLI_PATH    = '/Applications/Codex.app/Contents/Resources/codex';
 const CODEX_TURN_START_PROOF_TIMEOUT_MS = Number(process.env.WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS) || 45000;
 const CODEX_TURN_START_PROOF_POLL_MS    = Number(process.env.WAKE_CODEX_TURN_START_PROOF_POLL_MS) || 1000;
 const CODEX_WAKE_SUBMIT_NONCE_PREFIX    = 'NEO_WAKE_SUBMIT_NONCE:';
+const WOKEN_MESSAGE_IDS_STATE_KEY       = '__messageIdsByIdentity';
 const WAKE_PRIORITY_RANKS               = {
     low   : 0,
     normal: 1,
@@ -104,32 +108,84 @@ const identityParticipationById = new Map(
 );
 
 /**
- * @summary Loads the persisted per-subscription woken-watermark map, tolerant of a missing or
- * corrupt file (a fresh daemon starts with an empty map → first wakes fire normally).
- * @returns {Object<String, Number>}
+ * @summary Loads durable GraphLog watermarks plus stable per-identity message wake claims.
+ *
+ * Legacy files contain only top-level `subscriptionId: logId` pairs. The reserved
+ * `__messageIdsByIdentity` key extends that shape without invalidating older daemon readers: they
+ * preserve the unknown object while continuing to consume the numeric subscription keys.
+ *
+ * @returns {{watermarks: Object<String, Number>, messageIdsByIdentity: Map<String, Set<String>>}}
  */
-function loadWokenWatermark() {
+function loadWokenState() {
     try {
         if (fs.existsSync(WOKEN_WATERMARK_FILE)) {
             const parsed = JSON.parse(fs.readFileSync(WOKEN_WATERMARK_FILE, 'utf8'));
-            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                const rawHistory = parsed[WOKEN_MESSAGE_IDS_STATE_KEY];
+                delete parsed[WOKEN_MESSAGE_IDS_STATE_KEY];
+
+                const messageIdsByIdentity = new Map();
+                if (rawHistory && typeof rawHistory === 'object' && !Array.isArray(rawHistory)) {
+                    for (const [identity, messageIds] of Object.entries(rawHistory)) {
+                        if (Array.isArray(messageIds)) {
+                            messageIdsByIdentity.set(identity, new Set(messageIds.filter(Boolean)));
+                        }
+                    }
+                }
+
+                return {watermarks: parsed, messageIdsByIdentity};
+            }
         }
     } catch (e) {
-        // Corrupt watermark is non-fatal: worst case is one cycle of already-woken backlog being
-        // re-counted, self-healing as the map re-persists. Daemon liveness never gates on it.
+        // Corrupt state is non-fatal: worst case is one cycle of already-woken backlog being
+        // re-counted, self-healing as the state re-persists. Daemon liveness never gates on it.
     }
-    return {};
+    return {watermarks: {}, messageIdsByIdentity: new Map()};
 }
 
 /**
- * @summary Best-effort persist of the woken-watermark map (mirrors the daemon's other internal
- * state writes); a write failure never gates daemon liveness.
+ * @summary Drops message wake claims whose mailbox record is now read.
+ *
+ * Message claims need to survive only while the stable message remains unread. Pruning on every
+ * state write keeps the durable file proportional to the unread already-woken set while preserving
+ * replay protection across daemon restarts.
+ *
+ * @returns {void}
  */
-function persistWokenWatermark() {
+function pruneReadWokenMessageIds() {
+    if (!db) return;
+
+    for (const [identity, messageIds] of wokenMessageIdsByIdentity) {
+        for (const messageId of messageIds) {
+            if (isMessageReadFor(db, messageId, identity)) messageIds.delete(messageId);
+        }
+        if (messageIds.size === 0) wokenMessageIdsByIdentity.delete(identity);
+    }
+}
+
+/**
+ * @summary Best-effort persist of GraphLog watermarks plus per-identity message wake claims.
+ * @returns {void}
+ */
+function persistWokenState() {
     try {
-        fs.writeFileSync(WOKEN_WATERMARK_FILE, JSON.stringify(wokenWatermark), 'utf8');
+        pruneReadWokenMessageIds();
+
+        const messageIdsByIdentity = Object.fromEntries(
+            [...wokenMessageIdsByIdentity]
+                .filter(([, messageIds]) => messageIds.size > 0)
+                .map(([identity, messageIds]) => [identity, [...messageIds].sort()])
+        );
+        const state = {
+            ...wokenWatermark,
+            ...(Object.keys(messageIdsByIdentity).length > 0
+                ? {[WOKEN_MESSAGE_IDS_STATE_KEY]: messageIdsByIdentity}
+                : {})
+        };
+
+        fs.writeFileSync(WOKEN_WATERMARK_FILE, JSON.stringify(state), 'utf8');
     } catch (e) {
-        // best-effort; the in-memory map still dedups for the running process
+        // best-effort; the in-memory watermark + stable-id history still dedup this process
     }
 }
 
@@ -142,6 +198,16 @@ function persistWokenWatermark() {
  * @type {Object<String, Number>}
  */
 let wokenWatermark = {};  // loaded from disk in initConfigDerivedState() (after WOKEN_WATERMARK_FILE is assigned)
+
+/**
+ * Stable per-identity application-level dedup: `agentIdentity → Set<MESSAGE id>`.
+ *
+ * Unlike GraphLog `logId`, a MESSAGE id survives projection replay. Claims are recorded before the
+ * first adapter await so overlapping subscription routes cannot race into two physical prompts.
+ * Read messages are pruned when state persists; unread claims remain durable across daemon restart.
+ * @type {Map<String, Set<String>>}
+ */
+let wokenMessageIdsByIdentity = new Map();
 
 /**
  * Rotates `wake-daemon.log` if its mtime falls on a calendar day different from today's.
@@ -708,7 +774,7 @@ async function flushSubscription(subId) {
     // dropping real wakes (unread messages, tasks, permissions, and heartbeats all still fire).
     messages = messages.filter(ev => !isMessageReadFor(db, ev.messageId, identity));
 
-    // Already-woken dedup: drop events the recipient was already woken for
+    // Already-woken GraphLog dedup: drop events the recipient was already woken for
     // (logId <= the per-subscription watermark) so a re-queued backlog can't inflate the "N new" count
     // or spoof a HIGH digest from a stale message. Composes with the readAt reconcile above + the
     // heavy-delta defer at the top — reconciling on the right axis (already-woken, not merely unread).
@@ -717,6 +783,21 @@ async function flushSubscription(subId) {
     tasks       = filterEventsByWatermark(tasks,       watermark);
     permissions = filterEventsByWatermark(permissions, watermark);
     heartbeats  = filterEventsByWatermark(heartbeats,  watermark);
+
+    // Stable application-level dedup: GraphLog can re-emit the same immutable MESSAGE under a later
+    // logId, so a numeric watermark alone cannot guarantee one physical wake per message/identity.
+    // Claim synchronously before awaiting the adapter: another active route for this same identity
+    // then sees the claim and cannot race a second prompt. The duplicate events remain "consumed"
+    // below so their newer logIds still advance that route's numeric watermark.
+    const messageHistory = identity
+        ? (wokenMessageIdsByIdentity.get(identity) || new Set())
+        : new Set();
+    if (identity && !wokenMessageIdsByIdentity.has(identity)) {
+        wokenMessageIdsByIdentity.set(identity, messageHistory);
+    }
+    const messageClaims     = claimUnwokenMessages(messages, messageHistory),
+          duplicateMessages = messageClaims.duplicates;
+    messages = messageClaims.claimed;
 
     // Mixed-wake heartbeat suppression (digest content only): a heartbeat is the idle-watchdog nudge,
     // but when it coalesces with an actionable wake (message / task / permission) the agent is already
@@ -730,8 +811,16 @@ async function flushSubscription(subId) {
         heartbeats = [];
     }
 
+    const consumedMessages = [...messages, ...duplicateMessages];
+
     // Nothing genuinely-new survived (the delta was entirely already-read or already-woken) → suppress.
+    // A stable-id duplicate may carry a newer GraphLog row, so consume that position before returning.
     if (messages.length === 0 && tasks.length === 0 && permissions.length === 0 && heartbeats.length === 0) {
+        const consumedMax = maxLogId(consumedMessages);
+        if (consumedMax !== null && consumedMax > (wokenWatermark[subId] ?? 0)) {
+            wokenWatermark[subId] = consumedMax;
+            persistWokenState();
+        }
         return;
     }
 
@@ -751,11 +840,13 @@ async function flushSubscription(subId) {
     // Advance the per-subscription watermark to the highest delivered logId so these events are not
     // re-counted if the backlog is re-queued; persist for restart durability. logId is monotonic
     // (append-only GraphLog), so genuinely-new events always land strictly above this mark.
-    const deliveredMax = maxLogId([...messages, ...tasks, ...permissions, ...consumedHeartbeats]);
+    const deliveredMax = maxLogId([...consumedMessages, ...tasks, ...permissions, ...consumedHeartbeats]);
+    let   stateChanged = messages.some(message => Boolean(message.messageId));
     if (deliveredMax !== null && deliveredMax > (wokenWatermark[subId] ?? 0)) {
         wokenWatermark[subId] = deliveredMax;
-        persistWokenWatermark();
+        stateChanged = true;
     }
+    if (stateChanged) persistWokenState();
 }
 
 /**
@@ -777,37 +868,6 @@ function spawnAsync(command, args) {
         });
         child.on('error', reject);
     });
-}
-
-/**
- * @summary Resolves the Codex CLI used by the app-server wake adapter.
- *
- * `CODEX_CLI_PATH` mirrors the resume-harness test hook and always wins. When
- * unset on macOS, the daemon probes the Codex Desktop bundled CLI path because
- * launchd / daemon environments often lack the user's interactive shell PATH.
- *
- * @returns {String}
- */
-function resolveCodexCliPath() {
-    if (process.env.CODEX_CLI_PATH) return process.env.CODEX_CLI_PATH;
-    const desktopCliPath = process.env.CODEX_DESKTOP_CLI_PATH || DEFAULT_CODEX_DESKTOP_CLI_PATH;
-    if (process.platform === 'darwin' && fileIsExecutableSync(desktopCliPath)) return desktopCliPath;
-    return 'codex';
-}
-
-/**
- * @summary Checks whether a file exists and can be executed.
- *
- * @param {String} filePath
- * @returns {Boolean}
- */
-function fileIsExecutableSync(filePath) {
-    try {
-        fs.accessSync(filePath, fsConstants.X_OK);
-        return true;
-    } catch (err) {
-        return false;
-    }
 }
 
 /**
@@ -836,7 +896,7 @@ async function deliverViaCodexAppServer(subscription, digest, evidenceLabel = ''
         throw new Error(`codex-app-server requires harnessTargetMetadata.appName='Codex' (received '${appName || ''}')`);
     }
 
-    await spawnAsync(resolveCodexCliPath(), ['debug', 'app-server', 'send-message-v2', digest]);
+    await spawnAsync(AiConfig.fleet.harnessBinaries.codex, ['debug', 'app-server', 'send-message-v2', digest]);
     writeLog('INFO', `[Wake Daemon] Dispatched ${subscription.id} via codex-app-server send-message-v2${evidenceLabel}`);
 }
 
@@ -1290,9 +1350,22 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
                 // never carry --user-data-dir without breaking its system app / menu-bar integration).
                 // When a same-bundle sibling instance is running, "activate + frontmost" is ambiguous;
                 // the default is uniquely identifiable by the ABSENCE of the flag, so target its pid
-                // directly. Returns null for single-instance (or ambiguous) — the legacy activate path
-                // below is then kept unchanged, so single-instance behavior is untouched.
-                instancePid = await getDefaultInstancePid({appName});
+                // directly. A proven arg-less singleton or no matching process keeps the legacy
+                // activate path; addressed-only, ambiguous, and probe-failed states fail closed
+                // instead of guessing which window should receive destructive composer keystrokes.
+                const defaultTarget = await getDefaultInstanceTarget({appName});
+
+                if (defaultTarget.status === 'ambiguous' || defaultTarget.status === 'probe-failed') {
+                    writeLog('ERROR',
+                        `[Wake Daemon] Default-instance wake refused for ${subscription.id}: ` +
+                        `process resolution status=${defaultTarget.status}; found ${defaultTarget.instanceCount} ` +
+                        `${defaultTarget.bundleName}.app main processes without exactly one arg-less default. ` +
+                        'Failing closed to avoid wrong-resident delivery.'
+                    );
+                    return;
+                }
+
+                instancePid = defaultTarget.pid;
             }
 
             // [Anchor & Echo] The Electron-Paradox Defense:
@@ -1747,7 +1820,9 @@ function initConfigDerivedState() {
 
     fs.ensureDirSync(DAEMON_DATA_DIR);     // data dir must exist before any state-file write
     pruneOldLogs();                        // one-shot reaper for archived logs older than retention
-    wokenWatermark = loadWokenWatermark(); // restore the durable per-subscription woken high-water marks
+    const wokenState = loadWokenState();
+    wokenWatermark            = wokenState.watermarks;
+    wokenMessageIdsByIdentity = wokenState.messageIdsByIdentity;
 }
 
 // Start loop

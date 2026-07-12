@@ -127,7 +127,7 @@ test.describe('onboardPeer — intent construction (pure half)', () => {
     test('only curated harness families are accepted, with a named refusal', () => {
         // The curated set IS the launch-templated subset — one derived truth, widened in lockstep
         // with deriveHarnessLaunchSpec. `native-neo` stays registered-but-unlaunchable.
-        expect(CURATED_HARNESS_TYPES).toEqual(['antigravity', 'claude-code', 'claude-desktop', 'codex']);
+        expect(CURATED_HARNESS_TYPES).toEqual(['antigravity', 'claude-code', 'claude-desktop', 'codex', 'codex-desktop']);
         expect(CURATED_HARNESS_TYPES).not.toContain('native-neo');
 
         const built = buildOnboardingIntent({...BASE_OPTIONS, harnessType: 'gemini-cli'});
@@ -267,53 +267,96 @@ test.describe('onboardPeer — the two-phase planner', () => {
 
 test.describe('onboardPeer — auth handoff', () => {
     test('the lifecycle-resolved absolute home is shell-quoted; placeholders and relative homes refuse', () => {
-        expect(buildLoginCommand({harnessType: 'codex', instanceHome: "/tmp/neo homes/o'neil", launchCommand: '/Applications/ChatGPT.app/Contents/Resources/codex'}))
+        expect(buildLoginCommand({harnessType: 'codex', authHome: "/tmp/neo homes/o'neil", authCommand: '/Applications/ChatGPT.app/Contents/Resources/codex'}))
             .toBe("CODEX_HOME='/tmp/neo homes/o'\\''neil' '/Applications/ChatGPT.app/Contents/Resources/codex' login");
-        expect(buildLoginCommand({harnessType: 'claude-code', instanceHome: '/tmp/claude-home', launchCommand: '/opt/claude'}))
-            .toContain("CLAUDE_CONFIG_DIR='/tmp/claude-home'");
-        expect(() => buildLoginCommand({harnessType: 'codex', instanceHome: '<instance home>', launchCommand: '/opt/codex'})).toThrow(/absolute instanceHome/);
-        expect(() => buildLoginCommand({harnessType: 'codex', instanceHome: '/tmp/x\nFAKE', launchCommand: '/opt/codex'})).toThrow(/control-character-free/);
+        expect(buildLoginCommand({harnessType: 'claude-code', authHome: '/tmp/claude-home', authCommand: '/opt/claude'}))
+            .toBe("CLAUDE_CONFIG_DIR='/tmp/claude-home' '/opt/claude'  # then /login inside the session");
+        expect(() => buildLoginCommand({harnessType: 'codex', authHome: '<instance home>', authCommand: '/opt/codex'})).toThrow(/absolute authHome/);
+        expect(() => buildLoginCommand({harnessType: 'codex', authHome: '/tmp/x\nFAKE', authCommand: '/opt/codex'})).toThrow(/control-character-free/);
     });
 
-    test('GUI app-bundle families print the isolated relaunch line — auth is the in-app sign-in, no CLI login exists', () => {
-        expect(buildLoginCommand({harnessType: 'claude-desktop', instanceHome: '/srv/homes/a', launchCommand: '/Applications/Claude.app/Contents/MacOS/Claude'}))
-            .toBe("'/Applications/Claude.app/Contents/MacOS/Claude' --user-data-dir='/srv/homes/a'  # sign in inside the app window (relaunch if closed)");
-        expect(buildLoginCommand({harnessType: 'antigravity', instanceHome: '/srv/homes/b', launchCommand: '/Applications/Antigravity.app/Contents/MacOS/Antigravity'}))
-            .toContain("--user-data-dir='/srv/homes/b'");
-        // The curated guard still fronts the family switch — an unlaunchable family never renders a line.
+    test('the executable login helper is marker-only — GUI families cannot manufacture a raw relaunch', () => {
+        expect(() => buildLoginCommand({harnessType: 'claude-desktop', instanceHome: '/srv/homes/a', launchCommand: '/Applications/Claude.app/Contents/MacOS/Claude'}))
+            .toThrow(/marker-family only/);
+        expect(() => buildLoginCommand({harnessType: 'antigravity', instanceHome: '/srv/homes/b', launchCommand: '/Applications/Antigravity.app/Contents/MacOS/Antigravity'}))
+            .toThrow(/marker-family only/);
         expect(() => buildLoginCommand({harnessType: 'native-neo', instanceHome: '/srv/homes/c', launchCommand: '/bin/x'})).toThrow(/unsupported harnessType/);
     });
 
-    test('the REAL post-launch decision: an in-app family reaches its sign-in handoff despite authRequired null — the exact branch --commit executes', () => {
-        // This enters where main() enters: null previously fell through to the generic WARN, so the
-        // GUI instruction was unreachable in a real run. Mode-first fixes the decision itself.
-        const desktop = deriveAuthHandoff({
+    test('claude-desktop authenticates in the Fleet-launched window and routes closed-window recovery back through Fleet', () => {
+        const status = {
+            authRequired : null,
+            instanceHome : '/srv/homes/a',
+            launchCommand: '/Applications/Claude.app/Contents/MacOS/Claude'
+        };
+        const handoff = deriveAuthHandoff({
             harnessType: 'claude-desktop',
-            status     : {authRequired: null, instanceHome: '/srv/homes/a', launchCommand: '/Applications/Claude.app/Contents/MacOS/Claude'}
+            status
         });
+        const output = handoff.lines.join('\n');
 
-        expect(desktop.kind).toBe('sign-in-app');
-        expect(desktop.lines.join('\n')).toContain('SIGN-IN REQUIRED');
-        expect(desktop.lines.join('\n')).toContain("--user-data-dir='/srv/homes/a'");
+        expect(handoff.kind).toBe('sign-in-app');
+        expect(output).toContain('already Fleet-launched app window');
+        expect(output).toContain('re-run this onboardPeer command with --commit');
+        expect(output).toContain('Start in the Fleet cockpit');
+        expect(output).not.toContain(status.instanceHome);
+        expect(output).not.toContain(status.launchCommand);
+        expect(output).not.toContain('--user-data-dir');
+        expect(output).not.toContain('launchCommand');
+    });
 
-        expect(deriveAuthHandoff({
-            harnessType: 'antigravity',
-            status     : {authRequired: null, instanceHome: '/srv/homes/b', launchCommand: '/Applications/Antigravity.app/Contents/MacOS/Antigravity'}
-        }).kind).toBe('sign-in-app');
+    test('antigravity authenticates in the Fleet-launched window without leaking an unmanaged relaunch', () => {
+        const status = {
+            authRequired : null,
+            instanceHome : '/srv/homes/b',
+            launchCommand: '/Applications/Antigravity.app/Contents/MacOS/Antigravity'
+        };
+        const handoff = deriveAuthHandoff({harnessType: 'antigravity', status});
+        const output  = handoff.lines.join('\n');
+
+        expect(handoff.kind).toBe('sign-in-app');
+        expect(output).toContain('already Fleet-launched app window');
+        expect(output).toContain('restart through Fleet');
+        expect(output).not.toContain(status.instanceHome);
+        expect(output).not.toContain(status.launchCommand);
+        expect(output).not.toContain('--user-data-dir');
+        expect(output).not.toContain('launchCommand');
     });
 
     test('marker families keep the heuristic-driven branches unchanged: true → login command, false → done, null → honest WARN with no guessed command', () => {
-        const required = deriveAuthHandoff({harnessType: 'codex', status: {authRequired: true, instanceHome: '/srv/homes/c', launchCommand: '/opt/codex'}});
+        const required = deriveAuthHandoff({harnessType: 'codex', status: {authRequired: true, authHome: '/srv/homes/c', authCommand: '/opt/codex'}});
 
         expect(required.kind).toBe('login-required');
         expect(required.lines.join('\n')).toContain("CODEX_HOME='/srv/homes/c' '/opt/codex' login");
 
-        expect(deriveAuthHandoff({harnessType: 'codex', status: {authRequired: false, instanceHome: '/srv/homes/c', launchCommand: '/opt/codex'}}).kind).toBe('done');
+        const claudeRequired = deriveAuthHandoff({harnessType: 'claude-code', status: {authRequired: true, authHome: '/srv/homes/d', authCommand: '/opt/claude'}});
 
-        const unknown = deriveAuthHandoff({harnessType: 'codex', status: {authRequired: null, instanceHome: '/srv/homes/c', launchCommand: '/opt/codex'}});
+        expect(claudeRequired.kind).toBe('login-required');
+        expect(claudeRequired.lines.at(-1)).toBe("    CLAUDE_CONFIG_DIR='/srv/homes/d' '/opt/claude'  # then /login inside the session");
+
+        expect(deriveAuthHandoff({harnessType: 'codex', status: {authRequired: false, authHome: '/srv/homes/c', authCommand: '/opt/codex'}}).kind).toBe('done');
+
+        const unknown = deriveAuthHandoff({harnessType: 'codex', status: {authRequired: null, authHome: '/srv/homes/c', authCommand: '/opt/codex'}});
 
         expect(unknown.kind).toBe('unknown');
         expect(unknown.lines.join('\n')).not.toContain('codex login');
+    });
+
+    test('Codex Desktop marker auth uses the bundled CLI + nested auth home, never the GUI main', () => {
+        const handoff = deriveAuthHandoff({
+            harnessType: 'codex-desktop',
+            status     : {
+                authRequired : true,
+                instanceHome : '/srv/homes/desktop',
+                launchCommand: '/Applications/ChatGPT.app/Contents/MacOS/ChatGPT',
+                authHome     : '/srv/homes/desktop/codex-home',
+                authCommand  : '/Applications/ChatGPT.app/Contents/Resources/codex'
+            }
+        });
+
+        expect(handoff.kind).toBe('login-required');
+        expect(handoff.lines.join('\n')).toContain("CODEX_HOME='/srv/homes/desktop/codex-home' '/Applications/ChatGPT.app/Contents/Resources/codex' login");
+        expect(handoff.lines.join('\n')).not.toContain('Contents/MacOS/ChatGPT');
     });
 
     test('the dry-run planner names the in-app mode for GUI families — plan and post-launch decision cannot drift', () => {
@@ -336,7 +379,7 @@ test.describe('onboardPeer — auth handoff', () => {
               sentinelPath  = path.join(root, 'PWNED'),
               launchCommand = path.join(root, 'fake;touch PWNED'),
               instanceHome  = path.join(root, "home with ' quote"),
-              command       = buildLoginCommand({harnessType: 'codex', instanceHome, launchCommand});
+              command       = buildLoginCommand({harnessType: 'codex', authHome: instanceHome, authCommand: launchCommand});
 
         try {
             fs.writeFileSync(launchCommand, `#!/usr/bin/env node\nimport fs from 'node:fs';\nfs.writeFileSync(process.env.CAPTURE, JSON.stringify({home: process.env.CODEX_HOME, argv: process.argv.slice(2)}));\n`);

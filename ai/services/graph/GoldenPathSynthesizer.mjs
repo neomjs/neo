@@ -29,6 +29,7 @@ import {
     buildFailureOutcome                          as buildRouteFailureOutcome,
     findComputedFocusContradiction               as findRouteFocusContradiction,
     getComputedRecommendationExclusionLabels     as getRouteExclusionLabels,
+    getRoutingConflictReasons                    as getRouteConflictReasons,
     isActionableComputedRecommendation           as isActionableRouteRecommendation,
     isContentComputedRecommendation              as isContentRouteRecommendation,
     isRoutingConflictFocusCandidate              as isRouteConflictFocusCandidate,
@@ -36,6 +37,14 @@ import {
     renderComputedGoldenPathEmptySection         as renderRouteEmptySection,
     renderComputedGoldenPathFailureSection       as renderRouteFailureSection
 } from './computedGoldenPathRouting.mjs';
+import {
+    appendRouteAttribution,
+    validateRouteAttributionRetention
+} from './routeAttributionLedgerStore.mjs';
+import {
+    TYPE_GATE_REJECTION_FILENAME,
+    TYPE_GATE_REJECTION_STAGE
+} from './typeGateRejectionLedgerStore.mjs';
 import {RETROSPECTIVE_GRAINS, renderHandoffRetrospectiveSection} from './handoffRetrospective.mjs';
 import {assembleRetrospectiveStats}                              from './handoffRetrospectiveAssembler.mjs';
 import {
@@ -364,6 +373,128 @@ class GoldenPathSynthesizer extends Base {
      */
     static renderComputedGoldenPathContradictionSection(options) {
         return renderRouteContradictionSection(options)
+    }
+
+    /**
+     * @summary Maps a routing-guard contradiction into route-attribution ledger records — one per blocked
+     * computed candidate. `armingReasons` are ONLY the reasons that actually armed the guard (via the shared
+     * getRoutingConflictReasons authority), so incidental co-reasons (fresh-updated / agent-os) are never
+     * mis-attributed as causes; `candidateReasons` keeps the full diagnostic set separately. Pure (no I/O, no
+     * config read): the caller persists the result. Reasons are unioned across the armed Current Focus
+     * candidates (all blocked nodes in one contradiction share the live focus context). No exclusion-label
+     * dimension: every guard-blocked node already passed the actionability type-gate, so its exclusion set is
+     * empty by construction — that evidence belongs to the type-gate producer, not this guard-filter one.
+     * @param {{blockedNodes: Array<Object>, focusCandidates: Array<Object>}|null} focusContradiction Result from `findComputedFocusContradiction`.
+     * @param {Number} nowMs Epoch ms stamped onto each record.
+     * @returns {Object[]} `[{blockedNodeId, armingReasons, candidateReasons, at}]` (empty when no contradiction).
+     */
+    static buildRouteAttributionRecords(focusContradiction, nowMs) {
+        if (!focusContradiction) return [];
+
+        const blockedNodes     = Array.isArray(focusContradiction.blockedNodes)    ? focusContradiction.blockedNodes    : [],
+              focusCandidates  = Array.isArray(focusContradiction.focusCandidates) ? focusContradiction.focusCandidates : [],
+              armingReasons    = [...new Set(focusCandidates.flatMap(candidate => getRouteConflictReasons(candidate)))],
+              candidateReasons = [...new Set(focusCandidates.flatMap(candidate => Array.isArray(candidate.reasons) ? candidate.reasons : []))];
+
+        return blockedNodes
+            .filter(item => item?.node?.id)
+            .map(item => ({
+                armingReasons,
+                blockedNodeId: item.node.id,
+                candidateReasons,
+                at           : nowMs
+            }))
+    }
+
+    /**
+     * @summary The route-attribution record-seam: persists which computed candidates the routing guard filtered,
+     * under which arming reasons, per synthesis run. FAIL-OPEN — a ledger-write failure (bad config/dir, I/O
+     * error) is swallowed-logged and never aborts synthesis (the ledger is observability, never a gate); a
+     * missing/empty `dir` is a silent no-op. The ledger directory + retention are supplied by the caller (the
+     * synthesis boundary reads the resolved AiConfig leaves at its use site), which keeps this method a testable
+     * seam (a per-test temporary dir) with no config-SSOT read of its own; retention is validated here before it
+     * reaches the pure store helper.
+     * @param {{blockedNodes: Array<Object>, focusCandidates: Array<Object>}|null} focusContradiction Result from `findComputedFocusContradiction`.
+     * @param {Date|Number} now The synthesis-pass clock (Date or epoch ms).
+     * @param {Object} [ledger] The resolved ledger boundary (from the caller's AiConfig read).
+     * @param {String} [ledger.dir] The runtime ledger directory; absent/empty → no-op.
+     * @param {Number} [ledger.maxEvents] Retention cap (validated here).
+     * @param {Number} [ledger.triggerBytes] Prune byte-trigger (validated here).
+     * @returns {Promise<void>}
+     */
+    static async recordRouteAttribution(focusContradiction, now, {dir, maxEvents, triggerBytes} = {}) {
+        const nowMs   = now instanceof Date ? now.getTime() : now,
+              records = this.buildRouteAttributionRecords(focusContradiction, Number.isFinite(nowMs) ? nowMs : null);
+
+        if (records.length === 0) return;
+
+        try {
+            if (typeof dir !== 'string' || dir.length === 0) return;
+
+            const retention = validateRouteAttributionRetention(maxEvents, triggerBytes);
+
+            for (const record of records) {
+                await appendRouteAttribution(record, {dir, ...retention})
+            }
+        } catch (error) {
+            logger.warn(`[GoldenPathSynthesizer] route-attribution ledger write failed (non-fatal): ${error?.message || error}`)
+        }
+    }
+
+    /**
+     * @summary Pure builder for the type-gate rejection records — the SECOND GP filter point's evidence. Where
+     * `buildRouteAttributionRecords` captures the routing-contradiction GUARD's filtering, this captures the
+     * actionability TYPE-GATE's rejections (`isActionableComputedRecommendation` === false): the visibility-only
+     * candidates (`epic` / `not-code-ready` / …) that never reach scoring. Each record carries the node id, its
+     * exclusion-label bucket (the exact labels that made it non-actionable, from the shared authority), and the
+     * `stage` discriminator so a merged read stays self-describing.
+     * @param {Array<{nodeId: String, rejectionBucket: String[]}>} rejections Collected at the type-gate filter point.
+     * @param {Number} nowMs Epoch ms stamped onto each record.
+     * @returns {Object[]} `[{nodeId, rejectionBucket, stage, at}]` (empty when nothing was rejected).
+     */
+    static buildTypeGateRejectionRecords(rejections, nowMs) {
+        return (Array.isArray(rejections) ? rejections : [])
+            .filter(item => typeof item?.nodeId === 'string' && item.nodeId.length > 0)
+            .map(item => ({
+                nodeId         : item.nodeId,
+                rejectionBucket: Array.isArray(item.rejectionBucket) ? item.rejectionBucket : [],
+                stage          : TYPE_GATE_REJECTION_STAGE,
+                at             : nowMs
+            }))
+    }
+
+    /**
+     * @summary The type-gate rejection record-seam: persists which computed candidates the actionability gate
+     * rejected, under which exclusion labels, per synthesis run — the evidence window the 42.2%-type-gate
+     * disposition decides against. FAIL-OPEN, exactly like `recordRouteAttribution` — a ledger-write failure is
+     * swallowed-logged and never aborts synthesis (the ledger is observability, never a gate); a missing/empty
+     * `dir` is a silent no-op. Reuses the route-attribution ledger's runtime dir + retention leaves + shape-agnostic
+     * append via the `filename` seam, writing a SIBLING file so the two filter points stay queryable-apart.
+     * @param {Array<{nodeId: String, rejectionBucket: String[]}>} rejections The type-gate rejections for this pass.
+     * @param {Date|Number} now The synthesis-pass clock (Date or epoch ms).
+     * @param {Object} [ledger] The resolved ledger boundary (from the caller's AiConfig read).
+     * @param {String} [ledger.dir] The runtime ledger directory; absent/empty → no-op.
+     * @param {Number} [ledger.maxEvents] Retention cap (validated before the store write).
+     * @param {Number} [ledger.triggerBytes] Prune byte-trigger (validated before the store write).
+     * @returns {Promise<void>}
+     */
+    static async recordTypeGateRejections(rejections, now, {dir, maxEvents, triggerBytes} = {}) {
+        const nowMs   = now instanceof Date ? now.getTime() : now,
+              records = this.buildTypeGateRejectionRecords(rejections, Number.isFinite(nowMs) ? nowMs : null);
+
+        if (records.length === 0) return;
+
+        try {
+            if (typeof dir !== 'string' || dir.length === 0) return;
+
+            const retention = validateRouteAttributionRetention(maxEvents, triggerBytes);
+
+            for (const record of records) {
+                await appendRouteAttribution(record, {dir, filename: TYPE_GATE_REJECTION_FILENAME, ...retention})
+            }
+        } catch (error) {
+            logger.warn(`[GoldenPathSynthesizer] type-gate rejection ledger write failed (non-fatal): ${error?.message || error}`)
+        }
     }
 
     /**
@@ -852,8 +983,11 @@ class GoldenPathSynthesizer extends Base {
             return this.constructor.buildFailureOutcome('embedding-dimension-mismatch', message);
         }
 
-        const scoredNodes  = [];
-        const scoringStats = {
+        const scoredNodes = [];
+        // AC3: the type-gate rejections collected across the scoring loop (emitted once after it, like the
+        // route-attribution record-seam) — the SECOND GP filter point's evidence for the type-gate disposition.
+        const typeGateRejections = [];
+        const scoringStats       = {
             semanticCandidates     : 0,
             sqliteOpenMatches      : 0,
             blockedCandidates      : 0,
@@ -970,6 +1104,12 @@ class GoldenPathSynthesizer extends Base {
 
                     if (!this.constructor.isActionableComputedRecommendation(nodeData || {id: issueId})) {
                         scoringStats.nonActionableCandidates++;
+                        // AC3 evidence: record which exclusion labels made this candidate non-actionable
+                        // (the shared bucket authority), for the type-gate disposition window.
+                        typeGateRejections.push({
+                            nodeId         : issueId,
+                            rejectionBucket: this.constructor.getComputedRecommendationExclusionLabels(nodeData || {id: issueId})
+                        });
                         logger.debug(`[GoldenPathSynthesizer] Skipping non-actionable computed recommendation: ${issueId}`);
                         continue;
                     }
@@ -1018,6 +1158,26 @@ class GoldenPathSynthesizer extends Base {
         scoringStats.prunedGuideEdges = this.constructor.pruneStaleFrontierGuideEdges({
             currentTargetIds: goldenIds
         });
+
+        // Record which computed candidates the routing guard filtered — covers BOTH the partial-block branch
+        // (some survived) and the no-survivor branch — into the route-attribution ledger. Fail-open inside the
+        // method; never gates synthesis. This is the live record-seam the one-shot measurement dataset snapshotted.
+        if (focusContradiction) {
+            await this.constructor.recordRouteAttribution(focusContradiction, now, {
+                dir         : aiConfig.goldenPathRouteAttributionLedgerDir,
+                maxEvents   : aiConfig.goldenPathRouteAttributionLedgerMaxEvents,
+                triggerBytes: aiConfig.goldenPathRouteAttributionLedgerPruneTriggerBytes
+            })
+        }
+
+        // AC3: record the actionability type-gate's rejections (the SECOND filter point) into a sibling ledger in
+        // the same runtime dir — the evidence window the 42.2%-type-gate disposition decides against. No-ops
+        // on an empty pass; fail-open inside the method; reuses the route-attribution dir + retention leaves.
+        await this.constructor.recordTypeGateRejections(typeGateRejections, now, {
+            dir         : aiConfig.goldenPathRouteAttributionLedgerDir,
+            maxEvents   : aiConfig.goldenPathRouteAttributionLedgerMaxEvents,
+            triggerBytes: aiConfig.goldenPathRouteAttributionLedgerPruneTriggerBytes
+        })
 
         const handoffTimestamp = now instanceof Date ? now : new Date(now);
         let   markdownAppend   = '';
@@ -1110,6 +1270,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             markdownAppend = this.constructor.renderComputedGoldenPathContradictionSection({
                 capturedAt   : handoffTimestamp,
                 contradiction: focusContradiction,
+                renderLimit  : aiConfig.goldenPathTopNodeRenderLimit,
                 stats        : scoringStats
             });
             logger.info('[GoldenPathSynthesizer] Computed route contradicted Current Focus; rendered diagnostic instead of routing content work.');

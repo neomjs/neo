@@ -159,15 +159,19 @@ class FleetManager extends Base {
 
         return lifecycle.getRegistry().listAgents().map(agent => {
             const status   = lifecycle.status(agent.id),
-                  observed = status.pid != null || status.startedAt != null || status.exitCode != null;
+                  observed = status.state !== 'stopped' || status.pid != null || status.startedAt != null || status.exitCode != null;
 
-            return {
+            const row = {
                 agentId   : agent.id,
                 state     : status.state,
                 running   : status.running,
                 confidence: observed ? 'observed' : 'inferred',
                 source    : 'fleet:runtimeStatus'
             };
+
+            if (status.failureReason != null) row.failureReason = status.failureReason;
+
+            return row;
         });
     }
 
@@ -177,7 +181,8 @@ class FleetManager extends Base {
      * `managedRoot` / provisioning, so it forwards straight to `FleetLifecycleService.stop`, mirroring how
      * `fleetRepoStatus` forwards to its aggregator.
      * @param {String} agentId Registry agent id.
-     * @returns {Promise<Object>} `{success, id, state}` from the lifecycle service's `stop`.
+     * @returns {Promise<Object>} `{success, id, state, cleanupUnresolved}` from the lifecycle
+     * service's `stop`.
      */
     stopAgent(agentId) {
         return this.getLifecycleService().stop(agentId);
@@ -194,7 +199,12 @@ class FleetManager extends Base {
      * @returns {Promise<Object>} the agent's lifecycle status (see {@link startAgent}).
      */
     async restartAgent(agentId) {
-        await this.stopAgent(agentId);
+        const stopped = await this.stopAgent(agentId);
+
+        if (stopped.cleanupUnresolved) {
+            throw new Error(`FleetManager.restartAgent: cleanup failed for agent '${agentId}'; refusing to spawn a replacement over ambiguous residual processes.`);
+        }
+
         return this.startAgent(agentId);
     }
 
@@ -211,7 +221,12 @@ class FleetManager extends Base {
      * existed and was deregistered).
      */
     async removeAgent(agentId) {
-        await this.stopAgent(agentId);
+        const stopped = await this.stopAgent(agentId);
+
+        if (stopped.cleanupUnresolved) {
+            throw new Error(`FleetManager.removeAgent: cleanup failed for agent '${agentId}'; refusing to deregister an agent with ambiguous residual processes.`);
+        }
+
         return this.getLifecycleService().getRegistry().removeAgent(agentId);
     }
 

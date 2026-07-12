@@ -1,8 +1,9 @@
-import Base            from '../core/Base.mjs';
-import DockRail        from './DockRail.mjs';
-import DockSplitter    from './DockSplitter.mjs';
-import DockTabSortZone from './DockTabSortZone.mjs';
-import DockZoneModel   from './DockZoneModel.mjs';
+import Base               from '../core/Base.mjs';
+import DockRail           from './DockRail.mjs';
+import DockSplitter       from './DockSplitter.mjs';
+import DockTabEnterButton from './DockTabEnterButton.mjs';
+import DockTabSortZone    from './DockTabSortZone.mjs';
+import DockZoneModel      from './DockZoneModel.mjs';
 
 /**
  * @summary Projects Agent Harness dock-zone model nodes into existing Neo layout and tab configs.
@@ -208,6 +209,8 @@ class DockLayoutAdapter extends Base {
      * @param {Object} model
      * @param {Object} [options={}]
      * @param {Function} [options.resolveComponentRef]
+     * @param {Object|null} [options.tabInsertDescriptor] Runtime-only normalized `addTab`
+     * correlation consumed by this projection; never part of `model`.
      * @returns {Object}
      * @static
      */
@@ -238,6 +241,7 @@ class DockLayoutAdapter extends Base {
             onDockCrossZoneDrop     : options.onDockCrossZoneDrop,
             onDockZoneDocumentChange: options.onDockZoneDocumentChange,
             resolveComponentRef     : options.resolveComponentRef || (() => null),
+            tabInsertDescriptor     : options.tabInsertDescriptor ?? null,
             workspaceId             : options.workspaceId ?? null
         });
 
@@ -620,11 +624,39 @@ class DockLayoutAdapter extends Base {
             items    = context.railedItemIds
                 ? allItems.filter(itemId => !context.railedItemIds.has(itemId))
                 : allItems,
-            activeIndex = items.length ? items.indexOf(node.activeItemId) : null;
+            activeIndex = items.length ? items.indexOf(node.activeItemId) : null,
+            projectedItems;
 
         if (activeIndex < 0) {
             activeIndex = items.length ? 0 : null
         }
+
+        projectedItems = items.map(itemId => {
+            let config     = this.projectItem(itemId, context),
+                descriptor = context.tabInsertDescriptor,
+                header;
+
+            // One-use operation correlation: only a real addTab's exact target header receives
+            // the dashboard-owned producer. Non-object component results fail safe to an instant
+            // landing; no broad selector or document mutation is used as a fallback.
+            if (config?.constructor === Object
+                && descriptor?.operation === 'addTab'
+                && descriptor.itemId === itemId
+                && descriptor.tabsNodeId === nodeId) {
+                header = config.header || {text: context.items[itemId]?.title || itemId};
+                config.header = {
+                    ...header,
+                    cls: [...new Set([
+                        ...(Array.isArray(header.cls) ? header.cls : header.cls ? [header.cls] : []),
+                        'neo-dashboard-dock-tab-enter',
+                        `dock-tab-enter-item-${encodeURIComponent(itemId)}`
+                    ])],
+                    module: DockTabEnterButton
+                }
+            }
+
+            return config
+        });
 
         return {
             activeIndex,
@@ -651,7 +683,7 @@ class DockLayoutAdapter extends Base {
                     sortGroup      : context.crossWindowSortGroup
                 }
             },
-            items    : items.map(itemId => this.projectItem(itemId, context)),
+            items    : projectedItems,
             listeners: {
                 // Live-drag hover: the dock-aware SortZone streams `dockCrossZoneDragMove` per frame; the
                 // owner renders the transient affordance tier (indicator menu / preview) from it. Same

@@ -1,0 +1,139 @@
+/* Agent detail — the drill-in inspector: identity header (family rail · avatar · name/engine/id ·
+   availability) over the freshness-labeled panes (thought-stream · lane · repo · PRs), scoped under
+   the component root. Geometry + the avatar frame only; every color reads from the token layer. */
+.fm-agent-detail {
+    gap    : 10px;
+    padding: 10px 12px;
+    overflow: hidden;
+
+    /* honest empty state — muted, centered; never reads as a loaded-but-blank inspector */
+    .fm-detail-empty {
+        padding   : 24px 8px;
+        text-align: center;
+        font-size : 12px;
+        color     : var(--fm-ink-dim);
+    }
+
+    .fm-detail-header {
+        gap          : 10px;
+        align-items  : center;
+        padding-bottom: 10px;
+        border-bottom : 1px solid var(--fm-line-soft);
+    }
+
+    .fm-detail-avatar {
+        width        : 48px;
+        height       : 48px;
+        flex         : none;
+        border-radius: 50%;
+        object-fit   : cover;
+        background   : color-mix(in srgb, var(--fm-ink-dim) 20%, transparent);
+    }
+
+    .fm-detail-identity {
+        gap     : 2px;
+        overflow: hidden;
+    }
+
+    .fm-detail-name-row {
+        gap: 7px;
+    }
+
+    /* the social name — the primary, largest identity surface (display state over the durable id) */
+    .fm-detail-name {
+        flex         : 1;
+        font-weight  : 600;
+        font-size    : 15px;
+        color        : var(--fm-ink);
+        overflow     : hidden;
+        white-space  : nowrap;
+        text-overflow: ellipsis;
+    }
+
+    /* engine is session-metadata, not identity — subordinate mono tag beside the name */
+    .fm-detail-engine {
+        flex       : none;
+        font-family: var(--fm-font-mono);
+        font-size  : 10px;
+        color      : var(--fm-ink-dim);
+    }
+
+    /* the durable anchor — always shown, smallest + faintest: the name is display state OVER it */
+    .fm-detail-id {
+        font-family: var(--fm-font-mono);
+        font-size  : 10px;
+        color      : var(--fm-ink-dim);
+    }
+
+    /* availability (participationStatus), not a role */
+    .fm-detail-participation {
+        font-size     : 11px;
+        color         : var(--fm-ink-dim);
+        text-transform: capitalize;
+    }
+
+    .fm-detail-panes {
+        gap     : 8px;
+        overflow: auto;
+    }
+
+    .fm-detail-pane {
+        gap          : 4px;
+        padding      : 8px 10px;
+        background   : var(--fm-panel);
+        border       : 1px solid var(--fm-line-soft);
+        border-radius: 6px;
+    }
+
+    .fm-detail-pane-head {
+        gap        : 8px;
+        align-items: center;
+    }
+
+    .fm-detail-pane-title {
+        flex       : 1;
+        font-weight: 500;
+        font-size  : 12px;
+        color      : var(--fm-ink);
+    }
+
+    .fm-detail-pane-body {
+        font-size: 11px;
+        color    : var(--fm-ink-dim);
+    }
+
+    /* the freshness ledger chip: a mono pill whose tone states the observation
+       freshness — never a silent current claim. fresh reuses the live signal, stale the wedged tone
+       (mirroring the ActivityStream adapter states), lost the alert tone, unobserved the honest
+       muted "we don't know" (never alarming — absence is not an error). */
+    .fm-freshness {
+        flex         : none;
+        font-family  : var(--fm-font-mono);
+        font-size    : 9px;
+        line-height  : 1;
+        white-space  : nowrap;
+        padding      : 2px 7px;
+        border-radius: 999px;
+        background   : color-mix(in srgb, currentColor 12%, transparent);
+        color        : var(--fm-ink-dim);
+
+        &.is-fresh {
+            color: var(--fm-signal);
+        }
+
+        &.is-stale {
+            color: var(--fm-state-wedged);
+        }
+
+        /* alert-red TEXT fails AA at 9px (4.26:1); render "lost" as readable ink text on an
+           alert-tinted pill instead — the tint + the label word carry the state, the text stays AA */
+        &.is-lost {
+            color     : var(--fm-ink);
+            background: color-mix(in srgb, var(--fm-kind-alert) 30%, transparent);
+        }
+
+        &.is-unobserved {
+            color: var(--fm-ink-dim);
+        }
+    }
+}

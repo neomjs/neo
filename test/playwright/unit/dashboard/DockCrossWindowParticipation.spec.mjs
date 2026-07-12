@@ -323,6 +323,11 @@ test.describe('Neo.dashboard.DockCrossWindowParticipation (ADR 0029 §2.3 — wo
             windowId : 'cwd-win-a'
         });
 
+        // construct() preloads the coordinator OFF the drag hot path; in production that settles
+        // frames before any gesture, so onDragMove's sync-on-entry engage always has its handle.
+        // Await it here (the test creates + drags in the same tick) to model that warmed state.
+        await zone.resolveDragCoordinator();
+
         // seed the mid-gesture drag state exactly as the base drag-start leaves it, with the
         // payload stamps exactly as this class's onDragStart writes them
         zone.dragComponent = {id: 'tab-proxy', dockItemId: 'terminal', dockSourceWorkspaceId: 'A'};
@@ -362,6 +367,72 @@ test.describe('Neo.dashboard.DockCrossWindowParticipation (ADR 0029 §2.3 — wo
         zone.destroy();
         WindowManager.unregister(WindowManager.get('cwd-win-a'));
         WindowManager.unregister(WindowManager.get('cwd-win-b'))
+    });
+
+    test('fire-and-forget move/end: the coordinator engages on move-ENTRY, so a release that does NOT await the move still commits once and suppresses the local drop once', async () => {
+        const fires     = [];
+        const order     = [];
+        const transfers = [];
+
+        // A recorder coordinator modelling the REAL synchronous contract: onDragMove ENGAGES a
+        // target; onDragEnd commits ONLY if a target is engaged and then arms the source suppression
+        // (exactly as the real DragCoordinator does via onRemoteDrop → onRemoteDropOut). If the end
+        // ran before the move engaged, `engaged` would be false → no transfer, no suppression.
+        const coordinator = {
+            engaged   : false,
+            register  : () => {},
+            unregister: () => {},
+            onDragMove: () => { order.push('engage'); coordinator.engaged = true },
+            onDragEnd : ({draggedItem, sourceSortZone}) => {
+                order.push('end');
+
+                if (coordinator.engaged) {
+                    transfers.push(draggedItem.dockItemId);
+                    sourceSortZone.onRemoteDropOut(draggedItem)
+                }
+            }
+        };
+
+        const zone = Neo.create(DockTabSortZone, {
+            dockItemIds     : ['terminal'],
+            dockSourceNodeId: 'side-tabs',
+            dockWorkspaceId : 'A',
+            owner           : {
+                addDomListeners: () => {},
+                cls            : [],
+                dragResortable : false,
+                items          : [],
+                on             : () => {},
+                style          : {},
+                up             : () => ({fire: (name, data) => fires.push([name, data])})
+            },
+            sortGroup: 'dock-crosswindow-ff-order-test',
+            windowId : 'cwd-ff-a'
+        });
+
+        // let construct's real preload settle, THEN pin the recorder onto the synchronous handle
+        await zone.resolveDragCoordinator();
+        zone.dragCoordinator = coordinator;
+
+        zone.dragComponent = {id: 'tab-proxy', dockItemId: 'terminal', dockSourceWorkspaceId: 'A'};
+        zone.dragProxy     = {hidden: false};
+        zone.startIndex    = 0;
+
+        // production-equivalent fire-and-forget ordering: START the move but DO NOT await it, then
+        // run end while it is still in flight — exactly what DomEvent.fire's non-awaited dispatch
+        // permits. The pre-fix shape (engage AFTER `await super.onDragMove`) fails here: the sync end
+        // overtakes the suspended move, sees no engaged target, transfers nothing, fires the local drop.
+        const movePromise = zone.onDragMove({clientX: 60, clientY: 20, offsetX: 8, offsetY: 8, proxyRect: {width: 120, height: 32}, screenX: 1400, screenY: 300});
+        const endPromise  = zone.processDragEnd({clientX: 60, clientY: 20});
+
+        await Promise.all([movePromise, endPromise]);
+
+        expect(order).toEqual(['engage', 'end']);                                       // engage strictly before end
+        expect(transfers).toEqual(['terminal']);                                        // committed exactly once
+        expect(fires.filter(([name]) => name === 'dockCrossZoneDrop')).toHaveLength(0); // local drop suppressed once
+        expect(zone.remoteDropCommitted).toBe(false);                                   // suppression flag consumed
+
+        zone.destroy()
     });
 
     test('a source zone without a sortGroup is coordinator-inert: no remote engagement, no suspension — the dock stays fully in-window', async () => {

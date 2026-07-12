@@ -5,15 +5,17 @@
  * The wake daemon's digest historically reconciled only on `readAt`, so a genuinely-unread
  * message the recipient had already been *woken for* (re-queued by a heavy-delta GraphLog
  * re-include or a cursor reset) survived into the "N new" count and could spoof a HIGH digest
- * from a stale backlog message. These pure helpers reconcile on the
- * right axis — the GraphLog `logId` high-water-mark of what the recipient has already been woken
- * for — and compose with (do NOT replace) the `readAt` reconcile + `flushDeferPolicy` defer.
+ * from a stale backlog message. These pure helpers reconcile on two already-woken axes: the
+ * GraphLog `logId` high-water-mark for positional replay, plus the stable application `messageId`
+ * for one logical MESSAGE re-emitted at a later position. Both compose with (do NOT replace) the
+ * `readAt` reconcile + `flushDeferPolicy` defer.
  *
  * `logId` is the append-only GraphLog position inside one graph epoch, so it is monotonic while
  * that epoch survives. Graph restore/rebuild can reset the log while wake-daemon state survives;
  * callers must detect a stale-high watermark against graph-tip evidence, then clamp it to a
- * trusted pre-batch cursor before filtering. The daemon owns the durable, per-subscription
- * watermark map + its persistence; this module is the pure, unit-testable decision core.
+ * trusted pre-batch cursor before filtering. The daemon owns the durable per-subscription watermark
+ * map, per-identity message claims, and their persistence; this module is the pure, unit-testable
+ * decision core.
  */
 
 /**
@@ -67,6 +69,39 @@ export function filterEventsByWatermark(events, watermark) {
         const logId = Number(raw);
         return !Number.isFinite(logId) || logId > mark;
     });
+}
+
+/**
+ * @summary Atomically claims message events that have not already produced a wake for an identity.
+ *
+ * GraphLog may legitimately re-emit one immutable MESSAGE under a later `logId` (for example after
+ * a projection replay). The numeric watermark therefore cannot establish message-level exactly-once
+ * semantics by itself. This helper filters on the stable application `messageId` and adds every
+ * survivor to the shared identity history before the caller awaits adapter delivery. A second route
+ * or flush in the same process then observes the claim immediately and cannot submit a duplicate.
+ *
+ * Events without a `messageId` are conservatively claimed on every pass: malformed identity data
+ * must not suppress a genuine wake.
+ *
+ * @param {Object[]} messages Candidate message wake events; `messageId` may be absent.
+ * @param {Set<String>} wokenMessageIds Mutable per-identity wake history.
+ * @returns {{claimed: Array, duplicates: Array}} Newly claimed events and already-woken events.
+ */
+export function claimUnwokenMessages(messages, wokenMessageIds) {
+    const claimed = [], duplicates = [];
+
+    for (const message of messages) {
+        const messageId = message?.messageId;
+
+        if (messageId && wokenMessageIds.has(messageId)) {
+            duplicates.push(message);
+        } else {
+            claimed.push(message);
+            if (messageId) wokenMessageIds.add(messageId);
+        }
+    }
+
+    return {claimed, duplicates};
 }
 
 /**

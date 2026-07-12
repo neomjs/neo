@@ -17,17 +17,24 @@
 
 // Neo namespace bootstrap (entry-point invariant): `Neo` + `core/_export` populate globalThis.Neo so
 // the fleet singletons' `Neo.setupClass` succeeds at module-load; `InstanceManager` binds the aliases.
-import Neo                      from '../../../src/Neo.mjs';
-import * as core                from '../../../src/core/_export.mjs';
-import InstanceManager          from '../../../src/manager/Instance.mjs';
-import {startFleetBridgeServer} from './fleetBridgeServer.mjs';
-import {pathToFileURL}          from 'node:url';
+import Neo                          from '../../../src/Neo.mjs';
+import * as core                    from '../../../src/core/_export.mjs';
+import InstanceManager              from '../../../src/manager/Instance.mjs';
+import AiConfig                     from '../../config.mjs';
+import {startFleetBridgeServer}     from './fleetBridgeServer.mjs';
+import {wireBootIdentityReadSource} from './wireBootIdentityReadSource.mjs';
+import {pathToFileURL}              from 'node:url';
 
 const port = Number(process.env.NEO_FLEET_PORT) || 8083;
 
 // Process-entry only: start + register signal handlers ONLY when this file is the main module, never
 // on import — preserves the process-entry isolation invariant (mirrors the orchestrator/kb daemons).
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    // Wire the cross-process boot-identity reader BEFORE serving: getBootIdentity() then serves the
+    // orchestrator's advisory fact from the shared runtime-state dir (read at this use site), instead of
+    // the advisory-unknown fallback. Fail-soft — an absent dir leaves the seam honestly unwired.
+    wireBootIdentityReadSource({dir: AiConfig.orchestrator.dataDir});
+
     startFleetBridgeServer({port})
         .then(server => {
             const cleanShutdown = signal => {
