@@ -525,6 +525,10 @@ paths:
                   type: integer
                   description: Number of documents to include in context.
                   default: 5
+                conceptWalk:
+                  type: boolean
+                  default: false
+                  description: "Opt-in: when true, additionally returns knowledge-base docs reached via a bounded concept-graph walk over the query (CONCEPT→FILE edges resolved to the doc whose metadata.source matches, re-authorized through the same tenant + type filter), appended to the embedding references and deduped, each carrying `via`/`conceptPath` provenance. Default false returns the embedding references only (byte-identical)."
       responses:
         '200':
           description: Successful RAG response.
@@ -546,6 +550,10 @@ paths:
                           type: string
                         score:
                           type: number
+                  conceptWalk:
+                    type: object
+                    nullable: true
+                    description: "Present only when the conceptWalk opt-in ran — the retrieval event: which concepts resolved, whether the walk contributed, the added/filtered counts, and walkDurationMs. Absent on the default flat path."
         '500':
           description: Internal server error.
           content:
