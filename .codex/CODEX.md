@@ -8,9 +8,9 @@ hard-code either here.
   `NEO_AGENT_IDENTITY`. The runtime identity plus canonical identity roots define
   the expected GitHub login; existing health and write guards fail closed on a
   mismatch with `gh api user --jq .login`.
-- Keep identity-sensitive worktrees under the active identity-mapped clone root
-  so local environment binding resolves. Recheck identity after checkout,
-  worktree, or thread switches.
+- Local mode owns one resident checkout: fetch, switch, and restore in place.
+  Never create a clone or worktree; Worktree mode is host-managed. Recheck
+  identity after switches.
 - `gh auth status` can report a false sandbox failure. Verify the live login with
   `gh api user --jq .login` before diagnosing broken authentication.
 - If a required GitHub call fails in the sandbox, retry it with the required
