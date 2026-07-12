@@ -10,6 +10,9 @@ import QueryService                   from './QueryService.mjs';
 import {checkAskRateLimit}            from './helpers/askRateLimit.mjs';
 import {isRemoteKnowledgeBaseDeployment} from './helpers/deploymentMode.mjs';
 import {getMissingAskSynthesisLeaves} from './helpers/askSynthesisGuard.mjs';
+import GraphService                      from '../memory-core/GraphService.mjs';
+import {enrichWithConceptWalk}           from '../graph/conceptAnchoredRetrieval.mjs';
+import {buildKbFileResolveCandidate}     from './conceptWalkKbFileGate.mjs';
 
 const LOCAL_EMPTY_COLLECTION_ANSWER  = "The knowledge base collection is empty. Populate it with the release artifact via 'npm run ai:download-kb' (or build locally with 'npm run ai:sync-kb').";
 const REMOTE_EMPTY_COLLECTION_ANSWER = "The knowledge base collection is empty. In a cloud or remote tenant-ingestion deployment, inspect ingestion state first: call get_ingestion_progress(), then inspect_deployment or get_deployment_state_snapshot for tenantRepoSync / deployment-state details. For push-mode tenants, run the configured ingest_source_files or bulk tenant-ingest path before retrying the query.";
@@ -275,7 +278,7 @@ class SearchService extends Base {
      * @param {Number} [params.limit=5] Number of source files to include in the context.
      * @returns {Promise<Object>} The synthesized answer and references.
      */
-    async ask({query, type = 'all', limit = 5}) {
+    async ask({query, type = 'all', limit = 5, conceptWalk = false}) {
         logger.info(`[SearchService] Processing RAG query: "${query}" (Type: ${type})`);
 
         // 1. Retrieve most relevant files using QueryService's scoring logic
@@ -303,6 +306,37 @@ class SearchService extends Base {
             score : Number(r.score)
         }));
 
+        // Opt-in concept-anchored wrap (default OFF → `references` above is the byte-identical flat
+        // path). The walk augments — never displaces — the embedding references with concept-
+        // neighborhood KB docs (a CONCEPT→FILE edge → the doc whose metadata.source matches), each
+        // re-authorized through the SAME read-side tenant filter via QueryService.findDocBySource
+        // (buildKbFileResolveCandidate fails closed). GraphService is reached directly — the
+        // IngestionService precedent for a KB-domain service reading the graph.
+        let responseReferences = references,
+            conceptWalkEvent   = null;
+
+        if (conceptWalk) {
+            const enriched = await enrichWithConceptWalk({
+                graphService         : GraphService,
+                query,
+                candidates           : references,
+                conceptWalk          : true,
+                getCandidateId       : ref => ref.source,
+                traversableNodeLabels: ['FILE'],
+                resolveCandidate     : buildKbFileResolveCandidate({
+                    findKbDocBySource: source => QueryService.findDocBySource(source)
+                }),
+                emit: retrievalEvent => logger.info?.('[SearchService] concept-walk retrieval', retrievalEvent)
+            });
+
+            responseReferences = enriched.candidates;
+            conceptWalkEvent   = enriched.event
+        }
+
+        // Adds the concept-walk event to any return envelope ONLY when the walk ran — the default
+        // path returns the exact legacy shapes.
+        const withWalk = result => conceptWalkEvent ? {...result, conceptWalk: conceptWalkEvent} : result;
+
         if (!this.model) {
             // Thread the construct-time stale-config reason when present; the legacy
             // gemini-without-key case keeps its established `no_provider` shape.
@@ -311,13 +345,22 @@ class SearchService extends Base {
                 code  : 'no_provider'
             };
 
-            return this.#createDegradedSynthesisResponse({references, error: reason, code});
+            return withWalk(this.#createDegradedSynthesisResponse({references: responseReferences, error: reason, code}));
         }
 
+        // Flat context mapping stays byte-identical (index-aligned to queryResult.results); walk-
+        // surfaced docs (identified by the `via` marker, order-independent) append their own metadata
+        // so they reach synthesis too.
         const contextReferences = queryResult.results.map((r, index) => ({
             ...references[index],
             metadata: r.metadata || {}
         }));
+
+        if (conceptWalkEvent) {
+            responseReferences
+                .filter(ref => ref.via === 'concept-walk')
+                .forEach(ref => contextReferences.push({...ref, metadata: ref.metadata || {}}));
+        }
 
         // 2. Read source contents for context.
         //
@@ -374,11 +417,11 @@ Instructions:
         this.askCallTimestamps = kept;
         if (limited) {
             logger.warn(`[SearchService] ask synthesis rate cap (${aiConfig.askSynthesis.maxCallsPerMinute}/min) hit; returning degraded references without calling the provider.`);
-            return this.#createDegradedSynthesisResponse({
-                references,
+            return withWalk(this.#createDegradedSynthesisResponse({
+                references: responseReferences,
                 error: `ask synthesis rate limit (${aiConfig.askSynthesis.maxCallsPerMinute}/min) exceeded`,
                 code : 'rate_limited'
-            });
+            }));
         }
         this.askCallTimestamps.push(nowMs);
 
@@ -400,17 +443,17 @@ Instructions:
             });
             answer = result.response.text();
         } catch (error) {
-            const degraded = this.#createDegradedSynthesisResponse({references, error});
+            const degraded = this.#createDegradedSynthesisResponse({references: responseReferences, error});
 
             logger.warn(`[SearchService] Synthesis failed after retrieval; returning degraded references: ${degraded.reason}`);
 
-            return degraded;
+            return withWalk(degraded);
         }
 
-        return {
+        return withWalk({
             answer,
-            references
-        };
+            references: responseReferences
+        });
     }
 }
 

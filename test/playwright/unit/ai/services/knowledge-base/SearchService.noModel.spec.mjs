@@ -18,21 +18,24 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
 test.describe('Neo.ai.services.knowledge-base.SearchService model guard', () => {
-    let SearchService, QueryService;
-    let originalModel, originalModelUnavailable, originalQueryDocuments;
+    let SearchService, QueryService, GraphService;
+    let originalModel, originalModelUnavailable, originalQueryDocuments, originalListNodeRecordsByType;
 
     test.beforeAll(async () => {
         SearchService            = (await import('../../../../../../ai/services/knowledge-base/SearchService.mjs')).default;
         QueryService             = (await import('../../../../../../ai/services/knowledge-base/QueryService.mjs')).default;
+        GraphService             = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         originalModel            = SearchService.model;
         originalModelUnavailable = SearchService.modelUnavailable;
         originalQueryDocuments   = QueryService.queryDocuments;
+        originalListNodeRecordsByType = GraphService.listNodeRecordsByType;
     });
 
     test.afterEach(() => {
-        SearchService.model            = originalModel;
-        SearchService.modelUnavailable = originalModelUnavailable;
-        QueryService.queryDocuments    = originalQueryDocuments;
+        SearchService.model                = originalModel;
+        SearchService.modelUnavailable     = originalModelUnavailable;
+        QueryService.queryDocuments        = originalQueryDocuments;
+        GraphService.listNodeRecordsByType = originalListNodeRecordsByType;
     });
 
     test('ask returns the empty-collection response before requiring a Gemini model', async () => {
@@ -62,6 +65,28 @@ test.describe('Neo.ai.services.knowledge-base.SearchService model guard', () => 
                 source: 'learn/agentos/KnowledgeBase.md'
             }]
         });
+    });
+
+    test('ask({conceptWalk}) is opt-in: the walk event threads through the envelope; the default path omits it — byte-identical (#14504)', async () => {
+        SearchService.model         = null;
+        QueryService.queryDocuments = async () => ({
+            results: [{source: 'learn/agentos/KnowledgeBase.md', score: '100', metadata: {}}]
+        });
+        // No CONCEPT nodes → the walk resolves nothing and short-circuits to an honest zero event
+        // (never reaching the raw-edge reader), so the ask-level wiring is provable without a live graph.
+        GraphService.listNodeRecordsByType = () => ({records: []});
+
+        // opt-in ON: the response carries the concept-walk event; the flat references stay untouched
+        const walked = await SearchService.ask({query: 'How does KB work?', conceptWalk: true});
+        expect(walked.conceptWalk).toBeTruthy();
+        expect(walked.conceptWalk.walkContributed).toBe(false);
+        expect(walked.conceptWalk.candidatesAdded).toBe(0);
+        expect(walked.conceptWalk.resolvedConcepts).toEqual([]);
+        expect(walked.references).toHaveLength(1);
+
+        // default (opt-out): NO conceptWalk key — the envelope is byte-identical to the pre-wrap shape
+        const flat = await SearchService.ask({query: 'How does KB work?'});
+        expect('conceptWalk' in flat).toBe(false);
     });
 
     test('ask threads the construct-time stale-config reason into the degraded envelope (#12846 AC1)', async () => {
