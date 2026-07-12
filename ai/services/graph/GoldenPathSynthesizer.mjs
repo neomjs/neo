@@ -657,6 +657,21 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
+     * @summary Recency-relevance multiplier for a computed-route candidate: `2^(-age / halfLife)` from its
+     * createdAt, so a stale node decays out of the route while fresh work stays ~unscaled. A node with no
+     * parseable createdAt returns 1 (unscaled) so hermetic fixtures and un-timestamped nodes are unaffected.
+     * @param {Object} options
+     * @param {String} [options.createdAt] ISO createdAt string, or undefined
+     * @param {Number} options.nowMs current clock in ms
+     * @param {Number} options.halfLifeMs decay half-life in ms
+     * @returns {Number} factor in (0, 1]
+     */
+    static recencyPriorityFactor({createdAt, nowMs, halfLifeMs}) {
+        const createdAtMs = Date.parse(createdAt ?? '');
+        return Number.isNaN(createdAtMs) ? 1 : 2 ** (-Math.max(0, nowMs - createdAtMs) / halfLifeMs);
+    }
+
+    /**
      * @summary Delegates current release / incident focus rendering to the helper module.
      * @param {Array<Object>} candidates Current focus candidates.
      * @param {Object} options
@@ -994,11 +1009,13 @@ class GoldenPathSynthesizer extends Base {
                     // Lower distance = Higher significance. (Add 0.1 to avoid div by 0 and curb massive asymptotes)
                     const semanticScore = 1.0 / (semantic_distance + 0.1);
 
-                    // Recency relevance: scale the priority by 2^(-age / half-life) from the node's createdAt,
-                    // so a stale open issue/discussion decays out of the route while fresh release-relevant work
-                    // surfaces. A node with no parseable createdAt is left unscaled (hermetic-fixture safe).
-                    const createdAtMs   = Date.parse(nodeData?.properties?.createdAt ?? nodeData?.properties?.filedAt ?? ''),
-                          recencyFactor = Number.isNaN(createdAtMs) ? 1 : 2 ** (-Math.max(0, now.getTime() - createdAtMs) / aiConfig.goldenPathRecencyHalfLifeMs);
+                    // Recency relevance: decay a stale open issue/discussion out of the route while fresh
+                    // release-relevant work surfaces; a node with no parseable createdAt is left unscaled.
+                    const recencyFactor = this.constructor.recencyPriorityFactor({
+                        createdAt : nodeData?.properties?.createdAt ?? nodeData?.properties?.filedAt,
+                        nowMs     : now.getTime(),
+                        halfLifeMs: aiConfig.goldenPathRecencyHalfLifeMs
+                    });
 
                     const priority = ((semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT)) * recencyFactor;
 

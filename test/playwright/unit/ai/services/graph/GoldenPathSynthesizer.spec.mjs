@@ -2469,3 +2469,34 @@ test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from
         }
     });
 });
+
+test.describe('GoldenPathSynthesizer.recencyPriorityFactor — stale candidates decay out of the route', () => {
+    let Synthesizer;
+
+    const HALF_LIFE_MS = 90 * 24 * 60 * 60 * 1000,
+          NOW_MS       = Date.parse('2026-07-12T00:00:00Z');
+
+    test.beforeAll(async () => {
+        Synthesizer = (await import('../../../../../../ai/services/graph/GoldenPathSynthesizer.mjs')).default.constructor;
+    });
+
+    test('a fresh node stays ~unscaled, a stale node is crushed, and the fresh node decisively outranks it', () => {
+        const fresh = Synthesizer.recencyPriorityFactor({createdAt: '2026-07-01T00:00:00Z', nowMs: NOW_MS, halfLifeMs: HALF_LIFE_MS}),
+              stale = Synthesizer.recencyPriorityFactor({createdAt: '2024-03-01T00:00:00Z', nowMs: NOW_MS, halfLifeMs: HALF_LIFE_MS});
+
+        expect(fresh).toBeGreaterThan(0.9);
+        expect(stale).toBeLessThan(0.01);
+        // equal semantic+structural score → the fresh candidate wins by >100x (the regression the fix kills)
+        expect(fresh).toBeGreaterThan(stale * 100);
+    });
+
+    test('a node with no parseable createdAt is left unscaled (hermetic-fixture / un-timestamped safe)', () => {
+        for (const createdAt of [undefined, null, '', 'not-a-date']) {
+            expect(Synthesizer.recencyPriorityFactor({createdAt, nowMs: NOW_MS, halfLifeMs: HALF_LIFE_MS})).toBe(1);
+        }
+    });
+
+    test('a future createdAt is clamped to unscaled (never a >1 boost)', () => {
+        expect(Synthesizer.recencyPriorityFactor({createdAt: '2027-01-01T00:00:00Z', nowMs: NOW_MS, halfLifeMs: HALF_LIFE_MS})).toBe(1);
+    });
+});
