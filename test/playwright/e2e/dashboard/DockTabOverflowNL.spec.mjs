@@ -38,6 +38,25 @@ test.describe('#14771 dock tab-overflow floating control', () => {
         // It carries the ellipsis affordance.
         await expect(control.locator('.fa-ellipsis')).toHaveCount(1);
 
+        // Owner-relative geometry: the control must sit within a tab-header toolbar's vertical band (aligned
+        // to its owner's right-edge slot), NOT off at a stale pre-settle position. (A prior cycle mounted it
+        // clickable but at y≈310 while the toolbars sit at y≈64..202 — rendered but wrong-owner geometry.)
+        const geom = await page.evaluate(() => {
+            const ctrl     = document.querySelector('.neo-dock-tab-overflow-control'),
+                  toolbars = [...document.querySelectorAll('.neo-tab-header-toolbar')];
+            if (!ctrl || !toolbars.length) return null;
+            const c = ctrl.getBoundingClientRect();
+            return {
+                top    : c.top,
+                bandTop: Math.min(...toolbars.map(t => t.getBoundingClientRect().top)),
+                bandBot: Math.max(...toolbars.map(t => t.getBoundingClientRect().bottom))
+            }
+        });
+        expect(geom, 'control + at least one tab-header toolbar must be in the DOM').not.toBeNull();
+        expect(geom.top, `control top ${geom?.top} must sit inside the toolbar band [${geom?.bandTop}, ${geom?.bandBot}]`)
+            .toBeGreaterThanOrEqual(geom.bandTop - 4);
+        expect(geom.top).toBeLessThanOrEqual(geom.bandBot + 4);
+
         // Interaction journey: clicking the control opens its dropdown menu, which lists the hidden tabs
         // (button.Base builds the menu.List itself). At least one hidden-tab entry must be selectable.
         await control.click();
