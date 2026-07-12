@@ -383,8 +383,9 @@ class GoldenPathSynthesizer extends Base {
     static buildRouteAttributionRecords(focusContradiction, nowMs) {
         if (!focusContradiction) return [];
 
-        const {blockedNodes = focusContradiction,
-              focusReasons  = [...new Set(focusCandidates.flatMap(candidate => Array.isArray(candidate.reasons) ? candidate.reasons : []))];
+        const blockedNodes    = Array.isArray(focusContradiction.blockedNodes)    ? focusContradiction.blockedNodes    : [],
+              focusCandidates = Array.isArray(focusContradiction.focusCandidates) ? focusContradiction.focusCandidates : [],
+              focusReasons    = [...new Set(focusCandidates.flatMap(candidate => Array.isArray(candidate.reasons) ? candidate.reasons : []))];
 
         return blockedNodes
             .filter(item => item?.node?.id)
