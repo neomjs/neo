@@ -88,6 +88,39 @@ test.describe('AgentOS fleet cockpit ActivityStream — burst bound holds live (
         expect(stream.properties.droppedCount).toBe(50)
     });
 
+    test('a multi-batch live feed holds the bound mid-stream and re-renders per batch (frame progress)', async ({page, neuralLink}) => {
+        await page.goto('/apps/agentos/index.html');
+        await expect(page.locator('.fm-activity-stream')).toBeVisible({timeout: 60000});
+
+        const app  = await neuralLink.connectToApp('AgentOS'),
+              id   = await streamId(app),
+              rows = page.locator('.fm-activity-stream .fm-ev-row');
+
+        // Three deterministic 250-event batches applied in sequence — event time advances via
+        // occurredAt, no wall-clock sleep. After EACH batch the window bound holds AND the newest row
+        // reflects THIS batch, so the DOM re-renders per feed application (frame progress, never a
+        // frozen frame), and the ring counts each batch's overflow.
+        for (const batchId of [1, 2, 3]) {
+            const batch = Array.from({length: 250}, (_, i) => ({
+                type      : 'a2a-activity',
+                source    : 'memory-core:mailbox',
+                agentId   : `b${batchId}-agent-${i}`,
+                occurredAt: new Date(Date.UTC(2026, 6, 5 + batchId, 0, 0, 0) + i * 60000).toISOString(),
+                payload   : {text: `batch${batchId} event ${i}`}
+            }));
+
+            await setStream(app, id, {adapterState: 'live', events: batch});
+
+            // bound holds mid-stream after every batch
+            await expect(rows).toHaveCount(12);
+            // frame progress: the newest row is THIS batch's newest event (the frame advanced)
+            await expect(rows.first().locator('.fm-ev-text')).toContainText(`batch${batchId} event 249`);
+            // engine truth: the ring counted this batch's overflow (250 − bufferSize 200 = 50)
+            const [s] = await app.queryComponent({className: STREAM}, ['droppedCount']);
+            expect(s.properties.droppedCount).toBe(50)
+        }
+    });
+
     test('adapter loss shows the stale banner without freezing the feed, then un-freezes on reconnect', async ({page, neuralLink}) => {
         await page.goto('/apps/agentos/index.html');
         await expect(page.locator('.fm-activity-stream')).toBeVisible({timeout: 60000});
@@ -106,10 +139,21 @@ test.describe('AgentOS fleet cockpit ActivityStream — burst bound holds live (
         await expect(page.locator('.fm-activity-stream .fm-stream-state')).toHaveText('stale — reconnecting');
         await expect(page.locator('.fm-activity-stream .fm-ev-row')).toHaveCount(12);
 
-        // Reconnect: the banner clears, the feed is live again — the stream un-freezes.
-        await setStream(app, id, {adapterState: 'live'});
+        // Reconnect: the banner clears AND a NEW unique event flows through — proving the live feed
+        // truly resumed, not just the header flipping. Newest-first: the latest occurredAt heads the
+        // window, so the injected event must lead.
+        const proof = 'reconnect-live-proof-42';
+        await setStream(app, id, {adapterState: 'live', events: [...burst(40), {
+            type      : 'a2a-activity',
+            source    : 'memory-core:mailbox',
+            agentId   : 'reconnect-probe',
+            occurredAt: '2026-07-05T02:00:00.000Z',
+            payload   : {text: proof}
+        }]});
         await expect(page.locator('.fm-activity-stream .fm-stream-head.is-live')).toBeVisible();
-        await expect(page.locator('.fm-activity-stream .fm-ev-row')).toHaveCount(12)
+        await expect(page.locator('.fm-activity-stream .fm-ev-row')).toHaveCount(12);
+        // the injected event is the newest → it heads the window: the feed FLOWS post-reconnect
+        await expect(page.locator('.fm-activity-stream .fm-ev-row').first().locator('.fm-ev-text')).toContainText(proof)
     });
 
     test('the reduced-motion path still renders the bounded feed', async ({page, neuralLink}) => {
