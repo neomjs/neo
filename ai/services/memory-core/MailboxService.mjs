@@ -6,6 +6,7 @@ import {canonicalizeTaggedConceptIds}           from '../graph/conceptSpineCanon
 import GraphService                             from './GraphService.mjs';
 import PermissionService                        from './PermissionService.mjs';
 import WakeSubscriptionService                  from './WakeSubscriptionService.mjs';
+import {TASK_ASSIGNMENT_AUTHORITY}              from './taskAssignmentContract.mjs';
 import {
     appendMessageWalGraphProjectionMarker,
     appendWalMessage,
@@ -138,6 +139,41 @@ function normalizeMailboxIdentityForComparison(identity) {
  */
 function sameMailboxIdentity(left, right) {
     return normalizeMailboxIdentityForComparison(left) === normalizeMailboxIdentityForComparison(right);
+}
+
+/**
+ * @summary Resolves one validated direct mailbox target into a canonical Task assignee.
+ *
+ * Task assignment is server-owned: a caller-supplied `task.assignee` cannot grant transition
+ * authority. Broadcasts deliberately return `null` until `Submitted → Working` atomically records
+ * the winning claimant. Human, role, sentinel, and otherwise non-agent targets remain unassigned.
+ *
+ * @param {*} target Validated mailbox target.
+ * @param {Object} [db] Graph database facade.
+ * @returns {String|null} Canonical AgentIdentity id, or `null` when the target is not assignable.
+ * @private
+ */
+function getCanonicalTaskAssigneeForTarget(target, db = GraphService.requireDb('MailboxService.getCanonicalTaskAssigneeForTarget')) {
+    const canonical = normalizeMailboxIdentityForComparison(target);
+
+    if (typeof canonical !== 'string' || canonical === 'AGENT:*' || !canonical.startsWith('@')) {
+        return null;
+    }
+
+    let node = db?.nodes?.get(canonical);
+
+    if (!node && db?.getAdjacentNodes) {
+        db.getAdjacentNodes(canonical, 'both');
+        node = db.nodes.get(canonical);
+    }
+
+    const
+        label       = getRecordField(node, 'label'),
+        accountType = getRecordProperties(node).accountType;
+
+    return label === 'AgentIdentity' && accountType === 'agent'
+        ? canonical
+        : null;
 }
 
 /**
@@ -385,14 +421,14 @@ function getMessageWalArray(value) {
  * @returns {Object} Canonical routing, mirrored message properties, and raw diagnostics.
  */
 function getCanonicalMessageWalRouting(record) {
-    const message              = record?.message || {},
+    const message            = record?.message || {},
         rawMessageProperties = message.properties || {},
         routing              = record?.routing || {},
         rawSentBy            = routing.sentBy || rawMessageProperties.from,
         rawTo                = routing.to || rawMessageProperties.to,
         sentBy               = normalizeMailboxIdentityForComparison(rawSentBy),
         to                   = normalizeMailboxIdentityForComparison(rawTo),
-        broadcastRecipients   = [...new Set(getMessageWalArray(routing.broadcastRecipients)
+        broadcastRecipients  = [...new Set(getMessageWalArray(routing.broadcastRecipients)
             .map(recipient => normalizeMailboxIdentityForComparison(recipient)))],
         invalidDirectIdentities = [sentBy, to, ...broadcastRecipients]
             .filter(identity => identity === '@me' || identity === '@');
@@ -579,11 +615,37 @@ function hasMailboxGraphEdgeInStorage(source, target, type) {
     const sqlite = GraphService.db?.storage?.db;
     if (!sqlite) return false;
 
-    const variants     = getMailboxIdentityStorageVariants(target),
+    const variants   = getMailboxIdentityStorageVariants(target),
         placeholders = variants.map(() => '?').join(', ');
 
     return (sqlite.prepare(`SELECT count(*) AS count FROM Edges WHERE source = ? AND target IN (${placeholders}) AND type = ?`)
         .get(source, ...variants, type)?.count ?? 0) > 0;
+}
+
+/**
+ * @summary Reads all targets for one mailbox edge type from cache plus SQLite storage.
+ * @param {String} source Message node id.
+ * @param {String} type Mailbox edge type.
+ * @returns {String[]} De-duplicated stored targets.
+ * @private
+ */
+function getMailboxGraphEdgeTargets(source, type) {
+    const targets = new Set();
+
+    for (const edge of GraphService.db?.edges?.items || []) {
+        if (getRecordField(edge, 'source') === source && getRecordField(edge, 'type') === type) {
+            targets.add(getRecordField(edge, 'target'));
+        }
+    }
+
+    const sqlite = GraphService.db?.storage?.db;
+    if (sqlite) {
+        for (const row of sqlite.prepare('SELECT target FROM Edges WHERE source = ? AND type = ? ORDER BY id').all(source, type)) {
+            targets.add(row.target);
+        }
+    }
+
+    return [...targets];
 }
 
 function hasMessageNodeInStorage(messageId) {
@@ -595,39 +657,84 @@ function hasMessageNodeInStorage(messageId) {
 }
 
 /**
- * @summary Storage-truth read of the graph-owned mutable MESSAGE-node state: the recipient's
- * `readAt`/`archivedAt` (written by `markRead` / archive) AND the sender's irreversible retraction
- * tombstone (`retracted` + the placeholder `subject`/`bodyText` written by `deleteMessage` — a
- * permanent decision with no undo path). The WAL is pure intake — its records carry send-time
- * state (`readAt: null`, the original content) forever — so ANY projection landing on an EXISTING
- * node must let the committed graph values win for exactly this surface. Returns `{}` for a
- * missing node, so a true first projection keeps the WAL values.
- * @param {String} messageId Message graph node id.
- * @returns {Object} Only the committed fields: `{readAt?, archivedAt?, retracted?, subject?,
- * bodyText?}` — the tombstone trio rides together, never partially.
+ * @summary Parses one JSON-object field read through SQLite `json_extract`.
+ * @param {*} value SQLite value.
+ * @param {String} field Property name used in diagnostics.
+ * @param {String} messageId MESSAGE node id used in diagnostics.
+ * @returns {Object|undefined}
+ * @throws {Error} When a present value is not valid object-shaped JSON.
  * @private
  */
-function getStorageMessageMutableState(messageId) {
+function parseStorageJsonObject(value, field, messageId) {
+    if (value == null) return undefined;
+
+    let parsed = value;
+    if (typeof value === 'string') {
+        try {
+            parsed = JSON.parse(value);
+        } catch (e) {
+            throw new Error(`Stored ${field} for ${messageId} is malformed JSON: ${e.message}`);
+        }
+    }
+
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error(`Stored ${field} for ${messageId} must be a JSON object`);
+    }
+
+    return parsed;
+}
+
+/**
+ * @summary Reads graph-owned Task state that must win over immutable send-time WAL payloads.
+ * @param {String} messageId MESSAGE node id.
+ * @returns {Object} Stored Task, assignment provenance, and transition-clock fields when present.
+ * @private
+ */
+function getStorageTaskMutableState(messageId) {
     const sqlite = GraphService.db?.storage?.db;
     if (!sqlite) return {};
 
-    const row = sqlite
-        .prepare(`SELECT json_extract(data, '$.properties.readAt') AS readAt, json_extract(data, '$.properties.archivedAt') AS archivedAt, json_extract(data, '$.properties.retracted') AS retracted, json_extract(data, '$.properties.subject') AS subject, json_extract(data, '$.properties.bodyText') AS bodyText FROM Nodes WHERE id = ?`)
-        .get(messageId);
+    const row = sqlite.prepare(`
+        SELECT
+            json_extract(data, '$.properties.task') AS task,
+            json_extract(data, '$.properties.taskAssignmentAuthority') AS taskAssignmentAuthority,
+            json_extract(data, '$.properties.lastModifiedAt') AS lastModifiedAt
+        FROM Nodes
+        WHERE id = ?
+    `).get(messageId);
     if (!row) return {};
 
     const state = {};
-    if (row.readAt != null)     state.readAt     = row.readAt;
-    if (row.archivedAt != null) state.archivedAt = row.archivedAt;
+    if (row.task != null)                    state.task                    = parseStorageJsonObject(row.task, 'task', messageId);
+    if (row.taskAssignmentAuthority != null) state.taskAssignmentAuthority = row.taskAssignmentAuthority;
+    if (row.lastModifiedAt != null)          state.lastModifiedAt          = row.lastModifiedAt;
 
-    // A retraction permanently overwrote the content at write time; a replay resurrecting the
-    // WAL's original subject/body would undo an irreversible sender decision.
-    if (row.retracted) {
-        state.retracted = true;
-        state.subject   = row.subject;
-        state.bodyText  = row.bodyText;
-    }
     return state;
+}
+
+/**
+ * @summary Refreshes cached Task-owned fields from one SQLite truth snapshot without writing.
+ * @param {Object} messageNode Cached MESSAGE node.
+ * @param {Object} state Result from `getStorageTaskMutableState()`.
+ * @returns {void}
+ * @private
+ */
+function applyStorageTaskMutableState(messageNode, state) {
+    if (!messageNode) return;
+
+    // Mutate the cached properties object in place. Some Graph records expose that same object
+    // through both `record.get('properties')` and the compatibility `.properties` field; replacing
+    // it would leave existing consumer references pinned to stale Task authority.
+    const properties = getRecordProperties(messageNode);
+
+    if (Object.hasOwn(state, 'task'))                    properties.task                    = {...state.task};
+    else                                                delete properties.task;
+    if (Object.hasOwn(state, 'taskAssignmentAuthority')) properties.taskAssignmentAuthority = state.taskAssignmentAuthority;
+    else                                                delete properties.taskAssignmentAuthority;
+    if (Object.hasOwn(state, 'lastModifiedAt'))          properties.lastModifiedAt          = state.lastModifiedAt;
+    else                                                delete properties.lastModifiedAt;
+
+    setRecordProperties(messageNode, properties);
 }
 
 /**
@@ -645,7 +752,7 @@ function getStorageDeliveryMutableState(messageId, recipient) {
     const sqlite = GraphService.db?.storage?.db;
     if (!sqlite) return {};
 
-    const variants     = getMailboxIdentityStorageVariants(recipient),
+    const variants   = getMailboxIdentityStorageVariants(recipient),
         placeholders = variants.map(() => '?').join(', '),
         rows         = sqlite
             .prepare(`SELECT json_extract(data, '$.properties.readAt') AS readAt, json_extract(data, '$.properties.archivedAt') AS archivedAt FROM Edges WHERE source = ? AND target IN (${placeholders}) AND type = 'DELIVERED_TO' ORDER BY id`)
@@ -733,10 +840,10 @@ async function hasMailboxGraphProjectionGap() {
  * @private
  */
 function getMessageGraphProjectionIssues(record) {
-    const db        = GraphService.requireDb('MailboxService.getMessageGraphProjectionIssues'),
-        messageId = record?.id || record?.message?.id,
+    const db                                                       = GraphService.requireDb('MailboxService.getMessageGraphProjectionIssues'),
+        messageId                                                  = record?.id || record?.message?.id,
         {broadcastRecipients, invalidDirectIdentities, sentBy, to} = getCanonicalMessageWalRouting(record),
-        issues    = [];
+        issues                                                     = [];
 
     if (typeof messageId !== 'string' || !messageId.startsWith('MESSAGE:')) {
         return ['invalid-message-record'];
@@ -1059,12 +1166,12 @@ class MailboxService extends Base {
      *   wake events. Intended for mailbox-only handovers such as session-sunset self-DMs that must be
      *   consumed by the next boot, not injected back into the active sender harness. Known-actionable
      *   direct lifecycle messages reject wake suppression before persistence.
-     * @param {Object} [args.task] Optional A2A Task envelope payload. When present,
-     *   stored verbatim as a property on the MESSAGE node and surfaced by get_message + list_messages
-     *   for programmatic agent coordination. This write primitive treats `task` as opaque JSON;
-     *   the transition API owns state-machine transitions, RBAC enforcement, and idempotency
-     *   claim-and-lock semantics. Schema follows Neo's A2A hybrid contract: an A2A spec subset plus
-     *   Neo extensions such as `expiresAt` and `Blocked`. See
+     * @param {Object} [args.task] Optional A2A Task envelope payload. Caller fields are cloned, then
+     *   the server overwrites `task.assignee`: a direct AgentIdentity recipient is bound immediately;
+     *   a broadcast remains `null` until an eligible recipient wins the atomic claim. The top-level
+     *   `taskAssignmentAuthority` provenance marker is also server-owned. The transition API owns
+     *   state-machine transitions, RBAC, and idempotent claim-and-lock semantics. Schema follows
+     *   Neo's A2A hybrid contract: an A2A subset plus `expiresAt` / `Blocked`. See
      *   {@link https://a2a-protocol.org/latest/specification/} for the canonical Task envelope.
      * @returns {Promise<Object>}
      */
@@ -1191,7 +1298,9 @@ class MailboxService extends Base {
         // The optional `task` property carries an A2A-Task-object-shaped JSON payload. When
         // present, downstream consumers surface it for programmatic agent coordination. The
         // payload follows Neo's hybrid contract: A2A spec subset + Neo extensions like
-        // `expiresAt` / `Blocked`; state transitions and RBAC are owned by transitionTask.
+        // `expiresAt` / `Blocked`. `assignee` is a server-owned extension: direct tasks bind to
+        // their validated AgentIdentity recipient, broadcasts stay null until the atomic claim.
+        // State transitions and RBAC are owned by transitionTask.
         // See https://a2a-protocol.org/latest/specification/ for the canonical envelope shape.
         const messageProperties = {
             subject,
@@ -1210,7 +1319,16 @@ class MailboxService extends Base {
         };
 
         if (task !== undefined) {
-            messageProperties.task = task;
+            messageProperties.task = task && typeof task === 'object' && !Array.isArray(task)
+                ? {
+                    ...task,
+                    assignee: getCanonicalTaskAssigneeForTarget(to, db)
+                }
+                : task;
+
+            if (messageProperties.task && typeof messageProperties.task === 'object' && !Array.isArray(messageProperties.task)) {
+                messageProperties.taskAssignmentAuthority = TASK_ASSIGNMENT_AUTHORITY;
+            }
         }
         if (relatedTickets.length > 0) {
             messageProperties.relatedTickets = [...new Set(relatedTickets)].sort();
@@ -1279,8 +1397,9 @@ class MailboxService extends Base {
      *   pure intake — its records carry send-time mutable state (`readAt: null`) forever — so a
      *   FULL re-projection over existing structures resurrects unread state on top of committed
      *   reads (the read-state-rollback defect: partial damage must never trigger a total rewrite).
-     *   `null` (accept/drain paths) keeps the full projection for never-projected records — made
-     *   idempotent-safe by the node piece's mutable-state merge below.
+     *   `null` (accept/drain paths) keeps the full projection for never-projected records. When the
+     *   MESSAGE already exists, the node write is skipped entirely: immutable intake WAL must never
+     *   race and rewind graph-owned read, retraction, Task-owner, state, or transition-clock facts.
      * @param {Boolean} [options.appendMarker=!onlyIssues] Whether to append the graph-projection
      *   success marker. Full projections (accept / drain) append — the marker is what retires the
      *   record from the pending index. Surgical repairs default OFF: they exist for the
@@ -1295,6 +1414,8 @@ class MailboxService extends Base {
         if (typeof messageId !== 'string' || !messageId.startsWith('MESSAGE:')) {
             throw new Error('[MailboxService] message WAL projection requires a MESSAGE:* id');
         }
+
+        const db = GraphService.requireDb('MailboxService._projectMessageWalRecord');
 
         const {
             broadcastRecipients,
@@ -1330,17 +1451,38 @@ class MailboxService extends Base {
         const needsPiece = piece => !onlyIssues || onlyIssues.includes(piece);
 
         if (needsPiece('missing-message-node')) {
-            // Recipient-mutable state is graph-owned, never WAL-owned: when this projection lands
-            // on an EXISTING node (a marker-lost-but-projected record replayed by the drain, or
-            // any future full-path caller), the committed `readAt`/`archivedAt` win over the WAL's
-            // eternal send-time nulls. This makes the write choke-point structurally unable to
-            // resurrect unread state, whichever caller reaches it.
-            GraphService.upsertNode({
-                id        : messageId,
-                type      : message.type || 'MESSAGE',
-                name      : message.name || messageProperties.subject || messageId,
-                properties: {...messageProperties, ...getStorageMessageMutableState(messageId)}
-            });
+            if (hasMessageNodeInStorage(messageId)) {
+                // Existing-node replay is storage-neutral. Reading mutable state and then writing
+                // a merged whole-node snapshot still leaves a stale-writer window: a peer can
+                // transition the Task after our read and before our upsert. The only safe replay
+                // write for an existing node is no node write at all.
+                db.getAdjacentNodes(messageId, 'both');
+            } else {
+                const
+                    isPostMarkerRepair = Array.isArray(onlyIssues) && onlyIssues.includes('missing-message-node'),
+                    properties         = {...messageProperties};
+
+                if (isPostMarkerRepair && properties.task && typeof properties.task === 'object' && !Array.isArray(properties.task)) {
+                    // The node existed after acceptance but was later lost. Intake WAL cannot tell
+                    // whether the Task had already been claimed or completed, so restoring its
+                    // send-time Submitted state would reopen executed work. Preserve the envelope
+                    // as observable evidence, but make it explicitly non-claimable and ownerless.
+                    properties.task = {
+                        ...properties.task,
+                        state   : 'Unknown',
+                        assignee: null
+                    };
+                    properties.taskAssignmentAuthority = TASK_ASSIGNMENT_AUTHORITY;
+                    delete properties.lastModifiedAt;
+                }
+
+                GraphService.upsertNode({
+                    id  : messageId,
+                    type: message.type || 'MESSAGE',
+                    name: message.name || messageProperties.subject || messageId,
+                    properties
+                });
+            }
         }
 
         needsPiece('missing-sent-by') && linkRequiredMailboxEdgeOrThrow(messageId, sentBy, 'SENT_BY', 1.0, edgeProperties, routingDiagnostics);
@@ -2131,7 +2273,9 @@ class MailboxService extends Base {
      * - Throws an Error for unauthorized access or invalid input parameters.
      * - Returns { success: false, reason: ... } for expected state-race failures (e.g., expectedCurrentState mismatch, or optimistic-concurrency race lost).
      * Note on Broadcast Assignees:
-     * - Tasks sent to `AGENT:*` are broadcast and can be claimed by ANY authenticated agent. The UPDATE-WHERE-state optimistic concurrency guard serializes the race to claim it.
+     * - Tasks sent to `AGENT:*` can be claimed only by a member of the immutable send-time
+     *   `DELIVERED_TO` cohort. The guarded SQLite write serializes the first-claim race and records
+     *   both owner plus server provenance atomically.
      *
      * @param {Object} args
      * @param {String} args.taskId The ID of the MESSAGE node containing the task
@@ -2156,32 +2300,79 @@ class MailboxService extends Base {
         db.getAdjacentNodes(taskId, 'both');
 
         const messageNode = db.nodes.get(taskId);
-        if (!messageNode || messageNode.label !== 'MESSAGE') {
+        if (!messageNode || getRecordField(messageNode, 'label') !== 'MESSAGE') {
             throw new Error(`Task not found: ${taskId}`);
         }
 
-        if (!messageNode.properties.task || !messageNode.properties.task.state) {
+        const storedState = getStorageTaskMutableState(taskId);
+        if (!storedState.task?.state) {
             throw new Error(`Message ${taskId} is not an A2A Task (missing task.state)`);
         }
 
-        const currentState = messageNode.properties.task.state;
+        const
+            currentState    = storedState.task.state,
+            sentByTargets   = [...new Set(getMailboxGraphEdgeTargets(taskId, 'SENT_BY'))],
+            sentToTargets   = [...new Set(getMailboxGraphEdgeTargets(taskId, 'SENT_TO'))],
+            isOriginator    = sentByTargets.some(target => sameMailboxIdentity(target, me)),
+            isBroadcast     = sentToTargets.includes('AGENT:*'),
+            directAssignees = [...new Set(sentToTargets
+                .filter(target => target !== 'AGENT:*')
+                .map(target => getCanonicalTaskAssigneeForTarget(target, db))
+                .filter(Boolean))],
+            directAssignee           = directAssignees[0] || null,
+            isBroadcastCohortMember = isBroadcast && (
+                hasMailboxGraphEdge(taskId, me, 'DELIVERED_TO') ||
+                hasMailboxGraphEdgeInStorage(taskId, me, 'DELIVERED_TO')
+            ),
+            hasTrustedAssignment     = storedState.taskAssignmentAuthority === TASK_ASSIGNMENT_AUTHORITY,
+            rawStoredAssignee        = storedState.task.assignee,
+            trustedBroadcastAssignee = hasTrustedAssignment
+                ? getCanonicalTaskAssigneeForTarget(rawStoredAssignee, db)
+                : null;
 
-        if (expectedCurrentState && currentState !== expectedCurrentState) {
-            return { success: false, rowsAffected: 0, reason: `State mismatch: expected ${expectedCurrentState}, got ${currentState}` };
+        if (sentByTargets.length !== 1) {
+            throw new Error(`Task ${taskId} has ambiguous originators: expected 1 SENT_BY edge, got ${sentByTargets.length}`);
         }
 
-        let isOriginator = false;
-        let isAssignee   = false;
-
-        for (const edge of db.edges.items) {
-            if (edge.source === taskId) {
-                if (edge.type === 'SENT_BY' && sameMailboxIdentity(edge.target, me)) isOriginator = true;
-                if (edge.type === 'SENT_TO' && (sameMailboxIdentity(edge.target, me) || edge.target === 'AGENT:*')) isAssignee = true;
-            }
+        if (sentToTargets.length !== 1) {
+            throw new Error(`Task ${taskId} has ambiguous recipients: expected 1 SENT_TO edge, got ${sentToTargets.length}`);
         }
+
+        if (directAssignees.length > 1) {
+            throw new Error(`Task ${taskId} has ambiguous direct assignees: ${directAssignees.join(', ')}`);
+        }
+
+        if (isBroadcast && hasTrustedAssignment && rawStoredAssignee != null && !trustedBroadcastAssignee) {
+            throw new Error(`Task ${taskId} has an invalid authoritative broadcast assignee`);
+        }
+
+        if (isBroadcast && currentState !== 'Submitted' && !trustedBroadcastAssignee) {
+            throw new Error(`Task ${taskId} has unknown broadcast owner: missing authoritative assignee`);
+        }
+
+        if (isBroadcast && currentState === 'Submitted' && trustedBroadcastAssignee) {
+            throw new Error(`Task ${taskId} has inconsistent Submitted state with an authoritative assignee`);
+        }
+
+        const isAssignee = isBroadcast
+            ? (currentState === 'Submitted' ? isBroadcastCohortMember : sameMailboxIdentity(trustedBroadcastAssignee, me))
+            : sameMailboxIdentity(directAssignee, me);
 
         if (!isOriginator && !isAssignee) {
             throw new Error(`Unauthorized: ${me} is neither originator nor assignee for task ${taskId}`);
+        }
+
+        // State mismatches are an expected optimistic-concurrency outcome, but the stored Task is
+        // caller-visible data. Return it only after routing and participant authorization succeed.
+        if (expectedCurrentState && currentState !== expectedCurrentState) {
+            applyStorageTaskMutableState(messageNode, storedState);
+
+            return {
+                success     : false,
+                rowsAffected: 0,
+                reason      : `State mismatch: expected ${expectedCurrentState}, got ${currentState}`,
+                task        : storedState.task
+            };
         }
 
         let authorized = false;
@@ -2201,40 +2392,58 @@ class MailboxService extends Base {
             throw new Error(`Unauthorized: ${me} as ${role} cannot transition \`${currentState} → ${newState}\``);
         }
 
-        const timestamp = new Date().toISOString();
+        const
+            timestamp    = new Date().toISOString(),
+            nextAssignee = isBroadcast
+                ? (currentState === 'Submitted' && newState === 'Working' ? me : trustedBroadcastAssignee)
+                : directAssignee;
 
-        // Optimistic concurrency claim-and-lock: Update SQLite with WHERE-state guard
+        // Optimistic concurrency claim-and-lock: state, owner, provenance, and transition clock
+        // land in one SQLite write. No later whole-node upsert may rewind a concurrent winner.
         const stmt = db.storage.db.prepare(`
             UPDATE Nodes
-            SET data = json_set(data, '$.properties.task.state', ?, '$.properties.lastModifiedAt', ?)
+            SET data = json_set(
+                data,
+                '$.properties.task.state', ?,
+                '$.properties.task.assignee', ?,
+                '$.properties.taskAssignmentAuthority', ?,
+                '$.properties.lastModifiedAt', ?
+            )
             WHERE id = ? AND json_extract(data, '$.properties.task.state') = ?
         `);
-        const info = stmt.run(newState, timestamp, taskId, currentState);
+        const info = stmt.run(
+            newState,
+            nextAssignee,
+            TASK_ASSIGNMENT_AUTHORITY,
+            timestamp,
+            taskId,
+            currentState
+        );
 
         if (info.changes === 0) {
-            // Lost the race or state changed asynchronously. Fetch fresh state directly from DB.
-            const row        = db.storage.db.prepare(`SELECT json_extract(data, '$.properties.task.state') as state FROM Nodes WHERE id = ?`).get(taskId);
-            const freshState = row && row.state ? row.state : currentState;
-            // Sync memory node to reality and trigger cache events
-            if (messageNode && messageNode.properties && messageNode.properties.task) {
-                messageNode.properties.task.state = freshState;
-                GraphService.upsertNode(messageNode);
-            }
-            return { success: false, rowsAffected: 0, reason: `Race lost: state changed to ${freshState}` };
+            const fresh = getStorageTaskMutableState(taskId);
+
+            applyStorageTaskMutableState(messageNode, fresh);
+
+            return {
+                success     : false,
+                rowsAffected: 0,
+                reason      : `Race lost: state changed to ${fresh.task?.state || currentState}`,
+                task        : fresh.task || storedState.task
+            };
         }
 
-        messageNode.properties.task.state = newState;
-        messageNode.properties.lastModifiedAt = timestamp;
+        db.acknowledgeLocalMutations?.();
 
-        // Push the merged object back to GraphService cache to trigger events
-        GraphService.upsertNode(messageNode);
+        const fresh = getStorageTaskMutableState(taskId);
+        applyStorageTaskMutableState(messageNode, fresh);
 
         WakeSubscriptionService.pump().catch(e => logger.error('[wake-pump]', e));
 
         return {
             success     : true,
             rowsAffected: info.changes,
-            task        : messageNode.properties.task
+            task        : fresh.task
         };
     }
 

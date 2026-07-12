@@ -315,9 +315,9 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
                     }
                 },
                 routing: {
-                    sentBy            : 'AGENT:@alice',
-                    to                : 'bob',
-                    senderUserId      : 'alice',
+                    sentBy             : 'AGENT:@alice',
+                    to                 : 'bob',
+                    senderUserId       : 'alice',
                     broadcastRecipients: []
                 }
             };
@@ -347,7 +347,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         GraphService.upsertNode({id: '@alice', type: 'CLASS', name: 'Collision', properties: {}});
 
         const messageId = 'MESSAGE:wrong-type-direct-replay',
-            record    = {
+            record      = {
                 id                    : messageId,
                 timestamp             : Date.now(),
                 graphProjectionVersion: 1,
@@ -619,9 +619,9 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
                     }
                 },
                 routing: {
-                    sentBy            : 'alice',
-                    to                : 'AGENT:*',
-                    senderUserId      : 'alice',
+                    sentBy             : 'alice',
+                    to                 : 'AGENT:*',
+                    senderUserId       : 'alice',
                     broadcastRecipients: ['bob', '@@bob', 'AGENT:@bob']
                 }
             };
@@ -653,7 +653,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         GraphService.upsertNode({id: '@bob', type: 'CLASS', name: 'Collision', properties: {}});
 
         const messageId = 'MESSAGE:wrong-type-broadcast-replay',
-            record    = {
+            record      = {
                 id                    : messageId,
                 timestamp             : Date.now(),
                 graphProjectionVersion: 1,
@@ -2730,9 +2730,9 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
     });
 
     // A2A Task envelope primitive.
-    // Phase 1 stores the optional `task` field as opaque JSON and roundtrips it through
-    // get_message + list_messages. State-machine semantics + RBAC enforcement layer on
-    // top in the task state-machine layer. Schema follows Option C hybrid: A2A spec subset + Neo
+    // The write path clones caller-authored Task JSON, overwrites the server-owned assignee, and
+    // roundtrips the resulting envelope through get_message + list_messages. State-machine
+    // semantics + RBAC enforcement layer on top. Schema follows Option C hybrid: A2A spec subset + Neo
     // extensions (`expiresAt`, `Blocked`) per the originating Discussion graduation. See
     // https://a2a-protocol.org/latest/specification/.
     test('#10334 task envelope: roundtrips through addMessage/getMessage/listMessages', async () => {
@@ -2769,15 +2769,19 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
             msgId = res.messageId;
         });
 
-        // Verify task stored on the MESSAGE node verbatim
-        const node = GraphService.db.nodes.get(msgId);
-        expect(node.properties.task).toEqual(taskPayload);
+        // Verify caller fields survive while assignment authority stays server-owned.
+        const
+            node       = GraphService.db.nodes.get(msgId),
+            storedTask = {...taskPayload, assignee: '@bob'};
+
+        expect(node.properties.task).toEqual(storedTask);
+        expect(node.properties.taskAssignmentAuthority).toBe('memory-core.v1');
 
         // Verify getMessage returns task field
         const bobRead = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             return await MailboxService.getMessage({ messageId: msgId });
         });
-        expect(bobRead.task).toEqual(taskPayload);
+        expect(bobRead.task).toEqual(storedTask);
         expect(bobRead.body).toBe('See task envelope');
 
         // Verify listMessages includes task field in summary
@@ -2786,7 +2790,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
         });
         const found = bobList.messages.find(m => m.messageId === msgId);
         expect(found).toBeDefined();
-        expect(found.task).toEqual(taskPayload);
+        expect(found.task).toEqual(storedTask);
     });
 
     test('#13411 related PR state echo: getMessage/listMessages surface live state', async () => {
@@ -3013,6 +3017,33 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
         });
     });
 
+    function clearTaskCacheWithoutStorageMutation() {
+        const wasAutoSave = GraphService.db.autoSave;
+
+        GraphService.db.autoSave = false;
+        GraphService.db.nodes.clear();
+        GraphService.db.edges.clear();
+        GraphService.db.autoSave = wasAutoSave;
+        GraphService.db.vicinityLoadedNodes.clear();
+        GraphService.db.lastAccessMap.clear();
+    }
+
+    function readStoredTask(taskId) {
+        const row = GraphService.db.storage.db.prepare(`
+            SELECT
+                json_extract(data, '$.properties.task')                    AS task,
+                json_extract(data, '$.properties.taskAssignmentAuthority') AS taskAssignmentAuthority,
+                json_extract(data, '$.properties.lastModifiedAt')          AS lastModifiedAt
+            FROM Nodes
+            WHERE id = ?
+        `).get(taskId);
+
+        return {
+            ...row,
+            task: row?.task ? JSON.parse(row.task) : row?.task
+        };
+    }
+
     test('addMessage and transitionTask enforce state enum validation', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             await expect(MailboxService.addMessage({
@@ -3028,6 +3059,384 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
             await expect(MailboxService.transitionTask({
                 taskId: res.messageId, newState: 'AlsoInvalid'
             })).rejects.toThrow(/Invalid new task state: AlsoInvalid/);
+        });
+    });
+
+    test('Task assignment is server-owned for direct and broadcast messages without mutating caller input', async () => {
+        const
+            directInput    = {state: 'Submitted', assignee: '@charlie', metadata: {keep: true}},
+            broadcastInput = {state: 'Submitted', assignee: '@charlie', metadata: {keep: true}};
+        let directId, broadcastId, roleId;
+
+        GraphService.upsertNode({id: 'role:task-triage', type: 'ROLE', name: 'Task triage', properties: {}});
+
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            directId = (await MailboxService.addMessage({
+                to: '@bob', subject: 'direct server-owned assignee', body: 'body', task: directInput
+            })).messageId;
+            broadcastId = (await MailboxService.addMessage({
+                to: 'AGENT:*', subject: 'broadcast unclaimed', body: 'body', task: broadcastInput
+            })).messageId;
+            roleId = (await MailboxService.addMessage({
+                to  : 'role:task-triage', subject: 'non-agent target', body: 'body',
+                task: {state: 'Submitted', assignee: '@bob'}
+            })).messageId;
+        });
+
+        expect(directInput).toEqual({state: 'Submitted', assignee: '@charlie', metadata: {keep: true}});
+        expect(broadcastInput).toEqual({state: 'Submitted', assignee: '@charlie', metadata: {keep: true}});
+
+        const
+            directNode    = GraphService.db.nodes.get(directId),
+            broadcastNode = GraphService.db.nodes.get(broadcastId);
+
+        expect(directNode.properties.task).toEqual({
+            state: 'Submitted', assignee: '@bob', metadata: {keep: true}
+        });
+        expect(directNode.properties.taskAssignmentAuthority).toBe('memory-core.v1');
+        expect(broadcastNode.properties.task).toEqual({
+            state: 'Submitted', assignee: null, metadata: {keep: true}
+        });
+        expect(broadcastNode.properties.taskAssignmentAuthority).toBe('memory-core.v1');
+        expect(GraphService.db.nodes.get(roleId).properties.task.assignee).toBeNull();
+
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await expect(MailboxService.transitionTask({taskId: roleId, newState: 'Working'}))
+                .rejects.toThrow(/Unauthorized|assignee/i);
+        });
+
+        const {readWalMessagesByIds} = await import('../../../../../../ai/services/memory-core/helpers/messageWalStore.mjs');
+        const records                = await readWalMessagesByIds({
+            dir: mailboxAiConfig.messageWal.dir,
+            ids: [directId, broadcastId]
+        });
+        const recordsById = new Map(records.map(record => [record.id, record]));
+
+        expect(recordsById.get(directId).message.properties.task.assignee).toBe('@bob');
+        expect(recordsById.get(directId).message.properties.taskAssignmentAuthority).toBe('memory-core.v1');
+        expect(recordsById.get(broadcastId).message.properties.task.assignee).toBeNull();
+        expect(recordsById.get(broadcastId).message.properties.taskAssignmentAuthority).toBe('memory-core.v1');
+
+        const directRead = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.getMessage({messageId: directId})
+        );
+        const broadcastList = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.listMessages({status: 'all'})
+        );
+
+        expect(directRead.task.assignee).toBe('@bob');
+        expect(broadcastList.messages.find(message => message.messageId === broadcastId).task.assignee).toBeNull();
+    });
+
+    test('broadcast claim is receipt-cohort-bound and persists one canonical winner', async () => {
+        let msgId;
+
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            msgId = (await MailboxService.addMessage({
+                to: 'AGENT:*', subject: 'cohort claim', body: 'body', task: {state: 'Submitted'}
+            })).messageId;
+        });
+
+        // Created after send: authenticated, but absent from the immutable delivery cohort.
+        GraphService.upsertNode({
+            id: '@late', type: 'AgentIdentity', name: 'Late', properties: {accountType: 'agent'}
+        });
+
+        await RequestContextService.run({agentIdentityNodeId: '@late'}, async () => {
+            await expect(MailboxService.transitionTask({taskId: msgId, newState: 'Working'}))
+                .rejects.toThrow(/Unauthorized|delivery cohort|assignee/i);
+        });
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            await expect(MailboxService.transitionTask({taskId: msgId, newState: 'Working'}))
+                .rejects.toThrow(/Unauthorized|delivery cohort|assignee/i);
+        });
+
+        const claim = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.transitionTask({taskId: msgId, newState: 'Working'})
+        );
+        const stored = readStoredTask(msgId);
+        const cached = GraphService.db.nodes.get(msgId);
+
+        expect(claim).toMatchObject({success: true, rowsAffected: 1, task: {state: 'Working', assignee: '@bob'}});
+        expect(stored.task).toMatchObject({state: 'Working', assignee: '@bob'});
+        expect(stored.taskAssignmentAuthority).toBe('memory-core.v1');
+        expect(stored.lastModifiedAt).toBeTruthy();
+        expect(cached.properties.task).toEqual(stored.task);
+        expect(cached.properties.taskAssignmentAuthority).toBe('memory-core.v1');
+        expect(cached.properties.lastModifiedAt).toBe(stored.lastModifiedAt);
+
+        clearTaskCacheWithoutStorageMutation();
+
+        const claimedRead = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.getMessage({messageId: msgId})
+        );
+        const claimedList = await RequestContextService.run({agentIdentityNodeId: '@charlie'}, () =>
+            MailboxService.listMessages({status: 'all'})
+        );
+
+        expect(claimedRead.task).toMatchObject({state: 'Working', assignee: '@bob'});
+        expect(claimedList.messages.find(message => message.messageId === msgId).task)
+            .toMatchObject({state: 'Working', assignee: '@bob'});
+
+        await RequestContextService.run({agentIdentityNodeId: '@charlie'}, async () => {
+            await expect(MailboxService.transitionTask({taskId: msgId, newState: 'Completed'}))
+                .rejects.toThrow(/Unauthorized|assignee/i);
+        });
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await expect(MailboxService.transitionTask({taskId: msgId, newState: 'Completed'}))
+                .resolves.toMatchObject({success: true, task: {state: 'Completed', assignee: '@bob'}});
+        });
+    });
+
+    test('race loser refreshes winner state, assignee, authority, and clock without a second write', async () => {
+        let msgId;
+
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            msgId = (await MailboxService.addMessage({
+                to: 'AGENT:*', subject: 'two claimant race', body: 'body', task: {state: 'Submitted'}
+            })).messageId;
+        });
+        const sqlite         = GraphService.db.storage.db;
+        const nodeWriteCount = () => sqlite.prepare(`
+            SELECT COUNT(*) AS count FROM GraphLog WHERE entity_id = ? AND entity_type = 'nodes'
+        `).get(msgId).count;
+        const writesBefore    = nodeWriteCount();
+        const originalPrepare = sqlite.prepare;
+        const winnerClock     = '2026-07-12T20:30:00.000Z';
+        let   injected        = false, loser;
+
+        // Interpose the peer winner after Charlie's authoritative read/RBAC pass but immediately
+        // before Charlie prepares the guarded UPDATE. This is the actual cross-process race window;
+        // mutating only the local cache cannot model it now that transitionTask reads SQLite first.
+        sqlite.prepare = function(sql) {
+            if (!injected && sql.includes("'$.properties.task.assignee'") && sql.includes('UPDATE Nodes')) {
+                injected = true;
+                originalPrepare.call(sqlite, `
+                    UPDATE Nodes
+                    SET data = json_set(
+                        data,
+                        '$.properties.task.state', 'Working',
+                        '$.properties.task.assignee', '@bob',
+                        '$.properties.taskAssignmentAuthority', 'memory-core.v1',
+                        '$.properties.lastModifiedAt', ?
+                    )
+                    WHERE id = ? AND json_extract(data, '$.properties.task.state') = 'Submitted'
+                `).run(winnerClock, msgId);
+            }
+
+            return originalPrepare.call(sqlite, sql);
+        };
+
+        try {
+            loser = await RequestContextService.run({agentIdentityNodeId: '@charlie'}, () =>
+                MailboxService.transitionTask({taskId: msgId, newState: 'Working'})
+            );
+        } finally {
+            sqlite.prepare = originalPrepare;
+        }
+
+        const winner = readStoredTask(msgId);
+
+        expect(loser).toMatchObject({
+            success     : false,
+            rowsAffected: 0,
+            task        : {state: 'Working', assignee: '@bob'}
+        });
+        expect(loser.reason).toMatch(/Race lost: state changed to Working/);
+        expect(readStoredTask(msgId)).toEqual(winner);
+        expect(GraphService.db.nodes.get(msgId).properties.task).toEqual(winner.task);
+        expect(GraphService.db.nodes.get(msgId).properties.taskAssignmentAuthority).toBe(winner.taskAssignmentAuthority);
+        expect(GraphService.db.nodes.get(msgId).properties.lastModifiedAt).toBe(winner.lastModifiedAt);
+        expect(winner.lastModifiedAt).toBe(winnerClock);
+        expect(nodeWriteCount()).toBe(writesBefore + 1);
+    });
+
+    test('legacy direct Task backfills its one canonical recipient before a later transition', async () => {
+        let msgId;
+
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            msgId = (await MailboxService.addMessage({
+                to: '@bob', subject: 'legacy direct', body: 'body', task: {state: 'Working'}
+            })).messageId;
+        });
+
+        GraphService.db.storage.db.prepare(`
+            UPDATE Nodes
+            SET data = json_remove(
+                json_remove(data, '$.properties.task.assignee'),
+                '$.properties.taskAssignmentAuthority'
+            )
+            WHERE id = ?
+        `).run(msgId);
+        clearTaskCacheWithoutStorageMutation();
+
+        const result = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.transitionTask({taskId: msgId, newState: 'Completed'})
+        );
+
+        expect(result).toMatchObject({success: true, task: {state: 'Completed', assignee: '@bob'}});
+        expect(readStoredTask(msgId)).toMatchObject({
+            task                   : {state: 'Completed', assignee: '@bob'},
+            taskAssignmentAuthority: 'memory-core.v1'
+        });
+    });
+
+    test('untrusted legacy broadcast post-claim states fail closed even with a spoofed assignee', async () => {
+        for (const state of ['Working', 'InputRequired']) {
+            let msgId;
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                msgId = (await MailboxService.addMessage({
+                    to: 'AGENT:*', subject: `legacy ${state}`, body: 'body', task: {state}
+                })).messageId;
+            });
+
+            GraphService.db.storage.db.prepare(`
+                UPDATE Nodes
+                SET data = json_set(
+                    json_remove(data, '$.properties.taskAssignmentAuthority'),
+                    '$.properties.task.assignee',
+                    '@charlie'
+                )
+                WHERE id = ?
+            `).run(msgId);
+            clearTaskCacheWithoutStorageMutation();
+
+            const actor = state === 'InputRequired' ? '@alice' : '@charlie';
+
+            await RequestContextService.run({agentIdentityNodeId: actor}, async () => {
+                await expect(MailboxService.transitionTask({
+                    taskId  : msgId,
+                    newState: state === 'InputRequired' ? 'Working' : 'Completed'
+                })).rejects.toThrow(/owner.*unknown|unknown.*owner/i);
+            });
+        }
+    });
+
+    test('full WAL replay preserves committed Task state, winner, authority, and transition clock', async () => {
+        let msgId;
+
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            msgId = (await MailboxService.addMessage({
+                to: 'AGENT:*', subject: 'replay claimed task', body: 'body', task: {state: 'Submitted'}
+            })).messageId;
+        });
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.transitionTask({taskId: msgId, newState: 'Working'})
+        );
+
+        const committed              = readStoredTask(msgId);
+        const {readWalMessagesByIds} = await import('../../../../../../ai/services/memory-core/helpers/messageWalStore.mjs');
+        const [record]               = await readWalMessagesByIds({
+            dir: mailboxAiConfig.messageWal.dir,
+            ids: [msgId]
+        });
+
+        expect(record.message.properties.task).toMatchObject({state: 'Submitted', assignee: null});
+        await MailboxService._projectMessageWalRecord(record, {pumpWake: false});
+
+        expect(readStoredTask(msgId)).toEqual(committed);
+    });
+
+    test('existing-node full replay is storage-neutral across an interposed peer transition', async () => {
+        let msgId;
+
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            msgId = (await MailboxService.addMessage({
+                to: 'AGENT:*', subject: 'replay race', body: 'body', task: {state: 'Submitted'}
+            })).messageId;
+        });
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.transitionTask({taskId: msgId, newState: 'Working'})
+        );
+
+        const {readWalMessagesByIds} = await import('../../../../../../ai/services/memory-core/helpers/messageWalStore.mjs');
+        const [record]               = await readWalMessagesByIds({
+            dir: mailboxAiConfig.messageWal.dir,
+            ids: [msgId]
+        });
+        const
+            sqlite          = GraphService.db.storage.db,
+            originalPrepare = sqlite.prepare,
+            peerClock       = '2026-07-12T21:15:00.000Z';
+        let injected = false;
+
+        sqlite.prepare = function(sql) {
+            const statement = originalPrepare.call(sqlite, sql);
+
+            if (sql.includes('SELECT count(*) AS count FROM Nodes WHERE id = ?')) {
+                return {
+                    get(...args) {
+                        const result = statement.get(...args);
+
+                        if (!injected && args[0] === msgId) {
+                            injected = true;
+                            originalPrepare.call(sqlite, `
+                                UPDATE Nodes
+                                SET data = json_set(
+                                    data,
+                                    '$.properties.task.state', 'Completed',
+                                    '$.properties.lastModifiedAt', ?
+                                )
+                                WHERE id = ?
+                            `).run(peerClock, msgId);
+                        }
+
+                        return result;
+                    }
+                };
+            }
+
+            return statement;
+        };
+
+        try {
+            await MailboxService._projectMessageWalRecord(record, {pumpWake: false});
+        } finally {
+            sqlite.prepare = originalPrepare;
+        }
+
+        expect(injected).toBe(true);
+        expect(readStoredTask(msgId)).toMatchObject({
+            task                   : {state: 'Completed', assignee: '@bob'},
+            taskAssignmentAuthority: 'memory-core.v1',
+            lastModifiedAt         : peerClock
+        });
+    });
+
+    test('post-marker Task node-loss repair restores non-claimable Unknown, never WAL Submitted', async () => {
+        let msgId;
+
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            msgId = (await MailboxService.addMessage({
+                to: 'AGENT:*', subject: 'lost claimed task', body: 'body', task: {state: 'Submitted'}
+            })).messageId;
+        });
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.transitionTask({taskId: msgId, newState: 'Working'})
+        );
+
+        GraphService.db.storage.db.prepare('DELETE FROM Nodes WHERE id = ?').run(msgId);
+        clearTaskCacheWithoutStorageMutation();
+
+        const repair = await MailboxService.repairMessageGraphIntegrity({ids: [msgId]});
+        const stored = readStoredTask(msgId);
+
+        expect(repair).toMatchObject({scanned: 1, repaired: 1, failed: 0});
+        expect(stored).toMatchObject({
+            task                   : {state: 'Unknown', assignee: null},
+            taskAssignmentAuthority: 'memory-core.v1'
+        });
+        expect(stored.lastModifiedAt).toBeNull();
+
+        const readBack = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.getMessage({messageId: msgId})
+        );
+        expect(readBack.task).toMatchObject({state: 'Unknown', assignee: null});
+
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await expect(MailboxService.transitionTask({taskId: msgId, newState: 'Working'}))
+                .rejects.toThrow(/owner.*unknown|unknown.*owner/i);
         });
     });
 
@@ -3047,6 +3456,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
             const res = await MailboxService.transitionTask({ taskId: msgId, newState: 'Working' });
             expect(res.success).toBe(true);
             expect(res.task.state).toBe('Working');
+            expect(res.task.assignee).toBe('@bob');
         });
 
         // Bob (Assignee) can transition Working -> InputRequired
@@ -3054,6 +3464,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
             const res = await MailboxService.transitionTask({ taskId: msgId, newState: 'InputRequired' });
             expect(res.success).toBe(true);
             expect(res.task.state).toBe('InputRequired');
+            expect(res.task.assignee).toBe('@bob');
         });
 
         // Alice (Originator) can transition InputRequired -> Working
@@ -3061,6 +3472,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
             const res = await MailboxService.transitionTask({ taskId: msgId, newState: 'Working' });
             expect(res.success).toBe(true);
             expect(res.task.state).toBe('Working');
+            expect(res.task.assignee).toBe('@bob');
         });
 
         // Bob (Assignee) can transition Working -> Completed
@@ -3068,6 +3480,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
             const res = await MailboxService.transitionTask({ taskId: msgId, newState: 'Completed' });
             expect(res.success).toBe(true);
             expect(res.task.state).toBe('Completed');
+            expect(res.task.assignee).toBe('@bob');
         });
 
         // Test Canceled by Originator
@@ -3130,7 +3543,66 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
         });
     });
 
-    test('Optimistic concurrency (claim-and-lock) handles race conditions', async () => {
+    test('expected-state mismatches disclose stored Task data only to authorized participants', async () => {
+        let directId, ownerlessBroadcastId;
+
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            directId = (await MailboxService.addMessage({
+                to  : '@bob', subject: 'mismatch privacy', body: 'body',
+                task: {state: 'Submitted', metadata: {privateMarker: 'participant-only'}}
+            })).messageId;
+            ownerlessBroadcastId = (await MailboxService.addMessage({
+                to  : 'AGENT:*', subject: 'legacy ownerless mismatch', body: 'body',
+                task: {state: 'Working', metadata: {privateMarker: 'owner-unknown'}}
+            })).messageId;
+        });
+
+        await RequestContextService.run({agentIdentityNodeId: '@charlie'}, async () => {
+            await expect(MailboxService.transitionTask({
+                taskId: directId, newState: 'Working', expectedCurrentState: 'Working'
+            })).rejects.toThrow(/Unauthorized: @charlie is neither originator nor assignee/);
+        });
+
+        GraphService.db.storage.db.prepare(`
+            UPDATE Nodes
+            SET data = json_remove(data, '$.properties.taskAssignmentAuthority')
+            WHERE id = ?
+        `).run(ownerlessBroadcastId);
+        clearTaskCacheWithoutStorageMutation();
+
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await expect(MailboxService.transitionTask({
+                taskId              : ownerlessBroadcastId,
+                newState            : 'Completed',
+                expectedCurrentState: 'Submitted'
+            })).rejects.toThrow(/owner.*unknown|unknown.*owner/i);
+        });
+    });
+
+    test('ambiguous Task routing fails closed before participant or state evaluation', async () => {
+        let hybridId, multiOriginId;
+
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            hybridId = (await MailboxService.addMessage({
+                to: 'AGENT:*', subject: 'hybrid route', body: 'body', task: {state: 'Submitted'}
+            })).messageId;
+            multiOriginId = (await MailboxService.addMessage({
+                to: '@bob', subject: 'multiple origins', body: 'body', task: {state: 'Submitted'}
+            })).messageId;
+        });
+
+        GraphService.linkNodes(hybridId, '@bob', 'SENT_TO', 1);
+        GraphService.linkNodes(multiOriginId, '@charlie', 'SENT_BY', 1);
+
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await expect(MailboxService.transitionTask({taskId: hybridId, newState: 'Working'}))
+                .rejects.toThrow(/ambiguous recipients/);
+            await expect(MailboxService.transitionTask({taskId: multiOriginId, newState: 'Working'}))
+                .rejects.toThrow(/ambiguous originators/);
+        });
+    });
+
+    test('claim-and-lock keeps later claim attempts bound to the persisted winner', async () => {
         let msgId;
         // Broadcast task -> ANY agent could potentially be assignee
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
@@ -3148,16 +3620,11 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
         });
 
         await RequestContextService.run({ agentIdentityNodeId: '@charlie' }, async () => {
-            // Charlie thinks it's still 'Submitted' (by mutating local in-memory representation)
-            const node = GraphService.db.nodes.get(msgId);
-            node.properties.task.state = 'Submitted';
-
-            // But DB actually has 'Working'. Charlie's UPDATE will have changes === 0
-            const resCharlie = await MailboxService.transitionTask({ taskId: msgId, newState: 'Working' });
-
-            expect(resCharlie.success).toBe(false);
-            expect(resCharlie.reason).toMatch(/Race lost: state changed to Working/);
+            await expect(MailboxService.transitionTask({ taskId: msgId, newState: 'Working' }))
+                .rejects.toThrow(/Unauthorized: @charlie is neither originator nor assignee/);
         });
+
+        expect(readStoredTask(msgId).task).toMatchObject({state: 'Working', assignee: '@bob'});
     });
 });
 
@@ -3357,6 +3824,47 @@ test.describe('Neo.ai.services.memory-core.MailboxService — TTL Sweeper (#1033
         // by THIS sweep cycle, not seeded from addMessage (which has no lastModifiedAt).
         expect(node.properties.lastModifiedAt >= before).toBe(true);
         expect(node.properties.lastModifiedAt <= after).toBe(true);
+    });
+
+    test('sweep preserves a claimed broadcast winner and advances its transition clock', async () => {
+        const id = await seedTask({
+            to       : 'AGENT:*',
+            state    : 'Submitted',
+            expiresAt: '2020-01-01T00:00:00Z'
+        });
+
+        await RequestContextService.run({agentIdentityNodeId: '@ttl-bob'}, () =>
+            MailboxService.transitionTask({taskId: id, newState: 'Working'})
+        );
+
+        const oldClock = '2000-01-01T00:00:00.000Z';
+        GraphService.db.storage.db.prepare(`
+            UPDATE Nodes
+            SET data = json_set(data, '$.properties.lastModifiedAt', ?)
+            WHERE id = ?
+        `).run(oldClock, id);
+
+        const result = await MailboxService.sweepExpiredTasks();
+        const row    = GraphService.db.storage.db.prepare(`
+            SELECT
+                json_extract(data, '$.properties.task.state')               AS state,
+                json_extract(data, '$.properties.task.assignee')            AS assignee,
+                json_extract(data, '$.properties.taskAssignmentAuthority')   AS taskAssignmentAuthority,
+                json_extract(data, '$.properties.lastModifiedAt')            AS lastModifiedAt
+            FROM Nodes
+            WHERE id = ?
+        `).get(id);
+
+        expect(result.sweptCount).toBe(1);
+        expect(row).toMatchObject({
+            state                  : 'Expired',
+            assignee               : '@ttl-bob',
+            taskAssignmentAuthority: 'memory-core.v1'
+        });
+        expect(row.lastModifiedAt).not.toBe(oldClock);
+        expect(GraphService.db.nodes.get(id).properties.task.assignee).toBe('@ttl-bob');
+        expect(GraphService.db.nodes.get(id).properties.taskAssignmentAuthority).toBe('memory-core.v1');
+        expect(GraphService.db.nodes.get(id).properties.lastModifiedAt).toBe(row.lastModifiedAt);
     });
 
     test('sweep does not require an identity context (maintenance role bypasses RBAC)', async () => {
