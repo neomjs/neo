@@ -154,9 +154,10 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
     };
 
     const makeCockpit = (grid, rosterWired = false) => ({
-        getReference   : reference => reference === 'fleet-grid' ? grid : null,
-        mapRosterRow   : FleetCockpit.prototype.mapRosterRow,
-        reconcileRoster: FleetCockpit.prototype.reconcileRoster,
+        getReference      : reference => reference === 'fleet-grid' ? grid : null,
+        mapRosterRow      : FleetCockpit.prototype.mapRosterRow,
+        reconcileRoster   : FleetCockpit.prototype.reconcileRoster,
+        reconcileSelection: FleetCockpit.prototype.reconcileSelection,
         rosterWired
     });
 
@@ -384,19 +385,20 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
     // listener attached (the store fires `load` for its own mutations, so the guard's recursion
     // behavior is only observable through the live listener path — a manual handler call is a
     // mock-hole).
-    const makeLiveCockpit = (store, index) => {
+    const makeLiveCockpit = (store, index, detail = null) => {
         const grid = {adapterState: 'sample', store};
 
         const cockpit = {
-            getReference     : reference => reference === 'fleet-grid' ? grid : null,
+            getReference      : reference => reference === 'fleet-grid' ? grid : reference === 'agent-detail' ? detail : null,
             grid,
-            id               : `fake-fleet-cockpit-${index}`,
-            lastLiveRows     : null,
-            mapRosterRow     : FleetCockpit.prototype.mapRosterRow,
-            onRosterStoreLoad: FleetCockpit.prototype.onRosterStoreLoad,
-            reconcileRoster  : FleetCockpit.prototype.reconcileRoster,
-            reconcilingRoster: false,
-            rosterWired      : false
+            id                : `fake-fleet-cockpit-${index}`,
+            lastLiveRows      : null,
+            mapRosterRow      : FleetCockpit.prototype.mapRosterRow,
+            onRosterStoreLoad : FleetCockpit.prototype.onRosterStoreLoad,
+            reconcileRoster   : FleetCockpit.prototype.reconcileRoster,
+            reconcileSelection: FleetCockpit.prototype.reconcileSelection,
+            reconcilingRoster : false,
+            rosterWired       : false
         };
 
         store.on({load: cockpit.onRosterStoreLoad, scope: cockpit});
@@ -474,6 +476,152 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         expect(store.get('sample-1')).toBeFalsy();
 
         store.destroy()
+    });
+
+    test('reconcileSelection (real Store): first-live clear/add re-seats a surviving selection onto the new instance', async () => {
+        const store    = Neo.create(FleetRoster, {data: []}),
+              setCalls = [],
+              detail   = {set(config) { setCalls.push(config) }},
+              cockpit  = makeLiveCockpit(store, 4, detail);
+
+        // a sample 'vega' is open in the inspector before live truth resolves
+        store.add([{agentId: 'vega'}, {agentId: 'sample-x'}]);
+        cockpit.detailRecord = store.get('vega');
+        const sampleInstance = cockpit.detailRecord;
+
+        globalThis.AgentOS = {fleet: {registryBridge: {fleetRoster: async () => ({rows: [
+            {id: 'vega', family: 'claude', lifecycle: {state: 'running'}},
+            {id: 'ada',  family: 'claude', lifecycle: {state: 'stopped'}}
+        ]})}}};
+
+        await FleetCockpit.prototype.loadRoster.call(cockpit);   // first-live clear+add replaces the seed
+
+        const liveInstance = store.get('vega');
+        expect(liveInstance).toBeTruthy();
+        expect(liveInstance).not.toBe(sampleInstance);           // a genuinely new record instance
+        expect(cockpit.detailRecord).toBe(liveInstance);         // re-seated onto the live instance
+        expect(setCalls).toEqual([{record: liveInstance}]);      // the inspector re-rendered
+
+        store.destroy()
+    });
+
+    test('reconcileSelection (real Store): a later empty snapshot clears a removed resident to the honest empty state', async () => {
+        const store    = Neo.create(FleetRoster, {data: []}),
+              setCalls = [],
+              detail   = {set(config) { setCalls.push(config) }},
+              cockpit  = makeLiveCockpit(store, 5, detail);
+
+        cockpit.rosterWired = true;                              // past the first-live replacement
+        store.add([{agentId: 'vega'}, {agentId: 'ada'}]);
+        cockpit.detailRecord = store.get('vega');
+
+        globalThis.AgentOS = {fleet: {registryBridge: {fleetRoster: async () => ({rows: []})}}};
+
+        await FleetCockpit.prototype.loadRoster.call(cockpit);   // authoritative empty snapshot → real Store.remove
+
+        expect(store.get('vega')).toBeFalsy();                   // removed via the real Store path
+        expect(cockpit.detailRecord).toBeNull();                // selection cleared
+        expect(setCalls).toEqual([{record: null}]);             // AgentDetail → honest empty state
+
+        store.destroy()
+    });
+
+    test('reconcileSelection (real Store): a surviving same-instance reconcile is a no-op (mutation path owns it)', async () => {
+        const store    = Neo.create(FleetRoster, {data: []}),
+              setCalls = [],
+              detail   = {set(config) { setCalls.push(config) }},
+              cockpit  = makeLiveCockpit(store, 6, detail);
+
+        cockpit.rosterWired = true;
+        store.add([{agentId: 'vega'}, {agentId: 'ada'}]);
+        cockpit.detailRecord = store.get('vega');
+        const instance = cockpit.detailRecord;
+
+        globalThis.AgentOS = {fleet: {registryBridge: {fleetRoster: async () => ({rows: [
+            {id: 'vega', family: 'claude', lifecycle: {state: 'running'}},
+            {id: 'ada',  family: 'claude', lifecycle: {state: 'stopped'}}
+        ]})}}};
+
+        await FleetCockpit.prototype.loadRoster.call(cockpit);   // reconcile: record.set mutates in place (same object)
+
+        expect(store.get('vega')).toBe(instance);               // same instance, mutated in place
+        expect(cockpit.detailRecord).toBe(instance);            // selection unchanged
+        expect(setCalls).toEqual([]);                           // no re-seat — recordChange owns mutation
+
+        store.destroy()
+    });
+
+    test('onDetailRecordChange routes a roster mutation of the inspected agent to the detail — reactive to record MUTATION, not just a re-seat', () => {
+        const
+            record  = {agentId: 'vega'},
+            applied = [],
+            detail  = {applyRecord() { applied.push(true) }},
+            host    = Object.create(FleetCockpit.prototype);
+
+        host.detailRecord = record;
+        host.getReference = name => name === 'agent-detail' ? detail : null;
+
+        // a recordChange for the INSPECTED record re-renders the detail in place — a roster re-poll
+        // mutating state/lane/sources on the open agent must never leave a stale inspector
+        FleetCockpit.prototype.onDetailRecordChange.call(host, {record});
+        expect(applied).toEqual([true]);
+
+        // a recordChange for a DIFFERENT record is ignored — no needless re-render
+        FleetCockpit.prototype.onDetailRecordChange.call(host, {record: {agentId: 'ada'}});
+        expect(applied).toEqual([true]);
+
+        // detail not mounted (auto-hidden, not yet revealed) → the optional chain no-ops safely
+        host.getReference = () => null;
+        FleetCockpit.prototype.onDetailRecordChange.call(host, {record});
+        expect(applied).toEqual([true])
+    });
+
+    test('reconcileSelection re-seats or clears the owner-held selection on authoritative membership changes', () => {
+        const
+            setCalls = [],
+            detail   = {set(config) { setCalls.push(config) }},
+            makeHost = (detailRecord, storeGet) => {
+                const host = Object.create(FleetCockpit.prototype);
+
+                host.detailRecord = detailRecord;
+                host.getReference = name =>
+                    name === 'fleet-grid'   ? {store: {get: storeGet}} :
+                    name === 'agent-detail' ? detail : null;
+
+                return host
+            };
+
+        // (1) the inspected resident is REMOVED (absent from the authoritative snapshot / empty
+        //     snapshot) → clear the selection to the honest empty state (Store.remove fires no recordChange)
+        setCalls.length = 0;
+        const removedHost = makeHost({agentId: 'vega'}, () => undefined);
+        FleetCockpit.prototype.reconcileSelection.call(removedHost);
+        expect(removedHost.detailRecord).toBeNull();
+        expect(setCalls).toEqual([{record: null}]);
+
+        // (2) the resident survives as the SAME instance (in-place record.set reconcile) → no re-seat;
+        //     the mutation path (recordChange → applyRecord) already keeps the inspector truthful
+        setCalls.length = 0;
+        const same     = {agentId: 'vega'};
+        const sameHost = makeHost(same, id => id === 'vega' ? same : undefined);
+        FleetCockpit.prototype.reconcileSelection.call(sameHost);
+        expect(sameHost.detailRecord).toBe(same);
+        expect(setCalls).toEqual([]);
+
+        // (3) the durable agentId survives as a NEW instance (first-live clear+add replace of the sample
+        //     seed) → re-seat detailRecord onto the live instance and re-render
+        setCalls.length = 0;
+        const stale      = {agentId: 'vega'}, fresh = {agentId: 'vega'};
+        const reseatHost = makeHost(stale, id => id === 'vega' ? fresh : undefined);
+        FleetCockpit.prototype.reconcileSelection.call(reseatHost);
+        expect(reseatHost.detailRecord).toBe(fresh);
+        expect(setCalls).toEqual([{record: fresh}]);
+
+        // (4) nothing selected → no-op, and the Store is never touched
+        setCalls.length = 0;
+        const noneHost = makeHost(null, () => { throw new Error('store must not be touched when nothing is selected') });
+        FleetCockpit.prototype.reconcileSelection.call(noneHost);
+        expect(setCalls).toEqual([])
     });
 });
 
@@ -701,6 +849,60 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
         expect(calls.length).toBe(1)   // three residents started, ONE roster re-poll — never N polls
     });
 
+    test('onAgentSelect: a card select holds the owner-side detailRecord + reveals the auto-hidden inspector through the commit loop', () => {
+        const
+            record  = {agentId: 'vega', displayName: 'Vega'},
+            detail  = {record: null, set(cfg) { Object.assign(this, cfg) }},
+            applied = [],
+            cockpit = {
+                detailRecord: null,
+                dockModel   : {items: {detail: {autoHidden: true}}},
+                applyDockZoneOperation(op) { applied.push(op); return {document: {revealed: true}, errors: []} },
+                onDockZoneDocumentChange(doc) { this.committed = doc }
+            },
+            controller = Object.create(FleetCockpitController.prototype);
+
+        controller.component    = cockpit;
+        controller.getReference = name => name === 'fleet-grid' ? {store: {get: id => id === 'vega' ? record : null}} : name === 'agent-detail' ? detail : null;
+
+        controller.onAgentSelect({agentId: 'vega'});
+
+        // owner-held selection (survives a later re-projection — resolveDockComponentRef reads it) +
+        // the live pane updated in place
+        expect(cockpit.detailRecord).toBe(record);
+        expect(detail.record).toBe(record);
+        // the auto-hidden inspector is revealed through the standard commit loop, not a bespoke path
+        expect(applied).toEqual([{operation: 'setItemAutoHidden', itemId: 'detail', autoHidden: false}]);
+        expect(cockpit.committed).toEqual({revealed: true})
+    });
+
+    test('onAgentSelect: an already-revealed inspector updates in place (no re-projection); an unknown agent is a fail-closed no-op', () => {
+        const
+            record  = {agentId: 'ada'},
+            detail  = {record: null, set(cfg) { Object.assign(this, cfg) }},
+            applied = [],
+            cockpit = {
+                detailRecord: null,
+                dockModel   : {items: {detail: {autoHidden: false}}},   // already revealed
+                applyDockZoneOperation(op) { applied.push(op); return {document: {}, errors: []} },
+                onDockZoneDocumentChange() { this.reprojected = true }
+            },
+            controller = Object.create(FleetCockpitController.prototype);
+
+        controller.component    = cockpit;
+        controller.getReference = name => name === 'fleet-grid' ? {store: {get: id => id === 'ada' ? record : null}} : name === 'agent-detail' ? detail : null;
+
+        controller.onAgentSelect({agentId: 'ada'});
+        expect(cockpit.detailRecord).toBe(record);
+        expect(detail.record).toBe(record);
+        expect(applied).toEqual([]);                  // already revealed → no reveal op...
+        expect(cockpit.reprojected).toBeUndefined();  // ...and no full re-projection
+
+        // unknown agentId → fail-closed no-op, the selection stands
+        controller.onAgentSelect({agentId: 'ghost'});
+        expect(cockpit.detailRecord).toBe(record)
+    });
+
     // The composition-root binding witness: not "loadRoster was called" (the spy tests above) but
     // "reconciliation reaches the RECORD". Assembles the REAL path end to end — the real controller
     // onAgentLifecycleIntent, the real C2 adapter, a stateful bridge whose `fleetRoster` reflects the
@@ -728,16 +930,20 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
         // a REAL store the REAL loadRoster reconciles into — the record is the card's data surface
         const store   = Neo.create(Store, {keyProperty: 'agentId', model: FleetAgent});
         const cockpit = {
-            getReference   : reference => reference === 'fleet-grid' ? {adapterState: 'sample', store} : null,
-            mapRosterRow   : FleetCockpit.prototype.mapRosterRow,
-            reconcileRoster: FleetCockpit.prototype.reconcileRoster,
-            loadRoster     : FleetCockpit.prototype.loadRoster,
-            rosterWired    : false
+            getReference      : reference => reference === 'fleet-grid' ? {adapterState: 'sample', store} : null,
+            mapRosterRow      : FleetCockpit.prototype.mapRosterRow,
+            reconcileRoster   : FleetCockpit.prototype.reconcileRoster,
+            reconcileSelection: FleetCockpit.prototype.reconcileSelection,
+            loadRoster        : FleetCockpit.prototype.loadRoster,
+            rosterWired       : false
         };
 
         // boot: the real loadRoster reads the bridge — the agent is stopped, so the record resolves to 'off'
         await cockpit.loadRoster();
         expect(store.get('vega').state).toBe('off');
+        // success-state proof: the load COMPLETED (reached the post-reconcile adapter-state assignment), not
+        // merely mutated the record before a swallowed missing-reconcileSelection error (Euclid's falsifier)
+        expect(cockpit.gridAdapterState).toBe('live');
 
         // drive the REAL controller path for that record — real onAgentLifecycleIntent -> real adapter ->
         // bridge.startAgent -> refreshRosterOnSettle -> real loadRoster -> reconcile
@@ -755,6 +961,8 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
 
         // the binding witness: the SAME real record advanced off -> ok through reconciliation, no reload/rebuild
         expect(store.get('vega').state).toBe('ok');
+        // and the re-poll load COMPLETED too (reconcile phase reached success state, not a swallowed error)
+        expect(cockpit.gridAdapterState).toBe('live');
 
         store.destroy()
     })

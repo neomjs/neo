@@ -133,6 +133,41 @@ class FleetCockpitController extends Controller {
     }
 
     /**
+     * @summary Drill into a resident — the card→detail select seam.
+     *
+     * A card fires `agentSelect {agentId}` on a body click; the cockpit is the composition root that
+     * knows both the roster store and the detail pane. It resolves the record from the bound store,
+     * holds it as the OWNER-side selection (so a later re-projection re-materializes the inspector at
+     * this agent — {@link AgentOS.view.fleet.FleetCockpit#resolveDockComponentRef} reads
+     * `detailRecord`), and updates a live detail instance in place. The detail pane is auto-hidden on
+     * the rail by default, so the FIRST select reveals it through the standard commit loop (which
+     * re-projects and builds the pane from `detailRecord`); a later select updates the already-shown
+     * pane in place, with no full re-projection. An unknown agentId is a no-op (fail-closed).
+     * @param {Object} data The `agentSelect` payload `{agentId}` — Neo stamps `source`.
+     */
+    onAgentSelect(data) {
+        const
+            me      = this,
+            cockpit = me.component,
+            // resolve from the firing card (data.source) — mirroring onAgentLifecycleIntent's proven
+            // source-based lookup; fall back to the roster store by agentId for callers with no source.
+            record  = Neo.getComponent(data.source)?.record ?? me.getReference('fleet-grid')?.store?.get(data.agentId);
+
+        if (!record) {
+            return
+        }
+
+        cockpit.detailRecord = record;
+        me.getReference('agent-detail')?.set({record});
+
+        if (cockpit.dockModel?.items?.detail?.autoHidden) {
+            const result = cockpit.applyDockZoneOperation({operation: 'setItemAutoHidden', itemId: 'detail', autoHidden: false});
+
+            result && !result.errors?.length && cockpit.onDockZoneDocumentChange(result.document)
+        }
+    }
+
+    /**
      * @summary Re-poll the roster once a lifecycle intent has genuinely changed runtime state.
      *
      * `loadRoster` is the ONLY path that maps live runtime truth onto the roster records, and the
