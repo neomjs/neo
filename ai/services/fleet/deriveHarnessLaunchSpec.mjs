@@ -1,4 +1,5 @@
 import {HARNESS_TYPES} from '../../../src/ai/fleet/harnessTypes.mjs';
+import path            from 'node:path';
 
 // Per-family launch contracts — ONE entry per LAUNCHABLE family, keyed by the durable harness-type
 // from the shared registry authority (src/ai/fleet/harnessTypes.mjs). Every entry carries the three
@@ -6,7 +7,7 @@ import {HARNESS_TYPES} from '../../../src/ai/fleet/harnessTypes.mjs';
 // command-line switch), so fixed module data, not configurable fields — an override would set a
 // name the harness never reads, silently collapsing the isolation (fail-OPEN):
 //
-// - isolation — exactly ONE of:
+// - isolation — one OR BOTH of:
 //   `homeEnvVar`  (CLI families): the env var the harness honors as its config/state home.
 //   `homeArgFlag` (Electron/Chromium app-bundle families): the switch that relocates the profile
 //   AND the per-profile single-instance lock — which is precisely what lets many supervised
@@ -28,8 +29,9 @@ import {HARNESS_TYPES} from '../../../src/ai/fleet/harnessTypes.mjs';
 //   prepends the isolation flag, so even the probe subprocess can never cross into another
 //   instance's (or the operator's own) single-instance scope.
 // - `authMode` — how the operator-owned per-home auth step happens for the family:
-//   `'marker'` = a documented marker file inside the home flips the lifecycle `authRequired`
-//   heuristic (CLI families; the login is a command). `'in-app'` = auth is the sign-in INSIDE the
+//   `'marker'` = a documented marker file inside the AUTH home flips the lifecycle `authRequired`
+//   heuristic (the login is a command; Codex Desktop deliberately uses the sibling bundled CLI
+//   against its nested `codex-home`). `'in-app'` = auth is the sign-in INSIDE the
 //   launched window — no marker exists, `authRequired` stays honestly `null`, and the handoff
 //   instruction must render from THIS mode, never from the (permanently null) heuristic.
 const HARNESS_LAUNCH_CONTRACTS = {
@@ -56,6 +58,10 @@ const HARNESS_LAUNCH_CONTRACTS = {
         homeEnvVar      : 'CODEX_HOME',
         modeArgs        : ['app-server'],
         versionProbeArgs: ['--version']
+    },
+    'codex-desktop': {
+        authMode        : 'marker',
+        versionProbeArgs: null
     }
 };
 
@@ -124,6 +130,18 @@ export function getHarnessAuthMode(harnessType) {
  *   freshly-derived home starts unauthenticated by design — the lifecycle status's `authRequired`
  *   surfaces it).
  *
+ * - **`'codex-desktop'`** → the packaged app MAIN binary with two fixed child homes beneath the
+ *   contained Fleet instance home: `codex-home` (auth/state) + `electron-profile` (native Chromium
+ *   profile + single-instance lock). Its launch tuple is
+ *   `--user-data-dir=<electronProfile> --open-project=<absolute provisioned cwd>` plus child-only
+ *   `CODEX_HOME`, `CODEX_ELECTRON_USER_DATA_PATH` (the app-side mirror of the same profile), and
+ *   `CODEX_SPARKLE_ENABLED=false` (secondary residents never own updates). Unlike the other GUI
+ *   families, OAuth remains marker-driven through the bundled CLI, so the result carries typed
+ *   `authHome` and `electronProfile` metadata for the lifecycle owner. A missing or relative cwd
+ *   throws before spawn: silently opening the Fleet server's cwd would fork project-keyed memory.
+ *   The app binary is never executed as a version probe — that would boot another GUI/helper set;
+ *   installed-bundle capability proof is owned by `manageCodexDesktopRuntime` instead.
+ *
  * - **`'claude-code'`** → `{command: binaryPath, args: [<stream-json print mode>], env:
  *   {CLAUDE_CONFIG_DIR: instanceHome}}`. Isolation empirically verified (claude CLI 2.1.156,
  *   macOS): pointing `CLAUDE_CONFIG_DIR` at a fresh dir yields a logged-out instance materializing
@@ -167,6 +185,8 @@ export function getHarnessAuthMode(harnessType) {
  *                                      {@link Neo.ai.services.fleet.deriveAgentInstanceHome}).
  * @param {String} options.binaryPath   The harness binary to spawn (config-resolved by the caller;
  *                                      never guessed here).
+ * @param {String} [options.cwd]        Final provisioned checkout; required + absolute for
+ *                                      `codex-desktop`, ignored by other families.
  * @returns {{command: String, args: String[], env: Object, versionProbeArgs: String[]|null}} a
  * fresh spec per call — `args` / `env` / `versionProbeArgs` are caller-mutable without cross-call
  * bleed. `versionProbeArgs` is the argv for the supervisor's best-effort version capture
@@ -175,7 +195,7 @@ export function getHarnessAuthMode(harnessType) {
  * @throws {Error} If any argument is not a non-empty string, or `harnessType` is not a launchable
  * family.
  */
-export function deriveHarnessLaunchSpec({harnessType, instanceHome, binaryPath} = {}) {
+export function deriveHarnessLaunchSpec({harnessType, instanceHome, binaryPath, cwd} = {}) {
     assertNonEmptyString(harnessType,  'harnessType');
     assertNonEmptyString(instanceHome, 'instanceHome');
     assertNonEmptyString(binaryPath,   'binaryPath');
@@ -185,6 +205,32 @@ export function deriveHarnessLaunchSpec({harnessType, instanceHome, binaryPath} 
     if (!contract) {
         const supported = LAUNCHABLE_HARNESS_TYPES.map(type => `'${type}'`).join(', ');
         throw new Error(`deriveHarnessLaunchSpec: unsupported harnessType '${harnessType}'. Supported: ${supported}.`);
+    }
+
+    if (harnessType === 'codex-desktop') {
+        if (!path.isAbsolute(instanceHome)) {
+            throw new Error(`deriveHarnessLaunchSpec: 'instanceHome' must be absolute for codex-desktop, received '${instanceHome}'.`);
+        }
+        if (typeof cwd !== 'string' || !path.isAbsolute(cwd)) {
+            throw new Error("deriveHarnessLaunchSpec: 'cwd' must be an absolute provisioned checkout for codex-desktop.");
+        }
+
+        const
+            authHome        = path.join(instanceHome, 'codex-home'),
+            electronProfile = path.join(instanceHome, 'electron-profile');
+
+        return {
+            command: binaryPath,
+            args   : [`--user-data-dir=${electronProfile}`, `--open-project=${cwd}`],
+            env    : {
+                CODEX_HOME                   : authHome,
+                CODEX_ELECTRON_USER_DATA_PATH: electronProfile,
+                CODEX_SPARKLE_ENABLED        : 'false'
+            },
+            versionProbeArgs: null,
+            authHome,
+            electronProfile
+        };
     }
 
     if (contract.homeEnvVar) {

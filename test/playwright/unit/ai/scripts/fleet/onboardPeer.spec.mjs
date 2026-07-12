@@ -127,7 +127,7 @@ test.describe('onboardPeer — intent construction (pure half)', () => {
     test('only curated harness families are accepted, with a named refusal', () => {
         // The curated set IS the launch-templated subset — one derived truth, widened in lockstep
         // with deriveHarnessLaunchSpec. `native-neo` stays registered-but-unlaunchable.
-        expect(CURATED_HARNESS_TYPES).toEqual(['antigravity', 'claude-code', 'claude-desktop', 'codex']);
+        expect(CURATED_HARNESS_TYPES).toEqual(['antigravity', 'claude-code', 'claude-desktop', 'codex', 'codex-desktop']);
         expect(CURATED_HARNESS_TYPES).not.toContain('native-neo');
 
         const built = buildOnboardingIntent({...BASE_OPTIONS, harnessType: 'gemini-cli'});
@@ -267,12 +267,12 @@ test.describe('onboardPeer — the two-phase planner', () => {
 
 test.describe('onboardPeer — auth handoff', () => {
     test('the lifecycle-resolved absolute home is shell-quoted; placeholders and relative homes refuse', () => {
-        expect(buildLoginCommand({harnessType: 'codex', instanceHome: "/tmp/neo homes/o'neil", launchCommand: '/Applications/ChatGPT.app/Contents/Resources/codex'}))
+        expect(buildLoginCommand({harnessType: 'codex', authHome: "/tmp/neo homes/o'neil", authCommand: '/Applications/ChatGPT.app/Contents/Resources/codex'}))
             .toBe("CODEX_HOME='/tmp/neo homes/o'\\''neil' '/Applications/ChatGPT.app/Contents/Resources/codex' login");
-        expect(buildLoginCommand({harnessType: 'claude-code', instanceHome: '/tmp/claude-home', launchCommand: '/opt/claude'}))
+        expect(buildLoginCommand({harnessType: 'claude-code', authHome: '/tmp/claude-home', authCommand: '/opt/claude'}))
             .toContain("CLAUDE_CONFIG_DIR='/tmp/claude-home'");
-        expect(() => buildLoginCommand({harnessType: 'codex', instanceHome: '<instance home>', launchCommand: '/opt/codex'})).toThrow(/absolute instanceHome/);
-        expect(() => buildLoginCommand({harnessType: 'codex', instanceHome: '/tmp/x\nFAKE', launchCommand: '/opt/codex'})).toThrow(/control-character-free/);
+        expect(() => buildLoginCommand({harnessType: 'codex', authHome: '<instance home>', authCommand: '/opt/codex'})).toThrow(/absolute authHome/);
+        expect(() => buildLoginCommand({harnessType: 'codex', authHome: '/tmp/x\nFAKE', authCommand: '/opt/codex'})).toThrow(/control-character-free/);
     });
 
     test('GUI app-bundle families print the isolated relaunch line — auth is the in-app sign-in, no CLI login exists', () => {
@@ -303,17 +303,34 @@ test.describe('onboardPeer — auth handoff', () => {
     });
 
     test('marker families keep the heuristic-driven branches unchanged: true → login command, false → done, null → honest WARN with no guessed command', () => {
-        const required = deriveAuthHandoff({harnessType: 'codex', status: {authRequired: true, instanceHome: '/srv/homes/c', launchCommand: '/opt/codex'}});
+        const required = deriveAuthHandoff({harnessType: 'codex', status: {authRequired: true, authHome: '/srv/homes/c', authCommand: '/opt/codex'}});
 
         expect(required.kind).toBe('login-required');
         expect(required.lines.join('\n')).toContain("CODEX_HOME='/srv/homes/c' '/opt/codex' login");
 
-        expect(deriveAuthHandoff({harnessType: 'codex', status: {authRequired: false, instanceHome: '/srv/homes/c', launchCommand: '/opt/codex'}}).kind).toBe('done');
+        expect(deriveAuthHandoff({harnessType: 'codex', status: {authRequired: false, authHome: '/srv/homes/c', authCommand: '/opt/codex'}}).kind).toBe('done');
 
-        const unknown = deriveAuthHandoff({harnessType: 'codex', status: {authRequired: null, instanceHome: '/srv/homes/c', launchCommand: '/opt/codex'}});
+        const unknown = deriveAuthHandoff({harnessType: 'codex', status: {authRequired: null, authHome: '/srv/homes/c', authCommand: '/opt/codex'}});
 
         expect(unknown.kind).toBe('unknown');
         expect(unknown.lines.join('\n')).not.toContain('codex login');
+    });
+
+    test('Codex Desktop marker auth uses the bundled CLI + nested auth home, never the GUI main', () => {
+        const handoff = deriveAuthHandoff({
+            harnessType: 'codex-desktop',
+            status     : {
+                authRequired : true,
+                instanceHome : '/srv/homes/desktop',
+                launchCommand: '/Applications/ChatGPT.app/Contents/MacOS/ChatGPT',
+                authHome     : '/srv/homes/desktop/codex-home',
+                authCommand  : '/Applications/ChatGPT.app/Contents/Resources/codex'
+            }
+        });
+
+        expect(handoff.kind).toBe('login-required');
+        expect(handoff.lines.join('\n')).toContain("CODEX_HOME='/srv/homes/desktop/codex-home' '/Applications/ChatGPT.app/Contents/Resources/codex' login");
+        expect(handoff.lines.join('\n')).not.toContain('Contents/MacOS/ChatGPT');
     });
 
     test('the dry-run planner names the in-app mode for GUI families — plan and post-launch decision cannot drift', () => {
@@ -336,7 +353,7 @@ test.describe('onboardPeer — auth handoff', () => {
               sentinelPath  = path.join(root, 'PWNED'),
               launchCommand = path.join(root, 'fake;touch PWNED'),
               instanceHome  = path.join(root, "home with ' quote"),
-              command       = buildLoginCommand({harnessType: 'codex', instanceHome, launchCommand});
+              command       = buildLoginCommand({harnessType: 'codex', authHome: instanceHome, authCommand: launchCommand});
 
         try {
             fs.writeFileSync(launchCommand, `#!/usr/bin/env node\nimport fs from 'node:fs';\nfs.writeFileSync(process.env.CAPTURE, JSON.stringify({home: process.env.CODEX_HOME, argv: process.argv.slice(2)}));\n`);

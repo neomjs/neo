@@ -1,5 +1,5 @@
-import {test, expect}                                      from '@playwright/test';
-import {HARNESS_TYPES}                                     from '../../../../../../src/ai/fleet/harnessTypes.mjs';
+import {test, expect}                                                          from '@playwright/test';
+import {HARNESS_TYPES}                                                         from '../../../../../../src/ai/fleet/harnessTypes.mjs';
 import {LAUNCHABLE_HARNESS_TYPES, deriveHarnessLaunchSpec, getHarnessAuthMode} from '../../../../../../ai/services/fleet/deriveHarnessLaunchSpec.mjs';
 
 // Pure function — imported directly (no fs / spawn / env / Neo runtime), so the suite has no
@@ -17,6 +17,31 @@ test.describe('deriveHarnessLaunchSpec (per-family harness launch templates)', (
             args            : ['app-server'],
             env             : {CODEX_HOME: '/srv/instances/a/codex'},
             versionProbeArgs: ['--version']
+        });
+    });
+
+    test('codex-desktop: direct packaged main + dual homes + exact provisioned project + updater disabled', () => {
+        const spec = deriveHarnessLaunchSpec({
+            harnessType : 'codex-desktop',
+            instanceHome: '/srv/instances/a/codex-desktop',
+            binaryPath  : '/Applications/ChatGPT.app/Contents/MacOS/ChatGPT',
+            cwd         : '/srv/checkouts/a/neomjs/neo'
+        });
+
+        expect(spec).toEqual({
+            command: '/Applications/ChatGPT.app/Contents/MacOS/ChatGPT',
+            args   : [
+                '--user-data-dir=/srv/instances/a/codex-desktop/electron-profile',
+                '--open-project=/srv/checkouts/a/neomjs/neo'
+            ],
+            env: {
+                CODEX_HOME                   : '/srv/instances/a/codex-desktop/codex-home',
+                CODEX_ELECTRON_USER_DATA_PATH: '/srv/instances/a/codex-desktop/electron-profile',
+                CODEX_SPARKLE_ENABLED        : 'false'
+            },
+            versionProbeArgs: null,
+            authHome        : '/srv/instances/a/codex-desktop/codex-home',
+            electronProfile : '/srv/instances/a/codex-desktop/electron-profile'
         });
     });
 
@@ -77,13 +102,15 @@ test.describe('deriveHarnessLaunchSpec (per-family harness launch templates)', (
     });
 
     test('LAUNCHABLE_HARNESS_TYPES is the frozen alphabetical template subset AND every entry is a registered harness type', () => {
-        expect(LAUNCHABLE_HARNESS_TYPES).toEqual(['antigravity', 'claude-code', 'claude-desktop', 'codex']);
+        expect(LAUNCHABLE_HARNESS_TYPES).toEqual(['antigravity', 'claude-code', 'claude-desktop', 'codex', 'codex-desktop']);
         expect(Object.isFrozen(LAUNCHABLE_HARNESS_TYPES)).toBe(true);
 
         // The lockstep invariant the module also guards at import: launch vocabulary ⊆ the shared
         // registry authority. `native-neo` stays registered-but-unlaunchable by design.
         const registered = new Set(HARNESS_TYPES.map(entry => entry.type));
 
+        expect(registered.size).toBe(HARNESS_TYPES.length);
+        expect(HARNESS_TYPES.filter(entry => entry.type === 'codex-desktop')).toHaveLength(1);
         for (const type of LAUNCHABLE_HARNESS_TYPES) {
             expect(registered.has(type), `'${type}' must be registered in src/ai/fleet/harnessTypes.mjs`).toBe(true);
         }
@@ -93,6 +120,7 @@ test.describe('deriveHarnessLaunchSpec (per-family harness launch templates)', (
 
     test('getHarnessAuthMode: marker for the CLI families, in-app for the app bundles, null fail-closed for everything else', () => {
         expect(getHarnessAuthMode('codex')).toBe('marker');
+        expect(getHarnessAuthMode('codex-desktop')).toBe('marker');
         expect(getHarnessAuthMode('claude-code')).toBe('marker');
         expect(getHarnessAuthMode('claude-desktop')).toBe('in-app');
         expect(getHarnessAuthMode('antigravity')).toBe('in-app');
@@ -106,6 +134,7 @@ test.describe('deriveHarnessLaunchSpec (per-family harness launch templates)', (
         expect(call).toThrow(/unsupported harnessType 'gemini-cli'/);
         expect(call).toThrow(/'claude-code'/);
         expect(call).toThrow(/'codex'/);
+        expect(call).toThrow(/'codex-desktop'/);
         expect(call).toThrow(/'claude-desktop'/);
         expect(call).toThrow(/'antigravity'/);
     });
@@ -117,5 +146,7 @@ test.describe('deriveHarnessLaunchSpec (per-family harness launch templates)', (
         expect(() => deriveHarnessLaunchSpec({harnessType: 'codex', instanceHome: '/h', binaryPath: ''  })).toThrow(/binaryPath/);
         expect(() => deriveHarnessLaunchSpec({harnessType: 'codex', instanceHome: 42,   binaryPath: '/b'})).toThrow(/instanceHome/);
         expect(() => deriveHarnessLaunchSpec({})).toThrow(/harnessType/);
+        expect(() => deriveHarnessLaunchSpec({harnessType: 'codex-desktop', instanceHome: '/h', binaryPath: '/b'})).toThrow(/cwd/);
+        expect(() => deriveHarnessLaunchSpec({harnessType: 'codex-desktop', instanceHome: '/h', binaryPath: '/b', cwd: 'relative'})).toThrow(/cwd/);
     });
 });

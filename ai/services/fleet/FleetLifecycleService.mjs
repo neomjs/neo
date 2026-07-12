@@ -1,11 +1,12 @@
-import {execFile, spawn}         from 'child_process';
-import fs                        from 'fs';
-import path                      from 'path';
-import AiConfig                  from '../../config.mjs';
-import Base                      from '../../../src/core/Base.mjs';
-import {deriveAgentInstanceHome} from './deriveAgentInstanceHome.mjs';
-import {deriveHarnessLaunchSpec} from './deriveHarnessLaunchSpec.mjs';
-import FleetRegistryService      from './FleetRegistryService.mjs';
+import {execFile, spawn}                                            from 'child_process';
+import fs                                                           from 'fs';
+import path                                                         from 'path';
+import AiConfig                                                     from '../../config.mjs';
+import Base                                                         from '../../../src/core/Base.mjs';
+import {deriveAgentInstanceHome}                                    from './deriveAgentInstanceHome.mjs';
+import {deriveHarnessLaunchSpec}                                    from './deriveHarnessLaunchSpec.mjs';
+import FleetRegistryService                                         from './FleetRegistryService.mjs';
+import {cleanupCodexDesktopCrashpad, probeCodexDesktopCapabilities} from './manageCodexDesktopRuntime.mjs';
 
 // The forced-projection env var is a CROSS-PROCESS CONTRACT: the FM sets it on the spawned child env,
 // and the Neural Link server's `resolveToolProjectionMode` reads this exact name as the fallback to
@@ -26,7 +27,8 @@ const HARNESS_BINARY_LEAF_KEYS = {
     'antigravity'   : 'antigravity',
     'claude-code'   : 'claudeCode',
     'claude-desktop': 'claudeDesktop',
-    'codex'         : 'codex'
+    'codex'         : 'codex',
+    'codex-desktop' : 'codexDesktop'
 };
 
 // The ONLY ambient parent-env vars that cross into a spawned harness. The FM's own environment
@@ -52,7 +54,9 @@ const PROTO_ENV_KEYS = Object.freeze(['__proto__', 'constructor', 'prototype']);
 // unknown), never a guessed boolean.
 const HARNESS_AUTH_MARKERS = {
     'claude-code': '.credentials.json',
-    'codex'      : 'auth.json'
+    'codex'      : 'auth.json',
+    // Codex Desktop authenticates through the bundled CLI against its typed nested authHome.
+    'codex-desktop': 'auth.json'
 };
 
 /**
@@ -213,6 +217,20 @@ class FleetLifecycleService extends Base {
     execFileFn = null
 
     /**
+     * Installed-bundle capability probe for `codex-desktop`. Defaults to the read-only static
+     * bundle inspector; injectable so lifecycle specs never depend on an installed GUI app.
+     * @member {Function|null} codexDesktopCapabilityProbeFn=null
+     */
+    codexDesktopCapabilityProbeFn = null
+
+    /**
+     * Exact-profile Crashpad cleanup after a Codex Desktop main exit. Defaults to the bounded
+     * process-ownership helper; injectable so unit specs never inspect or signal host processes.
+     * @member {Function|null} codexDesktopCleanupFn=null
+     */
+    codexDesktopCleanupFn = null
+
+    /**
      * Supervised processes keyed by agent id. Records carry NO secret.
      * @member {Map<String,Object>} processes
      * @private
@@ -236,13 +254,19 @@ class FleetLifecycleService extends Base {
     start(id, opts = {}) {
         if (this.isRunning(id)) return this.status(id);
 
+        const priorRecord = this.processes.get(id);
+
+        if (priorRecord?.state === 'stopping' || priorRecord?.cleanupUnresolved) {
+            throw new Error(`FleetLifecycleService.start: refusing to spawn agent '${id}' while Codex Desktop helper ownership is ${priorRecord.state === 'stopping' ? 'still being finalized' : 'unresolved after a lifecycle failure'}.`);
+        }
+
         // The RAW definition read (Brain-internal): the public getAgent projection deliberately
         // redacts metadata.launch, so the spawn path — the one consumer entitled to the launch
         // override — reads through the registry's definition surface instead.
         const agent = this.getRegistry().getDefinition(id);
         if (!agent) throw new Error(`FleetLifecycleService.start: unknown agent '${id}'.`);
 
-        const launch                          = this.resolveLaunch(agent),
+        const launch                          = this.resolveLaunch(agent, opts),
               {command, args, env: launchEnv} = launch;
 
         // Env-key contract guard (fail-fast): each reserved class occupies a DISTINCT child-env slot.
@@ -290,6 +314,34 @@ class FleetLifecycleService extends Base {
 
         if (!resolvedCommand) {
             throw new Error(`FleetLifecycleService.start: harness binary '${command}' not found or not executable for agent '${id}' (path-shaped commands resolve against the child cwd; bare commands against the child's PATH; executable permission required). Pin the AiConfig fleet.harnessBinaries leaf or the harnessBinaryPaths field to a real executable.`);
+        }
+
+        let
+            authCommand            = launch.instanceHome && HARNESS_AUTH_MARKERS[agent.harnessType] ? resolvedCommand : null,
+            codexDesktopCapability = null;
+
+        if (agent.harnessType === 'codex-desktop' && launch.instanceHome) {
+            const configuredAuthCommand = this.getHarnessBinaryPath('codex');
+
+            authCommand = configuredAuthCommand && this.resolveExecutable(configuredAuthCommand, env.PATH, opts.cwd);
+
+            if (!authCommand) {
+                const reason = 'bundled Codex CLI auth command is unavailable';
+                this.publishUnavailable({id, launch, resolvedCommand, cwd: opts.cwd, reason});
+                throw new Error(`FleetLifecycleService.start: codex-desktop is unavailable for agent '${id}' — ${reason}.`);
+            }
+
+            try {
+                codexDesktopCapability = this.getCodexDesktopCapabilityProbe()({binaryPath: resolvedCommand});
+            } catch {
+                codexDesktopCapability = {available: false, reason: 'installed-bundle capability probe failed'};
+            }
+
+            if (!codexDesktopCapability?.available || !path.isAbsolute(codexDesktopCapability.crashpadExecutable || '')) {
+                const reason = codexDesktopCapability?.reason || 'exact packaged Crashpad helper proof is missing';
+                this.publishUnavailable({id, launch, resolvedCommand, authCommand, cwd: opts.cwd, reason});
+                throw new Error(`FleetLifecycleService.start: codex-desktop is unavailable for agent '${id}' — ${reason}.`);
+            }
         }
 
         const pat = this.getRegistry().resolveCredential(id);
@@ -346,10 +398,17 @@ class FleetLifecycleService extends Base {
             stderrBytes: 0,
             // Curated-launch observability: the family + isolated home let `status` compute the live
             // per-home `authRequired` heuristic; null for raw-launch agents (unknown layout).
-            harnessType  : launch.instanceHome ? agent.harnessType : null,
-            instanceHome : launch.instanceHome ?? null,
-            launchCommand: launch.instanceHome ? resolvedCommand : null,
-            binaryVersion: null
+            harnessType       : launch.instanceHome ? agent.harnessType : null,
+            instanceHome      : launch.instanceHome ?? null,
+            authHome          : launch.authHome ?? (HARNESS_AUTH_MARKERS[agent.harnessType] ? launch.instanceHome : null),
+            authCommand,
+            electronProfile   : launch.electronProfile ?? null,
+            crashpadExecutable: codexDesktopCapability?.crashpadExecutable ?? null,
+            launchCommand     : launch.instanceHome ? resolvedCommand : null,
+            binaryVersion     : null,
+            failureReason     : null,
+            cleanupUnresolved : false,
+            finalizePromise   : null
         };
         this.processes.set(id, record);
 
@@ -382,18 +441,22 @@ class FleetLifecycleService extends Base {
             record.stderrBytes += chunk.length;
         });
 
-        child.on?.('exit', (code, signal) => {
-            record.state    = 'stopped';
-            record.exitCode = code;
-            record.signal   = signal;
-            record.exitedAt = new Date().toISOString();
-            record.child    = null;
-        });
+        child.on?.('exit', (code, signal) => this.finalizeExitedProcess(record, {code, signal}));
         child.on?.('error', error => {
-            record.state    = 'failed';
-            record.error    = error.message;
-            record.exitedAt = new Date().toISOString();
-            record.child    = null;
+            record.state         = 'failed';
+            record.error         = error.message;
+            record.failureReason = 'tracked harness process emitted an error';
+            record.exitedAt      = new Date().toISOString();
+
+            if (record.electronProfile && record.pid != null) {
+                // A successfully spawned Desktop main can emit `error` without proving process exit.
+                // Keep the child handle + block replacement until stop drives the main to `exit` and
+                // the profile finalizer proves zero helpers. Pre-spawn errors have no pid/profile
+                // ownership and retain the legacy retryable failure path below.
+                record.cleanupUnresolved = true;
+            } else {
+                record.child = null;
+            }
         });
 
         return this.status(id);
@@ -402,12 +465,34 @@ class FleetLifecycleService extends Base {
     /**
      * Gracefully stop an agent's process: `SIGTERM`, then `SIGKILL` after `sigkillTimeoutMs`.
      * @param {String} id
-     * @returns {Promise<Object>} `{success, id, state}`
+     * @returns {Promise<Object>} `{success, id, state, cleanupUnresolved}`; the final field is true
+     * only when exact-profile Codex Desktop helper ownership remains unresolved.
      */
     stop(id) {
         const record = this.processes.get(id);
-        if (!record || !record.child || record.state !== 'running') {
-            return Promise.resolve({success: false, id, state: record?.state ?? 'stopped'});
+
+        if (record?.state === 'stopping' && record.finalizePromise) {
+            return record.finalizePromise.then(() => ({
+                success          : record.state === 'stopped',
+                id,
+                state            : record.state,
+                cleanupUnresolved: Boolean(record.cleanupUnresolved)
+            }));
+        }
+
+        if (record?.cleanupUnresolved && !record.child && record.electronProfile && record.crashpadExecutable) {
+            record.finalizePromise = null;
+
+            return this.finalizeCodexDesktopHelpers(record).then(() => ({
+                success          : record.state === 'stopped',
+                id,
+                state            : record.state,
+                cleanupUnresolved: Boolean(record.cleanupUnresolved)
+            }));
+        }
+
+        if (!record || !record.child || (record.state !== 'running' && !record.cleanupUnresolved)) {
+            return Promise.resolve({success: false, id, state: record?.state ?? 'stopped', cleanupUnresolved: Boolean(record?.cleanupUnresolved)});
         }
 
         const child = record.child;
@@ -415,11 +500,17 @@ class FleetLifecycleService extends Base {
         return new Promise(resolve => {
             let settled = false;
 
-            const finish = () => {
+            const finish = async () => {
                 if (settled) return;
                 settled = true;
                 clearTimeout(timer);
-                resolve({success: true, id, state: 'stopped'});
+
+                // The tracked main's exit is only phase 1 for Codex Desktop. Its profile-owned
+                // Crashpad helpers re-parent to PID 1 on current builds, so stop does not resolve
+                // until the exact-profile finalizer proves zero residuals (or fails closed).
+                await record.finalizePromise;
+
+                resolve({success: record.state === 'stopped', id, state: record.state, cleanupUnresolved: Boolean(record.cleanupUnresolved)});
             };
 
             const timer = setTimeout(() => {
@@ -427,13 +518,13 @@ class FleetLifecycleService extends Base {
             }, this.sigkillTimeoutMs);
             timer.unref?.();
 
-            child.once?.('exit', finish);
-            child.once?.('error', finish);
+            child.once?.('exit', () => { void finish() });
+            child.once?.('error', () => { void finish() });
 
             try {
                 child.kill?.('SIGTERM');
             } catch (e) {
-                finish();
+                void finish();
             }
         });
     }
@@ -448,7 +539,12 @@ class FleetLifecycleService extends Base {
      */
     async restart(id) {
         const priorCwd = this.processes.get(id)?.cwd ?? null;
-        await this.stop(id);
+        const stopped  = await this.stop(id);
+
+        if (stopped.cleanupUnresolved) {
+            throw new Error(`FleetLifecycleService.restart: cleanup failed for agent '${id}'; refusing to spawn a replacement over ambiguous residual processes.`);
+        }
+
         return this.start(id, priorCwd != null ? {cwd: priorCwd} : {});
     }
 
@@ -457,52 +553,58 @@ class FleetLifecycleService extends Base {
      * `authRequired` checks a marker file's PRESENCE, never its content).
      * @param {String} id
      * @returns {Object} `{id, state, running, pid, startedAt, uptimeMs, exitCode, exitedAt,
-     *     stderrBytes, authRequired, instanceHome, launchCommand, binaryVersion}` — `authRequired`
+     *     stderrBytes, authRequired, instanceHome, authHome, launchCommand, authCommand,
+     *     binaryVersion, failureReason, cleanupUnresolved}` — `authRequired`
      *     is the LIVE per-home
      *     auth-marker heuristic for curated launches (`true` = the operator-owned per-home login has
      *     not happened yet; recomputed each read so a completed login flips it without a restart);
-     *     `null` for raw-launch / untracked agents. `instanceHome` is the non-secret, absolute
-     *     lifecycle-owned home needed for the operator login handoff; `launchCommand` is the
-     *     non-secret executable path resolved from AiConfig/the lifecycle owner (`null` for
-     *     raw/untracked agents). Both are intentionally safe for the dev-only unauthenticated
-     *     loopback Fleet bridge: they expose no auth contents. `binaryVersion` is the best-effort
-     *     `--version` capture of what actually ran (`null` until/unless the probe answered).
+     *     `null` for raw-launch / untracked agents. `instanceHome` + `launchCommand` name the GUI or
+     *     CLI launch vessel; marker families also expose the distinct `authHome` + `authCommand`
+     *     pair consumed by the operator-owned login handoff. These absolute paths are intentionally
+     *     safe for the dev-only unauthenticated loopback Fleet bridge: they expose no auth contents.
+     *     `binaryVersion` is the best-effort `--version` capture of what actually ran (`null`
+     *     until/unless the probe answered); `failureReason` is a bounded lifecycle-owned reason,
+     *     never raw child output.
      */
     status(id) {
         const record = this.processes.get(id);
-        if (!record) return {id, state: 'stopped', running: false, pid: null, startedAt: null, uptimeMs: null, exitCode: null, exitedAt: null, stderrBytes: 0, authRequired: null, instanceHome: null, launchCommand: null, binaryVersion: null};
+        if (!record) return {id, state: 'stopped', running: false, pid: null, startedAt: null, uptimeMs: null, exitCode: null, exitedAt: null, stderrBytes: 0, authRequired: null, instanceHome: null, authHome: null, launchCommand: null, authCommand: null, binaryVersion: null, failureReason: null, cleanupUnresolved: false};
 
         return {
             id,
-            state        : record.state,
-            running      : record.state === 'running',
-            pid          : record.pid,
-            startedAt    : record.startedAt,
-            uptimeMs     : record.state === 'running' && record.startedAt ? Date.now() - Date.parse(record.startedAt) : null,
-            exitCode     : record.exitCode,
-            exitedAt     : record.exitedAt,
-            stderrBytes  : record.stderrBytes ?? 0,
-            authRequired : this.authRequiredForHome(record.harnessType, record.instanceHome),
-            instanceHome : record.instanceHome ?? null,
-            launchCommand: record.launchCommand ?? null,
-            binaryVersion: record.binaryVersion ?? null
+            state            : record.state,
+            running          : record.state === 'running',
+            pid              : record.pid,
+            startedAt        : record.startedAt,
+            uptimeMs         : record.state === 'running' && record.startedAt ? Date.now() - Date.parse(record.startedAt) : null,
+            exitCode         : record.exitCode,
+            exitedAt         : record.exitedAt,
+            stderrBytes      : record.stderrBytes ?? 0,
+            authRequired     : this.authRequiredForHome(record.harnessType, record.authHome),
+            instanceHome     : record.instanceHome ?? null,
+            authHome         : record.authHome ?? null,
+            launchCommand    : record.launchCommand ?? null,
+            authCommand      : record.authCommand ?? null,
+            binaryVersion    : record.binaryVersion ?? null,
+            failureReason    : record.failureReason ?? null,
+            cleanupUnresolved: Boolean(record.cleanupUnresolved)
         };
     }
 
     /**
      * @summary The live per-home auth heuristic: `false` when the family's auth-marker file exists
-     * inside the instance home (the operator-owned per-home login completed), `true` when the home
+     * inside the auth home (the operator-owned per-home login completed), `true` when the home
      * exists without it, `null` when the family/home is unknown (raw launches). Presence-only —
      * the marker's content is never read.
      * @param {String|null} harnessType
-     * @param {String|null} instanceHome
+     * @param {String|null} authHome
      * @returns {Boolean|null}
      */
-    authRequiredForHome(harnessType, instanceHome) {
+    authRequiredForHome(harnessType, authHome) {
         const marker = harnessType && HARNESS_AUTH_MARKERS[harnessType];
-        if (!marker || !instanceHome) return null;
+        if (!marker || !authHome) return null;
 
-        return !fs.existsSync(path.join(instanceHome, marker));
+        return !fs.existsSync(path.join(authHome, marker));
     }
 
     /**
@@ -521,6 +623,106 @@ class FleetLifecycleService extends Base {
     }
 
     // ---- internals ----------------------------------------------------------
+
+    /**
+     * @summary Publish a safe, non-running `unavailable` record when Codex Desktop's installed
+     * bundle cannot prove its private profile/project/updater contract. This happens before PAT
+     * resolution, Bridge-token minting, or spawn; status can therefore distinguish unavailable
+     * capability from an ordinary stopped agent without carrying a secret or raw environment.
+     * @param {Object} options
+     * @private
+     */
+    publishUnavailable({id, launch, resolvedCommand, authCommand = null, cwd = null, reason}) {
+        this.processes.set(id, {
+            id,
+            child             : null,
+            cwd               : cwd ?? null,
+            pid               : null,
+            state             : 'unavailable',
+            startedAt         : null,
+            exitCode          : null,
+            signal            : null,
+            exitedAt          : new Date().toISOString(),
+            stderrBytes       : 0,
+            harnessType       : null,
+            instanceHome      : launch.instanceHome ?? null,
+            authHome          : launch.authHome ?? null,
+            authCommand,
+            electronProfile   : launch.electronProfile ?? null,
+            crashpadExecutable: null,
+            launchCommand     : resolvedCommand ?? null,
+            binaryVersion     : null,
+            failureReason     : String(reason),
+            cleanupUnresolved : false,
+            finalizePromise   : null
+        });
+    }
+
+    /**
+     * @summary Finalize one tracked main-process exit. Ordinary harnesses stop immediately; Codex
+     * Desktop enters `stopping` until its exact-profile packaged Crashpad helpers are terminated and
+     * a re-scan proves zero. Ambiguous ownership becomes a durable `failed` status rather than a
+     * broader kill or a false stopped claim.
+     * @param {Object} record Tracked lifecycle record.
+     * @param {Object} exit `{code, signal}` from the child.
+     * @returns {Promise<void>}
+     * @private
+     */
+    finalizeExitedProcess(record, {code, signal}) {
+        if (record.finalizePromise) return record.finalizePromise;
+
+        record.exitCode = code;
+        record.signal   = signal;
+        record.exitedAt = new Date().toISOString();
+        record.child    = null;
+
+        if (!record.electronProfile || !record.crashpadExecutable) {
+            record.state           = 'stopped';
+            record.finalizePromise = Promise.resolve();
+            return record.finalizePromise;
+        }
+
+        return this.finalizeCodexDesktopHelpers(record);
+    }
+
+    /**
+     * @summary Run or retry the helper-only finalization for a Desktop record whose main has exited.
+     * A transient ambiguous scan remains a durable failed state, but a later `stop()` can re-run the
+     * exact same profile/executable proof and clear `cleanupUnresolved` only after zero residuals.
+     * @param {Object} record Tracked Codex Desktop lifecycle record.
+     * @returns {Promise<void>}
+     * @private
+     */
+    finalizeCodexDesktopHelpers(record) {
+        record.state           = 'stopping';
+        record.finalizePromise = Promise.resolve()
+            .then(() => this.getCodexDesktopCleanup()({
+                electronProfile   : record.electronProfile,
+                crashpadExecutable: record.crashpadExecutable
+            }))
+            .then(() => {
+                record.state             = 'stopped';
+                record.failureReason     = null;
+                record.cleanupUnresolved = false;
+            })
+            .catch(error => {
+                record.state             = 'failed';
+                record.failureReason     = `Codex Desktop helper cleanup failed: ${error?.message || 'unknown failure'}`;
+                record.cleanupUnresolved = true;
+            });
+
+        return record.finalizePromise;
+    }
+
+    /** @returns {Function} installed-bundle capability probe. @private */
+    getCodexDesktopCapabilityProbe() {
+        return this.codexDesktopCapabilityProbeFn || probeCodexDesktopCapabilities;
+    }
+
+    /** @returns {Function} exact-profile post-exit cleanup. @private */
+    getCodexDesktopCleanup() {
+        return this.codexDesktopCleanupFn || cleanupCodexDesktopCrashpad;
+    }
 
     /**
      * Resolve the launch spec for an agent — command + args + per-agent launch env.
@@ -543,10 +745,12 @@ class FleetLifecycleService extends Base {
      * start} merges it onto the child env BEFORE the reserved injections (reserved keys always win)
      * and rejects any reserved-key collision fail-fast.
      * @param {Object} agent
+     * @param {Object} [opts] Start options; the final provisioned `cwd` is launch input for
+     *                        `codex-desktop` and ignored by other curated families.
      * @returns {{command: String, args: String[], env: Object}}
      * @private
      */
-    resolveLaunch(agent) {
+    resolveLaunch(agent, opts = {}) {
         const launch = agent.metadata?.launch;
 
         if (!launch) {
@@ -558,7 +762,7 @@ class FleetLifecycleService extends Base {
             }
             const instanceHome = deriveAgentInstanceHome({instanceRoot: this.getInstanceRoot(), agentId: agent.id, harnessType: agent.harnessType});
             return {
-                ...deriveHarnessLaunchSpec({harnessType: agent.harnessType, instanceHome, binaryPath}),
+                ...deriveHarnessLaunchSpec({harnessType: agent.harnessType, instanceHome, binaryPath, cwd: opts.cwd}),
                 // carried for observability: `status` computes the live per-home authRequired from it
                 instanceHome
             };
@@ -600,8 +804,9 @@ class FleetLifecycleService extends Base {
      * @summary Resolve the harness binary path for one harness family: the `harnessBinaryPaths`
      * field entry when explicitly injected (the test/tenant override seam), else the family's
      * AiConfig `fleet.harnessBinaries.*` leaf — the SSOT owning the default and its env binding
-     * (`NEO_FLEET_CODEX_BIN` / `NEO_FLEET_CLAUDE_CODE_BIN` / `NEO_FLEET_CLAUDE_DESKTOP_BIN` /
-     * `NEO_FLEET_ANTIGRAVITY_BIN`). The codex leaf default is the ChatGPT-app-bundled CLI — an
+     * (`NEO_FLEET_CODEX_BIN` / `NEO_FLEET_CODEX_DESKTOP_BIN` / `NEO_FLEET_CLAUDE_CODE_BIN` /
+     * `NEO_FLEET_CLAUDE_DESKTOP_BIN` / `NEO_FLEET_ANTIGRAVITY_BIN`). The codex leaf default is the
+     * ChatGPT-app-bundled CLI — an
      * alpha channel that self-updates with its app, so production fleets pin the leaf;
      * `status().binaryVersion` surfaces what actually ran. The app-bundle families default to
      * their macOS bundle MAIN binaries (directly spawnable — never an `open -n` launcher). An
