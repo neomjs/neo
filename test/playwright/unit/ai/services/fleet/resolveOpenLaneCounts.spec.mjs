@@ -206,23 +206,23 @@ test.describe('ai/services/fleet/resolveOpenLaneCounts — the openLaneCount pro
         expect(counts.has('neo-gpt')).toBe(false);  // neo-gpt was NOT silently counted; incomplete → the assembler stamps null, not 0
     });
 
-    test('OPEN with an empty/null assignees field does NOT over-taint (genuinely unassigned, not an invalid shape)', () => {
+    test('OPEN with an empty ARRAY assignees does NOT over-taint — [] is the corpus\'s canonical unassigned form', () => {
         const fsImpl = makeFsFixture({
             'chunk-1/issue-1.md': issueMarkdown({state: 'OPEN', assignees: ['neo-opus-ada']}),
-            'chunk-1/issue-2.md': '---\nstate: OPEN\ntitle: \'a lane\'\nassignees:\n---\n\nbody\n' // assignees: null
+            'chunk-1/issue-2.md': issueMarkdown({state: 'OPEN', assignees: []}) // `assignees: []` — canonical empty
         });
 
         const {counts, complete} = resolveOpenLaneCounts({issuesDir: ISSUES_DIR, fsImpl});
 
-        expect(complete).toBe(true);                 // a genuinely-unassigned OPEN issue is classifiable — no taint
+        expect(complete).toBe(true);                 // an empty-array (canonical unassigned) OPEN issue — no taint
         expect(counts.get('neo-opus-ada')).toBe(1);
     });
 
-    // --- RA1 (Emmy Cycle-2, exact-head): three false-zero falsifiers that survived the top-level-array repair.
-    //     Each parses cleanly, is not the canonical bare-null / [] unassigned form, and can HIDE a real OPEN
-    //     assignment — so each must FAIL CLOSED (taint), never clean-skip. Corpus-grounded: 464/464 issues carry
-    //     an assignees line and states are only OPEN/CLOSED, so tainting an unrecognized state or a missing key
-    //     never over-fires on the real corpus, while the dominant bare `assignees:` (null) stays clean. ---
+    // --- RA1 (exact-head): four false-zero falsifiers that survived the top-level-array repair. Each parses
+    //     cleanly, is NOT the canonical empty-array `[]` unassigned form, and can HIDE a real OPEN assignment —
+    //     so each must FAIL CLOSED (taint), never clean-skip. Corpus-grounded: every issue's assignees is an
+    //     array (464/464), states are only OPEN/CLOSED, and the true-null / missing-key counts are zero — so
+    //     tainting an unrecognized state, a null, a missing key, or a non-string entry never over-fires. ---
 
     test('RA1: an UNRECOGNIZED state (neither OPEN nor CLOSED) taints — it may be a mislabeled OPEN hiding an assignment', () => {
         const fsImpl = makeFsFixture({
@@ -251,12 +251,26 @@ test.describe('ai/services/fleet/resolveOpenLaneCounts — the openLaneCount pro
         expect(counts.has('neo-gpt')).toBe(false);
     });
 
-    test('RA1: an OPEN issue with a MISSING assignees key taints — the sync always emits the field, so its absence is an anomaly (null / [] stay clean)', () => {
+    test('RA1: an OPEN issue with a MISSING assignees key taints — every corpus issue emits the field, so its absence is an anomaly', () => {
         const fsImpl = makeFsFixture({
             'chunk-1/issue-1.md': issueMarkdown({state: 'OPEN', assignees: ['neo-opus-ada']}),
-            // no assignees line at all → meta.assignees is undefined. Distinct from the canonical bare `assignees:`
-            // (null) / `assignees: []` unassigned forms, which do NOT taint (see the over-taint test above).
+            // no assignees line at all → meta.assignees is undefined. Only the canonical empty ARRAY `[]` is a
+            // clean unassigned form (see the over-taint test above); a missing key is not.
             'chunk-1/issue-2.md': '---\nstate: OPEN\ntitle: \'a lane\'\n---\n\nbody\n'
+        });
+
+        const {complete} = resolveOpenLaneCounts({issuesDir: ISSUES_DIR, fsImpl});
+
+        expect(complete).toBe(false);
+    });
+
+    test('RA1: an OPEN issue with a NULL assignees (bare `assignees:`) taints — the corpus writes empty as [], so null is non-canonical', () => {
+        const fsImpl = makeFsFixture({
+            'chunk-1/issue-1.md': issueMarkdown({state: 'OPEN', assignees: ['neo-opus-ada']}),
+            // `assignees:` with nothing after → YAML null. The corpus never emits this: empty is `[]`, and every
+            // bare `assignees:` there is a block-list header, not a null. A genuine null is a suspect shape, not
+            // clean-empty — so it fails closed (verified: raw-line-count of "324 nulls" was 324 list headers).
+            'chunk-1/issue-2.md': '---\nstate: OPEN\ntitle: \'a lane\'\nassignees:\n---\n\nbody\n'
         });
 
         const {complete} = resolveOpenLaneCounts({issuesDir: ISSUES_DIR, fsImpl});

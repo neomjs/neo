@@ -28,13 +28,13 @@ const __dirname  = path.dirname(__filename);
  * **Completeness channel (the DTO's `integer >= 0 | null` truth contract):** the resolver returns
  * `{counts, complete}`, not a bare map — `complete` is what lets the assembler tell a proven `0`
  * apart from an unknown. `complete: true` requires the dir to exist, the listing to succeed, AND every
- * issue file to parse cleanly into a RECOGNIZED-state record (OPEN/CLOSED) whose OPEN assignees carry a
- * canonical shape — a bare-null / empty list, or an array of non-empty-string logins; then a known
- * resident absent from `counts` is a proven `0` (the scan saw everything and found nothing open).
- * `complete: false` (missing corpus, unreadable listing, an unparseable issue file, an UNRECOGNIZED
- * state, a MISSING assignees key, or an OPEN assignees shape that could hide a resident — a scalar, an
- * object, or a non-string array entry) means no count is trustworthy → the assembler stamps `null` for
- * EVERY resident. A parse failure cannot reveal WHICH assignee it would have counted, so it taints the WHOLE
+ * issue file to parse cleanly into a RECOGNIZED-state record (OPEN/CLOSED) whose OPEN assignees are an
+ * ARRAY — an empty array `[]` (the corpus's canonical unassigned form), or an array of non-empty-string
+ * logins; then a known resident absent from `counts` is a proven `0` (the scan saw everything and found
+ * nothing open). `complete: false` (missing corpus, unreadable listing, an unparseable issue file, an
+ * UNRECOGNIZED state, or an OPEN assignees shape that could hide a resident — null, a missing key, a
+ * scalar, an object, or a non-string array entry) means no count is trustworthy → the assembler stamps
+ * `null` for EVERY resident. A parse failure cannot reveal WHICH assignee it would have counted, so it taints the WHOLE
  * scan rather than silently publishing a plausible under-count — never a fabricated `0`, never an
  * unproven integer. The roster assembler must never fail on enricher trouble (a resolver throw is the
  * incomplete case). This is the tri-state honesty the badge contract mandates.
@@ -129,19 +129,15 @@ export function resolveOpenLaneCounts({issuesDir = DEFAULT_ISSUES_DIR, fsImpl = 
                 continue
             }
 
-            // OPEN issue. The corpus canonically writes "no assignees" as a bare `assignees:` (YAML null,
-            // the dominant unassigned form) or an empty array — both genuinely unassigned, so no taint.
-            // Everything else can HIDE a real assignee and therefore fails closed rather than clean-skipping
-            // (the false-zero / under-count hole): a MISSING key (`undefined` — the sync always emits the
-            // field, so its absence is an anomaly), a non-array scalar/object (`assignees: neo-gpt`), or an
-            // array whose entries are not all non-empty-string logins (`[{login: neo-gpt}]` — a non-login
-            // entry hides the resident it names).
-            if (meta.assignees === null) {
-                continue // canonical unassigned (bare `assignees:`) — genuinely empty
-            }
-
+            // OPEN issue. Every issue's assignees is a YAML array — the corpus writes "no assignees" as an
+            // empty array `assignees: []` (a bare `assignees:` is a block-LIST header, NOT null; the corpus
+            // holds zero true-null and zero missing-key issues). So ONLY an array is a trusted shape: an empty
+            // array is genuinely unassigned (no taint, no count); a populated array is counted. Everything
+            // else FAILS CLOSED rather than clean-skipping (the false-zero hole) — a null (non-canonical here,
+            // so treated as suspect not empty), a missing key, or a non-array scalar/object (`assignees:
+            // neo-gpt`) can all hide a resident.
             if (!Array.isArray(meta.assignees)) {
-                complete = false; // missing key, scalar, or object → cannot trust; may hide a resident
+                complete = false;
                 continue
             }
 
