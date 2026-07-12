@@ -48,4 +48,39 @@ test.describe('recordBootIdentityFact — the orchestrator per-cycle boot-identi
         await expect(recordBootIdentityFact({source, dir: '/shared', writeImpl: async () => { throw new Error('disk full') }}))
             .resolves.toBeNull();
     });
+
+    // --- observability: the fail-soft null is no longer a blind swallow ---
+
+    test('OBSERVABLE: a genuine write failure fires onError with the error (fail-soft null preserved)', async () => {
+        const seen   = [];
+        const source = {produceBootIdentityFact: async () => advisoryFact()};
+
+        const result = await recordBootIdentityFact({
+            source, dir: '/shared',
+            writeImpl: async () => { throw new Error('disk full') },
+            onError  : error => seen.push(error.message)
+        });
+
+        expect(result).toBeNull();           // fail-soft: never gates the cycle
+        expect(seen).toEqual(['disk full']); // …but the failure is surfaced, not swallowed blind (the dead-.catch fix)
+    });
+
+    test('a NO-OP (missing source / absent fact) does NOT fire onError — a no-op is not an error', async () => {
+        const seen    = [];
+        const onError = error => seen.push(error);
+
+        expect(await recordBootIdentityFact({dir: '/x', onError})).toBeNull();                                    // missing source
+        expect(await recordBootIdentityFact({source: {produceBootIdentityFact: async () => null}, dir: '/x', onError})).toBeNull(); // absent fact
+        expect(seen).toHaveLength(0);
+    });
+
+    test('an onError that itself throws never gates the cycle (still resolves null)', async () => {
+        const source = {produceBootIdentityFact: async () => advisoryFact()};
+
+        await expect(recordBootIdentityFact({
+            source, dir: '/shared',
+            writeImpl: async () => { throw new Error('disk full') },
+            onError  : () => { throw new Error('observer boom') }
+        })).resolves.toBeNull();
+    });
 });

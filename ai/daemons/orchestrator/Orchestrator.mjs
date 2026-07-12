@@ -867,10 +867,17 @@ export class Orchestrator extends Base {
             writeLogFn     : this.writeLog.bind(this)
         });
 
-        // Boot-identity source: constructed ONCE (so bootAt is the process boot time), read-only advisory.
-        // Each poll persists its fact to the shared runtime-state dir so the separate fleet-bridge-server
-        // process can serve it via getBootIdentity(). Fail-soft — a null source simply writes nothing.
-        this.bootIdentitySource = buildBootIdentitySource({remRunStateDir: this.remConsolidationWatchdogRunStateDir});
+        // Boot-identity source: constructed ONCE at start with the genuine process-boot time, read-only
+        // advisory. Each poll persists its fact to the shared runtime-state dir so the separate
+        // fleet-bridge-server process can serve it via getBootIdentity(). Fail-soft — a null source simply
+        // writes nothing. The freshness cadence is the REM-consolidation stall threshold (the same one the
+        // consolidation-liveness watchdog uses), so the classifier yields a real designed-deferral /
+        // restart-explains verdict instead of a perpetual `unknown`.
+        this.bootIdentitySource = buildBootIdentitySource({
+            remRunStateDir : this.remConsolidationWatchdogRunStateDir,
+            freshnessConfig: {designedCadenceMs: this.remConsolidationWatchdogThresholdMs, marginMs: 0},
+            bootAt         : Date.now() - Math.round(process.uptime() * 1000)
+        });
 
         this.processSupervisorService = {};
         this.deploymentRuntimeAccessService = {};
@@ -1033,10 +1040,15 @@ export class Orchestrator extends Base {
         });
 
         // Persist this process's advisory boot-identity fact to the shared runtime-state dir for the
-        // fleet control-plane's cross-process getBootIdentity() read. Fail-soft inside recordBootIdentityFact
-        // (never gates a cycle); the .catch is belt-and-suspenders matching the sibling writes below.
-        recordBootIdentityFact({source: this.bootIdentitySource, dir: this.dataDir})
-            .catch(error => this.writeLog('ERROR', `[Orchestrator] Boot-identity fact write failed: ${error.message}`));
+        // fleet control-plane's cross-process getBootIdentity() read. recordBootIdentityFact is fail-soft
+        // (never gates a cycle) and self-observing: a genuine produce/write failure is surfaced through
+        // onError (the LIVE log path); the trailing .catch is only a belt-and-suspenders guard for an
+        // unexpected rejection, matching the sibling writes below.
+        recordBootIdentityFact({
+            source : this.bootIdentitySource,
+            dir    : this.dataDir,
+            onError: error => this.writeLog('ERROR', `[Orchestrator] Boot-identity fact write failed: ${error.message}`)
+        }).catch(error => this.writeLog('ERROR', `[Orchestrator] Boot-identity fact write rejected: ${error.message}`));
 
         this.deploymentStateBridgeService?.writeSnapshotIfDue()
             .catch(error => this.writeLog('ERROR', `[Orchestrator] Deployment state bridge failed: ${error.message}`));
