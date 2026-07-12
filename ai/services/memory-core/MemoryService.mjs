@@ -1834,7 +1834,7 @@ class MemoryService extends Base {
                     candidates           : memories,
                     conceptWalk          : true,
                     traversableNodeLabels: ['AGENT_MEMORY'], // this surface's eligible candidate type
-                    resolveCandidate: buildMemoryResolveCandidate({
+                    resolveCandidate     : buildMemoryResolveCandidate({
                         collection,
                         userId,
                         policy,
