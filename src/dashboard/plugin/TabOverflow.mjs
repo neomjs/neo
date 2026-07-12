@@ -187,10 +187,10 @@ class TabOverflow extends Plugin {
      * surfaces the now-active tab by construction (active-never-hidden), so the selected tab is never
      * left in the menu.
      *
-     * NOTE (live-verification point): the control is a `button.Base` with a `menu` config — button.Base
-     * builds the dropdown `menu.List` itself, so no menu is hand-assembled here. How the control mounts
-     * into the header DOM without joining the toolbar's item collection is finalized against the running
-     * `examples/dashboard/dock` surface (Neo overlay-mount pattern), not guessed.
+     * The control is a `button.Base` with a `menu` config — button.Base builds the dropdown `menu.List`
+     * itself, so no menu is hand-assembled here. It mounts as a `floating` component self-positioned via
+     * `align` against the header toolbar (the same mechanism `button.Base#afterSetMenu` uses for its own
+     * menu), which keeps it out of the toolbar's item collection so tab insertion stays correct.
      * @param {Object[]} hiddenMeta  `{text, iconCls, index}` per hidden tab, in header order.
      * @param {Neo.tab.Container} tabContainer
      */
@@ -213,11 +213,19 @@ class TabOverflow extends Plugin {
             me.control.menu = menuItems
         } else {
             me.control = Neo.create({
-                module  : Button,
-                cls     : ['neo-dock-tab-overflow-control'],
-                iconCls : 'fa fa-ellipsis',
-                menu    : menuItems,
-                parentId: me.owner.id
+                // Floating-component mount, per button.Base#afterSetMenu: a plain `parentId` never
+                // renders — a floating component mounts and self-positions via `align` against a target.
+                // Anchored to the header toolbar's trailing top-right, sitting in the `controlWidth` gap
+                // the pure core reserves; stays out of the toolbar's item collection (tab-insertion safe).
+                module         : Button,
+                align          : {edgeAlign: 'tr-tr', target: me.owner.id},
+                appName        : me.owner.appName,
+                cls            : ['neo-dock-tab-overflow-control'],
+                floating       : true,
+                iconCls        : 'fa fa-ellipsis',
+                menu           : menuItems,
+                parentComponent: me.owner,
+                windowId       : me.owner.windowId
             })
         }
     }
