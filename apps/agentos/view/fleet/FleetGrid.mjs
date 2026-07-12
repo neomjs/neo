@@ -305,14 +305,25 @@ class FleetGrid extends Container {
 
         const cardsContainer = me.getReference('fleet-cards');
 
+        // capture the resident IDENTITY of the focused card BEFORE the rebuild — the roving tab stop must
+        // follow the SAME agent across a roster refresh, not whatever card lands at the old numeric index.
+        // A removed/reordered agent above the focus would otherwise silently hand the tab stop to a
+        // different agent (@neo-gpt identity-focus falsifier: rebuild follows resident identity, not index).
+        const residentFocusId = me.getAgentCards()[me.focusIndex]?.record?.agentId ?? null;
+
         cardsContainer.removeAll(true);
         cardsContainer.add(cards);
 
-        // roving-tabindex: re-establish the single tab stop over the freshly-built card set. Clamp the
-        // focus position to the new card count and re-apply the tabindex WITHOUT moving DOM focus — a
-        // roster refresh must never steal focus from wherever the operator currently is.
-        const cardCount = me.getAgentCards().length;
-        me.focusIndex   = cardCount > 0 ? Math.min(me.focusIndex, cardCount - 1) : 0;
+        // roving-tabindex: re-establish the single tab stop over the freshly-built card set WITHOUT moving
+        // DOM focus (a roster refresh must never steal focus). Restore the tab stop to the resident agent's
+        // NEW index; fall back to the clamped old position only when that agent is gone from the roster.
+        const
+            agentCards    = me.getAgentCards(),
+            residentIndex = residentFocusId ? agentCards.findIndex(card => card.record?.agentId === residentFocusId) : -1;
+
+        me.focusIndex = residentIndex > -1
+            ? residentIndex
+            : (agentCards.length > 0 ? Math.min(me.focusIndex, agentCards.length - 1) : 0);
         me.applyRovingTabIndex()
     }
 

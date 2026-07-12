@@ -217,9 +217,10 @@ class AgentCard extends Container {
         super.onConstructed(...args);
 
         // a11y: the card is a keyboard-operable drill target — focusable + announced as a button. The
-        // aria-label (the agent name) is record-derived, so applyRecord sets it. Enter activates via the
-        // keydown domListener -> onCardSelect; Space is deferred to the KeyNavigation roving pass (its
-        // scroll default cannot be cleanly prevented on a raw keydown across the worker boundary).
+        // aria-label (the agent name) is record-derived, so applyRecord sets it. Enter AND Space both
+        // activate via the keydown domListener -> onCardSelect (ARIA button semantics); Space's page-scroll
+        // default is suppressed on the main thread by the neo-selection scroll-key rule (DomEvents.onKeyDown),
+        // so activation never scrolls the cockpit.
         Object.assign(this.vdom, {tabIndex: 0, role: 'button'});
 
         this.applyRecord()

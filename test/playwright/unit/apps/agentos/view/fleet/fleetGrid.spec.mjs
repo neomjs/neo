@@ -112,6 +112,30 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         grid.destroy()
     });
 
+    test('a roster rebuild keeps the roving tab stop on the resident agent IDENTITY, not the numeric index (#14619 @neo-gpt falsifier)', () => {
+        const grid = Neo.create(FleetGrid, {appName, foldThreshold: 20, store: makeStore(roster(['ok', 'ok', 'ok']))});
+
+        // cards sort by agentId → [agent-01, agent-02, agent-03]; focus the middle one
+        grid.focusIndex = 1;
+        const focusedId = agentCards(grid)[grid.focusIndex].record.agentId;
+
+        // a joiner that sorts ABOVE the focused agent → every index shifts down by one
+        grid.store.add({agentId: 'agent-00', displayName: 'Joiner', state: 'ok'});
+
+        // the tab stop FOLLOWS the resident agent to its new index (1 → 2), not the stale numeric slot
+        expect(agentCards(grid)[grid.focusIndex].record.agentId).toBe(focusedId);
+        expect(grid.focusIndex).toBe(2);
+        expect(agentCards(grid)[grid.focusIndex].vdom.tabIndex).toBe(0); // exactly that card carries the tab stop
+
+        // when the focused agent LEAVES the roster, the tab stop clamps to a valid card — never orphaned
+        grid.store.remove(grid.store.get(focusedId));
+        expect(agentCards(grid).some(card => card.record.agentId === focusedId)).toBe(false);
+        expect(grid.focusIndex).toBeLessThan(agentCards(grid).length);
+        expect(agentCards(grid)[grid.focusIndex].vdom.tabIndex).toBe(0);
+
+        grid.destroy()
+    });
+
     test('below threshold the grid renders every record as a card in ranked order — no fold', () => {
         const grid = Neo.create(FleetGrid, {appName, foldThreshold: 12, store: makeStore(roster(['ok', 'idle', 'off', 'ok', 'idle', 'wedged']))});
 
