@@ -108,9 +108,10 @@ class FleetControlBridge extends Base {
      * Open-lane-count resolver seam — reads each resident's OPEN assigned-issue count from the local
      * synced issues corpus for the {@link #fleetRoster} `openLaneCount` stamp. Defaults (via
      * {@link getLaneCountResolver}) to `resolveOpenLaneCounts`; inject a stub in tests. A plain
-     * injectable field mirroring `identityResolver`. It returns a `Map<login, count>`; the assembler
-     * stamps a resident ABSENT from the map as `null` (never a guessed zero) and swallows a throw
-     * from this seam to that same null — the roster read never fails on enricher trouble.
+     * injectable field mirroring `identityResolver`. It returns `{counts, complete}` — on a COMPLETE
+     * scan the assembler stamps a resident absent from `counts` as a proven `0`; on an INCOMPLETE scan
+     * (or a throw from this seam) it stamps `null` for EVERY resident (unknown, never a guessed zero or
+     * a partial under-count) — the roster read never fails on enricher trouble.
      * @member {Function|null} laneCountResolver=null
      */
     laneCountResolver = null
@@ -340,10 +341,10 @@ class FleetControlBridge extends Base {
      * time from the launch seam, never a second hand-maintained list, so a family becomes
      * cockpit-launchable exactly when its template lands), stamps each resident's `openLaneCount`
      * from the local synced issues corpus through the ONE {@link #getLaneCountResolver} seam
-     * (tri-state: `null` when the corpus resolves no count for a resident, never a guessed zero; a
-     * resolver throw degrades every count to null, the read never fails), and hands the enriched
-     * agents to the
-     * Body-side pure map (`createFleetCockpitStatus` — which never imports `ai/graph` or the Brain
+     * (tri-state via the resolver's `{counts, complete}`: a COMPLETE scan stamps the count, or a proven
+     * `0` for a known resident with nothing open; an INCOMPLETE scan or a resolver throw stamps `null`
+     * for every resident — never a guessed zero, never a partial under-count), and hands the enriched
+     * agents to the Body-side pure map (`createFleetCockpitStatus` — which never imports `ai/graph` or the Brain
      * launch seam; the hemisphere boundary holds, the Body only hoists what arrives stamped).
      *
      * Rides the authenticated `registryBridge` as a **read** verb; it carries NO lifecycle-write /
@@ -360,15 +361,25 @@ class FleetControlBridge extends Base {
             manager  = me.getManager(),
             resolve  = me.getIdentityResolver();
 
-        // Scan the open-lane counts ONCE per assembly (not per agent) and stamp them by lookup. A
-        // throw from the injected/default resolver degrades EVERY count to null — the roster read
-        // never fails on enricher trouble (the badge's tri-state honesty: null, never a guessed 0).
-        let laneCounts;
+        // Scan the open-lane counts ONCE per assembly (not per agent) and stamp them by lookup. The
+        // resolver returns {counts, complete}: `complete` is the completeness channel that preserves the
+        // DTO's `integer >= 0 | null` truth contract. On a COMPLETE scan a resident absent from `counts`
+        // is a proven `0` (nothing open); on an INCOMPLETE scan (source failure, or ANY unparseable issue
+        // — which cannot reveal which resident it would have counted) EVERY resident stamps `null`, never
+        // a plausible under-count. A resolver throw is the incomplete case (all-null) — the roster read
+        // never fails on enricher trouble.
+        let laneCounts       = new Map(),
+            laneScanComplete = false;
 
         try {
-            laneCounts = me.getLaneCountResolver()() || new Map();
+            const laneResult = me.getLaneCountResolver()();
+
+            if (laneResult && laneResult.counts instanceof Map) {
+                laneCounts       = laneResult.counts;
+                laneScanComplete = laneResult.complete === true;
+            }
         } catch (error) {
-            laneCounts = new Map();
+            // laneScanComplete stays false → every openLaneCount stamps null (unknown, never a guessed 0)
         }
 
         const agents = (registry.listAgents() ?? []).map(agent => {
@@ -377,9 +388,10 @@ class FleetControlBridge extends Base {
             return {
                 ...agent,
                 ...resolve(login),
-                launchable   : LAUNCHABLE_HARNESS_TYPES.includes(agent.harnessType),
-                authMode     : getHarnessAuthMode(agent.harnessType),
-                openLaneCount: laneCounts.get(login) ?? null
+                launchable: LAUNCHABLE_HARNESS_TYPES.includes(agent.harnessType),
+                authMode  : getHarnessAuthMode(agent.harnessType),
+                // COMPLETE scan → a known resident absent from counts is a proven 0; INCOMPLETE → null
+                openLaneCount: laneScanComplete ? (laneCounts.get(login) ?? 0) : null
             }
         });
 

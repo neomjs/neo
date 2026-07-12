@@ -51,9 +51,10 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
 
         FleetControlBridge.registry = registryStub;
         FleetControlBridge.manager  = managerStub;
-        // keep every fleetRoster test hermetic by default — a stub empty-count map so the assembler
-        // never scans the live (drifting) issues corpus; the dedicated openLaneCount tests override it
-        FleetControlBridge.laneCountResolver = () => new Map();
+        // keep every fleetRoster test hermetic by default — a stub INCOMPLETE empty scan so the assembler
+        // never scans the live (drifting) corpus and stamps openLaneCount null (the dedicated openLaneCount
+        // tests override it); {counts, complete} is the resolver's contract
+        FleetControlBridge.laneCountResolver = () => ({counts: new Map(), complete: false});
     });
 
     test.afterEach(() => {
@@ -284,20 +285,37 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
         expect(rows[3]).toMatchObject({id: 'native', launchable: false, authMode: null});
     });
 
-    test('fleetRoster stamps openLaneCount per row from the resolver seam — a resident absent from the count map stays null, never 0', () => {
+    test('fleetRoster on a COMPLETE scan stamps the count for a present resident and a proven 0 for a known resident absent from the counts', () => {
         registryStub.listAgents = () => [
             {id: 'neo-opus-ada', githubUsername: 'neo-opus-ada', harnessType: 'codex'},
             {id: 'idle-agent',   githubUsername: 'idle-agent',   harnessType: 'codex'}
         ];
         managerStub.fleetRepoStatus    = () => [];
         managerStub.fleetRuntimeStatus = () => [];
-        // the seam is injected keyed by githubUsername — ada has open lanes, idle-agent is absent
-        FleetControlBridge.laneCountResolver = () => new Map([['neo-opus-ada', 7]]);
+        // a COMPLETE scan resolved ada to 7 and found no OPEN assigned issue for idle-agent
+        FleetControlBridge.laneCountResolver = () => ({counts: new Map([['neo-opus-ada', 7]]), complete: true});
 
         const rows = FleetControlBridge.fleetRoster().rows;
 
         expect(rows[0]).toMatchObject({id: 'neo-opus-ada', openLaneCount: 7});
-        // absent from the map -> null (the card renders NO badge); a guessed 0 would be a lie
+        // COMPLETE scan + absent → a PROVEN 0 (the scan saw everything and found nothing open), not null
+        expect(rows[1]).toMatchObject({id: 'idle-agent', openLaneCount: 0});
+    });
+
+    test('fleetRoster on an INCOMPLETE scan stamps null for EVERY resident — never a partial under-count, even for a resident present in the counts', () => {
+        registryStub.listAgents = () => [
+            {id: 'neo-opus-ada', githubUsername: 'neo-opus-ada', harnessType: 'codex'},
+            {id: 'idle-agent',   githubUsername: 'idle-agent',   harnessType: 'codex'}
+        ];
+        managerStub.fleetRepoStatus    = () => [];
+        managerStub.fleetRuntimeStatus = () => [];
+        // a parse failure tainted the scan: ada shows 2 so far, but the scan can't PROVE that count — so it must NOT publish it
+        FleetControlBridge.laneCountResolver = () => ({counts: new Map([['neo-opus-ada', 2]]), complete: false});
+
+        const rows = FleetControlBridge.fleetRoster().rows;
+
+        // incomplete → null for both, INCLUDING ada (a plausible-but-unproven 2 would be a lie)
+        expect(rows[0]).toMatchObject({id: 'neo-opus-ada', openLaneCount: null});
         expect(rows[1]).toMatchObject({id: 'idle-agent', openLaneCount: null});
     });
 

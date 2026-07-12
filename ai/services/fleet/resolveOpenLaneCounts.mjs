@@ -25,12 +25,16 @@ const __dirname  = path.dirname(__filename);
  * architecture's consumer-recursion rule) is both sufficient and correct; the archive is never
  * walked.
  *
- * **Fail-to-null discipline:** any read/parse trouble (missing corpus, unreadable file, malformed
- * frontmatter) degrades to an ABSENT count for the affected residents — a missing corpus yields an
- * empty index (every row resolves `null` → no badge), and one unparseable file is skipped rather
- * than zeroing the whole index. The roster assembler must never fail on enricher trouble, and a
- * count is never fabricated: `null` (unknown) and a real integer are the only truths, never a
- * guessed zero. This is the same tri-state honesty the badge contract mandates.
+ * **Completeness channel (the DTO's `integer >= 0 | null` truth contract):** the resolver returns
+ * `{counts, complete}`, not a bare map — `complete` is what lets the assembler tell a proven `0`
+ * apart from an unknown. `complete: true` requires the dir to exist, the listing to succeed, AND every
+ * issue file to parse cleanly; then a known resident absent from `counts` is a proven `0` (the scan
+ * saw everything and found nothing open). `complete: false` (missing corpus, unreadable listing, or
+ * ANY unparseable issue file) means no count is trustworthy → the assembler stamps `null` for EVERY
+ * resident. A parse failure cannot reveal WHICH assignee it would have counted, so it taints the WHOLE
+ * scan rather than silently publishing a plausible under-count — never a fabricated `0`, never an
+ * unproven integer. The roster assembler must never fail on enricher trouble (a resolver throw is the
+ * incomplete case). This is the tri-state honesty the badge contract mandates.
  *
  * **Synchronous by design:** the assembler verb (`FleetControlBridge.fleetRoster`) is synchronous
  * and this is a low-frequency, human-facing roster poll, so one synchronous corpus scan per assembly
@@ -59,11 +63,16 @@ const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---/;
  * @param {Object} [options={}]
  * @param {String} [options.issuesDir=DEFAULT_ISSUES_DIR] Active-tier issues corpus root to scan.
  * @param {Object} [options.fsImpl=fs] Filesystem seam (`existsSync` / `readdirSync` / `readFileSync`)
- *     — injected in specs so the counting + fail-to-null contract is proven against a fixture tree,
+ *     — injected in specs so the counting + completeness contract is proven against a fixture tree,
  *     never the live (drifting) corpus.
- * @returns {Map<String, Number>} open-lane count keyed by unprefixed GitHub login; a login ABSENT
- *     from the map has no resolvable count (the assembler stamps `null`, never `0`). Always a Map —
- *     an unreadable corpus yields an empty one, never a throw.
+ * @returns {{counts: Map<String, Number>, complete: Boolean}} `counts` = open-lane count keyed by
+ *     unprefixed GitHub login (only residents with ≥1 open assigned lane appear). `complete` = whether
+ *     the WHOLE corpus scan succeeded: `true` only when the dir existed, the listing succeeded, and
+ *     EVERY issue file parsed cleanly. The completeness channel is what preserves the DTO's
+ *     `integer >= 0 | null` truth contract at the stamp site: on `complete`, a known resident ABSENT
+ *     from `counts` is a proven `0` (nothing open); on `!complete`, no count is trustworthy so every
+ *     resident stamps `null` (unknown). A parse failure cannot reveal WHICH assignee it would have
+ *     counted, so it taints the whole scan rather than silently publishing an under-count.
  */
 export function resolveOpenLaneCounts({issuesDir = DEFAULT_ISSUES_DIR, fsImpl = fs} = {}) {
     const counts = new Map();
@@ -72,14 +81,21 @@ export function resolveOpenLaneCounts({issuesDir = DEFAULT_ISSUES_DIR, fsImpl = 
 
     try {
         if (!fsImpl.existsSync(issuesDir)) {
-            return counts
+            return {counts, complete: false} // source unavailable → unknown, never a fabricated zero
         }
 
         relativePaths = fsImpl.readdirSync(issuesDir, {recursive: true})
-            .filter(entry => typeof entry === 'string' && entry.endsWith('.md'))
+            .filter(entry => typeof entry === 'string' && entry.endsWith('.md') && path.basename(entry).startsWith('issue-'))
     } catch (error) {
-        return counts
+        return {counts, complete: false} // corpus listing unreadable → unknown
     }
+
+    // COMPLETE only if every issue file parses cleanly. A parse failure (unreadable file, missing
+    // frontmatter fence, unusable frontmatter) cannot reveal WHICH assignee it would have counted, so it
+    // taints the WHOLE scan → the assembler stamps `null` for everyone rather than publish a plausible
+    // under-count. A cleanly-parsed CLOSED / no-assignees issue contributes nothing but does NOT taint
+    // (it was read successfully; it is simply not an open assigned lane).
+    let complete = true;
 
     for (const relativePath of relativePaths) {
         try {
@@ -87,13 +103,19 @@ export function resolveOpenLaneCounts({issuesDir = DEFAULT_ISSUES_DIR, fsImpl = 
                   match   = content.match(FRONTMATTER_RE);
 
             if (!match) {
+                complete = false; // an issue file with no frontmatter fence is corrupt → completeness lost
                 continue
             }
 
-            const meta = yaml.load(match[1]);
+            const meta = parsedMeta(match); // throws on malformed YAML → caught below → completeness lost
 
-            if (!meta || meta.state !== 'OPEN' || !Array.isArray(meta.assignees)) {
+            if (typeof meta === 'undefined') {
+                complete = false; // present-but-unusable frontmatter → cannot classify this file
                 continue
+            }
+
+            if (meta.state !== 'OPEN' || !Array.isArray(meta.assignees)) {
+                continue // cleanly parsed CLOSED / no-assignees issue → contributes nothing, no taint
             }
 
             for (const assignee of meta.assignees) {
@@ -105,9 +127,22 @@ export function resolveOpenLaneCounts({issuesDir = DEFAULT_ISSUES_DIR, fsImpl = 
                 }
             }
         } catch (error) {
-            // One unreadable / unparseable file must never zero the whole index — skip and continue.
+            complete = false // an unreadable / unparseable issue → the scan can no longer prove any count
         }
     }
 
-    return counts
+    return {counts, complete}
+}
+
+/**
+ * @summary Parse the frontmatter block into an object, or `undefined` when it is unusable (empty /
+ * non-object). Kept separate so the caller can treat unusable frontmatter as a completeness-tainting
+ * parse failure (not a silent skip). A malformed YAML body throws here and is caught by the caller.
+ * @param {String[]} match The `FRONTMATTER_RE` match (`match[1]` = the YAML body).
+ * @returns {Object|undefined}
+ */
+function parsedMeta(match) {
+    const meta = yaml.load(match[1]);
+
+    return meta && typeof meta === 'object' ? meta : undefined
 }
