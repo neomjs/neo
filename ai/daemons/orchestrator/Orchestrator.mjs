@@ -33,6 +33,8 @@ import DeploymentRuntimeAccessService                                           
 import DeploymentStateBridgeService                                                                 from './services/DeploymentStateBridgeService.mjs';
 import RecoveryActuatorService                                                                      from './services/RecoveryActuatorService.mjs';
 import ContainerHealthDiagnosisService                                                              from './services/ContainerHealthDiagnosisService.mjs';
+import {buildBootIdentitySource}                                                                    from './services/buildBootIdentitySource.mjs';
+import {recordBootIdentityFact}                                                                     from './services/recordBootIdentityFact.mjs';
 import DataIntegrityDiagnosisService                                                                from './services/DataIntegrityDiagnosisService.mjs';
 import DataRecoveryActuatorService                                                                  from './services/DataRecoveryActuatorService.mjs';
 import {auditChromaVectorCoverage}                                                                  from '../../scripts/maintenance/checkChromaIntegrity.mjs';
@@ -865,6 +867,8 @@ export class Orchestrator extends Base {
             writeLogFn     : this.writeLog.bind(this)
         });
 
+        this.initBootIdentitySource();
+
         this.processSupervisorService = {};
         this.deploymentRuntimeAccessService = {};
         this.containerHealthDiagnosisService = {};
@@ -891,6 +895,24 @@ export class Orchestrator extends Base {
         this.isPolling = true;
         this.writeLog('INFO', `[Orchestrator] Started. summaryInterval=${AiConfig.orchestrator.intervals.summarySweepMs}ms kbSyncInterval=${AiConfig.orchestrator.intervals.kbSyncMs}ms poll=${AiConfig.orchestrator.intervals.pollMs}ms.`);
         this.poll();
+    }
+
+    /**
+     * @summary Composes this process's boot-identity source (once, at start): a `BootIdentityHealthService`
+     * over the live REM-run-state fact-gatherer, with the genuine process-boot time and the REM-consolidation
+     * stall threshold as the freshness cadence (the same threshold the consolidation-liveness watchdog uses,
+     * so the classifier yields a real designed-deferral / restart-explains verdict rather than a perpetual
+     * `unknown`). Extracted from `start()` so the caller composition is exercisable through a real Orchestrator
+     * method — `start()` itself is a side-effecting daemon boot the unit suite does not run. Fail-soft: a null
+     * source simply makes each poll write nothing (the fleet reader keeps its honest advisory-`unknown`).
+     * @returns {void}
+     */
+    initBootIdentitySource() {
+        this.bootIdentitySource = buildBootIdentitySource({
+            remRunStateDir : this.remConsolidationWatchdogRunStateDir,
+            freshnessConfig: {designedCadenceMs: this.remConsolidationWatchdogThresholdMs, marginMs: 0},
+            bootAt         : Date.now() - Math.round(process.uptime() * 1000)
+        });
     }
 
     /**
@@ -1024,6 +1046,17 @@ export class Orchestrator extends Base {
         runSchedulingPipeline({
             ...buildOrchestratorSchedulingOptions({orchestrator: this, config: AiConfig, now, registry: TASK_REGISTRY})
         });
+
+        // Persist this process's advisory boot-identity fact to the shared runtime-state dir for the
+        // fleet control-plane's cross-process getBootIdentity() read. recordBootIdentityFact is fail-soft
+        // (never gates a cycle) and self-observing: a genuine produce/write failure is surfaced through
+        // onError (the LIVE log path); the trailing .catch is only a belt-and-suspenders guard for an
+        // unexpected rejection, matching the sibling writes below.
+        recordBootIdentityFact({
+            source : this.bootIdentitySource,
+            dir    : this.dataDir,
+            onError: error => this.writeLog('ERROR', `[Orchestrator] Boot-identity fact write failed: ${error.message}`)
+        }).catch(error => this.writeLog('ERROR', `[Orchestrator] Boot-identity fact write rejected: ${error.message}`));
 
         this.deploymentStateBridgeService?.writeSnapshotIfDue()
             .catch(error => this.writeLog('ERROR', `[Orchestrator] Deployment state bridge failed: ${error.message}`));
