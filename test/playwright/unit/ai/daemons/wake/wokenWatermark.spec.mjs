@@ -1,5 +1,10 @@
 import {test, expect}                      from '@playwright/test';
-import {clampWatermark, filterEventsByWatermark, maxLogId} from '../../../../../../ai/daemons/wake/wokenWatermark.mjs';
+import {
+    claimUnwokenMessages,
+    clampWatermark,
+    filterEventsByWatermark,
+    maxLogId
+} from '../../../../../../ai/daemons/wake/wokenWatermark.mjs';
 
 test.describe('wake wokenWatermark (#12850)', () => {
     test('filterEventsByWatermark keeps only events strictly above the watermark', () => {
@@ -66,7 +71,7 @@ test.describe('wake wokenWatermark (#12850)', () => {
         // Recipient has already been woken through logId 100. A heavy-delta re-include re-queues an
         // OLD high-priority message (logId 42, still readAt=null so the readAt filter alone misses it)
         // alongside one genuinely-new normal message.
-        const watermark = 100;
+        const watermark         = 100;
         const reincludedBacklog = [
             {type: 'message', messageId: 'm-stale-high', priority: 'high',   logId: 42},
             {type: 'message', messageId: 'm-new',        priority: 'normal', logId: 150}
@@ -83,7 +88,7 @@ test.describe('wake wokenWatermark (#12850)', () => {
 
     test('AC4 regression — genuinely-new events (all types) above the watermark are never dropped', () => {
         const watermark = 200;
-        const fresh = [
+        const fresh     = [
             {type: 'message',    messageId: 'm', logId: 201},
             {type: 'task',       taskId: 't',    logId: 202},
             {type: 'permission', scope: 'p',     logId: 203},
@@ -92,5 +97,32 @@ test.describe('wake wokenWatermark (#12850)', () => {
 
         expect(filterEventsByWatermark(fresh, watermark)).toHaveLength(4);
         expect(maxLogId(fresh)).toBe(204);
+    });
+
+    test('#15054: stable message IDs are claimed once across routes and later GraphLog emissions', () => {
+        const history = new Set();
+        const first   = claimUnwokenMessages([
+            {messageId: 'MESSAGE:a', logId: 10},
+            {messageId: 'MESSAGE:b', logId: 11}
+        ], history);
+        const replay = claimUnwokenMessages([
+            {messageId: 'MESSAGE:a', logId: 500},
+            {messageId: 'MESSAGE:c', logId: 501}
+        ], history);
+
+        expect(first.claimed.map(event => event.messageId)).toEqual(['MESSAGE:a', 'MESSAGE:b']);
+        expect(first.duplicates).toEqual([]);
+        expect(replay.claimed.map(event => event.messageId)).toEqual(['MESSAGE:c']);
+        expect(replay.duplicates.map(event => event.messageId)).toEqual(['MESSAGE:a']);
+        expect([...history]).toEqual(['MESSAGE:a', 'MESSAGE:b', 'MESSAGE:c']);
+    });
+
+    test('claimUnwokenMessages conservatively reclaims events without a stable message ID', () => {
+        const history = new Set();
+        const event   = {subject: 'malformed but potentially real'};
+
+        expect(claimUnwokenMessages([event], history).claimed).toEqual([event]);
+        expect(claimUnwokenMessages([event], history).claimed).toEqual([event]);
+        expect(history.size).toBe(0);
     });
 });
