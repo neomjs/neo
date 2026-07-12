@@ -76,8 +76,9 @@ class TabOverflow extends Plugin {
      */
     projectQueued = false
     /**
-     * Whether the coalesced re-run must re-read natural widths — sticky-true so a queued `project(true)`
-     * (a tab-set change) is never downgraded to an extent-only pass by a later queued `project(false)`.
+     * Whether the coalesced re-run must re-read natural widths — sticky-true so a queued width-capturing
+     * `project(true)` (the mount pass) is never downgraded to an extent-only pass by a later queued
+     * `project(false)` (resize / activation) that overlapped it.
      * @member {Boolean} queuedRecapture=false
      */
     queuedRecapture = false
@@ -109,7 +110,15 @@ class TabOverflow extends Plugin {
     }
 
     /**
-     * Owner-mounted lifecycle hook: wire the resize listener and run the first (width-capturing) pass.
+     * Owner-mounted lifecycle hook: wire the resize + activation listeners and run the first
+     * (width-capturing) pass.
+     *
+     * Tab-set-change recapture is intentionally NOT an in-instance listener here: the dock rebuilds its tab
+     * header declaratively — `DockLayoutAdapter.projectTabsNode` hands a fresh `headerToolbar` config carrying
+     * this plugin on every tab-set change — so a NEW plugin instance re-measures via this same `project(true)`
+     * on its own mount. (There is no clean tab-add/remove event to listen to: `tab.Container.insert/removeAt`
+     * fire none.) The sticky `queuedRecapture` then only has to coalesce a mount-time `project(true)` that
+     * overlaps an in-flight resize/activation pass.
      * @override
      */
     onOwnerMounted() {
@@ -193,11 +202,15 @@ class TabOverflow extends Plugin {
                 });
 
             me.applySplit(hidden, buttons, tabContainer)
-        } catch {
-            // A measure is best-effort: getDomRect can lose a race with teardown, and a failed pass must
-            // neither reject a fire-and-forget resize/activation handler nor skip the queued-re-run drain
-            // below (re-throwing would strand `projectQueued`). The next event re-projects against a live
-            // owner; a genuine defect surfaces as a missing split in the example / e2e, not a frozen header.
+        } catch (error) {
+            // getDomRect losing a race with teardown (owner unmounting mid-measure) is the ONE expected
+            // failure: it must neither reject a fire-and-forget handler nor skip the drain below, and the
+            // finally-released latch lets the NEXT event re-project (rejected→success self-heal). But a throw
+            // against a LIVE owner is a programming defect — surface it rather than swallow it silently (a
+            // blanket catch would hide real bugs behind a "just a teardown race" assumption).
+            if (owner.mounted) {
+                console.error('Neo.dashboard.plugin.TabOverflow: project() threw against a live owner', error)
+            }
         } finally {
             // ALWAYS release the latch: a thrown getDomRect / applySplit must not strand `measuring` at
             // true, which would silently freeze every future projection (the header stops responding).
@@ -290,6 +303,11 @@ class TabOverflow extends Plugin {
             // suspended requestAnimationFrame in an offscreen / hidden document.
             me.control = Neo.create({
                 module       : Button,
+                // Align to the owner toolbar's right edge — the reserved overflow slot (the pure core keeps
+                // `controlWidth` free there when anything overflows). Without an `align.target` a floating
+                // component stays at its off-screen default (`left/top: -10000px`): it renders but is not
+                // visible/clickable. `r0-r0` puts the control's right edge at the toolbar's right edge.
+                align        : {edgeAlign: 'r0-r0', target: me.owner.id},
                 appName      : me.owner.appName,
                 autoInitVnode: true,
                 autoMount    : true,
