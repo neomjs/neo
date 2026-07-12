@@ -550,6 +550,39 @@ class FleetCockpit extends Container {
     }
 
     /**
+     * @summary Keep the owner-held selection truthful across authoritative roster transitions —
+     * membership reactivity, distinct from the mutation reactivity {@link #onDetailRecordChange} covers.
+     *
+     * `recordChange` fires when the inspected resident MUTATES, but a membership change is a different
+     * Store edge: {@link Neo.data.Store#remove} drops a record WITHOUT firing `recordChange` on it, and
+     * the first-live replacement (`clear` + `add`) swaps the sample instance for a fresh one. Either
+     * leaves `detailRecord` pointing at a record the roster no longer holds — the inspector then
+     * presents a resident the authority says is absent, which is user-visible misinformation. So after
+     * every authoritative reconcile/replace: if the selected durable `agentId` still exists, re-seat
+     * `detailRecord` onto the Store's CURRENT instance (a re-seat only when the object actually changed —
+     * an in-place `record.set` reconcile keeps the same instance, already covered by `recordChange`); if
+     * it is gone (including an empty snapshot), clear the selection so {@link AgentOS.view.fleet.AgentDetail}
+     * renders its honest empty state rather than a ghost resident.
+     * @protected
+     */
+    reconcileSelection() {
+        let me = this;
+
+        if (!me.detailRecord) {
+            return
+        }
+
+        const
+            store   = me.getReference('fleet-grid')?.store,
+            current = store?.get(me.detailRecord.agentId) ?? null;
+
+        if (current !== me.detailRecord) {
+            me.detailRecord = current;
+            me.getReference('agent-detail')?.set({record: current})
+        }
+    }
+
+    /**
      * @summary Detach the roster-store load guard and release the drop producer; the provider
      * tears the owned store itself down.
      * @param {...*} args
@@ -648,7 +681,10 @@ class FleetCockpit extends Container {
             } else {
                 grid.store.clear();
                 mapped.length > 0 && grid.store.add(mapped);
-                me.rosterWired = true
+                me.rosterWired = true;
+                // the first live snapshot replaces the sample seed wholesale — re-seat or clear a
+                // selection made against a now-removed sample record (reconcileRoster owns the later reconciles)
+                me.reconcileSelection()
             }
 
             me.gridAdapterState = 'live';
@@ -726,7 +762,11 @@ class FleetCockpit extends Container {
         store.items
             .filter(record => !snapshotIds.has(record.agentId))
             .map(record => record.agentId)
-            .forEach(agentId => store.remove(agentId))
+            .forEach(agentId => store.remove(agentId));
+
+        // membership may have removed/re-instanced the inspected resident — the removal fires no
+        // recordChange, so reconcile the owner-held selection here (both reconcile callers pass through).
+        this.reconcileSelection()
     }
 }
 

@@ -22,14 +22,21 @@ test.describe('AgentOS fleet cockpit — card→detail live drill over the real 
         await expect(page.locator('.fm-fleet-cockpit')).toBeVisible({timeout: 60000});
         await expect(page.locator('.fm-agent-card').first()).toBeVisible({timeout: 30000});
 
-        const app      = await neuralLink.connectToApp('AgentOS'),
-              cards    = await app.queryComponent({className: 'AgentOS.view.fleet.AgentCard'}, ['record']),
-              agentIds = cards.map(entry => entry?.properties?.record?.agentId).filter(Boolean);
-        expect(agentIds.length, 'the fleet should render cards with records').toBeGreaterThan(0);
+        const app   = await neuralLink.connectToApp('AgentOS'),
+              cards = await app.queryComponent({className: 'AgentOS.view.fleet.AgentCard'}, ['record', 'id']);
+        expect(cards.length, 'the fleet should render cards with records').toBeGreaterThan(0);
 
-        // the REAL DOM click — on the always-sized avatar (a non-control region the whole-card
-        // domListener catches; the flex body can render narrow), never a direct controller call
-        await page.locator('.fm-agent-card').first().locator('.fm-card-avatar').click();
+        // pin ONE specific card and derive its EXACT durable identity + its DOM element id (=== the
+        // component id) — so the click and the assertion reference the same resident, not the set.
+        const target = cards.find(entry => entry?.properties?.record?.agentId && entry?.properties?.id);
+        expect(target, 'a card exposes both a record agentId and a component id').toBeTruthy();
+
+        const expectedAgentId = target.properties.record.agentId,
+              targetCardId    = target.properties.id;
+
+        // the REAL DOM click — on THAT card's always-sized avatar (a non-control region the whole-card
+        // domListener catches; the flex body can render narrow), addressed by the card's own element id
+        await page.locator(`[id="${targetCardId}"] .fm-card-avatar`).click();
 
         // the auto-hidden inspector reveals + renders a resident + the four SSOT panes
         const detail = page.locator('.fm-agent-detail');
@@ -37,9 +44,9 @@ test.describe('AgentOS fleet cockpit — card→detail live drill over the real 
         await expect(detail.locator('.fm-detail-name')).not.toBeEmpty();
         await expect(detail.locator('.fm-detail-pane')).toHaveCount(4);
 
-        // engine truth: the possessed inspector holds a REAL fleet resident's record — the click
-        // routed through the owner-held selection to the mounted detail, not a DOM coincidence
+        // engine truth: the mounted inspector holds the EXACT clicked resident — equality, not
+        // set-membership. The click routed through the owner-held selection to the exact durable id.
         const [d] = await app.queryComponent({className: 'AgentOS.view.fleet.AgentDetail'}, ['record']);
-        expect(agentIds, 'the inspector drilled into a real resident').toContain(d?.properties?.record?.agentId)
+        expect(d?.properties?.record?.agentId, 'the inspector drilled into the exact clicked resident').toBe(expectedAgentId)
     })
 });

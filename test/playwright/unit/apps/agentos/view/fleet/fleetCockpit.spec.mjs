@@ -500,6 +500,54 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         FleetCockpit.prototype.onDetailRecordChange.call(host, {record});
         expect(applied).toEqual([true])
     });
+
+    test('reconcileSelection re-seats or clears the owner-held selection on authoritative membership changes', () => {
+        const
+            setCalls = [],
+            detail   = {set(config) { setCalls.push(config) }},
+            makeHost = (detailRecord, storeGet) => {
+                const host = Object.create(FleetCockpit.prototype);
+
+                host.detailRecord = detailRecord;
+                host.getReference = name =>
+                    name === 'fleet-grid'   ? {store: {get: storeGet}} :
+                    name === 'agent-detail' ? detail : null;
+
+                return host
+            };
+
+        // (1) the inspected resident is REMOVED (absent from the authoritative snapshot / empty
+        //     snapshot) → clear the selection to the honest empty state (Store.remove fires no recordChange)
+        setCalls.length = 0;
+        const removedHost = makeHost({agentId: 'vega'}, () => undefined);
+        FleetCockpit.prototype.reconcileSelection.call(removedHost);
+        expect(removedHost.detailRecord).toBeNull();
+        expect(setCalls).toEqual([{record: null}]);
+
+        // (2) the resident survives as the SAME instance (in-place record.set reconcile) → no re-seat;
+        //     the mutation path (recordChange → applyRecord) already keeps the inspector truthful
+        setCalls.length = 0;
+        const same     = {agentId: 'vega'};
+        const sameHost = makeHost(same, id => id === 'vega' ? same : undefined);
+        FleetCockpit.prototype.reconcileSelection.call(sameHost);
+        expect(sameHost.detailRecord).toBe(same);
+        expect(setCalls).toEqual([]);
+
+        // (3) the durable agentId survives as a NEW instance (first-live clear+add replace of the sample
+        //     seed) → re-seat detailRecord onto the live instance and re-render
+        setCalls.length = 0;
+        const stale      = {agentId: 'vega'}, fresh = {agentId: 'vega'};
+        const reseatHost = makeHost(stale, id => id === 'vega' ? fresh : undefined);
+        FleetCockpit.prototype.reconcileSelection.call(reseatHost);
+        expect(reseatHost.detailRecord).toBe(fresh);
+        expect(setCalls).toEqual([{record: fresh}]);
+
+        // (4) nothing selected → no-op, and the Store is never touched
+        setCalls.length = 0;
+        const noneHost = makeHost(null, () => { throw new Error('store must not be touched when nothing is selected') });
+        FleetCockpit.prototype.reconcileSelection.call(noneHost);
+        expect(setCalls).toEqual([])
+    });
 });
 
 test.describe('Fleet cockpit — whole-fleet control (B4, #14611)', () => {
