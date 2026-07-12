@@ -48,6 +48,13 @@ class AgentCard extends Container {
          */
         baseCls: ['fm-agent-card'],
         /**
+         * ARIA button semantics for the keyboard-operable drill target. Set via the Component.Base `role`
+         * config so it renders to the vdom ROOT through `changeVdomRootKey` (reaches the DOM) — a raw
+         * `this.vdom.role` assignment does NOT flush to the mounted DOM (mounted-e2e finding).
+         * @member {String} role='button'
+         */
+        role: 'button',
+        /**
          * Turns the controls-slot buttons into a single `lifecycleIntent` event (the B4 emit); the
          * Lane C (C2) round-trip consumes it. See {@link AgentOS.view.fleet.AgentCardController}.
          * @member {Neo.controller.Component} controller=AgentCardController
@@ -216,12 +223,14 @@ class AgentCard extends Container {
     onConstructed(...args) {
         super.onConstructed(...args);
 
-        // a11y: the card is a keyboard-operable drill target — focusable + announced as a button. The
-        // aria-label (the agent name) is record-derived, so applyRecord sets it. Enter AND Space both
-        // activate via the keydown domListener -> onCardSelect (ARIA button semantics); Space's page-scroll
-        // default is suppressed on the main thread by the neo-selection scroll-key rule (DomEvents.onKeyDown),
-        // so activation never scrolls the cockpit.
-        Object.assign(this.vdom, {tabIndex: 0, role: 'button'});
+        // a11y: the card is a keyboard-operable drill target — a focusable button. `role` is the static
+        // config above (renders to the vdom ROOT via changeVdomRootKey → the DOM). The default `tabIndex 0`
+        // (focusable standalone, e.g. a dock snapshot) is set on the vdom ROOT here so it FLUSHES — a raw
+        // `this.vdom.tabIndex` write does not reach the mounted DOM (mounted-e2e finding). In-grid,
+        // FleetGrid.applyRovingTabIndex refines it per focusIndex (the ONE focused card stays 0, rest -1).
+        // The aria-label (agent name) is record-derived (applyRecord). Enter AND Space activate via the
+        // keydown domListener -> onCardSelect; Space's page-scroll is suppressed by the neo-selection rule.
+        this.getVdomRoot().tabIndex = 0;
 
         this.applyRecord()
     }

@@ -356,10 +356,13 @@ class FleetGrid extends Container {
         const me = this;
 
         me.getAgentCards().forEach((card, index) => {
-            const tabIndex = index === me.focusIndex ? 0 : -1;
+            const
+                tabIndex = index === me.focusIndex ? 0 : -1,
+                root     = card.getVdomRoot(); // the render-root (what changeVdomRootKey targets) — a raw
+                                               // card.vdom write does NOT reliably flush the attribute to DOM
 
-            if (card.vdom.tabIndex !== tabIndex) {
-                card.vdom.tabIndex = tabIndex;
+            if (root.tabIndex !== tabIndex) {
+                root.tabIndex = tabIndex;
                 card.update()
             }
         })
