@@ -175,4 +175,46 @@ test.describe('ai/services/fleet/resolveOpenLaneCounts — the openLaneCount pro
 
         expect(complete).toBe(false)
     });
+
+    // --- valid-YAML-but-INVALID-SHAPE: parses cleanly (no throw), yet is an unusable record that may hide a
+    //     resident. Distinct from the malformed-YAML throw above; both must taint completeness. ---
+
+    test('valid YAML of an INVALID shape (a top-level sequence, not a mapping) taints completeness', () => {
+        const fsImpl = makeFsFixture({
+            'chunk-1/issue-1.md': issueMarkdown({state: 'OPEN', assignees: ['neo-opus-ada']}),
+            // parses cleanly as a top-level ARRAY — valid YAML, but it cannot carry state/assignees, so it is an
+            // unusable record shape that may hide a resident. It must taint, not clean-skip.
+            'chunk-1/issue-2.md': '---\n- state: OPEN\n- assignees: neo-gpt\n---\n\nbody\n'
+        });
+
+        const {complete} = resolveOpenLaneCounts({issuesDir: ISSUES_DIR, fsImpl});
+
+        expect(complete).toBe(false);
+    });
+
+    test('valid YAML with a NON-ARRAY assignees scalar taints completeness — the hidden resident is null, never a false 0', () => {
+        const fsImpl = makeFsFixture({
+            'chunk-1/issue-1.md': issueMarkdown({state: 'OPEN', assignees: ['neo-opus-ada']}),
+            // parses cleanly as {state:'OPEN', assignees:'neo-gpt'} — assignees is PRESENT but a scalar, not an
+            // array; the old clean-skip hid neo-gpt and would let an absent neo-gpt be stamped a false 0.
+            'chunk-1/issue-2.md': '---\nstate: OPEN\ntitle: \'a lane\'\nassignees: neo-gpt\n---\n\nbody\n'
+        });
+
+        const {counts, complete} = resolveOpenLaneCounts({issuesDir: ISSUES_DIR, fsImpl});
+
+        expect(complete).toBe(false);               // the invalid-shape record taints the scan
+        expect(counts.has('neo-gpt')).toBe(false);  // neo-gpt was NOT silently counted; incomplete → the assembler stamps null, not 0
+    });
+
+    test('OPEN with an empty/null assignees field does NOT over-taint (genuinely unassigned, not an invalid shape)', () => {
+        const fsImpl = makeFsFixture({
+            'chunk-1/issue-1.md': issueMarkdown({state: 'OPEN', assignees: ['neo-opus-ada']}),
+            'chunk-1/issue-2.md': '---\nstate: OPEN\ntitle: \'a lane\'\nassignees:\n---\n\nbody\n' // assignees: null
+        });
+
+        const {counts, complete} = resolveOpenLaneCounts({issuesDir: ISSUES_DIR, fsImpl});
+
+        expect(complete).toBe(true);                 // a genuinely-unassigned OPEN issue is classifiable — no taint
+        expect(counts.get('neo-opus-ada')).toBe(1);
+    });
 });

@@ -114,8 +114,20 @@ export function resolveOpenLaneCounts({issuesDir = DEFAULT_ISSUES_DIR, fsImpl = 
                 continue
             }
 
-            if (meta.state !== 'OPEN' || !Array.isArray(meta.assignees)) {
-                continue // cleanly parsed CLOSED / no-assignees issue → contributes nothing, no taint
+            if (meta.state !== 'OPEN') {
+                continue // cleanly-parsed non-OPEN issue → contributes nothing, no taint
+            }
+
+            // OPEN issue: an absent / empty (`null`) assignees field is genuinely unassigned (no taint); but an
+            // assignees value that is PRESENT and not an array is valid YAML of an INVALID shape — it can hide a
+            // resident, so it must taint completeness rather than clean-skip (the false-zero / under-count hole).
+            if (meta.assignees === undefined || meta.assignees === null) {
+                continue
+            }
+
+            if (!Array.isArray(meta.assignees)) {
+                complete = false;
+                continue
             }
 
             for (const assignee of meta.assignees) {
@@ -135,14 +147,16 @@ export function resolveOpenLaneCounts({issuesDir = DEFAULT_ISSUES_DIR, fsImpl = 
 }
 
 /**
- * @summary Parse the frontmatter block into an object, or `undefined` when it is unusable (empty /
- * non-object). Kept separate so the caller can treat unusable frontmatter as a completeness-tainting
- * parse failure (not a silent skip). A malformed YAML body throws here and is caught by the caller.
+ * @summary Parse the frontmatter block into a plain object, or `undefined` when it is unusable (empty /
+ * non-object / a top-level array). A top-level array or scalar is valid YAML but an INVALID record shape
+ * — it cannot carry `state`/`assignees`, so it is unusable and the caller treats it as a
+ * completeness-tainting parse failure (not a silent skip). A malformed YAML body throws here and is
+ * caught by the caller.
  * @param {String[]} match The `FRONTMATTER_RE` match (`match[1]` = the YAML body).
  * @returns {Object|undefined}
  */
 function parsedMeta(match) {
     const meta = yaml.load(match[1]);
 
-    return meta && typeof meta === 'object' ? meta : undefined
+    return meta && typeof meta === 'object' && !Array.isArray(meta) ? meta : undefined
 }
