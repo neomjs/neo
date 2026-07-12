@@ -404,26 +404,30 @@ class GoldenPathSynthesizer extends Base {
 
     /**
      * @summary The route-attribution record-seam: persists which computed candidates the routing guard filtered,
-     * under which live focus reasons, per synthesis run. FAIL-OPEN — a ledger-write failure (bad config, I/O
-     * error) is swallowed-logged and never aborts synthesis (the ledger is observability, never a gate). Reads
-     * the retention/dir leaves at the use site (never captured at module load — they resolve reactively) and
-     * passes them EXPLICITLY into the pure store helper (which owns no retention default).
+     * under which arming reasons, per synthesis run. FAIL-OPEN — a ledger-write failure (bad config/dir, I/O
+     * error) is swallowed-logged and never aborts synthesis (the ledger is observability, never a gate); a
+     * missing/empty `dir` is a silent no-op. The ledger directory + retention are supplied by the caller (the
+     * synthesis boundary reads the resolved AiConfig leaves at its use site), which keeps this method a testable
+     * seam (a per-test temporary dir) with no config-SSOT read of its own; retention is validated here before it
+     * reaches the pure store helper.
      * @param {{blockedNodes: Array<Object>, focusCandidates: Array<Object>}|null} focusContradiction Result from `findComputedFocusContradiction`.
      * @param {Date|Number} now The synthesis-pass clock (Date or epoch ms).
+     * @param {Object} [ledger] The resolved ledger boundary (from the caller's AiConfig read).
+     * @param {String} [ledger.dir] The runtime ledger directory; absent/empty → no-op.
+     * @param {Number} [ledger.maxEvents] Retention cap (validated here).
+     * @param {Number} [ledger.triggerBytes] Prune byte-trigger (validated here).
      * @returns {Promise<void>}
      */
-    static async recordRouteAttribution(focusContradiction, now) {
+    static async recordRouteAttribution(focusContradiction, now, {dir, maxEvents, triggerBytes} = {}) {
         const nowMs   = now instanceof Date ? now.getTime() : now,
               records = this.buildRouteAttributionRecords(focusContradiction, Number.isFinite(nowMs) ? nowMs : null);
 
         if (records.length === 0) return;
 
         try {
-            const dir       = aiConfig.goldenPathRouteAttributionLedgerDir,
-                  retention = validateRouteAttributionRetention(
-                      aiConfig.goldenPathRouteAttributionLedgerMaxEvents,
-                      aiConfig.goldenPathRouteAttributionLedgerPruneTriggerBytes
-                  );
+            if (typeof dir !== 'string' || dir.length === 0) return;
+
+            const retention = validateRouteAttributionRetention(maxEvents, triggerBytes);
 
             for (const record of records) {
                 await appendRouteAttribution(record, {dir, ...retention})
@@ -1090,7 +1094,11 @@ class GoldenPathSynthesizer extends Base {
         // (some survived) and the no-survivor branch — into the route-attribution ledger. Fail-open inside the
         // method; never gates synthesis. This is the live record-seam the one-shot measurement dataset snapshotted.
         if (focusContradiction) {
-            await this.constructor.recordRouteAttribution(focusContradiction, now)
+            await this.constructor.recordRouteAttribution(focusContradiction, now, {
+                dir         : aiConfig.goldenPathRouteAttributionLedgerDir,
+                maxEvents   : aiConfig.goldenPathRouteAttributionLedgerMaxEvents,
+                triggerBytes: aiConfig.goldenPathRouteAttributionLedgerPruneTriggerBytes
+            })
         }
 
         const handoffTimestamp = now instanceof Date ? now : new Date(now);

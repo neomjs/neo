@@ -2446,4 +2446,58 @@ test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from
         await expect(Synthesizer.recordRouteAttribution(null, new Date())).resolves.toBeUndefined();
         await expect(Synthesizer.recordRouteAttribution({blockedNodes: [], focusCandidates: []}, 123)).resolves.toBeUndefined();
     });
+
+    test('recordRouteAttribution writes guard-filtered records to the INJECTED ledger dir — partial-block + no-survivor, hermetic (#15057 / RA-3 #15060)', async () => {
+        const fs   = await import('fs/promises'),
+              os   = await import('os'),
+              path = await import('path');
+        const {readRouteAttributionLedger} = await import('../../../../../../ai/services/graph/routeAttributionLedgerStore.mjs');
+
+        // Per-test temporary ledger boundary — recordRouteAttribution takes the dir as a param (no aiConfig
+        // read of its own), so nothing touches the production `.neo-ai-data` default: the records provably land
+        // in THIS temp dir. Restored in finally.
+        const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'ra-emit-'));
+        try {
+            // Partial-block: one blocked content candidate under incident + an incidental co-reason.
+            await Synthesizer.recordRouteAttribution({
+                blockedNodes   : [{node: {id: 'issue-200', properties: {labels: ['documentation']}}}],
+                focusCandidates: [{number: 100, reasons: ['incident', 'fresh-updated']}]
+            }, 1000, {dir, maxEvents: 100, triggerBytes: 65536});
+
+            // No-survivor: two blocked candidates under a prio-zero focus.
+            await Synthesizer.recordRouteAttribution({
+                blockedNodes   : [{node: {id: 'issue-300', properties: {}}}, {node: {id: 'issue-301', properties: {}}}],
+                focusCandidates: [{number: 400, reasons: ['prio-zero']}]
+            }, 2000, {dir, maxEvents: 100, triggerBytes: 65536});
+
+            const records = await readRouteAttributionLedger({dir});
+            expect(records.map(r => r.blockedNodeId)).toEqual(['issue-200', 'issue-300', 'issue-301']);
+            // arming reasons attributed correctly — the incidental 'fresh-updated' is excluded
+            expect(records[0].armingReasons).toEqual(['incident']);
+            expect(records[0].candidateReasons).toEqual(['incident', 'fresh-updated']);
+            expect(records[1].armingReasons).toEqual(['prio-zero']);
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true});
+        }
+    });
+
+    test('recordRouteAttribution is fail-open — a real write failure does not throw, so synthesis is unaffected (#15057 / RA-3)', async () => {
+        const fs   = await import('fs/promises'),
+              os   = await import('os'),
+              path = await import('path');
+
+        const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'ra-fail-'));
+        try {
+            // Point the ledger dir UNDER a regular file → mkdir throws ENOTDIR → the write must be swallowed.
+            const filePath = path.join(tmp, 'blocker');
+            await fs.writeFile(filePath, 'x');
+
+            await expect(Synthesizer.recordRouteAttribution({
+                blockedNodes   : [{node: {id: 'issue-1', properties: {}}}],
+                focusCandidates: [{number: 1, reasons: ['incident']}]
+            }, 1, {dir: path.join(filePath, 'nested'), maxEvents: 100, triggerBytes: 65536})).resolves.toBeUndefined();
+        } finally {
+            await fs.rm(tmp, {recursive: true, force: true});
+        }
+    });
 });
