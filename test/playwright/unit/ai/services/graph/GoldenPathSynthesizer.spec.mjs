@@ -1192,7 +1192,9 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
 
         expect(handoffContent).toContain('## Current Release / Incident Focus');
         expect(handoffContent).toContain('**#13750**');
-        expect(handoffContent).toContain('Computed routing paused because the surviving content/narrative recommendation contradicts live Current Release / Incident Focus.');
+        expect(handoffContent).toContain('no computed candidate survived the guard');
+        // no-survivor state surfaces the live focus as the numbered route — never empty
+        expect(handoffContent).toMatch(/^\d+\.\s+\*\*issue-\d+\*\*: Current Release \/ Incident Focus/m);
         expect(handoffContent).toContain('Contradictory computed candidates filtered: issue-10074');
         expect(handoffContent).not.toMatch(/1\.\s+\*\*issue-10074\*\*:/);
         expect(guideTargets).not.toContain(blogId);

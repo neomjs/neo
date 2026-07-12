@@ -161,14 +161,21 @@ export function findComputedFocusContradiction({
 }
 
 /**
- * @summary Renders the computed-route contradiction diagnostic.
+ * @summary Renders the no-survivor contradiction fallback — the never-empty focus-as-route surface.
  *
- * The section intentionally contains no numbered `**issue-N**:` entries, so
- * `AgentOrchestrator.parseGoldenPath()` will not treat filtered content work
- * as an immediate route.
+ * Reached only in the no-survivor state: EVERY computed content/narrative candidate contradicted live
+ * Current Release / Incident Focus, so zero computed candidates survived the guard (the caller routes
+ * surviving computed candidates directly and never calls this while any survive). Rather than emit zero
+ * routes, the section surfaces the live Current Focus items as the numbered `**issue-N**:` recommendation
+ * so `AgentOrchestrator.parseGoldenPath()` routes the incident/release work instead of leaving the agent
+ * with no route. The BLOCKED content is never routed — it appears only in the diagnostic
+ * filtered-candidates line. This is the explicit no-survivor exception to the "does not boost focus
+ * nodes into routing" clause: focus becomes the route only when nothing else survives, never alongside
+ * a surviving computed candidate.
  *
  * @param {Object} options
- * @param {Object} options.contradiction Result from `findComputedFocusContradiction`.
+ * @param {Object} options.contradiction Result from `findComputedFocusContradiction` (carries the focus
+ *   candidates surfaced as the route + the blocked computed candidates).
  * @param {Object} [options.stats={}] Candidate-count diagnostics for the current pass.
  * @param {Date|String} [options.capturedAt=new Date()] Current pass capture timestamp.
  * @returns {String} Markdown section.
@@ -178,22 +185,34 @@ export function renderComputedGoldenPathContradictionSection({
     stats      = {},
     capturedAt = new Date()
 } = {}) {
-    const count     = value => Number.isFinite(Number(value)) ? Number(value) : 0;
-    const focusRefs = (contradiction?.focusCandidates || [])
-        .slice(0, 3)
-        .map(candidate => `#${candidate.number}`)
-        .join(', ') || 'none';
+    const count       = value => Number.isFinite(Number(value)) ? Number(value) : 0;
+    const focusItems  = contradiction?.focusCandidates || [];
+    const focusRefs   = focusItems.slice(0, 3).map(candidate => `#${candidate.number}`).join(', ') || 'none';
     const blockedRefs = (contradiction?.blockedNodes || [])
         .map(item => item.node.id)
         .join(', ') || 'none';
 
-    return [
+    const lines = [
         '',
         '## Computed Golden Path (Strategic Recommendation)',
         '',
         `Captured at: ${formatGoldenPathTimestamp(capturedAt)}`,
         '',
-        'Computed routing paused because the surviving content/narrative recommendation contradicts live Current Release / Incident Focus.',
+        'Every surviving computed content/narrative candidate contradicted live Current Release / Incident Focus, so no computed candidate survived the guard. The live focus work is surfaced as the immediate route instead of an empty pass:',
+        ''
+    ];
+
+    // No-survivor focus-as-route fallback: render the live Current Focus items as the numbered route so
+    // the pass is never empty (the zero-route class). The blocked computed content is NOT routed — it
+    // stays in the diagnostic filtered line below.
+    focusItems.forEach((candidate, index) => {
+        const label = candidate.title || candidate.name ||
+            (Array.isArray(candidate.reasons) ? candidate.reasons.join(', ') : 'Current Release / Incident Focus');
+
+        lines.push(`${index + 1}. **issue-${candidate.number}**: Current Release / Incident Focus (${label})`)
+    });
+
+    lines.push(
         '',
         `- Active incident/release focus candidates: ${focusRefs}`,
         `- Contradictory computed candidates filtered: ${blockedRefs}`,
@@ -203,9 +222,11 @@ export function renderComputedGoldenPathContradictionSection({
         `- Selected routed nodes: ${count(stats.selectedTopNodes)}`,
         `- Stale frontier GUIDES pruned: ${count(stats.prunedGuideEdges)}`,
         '',
-        'No numbered immediate recommendation is rendered for this pass; use the Current Release / Incident Focus section for visibility and rerun after the incident/release focus clears or the computed route aligns.',
+        '> **Routing Guard:** the numbered items above are the live Current Release / Incident Focus, surfaced as the route ONLY because zero computed candidate survived the contradiction filter. Focus is never boosted into routing while a computed candidate survives — that state routes the computed candidate directly.',
         ''
-    ].join('\n')
+    );
+
+    return lines.join('\n')
 }
 
 /**
