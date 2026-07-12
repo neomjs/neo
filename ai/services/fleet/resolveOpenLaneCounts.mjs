@@ -28,10 +28,13 @@ const __dirname  = path.dirname(__filename);
  * **Completeness channel (the DTO's `integer >= 0 | null` truth contract):** the resolver returns
  * `{counts, complete}`, not a bare map — `complete` is what lets the assembler tell a proven `0`
  * apart from an unknown. `complete: true` requires the dir to exist, the listing to succeed, AND every
- * issue file to parse cleanly; then a known resident absent from `counts` is a proven `0` (the scan
- * saw everything and found nothing open). `complete: false` (missing corpus, unreadable listing, or
- * ANY unparseable issue file) means no count is trustworthy → the assembler stamps `null` for EVERY
- * resident. A parse failure cannot reveal WHICH assignee it would have counted, so it taints the WHOLE
+ * issue file to parse cleanly into a RECOGNIZED-state record (OPEN/CLOSED) whose OPEN assignees carry a
+ * canonical shape — a bare-null / empty list, or an array of non-empty-string logins; then a known
+ * resident absent from `counts` is a proven `0` (the scan saw everything and found nothing open).
+ * `complete: false` (missing corpus, unreadable listing, an unparseable issue file, an UNRECOGNIZED
+ * state, a MISSING assignees key, or an OPEN assignees shape that could hide a resident — a scalar, an
+ * object, or a non-string array entry) means no count is trustworthy → the assembler stamps `null` for
+ * EVERY resident. A parse failure cannot reveal WHICH assignee it would have counted, so it taints the WHOLE
  * scan rather than silently publishing a plausible under-count — never a fabricated `0`, never an
  * unproven integer. The roster assembler must never fail on enricher trouble (a resolver throw is the
  * incomplete case). This is the tri-state honesty the badge contract mandates.
@@ -114,29 +117,49 @@ export function resolveOpenLaneCounts({issuesDir = DEFAULT_ISSUES_DIR, fsImpl = 
                 continue
             }
 
-            if (meta.state !== 'OPEN') {
-                continue // cleanly-parsed non-OPEN issue → contributes nothing, no taint
+            // State must be a RECOGNIZED lifecycle value. CLOSED read cleanly but is not an open lane
+            // (no count, no taint). Any OTHER value — not OPEN, not CLOSED — is an unrecognized shape we
+            // cannot classify (it could be a mislabeled OPEN hiding a live assignment), so it fails closed.
+            if (meta.state === 'CLOSED') {
+                continue
             }
 
-            // OPEN issue: an absent / empty (`null`) assignees field is genuinely unassigned (no taint); but an
-            // assignees value that is PRESENT and not an array is valid YAML of an INVALID shape — it can hide a
-            // resident, so it must taint completeness rather than clean-skip (the false-zero / under-count hole).
-            if (meta.assignees === undefined || meta.assignees === null) {
+            if (meta.state !== 'OPEN') {
+                complete = false; // unrecognized state → cannot prove this is not a hidden open lane
                 continue
+            }
+
+            // OPEN issue. The corpus canonically writes "no assignees" as a bare `assignees:` (YAML null,
+            // the dominant unassigned form) or an empty array — both genuinely unassigned, so no taint.
+            // Everything else can HIDE a real assignee and therefore fails closed rather than clean-skipping
+            // (the false-zero / under-count hole): a MISSING key (`undefined` — the sync always emits the
+            // field, so its absence is an anomaly), a non-array scalar/object (`assignees: neo-gpt`), or an
+            // array whose entries are not all non-empty-string logins (`[{login: neo-gpt}]` — a non-login
+            // entry hides the resident it names).
+            if (meta.assignees === null) {
+                continue // canonical unassigned (bare `assignees:`) — genuinely empty
             }
 
             if (!Array.isArray(meta.assignees)) {
-                complete = false;
+                complete = false; // missing key, scalar, or object → cannot trust; may hide a resident
                 continue
             }
 
+            let tainted = false;
+
             for (const assignee of meta.assignees) {
                 // corpus assignees are unprefixed GitHub logins — the same key space as the roster's
-                // `githubUsername`; no prefix normalization is needed (or possible: an `@`-leading
-                // plain scalar is a reserved-indicator YAML error and never reaches here).
+                // `githubUsername`. A non-string / empty entry is not a login and can hide a real resident,
+                // so it taints the scan rather than clean-skipping.
                 if (typeof assignee === 'string' && assignee.length > 0) {
                     counts.set(assignee, (counts.get(assignee) ?? 0) + 1)
+                } else {
+                    tainted = true
                 }
+            }
+
+            if (tainted) {
+                complete = false
             }
         } catch (error) {
             complete = false // an unreadable / unparseable issue → the scan can no longer prove any count

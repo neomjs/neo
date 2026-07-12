@@ -217,4 +217,50 @@ test.describe('ai/services/fleet/resolveOpenLaneCounts — the openLaneCount pro
         expect(complete).toBe(true);                 // a genuinely-unassigned OPEN issue is classifiable — no taint
         expect(counts.get('neo-opus-ada')).toBe(1);
     });
+
+    // --- RA1 (Emmy Cycle-2, exact-head): three false-zero falsifiers that survived the top-level-array repair.
+    //     Each parses cleanly, is not the canonical bare-null / [] unassigned form, and can HIDE a real OPEN
+    //     assignment — so each must FAIL CLOSED (taint), never clean-skip. Corpus-grounded: 464/464 issues carry
+    //     an assignees line and states are only OPEN/CLOSED, so tainting an unrecognized state or a missing key
+    //     never over-fires on the real corpus, while the dominant bare `assignees:` (null) stays clean. ---
+
+    test('RA1: an UNRECOGNIZED state (neither OPEN nor CLOSED) taints — it may be a mislabeled OPEN hiding an assignment', () => {
+        const fsImpl = makeFsFixture({
+            'chunk-1/issue-1.md': issueMarkdown({state: 'OPEN', assignees: ['neo-opus-ada']}),
+            // a state the classifier does not recognize; its assignee (neo-gpt) would otherwise be silently dropped
+            'chunk-1/issue-2.md': '---\nstate: UNKNOWN\nassignees:\n  - neo-gpt\n---\n\nbody\n'
+        });
+
+        const {counts, complete} = resolveOpenLaneCounts({issuesDir: ISSUES_DIR, fsImpl});
+
+        expect(complete).toBe(false);               // unrecognized state → cannot prove it is not a hidden open lane
+        expect(counts.has('neo-gpt')).toBe(false);  // never counted; incomplete → the assembler stamps null, not a false 0
+    });
+
+    test('RA1: an OPEN assignees array holding a NON-STRING entry taints — an object entry hides the login it names', () => {
+        const fsImpl = makeFsFixture({
+            'chunk-1/issue-1.md': issueMarkdown({state: 'OPEN', assignees: ['neo-opus-ada']}),
+            // `[{login: neo-gpt}]` is a valid array, but the entry is an object, not a plain login — the old
+            // typeof-string skip dropped it silently and would let an absent neo-gpt be stamped a false 0
+            'chunk-1/issue-2.md': '---\nstate: OPEN\nassignees:\n  - login: neo-gpt\n---\n\nbody\n'
+        });
+
+        const {counts, complete} = resolveOpenLaneCounts({issuesDir: ISSUES_DIR, fsImpl});
+
+        expect(complete).toBe(false);
+        expect(counts.has('neo-gpt')).toBe(false);
+    });
+
+    test('RA1: an OPEN issue with a MISSING assignees key taints — the sync always emits the field, so its absence is an anomaly (null / [] stay clean)', () => {
+        const fsImpl = makeFsFixture({
+            'chunk-1/issue-1.md': issueMarkdown({state: 'OPEN', assignees: ['neo-opus-ada']}),
+            // no assignees line at all → meta.assignees is undefined. Distinct from the canonical bare `assignees:`
+            // (null) / `assignees: []` unassigned forms, which do NOT taint (see the over-taint test above).
+            'chunk-1/issue-2.md': '---\nstate: OPEN\ntitle: \'a lane\'\n---\n\nbody\n'
+        });
+
+        const {complete} = resolveOpenLaneCounts({issuesDir: ISSUES_DIR, fsImpl});
+
+        expect(complete).toBe(false);
+    });
 });
