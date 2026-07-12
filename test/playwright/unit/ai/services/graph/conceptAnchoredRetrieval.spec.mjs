@@ -325,6 +325,40 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval — enrichWithConc
         expect(events).toHaveLength(1);
     });
 
+    test('per-consumer traversableLabels: CONCEPT-only expansion treats FILE as terminal — a node reachable ONLY through a FILE is not surfaced (fork-1: KB result boundary)', async () => {
+        // golden-path → FILE:x → MEM:deep. Default expansion (CONCEPT+FILE) traverses THROUGH FILE:x and
+        // reaches MEM:deep at depth 2. A KB-style consumer passing traversableLabels ['CONCEPT'] makes
+        // FILE terminal: FILE:x is still reached (depth 1) but never expanded through, so MEM:deep past
+        // the FILE result boundary is unreachable.
+        const twoHop = fixtureGraph({
+            concepts: [{type: 'CONCEPT', id: 'golden-path'}],
+            nodes   : {
+                'golden-path': {label: 'CONCEPT'},
+                'FILE:x'     : {label: 'FILE'},
+                'MEM:deep'   : {label: 'MEMORY'}
+            },
+            edges: [
+                {id: 'f1', source: 'golden-path', target: 'FILE:x',   type: 'IMPLEMENTED_BY', properties: {}},
+                {id: 'f2', source: 'FILE:x',      target: 'MEM:deep', type: 'TAGGED_CONCEPT', properties: {}}
+            ]
+        });
+        const deepGate = async nodeId => nodeId === 'MEM:deep' ? {id: 'MEM:deep', text: 'deep'} : null;
+
+        // CONCEPT-only: FILE terminal → MEM:deep (only reachable THROUGH FILE) is NOT surfaced
+        const conceptOnly = await enrichWithConceptWalk({
+            graphService    : twoHop, query: 'golden path', candidates: [], conceptWalk: true,
+            resolveCandidate: deepGate, traversableNodeLabels: ['MEMORY'], traversableLabels: ['CONCEPT'], maxHops: 2
+        });
+        expect(conceptOnly.event.candidatesAdded).toBe(0);
+
+        // default expansion (CONCEPT+FILE): the walk traverses THROUGH FILE:x and reaches MEM:deep
+        const throughFile = await enrichWithConceptWalk({
+            graphService    : twoHop, query: 'golden path', candidates: [], conceptWalk: true,
+            resolveCandidate: deepGate, traversableNodeLabels: ['MEMORY'], maxHops: 2
+        });
+        expect(throughFile.event.candidatesAdded).toBe(1);
+    });
+
     test('conceptPath carries the COMPLETE ordered path with per-hop provenance at depth 2 (not terminal-only)', async () => {
         // golden-path --IMPLEMENTED_BY--> FILE:helper --TAGGED_CONCEPT--> MEM:deep
         const deepGraph = fixtureGraph({

@@ -1,15 +1,15 @@
-import aiConfig                       from '../../mcp/server/knowledge-base/config.mjs';
-import Base                           from '../../../src/core/Base.mjs';
-import {buildChatModel}               from '../../provider/buildChatModel.mjs';
-import {PROVIDER_TIMEOUT_CODE}        from '../../provider/createTimeoutError.mjs';
-import ChromaManager                  from './ChromaManager.mjs';
-import fs                             from 'fs-extra';
-import logger                         from '../../mcp/server/knowledge-base/logger.mjs';
-import path                           from 'path';
-import QueryService                   from './QueryService.mjs';
-import {checkAskRateLimit}            from './helpers/askRateLimit.mjs';
+import aiConfig                          from '../../mcp/server/knowledge-base/config.mjs';
+import Base                              from '../../../src/core/Base.mjs';
+import {buildChatModel}                  from '../../provider/buildChatModel.mjs';
+import {PROVIDER_TIMEOUT_CODE}           from '../../provider/createTimeoutError.mjs';
+import ChromaManager                     from './ChromaManager.mjs';
+import fs                                from 'fs-extra';
+import logger                            from '../../mcp/server/knowledge-base/logger.mjs';
+import path                              from 'path';
+import QueryService                      from './QueryService.mjs';
+import {checkAskRateLimit}               from './helpers/askRateLimit.mjs';
 import {isRemoteKnowledgeBaseDeployment} from './helpers/deploymentMode.mjs';
-import {getMissingAskSynthesisLeaves} from './helpers/askSynthesisGuard.mjs';
+import {getMissingAskSynthesisLeaves}    from './helpers/askSynthesisGuard.mjs';
 import GraphService                      from '../memory-core/GraphService.mjs';
 import {enrichWithConceptWalk}           from '../graph/conceptAnchoredRetrieval.mjs';
 import {buildKbFileResolveCandidate}     from './conceptWalkKbFileGate.mjs';
@@ -346,6 +346,7 @@ class SearchService extends Base {
                 conceptWalk          : true,
                 getCandidateId       : ref => ref.source,
                 traversableNodeLabels: ['FILE'],
+                traversableLabels    : ['CONCEPT'],   // fork-1: KB expands through CONCEPT only; FILE is terminal (a candidate, never traversed THROUGH past the KB result boundary)
                 resolveCandidate     : buildKbFileResolveCandidate({
                     findKbDocBySource: source => QueryService.findDocBySource(source, type)
                 }),
@@ -454,8 +455,8 @@ Instructions:
             logger.warn(`[SearchService] ask synthesis rate cap (${aiConfig.askSynthesis.maxCallsPerMinute}/min) hit; returning degraded references without calling the provider.`);
             return withWalk(this.#createDegradedSynthesisResponse({
                 references: responseReferences,
-                error: `ask synthesis rate limit (${aiConfig.askSynthesis.maxCallsPerMinute}/min) exceeded`,
-                code : 'rate_limited'
+                error     : `ask synthesis rate limit (${aiConfig.askSynthesis.maxCallsPerMinute}/min) exceeded`,
+                code      : 'rate_limited'
             }));
         }
         this.askCallTimestamps.push(nowMs);
