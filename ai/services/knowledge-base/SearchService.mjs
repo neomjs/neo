@@ -313,6 +313,7 @@ class SearchService extends Base {
         // (buildKbFileResolveCandidate fails closed). GraphService is reached directly — the
         // IngestionService precedent for a KB-domain service reading the graph.
         let responseReferences = references,
+            walkContextRefs    = references,   // metadata-bearing set, internal to the synthesis context
             conceptWalkEvent   = null;
 
         if (conceptWalk) {
@@ -329,7 +330,12 @@ class SearchService extends Base {
                 emit: retrievalEvent => logger.info?.('[SearchService] concept-walk retrieval', retrievalEvent)
             });
 
-            responseReferences = enriched.candidates;
+            // A walk-surfaced doc's hydrated `metadata` is synthesis-internal (it feeds the context
+            // documents below) — it must NOT leak into the RESPONSE references the caller receives. Keep
+            // the metadata-bearing set for the context build; strip `metadata` from the response set
+            // (flat references carry none, so the strip only affects the walk-added docs).
+            walkContextRefs    = enriched.candidates;
+            responseReferences = enriched.candidates.map(({metadata, ...ref}) => ref);
             conceptWalkEvent   = enriched.event
         }
 
@@ -357,7 +363,7 @@ class SearchService extends Base {
         }));
 
         if (conceptWalkEvent) {
-            responseReferences
+            walkContextRefs
                 .filter(ref => ref.via === 'concept-walk')
                 .forEach(ref => contextReferences.push({...ref, metadata: ref.metadata || {}}));
         }
