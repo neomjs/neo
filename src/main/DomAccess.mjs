@@ -140,8 +140,10 @@ class DomAccess extends Base {
 
         // Set up listeners which monitor for changes
         if (!aligns.has(id)) {
-            // Realign when target's layout-controlling element changes size
-            resizeObserver.observe(alignSpec.offsetParent);
+            // Realign when target's layout-controlling element changes size. A fixed-positioned aligned
+            // element has NO offsetParent (it is positioned against the viewport), so guard against observing
+            // null — `ResizeObserver.observe(null)` throws "parameter 1 is not of type 'Element'".
+            alignSpec.offsetParent && resizeObserver.observe(alignSpec.offsetParent);
 
             // Realign when align to target changes size
             resizeObserver.observe(alignSpec.targetElement);
@@ -246,9 +248,9 @@ class DomAccess extends Base {
             result = data.result = myRect.alignTo(align);
 
         Object.assign(style, {
-            top : 0,
-            left: 0,
-            transform : `translate(${result.x}px,${result.y}px)`
+            top      : 0,
+            left     : 0,
+            transform: `translate(${result.x}px,${result.y}px)`
         });
 
         if (result.width !== myRect.width) {
@@ -752,8 +754,8 @@ class DomAccess extends Base {
      * @param {String} data.nodeId
      */
     getOffscreenCanvas(data) {
-        let me        = this,
-            node      = me.getElement(data.nodeId),
+        let me   = this,
+            node = me.getElement(data.nodeId),
             offscreen;
 
         if (!node) {
@@ -1064,10 +1066,10 @@ class DomAccess extends Base {
      */
     syncAligns(arg1) {
         const
-            me          = this,
-            {_aligns}   = me,
-            isScroll    = arg1?.type === 'scroll',
-            evtTarget   = isScroll ? arg1.target : null,
+            me        = this,
+            {_aligns} = me,
+            isScroll  = arg1?.type === 'scroll',
+            evtTarget = isScroll ? arg1.target : null,
             // Document scroll (window) target is document.
             isDocScroll = isScroll && (evtTarget === document || evtTarget === document.documentElement);
 
@@ -1101,9 +1103,10 @@ class DomAccess extends Base {
                     {_alignResizeObserver} = me,
                     {constrainToElement}   = align;
 
-                // Stop observing the align elements
+                // Stop observing the align elements (offsetParent is null for a fixed-positioned subject —
+                // it was never observed, and unobserve(null) throws just like observe(null)).
                 _alignResizeObserver.unobserve(align.subject);
-                _alignResizeObserver.unobserve(align.offsetParent);
+                align.offsetParent && _alignResizeObserver.unobserve(align.offsetParent);
                 _alignResizeObserver.unobserve(align.targetElement);
                 if (constrainToElement) {
                     _alignResizeObserver.unobserve(constrainToElement)
