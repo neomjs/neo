@@ -24,14 +24,15 @@ function errMsg(error) {
  * @param {Object} options
  * @param {Function} options.queryMemories The bound Memory Core method (injected — keeps this testable).
  * @param {Number} [options.nResults=100] Result cap (the tool caps at 100; enrichment is a sample, never a census).
- * @returns {Function} `async ({query}) => {themes: Object[], degraded: Boolean, reason: (String|null)}`.
+ * @returns {Function} `async ({query, windowStart, windowEnd}) => {themes, degraded, reason}` — themes are
+ * window-bound to [windowStart, windowEnd) so enrichment never imports a theme from outside the window.
  */
 export function makeSemanticEnrichment({queryMemories, nResults = 100} = {}) {
     if (typeof queryMemories !== 'function') {
         throw new Error('makeSemanticEnrichment: an injected `queryMemories` function is required')
     }
 
-    return async function enrich({query} = {}) {
+    return async function enrich({query, windowStart, windowEnd} = {}) {
         if (typeof query !== 'string' || query.length === 0) {
             return {themes: [], degraded: true, reason: 'no-query'}
         }
@@ -51,8 +52,20 @@ export function makeSemanticEnrichment({queryMemories, nResults = 100} = {}) {
 
         const results = Array.isArray(result?.results) ? result.results : [];
 
-        // pass the raw relevance-ranked records through, tagged as theme evidence — the synthesis prompt
-        // decides which fields to foreground; this adapter makes no assumption about the record shape.
-        return {themes: results.map(record => ({...record, type: 'memory'})), degraded: false, reason: null}
+        // Window-bind the enrichment: a relevance-ranked semantic search returns matches from ANY time, so
+        // an out-of-window record would import a theme this window was never about (a false-narrative
+        // vector). Keep only records whose ISO `timestamp` is inside [windowStart, windowEnd); a record
+        // with no verifiable timestamp is dropped — it cannot be proven in-window.
+        // No window passed → pass-through (a direct best-effort call); a resolved window → strictly bind.
+        const startMs  = windowStart == null ? -Infinity : new Date(windowStart).getTime(),
+              endMs    = windowEnd   == null ?  Infinity : new Date(windowEnd).getTime(),
+              inWindow = windowStart == null && windowEnd == null ? results : results.filter(record => {
+                  const ts = new Date(record?.timestamp).getTime();
+                  return !Number.isNaN(ts) && ts >= startMs && ts < endMs
+              });
+
+        // pass the in-window relevance-ranked records through, tagged as theme evidence — the synthesis
+        // prompt decides which fields to foreground; this adapter makes no assumption about record shape.
+        return {themes: inWindow.map(record => ({...record, type: 'memory'})), degraded: false, reason: null}
     }
 }

@@ -57,5 +57,23 @@ test.describe('semanticEnrichment — best-effort theme evidence, never the cove
 
     test('the injected queryMemories is required', () => {
         expect(() => makeSemanticEnrichment({})).toThrow(/queryMemories/)
+    });
+
+    test('window-binds themes: out-of-window and unverifiable-timestamp records are dropped', async () => {
+        const enrich = makeSemanticEnrichment({
+            queryMemories: async () => ({results: [
+                {id: 'in',   timestamp: '2026-07-10T12:00:00Z', document: 'in-window theme'},
+                {id: 'out',  timestamp: '2026-01-01T00:00:00Z', document: 'out-of-window theme'},
+                {id: 'none', document: 'no timestamp — cannot be proven in-window'}
+            ]})
+        });
+
+        const {themes} = await enrich({
+            query      : 'themes',
+            windowStart: Date.parse('2026-07-08T00:00:00Z'),
+            windowEnd  : Date.parse('2026-07-12T00:00:00Z')
+        });
+
+        expect(themes.map(t => t.id)).toEqual(['in'])
     })
 });

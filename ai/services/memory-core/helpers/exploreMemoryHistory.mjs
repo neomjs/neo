@@ -64,7 +64,9 @@ export async function exploreMemoryHistory({
 
     // synthesis foregrounds themes (best-effort, never coverage) then runs the fidelity-bound generation
     const synthesize = async ({window, sources}) => {
-        const {themes} = await enrich({query: enrichmentQuery});
+        // enrichment is window-bound to the resolved window so a relevance-ranked theme cannot leak in
+        // from outside [windowStart, windowEnd) and fabricate a narrative this window was never about.
+        const {themes} = await enrich({query: enrichmentQuery, windowStart: window.windowStart, windowEnd: window.windowEnd});
 
         return generateNarrative({window, sources, themes})
     };
