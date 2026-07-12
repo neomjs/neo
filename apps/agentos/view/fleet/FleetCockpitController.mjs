@@ -149,7 +149,9 @@ class FleetCockpitController extends Controller {
         const
             me      = this,
             cockpit = me.component,
-            record  = me.getReference('fleet-grid')?.store?.get(data.agentId);
+            // resolve from the firing card (data.source) — mirroring onAgentLifecycleIntent's proven
+            // source-based lookup; fall back to the roster store by agentId for callers with no source.
+            record  = Neo.getComponent(data.source)?.record ?? me.getReference('fleet-grid')?.store?.get(data.agentId);
 
         if (!record) {
             return

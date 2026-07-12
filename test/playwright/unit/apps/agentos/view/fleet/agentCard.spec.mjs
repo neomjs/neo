@@ -193,16 +193,21 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         card.destroy()
     });
 
-    test('drill-in: a body click fires ONE agentSelect {agentId} — the seam the cockpit resolves up the controller chain', () => {
+    test('drill-in: a card click fires ONE agentSelect {agentId}; a control-cluster click is carved out (no drill)', () => {
         const card  = createCard({agentId: 'vega', state: 'ok'});
         const fired = [];
 
         card.on('agentSelect', data => fired.push(data));
 
-        // the body `delegate` routes only identity/lane clicks here (controls fire lifecycleIntent);
-        // the controller reads the durable agentId off the record and fires the intent-only select
-        card.getController().onCardSelect({});
+        // a click NOT through the controls → drills (the whole card is the target, robust to a narrow
+        // flex body); the controller reads the durable agentId off the record and fires intent-only
+        card.getController().onCardSelect({path: [{cls: ['fm-card-name']}, {cls: ['fm-card-body']}, {cls: ['fm-agent-card']}]});
         expect(fired).toMatchObject([{agentId: 'vega'}]);
+
+        // a click whose path passes through the control cluster is a lifecycle intent, not a drill
+        fired.length = 0;
+        card.getController().onCardSelect({path: [{cls: ['neo-button']}, {cls: ['fm-card-controls']}, {cls: ['fm-agent-card']}]});
+        expect(fired).toEqual([]);
 
         card.destroy()
     });

@@ -66,6 +66,14 @@ class AgentCardController extends Controller {
      * @param {Object} data The delegated click event.
      */
     onCardSelect(data) {
+        // a click whose path passes through the control cluster is a lifecycle intent, not a drill —
+        // carve it out (the whole card is the drill target, robust to a narrow flex body)
+        const inControls = (data?.path || []).some(node => Array.isArray(node.cls) && node.cls.includes('fm-card-controls'));
+
+        if (inControls) {
+            return
+        }
+
         this.component.fire('agentSelect', {agentId: this.component.record?.agentId ?? null})
     }
 }
