@@ -85,17 +85,35 @@ test.describe('Neo.dashboard.DockTabEnterButton', () => {
         return button
     };
 
-    test('brackets a real root start/end, stays inert at zero duration, and filters bubbled child animations', () => {
+    test('recognizes only the exact rendered non-zero tab-entry animation', () => {
+        expect(DockTabEnterButton.hasRenderedTabEnterMotion({
+            'animation-duration': '0.26s',
+            'animation-name'    : 'neo-dock-tab-enter'
+        })).toBe(true);
+        expect(DockTabEnterButton.hasRenderedTabEnterMotion({
+            'animation-duration': '120ms, 0.26s',
+            'animation-name'    : 'other, neo-dock-tab-enter'
+        })).toBe(true);
+        expect(DockTabEnterButton.hasRenderedTabEnterMotion({
+            'animation-duration': '0s',
+            'animation-name'    : 'neo-dock-tab-enter'
+        })).toBe(false);
+        expect(DockTabEnterButton.hasRenderedTabEnterMotion({
+            'animation-duration': '0.26s',
+            'animation-name'    : 'other'
+        })).toBe(false);
+        expect(DockTabEnterButton.hasRenderedTabEnterMotion(null)).toBe(false)
+    });
+
+    test('brackets a real root settle, stays idempotent, and filters bubbled child animations', () => {
         let button = createButton('dock-tab-enter-normal'),
             rootId = button.vdom?.id || button.id;
 
-        // Construction/class correlation alone is not motion. A 0ms token emits no start/end,
-        // leaving this path honestly signal-free.
+        // Construction/class correlation alone is not motion. Rendered-style discovery owns entry;
+        // this test drives the already-validated non-zero branch directly.
         expect(DockMotionSignal.isAnimating(button.id)).toBe(false);
 
-        button.onTabEnterAnimationStart(createAnimationEvent('animationstart', 'tab-enter-child'));
-        expect(DockMotionSignal.isAnimating(button.id)).toBe(false);
-        button.onTabEnterAnimationStart(createAnimationEvent('animationstart', rootId));
+        button.beginTabEnterMotion();
         expect(DockMotionSignal.isAnimating(button.id)).toBe(true);
         expect(button.cls).toContain(DockMotionSignal.SIGNAL_CLS);
         button.onTabEnterAnimationSettle(createAnimationEvent('animationend', 'tab-enter-child'));
@@ -107,7 +125,7 @@ test.describe('Neo.dashboard.DockTabEnterButton', () => {
         // A duplicate end is idempotent. Cancellation balances a second real start.
         button.onTabEnterAnimationSettle(createAnimationEvent('animationend', rootId));
         button = createButton('dock-tab-enter-cancel');
-        button.onTabEnterAnimationStart(createAnimationEvent('animationstart', button.vdom?.id || button.id));
+        button.beginTabEnterMotion();
         button.onTabEnterAnimationSettle(createAnimationEvent('animationcancel', button.vdom?.id || button.id));
         expect(DockMotionSignal.isAnimating(button.id)).toBe(false)
     });
@@ -116,8 +134,8 @@ test.describe('Neo.dashboard.DockTabEnterButton', () => {
         let first  = createButton('dock-tab-enter-first'),
             second = createButton('dock-tab-enter-second');
 
-        first.onTabEnterAnimationStart(createAnimationEvent('animationstart', first.vdom?.id || first.id));
-        second.onTabEnterAnimationStart(createAnimationEvent('animationstart', second.vdom?.id || second.id));
+        first.beginTabEnterMotion();
+        second.beginTabEnterMotion();
 
         expect(DockMotionSignal.isAnimating(first.id)).toBe(true);
         expect(DockMotionSignal.isAnimating(second.id)).toBe(true);

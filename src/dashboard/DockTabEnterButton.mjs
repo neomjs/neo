@@ -12,10 +12,12 @@ import TabHeaderButton  from '../tab/header/Button.mjs';
  * carried by the consuming projection. The correlation never enters the dock document and the
  * class does not survive a later coarse projection.
  *
- * The CSS duration/easing remain token-owned. Motion enters only when the browser emits the root
- * `animationstart`, so a token-collapsed 0ms animation (which emits no animation events) creates no
- * false signal. End, cancellation, replacement, and destroy settle idempotently, with
- * `DockMotionSignal`'s fail-safe remaining the final lost-event backstop.
+ * The CSS duration/easing remain token-owned. Once mounted, the App Worker asks the main-thread DOM
+ * authority for this header's rendered animation name + duration and opens the signal only for the
+ * exact non-zero tab-entry animation. This avoids racing the framework's delayed local-listener
+ * mount against `animationstart`, while a token-collapsed 0ms animation creates no false signal.
+ * End, cancellation, replacement, and destroy settle idempotently, with `DockMotionSignal`'s
+ * fail-safe remaining the final lost-event backstop.
  *
  * @class Neo.dashboard.DockTabEnterButton
  * @extends Neo.tab.header.Button
@@ -23,6 +25,29 @@ import TabHeaderButton  from '../tab/header/Button.mjs';
  * @see Neo.dashboard.DockMotionSignal
  */
 class DockTabEnterButton extends TabHeaderButton {
+    /**
+     * Whether the rendered style describes this producer's live, non-zero animation. CSS lists
+     * repeat shorter duration lists across animation names; mirror that grammar without owning any
+     * duration value here.
+     * @param {Object|null} styles Main-thread computed-style projection.
+     * @returns {Boolean}
+     * @static
+     */
+    static hasRenderedTabEnterMotion(styles) {
+        let durations = String(styles?.['animation-duration'] || '').split(',').map(value => value.trim()),
+            names     = String(styles?.['animation-name']     || '').split(',').map(value => value.trim()),
+            index     = names.indexOf('neo-dock-tab-enter'),
+            match;
+
+        if (index < 0 || durations.length === 0) {
+            return false
+        }
+
+        match = /^(-?(?:\d+(?:\.\d+)?|\.\d+))(ms|s)$/.exec(durations[index % durations.length]);
+
+        return !!match && Number(match[1]) > 0
+    }
+
     static config = {
         /**
          * @member {String} className='Neo.dashboard.DockTabEnterButton'
@@ -44,8 +69,8 @@ class DockTabEnterButton extends TabHeaderButton {
     tabEnterMotionActive = false
 
     /**
-     * Wires local root animation start/settlement. The browser opens the counted window only when
-     * CSS actually starts; construction alone is not evidence of motion.
+     * Wires local root animation settlement. The counted window opens from rendered-style truth in
+     * {@link #afterSetMounted}; construction alone is not evidence of motion.
      * @param {Object} config
      */
     construct(config) {
@@ -55,9 +80,23 @@ class DockTabEnterButton extends TabHeaderButton {
 
         me.addDomListeners([
             {animationcancel: me.onTabEnterAnimationSettle, scope: me},
-            {animationend   : me.onTabEnterAnimationSettle, scope: me},
-            {animationstart : me.onTabEnterAnimationStart,  scope: me}
+            {animationend   : me.onTabEnterAnimationSettle, scope: me}
         ])
+    }
+
+    /**
+     * Starts rendered-style discovery only after the physical header exists. Unmount is a
+     * cancellation boundary and must settle before a late style-read response can arrive.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        if (oldValue !== undefined) {
+            value ? this.syncRenderedTabEnterMotion() : this.finishTabEnterMotion()
+        }
     }
 
     /**
@@ -83,13 +122,28 @@ class DockTabEnterButton extends TabHeaderButton {
     }
 
     /**
-     * Opens the motion signal only for this button's real root CSS animation. A 0ms token emits no
-     * start, so reduced motion stays honestly signal-free instead of waiting on a timer backstop.
-     * @param {Object} data
+     * Reads the physical header's computed animation contract from its owning main thread. A late
+     * response after unmount/destroy is inert; an unavailable or malformed style projection fails
+     * safe to an instant landing.
+     * @returns {Promise<void>}
+     * @protected
      */
-    onTabEnterAnimationStart(data) {
-        if (data?.target?.id === (this.vdom?.id || this.id)) {
-            this.beginTabEnterMotion()
+    async syncRenderedTabEnterMotion() {
+        let me = this,
+            styles;
+
+        try {
+            styles = await Neo.main.DomAccess.getComputedStyle({
+                id   : me.id,
+                style: ['animation-name', 'animation-duration']
+            })
+        } catch {
+            return
+        }
+
+        if (me.mounted && !me.isDestroyed && !me.isDestroying
+            && DockTabEnterButton.hasRenderedTabEnterMotion(styles)) {
+            me.beginTabEnterMotion()
         }
     }
 
@@ -105,8 +159,8 @@ class DockTabEnterButton extends TabHeaderButton {
     /**
      * Settles only for this button's root event. Descendant animations bubble through the same
      * local listener but retain their own config-aware target id and cannot close this producer.
-     * Both `animationend` and `animationcancel` route here. An end without a matching start is an
-     * intentional safe no-op (the zero-duration / missing-animation path).
+     * Both `animationend` and `animationcancel` route here. An end without a matching rendered
+     * motion entry is an intentional safe no-op (the zero-duration / missing-animation path).
      * @param {Object} data
      */
     onTabEnterAnimationSettle(data) {
