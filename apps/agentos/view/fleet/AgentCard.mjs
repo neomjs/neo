@@ -48,22 +48,21 @@ class AgentCard extends Container {
          */
         baseCls: ['fm-agent-card'],
         /**
+         * The card is a NON-interactive listitem — the FM roster is a ranked responsive list, not a 2D
+         * data matrix. The keyboard-operable drill target is the dedicated
+         * native `card-name` Button (below), NOT the card root; lifecycle toggle/restart are sibling
+         * native Buttons, so every control is a real element in ordinary Tab order (drill → toggle →
+         * restart). Set via the Component.Base `role` config so it renders to the vdom ROOT through
+         * `changeVdomRootKey` (a raw `this.vdom.role` write does NOT flush to the mounted DOM).
+         * @member {String} role='listitem'
+         */
+        role: 'listitem',
+        /**
          * Turns the controls-slot buttons into a single `lifecycleIntent` event (the B4 emit); the
          * Lane C (C2) round-trip consumes it. See {@link AgentOS.view.fleet.AgentCardController}.
          * @member {Neo.controller.Component} controller=AgentCardController
          */
         controller: AgentCardController,
-        /**
-         * A click anywhere on the card EXCEPT the control cluster (which owns its own
-         * `lifecycleIntent` handlers) fires the drill-in select — the controller carves the controls
-         * out by click path, so the drill target stays robust even when the flex body renders narrow.
-         * The string handler resolves UP the controller chain (card → grid [no controller] → cockpit)
-         * to {@link AgentOS.view.fleet.FleetCockpitController#onAgentSelect}.
-         * @member {Object[]} domListeners
-         */
-        domListeners: [{
-            click: 'onCardSelect'
-        }],
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}
          * @reactive
@@ -114,9 +113,17 @@ class AgentCard extends Container {
                     flex     : 'none',
                     reference: 'state-dot'
                 }, {
-                    ntype    : 'component',
-                    cls      : ['fm-card-name'],
+                    // the dedicated native drill Button: the keyboard-operable target
+                    // that opens the resident. A native <button> owns Enter/Space; its accessible name is
+                    // the resident's name (set in applyRecord). The `fm-card-drill` marker scopes the
+                    // FleetGrid Up/Down efficiency jump + arrow-scroll suppression to drill targets only.
+                    module   : Button,
+                    // `neo-selection` opts JUST this drill Button into the main-thread arrow-key
+                    // preventDefault rule (DomEvents.onKeyDown) so the FleetGrid drill-to-drill Up/Down
+                    // jump never scrolls the viewport — scoped to the drill target, not the whole card.
+                    cls      : ['fm-card-name', 'fm-card-drill', 'neo-selection'],
                     flex     : 1,
+                    handler  : 'onCardSelect',
                     reference: 'card-name'
                 }, {
                     ntype    : 'component',
@@ -214,6 +221,10 @@ class AgentCard extends Container {
      */
     onConstructed(...args) {
         super.onConstructed(...args);
+
+        // The card is a NON-interactive listitem — it takes no tabIndex. Keyboard
+        // operability lives on the native child Buttons (drill / toggle / restart), which supply their
+        // own Enter/Space and Tab order. The drill Button's accessible name is record-derived (applyRecord).
         this.applyRecord()
     }
 
@@ -321,7 +332,9 @@ class AgentCard extends Container {
                     : controlReason.kind === 'timeout'
                         ? `${controlReason.action}… stale — no response`
                         : `⚠ ${controlReason.kind}: ${controlReason.reason}`
-        })
+        });
+
+        me.update()
     }
 }
 

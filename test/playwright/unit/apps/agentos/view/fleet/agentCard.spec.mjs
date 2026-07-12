@@ -193,21 +193,49 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         card.destroy()
     });
 
-    test('drill-in: a card click fires ONE agentSelect {agentId}; a control-cluster click is carved out (no drill)', () => {
-        const card  = createCard({agentId: 'vega', state: 'ok'});
+    test('drill-in (gate-1): the dedicated native drill Button fires ONE agentSelect {agentId}', () => {
+        const card  = createCard({agentId: 'vega', displayName: 'Vega', state: 'ok'});
         const fired = [];
 
         card.on('agentSelect', data => fired.push(data));
 
-        // a click NOT through the controls → drills (the whole card is the target, robust to a narrow
-        // flex body); the controller reads the durable agentId off the record and fires intent-only
-        card.getController().onCardSelect({path: [{cls: ['fm-card-name']}, {cls: ['fm-card-body']}, {cls: ['fm-agent-card']}]});
+        // the drill target is a dedicated native <button> (the resident's name), NOT the card root — so the
+        // controller no longer needs the old key/control-path carve-out (toggle/restart are separate sibling
+        // Buttons with their own lifecycleIntent handlers that never reach onCardSelect). Activation fires
+        // ONE agentSelect; the controller reads the durable agentId off the record, intent-only.
+        const drill = card.down({reference: 'card-name'});
+        expect(drill.vdom.tag).toBe('button');
+        expect(drill.text).toBe('Vega');
+
+        card.getController().onCardSelect({component: drill});
         expect(fired).toMatchObject([{agentId: 'vega'}]);
 
-        // a click whose path passes through the control cluster is a lifecycle intent, not a drill
-        fired.length = 0;
-        card.getController().onCardSelect({path: [{cls: ['neo-button']}, {cls: ['fm-card-controls']}, {cls: ['fm-agent-card']}]});
-        expect(fired).toEqual([]);
+        card.destroy()
+    });
+
+    test('a11y shape (gate-1): a non-interactive listitem card + a native drill Button announced by the resident name (#14619)', () => {
+        const card = createCard({agentId: 'vega', displayName: 'Vega', state: 'ok'});
+
+        // the card ROOT is a non-interactive listitem — NOT role=button, NOT focusable, NO card-level
+        // aria-label. The FM roster is a ranked responsive list, not a 2D data matrix, so the card is a
+        // list item and keyboard operability lives on its native child Buttons (drill / toggle / restart).
+        expect(card.vdom.role).toBe('listitem');
+        expect(card.vdom.tabIndex ?? null).toBeNull();
+        expect(card.vdom['aria-label'] ?? null).toBeNull();
+
+        // the drill is a dedicated native <button> whose accessible name IS the resident's name (it
+        // announces "Vega, button"); native Enter/Space activation is a browser behavior proven in the
+        // mounted whitebox-e2e. Its cls carries `neo-selection` so the FleetGrid drill-to-drill Up/Down
+        // jump's scroll-suppression is scoped to the drill target, not the whole card.
+        const drill = card.down({reference: 'card-name'});
+        expect(drill.vdom.tag).toBe('button');
+        expect(drill.text).toBe('Vega');
+        expect(drill.cls).toContain('fm-card-drill');
+        expect(drill.cls).toContain('neo-selection');
+
+        // the accessible name is record-derived display state — a rename updates it in place (never a re-key)
+        applySet(card, {displayName: 'Vega (renamed)'});
+        expect(drill.text).toBe('Vega (renamed)');
 
         card.destroy()
     });

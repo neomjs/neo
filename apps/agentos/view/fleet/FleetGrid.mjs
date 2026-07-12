@@ -14,6 +14,14 @@ import HealthBar from './HealthBar.mjs';
 const isOnline = state => state === 'ok' || state === 'limited' || state === 'wedged';
 
 /**
+ * The focusable native child Buttons of an AgentCard, in Tab order (drill → toggle → restart) — the
+ * set gate-3 focus-continuity restores across a roster rebuild. `card-name` is the dedicated drill
+ * Button; the two controls are the lifecycle cluster.
+ * @type {String[]}
+ */
+const SEMANTIC_CHILD_REFS = ['card-name', 'control-toggle', 'control-restart'];
+
+/**
  * @summary Pure fleet ranking — the deterministic fold ordering the measured fleet-density evidence
  * requires. Partitions the roster into three tiers — **online** (working/wedged/rate-limited, lead,
  * never folded), **idle** (the calm middle, collapsible), and **benched** (offline + unknown-guest
@@ -102,6 +110,20 @@ class FleetGrid extends Container {
          */
         adapterState_: 'live',
         /**
+         * An OPTIONAL Up/Down efficiency shortcut that jumps focus between the DRILL Buttons only (the
+         * gate-1 scale disposition) — a fast inter-agent jump for large rosters WITHOUT an outer roving
+         * tab stop or a hidden interaction mode. Every control (drill / toggle / restart) stays in ordinary
+         * Tab order; the jump fires only when a drill Button already holds focus. The `keys` config
+         * auto-creates a {@link Neo.util.KeyNavigation}; Left/Right are intentionally absent (that would be
+         * a 2D composite-grid contract this ranked list is not), and Space/Enter are owned natively by the
+         * Buttons, so they are not remapped here.
+         * @member {Object} keys
+         */
+        keys: {
+            Down: 'onDrillNext',
+            Up  : 'onDrillPrev'
+        },
+        /**
          * A STABLE surface: the header (title · liveness marker · flex spacer · live {@link HealthBar})
          * and the card region. Only the card region's items rebuild on a roster change — the header
          * and its health bar are updated in place so the counts animate rather than flash.
@@ -122,10 +144,16 @@ class FleetGrid extends Container {
             ]
         }, {
             ntype    : 'container',
+            // WCAG: the ranked roster IS a list — this container is the `role=list` owner of the
+            // `role=listitem` AgentCards (a listitem needs a list owner to form a valid topology). The
+            // arrow-scroll preventDefault marker (`neo-selection`) lives on the drill Buttons themselves
+            // (AgentCard), not here — the Up/Down efficiency jump is scoped to drill targets, so a plain
+            // Tab through the controls scrolls normally.
             cls      : ['fm-fleet-cards'],
             flex     : 1,
             layout   : {ntype: 'base'},
             reference: 'fleet-cards',
+            role     : 'list',
             items    : []
         }]
     }
@@ -139,6 +167,10 @@ class FleetGrid extends Container {
         super.onConstructed(...args);
 
         let me = this;
+
+        // a11y: the roster is a named landmark region so screen-reader users can navigate to it as a
+        // distinct cockpit surface. Set on the root before refreshGrid's first render flushes the vdom.
+        Object.assign(me.vdom, {role: 'region', 'aria-label': 'Fleet roster'});
 
         // the health bar tallies from the SAME bound store (its own reactive record seam, no array copy)
         me.getReference('fleet-health').store = me.store;
@@ -276,8 +308,86 @@ class FleetGrid extends Container {
 
         const cardsContainer = me.getReference('fleet-cards');
 
+        // capture the focused resident AND which semantic child (drill / toggle / restart) held focus
+        // BEFORE the destroy/recreate — so gate-3 restores the EXACT child on the resident's rebuilt card,
+        // never the card root and never a different agent. containsFocus is maintained by manager.Focus on
+        // focusin/out; a removed/reordered agent above the focus must never silently hand focus elsewhere.
+        const
+            focusedCard     = me.getAgentCards().find(card => card.containsFocus),
+            residentFocusId = focusedCard?.record?.agentId ?? null,
+            focusedChildRef = focusedCard
+                ? (SEMANTIC_CHILD_REFS.find(ref => focusedCard.getReference(ref)?.containsFocus) ?? null)
+                : null;
+
         cardsContainer.removeAll(true);
-        cardsContainer.add(cards)
+        cardsContainer.add(cards);
+
+        // focus-continuity (gate-3): the destroy/recreate dropped physical focus to <body>. Restore it ONLY
+        // when the grid HELD focus (residentFocusId set) — a background refresh must never steal focus —
+        // moving it to the SAME semantic child of the resident's replacement card (falling back to the drill
+        // Button when that child is gone or hidden). Deferred via promiseUpdate: focus is a mounted-DOM side
+        // effect, so it must run AFTER the recreated card mounts (a synchronous call skips the unmounted one).
+        if (residentFocusId) {
+            const newCard = me.getAgentCards().find(card => card.record?.agentId === residentFocusId);
+
+            newCard && me.promiseUpdate().then(() => {
+                const
+                    child  = newCard.getReference(focusedChildRef ?? 'card-name'),
+                    target = child && !child.hidden ? child : newCard.getReference('card-name');
+
+                target && me.mounted && target.focus(target.id, false, true)
+            })
+        }
+    }
+
+    /**
+     * @summary The agent-card subset of the card region (excludes the collapsed-idle fold row) — the
+     * drill-to-drill Up/Down jump + gate-3 focus restoration operate over these.
+     * @returns {Neo.component.Base[]}
+     */
+    getAgentCards() {
+        return this.getReference('fleet-cards').items.filter(item => item.ntype === 'fm-agent-card')
+    }
+
+    /**
+     * @summary The OPTIONAL drill-to-drill efficiency jump (the gate-1 scale disposition): moves focus to
+     * the prev/next card's DRILL Button by `delta`, clamped to the card count. Fires ONLY when a drill
+     * Button already holds focus — a control (toggle / restart) focus is left to ordinary Tab, so the jump
+     * never hijacks lifecycle navigation. Never wraps; a no-op at the ends, when focus is outside the drill
+     * Buttons, and when the grid is unmounted.
+     * @param {Number} delta
+     */
+    moveDrillFocus(delta) {
+        const me           = this,
+              cards        = me.getAgentCards(),
+              currentIndex = cards.findIndex(card => card.getReference('card-name')?.containsFocus);
+
+        // only jump BETWEEN drill Buttons — if focus is on a control (or outside the grid), do nothing
+        if (currentIndex === -1) {
+            return
+        }
+
+        const nextDrill = cards[Math.max(0, Math.min(cards.length - 1, currentIndex + delta))]?.getReference('card-name');
+
+        nextDrill && me.mounted && nextDrill.focus(nextDrill.id, false, true)
+    }
+
+    /**
+     * @summary Arrow Down — jump to the next agent's drill Button (only when a drill Button holds focus).
+     * @param {Object} data The KeyNavigation event data.
+     * @protected
+     */
+    onDrillNext(data) {
+        this.moveDrillFocus(1)
+    }
+
+    /**
+     * @summary Arrow Up — jump to the previous agent's drill Button (only when a drill Button holds focus).
+     * @param {Object} data The KeyNavigation event data.
+     * @protected
+     */
+    onDrillPrev(data) {
+        this.moveDrillFocus(-1)
     }
 
     /**

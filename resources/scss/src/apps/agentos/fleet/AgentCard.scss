@@ -23,13 +23,45 @@
         gap: 6px;
     }
 
+    /* the drill Button (gate-1): the keyboard-operable target that opens the resident. Reset the
+       neo-button chrome so the resident's NAME reads as the card title (a text-link drill), not a chip;
+       hover + focus-visible signal its interactivity — the card itself is a non-interactive listitem. */
     .fm-card-name {
-        flex         : 1;
-        font-weight  : 600;
-        color        : var(--fm-ink);
-        overflow     : hidden;
-        white-space  : nowrap;
-        text-overflow: ellipsis;
+        flex        : 1;
+        min-width   : 0;
+        min-height  : 0;
+        margin      : 0;
+        padding     : 0;
+        border      : none;
+        background  : none;
+        box-shadow  : none;
+        font        : inherit;
+        font-weight : 600;
+        color       : var(--fm-ink);
+        text-align  : start;
+        cursor      : pointer;
+        overflow    : hidden;
+
+        .neo-button-glyph {
+            display: none;
+        }
+
+        .neo-button-text {
+            display      : block;
+            overflow     : hidden;
+            white-space  : nowrap;
+            text-overflow: ellipsis;
+        }
+
+        &:hover .neo-button-text {
+            text-decoration: underline;
+        }
+
+        &:focus-visible {
+            outline       : 2px solid var(--fm-ink);
+            outline-offset: 2px;
+            border-radius : 3px;
+        }
     }
 
     .fm-card-engine {

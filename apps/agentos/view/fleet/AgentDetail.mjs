@@ -218,6 +218,10 @@ class AgentDetail extends Container {
      */
     onConstructed(...args) {
         super.onConstructed(...args);
+        // a11y: the agent-detail drill is a named landmark region so screen-reader users land in a
+        // labeled region on drill-in, not an unnamed pane. Set on the root before applyRecord's first
+        // render flush; a later re-seat (applyRecord) keeps the root, so the region survives.
+        Object.assign(this.vdom, {role: 'region', 'aria-label': 'Agent detail'});
         this.applyRecord();
         this.startFreshnessAging()
     }
