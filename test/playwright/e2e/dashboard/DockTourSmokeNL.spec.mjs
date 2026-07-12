@@ -5,20 +5,21 @@ import {test, expect} from '../../fixtures.mjs';
  *
  * The runner + schema shipped with their unit floor (validator fail-closed cases, mode-identity,
  * two-run determinism over a FIXTURE seam); what a unit spec cannot certify is the live half of
- * the trinity contract: the same script, replayed through the REAL app-side dock seam
- * (`Neo.ai.client.DockService` → the holder's `applyDockZoneOperation` reducer) on the shipped
- * dock example, twice, with identical operation logs. That two-run log identity is the runner
- * lane's remaining acceptance criterion — the determinism falsifier — and this spec delivers it.
+ * the trinity contract: the same script, replayed through the REAL app-side dock seam on the
+ * shipped dock example, twice, with identical operation logs — the determinism falsifier the
+ * runner lane's remaining acceptance criterion names.
  *
- * The smoke script is deliberately SELF-RESTORING (resize out → assert → pause → resize back),
- * so run 2 starts from the exact document run 1 started from: log identity is then a claim about
- * the runner + seam + reducer pipeline, never about lucky state. It exercises all three
- * executable step types of `neo.tour.script.v1` (`op`, `topology-assert`, `pause` — spec mode
- * skips the pause WAIT but keeps its log entry, per the pace-never-correctness contract).
+ * The oracle is DERIVED, never assumed: the spec first reads the hydrated worker-owned document
+ * through a zero-op replay (storage restore awaited inside the adapter), snapshots it whole as
+ * the baseline, and builds the probe + exact-restore script FROM that baseline. After each run
+ * the COMPLETE settled document must deep-equal the baseline (epsilon-aware for IEEE noise) —
+ * so "run 2 starts from run 1's exact starting document" is proven, not presumed, and identical
+ * logs certify the runner + seam + reducer pipeline rather than lucky initial state. The adapter
+ * resolves only after the last deferred re-projection settles, so the page-survival verdict
+ * covers the projection work, not just the reducer commits.
  *
- * Fresh-context assumption: the example restores saved layouts from storage; a Playwright
- * context starts storage-clean, so the committed document is the example's `initialDockModel`
- * (`root-split` sizes [0.65, 0.35], `main-tabs` active item `strategy`).
+ * All three executable `neo.tour.script.v1` step types are exercised (`op`, `topology-assert`,
+ * `pause` — spec mode skips the pause WAIT but keeps its log entry, per pace-never-correctness).
  *
  * Paradigm (whitebox-e2e protocol): Playwright loads the page; every assertion below is App
  * Worker truth via the Neural Link fixture — no DOM locator carries a verdict.
@@ -26,41 +27,78 @@ import {test, expect} from '../../fixtures.mjs';
  * Run: NEO_E2E_PORT=8091 npx playwright test DockTourSmokeNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
 
-const smokeScript = {
+// Epsilon-aware structural equality: full-document comparison must absorb IEEE float noise
+// (split-size normalization can yield 0.30000000000000004-class values) without hiding any
+// structural drift — same philosophy as the tour-script predicate evaluator's number epsilon.
+const epsilonDeepEqual = (a, b) => {
+    if (typeof a === 'number' && typeof b === 'number') {
+        return (Number.isNaN(a) && Number.isNaN(b)) || Math.abs(a - b) <= 1e-9
+    }
+    if (Array.isArray(a) || Array.isArray(b)) {
+        return Array.isArray(a) && Array.isArray(b) && a.length === b.length
+            && a.every((value, index) => epsilonDeepEqual(value, b[index]))
+    }
+    if (a && b && typeof a === 'object' && typeof b === 'object') {
+        const keysA = Object.keys(a), keysB = Object.keys(b);
+        return keysA.length === keysB.length
+            && keysA.every(key => Object.prototype.hasOwnProperty.call(b, key) && epsilonDeepEqual(a[key], b[key]))
+    }
+    return Object.is(a, b)
+};
+
+// Zero-op baseline read: a valid v1 script whose only step asserts the document schema — no
+// mutation, but the adapter still awaits hydration + settlement and returns the whole document.
+const baselineScript = {
     schema: 'neo.tour.script.v1',
-    id    : 'dock-l3-smoke',
-    title : 'Dock example L3 smoke',
+    id    : 'dock-l3-baseline-read',
+    title : 'Hydrated baseline read',
     scenes: [{
-        id   : 'smoke',
-        title: 'resize → assert → pause → restore',
-        steps: [{
-            type      : 'op',
-            caption   : 'widen the main zone',
-            descriptor: {operation: 'resizeSplit', splitNodeId: 'root-split', sizes: [0.7, 0.3]},
-            expect    : [{path: 'nodes.root-split.sizes.0', equals: 0.7}]
-        }, {
-            type  : 'topology-assert',
-            expect: [
-                {path: 'nodes.root-split.sizes.1',     equals: 0.3},
-                {path: 'nodes.main-tabs.activeItemId', equals: 'strategy'}
-            ]
-        }, {
-            type   : 'pause',
-            ms     : 120,
-            caption: 'settle beat — spec mode skips the wait, keeps the log entry'
-        }, {
-            type      : 'op',
-            caption   : 'restore the shipped proportions',
-            descriptor: {operation: 'resizeSplit', splitNodeId: 'root-split', sizes: [0.65, 0.35]},
-            expect    : [{path: 'nodes.root-split.sizes.0', equals: 0.65}]
-        }]
+        id   : 'read',
+        title: 'assert schema, mutate nothing',
+        steps: [{type: 'topology-assert', expect: [{path: 'schema', equals: 'neo.harness.dockZone.v1'}]}]
     }]
 };
 
-test.describe('#14640 TourRunner L3 smoke (examples/dashboard/dock, Neural Link)', () => {
+// The smoke script, built FROM the hydrated baseline: probe away from the live sizes, assert,
+// pause, restore the exact baseline values — self-restoring by construction, not by convention.
+const buildSmokeScript = baselineSizes => {
+    const
+        delta = baselineSizes[0] <= 0.9 ? 0.05 : -0.05,
+        probe = [baselineSizes[0] + delta, baselineSizes[1] - delta];
+
+    return {
+        schema: 'neo.tour.script.v1',
+        id    : 'dock-l3-smoke',
+        title : 'Dock example L3 smoke',
+        scenes: [{
+            id   : 'smoke',
+            title: 'probe → assert → pause → exact restore',
+            steps: [{
+                type      : 'op',
+                caption   : 'probe away from the baseline proportions',
+                descriptor: {operation: 'resizeSplit', splitNodeId: 'root-split', sizes: probe},
+                expect    : [{path: 'nodes.root-split.sizes.0', equals: probe[0]}]
+            }, {
+                type  : 'topology-assert',
+                expect: [{path: 'nodes.root-split.sizes.1', equals: probe[1]}]
+            }, {
+                type   : 'pause',
+                ms     : 120,
+                caption: 'settle beat — spec mode skips the wait, keeps the log entry'
+            }, {
+                type      : 'op',
+                caption   : 'restore the exact baseline proportions',
+                descriptor: {operation: 'resizeSplit', splitNodeId: 'root-split', sizes: [...baselineSizes]},
+                expect    : [{path: 'nodes.root-split.sizes.0', equals: baselineSizes[0]}]
+            }]
+        }]
+    }
+};
+
+test.describe('TourRunner L3 smoke (examples/dashboard/dock, Neural Link)', () => {
     test.setTimeout(120000);
 
-    test('two consecutive spec-mode replays produce identical operation logs and leave the document untouched', async ({page, neuralLink}) => {
+    test('two consecutive spec-mode replays produce identical operation logs and restore the complete hydrated document', async ({page, neuralLink}) => {
         const pageErrors = [];
         page.on('pageerror', err => {pageErrors.push(err.message); console.error('BROWSER JS ERROR:', err)});
 
@@ -74,41 +112,61 @@ test.describe('#14640 TourRunner L3 smoke (examples/dashboard/dock, Neural Link)
 
         expect(mainId, 'the dock example MainContainer must exist in the App Worker').toBeTruthy();
 
-        const runOnce = async () => {
-            const response = await app.callMethod(mainId, 'runTourSpec', [smokeScript]);
+        const runOnce = async script => {
+            const response = await app.callMethod(mainId, 'runTourSpec', [script]);
             return response?.result ?? response
         };
 
-        // ── run 1: the smoke itself ──────────────────────────────────────────────────────────
-        const run1 = await runOnce();
+        // ── the hydrated baseline: read the COMPLETE worker-owned document, mutate nothing ──
+        const baselineRun = await runOnce(baselineScript);
+
+        expect(baselineRun?.completed, `baseline read must complete; errors: ${JSON.stringify(baselineRun?.errors)}`).toBe(true);
+
+        const baseline = baselineRun.document;
+
+        // Precondition guard (clear failure over silent drift): the probe targets this split.
+        expect(baseline?.nodes?.['root-split']?.sizes?.length,
+            'the hydrated document must carry the root-split node this smoke probes').toBe(2);
+
+        const smokeScript = buildSmokeScript(baseline.nodes['root-split'].sizes);
+
+        // ── run 1: the smoke itself ─────────────────────────────────────────────────────────
+        const run1 = await runOnce(smokeScript);
 
         expect(run1?.completed, `run 1 must complete; errors: ${JSON.stringify(run1?.errors)}`).toBe(true);
         expect(run1.errors, 'a completed run reports zero errors').toEqual([]);
         expect(run1.log.length, 'four steps → four log entries').toBe(4);
 
-        const ops = run1.log.filter(entry => entry.type === 'op');
+        const opEntries = run1.log.filter(entry => entry.type === 'op');
 
-        expect(ops.length, 'both resizeSplit ops logged').toBe(2);
-        expect(ops.every(entry => entry.applied), 'both ops accepted by the executor').toBe(true);
-        expect(
-            run1.log.filter(entry => entry.assertsPassed !== undefined).every(entry => entry.assertsPassed),
-            'every asserted entry passed'
-        ).toBe(true);
+        expect(opEntries.length, 'both resizeSplit ops logged').toBe(2);
+        expect(opEntries.every(entry => entry.applied), 'both ops accepted by the executor').toBe(true);
+
+        // Guard the assertion-bearing set size BEFORE .every() — an empty filter must never pass.
+        const assertedEntries = run1.log.filter(entry => entry.assertsPassed !== undefined);
+
+        expect(assertedEntries.length, 'two op expects + one topology-assert carry assertion outcomes').toBe(3);
+        expect(assertedEntries.every(entry => entry.assertsPassed), 'every asserted entry passed').toBe(true);
+
+        // Full-document restoration after run 1 — the claim run 2's determinism stands on.
+        expect(epsilonDeepEqual(run1.document, baseline),
+            'run 1 must restore the COMPLETE hydrated document (epsilon-aware deep equality)').toBe(true);
 
         // ── run 2: THE determinism falsifier (the lane's remaining acceptance criterion) ────
-        const run2 = await runOnce();
+        const run2 = await runOnce(smokeScript);
 
         expect(run2?.completed, `run 2 must complete; errors: ${JSON.stringify(run2?.errors)}`).toBe(true);
         expect(run2.log, 'two consecutive runs must produce identical operation logs').toEqual(run1.log);
+        expect(epsilonDeepEqual(run2.document, baseline),
+            'run 2 must also restore the COMPLETE hydrated document').toBe(true);
 
-        // ── worker truth: the self-restoring script left the committed document untouched ───
+        // ── independent out-of-adapter witness: the committed model, read cold ──────────────
         const {dockModel} = await app.getComponent(mainId, ['dockModel']);
 
-        expect(dockModel.nodes['root-split'].sizes[0]).toBeCloseTo(0.65, 9);
-        expect(dockModel.nodes['root-split'].sizes[1]).toBeCloseTo(0.35, 9);
-        expect(dockModel.nodes['main-tabs'].activeItemId).toBe('strategy');
+        expect(epsilonDeepEqual(dockModel, baseline),
+            'the committed worker document read outside the adapter equals the baseline').toBe(true);
 
-        // ── the live page survived the double replay without a single thrown error ──────────
+        // ── page survival, judged AFTER settled projections (the adapter awaits them) ───────
         expect(pageErrors, 'no page errors across the double replay').toEqual([]);
     });
 });
