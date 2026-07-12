@@ -112,26 +112,22 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         grid.destroy()
     });
 
-    test('a roster rebuild keeps the roving tab stop on the resident agent IDENTITY, not the numeric index (#14619 @neo-gpt falsifier)', () => {
+    test('keyboard model (gate-1): drill-only jump handlers exist + no-op off a drill Button; cards are non-interactive listitems, no roving tab stop (#14619)', () => {
         const grid = Neo.create(FleetGrid, {appName, foldThreshold: 20, store: makeStore(roster(['ok', 'ok', 'ok']))});
 
-        // cards sort by agentId → [agent-01, agent-02, agent-03]; focus the middle one
-        grid.focusIndex = 1;
-        const focusedId = agentCards(grid)[grid.focusIndex].record.agentId;
+        // no roving tab stop: every card is a NON-interactive listitem (keyboard operability lives on the
+        // native child Buttons in ordinary Tab order), so no card carries a tabIndex.
+        expect(agentCards(grid).every(card => (card.vdom.tabIndex ?? null) === null)).toBe(true);
 
-        // a joiner that sorts ABOVE the focused agent → every index shifts down by one
-        grid.store.add({agentId: 'agent-00', displayName: 'Joiner', state: 'ok'});
-
-        // the tab stop FOLLOWS the resident agent to its new index (1 → 2), not the stale numeric slot
-        expect(agentCards(grid)[grid.focusIndex].record.agentId).toBe(focusedId);
-        expect(grid.focusIndex).toBe(2);
-        expect(agentCards(grid)[grid.focusIndex].vdom.tabIndex).toBe(0); // exactly that card carries the tab stop
-
-        // when the focused agent LEAVES the roster, the tab stop clamps to a valid card — never orphaned
-        grid.store.remove(grid.store.get(focusedId));
-        expect(agentCards(grid).some(card => card.record.agentId === focusedId)).toBe(false);
-        expect(grid.focusIndex).toBeLessThan(agentCards(grid).length);
-        expect(agentCards(grid)[grid.focusIndex].vdom.tabIndex).toBe(0);
+        // the roving handlers are gone, replaced by the OPTIONAL Up/Down drill-to-drill jump. With no drill
+        // focused (a headless unit — containsFocus is a mounted signal), moveDrillFocus is a safe no-op and
+        // never throws; the mounted focus-move + the gate-3 semantic-child restoration across a rebuild are
+        // proven in the whitebox-e2e (the mount authority the unit layer cannot exercise).
+        expect(typeof grid.onDrillNext).toBe('function');
+        expect(typeof grid.onDrillPrev).toBe('function');
+        expect(grid.onRoveNext ?? null).toBeNull();
+        expect(() => grid.moveDrillFocus(1)).not.toThrow();
+        expect(() => grid.moveDrillFocus(-1)).not.toThrow();
 
         grid.destroy()
     });
@@ -279,53 +275,4 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         grid.destroy()
     });
 
-    test('a11y roving-tabindex (#14619): arrows move the single tab stop across the card ring, clamped at both ends', () => {
-        const grid  = Neo.create(FleetGrid, {appName, foldThreshold: 12, store: makeStore(roster(['ok', 'ok', 'idle']))});
-        const tabOf = () => agentCards(grid).map(card => card.vdom.tabIndex);
-
-        // exactly ONE tab stop: the focusIndex-0 card is 0, every other card is -1 (single grid tab stop)
-        expect(grid.focusIndex).toBe(0);
-        expect(tabOf()).toEqual([0, -1, -1]);
-
-        // Down/Right advance the active card; the tab stop moves with focusIndex
-        grid.onRoveNext();
-        expect(grid.focusIndex).toBe(1);
-        expect(tabOf()).toEqual([-1, 0, -1]);
-
-        grid.onRoveNext();
-        expect(tabOf()).toEqual([-1, -1, 0]);
-
-        // clamp at the end — Down on the last card holds, never wraps out of bounds
-        grid.onRoveNext();
-        expect(grid.focusIndex).toBe(2);
-        expect(tabOf()).toEqual([-1, -1, 0]);
-
-        // Up/Left step back; clamp at 0
-        grid.onRovePrev();
-        expect(grid.focusIndex).toBe(1);
-        grid.onRovePrev();
-        grid.onRovePrev();
-        expect(grid.focusIndex).toBe(0);
-        expect(tabOf()).toEqual([0, -1, -1]);
-
-        grid.destroy()
-    });
-
-    test('a11y roving-tabindex (#14619): a roster rebuild clamps a stale focusIndex into range — exactly one tab stop survives, never a dangling out-of-bounds index', () => {
-        const store = makeStore(roster(['ok', 'ok', 'idle', 'ok', 'idle'])),
-              grid  = Neo.create(FleetGrid, {appName, foldThreshold: 12, store});
-
-        // park the roving focus on the last card, then shrink the roster below that index
-        grid.focusIndex = agentCards(grid).length - 1;
-        expect(grid.focusIndex).toBeGreaterThan(1);
-
-        store.data = roster(['ok', 'idle']); // fewer residents → the card set rebuilds
-
-        const cards = agentCards(grid);
-        expect(grid.focusIndex).toBe(cards.length - 1);                        // clamped into range
-        expect(cards.filter(card => card.vdom.tabIndex === 0)).toHaveLength(1); // exactly one tab stop
-        expect(cards.filter(card => card.vdom.tabIndex === -1)).toHaveLength(cards.length - 1);
-
-        grid.destroy()
-    });
 });

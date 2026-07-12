@@ -14,6 +14,14 @@ import HealthBar from './HealthBar.mjs';
 const isOnline = state => state === 'ok' || state === 'limited' || state === 'wedged';
 
 /**
+ * The focusable native child Buttons of an AgentCard, in Tab order (drill → toggle → restart) — the
+ * set gate-3 focus-continuity restores across a roster rebuild. `card-name` is the dedicated drill
+ * Button; the two controls are the lifecycle cluster.
+ * @type {String[]}
+ */
+const SEMANTIC_CHILD_REFS = ['card-name', 'control-toggle', 'control-restart'];
+
+/**
  * @summary Pure fleet ranking — the deterministic fold ordering the measured fleet-density evidence
  * requires. Partitions the roster into three tiers — **online** (working/wedged/rate-limited, lead,
  * never folded), **idle** (the calm middle, collapsible), and **benched** (offline + unknown-guest
@@ -102,28 +110,19 @@ class FleetGrid extends Container {
          */
         adapterState_: 'live',
         /**
-         * Roving-tabindex keyboard navigation over the card set (WCAG grid a11y): the arrow keys move
-         * the active card. The `keys` config auto-creates a {@link Neo.util.KeyNavigation}; the handlers
-         * shift {@link #focusIndex} by one, clamped to the card count. Up/Left step back, Down/Right step
-         * forward (linear over the ranked card list — the visual grid is one focus ring).
+         * An OPTIONAL Up/Down efficiency shortcut that jumps focus between the DRILL Buttons only (the
+         * gate-1 scale disposition) — a fast inter-agent jump for large rosters WITHOUT an outer roving
+         * tab stop or a hidden interaction mode. Every control (drill / toggle / restart) stays in ordinary
+         * Tab order; the jump fires only when a drill Button already holds focus. The `keys` config
+         * auto-creates a {@link Neo.util.KeyNavigation}; Left/Right are intentionally absent (that would be
+         * a 2D composite-grid contract this ranked list is not), and Space/Enter are owned natively by the
+         * Buttons, so they are not remapped here.
          * @member {Object} keys
          */
         keys: {
-            Down : 'onRoveNext',
-            Left : 'onRovePrev',
-            Right: 'onRoveNext',
-            Up   : 'onRovePrev'
+            Down: 'onDrillNext',
+            Up  : 'onDrillPrev'
         },
-        /**
-         * The roving focus position — the index (within the agent-card subset) of the ONE card that is
-         * tab-reachable (`tabIndex 0`); every other card is `-1`, so the grid is a single tab stop and the
-         * arrows navigate within it. Plain state: {@link #moveFocus} applies the roving tabindex AND moves
-         * DOM focus (keyboard nav), while {@link #refreshGrid} re-applies the tabindex WITHOUT stealing
-         * focus on a roster rebuild.
-         * @member {Number} focusIndex_=0
-         * @reactive
-         */
-        focusIndex_: 0,
         /**
          * A STABLE surface: the header (title · liveness marker · flex spacer · live {@link HealthBar})
          * and the card region. Only the card region's items rebuild on a roster change — the header
@@ -145,9 +144,10 @@ class FleetGrid extends Container {
             ]
         }, {
             ntype    : 'container',
-            // `neo-selection`: opts the card region into the main-thread arrow-key preventDefault rule
-            // (DomEvents.onKeyDown) so roving navigation never scrolls the viewport.
-            cls      : ['fm-fleet-cards', 'neo-selection'],
+            // the arrow-scroll preventDefault marker (`neo-selection`) lives on the drill Buttons
+            // themselves (AgentCard), not this region — the Up/Down efficiency jump is scoped to drill
+            // targets, so a plain Tab through the controls scrolls normally.
+            cls      : ['fm-fleet-cards'],
             flex     : 1,
             layout   : {ntype: 'base'},
             reference: 'fleet-cards',
@@ -305,45 +305,41 @@ class FleetGrid extends Container {
 
         const cardsContainer = me.getReference('fleet-cards');
 
-        // capture the resident IDENTITY of the focused card BEFORE the rebuild — the roving tab stop must
-        // follow the SAME agent across a roster refresh, not whatever card lands at the old numeric index.
-        // A removed/reordered agent above the focus would otherwise silently hand the tab stop to a
-        // different agent (@neo-gpt identity-focus falsifier: rebuild follows resident identity, not index).
+        // capture the focused resident AND which semantic child (drill / toggle / restart) held focus
+        // BEFORE the destroy/recreate — so gate-3 restores the EXACT child on the resident's rebuilt card,
+        // never the card root and never a different agent. containsFocus is maintained by manager.Focus on
+        // focusin/out; a removed/reordered agent above the focus must never silently hand focus elsewhere.
         const
-            residentFocusId = me.getAgentCards()[me.focusIndex]?.record?.agentId ?? null,
-            // did the grid hold DOM focus before the rebuild? (manager.Focus maintains containsFocus on
-            // focusin/out) — the destroy/recreate below drops physical focus to <body>, so we restore it
-            // ONLY when it was ours, never stealing it on a background refresh.
-            hadFocus        = me.containsFocus;
+            focusedCard     = me.getAgentCards().find(card => card.containsFocus),
+            residentFocusId = focusedCard?.record?.agentId ?? null,
+            focusedChildRef = focusedCard
+                ? (SEMANTIC_CHILD_REFS.find(ref => focusedCard.getReference(ref)?.containsFocus) ?? null)
+                : null;
 
         cardsContainer.removeAll(true);
         cardsContainer.add(cards);
 
-        // roving-tabindex: re-establish the single tab stop over the freshly-built card set WITHOUT moving
-        // DOM focus (a roster refresh must never steal focus). Restore the tab stop to the resident agent's
-        // NEW index; fall back to the clamped old position only when that agent is gone from the roster.
-        const
-            agentCards    = me.getAgentCards(),
-            residentIndex = residentFocusId ? agentCards.findIndex(card => card.record?.agentId === residentFocusId) : -1;
+        // focus-continuity (gate-3): the destroy/recreate dropped physical focus to <body>. Restore it ONLY
+        // when the grid HELD focus (residentFocusId set) — a background refresh must never steal focus —
+        // moving it to the SAME semantic child of the resident's replacement card (falling back to the drill
+        // Button when that child is gone or hidden). Deferred via promiseUpdate: focus is a mounted-DOM side
+        // effect, so it must run AFTER the recreated card mounts (a synchronous call skips the unmounted one).
+        if (residentFocusId) {
+            const newCard = me.getAgentCards().find(card => card.record?.agentId === residentFocusId);
 
-        me.focusIndex = residentIndex > -1
-            ? residentIndex
-            : (agentCards.length > 0 ? Math.min(me.focusIndex, agentCards.length - 1) : 0);
-        me.applyRovingTabIndex();
+            newCard && me.promiseUpdate().then(() => {
+                const
+                    child  = newCard.getReference(focusedChildRef ?? 'card-name'),
+                    target = child && !child.hidden ? child : newCard.getReference('card-name');
 
-        // focus-continuity: the rebuild dropped physical focus to <body>; if the grid HELD focus, move it to
-        // the resident's replacement (the restored focusIndex card) so keyboard focus survives the refresh —
-        // identity-preserving with the tab-stop restore above. Guarded by hadFocus so a background refresh
-        // never steals focus. Deferred via promiseUpdate: focus is a mounted-DOM side-effect, so it must run
-        // AFTER the recreated cards mount (a synchronous call skips on the not-yet-mounted replacement).
-        if (hadFocus && agentCards.length > 0) {
-            me.promiseUpdate().then(() => me.focusActiveCard())
+                target && me.mounted && target.focus(target.id, false, true)
+            })
         }
     }
 
     /**
      * @summary The agent-card subset of the card region (excludes the collapsed-idle fold row) — the
-     * roving focus ring operates over these.
+     * drill-to-drill Up/Down jump + gate-3 focus restoration operate over these.
      * @returns {Neo.component.Base[]}
      */
     getAgentCards() {
@@ -351,82 +347,44 @@ class FleetGrid extends Container {
     }
 
     /**
-     * @summary Reactive re-apply of the roving tabindex — the ONE card at {@link #focusIndex} is the tab
-     * stop (`tabIndex 0`), every other card is `-1`. Sets DOM state only; never moves focus (that is
-     * {@link #focusActiveCard}, called explicitly on keyboard nav).
-     * @param {Number} value
-     * @param {Number} oldValue
-     * @protected
-     */
-    afterSetFocusIndex(value, oldValue) {
-        this.isConstructed && this.applyRovingTabIndex()
-    }
-
-    /**
-     * @summary Writes the roving tabindex across the current card set — active card `0`, the rest `-1` —
-     * updating only the cards whose value actually changed. No focus movement.
-     */
-    applyRovingTabIndex() {
-        const me = this;
-
-        me.getAgentCards().forEach((card, index) => {
-            const
-                tabIndex = index === me.focusIndex ? 0 : -1,
-                root     = card.getVdomRoot(); // the render-root (what changeVdomRootKey targets) — a raw
-                                               // card.vdom write does NOT reliably flush the attribute to DOM
-
-            if (root.tabIndex !== tabIndex) {
-                root.tabIndex = tabIndex;
-                card.update()
-            }
-        })
-    }
-
-    /**
-     * @summary Moves DOM focus to the active card (the {@link #focusIndex} card), without scrolling —
-     * the keyboard-nav focus move (distinct from the tabindex-only {@link #applyRovingTabIndex}).
-     */
-    focusActiveCard() {
-        const card = this.getAgentCards()[this.focusIndex];
-
-        // focus is a mounted-DOM side-effect; the roving tabindex state (applyRovingTabIndex) stands on
-        // its own, so an unmounted grid (pre-mount, or a headless unit) simply skips the focus move.
-        card && this.mounted && card.focus(card.id, false, true)
-    }
-
-    /**
-     * @summary Shifts the roving focus by `delta` cards, clamped to the card count, then moves DOM focus.
-     * The arrow-key handlers ({@link #onRoveNext} / {@link #onRovePrev}) drive it.
+     * @summary The OPTIONAL drill-to-drill efficiency jump (the gate-1 scale disposition): moves focus to
+     * the prev/next card's DRILL Button by `delta`, clamped to the card count. Fires ONLY when a drill
+     * Button already holds focus — a control (toggle / restart) focus is left to ordinary Tab, so the jump
+     * never hijacks lifecycle navigation. Never wraps; a no-op at the ends, when focus is outside the drill
+     * Buttons, and when the grid is unmounted.
      * @param {Number} delta
      */
-    moveFocus(delta) {
-        const me    = this,
-              cards = me.getAgentCards();
+    moveDrillFocus(delta) {
+        const me           = this,
+              cards        = me.getAgentCards(),
+              currentIndex = cards.findIndex(card => card.getReference('card-name')?.containsFocus);
 
-        if (!cards.length) {
+        // only jump BETWEEN drill Buttons — if focus is on a control (or outside the grid), do nothing
+        if (currentIndex === -1) {
             return
         }
 
-        me.focusIndex = Math.max(0, Math.min(cards.length - 1, me.focusIndex + delta));
-        me.focusActiveCard()
+        const nextDrill = cards[Math.max(0, Math.min(cards.length - 1, currentIndex + delta))]?.getReference('card-name');
+
+        nextDrill && me.mounted && nextDrill.focus(nextDrill.id, false, true)
     }
 
     /**
-     * @summary Arrow Down/Right — advance the roving focus one card.
+     * @summary Arrow Down — jump to the next agent's drill Button (only when a drill Button holds focus).
      * @param {Object} data The KeyNavigation event data.
      * @protected
      */
-    onRoveNext(data) {
-        this.moveFocus(1)
+    onDrillNext(data) {
+        this.moveDrillFocus(1)
     }
 
     /**
-     * @summary Arrow Up/Left — step the roving focus back one card.
+     * @summary Arrow Up — jump to the previous agent's drill Button (only when a drill Button holds focus).
      * @param {Object} data The KeyNavigation event data.
      * @protected
      */
-    onRovePrev(data) {
-        this.moveFocus(-1)
+    onDrillPrev(data) {
+        this.moveDrillFocus(-1)
     }
 
     /**

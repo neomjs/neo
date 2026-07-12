@@ -2,19 +2,23 @@ import {test, expect}                                       from '../../fixtures
 import {NeuralLink_DataService, NeuralLink_InstanceService} from '../../../../ai/services.mjs';
 
 /**
- * @summary The FM cockpit keyboard-a11y roving proven on the MOUNTED grid via Neural Link possession —
- * the mount-authority the unit layer (fleetGrid.spec / agentCard.spec) guards off. A real browser
- * keydown drives the grid's KeyNavigation → `focusIndex` → `applyRovingTabIndex` → the DOM `tabindex`
- * attribute, so this proves the single-tab-stop roving ring the unit suite proves in isolation actually
- * obeys real arrow keys end-to-end (main-thread DomEvents → App-Worker → vdom → mounted DOM).
+ * @summary The FM cockpit keyboard-a11y contract proven on the MOUNTED grid via Neural Link possession —
+ * the mount-authority the unit layer (fleetGrid.spec / agentCard.spec) guards off. The gate-1 shape: a
+ * NON-interactive listitem card whose keyboard-operable drill is a dedicated NATIVE `<button>` (the
+ * resident name), with lifecycle toggle/restart as sibling native Buttons — every control a real element
+ * in ordinary Tab order. An OPTIONAL Up/Down efficiency shortcut jumps focus between drill Buttons only;
+ * activation is native Enter/Space; and focus survives a roster rebuild, restored to the resident's EXACT
+ * semantic child. This is what catches the class of bug a `.vdom` unit assertion cannot see (a root attr
+ * set on the vdom but never flushed to the DOM).
  *
- * @see apps/agentos/view/fleet/FleetGrid.mjs (applyRovingTabIndex / afterSetFocusIndex)
+ * @see apps/agentos/view/fleet/AgentCard.mjs
+ * @see apps/agentos/view/fleet/FleetGrid.mjs
  * @see test/playwright/unit/apps/agentos/view/fleet/fleetGrid.spec.mjs
  */
-test.describe('AgentOS fleet grid — keyboard-a11y roving (Neural Link, #14619)', () => {
+test.describe('AgentOS fleet grid — keyboard a11y (native listitem + drill Button, Neural Link, #14619)', () => {
     test.setTimeout(90000);
 
-    test('arrow keys move the single roving tab stop across mounted cards — real keydown → KeyNavigation → DOM tabindex', async ({page, neuralLink}) => {
+    test('listitem topology + native drill Button + drill-only Up/Down jump + gate-3 focus survives rebuild', async ({page, neuralLink}) => {
         await page.goto('/apps/agentos/index.html');
         await expect(page.locator('.agent-shell')).toBeVisible({timeout: 60000});
         await expect(page.locator('.fm-fleet-grid')).toBeVisible({timeout: 30000});
@@ -30,53 +34,65 @@ test.describe('AgentOS fleet grid — keyboard-a11y roving (Neural Link, #14619)
 
         expect(roster, 'the provider-hosted FleetRoster store should be registered').toBeTruthy();
 
-        // three online cards (below fold) so the roving ring has ≥3 stops rendered as cards
-        const fixture = ['a11y-ok-a', 'a11y-ok-b', 'a11y-ok-c'].map(agentId => ({
-            agentId, state: 'ok', displayName: agentId, engineTag: 'fixture', family: 'claude',
-            laneLine: 'a11y roving fixture', avatarUrl: ''
-        }));
+        // three ONLINE cards with DISTINCT names so identity is provable across a rebuild (sorted by
+        // agentId → Bravo, Charlie, Delta)
+        const fixture = [
+            {agentId: 'a11y-b', state: 'ok', displayName: 'Bravo',   engineTag: 'fixture', family: 'claude', laneLine: 'kbd fixture', avatarUrl: ''},
+            {agentId: 'a11y-c', state: 'ok', displayName: 'Charlie', engineTag: 'fixture', family: 'claude', laneLine: 'kbd fixture', avatarUrl: ''},
+            {agentId: 'a11y-d', state: 'ok', displayName: 'Delta',   engineTag: 'fixture', family: 'claude', laneLine: 'kbd fixture', avatarUrl: ''}
+        ];
 
         await NeuralLink_InstanceService.callMethod({sessionId, id: roster.id, method: 'clear'});
         await NeuralLink_InstanceService.callMethod({sessionId, id: roster.id, method: 'add', args: [fixture]});
 
-        const cards = page.locator('.fm-fleet-cards .fm-agent-card');
+        const cards  = page.locator('.fm-fleet-cards .fm-agent-card');
+        const drills = page.locator('.fm-fleet-cards .fm-agent-card .fm-card-drill');
         await expect(cards).toHaveCount(3);
+        await expect(drills).toHaveCount(3);
 
-        // a11y ATTRIBUTES reach the mounted DOM (not just the vdom): role=button + a real tabindex.
-        // Regression guard for the vdom-root-flush fix — a raw this.vdom write left these absent.
-        await expect(cards.nth(0)).toHaveAttribute('role', 'button');
+        // ── TOPOLOGY reaches the mounted DOM (the vdom-flush regression guard) ──
+        // the card ROOT is a NON-interactive listitem: role=listitem and NO tabindex (not focusable)
+        await expect(cards.nth(0)).toHaveAttribute('role', 'listitem');
+        expect(await cards.nth(0).getAttribute('tabindex')).toBeNull();
 
-        // roving-tabindex mounted: EXACTLY ONE card is the tab stop, and it is the first card (focusIndex 0)
-        await expect(page.locator('.fm-fleet-cards .fm-agent-card[tabindex="0"]')).toHaveCount(1);
-        await expect(cards.nth(0)).toHaveAttribute('tabindex', '0');
+        // the drill target is a dedicated NATIVE <button> whose accessible name is the resident's name
+        expect(await drills.nth(0).evaluate(el => el.tagName)).toBe('BUTTON');
+        await expect(drills.nth(0)).toContainText('Bravo');
 
-        // real keydown drives the ring forward: focus the active card, ArrowDown → the tab stop MOVES to
-        // the next card (Down/Right step forward per FleetGrid.onNavKey), and exactly one stop survives.
-        await cards.nth(0).focus();
+        // lifecycle isolation: the toggle control is ALSO a native button — a SEPARATE element from the
+        // drill (ordinary Tab reaches drill → toggle → restart; they are not nested in one interactive)
+        const toggle0 = cards.nth(0).locator('.fm-card-control-verbs button').first();
+        expect(await toggle0.evaluate(el => el.tagName)).toBe('BUTTON');
+
+        // ── NATIVE drill activation (Enter) ── focus the first drill Button, press Enter → the detail pane
+        // reveals THIS resident (onAgentSelect set its record). Native <button> supplies Enter/Space itself.
+        await drills.nth(0).focus();
+        expect(await page.evaluate(() => document.activeElement?.textContent)).toContain('Bravo');
+        await page.keyboard.press('Enter');
+        await expect(page.locator('.fm-agent-detail')).toContainText('Bravo', {timeout: 10000});
+
+        // ── drill-only Up/Down efficiency jump + scroll stability ── focus the first drill, ArrowDown moves
+        // focus to the NEXT card's drill Button (Charlie), and the page does not scroll (neo-selection rule)
+        await drills.nth(0).focus();
+        const scrollBefore = await page.evaluate(() => window.scrollY);
         await page.keyboard.press('ArrowDown');
+        await expect.poll(async () => page.evaluate(() => document.activeElement?.textContent)).toContain('Charlie');
+        expect(await page.evaluate(() => window.scrollY)).toBe(scrollBefore);
 
-        await expect(cards.nth(1)).toHaveAttribute('tabindex', '0');
-        await expect(cards.nth(0)).toHaveAttribute('tabindex', '-1');
-        await expect(page.locator('.fm-fleet-cards .fm-agent-card[tabindex="0"]')).toHaveCount(1);
+        // ── gate-3: focus survives a roster REBUILD, restored to the resident's EXACT drill Button ──
+        // focus Charlie's drill, then add a joiner (Alpha) that sorts ABOVE it → every index shifts, the card
+        // is destroyed/recreated, and focus must FOLLOW Charlie (identity), never drop to <body> or a neighbor
+        await drills.nth(1).focus();
+        expect(await page.evaluate(() => document.activeElement?.textContent)).toContain('Charlie');
 
-        // and it clamps at the tail — arrowing past the last card keeps exactly one stop (never dangles)
-        await page.keyboard.press('ArrowDown');
-        await page.keyboard.press('ArrowDown');
-        await expect(cards.nth(2)).toHaveAttribute('tabindex', '0');
-        await expect(page.locator('.fm-fleet-cards .fm-agent-card[tabindex="0"]')).toHaveCount(1);
-
-        // focus-continuity (Emmy gate-3): physical focus survives a roster REBUILD — it follows the resident
-        // to its new card, never dropping to <body>. The last card holds focus; a joiner sorting above shifts
-        // every index, and focus (not just the tabindex) stays on a card at the roving stop.
-        expect(await page.evaluate(() => document.activeElement?.classList?.contains('fm-agent-card'))).toBe(true);
-
-        await NeuralLink_InstanceService.callMethod({sessionId, id: roster.id, method: 'add', args: [[{
-            agentId: 'a11y-ok-000', state: 'ok', displayName: 'Joiner', family: 'claude', laneLine: 'a11y rebuild', engineTag: 'fixture', avatarUrl: ''
-        }]]});
+        await NeuralLink_InstanceService.callMethod({sessionId, id: roster.id, method: 'add', args: [[
+            {agentId: 'a11y-a', state: 'ok', displayName: 'Alpha', engineTag: 'fixture', family: 'claude', laneLine: 'joiner', avatarUrl: ''}
+        ]]});
         await expect(cards).toHaveCount(4);
 
-        // physical focus stayed IN the grid on the roving stop (the resident's replacement) — not lost to body
-        await expect.poll(async () => page.evaluate(() => document.activeElement?.getAttribute?.('tabindex'))).toBe('0');
-        expect(await page.evaluate(() => document.activeElement?.classList?.contains('fm-agent-card'))).toBe(true)
+        // focus stayed on Charlie's DRILL Button (the same resident's semantic child) across the rebuild
+        await expect.poll(async () => page.evaluate(() => document.activeElement?.textContent)).toContain('Charlie');
+        expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('BUTTON');
+        expect(await page.evaluate(() => document.activeElement?.classList?.contains('fm-card-drill'))).toBe(true)
     })
 });
