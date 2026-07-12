@@ -107,7 +107,11 @@ export function resolveConcepts({graphService, query, limit = 5, scanLimit = 250
 
             if (!id) continue;
 
-            const key     = conceptClusterKey(id);
+            // consume the concept-spine canonical alias map: a node the defrag stamped with
+            // `canonicalConceptId` clusters under ITS canonical, unifying true aliasOf synonyms the
+            // mechanical normalizer alone would keep separate. Un-stamped nodes fall back to the
+            // normalized id — byte-identical to the pre-alias-map behavior.
+            const key     = conceptClusterKey(record.properties?.canonicalConceptId || id);
             const cluster = clusters.get(key) ?? {clusterKey: key, members: new Set(), matchType: null, score: 0};
 
             cluster.members.add(id);

@@ -30,7 +30,7 @@ import {
 function fixtureService(ids) {
     return {
         listNodeRecordsByType({type}) {
-            return {records: ids.filter(e => e.type === type).map(e => ({id: e.id}))}
+            return {records: ids.filter(e => e.type === type).map(e => ({id: e.id, properties: e.properties || {}}))}
         }
     }
 }
@@ -91,6 +91,25 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval (#14504)', () => {
         const notReadyGraph = {listNodeRecordsByType: () => { throw new Error('graph not ready'); }};
 
         expect(resolveConcepts({graphService: notReadyGraph, query: 'golden path'})).toEqual([]);
+    });
+
+    test('resolveConcepts consumes the concept-spine canonicalConceptId — a stamped aliasOf synonym unifies into its canonical cluster (#14528 alias RA)', () => {
+        // "Golden Path Synthesis" normalizes to a DIFFERENT mechanical key (golden-path-synthesis), so
+        // the plain normalizer keeps it separate (the "honest scope boundary" above). But the defrag
+        // stamped it aliasOf golden-path — consuming that canonicalConceptId folds it into the
+        // golden-path cluster (the concept-spine alias-map unification).
+        const stamped = fixtureService([
+            {type: 'CONCEPT', id: 'golden-path'},
+            {type: 'CONCEPT', id: 'CONCEPT:Golden Path Synthesis', properties: {canonicalConceptId: 'golden-path'}}
+        ]);
+
+        const resolved = resolveConcepts({graphService: stamped, query: 'golden path'});
+
+        expect(resolved[0].clusterKey).toBe('golden-path');
+        // the stamped synonym now shares the canonical cluster — not its own separate entry
+        expect(resolved[0].members).toContain('CONCEPT:Golden Path Synthesis');
+        expect(resolved[0].members).toContain('golden-path');
+        expect(resolved.some(cluster => cluster.clusterKey === 'golden-path-synthesis')).toBe(false);
     });
 
     test('resolver is deterministic and bounded by limit', () => {
