@@ -138,5 +138,56 @@ test.describe('Neo.dashboard.plugin.TabOverflow (re-entrancy contract)', () => {
 
         expect(destroyed, 'the control is destroyed when the overflow set empties').toBe(true);
         expect(plugin.control, 'the reference is cleared, so the next overflow builds a fresh control').toBe(null)
+    });
+
+    test('error → success: a failed measure pass releases the latch so the very next pass measures cleanly (no freeze)', async () => {
+        // A `shouldThrow` latch controls WHICH pass fails, so the create-time auto-project (onOwnerMounted)
+        // settles cleanly first and only the pass we choose throws.
+        let   shouldThrow = false;
+        const plugin      = createPlugin(async ids => {
+            if (shouldThrow) { shouldThrow = false; throw new Error('transient measure failure') }
+            return ids ? [{width: 10}, {width: 10}] : {width: 1000}
+        });
+        await new Promise(resolve => setTimeout(resolve, 0)); // auto-project settles (no throw)
+
+        // Pass 1 surfaces the defect via console.error (RA-8) against the live owner — silence it; the point
+        // of THIS test is that the failure does not freeze future passes.
+        const orig = console.error;
+        console.error = () => {};
+
+        try {
+            shouldThrow = true;
+            await plugin.project(true).catch(() => {}); // pass 1: getDomRect throws → caught, latch released
+            expect(plugin.measuring, 'the latch is released after the failed pass').toBe(false);
+            await plugin.project(true);                 // pass 2: measures + applies cleanly
+        } finally {
+            console.error = orig
+        }
+
+        expect(plugin.measuring, 'the recovered pass also releases the latch — nothing is frozen').toBe(false)
+    });
+
+    test('recreation: after an all-fit teardown, a subsequent overflow enters the CREATE branch (fresh instance, not a reused reference)', async () => {
+        const plugin = createPlugin(async ids => ids ? [{width: 10}, {width: 10}] : {width: 1000});
+        await new Promise(resolve => setTimeout(resolve, 0)); // settle the create-time auto-project
+
+        plugin.control = {destroy: () => {}};
+        plugin.syncControl([], {activeIndex: 0}); // all-fit → teardown
+        expect(plugin.control, 'torn down on all-fit').toBe(null);
+
+        // A subsequent overflow must BUILD a fresh instance (the create branch), not reuse a reference. In
+        // unit mode the real button.Base + menu.List construction needs `Neo.get` (unavailable here), so spy
+        // `Neo.create` to assert the create is invoked + assigned rather than exercise full construction.
+        const origCreate = Neo.create;
+        let   created    = false;
+        Neo.create = () => { created = true; return {ntype: 'button', destroy: () => {}} };
+        try {
+            plugin.syncControl([{text: 'Agents', iconCls: 'fa fa-users', index: 0}], {activeIndex: 0})
+        } finally {
+            Neo.create = origCreate
+        }
+
+        expect(created, 'a subsequent overflow builds a fresh control via Neo.create').toBe(true);
+        expect(plugin.control, 'and assigns the fresh instance as the new control').not.toBeNull()
     })
 });
