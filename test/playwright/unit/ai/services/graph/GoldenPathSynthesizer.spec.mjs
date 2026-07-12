@@ -159,7 +159,6 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     });
 
     test('derives repo-enrichment identity projections from identityRoots', () => {
-        const Synthesizer = GoldenPathSynthesizer.constructor;
 
         expect(Synthesizer.getCoreSwarmAgentFamilies()).toMatchObject({
             'neo-opus-grace': 'claude',
@@ -256,8 +255,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     });
 
     test('hasCrossFamilyReview accepts injected identity-family maps', () => {
-        const Synthesizer = GoldenPathSynthesizer.constructor;
-        const pr          = {
+        const pr = {
             author : {login: 'author-agent'},
             reviews: [{author: {login: 'reviewer-agent'}}]
         };
@@ -274,9 +272,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     });
 
     test('getRecentSummaryDocuments returns the N most-recent summaries by timestamp, newest-first (#13800)', async () => {
-        const Synthesizer = GoldenPathSynthesizer.constructor;
-        const docMap      = {s1: 'doc-old', s2: 'doc-newest', s3: 'doc-mid'};
-        const collection  = {
+        const docMap     = {s1: 'doc-old', s2: 'doc-newest', s3: 'doc-mid'};
+        const collection = {
             get: async opts => {
                 // metadatas pass: storage-order (s1,s2,s3) with out-of-order timestamps
                 if (opts.include?.includes('metadatas') && !opts.ids) {
@@ -293,15 +290,13 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     });
 
     test('getRecentSummaryDocuments returns empty documents for an empty collection (#13800)', async () => {
-        const Synthesizer = GoldenPathSynthesizer.constructor;
-        const collection  = {get: async () => ({ids: [], metadatas: []})};
+        const collection = {get: async () => ({ids: [], metadatas: []})};
 
         expect(await Synthesizer.getRecentSummaryDocuments(collection, 2)).toEqual({documents: []});
     });
 
     test('findLastQualifyingAssignmentActivity treats owner identity comments as maintainer progress acknowledgements', () => {
-        const Synthesizer = GoldenPathSynthesizer.constructor;
-        const activity    = Synthesizer.findLastQualifyingAssignmentActivity({
+        const activity = Synthesizer.findLastQualifyingAssignmentActivity({
             assignees: ['neo-gpt'],
             author   : 'neo-gpt',
             createdAt: '2026-05-01T00:00:00Z',
@@ -2398,5 +2393,52 @@ test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from
             reviews: [{author: {login: 'neo-opus-ada'}, state: 'APPROVED'}] // both claude
         };
         expect(Synthesizer.hasCrossFamilyReview(pr, agentFamilies)).toBe(false)
+    });
+
+    test('buildRouteAttributionRecords maps blocked nodes → records: node id, focus-reason union, per-node labels, stamped at (#15057)', () => {
+
+        const contradiction = {
+            blockedNodes: [
+                {node: {id: 'issue-200', properties: {labels: ['documentation', 'ai']}}},
+                {node: {id: 'issue-201', properties: {labels: ['blog']}}}
+            ],
+            focusCandidates: [
+                {number: 100, reasons: ['incident', 'fresh-updated']},
+                {number: 101, reasons: ['incident', 'prio-zero']}
+            ]
+        };
+
+        const records = Synthesizer.buildRouteAttributionRecords(contradiction, 4242);
+
+        expect(records.map(r => r.blockedNodeId)).toEqual(['issue-200', 'issue-201']);
+        // focus reasons are the deduped union across the armed focus candidates (all blocked nodes share the focus)
+        expect(records[0].focusReasons).toEqual(['incident', 'fresh-updated', 'prio-zero']);
+        expect(records[1].focusReasons).toEqual(['incident', 'fresh-updated', 'prio-zero']);
+        // every record is stamped with the injected clock, and carries its per-node exclusion-label array
+        expect(records.every(r => r.at === 4242)).toBe(true);
+        expect(records.every(r => Array.isArray(r.exclusionLabels))).toBe(true);
+    });
+
+    test('buildRouteAttributionRecords is empty for no contradiction, and drops id-less nodes (#15057)', () => {
+
+        expect(Synthesizer.buildRouteAttributionRecords(null, 1)).toEqual([]);
+        expect(Synthesizer.buildRouteAttributionRecords({blockedNodes: [], focusCandidates: []}, 1)).toEqual([]);
+
+        const records = Synthesizer.buildRouteAttributionRecords({
+            blockedNodes: [
+                {node: {id: 'issue-1', properties: {}}},
+                {node: {properties: {}}},   // no id → dropped
+                {node: {id: '', properties: {}}}  // empty id → dropped
+            ],
+            focusCandidates: [{number: 9, reasons: ['incident']}]
+        }, 7);
+
+        expect(records.map(r => r.blockedNodeId)).toEqual(['issue-1']);
+    });
+
+    test('recordRouteAttribution is a no-op that never throws when there is no contradiction (fail-safe, no ledger touch) (#15057)', async () => {
+        // buildRouteAttributionRecords returns [] → early return BEFORE any config read or disk write.
+        await expect(Synthesizer.recordRouteAttribution(null, new Date())).resolves.toBeUndefined();
+        await expect(Synthesizer.recordRouteAttribution({blockedNodes: [], focusCandidates: []}, 123)).resolves.toBeUndefined();
     });
 });

@@ -568,6 +568,26 @@ class Config extends ConfigProvider {
              */
             goldenPathTopNodeRenderLimit: leaf(10, 'NEO_GOLDEN_PATH_TOP_NODE_RENDER_LIMIT', 'number'),
             /**
+             * Route-attribution ledger directory — the runtime JSONL store recording which computed focus
+             * candidates the routing contradiction guard filtered, under which live focus reasons. Co-located
+             * with the orchestrator-daemon ledgers because the synthesizer runs in that daemon. Read at the
+             * synthesizer boundary and passed EXPLICITLY into the pure `routeAttributionLedgerStore` helper.
+             * @type {string}
+             */
+            goldenPathRouteAttributionLedgerDir: leaf(path.resolve(neoRootDir, '.neo-ai-data/orchestrator-daemon/route-attribution'), 'NEO_GOLDEN_PATH_ROUTE_ATTRIBUTION_LEDGER_DIR', 'string'),
+            /**
+             * Keep-most-recent retention cap for the route-attribution ledger. Read at the boundary and passed
+             * into the pure helper (which owns no default — a forgotten policy is visibly unbounded growth,
+             * never a silent helper magic number).
+             * @type {number}
+             */
+            goldenPathRouteAttributionLedgerMaxEvents: leaf(5000, 'NEO_GOLDEN_PATH_ROUTE_ATTRIBUTION_LEDGER_MAX_EVENTS', 'number'),
+            /**
+             * Byte threshold that arms the amortized keep-most-recent prune on append for the route-attribution ledger.
+             * @type {number}
+             */
+            goldenPathRouteAttributionLedgerPruneTriggerBytes: leaf(2 * 1024 * 1024, 'NEO_GOLDEN_PATH_ROUTE_ATTRIBUTION_LEDGER_PRUNE_TRIGGER_BYTES', 'number'),
+            /**
              * The Hebbian decay factor applied every 24 hours to the edge graph (e.g., 0.98 for ~79 day half-life).
              * @type {number}
              */
