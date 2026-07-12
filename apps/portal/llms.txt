@@ -98,6 +98,7 @@ To access bundled versions, prefix paths with `/dist/production/`, `/dist/develo
 - [Neo Containers](https://neomjs.com/examples/container/base/index.html)
 - [Neo Fragment Example](https://neomjs.com/examples/container/fragment/index.html)
 - [neo.mjs config system](https://neomjs.com/examples/core/config/index.html)
+- [#15065 Cross-Window Witness](https://neomjs.com/examples/dashboard/crossWindowWitness/index.html)
 - [Neo Dashboard — Dock Layout](https://neomjs.com/examples/dashboard/dock/index.html)
 - [Neo Dashboard](https://neomjs.com/examples/dashboard/index.html)
 - [Neo Data Pipeline](https://neomjs.com/examples/data/pipeline/index.html)
@@ -577,6 +578,7 @@ Here you find the full history of Neo.mjs updates.
 
 Here you find historical technical discussions and GitHub issues.
 
+- [Ticket #15083](https://neomjs.com/raw/news/tickets/15083.md)
 - [Ticket #15079](https://neomjs.com/raw/news/tickets/15079.md)
 - [Ticket #15076](https://neomjs.com/raw/news/tickets/15076.md)
 - [Ticket #15072](https://neomjs.com/raw/news/tickets/15072.md)
@@ -10823,6 +10825,10 @@ Here you find historical technical discussions and GitHub issues.
 
 Here you find problem-to-solution records from Neo.mjs pull requests.
 
+- [Pull Request #15084](https://neomjs.com/raw/news/pulls/15084.md)
+- [Pull Request #15082](https://neomjs.com/raw/news/pulls/15082.md)
+- [Pull Request #15081](https://neomjs.com/raw/news/pulls/15081.md)
+- [Pull Request #15080](https://neomjs.com/raw/news/pulls/15080.md)
 - [Pull Request #15078](https://neomjs.com/raw/news/pulls/15078.md)
 - [Pull Request #15077](https://neomjs.com/raw/news/pulls/15077.md)
 - [Pull Request #15075](https://neomjs.com/raw/news/pulls/15075.md)
