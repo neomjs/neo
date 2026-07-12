@@ -40,6 +40,78 @@ test.describe('discussionRoutingDisposition', () => {
         })
     });
 
+    test('ignores terminal markers inside non-authoritative sections while preserving current active authority', () => {
+        for (const nonAuthoritativeHeading of [
+            '## History',
+            '## Historical decisions',
+            '## Retrospective',
+            '## Archive',
+            '## Archived decisions',
+            '## Examples',
+            '## Instruction',
+            '## Instructions',
+            '## Instructional syntax',
+            '## How-to',
+            '## Usage',
+            '## Signal Ledger (archived — nothing graduated)'
+        ]) {
+            const result = classifyDiscussionRoutingDisposition({
+                author: 'neo-gpt',
+                body  : [
+                    nonAuthoritativeHeading,
+                    '[SUPERSEDED] prior direction',
+                    '### Prior-cycle detail',
+                    '[GRADUATED_TO_TICKET: #1] historical result',
+                    '## Current status',
+                    '[CONVERGING] work continues'
+                ].join('\n')
+            });
+
+            expect(result, nonAuthoritativeHeading).toEqual({
+                schemaVersion: 'discussion-routing-disposition.v1',
+                disposition  : 'active',
+                reasonCode   : 'explicit-active-marker',
+                evidence     : ['marker:CONVERGING']
+            })
+        }
+    });
+
+    test('restores lifecycle authority after leaving a historical section', () => {
+        expect(findLifecycleMarkers([
+            '## Historical decisions',
+            '[SUPERSEDED] prior direction',
+            '### Current status inside the historical subtree',
+            '[DECLINED] still historical',
+            '## Current status',
+            '[CONVERGING] current direction'
+        ].join('\n'))).toEqual(['CONVERGING']);
+
+        expect(classifyDiscussionRoutingDisposition({
+            author: 'neo-gpt',
+            body  : [
+                '### Examples',
+                '[SUPERSEDED] syntax example',
+                '## [SUPERSEDED] current whole-Discussion status'
+            ].join('\n')
+        })).toMatchObject({
+            disposition: 'terminal',
+            reasonCode : 'terminal-marker:superseded'
+        })
+    });
+
+    test('does not let fenced or quoted headings suppress current terminal authority', () => {
+        for (const body of [
+            '```md\n## Historical decisions\n```\n[SUPERSEDED] current status',
+            '> ## Historical decisions\n[SUPERSEDED] current status',
+            '## Current status\n[SUPERSEDED] current status'
+        ]) {
+            expect(classifyDiscussionRoutingDisposition({author: 'neo-gpt', body}), body).toMatchObject({
+                disposition: 'terminal',
+                reasonCode : 'terminal-marker:superseded'
+            })
+        }
+    });
+
     test('keeps partially resolved scope active and never infers whole-Discussion terminal state from one resolved OQ', () => {
         const partial = classifyDiscussionRoutingDisposition({
             author: 'neo-gpt',

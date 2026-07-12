@@ -42,6 +42,10 @@ const TERMINAL_MARKERS = Object.freeze([
 ]);
 
 const AUTHOR_UPDATE_RE      = /^>\s*\*{0,2}Update\s+\d{4}-\d{2}-\d{2}\b/i;
+const NON_AUTHORITATIVE_SECTION_RES = Object.freeze([
+    /^(?:history|historical|retrospectives?|archiv(?:e|ed|es)|examples?|instructions?|instructional|how(?:-|\s+)to|usage)\b/i,
+    /\(\s*(?:historical|retrospective|archived?|examples?)\b/i
+]);
 const GRADUATED_CALLOUT_RES = Object.freeze([
     /^>\s*\*\*GRADUATED\*\*\s*\(\d{4}-\d{2}-\d{2}\):\s*This Discussion graduated to\s+(?:Epic|Ticket)\s+#\d+\b/i,
     /^>\s*\*\*Status:\s*GRADUATED\s+\d{4}-\d{2}-\d{2}\*\*[^\n]*\b(?:epic|ticket):?\s*#\d+\b/i
@@ -191,13 +195,38 @@ function parseFenceDelimiter(line) {
 }
 
 /**
+ * @summary Parses one ATX Markdown heading for section-authority tracking.
+ * @param {String} line Markdown source line.
+ * @returns {{level: Number, title: String}|null}
+ */
+function parseSectionHeading(line) {
+    const match = String(line || '').match(/^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/);
+
+    return match ? {
+        level: match[1].length,
+        title: match[2].replace(/[*`_]/g, '').trim()
+    } : null
+}
+
+/**
+ * @summary Returns true for explicitly historical, retrospective, archived, example, or instructional sections.
+ * Their complete Markdown subtree is evidence, not current whole-Discussion lifecycle authority.
+ * @param {String} title Normalized heading title.
+ * @returns {Boolean}
+ */
+function isNonAuthoritativeSection(title) {
+    return NON_AUTHORITATIVE_SECTION_RES.some(pattern => pattern.test(title))
+}
+
+/**
  * @summary Finds authoritative lifecycle markers in a trusted Discussion body.
  * @param {String} body Discussion body.
  * @returns {String[]} Marker names in source order, de-duplicated.
  */
 function findLifecycleMarkers(body) {
     const found = [];
-    let   fence = null;
+    let   fence = null,
+          nonAuthoritativeSectionLevel = null;
 
     for (const line of String(body || '').split(/\r?\n/)) {
         const delimiter = parseFenceDelimiter(line);
@@ -218,6 +247,26 @@ function findLifecycleMarkers(body) {
             fence = delimiter;
             continue
         }
+
+        const heading = parseSectionHeading(line);
+
+        if (heading) {
+            if (
+                nonAuthoritativeSectionLevel !== null &&
+                heading.level <= nonAuthoritativeSectionLevel
+            ) {
+                nonAuthoritativeSectionLevel = null
+            }
+
+            if (
+                nonAuthoritativeSectionLevel === null &&
+                isNonAuthoritativeSection(heading.title)
+            ) {
+                nonAuthoritativeSectionLevel = heading.level
+            }
+        }
+
+        if (nonAuthoritativeSectionLevel !== null) continue;
 
         if (GRADUATED_CALLOUT_RES.some(pattern => pattern.test(line)) && !found.includes('GRADUATED_CALLOUT')) {
             found.push('GRADUATED_CALLOUT')

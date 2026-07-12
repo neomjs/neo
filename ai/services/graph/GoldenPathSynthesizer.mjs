@@ -978,11 +978,25 @@ class GoldenPathSynthesizer extends Base {
                 }
 
                 const
-                    rawIds       = Array.isArray(semanticResults?.ids?.[0]) ? semanticResults.ids[0] : [],
-                    rawDistances = Array.isArray(semanticResults?.distances?.[0]) ? semanticResults.distances[0] : [];
+                    idsEnvelope       = semanticResults?.ids,
+                    distancesEnvelope = semanticResults?.distances;
+
+                if (!Array.isArray(idsEnvelope) || idsEnvelope.length !== 1 || !Array.isArray(idsEnvelope[0])) {
+                    throw new Error('Graph semantic query returned an invalid ids envelope; expected exactly one nested query-result array')
+                }
+                if (!Array.isArray(distancesEnvelope) || distancesEnvelope.length !== 1 || !Array.isArray(distancesEnvelope[0])) {
+                    throw new Error('Graph semantic query returned an invalid distances envelope; expected exactly one nested query-result array')
+                }
+
+                const
+                    rawIds       = idsEnvelope[0],
+                    rawDistances = distancesEnvelope[0];
 
                 if (rawIds.length !== rawDistances.length) {
                     throw new Error(`Graph semantic query returned ${rawIds.length} ids but ${rawDistances.length} distances`)
+                }
+                if (rawIds.some(id => typeof id !== 'string' || id.trim().length === 0)) {
+                    throw new Error('Graph semantic query returned a non-string or empty id')
                 }
                 if (rawDistances.some(distance => typeof distance !== 'number' || !Number.isFinite(distance) || distance < 0)) {
                     throw new Error('Graph semantic query returned a non-finite, non-numeric, or negative distance')
@@ -990,7 +1004,7 @@ class GoldenPathSynthesizer extends Base {
 
                 const seenIds = new Set();
                 rawIds.forEach((id, index) => {
-                    if (typeof id === 'string' && id.length > 0 && !seenIds.has(id)) {
+                    if (!seenIds.has(id)) {
                         seenIds.add(id);
                         semanticIds.push(id);
                         semanticDistances.push(rawDistances[index])
@@ -1132,8 +1146,6 @@ class GoldenPathSynthesizer extends Base {
                 const message = `Adaptive candidate admission reached its safe width ${admissionCeiling}` +
                     ` without ${admissionTarget} unique admissible candidates or verified exhaustion.`;
                 scoredNodes                  = attemptScoredNodes;
-                typeGateRejections           = attemptTypeGateRejections;
-                discussionLivenessRejections = attemptDiscussionLivenessRejections;
                 Object.assign(scoringStats, attemptStats, {semanticCorpusExhausted: false});
                 routeFailure = this.constructor.buildFailureOutcome('candidate-admission-budget-exhausted', message);
                 scoringStats.candidateAdmissionStopReason = 'candidate-admission-budget-exhausted';

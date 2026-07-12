@@ -915,6 +915,97 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         })
     });
 
+    test('malformed ANN envelopes and positional values fail loud on the first adaptive pass', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const malformedResults             = [
+            {
+                expectedError: 'invalid ids envelope',
+                name         : 'missing ids envelope',
+                result       : {distances: [[]]}
+            },
+            {
+                expectedError: 'invalid ids envelope',
+                name         : 'flat ids envelope',
+                result       : {ids: ['issue-flat'], distances: [[0.1]]}
+            },
+            {
+                expectedError: 'invalid ids envelope',
+                name         : 'multi-query ids envelope',
+                result       : {ids: [[], []], distances: [[], []]}
+            },
+            {
+                expectedError: 'invalid distances envelope',
+                name         : 'missing distances envelope',
+                result       : {ids: [[]]}
+            },
+            {
+                expectedError: 'invalid distances envelope',
+                name         : 'flat distances envelope',
+                result       : {ids: [['issue-flat-distance']], distances: [0.1]}
+            },
+            {
+                expectedError: 'invalid distances envelope',
+                name         : 'multi-query distances envelope',
+                result       : {ids: [[]], distances: [[], []]}
+            },
+            {
+                expectedError: 'non-string or empty id',
+                name         : 'non-string id',
+                result       : {ids: [[42]], distances: [[0.1]]}
+            },
+            {
+                expectedError: 'non-string or empty id',
+                name         : 'empty id',
+                result       : {ids: [['  ']], distances: [[0.1]]}
+            },
+            {
+                expectedError: 'non-finite, non-numeric, or negative distance',
+                name         : 'numeric-string distance',
+                result       : {ids: [['issue-string-distance']], distances: [['0.1']]}
+            },
+            {
+                expectedError: 'non-finite, non-numeric, or negative distance',
+                name         : 'negative distance',
+                result       : {ids: [['issue-negative-distance']], distances: [[-0.1]]}
+            },
+            {
+                expectedError: 'non-finite, non-numeric, or negative distance',
+                name         : 'non-finite distance',
+                result       : {ids: [['issue-infinite-distance']], distances: [[Infinity]]}
+            }
+        ];
+        let semanticResult;
+        aiConfig.vectorDimension = 2;
+
+        StorageRouter.getGraphCollection   = async () => ({query: async () => semanticResult});
+        StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['malformed-envelope proof']})});
+        TextEmbeddingService.embedText     = async () => [0.1, 0.2];
+
+        try {
+            for (const {expectedError, name, result} of malformedResults) {
+                semanticResult = result;
+                const outcome = await GoldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled: false});
+
+                expect(outcome, name).toMatchObject({
+                    status      : 'failed',
+                    reasonCode  : 'semantic-query-failed',
+                    scoringStats: {
+                        semanticQueryPasses         : 1,
+                        semanticQueryRequestedWidth : 20,
+                        candidateAdmissionStopReason: 'semantic-query-failed'
+                    }
+                });
+                expect(outcome.error, name).toContain(expectedError)
+            }
+        } finally {
+            StorageRouter.getGraphCollection   = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+            TextEmbeddingService.embedText     = originalEmbedText
+        }
+    });
+
     test('adaptive admission bounds exact-width duplicate prefixes at the corpus-derived ceiling', async () => {
         const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
@@ -976,9 +1067,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
                 candidateAdmissionStopReason: 'candidate-admission-budget-exhausted'
             }
         });
-        expect(recorded).toEqual([[
-            {nodeId: duplicateId, rejectionBucket: ['not-code-ready']}
-        ]])
+        expect(recorded).toEqual([[]])
     });
 
     test('a fractional positive render limit still requires and selects one candidate', async () => {
@@ -1172,7 +1261,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(recorded).toEqual([[]])
     });
 
-    test('a malformed distance on a later widening pass fails loud and discards provisional output', async () => {
+    test('a malformed ANN envelope on a later widening pass fails loud and discards provisional output', async () => {
         const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
         const originalEmbedText            = TextEmbeddingService.embedText;
@@ -1198,14 +1287,16 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             query: async ({nResults}) => {
                 widths.push(nResults);
                 const resultIds = ids.slice(0, nResults);
-                const distances = resultIds.map((id, index) => 0.1 + index / 100);
 
-                if (nResults > 20) distances[25] = null;
-
-                return {ids: [resultIds], distances: [distances]}
+                return nResults === 20 ? {
+                    ids      : [resultIds],
+                    distances: [resultIds.map((id, index) => 0.1 + index / 100)]
+                } : {
+                    ids: [resultIds]
+                }
             }
         });
-        StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['malformed-distance proof']})});
+        StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['malformed-envelope proof']})});
         TextEmbeddingService.embedText     = async () => [0.1, 0.2];
         Synthesizer.recordTypeGateRejections = async rejections => recorded.push(rejections);
 
@@ -1223,6 +1314,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(outcome).toMatchObject({
             status      : 'failed',
             reasonCode  : 'semantic-query-failed',
+            error       : 'Graph semantic query returned an invalid distances envelope; expected exactly one nested query-result array',
             scoringStats: {
                 semanticQueryPasses         : 2,
                 semanticQueryRequestedWidth : 40,
