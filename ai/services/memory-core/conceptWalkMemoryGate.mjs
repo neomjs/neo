@@ -38,6 +38,8 @@ const AGENT_MEMORY_LABEL = 'AGENT_MEMORY';
  * @param {Object} options.collection The memory collection — needs `async get({ids, include})`.
  * @param {String|null} options.userId Normalized caller userId (null → unauthenticated single-tenant).
  * @param {String} options.policy `'private' | 'team' | 'legacy'`.
+ * @param {String|null} [options.sessionId] Optional session pin — mirrors the flat query's `sessionId`
+ *     `where` filter (which the direct `get` bypasses); a walk-reached record from another session is rejected.
  * @param {String|null} [options.minTrustTier] Optional minimum trust tier.
  * @param {String} options.sharedUserId The shared-commons sentinel userId.
  * @param {Function} options.resolveTrustTier `(metadata) => tier` — the flat path's tier resolver.
@@ -48,6 +50,7 @@ export function buildMemoryResolveCandidate({
     collection,
     userId,
     policy,
+    sessionId = null,
     minTrustTier = null,
     sharedUserId,
     resolveTrustTier,
@@ -71,6 +74,13 @@ export function buildMemoryResolveCandidate({
 
         if (!metadata || metadata.archivedAt) {
             return null // absent, or tombstoned (mirrors the flat path's unconditional archive drop)
+        }
+
+        // Session-scope re-application — when the caller pins a session the flat path filters to it via
+        // the `where` clause the direct get bypassed; a walk-reached record from ANOTHER session must
+        // not surface through the opt-in. Every pre-existing semantic-query constraint crosses this gate.
+        if (sessionId && metadata.sessionId !== sessionId) {
+            return null
         }
 
         // Tenant re-application — the direct get bypassed the flat path's `where`, so re-apply it here.

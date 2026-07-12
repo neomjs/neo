@@ -1837,6 +1837,7 @@ class MemoryService extends Base {
                         collection,
                         userId,
                         policy,
+                        sessionId,
                         minTrustTier,
                         sharedUserId       : SHARED_USER_ID,
                         resolveTrustTier   : metadata      => this.constructor.resolveMemoryTrustTier(metadata),

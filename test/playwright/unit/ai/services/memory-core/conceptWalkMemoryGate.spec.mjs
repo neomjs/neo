@@ -24,11 +24,12 @@ function makeCollection(records, {throwOnGet = false} = {}) {
     }
 }
 
-function build({collection, userId = 'u1', policy = 'private', minTrustTier = null}) {
+function build({collection, userId = 'u1', policy = 'private', sessionId = null, minTrustTier = null}) {
     return buildMemoryResolveCandidate({
         collection,
         userId,
         policy,
+        sessionId,
         minTrustTier,
         sharedUserId       : SHARED,
         resolveTrustTier   : m => m.trustTier || 'unclassified',
@@ -60,6 +61,21 @@ test.describe('Neo.ai.services.memory-core.conceptWalkMemoryGate (#14504)', () =
         expect(mine.id).toBe('m1');
         expect(mine.trustTier).toBe('peer-trusted');
         expect(await g('m2', {neighborLabel: 'AGENT_MEMORY'})).toBeNull();   // cross-tenant blocked
+    });
+
+    test('a sessionId pin rejects a walk-reached record from another session (the isolation defect)', async () => {
+        const col = makeCollection({
+                  inSession : {userId: 'u1', sessionId: 's-current', prompt: 'here'},
+                  offSession: {userId: 'u1', sessionId: 's-other'}            // same tenant, DIFFERENT session
+              }),
+              g   = build({collection: col, userId: 'u1', policy: 'private', sessionId: 's-current'});
+
+        expect((await g('inSession', {neighborLabel: 'AGENT_MEMORY'})).id).toBe('inSession');
+        expect(await g('offSession', {neighborLabel: 'AGENT_MEMORY'})).toBeNull();   // cross-session blocked
+
+        // no session pin → both sessions are in scope (mirrors the flat path's absent `where` filter)
+        const gUnpinned = build({collection: col, userId: 'u1', policy: 'private'});
+        expect((await gUnpinned('offSession', {neighborLabel: 'AGENT_MEMORY'})).id).toBe('offSession')
     });
 
     test('team: a record from any tenant hydrates (deployment-wide read)', async () => {
