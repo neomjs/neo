@@ -577,6 +577,9 @@ Here you find the full history of Neo.mjs updates.
 
 Here you find historical technical discussions and GitHub issues.
 
+- [Ticket #15054](https://neomjs.com/raw/news/tickets/15054.md)
+- [Ticket #15052](https://neomjs.com/raw/news/tickets/15052.md)
+- [Ticket #15050](https://neomjs.com/raw/news/tickets/15050.md)
 - [Ticket #15049](https://neomjs.com/raw/news/tickets/15049.md)
 - [Ticket #15048](https://neomjs.com/raw/news/tickets/15048.md)
 - [Ticket #15047](https://neomjs.com/raw/news/tickets/15047.md)
@@ -10812,6 +10815,8 @@ Here you find historical technical discussions and GitHub issues.
 
 Here you find problem-to-solution records from Neo.mjs pull requests.
 
+- [Pull Request #15053](https://neomjs.com/raw/news/pulls/15053.md)
+- [Pull Request #15051](https://neomjs.com/raw/news/pulls/15051.md)
 - [Pull Request #15046](https://neomjs.com/raw/news/pulls/15046.md)
 - [Pull Request #15044](https://neomjs.com/raw/news/pulls/15044.md)
 - [Pull Request #15042](https://neomjs.com/raw/news/pulls/15042.md)
