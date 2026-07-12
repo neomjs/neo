@@ -18,15 +18,21 @@ import path                                           from 'path';
 const ROUTE_ATTRIBUTION_FILENAME = 'route-attribution.jsonl';
 
 /**
- * @summary The JSONL ledger path within a state directory.
+ * @summary The JSONL ledger path within a state directory. The append/read/prune I/O below is
+ * record-shape-agnostic, so the optional `filename` generalizes it to a SIBLING ledger sharing the
+ * same runtime dir + retention machinery but a distinct record shape — e.g. the type-gate rejection
+ * ledger (`typeGateRejectionLedgerStore`), which passes its own filename and owns its own
+ * summarize/query fold. `filename` defaults to the route-attribution ledger, so the guard-filter
+ * callers pass nothing and are unchanged.
  * @param {String} dir
+ * @param {String} [filename=ROUTE_ATTRIBUTION_FILENAME] Ledger leaf within `dir`.
  * @returns {String}
  */
-export function getRouteAttributionLedgerFilePath(dir) {
+export function getRouteAttributionLedgerFilePath(dir, filename = ROUTE_ATTRIBUTION_FILENAME) {
     if (typeof dir !== 'string' || dir.length === 0) {
         throw new TypeError('getRouteAttributionLedgerFilePath: dir is required');
     }
-    return path.join(dir, ROUTE_ATTRIBUTION_FILENAME);
+    return path.join(dir, filename);
 }
 
 /**
@@ -60,13 +66,14 @@ export function validateRouteAttributionRetention(maxEvents, triggerBytes) {
  * @param {Object} entry A JSON-serializable record (`{blockedNodeId, armingReasons, candidateReasons, at?}`).
  * @param {Object} options
  * @param {String} options.dir The durable state directory.
+ * @param {String} [options.filename] Ledger leaf within `dir` (defaults to the route-attribution ledger); a sibling record shape passes its own.
  * @param {Number} [options.now] Epoch ms used to stamp `at` when the entry omits it.
  * @param {Number} [options.triggerBytes] Byte threshold that arms the auto-prune (from the AiConfig retention leaf). Skipped unless both this and `maxEvents` are finite.
  * @param {Number} [options.maxEvents] Retention cap the triggered auto-prune enforces (from the AiConfig retention leaf).
  * @returns {Promise<String>} The ledger file path written to.
  * @throws {TypeError} when `entry` is not an object or `dir` is missing/empty.
  */
-export async function appendRouteAttribution(entry, {dir, now, triggerBytes, maxEvents} = {}) {
+export async function appendRouteAttribution(entry, {dir, filename, now, triggerBytes, maxEvents} = {}) {
     if (!entry || typeof entry !== 'object') {
         throw new TypeError('appendRouteAttribution: entry object is required');
     }
@@ -77,7 +84,7 @@ export async function appendRouteAttribution(entry, {dir, now, triggerBytes, max
     const stamped = {...entry, at: Number.isFinite(entry.at) ? entry.at : (Number.isFinite(now) ? now : null)};
 
     await mkdir(dir, {recursive: true});
-    const filePath = getRouteAttributionLedgerFilePath(dir);
+    const filePath = getRouteAttributionLedgerFilePath(dir, filename);
     await appendFile(filePath, `${JSON.stringify(stamped)}\n`, 'utf8');
 
     // Self-bound (mirrors healEventLedgerStore) ONLY when the AiConfig-aware caller supplied the retention policy
@@ -87,7 +94,7 @@ export async function appendRouteAttribution(entry, {dir, now, triggerBytes, max
     if (Number.isFinite(triggerBytes) && Number.isFinite(maxEvents)) {
         try {
             const {size} = await stat(filePath);
-            if (size > triggerBytes) await pruneRouteAttributionLedger({dir, maxEvents});
+            if (size > triggerBytes) await pruneRouteAttributionLedger({dir, filename, maxEvents});
         } catch (error) {
             // a partial/failed prune leaves the prior ledger intact; the next append re-tries the gate
         }
@@ -104,14 +111,15 @@ export async function appendRouteAttribution(entry, {dir, now, triggerBytes, max
  * gated by the ledger catches this itself and proceeds fail-safe.
  * @param {Object} options
  * @param {String} options.dir The durable state directory.
+ * @param {String} [options.filename] Ledger leaf within `dir` (defaults to the route-attribution ledger).
  * @returns {Promise<Object[]>} The parsed records in append order.
  * @throws when the ledger file exists but is unreadable at the FILE level (any non-`ENOENT` read error).
  */
-export async function readRouteAttributionLedger({dir} = {}) {
+export async function readRouteAttributionLedger({dir, filename} = {}) {
     let text;
 
     try {
-        text = await readFile(getRouteAttributionLedgerFilePath(dir), 'utf8');
+        text = await readFile(getRouteAttributionLedgerFilePath(dir, filename), 'utf8');
     } catch (error) {
         if (error?.code === 'ENOENT') {
             return []; // missing ledger → nothing recorded yet (not a degradation)
@@ -138,11 +146,12 @@ export async function readRouteAttributionLedger({dir} = {}) {
  * rewrite (it was already unreadable). I/O at the edge only.
  * @param {Object} options
  * @param {String} options.dir The durable state directory.
+ * @param {String} [options.filename] Ledger leaf within `dir` (defaults to the route-attribution ledger).
  * @param {Number} options.maxEvents Max records to retain (the AiConfig retention leaf; no helper-owned default).
  * @returns {Promise<{pruned: Number, retained: Number}>} Counts; `pruned: 0` when no prune was needed.
  * @throws {TypeError} when `dir` is missing/empty or `maxEvents` is not a finite, non-negative number.
  */
-export async function pruneRouteAttributionLedger({dir, maxEvents} = {}) {
+export async function pruneRouteAttributionLedger({dir, filename, maxEvents} = {}) {
     if (typeof dir !== 'string' || dir.length === 0) {
         throw new TypeError('pruneRouteAttributionLedger: dir is required');
     }
@@ -150,13 +159,13 @@ export async function pruneRouteAttributionLedger({dir, maxEvents} = {}) {
         throw new TypeError(`pruneRouteAttributionLedger: a finite, non-negative maxEvents is required (the AiConfig retention leaf), got ${maxEvents}`);
     }
 
-    const records = await readRouteAttributionLedger({dir});
+    const records = await readRouteAttributionLedger({dir, filename});
     if (records.length <= maxEvents) {
         return {pruned: 0, retained: records.length};
     }
 
     const retained = records.slice(records.length - maxEvents); // append order is oldest→newest; keep the tail
-    await writeFile(getRouteAttributionLedgerFilePath(dir), retained.map(record => JSON.stringify(record)).join('\n') + '\n', 'utf8');
+    await writeFile(getRouteAttributionLedgerFilePath(dir, filename), retained.map(record => JSON.stringify(record)).join('\n') + '\n', 'utf8');
 
     return {pruned: records.length - retained.length, retained: retained.length};
 }

@@ -41,6 +41,10 @@ import {
     appendRouteAttribution,
     validateRouteAttributionRetention
 } from './routeAttributionLedgerStore.mjs';
+import {
+    TYPE_GATE_REJECTION_FILENAME,
+    TYPE_GATE_REJECTION_STAGE
+} from './typeGateRejectionLedgerStore.mjs';
 import {RETROSPECTIVE_GRAINS, renderHandoffRetrospectiveSection} from './handoffRetrospective.mjs';
 import {assembleRetrospectiveStats}                              from './handoffRetrospectiveAssembler.mjs';
 import {
@@ -434,6 +438,62 @@ class GoldenPathSynthesizer extends Base {
             }
         } catch (error) {
             logger.warn(`[GoldenPathSynthesizer] route-attribution ledger write failed (non-fatal): ${error?.message || error}`)
+        }
+    }
+
+    /**
+     * @summary Pure builder for the type-gate rejection records — the SECOND GP filter point's evidence. Where
+     * `buildRouteAttributionRecords` captures the routing-contradiction GUARD's filtering, this captures the
+     * actionability TYPE-GATE's rejections (`isActionableComputedRecommendation` === false): the visibility-only
+     * candidates (`epic` / `not-code-ready` / …) that never reach scoring. Each record carries the node id, its
+     * exclusion-label bucket (the exact labels that made it non-actionable, from the shared authority), and the
+     * `stage` discriminator so a merged read stays self-describing.
+     * @param {Array<{nodeId: String, rejectionBucket: String[]}>} rejections Collected at the type-gate filter point.
+     * @param {Number} nowMs Epoch ms stamped onto each record.
+     * @returns {Object[]} `[{nodeId, rejectionBucket, stage, at}]` (empty when nothing was rejected).
+     */
+    static buildTypeGateRejectionRecords(rejections, nowMs) {
+        return (Array.isArray(rejections) ? rejections : [])
+            .filter(item => typeof item?.nodeId === 'string' && item.nodeId.length > 0)
+            .map(item => ({
+                nodeId         : item.nodeId,
+                rejectionBucket: Array.isArray(item.rejectionBucket) ? item.rejectionBucket : [],
+                stage          : TYPE_GATE_REJECTION_STAGE,
+                at             : nowMs
+            }))
+    }
+
+    /**
+     * @summary The type-gate rejection record-seam: persists which computed candidates the actionability gate
+     * rejected, under which exclusion labels, per synthesis run — the evidence window the 42.2%-type-gate
+     * disposition decides against. FAIL-OPEN, exactly like `recordRouteAttribution` — a ledger-write failure is
+     * swallowed-logged and never aborts synthesis (the ledger is observability, never a gate); a missing/empty
+     * `dir` is a silent no-op. Reuses the route-attribution ledger's runtime dir + retention leaves + shape-agnostic
+     * append via the `filename` seam, writing a SIBLING file so the two filter points stay queryable-apart.
+     * @param {Array<{nodeId: String, rejectionBucket: String[]}>} rejections The type-gate rejections for this pass.
+     * @param {Date|Number} now The synthesis-pass clock (Date or epoch ms).
+     * @param {Object} [ledger] The resolved ledger boundary (from the caller's AiConfig read).
+     * @param {String} [ledger.dir] The runtime ledger directory; absent/empty → no-op.
+     * @param {Number} [ledger.maxEvents] Retention cap (validated before the store write).
+     * @param {Number} [ledger.triggerBytes] Prune byte-trigger (validated before the store write).
+     * @returns {Promise<void>}
+     */
+    static async recordTypeGateRejections(rejections, now, {dir, maxEvents, triggerBytes} = {}) {
+        const nowMs   = now instanceof Date ? now.getTime() : now,
+              records = this.buildTypeGateRejectionRecords(rejections, Number.isFinite(nowMs) ? nowMs : null);
+
+        if (records.length === 0) return;
+
+        try {
+            if (typeof dir !== 'string' || dir.length === 0) return;
+
+            const retention = validateRouteAttributionRetention(maxEvents, triggerBytes);
+
+            for (const record of records) {
+                await appendRouteAttribution(record, {dir, filename: TYPE_GATE_REJECTION_FILENAME, ...retention})
+            }
+        } catch (error) {
+            logger.warn(`[GoldenPathSynthesizer] type-gate rejection ledger write failed (non-fatal): ${error?.message || error}`)
         }
     }
 
@@ -923,8 +983,11 @@ class GoldenPathSynthesizer extends Base {
             return this.constructor.buildFailureOutcome('embedding-dimension-mismatch', message);
         }
 
-        const scoredNodes  = [];
-        const scoringStats = {
+        const scoredNodes = [];
+        // AC3: the type-gate rejections collected across the scoring loop (emitted once after it, like the
+        // route-attribution record-seam) — the SECOND GP filter point's evidence for the type-gate disposition.
+        const typeGateRejections = [];
+        const scoringStats       = {
             semanticCandidates     : 0,
             sqliteOpenMatches      : 0,
             blockedCandidates      : 0,
@@ -1041,6 +1104,12 @@ class GoldenPathSynthesizer extends Base {
 
                     if (!this.constructor.isActionableComputedRecommendation(nodeData || {id: issueId})) {
                         scoringStats.nonActionableCandidates++;
+                        // AC3 evidence: record which exclusion labels made this candidate non-actionable
+                        // (the shared bucket authority), for the type-gate disposition window.
+                        typeGateRejections.push({
+                            nodeId         : issueId,
+                            rejectionBucket: this.constructor.getComputedRecommendationExclusionLabels(nodeData || {id: issueId})
+                        });
                         logger.debug(`[GoldenPathSynthesizer] Skipping non-actionable computed recommendation: ${issueId}`);
                         continue;
                     }
@@ -1100,6 +1169,15 @@ class GoldenPathSynthesizer extends Base {
                 triggerBytes: aiConfig.goldenPathRouteAttributionLedgerPruneTriggerBytes
             })
         }
+
+        // AC3: record the actionability type-gate's rejections (the SECOND filter point) into a sibling ledger in
+        // the same runtime dir — the evidence window the 42.2%-type-gate disposition decides against. No-ops
+        // on an empty pass; fail-open inside the method; reuses the route-attribution dir + retention leaves.
+        await this.constructor.recordTypeGateRejections(typeGateRejections, now, {
+            dir         : aiConfig.goldenPathRouteAttributionLedgerDir,
+            maxEvents   : aiConfig.goldenPathRouteAttributionLedgerMaxEvents,
+            triggerBytes: aiConfig.goldenPathRouteAttributionLedgerPruneTriggerBytes
+        })
 
         const handoffTimestamp = now instanceof Date ? now : new Date(now);
         let   markdownAppend   = '';
