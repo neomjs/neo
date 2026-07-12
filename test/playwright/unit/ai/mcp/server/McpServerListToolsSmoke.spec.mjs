@@ -350,6 +350,21 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
         });
     });
 
+    test('knowledge-base ask_knowledge_base exposes the conceptWalk opt-in at the tool boundary — generated from OpenAPI, not just the SearchService seam (#14504)', async () => {
+        const
+            server       = servers.find(item => item.name === 'knowledge-base'),
+            {tools}      = await listTools(server),
+            askKnowledge = tools.find(tool => tool.name === 'ask_knowledge_base'),
+            conceptWalk  = askKnowledge.inputSchema.properties.conceptWalk;
+
+        // the GENERATED tool (openapi.yaml → tool-shape compiler) carries the concept-anchored wrap's
+        // opt-in at the MCP boundary — mirroring query_raw_memories on memory-core; default false keeps
+        // the flat path byte-identical.
+        expect(conceptWalk).toBeTruthy();
+        expect(conceptWalk.type).toBe('boolean');
+        expect(conceptWalk.default).toBe(false);
+    });
+
     test('memory-core exposes compact list descriptions plus lazy-loaded handbook detail (#13739)', async () => {
         const
             server        = servers.find(item => item.name === 'memory-core'),
