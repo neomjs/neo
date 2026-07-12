@@ -14,6 +14,7 @@ import DockRail           from '../../../../src/dashboard/DockRail.mjs';
 import DockSplitter       from '../../../../src/dashboard/DockSplitter.mjs';
 import DockTabEnterButton from '../../../../src/dashboard/DockTabEnterButton.mjs';
 import DockZoneModel      from '../../../../src/dashboard/DockZoneModel.mjs';
+import TabOverflowPlugin  from '../../../../src/tab/plugin/Overflow.mjs';
 
 const createModel = () => ({
     schema: 'neo.harness.dockZone.v1',
@@ -548,5 +549,21 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         expect(rail.railItems).toEqual([
             {dockEdge: 'right', dockItemId: 'terminal', restorable: false, title: 'Terminal'}
         ]);
+    });
+
+    test('projectTabsNode injects the tab-native overflow plugin into the projected header toolbar', () => {
+        let result = DockLayoutAdapter.project(createModel(), {
+                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            }),
+            mainTabs = result.items[0],
+            plugins  = mainTabs.headerToolbar?.plugins;
+
+        // The dock CONSUMES the generic tab-overflow affordance by injecting Neo.tab.plugin.Overflow into
+        // every projected tab header toolbar's plugins — a one-directional adapter→plugin consume (the plugin
+        // owns its computeOverflow static, so nothing reaches back to the adapter). Wiring, not behavior: this
+        // pins that the projection carries the plugin, so a silent drop of the injection is caught in CI.
+        expect(mainTabs.ntype).toBe('tab-container');
+        expect(plugins).toHaveLength(1);
+        expect(plugins[0].module).toBe(TabOverflowPlugin);
     });
 });

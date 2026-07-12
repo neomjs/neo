@@ -4,6 +4,7 @@ import DockSplitter       from './DockSplitter.mjs';
 import DockTabEnterButton from './DockTabEnterButton.mjs';
 import DockTabSortZone    from './DockTabSortZone.mjs';
 import DockZoneModel      from './DockZoneModel.mjs';
+import TabOverflowPlugin  from '../tab/plugin/Overflow.mjs';
 
 /**
  * @summary Projects Agent Harness dock-zone model nodes into existing Neo layout and tab configs.
@@ -673,6 +674,11 @@ class DockLayoutAdapter extends Base {
             // (below), cross-zone drops report their release point to `onDockCrossZoneDrop` so the owner can
             // hit-test the target zone and commit a `moveItem`. Still one drag system — no parallel pipeline.
             headerToolbar : {
+                // Tab-overflow affordance: when the projected headers exceed the toolbar width, the
+                // overflowing tabs collapse behind a floating overflow control whose menu reaches them
+                // (Neo.tab.plugin.Overflow — a generic tab-subsystem plugin the dock only consumes). Zero
+                // new model state: a menu selection routes through the tab.Container's existing activeIndex.
+                plugins       : [{module: TabOverflowPlugin}],
                 sortZoneConfig: {
                     module          : DockTabSortZone,
                     dockItemIds     : items,
