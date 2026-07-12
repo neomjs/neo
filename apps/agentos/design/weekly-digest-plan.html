@@ -1,0 +1,247 @@
+<style>
+  /* Weekly-digest design SSOT — matches the fleet-manager-cockpit-plan house bar, and adds the
+     light+dark comps from birth (the cockpit precedents are dark-only; the digest ships both). */
+  :root{
+    --ground:#0b0e13; --panel:#141a23; --panel-2:#1a212c; --rail:#0e131a;
+    --line:#262f3d; --line-soft:#1c242f;
+    --ink:#d6dce6; --ink-dim:#8b97a8; --ink-faint:#5a6575;
+    --signal:#5eead4;
+    --ok:#34d399; --idle:#f5b544; --wedged:#f4718b; --limited:#a78bfa; --off:#5b6675;
+    --f-claude:#d99a5b; --f-gpt:#58c093; --f-gemini:#6ba3e8; --f-human:#c9d2de;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  /* light comps — from birth, per AC #1. Same tokens, inverted ground so every component rides theme vars. */
+  @media (prefers-color-scheme:light){
+    :root:not([data-theme="dark"]){
+      --ground:#f6f8fb; --panel:#ffffff; --panel-2:#eef2f7; --rail:#eaeff5;
+      --line:#d4dce6; --line-soft:#e4eaf1;
+      --ink:#1b2430; --ink-dim:#586474; --ink-faint:#8a97a7;
+      --signal:#0f9c86;
+      --ok:#0f9d63; --idle:#b5790a; --wedged:#c8375a; --limited:#7c5cd6; --off:#94a0ad;
+      --f-claude:#b06e2e; --f-gpt:#2f8f63; --f-gemini:#3a72c4; --f-human:#4a5665;
+    }
+  }
+  :root[data-theme="light"]{
+    --ground:#f6f8fb; --panel:#ffffff; --panel-2:#eef2f7; --rail:#eaeff5;
+    --line:#d4dce6; --line-soft:#e4eaf1;
+    --ink:#1b2430; --ink-dim:#586474; --ink-faint:#8a97a7;
+    --signal:#0f9c86;
+    --ok:#0f9d63; --idle:#b5790a; --wedged:#c8375a; --limited:#7c5cd6; --off:#94a0ad;
+    --f-claude:#b06e2e; --f-gpt:#2f8f63; --f-gemini:#3a72c4; --f-human:#4a5665;
+  }
+  html{background:var(--ground)}
+  *{box-sizing:border-box}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px 96px;color:var(--ink);
+    font-family:var(--sans);line-height:1.6;-webkit-font-smoothing:antialiased}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--signal);margin:0}
+  h1{font-size:clamp(30px,4.4vw,46px);line-height:1.08;letter-spacing:-.02em;text-wrap:balance;
+    margin:14px 0 0;font-weight:640}
+  h2{font-size:24px;letter-spacing:-.01em;margin:0 0 4px;font-weight:620}
+  h3{font-size:16px;margin:0;font-weight:620}
+  .lede{font-size:19px;color:var(--ink-dim);max-width:66ch;text-wrap:pretty;margin:18px 0 0}
+  .sec{margin-top:72px}
+  .sec-head{display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--line);
+    padding-bottom:12px;margin-bottom:26px}
+  .sec-num{font-family:var(--mono);font-size:12px;color:var(--ink-faint);letter-spacing:.1em}
+  .muted{color:var(--ink-dim)} .faint{color:var(--ink-faint)} .mono{font-family:var(--mono)}
+  p{margin:12px 0 0;text-wrap:pretty}
+  header{padding-top:56px}
+  .kicker-row{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;margin-top:22px;
+    font-family:var(--mono);font-size:12px;color:var(--ink-faint)}
+  .kicker-row b{color:var(--ink-dim);font-weight:500}
+
+  /* ── the digest mockup ── */
+  .screen{margin-top:26px;border:1px solid var(--line);border-radius:12px;overflow:hidden;
+    background:var(--panel);box-shadow:0 24px 60px -30px #000}
+  .screen-chrome{display:flex;align-items:center;gap:14px;padding:11px 16px;
+    background:var(--rail);border-bottom:1px solid var(--line)}
+  .dots{display:flex;gap:7px} .dots i{width:11px;height:11px;border-radius:50%;background:var(--off);opacity:.5}
+  .chrome-title{font-family:var(--mono);font-size:12px;color:var(--ink-dim)}
+  .chrome-title b{color:var(--signal);font-weight:600}
+  .chrome-spacer{flex:1}
+  .period{display:flex;gap:4px;font-family:var(--mono);font-size:11px}
+  .period button{font-family:var(--mono);font-size:11px;color:var(--ink-dim);background:transparent;
+    border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:pointer}
+  .period button[aria-pressed="true"]{color:#06231d;background:var(--signal);border-color:var(--signal);font-weight:600}
+
+  .digest{padding:20px 18px 8px}
+  .digest-h{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px}
+  .digest-h h3{font-size:17px} .digest-h .win{font-family:var(--mono);font-size:11px;color:var(--ink-faint)}
+  .digest-sub{font-size:12.5px;color:var(--ink-dim);margin:0 0 16px}
+
+  .blocks{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}
+  .blk{background:var(--panel-2);border:1px solid var(--line-soft);border-radius:10px;padding:13px 14px;min-width:0}
+  .blk-top{display:flex;align-items:center;gap:8px}
+  .blk-kind{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
+  .blk-n{font-size:26px;font-weight:680;letter-spacing:-.02em;margin:6px 0 2px;line-height:1}
+  .blk-line{font-size:12.5px;color:var(--ink-dim);line-height:1.45}
+  .blk-line b{color:var(--ink);font-weight:600}
+  .prov{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+  .chip{font-family:var(--mono);font-size:9.5px;letter-spacing:.03em;color:var(--ink-faint);
+    border:1px solid var(--line-soft);border-radius:4px;padding:2px 6px;white-space:nowrap}
+  .chip.stale{color:var(--idle);border-color:color-mix(in srgb,var(--idle) 45%,transparent)}
+  .chip.adv{color:var(--limited);border-color:color-mix(in srgb,var(--limited) 45%,transparent)}
+  .accent-ok{border-left:3px solid var(--ok)} .accent-sig{border-left:3px solid var(--signal)}
+  .accent-idle{border-left:3px solid var(--idle)} .accent-wedged{border-left:3px solid var(--wedged)}
+  .accent-limited{border-left:3px solid var(--limited)}
+
+  /* activity strip — the ONLY per-agent surface (the honest-null rule) */
+  .strip{margin:16px 0 4px;padding:13px 14px;background:var(--rail);border:1px solid var(--line-soft);border-radius:10px}
+  .strip-label{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:10px}
+  .who{display:flex;flex-wrap:wrap;gap:8px 16px}
+  .who span{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-dim)}
+  .who i{width:8px;height:8px;border-radius:50%;background:var(--fam)}
+  .who b{color:var(--ink);font-weight:600;font-family:var(--mono);font-size:12px}
+  .caption{font-size:13px;color:var(--ink-faint);margin-top:14px;font-style:italic;text-align:center}
+
+  /* ── tables (consumes-map) ── */
+  .tbl{width:100%;border-collapse:collapse;margin-top:6px;font-size:13px}
+  .tbl th{text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink-faint);font-weight:500;padding:9px 12px;border-bottom:1px solid var(--line)}
+  .tbl td{padding:10px 12px;border-bottom:1px solid var(--line-soft);color:var(--ink-dim);vertical-align:top}
+  .tbl td b{color:var(--ink);font-weight:600} .tbl code{font-family:var(--mono);font-size:12px;color:var(--signal)}
+  .tag-win{font-family:var(--mono);font-size:10px;color:var(--ink-faint)}
+  .tag-attr{font-family:var(--mono);font-size:10px;color:var(--f-gpt)}
+
+  /* ── principle cards ── */
+  .principles{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:8px}
+  .pr{background:var(--panel);border:1px solid var(--line-soft);border-radius:10px;padding:16px 17px}
+  .pr h3{font-size:14.5px} .pr p{font-size:13.5px;color:var(--ink-dim);margin-top:7px}
+  .pr .tag{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--signal)}
+  .note{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:18px 20px;margin-top:8px}
+  .note .tag{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--idle)}
+  ul{margin:10px 0 0;padding-left:20px} li{margin-top:6px;color:var(--ink-dim);font-size:14px}
+  @media (max-width:820px){.blocks{grid-template-columns:1fr}.principles{grid-template-columns:1fr}}
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Agent OS · Bird's-eye · What happened this week</p>
+    <h1>The 60-second week</h1>
+    <p class="lede">The temporal pyramid has the numbers; the operator has none of them <b style="color:var(--ink)">drawn</b>. This is the digest — the period-scoped narrative a returning human reads in a minute instead of doing archaeology — and the substrate contract that keeps every claim in it honest.</p>
+    <div class="kicker-row">
+      <span><b>Consumes</b> SUMMARY_* window tiers · direction {v,s,r} · stall classes</span>
+      <span><b>Renders</b> one unified track + a per-agent activity strip</span>
+      <span><b>Authority</b> advisory · ledger-stamped · stale-as-stale</span>
+    </div>
+  </header>
+
+  <section class="sec">
+    <div class="sec-head"><span class="sec-num">01</span><h2>What it should be</h2></div>
+    <div class="screen" role="img" aria-label="Weekly digest mock — five narrative blocks over the unified track, plus a per-agent activity strip">
+      <div class="screen-chrome">
+        <div class="dots"><i></i><i></i><i></i></div>
+        <span class="chrome-title"><b>Neo</b> — this week</span>
+        <span class="chrome-spacer"></span>
+        <div class="period" role="group" aria-label="Period selector">
+          <button aria-pressed="true">This week</button>
+          <button aria-pressed="false">Last week</button>
+          <button aria-pressed="false">Sprint</button>
+        </div>
+      </div>
+      <div class="digest">
+        <div class="digest-h"><h3>Jul 6 – Jul 12</h3><span class="win">window · daily-tier fold · v1</span></div>
+        <p class="digest-sub">Whole-repository facts — one track, never per-agent (the honest-null rule below). Numbers are examples in the house bar, not live.</p>
+
+        <div class="blocks">
+          <div class="blk accent-ok">
+            <div class="blk-top"><span class="blk-kind">Merged</span></div>
+            <div class="blk-n">31</div>
+            <div class="blk-line">PRs landed on <b>dev</b> — incl. boot-identity Leaf 1, GP-guard follow-ups, type-gate producer.</div>
+            <div class="prov"><span class="chip">src · GitHub PR sync</span><span class="chip">observed 09:04Z</span></div>
+          </div>
+          <div class="blk accent-sig">
+            <div class="blk-top"><span class="blk-kind">Shipped</span></div>
+            <div class="blk-n">184</div>
+            <div class="blk-line"><b>dev</b> first-parent commits — the code that actually moved the tree.</div>
+            <div class="prov"><span class="chip">src · git first-parent</span><span class="chip">observed 09:04Z</span></div>
+          </div>
+          <div class="blk accent-limited">
+            <div class="blk-top"><span class="blk-kind">Graduated</span></div>
+            <div class="blk-n">3<span style="font-size:14px;color:var(--ink-faint)"> · +2 ADR</span></div>
+            <div class="blk-line"><b>2</b> discussions graduated, <b>2</b> ADRs landed — ideas that became authority.</div>
+            <div class="prov"><span class="chip">src · Discussions + decisions dir</span><span class="chip">observed 09:04Z</span></div>
+          </div>
+          <div class="blk accent-wedged">
+            <div class="blk-top"><span class="blk-kind">Stalled</span></div>
+            <div class="blk-n">2</div>
+            <div class="blk-line"><b>Chroma-bloat</b> (5d, one gate left) · <b>#13033 Electron arm</b> (blocked). From the direction <span class="mono">s</span> breakdown.</div>
+            <div class="prov"><span class="chip">src · stall classes #14447</span><span class="chip stale">last cycle 7.2h ago — stale</span></div>
+          </div>
+          <div class="blk accent-idle">
+            <div class="blk-top"><span class="blk-kind">Direction-shift</span></div>
+            <div class="blk-n">→ Fleet</div>
+            <div class="blk-line">Swarm weight moved toward <b>FM cockpit + control-plane</b>; away from graph-fold.</div>
+            <div class="prov"><span class="chip">src · directionVelocity {v,s,r}</span><span class="chip adv">advisory · notAuthority</span></div>
+          </div>
+          <div class="blk">
+            <div class="blk-top"><span class="blk-kind">Reading this</span></div>
+            <div class="blk-n" style="font-size:15px;font-weight:600;color:var(--ink-dim);margin-top:9px">Every block is a window fact.</div>
+            <div class="blk-line" style="margin-top:8px">Whole-repo, one track. Per-agent shares live in the strip below — never in a headline.</div>
+          </div>
+        </div>
+
+        <div class="strip">
+          <div class="strip-label">Who was active — the only per-agent surface (sessionsPerAgent · highImpactSessions ≥ 90)</div>
+          <div class="who">
+            <span style="--fam:var(--f-claude)"><i></i><b>ada</b> 9 sessions · 4 high-impact</span>
+            <span style="--fam:var(--f-gpt)"><i></i><b>euclid</b> 7 · 3</span>
+            <span style="--fam:var(--f-claude)"><i></i><b>grace</b> 5 · 2</span>
+            <span style="--fam:var(--f-claude)"><i></i><b>vega</b> 6 · 2</span>
+            <span style="--fam:var(--f-human)"><i></i><b>tobiu</b> merge-gate</span>
+          </div>
+        </div>
+      </div>
+      <p class="caption" style="padding:0 16px 14px">Static house-bar mock — light + dark from birth. The period selector re-scopes the window; every block carries its source + observed-at; stale + advisory classes render as themselves.</p>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head"><span class="sec-num">02</span><h2>The consumes-map — every block bound to a real field</h2></div>
+    <p class="muted" style="max-width:74ch;margin-top:0">The gap this ticket kills is "substrate without a drawn product": a render leaf inventing a field. Each block maps to a verified field — <span class="mono">deriveVelocityFields</span> (six) + the direction <span class="mono">{v,s,r}</span> breakdown (#14811). No invented fields.</p>
+    <table class="tbl">
+      <thead><tr><th>Digest block</th><th>Substrate field(s) — verified</th><th>Source substrate</th><th>Scope</th></tr></thead>
+      <tbody>
+        <tr><td><b>Merged</b></td><td><code>mergedPrs</code></td><td>GitHub PR sync — merged-PR graph nodes</td><td class="tag-win">window</td></tr>
+        <tr><td><b>Shipped</b></td><td><code>devCommits</code> + <code>mergedPrs</code></td><td>git first-parent log over the window on dev</td><td class="tag-win">window</td></tr>
+        <tr><td><b>Graduated</b></td><td><code>sandboxesGraduated</code> + <code>adrsLanded</code></td><td>Discussion graduation markers · decisions dir / graph</td><td class="tag-win">window</td></tr>
+        <tr><td><b>Stalled</b></td><td>direction <code>s</code> (stallBreakdown) + stall classes</td><td>direction layer / graph (#14447, #14811)</td><td class="tag-win">window</td></tr>
+        <tr><td><b>Direction-shift</b></td><td>direction <code>{v,s,r}</code> + annotations</td><td><code>ai/graph/directionVelocity.mjs</code> (#14565)</td><td class="tag-win">window · advisory</td></tr>
+        <tr><td><b>Activity strip</b></td><td><code>sessionsPerAgent</code> + <code>highImpactSessions</code></td><td>Memory Core session nodes / impact metadata</td><td class="tag-attr">per-agent</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Two invariants the map forces</h2></div>
+    <div class="principles">
+      <div class="pr">
+        <p class="tag">Ledger discipline, not decoration</p>
+        <h3>The honest-null rule is visible in the render</h3>
+        <p><span class="mono">WINDOW_SCOPED_VELOCITY_FIELDS</span> are <span class="mono">null</span> — not <span class="mono">0</span>, not a repeated window count — on per-agent partitions. So the five headline blocks render on the <b>unified track</b>; only the activity strip is per-agent. A per-agent "merged: 0" would assert a measurement never taken — and seed the silent double-count the moment a consumer aggregates. Killed at the design bar.</p>
+      </div>
+      <div class="pr">
+        <p class="tag">ADR-0032 §2.2</p>
+        <h3>Every rendered claim shows its provenance</h3>
+        <p>Each block carries <span class="mono">sourceAuthority</span> + <span class="mono">observedAt</span> (visible or summoned); a fact past its cadence renders <b>stale-as-stale</b> (the amber chip), and direction-shift renders <b>advisory</b> (<span class="mono">notAuthority</span>) — never a certainty verdict. The digest reports what the pyramid measured, at the confidence the pyramid held.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Scope + review gate</h2></div>
+    <div class="note">
+      <p class="tag">Design-only leaf — render implementation files after this passes</p>
+      <p class="muted" style="margin-top:10px">This artifact is the SSOT the render leaves build against (per the ticket's Out-of-Scope). Open items, flagged rather than invented:</p>
+      <ul>
+        <li>Confirm the exact stall-class field name (#14447) + the <span class="mono">directionVelocity</span> public shape at render time.</li>
+        <li>Render home decision: the agentos module (one-app ruling) vs. the handoff surface first.</li>
+        <li>Drill-down affordances per block (a click → the underlying PR / session / ADR nodes) — sketched, not specified here.</li>
+        <li><b>Peer + operator review (AC #4)</b> recorded before any render leaf files.</li>
+      </ul>
+    </div>
+    <p class="muted" style="margin-top:20px;max-width:74ch">Substrate anchor verified against live <b>dev</b>: <span class="mono">temporalSummaryAggregationEngine.mjs</span> (deriveVelocityFields · VELOCITY_FIELD_SOURCES · WINDOW_SCOPED_VELOCITY_FIELDS) + <span class="mono">ai/graph/directionVelocity.mjs</span>. Consumes-map also posted on #14680. Authored by Ada (@neo-opus-ada, Claude Opus 4.8, Claude Code).</p>
+  </section>
+</div>
