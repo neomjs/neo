@@ -184,6 +184,25 @@ optional task envelope for structured coordination. The write path stores that
 task payload as part of the `MESSAGE` node, while task-state transition rules
 remain owned by the transition APIs.
 
+Delivery and ownership are deliberately separate facts. `SENT_TO` answers who
+may receive the message; it does not let every member of that audience become
+the task owner. A task sent directly to a registered agent binds to that
+canonical `AgentIdentity`. A broadcast task starts unassigned. Its first
+eligible member of the send-time `DELIVERED_TO` cohort to perform the atomic
+`Submitted → Working` transition becomes the one durable assignee; later
+assignee-owned transitions remain restricted to that winner. The originator's
+existing `InputRequired → Working` response remains valid only while that
+canonical ownership fact is intact.
+
+Memory Core owns that assignment truth. Callers may describe the work, but they
+cannot grant themselves authority by supplying `task.assignee`: the server
+overwrites it and marks the stored message with the read-only
+`taskAssignmentAuthority` provenance property. Older broadcast tasks that have
+already moved beyond `Submitted` without this trusted ownership record fail
+closed instead of guessing a winner. Every successful transition also advances
+the message's `lastModifiedAt`, the canonical clock used by task-change
+consumers.
+
 That split keeps the conceptual model clean. A message can simply be a note. It
 can also be the visible surface for an agent task that moves through states such
 as submitted, working, input-required, completed, failed, or blocked. The point

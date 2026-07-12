@@ -115,7 +115,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         updatedAt = createdAt
     } = {}) {
         const sqlite = GraphService.db.storage.db;
-        const node = {
+        const node   = {
             id        : subscriptionId,
             label     : 'WAKE_SUBSCRIPTION',
             properties: {
@@ -132,7 +132,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             }
         };
         const edgeId = `EDGE:${crypto.randomUUID()}`;
-        const edge = {
+        const edge   = {
             id        : edgeId,
             source    : owner,
             target    : subscriptionId,
@@ -452,7 +452,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             });
 
             // Verify durable state: older retired, newer still active.
-            const sqlite = GraphService.db.storage.db;
+            const sqlite   = GraphService.db.storage.db;
             const olderRow = sqlite.prepare('SELECT data FROM Nodes WHERE id = ?').get(older.subscriptionId);
             const newerRow = sqlite.prepare('SELECT data FROM Nodes WHERE id = ?').get(newer.subscriptionId);
 
@@ -493,7 +493,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
             // The single subscription should remain ACTIVE (not erroneously retired).
             const sqlite = GraphService.db.storage.db;
-            const row = sqlite.prepare('SELECT data FROM Nodes WHERE id = ?').get(only.subscriptionId);
+            const row    = sqlite.prepare('SELECT data FROM Nodes WHERE id = ?').get(only.subscriptionId);
             expect(JSON.parse(row.data).properties.status).toBe('active');
         });
 
@@ -591,8 +591,8 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
             // Both routes survive: distinct route-tuples must NOT be reconciled as duplicates.
             const sqlite = GraphService.db.storage.db;
-            const aRow = sqlite.prepare('SELECT data FROM Nodes WHERE id = ?').get(routeA.subscriptionId);
-            const bRow = sqlite.prepare('SELECT data FROM Nodes WHERE id = ?').get(routeB.subscriptionId);
+            const aRow   = sqlite.prepare('SELECT data FROM Nodes WHERE id = ?').get(routeA.subscriptionId);
+            const bRow   = sqlite.prepare('SELECT data FROM Nodes WHERE id = ?').get(routeB.subscriptionId);
 
             expect(JSON.parse(aRow.data).properties.status).toBe('active');
             expect(JSON.parse(bRow.data).properties.status).toBe('active');
@@ -635,7 +635,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             });
 
             // Already-retired stays retired; active stays active.
-            const sqlite = GraphService.db.storage.db;
+            const sqlite     = GraphService.db.storage.db;
             const retiredRow = sqlite.prepare('SELECT data FROM Nodes WHERE id = ?').get(retired.subscriptionId);
             const activeRow  = sqlite.prepare('SELECT data FROM Nodes WHERE id = ?').get(active.subscriptionId);
 
@@ -1175,7 +1175,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
     });
 
     test('emitHeartbeatPulse writes only a heartbeat GraphLog row and replays through resync', async () => {
-        const sqlite = GraphService.db.storage.db;
+        const sqlite           = GraphService.db.storage.db;
         const {subscriptionId} = insertDurableSubscription({
             trigger              : 'HEARTBEAT_PULSE',
             harnessTarget        : 'bridge-daemon',
@@ -1221,7 +1221,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         const sqlite = GraphService.db.storage.db;
         const before = sqlite.prepare('SELECT MAX(log_id) as maxId FROM GraphLog').get().maxId || 0;
 
-        const emitted = await WakeSubscriptionService.emitHeartbeatPulse({targetIdentity: '@alice'});
+        const emitted   = await WakeSubscriptionService.emitHeartbeatPulse({targetIdentity: '@alice'});
         const pulseRows = sqlite.prepare(`
             SELECT COUNT(*) as count
             FROM GraphLog
@@ -1239,7 +1239,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
     test('emitHeartbeatPulse fires when only a SENT_TO_ME bridge-daemon subscription exists (Epic #11993 gate fix)', async () => {
         // Production agents establish bridge-daemon routing through SENT_TO_ME subscriptions.
-        const sqlite = GraphService.db.storage.db;
+        const sqlite           = GraphService.db.storage.db;
         const {subscriptionId} = insertDurableSubscription({
             trigger              : 'SENT_TO_ME',
             harnessTarget        : 'bridge-daemon',
@@ -1350,6 +1350,47 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(emittedEvents[0].params.payload.messageId).toBe('MSG:2');
             expect(emittedEvents[0].params.payload.from).toBe('@bob');
             expect(emittedEvents[0].params.payload.subject).toBe('hello');
+        });
+
+        test('preserves the trusted Task assignee and exact transition clock through the pump route', async () => {
+            CoalescingEngineService.addMcpServer(mockMcpServer);
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                await WakeSubscriptionService.subscribe({
+                    trigger      : 'TASK_STATE_CHANGED',
+                    harnessTarget: 'mcp-notifications'
+                });
+            });
+
+            GraphService.upsertNode({
+                id        : 'MSG:TASK-AUTHORITATIVE-CLOCK',
+                type      : 'MESSAGE',
+                properties: {
+                    from                   : '@bob',
+                    lastModifiedAt         : '2026-07-12T20:01:02.003Z',
+                    taskAssignmentAuthority: 'memory-core.v1',
+                    task                   : {
+                        state   : 'InputRequired',
+                        assignee: '@alice'
+                    }
+                }
+            });
+
+            await WakeSubscriptionService.pump();
+            await CoalescingEngineService.flushAll();
+
+            expect(emittedEvents).toHaveLength(1);
+            expect(emittedEvents[0].params).toMatchObject({
+                eventType    : 'wake/task_state_changed',
+                agentIdentity: '@alice',
+                payload      : {
+                    taskId        : 'MSG:TASK-AUTHORITATIVE-CLOCK',
+                    newState      : 'InputRequired',
+                    originator    : '@bob',
+                    assignee      : '@alice',
+                    lastModifiedAt: '2026-07-12T20:01:02.003Z'
+                }
+            });
         });
 
         test('does not emit SENT_TO_ME wake for wakeSuppressed mailbox-only messages', async () => {

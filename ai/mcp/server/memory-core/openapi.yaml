@@ -1331,8 +1331,7 @@ paths:
       x-neo-tool-tier: write
       x-pass-as-object: true
       x-neo-tool-summary: Send an A2A message to one peer or an agent broadcast.
-      description: |
-        Sends an A2A message to a specific agent identity or broadcast (*).
+      description: Sends a message or optional Task; Task assignment is server-owned, and broadcasts remain unassigned until an eligible send-time recipient claims them.
       tags: [Mailbox]
       requestBody:
         required: true
@@ -1380,7 +1379,25 @@ paths:
                   description: "Persist + deliver the message but emit NO wake event — the recipient sees it on their next list_messages rather than via an interrupt. Use for awareness/FYI (e.g. PR-opened-you're-not-the-reviewer, lane-progress, acks) or session-sunset self-DM handovers. Do NOT suppress actionable messages (you're the reviewer, a lane was claimed on you, REQUEST_CHANGES) — those must wake. Known-actionable direct lifecycle messages are rejected when wakeSuppressed is true. In autonomous mode a suppressed message stays unseen until the recipient next lists/boots. Default: omit (= false)."
                 task:
                   type: object
-                  description: "Optional A2A Task envelope (https://a2a-protocol.org/latest/specification/) for structured agent coordination. Omit for free-form markdown messages."
+                  additionalProperties: true
+                  description: "Optional A2A Task envelope (https://a2a-protocol.org/latest/specification/) for structured agent coordination. Omit for free-form markdown messages. The server clones the envelope and overwrites `assignee`; callers cannot select or mutate the owner."
+                  properties:
+                    id:
+                      type: string
+                      description: Optional Task-level identifier carried inside the MESSAGE envelope.
+                    state:
+                      type: string
+                      enum: [Submitted, Working, InputRequired, Completed, Canceled, Failed, Rejected, AuthRequired, Unknown, Expired, Blocked]
+                      description: Initial A2A Task state per the A2A Protocol plus Neo's Blocked extension.
+                    assignee:
+                      type: string
+                      nullable: true
+                      readOnly: true
+                      description: "Server-owned canonical AgentIdentity owner. Direct Tasks bind immediately; broadcasts begin null and bind atomically to the first eligible DELIVERED_TO claimant. Caller input is overwritten."
+                    expiresAt:
+                      type: string
+                      format: date-time
+                      description: Optional expiry time consumed by the Task TTL sweeper.
       responses:
         '200':
           description: OK
@@ -1640,9 +1657,7 @@ paths:
       operationId: transition_task
       x-neo-tool-tier: extended
       x-pass-as-object: true
-      description: |
-        Transitions the state of an A2A Task using optimistic concurrency control.
-        Validates roles (Originator vs Assignee) against the new state.
+      description: Transitions a Task with optimistic state locking; broadcast claims are send-time-recipient-only, and later transitions require the persisted server-owned assignee.
       tags: [Mailbox]
       requestBody:
         required: true
@@ -1662,7 +1677,8 @@ paths:
                   description: "Target A2A Task state per A2A Protocol spec (PascalCase). See https://a2a-protocol.org/latest/specification/."
                 expectedCurrentState:
                   type: string
-                  description: The expected current state for optimistic locking.
+                  enum: [Submitted, Working, InputRequired, Completed, Canceled, Failed, Rejected, AuthRequired, Unknown, Expired, Blocked]
+                  description: The expected current state for optimistic locking. A mismatch returns a non-mutating race result.
       responses:
         '200':
           description: OK

@@ -209,7 +209,17 @@ test.describe('Neo.ai.services.memory-core.heartbeatPulseEvaluator — match() (
     });
 
     // --- TASK_STATE_CHANGED (the broadening fix: daemon matched assignee only) ---
-    const taskNode = (task, extra = {}) => ({id: 'MESSAGE:t1', label: 'MESSAGE', properties: {from: '@neo-gpt', task, ...extra}});
+    const taskNode = (task, extra = {}) => ({
+        id        : 'MESSAGE:t1',
+        label     : 'MESSAGE',
+        properties: {
+            from                   : '@neo-gpt',
+            task,
+            taskAssignmentAuthority: 'memory-core.v1',
+            lastModifiedAt         : '2026-07-12T20:00:00.000Z',
+            ...extra
+        }
+    });
 
     test('task_state_changed: fires when the owner is the assignee', () => {
         const node = taskNode({state: 'in_progress', assignee: OWNER});
@@ -225,6 +235,40 @@ test.describe('Neo.ai.services.memory-core.heartbeatPulseEvaluator — match() (
 
     test('task_state_changed: does not fire when the owner is neither originator nor assignee', () => {
         const node = taskNode({state: 'in_progress', assignee: '@neo-gpt'}, {from: '@neo-gpt'});
+        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: node}, nodeTrace)).toBe(null);
+    });
+
+    test('task_state_changed: does not trust an assignee without the server-owned authority stamp', () => {
+        const missing = taskNode(
+            {state: 'Working', assignee: OWNER},
+            {taskAssignmentAuthority: undefined}
+        );
+        const spoofed = taskNode(
+            {state: 'Working', assignee: OWNER},
+            {taskAssignmentAuthority: 'caller-spoof.v1'}
+        );
+
+        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: missing}, nodeTrace)).toBe(null);
+        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: spoofed}, nodeTrace)).toBe(null);
+    });
+
+    test('task_state_changed: reports the exact transition clock, never updatedAt or sentAt', () => {
+        const node = taskNode({state: 'Working', assignee: OWNER}, {
+            lastModifiedAt: '2026-07-12T20:01:02.003Z',
+            updatedAt     : '1999-01-01T00:00:00.000Z',
+            sentAt        : '1998-01-01T00:00:00.000Z'
+        });
+
+        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: node}, nodeTrace))
+            .toMatchObject({payload: {lastModifiedAt: '2026-07-12T20:01:02.003Z'}});
+    });
+
+    test('task_state_changed: missing transition clock is not a state-change event', () => {
+        const node = taskNode(
+            {state: 'Submitted', assignee: OWNER},
+            {lastModifiedAt: undefined, sentAt: '2026-07-12T19:00:00.000Z'}
+        );
+
         expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: node}, nodeTrace)).toBe(null);
     });
 

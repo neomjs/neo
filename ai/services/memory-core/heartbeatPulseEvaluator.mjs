@@ -20,6 +20,8 @@
  * consolidated here, not the data-fetch or the output format.
  */
 
+import {TASK_ASSIGNMENT_AUTHORITY} from './taskAssignmentContract.mjs';
+
 /**
  * Canonical GraphLog `entity_type` for a heartbeat pulse.
  * @type {String}
@@ -239,13 +241,21 @@ export function match(subscription, entityData, trace) {
         return {type: 'permission_granted', payload: {scope: entity.type, grantedBy: entity.source}, logId: trace.log_id};
     }
 
-    // TASK_STATE_CHANGED — a MESSAGE node carrying a Task envelope, targeted at the owner
-    // (originator OR assignee — the daemon formerly matched assignee only).
+    // TASK_STATE_CHANGED — a MESSAGE node carrying a transitioned Task envelope, targeted at the
+    // originator or a Memory-Core-authoritative assignee. `lastModifiedAt` is mandatory so initial
+    // MESSAGE creation cannot masquerade as a transition and downstream coalescing can distinguish
+    // real same-state transitions. A later unrelated MESSAGE rewrite still re-exposes the last
+    // transition clock; durable cross-window transition-event identity is a separate follow-up.
     if (trigger === 'TASK_STATE_CHANGED' && trace?.entity_type === 'nodes' && entity.label === 'MESSAGE') {
-        const props = entity.properties || {};
-        const task  = props.task;
-        if (!task?.state) return null;
-        if (props.from !== agentIdentity && task.assignee !== agentIdentity) return null;
+        const
+            props              = entity.properties || {},
+            task               = props.task,
+            hasTrustedAssignee = props.taskAssignmentAuthority === TASK_ASSIGNMENT_AUTHORITY,
+            isOriginator       = props.from === agentIdentity,
+            isAssignee         = hasTrustedAssignee && task?.assignee === agentIdentity;
+
+        if (!task?.state || !props.lastModifiedAt) return null;
+        if (!isOriginator && !isAssignee) return null;
 
         return {
             type   : 'task_state_changed',
@@ -254,8 +264,8 @@ export function match(subscription, entityData, trace) {
                 previousState : null,                          // GraphLog carries only the new state at resync time
                 newState      : task.state,
                 originator    : props.from,
-                assignee      : task.assignee,
-                lastModifiedAt: props.updatedAt || props.sentAt
+                assignee      : hasTrustedAssignee ? task.assignee : null,
+                lastModifiedAt: props.lastModifiedAt
             },
             logId: trace.log_id
         };
