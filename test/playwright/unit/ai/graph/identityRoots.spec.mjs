@@ -162,8 +162,8 @@ test.describe('ai/graph/identityRoots — Codex wake route', () => {
 /**
  * @summary Roster pin for the onboarded resident @neo-gpt-emmy: Layer-1 identity invariants only.
  *
- * The verified GitHub display label, pending Social Name assent, pending lifecycle state, and
- * absence of engine facts are deliberate onboarding facts. Workflow checklists and migration
+ * The verified GitHub display label, active participation, pending Gate-5 Social Name, and
+ * absence of engine facts are deliberate first-boot facts. Workflow checklists and migration
  * policy do not belong on the identity node.
  */
 test.describe('ai/graph/identityRoots — @neo-gpt-emmy roster pin', () => {
@@ -180,18 +180,21 @@ test.describe('ai/graph/identityRoots — @neo-gpt-emmy roster pin', () => {
 
         expect(entry, '@neo-gpt-emmy must be a registered AgentIdentity root').toBeTruthy();
         expect(entry).toMatchObject({
-            id        : '@neo-gpt-emmy',
-            name      : 'Neo GPT Emmy',
-            type      : 'AgentIdentity',
-            properties: {
+            id         : '@neo-gpt-emmy',
+            name       : 'Neo GPT Emmy',
+            type       : 'AgentIdentity',
+            description: 'OpenAI GPT-family Agent Identity with version-free handle.',
+            properties : {
                 githubLogin        : '@neo-gpt-emmy',
                 displayName        : 'Emmy',
                 modelFamily        : 'gpt',
                 accountType        : 'agent',
                 trustTier          : 'peer-trusted',
-                participationStatus: 'temporarily_unreachable',
-                statusReason       : 'First boot pending',
-                reactivationTrigger: 'Operator confirms participation activation after first boot',
+                participationStatus: 'active',
+                statusReason       : null,
+                authority          : null,
+                since              : null,
+                reactivationTrigger: null,
                 createdAt          : '2026-07-11T17:42:14.374Z'
             }
         });

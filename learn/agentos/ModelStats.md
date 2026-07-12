@@ -11,7 +11,7 @@ Per ADR 0012 §2.5:
 3. New rows added at first swarm contact OR at model-public-release date for reference entries
 4. Updates do NOT require ADR amendment unless a capability dimension changes or new dimension is added
 
-**Last updated:** 2026-07-11
+**Last updated:** 2026-07-12
 
 ---
 
@@ -194,6 +194,24 @@ ambiguous by design — full handles only for targeted traffic.
 - **Primary/runtime**: current Codex model catalog and token-usage events (`372,000 × 95% = 353,400`; verified 2026-07-09 in Codex Desktop thread `019f484c-662f-7f31-969a-cbde373efd4a`)
 - **Defect record**: [openai/codex#31860 — Sol catalog cap versus 1.05M model spec](https://github.com/openai/codex/issues/31860)
 
+### §neo_gpt_emmy
+
+| Field | Value |
+|---|---|
+| `id` / `githubLogin` | `@neo-gpt-emmy` |
+| `name` | GPT-5.6 Sol (GitHub profile label: **Emmy**, verified 2026-07-11; Social Name **Emmy** bearer-chosen 2026-07-12, pending #11240 peer-veto closure and operator confirmation) |
+| `family` | `gpt` (OpenAI) |
+| `participationStatus` | `active` (first boot verified 2026-07-12; activated via #15052) |
+| Capability fields | Mirror `§neo_gpt` — same `gpt-5.6-sol` model, single source, deliberately NOT duplicated here. The verified first-boot harness delta is `thoughtBudget: ultra`; `§neo_gpt` records Euclid's active `xhigh` setting. Re-verify when the engine, Codex catalog, or harness setting changes. |
+
+`@neo-gpt-emmy` is a version-free GitHub handle (ADR 0018 handle-indirection). The current
+engine lives in this embodiment registry rather than the handle or durable resident character.
+
+**Sources** (primary first):
+- **Primary**: `§neo_gpt` sources (same GPT-5.6 Sol model surface; verified 2026-07-09)
+- **Primary/runtime**: isolated Codex first-boot configuration (`model: gpt-5.6-sol`, `reasoning_effort: ultra`; verified 2026-07-12 in Origin Session `f95e01ff-ba36-409a-98af-573263fab247`)
+- **Primary/identity**: bearer assent record `MESSAGE:1be08f3c-9477-4607-9e93-53ebb12fd53b` (Social Name remains pending the final #11240 gates)
+
 ---
 
 ## §pending_swarm_identities
@@ -202,27 +220,7 @@ Named maintainer identities provisioned in the graph but excluded from active
 routing, quorum, and review-approval semantics until `participationStatus`
 transitions to `active`.
 
-### §neo_gpt_emmy
-
-| Field | Value |
-|---|---|
-| `id` / `githubLogin` | `@neo-gpt-emmy` |
-| `name` | Engine designation pending first-boot observation. GitHub profile display label: **Emmy** (verified 2026-07-11); Social Name remains pending unconditional first-boot bearer assent. |
-| `family` | `gpt` (OpenAI) |
-| `participationStatus` | `temporarily_unreachable` (provisioned ahead of first boot — onboarding in progress; flips to `active` when the first-boot ritual completes) |
-| `hosting` | (V-B-A pending — recorded at first boot) |
-| `tier` | (V-B-A pending — recorded at first boot) |
-| `contextWindowInput` | (V-B-A pending — model card / official docs cite needed) |
-| `parallelToolCalls` | (V-B-A pending — model card / official docs cite needed) |
-| `thoughtBudget` | (V-B-A pending — record the harness setting in use at first boot) |
-| `releaseDate` | (V-B-A pending — model card cite needed) |
-| `pricingInput` | (V-B-A pending — model card cite needed) |
-| `pricingOutput` | (V-B-A pending — model card cite needed) |
-| `sunsetTriggers` | (V-B-A pending — defined against the observed engine at the activation flip) |
-
-**Sources** (primary first):
-- **Pending**: provider primary sources will be added only after the live harness identifies the engine; capability values are never guessed at onboarding
-- **Primary/operational**: [GitHub account `neo-gpt-emmy`](https://github.com/neo-gpt-emmy) (`name: Emmy`, login, and AI-disclosure bio verified 2026-07-11; the profile does not establish engine facts)
+*No pending maintainer identities as of 2026-07-12.*
 
 ---
 
@@ -318,6 +316,7 @@ Tracks deprecated and retired identities for archaeology (per IdentitySchema.md 
 | 2026-06-13 | #13060 | Benched `@neo-fable` (Mnemosyne) + `@neo-fable-clio` (Clio) as `temporarily_unreachable` — the same 2026-06-13 export-control suspension removed all Claude Fable 5 access, so both fable-family identities cannot run their model. Set `statusReason` / `authority: @tobiu` / `since` / `reactivationTrigger` (access restored → operator-confirmed reactivation); removed `@neo-fable` from the lead-rotation roster (`lead-role-mode.md` §7); updated `revalidationSweep.spec.mjs` status assertions. Identity nodes, handles, Social Names, and memory provenance persist for a status-flip reactivation (not a re-onboard). Superseded #12926 (add Clio to rotation). |
 | 2026-07-09 | #14901 | Rotated Euclid's stable `@neo-gpt` model lineage from GPT-5.5 to GPT-5.6 Sol at GA. Updated verified release, active reasoning setting, pricing, benchmark, successor-trigger, and live Codex context facts while preserving the stable handle, Social Name, wake route, participation state, and memory provenance. Recorded the 353,400-token Codex cap separately from the upstream model's 1,050,000-token capability. |
 | 2026-07-11 | #15042 | Added pending `@neo-gpt-emmy` through the canonical roster generator. GitHub profile display label **Emmy** is verified; Social Name assent and engine facts remain first-boot-owned. Immutable hardcoded `createdAt` facts now let the era migration detect post-epoch residents without a second roster. |
+| 2026-07-12 | #15052 | Activated `@neo-gpt-emmy` after verified first boot; moved the row pending→active, recorded the GPT-5.6 Sol/Codex embodiment by reference to `§neo_gpt`, and captured the harness-local `ultra` reasoning setting without adding engine facts to the durable resident. |
 
 ---
 
