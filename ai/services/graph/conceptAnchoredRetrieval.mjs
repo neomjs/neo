@@ -309,6 +309,14 @@ export async function enrichWithConceptWalk({
         remainingHopBudget = hopBudget,
         truncated          = false;
 
+    // Security-by-default: with no explicit rlsPredicate, bind the GraphService-owned per-node RLS seam
+    // so the walk never traverses THROUGH a node the requester can't see. A graphService without the
+    // seam (test fixtures / the reachability probe) → null → no gate (full reachability, privacy at render).
+    const effectiveRlsPredicate = rlsPredicate ??
+        (typeof graphService?.isNodeVisibleToRequester === 'function'
+            ? nodeId => graphService.isNodeVisibleToRequester(nodeId)
+            : null);
+
     for (const cluster of resolved) {
         if (truncated) break;
         // request-global budget spent with clusters still unwalked → honest truncation (more existed)
@@ -327,7 +335,7 @@ export async function enrichWithConceptWalk({
             // candidates stand. augment-never-displace holds even when the graph is down.
             let walk;
             try {
-                walk = walkConceptNeighborhood({graphService, conceptId: memberId, maxHops, hopBudget: remainingHopBudget, traversableLabels, rlsPredicate})
+                walk = walkConceptNeighborhood({graphService, conceptId: memberId, maxHops, hopBudget: remainingHopBudget, traversableLabels, rlsPredicate: effectiveRlsPredicate})
             } catch {
                 walk = {hops: [], truncated: false}
             }

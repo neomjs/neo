@@ -818,6 +818,33 @@ class GraphService extends Base {
     }
 
     /**
+     * @summary Per-node RLS visibility for the acting request — the GraphService-owned seam the
+     * concept-walk's `rlsPredicate` consumes so a private / other-tenant intermediate is never traversed
+     * THROUGH (path-level Depth-Floor; terminal-candidate authorization does NOT authorize the crossed
+     * path). Raw-reads the node's stored properties and applies the canonical `isRlsVisible` predicate
+     * against the request's resolved RLS user. A missing node, absent db, or read error fails CLOSED.
+     * @param {String} nodeId
+     * @returns {Boolean} true when the node is visible to the acting requester.
+     */
+    isNodeVisibleToRequester(nodeId) {
+        const storage = this.db?.storage;
+
+        if (!storage?.db || !isValidGraphNodeId(nodeId)) {
+            return false
+        }
+
+        let node;
+        try {
+            const row = storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(nodeId);
+            node = row ? JSON.parse(row.data) : null
+        } catch {
+            return false
+        }
+
+        return isRlsVisible(node, resolveRlsUserId(storage.RequestContextService))
+    }
+
+    /**
      * Dynamically computes the structural gravity (inbound/outbound edges) for a node natively via SQLite.
      * @param {String} id
      * @returns {Object} { in_degree, out_degree }

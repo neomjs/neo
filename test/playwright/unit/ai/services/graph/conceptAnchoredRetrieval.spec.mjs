@@ -396,6 +396,32 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval — enrichWithConc
         expect(ungated.event.candidatesAdded).toBe(1);
     });
 
+    test('enrich binds the GraphService isNodeVisibleToRequester seam BY DEFAULT — a private intermediate is RLS-blocked with no explicit rlsPredicate (#14504 gate 1 seam)', async () => {
+        const base = fixtureGraph({
+            concepts: [{type: 'CONCEPT', id: 'golden-path'}],
+            nodes   : {
+                'golden-path': {label: 'CONCEPT'},
+                'MEM:private': {label: 'MEMORY'},
+                'MEM:deep'   : {label: 'MEMORY'}
+            },
+            edges: [
+                {id: 'q1', source: 'golden-path', target: 'MEM:private', type: 'TAGGED_CONCEPT', properties: {}},
+                {id: 'q2', source: 'MEM:private', target: 'MEM:deep',    type: 'TAGGED_CONCEPT', properties: {}}
+            ]
+        });
+        // the GraphService-owned seam rejects the private intermediate; enrich must bind it by default
+        const graphService = {...base, isNodeVisibleToRequester: nodeId => nodeId !== 'MEM:private'};
+        const deepGate     = async nodeId => nodeId === 'MEM:deep' ? {id: 'MEM:deep', text: 'deep'} : null;
+
+        // NO explicit rlsPredicate → enrich binds graphService.isNodeVisibleToRequester → MEM:private is
+        // not traversed THROUGH → MEM:deep (reachable only via it) is not surfaced.
+        const {event} = await enrichWithConceptWalk({
+            graphService, query: 'golden path', candidates: [], conceptWalk: true,
+            resolveCandidate: deepGate, traversableNodeLabels: ['MEMORY'], traversableLabels: ['CONCEPT', 'MEMORY'], maxHops: 2
+        });
+        expect(event.candidatesAdded).toBe(0);
+    });
+
     test('conceptPath carries the COMPLETE ordered path with per-hop provenance at depth 2 (not terminal-only)', async () => {
         // golden-path --IMPLEMENTED_BY--> FILE:helper --TAGGED_CONCEPT--> MEM:deep
         const deepGraph = fixtureGraph({
