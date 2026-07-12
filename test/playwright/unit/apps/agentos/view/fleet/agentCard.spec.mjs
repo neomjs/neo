@@ -212,6 +212,38 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         card.destroy()
     });
 
+    test('a11y focus-order: keyboard-operable drill target — focusable, button-announced, Enter drills, non-Enter + control-cluster keydowns do not (#14619)', () => {
+        const card  = createCard({agentId: 'vega', displayName: 'Vega', state: 'ok'});
+        const fired = [];
+
+        card.on('agentSelect', data => fired.push(data));
+
+        // focusable + announced: tabIndex 0 + role button + the resident's name as the accessible label
+        expect(card.vdom.tabIndex).toBe(0);
+        expect(card.vdom.role).toBe('button');
+        expect(card.vdom['aria-label']).toBe('Vega');
+
+        // the label is record-derived display state — a rename updates it in place (never a re-key)
+        applySet(card, {displayName: 'Vega (renamed)'});
+        expect(card.vdom['aria-label']).toBe('Vega (renamed)');
+
+        // Enter on the card root drills in — the SAME agentSelect the body click fires
+        card.getController().onCardSelect({key: 'Enter', path: [{cls: ['fm-card-name']}, {cls: ['fm-agent-card']}]});
+        expect(fired).toMatchObject([{agentId: 'vega'}]);
+
+        // a non-activation key never drills — Tab must egress focus, not select
+        fired.length = 0;
+        card.getController().onCardSelect({key: 'Tab', path: [{cls: ['fm-agent-card']}]});
+        expect(fired).toEqual([]);
+
+        // Enter bubbling up from a focused control button is carved out (keydown data carries `path`
+        // like a click) — a control activation is a lifecycle intent, not a drill
+        card.getController().onCardSelect({key: 'Enter', path: [{cls: ['neo-button']}, {cls: ['fm-card-controls']}, {cls: ['fm-agent-card']}]});
+        expect(fired).toEqual([]);
+
+        card.destroy()
+    });
+
     test('B4 honest state: a pending action disables every verb + renders it pending; a controlReason renders the reason — no optimistic success (#14611)', () => {
         const card   = createCard({agentId: 'vega', state: 'idle'});
         const verbs  = () => card.down({reference: 'control-verbs'}).items;

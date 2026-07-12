@@ -66,8 +66,18 @@ class AgentCardController extends Controller {
      * @param {Object} data The delegated click event.
      */
     onCardSelect(data) {
-        // a click whose path passes through the control cluster is a lifecycle intent, not a drill —
-        // carve it out (the whole card is the drill target, robust to a narrow flex body)
+        // Shared by the body click and the keyboard drill. A keydown carries data.key — only Enter
+        // activates; Space's scroll default cannot be cleanly prevented on a raw keydown across the
+        // worker boundary, so it is deferred to the KeyNavigation roving pass. A click has no data.key
+        // and passes straight through.
+        if (data.key && data.key !== 'Enter') {
+            return
+        }
+
+        // a click/keydown whose path passes through the control cluster is a lifecycle intent, not a
+        // drill — carve it out (the whole card is the drill target, robust to a narrow flex body).
+        // Keydown data carries `path` too (DomEvents.getKeyboardEventData), so a keydown bubbling up
+        // from a focused control button is carved out here exactly like a control-cluster click.
         const inControls = (data?.path || []).some(node => Array.isArray(node.cls) && node.cls.includes('fm-card-controls'));
 
         if (inControls) {

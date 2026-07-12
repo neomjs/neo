@@ -62,7 +62,8 @@ class AgentCard extends Container {
          * @member {Object[]} domListeners
          */
         domListeners: [{
-            click: 'onCardSelect'
+            click  : 'onCardSelect',
+            keydown: 'onCardSelect'
         }],
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}
@@ -214,6 +215,13 @@ class AgentCard extends Container {
      */
     onConstructed(...args) {
         super.onConstructed(...args);
+
+        // a11y: the card is a keyboard-operable drill target — focusable + announced as a button. The
+        // aria-label (the agent name) is record-derived, so applyRecord sets it. Enter activates via the
+        // keydown domListener -> onCardSelect; Space is deferred to the KeyNavigation roving pass (its
+        // scroll default cannot be cleanly prevented on a raw keydown across the worker boundary).
+        Object.assign(this.vdom, {tabIndex: 0, role: 'button'});
+
         this.applyRecord()
     }
 
@@ -321,7 +329,12 @@ class AgentCard extends Container {
                     : controlReason.kind === 'timeout'
                         ? `${controlReason.action}… stale — no response`
                         : `⚠ ${controlReason.kind}: ${controlReason.reason}`
-        })
+        });
+
+        // the keyboard drill target announces itself by the resident's name — record-derived, so it
+        // updates in place on a re-seat (identity is the durable agentId; the label is display state).
+        me.vdom['aria-label'] = record.displayName ?? '';
+        me.update()
     }
 }
 
