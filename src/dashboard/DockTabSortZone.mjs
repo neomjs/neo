@@ -1,4 +1,3 @@
-import DragCoordinator   from '../manager/DragCoordinator.mjs';
 import TabHeaderSortZone from '../draggable/tab/header/toolbar/SortZone.mjs';
 
 /**
@@ -167,7 +166,7 @@ class DockTabSortZone extends TabHeaderSortZone {
             {clientX, clientY} = data || {};
 
         if (me.sortGroup && me.dragComponent) {
-            DragCoordinator.onDragEnd({
+            (await me.resolveDragCoordinator()).onDragEnd({
                 draggedItem   : me.dragComponent,
                 sourceSortZone: me
             })
@@ -209,7 +208,7 @@ class DockTabSortZone extends TabHeaderSortZone {
         }
 
         if (me.sortGroup && me.dragComponent && data?.proxyRect && Neo.isNumber(data.screenX)) {
-            DragCoordinator.onDragMove({
+            (await me.resolveDragCoordinator()).onDragMove({
                 draggedItem   : me.dragComponent,
                 offsetX       : data.offsetX,
                 offsetY       : data.offsetY,
@@ -219,6 +218,20 @@ class DockTabSortZone extends TabHeaderSortZone {
                 sourceSortZone: me
             })
         }
+    }
+
+    /**
+     * Lazily resolves the `Neo.manager.DragCoordinator` singleton at drag time rather than at module
+     * scope — so the adapter's static import of this SortZone (for its projected `sortZoneConfig`) does
+     * NOT pull the `DragCoordinator → manager.Window` import-time chain (Window's `construct()` touches
+     * `Neo.currentWorker.on` at `setupClass`) into environments that never drag, e.g. the unit test
+     * loader (which stubs the worker only inside its setup call, after ESM hoists the imports).
+     * Cross-window drag only (both callers gate on `sortGroup`); the import promise is cached, so
+     * per-frame `onDragMove` calls share one load.
+     * @returns {Promise<Neo.manager.DragCoordinator>}
+     */
+    resolveDragCoordinator() {
+        return this._dragCoordinatorPromise ??= import('../manager/DragCoordinator.mjs').then(module => module.default)
     }
 }
 
