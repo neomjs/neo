@@ -397,55 +397,28 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         });
         TextEmbeddingService.embedText     = async () => [0.1, 0.2];
 
-        const originalFetchOpenPRs            = GoldenPathSynthesizer.fetchOpenPRs;
-        const originalFetchRecentMergedPRs    = GoldenPathSynthesizer.fetchRecentMergedPRs;
-        const originalFetchRecentClosedIssues = GoldenPathSynthesizer.fetchRecentClosedIssues;
-        const originalFetchRecentOpenedIssues = GoldenPathSynthesizer.fetchRecentOpenedIssues;
-        const originalFetchRecentGraduations  = GoldenPathSynthesizer.fetchRecentGraduations;
+        const originalFetchOpenPRs = GoldenPathSynthesizer.fetchOpenPRs;
 
-        // opened-PRs come from the open-PR list (in-window); merged-PRs from the bounded merged query
         GoldenPathSynthesizer.fetchOpenPRs = async () => [
             {number: 14682, url: 'https://github.com/neomjs/neo/pull/14682', author: {login: 'neo-fable'}, title: 'registry snapshot clone', createdAt: hoursAgo(5), reviewRequests: [], reviews: [], comments: []}
-        ];
-        GoldenPathSynthesizer.fetchRecentMergedPRs = async () => [
-            {number: 14678, title: 'keeper request route', mergedAt: hoursAgo(3)},
-            {number: 99999, title: 'ancient merge outside the window', mergedAt: hoursAgo(500)}
-        ];
-        // the issue pair — one in-window each, plus an out-of-window closed issue the fold excludes
-        GoldenPathSynthesizer.fetchRecentClosedIssues = async () => [
-            {number: 14588, title: 'GP zero-routes collapse', closedAt: hoursAgo(6)},
-            {number: 88888, title: 'ancient close outside the window', closedAt: hoursAgo(400)}
-        ];
-        GoldenPathSynthesizer.fetchRecentOpenedIssues = async () => [
-            {number: 14731, title: 'identityRoots migration', createdAt: hoursAgo(1)}
-        ];
-        // graduations: one in-window graduated Discussion + one out-of-window the fold excludes
-        GoldenPathSynthesizer.fetchRecentGraduations = async () => [
-            {ref: 'discussion #14561', headline: 'Ideation graduated to ticket', at: hoursAgo(2)},
-            {ref: 'discussion #90000', headline: 'ancient graduation outside the window', at: hoursAgo(500)}
         ];
 
         try {
             await GoldenPathSynthesizer.synthesizeGoldenPath({now});
         } finally {
-            GoldenPathSynthesizer.fetchOpenPRs            = originalFetchOpenPRs;
-            GoldenPathSynthesizer.fetchRecentMergedPRs    = originalFetchRecentMergedPRs;
-            GoldenPathSynthesizer.fetchRecentClosedIssues = originalFetchRecentClosedIssues;
-            GoldenPathSynthesizer.fetchRecentOpenedIssues = originalFetchRecentOpenedIssues;
-            GoldenPathSynthesizer.fetchRecentGraduations  = originalFetchRecentGraduations;
-            StorageRouter.getGraphCollection              = originalGetGraphCollection;
+            GoldenPathSynthesizer.fetchOpenPRs = originalFetchOpenPRs;
+            StorageRouter.getGraphCollection   = originalGetGraphCollection;
             StorageRouter.getSummaryCollection            = originalGetSummaryCollection;
             TextEmbeddingService.embedText                = originalEmbedText;
         }
 
         const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
 
-        // The static Handoff Retrospective was removed from the Golden Path: even with every
-        // retrospective reader stubbed with in-window facts, no retrospective section renders and
-        // none of its counts leak into the handoff. That surface is the on-demand runtime query views.
+        // The static Handoff Retrospective + its readers were removed from the Golden Path: the
+        // synthesized handoff renders no retrospective section and none of its counts. That surface
+        // is the on-demand runtime query views (memory/session + PR-history) under their own contract.
         expect(handoffContent).not.toContain('## Handoff Retrospective');
         expect(handoffContent).not.toContain('- Merged PRs:');
-        expect(handoffContent).not.toContain('PR #14678 — keeper request route');
     });
 
     test('synthesizeGoldenPath overwrites stale author sections when semantic candidates are empty', async () => {
