@@ -80,6 +80,25 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
         detail.destroy()
     });
 
+    test('a11y: the drill is a named landmark region that survives a record re-seat (#14619)', () => {
+        const detail = createDetail({
+            agentId: 'vega', displayName: 'Vega', family: 'claude', engineTag: 'opus-4.8', state: 'ok'
+        });
+
+        // the drill is a named landmark region so screen-reader users land in a labeled region on
+        // drill-in (not an unnamed pane)
+        expect(detail.vdom.role).toBe('region');
+        expect(detail.vdom['aria-label']).toBe('Agent detail');
+
+        // applyRecord re-seats via child-reference .set() and never replaces the root, so the region
+        // MUST survive a re-seat — a returning agent selection must not silently drop the landmark
+        applySet(detail, {displayName: 'Vega Prime'});
+        expect(detail.vdom.role).toBe('region');
+        expect(detail.vdom['aria-label']).toBe('Agent detail');
+
+        detail.destroy()
+    });
+
     test('a selected resident renders the ADR-0032 identity header + reveals the panes; no per-view provider', () => {
         const detail = createDetail({
             agentId: 'vega', avatarUrl: 'vega.png', displayName: 'Vega', family: 'claude', engineTag: 'opus-4.8', state: 'ok'

@@ -100,6 +100,18 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         expect(rankFleet(roster(Array(20).fill('idle')), {foldThreshold: 12}).folded).toBe(true)
     });
 
+    test('a11y: the roster is a named landmark region (#14619)', () => {
+        const grid = Neo.create(FleetGrid, {appName, store: makeStore(roster(['ok', 'idle']))});
+
+        // the roster is a named landmark region so screen-reader users can navigate to it as a
+        // distinct cockpit surface; refreshGrid mutates the child cards container (not the root),
+        // so the region label persists across store-driven re-renders
+        expect(grid.vdom.role).toBe('region');
+        expect(grid.vdom['aria-label']).toBe('Fleet roster');
+
+        grid.destroy()
+    });
+
     test('below threshold the grid renders every record as a card in ranked order — no fold', () => {
         const grid = Neo.create(FleetGrid, {appName, foldThreshold: 12, store: makeStore(roster(['ok', 'idle', 'off', 'ok', 'idle', 'wedged']))});
 
