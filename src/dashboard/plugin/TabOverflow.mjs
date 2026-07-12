@@ -11,14 +11,20 @@ import Plugin from '../../plugin/Base.mjs';
  * constraint). `items` order and `activeItemId` already capture the state; overflow is projection only.
  *
  * It attaches to the projected tab header toolbar (`Neo.tab.header.Toolbar`) — it is NOT a dock-specific
- * `tab.Container` fork (the model contract's Split/Tab Adapter Boundary). The overflow control is kept
- * OUT of the toolbar's item collection on purpose: `tab.Container` uses `getTabBar().items.length` as its
- * tab-insertion index (Container.mjs), so a control living among the tab buttons would corrupt insertion.
+ * `tab.Container` fork (the model contract's Split/Tab Adapter Boundary). The overflow control lives as a
+ * trailing item of that header toolbar, excluded from `getTabButtons()` by identity so it is never
+ * measured, hidden, or counted as a tab. A trailing non-tab item would corrupt `tab.Container`'s
+ * interactive insertion index (`getTabBar().items.length`) in the general case — but the dock projects its
+ * tabs declaratively (`DockLayoutAdapter` hands a full `items` config and rebuilds on every tab-set change)
+ * and never calls `tab.Container.add()`, so that path is never taken. The control also carries none of a
+ * tab button's `activeIndex` click wiring (that lives in `getTabButtonConfig`, which the plugin bypasses),
+ * so selecting it opens its menu rather than activating a phantom card.
  *
- * Natural-width discipline: overflowing buttons hide via a `display:none` cls, so re-measuring them would
- * collapse their width to 0 and corrupt the next split. The plugin therefore measures NATURAL widths once
- * while every button is visible (on mount, and whenever the tab set changes) and caches them; a plain
- * resize only re-reads the always-visible strip extent and recomputes against that cache.
+ * Natural-width discipline: overflowing buttons are removed from the DOM (Neo's built-in `hidden` /
+ * removeDom), so re-measuring them would collapse their width to 0 and corrupt the next split. The plugin
+ * therefore measures NATURAL widths once while every button is visible (on mount, and whenever the tab set
+ * changes) and caches them; a plain resize only re-reads the always-visible strip extent and recomputes
+ * against that cache.
  *
  * @class Neo.dashboard.plugin.TabOverflow
  * @extends Neo.plugin.Base
@@ -242,9 +248,10 @@ class TabOverflow extends Plugin {
      * left in the menu.
      *
      * The control is a `button.Base` with a `menu` config — button.Base builds the dropdown `menu.List`
-     * itself, so no menu is hand-assembled here. It mounts as a `floating` component self-positioned via
-     * `align` against the header toolbar (the same mechanism `button.Base#afterSetMenu` uses for its own
-     * menu), which keeps it out of the toolbar's item collection so tab insertion stays correct.
+     * itself, so no menu is hand-assembled here. It is added as a trailing item of the header toolbar
+     * (which renders its own items), and excluded from `getTabButtons()` by identity so it is never
+     * measured or hidden as a tab — see the class note on why a trailing non-tab item is safe in the dock
+     * projection.
      * @param {Object[]} hiddenMeta  `{text, iconCls, index}` per hidden tab, in header order.
      * @param {Neo.tab.Container} tabContainer
      */
