@@ -525,6 +525,10 @@ paths:
                   type: integer
                   description: Number of documents to include in context.
                   default: 5
+                conceptWalk:
+                  type: boolean
+                  default: false
+                  description: "Opt-in: when true, additionally returns knowledge-base docs reached via a bounded concept-graph walk over the query (CONCEPT→FILE edges resolved to the doc whose metadata.source matches, re-authorized through the same tenant + type filter), appended to the embedding references and deduped, each carrying `via`/`conceptPath` provenance. Default false returns the embedding references only (byte-identical)."
       responses:
         '200':
           description: Successful RAG response.
@@ -546,6 +550,70 @@ paths:
                           type: string
                         score:
                           type: number
+                          nullable: true
+                          description: "Embedding similarity for flat references; null for concept-walk references, which carry graph provenance rather than an embedding score."
+                        via:
+                          type: string
+                          nullable: true
+                          description: "Reference provenance: absent/null for embedding hits; 'concept-walk' for docs reached through the bounded concept-graph walk."
+                        conceptPath:
+                          type: object
+                          nullable: true
+                          description: "The complete concept-neighborhood path by which the walk reached this doc; null for embedding references."
+                          properties:
+                            rootConcept:
+                              type: string
+                              description: "The resolved concept cluster-key the walk started from."
+                            depth:
+                              type: integer
+                              description: "Number of hops from the root concept to this doc."
+                            hops:
+                              type: array
+                              description: "Ordered hops root→doc — each carries its edge + degrade-by-omission provenance (absent axes omitted)."
+                              items:
+                                type: object
+                                properties:
+                                  edgeType:
+                                    type: string
+                                    nullable: true
+                                  neighborLabel:
+                                    type: string
+                                    nullable: true
+                                  readAt:
+                                    type: string
+                                    nullable: true
+                                  axes:
+                                    type: object
+                                    description: "Present provenance axes only (authority / fidelity / extractionProvenance / lifecycle)."
+                  conceptWalk:
+                    type: object
+                    nullable: true
+                    description: "Present only when the conceptWalk opt-in ran (absent on the default flat path) — the retrieval event, mirroring RETRIEVAL_EVENT_SCHEMA."
+                    properties:
+                      event:
+                        type: string
+                        description: "Event name (e.g. 'concept_walk')."
+                      query:
+                        type: string
+                      resolvedConcepts:
+                        type: array
+                        items:
+                          type: string
+                        description: "Concept cluster-keys the query resolved to (the walk roots)."
+                      walkContributed:
+                        type: boolean
+                        description: "Whether the walk appended at least one new reference."
+                      candidatesAdded:
+                        type: integer
+                        description: "Concept-walk references appended after dedup + tenant/type re-authorization."
+                      filteredOut:
+                        type: integer
+                        description: "Walk candidates dropped by re-authorization or dedup."
+                      walkDurationMs:
+                        type: number
+                      truncated:
+                        type: boolean
+                        description: "True when the walk was cut short by its hop/hydration budget."
         '500':
           description: Internal server error.
           content:

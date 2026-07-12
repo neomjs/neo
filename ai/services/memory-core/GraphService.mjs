@@ -818,6 +818,49 @@ class GraphService extends Base {
     }
 
     /**
+     * @summary Per-node RLS visibility for the acting request — the GraphService-owned seam the
+     * concept-walk's `rlsPredicate` consumes so a private / other-tenant intermediate is never traversed
+     * THROUGH (path-level Depth-Floor; terminal-candidate authorization does NOT authorize the crossed
+     * path). Raw-reads the node's stored properties and applies the canonical `isRlsVisible` predicate
+     * against the request's resolved RLS user. A missing node, absent db, or read error fails CLOSED.
+     * @param {String} nodeId
+     * @returns {Boolean} true when the node is visible to the acting requester.
+     */
+    isNodeVisibleToRequester(nodeId) {
+        const storage = this.db?.storage;
+
+        if (!storage?.db || !isValidGraphNodeId(nodeId)) {
+            return false
+        }
+
+        let node;
+        try {
+            const row = storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(nodeId);
+            node = row ? JSON.parse(row.data) : null
+        } catch {
+            return false
+        }
+
+        return isRlsVisible(node, resolveRlsUserId(storage.RequestContextService))
+    }
+
+    /**
+     * @summary Per-EDGE RLS visibility for the acting request — the GraphService-owned seam the concept
+     * walk's `edgeRlsPredicate` consumes. A foreign / other-tenant edge between two visible nodes is a
+     * DISTINCT leak surface (relation + provenance), so it must never become a hop / parent / path, nor be
+     * allowed to expand or hydrate a candidate: getNeighbors exposes a neighbor only when BOTH the node AND
+     * the connecting edge pass isRlsVisible, but readRawNodeEdges reads raw rows and otherwise bypasses that
+     * contract. Applies the canonical `isRlsVisible` policy to the already-read edge's properties (the same
+     * source-of-truth predicate the node seam uses — no duplicated tenant logic). A null/absent edge fails
+     * CLOSED.
+     * @param {Object} edge A raw edge object carrying `.properties` (the shape readRawNodeEdges yields).
+     * @returns {Boolean} true when the edge is visible to the acting requester.
+     */
+    isEdgeVisibleToRequester(edge) {
+        return isRlsVisible(edge, resolveRlsUserId(this.db?.storage?.RequestContextService))
+    }
+
+    /**
      * Dynamically computes the structural gravity (inbound/outbound edges) for a node natively via SQLite.
      * @param {String} id
      * @returns {Object} { in_degree, out_degree }

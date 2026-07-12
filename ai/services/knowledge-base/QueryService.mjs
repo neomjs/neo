@@ -421,6 +421,45 @@ class QueryService extends Base {
     }
 
     /**
+     * @summary Resolves a single authorized KB document by its `metadata.source` path — the
+     * concept-anchored walk's KB analog of a direct memory `get`. Reuses {@link createWhereClause}'s
+     * read-side tenant filter (own tenant + `neo-shared`) AND-combined with `{source}`, so a
+     * walk-reached FILE node can only resolve to a document the requester is already authorized to
+     * retrieve — zero new authorization surface. Reapplies the caller's `type` predicate too (a walk
+     * for `ask({type:'guide'})` must not admit a `src` doc), via the same {@link resolveTypeFilter}
+     * queryDocuments uses. No request context (stdio single-tenant / offline daemon) → tenant-
+     * unfiltered, exactly as {@link queryDocuments}. Returns null when nothing matches (not found, or
+     * filtered out by the tenant/type clause); a Chroma lookup error propagates to the caller's fail-
+     * closed gate ({@link buildKbFileResolveCandidate}), which counts it filteredOut.
+     * @param {String} source The `metadata.source` path (e.g. `src/vdom/Helper.mjs`).
+     * @param {String} [type='all'] The caller's content-type filter — reapplied at walk hydration so the opt-in never widens the type scope.
+     * @returns {Promise<{name: String, source: String, score: null, metadata: Object}|null>}
+     */
+    async findDocBySource(source, type = 'all') {
+        if (!source) {
+            return null
+        }
+
+        const requesterTenantId = normalizeUserId(RequestContextService.getUserId()),
+              tenantWhere       = this.createWhereClause({requesterTenantId, typeFilter: this.resolveTypeFilter(type)}),
+              where             = tenantWhere ? {$and: [tenantWhere, {source}]} : {source},
+              collection        = await ChromaManager.getKnowledgeBaseCollection(),
+              result            = await collection.get({where, limit: 1, include: ['metadatas']}),
+              metadata          = result?.metadatas?.[0];
+
+        if (!metadata) {
+            return null // not found, or filtered out by the read-side tenant where-clause
+        }
+
+        return {
+            name : source.split('/').pop(),
+            source,
+            score: null, // walk-surfaced: no embedding similarity score — the `via` marker distinguishes it
+            metadata
+        }
+    }
+
+    /**
      * @summary Resolves public query type aliases into indexed KB type filters.
      * @param {String} type Requested content type.
      * @returns {String|String[]|null} Chroma type filter.

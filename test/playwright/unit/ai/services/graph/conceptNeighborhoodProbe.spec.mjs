@@ -151,6 +151,75 @@ test.describe('Neo.ai.services.graph.conceptNeighborhoodProbe (#14474)', () => {
         expect(walk.hops.every(h => h.axisPresence)).toBeTruthy();
     });
 
+    test('walkConceptNeighborhood traversableEdgeTypes gates expansion by edge.type — arbitrary edges do not carry the walk onward', () => {
+        const makeFixture = () => createGraphServiceFixture({
+            nodes: [
+                {id: 'c-root',    label: 'CONCEPT'},
+                {id: 'c-sib',     label: 'CONCEPT'},
+                {id: 'sess-1',    label: 'SESSION'},
+                {id: 'file-deep', label: 'FILE'},
+                {id: 'mem-deep',  label: 'MEMORY'}
+            ],
+            edges: [
+                {id: 'r1', source: 'c-root', target: 'c-sib',     type: 'RELATES_TO',     properties: {weight: 1}},
+                {id: 'r2', source: 'c-root', target: 'sess-1',    type: 'DISCUSSED_IN',   properties: {weight: 1}},
+                {id: 'a1', source: 'c-sib',  target: 'file-deep', type: 'IMPLEMENTED_BY', properties: {weight: 1}},
+                {id: 's1', source: 'sess-1', target: 'mem-deep',  type: 'TAGGED_CONCEPT', properties: {weight: 1}}
+            ]
+        });
+
+        // Allow-list EXCLUDES the arbitrary DISCUSSED_IN edge → sess-1 is recorded as a hop but never expanded,
+        // so mem-deep (behind it) is unreachable; the RELATES_TO→IMPLEMENTED_BY retrieval path still reaches file-deep.
+        const gated = walkConceptNeighborhood({
+            graphService        : makeFixture(), conceptId: 'c-root', maxHops: 2, hopBudget: 20,
+            traversableEdgeTypes: ['RELATES_TO', 'IMPLEMENTED_BY', 'TAGGED_CONCEPT']
+        });
+        const gatedIds = new Set(gated.hops.map(h => h.neighborId));
+
+        expect(gatedIds.has('c-sib')).toBe(true);      // depth-1, retrieval-bearing edge
+        expect(gatedIds.has('sess-1')).toBe(true);     // depth-1, recorded as a hop (provenance) even though arbitrary
+        expect(gatedIds.has('file-deep')).toBe(true);  // depth-2 via the retrieval-bearing path
+        expect(gatedIds.has('mem-deep')).toBe(false);  // behind DISCUSSED_IN — NOT carried onward
+
+        // Default null = no edge-type gate: the arbitrary edge IS traversed → mem-deep reached (byte-identical to pre-mechanism).
+        const ungatedIds = new Set(
+            walkConceptNeighborhood({graphService: makeFixture(), conceptId: 'c-root', maxHops: 2, hopBudget: 20})
+                .hops.map(h => h.neighborId)
+        );
+
+        expect(ungatedIds.has('mem-deep')).toBe(true);
+    });
+
+    test('walkConceptNeighborhood edgeRlsPredicate skips a foreign edge ENTIRELY — not a hop, never a parent/path, never expanded (#14504 edge-RLS)', () => {
+        // c-root --RELATES_TO(own)--> c-visible   ·   c-root --RELATES_TO(other-tenant)--> c-foreign
+        const makeFixture = () => createGraphServiceFixture({
+            nodes: [
+                {id: 'c-root',    label: 'CONCEPT'},
+                {id: 'c-visible', label: 'CONCEPT'},
+                {id: 'c-foreign', label: 'CONCEPT'}
+            ],
+            edges: [
+                {id: 'e-own',     source: 'c-root', target: 'c-visible', type: 'RELATES_TO', properties: {userId: 'me'}},
+                {id: 'e-foreign', source: 'c-root', target: 'c-foreign', type: 'RELATES_TO', properties: {userId: 'other-tenant'}}
+            ]
+        });
+
+        // edge-RLS rejects the foreign-owned edge (mirrors isEdgeVisibleToRequester: own/null/shared visible)
+        const gated = walkConceptNeighborhood({
+            graphService    : makeFixture(), conceptId: 'c-root', maxHops: 2, hopBudget: 20,
+            edgeRlsPredicate: edge => edge.properties?.userId !== 'other-tenant'
+        });
+        const gatedNeighbors = new Set(gated.hops.map(h => h.neighborId));
+
+        expect(gatedNeighbors.has('c-visible')).toBe(true);                 // own edge → hop present, traversable
+        expect(gatedNeighbors.has('c-foreign')).toBe(false);               // foreign edge → skipped ENTIRELY
+        expect(gated.hops.some(h => h.edgeId === 'e-foreign')).toBe(false); // never a hop → never a parent/path/provenance
+
+        // default null → the foreign edge IS read (probe full-graph reachability mode)
+        const ungated = walkConceptNeighborhood({graphService: makeFixture(), conceptId: 'c-root', maxHops: 2, hopBudget: 20});
+        expect(ungated.hops.some(h => h.edgeId === 'e-foreign')).toBe(true);
+    });
+
     test('applyPrivacyContract aggregates MEMORY neighbors — no private ids in structural output', () => {
         const walk                            = walkConceptNeighborhood({graphService: FIXTURE(), conceptId: 'golden-path'});
         const {structural, privateAggregates} = applyPrivacyContract(walk.hops);
