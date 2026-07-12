@@ -13,8 +13,9 @@ import {partitionByProminence} from './citationProminence.mjs';
  * rather than returning an empty "what happened".
  */
 
-const MAX_PROMINENT_CITED = 40,
-      MAX_THEMES          = 20;
+const MAX_PROMINENT_CITED    = 40,
+      MAX_CONTEXT_ENUMERATED = 60,
+      MAX_THEMES             = 20;
 
 /**
  * @summary Renders one source as a compact prompt line `- <type> <id>[: <title>]`.
@@ -30,10 +31,10 @@ function sourceLine(source) {
 /**
  * @summary Builds the temporal synthesis prompt from a resolved window, admitted sources, and theme evidence.
  *
- * The concise-narrative instruction foregrounds `prominent` sources (direct citation) and gives the `context`
- * only as a bounded count — every source stays in the coverage manifest elsewhere, so the prompt bounds
- * density without dropping admission. `themes` (best-effort semantic evidence) inform emphasis, never
- * coverage.
+ * The concise-narrative instruction foregrounds `prominent` sources (direct citation) and enumerates the
+ * `context` sources' facts up to a bound — so the model sees what those turns were about rather than a bare
+ * count it could cite past — noting any overflow. `themes` (best-effort semantic evidence) inform emphasis,
+ * never coverage.
  *
  * @param {Object} options
  * @param {Object} options.window The resolved half-open window.
@@ -53,7 +54,9 @@ export function buildTemporalSynthesisPrompt({window, sources = [], themes = []}
         `PROMINENT sources — cite each you use directly by its id:`,
         ...(citedProminent.length ? citedProminent.map(sourceLine) : ['- (none)']),
         ``,
-        `CONTEXT: ${context.length} further admitted source(s) inform the window but need not be enumerated.`,
+        `CONTEXT — further in-window sources; this is what those turns were about, so cite them by id where relevant:`,
+        ...(context.length ? context.slice(0, MAX_CONTEXT_ENUMERATED).map(sourceLine) : ['- (none)']),
+        ...(context.length > MAX_CONTEXT_ENUMERATED ? [`- …and ${context.length - MAX_CONTEXT_ENUMERATED} more in-window source(s), bounded for prompt size`] : []),
         ``,
         `THEME EVIDENCE (semantic, best-effort — may be incomplete):`,
         ...(citedThemes.length ? citedThemes.map(theme => `- ${theme.document || theme.text || theme.summary || theme.id}`) : ['- (none surfaced)']),

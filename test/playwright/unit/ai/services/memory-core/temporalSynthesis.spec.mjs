@@ -4,12 +4,12 @@ import {buildTemporalSynthesisPrompt, makeTemporalSynthesize} from '../../../../
 const WINDOW = {partition: '@ada', windowStartIso: '2026-07-05T00:00:00.000Z', windowEndIso: '2026-07-12T00:00:00.000Z'};
 
 test.describe('temporalSynthesis — the §-fidelity prompt + injected-generate seam', () => {
-    test('the prompt states the half-open window + partition, foregrounds prominent ids, and bounds context to a count', () => {
+    test('the prompt states the half-open window + partition, foregrounds prominent ids, and enumerates context facts', () => {
         const prompt = buildTemporalSynthesisPrompt({
             window : WINDOW,
             sources: [
                 {id: 'session-hi', type: 'session', impact: 95, title: 'the big call'},
-                {id: 'session-lo', type: 'session', impact: 10},
+                {id: 'session-lo', type: 'session', impact: 10, summary: 'a routine dependency bump'},
                 {id: 'adr-28',     type: 'adr', accepted: true}
             ],
             themes: [{id: 'm1', document: 'a recurring friction theme'}]
@@ -20,9 +20,10 @@ test.describe('temporalSynthesis — the §-fidelity prompt + injected-generate 
         // prominent (impact>=90 session + accepted ADR) are foregrounded by id
         expect(prompt).toContain('session-hi: the big call');
         expect(prompt).toContain('adr-28');
-        // the low-impact session is CONTEXT (a count), not foregrounded by id
-        expect(prompt).not.toContain('session-lo');
-        expect(prompt).toContain('CONTEXT: 1 further admitted source');
+        // the low-impact session is CONTEXT — now ENUMERATED with its fact (the model sees what it was
+        // about, so it cannot cite past a bare count), while still not being in the PROMINENT block.
+        expect(prompt).toContain('session-lo: a routine dependency bump');
+        expect(prompt).toMatch(/CONTEXT — further in-window sources/);
         expect(prompt).toContain('a recurring friction theme');
         // fidelity: cite prominent + no invention
         expect(prompt).toMatch(/Cite prominent sources by id/);
@@ -34,7 +35,7 @@ test.describe('temporalSynthesis — the §-fidelity prompt + injected-generate 
 
         expect(prompt).toContain('- (none)');
         expect(prompt).toContain('- (none surfaced)');
-        expect(prompt).toContain('CONTEXT: 0 further admitted source')
+        expect(prompt).toMatch(/CONTEXT — further in-window sources/)
     });
 
     test('makeTemporalSynthesize passes the prompt to generate and returns the narrative (string or {content})', async () => {
