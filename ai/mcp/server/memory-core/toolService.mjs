@@ -43,13 +43,19 @@ const exploreMemoryHistoryOp = args => exploreMemoryHistory({
         queryRecentTurns: MemoryService.queryRecentTurns.bind(MemoryService),
         queryMemories   : MemoryService.queryMemories.bind(MemoryService),
         generate        : makeChatModelGenerate({
-            buildModel: () => buildChatModel({
-                modelProvider         : AiConfig.modelProvider,
-                openAiCompatibleConfig: AiConfig.openAiCompatible,
-                ollamaConfig          : AiConfig.ollama,
-                geminiApiKey          : AiConfig.geminiApiKey,
-                geminiModelName       : AiConfig.modelName
-            })
+            // read the resolved provider leaves at the use site, then hand them to the buildChatModel
+            // seam — never thread the config SSOT's provider sub-objects into another consumer's config.
+            buildModel: () => {
+                const {modelProvider, openAiCompatible, ollama, geminiApiKey, modelName} = AiConfig;
+
+                return buildChatModel({
+                    modelProvider,
+                    openAiCompatibleConfig: openAiCompatible,
+                    ollamaConfig          : ollama,
+                    geminiApiKey,
+                    geminiModelName       : modelName
+                })
+            }
         }),
         listIdentities: async () => {
             const {online, idle, benched} = await WakeSubscriptionService.whoIsOnline();
