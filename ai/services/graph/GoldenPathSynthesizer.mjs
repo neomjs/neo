@@ -45,8 +45,6 @@ import {
     TYPE_GATE_REJECTION_FILENAME,
     TYPE_GATE_REJECTION_STAGE
 } from './typeGateRejectionLedgerStore.mjs';
-import {RETROSPECTIVE_GRAINS, renderHandoffRetrospectiveSection} from './handoffRetrospective.mjs';
-import {assembleRetrospectiveStats}                              from './handoffRetrospectiveAssembler.mjs';
 import {
     getActivePrCycleStatus                      as resolveActivePrCycleStatus,
     renderActivePrCycleState                    as renderActivePrCycleStateSection,
@@ -768,110 +766,6 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
-     * @summary Fetches PRs merged within a window — the highest-signal "what happened" fact class
-     * for the handoff retrospective. Bounded by a `merged:>ISO` search so the query stays small.
-     * @param {Date} since Lower window bound.
-     * @returns {Promise<Array<{number: Number, title: String, mergedAt: String}>>}
-     */
-    async fetchRecentMergedPRs(since) {
-        const { execSync } = await import('child_process');
-        const sinceDate    = since.toISOString().slice(0, 10); // gh search granularity is day-level
-        const raw          = execSync(`gh pr list --state merged --search "merged:>=${sinceDate}" --json number,title,mergedAt --limit 50`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
-        return JSON.parse(raw);
-    }
-
-    /**
-     * @summary Fetches issues closed within a window — the same bounded day-granularity search
-     * pattern as the merged-PR reader; one fact class of the retrospective's declared coverage.
-     * @param {Date} since Lower window bound.
-     * @returns {Promise<Array<{number: Number, title: String, closedAt: String}>>}
-     */
-    async fetchRecentClosedIssues(since) {
-        const { execSync } = await import('child_process');
-        const sinceDate    = since.toISOString().slice(0, 10);
-        const raw          = execSync(`gh issue list --state closed --search "closed:>=${sinceDate}" --json number,title,closedAt --limit 50`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
-        return JSON.parse(raw);
-    }
-
-    /**
-     * @summary Fetches issues opened within a window — the opened-side sibling of the closed reader.
-     * @param {Date} since Lower window bound.
-     * @returns {Promise<Array<{number: Number, title: String, createdAt: String}>>}
-     */
-    async fetchRecentOpenedIssues(since) {
-        const { execSync } = await import('child_process');
-        const sinceDate    = since.toISOString().slice(0, 10);
-        const raw          = execSync(`gh issue list --state all --search "created:>=${sinceDate}" --json number,title,createdAt --limit 50`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
-        return JSON.parse(raw);
-    }
-
-    /**
-     * @summary Reads sessions recorded within a window from the summary collection already in
-     * scope — metadata-only (no document bodies), using the same multi-key timestamp resolution
-     * as the recency-ordered summary reads. Returns retrospective fact shapes.
-     * @param {Object} collection Summary Chroma collection (exposes async `.get`).
-     * @param {Date} since Lower window bound.
-     * @returns {Promise<Array<{ref: String, headline: String, at: String}>>}
-     */
-    async fetchRecentSessions(collection, since) {
-        const meta      = await collection.get({include: ['metadatas']});
-        const resolveTs = m => {
-            const raw = m?.timestamp ?? m?.lastActivity ?? m?.updatedAt ?? m?.createdAt;
-            return Number.isFinite(Number(raw)) ? Number(raw) : (Date.parse(raw) || 0);
-        };
-        const sinceMs = since.getTime();
-
-        return (meta?.ids || [])
-            .map((id, idx) => ({id, ts: resolveTs(meta.metadatas?.[idx]), agent: meta.metadatas?.[idx]?.agent}))
-            .filter(entry => entry.ts >= sinceMs)
-            .sort((a, b) => b.ts - a.ts)
-            .map(entry => ({
-                ref     : `session ${String(entry.id).slice(0, 8)}`,
-                headline: entry.agent ? `session (${entry.agent})` : 'session recorded',
-                at      : new Date(entry.ts).toISOString()
-            }));
-    }
-
-    /**
-     * @summary Fetches Discussions graduated within a window — the last retrospective fact class.
-     * Graduations are Discussion closures carrying a graduation marker in their comments, and
-     * `gh search` does not cover Discussions, so this uses a bounded recency-ordered closed-Discussion
-     * GraphQL query and detects the marker vocabulary. Best-effort, like every sibling reader.
-     * @param {Date} since Lower window bound.
-     * @returns {Promise<Array<{ref: String, headline: String, at: String}>>}
-     */
-    async fetchRecentGraduations(since) {
-        const { execSync }       = await import('child_process');
-        const query              = 'query($owner:String!,$name:String!){repository(owner:$owner,name:$name){discussions(first:50,states:CLOSED,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{number title closedAt comments(last:25){nodes{body}}}}}}';
-        const raw                = execSync(`gh api graphql -f owner=neomjs -f name=neo -f query='${query}'`, {encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore']});
-        const nodes              = JSON.parse(raw)?.data?.repository?.discussions?.nodes || [];
-        const sinceMs            = since.getTime();
-        const GRADUATION_MARKERS = ['[GRADUATED_TO_TICKET]', '[RESOLVED_TO_AC]'];
-
-        return nodes
-            .filter(node => node?.closedAt && Date.parse(node.closedAt) >= sinceMs)
-            .filter(node => (node.comments?.nodes || []).some(c => GRADUATION_MARKERS.some(m => (c?.body || '').includes(m))))
-            .map(node => ({ref: `discussion #${node.number}`, headline: node.title, at: node.closedAt}));
-    }
-
-    /**
-     * @summary Assembles + renders the handoff retrospective section (the history leg) from window
-     * facts. Static + pure over its inputs: the assembler folds, the render emits — this shim is
-     * the synthesizer's stable seam to both, mirroring the computed-GP render shims.
-     * @param {Object} options
-     * @param {Object} options.facts `{mergedPrs, openedPrs, closedIssues, openedIssues, graduations, sessions}`
-     * @param {Object} [options.grain=RETROSPECTIVE_GRAINS.THREE_DAY] Retrospective grain
-     * @param {Date|String} [options.now=new Date()] Window anchor
-     * @param {String|String[]} [options.filterSets=[]] Declared filter set(s) the facts were gathered under
-     * @returns {String} Markdown section
-     */
-    static renderHandoffRetrospectiveSection({facts, grain = RETROSPECTIVE_GRAINS.THREE_DAY, now = new Date(), filterSets = []} = {}) {
-        const stats = assembleRetrospectiveStats({facts, grain, now, filterSets});
-
-        return renderHandoffRetrospectiveSection({grain, stats, capturedAt: now})
-    }
-
-    /**
      * @summary Delegates recency-ordered summary reads to `frontierConsolidation.mjs`.
      * @param {Object} collection Summary Chroma collection (exposes async `.get`).
      * @param {Number} n Number of most-recent summaries to return.
@@ -1506,73 +1400,11 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             }
         }
 
-        // --- Handoff Retrospective (the history leg: "what happened since I last looked") ---
-        // Best-effort, like every enrichment block: a failure renders nothing, never crashes the
-        // handoff. Grain fixed to 3-day here — the batch file is not per-reader; staleness-adaptive
-        // grain selection is the interactive boot flow's concern (selectRetrospectiveGrain).
-        let retrospectiveAppend = '';
-        if (repoEnrichmentEnabled) {
-            try {
-                const capturedAt  = now instanceof Date ? now : new Date(now),
-                      windowMs    = RETROSPECTIVE_GRAINS.THREE_DAY.windowHours * 3600 * 1000,
-                      windowStart = new Date(capturedAt.getTime() - windowMs),
-                      mergedPrs   = (await this.fetchRecentMergedPRs(windowStart))
-                          .map(pr => ({ref: `PR #${pr.number}`, headline: pr.title, at: pr.mergedAt})),
-                      // opened-PRs-in-window come free from the already-fetched open-PR list
-                      openedPrs   = (Array.isArray(openPrs) ? openPrs : [])
-                          .map(pr => ({ref: `PR #${pr.number}`, headline: pr.title, at: pr.createdAt}));
-
-                // per-class best-effort: a failing reader drops ITS classes and narrows the
-                // declared label, so coverage is never overstated
-                let closedIssues = [], openedIssues = [], issueClassesLive = false,
-                    sessions     = [], sessionClassLive = false,
-                    graduations  = [], graduationsClassLive = false;
-
-                try {
-                    closedIssues = (await this.fetchRecentClosedIssues(windowStart))
-                        .map(issue => ({ref: `#${issue.number}`, headline: issue.title, at: issue.closedAt}));
-                    openedIssues = (await this.fetchRecentOpenedIssues(windowStart))
-                        .map(issue => ({ref: `#${issue.number}`, headline: issue.title, at: issue.createdAt}));
-                    issueClassesLive = true;
-                } catch (issueError) {
-                    logger.warn('[GoldenPathSynthesizer] Retrospective issue readers failed — dropping the issue classes', issueError);
-                }
-
-                try {
-                    // instance seam like every sibling reader — the singleton export IS the
-                    // patchable surface; a static here silently bypasses test doubles
-                    sessions         = await this.fetchRecentSessions(summaryColl, windowStart);
-                    sessionClassLive = true;
-                } catch (sessionError) {
-                    logger.warn('[GoldenPathSynthesizer] Retrospective session reader failed — dropping the session class', sessionError);
-                }
-
-                try {
-                    graduations          = await this.fetchRecentGraduations(windowStart);
-                    graduationsClassLive = true;
-                } catch (graduationError) {
-                    logger.warn('[GoldenPathSynthesizer] Retrospective graduations reader failed — dropping the graduations class', graduationError);
-                }
-
-                const coveredClasses = [
-                    'merged+opened PRs',
-                    ...(issueClassesLive     ? ['closed+opened issues'] : []),
-                    ...(sessionClassLive     ? ['sessions']             : []),
-                    ...(graduationsClassLive ? ['graduations']          : [])
-                ];
-
-                retrospectiveAppend = this.constructor.renderHandoffRetrospectiveSection({
-                    facts: {mergedPrs, openedPrs, closedIssues, openedIssues, graduations, sessions},
-                    grain: RETROSPECTIVE_GRAINS.THREE_DAY,
-                    now  : capturedAt,
-                    // the label names exactly what these counts cover, per class, so the render
-                    // never overstates the window's coverage
-                    filterSets: `${coveredClasses.join(' · ')}, all authors`
-                })
-            } catch (e) {
-                logger.warn('[GoldenPathSynthesizer] Failed to generate Handoff Retrospective', e);
-            }
-        }
+        // The static Handoff Retrospective section was removed from the Golden Path: a durable Markdown
+        // compression is the wrong shape for "what happened since I last looked" — that surface is the
+        // on-demand runtime query views (memory/session + PR-history), never a blob inside the batch
+        // handoff. Its capped readers + render/fold modules were deleted with it as unreferenced
+        // substrate; the runtime views build source-complete adapters under their own contract.
 
         // --- Work-Graph Stall Inference ---
         let stallFindingsAppend = '';
@@ -1631,7 +1463,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             }
         }
 
-        handoffContent += `${currentFocusAppend}${staleAssignmentAppend}${silentThreadsAppend}${prStateAppend}${stallFindingsAppend}${backlogAppend}${retrospectiveAppend}${markdownAppend}`;
+        handoffContent += `${currentFocusAppend}${staleAssignmentAppend}${silentThreadsAppend}${prStateAppend}${stallFindingsAppend}${backlogAppend}${markdownAppend}`;
 
         const handoffFile = aiConfig.handoffFilePath;
         fs.mkdirSync(path.dirname(handoffFile), {recursive: true});
