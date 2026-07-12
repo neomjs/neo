@@ -29,8 +29,18 @@ export const RETRIEVAL_EVENT_SCHEMA = Object.freeze({
     resolvedConcepts: 'String[] — cluster keys that matched',
     walkContributed : 'Boolean — did any walk candidate survive filtering',
     candidatesAdded : 'Number — walk candidates appended after dedup + filters',
-    filteredOut     : 'Number — walk candidates dropped by tenant/tombstone/trust filters'
+    filteredOut     : 'Number — walk candidates dropped by tenant/tombstone/trust filters',
+    walkDurationMs  : 'Number — wall-clock ms spent in the concept-walk phase (resolve + walk + gate), for the latency budget'
 });
+
+/**
+ * Config-declared, request-global traversal budget — the bounded-latency contract. A concept walk
+ * must never dominate query latency: `conceptLimit` caps how many resolved clusters are walked,
+ * `maxHops` the per-member depth, `hopBudget` the per-member edge ceiling. Explicit + frozen so the
+ * bound is a stated contract (and the retrieval event's `walkDurationMs` is measured against it),
+ * not an inline literal. Callers may override per-call, but these are the documented defaults.
+ */
+export const WALK_BUDGET = Object.freeze({conceptLimit: 5, maxHops: 2, hopBudget: 80});
 
 /**
  * @summary Tokenizes a retrieval query into candidate cluster-key fragments.
@@ -214,9 +224,10 @@ export function buildConceptPath({rootConcept, nodeId, rootMemberId, parentHop})
  *     every walk node is `filteredOut` (fail-closed).
  * @param {Function} [options.getCandidateId] `(candidate) => String` dedup-id extractor (default `.id`).
  * @param {Function} [options.emit] `(event) => void` retrieval-event sink (default no-op).
- * @param {Number} [options.conceptLimit=5] Max resolved clusters walked.
- * @param {Number} [options.maxHops=2] Per-member walk depth bound.
- * @param {Number} [options.hopBudget=80] Per-member edge budget.
+ * @param {Function} [options.now] `() => Number` wall-clock source for `walkDurationMs` (default `Date.now`; injectable for tests).
+ * @param {Number} [options.conceptLimit] Max resolved clusters walked (default {@link WALK_BUDGET}.conceptLimit).
+ * @param {Number} [options.maxHops] Per-member walk depth bound (default {@link WALK_BUDGET}.maxHops).
+ * @param {Number} [options.hopBudget] Per-member edge budget (default {@link WALK_BUDGET}.hopBudget).
  * @returns {Promise<Object>} `{candidates: mergedArray, event: eventObject|null}` — `event` is null
  *     only on pass-through (flag off).
  */
@@ -228,16 +239,19 @@ export async function enrichWithConceptWalk({
     resolveCandidate,
     getCandidateId = candidate => candidate?.id,
     emit,
-    conceptLimit   = 5,
-    maxHops        = 2,
-    hopBudget      = 80
+    now            = () => Date.now(),
+    conceptLimit   = WALK_BUDGET.conceptLimit,
+    maxHops        = WALK_BUDGET.maxHops,
+    hopBudget      = WALK_BUDGET.hopBudget
 }) {
     // Wrap, never replace: no opt-in → the flat path returns byte-identical, no walk, no event.
     if (!conceptWalk) {
         return {candidates, event: null}
     }
 
-    const resolved = resolveConcepts({graphService, query, limit: conceptLimit});
+    const
+        walkStartedAt = now(),
+        resolved      = resolveConcepts({graphService, query, limit: conceptLimit});
 
     if (!resolved.length) {
         const event = {
@@ -246,7 +260,8 @@ export async function enrichWithConceptWalk({
             resolvedConcepts: [],
             walkContributed : false,
             candidatesAdded : 0,
-            filteredOut     : 0
+            filteredOut     : 0,
+            walkDurationMs  : now() - walkStartedAt
         };
 
         emit?.(event);
@@ -310,7 +325,8 @@ export async function enrichWithConceptWalk({
         resolvedConcepts: resolved.map(cluster => cluster.clusterKey),
         walkContributed : added.length > 0,
         candidatesAdded : added.length,
-        filteredOut
+        filteredOut,
+        walkDurationMs  : now() - walkStartedAt
     };
 
     emit?.(event);

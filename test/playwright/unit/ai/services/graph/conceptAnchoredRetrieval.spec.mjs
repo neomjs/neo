@@ -17,6 +17,7 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 
 import {
     RETRIEVAL_EVENT_SCHEMA,
+    WALK_BUDGET,
     describeHopProvenance,
     enrichWithConceptWalk,
     resolveConcepts,
@@ -92,7 +93,7 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval (#14504)', () => {
 
     test('the retrieval-event schema names the #14506 feed contract', () => {
         expect(Object.keys(RETRIEVAL_EVENT_SCHEMA)).toEqual(
-            ['event', 'query', 'resolvedConcepts', 'walkContributed', 'candidatesAdded', 'filteredOut']
+            ['event', 'query', 'resolvedConcepts', 'walkContributed', 'candidatesAdded', 'filteredOut', 'walkDurationMs']
         );
     });
 });
@@ -320,5 +321,24 @@ test.describe('Neo.ai.services.graph.conceptAnchoredRetrieval — enrichWithConc
         expect(candidates.map(c => c.id).sort()).toEqual(['MEM:1', 'MEM:2']);
         expect(event.candidatesAdded).toBe(2);
         expect(event.filteredOut).toBe(1);
+    });
+
+    test('WALK_BUDGET is the frozen, config-declared traversal budget (the bounded-latency defaults)', () => {
+        expect(WALK_BUDGET).toEqual({conceptLimit: 5, maxHops: 2, hopBudget: 80});
+        expect(Object.isFrozen(WALK_BUDGET)).toBe(true);
+    });
+
+    test('the retrieval event records walkDurationMs from the injected clock (bounded-latency telemetry)', async () => {
+        let   clock = 1000;
+        const now   = () => { const value = clock; clock += 7; return value }; // each read advances 7ms
+
+        const {event} = await enrichWithConceptWalk({
+            graphService    : WALK_GRAPH, query: 'golden path', candidates: [], conceptWalk: true,
+            resolveCandidate: memoryGate, now, maxHops: 1
+        });
+
+        // now() is read once at walk-start and once at event-build → a deterministic 7ms span
+        expect(typeof event.walkDurationMs).toBe('number');
+        expect(event.walkDurationMs).toBe(7);
     });
 });
