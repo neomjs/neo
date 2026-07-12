@@ -102,6 +102,29 @@ class FleetGrid extends Container {
          */
         adapterState_: 'live',
         /**
+         * Roving-tabindex keyboard navigation over the card set (WCAG grid a11y): the arrow keys move
+         * the active card. The `keys` config auto-creates a {@link Neo.util.KeyNavigation}; the handlers
+         * shift {@link #focusIndex} by one, clamped to the card count. Up/Left step back, Down/Right step
+         * forward (linear over the ranked card list — the visual grid is one focus ring).
+         * @member {Object} keys
+         */
+        keys: {
+            Down : 'onRoveNext',
+            Left : 'onRovePrev',
+            Right: 'onRoveNext',
+            Up   : 'onRovePrev'
+        },
+        /**
+         * The roving focus position — the index (within the agent-card subset) of the ONE card that is
+         * tab-reachable (`tabIndex 0`); every other card is `-1`, so the grid is a single tab stop and the
+         * arrows navigate within it. Plain state: {@link #moveFocus} applies the roving tabindex AND moves
+         * DOM focus (keyboard nav), while {@link #refreshGrid} re-applies the tabindex WITHOUT stealing
+         * focus on a roster rebuild.
+         * @member {Number} focusIndex_=0
+         * @reactive
+         */
+        focusIndex_: 0,
+        /**
          * A STABLE surface: the header (title · liveness marker · flex spacer · live {@link HealthBar})
          * and the card region. Only the card region's items rebuild on a roster change — the header
          * and its health bar are updated in place so the counts animate rather than flash.
@@ -122,7 +145,9 @@ class FleetGrid extends Container {
             ]
         }, {
             ntype    : 'container',
-            cls      : ['fm-fleet-cards'],
+            // `neo-selection`: opts the card region into the main-thread arrow-key preventDefault rule
+            // (DomEvents.onKeyDown) so roving navigation never scrolls the viewport.
+            cls      : ['fm-fleet-cards', 'neo-selection'],
             flex     : 1,
             layout   : {ntype: 'base'},
             reference: 'fleet-cards',
@@ -277,7 +302,99 @@ class FleetGrid extends Container {
         const cardsContainer = me.getReference('fleet-cards');
 
         cardsContainer.removeAll(true);
-        cardsContainer.add(cards)
+        cardsContainer.add(cards);
+
+        // roving-tabindex: re-establish the single tab stop over the freshly-built card set. Clamp the
+        // focus position to the new card count and re-apply the tabindex WITHOUT moving DOM focus — a
+        // roster refresh must never steal focus from wherever the operator currently is.
+        const cardCount = me.getAgentCards().length;
+        me.focusIndex   = cardCount > 0 ? Math.min(me.focusIndex, cardCount - 1) : 0;
+        me.applyRovingTabIndex()
+    }
+
+    /**
+     * @summary The agent-card subset of the card region (excludes the collapsed-idle fold row) — the
+     * roving focus ring operates over these.
+     * @returns {Neo.component.Base[]}
+     */
+    getAgentCards() {
+        return this.getReference('fleet-cards').items.filter(item => item.ntype === 'fm-agent-card')
+    }
+
+    /**
+     * @summary Reactive re-apply of the roving tabindex — the ONE card at {@link #focusIndex} is the tab
+     * stop (`tabIndex 0`), every other card is `-1`. Sets DOM state only; never moves focus (that is
+     * {@link #focusActiveCard}, called explicitly on keyboard nav).
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetFocusIndex(value, oldValue) {
+        this.isConstructed && this.applyRovingTabIndex()
+    }
+
+    /**
+     * @summary Writes the roving tabindex across the current card set — active card `0`, the rest `-1` —
+     * updating only the cards whose value actually changed. No focus movement.
+     */
+    applyRovingTabIndex() {
+        const me = this;
+
+        me.getAgentCards().forEach((card, index) => {
+            const tabIndex = index === me.focusIndex ? 0 : -1;
+
+            if (card.vdom.tabIndex !== tabIndex) {
+                card.vdom.tabIndex = tabIndex;
+                card.update()
+            }
+        })
+    }
+
+    /**
+     * @summary Moves DOM focus to the active card (the {@link #focusIndex} card), without scrolling —
+     * the keyboard-nav focus move (distinct from the tabindex-only {@link #applyRovingTabIndex}).
+     */
+    focusActiveCard() {
+        const card = this.getAgentCards()[this.focusIndex];
+
+        // focus is a mounted-DOM side-effect; the roving tabindex state (applyRovingTabIndex) stands on
+        // its own, so an unmounted grid (pre-mount, or a headless unit) simply skips the focus move.
+        card && this.mounted && card.focus(card.id, false, true)
+    }
+
+    /**
+     * @summary Shifts the roving focus by `delta` cards, clamped to the card count, then moves DOM focus.
+     * The arrow-key handlers ({@link #onRoveNext} / {@link #onRovePrev}) drive it.
+     * @param {Number} delta
+     */
+    moveFocus(delta) {
+        const me    = this,
+              cards = me.getAgentCards();
+
+        if (!cards.length) {
+            return
+        }
+
+        me.focusIndex = Math.max(0, Math.min(cards.length - 1, me.focusIndex + delta));
+        me.focusActiveCard()
+    }
+
+    /**
+     * @summary Arrow Down/Right — advance the roving focus one card.
+     * @param {Object} data The KeyNavigation event data.
+     * @protected
+     */
+    onRoveNext(data) {
+        this.moveFocus(1)
+    }
+
+    /**
+     * @summary Arrow Up/Left — step the roving focus back one card.
+     * @param {Object} data The KeyNavigation event data.
+     * @protected
+     */
+    onRovePrev(data) {
+        this.moveFocus(-1)
     }
 
     /**

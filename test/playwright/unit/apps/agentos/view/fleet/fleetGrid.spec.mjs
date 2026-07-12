@@ -242,4 +242,54 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
 
         grid.destroy()
     });
+
+    test('a11y roving-tabindex (#14619): arrows move the single tab stop across the card ring, clamped at both ends', () => {
+        const grid  = Neo.create(FleetGrid, {appName, foldThreshold: 12, store: makeStore(roster(['ok', 'ok', 'idle']))});
+        const tabOf = () => agentCards(grid).map(card => card.vdom.tabIndex);
+
+        // exactly ONE tab stop: the focusIndex-0 card is 0, every other card is -1 (single grid tab stop)
+        expect(grid.focusIndex).toBe(0);
+        expect(tabOf()).toEqual([0, -1, -1]);
+
+        // Down/Right advance the active card; the tab stop moves with focusIndex
+        grid.onRoveNext();
+        expect(grid.focusIndex).toBe(1);
+        expect(tabOf()).toEqual([-1, 0, -1]);
+
+        grid.onRoveNext();
+        expect(tabOf()).toEqual([-1, -1, 0]);
+
+        // clamp at the end — Down on the last card holds, never wraps out of bounds
+        grid.onRoveNext();
+        expect(grid.focusIndex).toBe(2);
+        expect(tabOf()).toEqual([-1, -1, 0]);
+
+        // Up/Left step back; clamp at 0
+        grid.onRovePrev();
+        expect(grid.focusIndex).toBe(1);
+        grid.onRovePrev();
+        grid.onRovePrev();
+        expect(grid.focusIndex).toBe(0);
+        expect(tabOf()).toEqual([0, -1, -1]);
+
+        grid.destroy()
+    });
+
+    test('a11y roving-tabindex (#14619): a roster rebuild clamps a stale focusIndex into range — exactly one tab stop survives, never a dangling out-of-bounds index', () => {
+        const store = makeStore(roster(['ok', 'ok', 'idle', 'ok', 'idle'])),
+              grid  = Neo.create(FleetGrid, {appName, foldThreshold: 12, store});
+
+        // park the roving focus on the last card, then shrink the roster below that index
+        grid.focusIndex = agentCards(grid).length - 1;
+        expect(grid.focusIndex).toBeGreaterThan(1);
+
+        store.data = roster(['ok', 'idle']); // fewer residents → the card set rebuilds
+
+        const cards = agentCards(grid);
+        expect(grid.focusIndex).toBe(cards.length - 1);                        // clamped into range
+        expect(cards.filter(card => card.vdom.tabIndex === 0)).toHaveLength(1); // exactly one tab stop
+        expect(cards.filter(card => card.vdom.tabIndex === -1)).toHaveLength(cards.length - 1);
+
+        grid.destroy()
+    });
 });
