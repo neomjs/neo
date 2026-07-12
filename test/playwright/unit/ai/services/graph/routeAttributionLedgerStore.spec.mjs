@@ -20,7 +20,7 @@ async function tmpDir() {
 
 // A guard-filtered candidate: the node the routing contradiction guard blocked, the live focus reasons that
 // armed the guard, and the exclusion bucket that fired.
-const record = (blockedNodeId, focusReasons, exclusionLabels, at) => ({blockedNodeId, focusReasons, exclusionLabels, at});
+const record = (blockedNodeId, armingReasons, exclusionLabels, at) => ({blockedNodeId, armingReasons, exclusionLabels, at});
 
 test.describe('routeAttributionLedgerStore — durable append-only route-attribution ledger (#15057)', () => {
     test('append → read round-trips in append order (oldest → newest)', async () => {
@@ -30,7 +30,7 @@ test.describe('routeAttributionLedgerStore — durable append-only route-attribu
 
         const records = await readRouteAttributionLedger({dir});
         expect(records.map(r => r.blockedNodeId)).toEqual(['issue-200', 'issue-201']);
-        expect(records[1]).toMatchObject({focusReasons: ['prio-zero'], at: 200});
+        expect(records[1]).toMatchObject({armingReasons: ['prio-zero'], at: 200});
         await fs.rm(dir, {recursive: true, force: true});
     });
 
@@ -53,7 +53,7 @@ test.describe('routeAttributionLedgerStore — durable append-only route-attribu
 
     test('append stamps `at` from the injected clock when the entry omits it (time-ordered without a real clock)', async () => {
         const dir = await tmpDir();
-        await appendRouteAttribution({blockedNodeId: 'issue-9', focusReasons: ['incident'], exclusionLabels: ['content']}, {dir, now: 4242});
+        await appendRouteAttribution({blockedNodeId: 'issue-9', armingReasons: ['incident'], exclusionLabels: ['content']}, {dir, now: 4242});
 
         const [only] = await readRouteAttributionLedger({dir});
         expect(only.at).toBe(4242);
@@ -104,7 +104,7 @@ test.describe('routeAttributionLedgerStore — durable append-only route-attribu
 
         const summary = summarizeRouteAttributionLedger(await readRouteAttributionLedger({dir}));
         expect(summary.total).toBe(3);
-        expect(summary.byFocusReason).toEqual({incident: 2, 'prio-zero': 1});
+        expect(summary.byArmingReason).toEqual({incident: 2, 'prio-zero': 1});
         expect(summary.byExclusionLabel).toEqual({content: 3, stale: 1});
         expect(summary.blockedNodeCounts).toEqual({'issue-200': 2, 'issue-201': 1});
         expect(summary.lastEventAt).toBe(300);
@@ -113,7 +113,7 @@ test.describe('routeAttributionLedgerStore — durable append-only route-attribu
 
     test('summarize on an empty stream is a well-formed zero surface (no NaN, no crash)', () => {
         expect(summarizeRouteAttributionLedger([])).toEqual({
-            total: 0, byFocusReason: {}, byExclusionLabel: {}, blockedNodeCounts: {}, lastEventAt: null
+            total: 0, byArmingReason: {}, byExclusionLabel: {}, blockedNodeCounts: {}, lastEventAt: null
         });
         expect(summarizeRouteAttributionLedger(undefined).total).toBe(0);
     });
@@ -126,7 +126,7 @@ test.describe('routeAttributionLedgerStore — durable append-only route-attribu
         ];
 
         // focus-reason intersection, newest-first
-        expect(queryRouteAttributionLedger(records, {focusReasons: ['incident']}).map(r => r.at)).toEqual([300, 100]);
+        expect(queryRouteAttributionLedger(records, {armingReasons: ['incident']}).map(r => r.at)).toEqual([300, 100]);
         // blocked-node filter
         expect(queryRouteAttributionLedger(records, {blockedNodeIds: ['issue-201']}).map(r => r.at)).toEqual([200]);
         // inclusive time window

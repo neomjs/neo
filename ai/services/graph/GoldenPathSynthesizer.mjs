@@ -29,6 +29,7 @@ import {
     buildFailureOutcome                          as buildRouteFailureOutcome,
     findComputedFocusContradiction               as findRouteFocusContradiction,
     getComputedRecommendationExclusionLabels     as getRouteExclusionLabels,
+    getRoutingConflictReasons                    as getRouteConflictReasons,
     isActionableComputedRecommendation           as isActionableRouteRecommendation,
     isContentComputedRecommendation              as isContentRouteRecommendation,
     isRoutingConflictFocusCandidate              as isRouteConflictFocusCandidate,
@@ -372,26 +373,30 @@ class GoldenPathSynthesizer extends Base {
 
     /**
      * @summary Maps a routing-guard contradiction into route-attribution ledger records — one per blocked
-     * computed candidate, tagged with the live focus reasons that armed the guard and the exclusion bucket that
-     * classified the node. Pure (no I/O, no config read): the caller persists the result. The focus reasons are
-     * the union across the armed Current Focus candidates (all blocked nodes in one contradiction share the same
-     * live focus context); the exclusion labels are per-node via the shared actionability contract.
+     * computed candidate. `armingReasons` are ONLY the reasons that actually armed the guard (via the shared
+     * getRoutingConflictReasons authority), so incidental co-reasons (fresh-updated / agent-os) are never
+     * mis-attributed as causes; `candidateReasons` keeps the full diagnostic set separately. Pure (no I/O, no
+     * config read): the caller persists the result. Reasons are unioned across the armed Current Focus
+     * candidates (all blocked nodes in one contradiction share the live focus context); exclusion labels are
+     * per-node via the shared actionability contract.
      * @param {{blockedNodes: Array<Object>, focusCandidates: Array<Object>}|null} focusContradiction Result from `findComputedFocusContradiction`.
      * @param {Number} nowMs Epoch ms stamped onto each record.
-     * @returns {Object[]} `[{blockedNodeId, focusReasons, exclusionLabels, at}]` (empty when no contradiction).
+     * @returns {Object[]} `[{blockedNodeId, armingReasons, candidateReasons, exclusionLabels, at}]` (empty when no contradiction).
      */
     static buildRouteAttributionRecords(focusContradiction, nowMs) {
         if (!focusContradiction) return [];
 
-        const blockedNodes    = Array.isArray(focusContradiction.blockedNodes)    ? focusContradiction.blockedNodes    : [],
-              focusCandidates = Array.isArray(focusContradiction.focusCandidates) ? focusContradiction.focusCandidates : [],
-              focusReasons    = [...new Set(focusCandidates.flatMap(candidate => Array.isArray(candidate.reasons) ? candidate.reasons : []))];
+        const blockedNodes     = Array.isArray(focusContradiction.blockedNodes)    ? focusContradiction.blockedNodes    : [],
+              focusCandidates  = Array.isArray(focusContradiction.focusCandidates) ? focusContradiction.focusCandidates : [],
+              armingReasons    = [...new Set(focusCandidates.flatMap(candidate => getRouteConflictReasons(candidate)))],
+              candidateReasons = [...new Set(focusCandidates.flatMap(candidate => Array.isArray(candidate.reasons) ? candidate.reasons : []))];
 
         return blockedNodes
             .filter(item => item?.node?.id)
             .map(item => ({
+                armingReasons,
                 blockedNodeId  : item.node.id,
-                focusReasons,
+                candidateReasons,
                 exclusionLabels: getRouteExclusionLabels(item.node),
                 at             : nowMs
             }))

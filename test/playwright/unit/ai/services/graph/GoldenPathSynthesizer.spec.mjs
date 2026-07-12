@@ -2397,7 +2397,7 @@ test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from
         expect(Synthesizer.hasCrossFamilyReview(pr, agentFamilies)).toBe(false)
     });
 
-    test('buildRouteAttributionRecords maps blocked nodes → records: node id, focus-reason union, per-node labels, stamped at (#15057)', () => {
+    test('buildRouteAttributionRecords records armingReasons (guard causes only) vs candidateReasons (full set), per-node labels, stamped at (#15057 / RA-2 #15060)', () => {
 
         const contradiction = {
             blockedNodes: [
@@ -2413,9 +2413,12 @@ test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from
         const records = Synthesizer.buildRouteAttributionRecords(contradiction, 4242);
 
         expect(records.map(r => r.blockedNodeId)).toEqual(['issue-200', 'issue-201']);
-        // focus reasons are the deduped union across the armed focus candidates (all blocked nodes share the focus)
-        expect(records[0].focusReasons).toEqual(['incident', 'fresh-updated', 'prio-zero']);
-        expect(records[1].focusReasons).toEqual(['incident', 'fresh-updated', 'prio-zero']);
+        // armingReasons = ONLY the reasons that armed the guard (incident/prio-zero); the incidental
+        // 'fresh-updated' is NEVER attributed as a cause — candidateReasons keeps the full diagnostic set.
+        expect(records[0].armingReasons).toEqual(['incident', 'prio-zero']);
+        expect(records[0].candidateReasons).toEqual(['incident', 'fresh-updated', 'prio-zero']);
+        expect(records[1].armingReasons).toEqual(['incident', 'prio-zero']);
+        expect(records[1].candidateReasons).toEqual(['incident', 'fresh-updated', 'prio-zero']);
         // every record is stamped with the injected clock, and carries its per-node exclusion-label array
         expect(records.every(r => r.at === 4242)).toBe(true);
         expect(records.every(r => Array.isArray(r.exclusionLabels))).toBe(true);

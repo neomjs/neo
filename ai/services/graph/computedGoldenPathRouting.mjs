@@ -106,6 +106,20 @@ export function isRoutingConflictFocusCandidate(candidate) {
 }
 
 /**
+ * @summary Returns the subset of a Current Focus candidate's reasons that ACTUALLY arm the routing guard —
+ * the same `CURRENT_FOCUS_ROUTING_CONFLICT_REASONS` authority `isRoutingConflictFocusCandidate` predicates on.
+ * A route-attribution ledger records these as the guard triggers so incidental co-reasons (fresh-updated,
+ * agent-os) are never mis-attributed as causes.
+ * @param {Object} candidate Current Focus candidate.
+ * @returns {String[]} The arming reasons (empty when none arm the guard).
+ */
+export function getRoutingConflictReasons(candidate) {
+    return Array.isArray(candidate?.reasons)
+        ? candidate.reasons.filter(reason => CURRENT_FOCUS_ROUTING_CONFLICT_REASONS.has(reason))
+        : []
+}
+
+/**
  * @summary Detects computed recommendations that are narrative/content work.
  *
  * Blog and docs tickets are valid Golden Path work when incident/release focus permits

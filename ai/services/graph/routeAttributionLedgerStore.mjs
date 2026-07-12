@@ -57,7 +57,7 @@ export function validateRouteAttributionRetention(maxEvents, triggerBytes) {
  * size stat-gate fires an amortized keep-most-recent prune once the ledger crosses `triggerBytes`, so the file
  * never grows without bound. With no policy supplied the auto-prune is inert; this helper owns no production
  * default — the config-SSOT leaves do.
- * @param {Object} entry A JSON-serializable record (`{blockedNodeId, focusReasons, exclusionLabels, at?}`).
+ * @param {Object} entry A JSON-serializable record (`{blockedNodeId, armingReasons, candidateReasons, exclusionLabels, at?}`).
  * @param {Object} options
  * @param {String} options.dir The durable state directory.
  * @param {Number} [options.now] Epoch ms used to stamp `at` when the entry omits it.
@@ -167,11 +167,11 @@ export async function pruneRouteAttributionLedger({dir, maxEvents} = {}) {
  * fired, and how often each node was blocked (the "is the type-gate over-filtering?" evidence). Pure — no I/O;
  * the caller reads the ledger then summarizes.
  * @param {Object[]} [records=[]] The route-attribution records (as read from the ledger).
- * @returns {Object} `{total, byFocusReason, byExclusionLabel, blockedNodeCounts, lastEventAt}`.
+ * @returns {Object} `{total, byArmingReason, byExclusionLabel, blockedNodeCounts, lastEventAt}`.
  */
 export function summarizeRouteAttributionLedger(records = []) {
     const rows              = Array.isArray(records) ? records : [],
-          byFocusReason     = {},
+          byArmingReason    = {},
           byExclusionLabel  = {},
           blockedNodeCounts = {};
 
@@ -180,9 +180,9 @@ export function summarizeRouteAttributionLedger(records = []) {
     for (const record of rows) {
         if (!record || typeof record !== 'object') continue;
 
-        for (const reason of Array.isArray(record.focusReasons) ? record.focusReasons : []) {
+        for (const reason of Array.isArray(record.armingReasons) ? record.armingReasons : []) {
             if (typeof reason === 'string' && reason.length > 0) {
-                byFocusReason[reason] = (byFocusReason[reason] ?? 0) + 1;
+                byArmingReason[reason] = (byArmingReason[reason] ?? 0) + 1;
             }
         }
 
@@ -203,7 +203,7 @@ export function summarizeRouteAttributionLedger(records = []) {
 
     return {
         total: rows.length,
-        byFocusReason,
+        byArmingReason,
         byExclusionLabel,
         blockedNodeCounts,
         lastEventAt
@@ -215,21 +215,21 @@ export function summarizeRouteAttributionLedger(records = []) {
  * complements `summarizeRouteAttributionLedger`'s folded counts. Pure: restrict by an optional inclusive time
  * window, live focus reasons, exclusion labels, and blocked node ids; returns newest-first (by `at`), capped at
  * `limit`. A non-object record, or one outside a requested time window, is dropped; an untimed record is excluded
- * when a time bound is requested. A record matches a `focusReasons` / `exclusionLabels` filter when its array
+ * when a time bound is requested. A record matches a `armingReasons` / `exclusionLabels` filter when its array
  * intersects the requested set.
  * @param {Object[]} [records=[]] The route-attribution records (as read from the ledger).
  * @param {Object} [options]
  * @param {Number} [options.sinceMs] Lower bound (inclusive) on `at`.
  * @param {Number} [options.untilMs] Upper bound (inclusive) on `at`.
- * @param {String[]} [options.focusReasons] Restrict to records whose `focusReasons` intersect these.
+ * @param {String[]} [options.armingReasons] Restrict to records whose `armingReasons` intersect these.
  * @param {String[]} [options.exclusionLabels] Restrict to records whose `exclusionLabels` intersect these.
  * @param {String[]} [options.blockedNodeIds] Restrict to these blocked node ids.
  * @param {Number} [options.limit] Max records returned (newest-first); omitted → all matches.
  * @returns {Object[]} The matching records, newest-first.
  */
-export function queryRouteAttributionLedger(records = [], {sinceMs, untilMs, focusReasons, exclusionLabels, blockedNodeIds, limit} = {}) {
+export function queryRouteAttributionLedger(records = [], {sinceMs, untilMs, armingReasons, exclusionLabels, blockedNodeIds, limit} = {}) {
     const rows      = Array.isArray(records) ? records : [],
-          reasonSet = Array.isArray(focusReasons)    && focusReasons.length    ? new Set(focusReasons)    : null,
+          reasonSet = Array.isArray(armingReasons)    && armingReasons.length    ? new Set(armingReasons)    : null,
           labelSet  = Array.isArray(exclusionLabels) && exclusionLabels.length ? new Set(exclusionLabels) : null,
           nodeSet   = Array.isArray(blockedNodeIds)  && blockedNodeIds.length  ? new Set(blockedNodeIds)  : null;
 
@@ -237,7 +237,7 @@ export function queryRouteAttributionLedger(records = [], {sinceMs, untilMs, foc
         if (!record || typeof record !== 'object')                                             return false;
         if (Number.isFinite(sinceMs) && !(Number.isFinite(record.at) && record.at >= sinceMs)) return false;
         if (Number.isFinite(untilMs) && !(Number.isFinite(record.at) && record.at <= untilMs)) return false;
-        if (reasonSet && !(Array.isArray(record.focusReasons)    && record.focusReasons.some(reason => reasonSet.has(reason)))) return false;
+        if (reasonSet && !(Array.isArray(record.armingReasons)    && record.armingReasons.some(reason => reasonSet.has(reason)))) return false;
         if (labelSet  && !(Array.isArray(record.exclusionLabels) && record.exclusionLabels.some(label => labelSet.has(label)))) return false;
         if (nodeSet   && !nodeSet.has(record.blockedNodeId)) return false;
         return true;
