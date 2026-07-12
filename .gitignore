@@ -120,8 +120,6 @@ sent-to-cull.jsonl
 # Per-user Codex MCP server configs
 .codex/config.toml
 
-# Local workspace-level Antigravity config (causes dual-parse bug if committed)
-
 # Playwright test results
 test/playwright/test-results/
 # Single-file Playwright runs via npx
@@ -134,7 +132,6 @@ resources/content/sandman_concept_slice.md
 # Agent Harness Scratch Artifacts (Issue #11563)
 .gemini/*
 !.gemini/concepts/
-!.gemini/settings.template.json
 /pr_*.md
 /scratch*.mjs
 /patch_*.js

@@ -70,7 +70,7 @@ The Agent OS exposes five package-backed MCP servers that work together to give 
 
 *   **Role:** Sandboxed Hands for local agent loops.
 *   **Function:** Provides file IO when an agent profile does not already have a native filesystem tool.
-*   **Capability:** Keeps `Neo.ai.Agent` and harnessless local loops on the same MCP contract as the frontier-harness peers. Codex, Claude Code, Gemini CLI, and Antigravity usually use their native filesystem tools instead, so their default MCP set often exposes four servers while the package script surface contains five.
+*   **Capability:** Keeps `Neo.ai.Agent` and harnessless local loops on the same MCP contract as the frontier-harness peers. Codex, Claude Code, Antigravity, and enterprise/API-key Gemini CLI profiles usually use their native filesystem tools instead, so their default MCP set often exposes four servers while the package script surface contains five.
 
 ## Shared Architectural Patterns
 
@@ -96,7 +96,7 @@ While our default configuration uses `stdio` (standard input/output) for maximum
 
 To start using the Agent OS, you need to configure your AI client to connect to these servers.
 
-If you are using **Claude Desktop** or a compatible generic MCP client, the configuration is generated for you in `.gemini/settings.json` (or can be manually configured).
+Configure the four frontier-harness servers in your client's native MCP authority. [Antigravity 2.x](https://antigravity.google/docs/mcp) supports global `~/.gemini/config/mcp_config.json` and workspace `.agents/mcp_config.json`; Claude and Codex use their own client-specific surfaces. Neo does not generate one cross-harness workspace settings file.
 
 If you are building **autonomous agents**, you can import the SDK directly:
 

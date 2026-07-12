@@ -35,7 +35,7 @@ DEBUG="*" npx chrome-devtools-mcp@latest --headless --isolated --logFile=./mcp-d
 
 ## Configuration
 
-For integration with an AI agent or client (e.g., Gemini CLI), you must configure the server in the appropriate settings file (e.g., `.gemini/settings.json`). Configuration is done using documented CLI flags passed in the `args` array.
+For integration with an AI client, add the server to that client's MCP authority. [Antigravity 2.x](https://antigravity.google/docs/mcp) documents global `~/.gemini/config/mcp_config.json` and workspace `.agents/mcp_config.json`; choose one scope for the server. Configuration uses the documented CLI flags in the `args` array.
 
 ### Example Configuration
 
@@ -85,14 +85,14 @@ For a seamless experience, an AI agent should follow a dynamic process to detect
         *   If a path is returned, no `executablePath` is needed.
         *   If no path is returned, the agent could prompt the user or search common non-standard paths like `/opt/google/chrome/google-chrome`.
 
-3.  **Update `.gemini/settings.json`:**
-    *   The agent must read and parse the `.gemini/settings.json` file.
+3.  **Update the selected MCP authority:**
+    *   The agent must read and parse the client-owned MCP configuration. For Antigravity, select either the global or workspace authority before editing.
     *   **If a specific path was found (WSL, Windows, macOS):** The agent should find the `args` array for the `chrome-devtools` server and add or update the `--executablePath` entry with the correct path.
     *   **If no specific path is needed (standard Linux):** The agent should ensure that no `--executablePath` entry exists in the `args` array to allow the server to find the browser automatically.
 
 This dynamic approach ensures the configuration is correct across different user environments without manual intervention.
 
-**Illustrative `.gemini/settings.json` Structure:**
+**Illustrative MCP Configuration Structure:**
 
 The agent will dynamically modify a base configuration, preserving existing fields like `commandDescription` and `environment`. The `args` array will be updated based on the detected operating system.
 

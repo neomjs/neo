@@ -200,7 +200,7 @@ Corollary: adding a new `audits/` sibling to correct bloated skill workflow pros
 
 ### 5.6 Parent-Directory Symlink Anti-Pattern
 
-When unifying cross-clone substrate (per `ai/scripts/bootstrapWorktree.mjs`), parent-directory symlinking the skills folder (e.g., `.claude/skills/ → ../../.agents/skills/`) appears clean but breaks the `.claude/skills/` per-file symlink convention required by Claude Code. Same anti-pattern shape as `.neo-ai-data/` parent-symlink (per #10432 empirical anchor).
+When unifying cross-clone substrate (per `ai/scripts/migrations/bootstrapWorktree.mjs`), parent-directory symlinking the skills folder (e.g., `.claude/skills/ → ../../.agents/skills/`) appears clean but breaks the `.claude/skills/` per-file symlink convention required by Claude Code. Same anti-pattern shape as `.neo-ai-data/` parent-symlink (per #10432 empirical anchor).
 
 **Prevention:** Each new skill MUST get its own individual symlink in `.claude/skills/<name>`, not via parent-directory aggregation. Bootstrap scripts enforce per-skill granularity. Per #10432 + #10591 lineage on granular gitignored-file symlink discipline.
 

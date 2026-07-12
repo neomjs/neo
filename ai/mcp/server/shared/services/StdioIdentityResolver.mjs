@@ -11,9 +11,10 @@ import Base       from '../../../../../src/core/Base.mjs';
  *
  * **Resolution chain** (first match wins):
  *
- * 1. **`NEO_AGENT_IDENTITY` environment variable** — explicit pinning for agent harnesses.
- *    Claude Code sets this via `.claude/settings.json`; Gemini via `.gemini/settings.json`; other
- *    harnesses via their native config surface. This is the authoritative path for per-model
+ * 1. **`NEO_AGENT_IDENTITY` environment variable** — explicit pinning in the MCP subprocess
+ *    environment. Claude and Antigravity clients set it in their native MCP server definitions;
+ *    Antigravity 2.x can use either its global `~/.gemini/config/mcp_config.json` authority or a
+ *    workspace `.agents/mcp_config.json` authority. This is the authoritative path for per-model
  *    GitHub account binding to seeded AgentIdentity node ids such as `@neo-opus-ada`.
  * 2. **`gh api user` via the GitHub CLI** — zero-friction fallback for local human developers
  *    who have `gh` installed and authenticated. Matches the `@me` shortcut semantics used
