@@ -308,7 +308,7 @@ Evidence: L<X> (<sandbox-ceiling description>) → L<Y> required (<close-target 
 <scope additions, better solutions, edge cases — "None substantive" when empty; heading is a lint anchor>
 
 ## Test Evidence
-<commands run, results, coverage>
+<commands/results; per directly touched app/feature surface: <surface>: <spec/journey + result> | `None found`>
 
 ## Post-Merge Validation
 - [ ] <items verifiable only after merge>
@@ -322,15 +322,7 @@ Evidence: L<X> (<sandbox-ceiling description>) → L<Y> required (<close-target 
 
 `agent-pr-body-lint.yml` enforces `Evidence:`, `## Test Evidence`, `## Post-Merge Validation`, `## Deltas`, `Authored by ` as **unconditional** anchors — presence is never prose-conditional (PR #14465).
 
-**Evidence declaration discipline (`#10698` graduation artifact):**
-
-The `Evidence:` line is a greppable declaration of achieved evidence vs
-close-target requirement. Required for runtime/substrate/harness/UI/host effects
-the sandbox cannot fully reach; optional when unit/static evidence fully covers
-ACs. See [`evidence-ladder.md`](../../../../learn/agentos/process/evidence-ladder.md)
-for L1-L4 classes.
-
-The `pr-review` skill's Evidence Audit section (in `pr-review-template.md`) verifies this declaration against the close-target ACs.
+**Evidence discipline (`#10698`):** `Evidence:` declares achieved vs required for sandbox-unreachable runtime/substrate/harness/UI/host effects. `## Test Evidence` lists commands/results and, per directly touched app/feature surface, existing non-CI coverage or `None found`; omissions are not PR-claim-dependent. Put unavailable-environment residuals in `Evidence:` + `## Post-Merge Validation`. See [`evidence-ladder.md`](../../../../learn/agentos/process/evidence-ladder.md); `pr-review` checks close-target ACs.
 
 ## 10. Authorship Respect
 
