@@ -315,7 +315,9 @@ class SessionService extends Base {
      * **Logic:**
      * 1.  **Scope:** Fetches memory and summary metadata across all sessions (all-time). The prior
      *     30-day window was an obsolete safeguard from boot-coupled summarization that stranded old sessions.
-     * 2.  **Grouping:** Aggregates actual memory counts per session from the raw memory data.
+     * 2.  **Grouping:** Folds each fetched page directly into per-session count and latest-activity
+     *     state. Peak discovery retention therefore scales with distinct sessions plus one Chroma page,
+     *     rather than retaining metadata for every memory and summary row in the all-time scan.
      * 3.  **Comparison:**
      *     -   **Missing Summary:** If a session has memories but no summary, it is flagged.
      *     -   **Count Mismatch:** If `DB_Count !== Summary_Count`, it implies the session has changed
@@ -344,10 +346,10 @@ class SessionService extends Base {
         const limit         = aiConfig.summarizationBatchLimit;
         const maxIterations = 1000; // Safety break: max 2M records (2000 * 1000)
 
-        let allMetadatas = [];
-        let offset       = 0;
-        let hasMore      = true;
-        let iterations   = 0;
+        let offset              = 0;
+        let hasMore             = true;
+        let iterations          = 0;
+        let memoryMetadataCount = 0;
 
         // Build query options dynamically to avoid passing `where: undefined`
         const baseQueryOptions = {
@@ -355,7 +357,9 @@ class SessionService extends Base {
             limit
         };
 
-        const memoryQueryOptions = { ...baseQueryOptions };
+        const
+            memoryQueryOptions = { ...baseQueryOptions },
+            sessions           = new Map(); // sessionId => {count, lastActivity}
 
         while (hasMore) {
             if (iterations++ > maxIterations) {
@@ -369,7 +373,32 @@ class SessionService extends Base {
             if (batch.ids.length === 0) {
                 hasMore = false;
             } else {
-                allMetadatas = allMetadatas.concat(batch.metadatas);
+                memoryMetadataCount += batch.metadatas.length;
+
+                batch.metadatas.forEach(metadata => {
+                    const {sessionId} = metadata;
+
+                    if (!sessionId) return;
+
+                    let sessionData = sessions.get(sessionId);
+
+                    if (!sessionData) {
+                        sessionData = {count: 0, lastActivity: 0};
+                        sessions.set(sessionId, sessionData)
+                    }
+
+                    sessionData.count++;
+
+                    // Normalize to epoch-ms (numeric, numeric-string, ISO, and the legacy
+                    // `Memory: <iso>` name formats are all in play) so lastActivity is a reliable
+                    // clock for the churn-gate below — mirrors getExternallyActiveSessionIds.
+                    const tsMs = this.resolveGraphTimestampMs(metadata.timestamp, metadata.name);
+
+                    if (tsMs !== null && tsMs > sessionData.lastActivity) {
+                        sessionData.lastActivity = tsMs
+                    }
+                });
+
                 offset += limit;
 
                 if (batch.ids.length < limit) {
@@ -378,36 +407,17 @@ class SessionService extends Base {
             }
         }
 
-        if (allMetadatas.length === 0) return [];
-
-        // 2. Group memories by session
-        const sessions = {}; // {sessionId: {count: number, lastActivity: number}}
-
-        allMetadatas.forEach(m => {
-            if (!m.sessionId) return;
-
-            if (!sessions[m.sessionId]) {
-                sessions[m.sessionId] = { count: 0, lastActivity: 0 };
-            }
-
-            sessions[m.sessionId].count++;
-            // Normalize to epoch-ms (numeric, numeric-string, ISO, and the legacy `Memory: <iso>`
-            // name formats are all in play) so lastActivity is a reliable clock for the churn-gate
-            // below — mirrors getExternallyActiveSessionIds' resolution.
-            const tsMs = this.resolveGraphTimestampMs(m.timestamp, m.name);
-            if (tsMs !== null && tsMs > sessions[m.sessionId].lastActivity) {
-                sessions[m.sessionId].lastActivity = tsMs;
-            }
-        });
+        if (memoryMetadataCount === 0) return [];
 
         // 3. Fetch existing summaries
-        // Matches the scope of the memory fetch (30 days or all).
-        let allSummaryMetadatas = [];
+        // Matches the all-time scope of the memory fetch.
         offset = 0;
         hasMore = true;
         iterations = 0;
 
-        const summaryQueryOptions = { ...baseQueryOptions };
+        const
+            summaryQueryOptions = { ...baseQueryOptions },
+            summaryMap          = new Map(); // sessionId => memoryCount
 
         while (hasMore) {
             if (iterations++ > maxIterations) {
@@ -421,7 +431,12 @@ class SessionService extends Base {
             if (batch.ids.length === 0) {
                 hasMore = false;
             } else {
-                allSummaryMetadatas = allSummaryMetadatas.concat(batch.metadatas);
+                batch.metadatas.forEach(metadata => {
+                    if (metadata.sessionId) {
+                        summaryMap.set(metadata.sessionId, metadata.memoryCount || 0)
+                    }
+                });
+
                 offset += limit;
 
                 if (batch.ids.length < limit) {
@@ -429,14 +444,6 @@ class SessionService extends Base {
                 }
             }
         }
-
-        const summaryMap = {}; // {sessionId: memoryCount}
-
-        allSummaryMetadatas.forEach(m => {
-            if (m.sessionId) {
-                summaryMap[m.sessionId] = m.memoryCount || 0;
-            }
-        });
 
         // 4. Determine candidates
         const nowMs = typeof now === 'number' ? now : new Date(now).getTime();
@@ -447,9 +454,8 @@ class SessionService extends Base {
         const externallyActiveSessionIds = this.getExternallyActiveSessionIds({now: nowMs});
         const sessionsToUpdate           = [];
 
-        Object.keys(sessions).forEach(sessionId => {
-            const sessionData  = sessions[sessionId];
-            const summaryCount = summaryMap[sessionId];
+        sessions.forEach((sessionData, sessionId) => {
+            const summaryCount = summaryMap.get(sessionId);
 
             // Skip the in-process current session (it summarizes on its own sunset).
             if (sessionId === this.currentSessionId) {
