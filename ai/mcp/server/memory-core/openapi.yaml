@@ -627,6 +627,136 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /memories/history:
+    get:
+      summary: Explore Memory History
+      operationId: explore_memory_history
+      x-neo-tool-tier: read
+      x-pass-as-object: true
+      x-neo-tool-summary: Synthesize a non-authoritative "what happened" Bird View over a Memory/session time window.
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        The Memory/session temporal Bird View — a computed-on-demand "what happened this week/month/quarter"
+        synthesis over a time window, never a stored digest. Walks the chronological recency spine
+        (query_recent_turns) to completeness, foregrounds recurring themes via semantic enrichment
+        (query_raw_memories), and returns ONE non-authoritative envelope with cited sources. The narrative is
+        WITHHELD on any coverage gap — honest absence over a plausible-but-partial story. Zero durable output
+        above L2: nothing is written.
+
+        **When to Use:**
+        To orient on a stretch of work ("what happened this week") rather than a point recall. Pass a `preset`
+        grain (weekly/monthly/quarterly, or the finer daily/3-day) OR an explicit windowStart/windowEnd, not
+        both. `partition` is 'unified' (the full maintainer roster, cross-agent de-duplicated) or a single
+        '@<identity>'.
+      tags: [Memories]
+      parameters:
+        - name: partition
+          in: query
+          required: false
+          description: "'unified' (default) walks the full AgentIdentity roster + cross-agent de-duplicates; '@<identity>' walks exactly that identity."
+          schema:
+            type: string
+            default: unified
+        - name: preset
+          in: query
+          required: false
+          description: "Window grain (mutually exclusive with windowStart/windowEnd). weekly=L3, monthly=L4, quarterly=L5; daily / 3-day are finer arbitrary grains."
+          schema:
+            type: string
+            enum: [daily, 3-day, weekly, monthly, quarterly]
+        - name: windowStart
+          in: query
+          required: false
+          description: "Explicit inclusive window start as an ISO 8601 string. Provide together with windowEnd instead of a preset."
+          schema:
+            type: string
+        - name: windowEnd
+          in: query
+          required: false
+          description: "Explicit exclusive window end as an ISO 8601 string. Provide together with windowStart instead of a preset."
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Bird View envelope synthesized (non-authoritative; narrative withheld on any coverage gap)
+          content:
+            application/json:
+              schema:
+                type: object
+                description: The non-authoritative Bird View envelope. Nothing here is durable — it is a query-time view.
+                properties:
+                  window:
+                    type: object
+                    description: The resolved half-open window (partition, windowStart, windowEnd, and their ISO forms).
+                  coverage:
+                    type: object
+                    description: Retrieval completeness — the narrative is withheld unless coverage is provably complete.
+                    properties:
+                      totalResolved:
+                        type: integer
+                        description: The chronological census — every source resolved in the window.
+                      included:
+                        type: integer
+                      excluded:
+                        type: integer
+                      truncated:
+                        type: boolean
+                      sourceTypeCounts:
+                        type: object
+                        description: Per-source-type counts (e.g. session vs memory), so a caller sees the split, not just a total.
+                      synthesisInputCount:
+                        type: integer
+                        description: How many sources the narrative was actually built from; on a window larger than the prompt bounds this is below totalResolved. Present only when the synthesis reported its inference inputs.
+                      degraded:
+                        type: boolean
+                      degradedReason:
+                        type: string
+                        nullable: true
+                  sourceManifestHash:
+                    type: string
+                    description: Order-independent FNV-1a fingerprint of the exact source manifest (provenance / cache comparison).
+                  citations:
+                    type: array
+                    description: Per-source drill-down. inSynthesis (when present) separates inference inputs from census-only sources.
+                    items:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                        id:
+                          type: string
+                        sessionId:
+                          type: string
+                          description: Present when the source carries one — pivot into get_session_memories.
+                        ref:
+                          type: string
+                        inSynthesis:
+                          type: boolean
+                          description: True when this citation was among the sources the narrative was built from.
+                  synthesis:
+                    type: string
+                    nullable: true
+                    description: The "what happened" narrative — non-null ONLY when coverage is provably complete.
+                  synthesisAvailable:
+                    type: boolean
+                  synthesisUnavailableReason:
+                    type: string
+                    nullable: true
+                    description: coverage-incomplete, no-narrative, or null when a narrative is present.
+                  generatedAt:
+                    type: string
+                    description: ISO-8601 generation stamp (injected, never read from a clock internally).
+                  notAuthority:
+                    type: boolean
+                    description: Always true — this envelope is a query-time view, never an authority.
+        '503':
+          description: Cannot connect to database
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /context/frontier:
     get:
       summary: Get Context Frontier
