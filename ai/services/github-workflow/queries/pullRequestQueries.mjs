@@ -66,6 +66,225 @@ export const FETCH_PULL_REQUESTS = `
 `;
 
 /**
+ * @summary Search resolved pull requests for runtime history exploration.
+ *
+ * The search connection provides the outer resolved-PR census while each pull request includes
+ * bounded first pages of issue comments and review bodies. `totalCount` + `pageInfo` make truncation explicit;
+ * callers must continue incomplete child connections with {@link FETCH_PULL_REQUEST_HISTORY_CHILDREN}
+ * before treating those legs as complete. Inline review comments are a distinct GitHub collection and are
+ * exhausted by `PullRequestHistoryService` through the paginated REST review-comment endpoint.
+ *
+ * Variables required:
+ * - $query: String! - GitHub search query containing the repository, resolution, and time window
+ * - $limit: Int! - Number of resolved pull requests per search page
+ * - $cursor: String - Search-page cursor
+ * - $childLimit: Int! - Number of comments and reviews included with each pull request
+ */
+export const FETCH_RESOLVED_PULL_REQUESTS_FOR_HISTORY = `
+  query FetchResolvedPullRequestsForHistory(
+    $query: String!
+    $limit: Int!
+    $cursor: String
+    $childLimit: Int!
+  ) {
+    search(query: $query, type: ISSUE, first: $limit, after: $cursor) {
+      issueCount
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        ... on PullRequest {
+          number
+          title
+          body
+          url
+          state
+          createdAt
+          updatedAt
+          closedAt
+          mergedAt
+          author {
+            login
+          }
+          comments(first: $childLimit) {
+            totalCount
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+            nodes {
+              id
+              author {
+                login
+              }
+              body
+              createdAt
+              updatedAt
+            }
+          }
+          reviews(first: $childLimit) {
+            totalCount
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+            nodes {
+              id
+              author {
+                login
+              }
+              body
+              createdAt
+              updatedAt
+              submittedAt
+              state
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * @summary Revalidate a resolved-PR census without re-fetching conversation bodies.
+ *
+ * The history service performs a second, independent pass after exhausting the evidence-bearing search.
+ * Comparing these terminal revision fields detects result-set or resolution mutation while keeping the
+ * verification pass substantially cheaper than repeating every comment and review connection.
+ *
+ * Variables required:
+ * - $query: String! - GitHub search query containing the repository and time window
+ * - $limit: Int! - Number of resolved pull requests per search page
+ * - $cursor: String - Search-page cursor
+ */
+export const FETCH_RESOLVED_PULL_REQUEST_CENSUS_REVISION = `
+  query FetchResolvedPullRequestCensusRevision(
+    $query: String!
+    $limit: Int!
+    $cursor: String
+  ) {
+    search(query: $query, type: ISSUE, first: $limit, after: $cursor) {
+      issueCount
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        ... on PullRequest {
+          number
+          updatedAt
+          closedAt
+          mergedAt
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * @summary Continue the comment and review connections for one pull request.
+ *
+ * The two child cursors are independent so callers can exhaust either connection without assuming
+ * that comments and reviews have equal depth. The pull request's `updatedAt` value lets the caller
+ * detect conversation mutation while paginating and restart rather than synthesize mixed snapshots.
+ *
+ * Variables required:
+ * - $owner: String! - Repository owner
+ * - $repo: String! - Repository name
+ * - $prNumber: Int! - Pull request number
+ * - $childLimit: Int! - Number of comments and reviews per child page
+ * - $commentsCursor: String - Comment-page cursor
+ * - $reviewsCursor: String - Review-page cursor
+ */
+export const FETCH_PULL_REQUEST_HISTORY_CHILDREN = `
+  query FetchPullRequestHistoryChildren(
+    $owner: String!
+    $repo: String!
+    $prNumber: Int!
+    $childLimit: Int!
+    $commentsCursor: String
+    $reviewsCursor: String
+  ) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $prNumber) {
+        updatedAt
+        comments(first: $childLimit, after: $commentsCursor) {
+          totalCount
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          nodes {
+            id
+            author {
+              login
+            }
+            body
+            createdAt
+            updatedAt
+          }
+        }
+        reviews(first: $childLimit, after: $reviewsCursor) {
+          totalCount
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          nodes {
+            id
+            author {
+              login
+            }
+            body
+            createdAt
+            updatedAt
+            submittedAt
+            state
+          }
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * @summary Fetch release cuts used to resolve release-relative history windows.
+ *
+ * Variables required:
+ * - $owner: String! - Repository owner
+ * - $repo: String! - Repository name
+ * - $limit: Int! - Number of releases per page
+ * - $cursor: String - Release-page cursor
+ */
+export const FETCH_RELEASES_FOR_HISTORY = `
+  query FetchReleasesForHistory(
+    $owner: String!
+    $repo: String!
+    $limit: Int!
+    $cursor: String
+  ) {
+    repository(owner: $owner, name: $repo) {
+      releases(first: $limit, after: $cursor, orderBy: {field: CREATED_AT, direction: DESC}) {
+        totalCount
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          tagName
+          publishedAt
+          createdAt
+          isDraft
+          isPrerelease
+        }
+      }
+    }
+  }
+`;
+
+/**
  * Query to fetch pull requests for synchronization, including reviews and comments.
  *
  * Variables required:

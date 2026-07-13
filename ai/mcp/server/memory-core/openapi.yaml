@@ -757,6 +757,187 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /pull-requests/history:
+    get:
+      summary: Explore Resolved Pull Request History
+      operationId: explore_pull_request_history
+      x-neo-tool-tier: read
+      x-pass-as-object: true
+      x-neo-tool-summary: Synthesize a cite-backed Bird View over fully resolved pull-request conversations.
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        The resolved-pull-request temporal Bird View — a computed-on-demand synthesis over merged and/or
+        closed-unmerged pull requests and their complete body, issue-comment, review-body, and inline
+        review-comment conversations. GitHub
+        Workflow owns the live source census and conversation retrieval; Memory Core owns this registered
+        operation and injects the shared temporal synthesis runner plus inference model. The result is
+        non-authoritative, cite-backed, and query-time only: no digest or synthesis artifact is persisted.
+
+        Pass a calendar `preset` OR an explicit half-open `windowStart`/`windowEnd` pair, never both. The
+        `release` preset is the one exception to calendar windows: it resolves the named release tag to its
+        cut-to-cut half-open window. Its `release` argument is REQUIRED exactly when `preset=release` and is
+        forbidden for every other preset or explicit window.
+
+        **When to Use:**
+        To answer questions such as "what was resolved last week?", inspect recurring review friction, or
+        revisit decisions across completed pull requests while retaining exact PR/comment/review drill-down.
+      tags: [Memories]
+      parameters:
+        - name: resolution
+          in: query
+          required: false
+          description: Which terminal pull-request outcomes to include.
+          schema:
+            type: string
+            enum: [merged, closed_unmerged, all_resolved]
+            default: all_resolved
+        - name: preset
+          in: query
+          required: false
+          description: "Window grain (mutually exclusive with windowStart/windowEnd). `release` additionally requires the release parameter; all other values forbid it."
+          schema:
+            type: string
+            enum: [daily, 3-day, weekly, monthly, quarterly, release]
+        - name: release
+          in: query
+          required: false
+          description: "Release tag whose cut-to-cut window is explored. Required iff preset=release; forbidden otherwise."
+          schema:
+            type: string
+        - name: windowStart
+          in: query
+          required: false
+          description: "Explicit inclusive window start as an ISO 8601 string. Provide together with windowEnd instead of any preset; release is forbidden."
+          schema:
+            type: string
+        - name: windowEnd
+          in: query
+          required: false
+          description: "Explicit exclusive window end as an ISO 8601 string. Provide together with windowStart instead of any preset; release is forbidden."
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resolved-PR Bird View synthesized (non-authoritative; narrative withheld on any coverage gap)
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                description: Query-time Bird View envelope with coverage, citations, synthesis, and PR conversation drill-down.
+                required: [window, resolution, coverage, sourceManifestHash, citations, synthesisAvailable, generatedAt, notAuthority]
+                properties:
+                  window:
+                    type: object
+                    additionalProperties: true
+                    required: [windowStart, windowEnd, windowStartIso, windowEndIso, windowSemantics]
+                    properties:
+                      preset:
+                        type: string
+                        nullable: true
+                      release:
+                        type: string
+                      previousRelease:
+                        type: string
+                      windowStart:
+                        type: number
+                      windowEnd:
+                        type: number
+                      windowStartIso:
+                        type: string
+                      windowEndIso:
+                        type: string
+                      windowSemantics:
+                        type: object
+                        additionalProperties: true
+                  resolution:
+                    type: string
+                    enum: [merged, closed_unmerged, all_resolved]
+                  coverage:
+                    type: object
+                    additionalProperties: true
+                    required: [totalResolved, included, excluded, truncated, degraded]
+                    properties:
+                      totalResolved:
+                        type: integer
+                      included:
+                        type: integer
+                      excluded:
+                        type: integer
+                      truncated:
+                        type: boolean
+                      degraded:
+                        type: boolean
+                      degradedReason:
+                        type: string
+                        nullable: true
+                      search:
+                        type: object
+                        additionalProperties: true
+                        description: Live terminal-PR census exhaustion evidence.
+                      childEvidence:
+                        type: object
+                        additionalProperties: true
+                        description: Separate issue-comment, review-body, inline-review-comment, and snapshot exhaustion evidence.
+                      corpus:
+                        type: object
+                        additionalProperties: true
+                        description: Active/archive projection audit; _index.json is explicitly bypassed.
+                  sourceManifestHash:
+                    type: string
+                    description: Content-revision-sensitive fingerprint of the exact PR source set.
+                  citations:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                      required: [type, id]
+                      properties:
+                        type:
+                          type: string
+                        id:
+                          type: string
+                        ref:
+                          type: string
+                        revision:
+                          type: string
+                        inSynthesis:
+                          type: boolean
+                        drillDown:
+                          type: object
+                          additionalProperties: false
+                          required: [operation, arguments]
+                          properties:
+                            operation:
+                              type: string
+                            arguments:
+                              type: object
+                              additionalProperties: true
+                  synthesis:
+                    type: string
+                    nullable: true
+                  synthesisDetails:
+                    type: object
+                    additionalProperties: true
+                    description: Cite-backed themes, decisions, friction, outcomes, and notable events; absent when synthesis is unavailable.
+                  synthesisAvailable:
+                    type: boolean
+                  synthesisUnavailableReason:
+                    type: string
+                    nullable: true
+                  generatedAt:
+                    type: string
+                  notAuthority:
+                    type: boolean
+                    description: Always true; the result is a derived query-time view.
+        '503':
+          description: Cannot retrieve the source corpus or inference service
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /context/frontier:
     get:
       summary: Get Context Frontier

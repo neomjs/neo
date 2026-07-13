@@ -81,6 +81,51 @@ test.describe('temporalBirdViewEnvelope — the non-authoritative coverage/citat
         ])
     });
 
+    test('citation allowlist preserves explicit revision + structured drillDown, but not arbitrary source fields', () => {
+        const envelope = buildTemporalBirdViewEnvelope({
+            window : WINDOW,
+            sources: [{
+                id       : 'pr-100',
+                type     : 'pull-request',
+                revision : 'head-abc',
+                drillDown: {
+                    operation: 'get_conversation',
+                    arguments: {pr_number: 100},
+                    body     : 'must not leak from the descriptor'
+                },
+                body     : 'must not leak into a citation'
+            }],
+            coverage   : {totalResolved: 1},
+            generatedAt: GEN_ISO
+        });
+
+        expect(envelope.citations).toEqual([{
+            type     : 'pull-request',
+            id       : 'pr-100',
+            revision : 'head-abc',
+            drillDown: {operation: 'get_conversation', arguments: {pr_number: 100}}
+        }]);
+        expect(envelope.citations[0].body).toBeUndefined()
+    });
+
+    test('citation projection rejects object revisions and malformed drill-down payloads', () => {
+        const cyclic = {};
+        cyclic.self  = cyclic;
+
+        const envelope = buildTemporalBirdViewEnvelope({
+            window : WINDOW,
+            sources: [{
+                id       : 'pr-101',
+                revision : {secret: 'not a scalar'},
+                drillDown: {operation: 'get_conversation', arguments: cyclic, secret: 'not projected'}
+            }],
+            coverage   : {totalResolved: 1},
+            generatedAt: GEN_ISO
+        });
+
+        expect(envelope.citations).toEqual([{type: 'unknown', id: 'pr-101'}])
+    });
+
     test('sourceManifestHash is deterministic AND order-independent (same set → same hash)', () => {
         const a = buildTemporalBirdViewEnvelope({window: WINDOW, sources: [{id: 'x'}, {id: 'y'}], coverage: {totalResolved: 2}, generatedAt: GEN_ISO}),
               b = buildTemporalBirdViewEnvelope({window: WINDOW, sources: [{id: 'y'}, {id: 'x'}], coverage: {totalResolved: 2}, generatedAt: GEN_ISO}),
@@ -89,6 +134,83 @@ test.describe('temporalBirdViewEnvelope — the non-authoritative coverage/citat
         expect(a.sourceManifestHash).toBe(b.sourceManifestHash);
         expect(a.sourceManifestHash).not.toBe(c.sourceManifestHash);
         expect(a.sourceManifestHash).toMatch(/^[0-9a-f]{8}$/)
+    });
+
+    test('sourceManifestHash changes when the same source id has a different explicit content revision', () => {
+        const first = buildTemporalBirdViewEnvelope({
+                  window: WINDOW, sources: [{id: 'pr-100', revision: 'head-a'}], coverage: {totalResolved: 1}, generatedAt: GEN_ISO
+              }),
+              second = buildTemporalBirdViewEnvelope({
+                  window: WINDOW, sources: [{id: 'pr-100', revision: 'head-b'}], coverage: {totalResolved: 1}, generatedAt: GEN_ISO
+              }),
+              legacy = buildTemporalBirdViewEnvelope({
+                  window: WINDOW, sources: [{id: 'pr-100'}], coverage: {totalResolved: 1}, generatedAt: GEN_ISO
+              });
+
+        expect(first.sourceManifestHash).not.toBe(second.sourceManifestHash);
+        expect(first.sourceManifestHash).not.toBe(legacy.sourceManifestHash)
+    });
+
+    test('sourceManifestHash frames member boundaries unambiguously', () => {
+        const one = buildTemporalBirdViewEnvelope({
+                  window     : WINDOW,
+                  sources    : [{id: 'a', revision: 'x\nb\0revision:y'}],
+                  coverage   : {totalResolved: 1},
+                  generatedAt: GEN_ISO
+              }),
+              two = buildTemporalBirdViewEnvelope({
+                  window     : WINDOW,
+                  sources    : [{id: 'a', revision: 'x'}, {id: 'b', revision: 'y'}],
+                  coverage   : {totalResolved: 2},
+                  generatedAt: GEN_ISO
+              });
+
+        expect(one.sourceManifestHash).not.toBe(two.sourceManifestHash)
+    });
+
+    test('source-specific coverage evidence survives while canonical completeness fields are recomputed', () => {
+        const childEvidence = {open: 0, resolved: 3},
+              corpus        = {queried: 'github-resolved-prs'},
+              envelope      = buildTemporalBirdViewEnvelope({
+                  window  : WINDOW,
+                  sources : SOURCES,
+                  coverage: {
+                      totalResolved   : 2,
+                      included        : 99,
+                      excluded        : 99,
+                      degraded        : false,
+                      sourceTypeCounts: {spoofed: 99},
+                      childEvidence,
+                      corpus
+                  },
+                  generatedAt: GEN_ISO
+              });
+
+        expect(envelope.coverage.childEvidence).toEqual(childEvidence);
+        expect(envelope.coverage.corpus).toEqual(corpus);
+        expect(envelope.coverage).toMatchObject({
+            totalResolved   : 2,
+            included        : 2,
+            excluded        : 0,
+            degraded        : false,
+            sourceTypeCounts: {'pull-request': 1, session: 1}
+        })
+    });
+
+    test('structured synthesis details are emitted only for an available synthesis', () => {
+        const synthesisDetails = {themes: [{label: 'review convergence', sourceIds: ['pr-100']}]},
+              complete         = buildTemporalBirdViewEnvelope({
+                  window: WINDOW, sources: SOURCES, narrative: 'complete', coverage: {totalResolved: 2},
+                  synthesisDetails, generatedAt: GEN_ISO
+              }),
+              degraded         = buildTemporalBirdViewEnvelope({
+                  window: WINDOW, sources: SOURCES, narrative: 'partial', coverage: {totalResolved: 2, truncated: true},
+                  synthesisDetails, generatedAt: GEN_ISO
+              });
+
+        expect(complete.synthesisDetails).toEqual(synthesisDetails);
+        expect(degraded.synthesisAvailable).toBe(false);
+        expect(degraded.synthesisDetails).toBeUndefined()
     });
 
     test.describe('completeness is proven, never assumed — the narrative is withheld on every gap', () => {

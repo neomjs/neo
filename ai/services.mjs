@@ -13,14 +13,15 @@ import InstanceManager from '../src/manager/Instance.mjs';
 import Shared_DestructiveOperationGuard from './mcp/server/shared/services/DestructiveOperationGuard.mjs';
 
 // --- GitHub Workflow Services ---
-import GH_Config              from './mcp/server/github-workflow/config.mjs';
-import _GH_HealthService      from './services/github-workflow/HealthService.mjs';
-import _GH_IssueService       from './services/github-workflow/IssueService.mjs';
-import _GH_LabelService       from './services/github-workflow/LabelService.mjs';
-import _GH_LocalFileService   from './services/github-workflow/LocalFileService.mjs';
-import _GH_PullRequestService from './services/github-workflow/PullRequestService.mjs';
-import _GH_RepositoryService  from './services/github-workflow/RepositoryService.mjs';
-import _GH_SyncService        from './services/github-workflow/SyncService.mjs';
+import GH_Config                    from './mcp/server/github-workflow/config.mjs';
+import _GH_HealthService            from './services/github-workflow/HealthService.mjs';
+import _GH_IssueService             from './services/github-workflow/IssueService.mjs';
+import _GH_LabelService             from './services/github-workflow/LabelService.mjs';
+import _GH_LocalFileService         from './services/github-workflow/LocalFileService.mjs';
+import _GH_PullRequestService       from './services/github-workflow/PullRequestService.mjs';
+import GH_PullRequestHistoryService from './services/github-workflow/PullRequestHistoryService.mjs';
+import _GH_RepositoryService        from './services/github-workflow/RepositoryService.mjs';
+import _GH_SyncService              from './services/github-workflow/SyncService.mjs';
 
 GH_Config.data.syncOnStartup = false;
 
@@ -275,6 +276,7 @@ export {
     GH_IssueService,
     GH_LabelService,
     GH_LocalFileService,
+    GH_PullRequestHistoryService,
     GH_PullRequestService,
     GH_RepositoryService,
     GH_SyncService,
