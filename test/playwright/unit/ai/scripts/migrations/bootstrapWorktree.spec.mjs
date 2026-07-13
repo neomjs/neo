@@ -75,7 +75,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
     });
 
     test.beforeEach(async () => {
-        const tmpBase    = path.resolve(process.cwd(), 'tmp', `bootstrap-worktree-test-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+        const tmpBase = path.resolve(process.cwd(), 'tmp', `bootstrap-worktree-test-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
         fakeMainCheckout = path.join(tmpBase, 'main-checkout');
         fakeWorktree     = path.join(tmpBase, 'worktree');
 
@@ -322,12 +322,18 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             });
         }
 
-        test('exports a canonical read alias without removing the daemon-pid blocklist', () => {
+        test('every canonical read alias keeps its live source blocklisted and names stay unique', () => {
             expect(CANONICAL_DATA_READ_ALIASES).toContainEqual({
                 source: sourceSubdir,
                 alias : aliasSubdir
             });
-            expect(DATA_SUBDIRS_BLOCKLIST).toContain(sourceSubdir);
+
+            const aliases = new Set();
+            for (const {source, alias} of CANONICAL_DATA_READ_ALIASES) {
+                expect(DATA_SUBDIRS_BLOCKLIST).toContain(source);
+                expect(aliases.has(alias)).toBe(false);
+                aliases.add(alias);
+            }
         });
 
         test('links a separate canonical alias while preserving the clone-local daemon dir', async () => {
@@ -504,6 +510,28 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             expect(await fs.pathExists(path.join(fakeWorktree, dataDir, 'embed-daemon'))).toBe(false);
         });
 
+        test('leaves canonical read-alias sources + names to the dedicated primitive even with a custom blocklist', async () => {
+            const
+                source = path.join(fakeMainCheckout, dataDir, 'orchestrator-daemon'),
+                alias  = path.join(fakeMainCheckout, dataDir, 'orchestrator-daemon-canonical'),
+                target = path.join(fakeWorktree, dataDir, 'orchestrator-daemon-canonical');
+
+            await fs.ensureDir(source);
+            await fs.symlink(source, alias, 'dir');
+
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                blocklist   : [],
+                log         : () => {}
+            });
+
+            expect(result.linked).not.toContain('orchestrator-daemon');
+            expect(result.linked).not.toContain('orchestrator-daemon-canonical');
+            expect(await fs.pathExists(path.join(fakeWorktree, dataDir, 'orchestrator-daemon'))).toBe(false);
+            expect(await fs.pathExists(target)).toBe(false);
+        });
+
         test('symlinks every canonical child except the blocklist when none exist in worktree', async () => {
             await seedMainSubdirs();
 
@@ -598,6 +626,25 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             expect(result.linked).toEqual(['chroma']);
             expect(result.clobbered).toHaveLength(0);
             expect(result.skippedNoSource).toHaveLength(0);
+        });
+
+        test('refuses an existing child symlink into another checkout instead of reporting alreadyLinked', async () => {
+            await seedMainSubdirs(['sqlite']);
+
+            const
+                foreign = path.join(path.dirname(fakeMainCheckout), 'foreign-checkout', dataDir, 'sqlite'),
+                dst     = path.join(fakeWorktree, dataDir, 'sqlite');
+
+            await fs.ensureDir(foreign);
+            await fs.ensureDir(path.dirname(dst));
+            await fs.symlink(foreign, dst, 'dir');
+
+            await expect(symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                log         : () => {}
+            })).rejects.toThrow(/unexpected symlink target/);
+            expect(path.resolve(path.dirname(dst), await fs.readlink(dst))).toBe(foreign);
         });
 
         test('refuses to clobber a non-symlink subdir without force', async () => {
@@ -830,6 +877,27 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             expect(result.alreadyLinked).toEqual(fixtureFiles);
             expect(result.skippedNoSource).toHaveLength(0);
             expect(result.skippedRealFile).toHaveLength(0);
+        });
+
+        test('refuses an existing file symlink into another checkout instead of reporting alreadyLinked', async () => {
+            await seedMainHandoff();
+
+            const
+                foreign = path.join(path.dirname(fakeMainCheckout), 'foreign-checkout', fixtureFile),
+                dst     = path.join(fakeWorktree, fixtureFile);
+
+            await fs.ensureDir(path.dirname(foreign));
+            await fs.writeFile(foreign, '# foreign\n', 'utf8');
+            await fs.ensureDir(path.dirname(dst));
+            await fs.symlink(foreign, dst, 'file');
+
+            await expect(symlinkGitignoredFiles({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                files       : fixtureFiles,
+                log         : () => {}
+            })).rejects.toThrow(/unexpected symlink target/);
+            expect(path.resolve(path.dirname(dst), await fs.readlink(dst))).toBe(foreign);
         });
 
         test('gracefully skips files missing in the main checkout (pre-Sandman state)', async () => {

@@ -142,15 +142,22 @@ export function getHarnessAuthMode(harnessType) {
  *   The app binary is never executed as a version probe — that would boot another GUI/helper set;
  *   installed-bundle capability proof is owned by `manageCodexDesktopRuntime` instead.
  *
- * - **`'claude-code'`** → `{command: binaryPath, args: [<stream-json print mode>], env:
- *   {CLAUDE_CONFIG_DIR: instanceHome}}`. Isolation empirically verified (claude CLI 2.1.156,
+ * - **`'claude-code'`** → `{command: binaryPath, args: ['--mcp-config',
+ *   '<instanceHome>/mcp-config.json', '--strict-mcp-config', <stream-json print mode>], env:
+ *   {CLAUDE_CONFIG_DIR: instanceHome}}`. The explicit strict path binds the secret-free, Fleet-owned
+ *   MCP projection prepared before spawn; the CLI's documented `${VAR}` expansion resolves dynamic
+ *   Fleet child env only in memory. Isolation empirically verified (claude CLI 2.1.156,
  *   macOS): pointing `CLAUDE_CONFIG_DIR` at a fresh dir yields a logged-out instance materializing
  *   its own config tree (`.claude.json`, `projects/`, `sessions/`) while the default `~/.claude`
  *   stays the untouched ambient auth home. Liveness empirically verified: the stream-JSON session
  *   on a held-open piped stdin stays resident and stops cleanly on SIGTERM. Per-home `/login` is
  *   the operator-owned auth step.
  *
- * - **`'claude-desktop'`** → `{command: binaryPath, args: ['--user-data-dir=<home>'], env: {}}`.
+ * - **`'claude-desktop'`** → `{command: binaryPath, args: ['--user-data-dir=<home>'], env:
+ *   {CLAUDE_USER_DATA_DIR: instanceHome}}`. The env binding is not redundant: installed Desktop
+ *   1.20186.1 otherwise appends its internal `-3p` suffix and reads a sibling config path. Its exact
+ *   startup code applies `CLAUDE_USER_DATA_DIR` through Electron `app.setPath('userData', ...)`, so
+ *   config, logs, and profile stay contained at the derived resident home.
  *   The app-bundle MAIN binary (`Claude.app/Contents/MacOS/Claude`, a universal Mach-O) spawned
  *   DIRECTLY — a real supervisable child, not an `open -n` launcher. Probed on the exact binary
  *   (Claude 1.20186.0, macOS): two instances with distinct `--user-data-dir` homes coexist
@@ -230,6 +237,30 @@ export function deriveHarnessLaunchSpec({harnessType, instanceHome, binaryPath, 
             versionProbeArgs: null,
             authHome,
             electronProfile
+        };
+    }
+
+    if (harnessType === 'claude-code') {
+        return {
+            command: binaryPath,
+            args   : [
+                '--mcp-config', path.join(instanceHome, 'mcp-config.json'),
+                '--strict-mcp-config',
+                ...contract.modeArgs
+            ],
+            env             : {[contract.homeEnvVar]: instanceHome},
+            versionProbeArgs: [...contract.versionProbeArgs]
+        };
+    }
+
+    if (harnessType === 'claude-desktop') {
+        const homeArg = `${contract.homeArgFlag}=${instanceHome}`;
+
+        return {
+            command         : binaryPath,
+            args            : [homeArg],
+            env             : {CLAUDE_USER_DATA_DIR: instanceHome},
+            versionProbeArgs: [homeArg, ...contract.versionProbeArgs]
         };
     }
 

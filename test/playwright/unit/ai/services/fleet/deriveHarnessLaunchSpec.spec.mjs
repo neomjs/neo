@@ -45,18 +45,25 @@ test.describe('deriveHarnessLaunchSpec (per-family harness launch templates)', (
         });
     });
 
-    test('claude-code: the binary + the stream-json long-lived print mode + CLAUDE_CONFIG_DIR pinned to the instance home', () => {
+    test('claude-code: strict per-home MCP config + stream-json mode + isolated CLAUDE_CONFIG_DIR', () => {
         const spec = deriveHarnessLaunchSpec({harnessType: 'claude-code', instanceHome: '/srv/instances/a/claude', binaryPath: '/usr/local/bin/claude'});
 
         expect(spec).toEqual({
-            command         : '/usr/local/bin/claude',
-            args            : ['--input-format', 'stream-json', '--output-format', 'stream-json', '--print', '--verbose'],
+            command: '/usr/local/bin/claude',
+            args   : [
+                '--mcp-config', '/srv/instances/a/claude/mcp-config.json',
+                '--strict-mcp-config',
+                '--input-format', 'stream-json',
+                '--output-format', 'stream-json',
+                '--print',
+                '--verbose'
+            ],
             env             : {CLAUDE_CONFIG_DIR: '/srv/instances/a/claude'},
             versionProbeArgs: ['--version']
         });
     });
 
-    test('claude-desktop: the app-bundle main binary with --user-data-dir isolation riding ARGV — env stays empty', () => {
+    test('claude-desktop: argv isolation + exact contained CLAUDE_USER_DATA_DIR authority', () => {
         const spec = deriveHarnessLaunchSpec({harnessType: 'claude-desktop', instanceHome: '/srv/instances/a/claude-desktop', binaryPath: '/Applications/Claude.app/Contents/MacOS/Claude'});
 
         // The profile switch is BOTH halves at once for an Electron app: it relocates the config
@@ -66,7 +73,7 @@ test.describe('deriveHarnessLaunchSpec (per-family harness launch templates)', (
         expect(spec).toEqual({
             command         : '/Applications/Claude.app/Contents/MacOS/Claude',
             args            : ['--user-data-dir=/srv/instances/a/claude-desktop'],
-            env             : {},
+            env             : {CLAUDE_USER_DATA_DIR: '/srv/instances/a/claude-desktop'},
             versionProbeArgs: ['--user-data-dir=/srv/instances/a/claude-desktop', '--version']
         });
     });

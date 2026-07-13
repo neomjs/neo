@@ -583,7 +583,7 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — curated launch + 
         await expect(FleetLifecycleService.stop('desktop')).resolves.toMatchObject({state: 'stopped', cleanupUnresolved: false});
     });
 
-    test('curated claude-code derivation is reachable (registry vocabulary aligned) and pins the stream-json mode', () => {
+    test('curated claude-code derivation pins strict per-home MCP config plus stream-json mode', () => {
         const spawn = install({agents: {c2: curatedAgent('c2', 'claude-code')}, creds: {}});
         FleetLifecycleService.instanceRoot       = '/srv/fleet/instances';
         FleetLifecycleService.harnessBinaryPaths = {'claude-code': process.execPath};
@@ -591,7 +591,14 @@ test.describe('Neo.ai.services.fleet.FleetLifecycleService — curated launch + 
         FleetLifecycleService.start('c2');
 
         const {args, opts} = spawn.calls[0];
-        expect(args).toEqual(['--input-format', 'stream-json', '--output-format', 'stream-json', '--print', '--verbose']);
+        expect(args).toEqual([
+            '--mcp-config', path.join(FleetLifecycleService.instanceRoot, 'c2-9c0abe51c6e6', 'claude-code-28e174396028', 'mcp-config.json'),
+            '--strict-mcp-config',
+            '--input-format', 'stream-json',
+            '--output-format', 'stream-json',
+            '--print',
+            '--verbose'
+        ]);
         expect(Object.keys(opts.env)).toContain('CLAUDE_CONFIG_DIR');
     });
 
