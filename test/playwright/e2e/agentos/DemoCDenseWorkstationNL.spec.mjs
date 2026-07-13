@@ -8,7 +8,8 @@ import {demoCTourScript} from '../../../../apps/agentos/tour/demoCDenseWorkstati
  * and owns what only the App Worker + DOM + Canvas Worker composition can prove: one Provider,
  * two stable Store<Model> identities, an exact 100k renderer-rich grid, a sustained capped
  * feed, one owner-exact overflow surface, two real rails, frame-sampled midpoint continuity,
- * Canvas-worker pixel change, both themes, motion settlement, and identity preservation.
+ * Canvas-worker pixel change, DevIndex-sized chart geometry, honest progress paints, both
+ * themes, replacement-chrome motion containment, and identity preservation.
  *
  * Run: NEO_E2E_PORT=8124 npx playwright test agentos/DemoCDenseWorkstationNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
@@ -86,6 +87,72 @@ const readScaleSparklines = async (app, page) => {
     return instances.filter(instance => scaleIds.includes(instance.id))
 };
 
+/**
+ * Reads the first visible Sparkline's cell/content geometry from one data pane.
+ * @param {import('@playwright/test').Page} page
+ * @param {String} paneSelector
+ * @returns {Promise<Object>}
+ */
+const readSparklineGeometry = (page, paneSelector) => page.evaluate(selector => {
+    const
+        wrapper = [...document.querySelectorAll(`${selector} .neo-sparkline-wrapper`)]
+            .find(element => element.getClientRects().length > 0),
+        canvas  = wrapper?.querySelector('.neo-sparkline-canvas'),
+        cell    = wrapper?.closest('.neo-grid-cell'),
+        row     = wrapper?.closest('.neo-grid-row');
+
+    if (!wrapper || !canvas || !cell || !row) return null;
+
+    const
+        canvasRect  = canvas.getBoundingClientRect(),
+        cellRect    = cell.getBoundingClientRect(),
+        rowRect     = row.getBoundingClientRect(),
+        style       = getComputedStyle(cell),
+        wrapperRect = wrapper.getBoundingClientRect(),
+        number      = property => Number.parseFloat(style[property]) || 0,
+        contentBox  = {
+            bottom: cellRect.bottom - number('borderBottomWidth') - number('paddingBottom'),
+            height: cellRect.height
+                - number('borderTopWidth') - number('borderBottomWidth')
+                - number('paddingTop') - number('paddingBottom'),
+            left : cellRect.left + number('borderLeftWidth') + number('paddingLeft'),
+            top  : cellRect.top + number('borderTopWidth') + number('paddingTop'),
+            width: cellRect.width
+                - number('borderLeftWidth') - number('borderRightWidth')
+                - number('paddingLeft') - number('paddingRight')
+        };
+
+    return {
+        canvas : {bottom: canvasRect.bottom, height: canvasRect.height, left: canvasRect.left, top: canvasRect.top, width: canvasRect.width},
+        cell   : {height: cellRect.height, width: cellRect.width},
+        content: contentBox,
+        row    : {height: rowRect.height},
+        wrapper: {bottom: wrapperRect.bottom, height: wrapperRect.height, left: wrapperRect.left, top: wrapperRect.top, width: wrapperRect.width}
+    }
+}, paneSelector);
+
+/**
+ * @param {Object} geometry
+ */
+const expectDevIndexSparklineFit = geometry => {
+    expect(geometry).toBeTruthy();
+    expect(Math.abs(geometry.cell.width - 160), 'Sparkline keeps the DevIndex-sized column').toBeLessThanOrEqual(1);
+    expect(Math.abs(geometry.row.height - 50), 'Sparkline keeps the DevIndex row height').toBeLessThanOrEqual(1);
+    expect(
+        Math.abs(geometry.wrapper.width - geometry.content.width),
+        `Sparkline wrapper fills the cell content box: ${JSON.stringify(geometry)}`
+    ).toBeLessThanOrEqual(1);
+    expect(
+        Math.abs(geometry.wrapper.height - geometry.content.height),
+        `Sparkline wrapper fills the row content box: ${JSON.stringify(geometry)}`
+    ).toBeLessThanOrEqual(1);
+    expect(Math.abs(geometry.canvas.width - geometry.wrapper.width)).toBeLessThanOrEqual(1);
+    expect(Math.abs(geometry.canvas.height - geometry.wrapper.height)).toBeLessThanOrEqual(1);
+    expect(geometry.canvas.left).toBeGreaterThanOrEqual(geometry.content.left - 1);
+    expect(geometry.canvas.top).toBeGreaterThanOrEqual(geometry.content.top - 1);
+    expect(geometry.canvas.bottom).toBeLessThanOrEqual(geometry.content.bottom + 1)
+};
+
 test.describe('AgentOS Demo C — dense workstation composition', () => {
     test.setTimeout(150000);
     test.use({viewport: {height: 1440, width: 2560}});
@@ -151,6 +218,95 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
             .toBe('AgentOS.childapps.dockdemo.model.DemoCRecord');
         expect(feedBaseline.model?.className ?? feedBaseline.model)
             .toBe('AgentOS.childapps.dockdemo.model.DemoCRecord');
+
+        const
+            root        = page.locator('.agentos-dockdemo-workspace-c'),
+            tourButton  = page.locator('.agentos-dockdemo-tour-play'),
+            themeToggle = page.locator('.agentos-dockdemo-theme-button');
+
+        await expect(tourButton).toHaveText('Start dense tour');
+        await expect(themeToggle, 'one action-labelled theme toggle replaces two mode buttons').toHaveCount(1);
+        await expect(themeToggle).toHaveText('Light mode');
+
+        const headerGeometry = await page.evaluate(() => {
+            const
+                playElement     = document.querySelector('.agentos-dockdemo-tour-play'),
+                captionElement  = document.querySelector('.agentos-dockdemo-tour-caption'),
+                progressElement = document.querySelector('.agentos-dockdemo-tour-pips'),
+                themeElement    = document.querySelector('.agentos-dockdemo-theme-button'),
+                play            = playElement?.getBoundingClientRect(),
+                caption         = captionElement?.getBoundingClientRect(),
+                progress        = progressElement?.getBoundingClientRect(),
+                theme           = themeElement?.getBoundingClientRect();
+
+            return {
+                captionLeft         : caption?.left,
+                captionPaddingLeft  : parseFloat(getComputedStyle(captionElement).paddingLeft),
+                playRight           : play?.right,
+                progressPaddingRight: parseFloat(getComputedStyle(progressElement).paddingRight),
+                progressRight       : progress?.right,
+                themeLeft           : theme?.left
+            }
+        });
+
+        expect(headerGeometry.captionLeft - headerGeometry.playRight, 'tour action and story boxes never overlap')
+            .toBeGreaterThanOrEqual(0);
+        expect(headerGeometry.captionPaddingLeft, 'tour action and visible story copy have a deliberate gap')
+            .toBeGreaterThanOrEqual(10);
+        expect(headerGeometry.themeLeft - headerGeometry.progressRight, 'story/progress and theme action boxes never overlap')
+            .toBeGreaterThanOrEqual(0);
+        expect(headerGeometry.progressPaddingRight, 'visible progress and theme action form separate zones')
+            .toBeGreaterThanOrEqual(10);
+
+        const initialTourBackground = await tourButton.evaluate(element => getComputedStyle(element).backgroundColor);
+
+        await tourButton.hover();
+        const hoverTourBackground = await tourButton.evaluate(element => getComputedStyle(element).backgroundColor);
+
+        expect(initialTourBackground).not.toBe('rgb(67, 93, 177)');
+        expect(hoverTourBackground, 'hover remains in the AgentOS signal palette').not.toBe('rgb(67, 93, 177)');
+
+        await themeToggle.click();
+        await expect(root).toHaveClass(/neo-theme-neo-light/);
+        await expect(themeToggle).toHaveText('Dark mode');
+
+        const lightChrome = await page.evaluate(() => {
+            const
+                gridHeader  = document.querySelector('.agentos-dockdemo-scale-pane .neo-grid-header-button'),
+                overflow    = document.querySelector('.neo-tab-overflow-control'),
+                rowAction   = document.querySelector('.agentos-dockdemo-row-action'),
+                rippleToken = element => getComputedStyle(element)
+                    .getPropertyValue('--button-ripple-background-color').trim().toLowerCase();
+
+            return {
+                gridBackground : getComputedStyle(gridHeader).backgroundColor,
+                gridColor      : getComputedStyle(gridHeader).color,
+                overflow       : getComputedStyle(overflow).backgroundColor,
+                overflowRipple : rippleToken(overflow),
+                rowAction      : getComputedStyle(rowAction).backgroundColor,
+                rowActionBorder: getComputedStyle(rowAction).borderColor,
+                rowActionRipple: rippleToken(rowAction),
+                themeRipple    : rippleToken(document.querySelector('.agentos-dockdemo-theme-button'))
+            }
+        });
+
+        expect(lightChrome.gridBackground, 'light mode does not leak the standalone grid blue')
+            .not.toBe('rgb(93, 131, 167)');
+        expect(lightChrome.gridColor, 'light header copy is not forced to generic white').not.toBe('rgb(255, 255, 255)');
+        expect(lightChrome.overflow, 'overflow control belongs to the AgentOS palette').not.toBe('rgb(67, 93, 177)');
+        expect(lightChrome.overflowRipple).not.toBe('#8ba6ff');
+        expect(lightChrome.rowAction, 'row actions do not use the default primary button').not.toBe('rgb(67, 93, 177)');
+        expect(lightChrome.rowActionBorder).not.toBe('rgba(0, 0, 0, 0)');
+        expect(lightChrome.rowActionRipple).not.toBe('#8ba6ff');
+        expect(lightChrome.themeRipple, 'theme-toggle feedback stays in the AgentOS palette')
+            .not.toBe('#8ba6ff');
+
+        await themeToggle.click();
+        await expect(root).toHaveClass(/neo-theme-neo-dark/);
+        await expect(themeToggle).toHaveText('Light mode');
+
+        expectDevIndexSparklineFit(await readSparklineGeometry(page, '.agentos-dockdemo-scale-pane'));
+        expectDevIndexSparklineFit(await readSparklineGeometry(page, '.agentos-dockdemo-feed-pane'));
 
         // Two source-owned rails are visible and legible at workstation geometry.
         const railTabs = page.locator('.neo-dashboard-dock-rail-tab');
@@ -267,17 +423,29 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
         // Frame-sample the ACTUAL screenplay path. A missing scale body is itself a blank
         // frame; when mounted, every visible row must stay populated.
         await page.evaluate(identity => {
+            const
+                root             = document.querySelector('.agentos-dockdemo-workspace-c'),
+                initialPipCount  = root?.querySelectorAll('.agentos-dockdemo-pip-done').length || 0,
+                initialHeaderIds = [...root?.querySelectorAll('.neo-tab-header-toolbar') || []]
+                    .map(element => element.id);
+
             const state = globalThis.__demoCMonitor = {
                 blankSamples                  : [],
                 blankFrames                   : 0,
+                chromeAnimationLeakFrames     : 0,
                 done                          : false,
                 flipSamples                   : 0,
+                initialHeaderIds,
                 midpointSeen                  : false,
                 missingBodyFrames             : 0,
                 overflowControlCounts         : {},
                 overflowControlDuplicateFrames: 0,
                 palettes                      : [],
+                pipCounts                     : [initialPipCount],
+                pipRegressionFrames           : 0,
                 railMismatchFrames            : 0,
+                replacementHeaderBirth        : {},
+                replacementHeaderSamples      : 0,
                 sampledFrames                 : 0,
                 securityCaptured              : false,
                 securityMissingFrames         : 0,
@@ -302,6 +470,34 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
                       overflowControlCount = [...document.querySelectorAll('.neo-tab-overflow-control')]
                           .filter(isVisible).length,
                       currentSecurityNode = document.getElementById(identity.securityPaneId);
+
+                if (root) {
+                    const
+                        pipCount = root.querySelectorAll('.agentos-dockdemo-pip-done').length,
+                        previous = state.pipCounts.at(-1);
+
+                    if (pipCount !== previous) {
+                        pipCount < previous && state.pipRegressionFrames++;
+                        state.pipCounts.push(pipCount)
+                    }
+
+                    [...root.querySelectorAll('.neo-tab-header-toolbar')].filter(isVisible).forEach(toolbar => {
+                        if (!state.initialHeaderIds.includes(toolbar.id)) {
+                            state.replacementHeaderBirth[toolbar.id] ??= performance.now();
+
+                            if (performance.now() - state.replacementHeaderBirth[toolbar.id] <= 320) {
+                                state.replacementHeaderSamples++;
+
+                                const hasRunningEntryEffect = toolbar.getAnimations({subtree: true}).some(animation =>
+                                    animation.playState === 'running'
+                                    && Number(animation.effect?.getTiming().duration) > 0
+                                );
+
+                                hasRunningEntryEffect && state.chromeAnimationLeakFrames++
+                            }
+                        }
+                    })
+                }
 
                 railTabCount === 2 || state.railMismatchFrames++;
                 state.overflowControlCounts[overflowControlCount]
@@ -434,6 +630,12 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
 
         expect(monitor.sampledFrames).toBeGreaterThan(10);
         expect(monitor.midpointSeen, 'rAF sampling observes the live midpoint scroll').toBe(true);
+        expect(monitor.pipCounts, 'every settled beat paints once, in order')
+            .toEqual(Array.from({length: demoCTourScript.scenes.flatMap(scene => scene.steps).length + 1}, (_, index) => index));
+        expect(monitor.pipRegressionFrames, 'progress never fills early and jumps backward').toBe(0);
+        expect(monitor.replacementHeaderSamples, 'the journey sampled replacement tab chrome').toBeGreaterThan(0);
+        expect(monitor.chromeAnimationLeakFrames,
+            'fresh replacement chrome does not replay shared entry animations').toBe(0);
         expect(monitor.missingBodyFrames, 'the preserved scale body never leaves the DOM between projections').toBe(0);
         expect(monitor.blankFrames,
             `no mounted visible scale row goes blank during choreography: ${JSON.stringify(monitor.blankSamples)}`)
@@ -505,6 +707,8 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
             .toEqual({canvas: true, feedPane: true, scaleBody: true, scalePane: true});
         expect(scaleSparklinesAfter.every(entry => entry.properties?.offscreenRegistered),
             'the preserved scale Canvas pool is registered after the final projection').toBe(true);
+        expectDevIndexSparklineFit(await readSparklineGeometry(page, '.agentos-dockdemo-scale-pane'));
+        expectDevIndexSparklineFit(await readSparklineGeometry(page, '.agentos-dockdemo-feed-pane'));
         expect(runtimeErrors, 'no global error or unhandled rejection across the journey').toEqual([]);
         expect(pageErrors, 'no Playwright pageerror across the journey').toEqual([])
     })

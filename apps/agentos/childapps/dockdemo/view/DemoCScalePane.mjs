@@ -22,7 +22,7 @@ class DemoCScalePane extends GridContainer {
          * @member {Object} body
          */
         // The choreography can grow this pane by 28% of the 1440px reference scene in
-        // one structural update. Ten 46px rows keep that bounded expansion covered while
+        // one structural update. Ten 50px rows keep that bounded expansion covered while
         // Grid's resize buffer catches up, without rendering beyond the viewport pool.
         body: {bufferColumnRange: 2, bufferRowRange: 10},
         /**
@@ -66,9 +66,8 @@ class DemoCScalePane extends GridContainer {
         }, {
             type     : 'sparkline',
             dataField: 'trend',
-            flex     : 1,
-            minWidth : 180,
-            text     : 'Living signal'
+            text     : 'Living signal',
+            width    : 160
         }, {
             type     : 'component',
             // A unique column data key is required even though the component acts on the full
@@ -78,14 +77,16 @@ class DemoCScalePane extends GridContainer {
             width    : 130,
             component: ({record}) => ({
                 module : Button,
+                cls    : ['agentos-dockdemo-row-action'],
                 handler: () => record.counter++,
-                text   : 'Pulse +1'
+                iconCls: 'fa fa-wave-square',
+                text   : '+1 pulse'
             })
         }],
         /**
-         * @member {Number} rowHeight=46
+         * @member {Number} rowHeight=50
          */
-        rowHeight: 46
+        rowHeight: 50
     }
 }
 

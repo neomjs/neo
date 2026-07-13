@@ -145,6 +145,14 @@ class DemoCWorkspace extends Container {
      */
     cuePromise = Promise.resolve()
     /**
+     * Serialized, paint-confirmed tour progress. The runner emits `beat` before executing a
+     * step, so this local projection waits for that step's log/cue/refresh settlement before
+     * exposing progress to the viewer.
+     * @member {Promise} progressPromise
+     * @protected
+     */
+    progressPromise = Promise.resolve()
+    /**
      * Fail-closed surface-cue errors for the current visible tour.
      * @member {String[]} cueErrors
      * @protected
@@ -275,7 +283,8 @@ class DemoCWorkspace extends Container {
      * @returns {Object} Tour toolbar config.
      */
     createTourBar() {
-        let me = this;
+        let me      = this,
+            isLight = me.theme === 'neo-theme-neo-light';
 
         return {
             cls   : ['agentos-dockdemo-tourbar', 'agentos-dockdemo-tourbar-c'],
@@ -288,31 +297,32 @@ class DemoCWorkspace extends Container {
                 iconCls  : 'fa fa-play',
                 ntype    : 'button',
                 reference: 'tour-play-c',
-                text     : 'Run dense tour'
+                text     : 'Start dense tour'
             }, {
-                cls      : ['agentos-dockdemo-tour-caption'],
-                flex     : 1,
-                html     : `${demoCTourScript.title} — twenty panes, 100k rows, a 10/sec feed, real overflow, and two themes.`,
-                ntype    : 'component',
-                reference: 'tour-caption-c'
+                module: Container,
+                cls   : ['agentos-dockdemo-tour-story'],
+                flex  : 1,
+                items : [{
+                    cls      : ['agentos-dockdemo-tour-caption'],
+                    flex     : 'none',
+                    html     : `${demoCTourScript.title} — twenty panes, 100k rows, a 10/sec feed, real overflow, and two themes.`,
+                    ntype    : 'component',
+                    reference: 'tour-caption-c'
+                }, {
+                    cls      : ['agentos-dockdemo-tour-pips'],
+                    flex     : 'none',
+                    ntype    : 'component',
+                    reference: 'tour-pips-c',
+                    vdom     : {cn: DemoCWorkspace.totalBeats().map(() => ({cls: ['agentos-dockdemo-pip']}))}
+                }],
+                layout: {ntype: 'vbox', align: 'stretch', pack: 'center'}
             }, {
-                cls    : ['agentos-dockdemo-theme-button'],
-                handler: () => me.setWorkspaceTheme('neo-theme-neo-light'),
-                iconCls: 'fa fa-sun',
-                ntype  : 'button',
-                text   : 'Light'
-            }, {
-                cls    : ['agentos-dockdemo-theme-button'],
-                handler: () => me.setWorkspaceTheme('neo-theme-neo-dark'),
-                iconCls: 'fa fa-moon',
-                ntype  : 'button',
-                text   : 'Dark'
-            }, {
-                cls      : ['agentos-dockdemo-tour-pips'],
-                flex     : 'none',
-                ntype    : 'component',
-                reference: 'tour-pips-c',
-                vdom     : {cn: DemoCWorkspace.totalBeats().map(() => ({cls: ['agentos-dockdemo-pip']}))}
+                cls      : ['agentos-dockdemo-theme-button'],
+                handler  : () => me.toggleWorkspaceTheme(),
+                iconCls  : isLight ? 'fa fa-moon' : 'fa fa-sun',
+                ntype    : 'button',
+                reference: 'theme-toggle-c',
+                text     : isLight ? 'Dark mode' : 'Light mode'
             }]
         }
     }
@@ -423,10 +433,11 @@ class DemoCWorkspace extends Container {
      * @param {Object} data
      */
     onTourBeat(data) {
-        let me = this;
+        let me            = this,
+            progress      = ++me.beatCount,
+            cueSettlement = Promise.resolve();
 
         data.caption && me.setTourCaption(data.caption);
-        me.setPipProgress(++me.beatCount);
 
         if (data.cue) {
             const cue = data.cue;
@@ -448,16 +459,24 @@ class DemoCWorkspace extends Container {
                 me.setTourCaption(`Surface cue failed: ${message}`);
 
                 return false
-            })
+            });
+            cueSettlement = me.cuePromise
         }
+
+        me.progressPromise = me.progressPromise.then(async () => {
+            await me.waitForTourBeatSettlement(progress, cueSettlement);
+            await me.setPipProgress(progress);
+            // Adjacent document operations can settle within one browser frame. Keep each
+            // evidenced state visible long enough to read instead of letting VDOM paints coalesce.
+            await me.timeout(90)
+        })
     }
 
     /**
      * @param {Object} data
      */
     onTourComplete(data) {
-        this.setTourCaption(`Document playback complete — settling ${data.log.length} deterministic beats and surface cues.`);
-        this.setPipProgress(DemoCWorkspace.totalBeats().length)
+        this.setTourCaption(`Document playback complete — settling ${data.log.length} deterministic beats and surface cues.`)
     }
 
     /**
@@ -492,7 +511,7 @@ class DemoCWorkspace extends Container {
 
     /**
      * Assigns a new trend array to a registered visible scale record and refreshes the
-     * viewport pool. Coarse dock projection preserves component identities, while a resized
+     * viewport pool. Coarse dock projection preserves cached pane identities, while a resized
      * viewport pool can allocate new Canvas cells whose registration settles asynchronously;
      * the bounded wait observes that lifecycle fact instead of guessing with a screenplay delay.
      * @param {String|null} [componentId=null] Optional exact visible Sparkline identity.
@@ -520,7 +539,12 @@ class DemoCWorkspace extends Container {
 
         if (!record || !sparkline?.offscreenRegistered) return false;
 
-        record.trend = Array.from({length: 12}, (_, point) => (point * 17 + this.feedSequence) % 101);
+        let signal = record.trend.at(-1) ?? 50;
+
+        record.trend = Array.from({length: 12}, (_, point) => {
+            signal = Math.max(8, Math.min(92, signal + ((this.feedSequence + point * 5) % 9) - 4));
+            return signal
+        });
         pane?.body?.createViewData(false, true);
 
         return {componentId: sparkline.id, recordId: record.id, values: [...record.trend]}
@@ -589,6 +613,8 @@ class DemoCWorkspace extends Container {
         nextConfig.hideMode = 'visibility';
 
         const nextShell = host.insert(host.items.length, nextConfig, true);
+
+        nextShell.addCls('agentos-dockdemo-chrome-settling');
 
         // Atomic moves require both ownership paths to exist in the rendered tree. This update
         // mounts only the visibility-hidden target shell; the live panes remain in the visible
@@ -849,7 +875,7 @@ class DemoCWorkspace extends Container {
     /**
      * @param {Number} count
      */
-    setPipProgress(count) {
+    async setPipProgress(count) {
         const pips = this.getReference('tour-pips-c');
 
         if (!pips) return;
@@ -861,7 +887,8 @@ class DemoCWorkspace extends Container {
                 ? ['agentos-dockdemo-pip', 'agentos-dockdemo-pip-done']
                 : ['agentos-dockdemo-pip']
         });
-        pips.update()
+        pips.update();
+        await pips.promiseUpdate()
     }
 
     /**
@@ -879,7 +906,54 @@ class DemoCWorkspace extends Container {
      */
     setWorkspaceTheme(theme) {
         this.theme = theme;
+        this.syncThemeToggle(theme);
         return theme
+    }
+
+    /**
+     * Keeps the one theme control phrased as the available action.
+     * @param {String} theme
+     */
+    syncThemeToggle(theme) {
+        const
+            button  = this.getReference('theme-toggle-c'),
+            isLight = theme === 'neo-theme-neo-light';
+
+        if (button) {
+            button.iconCls = isLight ? 'fa fa-moon' : 'fa fa-sun';
+            button.text    = isLight ? 'Dark mode' : 'Light mode'
+        }
+    }
+
+    /**
+     * @returns {String} The newly applied theme.
+     */
+    toggleWorkspaceTheme() {
+        return this.setWorkspaceTheme(this.theme === 'neo-theme-neo-light'
+            ? 'neo-theme-neo-dark'
+            : 'neo-theme-neo-light')
+    }
+
+    /**
+     * Waits for one runner log entry, its optional surface cue, and any resulting dock
+     * projection. This is a Demo-C adapter until TourRunner exposes a reusable settled-step
+     * event; it prevents the progress surface from claiming work that is still in flight.
+     * @param {Number} count One-based flattened beat count.
+     * @param {Promise} cueSettlement
+     * @returns {Promise<Boolean>}
+     */
+    async waitForTourBeatSettlement(count, cueSettlement) {
+        for (let attempt = 0; attempt < 400; attempt++) {
+            if (this.tourRunner.log.length >= count) break;
+            await this.timeout(5)
+        }
+
+        if (this.tourRunner.log.length < count) return false;
+
+        await cueSettlement;
+        await this.refreshPromise;
+
+        return true
     }
 
     /**
@@ -899,8 +973,9 @@ class DemoCWorkspace extends Container {
         me.cuePromise      = Promise.resolve();
         me.cueReceipts     = [];
         me.lastTourReceipt = null;
+        me.progressPromise = Promise.resolve();
         me.dockModel       = DockZoneModel.clone(initialDocument);
-        me.setPipProgress(0);
+        await me.setPipProgress(0);
 
         await me.refreshDockWorkspace();
 
@@ -913,6 +988,8 @@ class DemoCWorkspace extends Container {
 
         await me.cuePromise;
         await me.refreshPromise;
+        await me.progressPromise;
+        await me.setPipProgress(DemoCWorkspace.totalBeats().length);
 
         const
             elapsedMs    = Date.now() - startedAt,
@@ -937,7 +1014,6 @@ class DemoCWorkspace extends Container {
             };
 
         me.lastTourReceipt = receipt;
-        me.setPipProgress(DemoCWorkspace.totalBeats().length);
         me.setTourCaption(receipt.completed
             ? `Tour complete — ${receipt.log.length} deterministic beats and ${receipt.cueReceipts.length} surface cues settled.`
             : `Tour stopped — ${errors[0]}`);

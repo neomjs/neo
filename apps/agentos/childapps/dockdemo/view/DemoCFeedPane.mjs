@@ -30,8 +30,9 @@ class DemoCFeedPane extends GridContainer {
             width    : 105
         }, {
             dataField: 'name',
+            flex     : 1,
             text     : 'Event',
-            width    : 180
+            minWidth : 180
         }, {
             dataField: 'status',
             text     : 'State',
@@ -44,14 +45,13 @@ class DemoCFeedPane extends GridContainer {
         }, {
             type     : 'sparkline',
             dataField: 'trend',
-            flex     : 1,
-            minWidth : 150,
-            text     : 'Live'
+            text     : 'Live',
+            width    : 160
         }],
         /**
-         * @member {Number} rowHeight=42
+         * @member {Number} rowHeight=50
          */
-        rowHeight: 42
+        rowHeight: 50
     }
 }
 

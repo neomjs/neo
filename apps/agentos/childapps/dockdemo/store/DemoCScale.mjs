@@ -61,7 +61,8 @@ class DemoCScale extends Store {
             records  = new Array(amountRows);
 
         for (let index = 0; index < amountRows; index++) {
-            const base = Math.round(Math.random() * 100);
+            const base   = Math.round(Math.random() * 100);
+            let   signal = 24 + index % 48;
 
             records[index] = {
                 id      : index + 1,
@@ -70,7 +71,10 @@ class DemoCScale extends Store {
                 value   : Math.round(Math.random() * 10000),
                 counter : base,
                 progress: Math.round(Math.random() * 100),
-                trend   : Array.from({length: 12}, (_, point) => (base + point * 7 + index) % 101)
+                trend   : Array.from({length: 12}, (_, point) => {
+                    signal = Math.max(8, Math.min(92, signal + ((index * 3 + point * 5) % 9) - 4));
+                    return signal
+                })
             }
         }
 

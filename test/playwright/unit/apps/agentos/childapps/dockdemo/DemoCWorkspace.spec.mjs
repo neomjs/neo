@@ -10,6 +10,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 import '../../../../../../../src/manager/Instance.mjs';
+import DemoCFeedPane  from '../../../../../../../apps/agentos/childapps/dockdemo/view/DemoCFeedPane.mjs';
 import DemoCScalePane from '../../../../../../../apps/agentos/childapps/dockdemo/view/DemoCScalePane.mjs';
 import DemoCWorkspace from '../../../../../../../apps/agentos/childapps/dockdemo/view/DemoCWorkspace.mjs';
 
@@ -23,11 +24,22 @@ import {initialDocument} from '../../../../../../../apps/agentos/tour/demoCDense
  */
 test.describe.serial('AgentOS.childapps.dockdemo.view.DemoCWorkspace', () => {
     test('renderer-rich scale columns carry unique pooling keys', () => {
-        const dataFields = DemoCScalePane.config.columns.map(column => column.dataField);
+        const
+            dataFields     = DemoCScalePane.config.columns.map(column => column.dataField),
+            feedEvent      = DemoCFeedPane.config.columns.find(column => column.dataField === 'name'),
+            feedSparkline  = DemoCFeedPane.config.columns.find(column => column.type === 'sparkline'),
+            scaleSparkline = DemoCScalePane.config.columns.find(column => column.type === 'sparkline');
 
         expect(new Set(dataFields).size).toBe(dataFields.length);
         expect(DemoCScalePane.config.body.bufferRowRange * DemoCScalePane.config.rowHeight)
-            .toBeGreaterThanOrEqual(0.28 * 1440)
+            .toBeGreaterThanOrEqual(0.28 * 1440);
+        expect(DemoCScalePane.config.rowHeight).toBe(50);
+        expect(DemoCFeedPane.config.rowHeight).toBe(50);
+        expect(scaleSparkline).toMatchObject({width: 160});
+        expect(scaleSparkline.flex).toBeUndefined();
+        expect(feedSparkline).toMatchObject({width: 160});
+        expect(feedSparkline.flex).toBeUndefined();
+        expect(feedEvent).toMatchObject({flex: 1, minWidth: 180})
     });
 
     test('provider-owned stores and cached data panes survive split + return', async () => {
@@ -46,6 +58,9 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoCWorkspace', () => {
             expect(feedStore.className).toBe('AgentOS.childapps.dockdemo.store.DemoCFeed');
             expect(scaleStore.count).toBe(100000);
             expect(scaleStore.autoInitRecords).toBe(false);
+            expect(scaleStore.items.slice(0, 20).every(record => record.trend
+                .slice(1).every((value, index) => Math.abs(value - record.trend[index]) <= 4)),
+                'synthetic Sparkline series stay bounded instead of wrapping across the full plot').toBe(true);
             expect(feedBefore).toBeGreaterThanOrEqual(25);
 
             workspace.appendFeedBatch(5);
