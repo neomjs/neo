@@ -12,6 +12,8 @@ import {
 import {
     TYPE_GATE_REJECTION_FILENAME,
     TYPE_GATE_REJECTION_STAGE,
+    DISCUSSION_LIVENESS_REJECTION_STAGE,
+    appendTypeGateRejection,
     readTypeGateRejectionLedger,
     summarizeTypeGateRejectionLedger,
     queryTypeGateRejectionLedger
@@ -22,7 +24,13 @@ async function tmpDir() {
 }
 
 // A type-gate rejection: the non-actionable node + the exclusion labels that made it visibility-only.
-const record = (nodeId, rejectionBucket, at) => ({nodeId, rejectionBucket, stage: TYPE_GATE_REJECTION_STAGE, at});
+const record         = (nodeId, rejectionBucket, at) => ({nodeId, rejectionBucket, stage: TYPE_GATE_REJECTION_STAGE, at});
+const livenessRecord = (nodeId, rejectionBucket, at) => ({
+    nodeId,
+    rejectionBucket,
+    stage: DISCUSSION_LIVENESS_REJECTION_STAGE,
+    at
+});
 
 test.describe('typeGateRejectionLedgerStore — the actionability type-gate rejection ledger (#15057 AC3)', () => {
     test('append (via the shared filename seam) → read round-trips the sibling ledger in append order', async () => {
@@ -60,6 +68,67 @@ test.describe('typeGateRejectionLedgerStore — the actionability type-gate reje
         await fs.rm(dir, {recursive: true, force: true});
     });
 
+    test('one physical stream exposes stage-isolated defaults and explicit liveness views', async () => {
+        const dir = await tmpDir();
+        await appendRouteAttribution(record('issue-actionability', ['epic'], 100), {dir, filename: TYPE_GATE_REJECTION_FILENAME});
+        await appendRouteAttribution(livenessRecord('discussion-dormant', ['undetermined-no-decaying-support'], 200), {dir, filename: TYPE_GATE_REJECTION_FILENAME});
+
+        expect((await readTypeGateRejectionLedger({dir})).map(row => row.nodeId)).toEqual(['issue-actionability']);
+        expect((await readTypeGateRejectionLedger({dir, stage: DISCUSSION_LIVENESS_REJECTION_STAGE})).map(row => row.nodeId))
+            .toEqual(['discussion-dormant']);
+
+        const mixed = await readRouteAttributionLedger({dir, filename: TYPE_GATE_REJECTION_FILENAME});
+        expect(summarizeTypeGateRejectionLedger(mixed)).toMatchObject({
+            total             : 1,
+            byRejectionBucket : {epic: 1},
+            byRejectionLabel  : {epic: 1},
+            rejectedNodeCounts: {'issue-actionability': 1},
+            lastEventAt       : 100
+        });
+        expect(summarizeTypeGateRejectionLedger(mixed, {stage: DISCUSSION_LIVENESS_REJECTION_STAGE})).toMatchObject({
+            total             : 1,
+            byRejectionBucket : {'undetermined-no-decaying-support': 1},
+            byRejectionLabel  : {},
+            rejectedNodeCounts: {'discussion-dormant': 1},
+            lastEventAt       : 200
+        });
+        expect(queryTypeGateRejectionLedger(mixed).map(row => row.nodeId)).toEqual(['issue-actionability']);
+        expect(queryTypeGateRejectionLedger(mixed, {stage: DISCUSSION_LIVENESS_REJECTION_STAGE}).map(row => row.nodeId))
+            .toEqual(['discussion-dormant']);
+        await fs.rm(dir, {recursive: true, force: true})
+    });
+
+    test('maxEvents is retained per stage — later liveness pressure cannot evict the actionability view', async () => {
+        const dir = await tmpDir();
+
+        await appendTypeGateRejection(record('issue-actionability', ['epic'], 100), {
+            dir,
+            maxEvents   : 2,
+            triggerBytes: 0
+        });
+        await appendTypeGateRejection(livenessRecord('discussion-liveness-1', ['terminal'], 200), {
+            dir,
+            maxEvents   : 2,
+            triggerBytes: 0
+        });
+        await appendTypeGateRejection(livenessRecord('discussion-liveness-2', ['terminal'], 300), {
+            dir,
+            maxEvents   : 2,
+            triggerBytes: 0
+        });
+
+        expect((await readTypeGateRejectionLedger({dir})).map(row => row.nodeId))
+            .toEqual(['issue-actionability']);
+        expect((await readTypeGateRejectionLedger({dir, stage: DISCUSSION_LIVENESS_REJECTION_STAGE})).map(row => row.nodeId))
+            .toEqual(['discussion-liveness-1', 'discussion-liveness-2']);
+
+        const physicalRows = await readRouteAttributionLedger({dir, filename: TYPE_GATE_REJECTION_FILENAME});
+        expect(physicalRows.map(row => row.nodeId))
+            .toEqual(['issue-actionability', 'discussion-liveness-1', 'discussion-liveness-2']);
+
+        await fs.rm(dir, {recursive: true, force: true})
+    });
+
     test('summarize folds exclusion labels + rejected-node counts + the newest timestamp', () => {
         const summary = summarizeTypeGateRejectionLedger([
             record('issue-1', ['epic'], 100),
@@ -68,6 +137,7 @@ test.describe('typeGateRejectionLedgerStore — the actionability type-gate reje
         ]);
 
         expect(summary.total).toBe(3);
+        expect(summary.byRejectionBucket).toEqual({epic: 2, 'not-code-ready': 2});
         expect(summary.byRejectionLabel).toEqual({epic: 2, 'not-code-ready': 2});
         expect(summary.rejectedNodeCounts).toEqual({'issue-1': 2, 'issue-2': 1});
         expect(summary.lastEventAt).toBe(300);
@@ -80,9 +150,9 @@ test.describe('typeGateRejectionLedgerStore — the actionability type-gate reje
             record('issue-2', ['epic'], 2)
         ]);
 
-        expect(summary.total).toBe(3);                              // total is row count
+        expect(summary.total).toBe(1);                              // missing-stage rows never enter a stage view
         expect(summary.byRejectionLabel).toEqual({epic: 1});       // only the well-formed bucket folds
-        expect(summary.rejectedNodeCounts).toEqual({'issue-1': 1, 'issue-2': 1});
+        expect(summary.rejectedNodeCounts).toEqual({'issue-2': 1});
     });
 
     test('query restricts by time window / exclusion labels / node ids and returns newest-first, capped', () => {

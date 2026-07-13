@@ -1,8 +1,9 @@
-import fs                 from 'node:fs/promises';
-import path               from 'node:path';
-import process            from 'node:process';
-import {fileURLToPath}    from 'node:url';
-import {Command, InvalidArgumentError} from 'commander';
+import fs                                     from 'node:fs/promises';
+import path                                   from 'node:path';
+import process                                from 'node:process';
+import {fileURLToPath}                        from 'node:url';
+import {Command, InvalidArgumentError}        from 'commander';
+import {classifyDiscussionRoutingDisposition} from '../../services/github-workflow/shared/discussionRoutingDisposition.mjs';
 
 /**
  * Pre-Flight (structural fast-path): `ai/scripts/diagnostics/audit-discussion-lifecycle.mjs`
@@ -18,23 +19,6 @@ import {Command, InvalidArgumentError} from 'commander';
 
 const DEFAULT_DISCUSSIONS_DIR = path.resolve(process.cwd(), 'resources/content/discussions');
 const DEFAULT_STALE_DAYS      = 90;
-
-const GRADUATED_RE          = /\[GRADUATED_TO_TICKET(?::[^\]]*)?\]/i;
-const TICKETED_GRADUATED_RE = /\[GRADUATED_TO_TICKET:\s*#\d+\]/i;
-const RESOLVED_RE           = /\[RESOLVED_TO_AC\]/i;
-
-const OPEN_SCOPE_RES = [
-    /\[OQ_RESOLUTION_PENDING\]/i,
-    /\[CONVERGING\]/i,
-    /\[OPEN(?:_QUESTION)?\]/i,
-    /\bremaining\b/i,
-    /\bremains\b/i,
-    /\bstill pending\b/i,
-    /\bnot yet\b/i,
-    /\bnext cycle\b/i,
-    /\bnot proposed for graduation\b/i,
-    /\bseeding only\b/i
-];
 
 const CANDIDATE_ORDER = {
     'graduated-open'      : 0,
@@ -88,7 +72,7 @@ function parseFrontmatter(raw) {
     const lines = block.split(/\r?\n/);
 
     for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
+        const line  = lines[i];
         const match = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
 
         if (!match) {
@@ -160,66 +144,6 @@ function getAgeDays(updatedAt, now) {
 }
 
 /**
- * @param {String} body
- * @returns {Boolean}
- */
-function hasOpenScope(body) {
-    return OPEN_SCOPE_RES.some(re => re.test(body))
-}
-
-/**
- * @param {String} body
- * @returns {Boolean}
- */
-function hasGraduatedMarker(body) {
-    return body.split(/\r?\n/).some(line => {
-        if (!GRADUATED_RE.test(line)) {
-            return false
-        }
-
-        if (TICKETED_GRADUATED_RE.test(line)) {
-            return true
-        }
-
-        if (/(graduates when|graduation criteria|before any|candidate)/i.test(line)) {
-            return false
-        }
-
-        const normalized = line
-            .replace(/^[>\s#*-]+/, '')
-            .replace(/[*_`]/g, '')
-            .trim();
-
-        return /^(\[GRADUATED_TO_TICKET\]|Status:\s*\[GRADUATED_TO_TICKET\])/.test(normalized) ||
-            /met all graduation criteria and is now\s+\[GRADUATED_TO_TICKET\]/i.test(normalized)
-    })
-}
-
-/**
- * @param {String} body
- * @returns {Boolean}
- */
-function hasResolvedDispositionMarker(body) {
-    return body.split(/\r?\n/).some(line => {
-        if (!RESOLVED_RE.test(line)) {
-            return false
-        }
-
-        if (/(before any|graduates when|graduation criteria|candidate|ready-to-graduate)/i.test(line)) {
-            return false
-        }
-
-        const normalized = line
-            .replace(/^[>\s#*-]+/, '')
-            .replace(/[*`]/g, '')
-            .trim();
-
-        return /^\[RESOLVED_TO_AC\]/i.test(normalized) ||
-            /^(OQ\d+|Open Question\b)[^[]*\[RESOLVED_TO_AC\]/i.test(normalized)
-    })
-}
-
-/**
  * @param {Object} discussion
  * @param {Object} options
  * @param {Date} options.now
@@ -230,8 +154,15 @@ function classifyDiscussion(discussion, {now, staleDays}) {
     const
         category = normalizeCategory(discussion.category),
         closed   = isTruthyClosed(discussion.closed) || String(discussion.state || '').toLowerCase() === 'closed',
-        body     = String(discussion.body || ''),
-        ageDays  = getAgeDays(discussion.updatedAt || discussion.createdAt, now);
+        // Synced Markdown appends comments after the authoritative root body. Comments remain
+        // diagnostic evidence only and cannot mutate the source-owned lifecycle projection.
+        body     = String(discussion.body || '').split(/\n## Comments\s*\n/)[0],
+        ageDays  = getAgeDays(discussion.updatedAt || discussion.createdAt, now),
+        routing  = classifyDiscussionRoutingDisposition({
+            author: discussion.author,
+            body,
+            closed
+        });
 
     if (category !== 'Ideas' || closed) {
         return null
@@ -245,7 +176,7 @@ function classifyDiscussion(discussion, {now, staleDays}) {
         filePath : discussion.filePath || ''
     };
 
-    if (hasGraduatedMarker(body)) {
+    if (routing.disposition === 'terminal' && routing.reasonCode === 'graduated-to-ticket') {
         return {
             ...base,
             kind  : 'graduated-open',
@@ -254,12 +185,18 @@ function classifyDiscussion(discussion, {now, staleDays}) {
         }
     }
 
-    if (hasResolvedDispositionMarker(body) && !hasOpenScope(body)) {
+    if (routing.disposition === 'terminal' || routing.reasonCode === 'resolved-scope-without-terminal-signal') {
+        const hasExplicitTerminalSignal = routing.disposition === 'terminal';
+
         return {
             ...base,
             kind  : 'resolved-only-review',
-            action: 'maintainer review, then close RESOLVED if no scope remains',
-            reason: 'Discussion has resolved AC markers and no obvious unresolved-scope marker.'
+            action: hasExplicitTerminalSignal
+                ? 'maintainer review, then close RESOLVED if no scope remains'
+                : 'maintainer scope review; add an explicit terminal signal only if no scope remains',
+            reason: hasExplicitTerminalSignal
+                ? `Discussion routing disposition is terminal (${routing.reasonCode}).`
+                : 'Discussion contains resolved-scope evidence without an explicit whole-Discussion terminal signal.'
         }
     }
 
@@ -268,7 +205,9 @@ function classifyDiscussion(discussion, {now, staleDays}) {
             ...base,
             kind  : 'stale-open',
             action: 'maintainer stale-archive review',
-            reason: `No activity for ${ageDays} days (threshold: ${staleDays}).`
+            reason: routing.disposition === 'active'
+                ? `Explicit active source state has no activity for ${ageDays} days (threshold: ${staleDays}); age is diagnostic only.`
+                : `No activity for ${ageDays} days (threshold: ${staleDays}).`
         }
     }
 
@@ -284,7 +223,7 @@ function classifyDiscussion(discussion, {now, staleDays}) {
  */
 function auditDiscussions(discussions, {now, staleDays}) {
     const candidates = [];
-    let scanned = 0;
+    let   scanned    = 0;
 
     for (const discussion of discussions) {
         if (normalizeCategory(discussion.category) === 'Ideas') {
@@ -347,7 +286,7 @@ async function collectDiscussionFiles(dir) {
  * @returns {Promise<Object[]>}
  */
 async function loadDiscussionsFromDir(discussionsDir) {
-    const files = await collectDiscussionFiles(discussionsDir);
+    const files       = await collectDiscussionFiles(discussionsDir);
     const discussions = [];
 
     for (const filePath of files) {
@@ -396,7 +335,7 @@ function formatReport(result, {json = false} = {}) {
     }
 
     const grouped = groupCandidates(result.candidates);
-    const lines = [
+    const lines   = [
         `[discussion-lifecycle-audit] scanned ${result.scanned} Ideas discussions.`,
         `[discussion-lifecycle-audit] candidates: ${result.candidates.length}` +
             ` (graduated-open=${grouped['graduated-open'] || 0},` +
@@ -536,6 +475,7 @@ function runSelfTest() {
         {
             number   : 1,
             title    : 'graduated',
+            author   : 'neo-gpt',
             category : 'Ideas',
             closed   : false,
             updatedAt: '2026-06-01T00:00:00Z',
@@ -544,6 +484,7 @@ function runSelfTest() {
         {
             number   : 5,
             title    : 'future criterion',
+            author   : 'neo-gpt',
             category : 'Ideas',
             closed   : false,
             updatedAt: '2026-06-01T00:00:00Z',
@@ -552,6 +493,7 @@ function runSelfTest() {
         {
             number   : 2,
             title    : 'partial',
+            author   : 'neo-gpt',
             category : 'Ideas',
             closed   : false,
             updatedAt: '2026-06-01T00:00:00Z',
@@ -560,6 +502,7 @@ function runSelfTest() {
         {
             number   : 6,
             title    : 'instructional resolved marker',
+            author   : 'neo-gpt',
             category : 'Ideas',
             closed   : false,
             updatedAt: '2026-06-01T00:00:00Z',
@@ -568,22 +511,34 @@ function runSelfTest() {
         {
             number   : 7,
             title    : 'resolved only',
+            author   : 'neo-gpt',
             category : 'Ideas',
             closed   : false,
             updatedAt: '2026-06-01T00:00:00Z',
-            body     : '[RESOLVED_TO_AC] OQ1 resolved.\nAll scope complete.'
+            body     : 'OQ1 [RESOLVED_TO_AC] resolved.\nAll scope complete.'
         },
         {
             number   : 3,
             title    : 'stale',
+            author   : 'neo-gpt',
             category : 'Ideas',
             closed   : false,
             updatedAt: '2026-01-01T00:00:00Z',
             body     : 'No markers.'
         },
         {
+            number   : 8,
+            title    : 'stale but explicitly active',
+            author   : 'neo-gpt',
+            category : 'Ideas',
+            closed   : false,
+            updatedAt: '2026-01-01T00:00:00Z',
+            body     : 'OQ2 [OQ_RESOLUTION_PENDING] still open.'
+        },
+        {
             number   : 4,
             title    : 'closed graduated',
+            author   : 'neo-gpt',
             category : 'Ideas',
             closed   : true,
             updatedAt: '2026-01-01T00:00:00Z',
@@ -596,7 +551,7 @@ function runSelfTest() {
 
     const kinds = result.candidates.map(candidate => `${candidate.number}:${candidate.kind}`);
 
-    if (result.scanned !== 7 || kinds.join(',') !== '1:graduated-open,7:resolved-only-review,3:stale-open') {
+    if (result.scanned !== 8 || kinds.join(',') !== '1:graduated-open,7:resolved-only-review,3:stale-open,8:stale-open') {
         throw new Error(`Self-test failed: ${JSON.stringify({scanned: result.scanned, kinds})}`);
     }
 

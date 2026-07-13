@@ -86,10 +86,10 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
             }
         });
 
-        const metadata = {discussions: {}};
-        const stats = await DiscussionSyncer.syncDiscussions(metadata);
+        const metadata   = {discussions: {}};
+        const stats      = await DiscussionSyncer.syncDiscussions(metadata);
         const targetPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-24001.md');
-        const index = await fs.readJson(path.join(tmpRoot, '_index.json'));
+        const index      = await fs.readJson(path.join(tmpRoot, '_index.json'));
 
         expect(stats.synced).toEqual([24001]);
         await expect(fs.pathExists(targetPath)).resolves.toBe(true);
@@ -105,6 +105,80 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         const content = await fs.readFile(targetPath, 'utf8');
         expect(content).toMatch(/^closed: false$/m);
         expect(content).toMatch(/^closedAt: null$/m);
+        expect(content).toMatch(/^routingDispositionSchemaVersion: discussion-routing-disposition\.v1$/m);
+        expect(content).toMatch(/^routingDisposition: undetermined$/m);
+        expect(content).toMatch(/^routingDispositionReason: untrusted-or-unclassified-root-author$/m);
+    });
+
+    test('projects trusted lifecycle markers into typed source-owned routing frontmatter', async () => {
+        const discussion = buildDiscussion(24007, {category: 'Ideas'});
+        discussion.author = {login: 'neo-gpt'};
+        discussion.body   = 'OQ1 [RESOLVED_TO_AC]\nOQ2 [OQ_RESOLUTION_PENDING]';
+
+        GraphqlService.query = async () => ({
+            repository: {
+                discussions: {
+                    nodes   : [discussion],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+
+        await DiscussionSyncer.syncDiscussions({discussions: {}});
+
+        const targetPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-24007.md');
+        const parsed     = matter(await fs.readFile(targetPath, 'utf8'));
+
+        expect(parsed.data).toMatchObject({
+            routingDispositionSchemaVersion: 'discussion-routing-disposition.v1',
+            routingDisposition             : 'active',
+            routingDispositionReason       : 'explicit-active-marker',
+            routingDispositionEvidence     : ['marker:OQ_RESOLUTION_PENDING']
+        })
+    });
+
+    test('keeps comments and truncated comment pages outside the root-body lifecycle authority', async () => {
+        const discussion = buildDiscussion(24008, {
+            category: 'Ideas',
+            comments: {
+                nodes: [{
+                    author   : {login: 'external-commenter'},
+                    body     : '[GRADUATED_TO_TICKET: #99999]',
+                    createdAt: '2026-05-02T01:00:00Z',
+                    replies  : {nodes: []}
+                }, {
+                    author   : {login: 'neo-gpt'},
+                    body     : '[OQ_RESOLUTION_PENDING] trusted comment only',
+                    createdAt: '2026-05-02T02:00:00Z',
+                    replies  : {nodes: []}
+                }],
+                pageInfo: {hasNextPage: true, endCursor: 'truncated-after-50'}
+            }
+        });
+        discussion.author = {login: 'neo-gpt'};
+        discussion.body   = 'Marker-free authoritative root body.';
+
+        GraphqlService.query = async () => ({
+            repository: {
+                discussions: {
+                    nodes   : [discussion],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+
+        await DiscussionSyncer.syncDiscussions({discussions: {}});
+
+        const targetPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-24008.md');
+        const parsed     = matter(await fs.readFile(targetPath, 'utf8'));
+
+        expect(parsed.content).toContain('[GRADUATED_TO_TICKET: #99999]');
+        expect(parsed.content).toContain('[OQ_RESOLUTION_PENDING] trusted comment only');
+        expect(parsed.data).toMatchObject({
+            routingDisposition        : 'undetermined',
+            routingDispositionReason  : 'no-authoritative-lifecycle-marker',
+            routingDispositionEvidence: []
+        })
     });
 
     test('fetches accepted-answer flags for comments and replies', () => {
@@ -148,7 +222,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         await DiscussionSyncer.syncDiscussions({discussions: {}});
 
         const targetPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-24003.md');
-        const content = await fs.readFile(targetPath, 'utf8');
+        const content    = await fs.readFile(targetPath, 'utf8');
 
         expect(content).toContain([
             '### `@neo-answer` commented on 2026-05-02T01:00:00Z',
@@ -196,7 +270,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         await DiscussionSyncer.syncDiscussions({discussions: {}});
 
         const targetPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-24005.md');
-        const content = await fs.readFile(targetPath, 'utf8');
+        const content    = await fs.readFile(targetPath, 'utf8');
 
         expect(content).toContain([
             '### `@neo-parent` commented on 2026-05-02T01:00:00Z',
@@ -213,7 +287,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
 
     test('sync write-boundary defangs untrusted discussion bodies, comments, and replies before local markdown persistence (#13691)', async () => {
         const discussionNumber = 24006;
-        const discussion = buildDiscussion(discussionNumber, {
+        const discussion       = buildDiscussion(discussionNumber, {
             comments: {nodes: [{
                 id       : 'DC_external',
                 author   : {login: 'external-commenter'},
@@ -285,7 +359,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         await DiscussionSyncer.syncDiscussions({discussions: {}});
 
         const targetPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-24004.md');
-        const content = await fs.readFile(targetPath, 'utf8');
+        const content    = await fs.readFile(targetPath, 'utf8');
 
         expect(content).toContain('Regular discussion comment.');
         expect(content).not.toContain('> [!ANSWER]');
@@ -306,10 +380,10 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
             }
         });
 
-        const metadata = {discussions: {}};
-        const stats = await DiscussionSyncer.syncDiscussions(metadata);
+        const metadata   = {discussions: {}};
+        const stats      = await DiscussionSyncer.syncDiscussions(metadata);
         const targetPath = path.join(aiConfig.issueSync.archiveRoot, 'discussions', 'v13.0.0', 'chunk-1', 'discussion-24002.md');
-        const index = await fs.readJson(path.join(tmpRoot, '_index.json'));
+        const index      = await fs.readJson(path.join(tmpRoot, '_index.json'));
 
         expect(stats.synced).toEqual([24002]);
         await expect(fs.pathExists(targetPath)).resolves.toBe(true);
@@ -412,7 +486,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         aiConfig.issueSync.discussionDenylist = {numbers: [25002], authors: []};
 
         const metadata = {discussions: {}};
-        const stats = await DiscussionSyncer.syncDiscussions(metadata);
+        const stats    = await DiscussionSyncer.syncDiscussions(metadata);
 
         const allowedPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-25001.md');
         const deniedPath  = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-25002.md');
@@ -441,7 +515,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
 
         aiConfig.issueSync.discussionDenylist = {numbers: [], authors: ['astroturf-account']};
 
-        const stats = await DiscussionSyncer.syncDiscussions({discussions: {}});
+        const stats      = await DiscussionSyncer.syncDiscussions({discussions: {}});
         const deniedPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-25003.md');
 
         expect(stats.synced).toEqual([]);
@@ -522,7 +596,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
 
         aiConfig.issueSync.discussionDenylist = {numbers: [], authors: []};
 
-        const stats = await DiscussionSyncer.syncDiscussions({discussions: {}});
+        const stats      = await DiscussionSyncer.syncDiscussions({discussions: {}});
         const targetPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-25005.md');
 
         expect(stats.synced).toEqual([25005]);
@@ -575,7 +649,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
 
     test('refetchDiscussionsByNumber skips a discussion that no longer exists on GitHub (#13794)', async () => {
         const discussionNumber = 24051;
-        const metadata = {discussions: {}};
+        const metadata         = {discussions: {}};
 
         GraphqlService.query = async () => ({repository: {discussion: null}});
 
@@ -596,7 +670,7 @@ function buildDiscussion(number, config = {}) {
 
     return {
         number,
-        title: `Discussion ${number}`,
+        title    : `Discussion ${number}`,
         body     : 'Discussion body',
         closed,
         closedAt,

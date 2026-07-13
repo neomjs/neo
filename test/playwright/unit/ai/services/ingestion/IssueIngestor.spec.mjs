@@ -70,6 +70,11 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
             "createdAt: '2026-05-20T10:00:00Z'",
             "updatedAt: '2026-05-20T11:00:00Z'",
             'closed: false',
+            'routingDispositionSchemaVersion: discussion-routing-disposition.v1',
+            'routingDisposition: active',
+            'routingDispositionReason: explicit-active-marker',
+            'routingDispositionEvidence:',
+            '  - marker:OQ_RESOLUTION_PENDING',
             '---',
             '# Open Discussion Body'
         ].join('\n'),
@@ -82,6 +87,11 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
             "updatedAt: '2026-05-20T11:00:00Z'",
             'closed: true',
             "closedAt: '2026-05-20T12:00:00Z'",
+            'routingDispositionSchemaVersion: discussion-routing-disposition.v1',
+            'routingDisposition: terminal',
+            'routingDispositionReason: github-closed',
+            'routingDispositionEvidence:',
+            '  - github:closed',
             '---',
             '# Closed Discussion Body'
         ].join('\n'),
@@ -315,26 +325,223 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
         const closedNode = graphNodes.find(node => node.id === 'discussion-3002');
 
         expect(openNode.properties).toMatchObject({
-            state   : 'OPEN',
-            closed  : false,
-            closedAt: null,
-            category: 'Ideas'
+            state                          : 'OPEN',
+            closed                         : false,
+            closedAt                       : null,
+            category                       : 'Ideas',
+            routingDispositionSchemaVersion: 'discussion-routing-disposition.v1',
+            routingDisposition             : 'active',
+            routingDispositionReason       : 'explicit-active-marker',
+            routingDispositionEvidence     : ['marker:OQ_RESOLUTION_PENDING']
         });
         expect(closedNode.properties).toMatchObject({
-            state   : 'CLOSED',
-            closed  : true,
-            closedAt: '2026-05-20T12:00:00Z',
-            category: 'Q&A'
+            state             : 'CLOSED',
+            closed            : true,
+            closedAt          : '2026-05-20T12:00:00Z',
+            category          : 'Q&A',
+            routingDisposition: 'terminal'
         });
 
         const closedUpsert = upserts.find(payload => payload.ids[0] === 'discussion-3002');
         expect(closedUpsert.metadatas[0]).toMatchObject({
-            type    : 'DISCUSSION',
-            state   : 'CLOSED',
-            closed  : true,
-            closedAt: '2026-05-20T12:00:00Z',
-            category: 'Q&A'
+            type                      : 'DISCUSSION',
+            state                     : 'CLOSED',
+            closed                    : true,
+            closedAt                  : '2026-05-20T12:00:00Z',
+            category                  : 'Q&A',
+            routingDisposition        : 'terminal',
+            routingDispositionReason  : 'github-closed',
+            routingDispositionEvidence: '["github:closed"]'
         });
+    });
+
+    test('ingestDiscussionStates() skips malformed frontmatter without suppressing valid siblings', async () => {
+        const priorReaddir  = fs.promises.readdir;
+        const priorReadFile = fs.promises.readFile;
+        const upserts       = [];
+
+        StorageRouter.getGraphCollection = async () => ({
+            upsert: async payload => upserts.push(payload),
+            get   : async () => ({ ids: [], metadatas: [], documents: [] })
+        });
+        fs.promises.readdir = async (dirPath, options) => {
+            if (typeof dirPath === 'string' && dirPath.includes('resources/content/archive/discussions')) {
+                return [];
+            }
+            if (typeof dirPath === 'string' && dirPath.includes('resources/content/discussions')) {
+                return ['discussion-malformed.md', 'discussion-3001.md'];
+            }
+            return priorReaddir.call(fs.promises, dirPath, options);
+        };
+        fs.promises.readFile = async (filePath, encoding) => {
+            if (typeof filePath === 'string' && filePath.endsWith('discussion-malformed.md')) {
+                return '---\ntitle: [unterminated\n---\n# malformed';
+            }
+            return priorReadFile.call(fs.promises, filePath, encoding);
+        };
+
+        try {
+            await IssueIngestor.ingestDiscussionStates();
+        } finally {
+            fs.promises.readdir = priorReaddir;
+            fs.promises.readFile = priorReadFile;
+            StorageRouter.getGraphCollection = _originalGetGraphCollection;
+        }
+
+        expect(graphNodes.map(node => node.id)).toEqual(['discussion-3001']);
+        expect(upserts).toHaveLength(1);
+        expect(upserts[0].ids).toEqual(['discussion-3001']);
+    });
+
+    test('ingestDiscussionStates() fails loud when graph persistence rejects lifecycle state', async () => {
+        const priorUpsertNode = GraphService.upsertNode;
+
+        StorageRouter.getGraphCollection = async () => ({
+            upsert: async () => {},
+            get   : async () => ({ ids: [], metadatas: [], documents: [] })
+        });
+        GraphService.upsertNode = () => {
+            throw new Error('graph persistence failed');
+        };
+
+        try {
+            await expect(IssueIngestor.ingestDiscussionStates()).rejects.toThrow('graph persistence failed');
+        } finally {
+            GraphService.upsertNode = priorUpsertNode;
+            StorageRouter.getGraphCollection = _originalGetGraphCollection;
+        }
+    });
+
+    test('ingestDiscussionStates() fails loud when vector persistence rejects lifecycle state', async () => {
+        StorageRouter.getGraphCollection = async () => ({
+            upsert: async () => {
+                throw new Error('vector persistence failed');
+            },
+            get: async () => ({ ids: [], metadatas: [], documents: [] })
+        });
+
+        try {
+            await expect(IssueIngestor.ingestDiscussionStates()).rejects.toThrow('vector persistence failed');
+        } finally {
+            StorageRouter.getGraphCollection = _originalGetGraphCollection;
+        }
+    });
+
+    test('ingestDiscussionStates() selects the newly active source over a stale archive duplicate', async () => {
+        const priorReaddir  = fs.promises.readdir;
+        const priorReadFile = fs.promises.readFile;
+        const upserts       = [];
+        const staleArchive  = [
+            '---',
+            'number: 3001',
+            'title: Stale Archived Discussion',
+            'category: Ideas',
+            "createdAt: '2026-05-20T10:00:00Z'",
+            "updatedAt: '2026-05-20T10:30:00Z'",
+            'closed: true',
+            "closedAt: '2026-05-20T10:30:00Z'",
+            'routingDispositionSchemaVersion: discussion-routing-disposition.v1',
+            'routingDisposition: terminal',
+            'routingDispositionReason: github-closed',
+            'routingDispositionEvidence:',
+            '  - github:closed',
+            '---',
+            '# Stale Archived Discussion Body'
+        ].join('\n');
+
+        StorageRouter.getGraphCollection = async () => ({
+            upsert: async payload => upserts.push(payload),
+            get   : async () => ({ ids: [], metadatas: [], documents: [] })
+        });
+        fs.promises.readdir = async (dirPath, options) => {
+            if (typeof dirPath === 'string' && dirPath.includes('resources/content/archive/discussions')) {
+                return ['v13.1.0/discussion-3001.md'];
+            }
+            if (typeof dirPath === 'string' && dirPath.includes('resources/content/discussions')) {
+                return ['discussion-3001.md'];
+            }
+            return priorReaddir.call(fs.promises, dirPath, options);
+        };
+        fs.promises.readFile = async (filePath, encoding) => {
+            const normalized = typeof filePath === 'string' ? filePath.replace(/\\/g, '/') : '';
+            if (normalized.endsWith('resources/content/archive/discussions/v13.1.0/discussion-3001.md')) {
+                return staleArchive;
+            }
+            return priorReadFile.call(fs.promises, filePath, encoding);
+        };
+
+        try {
+            await IssueIngestor.ingestDiscussionStates();
+        } finally {
+            fs.promises.readdir = priorReaddir;
+            fs.promises.readFile = priorReadFile;
+            StorageRouter.getGraphCollection = _originalGetGraphCollection;
+        }
+
+        const discussionNodes = graphNodes.filter(node => node.id === 'discussion-3001');
+        expect(discussionNodes).toHaveLength(1);
+        expect(discussionNodes[0].properties).toMatchObject({
+            state             : 'OPEN',
+            closed            : false,
+            routingDisposition: 'active'
+        });
+        expect(upserts).toHaveLength(1);
+        expect(upserts[0].metadatas[0]).toMatchObject({
+            state : 'OPEN',
+            closed: false
+        });
+    });
+
+    test('normalizes Discussion routing projection as one atomic current-or-legacy tuple', () => {
+        const normalize = IssueIngestor.constructor.normalizeDiscussionRoutingProjection;
+        const current   = normalize({
+            routingDispositionSchemaVersion: 'discussion-routing-disposition.v1',
+            routingDisposition             : 'terminal',
+            routingDispositionReason       : 'graduated-to-ticket',
+            routingDispositionEvidence     : ['marker:GRADUATED_TO_TICKET']
+        });
+
+        expect(current).toEqual({
+            schemaVersion: 'discussion-routing-disposition.v1',
+            disposition  : 'terminal',
+            reason       : 'graduated-to-ticket',
+            evidence     : ['marker:GRADUATED_TO_TICKET']
+        });
+
+        for (const malformed of [
+            {},
+            {
+                routingDispositionSchemaVersion: 'discussion-routing-disposition.v1',
+                routingDisposition             : 'invalid',
+                routingDispositionReason       : 'graduated-to-ticket',
+                routingDispositionEvidence     : ['marker:GRADUATED_TO_TICKET']
+            },
+            {
+                routingDispositionSchemaVersion: 'discussion-routing-disposition.v1',
+                routingDisposition             : 'terminal',
+                routingDispositionReason       : 'graduated-to-ticket',
+                routingDispositionEvidence     : '["marker:GRADUATED_TO_TICKET"]'
+            },
+            {
+                routingDispositionSchemaVersion: 'discussion-routing-disposition.v1',
+                routingDisposition             : 'terminal',
+                routingDispositionReason       : '',
+                routingDispositionEvidence     : []
+            },
+            {
+                routingDispositionSchemaVersion: 'discussion-routing-disposition.v1',
+                routingDisposition             : 'active',
+                routingDispositionReason       : 'github-closed',
+                routingDispositionEvidence     : ['marker:GRADUATED_TO_TICKET']
+            }
+        ]) {
+            expect(normalize(malformed)).toEqual({
+                schemaVersion: 'discussion-routing-disposition.legacy',
+                disposition  : 'undetermined',
+                reason       : 'legacy-or-invalid-projection',
+                evidence     : []
+            })
+        }
     });
 
     test('ingestPullRequestFeedback() creates PR nodes and RESOLVES edges from PR markdown (#12644)', async () => {

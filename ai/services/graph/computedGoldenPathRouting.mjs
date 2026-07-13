@@ -1,3 +1,4 @@
+import {normalizeDiscussionRoutingProjection}                    from '../github-workflow/shared/discussionRoutingDisposition.mjs';
 import {normalizeLabels}                                         from './issueFocusSections.mjs';
 import {formatGoldenPathCapturedAt as formatGoldenPathTimestamp} from './goldenPathTimestamp.mjs';
 
@@ -60,6 +61,61 @@ export function getComputedRecommendationExclusionLabels(nodeData) {
 }
 
 /**
+ * @summary Returns the typed source projection for a Discussion, failing closed to `undetermined`
+ * for legacy/malformed graph rows.
+ * @param {Object} nodeData Parsed graph node payload.
+ * @returns {String} `active | terminal | undetermined`.
+ */
+export function getDiscussionRoutingDisposition(nodeData) {
+    const properties = nodeData?.properties || nodeData || {};
+    const projection = normalizeDiscussionRoutingProjection({
+        schemaVersion: properties.routingDispositionSchemaVersion,
+        disposition  : properties.routingDisposition,
+        reasonCode   : properties.routingDispositionReason,
+        evidence     : properties.routingDispositionEvidence
+    });
+
+    return projection.disposition
+}
+
+/**
+ * @summary Resolves the steerable graph node type from explicit metadata or the canonical id
+ * prefix used by legacy graph rows.
+ * @param {Object} nodeData Parsed graph node payload.
+ * @returns {String}
+ */
+function getComputedRecommendationNodeType(nodeData) {
+    const explicit = String(nodeData?.type || nodeData?.properties?.type || '').toUpperCase();
+    if (explicit) return explicit;
+
+    const nodeId = String(nodeData?.id || '');
+    if (nodeId.startsWith('discussion-')) return 'DISCUSSION';
+    if (nodeId.startsWith('issue-')) return 'ISSUE';
+    return ''
+}
+
+/**
+ * @summary Applies the Discussion-liveness gate without turning lifecycle facts into score or
+ * contaminating the preceding actionability type/label gate.
+ * @param {Object} nodeData Parsed graph node payload.
+ * @param {Number} [decayingWeight=0] Current RLS-visible, non-protected inbound support.
+ * @returns {{eligible: Boolean, rejectionBucket: String[]}}
+ */
+export function evaluateDiscussionLiveness(nodeData, decayingWeight = 0) {
+    const nodeType = getComputedRecommendationNodeType(nodeData);
+    if (nodeType !== 'DISCUSSION') return {eligible: true, rejectionBucket: []};
+
+    const disposition = getDiscussionRoutingDisposition(nodeData);
+
+    if (disposition === 'active') return {eligible: true, rejectionBucket: []};
+    if (disposition === 'terminal') return {eligible: false, rejectionBucket: ['terminal']};
+
+    return Number.isFinite(decayingWeight) && decayingWeight > 0
+        ? {eligible: true, rejectionBucket: []}
+        : {eligible: false, rejectionBucket: ['undetermined-no-decaying-support']}
+}
+
+/**
  * @summary Determines whether a graph node can be an immediate computed recommendation.
  *
  * The Computed Golden Path is an execution steering surface. ISSUE (work-to-do) and
@@ -73,7 +129,7 @@ export function getComputedRecommendationExclusionLabels(nodeData) {
  */
 export function isActionableComputedRecommendation(nodeData) {
     const nodeId   = String(nodeData?.id || '');
-    const nodeType = String(nodeData?.type || nodeData?.properties?.type || '').toUpperCase();
+    const nodeType = getComputedRecommendationNodeType(nodeData);
 
     // ISSUE = work-to-do, DISCUSSION = an open convergence-to-drive; both are execution-steerable.
     if (nodeType && nodeType !== 'ISSUE' && nodeType !== 'DISCUSSION') return false;
@@ -263,6 +319,10 @@ export function renderComputedGoldenPathContradictionSection({
         `- Active incident/release focus candidates: ${focusRefs}`,
         `- Contradictory computed candidates filtered: ${blockedRefs}`,
         `- Semantic candidates: ${count(stats.semanticCandidates)}`,
+        `- Semantic query passes: ${count(stats.semanticQueryPasses)}`,
+        `- Final requested semantic width: ${count(stats.semanticQueryRequestedWidth)}`,
+        `- Semantic corpus exhausted: ${stats.semanticCorpusExhausted === true}`,
+        `- Candidate admission stop: ${stats.candidateAdmissionStopReason || 'unknown'}`,
         `- SQLite OPEN matches: ${count(stats.sqliteOpenMatches)}`,
         `- Scored actionable candidates: ${count(stats.scoredCandidates)}`,
         `- Selected routed nodes: ${count(stats.selectedTopNodes)}`,
@@ -297,9 +357,14 @@ export function renderComputedGoldenPathEmptySection(stats = {}, capturedAt = ne
         'No actionable computed recommendations survived the current Tri-Vector filter pass.',
         '',
         `- Semantic candidates: ${count(stats.semanticCandidates)}`,
+        `- Semantic query passes: ${count(stats.semanticQueryPasses)}`,
+        `- Final requested semantic width: ${count(stats.semanticQueryRequestedWidth)}`,
+        `- Semantic corpus exhausted: ${stats.semanticCorpusExhausted === true}`,
+        `- Candidate admission stop: ${stats.candidateAdmissionStopReason || 'unknown'}`,
         `- SQLite OPEN matches: ${count(stats.sqliteOpenMatches)}`,
         `- Blocked candidates filtered: ${count(stats.blockedCandidates)}`,
         `- Non-actionable candidates filtered: ${count(stats.nonActionableCandidates)}`,
+        `- Discussion-liveness candidates filtered: ${count(stats.discussionLivenessRejections)}`,
         `- Scored actionable candidates: ${count(stats.scoredCandidates)}`,
         `- Selected top nodes: ${count(stats.selectedTopNodes)}`,
         `- Stale frontier GUIDES pruned: ${count(stats.prunedGuideEdges)}`,
@@ -361,6 +426,9 @@ export function renderComputedGoldenPathFailureSection({
         `- Reason: \`${reasonCode}\``,
         `- Error: \`${error}\``,
         `- Semantic candidates: ${count(stats.semanticCandidates)}`,
+        `- Semantic query passes: ${count(stats.semanticQueryPasses)}`,
+        `- Final requested semantic width: ${count(stats.semanticQueryRequestedWidth)}`,
+        `- Candidate admission stop: ${stats.candidateAdmissionStopReason || 'unknown'}`,
         `- SQLite OPEN matches: ${count(stats.sqliteOpenMatches)}`,
         `- Scored actionable candidates: ${count(stats.scoredCandidates)}`,
         `- Selected routed nodes: ${count(stats.selectedTopNodes)}`,

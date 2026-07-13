@@ -6,19 +6,19 @@ import {
 } from '../../../../../../ai/services/github-workflow/sync/verifyFrontmatterIntegrity.mjs';
 
 /**
- * @summary Coverage for `ai/services/github-workflow/sync/verifyFrontmatterIntegrity.mjs` —
- * the post-serialization integrity gate authored under #11573.
+ * @summary Coverage for the post-serialization integrity gate in
+ * `ai/services/github-workflow/sync/verifyFrontmatterIntegrity.mjs`.
  *
  * Test axes:
  *
  * 1. Empty / malformed input safety (null content, empty key set).
  * 2. Happy path — full key set present.
  * 3. AC3 failing fixture — synthesized markdown lacking `closed`/`closedAt` (the empirical
- *    bug captured by operator V-B-A 2026-05-18: 0/104 on-disk Discussion files lacked
- *    these keys despite #11554 having merged the frontmatter-emit fix).
+ *    bug captured by operator V-B-A 2026-05-18: 0/104 on-disk Discussion files carried
+ *    these keys despite the frontmatter emitter already claiming to provide them).
  * 4. AC2 allowed fixture — historical/archive-style discussions where `closed: true`
  *    and `closedAt: '<date>'` are both present.
- * 5. Convenience wrapper `verifyDiscussionFrontmatter` requires all 8 Discussion keys.
+ * 5. Convenience wrapper `verifyDiscussionFrontmatter` requires the lifecycle + routing tuple.
  */
 test.describe('ai/services/github-workflow/sync/verifyFrontmatterIntegrity (#11573)', () => {
     test('verifyFrontmatterIntegrity: returns ok=true when all required keys present', () => {
@@ -28,6 +28,10 @@ test.describe('ai/services/github-workflow/sync/verifyFrontmatterIntegrity (#115
             'title: Test',
             'closed: false',
             'closedAt: null',
+            'routingDispositionSchemaVersion: discussion-routing-disposition.v1',
+            'routingDisposition: undetermined',
+            'routingDispositionReason: no-authoritative-lifecycle-marker',
+            'routingDispositionEvidence: []',
             '---',
             'Body.'
         ].join('\n');
@@ -62,9 +66,9 @@ test.describe('ai/services/github-workflow/sync/verifyFrontmatterIntegrity (#115
     });
 
     test('verifyFrontmatterIntegrity: ignores body content (no false-positive on body-line `key:`)', () => {
-        // Body contains a quoted "closed:" line. The frontmatter LACKS `closed:`. Per the
-        // ticket contract + GPT cycle-1 V-B-A on PR #11574 (gray-matter parse, not regex on
-        // whole doc), this MUST report `closed` as missing.
+        // Body contains a quoted "closed:" line. The frontmatter LACKS `closed:`. The
+        // gray-matter contract parses frontmatter rather than the whole document, so this
+        // MUST report `closed` as missing.
         const content = [
             '---',
             'number: 11089',
@@ -79,7 +83,7 @@ test.describe('ai/services/github-workflow/sync/verifyFrontmatterIntegrity (#115
     });
 
     test('verifyFrontmatterIntegrity: regression — body-line literal `closed:` does NOT satisfy missing frontmatter key (GPT V-B-A #11574 cycle-1)', () => {
-        // GPT's empirical false-positive reproduction from PR #11574 cycle-1 review:
+        // Empirical false-positive reproduction from the original review cycle:
         //   content has `closed:` / `closedAt:` only AFTER the closing `---`, not inside
         //   the frontmatter block. The pre-fix regex-on-whole-doc helper falsely reported
         //   {ok:true, missing:[]}. The gray-matter parse correctly reports both keys missing.
@@ -119,6 +123,10 @@ test.describe('ai/services/github-workflow/sync/verifyFrontmatterIntegrity (#115
             'updatedAt: \'2026-05-10T22:54:27Z\'',
             'closed: false',
             'closedAt: null',
+            'routingDispositionSchemaVersion: discussion-routing-disposition.v1',
+            'routingDisposition: undetermined',
+            'routingDispositionReason: no-authoritative-lifecycle-marker',
+            'routingDispositionEvidence: []',
             '---',
             'Body.'
         ].join('\n');
@@ -139,6 +147,11 @@ test.describe('ai/services/github-workflow/sync/verifyFrontmatterIntegrity (#115
             'updatedAt: \'2025-03-04T20:25:15Z\'',
             'closed: true',
             'closedAt: \'2024-08-03T00:00:00Z\'',
+            'routingDispositionSchemaVersion: discussion-routing-disposition.v1',
+            'routingDisposition: terminal',
+            'routingDispositionReason: github-closed',
+            'routingDispositionEvidence:',
+            '  - github:closed',
             '---',
             'Body.'
         ].join('\n');
@@ -150,7 +163,7 @@ test.describe('ai/services/github-workflow/sync/verifyFrontmatterIntegrity (#115
 
     test('verifyDiscussionFrontmatter: catches the #11554 regression — missing closed + closedAt', () => {
         // Empirical anchor: this is the exact frontmatter shape that all 104 on-disk
-        // Discussion markdown files had on 2026-05-18 (operator V-B-A) — pre-#11554 shape.
+        // Discussion markdown files had on 2026-05-18 (operator V-B-A), before the emitter fix.
         const content = [
             '---',
             'number: 11089',
@@ -159,6 +172,10 @@ test.describe('ai/services/github-workflow/sync/verifyFrontmatterIntegrity (#115
             'category: Ideas',
             'createdAt: \'2026-05-10T01:33:43Z\'',
             'updatedAt: \'2026-05-10T22:54:27Z\'',
+            'routingDispositionSchemaVersion: discussion-routing-disposition.v1',
+            'routingDisposition: undetermined',
+            'routingDispositionReason: no-authoritative-lifecycle-marker',
+            'routingDispositionEvidence: []',
             '---',
             'Body.'
         ].join('\n');
@@ -179,6 +196,10 @@ test.describe('ai/services/github-workflow/sync/verifyFrontmatterIntegrity (#115
             'createdAt: \'2026-05-10T01:33:43Z\'',
             'updatedAt: \'2026-05-10T22:54:27Z\'',
             'closed: false',
+            'routingDispositionSchemaVersion: discussion-routing-disposition.v1',
+            'routingDisposition: undetermined',
+            'routingDispositionReason: no-authoritative-lifecycle-marker',
+            'routingDispositionEvidence: []',
             '---',
             'Body.'
         ].join('\n');

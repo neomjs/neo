@@ -32,7 +32,7 @@ Verified against the emit code (`PullRequestSyncer.mjs`, `DiscussionSyncer.mjs`,
 
 ## Discussions — `DiscussionSyncer`
 
-- Frontmatter: `number, title, author, category` (`Ideas`|`General`|`Q&A`|…), `createdAt, updatedAt, closed` (boolean), `closedAt`. No `state`, no `labels`.
+- Frontmatter: `number, title, author, category` (`Ideas`|`General`|`Q&A`|…), `createdAt, updatedAt, closed` (boolean), `closedAt`, and the source-owned `routingDispositionSchemaVersion, routingDisposition, routingDispositionReason, routingDispositionEvidence`. No `state`, no `labels`; raw timestamps are observability and never routing-liveness authority.
 - Sections: `## Description`, then `## Comments`.
 - `## Comments` entries: `` ### `@user` commented on <ISO_Z> `` — the backtick form, **like PRs, not** the issue `- <ts> @user` event form.
 - Threaded replies follow their parent comment, each headed `` #### Reply depth=<N> by `@user` on <ISO_Z> `` with raw reply markdown after the header. Parent association is lexical: a reply belongs to the preceding top-level comment until the next top-level `` ### `@user` commented on <ISO_Z> `` header.
