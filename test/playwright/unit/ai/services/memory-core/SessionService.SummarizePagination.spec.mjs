@@ -133,6 +133,113 @@ test.describe('SessionService.summarizeSession — memory-fetch pagination (clos
         }
     });
 
+    test('#15126: consumes discovery metadata page-locally while preserving candidate semantics', async () => {
+        const svc            = SDK.Memory_SessionService,
+              aiConfig       = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default,
+              batchLimit     = aiConfig.summarizationBatchLimit,
+              currentSession = svc.currentSessionId || 'fixture-current',
+              origMemGet     = svc.memoryCollection.get,
+              origSessions   = svc.sessionsCollection,
+              origActiveRead = svc.getExternallyActiveSessionIds,
+              origLegacyId   = svc._legacySessionId;
+
+        if (!svc.currentSessionId) {
+            svc.currentSessionId = currentSession
+        }
+
+        /**
+         * Returns metadata proxies that expire when the next page is requested. A consumer that
+         * retains full-scan pages and reads them after pagination completes fails deterministically;
+         * a page-local aggregator consumes every row before requesting the next page.
+         * @param {String} label
+         * @param {Object[][]} pages
+         * @returns {{get: Function, stats: Object}}
+         */
+        const createPageLocalFixture = (label, pages) => {
+            let activeRows = [], pageIndex = 0;
+
+            const stats = {
+                maxPageRows: 0,
+                pageCount  : 0,
+                totalRows  : 0
+            };
+
+            return {
+                async get({limit, offset = 0}) {
+                    expect(limit).toBe(batchLimit);
+                    expect(offset).toBe(pageIndex * batchLimit);
+
+                    activeRows.forEach(row => { row.active = false });
+
+                    const page = pages[pageIndex++] || [];
+
+                    activeRows = page.map(metadata => ({active: true, metadata}));
+                    stats.maxPageRows = Math.max(stats.maxPageRows, page.length);
+                    stats.pageCount++;
+                    stats.totalRows += page.length;
+
+                    return {
+                        ids      : page.map((_, index) => `${label}-${offset + index}`),
+                        metadatas: activeRows.map(row => new Proxy(row.metadata, {
+                            get(target, key, receiver) {
+                                if (!row.active) {
+                                    throw new Error(`${label} metadata from an expired page was retained`)
+                                }
+
+                                return Reflect.get(target, key, receiver)
+                            }
+                        }))
+                    }
+                },
+                stats
+            }
+        };
+
+        const
+            fullPage      = metadata => Array.from({length: batchLimit}, () => ({...metadata})),
+            memoryFixture = createPageLocalFixture('memory', [
+                fullPage({sessionId: 'stable',   timestamp: 100}),
+                fullPage({sessionId: 'mismatch', timestamp: 200}),
+                fullPage({sessionId: 'missing',  timestamp: 300}),
+                fullPage({timestamp: 400}),
+                [
+                    {sessionId: 'stable',   timestamp: 1001},
+                    {sessionId: 'mismatch', timestamp: 1002},
+                    {sessionId: 'missing',  timestamp: 1003},
+                    {sessionId: currentSession, timestamp: 1004},
+                    {sessionId: 'external', timestamp: 1005}
+                ]
+            ]),
+            summaryFixture = createPageLocalFixture('summary', [
+                [
+                    {sessionId: 'stable', memoryCount: batchLimit + 1},
+                    {sessionId: 'mismatch', memoryCount: 1},
+                    ...Array.from({length: batchLimit - 2}, () => ({}))
+                ],
+                [{sessionId: 'mismatch', memoryCount: batchLimit}]
+            ]);
+
+        svc.memoryCollection.get          = memoryFixture.get;
+        svc.sessionsCollection            = {get: summaryFixture.get};
+        svc.getExternallyActiveSessionIds = () => new Set(['external']);
+
+        try {
+            const candidates = await svc.findSessionsToSummarize({now: Date.now() + 60 * 60 * 1000});
+
+            // Stable is reconciled (2001 === 2001). Mismatch sees the last summary row across
+            // pages (2001 !== 2000). Missing has no summary. The current and externally-active
+            // sessions stay excluded, and candidate order remains newest-first.
+            expect(candidates).toEqual(['missing', 'mismatch']);
+            expect(memoryFixture.stats).toEqual({maxPageRows: batchLimit, pageCount: 5, totalRows: batchLimit * 4 + 5});
+            expect(summaryFixture.stats).toEqual({maxPageRows: batchLimit, pageCount: 2, totalRows: batchLimit + 1});
+        } finally {
+            svc.memoryCollection.get          = origMemGet;
+            svc.sessionsCollection            = origSessions;
+            svc.getExternallyActiveSessionIds = origActiveRead;
+            svc._legacySessionId               = origLegacyId
+        }
+    });
+
     test('reconstructs a dropped turn-document from split metadata before synthesis (#14211 de-dup read)', async () => {
         const svc        = SDK.Memory_SessionService,
               aiConfig   = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default,
