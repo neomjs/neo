@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-07-12T23:24:28.915Z",
-  "releasesLastFetched": "2026-07-12T23:24:43.304Z",
+  "lastSync": "2026-07-13T01:40:44.373Z",
+  "releasesLastFetched": "2026-07-13T01:41:02.388Z",
   "pushFailures": [],
   "issues": {
     "1": {
@@ -81017,7 +81017,7 @@
       "path": "resources/content/issues/chunk-2/issue-12679.md",
       "closedAt": null,
       "updatedAt": "2026-07-12T16:28:51Z",
-      "contentHash": "393e965acd656b5f781404bf6a193390b18da6cbc18d75f7ef7ed2a94e0aac10",
+      "contentHash": "7f2a4c914bed0fb673f5c531e25f35142e361ef21b31077cc30eac895041a1d1",
       "milestone": "v13.2",
       "commentsTotal": 7
     },
@@ -83195,7 +83195,7 @@
       "path": "resources/content/issues/chunk-2/issue-13158.md",
       "closedAt": null,
       "updatedAt": "2026-07-10T14:10:47Z",
-      "contentHash": "d6f62714369c6a24358dc85a30bee5a0f42cb433275f99e33660395122fe8c87",
+      "contentHash": "dcfc18688151fa9285994df7d1d522a14e4bc5a1c87258b2b3b255156dc9efa2",
       "milestone": "v13.2",
       "commentsTotal": 12
     },
@@ -88987,11 +88987,11 @@
       "commentsTotal": 4
     },
     "14435": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/chunk-2/issue-14435.md",
-      "closedAt": null,
-      "updatedAt": "2026-07-12T16:40:10Z",
-      "contentHash": "29f0d41158d4356781f7d05aa4485463888b628265c0a5d53ddfd87fd5babead",
+      "closedAt": "2026-07-13T00:35:23Z",
+      "updatedAt": "2026-07-13T00:35:23Z",
+      "contentHash": "c93dc929329e8ea6e9d3e2656a7ecdb999757617a2e01f4a230346ff88881672",
       "milestone": "v13.2",
       "commentsTotal": 4
     },
@@ -89135,7 +89135,7 @@
       "path": "resources/content/issues/chunk-2/issue-14472.md",
       "closedAt": null,
       "updatedAt": "2026-07-12T20:09:42Z",
-      "contentHash": "ef756bd1dfc87282b688db4cc747ae7a699212beab5428176b281acca0468564",
+      "contentHash": "aa52c2a4307c50d5600366c6a992bbbfda65eaa5ff495685c224d68b6f799821",
       "milestone": "v13.2",
       "commentsTotal": 5
     },
@@ -89302,11 +89302,11 @@
       "commentsTotal": 4
     },
     "14504": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/chunk-2/issue-14504.md",
-      "closedAt": null,
-      "updatedAt": "2026-07-12T10:24:25Z",
-      "contentHash": "946c5f5d6ed72779885e7bb0c9868c8635c7007588b9887194d84d98c6d5b508",
+      "closedAt": "2026-07-12T23:47:39Z",
+      "updatedAt": "2026-07-12T23:47:39Z",
+      "contentHash": "8369e4263a83b5081a1a968349d1dd40215e0383c0fcbc4e9a686ec72fcdcaf8",
       "milestone": null,
       "commentsTotal": 2
     },
@@ -89576,7 +89576,7 @@
       "path": "resources/content/issues/chunk-2/issue-14560.md",
       "closedAt": null,
       "updatedAt": "2026-07-12T13:12:18Z",
-      "contentHash": "fce3bc1dd19f464d7242fbbd505e1b874cb6397834b5f667eace35f5656bb1dd",
+      "contentHash": "93e54eaf85cc04e6662aaade87231c48fd87955ecfeb0cbafde210c455c2bf4e",
       "milestone": "v13.2",
       "commentsTotal": 16
     },
@@ -90026,7 +90026,7 @@
       "path": "resources/content/issues/chunk-3/issue-14619.md",
       "closedAt": null,
       "updatedAt": "2026-07-12T12:05:18Z",
-      "contentHash": "3c7f122fd3017151f0410fb880aaf4a0f450cd33307f038eed1a460afcb302f7",
+      "contentHash": "b2fb4abeee514ca9a986467b285ef4e7fb61e79db9a64299ad74d3d20fcb5c1c",
       "milestone": null,
       "commentsTotal": 8
     },
@@ -90445,11 +90445,11 @@
       "commentsTotal": 3
     },
     "14681": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/chunk-3/issue-14681.md",
-      "closedAt": null,
-      "updatedAt": "2026-07-12T21:15:22Z",
-      "contentHash": "a9428b875f4f26b07ae584cfe062278a6fd415c22fc481eec02d5fad1a6d9aef",
+      "closedAt": "2026-07-12T23:48:17Z",
+      "updatedAt": "2026-07-12T23:48:17Z",
+      "contentHash": "add89bd5fc17507f49feda6ad850e04f5175e926afdaf417fb4965b685fe6a70",
       "milestone": "v13.2",
       "commentsTotal": 4
     },
@@ -92221,17 +92221,17 @@
       "state": "OPEN",
       "path": "resources/content/issues/chunk-5/issue-15097.md",
       "closedAt": null,
-      "updatedAt": "2026-07-12T14:59:51Z",
-      "contentHash": "977103cfc93d5b469a0b64f3a52eaf57555305a078f9746d75b6f546d01b04a3",
+      "updatedAt": "2026-07-13T01:02:43Z",
+      "contentHash": "9b55f6507e9723e4b18259bf1d3d7e5e98d9c28f9c39455ca0d819f902de3249",
       "milestone": null,
-      "commentsTotal": 0
+      "commentsTotal": 1
     },
     "15098": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/chunk-5/issue-15098.md",
-      "closedAt": null,
-      "updatedAt": "2026-07-12T21:05:43Z",
-      "contentHash": "352ef6e6c0c13ee06d5e9b50d5807d7b34d7fb5a4d90521228648eea151de1d1",
+      "closedAt": "2026-07-12T23:45:04Z",
+      "updatedAt": "2026-07-12T23:45:04Z",
+      "contentHash": "4c52c37a969ec3be6c9dcc3dd16c1a481138f02450cc664b24a388e102bbac18",
       "milestone": "v13.2",
       "commentsTotal": 0
     },
@@ -92249,7 +92249,7 @@
       "path": "resources/content/issues/chunk-5/issue-15100.md",
       "closedAt": null,
       "updatedAt": "2026-07-12T20:41:51Z",
-      "contentHash": "96447e655e2e5955416545468f9577b9be87764c3f8f8ab118b8b7d4a4b6a01f",
+      "contentHash": "c09e7b26b4c42819cf1638cca12464d4b984eb4fd2386b3ee48aae9bb2e7cb62",
       "milestone": "v13.2",
       "commentsTotal": 2
     },
@@ -92302,19 +92302,37 @@
       "state": "OPEN",
       "path": "resources/content/issues/chunk-5/issue-15114.md",
       "closedAt": null,
-      "updatedAt": "2026-07-12T22:34:00Z",
-      "contentHash": "5d826029735842a7bcc037b17fb278c4066643b2c5063444c4e57c661eec370c",
+      "updatedAt": "2026-07-13T01:18:28Z",
+      "contentHash": "d0f36a5ad937b90f1e778d5c91c3616bc8f69735e650042ceced538ba66aafec",
       "milestone": "v13.2",
-      "commentsTotal": 0
+      "commentsTotal": 2
     },
     "15115": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/chunk-5/issue-15115.md",
-      "closedAt": null,
-      "updatedAt": "2026-07-12T22:49:15Z",
-      "contentHash": "0e8583ddf827cc87127eb028225d8afff9aff63a1970aa7ffc5900743536a2b7",
+      "closedAt": "2026-07-12T23:44:37Z",
+      "updatedAt": "2026-07-12T23:44:37Z",
+      "contentHash": "6ac006c110a63081345c2cec25790ee6aa2db0b4a50d4d464207d50d7c84df8e",
       "milestone": null,
       "commentsTotal": 0
+    },
+    "15117": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/chunk-5/issue-15117.md",
+      "closedAt": "2026-07-13T01:25:57Z",
+      "updatedAt": "2026-07-13T01:25:57Z",
+      "contentHash": "571e53367bb421a65c3bac058b448b6cf110f51ed9902de3634501e76d045df8",
+      "milestone": null,
+      "commentsTotal": 1
+    },
+    "15118": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/chunk-5/issue-15118.md",
+      "closedAt": "2026-07-13T01:20:16Z",
+      "updatedAt": "2026-07-13T01:20:16Z",
+      "contentHash": "8bef4c08493529dbd59855f7031f13a40dcbe1de7835c3f59730f961650b5e48",
+      "milestone": null,
+      "commentsTotal": 2
     }
   },
   "releases": {
@@ -96076,15 +96094,6 @@
     }
   },
   "pulls": {
-    "15060": {
-      "state": "MERGED",
-      "path": "resources/content/pulls/chunk-1/pr-15060.md",
-      "closedAt": "2026-07-12T05:19:22Z",
-      "mergedAt": "2026-07-12T05:19:22Z",
-      "milestone": null,
-      "updatedAt": "2026-07-12T05:19:30Z",
-      "contentHash": "5fc56ab1a991ba3c6727ff7cbb0c1423f178dcb9e3cdc205c8889fbe7ba990ea"
-    },
     "15062": {
       "state": "CLOSED",
       "path": "resources/content/pulls/chunk-1/pr-15062.md",
@@ -96112,32 +96121,14 @@
       "updatedAt": "2026-07-12T06:09:55Z",
       "contentHash": "91cca256c5b2eb6239199f6ebe916cf20c24fa3f8aaee5ea9ac3615604a5265f"
     },
-    "15069": {
-      "state": "MERGED",
-      "path": "resources/content/pulls/chunk-1/pr-15069.md",
-      "closedAt": "2026-07-12T05:00:48Z",
-      "mergedAt": "2026-07-12T05:00:48Z",
-      "milestone": null,
-      "updatedAt": "2026-07-12T05:00:54Z",
-      "contentHash": "219fc8bb354c970c2a1a5e814ccc7fcd47fbe8bb07534e920d788b722d449c7c"
-    },
-    "15070": {
-      "state": "MERGED",
-      "path": "resources/content/pulls/chunk-1/pr-15070.md",
-      "closedAt": "2026-07-12T04:57:41Z",
-      "mergedAt": "2026-07-12T04:57:41Z",
-      "milestone": null,
-      "updatedAt": "2026-07-12T04:57:50Z",
-      "contentHash": "17bdaea7feb18ff38ca082eced4a3f0fa2ddbc8f45d342a5a6db9338e54485e5"
-    },
     "15071": {
-      "state": "OPEN",
+      "state": "MERGED",
       "path": "resources/content/pulls/chunk-1/pr-15071.md",
-      "closedAt": null,
-      "mergedAt": null,
+      "closedAt": "2026-07-12T23:47:38Z",
+      "mergedAt": "2026-07-12T23:47:38Z",
       "milestone": null,
-      "updatedAt": "2026-07-12T23:22:05Z",
-      "contentHash": "06a3d7892dd5965a8cb49c05f727511a0b0de27903ac1a4a9273dc89f5462e1b"
+      "updatedAt": "2026-07-12T23:47:42Z",
+      "contentHash": "2e271d88c40d9d4f831247d42c558951d966bb99bdb7d072ba2f6d19e1b0d134"
     },
     "15073": {
       "state": "MERGED",
@@ -96257,31 +96248,31 @@
       "contentHash": "10bdc37714ac87c0cfd4f404c3f2c27a104657310077821018e74be02ff7f07d"
     },
     "15094": {
-      "state": "OPEN",
+      "state": "MERGED",
       "path": "resources/content/pulls/chunk-1/pr-15094.md",
-      "closedAt": null,
-      "mergedAt": null,
+      "closedAt": "2026-07-12T23:44:36Z",
+      "mergedAt": "2026-07-12T23:44:36Z",
       "milestone": null,
-      "updatedAt": "2026-07-12T23:11:05Z",
-      "contentHash": "059f7447decefcb1a27a4192d33cc98b0b28e5f60544fc072de15c48f998b0f5"
+      "updatedAt": "2026-07-12T23:44:39Z",
+      "contentHash": "62078298e8c38b76d675d306f47398ca02025023bcff57bafe3da3cdc2e098a9"
     },
     "15096": {
-      "state": "OPEN",
+      "state": "MERGED",
       "path": "resources/content/pulls/chunk-1/pr-15096.md",
-      "closedAt": null,
-      "mergedAt": null,
+      "closedAt": "2026-07-13T00:35:22Z",
+      "mergedAt": "2026-07-13T00:35:22Z",
       "milestone": null,
-      "updatedAt": "2026-07-12T22:58:16Z",
-      "contentHash": "8eab3ad936f2d77f46ba89f2dff3cdf85fcd11b738df229a8672e66a48788130"
+      "updatedAt": "2026-07-13T00:35:26Z",
+      "contentHash": "c915f473cdffd12f2f193868c812418f09a8a61acc749a9932c72979fec6e073"
     },
     "15102": {
-      "state": "OPEN",
+      "state": "MERGED",
       "path": "resources/content/pulls/chunk-1/pr-15102.md",
-      "closedAt": null,
-      "mergedAt": null,
+      "closedAt": "2026-07-12T23:48:16Z",
+      "mergedAt": "2026-07-12T23:48:16Z",
       "milestone": null,
-      "updatedAt": "2026-07-12T23:00:28Z",
-      "contentHash": "64b9063d673da34f7e59aa2bc4c44458fbadeb942d36d72d0f539853c7be1023"
+      "updatedAt": "2026-07-12T23:48:20Z",
+      "contentHash": "bfe7206cfb59c438b1a910a1e8b198b3f11275802cd2216091f9ac0b8df92b44"
     },
     "15103": {
       "state": "MERGED",
@@ -96311,13 +96302,13 @@
       "contentHash": "db8ae24003dbd2db182a49818a81a38546f8a1f91b06a833acea9a84dedbc717"
     },
     "15108": {
-      "state": "OPEN",
+      "state": "MERGED",
       "path": "resources/content/pulls/chunk-1/pr-15108.md",
-      "closedAt": null,
-      "mergedAt": null,
+      "closedAt": "2026-07-12T23:45:03Z",
+      "mergedAt": "2026-07-12T23:45:03Z",
       "milestone": null,
-      "updatedAt": "2026-07-12T22:43:42Z",
-      "contentHash": "f57604766d568a35b1d84390da3324c3aa338666c087695dfb2f862d8cae1c78"
+      "updatedAt": "2026-07-12T23:45:08Z",
+      "contentHash": "520fba919e4d0686cad8ec953979c281dab3b9c8ad6e3886c3719fab01151131"
     },
     "15109": {
       "state": "MERGED",
@@ -96343,8 +96334,35 @@
       "closedAt": null,
       "mergedAt": null,
       "milestone": null,
-      "updatedAt": "2026-07-12T22:57:18Z",
-      "contentHash": "8f19d450c1c125fa52ee927f2e1caed9d5c0de36bba0e0b6e47565481e098c78"
+      "updatedAt": "2026-07-13T01:38:42Z",
+      "contentHash": "0d6250078bb048e2e30458a23562d5a06030e17611c3392819b734d5ea994d87"
+    },
+    "15119": {
+      "state": "MERGED",
+      "path": "resources/content/pulls/chunk-1/pr-15119.md",
+      "closedAt": "2026-07-13T01:20:15Z",
+      "mergedAt": "2026-07-13T01:20:15Z",
+      "milestone": null,
+      "updatedAt": "2026-07-13T01:24:40Z",
+      "contentHash": "f6f89fb9c2936a8adaa069f5e156f34845b4abcab121149e0dfd4047e3ea7c67"
+    },
+    "15120": {
+      "state": "MERGED",
+      "path": "resources/content/pulls/chunk-1/pr-15120.md",
+      "closedAt": "2026-07-13T01:25:56Z",
+      "mergedAt": "2026-07-13T01:25:56Z",
+      "milestone": null,
+      "updatedAt": "2026-07-13T01:25:57Z",
+      "contentHash": "474b06707e3081547c5e34181d1c90b501d375a47d2a5a27e60814398d76f0ad"
+    },
+    "15121": {
+      "state": "OPEN",
+      "path": "resources/content/pulls/chunk-1/pr-15121.md",
+      "closedAt": null,
+      "mergedAt": null,
+      "milestone": null,
+      "updatedAt": "2026-07-13T01:31:51Z",
+      "contentHash": "b1bb0ca719c32327409775a9804a2c4b306531981a92161de850d18ac6032b28"
     }
   },
   "discussions": {
@@ -97690,7 +97708,7 @@
       "path": "resources/content/discussions/chunk-1/discussion-14683.md",
       "closed": false,
       "closedAt": null,
-      "contentHash": "3c5d0c7509343ea36f31933919eab71bfadd7a8ac4a090d44e583f5afe1dfc03"
+      "contentHash": "ceada05a0dc4c678a742d11086c85f221406ea579734062e4a877abf55c06ccc"
     },
     "14684": {
       "number": 14684,
