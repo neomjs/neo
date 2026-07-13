@@ -174,16 +174,15 @@ Expand these audits only when their trigger fires; otherwise omit them rather th
 
 ---
 
-### 🧪 Test-Execution & Location Audit
+### 🧪 Test-Evidence & Location Audit
 
-*(Required per guide §7.5. This is part of the 10% AC/audit sanity layer unless execution disproves the diff. Reviewers MUST verify RELATED tests and canonical placement before assigning an `[EXECUTION_QUALITY]` score.)*
+*(Required per guide §7.5. Current-head CI is the default unit/integration evidence; reviewers run tests only as named falsifiers.)*
 
-- [ ] Branch checked out locally (e.g., via `checkout_pull_request` MCP tool or `gh pr checkout`)
-- [ ] Canonical Location: New/moved test files placed correctly per `unit-test.md` (e.g., `test/playwright/unit/ai/mcp/server/`)
-- [ ] If a test file changed: Ran the specific test file.
-- [ ] If code changed: Verified if there are tests, or if new tests are needed.
+- [ ] Execution evidence: exact-head required CI [green at `<SHA>` / N/A — docs-template] + author per-surface non-CI receipt [present and current-head-appropriate / obvious omission flagged / N/A — docs-template]
+- [ ] Reviewer falsifier: [N/A — no named behavioral concern / command + named concern + result]
+- [ ] Test location: [pass for added/moved tests / N/A]
 
-**Findings:** [Tests pass / Location gap flagged / No tests needed (docs change) / Test failures flagged in Required Actions]
+**Findings:** [Pass / author evidence gap / falsifier failed / incorrect test placement]
 
 ---
 
