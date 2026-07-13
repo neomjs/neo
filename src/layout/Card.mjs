@@ -153,15 +153,27 @@ class Card extends Base {
             childCls      = item.wrapperCls || [],
             {vdom}        = item;
 
-        NeoArray.add(childCls, sCfg.itemCls);
-        NeoArray.add(childCls, isActiveIndex ? sCfg.activeItemCls : sCfg.inactiveItemCls);
+        NeoArray.add(   childCls, sCfg.itemCls);
+        NeoArray.remove(childCls, isActiveIndex ? sCfg.inactiveItemCls : sCfg.activeItemCls);
+        NeoArray.add(   childCls, isActiveIndex ? sCfg.activeItemCls   : sCfg.inactiveItemCls);
 
-        if (!keepInDom && me.removeInactiveCards) {
-            vdom.removeDom  = !isActiveIndex;
-            item.wrapperCls = childCls;
-            item.update?.() // can get called for an item config
+        if (me.removeInactiveCards) {
+            if (isActiveIndex) {
+                // An atomic cross-parent move can make a previously inactive card active. `keepInDom`
+                // preserves its mounted identity, but must not preserve the source layout's remove marker.
+                delete vdom.removeDom
+            } else if (!keepInDom) {
+                vdom.removeDom = true
+            }
+        }
+
+        if (keepInDom && item.setSilent) {
+            // Container.insert() uses keepInDom for atomic moves. Keep the item-level class mutation
+            // inside that silent transaction; the caller's common-parent update owns the one DOM commit.
+            item.setSilent({wrapperCls: childCls})
         } else {
-            item.wrapperCls = childCls
+            item.wrapperCls = childCls;
+            me.removeInactiveCards && item.update?.() // can get called for an item config
         }
     }
 

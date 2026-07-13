@@ -430,6 +430,8 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
                     .map(element => element.id);
 
             const state = globalThis.__demoCMonitor = {
+                activeTabEmptyMaxMs           : 0,
+                activeTabEmptySamples         : [],
                 blankSamples                  : [],
                 blankFrames                   : 0,
                 chromeAnimationLeakFrames     : 0,
@@ -451,6 +453,7 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
                 securityMissingFrames         : 0,
                 securityReplacementFrames     : 0
             };
+            const activeTabEmptySpans = {};
             let securityNode = null;
 
             const tick = () => {
@@ -473,6 +476,7 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
 
                 if (root) {
                     const
+                        activeTabEmptyIds = new Set(),
                         pipCount = root.querySelectorAll('.agentos-dockdemo-pip-done').length,
                         previous = state.pipCounts.at(-1);
 
@@ -496,6 +500,38 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
                                 hasRunningEntryEffect && state.chromeAnimationLeakFrames++
                             }
                         }
+                    });
+
+                    [...root.querySelectorAll('.neo-tab-container')].filter(isVisible).forEach(container => {
+                        const
+                            activeHeader = [...container.querySelectorAll('.neo-tab-header-button.pressed')]
+                                .find(isVisible),
+                            body         = container.querySelector('.neo-tab-body-container'),
+                            activeCard   = body && [...body.children].find(isVisible);
+
+                        if (activeHeader && isVisible(body) && !activeCard) {
+                            let sample = activeTabEmptySpans[container.id];
+
+                            activeTabEmptyIds.add(container.id);
+
+                            if (!sample) {
+                                sample = activeTabEmptySpans[container.id] = {
+                                    bodyId     : body.id,
+                                    containerId: container.id,
+                                    duration   : 0,
+                                    start      : performance.now(),
+                                    title      : activeHeader.textContent?.trim() || ''
+                                };
+                                state.activeTabEmptySamples.length < 20 && state.activeTabEmptySamples.push(sample)
+                            }
+
+                            sample.duration = Math.round((performance.now() - sample.start) * 10) / 10;
+                            state.activeTabEmptyMaxMs = Math.max(state.activeTabEmptyMaxMs, sample.duration)
+                        }
+                    });
+
+                    Object.keys(activeTabEmptySpans).forEach(containerId => {
+                        activeTabEmptyIds.has(containerId) || delete activeTabEmptySpans[containerId]
                     })
                 }
 
@@ -636,6 +672,9 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
         expect(monitor.replacementHeaderSamples, 'the journey sampled replacement tab chrome').toBeGreaterThan(0);
         expect(monitor.chromeAnimationLeakFrames,
             'fresh replacement chrome does not replay shared entry animations').toBe(0);
+        expect(monitor.activeTabEmptyMaxMs,
+            `no visible active tab exposes a sustained empty paint: ${JSON.stringify(monitor.activeTabEmptySamples)}`)
+            .toBeLessThan(17);
         expect(monitor.missingBodyFrames, 'the preserved scale body never leaves the DOM between projections').toBe(0);
         expect(monitor.blankFrames,
             `no mounted visible scale row goes blank during choreography: ${JSON.stringify(monitor.blankSamples)}`)

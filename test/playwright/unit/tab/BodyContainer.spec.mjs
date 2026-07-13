@@ -12,6 +12,7 @@ import * as core      from '../../../../src/core/_export.mjs';
 import Component      from '../../../../src/component/Base.mjs';
 import BodyContainer  from '../../../../src/tab/BodyContainer.mjs';
 import TabContainer   from '../../../../src/tab/Container.mjs';
+import '../../../../src/manager/Instance.mjs'; // defines Neo.get for the existing-instance insert path
 
 /**
  * @summary Pins the tab adapters to `Neo.container.Base`'s four-argument atomic-remove contract.
@@ -50,6 +51,55 @@ test.describe('Neo.tab.BodyContainer atomic moves', () => {
         expect(card.mounted).toBe(true)
     });
 
+    test('tab-owned active-card moves keep header and replacement-card changes silent', () => {
+        const tabs = Neo.create(TabContainer, {
+                activeIndex: 1,
+                items      : [
+                    {header: {text: 'First'},  module: Component},
+                    {header: {text: 'Second'}, module: Component}
+                ]
+            }),
+            body          = tabs.getCardContainer(),
+            tabBar        = tabs.getTabBar(),
+            movedCard     = body.items[1],
+            remainingCard = body.items[0],
+            remainingTab  = tabBar.items[0];
+        let bodyUpdates            = 0,
+            remainingCardWasSilent = false,
+            remainingTabWasSilent  = false,
+            tabBarUpdates          = 0;
+
+        body.update   = () => bodyUpdates++;
+        tabBar.update = () => tabBarUpdates++;
+
+        const
+            afterSetPressed    = remainingTab.afterSetPressed.bind(remainingTab),
+            afterSetWrapperCls = remainingCard.afterSetWrapperCls.bind(remainingCard);
+
+        remainingCard.afterSetWrapperCls = (...args) => {
+            remainingCardWasSilent = Boolean(remainingCard.silentVdomUpdate);
+            afterSetWrapperCls(...args)
+        };
+        remainingTab.afterSetPressed = (...args) => {
+            remainingTabWasSilent = Boolean(remainingTab.silentVdomUpdate);
+            afterSetPressed(...args)
+        };
+
+        movedCard.mounted = true;
+        expect(body.remove(movedCard, false, true, true)).toBe(movedCard);
+
+        expect(bodyUpdates, 'the body waits for the closest-common-parent commit').toBe(0);
+        expect(tabBarUpdates, 'the tab header waits for the closest-common-parent commit').toBe(0);
+        expect(tabs.activeIndex).toBe(0);
+        expect(remainingCard.wrapperCls).toContain('neo-active-item');
+        expect(remainingCard.wrapperCls).not.toContain('neo-inactive-item');
+        expect(remainingCard.vdom.removeDom).toBeUndefined();
+        expect(remainingCardWasSilent).toBe(true);
+        expect(remainingTab.pressed).toBe(true);
+        expect(remainingTabWasSilent).toBe(true);
+        expect(movedCard.mounted).toBe(true)
+    });
+
     test('ordinary non-destructive removals still unmount cards', () => {
         const directBody = Neo.create(BodyContainer, {
                 items: [{module: Component}]
@@ -69,5 +119,39 @@ test.describe('Neo.tab.BodyContainer atomic moves', () => {
 
         expect(directCard.mounted).toBe(false);
         expect(tabCard.mounted).toBe(false)
+    });
+
+    test('an inactive projected card becomes renderable when atomically moved into an active slot', () => {
+        const source = Neo.create(BodyContainer, {
+                items : [{module: Component}, {module: Component}],
+                layout: {ntype: 'card', activeIndex: 1}
+            }),
+            target = Neo.create(BodyContainer, {
+                items : [{module: Component}],
+                layout: {ntype: 'card', activeIndex: 0}
+            }),
+            card        = source.items[0],
+            placeholder = target.items[0];
+        let wrapperUpdateWasSilent = false;
+
+        const afterSetWrapperCls = card.afterSetWrapperCls.bind(card);
+
+        card.afterSetWrapperCls = (...args) => {
+            wrapperUpdateWasSilent = Boolean(card.silentVdomUpdate);
+            afterSetWrapperCls(...args)
+        };
+
+        expect(card.wrapperCls).toContain('neo-inactive-item');
+        expect(card.vdom.removeDom).toBe(true);
+
+        target.remove(placeholder, true, true);
+        source.remove(card, false, true, true);
+        target.insert(0, card, true, false);
+
+        expect(target.items[0]).toBe(card);
+        expect(card.wrapperCls).toContain('neo-active-item');
+        expect(card.wrapperCls).not.toContain('neo-inactive-item');
+        expect(card.vdom.removeDom).toBeUndefined();
+        expect(wrapperUpdateWasSilent, 'the common-parent update remains the only DOM commit').toBe(true)
     })
 });
