@@ -341,6 +341,7 @@ class DockLayoutAdapter extends Base {
             dockNodeType            : 'edge-rail',
             dockZoneDocument        : context.dockZoneDocument,
             edge,
+            flex                    : 'none',
             module                  : DockRail,
             ntype                   : 'dashboard-dock-rail',
             onDockZoneDocumentChange: context.onDockZoneDocumentChange,

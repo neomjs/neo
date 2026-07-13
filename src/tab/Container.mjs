@@ -262,11 +262,11 @@ class Container extends BaseContainer {
      * @protected
      */
     createItems() {
-        let me            = this,
+        let me                                                        = this,
             {activeIndex, removeInactiveCards, useActiveTabIndicator} = me,
-            items         = me.items || [],
-            tabButtons    = [],
-            tabComponents = [];
+            items                                                     = me.items || [],
+            tabButtons                                                = [],
+            tabComponents                                             = [];
 
         Object.assign(me, {
             bodyContainerId: me.bodyContainerId || Neo.getId('container'),
@@ -593,15 +593,16 @@ class Container extends BaseContainer {
      * @param {Neo.component.Base} component The card component instance to remove.
      * @param {Boolean} [destroyItem=true] Set to false to keep the component instance in memory.
      * @param {Boolean} [silent=false] Set to true to prevent `updateTabButtons` from being called.
+     * @param {Boolean} [keepMounted=false] Preserve the card's mounted state for an atomic cross-parent move.
      */
-    remove(component, destroyItem=true, silent=false) {
+    remove(component, destroyItem=true, silent=false, keepMounted=false) {
         let items = [...this.getCardContainer().items],
             i     = 0,
             len   = items.length;
 
         for (; i < len; i++) {
             if (items[i].id === component.id) {
-                this.removeAt(i, destroyItem, silent)
+                return this.removeAt(i, destroyItem, silent, keepMounted)
             }
         }
     }
@@ -610,24 +611,37 @@ class Container extends BaseContainer {
      * Removes a tab from the container at a specific index.
      * @param {Number} index The index of the tab to remove.
      * @param {Boolean} [destroyItem=true] Set to false to keep the component instance in memory.
-     * @param {Boolean} [silent=false] Set to true to prevent `updateTabButtons` from being called.
+     * @param {Boolean} [silent=false] Defer child DOM updates to the caller's common-parent transaction.
+     * @param {Boolean} [keepMounted=false] Preserve the card's mounted state for an atomic cross-parent move.
      */
-    removeAt(index, destroyItem=true, silent=false) {
+    removeAt(index, destroyItem=true, silent=false, keepMounted=false) {
         let me            = this,
             {activeIndex} = me,
             cardContainer = me.getCardContainer(),
             tabBar        = me.getTabBar(),
-            i, len;
+            card, i, len;
 
-        cardContainer.removeAt(index, destroyItem, silent);
-        tabBar       .removeAt(index, true,        false);
+        card = cardContainer.removeAt(index, destroyItem, silent, keepMounted);
+        tabBar       .removeAt(index, true,        silent);
 
         if (index < activeIndex) {
             // silent updates
             me._activeIndex = activeIndex - 1;
             cardContainer.layout._activeIndex = activeIndex - 1
         } else if (index === activeIndex) {
-            me.activeIndex = activeIndex - 1
+            if (silent) {
+                me._activeIndex = activeIndex - 1;
+                cardContainer.layout._activeIndex = activeIndex - 1;
+
+                // Atomic cross-parent moves defer their one DOM commit to the closest common parent.
+                // Keep both card visibility and tab pressed-state inside that same silent transaction.
+                cardContainer.items.forEach((item, itemIndex) => {
+                    cardContainer.layout.applyChildAttributes(item, itemIndex, true)
+                });
+                me.updateTabButtons(true)
+            } else {
+                me.activeIndex = activeIndex - 1
+            }
         }
 
         // todo: non index based matching of tab buttons and cards
@@ -637,20 +651,27 @@ class Container extends BaseContainer {
         for (; i < len; i++) {
             tabBar.items[i].index = i
         }
+
+        return card
     }
 
     /**
      * Synchronizes the `pressed` state of all tab buttons with the container's `activeIndex`.
      * This ensures that only the button corresponding to the active tab appears pressed.
+     * @param {Boolean} [silent=false] Mutate VDOM state without committing a child-level update.
      * @protected
      */
-    updateTabButtons() {
+    updateTabButtons(silent=false) {
         let me            = this,
             {activeIndex} = me,
             tabButtons    = me.getTabBar()?.items || [];
 
         tabButtons.forEach((item, index) => {
-            item.pressed = index === activeIndex
+            if (silent) {
+                item.setSilent({pressed: index === activeIndex})
+            } else {
+                item.pressed = index === activeIndex
+            }
         })
     }
 }

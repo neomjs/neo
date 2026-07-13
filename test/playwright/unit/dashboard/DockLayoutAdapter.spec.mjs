@@ -406,6 +406,7 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         expect(rail).toBeTruthy();
         expect(rail.dockEdge).toBe('right');
         expect(rail.edge).toBe('right');
+        expect(rail.flex).toBe('none');
         expect(rail.module).toBe(DockRail);
         expect(rail.ntype).toBe('dashboard-dock-rail');
         expect(rail.railItems).toEqual([
