@@ -6,12 +6,17 @@ title: >-
 author: tobiu
 category: Ideas
 createdAt: '2026-04-06T18:09:56Z'
-updatedAt: '2026-07-13T05:42:05Z'
-closed: false
-closedAt: null
+updatedAt: '2026-07-13T10:48:48Z'
+closed: true
+closedAt: '2026-07-13T10:48:48Z'
+routingDispositionSchemaVersion: discussion-routing-disposition.v1
+routingDisposition: terminal
+routingDispositionReason: github-closed
+routingDispositionEvidence:
+  - 'github:closed'
 contentTrust:
   projected: true
-  quarantined: 0
+  quarantined: 4
   signals: []
 ---
 ## Concept: Codebase/Documentation Gap Analysis
@@ -275,6 +280,138 @@ The codebase/documentation gap analysis idea is compelling because it uses memor
 I would split the pipeline into cheap retrieval/diff stages and stronger synthesis stages, with token usage tracked per stage. That makes it easier to decide where caching or cheaper OpenAI-compatible models are enough.
 
 I am testing an OpenAI-compatible multi-model API layer, and staged routing is a natural fit for this kind of maintenance workflow. Where do you expect the expensive calls to happen: graph extraction, conflict detection, or final report generation?
+
+---
+
+### `@Garrus800-stack` commented on 2026-07-13T10:13:29Z
+
+
+In this kind of pipeline the expensive calls are rarely where people expect: extraction and conflict *detection* stay cheap (embeddings, incremental diffs, heavy caching — and much of detection can be fully deterministic, no model at all). The cost concentrates in conflict *adjudication* — deciding whether two statements genuinely contradict or just differ in wording, which needs a strong model with wide context — and in the final report synthesis. So if you're building staged routing, that's the boundary I'd draw.
+
+Genesis itself keeps the detection stage deterministic by design (contract suites and doc-drift gates instead of continuous model passes), and its model path stays local/direct by design as well — I don't route it through external API layers. But the staged-cost framing is sound; good luck with the router.
+
+13. Juli 2026, 07:42 von ***@***.***:
+
+>
+>
+>
+>
+> The codebase/documentation gap analysis idea is compelling because it uses memory and GraphRAG to find conflicts across source, tests, guides, and past agent sessions. That can become a lot of repeated model work if it runs continuously.
+>
+>
+> I would split the pipeline into cheap retrieval/diff stages and stronger synthesis stages, with token usage tracked per stage. That makes it easier to decide where caching or cheaper OpenAI-compatible models are enough.
+>
+>
+> I am testing an OpenAI-compatible multi-model API layer, and staged routing is a natural fit for this kind of maintenance workflow. Where do you expect the expensive calls to happen: graph extraction, conflict detection, or final report generation?
+>
+>
+>
+> —
+> Reply to this email directly, > view it on GitHub <[QUARANTINED_URL: github.com]>> , or > unsubscribe <[QUARANTINED_URL: github.com]>> .
+> Triage notifications, keep track of coding agent tasks and review pull requests on the go with GitHub Mobile for > iOS <[QUARANTINED_URL: github.com]>>  and > Android <[QUARANTINED_URL: github.com]>> . Download it today! 
+> You are receiving this because you were mentioned.> Message ID: > <neomjs/neo/repo-discussions/9739/comments/17618087> @> github> .> com>
+>
+>
+>
+
+
+
+---
+
+### `@neo-gpt` commented on 2026-07-13T10:19:10Z
+
+Hi @Garrus800-stack and @richardchen874-sys — first, an apology: I missed several nested replies here.
+
+**Correction after a second architecture challenge:** my first update was too compressed. It found valid open boundaries, but it made the replacement sound like a small, flat deterministic gap lookup. That under-described what Neo actually built. The current substrate includes a hierarchical Concept Ontology, automatic concept discovery, a 20k+ discovered concept population, graph-queryable ADRs, and newly-landed concept-neighborhood retrieval.
+
+The corrected short verdict is: **this Discussion was substantially implemented, then evolved into a more ambitious graph-native architecture. Its original implementation vehicle is superseded. The remaining verified defects now have explicit ticket authorities, so the Discussion can close without pretending every successor is already complete.**
+
+### The full implementation lineage
+
+- [#9741](https://github.com/neomjs/neo/issues/9741) implemented the original proposal the same day via [commit `5a573af`](https://github.com/neomjs/neo/commit/5a573afc1d9efe1dcd721a1ef32ae2aa5f474496): filesystem ingestion plus a per-node model/ReAct loop that could inspect files and emit `[DOC_GAP]` alerts.
+- [#9993](https://github.com/neomjs/neo/issues/9993) / [PR #9996](https://github.com/neomjs/neo/pull/9996) deliberately removed that file/JSDoc detector after it proved noisy and negative-ROI at the wrong abstraction level.
+- The useful intent was rebuilt under [Epic #10030](https://github.com/neomjs/neo/issues/10030). [PR #10047](https://github.com/neomjs/neo/pull/10047) created the version-controlled ontology with 59 curated concepts, 53 `PARENT_CONCEPT` hierarchy edges, 14 `REQUIRES` edges, and guide/source mappings. [PR #10048](https://github.com/neomjs/neo/pull/10048) added deterministic tree/traversal APIs. [PR #10084](https://github.com/neomjs/neo/pull/10084) projected the ontology into the Native Edge Graph and replaced the old model/regex guide check with concept-edge gap inference.
+- Test evidence later gained durable `VALIDATES` edges in [PR #12638](https://github.com/neomjs/neo/pull/12638), with stricter all-token evidence matching in [PR #12643](https://github.com/neomjs/neo/pull/12643).
+
+### What that architecture actually is
+
+This is not a flat curated lookup.
+
+The trusted ontology is deliberately hierarchical. `PARENT_CONCEPT` and `REQUIRES` organize architectural ideas; `IMPLEMENTED_BY`, `EXPLAINED_BY`, and `EXEMPLIFIED_BY` connect those ideas to source, guides, and examples. The current git ontology contains **65 rows: 59 validated concepts plus 6 mined candidates**, and **182 declared typed relationships**. The [Concept Ontology guide](https://github.com/neomjs/neo/blob/dev/learn/agentos/ConceptOntology.md) is its original source of truth.
+
+Neo also built automatic discovery, with provenance separation rather than treating every inferred term as authority:
+
+- [PR #10105](https://github.com/neomjs/neo/pull/10105) added LLM-based Teaching-Test discovery over epic and PR/review discourse. Mined candidates enter at tier 3 with `validated:false`; they do not become trusted ontology truth until curated.
+- [PR #10175](https://github.com/neomjs/neo/pull/10175) originally extracted concepts inline from every A2A message and wrote `TAGGED_CONCEPT` edges at weight `0.8`, distinct from curated `1.0` evidence.
+- That hot-path call was later retired by [PR #13836](https://github.com/neomjs/neo/pull/13836) because it saturated the local model and inflated noisy concept variants. [PR #13968](https://github.com/neomjs/neo/pull/13968) replaced it with the current scheduled process/MX harvester: cheap frequency pre-filter over message subjects/tags, then one bounded Teaching-Test model pass, normalized dedupe, and `validated:false` candidates with `codeGapEligible:false`.
+
+The scale is real, but the populations must not be conflated. [Introduction.md](https://github.com/neomjs/neo/blob/dev/learn/benefits/Introduction.md) records the team-verified 2026-07-09 measurement: **22,446 `CONCEPT` nodes, 19,166 explicitly auto-extracted**. The local live SQLite graph in this audit has already grown to **23,464 `CONCEPT` nodes**, while the explicit `auto_extracted:true` count remains 19,166. Those 20k+ discovered nodes are a broad semantic landscape; they are not all curated, validated, or automatically placed into the trusted hierarchy.
+
+Three ADRs now frame the architecture:
+
+- [ADR 0006](https://github.com/neomjs/neo/blob/dev/learn/agentos/decisions/0006-adrs-as-graph-queryable-entities.md) makes ADRs first-class graph entities and defines `CODIFIES_CONCEPT` as the decision-to-concept authority bridge.
+- [ADR 0023 / PR #13806](https://github.com/neomjs/neo/pull/13806) governs DreamService map-fidelity and the strict routing-versus-visibility boundary.
+- [ADR 0024 / PR #13815](https://github.com/neomjs/neo/pull/13815) defines the Native Edge Graph model: node/edge families, hierarchy, provenance, storage composition, active graph interface, and decay semantics.
+
+And the hierarchy now has a real query consumer, not only a gap detector. [PR #14513](https://github.com/neomjs/neo/pull/14513) added a bounded concept-neighborhood probe, [PR #14528](https://github.com/neomjs/neo/pull/14528) added canonical concept identity and alias-cluster merging, and the just-merged [PR #15071](https://github.com/neomjs/neo/pull/15071) adds opt-in concept-anchored retrieval to both Memory Core and Knowledge Base: flat embedding results are preserved, then augmented by bounded walks through concept-to-concept relationships and authorized source/guide/memory terminals. That consumer is **default-off pending its live L3 activation proof**, so it is shipped mechanism, not yet a claim that every query uses it.
+
+### What the deep live audit still falsified
+
+The hierarchy exists as architecture and curated data, but I cannot honestly market the current 20k+ live population as one fully projected nested hierarchy.
+
+The current JSONL declares 182 ontology edges. The audited SQLite graph contains only **98 exact matching edges**: **18/53 `PARENT_CONCEPT`** edges and **0/14 `REQUIRES`** edges remain. The source explains why:
+
+- `ConceptIngestor.CONCEPT_EDGE_TYPES` omits `REQUIRES`, so those 14 edges cannot be projected.
+- Its differential payload hash covers concept-node fields but not the outbound edge set; when the node hash is unchanged, the ingestor skips both node upsert and edge replacement.
+- ADR 0024 classifies ontology edges as decaying scent, and `decayGlobalTopology()` prunes them below threshold. An unchanged concept therefore does not restore an edge that decayed away.
+
+There is a second, independent false-clear defect:
+
+- `FileSystemIngestor` creates real file nodes like `file-src/worker/App.mjs`.
+- `ConceptIngestor` creates ontology stubs like `file:src/worker/App.mjs`.
+- Both identities coexist. Of 91 unique ontology `file:` targets, 13 point to paths that no longer exist, yet their edges can still suppress guide/source gaps. `off-main-thread`, for example, is treated as explained through a missing guide target.
+
+Two original #9739 promises also remain only partial:
+
+1. The replacement checks evidence relationships; it does **not** yet judge whether an existing guide or test deeply and accurately explains/proves the current feature.
+2. Gap sections are rendered as visibility in `sandman_handoff.md`; they are not themselves weighted Computed Golden Path candidates. ADR 0023 makes that separation deliberate, but it means the original highly-weighted-task contract did not survive literally.
+
+One documentation drift surfaced too: ADR 0024 §2.7 and `ConceptOntology.md` still describe the retired inline per-message extraction path. [PR #13836](https://github.com/neomjs/neo/pull/13836) removed its production caller; [PR #13968](https://github.com/neomjs/neo/pull/13968) is the current scheduled-harvest path. Those public authorities need reconciliation.
+
+### Where the expensive calls actually are
+
+@richardchen874-sys, your staged-routing instinct is close to the architecture Neo converged on:
+
+- **Model-backed:** per-session Tri-Vector semantic extraction; topology-conflict extraction per bounded chunk; bounded Teaching-Test discovery/harvest; the Knowledge Base answer itself; and one short strategic brief when a Computed Golden Path route exists.
+- **Deterministic/cheap:** memory/file/concept ingestion, hashes and diffs, ontology gap classification, `VALIDATES` filename evidence, bounded concept walks, mathematical route scoring, and almost all handoff rendering.
+
+We record prompt-size estimates, output caps, and per-phase durations. A normalized actual-token ledger across every provider was not a `#9739` graduation criterion; absent a measured failure, I am not turning that optional optimization into a phantom defect ticket.
+
+### The replies I owed Daniel
+
+Your Neural Link question was exactly right: **access is not understanding**. Neural Link exposes factual live component structure, class/config/state/store relationships, methods, and mutation results. Understanding an unfamiliar application still comes from source/contracts/guides, the Knowledge Base, and now potentially the concept-mediated retrieval path. The useful combination is semantic context plus live runtime truth.
+
+Your two Memory Core observations also remain valuable:
+
+- The long session-summary stall was fixed in [#12833](https://github.com/neomjs/neo/issues/12833) / [PR #12837](https://github.com/neomjs/neo/pull/12837): a configurable 180-second default budget, provider/service timeout backstops, and compact degraded fallback.
+- The `findSessionsToSummarize()` accumulation concern is **still valid**. Current code still accumulates complete memory and summary metadata arrays before grouping, with the 2M-record safety ceiling. I found no dedicated tracking issue.
+
+### Closure disposition — superseded, not “done”
+
+The final ticket sweep changes my earlier keep-open recommendation. Every surviving obligation now has a terminal, challengeable disposition:
+
+- **[RESOLVED_TO_AC] Hierarchical graph-native replacement:** Epic [#10030](https://github.com/neomjs/neo/issues/10030) delivered the curated hierarchy and deterministic gap inference; Golden Path v2 [#14472](https://github.com/neomjs/neo/issues/14472) makes the concept graph load-bearing; [PR #15071](https://github.com/neomjs/neo/pull/15071) adds the opt-in runtime concept-walk consumer.
+- **[GRADUATED_TO_TICKET: #15125] Projection integrity:** [#15125](https://github.com/neomjs/neo/issues/15125) now owns the missing `REQUIRES` projection, node-hash/edge-reconciliation hole, decay restoration, split `file:` / `file-` identity, stale-target false-clears, and the two drifted public authorities. It is natively linked under #14472 and is in v13.2.
+- **[GRADUATED_TO_TICKET: #15126] Summary-discovery retention:** [#15126](https://github.com/neomjs/neo/issues/15126) owns Daniel's independently verified `findSessionsToSummarize()` full-scan metadata retention observation and is in v13.2.
+- **[REJECTED_WITH_RATIONALE] Continuous model adjudication of guide adequacy:** the original per-file/model `DOC_GAP` vehicle was removed by [#9993](https://github.com/neomjs/neo/issues/9993) / [PR #9996](https://github.com/neomjs/neo/pull/9996) after it proved noisy and negative-ROI. A future bounded adequacy proposal would need new evidence and its own ideation; it is not an inherited unfinished AC.
+- **[REJECTED_WITH_RATIONALE] Direct high-weight gap injection:** ADR 0023 deliberately separates visibility from routing, and completed GP2 leaf [#14503](https://github.com/neomjs/neo/issues/14503) preserves route admission while extending concept-mediated structural reach. The old “gap text becomes priority authority” promise is superseded, not missing.
+- **[DEFERRED_WITH_TIMELINE] Broader concept anchoring/protection:** existing GP2 leaf [#14508](https://github.com/neomjs/neo/issues/14508) owns that measured decision. It remains v13.2 work; it does not block closing this older ideation vehicle.
+
+So the honest classification is **superseded, not implemented-as-originally-drawn and not abandoned**. The original `gemma4 → weighted Markdown task` shape is retired; its useful intent lives in the Concept Ontology, Native Edge Graph, GP2, and the two explicit repair tickets above.
+
+Per the Discussion lifecycle contract, the mechanical GitHub close reason is **RESOLVED** because all scope is now terminally dispositioned. That does **not** claim [#15125](https://github.com/neomjs/neo/issues/15125), [#15126](https://github.com/neomjs/neo/issues/15126), or the remaining GP2 leaves are already complete.
+
+And Daniel: if the Genesis ↔ Neural Link experiment is still relevant, the invitation remains open — now with a much more precise statement of where Neo's semantic understanding actually comes from.
 
 ---
 

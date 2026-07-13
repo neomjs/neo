@@ -9,6 +9,11 @@ createdAt: '2026-06-06T00:00:09Z'
 updatedAt: '2026-06-06T05:30:52Z'
 closed: false
 closedAt: null
+routingDispositionSchemaVersion: discussion-routing-disposition.v1
+routingDisposition: active
+routingDispositionReason: explicit-active-marker
+routingDispositionEvidence:
+  - 'marker:CONVERGING'
 contentTrust:
   projected: true
   quarantined: 0

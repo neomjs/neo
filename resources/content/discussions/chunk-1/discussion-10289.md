@@ -9,6 +9,11 @@ createdAt: '2026-04-24T10:08:40Z'
 updatedAt: '2026-04-24T11:22:34Z'
 closed: false
 closedAt: null
+routingDispositionSchemaVersion: discussion-routing-disposition.v1
+routingDisposition: terminal
+routingDispositionReason: graduated-to-ticket
+routingDispositionEvidence:
+  - 'callout:GRADUATED'
 contentTrust:
   projected: true
   quarantined: 0
