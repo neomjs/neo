@@ -35,7 +35,7 @@ function errMsg(error) {
  * @summary Runs one temporal Bird View synthesis over a resolved window using injected retrieval + synthesis.
  *
  * @param {Object} options
- * @param {String} [options.partition='unified'] Per-agent partition key, or `'unified'`.
+ * @param {String} [options.partition='unified'] Adapter-owned source partition key, or `'unified'`.
  * @param {String} [options.preset]      A grain preset (mutually exclusive with an explicit window).
  * @param {Date|String|Number} [options.windowStart] Explicit inclusive start.
  * @param {Date|String|Number} [options.windowEnd]   Explicit exclusive end.
@@ -43,7 +43,8 @@ function errMsg(error) {
  *   default generation stamp).
  * @param {Date|String|Number} [options.generatedAt] Injected generation stamp; defaults to `now`.
  * @param {Function} options.retrieve `async ({window}) => {sources: [{id, type?, ref?}], coverage: {...}}`.
- * @param {Function} options.synthesize `async ({window, sources}) => string` (called ONLY on complete coverage).
+ * @param {Function} options.synthesize `async ({window, sources}) => string | {narrative,
+ *   inferenceInputIds?, synthesisDetails?}` (called ONLY on complete coverage).
  * @returns {Promise<Object>} The `notAuthority` Bird View envelope.
  */
 export async function synthesizeTemporalBirdView({
@@ -91,15 +92,16 @@ export async function synthesizeTemporalBirdView({
         return provisional
     }
 
-    let narrative, inferenceInputIds;
+    let narrative, inferenceInputIds, synthesisDetails;
 
     try {
-        // synthesize may return the bare narrative (legacy / test seam) OR {narrative, inferenceInputIds};
-        // the manifest lets the envelope separate inference inputs from the census on an over-bound window.
+        // synthesize may return the bare narrative (legacy / test seam) OR a structured result. The manifest
+        // separates inference inputs from the census; optional details remain query-time synthesis evidence.
         const synthResult = await synthesize({window, sources});
 
         narrative         = typeof synthResult === 'string' ? synthResult : synthResult?.narrative;
-        inferenceInputIds = typeof synthResult === 'string' ? undefined   : synthResult?.inferenceInputIds
+        inferenceInputIds = typeof synthResult === 'string' ? undefined   : synthResult?.inferenceInputIds;
+        synthesisDetails  = typeof synthResult === 'string' ? undefined   : synthResult?.synthesisDetails
     } catch (error) {
         return buildTemporalBirdViewEnvelope({
             window,
@@ -109,5 +111,7 @@ export async function synthesizeTemporalBirdView({
         })
     }
 
-    return buildTemporalBirdViewEnvelope({window, sources, coverage, narrative, inferenceInputIds, generatedAt: stamp})
+    return buildTemporalBirdViewEnvelope({
+        window, sources, coverage, narrative, inferenceInputIds, synthesisDetails, generatedAt: stamp
+    })
 }
