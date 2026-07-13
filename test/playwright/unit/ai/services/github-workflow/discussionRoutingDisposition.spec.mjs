@@ -99,6 +99,34 @@ test.describe('discussionRoutingDisposition', () => {
         })
     });
 
+    test('treats Setext historical and instructional subtrees as non-authoritative, then restores authority', () => {
+        for (const body of [
+            [
+                'History',
+                '-------',
+                '[SUPERSEDED] historical only',
+                'Current status',
+                '--------------',
+                '[CONVERGING] current direction'
+            ].join('\n'),
+            [
+                'Instructions',
+                '============',
+                '[GRADUATED_TO_TICKET: #1] example only',
+                'Current status',
+                '==============',
+                '[CONVERGING] current direction'
+            ].join('\n')
+        ]) {
+            expect(classifyDiscussionRoutingDisposition({author: 'neo-gpt', body}), body).toEqual({
+                schemaVersion: 'discussion-routing-disposition.v1',
+                disposition  : 'active',
+                reasonCode   : 'explicit-active-marker',
+                evidence     : ['marker:CONVERGING']
+            })
+        }
+    });
+
     test('does not let fenced or quoted headings suppress current terminal authority', () => {
         for (const body of [
             '```md\n## Historical decisions\n```\n[SUPERSEDED] current status',

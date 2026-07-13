@@ -353,6 +353,20 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
+     * @summary Normalizes the configured route-render limit into the positive integer required by
+     * adaptive candidate admission. Invalid and non-positive values fail safe to one candidate.
+     * @param {*} value Resolved route-render limit.
+     * @returns {Number}
+     */
+    static normalizeAdmissionTarget(value) {
+        const numericValue = Number(value);
+
+        return Number.isFinite(numericValue) && numericValue > 0
+            ? Math.max(1, Math.floor(numericValue))
+            : 1
+    }
+
+    /**
      * @summary Delegates routing-conflict focus detection to `computedGoldenPathRouting.mjs`.
      * @param {Object} candidate Current Focus candidate.
      * @returns {Boolean}
@@ -919,13 +933,11 @@ class GoldenPathSynthesizer extends Base {
             semanticCorpusExhausted     : false,
             candidateAdmissionStopReason: null
         };
-        const SEMANTIC_WEIGHT   = 2.0;
-        const STRUCTURAL_WEIGHT = 1.0;
-        const admissionTarget   = Number.isFinite(Number(aiConfig.goldenPathTopNodeRenderLimit)) && Number(aiConfig.goldenPathTopNodeRenderLimit) > 0
-            ? Math.max(1, Math.floor(Number(aiConfig.goldenPathTopNodeRenderLimit)))
-            : 1;
-        let routeFailure       = null;
-        let semanticCorpusSize = null;
+        const SEMANTIC_WEIGHT    = 2.0;
+        const STRUCTURAL_WEIGHT  = 1.0;
+        const admissionTarget    = this.constructor.normalizeAdmissionTarget(aiConfig.goldenPathTopNodeRenderLimit);
+        let   routeFailure       = null;
+        let   semanticCorpusSize = null;
 
         try {
             if (typeof graphColl.count === 'function') {

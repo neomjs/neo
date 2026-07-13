@@ -41,7 +41,7 @@ const TERMINAL_MARKERS = Object.freeze([
     'SUPERSEDED'
 ]);
 
-const AUTHOR_UPDATE_RE      = /^>\s*\*{0,2}Update\s+\d{4}-\d{2}-\d{2}\b/i;
+const AUTHOR_UPDATE_RE              = /^>\s*\*{0,2}Update\s+\d{4}-\d{2}-\d{2}\b/i;
 const NON_AUTHORITATIVE_SECTION_RES = Object.freeze([
     /^(?:history|historical|retrospectives?|archiv(?:e|ed|es)|examples?|instructions?|instructional|how(?:-|\s+)to|usage)\b/i,
     /\(\s*(?:historical|retrospective|archived?|examples?)\b/i
@@ -195,16 +195,28 @@ function parseFenceDelimiter(line) {
 }
 
 /**
- * @summary Parses one ATX Markdown heading for section-authority tracking.
+ * @summary Parses one ATX or Setext Markdown heading for section-authority tracking.
  * @param {String} line Markdown source line.
+ * @param {String} [nextLine] Following Markdown source line for Setext underlines.
  * @returns {{level: Number, title: String}|null}
  */
-function parseSectionHeading(line) {
-    const match = String(line || '').match(/^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/);
+function parseSectionHeading(line, nextLine) {
+    const
+        sourceLine = String(line || ''),
+        atxMatch   = sourceLine.match(/^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/);
 
-    return match ? {
-        level: match[1].length,
-        title: match[2].replace(/[*`_]/g, '').trim()
+    if (atxMatch) {
+        return {
+            level: atxMatch[1].length,
+            title: atxMatch[2].replace(/[*`_]/g, '').trim()
+        }
+    }
+
+    const setextMatch = String(nextLine || '').match(/^\s{0,3}(=+|-+)\s*$/);
+
+    return setextMatch && sourceLine.trim() && !/^\s*>/.test(sourceLine) ? {
+        level: setextMatch[1][0] === '=' ? 1 : 2,
+        title: sourceLine.replace(/[*`_]/g, '').trim()
     } : null
 }
 
@@ -228,7 +240,10 @@ function findLifecycleMarkers(body) {
     let   fence = null,
           nonAuthoritativeSectionLevel = null;
 
-    for (const line of String(body || '').split(/\r?\n/)) {
+    const lines = String(body || '').split(/\r?\n/);
+
+    for (let index = 0; index < lines.length; index++) {
+        const line      = lines[index];
         const delimiter = parseFenceDelimiter(line);
 
         if (fence) {
@@ -248,7 +263,7 @@ function findLifecycleMarkers(body) {
             continue
         }
 
-        const heading = parseSectionHeading(line);
+        const heading = parseSectionHeading(line, lines[index + 1]);
 
         if (heading) {
             if (

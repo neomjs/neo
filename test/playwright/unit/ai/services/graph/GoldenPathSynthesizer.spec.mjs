@@ -57,6 +57,15 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     let originalVectorDimension;
     let originalWarn;
 
+    /**
+     * @summary Builds a deterministic embedding with the resolved SSOT dimension, keeping tests from
+     * mutating the shared AiConfig singleton merely to fit a two-element fixture.
+     * @returns {Number[]}
+     */
+    function buildConfiguredEmbedding() {
+        return new Array(Number(aiConfig.vectorDimension)).fill(0.1)
+    }
+
     test.beforeAll(async () => {
         aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
 
@@ -828,11 +837,9 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const originalGenerate             = OpenAiCompatible.prototype.generate;
         const issuesDir                    = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-pool-scope-'));
         let   capturedWhere                = 'UNSET';
-        aiConfig.vectorDimension = 2;
-
         StorageRouter.getGraphCollection    = async () => ({query: async args => { capturedWhere = args.where; return {ids: [[]], distances: [[]]}; }});
         StorageRouter.getSummaryCollection  = async () => ({get: async () => ({documents: ['mock document']})});
-        TextEmbeddingService.embedText      = async () => [0.1, 0.2];
+        TextEmbeddingService.embedText      = async () => buildConfiguredEmbedding();
         GoldenPathSynthesizer.fetchOpenPRs  = async () => [];
         OpenAiCompatible.prototype.generate = async () => ({content: '{"strategic_brief":"stub"}'});
 
@@ -862,16 +869,14 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const widths                       = [];
         const ids                          = Array.from({length: 40}, (_, index) => `issue-${92000 + index}`);
         const rank21Id                     = ids[20];
-        aiConfig.vectorDimension                = 2;
-        aiConfig.goldenPathTopNodeRenderLimit   = 1;
 
         ids.forEach((id, index) => GraphService.upsertNode({
             id,
             type      : 'ISSUE',
             properties: {
                 state : 'OPEN',
-                title : index === 20 ? 'Legitimate rank-21 candidate' : `Rejected semantic neighbor ${index + 1}`,
-                labels: index === 20 ? ['bug', 'ai'] : ['not-code-ready', 'ai']
+                title : index === 20 ? 'Legitimate rank-21 candidate' : `Semantic neighbor ${index + 1}`,
+                labels: index >= 20 && index < 30 ? ['bug', 'ai'] : ['not-code-ready', 'ai']
             }
         }));
 
@@ -886,7 +891,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             }
         });
         StorageRouter.getSummaryCollection  = async () => ({get: async () => ({documents: ['rank-21 admission proof']})});
-        TextEmbeddingService.embedText      = async () => [0.1, 0.2];
+        TextEmbeddingService.embedText      = async () => buildConfiguredEmbedding();
         OpenAiCompatible.prototype.generate = async () => ({content: '{"strategic_brief":"stub"}'});
 
         let outcome;
@@ -905,7 +910,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).toContain('Semantic: 10.00');
         expect(outcome).toMatchObject({
             status          : 'completed',
-            selectedTopNodes: 1,
+            selectedTopNodes: 10,
             scoringStats    : {
                 semanticQueryPasses         : 2,
                 semanticQueryRequestedWidth : 40,
@@ -977,11 +982,10 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             }
         ];
         let semanticResult;
-        aiConfig.vectorDimension = 2;
 
         StorageRouter.getGraphCollection   = async () => ({query: async () => semanticResult});
         StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['malformed-envelope proof']})});
-        TextEmbeddingService.embedText     = async () => [0.1, 0.2];
+        TextEmbeddingService.embedText     = async () => buildConfiguredEmbedding();
 
         try {
             for (const {expectedError, name, result} of malformedResults) {
@@ -1014,8 +1018,6 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const duplicateId                  = 'issue-92050';
         const recorded                     = [];
         const widths                       = [];
-        aiConfig.vectorDimension              = 2;
-        aiConfig.goldenPathTopNodeRenderLimit = 2;
 
         GraphService.upsertNode({
             id        : duplicateId,
@@ -1039,7 +1041,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             }
         });
         StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['duplicate-prefix proof']})});
-        TextEmbeddingService.embedText     = async () => [0.1, 0.2];
+        TextEmbeddingService.embedText     = async () => buildConfiguredEmbedding();
         Synthesizer.recordTypeGateRejections = async rejections => recorded.push(rejections);
 
         let outcome;
@@ -1070,45 +1072,11 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(recorded).toEqual([[]])
     });
 
-    test('a fractional positive render limit still requires and selects one candidate', async () => {
-        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
-        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
-        const originalEmbedText            = TextEmbeddingService.embedText;
-        const OpenAiCompatible             = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
-        const originalGenerate             = OpenAiCompatible.prototype.generate;
-        const candidateId                  = 'issue-92055';
-        aiConfig.vectorDimension              = 2;
-        aiConfig.goldenPathTopNodeRenderLimit = 0.5;
-
-        GraphService.upsertNode({
-            id        : candidateId,
-            type      : 'ISSUE',
-            properties: {state: 'OPEN', title: 'One required route', labels: ['bug', 'ai']}
-        });
-        StorageRouter.getGraphCollection = async () => ({
-            count: async () => 1,
-            query: async () => ({ids: [[candidateId]], distances: [[0.1]]})
-        });
-        StorageRouter.getSummaryCollection  = async () => ({get: async () => ({documents: ['fractional-limit proof']})});
-        TextEmbeddingService.embedText      = async () => [0.1, 0.2];
-        OpenAiCompatible.prototype.generate = async () => ({content: '{"strategic_brief":"stub"}'});
-
-        let outcome;
-        try {
-            outcome = await GoldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled: false});
-        } finally {
-            StorageRouter.getGraphCollection    = originalGetGraphCollection;
-            StorageRouter.getSummaryCollection  = originalGetSummaryCollection;
-            TextEmbeddingService.embedText      = originalEmbedText;
-            OpenAiCompatible.prototype.generate = originalGenerate
-        }
-
-        expect(outcome).toMatchObject({
-            status          : 'completed',
-            selectedTopNodes: 1,
-            scoringStats    : {candidateAdmissionStopReason: 'render-limit-satisfied'}
-        });
-        expect(fs.readFileSync(tmpHandoffFile, 'utf-8')).toContain(`1. **${candidateId}**`)
+    test('normalizeAdmissionTarget clamps fractional positive limits without mutating the config SSOT', () => {
+        expect(Synthesizer.normalizeAdmissionTarget(0.5)).toBe(1);
+        expect(Synthesizer.normalizeAdmissionTarget(2.9)).toBe(2);
+        expect(Synthesizer.normalizeAdmissionTarget(0)).toBe(1);
+        expect(Synthesizer.normalizeAdmissionTarget(Number.NaN)).toBe(1)
     });
 
     test('equal semantic candidates reorder after Hebbian reinforcement and ambient decay', async () => {
@@ -1119,8 +1087,6 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const originalGenerate             = OpenAiCompatible.prototype.generate;
         const candidateA                   = 'issue-92060';
         const candidateB                   = 'issue-92061';
-        aiConfig.vectorDimension              = 2;
-        aiConfig.goldenPathTopNodeRenderLimit = 2;
 
         for (const [id, title] of [[candidateA, 'Initially stronger'], [candidateB, 'Reinforced mover']]) {
             GraphService.upsertNode({
@@ -1142,7 +1108,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             })
         });
         StorageRouter.getSummaryCollection  = async () => ({get: async () => ({documents: ['Hebbian reorder proof']})});
-        TextEmbeddingService.embedText      = async () => [0.1, 0.2];
+        TextEmbeddingService.embedText      = async () => buildConfiguredEmbedding();
         OpenAiCompatible.prototype.generate = async () => ({content: '{"strategic_brief":"stub"}'});
 
         try {
@@ -1205,8 +1171,6 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const validId                      = ids[0];
         const recorded                     = [];
         const widths                       = [];
-        aiConfig.vectorDimension              = 2;
-        aiConfig.goldenPathTopNodeRenderLimit = 2;
 
         ids.forEach((id, index) => GraphService.upsertNode({
             id,
@@ -1233,7 +1197,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             }
         });
         StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['later-pass failure proof']})});
-        TextEmbeddingService.embedText     = async () => [0.1, 0.2];
+        TextEmbeddingService.embedText     = async () => buildConfiguredEmbedding();
         Synthesizer.recordTypeGateRejections = async rejections => recorded.push(rejections);
 
         let outcome;
@@ -1270,8 +1234,6 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const provisionalId                = ids[0];
         const recorded                     = [];
         const widths                       = [];
-        aiConfig.vectorDimension              = 2;
-        aiConfig.goldenPathTopNodeRenderLimit = 2;
 
         ids.slice(0, 20).forEach((id, index) => GraphService.upsertNode({
             id,
@@ -1297,7 +1259,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             }
         });
         StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['malformed-envelope proof']})});
-        TextEmbeddingService.embedText     = async () => [0.1, 0.2];
+        TextEmbeddingService.embedText     = async () => buildConfiguredEmbedding();
         Synthesizer.recordTypeGateRejections = async rejections => recorded.push(rejections);
 
         let outcome;
@@ -1335,8 +1297,6 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const validId                      = ids[0];
         const recorded                     = [];
         let   queryPass                    = 0;
-        aiConfig.vectorDimension              = 2;
-        aiConfig.goldenPathTopNodeRenderLimit = 2;
 
         ids.forEach((id, index) => GraphService.upsertNode({
             id,
@@ -1358,7 +1318,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             }
         });
         StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['structural failure proof']})});
-        TextEmbeddingService.embedText      = async () => [0.1, 0.2];
+        TextEmbeddingService.embedText      = async () => buildConfiguredEmbedding();
         GraphService.getInboundStructuralSupport = function(data) {
             if (queryPass === 2) throw new Error('second-pass structural projection failed');
             return originalGetInboundSupport.call(this, data)
@@ -1398,7 +1358,6 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const decayingId                   = 'discussion-92201';
         const terminalId                   = 'discussion-92202';
         const recorded                     = [];
-        aiConfig.vectorDimension = 2;
 
         [
             {
@@ -1443,7 +1402,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             })
         });
         StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['Discussion liveness proof']})});
-        TextEmbeddingService.embedText     = async () => [0.1, 0.2];
+        TextEmbeddingService.embedText     = async () => buildConfiguredEmbedding();
         Synthesizer.recordTypeGateRejections = async rejections => recorded.push(rejections);
         OpenAiCompatible.prototype.generate = async () => ({content: '{"strategic_brief":"stub"}'});
 
@@ -1483,8 +1442,6 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const originalGenerate             = OpenAiCompatible.prototype.generate;
         const discussionId                 = 'discussion-92210';
         const recorded                     = [];
-        aiConfig.vectorDimension              = 2;
-        aiConfig.goldenPathTopNodeRenderLimit = 1;
 
         GraphService.upsertNode({
             id        : discussionId,
@@ -1503,7 +1460,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             query: async () => ({ids: [[discussionId]], distances: [[0.1]]})
         });
         StorageRouter.getSummaryCollection  = async () => ({get: async () => ({documents: ['self-guidance proof']})});
-        TextEmbeddingService.embedText      = async () => [0.1, 0.2];
+        TextEmbeddingService.embedText      = async () => buildConfiguredEmbedding();
         Synthesizer.recordTypeGateRejections = async rejections => recorded.push(rejections);
         OpenAiCompatible.prototype.generate = async () => ({content: '{"strategic_brief":"stub"}'});
 
