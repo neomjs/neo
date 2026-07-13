@@ -262,11 +262,11 @@ class Container extends BaseContainer {
      * @protected
      */
     createItems() {
-        let me            = this,
+        let me                                                        = this,
             {activeIndex, removeInactiveCards, useActiveTabIndicator} = me,
-            items         = me.items || [],
-            tabButtons    = [],
-            tabComponents = [];
+            items                                                     = me.items || [],
+            tabButtons                                                = [],
+            tabComponents                                             = [];
 
         Object.assign(me, {
             bodyContainerId: me.bodyContainerId || Neo.getId('container'),
@@ -593,15 +593,16 @@ class Container extends BaseContainer {
      * @param {Neo.component.Base} component The card component instance to remove.
      * @param {Boolean} [destroyItem=true] Set to false to keep the component instance in memory.
      * @param {Boolean} [silent=false] Set to true to prevent `updateTabButtons` from being called.
+     * @param {Boolean} [keepMounted=false] Preserve the card's mounted state for an atomic cross-parent move.
      */
-    remove(component, destroyItem=true, silent=false) {
+    remove(component, destroyItem=true, silent=false, keepMounted=false) {
         let items = [...this.getCardContainer().items],
             i     = 0,
             len   = items.length;
 
         for (; i < len; i++) {
             if (items[i].id === component.id) {
-                this.removeAt(i, destroyItem, silent)
+                return this.removeAt(i, destroyItem, silent, keepMounted)
             }
         }
     }
@@ -611,15 +612,16 @@ class Container extends BaseContainer {
      * @param {Number} index The index of the tab to remove.
      * @param {Boolean} [destroyItem=true] Set to false to keep the component instance in memory.
      * @param {Boolean} [silent=false] Set to true to prevent `updateTabButtons` from being called.
+     * @param {Boolean} [keepMounted=false] Preserve the card's mounted state for an atomic cross-parent move.
      */
-    removeAt(index, destroyItem=true, silent=false) {
+    removeAt(index, destroyItem=true, silent=false, keepMounted=false) {
         let me            = this,
             {activeIndex} = me,
             cardContainer = me.getCardContainer(),
             tabBar        = me.getTabBar(),
-            i, len;
+            card, i, len;
 
-        cardContainer.removeAt(index, destroyItem, silent);
+        card = cardContainer.removeAt(index, destroyItem, silent, keepMounted);
         tabBar       .removeAt(index, true,        false);
 
         if (index < activeIndex) {
@@ -637,6 +639,8 @@ class Container extends BaseContainer {
         for (; i < len; i++) {
             tabBar.items[i].index = i
         }
+
+        return card
     }
 
     /**
