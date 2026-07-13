@@ -17,31 +17,11 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import crypto         from 'crypto';
-import fs             from 'fs';
-import path           from 'path';
 
 test.describe('Neo.ai.services.knowledge-base.KBRecorderService', () => {
-    const testDbName = `kb-recorder-test-${process.pid}-${Date.now()}.sqlite`;
-    let testDbPath;
     let KBRecorderService;
 
     test.beforeAll(async () => {
-        const config = (await import('../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
-
-        const tmpDir = path.resolve(process.cwd(), 'tmp');
-        if (!fs.existsSync(tmpDir)) {
-            fs.mkdirSync(tmpDir, {recursive: true});
-        }
-
-        testDbPath = path.join(tmpDir, testDbName);
-        config.data.memoryCoreDbPath = testDbPath;
-
-        if (fs.existsSync(testDbPath)) {
-            try {fs.unlinkSync(testDbPath);}          catch (e) {}
-            try {fs.unlinkSync(`${testDbPath}-wal`);} catch (e) {}
-            try {fs.unlinkSync(`${testDbPath}-shm`);} catch (e) {}
-        }
-
         KBRecorderService = (await import('../../../../../../ai/services/knowledge-base/KBRecorderService.mjs')).default;
         await KBRecorderService.initAsync();
     });
@@ -56,9 +36,6 @@ test.describe('Neo.ai.services.knowledge-base.KBRecorderService', () => {
             KBRecorderService.db = null;
         }
 
-        try {fs.unlinkSync(testDbPath);}          catch (e) {}
-        try {fs.unlinkSync(`${testDbPath}-wal`);} catch (e) {}
-        try {fs.unlinkSync(`${testDbPath}-shm`);} catch (e) {}
     });
 
     test('initializes the Knowledge Base telemetry schema', () => {

@@ -33,7 +33,7 @@ test.describe('Neo.ai.services.memory-core.PermissionService', () => {
         dbPath = path.join(tmpDir, `neo-permission-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
 
         // Force temp file DB config instead of :memory: to prevent initialization race wipes
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         originalDbPath = aiConfig.storagePaths.graph;
         aiConfig.storagePaths.graph = dbPath;
 
@@ -80,7 +80,7 @@ test.describe('Neo.ai.services.memory-core.PermissionService', () => {
 
         await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, dbPath, fs, 'clear');
 
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         aiConfig.storagePaths.graph = originalDbPath;
 
         if (hadGraphDb) {

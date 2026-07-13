@@ -18,18 +18,26 @@ setup({
     }
 });
 
-import {test, expect}   from '@playwright/test';
-import Neo              from '../../../../../../src/Neo.mjs';
-import * as core        from '../../../../../../src/core/_export.mjs';
-import InstanceManager  from '../../../../../../src/manager/Instance.mjs';
-import path             from 'path';
-import {fileURLToPath}  from 'url';
-import dotenv           from 'dotenv';
-import {drainMemoryWal} from './util.mjs';
+import {test, expect}                     from '@playwright/test';
+import Neo                                from '../../../../../../src/Neo.mjs';
+import * as core                          from '../../../../../../src/core/_export.mjs';
+import InstanceManager                    from '../../../../../../src/manager/Instance.mjs';
+import path                               from 'path';
+import {fileURLToPath}                    from 'url';
+import dotenv                             from 'dotenv';
+import {drainMemoryWal, snapshotAiConfig} from './util.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 dotenv.config({path: path.resolve(__dirname, '../../../../../../.env'), quiet: true});
+
+/**
+ * @summary Creates an isolated 4096-dimensional embedding for offline Memory Core fixtures.
+ * @returns {number[]} A synthetic embedding vector.
+ */
+function createEmbeddingVector() {
+    return new Array(4096).fill(Math.random());
+}
 
 test.describe('Memory Core Offline Summarization', () => {
     // Bucket A (#10903): heavy SLM (gemma4) dependency — no local LM Studio / Ollama in CI. ticket-ref-ok: bucket taxonomy is defined in that ticket
@@ -38,41 +46,28 @@ test.describe('Memory Core Offline Summarization', () => {
     // from probing a nonexistent endpoint.
     test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: heavy SLM (gemma4) — bucket A (#10903)');
 
-    let SDK, TextEmbeddingService, dummySessionId;
+    let SDK, TextEmbeddingService, dummySessionId, originalEmbedText, originalEmbedTexts, originalSessionModel, restoreAiConfig;
     let localModelActive = false;
 
     // We must use dynamic imports in Playwright tests inside beforeAll or the test body
     // because Neo globals are established during setup()
     test.beforeAll(async () => {
-        const os = await import('os');
-        const fs = await import('fs');
-
-        // Load and mock config FIRST before starting any services
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        const path = await import("path");
-        const tmpDir = path.resolve(process.cwd(), "tmp");
-        aiConfig.storagePaths.graph = path.join(tmpDir, "test-graph-" + Date.now() + "-" + Math.random().toString(36).substring(7) + ".db");
-
-
-
-        if (!fs.existsSync(tmpDir)) {
-            fs.mkdirSync(tmpDir, { recursive: true });
-        }
-
-        const testDbName              = `memory-core-session-test-${process.pid}-${Date.now()}.sqlite`;
-        const testDbPath              = path.join(tmpDir, testDbName);
-        aiConfig.storagePaths.graph   = testDbPath;
-
-        // Remove existing test db
-        if (fs.existsSync(testDbPath)) {
-            fs.unlinkSync(testDbPath);
-        }
-
-        aiConfig.collections.memory = `test-memory-${process.pid}-${Date.now()}`;
-        aiConfig.collections.session = `test-session-${process.pid}-${Date.now()}`;
+        // Load and snapshot config FIRST before starting any services. The template already owns
+        // the in-memory graph and per-worker Chroma names under UNIT_TEST_MODE, so this spec never
+        // replaces those safe-by-construction values.
+        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
+        restoreAiConfig = snapshotAiConfig(aiConfig, [
+            'modelProvider',
+            'embeddingProvider',
+            'openAiCompatible.host',
+            'openAiCompatible.model',
+            'openAiCompatible.embeddingModel',
+            'summarizationBatchLimit'
+        ]);
 
         SDK                  = await import('../../../../../../ai/services.mjs');
         TextEmbeddingService = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
+        originalSessionModel = SDK.Memory_SessionService.model;
 
         // Force 'openAiCompatible' routing for this test
         SDK.Memory_Config.data.modelProvider         = 'openAiCompatible';
@@ -80,13 +75,27 @@ test.describe('Memory Core Offline Summarization', () => {
         SDK.Memory_Config.data.openAiCompatible.host           = 'http://127.0.0.1:1234';
         SDK.Memory_Config.data.openAiCompatible.model          = 'gemma-4-31b-it';
         SDK.Memory_Config.data.openAiCompatible.embeddingModel = 'text-embedding-qwen3-embedding-8b';
-        SDK.Memory_Config.data.autoSummarize         = false;
-
         // Adjust batch limit to speed up test execution
         SDK.Memory_Config.data.summarizationBatchLimit = 5;
 
-        // Offline tests cannot hit APIs. Mock TextEmbeddingService for Qwen3-Embedding (4096D)
-        TextEmbeddingService.embedText = async () => new Array(4096).fill(Math.random());
+        // The shared Playwright worker may have constructed SessionService before this file's
+        // provider leaves were applied. Rebuild the model from the explicit test config so the
+        // assertion exercises the OpenAI-compatible path it names, independent of file order.
+        const {buildChatModel} = await import('../../../../../../ai/provider/buildChatModel.mjs');
+        SDK.Memory_SessionService.model = buildChatModel({
+            modelProvider         : SDK.Memory_Config.data.modelProvider,
+            openAiCompatibleConfig: SDK.Memory_Config.data.openAiCompatible,
+            ollamaConfig          : SDK.Memory_Config.data.ollama,
+            geminiApiKey          : SDK.Memory_Config.data.geminiApiKey,
+            geminiModelName       : SDK.Memory_Config.data.modelName
+        });
+
+        // Offline tests cannot hit APIs. Mock both embedding paths used by foreground writes and WAL drains.
+        originalEmbedText  = TextEmbeddingService.embedText;
+        originalEmbedTexts = TextEmbeddingService.embedTexts;
+
+        TextEmbeddingService.embedText  = async () => createEmbeddingVector();
+        TextEmbeddingService.embedTexts = async texts => texts.map(() => createEmbeddingVector());
 
         // Check if openAiCompatible daemon and gemma4 are available
         try {
@@ -105,10 +114,24 @@ test.describe('Memory Core Offline Summarization', () => {
     });
 
     test.afterAll(async () => {
-        const { cleanupChromaManager } = await import('./util.mjs');
-        await cleanupChromaManager(SDK);
-        if (dummySessionId && localModelActive) {
-            console.log(`[Cleanup] Deleted dummy Chroma collections for session ${dummySessionId}.`);
+        try {
+            const {cleanupChromaManager} = await import('./util.mjs');
+            await cleanupChromaManager(SDK);
+
+            if (dummySessionId && localModelActive) {
+                console.log(`[Cleanup] Deleted dummy Chroma collections for session ${dummySessionId}.`);
+            }
+        } finally {
+            if (TextEmbeddingService) {
+                TextEmbeddingService.embedText  = originalEmbedText;
+                TextEmbeddingService.embedTexts = originalEmbedTexts;
+            }
+
+            if (SDK) {
+                SDK.Memory_SessionService.model = originalSessionModel;
+            }
+
+            restoreAiConfig?.();
         }
     });
 
@@ -262,8 +285,8 @@ test.describe('Memory Core Offline Summarization', () => {
         await drainMemoryWal({SDK, ids: [bigAdd.id]});
 
         // Mock the model.generateContent to avoid actual LLM calls and verify the exact prompt content
-        const originalGenerateContent = SDK.Memory_SessionService.model ? SDK.Memory_SessionService.model.generateContent : null;
-        let capturedPrompts = [];
+        const originalModel   = SDK.Memory_SessionService.model;
+        let   capturedPrompts = [];
 
         SDK.Memory_SessionService.model = {
             generateContent: async (prompt) => {
@@ -288,11 +311,10 @@ test.describe('Memory Core Offline Summarization', () => {
             }
         };
 
-        const result = await SDK.Memory_SessionService.summarizeSession(bigDummySessionId);
-
-        // Restore
-        if (originalGenerateContent) {
-            SDK.Memory_SessionService.model.generateContent = originalGenerateContent;
+        try {
+            await SDK.Memory_SessionService.summarizeSession(bigDummySessionId);
+        } finally {
+            SDK.Memory_SessionService.model = originalModel;
         }
 
         // Verify ONLY ONE generation payload happened
@@ -313,16 +335,16 @@ test.describe('Memory Core Offline Summarization', () => {
         await SDK.Memory_ChromaManager.ready();
 
         const OpenAiCompatibleProvider = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
-        const qwenSessionId = crypto.randomUUID();
-        const originalProviderConfig = {
+        const qwenSessionId            = crypto.randomUUID();
+        const originalProviderConfig   = {
             apiKey       : SDK.Memory_Config.data.openAiCompatible.apiKey,
             host         : SDK.Memory_Config.data.openAiCompatible.host,
             model        : SDK.Memory_Config.data.openAiCompatible.model,
             modelProvider: SDK.Memory_Config.data.modelProvider
         };
-        const originalGenerate = OpenAiCompatibleProvider.prototype.generate;
-        let capturedPrompt = '';
-        let capturedProviderConfig = null;
+        const originalGenerate       = OpenAiCompatibleProvider.prototype.generate;
+        let   capturedPrompt         = '';
+        let   capturedProviderConfig = null;
 
         try {
             SDK.Memory_Config.data.modelProvider = 'openAiCompatible';
@@ -380,7 +402,7 @@ test.describe('Memory Core Offline Summarization', () => {
             expect(result.memoryCount).toBe(1);
 
             const summaryCollection = await SDK.Memory_ChromaManager.getSummaryCollection();
-            const savedSummary = await summaryCollection.get({
+            const savedSummary      = await summaryCollection.get({
                 ids    : [result.summaryId],
                 include: ['metadatas', 'documents']
             });
@@ -410,7 +432,7 @@ test.describe('Memory Core Offline Summarization', () => {
         await SDK.Memory_ChromaManager.ready();
 
         const massiveToolConfig = new Array(50000).fill('A').join('');
-        const toolsUsed = [JSON.stringify({
+        const toolsUsed         = [JSON.stringify({
             name      : undefined,
             toolAction: undefined,
             content   : massiveToolConfig
@@ -430,8 +452,8 @@ test.describe('Memory Core Offline Summarization', () => {
         // Chroma read below sees the just-written memory.
         await drainMemoryWal({SDK, ids: [toolsAdd.id]});
 
-        const originalGenerateContent = SDK.Memory_SessionService.model ? SDK.Memory_SessionService.model.generateContent : null;
-        let capturedPrompts = [];
+        const originalModel   = SDK.Memory_SessionService.model;
+        let   capturedPrompts = [];
 
         SDK.Memory_SessionService.model = {
             generateContent: async (prompt) => {
@@ -446,10 +468,10 @@ test.describe('Memory Core Offline Summarization', () => {
             }
         };
 
-        await SDK.Memory_SessionService.summarizeSession(dummySessionId);
-
-        if (originalGenerateContent) {
-            SDK.Memory_SessionService.model.generateContent = originalGenerateContent;
+        try {
+            await SDK.Memory_SessionService.summarizeSession(dummySessionId);
+        } finally {
+            SDK.Memory_SessionService.model = originalModel;
         }
 
         const finalPrompt = capturedPrompts[capturedPrompts.length - 1];
@@ -513,6 +535,9 @@ test.describe('Memory Core Offline Summarization', () => {
     });
 
     test('SessionService performance: measure latency for 1 session via API', async () => {
+        // The runner timeout must outlive the explicit 40-second performance assertion below.
+        test.setTimeout(60000);
+
         if (!localModelActive) {
             test.skip(true, 'Skipping: openAiCompatible or API not found locally');
             return;
@@ -542,9 +567,9 @@ test.describe('Memory Core Offline Summarization', () => {
         // window so the summarization latency below stays a pure API measurement.
         await drainMemoryWal({SDK, ids: [perfAdd.id]});
 
-        const start = Date.now();
+        const start  = Date.now();
         const result = await SDK.Memory_SessionService.summarizeSession(perfSessionId);
-        const end = Date.now();
+        const end    = Date.now();
 
         const durationMs = end - start;
 

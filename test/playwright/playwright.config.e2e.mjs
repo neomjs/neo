@@ -1,3 +1,5 @@
+import './configTemplateResolver.mjs';
+
 import {defineConfig, devices} from '@playwright/test';
 
 // Overridable so agent/dev runs can isolate from a foreign dev-server already squatting on 8080

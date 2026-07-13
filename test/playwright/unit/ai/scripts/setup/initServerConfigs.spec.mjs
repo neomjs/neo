@@ -970,7 +970,7 @@ test.describe('assertConfigFresh — boot freshness guard (#13560)', () => {
 
     const callGuard = async opts => {
         let error = null;
-        try { await assertConfigFresh(opts); } catch (e) { error = e; }
+        try { await assertConfigFresh({useConfigTemplates: false, ...opts}); } catch (e) { error = e; }
         return error;
     };
 
@@ -1008,6 +1008,37 @@ test.describe('assertConfigFresh — boot freshness guard (#13560)', () => {
         const error = await callGuard({aiRoot: root, logger: recordingLogger()});
 
         expect(error).toBeNull();
+    });
+
+    test('ignores a stale operator overlay when the committed template graph is active', async () => {
+        const root  = buildTier1({name: 'template-only', templateContents: TEMPLATE_WITH_LEAF, configContents: 'export default {};\n'});
+        const error = await callGuard({aiRoot: root, logger: recordingLogger(), useConfigTemplates: true});
+
+        expect(error).toBeNull();
+    });
+
+    test('keeps required-env findings fatal when the committed template graph is active', async () => {
+        const root = buildTier1({
+            name            : 'template-only-required-env',
+            templateContents: TEMPLATE_WITH_LEAF,
+            configContents  : 'export default {};\n'
+        });
+        const error = await callGuard({
+            aiRoot            : root,
+            logger            : recordingLogger(),
+            useConfigTemplates: true,
+            requiredFindings  : [{
+                consumerClaim: 'readiness',
+                entrypoint   : 'memory-core-mcp',
+                env          : 'NEO_REQUIRED_TEST_VALUE',
+                leafPath     : 'test.requiredValue',
+                mode         : 'test',
+                valueState   : 'absent'
+            }]
+        });
+
+        expect(error).not.toBeNull();
+        expect(error.message).toContain('Required deployment configuration is missing or invalid');
     });
 
     test('benign drift (changed default only) warns but does NOT throw', async () => {

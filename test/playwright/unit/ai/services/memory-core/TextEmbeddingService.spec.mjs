@@ -23,10 +23,10 @@ import {
 import {PROVIDER_TIMEOUT_CODE} from '../../../../../../ai/provider/createTimeoutError.mjs';
 
 /**
- * @summary Coverage for the #10804 TextEmbeddingService Gemini-init gate.
+ * @summary Coverage for the TextEmbeddingService Gemini-init gate.
  *
- * #9719 removed implicit provider fallback inside TextEmbeddingService. #10804 keeps that
- * deterministic routing: the singleton only initializes a Gemini embedding client when the
+ * Implicit provider fallback is forbidden inside TextEmbeddingService. The initialization gate
+ * keeps routing deterministic: the singleton only initializes a Gemini embedding client when the
  * single canonical `embeddingProvider` selector is `gemini`.
  *
  * @see Neo.ai.services.memory-core.TextEmbeddingService#shouldInitializeGeminiEmbeddingClient
@@ -62,7 +62,7 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
     test.beforeAll(async () => {
         const mod = await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs');
         TextEmbeddingService = mod.default;
-        aiConfig             = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        aiConfig             = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         originalEmbeddingTimeoutMs = aiConfig.ollama.embeddingTimeoutMs;
     });
 
@@ -202,8 +202,8 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
     });
 
     test('embedText throws explicitly for unsupported provider (no silent Gemini fallthrough)', async () => {
-        // #11965 Sub-2 cycle-2 (per @neo-gpt review): pre-cycle-2, any unknown
-        // explicitProvider value fell through to the Gemini branch. That silent-fallback
+        // Historically, any unknown explicitProvider value fell through to the Gemini branch.
+        // That silent fallback
         // masked misconfiguration. Now an unsupported value throws with the expected set
         // named in the message.
         await expect(TextEmbeddingService.embedText('hello', 'bogus-provider')).rejects.toThrow(

@@ -45,7 +45,7 @@ test.describe('SessionService.summarizeSession — memory-fetch pagination (clos
 
     test('paginates the fetch, writes the full memoryCount, and the drift selector stops returning the session', async () => {
         const svc          = SDK.Memory_SessionService,
-              aiConfig     = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default,
+              aiConfig     = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default,
               origMemGet   = svc.memoryCollection.get,
               origModel    = svc.model,
               origSessions = svc.sessionsCollection,
@@ -135,7 +135,7 @@ test.describe('SessionService.summarizeSession — memory-fetch pagination (clos
 
     test('#15126: consumes discovery metadata page-locally while preserving candidate semantics', async () => {
         const svc            = SDK.Memory_SessionService,
-              aiConfig       = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default,
+              aiConfig       = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default,
               batchLimit     = aiConfig.summarizationBatchLimit,
               currentSession = svc.currentSessionId || 'fixture-current',
               origMemGet     = svc.memoryCollection.get,
@@ -242,7 +242,7 @@ test.describe('SessionService.summarizeSession — memory-fetch pagination (clos
 
     test('reconstructs a dropped turn-document from split metadata before synthesis (#14211 de-dup read)', async () => {
         const svc        = SDK.Memory_SessionService,
-              aiConfig   = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default,
+              aiConfig   = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default,
               origMemGet = svc.memoryCollection.get,
               origModel  = svc.model,
               origSess   = svc.sessionsCollection,

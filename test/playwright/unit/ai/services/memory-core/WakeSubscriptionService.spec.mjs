@@ -38,7 +38,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         }
         dbPath = path.join(tmpDir, `neo-wake-subscription-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
 
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         aiConfig.storagePaths.graph = dbPath;
 
         if (!aiConfig.collections) aiConfig.collections = {};

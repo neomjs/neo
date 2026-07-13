@@ -1,3 +1,5 @@
+import './configTemplateResolver.mjs';
+
 import {defineConfig} from '@playwright/test';
 
 export default defineConfig({
@@ -17,14 +19,14 @@ export default defineConfig({
     },
 
     webServer: {
-        command: 'node ./integration/fixtures/composeWebServer.mjs',
-        url: 'http://127.0.0.1:13090/ready',
-        timeout: 240000,
+        command            : 'node ./integration/fixtures/composeWebServer.mjs',
+        url                : 'http://127.0.0.1:13090/ready',
+        timeout            : 240000,
         reuseExistingServer: false,
-        stdout: 'pipe',
-        stderr: 'pipe',
-        gracefulShutdown: {
-            signal: 'SIGTERM',
+        stdout             : 'pipe',
+        stderr             : 'pipe',
+        gracefulShutdown   : {
+            signal : 'SIGTERM',
             timeout: 30000
         }
     }

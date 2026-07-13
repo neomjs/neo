@@ -31,7 +31,7 @@ test.describe('Neo.ai.services.github-workflow.sync.ReleaseNotesSyncer', () => {
     let logger;
 
     test.beforeAll(async () => {
-        aiConfig = (await import('../../../../../../ai/mcp/server/github-workflow/config.mjs')).default;
+        aiConfig = (await import('../../../../../../ai/mcp/server/github-workflow/config.template.mjs')).default;
         issueSyncConfig = aiConfig.issueSync;
         originalContentRoot = issueSyncConfig.contentRoot;
 

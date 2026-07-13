@@ -6,8 +6,8 @@ import {promisify}      from 'util';
 import {fileURLToPath}  from 'url';
 import Neo              from '../../../../../../src/Neo.mjs';
 import * as core        from '../../../../../../src/core/_export.mjs';
-import AiConfig         from '../../../../../../ai/config.mjs';
-import memoryCoreConfig from '../../../../../../ai/mcp/server/memory-core/config.mjs';
+import AiConfig         from '../../../../../../ai/config.template.mjs';
+import memoryCoreConfig from '../../../../../../ai/mcp/server/memory-core/config.template.mjs';
 import {
     Orchestrator
 } from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
@@ -451,7 +451,7 @@ test.describe('Orchestrator parent-prop propagation (#11834 AC3)', () => {
             const path = await import('node:path');
             const {default: Neo} = await import('./src/Neo.mjs');
             await import('./src/core/_export.mjs');
-            const {default: AiConfig} = await import('./ai/config.mjs');
+            const {default: AiConfig} = await import('./ai/config.template.mjs');
             const {Orchestrator} = await import('./ai/daemons/orchestrator/Orchestrator.mjs');
             const {buildTaskDefinitions} = await import('./ai/daemons/orchestrator/taskDefinitions.mjs');
             const {default: TaskStateService, createInitialTaskState} = await import('./ai/daemons/orchestrator/services/TaskStateService.mjs');

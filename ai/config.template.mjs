@@ -443,9 +443,10 @@ class Config extends ConfigProvider {
              *
              * `engines.chroma` is the unified production topology: ONE daemon, ONE persist dir,
              * shared by Knowledge Base + Memory Core. The active `host` / `port` / `dataDir` values are
-             * formulas (below) that resolve production vs unit-test coordinates from the existing
-             * `UNIT_TEST_MODE` toggle. Unit tests therefore connect to a separate daemon and separate
-             * persist directory by construction; a database-name swap alone is not isolation.
+             * formulas (below) that resolve production vs test-harness coordinates from the existing
+             * `UNIT_TEST_MODE` toggle or the Playwright-only `NEO_TEST_CONFIG_TEMPLATES` boundary.
+             * Tests therefore connect to a separate daemon and persist directory by construction; a
+             * database-name swap alone is not isolation.
              * @type {Object}
              */
             engines: {
@@ -459,22 +460,29 @@ class Config extends ConfigProvider {
                     portProd   : leaf(8000, 'NEO_CHROMA_PORT', 'port'),
                     portTest   : leaf(18180, 'NEO_CHROMA_PORT_TEST', 'port'),
                     /**
-                     * Chroma database selection — three declarative leaves, all SSOT-inline (config.template
+                     * Chroma database selection — four declarative leaves, all SSOT-inline (config.template
                      * imports no config values):
                      *   - `database`        — the production DB name (literal).
                      *   - `databaseTest`    — the dedicated, droppable unit-test DB name (literal).
-                     *   - `useTestDatabase` — the toggle, resolved from `UNIT_TEST_MODE` via the leaf's
-                     *                         env-var argument (declarative — NOT an inline `process.env` read).
+                     *   - `useUnitTestDatabase` — the unit-run selector, resolved from `UNIT_TEST_MODE`.
+                     *   - `useTestHarness`  — the all-Playwright selector, resolved from the resolver boundary.
+                     * `useTestDatabase` is the effective formula composing both selectors.
                      * The consumer (`ChromaManager`) reads the resolved toggle and picks `databaseTest` when
                      * true, else `database`. Both NAMES live in config, so the test path needs no env var the
                      * runner must remember to set — `npx playwright` without `npm run test-unit` still toggles
                      * to the test DB and CANNOT bleed unit collections into production by construction.
                      * `ChromaManager` additionally fails loud if the resolved DB equals `database` while the
-                     * toggle is on (independent defense-in-depth). KB ChromaManager reads only host/port.
+                     * effective selector is on (independent defense-in-depth). KB ChromaManager reads only host/port.
                      */
-                    database       : leaf('default_database', 'NEO_CHROMA_DATABASE', 'string'),
-                    databaseTest   : leaf('neo-unit-test', 'NEO_CHROMA_DATABASE_TEST', 'string'),
-                    useTestDatabase: leaf(false, 'UNIT_TEST_MODE', 'boolean')
+                    database           : leaf('default_database', 'NEO_CHROMA_DATABASE', 'string'),
+                    databaseTest       : leaf('neo-unit-test', 'NEO_CHROMA_DATABASE_TEST', 'string'),
+                    useUnitTestDatabase: leaf(false, 'UNIT_TEST_MODE', 'boolean'),
+                    /**
+                     * @summary Extends storage isolation to non-unit Playwright modes without claiming
+                     * unit-test application semantics.
+                     * @type {boolean}
+                     */
+                    useTestHarness : leaf(false, 'NEO_TEST_CONFIG_TEMPLATES', 'boolean')
                 }
             },
             /**
@@ -1291,9 +1299,10 @@ class Config extends ConfigProvider {
          * Reactive computed config values (`Neo.state.Provider` formulas).
          */
         formulas: {
-            'engines.chroma.dataDir': data => data.engines.chroma.useTestDatabase ? data.engines.chroma.dataDirTest : data.engines.chroma.dataDirProd,
-            'engines.chroma.host'   : data => data.engines.chroma.useTestDatabase ? data.engines.chroma.hostTest    : data.engines.chroma.hostProd,
-            'engines.chroma.port'   : data => data.engines.chroma.useTestDatabase ? data.engines.chroma.portTest    : data.engines.chroma.portProd
+            'engines.chroma.useTestDatabase': data => data.engines.chroma.useUnitTestDatabase || data.engines.chroma.useTestHarness,
+            'engines.chroma.dataDir'        : data => data.engines.chroma.useTestDatabase ? data.engines.chroma.dataDirTest : data.engines.chroma.dataDirProd,
+            'engines.chroma.host'           : data => data.engines.chroma.useTestDatabase ? data.engines.chroma.hostTest    : data.engines.chroma.hostProd,
+            'engines.chroma.port'           : data => data.engines.chroma.useTestDatabase ? data.engines.chroma.portTest    : data.engines.chroma.portProd
         }
     }
 }

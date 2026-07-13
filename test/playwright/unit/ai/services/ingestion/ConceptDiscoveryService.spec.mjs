@@ -129,7 +129,7 @@ test.describe('Neo.ai.daemons.services.ConceptDiscoveryService', () => {
      * frontmatter + a body long enough to exceed MIN_SOURCE_LENGTH.
      */
     function writeIssueFile(filename, {labels = [], id = null, bodyExtra = ''} = {}) {
-        const fm = `---\nid: ${id || 'auto'}\ntitle: Test\nlabels:\n${labels.map(l => `  - ${l}`).join('\n') || '  - enhancement'}\n---\n`;
+        const fm   = `---\nid: ${id || 'auto'}\ntitle: Test\nlabels:\n${labels.map(l => `  - ${l}`).join('\n') || '  - enhancement'}\n---\n`;
         const body = fm + 'This is a test issue body. '.repeat(20) + bodyExtra;
         fs.writeFileSync(path.join(tmpIssuesDir, filename), body, 'utf8');
     }
@@ -268,7 +268,7 @@ test.describe('Neo.ai.daemons.services.ConceptDiscoveryService', () => {
         writeEmptyConceptGraph();
         ConceptService.loadGraph();
 
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         aiConfig.data.conceptDiscovery ??= {};
         const original = aiConfig.data.conceptDiscovery?.minSourceLength;
         const bodyText = 'Moderate length source. '.repeat(15); // ~360 chars — above default 200, below an override of 10000

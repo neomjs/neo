@@ -19,7 +19,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs-extra';
-import aiConfig       from '../../../../../../ai/mcp/server/knowledge-base/config.mjs';
+import aiConfig       from '../../../../../../ai/mcp/server/knowledge-base/config.template.mjs';
 
 /**
  * Contract coverage for IngestionService.

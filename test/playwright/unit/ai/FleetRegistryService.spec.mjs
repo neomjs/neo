@@ -11,16 +11,16 @@ setup({
     }
 });
 
-import {test, expect}  from '@playwright/test';
-import fs              from 'fs';
-import os              from 'os';
-import path            from 'path';
-import crypto          from 'crypto';
+import {test, expect} from '@playwright/test';
+import fs             from 'fs';
+import os             from 'os';
+import path           from 'path';
+import crypto         from 'crypto';
 
 import Neo                  from '../../../../src/Neo.mjs';
 import * as core            from '../../../../src/core/_export.mjs';
 import FleetRegistryService from '../../../../ai/services/fleet/FleetRegistryService.mjs';
-import aiConfig             from '../../../../ai/config.mjs';
+import aiConfig             from '../../../../ai/config.template.mjs';
 
 const createdDirs = [];
 

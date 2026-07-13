@@ -5,16 +5,16 @@ setup({
     appConfig: {name: 'RepairMcStoredEmbeddingsTest', isMounted: () => true, vnodeInitialising: false}
 });
 
-import {test, expect}   from '@playwright/test';
-import Neo              from '../../../../../../src/Neo.mjs';
-import * as core        from '../../../../../../src/core/_export.mjs';
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
 import {
     embedRecoverableDocuments,
     extractMemoryCoreCollectionData,
     truncateToByteBudget,
     truncateToEmbedTokenBudget
 } from '../../../../../../ai/scripts/maintenance/repairMemoryCoreStoredEmbeddings.mjs';
-import AiConfig         from '../../../../../../ai/mcp/server/memory-core/config.mjs';
+import AiConfig         from '../../../../../../ai/mcp/server/memory-core/config.template.mjs';
 
 /**
  * Mock Chroma collection: `rows` is `{ id: {embedding?, document?, metadata?} }`. `.get` returns only

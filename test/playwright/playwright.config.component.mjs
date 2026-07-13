@@ -1,3 +1,5 @@
+import './configTemplateResolver.mjs';
+
 import {defineConfig, devices} from '@playwright/test';
 
 export default defineConfig({

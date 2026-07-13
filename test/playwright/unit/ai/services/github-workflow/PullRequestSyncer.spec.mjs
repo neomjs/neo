@@ -35,7 +35,7 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
     let tmpRoot;
 
     test.beforeAll(async () => {
-        aiConfig          = (await import('../../../../../../ai/mcp/server/github-workflow/config.mjs')).default;
+        aiConfig          = (await import('../../../../../../ai/mcp/server/github-workflow/config.template.mjs')).default;
         GraphqlService    = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
         PullRequestSyncer = (await import('../../../../../../ai/services/github-workflow/sync/PullRequestSyncer.mjs')).default;
         ReleaseNotesSyncer = (await import('../../../../../../ai/services/github-workflow/sync/ReleaseNotesSyncer.mjs')).default;
@@ -157,7 +157,7 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
 
     test('routeByMilestone=false ignores semver milestones and keeps post-latest merged PRs active', async () => {
         const prNumber = 3288;
-        const pr = buildPullRequest(prNumber);
+        const pr       = buildPullRequest(prNumber);
         pr.milestone = {title: 'v99.0.0'};
         await fs.ensureDir(path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v99.0.0'));
 
@@ -468,9 +468,9 @@ function buildPullRequest(number) {
         headRefName: 'feature',
         baseRefName: 'dev',
         url        : `https://github.com/neomjs/neo/pull/${number}`,
-        body     : 'Merged body',
-        milestone: null,
-        comments : {nodes: []},
-        reviews  : {nodes: []}
+        body       : 'Merged body',
+        milestone  : null,
+        comments   : {nodes: []},
+        reviews    : {nodes: []}
     }
 }

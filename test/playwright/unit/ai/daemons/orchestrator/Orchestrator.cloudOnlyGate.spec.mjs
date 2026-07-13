@@ -1,7 +1,7 @@
-import {test, expect}          from '@playwright/test';
-import Neo                     from '../../../../../../src/Neo.mjs';
-import * as core               from '../../../../../../src/core/_export.mjs';
-import AiConfig                from '../../../../../../ai/config.mjs';
+import {test, expect}            from '@playwright/test';
+import Neo                       from '../../../../../../src/Neo.mjs';
+import * as core                 from '../../../../../../src/core/_export.mjs';
+import AiConfig                  from '../../../../../../ai/config.template.mjs';
 import {resolveCloudOnlyEnabled} from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
 
 const KEY = 'composeServiceRecoveryEnabled';

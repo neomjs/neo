@@ -20,10 +20,10 @@ import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 
 /**
- * Coverage for the `ingest_source_files` MCP facade (#11634, Phase 2B).
+ * Coverage for the `ingest_source_files` MCP facade's Phase 2B work-volume boundary.
  *
  * `ingestSourceFilesViaMcp` wraps `IngestionService.ingestSourceFiles`
- * with the #10572 work-volume gate: an oversized agent-initiated push is refused
+ * with the work-volume gate: an oversized agent-initiated push is refused
  * up-front with a structured `KB_INGEST_VOLUME_EXCEEDED` payload instead of being
  * dispatched (which would embed synchronously and freeze the calling agent).
  *
@@ -48,7 +48,7 @@ test.describe('ingest_source_files MCP facade — work-volume gate (#11634)', ()
         listTools               = toolService.listTools;
 
         IngestionService = (await import('../../../../../../../ai/services/knowledge-base/IngestionService.mjs')).default;
-        aiConfig                      = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
+        aiConfig                      = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
 
         originalIngest    = IngestionService.ingestSourceFiles;
         originalThreshold = aiConfig.mcpSyncMaxChunks;
@@ -92,8 +92,8 @@ test.describe('ingest_source_files MCP facade — work-volume gate (#11634)', ()
     });
 
     test('gate does not fire at the threshold boundary — dispatches to the ingestion service', async () => {
-        let dispatchedArgs = null;
-        const summary      = {ingested: 5, deleted: 0, embeddingsGenerated: 5, errors: [], tenantId: 'neo-shared', durationMs: 1};
+        let   dispatchedArgs = null;
+        const summary        = {ingested: 5, deleted: 0, embeddingsGenerated: 5, errors: [], tenantId: 'neo-shared', durationMs: 1};
 
         IngestionService.ingestSourceFiles = async args => {
             dispatchedArgs = args;

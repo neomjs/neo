@@ -1,7 +1,6 @@
 import {test, expect}                      from '@playwright/test';
 import Neo                                 from '../../../../../../../src/Neo.mjs';
 import ConfigProvider, {createConfigProxy} from '../../../../../../../ai/ConfigProvider.mjs';
-import {TIER1_DEFAULTS}                    from '../../../../../fixtures/aiConfigDefaults.mjs';
 
 test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
     let originalEnv;
@@ -10,6 +9,11 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
     let originalTier1ClassHierarchy;
     let originalConfig;
     let originalClassHierarchy;
+    let tier1Template;
+    let tier1TemplateData;
+    let tier1TemplateFormulas;
+    let tier1Root;
+    let tier1Config;
 
     test.beforeAll(async () => {
         originalEnv = {...process.env};
@@ -38,9 +42,16 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         // dummyEmbeddingFunction from Tier-1 via the getParent() chain. The template import registers
         // Neo.ai.Config only on first module-eval, so install a fresh Tier-1 root to keep inheritance
         // deterministic across reused Playwright workers.
-        const tier1Template = (await import('../../../../../../../ai/config.template.mjs')).default;
+        tier1Template         = (await import('../../../../../../../ai/config.template.mjs')).default;
+        tier1TemplateData     = tier1Template._data;
+        tier1TemplateFormulas = tier1Template._formulas;
         Neo.ai = Neo.ai || {};
-        Neo.ai.Config = Neo.create(ConfigProvider, {data: tier1Template._data});
+        tier1Root = Neo.create(ConfigProvider, {
+            data    : tier1TemplateData,
+            formulas: tier1TemplateFormulas
+        });
+        Neo.ai.Config = tier1Root;
+        tier1Config   = createConfigProxy(tier1Root);
     });
 
     test.afterAll(() => {
@@ -55,6 +66,8 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         } else if (Neo.classHierarchyMap?.['Neo.ai.Config']) {
             delete Neo.classHierarchyMap['Neo.ai.Config'];
         }
+
+        tier1Config.destroy();
 
         if (originalConfig !== undefined) {
             Neo.ai.mcp.server['knowledge-base'].Config = originalConfig;
@@ -84,26 +97,33 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         // getParent() chain to the Tier-1 realm root. Read them KEYED, never as a whole namespace:
         // `toEqual(config.auth)` would enumerate, and namespace enumeration is the deferred
         // getTopLevelDataKeys local-only edge → inherited keys are invisible to it.
-        expect(config.auth.host).toBe(TIER1_DEFAULTS.auth.host);
-        expect(config.auth.port).toBe(TIER1_DEFAULTS.auth.port);
-        expect(config.auth.realm).toBe(TIER1_DEFAULTS.auth.realm);
-        expect(config.auth.issuerUrl).toBe(TIER1_DEFAULTS.auth.issuerUrl);
-        expect(config.auth.clientId).toBe(TIER1_DEFAULTS.auth.clientId);
-        expect(config.auth.clientSecret).toBe(TIER1_DEFAULTS.auth.clientSecret);
-        expect(config.auth.trustProxyIdentity).toBe(TIER1_DEFAULTS.auth.trustProxyIdentity);
-        expect(config.backupPath).toBe(TIER1_DEFAULTS.backupPath);
+        expect(config.auth.host).toBe(tier1Config.auth.host);
+        expect(config.auth.port).toBe(tier1Config.auth.port);
+        expect(config.auth.realm).toBe(tier1Config.auth.realm);
+        expect(config.auth.issuerUrl).toBe(tier1Config.auth.issuerUrl);
+        expect(config.auth.clientId).toBe(tier1Config.auth.clientId);
+        expect(config.auth.clientSecret).toBe(tier1Config.auth.clientSecret);
+        expect(config.auth.trustProxyIdentity).toBe(tier1Config.auth.trustProxyIdentity);
+        expect(config.backupPath).toBe(tier1Config.backupPath);
 
         // KB-local leaves snapshot the active Tier-1 Chroma endpoint as top-level aliases
         // (pending the S3/S4 consumer codemod to engines.chroma.*). Under UNIT_TEST_MODE that
         // active endpoint is the isolated unit-test daemon; collection + path are genuinely KB-owned.
-        expect(config.host).toBe(TIER1_DEFAULTS.engines.chroma.hostTest);
-        expect(config.port).toBe(TIER1_DEFAULTS.engines.chroma.portTest);
+        expect(tier1Template.engines.chroma.host).toBe(tier1Template.engines.chroma.hostTest);
+        expect(tier1Template.engines.chroma.port).toBe(tier1Template.engines.chroma.portTest);
+        expect(config.host).toBe(tier1Template.engines.chroma.host);
+        expect(config.port).toBe(tier1Template.engines.chroma.port);
         expect(config.collectionName).toBe('neo-knowledge-base');
-        expect(config.path).toBe(TIER1_DEFAULTS.engines.chroma.dataDirTest);
+        expect(config.path).toBe(tier1Template.engines.chroma.dataDir);
+        expect(tier1Template.engines.chroma.dataDir).toBe(tier1Template.engines.chroma.dataDirTest);
         expect(config.collectionResolveRetry.maxAttempts).toBe(5);
         expect(config.collectionResolveRetry.initialDelayMs).toBe(500);
         expect(config.collectionResolveRetry.maxDelayMs).toBe(2000);
         expect(config.collectionResolveRetry.maxTotalDelayMs).toBe(5000);
+        expect(config.memoryCoreDbUseTestDatabase).toBe(true);
+        expect(config.memoryCoreDbUseTestHarness).toBe(true);
+        expect(config.memoryCoreDbPath).toBe(config.memoryCoreDbPathTest);
+        expect(config.memoryCoreDbPath).not.toBe(config.memoryCoreDbPathProd);
     });
 
     test('env overrides win — KB-local leaves at the child, Tier-1-owned leaves at the owner (inherited)', () => {
@@ -122,7 +142,10 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         // so env precedence lives at the OWNER. Build a fresh realm root WITH the env set and
         // register it so the child inherits the override up the getParent() chain.
         const prevRoot  = Neo.ai?.Config;
-        const freshRoot = Neo.create(ConfigProvider, {data: Neo.ai.Config._data});
+        const freshRoot = Neo.create(ConfigProvider, {
+            data    : tier1TemplateData,
+            formulas: tier1TemplateFormulas
+        });
         Neo.ai.Config   = freshRoot;
 
         try {
@@ -134,7 +157,7 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         } finally {
             if (prevRoot === undefined) {delete Neo.ai.Config} else {Neo.ai.Config = prevRoot}
             freshKB.destroy();
-            freshRoot.destroy()
+            freshRoot.destroy();
         }
     });
 
@@ -144,7 +167,7 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         try {
             expect(defaultKB.debug).toBe(false);
         } finally {
-            defaultKB.destroy()
+            defaultKB.destroy();
         }
 
         process.env.NEO_DEBUG = 'true';
@@ -154,7 +177,7 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         try {
             expect(freshKB.debug).toBe(true);
         } finally {
-            freshKB.destroy()
+            freshKB.destroy();
         }
     });
 
@@ -176,7 +199,7 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
             expect(warnings.some(message => message.includes('Invalid NEO_DEBUG'))).toBe(true);
         } finally {
             console.warn = originalWarn;
-            freshKB?.destroy()
+            freshKB?.destroy();
         }
     });
 });

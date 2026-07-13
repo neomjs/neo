@@ -15,37 +15,16 @@ setup({
     }
 });
 
-import {test, expect}        from '@playwright/test';
-import Neo                   from '../../../../../../../src/Neo.mjs';
-import * as core             from '../../../../../../../src/core/_export.mjs';
-import InstanceManager       from '../../../../../../../src/manager/Instance.mjs';
-import path                  from 'path';
-import {fileURLToPath}       from 'url';
-import crypto                from 'crypto';
-import {TestLifecycleHelper} from '../../../services/memory-core/util.mjs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../../src/core/_export.mjs';
 
 test.describe('DreamService Golden Path', () => {
     let TextEmbeddingService, aiConfig, DreamService, GraphService, OpenAiCompatible, StorageRouter, SystemLifecycleService;
-    let originalGenerate;
+    let originalEmbedText, originalGenerate;
 
     test.beforeAll(async () => {
-        aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-
-        const os     = await import('os');
-        const fs     = await import('fs');
-        const tmpDir = path.resolve(process.cwd(), 'tmp');
-        if (!fs.existsSync(tmpDir)) {
-            fs.mkdirSync(tmpDir, { recursive: true });
-        }
-        const testDbName = `memory-core-dream-test-${process.pid}-${Date.now()}.sqlite`;
-        const testDbPath = path.join(tmpDir, testDbName);
-
-        aiConfig.storagePaths.graph = testDbPath;
-        aiConfig.engine               = 'hybrid';
-        aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff.md');
+        aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
 
         TextEmbeddingService = (await import('../../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
         DreamService         = (await import('../../../../../../../ai/daemons/orchestrator/services/DreamService.mjs')).default;
@@ -54,11 +33,8 @@ test.describe('DreamService Golden Path', () => {
         StorageRouter        = (await import('../../../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
         SystemLifecycleService = (await import('../../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
 
-        if (fs.existsSync(testDbPath)) {
-            fs.unlinkSync(testDbPath);
-        }
-
         // Mock TextEmbeddingService to return an array of 4096 floats for Qwen3 compatibility
+        originalEmbedText = TextEmbeddingService.embedText;
         TextEmbeddingService.embedText = async () => new Array(4096).fill(0.1);
         originalGenerate = OpenAiCompatible.prototype.generate;
         OpenAiCompatible.prototype.generate = async () => ({
@@ -66,19 +42,29 @@ test.describe('DreamService Golden Path', () => {
         });
 
         if (!SystemLifecycleService._initPromise) { await SystemLifecycleService.initAsync(); } else { await SystemLifecycleService.ready(); }
+
+        // A prior spec can clear the process-lifetime graph without re-running Base's one-shot
+        // readiness promise. Seed this test's required system fixture explicitly; never destroy and
+        // pseudo-reinitialize the singleton merely to recover a boot-time row.
+        if (!GraphService.db.nodes.has('frontier')) {
+            GraphService.upsertGlobalNode({
+                id         : 'frontier',
+                type       : 'SYSTEM_ANCHOR',
+                name       : 'Active Context Frontier',
+                description: 'The shifting focal point of the active Neo OS agent session.'
+            });
+        }
     });
 
     test.afterAll(async () => {
-        const fs         = await import('fs');
-        const testDbPath = aiConfig.storagePaths.graph;
+        const fs = await import('fs');
 
+        TextEmbeddingService.embedText       = originalEmbedText;
         OpenAiCompatible.prototype.generate = originalGenerate;
-        await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
+        GraphService.removeNodes(['issue-dream-golden-path-fixture']);
 
-        const tmpDir      = path.resolve(process.cwd(), 'tmp');
-        const mockHandoff = path.join(tmpDir, 'mock_sandman_handoff.md');
-        if (fs.existsSync(mockHandoff)) {
-            try {fs.unlinkSync(mockHandoff);} catch (e) {}
+        if (fs.existsSync(aiConfig.handoffFilePath)) {
+            try {fs.unlinkSync(aiConfig.handoffFilePath);} catch (e) {}
         }
     });
 

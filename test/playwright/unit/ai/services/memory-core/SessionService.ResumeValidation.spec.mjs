@@ -1,6 +1,6 @@
 import {setup} from '../../../../setup.mjs';
 
-const appName = 'MemoryCoreSessionResumeValidationTest';
+const appName             = 'MemoryCoreSessionResumeValidationTest';
 const skipCiSubstrateData = !!process.env.NEO_TEST_SKIP_CI;
 
 process.env.NEO_MODEL_PROVIDER = 'openAiCompatible';
@@ -34,36 +34,23 @@ dotenv.config({path: path.resolve(__dirname, '../../../../../../.env'), quiet: t
 test.describe('SessionService validateSessionForResume (#10725)', () => {
     test.skip(skipCiSubstrateData, 'CI-skip: Memory Core substrate data not seeded - bucket C (#10903)');
 
-    let SDK, TextEmbeddingService;
+    let SDK, TextEmbeddingService, originalEmbedText;
 
     test.beforeAll(async () => {
-        const fs = await import('fs');
-
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        const path = await import("path");
-        const tmpDir = path.resolve(process.cwd(), "tmp");
-        aiConfig.storagePaths.graph = path.join(tmpDir, "test-graph-" + Date.now() + "-" + Math.random().toString(36).substring(7) + ".db");
-
-        if (!fs.existsSync(tmpDir)) {
-            fs.mkdirSync(tmpDir, {recursive: true});
-        }
-
-        aiConfig.collections.memory  = `test-memory-${process.pid}-${Date.now()}`;
-        aiConfig.collections.session = `test-session-${process.pid}-${Date.now()}`;
-
         SDK                  = await import('../../../../../../ai/services.mjs');
         TextEmbeddingService = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
 
-        SDK.Memory_Config.data.modelProvider           = 'openAiCompatible';
-        SDK.Memory_Config.data.embeddingProvider       = 'openAiCompatible';
-        SDK.Memory_Config.data.autoSummarize           = false;
-
+        originalEmbedText = TextEmbeddingService.embedText;
         TextEmbeddingService.embedText = async () => new Array(4096).fill(Math.random());
     });
 
     test.afterAll(async () => {
-        const { cleanupChromaManager } = await import('./util.mjs');
-        await cleanupChromaManager(SDK);
+        try {
+            const {cleanupChromaManager} = await import('./util.mjs');
+            await cleanupChromaManager(SDK);
+        } finally {
+            TextEmbeddingService.embedText = originalEmbedText;
+        }
     });
 
     test.beforeEach(async () => {
@@ -292,9 +279,9 @@ test.describe('SessionService validateSessionForResume (#10725)', () => {
     });
 
     test('#12199: summarizePendingSessions drains explicit pending ids through summarizeSessions', async () => {
-        const calls = [];
+        const calls              = [];
         const originalGetPending = SDK.Memory_SessionService.getPendingSummarizationJobIds;
-        const originalSummarize = SDK.Memory_SessionService.summarizeSessions;
+        const originalSummarize  = SDK.Memory_SessionService.summarizeSessions;
 
         SDK.Memory_SessionService.getPendingSummarizationJobIds = ({limit}) => {
             calls.push({type: 'getPending', limit});
@@ -325,7 +312,7 @@ test.describe('SessionService validateSessionForResume (#10725)', () => {
     });
 
     test('resumable success when memories exist with no SummarizationJobs row', async () => {
-        const sessionId = `resumable-memories-${crypto.randomUUID()}`;
+        const sessionId             = `resumable-memories-${crypto.randomUUID()}`;
         const RequestContextService = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
 
         await RequestContextService.run({sessionId}, async () => {
@@ -347,8 +334,8 @@ test.describe('SessionService validateSessionForResume (#10725)', () => {
     });
 
     test('SESSION_FINALIZED when SummarizationJobs.status === completed', async () => {
-        const sessionId       = `finalized-${crypto.randomUUID()}`;
-        const GraphService    = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        const sessionId    = `finalized-${crypto.randomUUID()}`;
+        const GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         await GraphService.ready();
 
         const sqlite = GraphService.db?.storage?.db;

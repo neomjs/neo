@@ -212,7 +212,13 @@ class Config extends ConfigProvider {
                  * reads this to select `graphTest` (true) or `graphProd` (false) — safe-by-construction.
                  * @type {boolean}
                  */
-                useTestDatabase: leaf(false, 'UNIT_TEST_MODE', 'boolean')
+                useUnitTestDatabase: leaf(false, 'UNIT_TEST_MODE', 'boolean'),
+                /**
+                 * @summary Extends disposable storage selection to every Playwright mode without
+                 * changing application-level UNIT_TEST_MODE semantics.
+                 * @type {boolean}
+                 */
+                useTestHarness : leaf(false, 'NEO_TEST_CONFIG_TEMPLATES', 'boolean')
             },
             /**
              * Durable wake-daemon watermarks consumed by GraphLog maintenance.
@@ -791,27 +797,27 @@ class Config extends ConfigProvider {
          */
         formulas: {
             // The active graph SQLite path + memory/session/temporal-summary collection names, resolved
-            // BY CONSTRUCTION from the `useTestDatabase` toggle. Consumers read `AiConfig.storagePaths.graph` /
+            // BY CONSTRUCTION from the effective `useTestDatabase` formula. Consumers read `AiConfig.storagePaths.graph` /
             // `collections.memory` / `collections.session` / `collections.temporalSummary` unchanged —
             // the single resolution point. Replaces the prior inline-`process.env` leaf ternaries.
-            'storagePaths.graph'         : data => data.storagePaths.useTestDatabase ? data.storagePaths.graphTest           : data.storagePaths.graphProd,
-            'collections.memory'         : data => data.collections.useTestDatabase  ? data.collections.memoryTest           : data.collections.memoryProd,
-            'collections.session'        : data => data.collections.useTestDatabase  ? data.collections.sessionTest          : data.collections.sessionProd,
-            'collections.temporalSummary': data => data.collections.useTestDatabase  ? data.collections.temporalSummaryTest  : data.collections.temporalSummaryProd,
-            'memoryWal.dir'              : data => data.memoryWal.useTestDatabase    ? data.memoryWal.dirTest       : data.memoryWal.dirProd,
-            'messageWal.dir'             : data => {
-                const configuredDir = data.messageWal.useTestDatabase ? data.messageWal.dirTest : data.messageWal.dirProd;
+            'storagePaths.useTestDatabase': data => data.storagePaths.useUnitTestDatabase || data.storagePaths.useTestHarness,
+            'storagePaths.graph'          : data => data.storagePaths.useTestDatabase ? data.storagePaths.graphTest          : data.storagePaths.graphProd,
+            'collections.memory'          : data => data.collections.useTestDatabase || data.storagePaths.useTestHarness ? data.collections.memoryTest          : data.collections.memoryProd,
+            'collections.session'         : data => data.collections.useTestDatabase || data.storagePaths.useTestHarness ? data.collections.sessionTest         : data.collections.sessionProd,
+            'collections.temporalSummary' : data => data.collections.useTestDatabase || data.storagePaths.useTestHarness ? data.collections.temporalSummaryTest : data.collections.temporalSummaryProd,
+            'memoryWal.dir'               : data => data.memoryWal.useTestDatabase || data.storagePaths.useTestHarness ? data.memoryWal.dirTest : data.memoryWal.dirProd,
+            'messageWal.dir'              : data => {
+                const configuredDir = data.messageWal.useTestDatabase || data.storagePaths.useTestHarness ?
+                    data.messageWal.dirTest : data.messageWal.dirProd;
                 if (configuredDir) return configuredDir;
 
-                const memoryWalDir = data.memoryWal.useTestDatabase ? data.memoryWal.dirTest : data.memoryWal.dirProd;
+                const memoryWalDir = data.memoryWal.useTestDatabase || data.storagePaths.useTestHarness ?
+                    data.memoryWal.dirTest : data.memoryWal.dirProd;
                 return path.join(memoryWalDir, 'messages');
             },
-            // The active handoff path, resolved BY CONSTRUCTION from the canonical UNIT_TEST_MODE toggle
-            // (`storagePaths.useTestDatabase` — every `useTestDatabase` leaf binds the same env). Keeps
-            // test-mode handoff writes off the tracked `resources/content/sandman_handoff.md`.
-            'handoffFilePath'    : data => data.storagePaths.useTestDatabase ? data.handoffFilePathTest    : data.handoffFilePathProd,
-            // The active route-attribution ledger dir, resolved BY CONSTRUCTION from the canonical UNIT_TEST_MODE
-            // toggle — keeps synthesis-triggered emits off the production `.neo-ai-data` ledger.
+            // The active handoff path follows the effective unit-or-Playwright storage selector.
+            'handoffFilePath': data => data.storagePaths.useTestDatabase ? data.handoffFilePathTest : data.handoffFilePathProd,
+            // The active route-attribution ledger dir follows the same test-storage selector.
             'goldenPathRouteAttributionLedgerDir': data => data.storagePaths.useTestDatabase ? data.goldenPathRouteAttributionLedgerDirTest : data.goldenPathRouteAttributionLedgerDirProd
         }
     }

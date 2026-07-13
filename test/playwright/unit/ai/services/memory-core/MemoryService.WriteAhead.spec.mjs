@@ -50,7 +50,7 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
         originalGetMemoryCollection, originalEmbedText, memStore, collectionMode, collectionTouches, testWalDir;
 
     test.beforeAll(async () => {
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         testWalDir     = aiConfig.memoryWal.dir;
 
         GraphService         = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;

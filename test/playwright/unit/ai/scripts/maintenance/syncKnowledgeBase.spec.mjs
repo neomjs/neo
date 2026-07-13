@@ -37,7 +37,7 @@ test.describe('syncKnowledgeBase — lease-yield boundary wiring', () => {
         const mod = await import('../../../../../../ai/scripts/maintenance/syncKnowledgeBase.mjs');
         buildLeaseYieldPredicate = mod.buildLeaseYieldPredicate;
         classifyKbSyncOutcome    = mod.classifyKbSyncOutcome;
-        AiConfig = (await import('../../../../../../ai/config.mjs')).default;
+        AiConfig = (await import('../../../../../../ai/config.template.mjs')).default;
     });
 
     test('predicate reads the heavyMaintenance.maxActiveHoldMs leaf — an over-bound hold yields', () => {

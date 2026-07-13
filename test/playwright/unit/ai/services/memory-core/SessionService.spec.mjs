@@ -1,6 +1,6 @@
 import {setup} from '../../../../setup.mjs';
 
-const appName = 'MemoryCoreSessionServiceTest';
+const appName             = 'MemoryCoreSessionServiceTest';
 const skipCiSubstrateData = !!process.env.NEO_TEST_SKIP_CI;
 
 process.env.NEO_MODEL_PROVIDER        = 'openAiCompatible';
@@ -34,7 +34,7 @@ dotenv.config({path: path.resolve(__dirname, '../../../../../../.env'), quiet: t
 test.describe('SessionService setSessionId', () => {
     test.skip(skipCiSubstrateData, 'CI-skip: Memory Core substrate data not seeded - bucket C (#10903)');
 
-    let SDK, TextEmbeddingService, dummySessionId;
+    let SDK, TextEmbeddingService, dummySessionId, originalEmbedText;
 
     test.beforeAll(async () => {
         // Test isolation by construction: under UNIT_TEST_MODE the config resolves storagePaths.graph
@@ -45,12 +45,17 @@ test.describe('SessionService setSessionId', () => {
         SDK                  = await import('../../../../../../ai/services.mjs');
         TextEmbeddingService = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
 
+        originalEmbedText = TextEmbeddingService.embedText;
         TextEmbeddingService.embedText = async () => new Array(4096).fill(Math.random());
     });
 
     test.afterAll(async () => {
-        const { cleanupChromaManager } = await import('./util.mjs');
-        await cleanupChromaManager(SDK);
+        try {
+            const {cleanupChromaManager} = await import('./util.mjs');
+            await cleanupChromaManager(SDK);
+        } finally {
+            TextEmbeddingService.embedText = originalEmbedText;
+        }
     });
 
     test.beforeEach(async () => {
@@ -101,7 +106,7 @@ test.describe('SessionService setSessionId', () => {
         // Force the empty session as current
         SDK.Memory_SessionService.currentSessionId = emptySessionId;
 
-        const newId = crypto.randomUUID();
+        const newId  = crypto.randomUUID();
         const result = await SDK.Memory_SessionService.setSessionId({ sessionId: newId });
 
         expect(result.success).toBe(true);
@@ -122,9 +127,9 @@ test.describe('SessionService setSessionId', () => {
             RequestContextService.run({ sessionId: sessionId1 }, async () => {
                 await new Promise(resolve => setTimeout(resolve, 10));
                 const memoryResult1 = await SDK.Memory_Service.addMemory({
-                    prompt: 'test prompt 1',
+                    prompt  : 'test prompt 1',
                     response: 'test response 1',
-                    thought: 'test thought 1'
+                    thought : 'test thought 1'
                 });
                 expect(memoryResult1.sessionId).toBe(sessionId1);
 
@@ -138,9 +143,9 @@ test.describe('SessionService setSessionId', () => {
             RequestContextService.run({ sessionId: sessionId2 }, async () => {
                 await new Promise(resolve => setTimeout(resolve, 10));
                 const memoryResult2 = await SDK.Memory_Service.addMemory({
-                    prompt: 'test prompt 2',
+                    prompt  : 'test prompt 2',
                     response: 'test response 2',
-                    thought: 'test thought 2'
+                    thought : 'test thought 2'
                 });
                 expect(memoryResult2.sessionId).toBe(sessionId2);
 
@@ -163,21 +168,21 @@ test.describe('SessionService setSessionId', () => {
 
     test('purgeSession deletes target session memories and summaries, leaves others intact', async () => {
         const targetSessionId = crypto.randomUUID();
-        const otherSessionId = crypto.randomUUID();
+        const otherSessionId  = crypto.randomUUID();
 
         // Add memory to target session
         const targetAdd = await SDK.Memory_Service.addMemory({
-            prompt: 'target prompt',
-            response: 'target response',
-            thought: 'target thought',
+            prompt   : 'target prompt',
+            response : 'target response',
+            thought  : 'target thought',
             sessionId: targetSessionId
         });
 
         // Add memory to other session
         const otherAdd = await SDK.Memory_Service.addMemory({
-            prompt: 'other prompt',
-            response: 'other response',
-            thought: 'other thought',
+            prompt   : 'other prompt',
+            response : 'other response',
+            thought  : 'other thought',
             sessionId: otherSessionId
         });
 
@@ -187,7 +192,7 @@ test.describe('SessionService setSessionId', () => {
 
         // Manually add summaries just to be sure we test both collections
         await SDK.Memory_SessionService.sessionsCollection.upsert({
-            ids: ['sum_target', 'sum_other'],
+            ids      : ['sum_target', 'sum_other'],
             metadatas: [
                 { sessionId: targetSessionId },
                 { sessionId: otherSessionId }
@@ -220,12 +225,12 @@ test.describe('SessionService setSessionId', () => {
     });
 
     test('purgeSession deletes orphaned SummarizationJobs and respects multi-tenant isolation', async () => {
-        const GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        const GraphService          = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         const RequestContextService = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
 
         const targetSessionId = crypto.randomUUID();
-        const otherSessionId = crypto.randomUUID();
-        const testUserId = 'test-user-123';
+        const otherSessionId  = crypto.randomUUID();
+        const testUserId      = 'test-user-123';
 
         // Add dummy SummarizationJobs directly via SQLite
         const db = GraphService.db?.storage?.db;
@@ -239,9 +244,9 @@ test.describe('SessionService setSessionId', () => {
         // Add memory to target session under test user
         await RequestContextService.run({ sessionId: targetSessionId, userId: testUserId }, async () => {
             await SDK.Memory_Service.addMemory({
-                prompt: 'target prompt',
-                response: 'target response',
-                thought: 'target thought',
+                prompt   : 'target prompt',
+                response : 'target response',
+                thought  : 'target thought',
                 sessionId: targetSessionId
             });
 
@@ -260,10 +265,10 @@ test.describe('SessionService setSessionId', () => {
         // Verify tenant isolation: try to purge a session that belongs to a different user, or without the proper tenant.
         // We'll create another memory under SHARED_USER_ID, then try to delete it from testUserId context.
         const sharedSessionId = crypto.randomUUID();
-        const sharedAdd = await SDK.Memory_Service.addMemory({
-            prompt: 'shared prompt',
-            response: 'shared response',
-            thought: 'shared thought',
+        const sharedAdd       = await SDK.Memory_Service.addMemory({
+            prompt   : 'shared prompt',
+            response : 'shared response',
+            thought  : 'shared thought',
             sessionId: sharedSessionId
         });
 

@@ -36,7 +36,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
     let tmpRoot;
 
     test.beforeAll(async () => {
-        aiConfig         = (await import('../../../../../../ai/mcp/server/github-workflow/config.mjs')).default;
+        aiConfig         = (await import('../../../../../../ai/mcp/server/github-workflow/config.template.mjs')).default;
         DiscussionSyncer = (await import('../../../../../../ai/services/github-workflow/sync/DiscussionSyncer.mjs')).default;
         GraphqlService   = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
         ReleaseNotesSyncer    = (await import('../../../../../../ai/services/github-workflow/sync/ReleaseNotesSyncer.mjs')).default;

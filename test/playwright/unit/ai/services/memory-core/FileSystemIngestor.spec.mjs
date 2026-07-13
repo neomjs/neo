@@ -31,7 +31,7 @@ test.describe('Neo.ai.services.memory-core.FileSystemIngestor', () => {
     let originalDbPath;
 
     test.beforeAll(async () => {
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         originalDbPath = aiConfig.storagePaths.graph;
 
         const tmpDir = path.resolve(process.cwd(), 'tmp');
@@ -103,7 +103,7 @@ test.describe('Neo.ai.services.memory-core.FileSystemIngestor', () => {
         const { cleanupChromaManager, TestLifecycleHelper } = await import('./util.mjs');
         await cleanupChromaManager();
 
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         aiConfig.storagePaths.graph = originalDbPath;
 
         await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');

@@ -4,7 +4,7 @@ import os                             from 'os';
 import path                           from 'path';
 import Neo                            from '../../../../../../../src/Neo.mjs';
 import * as core                      from '../../../../../../../src/core/_export.mjs';
-import AiConfig                       from '../../../../../../../ai/config.mjs';
+import AiConfig                       from '../../../../../../../ai/config.template.mjs';
 import {DeploymentStateBridgeService} from '../../../../../../../ai/daemons/orchestrator/services/DeploymentStateBridgeService.mjs';
 
 const OBSERVED_AT = 1710000000000;

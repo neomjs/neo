@@ -25,9 +25,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 /**
- * Always-on file-sink coverage for KB MCP server `logger.mjs` (#10576).
+ * Always-on file-sink coverage for KB MCP server `logger.mjs`.
  *
- * Verifies the diagnostic substrate that #10573's gate refusal message points
+ * Verifies the diagnostic substrate that the gate-refusal message points
  * operators at: every `logger.log/info/warn/error/debug` call lands in a
  * tail-able daily-rotated file under `aiConfig.logPath`, regardless of
  * `aiConfig.debug`. Stderr-tee remains debug-flag-gated (existing behavior;
@@ -46,7 +46,7 @@ test.describe('KB MCP server logger — always-on file sink (#10576)', () => {
     let originalLogPath;
 
     test.beforeAll(async () => {
-        aiConfig = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
+        aiConfig = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
 
         tmpLogDir       = path.resolve(os.tmpdir(), `kb-logger-test-${process.pid}-${Date.now()}`);
         originalLogPath = aiConfig.data.logPath;

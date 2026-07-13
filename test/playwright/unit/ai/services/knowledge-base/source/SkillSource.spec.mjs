@@ -31,7 +31,7 @@ test.describe('Neo.ai.services.knowledge-base.source.SkillSource', () => {
     let mockRoot;
 
     test.beforeAll(async () => {
-        aiConfig    = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
+        aiConfig    = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
         SkillSource = (await import('../../../../../../../ai/services/knowledge-base/source/SkillSource.mjs')).default;
 
         originalRoot = aiConfig.neoRootDir;
@@ -96,7 +96,7 @@ Legacy skill payload.`);
     });
 
     test('extract() emits correctly typed and chunked skills with sub-metadata', async () => {
-        const written = [];
+        const written     = [];
         const writeStream = {
             write(chunkStr) {
                 written.push(JSON.parse(chunkStr.trim()));
@@ -121,12 +121,12 @@ Legacy skill payload.`);
         const overviewChunk = ideationChunks.find(w => w.sectionAnchor === 'Overview');
         expect(overviewChunk).toBeDefined();
         expect(overviewChunk).toMatchObject({
-            type: 'skill',
-            kind: 'skill',
-            triggerCondition: 'use when exploring',
+            type                  : 'skill',
+            kind                  : 'skill',
+            triggerCondition      : 'use when exploring',
             isAtlasMonolithSubRule: false,
-            content: '# Overview\nIdeation description.',
-            name: 'custom-ideation - Overview'
+            content               : '# Overview\nIdeation description.',
+            name                  : 'custom-ideation - Overview'
         });
 
         const rulesChunk = ideationChunks.find(w => w.sectionAnchor === 'Rules');
@@ -155,7 +155,7 @@ Legacy skill payload.`);
         const missingRoot = path.join(mockRoot, 'does-not-exist');
         aiConfig.neoRootDir = missingRoot;
         try {
-            const written = [];
+            const written     = [];
             const writeStream = {
                 write(chunkStr) { written.push(chunkStr); return true; }
             };

@@ -16,17 +16,15 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
-import fs             from 'fs';
-import path           from 'path';
 
 /**
- * Phase 4A (#11665) — `kb_ingestion_metrics` telemetry schema + `recordIngestionMetric`
- * write-API + `getTenantIngestionRollup` read-API coverage.
+ * `kb_ingestion_metrics` telemetry schema + `recordIngestionMetric` write-API +
+ * `getTenantIngestionRollup` read-API coverage.
  *
- * This is the pre-Phase-2 substrate slice: the persistence contract the Phase 2 cross-tenant
- * ingestion service (#11626) writes against. The observability daemon that periodically rolls
- * up + persists these metrics is deferred to Phase 4A-β (post-Phase-2) — a daemon has nothing
- * to roll up until Phase 2 ingestion calls actually emit `recordIngestionMetric` events.
+ * This is the persistence contract the cross-tenant ingestion service writes against.
+ * The observability daemon that periodically rolls up + persists these metrics is deferred to
+ * Phase 4A-β (post-Phase-2) — a daemon has nothing to roll up until Phase 2 ingestion calls
+ * actually emit `recordIngestionMetric` events.
  *
  * Serial mode: the spec exercises a shared KBRecorderService SQLite singleton.
  *
@@ -36,25 +34,9 @@ import path           from 'path';
 test.describe.configure({mode: 'serial'});
 
 test.describe('KBRecorderService — ingestion metrics (#11665)', () => {
-    const testDbName = `kb-recorder-ingestion-test-${process.pid}-${Date.now()}.sqlite`;
-    let testDbPath;
     let KBRecorderService;
 
     test.beforeAll(async () => {
-        const config = (await import('../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
-
-        const tmpDir = path.resolve(process.cwd(), 'tmp');
-        if (!fs.existsSync(tmpDir)) {
-            fs.mkdirSync(tmpDir, {recursive: true});
-        }
-
-        testDbPath = path.join(tmpDir, testDbName);
-        config.data.memoryCoreDbPath = testDbPath;
-
-        for (const suffix of ['', '-wal', '-shm']) {
-            try { fs.unlinkSync(`${testDbPath}${suffix}`); } catch (e) {}
-        }
-
         KBRecorderService = (await import('../../../../../../ai/services/knowledge-base/KBRecorderService.mjs')).default;
         await KBRecorderService.initAsync();
     });
@@ -70,11 +52,7 @@ test.describe('KBRecorderService — ingestion metrics (#11665)', () => {
             // `if (this.db) return`, so a sibling KBRecorderService spec running later in the
             // same worker would otherwise inherit this closed connection and fail with
             // "The database connection is not open". Mirrors KBRecorderService.spec.mjs cleanup.
-            // (@neo-gpt PR #11667 Cycle 1 review PRR_kwDODSospM8AAAABAcVsyg, Required Action 1.)
             KBRecorderService.db = null;
-        }
-        for (const suffix of ['', '-wal', '-shm']) {
-            try { fs.unlinkSync(`${testDbPath}${suffix}`); } catch (e) {}
         }
     });
 
