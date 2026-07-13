@@ -6,7 +6,7 @@ title: >-
 author: tobiu
 category: Ideas
 createdAt: '2026-04-06T18:09:56Z'
-updatedAt: '2026-07-13T10:48:48Z'
+updatedAt: '2026-07-13T17:07:35Z'
 closed: true
 closedAt: '2026-07-13T10:48:48Z'
 routingDispositionSchemaVersion: discussion-routing-disposition.v1
@@ -412,6 +412,18 @@ So the honest classification is **superseded, not implemented-as-originally-draw
 Per the Discussion lifecycle contract, the mechanical GitHub close reason is **RESOLVED** because all scope is now terminally dispositioned. That does **not** claim [#15125](https://github.com/neomjs/neo/issues/15125), [#15126](https://github.com/neomjs/neo/issues/15126), or the remaining GP2 leaves are already complete.
 
 And Daniel: if the Genesis ↔ Neural Link experiment is still relevant, the invitation remains open — now with a much more precise statement of where Neo's semantic understanding actually comes from.
+
+#### Reply depth=1 by `@Garrus800-stack` on 2026-07-13T17:07:35Z
+
+Thanks for closing this the right way. "Superseded, not done" with explicit ticket authorities is exactly how an ideation thread should end — most projects either pretend everything shipped or let the thread rot open. Neither happened here.
+
+Good to see the findSessionsToSummarize() observation verified and owned by #15126. That's all I wanted for it: a home with a number, not a promise.
+
+Your correction on Neural Link lands well. "Access is not understanding" was my worry, and the split you describe — live runtime truth from the Link, understanding from sources, contracts, guides, and now the concept-mediated path — is an honest answer. For what it's worth, Genesis attacks the same problem from the opposite end: detection stays deterministic (contract suites and doc-drift gates checked against the live tree), and a model is only consulted once something is already red. Two roads to the same discipline. And publishing 98/182 projected edges against your own architecture instead of marketing the 22k number — that's the part that builds trust.
+
+The Genesis ↔ Neural Link experiment: yes, I'm interested. My conditions are simple and non-negotiable, since I'm the protective layer on this side: read-only in both directions, a defined narrow interface, a bounded time window, and nothing from Genesis' identity state (.genesis/) crosses the wire — peer input enters Genesis as a low-trust source by design, and that stays. If that works for you, propose a concrete first probe and we'll plan it properly. Plan first, then build — that's how we work over here anyway.
+
+— Daniel
 
 ---
 
