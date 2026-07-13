@@ -352,16 +352,20 @@ test.describe.serial('Neo.ai.client.TourRunner', () => {
 
     test.describe('execution against the real reducers', () => {
         test('the smoke tour completes: documents advance, events fire in order', async () => {
-            const events = [];
+            const events = [], settledEvents = [];
 
             createRunner();
 
             const holder = Neo.getComponent('tour-zone-1');
 
             runner.on({
-                beat    : data => events.push(`beat:${data.stepIndex}:${data.stepType}`),
-                complete: () => events.push('complete'),
-                scene   : data => events.push(`scene:${data.sceneId}`)
+                beat       : data => events.push(`beat:${data.stepIndex}:${data.stepType}`),
+                complete   : () => events.push('complete'),
+                scene      : data => events.push(`scene:${data.sceneId}`),
+                stepSettled: data => {
+                    settledEvents.push(data);
+                    events.push(`settled:${data.stepIndex}:${data.stepType}:log-${runner.log.length}`)
+                }
             });
 
             const result = await runner.start();
@@ -379,9 +383,43 @@ test.describe.serial('Neo.ai.client.TourRunner', () => {
 
             expect(events).toEqual([
                 'scene:s1',
-                'beat:0:op', 'beat:1:pause', 'beat:2:op', 'beat:3:topology-assert', 'beat:4:op',
+                'beat:0:op',              'settled:0:op:log-1',
+                'beat:1:pause',           'settled:1:pause:log-2',
+                'beat:2:op',              'settled:2:op:log-3',
+                'beat:3:topology-assert', 'settled:3:topology-assert:log-4',
+                'beat:4:op',              'settled:4:op:log-5',
                 'complete'
-            ])
+            ]);
+            expect(settledEvents).toEqual([
+                {completedCount: 1, logLength: 1, sceneId: 's1', sceneIndex: 0, source: runner.id, stepIndex: 0, stepType: 'op'},
+                {completedCount: 2, logLength: 2, sceneId: 's1', sceneIndex: 0, source: runner.id, stepIndex: 1, stepType: 'pause'},
+                {completedCount: 3, logLength: 3, sceneId: 's1', sceneIndex: 0, source: runner.id, stepIndex: 2, stepType: 'op'},
+                {completedCount: 4, logLength: 4, sceneId: 's1', sceneIndex: 0, source: runner.id, stepIndex: 3, stepType: 'topology-assert'},
+                {completedCount: 5, logLength: 5, sceneId: 's1', sceneIndex: 0, source: runner.id, stepIndex: 4, stepType: 'op'}
+            ]);
+            expect(JSON.parse(JSON.stringify(settledEvents)), 'the payload is JSON-safe and timestamp-free')
+                .toEqual(settledEvents)
+        });
+
+        test('a paced pause settles only after its runner-owned wait', async () => {
+            const script = {
+                schema: TOUR_SCRIPT_SCHEMA,
+                id    : 'paced-pause',
+                title : 'Paced pause',
+                scenes: [{id: 'paced', title: 'Paced', steps: [{type: 'pause', ms: 7}]}]
+            };
+
+            createRunner({mode: 'demo', paceMultiplier: 2, script});
+
+            const events = [];
+
+            runner.timeout = async ms => events.push(`wait:${ms}`);
+            runner.on('stepSettled', data => events.push(`settled:${data.stepType}:${data.completedCount}`));
+
+            const result = await runner.start();
+
+            expect(result.completed).toBe(true);
+            expect(events).toEqual(['wait:14', 'settled:pause:1'])
         });
 
         test('log entries carry the complete cloned descriptor — the log IS the replay wire format', async () => {
@@ -449,15 +487,17 @@ test.describe.serial('Neo.ai.client.TourRunner', () => {
             script.scenes[0].steps[0].expect = [{path: 'items.terminal.autoHidden', equals: false}];
             createRunner({script});
 
-            const errorEvents = [];
+            const errorEvents = [], settledEvents = [];
 
             runner.on('error', data => errorEvents.push(data));
+            runner.on('stepSettled', data => settledEvents.push(data));
 
             const result = await runner.start();
 
             expect(result.completed).toBe(false);
             expect(result.errors.join('\n')).toContain("expectation failed at 'items.terminal.autoHidden': expected false, got true");
             expect(errorEvents).toHaveLength(1);
+            expect(settledEvents, 'failed expectations never emit a successful settlement').toEqual([]);
 
             // the log keeps the entries up to and including the failed step — an honest partial record
             expect(result.log).toHaveLength(1);
@@ -470,11 +510,16 @@ test.describe.serial('Neo.ai.client.TourRunner', () => {
             script.scenes[0].steps[0].descriptor.itemId = 'ghost';
             createRunner({script});
 
+            const settledEvents = [];
+
+            runner.on('stepSettled', data => settledEvents.push(data));
+
             const result = await runner.start();
 
             expect(result.completed).toBe(false);
             expect(result.errors.join('\n')).toContain('rejected by the executor');
-            expect(result.errors.join('\n')).toContain('unknown item "ghost"')
+            expect(result.errors.join('\n')).toContain('unknown item "ghost"');
+            expect(settledEvents, 'rejected operations never emit a successful settlement').toEqual([])
         });
 
         test('start() while running throws — a programming error, not a tour failure', async () => {

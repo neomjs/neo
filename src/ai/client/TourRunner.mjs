@@ -26,8 +26,10 @@ import {evaluateExpectations, validateTourScript} from './tourScript.mjs';
  *              with motion disabled would record a lie about the product).
  * - `spec`   — pause waits skipped entirely; assertions identical. The whitebox-e2e replay mode.
  *
- * Events (observable): `beat` (before each step — the tour bar's caption feed), `scene`
+ * Events (observable): `beat` (before each step — the tour bar's caption feed), `stepSettled`
+ * (after one runner-owned step succeeds; hosting-surface cues/projection remain external), `scene`
  * (scene boundary), `error` (abort with structured failures), `complete` (full log).
+ * As with every object event, `Neo.core.Observable` adds the runner id as `source`.
  *
  * Script schema + fail-closed validator: `tourScript.mjs` (same directory) · dock documents:
  * `learn/agentos/HarnessDockZoneModel.md` (the JSON-first workspace contract).
@@ -37,7 +39,7 @@ import {evaluateExpectations, validateTourScript} from './tourScript.mjs';
 class TourRunner extends Base {
     /**
      * True automatically applies the core.Observable mixin — the tour bar and specs
-     * subscribe to `beat` / `scene` / `error` / `complete`.
+     * subscribe to `beat` / `stepSettled` / `scene` / `error` / `complete`.
      * @member {Boolean} observable=true
      * @static
      */
@@ -366,6 +368,20 @@ class TourRunner extends Base {
                         ms > 0 && await me.timeout(ms)
                     }
                 }
+
+                // This event owns ONLY runner settlement: the operation/assertion/pause succeeded
+                // and its deterministic log entry exists. Hosting surfaces combine it with their
+                // own cue and projection promises instead of making the runner await listeners.
+                const logLength = me.log.length;
+
+                me.fire('stepSettled', {
+                    completedCount: logLength,
+                    logLength,
+                    sceneId,
+                    sceneIndex,
+                    stepIndex,
+                    stepType      : step.type
+                });
 
                 stepIndex++
             }
