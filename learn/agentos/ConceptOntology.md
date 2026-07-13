@@ -80,8 +80,31 @@ The concept graph is stored as JSONL files at `.neo-ai-data/concepts/`:
   No structural merge conflicts.
 - **PR-reviewable**: `git diff` shows exactly which concepts were added/modified/removed.
 - **Streaming**: Can be processed line-by-line without loading the entire graph into memory.
-- **Decoupled**: Independent of the Native Edge Graph (SQLite), which is in flux due to the
-  Multi-Tenant Memory Core migration.
+- **Source-owned**: JSONL is the PR-reviewable declaration; `ConceptIngestor` projects it into
+  the Native Edge Graph (SQLite). Source and projection are separate representations, not two
+  independently maintained ontologies.
+
+### Source Membership vs. Runtime Salience
+
+The JSONL files own the version-controlled **membership** contract: which concept rows and typed
+relationships are declared. SQLite owns the live edge instances that graph traversal consumes.
+`ConceptIngestor.syncConceptsToGraph()` reconciles those layers on every run:
+
+- A matching live tuple keeps its edge ID and its current, possibly decayed, `weight`.
+- A declared tuple that decay/pruning or another mutation removed is re-derived.
+- A row removed from JSONL removes only the live tuple carrying
+  `projectionSource: "concept-ontology-jsonl"`; same-type edges from other producers survive.
+- Node payload hashes optimize CONCEPT-node upserts only. They never suppress relationship
+  reconciliation.
+
+Every projected ontology edge carries four independent axes — `authority`, `fidelity`,
+`extractionProvenance`, and `lifecycle` — rather than one composite confidence score. The
+current curated values are repo-trusted authority, curated/non-degraded fidelity, JSONL
+extraction provenance, and promoted lifecycle state.
+
+This does **not** make concept edge types globally protected. `GraphService` may still decay
+their salience and prune weak live instances. Reconciliation restores still-declared membership
+without reinforcing surviving edges or resetting their weight.
 
 ## Node Schema
 
@@ -96,12 +119,16 @@ Each line in `nodes.jsonl` is a JSON object:
 | `uniqueToNeo` | boolean | ✅ | `true` if architecturally unique to Neo.mjs |
 | `tags` | string[] | ✅ | Categorization tags for search and filtering |
 | `aliases` | string[] | ❌ | Alternative terms that refer to the exact same concept (O(1) lookup) |
+| `validated` | boolean | ❌ | `false` for an unreviewed discovery candidate; missing is treated as validated for legacy curated rows |
+| `ontologyLayer` | string | ❌ | `code` (default) or `process-mx`; process/MX candidates do not claim source-code coverage |
+| `codeGapEligible` | boolean | ❌ | Whether GUIDE / EXAMPLE / ORPHAN code-gap signals may be emitted; defaults to `true` |
+| `source` / `reasoning` | string | ❌ | Discovery provenance and Teaching-Test rationale for mined candidates |
 | `verifiedAt` | string \| null | ❌ | ISO date string for the last source-grounded verification, or `null` / missing when never explicitly verified |
 | `extraction_metadata` | object \| null | ❌ | Present only on **LLM-mined candidate rows** (written by `ConceptDiscoveryService`): the extraction pass's objective self-report `{missing_fields, ambiguous_references, confidence_score}`, denormalized onto each candidate it produced. **JSONL-only** — not projected to graph node `properties` or the `ConceptIngestor` payload hash; legacy rows without it load unchanged. |
 
 ```jsonl
 {"id":"off-main-thread","name":"Off-Main-Thread Execution","tier":1,"description":"Application business logic runs inside a dedicated App Worker.","uniqueToNeo":true,"tags":["architecture","workers"],"aliases":["off the main thread","OMT"],"verifiedAt":null}
-{"id":"mined-example","name":"Mined Example","tier":3,"description":"An LLM-mined candidate awaiting curator review.","uniqueToNeo":false,"tags":["mined-candidate"],"aliases":[],"verifiedAt":null,"extraction_metadata":{"missing_fields":[],"ambiguous_references":["'the module' — three modules exist"],"confidence_score":0.7}}
+{"id":"mined-example","name":"Mined Example","tier":3,"description":"An LLM-mined candidate awaiting curator review.","uniqueToNeo":false,"tags":["mined-candidate","process-mx"],"aliases":[],"validated":false,"ontologyLayer":"process-mx","codeGapEligible":false,"source":"message-concept-harvest","reasoning":"Passes the Teaching Test as a reusable process concept.","verifiedAt":null,"extraction_metadata":{"missing_fields":[],"ambiguous_references":["'the module' — three modules exist"],"confidence_score":0.7}}
 ```
 
 > [!IMPORTANT]
@@ -119,40 +146,39 @@ Each line in `nodes.jsonl` is a JSON object:
 > Existing committed ontology nodes start with explicit `verifiedAt: null` so the first
 > source-grounding pass can be queried directly from the data file.
 
-## Auto-Extracted Concept Provenance
+## Curated Tags, Historical Extraction, and Scheduled Discovery
 
-Concepts in the Native Edge Graph arrive via two distinct paths, and consumers MUST be able to distinguish them when scoring, filtering, or ranking results.
+Concept knowledge enters the graph through distinct trust paths. Do not collapse the broad
+historical search population into the small, deliberate ontology.
 
-| Path | Trigger | Node property | Edge weight |
-|------|---------|---------------|-------------|
-| **Manual / curated** | Operator or agent calls `addMessage({taggedConcepts: [...]})` (or any other concept-tagging API) with explicit concept IDs | absent (concept node may pre-exist with no `auto_extracted` flag) | `1.0` |
-| **Auto-extracted** | `MailboxService.addMessage` runs `SemanticGraphExtractor.extractMessageConcepts(body)` as a fire-and-forget post-write; LLM-derived `CONCEPT:*` / `CLASS:*` IDs are upserted with `properties.auto_extracted: true` | `properties.auto_extracted = true` on the CONCEPT or CLASS node when the node is freshly created by this path | `0.8` on the `TAGGED_CONCEPT` edge |
+| Path | Current trigger | Runtime / review signal |
+|------|-----------------|-------------------------|
+| **Manual message tag** | `addMessage({taggedConcepts: [...]})` with explicit IDs | Synchronous `TAGGED_CONCEPT` edge at weight `1.0` |
+| **Version-controlled ontology** | `ConceptIngestor` reads `.neo-ai-data/concepts/*.jsonl` during REM | Source-owned projected edges plus `validated`, tier, and projection axes |
+| **Scheduled candidate discovery** | The orchestrator runs `message-concept-harvest`; `ConceptDiscoveryService` reads a bounded batch of unharvested MESSAGE nodes, frequency-filters them, and sends one bounded Teaching-Test prompt. Its separate `runDiscoveryCycle()` mines epics and a capped recent-PR set on explicit invocation. | Candidate rows append to `nodes.jsonl` as `validated: false`, tier 3; they remain silent until curator promotion and enter SQLite only on a later ConceptIngestor sync |
+| **Historical inline extraction** | Retired runtime path; `SemanticGraphExtractor.extractMessageConcepts()` remains only as a direct/test helper and has no production caller | Existing `auto_extracted: true` nodes and `TAGGED_CONCEPT` edges at weight `0.8` can remain as legacy provenance |
 
-### Write Path
+### Current Message-Discovery Path
 
-1. `MailboxService.addMessage` persists the MESSAGE node + recipient edges.
-2. Synchronously links manual `taggedConcepts` with `TAGGED_CONCEPT` weight `1.0`.
-3. Asynchronously fires `SemanticGraphExtractor.extractMessageConcepts(bodyText)` — LLM call against the OpenAI-compatible chat provider. Returns 1-5 inferred concept IDs.
-4. For each extracted ID: upsert the concept node with `properties.auto_extracted: true` (only when freshly created — pre-existing nodes are NOT re-stamped), then link with `TAGGED_CONCEPT` weight `0.8`.
-
-The two paths emit the **same edge type** (`TAGGED_CONCEPT`); provenance lives in the edge weight + the node-side `auto_extracted` flag.
+1. `MailboxService.addMessage` persists the MESSAGE node and routing edges, then synchronously
+   projects only explicit `taggedConcepts` at weight `1.0`. It performs no model call.
+2. The orchestrator schedules `message-concept-harvest` as an exclusive heavy-maintenance task.
+3. `ConceptDiscoveryService.runMessageConceptHarvest()` loads at most the configured batch,
+   builds a cheap subject/tag frequency report, keeps only the configured top recurring terms,
+   and makes one bounded Teaching-Test request.
+4. Accepted proposals append to JSONL with `validated: false`; only successfully processed
+   messages receive `conceptHarvested` markers. `ConceptIngestor` projects the candidates on a
+   later run, while `GapInferenceEngine` suppresses unvalidated proposals.
 
 ### Read-Time Consumer Pattern
 
-Downstream consumers (DreamService topology synthesis, Librarian sub-agent traversal, future GraphRAG query layer) reading concept nodes from the graph SHOULD inspect both signals when ranking or filtering:
-
-- **For ranking** — weight curated concepts higher than auto-extracted (use the edge weight directly: 1.0 vs 0.8 is already calibrated for this).
-- **For filtering** — to exclude auto-extracted entirely, filter `node.properties.auto_extracted !== true`. To include only auto-extracted (e.g., to audit LLM output), filter `node.properties.auto_extracted === true`.
-- **For provenance audits** — `auto_extracted: true` is the durable signal that the concept entered the graph via LLM inference rather than human/agent curation. Useful for post-incident reasoning about graph noise.
-
-### Edge-Weight Convention Rationale
-
-The 0.8 / 1.0 split is deliberate: a TAGGED_CONCEPT edge from a curated source is **20% stronger** than an auto-extracted edge with the same source MESSAGE node. This calibration matches the operator-observed truthfulness gap between LLM concept inference (high recall, moderate precision) and human/agent curation (lower recall, near-perfect precision).
-
-Consumers SHOULD prefer reading the edge weight over the node-side flag when both are available, since edge weights propagate naturally through graph traversal scoring (vs the flag requiring an extra lookup at scoring time). Reserve the node-side flag for filtering and provenance audits.
-
-> [!IMPORTANT]
-> **Pre-existing concept nodes retain their original provenance.** When `extractMessageConcepts` returns a `CONCEPT:*` / `CLASS:*` ID that already exists in the graph (e.g., a high-tier concept seeded in `nodes.jsonl`), the upsert path does NOT overwrite `properties.auto_extracted`. The flag is set only when the node is freshly created by the auto-extraction path. This preserves curated concepts' status as authoritative even when they're subsequently mentioned by LLM-extracted MESSAGE bodies.
+- Use `validated === false` as the current explicit exclusion for unreviewed discovery
+  candidates. Legacy rows without the field are treated as validated for compatibility.
+- Use the ontology edge's four axes and `projectionSource` to reason about curated membership;
+  use its live `weight` only for salience.
+- Treat `auto_extracted: true` and `TAGGED_CONCEPT` weight `0.8` as historical provenance for
+  the retained inline-extraction population, not as evidence that MailboxService still performs
+  per-message inference.
 
 ## Edge Schema
 
@@ -164,6 +190,16 @@ Each line in `edges.jsonl` is a JSON object:
 | `target` | string | ✅ | Target node ID (concept, file reference, or `ext:` external ID) |
 | `type` | string | ✅ | Relationship type (see Edge Types below) |
 | `note` | string | ❌ | Architectural distinction note (used with `ANALOGOUS_TO`) |
+
+On projection, every valid row also receives runtime-only metadata:
+
+| Property | Meaning |
+|----------|---------|
+| `projectionSource` | `concept-ontology-jsonl`, the ownership marker for tuple reconciliation |
+| `axes.authority` | Repo-trusted curated authority |
+| `axes.fidelity` | Curated source tier, not degraded |
+| `axes.extractionProvenance` | Curated JSONL origin |
+| `axes.lifecycle` | Promoted lifecycle state |
 
 ### Edge Types
 
@@ -184,6 +220,11 @@ File targets use the `file:` prefix with a repository-relative path:
 {"source":"push-reactivity","target":"file:src/Neo.mjs","type":"IMPLEMENTED_BY"}
 {"source":"push-reactivity","target":"file:learn/guides/coreengine/ConfigSystem.md","type":"EXPLAINED_BY"}
 ```
+
+`file:` is author-facing syntax only. During projection, `FileSystemIngestor` validates that
+the path stays inside the repository, exists, is a regular non-ignored file, and resolves it to
+the canonical runtime node ID `file-<path>`. Invalid rows do not become coverage evidence; the
+source CONCEPT retains an exact-row projection-integrity finding for gap inference.
 
 ### External Reference Format
 
@@ -274,17 +315,14 @@ mindmap
 ## Integration Architecture
 
 ```mermaid
-flowchart TB
-    subgraph ontology["Concept Ontology (.neo-ai-data/concepts/)"]
-        direction LR
-        C["CONCEPT"] -->|EXPLAINED_BY| G["learn/guides/"]
-        C -->|IMPLEMENTED_BY| S["src/**/*.mjs"]
-        C -->|PARENT_CONCEPT| C2["CONCEPT"]
-    end
-
-    ontology -->|Loaded by| CS["ConceptService\n(ai/services.mjs SDK)"]
-    CS --> GIE["GapInferenceEngine\n(Graph Traversal)"]
-    GIE --> DP["Golden Path / REM\n(DreamService)"]
+flowchart TD
+    CuratedSource["Concept Ontology JSONL\nversion-controlled source rows"] --> CS["ConceptService\nloads + validates source"]
+    Discovery["ConceptDiscoveryService\nbounded candidate mining"] -->|validated: false proposals| CuratedSource
+    CS --> CI["ConceptIngestor\nsource-owned reconciliation"]
+    FileIdentity["FileSystemIngestor\ncanonical file identity"] --> CI
+    CI --> RuntimeGraph["Native Edge Graph\nSQLite runtime projection"]
+    RuntimeGraph --> GIE["GapInferenceEngine\ntyped traversal"]
+    GIE --> DP["Golden Path / REM\nDreamService"]
 ```
 
 ## Related

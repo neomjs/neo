@@ -444,6 +444,59 @@ class SQLite extends Base {
     }
 
     /**
+     * Atomically removes one physical node only while it remains unreferenced.
+     * The optional JSON-path guard keeps destructive cleanup bound to the exact
+     * source marker that authorized it. A single conditional DELETE closes the
+     * check/delete race across SQLite connections: a competing edge either commits
+     * first and blocks this deletion, or loses the node FK after this deletion wins.
+     *
+     * This is a physical graph invariant, so it deliberately ignores requester RLS.
+     * @param {String} nodeId
+     * @param {Object} [options]
+     * @param {String|null} [options.requiredPropertyPath=null] Rooted dotted object path with identifier-only segments.
+     * @param {String|Number|Boolean|null} [options.requiredPropertyValue]
+     * @returns {Boolean} `true` only when the row was removed.
+     */
+    removeNodeIfUnreferenced(nodeId, {
+        requiredPropertyPath=null,
+        requiredPropertyValue
+    }={}) {
+        if (!this.db?.open) throw new Error('SQLite connection is closed (lifecycle violation).');
+        if (typeof nodeId !== 'string' || nodeId.length === 0) {
+            throw new TypeError('removeNodeIfUnreferenced requires a non-empty node id.');
+        }
+        if (requiredPropertyPath != null
+            && (typeof requiredPropertyPath !== 'string'
+                || !/^\$\.[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/.test(requiredPropertyPath))) {
+            throw new TypeError('requiredPropertyPath must use rooted dotted identifier syntax, e.g. `$.properties.marker`.');
+        }
+
+        this.assertTestWriteIsolated();
+
+        const
+            propertyGuard = requiredPropertyPath == null
+                ? ''
+                : 'AND json_extract(Nodes.data, ?) IS ?',
+            statement     = this.db.prepare(`
+                DELETE FROM Nodes
+                WHERE Nodes.id = ?
+                  ${propertyGuard}
+                  AND NOT EXISTS (
+                      SELECT 1 FROM Edges
+                      WHERE Edges.source = Nodes.id OR Edges.target = Nodes.id
+                  )
+            `),
+            propertyValue = typeof requiredPropertyValue === 'boolean'
+                ? Number(requiredPropertyValue)
+                : requiredPropertyValue,
+            result        = requiredPropertyPath == null
+                ? statement.run(nodeId)
+                : statement.run(nodeId, requiredPropertyPath, propertyValue);
+
+        return result.changes === 1
+    }
+
+    /**
      * Cleaves standalone Edge matrices cleanly inside atomic DELETE loop transactions.
      * @param {Object[]|String[]} edges
      */

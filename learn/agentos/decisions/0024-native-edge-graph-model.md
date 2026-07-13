@@ -23,7 +23,7 @@ The model was **scattered**: ADR 0006 decided ADR-nodes, 0015 the SQLite backend
 
 ### 2.1 What it is
 
-An **active, multi-tenant, hybrid (graph + vector) knowledge substrate**. Agents read/query/write it live; importance **emerges** from real work (Hebbian edge reinforcement via `linkNodes`) and **decays** (stigmergic forgetting via `decayGlobalTopology`). Three storage layers (§2.6). Both **curated** (human/agent) and **self-created** (gemma4-extracted) knowledge accumulate, distinguished by provenance (§2.7).
+An **active, multi-tenant, hybrid (graph + vector) knowledge substrate**. Agents read/query/write it live; importance **emerges** from real work (Hebbian edge reinforcement via `linkNodes`) and **decays** (stigmergic forgetting via `decayGlobalTopology`). Three storage layers (§2.6). Curated knowledge, scheduled discovery candidates, and the retained historical auto-extracted population remain distinguishable by provenance (§2.7).
 
 ### 2.2 Node types
 
@@ -35,27 +35,37 @@ Core layers plus deterministic extensions. Source-of-truth in the right column (
 | **Work** | `SESSION`, `MEMORY`, `ARTIFACT_PLAN`, `ARTIFACT_TASK`, `ISSUE`, `STRATEGY`, `STALL_FINDING` | `VALID_TYPES` + GitHub / session sync; `STALL_FINDING` is deterministic work-graph inference output governed by ADR 0030 (never LLM-extracted) |
 | **System** | `SYSTEM_ANCHOR`, `[Frontier]`, `AgentIdentity`, `MESSAGE`, `WAKE_SUBSCRIPTION`, `NL_ACTION_SEQUENCE` | operational (`GraphService`, `MailboxService`, `IdentitySchema` — ADR 0018, `GapInferenceEngine` Neural Link evidence digest) |
 | **Business** | `BUSINESS_GOAL`, `METRIC` | `businessSchema.mjs` (`BUSINESS_NODE_TYPES` — deterministic validator-gated writes; never LLM-extracted; a `METRIC` without a `falsifyingQuery` is invalid by construction) |
+| **Direction** | `EVOLUTION_GOAL` | `directionSchema.mjs` (`DIRECTION_NODE_TYPES` — deterministic intent/attribution family; never LLM-extracted) |
 | **Temporal** | `SUMMARY_SESSION`, `SUMMARY_DAILY` | `temporalSummarySchema.mjs` (`DURABLE_SUMMARY_NODE_TYPES` — deterministic aggregation-lane writes only; never LLM-extracted; L3–L5 labels are reserved vocabulary with NO durable node class per ADR 0028 §2.2) |
 
 The LLM extractor's `VALID_TYPES` enum is **14** (`SemanticGraphExtractor:265`); an unrecognized extracted type defaults to `CONCEPT`. `ADR` is added **deterministically** by `AdrIngestor` (no LLM inference), so decision records are graph-queryable without widening the extractor enum (ADR 0006). `STALL_FINDING` is likewise deterministic work telemetry governed by ADR 0030, not LLM extraction. (`SYSTEM_ANCHOR` is grouped under System for its operational role but is itself one of the 14 `VALID_TYPES` — both LLM-extractable and operational.)
 
 ### 2.3 Edge types
 
-~40 relationship types across 8 families. The **Decays?** column is load-bearing for ADR 0023's invariant (*"scent decays; structural facts persist"*): `decayGlobalTopology` fades every edge **except** `PROTECTED_EDGE_TYPES`.
+Relationship types grouped by their owning or operational family. The **Decays?** column is load-bearing for ADR 0023's invariant (*"scent decays; structural facts persist"*): `decayGlobalTopology` fades every edge **except** `PROTECTED_EDGE_TYPES`.
 
 | Family | Edge types | Source enum | Decays? |
 |---|---|---|---|
-| **Concept ontology** | `PARENT_CONCEPT`, `IMPLEMENTED_BY`, `EXPLAINED_BY`, `EXEMPLIFIED_BY`, `REQUIRES`, `ANALOGOUS_TO` | `CONCEPT_EDGE_TYPES` (`ConceptIngestor`) | yes |
+| **Concept ontology** | `PARENT_CONCEPT`, `IMPLEMENTED_BY`, `EXPLAINED_BY`, `EXEMPLIFIED_BY`, `REQUIRES`, `ANALOGOUS_TO` | `CONCEPT_EDGE_TYPES` (`ConceptIngestor`) | live weight: **yes**; JSONL-owned membership: re-derived |
 | **ADR** | `GOVERNS`, `CITES_AUTHORITY`, `IMPLEMENTS_DECISION`, `GRADUATED_FROM`, `CODIFIES_CONCEPT` | `ADR_EDGE_TYPES` (`AdrIngestor`) | yes |
-| **Structural (protected)** | `IMPLEMENTS`, `EXTENDS`, `SYSTEM_TENET`, `RESOLVES` | `PROTECTED_EDGE_TYPES` (`GraphService:73`) | **NO — facts** |
+| **Structural (protected)** | `IMPLEMENTS`, `EXTENDS`, `SYSTEM_TENET`, `RESOLVES` | core entries in `PROTECTED_EDGE_TYPES` (`GraphService:73`) | **NO — facts** |
 | **Provenance / semantic** | `TAGGED_CONCEPT` (1.0 curated / 0.8 auto), `MENTIONED_IN`, `AUTHORED_BY`, `SUPERSEDES`, `OBSOLETES`, `DUPLICATE`, `VALIDATES` | REM extraction + `TopologyInferenceEngine` + `GapInferenceEngine` | yes |
 | **Work / lifecycle** | `BLOCKED_BY`, `CONTAINED_PLAN`, `IMPLEMENTATION_PLAN`, `SESSION_*`, `EVALUATED_BY` | sync + lifecycle services | yes |
 | **Mailbox / A2A** | `DELIVERED_TO`, `SENT_BY`, `SENT_TO` | `MailboxService` | yes |
 | **Permission (auth, RLS)** | `CAN_READ_INBOX_OF`, `CAN_READ_MEMORIES_OF`, `CAN_READ_SESSIONS_OF`, `CAN_REPLY_TO` (+ `BLOCKED_BY`, cross-listed with work/lifecycle) | **`PermissionService.validScopes`** (authoritative source); `heartbeatPulseEvaluator.PERMISSION_EDGE_TYPES` is the **wake-firing subset** (the 3 `CAN_*` a `PERMISSION_GRANTED` wake fires on) | n/a (auth) |
 | **Active steering** | `STRATEGIC_PIVOT` | `mutate_frontier` (`GraphService.mutateFrontier`) | yes |
+| **Direction / measurement** | `ATTRIBUTED_TO` | `DIRECTION_EDGE_TYPES` (`directionSchema.mjs`); cross-listed in `PROTECTED_EDGE_TYPES` | **NO — fact** |
 | **Business** | `ADVANCED_BY` (goal → advancing work: issue / PR / metric) | `BUSINESS_EDGE_TYPES` (`businessSchema.mjs`); cross-listed in `PROTECTED_EDGE_TYPES` | **NO — fact** (advancement is history; the zombie-priority guard is an explicit retirement **reweight** to `RETIRED_GOAL_EDGE_WEIGHT`, never decay) |
 
-Four named enums (`CONCEPT_EDGE_TYPES`, `ADR_EDGE_TYPES`, `PROTECTED_EDGE_TYPES`, `BUSINESS_EDGE_TYPES`) are **authoritative** for their families; the **permission** family's authoritative source is `PermissionService.validScopes` (`heartbeatPulseEvaluator.PERMISSION_EDGE_TYPES` is its **wake-firing subset**, not the source). The remaining families are **observed-in-use** across the MC / graph / ingestion services. Converging these into one canonical edge-type registry is a follow-up (§6).
+Five named enums (`CONCEPT_EDGE_TYPES`, `ADR_EDGE_TYPES`, `DIRECTION_EDGE_TYPES`, `PROTECTED_EDGE_TYPES`, `BUSINESS_EDGE_TYPES`) are **authoritative** for their families; the **permission** family's authoritative source is `PermissionService.validScopes` (`heartbeatPulseEvaluator.PERMISSION_EDGE_TYPES` is its **wake-firing subset**, not the source). The remaining families are **observed-in-use** across the MC / graph / ingestion services. Converging these into one canonical edge-type registry is a follow-up (§6).
+
+**Concept membership is not concept salience.** `.neo-ai-data/concepts/edges.jsonl` owns the
+declared, curated relationship set. `ConceptIngestor` reconciles that source-owned tuple set on
+every sync: a surviving tuple retains its edge ID and decayed weight; a still-declared tuple
+removed by pruning is re-derived; a removed declaration deletes only the tuple marked
+`projectionSource: concept-ontology-jsonl`; foreign producers' same-type edges survive. Every
+projected tuple carries separate authority, fidelity, extraction-provenance, and lifecycle axes.
+None of those edge types joins `PROTECTED_EDGE_TYPES` in this decision.
 
 **Wake-triggers ≠ edges:** `PERMISSION_GRANTED`, `SENT_TO_ME`, `TASK_STATE_CHANGED`, `HEARTBEAT_PULSE` are **wake-subscription triggers** (`WakeSubscriptionService.validTriggers`), NOT graph edges — each *fires* when a permission edge / message / task-state changes (e.g. `PERMISSION_GRANTED` fires on a `CAN_*` edge granted to the owner). They belong to the wake layer, not the edge taxonomy.
 
@@ -69,13 +79,12 @@ unique `event_id`, surfaced to wake consumers as stable `sourceEventId` while AD
 `eventId` remains unique per emission; physical retention/compaction remains the separate
 consumer-watermark policy of #12329 rather than Hebbian edge decay.
 
-> **Amended by ADR 0033 (the direction contract):** registers the incoming `EVOLUTION_GOAL` node
-> class (generalizing `BUSINESS_GOAL` — shared schema family, canonical-id minted) and the
-> direction-mapping edge classes; attribution facts and their edges **join `PROTECTED_EDGE_TYPES`**
+> **Amended by ADR 0033 (the direction contract):** registers the `EVOLUTION_GOAL` node class
+> (generalizing `BUSINESS_GOAL` — shared schema family, canonical-id minted) and the
+> `ATTRIBUTED_TO` direction-mapping edge; attribution facts **join `PROTECTED_EDGE_TYPES`**
 > (a velocity number built on decaying edges rots invisibly — measurement substrate is fact-class,
-> not scent). Table rows land with ADR 0033's attribution leaf, which updates §2.2/§2.1 in the same
-> PR per this record's own re-review trigger; new node classes ship with the post-sync integrity
-> canary.
+> not scent). `directionSchema.mjs` owns the family registries; the post-sync integrity canary
+> guards the deterministic node/edge shape.
 
 > **Amended by #14633 (Convergence-weighted GP, Leaf 1 of #14581):** registers the `CONVERGENCE_SNAPSHOT`
 > node class (`ai/services/graph/convergenceSnapshotSchema.mjs`) — the convergence-terrain sibling of the
@@ -139,7 +148,7 @@ The graph is **actively operated** via Memory Core MCP tools — the "active hyb
 |---|---|
 | **Read** | `get_node`, `get_neighbors`, `get_context_frontier`, `get_rem_pipeline_state` (consolidation-state observability) |
 | **Query** | `search_nodes` (graph nodes by query); `query_hybrid_graph` (→ `GraphService.queryNodeTopology`: a SQLite node-topology traversal returning topology + `semanticVectorId` **references** — not the vectors; it does not call Chroma) |
-| **Write** | `add_memory`, `add_message` (→ async auto-concept extraction into the graph), `mutate_frontier` (→ `STRATEGIC_PIVOT`), `grant_permission` / `revoke_permission`, `transition_task` |
+| **Write** | `add_memory`, `add_message` (explicit `taggedConcepts` only; no inline model call), `mutate_frontier` (→ `STRATEGIC_PIVOT`), `grant_permission` / `revoke_permission`, `transition_task` |
 
 **Episodic recall is a DISTINCT layer — NOT the graph-structure interface.** `query_summaries` and `query_raw_memories` are **Chroma semantic search** over the §2.6 vector store's summary / raw-memory collections; they do **not** touch the SQLite graph. `query_recent_turns` is the recency axis over graph turn-nodes; `get_session_memories` is by-session episodic retrieval. `query_hybrid_graph` exposes the SQLite topology's `semanticVectorId` *references* (not the vectors themselves) — it is a graph-topology query, **not** a Chroma call. The actual **graph↔Chroma hydration** is a separate Memory Core concern: `MemoryService.getContextFrontier` / `preBriefSession` hydrate graph neighbors from Chroma, and `StorageRouter.injectQueryReRanker` graph-weights vector queries — the hybrid-GraphRAG path, distinct from both the graph-topology query and the pure-Chroma search.
 
@@ -151,18 +160,24 @@ The graph is **actively operated** via Memory Core MCP tools — the "active hyb
 |---|---|---|
 | **Native Edge Graph (SQLite)** | the runtime node/edge graph; multi-tenant RLS; WAL-first | 0015 (backend posture), 0001 (cross-process cache coherence) |
 | **Vector store (Chroma)** | semantic embeddings for hybrid query + the frontier baseline | 0003, 0017 (single flat unified store; dev/prod parity) |
-| **Concept ontology (JSONL)** | git-versioned, PR-reviewable curated concepts at `.neo-ai-data/concepts/` (`nodes.jsonl` + `edges.jsonl`); intentionally **decoupled** from SQLite during the multi-tenant migration | `ConceptOntology.md` |
+| **Concept ontology (JSONL)** | git-versioned, PR-reviewable source membership at `.neo-ai-data/concepts/` (`nodes.jsonl` + `edges.jsonl`); projected into SQLite by `ConceptIngestor` | `ConceptOntology.md` |
 
-The JSONL ontology and the SQLite graph are **distinct representations** of the curated concepts (the ontology is git-versioned + human-reviewable; the graph is the runtime substrate the ontology is ingested into). They are independently maintained today (no generator derives one from the other) — a content-as-SSOT unification is a known follow-up.
+The JSONL ontology and the SQLite graph are **source and projection**, not independently maintained ontologies. JSONL is git-versioned + human-reviewable; SQLite is the runtime substrate that gap inference and graph traversal consume. `ConceptIngestor` re-derives declared relationship membership while preserving the salience of surviving live edge instances. The independently maintained `resources/content/concepts/*.md` explanation layer is the remaining content-as-SSOT follow-up.
 
-### 2.7 Provenance — curated vs self-created
+### 2.7 Provenance — curated, scheduled, and historical
 
-| Path | Trigger | `TAGGED_CONCEPT` weight | Node flag |
-|---|---|---|---|
-| **Curated** | operator/agent `addMessage({taggedConcepts})`; `nodes.jsonl` (tier 0-3) | `1.0` | — |
-| **Self-created (gemma4)** | `extractMessageConcepts` ← `MailboxService` (per A2A message, fire-and-forget); `ConceptDiscoveryService` candidate-mining → `nodes.jsonl` (`validated:false`) | `0.8` | `auto_extracted: true` |
+| Path | Current trigger | Runtime / review signal |
+|---|---|---|
+| **Curated message tags** | operator/agent `addMessage({taggedConcepts})` | synchronous `TAGGED_CONCEPT` edge at weight `1.0` |
+| **Version-controlled ontology** | `ConceptIngestor` projects `nodes.jsonl` + `edges.jsonl` during REM | source-owned relationship tuples with `projectionSource` + four axes; node `validated` and tier/weight fields |
+| **Scheduled candidate discovery** | periodic `message-concept-harvest` drains a bounded MESSAGE batch through a frequency pre-filter and one Teaching-Test prompt; explicit `runDiscoveryCycle()` mines epics + capped recent PRs | `validated:false`, tier-3 rows appended to JSONL; no direct graph mutation until the next ConceptIngestor sync |
+| **Historical inline extraction** | retired; `SemanticGraphExtractor.extractMessageConcepts()` has no production caller | retained `auto_extracted:true` nodes and `TAGGED_CONCEPT` weight `0.8` edges may remain as legacy provenance |
 
-The `guideGapWeightThreshold = 0.8` gate (`GapInferenceEngine`) silences self-created concepts from the structural-gap audit, so only curated (1.0) disconnects surface as real gaps — the selectivity ADR 0023 §2.5 relies on. The graph's CONCEPT population is dominated by self-created nodes; the curated ontology is small and deliberate (tiered). Consumers ranking/filtering MUST inspect the edge weight (and/or the `auto_extracted` flag) — see `ConceptOntology.md` § Auto-Extracted Concept Provenance.
+`GapInferenceEngine` explicitly skips `validated:false` discovery candidates and applies
+`guideGapWeightThreshold` to promoted concepts' node weight before emitting structural gaps.
+Historical `auto_extracted` flags and 0.8 edges remain queryable, but consumers MUST NOT infer
+from them that `MailboxService` still performs per-message model calls. See
+`ConceptOntology.md` § Curated Tags, Historical Extraction, and Scheduled Discovery.
 
 ### 2.8 The ADR-node plan (ADR 0006)
 
@@ -201,7 +216,7 @@ This ADR is the **index**; each slice owns its decision, this ADR shows how they
 
 ## 4. Connection to ADR 0023 (model ↔ governance)
 
-ADR 0023 (map-fidelity + consolidation-liveness) **governs** the substrate this ADR **defines**. The discriminator 0023 relies on — *"scent decays; structural facts persist"* — is grounded in §2.3's **Decays?** column: the `PROTECTED_EDGE_TYPES` are the facts (`IMPLEMENTS` / `EXTENDS` / `SYSTEM_TENET` / `RESOLVES`), everything else is scent (earned via Hebbian reinforcement OR injected via `mutate_frontier`, but always subject to decay). The two ADRs connect natively: both `GRADUATED_FROM` #13802, and a cross-ADR edge links them in the graph itself (dogfooding §2.8).
+ADR 0023 (map-fidelity + consolidation-liveness) **governs** the substrate this ADR **defines**. The discriminator 0023 relies on — *"scent decays; structural facts persist"* — is grounded in §2.3's **Decays?** column: `PROTECTED_EDGE_TYPES` persist as fact edges; other live edge instances remain salience-bearing scent, whether earned via Hebbian reinforcement or injected via `mutate_frontier`. Source-projected membership is an orthogonal contract: pruning may remove a concept edge instance and its faded weight, while the next ConceptIngestor sync re-derives the still-declared tuple at initial weight. Re-derivation does not make the edge type protected and does not reinforce a surviving tuple. The two ADRs connect natively: both `GRADUATED_FROM` #13802, and a cross-ADR edge links them in the graph itself (dogfooding §2.8).
 
 ## 5. Consequences
 
@@ -215,7 +230,7 @@ ADR 0023 (map-fidelity + consolidation-liveness) **governs** the substrate this 
 - Backend / store **decisions** (0015 SQLite, 0003 / 0017 Chroma, 0001 cache) — this ADR **composes**, it does not re-decide.
 - A **canonical edge-type registry** — the four enums + the observed-in-use set should converge into one registry (follow-up).
 - **Embedding** the ADR nodes (the §2.8 target — a follow-up lane).
-- The **content-as-SSOT** unification of the JSONL ontology vs the SQLite graph (§2.6 follow-up).
+- The **content-as-SSOT** unification of JSONL concept records vs `resources/content/concepts/*.md` (§2.6 follow-up); JSONL → SQLite is already a source/projection relationship.
 
 ## 7. Related
 

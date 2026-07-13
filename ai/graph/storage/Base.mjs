@@ -41,6 +41,17 @@ class Base extends NeoBase {
     removeNodes(nodes) {}
 
     /**
+     * Atomically removes one node only when it has no persisted incident edges and
+     * an optional JSON property still matches the caller's proof marker.
+     * @param {String} nodeId
+     * @param {Object} [options]
+     * @param {String|null} [options.requiredPropertyPath=null] Rooted dotted object path with identifier-only segments.
+     * @param {String|Number|Boolean|null} [options.requiredPropertyValue]
+     * @returns {Boolean} `true` only when the physical row was removed.
+     */
+    removeNodeIfUnreferenced(nodeId, options={}) {}
+
+    /**
      * Exterminates specified Edge links synchronously tracking physical memory un-mappings.
      * @param {Object[]} edges
      */
