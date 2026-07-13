@@ -6,7 +6,7 @@ title: >-
 author: tobiu
 category: Ideas
 createdAt: '2026-04-06T18:09:56Z'
-updatedAt: '2026-04-12T11:29:44Z'
+updatedAt: '2026-07-13T05:42:05Z'
 closed: false
 closedAt: null
 contentTrust:
@@ -265,6 +265,16 @@ Two small things I noticed while reading through — not bugs, just observations
 - **`findSessionsToSummarize` pagination** accumulates all metadata objects into `allMetadatas` in memory during the scan. With the safety break at 2M records and ~500 bytes per metadata object, that could approach 1GB RAM in extreme cases. A lighter approach might be to only collect sessionIds during the scan instead of full metadata objects, then fetch the details only for sessions that actually need re-summarization.
 
 Neither of these would matter for typical usage — they'd only surface in edge cases with local LLMs or very long-running instances. Just thought I'd mention them since I was in the code anyway.
+
+---
+
+### `@richardchen874-sys` commented on 2026-07-13T05:42:05Z
+
+The codebase/documentation gap analysis idea is compelling because it uses memory and GraphRAG to find conflicts across source, tests, guides, and past agent sessions. That can become a lot of repeated model work if it runs continuously.
+
+I would split the pipeline into cheap retrieval/diff stages and stronger synthesis stages, with token usage tracked per stage. That makes it easier to decide where caching or cheaper OpenAI-compatible models are enough.
+
+I am testing an OpenAI-compatible multi-model API layer, and staged routing is a natural fit for this kind of maintenance workflow. Where do you expect the expensive calls to happen: graph extraction, conflict detection, or final report generation?
 
 ---
 
