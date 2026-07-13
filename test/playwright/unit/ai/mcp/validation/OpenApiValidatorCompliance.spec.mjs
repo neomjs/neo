@@ -267,6 +267,7 @@ const expectedMemoryCoreToolTiers = {
     pre_brief_session            : 'extended',
     get_all_summaries            : 'read',
     query_summaries              : 'read',
+    explore_memory_history       : 'read',
     purge_session                : 'admin',
     resume_session               : 'extended',
     set_session_id               : 'extended',
