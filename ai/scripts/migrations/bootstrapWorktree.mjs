@@ -145,14 +145,15 @@ export const BOOTSTRAP_CONFIGS = [
 ];
 
 /**
- * Blocklist of `.neo-ai-data/` children that must NEVER be symlinked to canonical.
+ * Blocklist of live `.neo-ai-data/` children that must NEVER be symlinked to canonical.
  *
  * **Blocklist, not allowlist.** The retired `DATA_SUBDIRS_TO_LINK` allowlist enumerated exactly
  * which subdirs to link — and silently drifted: `memory-wal` was never added, so every
  * non-canonical clone wrote its `add_memory` WAL to its own un-drained dir, orphaning thousands
  * of records across clones for ~8 days. {@link symlinkDataDir} now links EVERY child of
- * canonical's `.neo-ai-data/` EXCEPT the entries here, so a newly-introduced substrate child is
- * unified automatically — the drift class is gone by construction.
+ * canonical's `.neo-ai-data/` EXCEPT the live entries here and the separately-owned canonical
+ * read-alias names, so a newly-introduced substrate child is unified automatically without two
+ * hydration primitives fighting over one alias path.
  *
  * Two kinds of entry:
  * 1. **`concepts/`** — the ONLY git-tracked item inside `.neo-ai-data/` (`.gitignore`:
@@ -181,6 +182,18 @@ export const DATA_SUBDIRS_BLOCKLIST = ['concepts', 'orchestrator-daemon', 'embed
 export const CANONICAL_DATA_READ_ALIASES = [
     {source: 'orchestrator-daemon', alias: 'orchestrator-daemon-canonical'}
 ];
+
+// A read alias is safe only when the live source name stays clone-local. Keep that cross-registry
+// invariant executable: adding an alias without blocklisting its source would let symlinkDataDir()
+// mount the canonical live path first, then expose the same state again under the read alias.
+for (const {source, alias} of CANONICAL_DATA_READ_ALIASES) {
+    if (!DATA_SUBDIRS_BLOCKLIST.includes(source)) {
+        throw new Error(
+            `bootstrapWorktree: canonical data read alias '${alias}' requires source '${source}' ` +
+            'to remain in DATA_SUBDIRS_BLOCKLIST.'
+        );
+    }
+}
 
 /**
  * Allowlist of gitignored single files (outside `.neo-ai-data/`) to symlink to canonical
@@ -359,14 +372,19 @@ async function exists(p) {
  * daemons spawned from different worktrees can't see each other's locks. Same logic for
  * the persistent `.neo-ai-data/wake-daemon/bridge.log` substrate.
  *
- * Idempotent per-subdir by design: an existing symlink reports `'already-linked'`; a
+ * Idempotent per-subdir by design: an existing symlink to the canonical source reports
+ * `'already-linked'`; a symlink to any other checkout refuses rather than silently adopting
+ * cross-resident state; a
  * missing canonical source reports `'skip-no-source'` (graceful for fresh repos that
  * haven't created the subdir yet); a non-symlink directory throws unless `force=true`.
  *
  * @param {object}   options
  * @param {string}   options.mainCheckout Absolute path to the primary git checkout.
  * @param {string}   options.projectRoot  Absolute path to the worktree root to link from.
- * @param {string[]} [options.blocklist]  Child names to NEVER symlink; defaults to {@link DATA_SUBDIRS_BLOCKLIST}.
+ * @param {string[]} [options.blocklist]  Live child names to NEVER symlink; defaults to {@link DATA_SUBDIRS_BLOCKLIST}.
+ *                                        Sources + names owned by {@link CANONICAL_DATA_READ_ALIASES}
+ *                                        are always excluded from this generic pass and materialized
+ *                                        separately, even when callers inject a narrower blocklist.
  * @param {boolean}  [options.force=false] If true, clobber an existing non-symlink dir/file at a non-blocklisted child (never touches blocklisted children).
  * @param {Function} [options.log=console.log] Logger fn for action diagnostics.
  * @returns {Promise<{linked: string[], alreadyLinked: string[], clobbered: string[], skippedNoSource: string[], mainCheckout: boolean}>} Per-item action map.
@@ -397,7 +415,10 @@ export async function symlinkDataDir({
     // Blocklist, not allowlist: enumerate EVERY child of canonical's .neo-ai-data and link all
     // except the blocklist. A new substrate child is unified automatically, removing the
     // allowlist-drift class that silently orphaned memory-wal across non-canonical clones.
-    const blocklistSet = new Set(blocklist);
+    const
+        blocklistSet       = new Set(blocklist),
+        readAliasSet       = new Set(CANONICAL_DATA_READ_ALIASES.map(entry => entry.alias)),
+        readAliasSourceSet = new Set(CANONICAL_DATA_READ_ALIASES.map(entry => entry.source));
     let entries;
     try {
         entries = await fs.readdir(canonicalDataDir, {withFileTypes: true});
@@ -410,7 +431,7 @@ export async function symlinkDataDir({
     for (const entry of entries) {
         const name = entry.name;
 
-        if (blocklistSet.has(name)) {
+        if (blocklistSet.has(name) || readAliasSet.has(name) || readAliasSourceSet.has(name)) {
             log(`symlink skip (blocklisted): ${name}`);
             continue;
         }
@@ -420,6 +441,18 @@ export async function symlinkDataDir({
         const lstat = await fs.lstat(dst).catch(() => null);
 
         if (lstat?.isSymbolicLink()) {
+            const
+                existingTarget = await fs.readlink(dst),
+                resolvedTarget = path.resolve(path.dirname(dst), existingTarget),
+                canonicalReal  = await fs.realpath(src),
+                existingReal   = await fs.realpath(resolvedTarget).catch(() => resolvedTarget);
+
+            if (existingReal !== canonicalReal) {
+                throw new Error(
+                    `Refusing unexpected symlink target at ${dst}: expected ${src}, found ${resolvedTarget}. ` +
+                    `Managed hydration never adopts another checkout's state implicitly.`
+                );
+            }
             log(`symlink skip (already linked): ${name}`);
             result.alreadyLinked.push(name);
             continue;
@@ -584,7 +617,9 @@ export async function symlinkCanonicalDataReadAliases({
  * canonical's overwrite). Conservative skip-with-warning is the safer default. Users
  * who want the symlink can manually `rm` the local file before re-running.
  *
- * Idempotent per-file by design: an existing symlink reports `'already-linked'`; a
+ * Idempotent per-file by design: an existing symlink to the canonical source reports
+ * `'already-linked'`; a symlink to any other checkout refuses rather than silently adopting
+ * cross-resident state; a
  * missing canonical source reports `'skipped-no-source'` (graceful for fresh repos that
  * haven't run Sandman yet); a real file at the destination reports `'skipped-real-file'`
  * with a warning pointing at the manual remediation path.
@@ -616,6 +651,18 @@ export async function symlinkGitignoredFiles({
         const lstat = await fs.lstat(dst).catch(() => null);
 
         if (lstat?.isSymbolicLink()) {
+            const
+                existingTarget = await fs.readlink(dst),
+                resolvedTarget = path.resolve(path.dirname(dst), existingTarget),
+                canonicalReal  = await fs.realpath(src),
+                existingReal   = await fs.realpath(resolvedTarget).catch(() => resolvedTarget);
+
+            if (existingReal !== canonicalReal) {
+                throw new Error(
+                    `Refusing unexpected symlink target at ${dst}: expected ${src}, found ${resolvedTarget}. ` +
+                    `Managed hydration never adopts another checkout's state implicitly.`
+                );
+            }
             log(`file-symlink skip (already linked): ${rel}`);
             result.alreadyLinked.push(rel);
             continue;
