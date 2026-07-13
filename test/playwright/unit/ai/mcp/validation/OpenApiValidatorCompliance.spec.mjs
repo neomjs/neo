@@ -268,6 +268,7 @@ const expectedMemoryCoreToolTiers = {
     get_all_summaries            : 'read',
     query_summaries              : 'read',
     explore_memory_history       : 'read',
+    explore_pull_request_history : 'read',
     purge_session                : 'admin',
     resume_session               : 'extended',
     set_session_id               : 'extended',

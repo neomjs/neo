@@ -24,6 +24,26 @@ test.describe('temporalBirdViewSynthesizer — the fail-open, no-inference-over-
         expect(envelope.notAuthority).toBe(true)
     });
 
+    test('structured synthesis result carries inference inputs + optional details through the envelope', async () => {
+        const synthesisDetails = {themes: [{label: 'memory continuity', sourceIds: ['session-a']}]},
+              envelope         = await synthesizeTemporalBirdView({
+                  preset     : 'weekly',
+                  now        : NOW_ISO,
+                  generatedAt: GEN_ISO,
+                  retrieve   : async () => complete(),
+                  synthesize : async () => ({
+                      narrative        : 'Two sessions this week: a and b.',
+                      inferenceInputIds: ['session-a'],
+                      synthesisDetails
+                  })
+              });
+
+        expect(envelope.synthesisDetails).toEqual(synthesisDetails);
+        expect(envelope.coverage.synthesisInputCount).toBe(1);
+        expect(envelope.citations.find(citation => citation.id === 'session-a').inSynthesis).toBe(true);
+        expect(envelope.citations.find(citation => citation.id === 'session-b').inSynthesis).toBe(false)
+    });
+
     test('retrieval failure is fail-open → degraded envelope, and synthesize is NEVER called', async () => {
         let synthesizeCalls = 0;
 
