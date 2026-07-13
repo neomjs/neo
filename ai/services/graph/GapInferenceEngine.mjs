@@ -43,6 +43,9 @@ const ISO_VERIFIED_AT_PATTERN = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}\.\d{3}Z
  *      missing and should be added). Surfaced through the same `capabilityGap` channel +
  *      `sandman_handoff.md` section pattern as the other gap types, not via `logger.warn`
  *      (logger is ephemeral; the graph + handoff is the durable substrate).
+ *    - `[CONCEPT_PROJECTION_INTEGRITY]` — a version-controlled ontology row could not become
+ *      canonical graph evidence (for example, a missing or escaping file target). The exact row
+ *      and deterministic rejection reason remain on the CONCEPT node until the source is repaired.
  *    - `[KB_DEMAND_GAP]` — repeated agent questions from the Knowledge Base FAQ telemetry
  *      table map to this concept, but the FAQ cluster still lacks strong guide coverage.
  *    The three coverage signals share the `aiConfig.guideGapWeightThreshold` gate
@@ -263,10 +266,10 @@ class GapInferenceEngine extends Base {
      * value itself. Freshness review remains independent of this gate.
      *
      * Uses the edges-direct traversal pattern (`db.edges.getByIndex('source', id).filter(...)`)
-     * rather than `db.getAdjacentNodes(...)` because concept edges point at string identifiers
-     * (`file:learn/guides/X.md`, `ext:react-jsx`) that are deliberately NOT materialized as graph
-     * nodes. `getAdjacentNodes` would return empty for these targets and mis-flag every concept
-     * as a guide gap.
+     * so coverage is determined from the typed relationship itself. ConceptIngestor validates
+     * author-facing `file:<path>` rows and projects them onto FileSystemIngestor's canonical
+     * `file-<path>` FILE nodes; invalid rows never become evidence and instead persist as
+     * `conceptProjectionIntegrityFindings` on their source CONCEPT.
      *
      * **Scope:** cycle-scoped. Output depends only on ontology state, not on any individual
      * session — invoked once per REM cycle from `DreamService.processUndigestedSessions` after
@@ -291,12 +294,24 @@ class GapInferenceEngine extends Base {
         const threshold = aiConfig.guideGapWeightThreshold;
 
         for (const concept of conceptNodes) {
+            const
+                projectionFindings = Array.isArray(concept.properties?.conceptProjectionIntegrityFindings)
+                    ? concept.properties.conceptProjectionIntegrityFindings
+                    : [],
+                integrityGaps      = projectionFindings.map(finding => [
+                    `[CONCEPT_PROJECTION_INTEGRITY] The CONCEPT '${concept.properties?.name || concept.name || concept.id}' has a rejected ontology row`,
+                    `(${finding.code || 'UNKNOWN'}): ${finding.reason || 'unspecified projection failure'}`,
+                    `Source row: ${finding.sourceRow || JSON.stringify(finding)}`
+                ].join(' '));
+
             // Unvalidated concepts (candidates from ConceptDiscoveryService awaiting curator
-            // review) are silenced regardless of weight. Low weight is the primary gate for
-            // legitimate low-priority concepts; the validated flag is the explicit override
-            // for "this hasn't been reviewed yet — don't surface it." Legacy rows without the
-            // field have `validated === undefined`, treated as validated.
-            if (concept.properties?.validated === false) continue;
+            // review) are silenced for concept-quality signals regardless of weight. Projection
+            // integrity is different: it reports a deterministic source/projector failure, so
+            // hiding it behind candidate validation would reintroduce silent row omission.
+            if (concept.properties?.validated === false) {
+                this.applyGapsToNode(concept, integrityGaps);
+                continue;
+            }
 
             const
                 outboundEdges      = GraphService.db.edges.getByIndex('source', concept.id),
@@ -305,7 +320,7 @@ class GapInferenceEngine extends Base {
                 implementedByEdges = outboundEdges.filter(e => e.type === 'IMPLEMENTED_BY'),
                 weight             = concept.properties?.weight ?? 0,
                 codeGapEligible    = concept.properties?.codeGapEligible !== false && concept.properties?.ontologyLayer !== 'process-mx',
-                gaps               = [],
+                gaps               = [...integrityGaps],
                 name               = concept.properties?.name || concept.name || concept.id;
 
             if (this.isConceptReverifyDue(concept, now)) {
@@ -495,7 +510,7 @@ class GapInferenceEngine extends Base {
 
         return {
             sequenceId,
-            nodeId: `nl-action-sequence:${sequenceId}`,
+            nodeId           : `nl-action-sequence:${sequenceId}`,
             rows,
             targets,
             actionCount      : rows.length,

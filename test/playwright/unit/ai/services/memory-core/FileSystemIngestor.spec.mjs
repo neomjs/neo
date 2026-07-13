@@ -13,13 +13,13 @@ setup({
     }
 });
 
-import {test, expect}       from '@playwright/test';
-import Neo                  from '../../../../../../src/Neo.mjs';
-import * as core            from '../../../../../../src/core/_export.mjs';
-import InstanceManager      from '../../../../../../src/manager/Instance.mjs';
-import fs                   from 'fs-extra';
-import path                 from 'path';
-import os                   from 'os';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../../../src/manager/Instance.mjs';
+import fs              from 'fs-extra';
+import path            from 'path';
+import os              from 'os';
 
 test.describe('Neo.ai.services.memory-core.FileSystemIngestor', () => {
     let GraphService;
@@ -31,7 +31,7 @@ test.describe('Neo.ai.services.memory-core.FileSystemIngestor', () => {
     let originalDbPath;
 
     test.beforeAll(async () => {
-        const aiConfig                = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         originalDbPath = aiConfig.storagePaths.graph;
 
         const tmpDir = path.resolve(process.cwd(), 'tmp');
@@ -39,7 +39,7 @@ test.describe('Neo.ai.services.memory-core.FileSystemIngestor', () => {
             fs.mkdirSync(tmpDir, { recursive: true });
         }
         testDbPath = path.join(tmpDir, testDbName);
-        mockFsRoot = path.join(tmpDir, `fs-ingest-mock-${Date.now()}`);
+        mockFsRoot = path.join(tmpDir, `fs-ingest-mock-${process.pid}-${Date.now()}`);
 
         aiConfig.storagePaths.graph = testDbPath;
         if (!aiConfig.collections) aiConfig.collections = {};
@@ -62,7 +62,7 @@ test.describe('Neo.ai.services.memory-core.FileSystemIngestor', () => {
         fs.ensureDirSync(path.join(mockFsRoot, 'resources', 'scss'));
         fs.ensureDirSync(path.join(mockFsRoot, 'resources', 'images'));
         fs.ensureDirSync(path.join(mockFsRoot, 'node_modules', 'dep'));
-        // Agent harness directories — neither should be indexed (#11650).
+        // Agent harness directories are runtime state and must not be indexed.
         // .claude/worktrees/<NAME>/ carries each Claude Code session's own multi-GB
         // node_modules + its own .neo-ai-data (recursive substrate amplification).
         // .codex/ carries Codex agent state similarly.
@@ -78,10 +78,9 @@ test.describe('Neo.ai.services.memory-core.FileSystemIngestor', () => {
         fs.writeFileSync(path.join(mockFsRoot, 'node_modules', 'dep', 'index.js'), 'foo');
         fs.writeFileSync(path.join(mockFsRoot, '.env'), 'SECRET=123');
         fs.writeFileSync(path.join(mockFsRoot, 'package.json'), '{}');
-        // Files inside the agent harness directories — would have leaked under the
-        // pre-#11650 path-prefix matcher because relativePath starts with `.claude/`
-        // or `.codex/`, not with `node_modules/`. Adding `.claude` + `.codex` to the
-        // top-level ignorePatterns is the surgical fix.
+        fs.symlinkSync('/etc/hosts', path.join(mockFsRoot, 'src', 'escape.mjs'));
+        // Files inside agent harness directories must be excluded at the top-level
+        // directory boundary; a nested `node_modules` filter alone is insufficient.
         fs.writeFileSync(path.join(mockFsRoot, '.claude', 'worktrees', 'test-worktree', 'node_modules', 'transitive-dep', 'index.js'), 'agent-harness-leak');
         fs.writeFileSync(path.join(mockFsRoot, '.codex', 'sessions', 'session.json'), '{"data":"codex-state"}');
     });
@@ -112,6 +111,63 @@ test.describe('Neo.ai.services.memory-core.FileSystemIngestor', () => {
         fs.removeSync(mockFsRoot);
     });
 
+    test('should resolve canonical projectable file identities and reject non-evidence paths', () => {
+        expect(FileSystemIngestor.resolveFileReference('src/App.mjs', mockFsRoot)).toMatchObject({
+            valid       : true,
+            nodeId      : 'file-src/App.mjs',
+            relativePath: 'src/App.mjs'
+        });
+        expect(FileSystemIngestor.resolveFileReference('../outside.mjs', mockFsRoot)).toMatchObject({
+            valid: false,
+            code : 'OUTSIDE_REPOSITORY'
+        });
+        expect(FileSystemIngestor.resolveFileReference('missing.mjs', mockFsRoot)).toMatchObject({
+            valid: false,
+            code : 'MISSING_FILE'
+        });
+        expect(FileSystemIngestor.resolveFileReference('src', mockFsRoot)).toMatchObject({
+            valid: false,
+            code : 'NOT_A_FILE'
+        });
+        expect(FileSystemIngestor.resolveFileReference('src/escape.mjs', mockFsRoot)).toMatchObject({
+            valid: false,
+            code : 'NOT_A_FILE'
+        });
+        expect(FileSystemIngestor.resolveFileReference('resources/images/logo.png', mockFsRoot)).toMatchObject({
+            valid: false,
+            code : 'IGNORED_FILE'
+        });
+
+        const
+            aliasRoot   = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-filesystem-resolver-alias-')),
+            outsideRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-filesystem-resolver-outside-'));
+
+        try {
+            fs.ensureDirSync(path.join(aliasRoot, 'real'));
+            fs.ensureDirSync(path.join(aliasRoot, 'src'));
+            fs.writeFileSync(path.join(aliasRoot, 'real', 'aliased.mjs'), 'export default true');
+            fs.writeFileSync(path.join(aliasRoot, 'src', 'App.mjs'), 'export default true');
+            fs.writeFileSync(path.join(outsideRoot, 'outside.mjs'), 'export default true');
+            fs.symlinkSync(path.join(aliasRoot, 'real'), path.join(aliasRoot, 'alias'));
+            fs.symlinkSync(outsideRoot, path.join(aliasRoot, 'outside-alias'));
+
+            expect(FileSystemIngestor.resolveFileReference('alias/aliased.mjs', aliasRoot)).toMatchObject({
+                valid: false,
+                code : 'NON_CANONICAL_FILE_REFERENCE'
+            });
+            const outsideAlias = FileSystemIngestor.resolveFileReference('outside-alias/outside.mjs', aliasRoot);
+            expect(outsideAlias).toMatchObject({valid: false, code: 'OUTSIDE_REPOSITORY'});
+            expect(outsideAlias.nodeId).toBeUndefined();
+
+            const wrongCase = FileSystemIngestor.resolveFileReference('SRC/App.mjs', aliasRoot);
+            expect(wrongCase.valid).toBe(false);
+            expect(['MISSING_FILE', 'NON_CANONICAL_FILE_REFERENCE']).toContain(wrongCase.code);
+        } finally {
+            fs.removeSync(aliasRoot);
+            fs.removeSync(outsideRoot)
+        }
+    });
+
     test('should dynamically ignore high-noise path patterns while preserving structural mapping', async () => {
         const stats = { nodes: 0, edges: 0 };
 
@@ -131,10 +187,9 @@ test.describe('Neo.ai.services.memory-core.FileSystemIngestor', () => {
         expect(allNodes.some(p => p.includes('.env'))).toBe(false);
         expect(allNodes.some(p => p.includes('.png'))).toBe(false);
         expect(allNodes.some(p => p.includes('.svg'))).toBe(false);
-        // Agent harness directories must be excluded (#11650). Pre-#11650 the
-        // path-prefix matcher caught only root-level node_modules; nested
-        // .claude/worktrees/<X>/node_modules slipped through because the path
-        // doesn't start with `node_modules/` — it starts with `.claude/`.
+        expect(allNodes.some(p => p.includes('escape.mjs'))).toBe(false);
+        // Agent harness directories must be excluded before their nested state is
+        // traversed; those paths do not begin with the generic `node_modules/` prefix.
         expect(allNodes.some(p => p.includes('.claude'))).toBe(false);
         expect(allNodes.some(p => p.includes('.codex'))).toBe(false);
 
@@ -144,11 +199,13 @@ test.describe('Neo.ai.services.memory-core.FileSystemIngestor', () => {
         expect(allNodes.some(p => p.endsWith('resources/scss/theme.scss'))).toBe(true);
 
         // We verify that the edge connection `CONTAINS` works hierarchically:
-        const srcNode = GraphService.db.nodes.items.find(n => n.label === 'DIRECTORY' && n.properties.path.endsWith('src'));
+        const srcNode  = GraphService.db.nodes.items.find(n => n.label === 'DIRECTORY' && n.properties.path.endsWith('src'));
         const fileNode = GraphService.db.nodes.items.find(n => n.label === 'FILE' && n.properties.path.endsWith('src/App.mjs'));
 
         expect(srcNode).toBeDefined();
         expect(fileNode).toBeDefined();
+        expect(fileNode.id).toBe('file-src/App.mjs');
+        expect(fileNode.properties.isConceptEdgeStub).toBe(false);
 
         const link = GraphService.db.edges.items.find(e => e.source === srcNode.id && e.target === fileNode.id);
         expect(link).toBeDefined();

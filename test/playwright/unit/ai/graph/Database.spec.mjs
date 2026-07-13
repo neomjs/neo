@@ -185,6 +185,26 @@ test.describe('Neo.ai.graph.Database', () => {
         expect(() => db.removeNode('')).toThrow(/non-empty string node id/);
     });
 
+    test('should enforce the dotted marker-path contract without storage', () => {
+        db.addNode({
+            id        : 'cleanup-candidate',
+            properties: {cleanup: {marker: null}}
+        });
+
+        expect(() => db.removeNodeIfUnreferenced('cleanup-candidate', {
+            requiredPropertyPath : '$.properties.items[0].marker',
+            requiredPropertyValue: null
+        })).toThrow(/rooted dotted identifier syntax/);
+        expect(() => db.removeNodeIfUnreferenced('cleanup-candidate', {
+            requiredPropertyPath : '$.properties..marker',
+            requiredPropertyValue: null
+        })).toThrow(/rooted dotted identifier syntax/);
+        expect(db.removeNodeIfUnreferenced('cleanup-candidate', {
+            requiredPropertyPath : '$.properties.cleanup.marker',
+            requiredPropertyValue: null
+        })).toBe(true);
+    });
+
     test('should persist nodes and edges properly using SQLite storage adapter', async () => {
         // Clean out previous runs
         if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
@@ -239,6 +259,24 @@ test.describe('Neo.ai.graph.Database', () => {
         try {
             expect(() => storage.addNodes([{ id: null, label: 'Broken', properties: {} }])).toThrow(/non-empty string id/);
             expect(() => storage.addNodes([{ label: 'Broken', properties: {} }])).toThrow(/non-empty string id/);
+        } finally {
+            storage.destroy();
+        }
+    });
+
+    test('SQLite conditional deletion rejects non-dotted marker paths', async () => {
+        let storage = Neo.create(SQLite, {dbPath});
+        await storage.initAsync();
+
+        try {
+            expect(() => storage.removeNodeIfUnreferenced('cleanup-candidate', {
+                requiredPropertyPath : '$.properties.items[0].marker',
+                requiredPropertyValue: null
+            })).toThrow(/rooted dotted identifier syntax/);
+            expect(() => storage.removeNodeIfUnreferenced('cleanup-candidate', {
+                requiredPropertyPath : '$.properties..marker',
+                requiredPropertyValue: null
+            })).toThrow(/rooted dotted identifier syntax/);
         } finally {
             storage.destroy();
         }

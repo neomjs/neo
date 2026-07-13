@@ -61,14 +61,15 @@ not by generic "Agent OS is busy" symptoms.
 | Pressure class | Current write surface | Evidence | Backend posture |
 |---|---|---|---|
 | Light / fixed-cardinality graph writes | A2A mailbox routing writes one `MESSAGE` node plus `SENT_BY` / `SENT_TO` edges, optional broadcast `DELIVERED_TO` edges, and optional session / ticket / concept links. | `MailboxService.addMessage()` calls `GraphService.upsertNode()` once for the message, then `GraphService.linkNodes()` for routing and optional semantic edges. Empty unread-message probes are measured at ~5ms against local SQLite `MESSAGE` + `SENT_TO` state. | Not a networked-SQL trigger. If A2A routing ever becomes noisy, tune mailbox indexing, batching, or wake fan-out before changing the graph backend. |
-| A2A sidecar LLM pressure | Message concept auto-extraction is fire-and-forget after delivery and may call the OpenAI-compatible provider before adding auto-extracted `TAGGED_CONCEPT` edges. | `MailboxService.addMessage()` returns after scheduling `SemanticGraphExtractor.extractMessageConcepts()`, and the extractor can perform up to two provider generations for a message body. | Also not a graph-backend trigger. If this becomes expensive, gate, batch, throttle, or disable the extractor; do not attribute provider pressure to SQLite. |
+| Scheduled concept-discovery provider pressure | Message-derived concept discovery runs outside the mailbox hot path as the orchestrator's exclusive-heavy `message-concept-harvest` task. | `ConceptDiscoveryService.runMessageConceptHarvest()` reads a bounded unharvested-MESSAGE batch, applies a cheap frequency/top-N pre-filter, makes one bounded Teaching-Test provider request, appends `validated:false` JSONL candidates, and marks processed messages. | Also not a graph-backend trigger. Tune the scheduler cadence, batch/top-N bounds, or provider route; do not attribute provider pressure to SQLite. |
 | Medium / accumulated projection writes | Session and memory graph projection upserts `SESSION` / `MEMORY` nodes and `ORIGINATES_IN` edges per memory row; lazy-edge draining can back-fill endpoints and then link queued provenance edges. | `MemorySessionIngestor.syncSessionToGraph()` iterates the Chroma memory rows for a session; `LazyEdgeDrainer` drains JSONL queue entries through `GraphService.linkNodesAsync()`. | Keep SQLite unless measured lock contention appears after WAL, `busy_timeout`, and lease discipline. |
 | Heavy / bulk graph mutation | DreamMode / Sandman REM cycles ingest concepts, walk the repository into file/directory nodes, project sessions, run Tri-Vector extraction, attach gap metadata, and run garbage collection / decay. | `DreamService.processUndigestedSessions()` runs `ConceptIngestor.syncConceptsToGraph()`, `FileSystemIngestor.syncWorkspaceToGraph()`, `MemorySessionIngestor.syncSessionToGraph()`, semantic extraction, gap inference, and graph cleanup; `runSandman.mjs` wraps this in the heavy-maintenance lease and then runs global topology decay inside that lease. | This is the primary graph-pressure lane to monitor. First response is lease / cadence / backup discipline; networked SQL is only justified by measured graph-specific contention or deployment semantics beyond single-node SQLite. |
 
 This taxonomy keeps the cheap coordination path separate from the actual heavy
 graph writers. A2A messages should remain available for swarm coordination;
-DreamMode, Sandman, filesystem graph sync, bulk backfill, and topology decay are
-the lanes that need pressure instrumentation and scheduling discipline.
+scheduled concept harvesting, DreamMode, Sandman, filesystem graph sync, bulk
+backfill, and topology decay are the lanes that need pressure instrumentation and
+scheduling discipline.
 
 ## 3. Decision
 
@@ -105,8 +106,8 @@ by themselves trigger this ADR. Those are vector-store / heavy-maintenance
 concerns and must be resolved at that substrate first.
 
 Likewise, ordinary A2A message traffic does not trigger this ADR unless the
-graph routing writes themselves are measured as the lock source. Message
-concept-extraction pressure belongs to provider scheduling, not graph-backend
+graph routing writes themselves are measured as the lock source. Scheduled
+message-concept-harvest pressure belongs to provider scheduling, not graph-backend
 selection.
 
 ## 5. Rejected Alternatives

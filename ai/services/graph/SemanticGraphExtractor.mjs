@@ -13,8 +13,8 @@ import {
     clearActiveRemCallState,
     writeActiveRemCallState
 } from '../../services/memory-core/helpers/remRunStateStore.mjs';
-import Json                                            from '../../../src/util/Json.mjs';
-import logger                                          from '../../mcp/server/memory-core/logger.mjs';
+import Json   from '../../../src/util/Json.mjs';
+import logger from '../../mcp/server/memory-core/logger.mjs';
 import {
     canonicalizeSemanticGraphNodeId,
     canonicalizeTaggedConceptIds
@@ -667,7 +667,7 @@ class SemanticGraphExtractor extends Base {
                     consumerSafeTokens,
                     inputBytes         : inputPayload.bytes,
                     inputTokensEstimate: inputPayload.tokens,
-                    note                    : `Provider finish_reason='${finishReason}' before schema validation. Aborting repair loop to avoid appending a truncated response. Attempt ${attempt}/${maxRetries}.`
+                    note               : `Provider finish_reason='${finishReason}' before schema validation. Aborting repair loop to avoid appending a truncated response. Attempt ${attempt}/${maxRetries}.`
                 });
 
                 return this.createTriVectorFailureDescriptor({
@@ -740,7 +740,7 @@ class SemanticGraphExtractor extends Base {
                             consumerSafeTokens,
                             inputBytes         : repairPayload.bytes,
                             inputTokensEstimate: repairPayload.tokens,
-                            note                    : `Repair retry prompt estimate ${repairPayload.tokens} tokens exceeds safe band ${consumerSafeTokens}. Aborting instead of appending assistant output and repair feedback. Attempt ${attempt}/${maxRetries}.`
+                            note               : `Repair retry prompt estimate ${repairPayload.tokens} tokens exceeds safe band ${consumerSafeTokens}. Aborting instead of appending assistant output and repair feedback. Attempt ${attempt}/${maxRetries}.`
                         });
 
                         return this.createTriVectorFailureDescriptor({
@@ -786,7 +786,7 @@ class SemanticGraphExtractor extends Base {
                     ...lastCallDiagnostics,
                     attempts: attempt,
                     assetRef,
-                    note: `Tri-Vector schema validation failed after ${attempt} attempt(s).`
+                    note    : `Tri-Vector schema validation failed after ${attempt} attempt(s).`
                 }
             });
         }
@@ -911,7 +911,7 @@ class SemanticGraphExtractor extends Base {
         logger.info(`[SemanticGraphExtractor] Graph entities committed to Neocortex for session ${session.meta.sessionId}.`);
 
         if (artifact.roadmap_impact && typeof artifact.roadmap_impact === 'string' && artifact.roadmap_impact.toLowerCase() !== 'null') {
-            const auditLog = path.join('/tmp', 'roadmap_audits.log');
+            const auditLog      = path.join('/tmp', 'roadmap_audits.log');
             const strategyEntry = `[${new Date().toISOString()}] Session ${session.meta.sessionId}:\n${artifact.roadmap_impact}\n\n`;
             await fs.promises.appendFile(auditLog, strategyEntry, 'utf8');
             logger.info(`[SemanticGraphExtractor] Extracted Strategy impact to roadmap_audits.log`);
@@ -1146,23 +1146,22 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
     }
 
     /**
-     * Extracts semantic concepts from a message body for auto-emission.
+     * Extracts and canonicalizes semantic concept IDs from one message body.
      *
-     * Auto-extracted concepts carry distinct provenance from operator/agent-curated
-     * `taggedConcepts`: the upsert path stamps `properties.auto_extracted: true` on
-     * freshly-created concept nodes, and the `TAGGED_CONCEPT` edge is written at
-     * weight `0.8` (vs `1.0` for curated). See `learn/agentos/ConceptOntology.md`
-     * § Auto-Extracted Concept Provenance for the read-time consumer pattern +
-     * edge-weight rationale.
+     * This is a retained direct/test helper, not the production message-discovery path.
+     * It performs no graph upsert and writes no `TAGGED_CONCEPT` edge; no runtime caller
+     * invokes it. Current discovery is the orchestrator-scheduled, bounded
+     * `ConceptDiscoveryService.runMessageConceptHarvest()` flow, while MailboxService
+     * projects only explicit curated `taggedConcepts` in its hot path.
      *
-     * Pre-existing concept nodes are NOT re-stamped — the flag is set only on the
-     * fresh-create path, preserving curated nodes' authoritative status even when
-     * subsequently referenced by LLM-inferred MESSAGE bodies.
+     * Historical graph rows may still carry `properties.auto_extracted: true` and a
+     * `TAGGED_CONCEPT` edge at weight `0.8`; those are legacy provenance, not evidence
+     * that inline extraction remains active.
      *
      * @param {String} bodyText The message content to analyze
      * @returns {Promise<String[]>} Array of extracted Concept Node IDs
-     * @see learn/agentos/ConceptOntology.md § Auto-Extracted Concept Provenance
-     * @see ai/services/memory-core/MailboxService.mjs#addMessage — caller (fire-and-forget)
+     * @see learn/agentos/ConceptOntology.md § Curated Tags, Historical Extraction, and Scheduled Discovery
+     * @see Neo.ai.daemons.services.ConceptDiscoveryService#runMessageConceptHarvest
      */
     async extractMessageConcepts(bodyText) {
         if (!bodyText || typeof bodyText !== 'string' || bodyText.trim().length === 0) {
@@ -1206,7 +1205,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                     if (attempt < maxRetries) {
                         messages.push({ role: 'assistant', content: result.content });
                         messages.push({
-                            role: 'user',
+                            role   : 'user',
                             content: `Your previous response failed internal schema validation. You are either missing the 'concepts' array or provided malformed JSON. Please correct your output and provide ONLY the exact JSON shape requested.`
                         });
                         payload = null;
