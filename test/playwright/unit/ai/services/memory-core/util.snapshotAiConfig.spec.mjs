@@ -57,7 +57,7 @@ test.describe('Neo.ai test-isolation — snapshotAiConfig on the real aiConfig P
     let aiConfig;
 
     test.beforeAll(async () => {
-        aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
     });
 
     test('restores an existing leaf on the real Provider singleton via the set trap', () => {

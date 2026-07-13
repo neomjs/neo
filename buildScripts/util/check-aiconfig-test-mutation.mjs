@@ -1,8 +1,8 @@
 import {execSync, spawnSync} from 'node:child_process';
-import {readFileSync}  from 'node:fs';
-import path            from 'node:path';
-import process         from 'node:process';
-import {fileURLToPath} from 'node:url';
+import {readFileSync}        from 'node:fs';
+import path                  from 'node:path';
+import process               from 'node:process';
+import {fileURLToPath}       from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -41,14 +41,10 @@ export const DB_PATH_MUTATION = new RegExp(
  * lands. Paths are repo-relative POSIX.
  */
 export const ALLOWLIST = new Set([
-    'test/playwright/unit/ai/daemons/orchestrator/services/DreamService.spec.mjs',
-    'test/playwright/unit/ai/daemons/orchestrator/services/DreamServiceGoldenPath.spec.mjs',
     'test/playwright/unit/ai/mcp/server/knowledge-base/logger.spec.mjs',
-    'test/playwright/unit/ai/mcp/server/memory-core/Server.spec.mjs',
     'test/playwright/unit/ai/mcp/server/memory-core/logger.spec.mjs',
     'test/playwright/unit/ai/mcp/server/neural-link/logger.spec.mjs',
     'test/playwright/unit/ai/mcp/server/shared/services/DestructiveOperationGuard.spec.mjs',
-    'test/playwright/unit/ai/scripts/runners/runSandman.spec.mjs',
     'test/playwright/unit/ai/services/graph/GoldenPathSynthesizer.spec.mjs',
     'test/playwright/unit/ai/services/graph/LazyEdgeDrainer.spec.mjs',
     'test/playwright/unit/ai/services/graph/SemanticGraphExtractor.spec.mjs',
@@ -56,12 +52,10 @@ export const ALLOWLIST = new Set([
     'test/playwright/unit/ai/services/ingestion/MemorySessionIngestor.spec.mjs',
     'test/playwright/unit/ai/services/memory-core/CoalescingEngineService.spec.mjs',
     'test/playwright/unit/ai/services/memory-core/DatabaseService.backupPath.spec.mjs',
-    'test/playwright/unit/ai/services/memory-core/DatabaseService.graphBackup.spec.mjs',
     'test/playwright/unit/ai/services/memory-core/DatabaseService.importMergeChroma.spec.mjs',
     'test/playwright/unit/ai/services/memory-core/FileSystemIngestor.spec.mjs',
     'test/playwright/unit/ai/services/memory-core/PermissionService.spec.mjs',
     'test/playwright/unit/ai/services/memory-core/SessionService.ResumeValidation.spec.mjs',
-    'test/playwright/unit/ai/services/memory-core/SessionSummarization.spec.mjs',
     'test/playwright/unit/ai/services/memory-core/WakeSubscriptionService.spec.mjs'
 ]);
 

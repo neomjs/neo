@@ -4,14 +4,19 @@ import os               from 'os';
 import path             from 'path';
 import Neo              from '../../../../src/Neo.mjs';
 import '../../../../src/core/_export.mjs';
-import ConfigProvider, {leaf} from '../../../../ai/ConfigProvider.mjs';
-import {TIER1_DEFAULTS}       from '../../fixtures/aiConfigDefaults.mjs';
-import {CHROMA_TEST_DATABASE} from '../../../../ai/services/shared/vector/chromaTestIsolation.mjs';
+import ConfigProvider, {createConfigProxy, leaf} from '../../../../ai/ConfigProvider.mjs';
+import {CHROMA_TEST_DATABASE}                    from '../../../../ai/services/shared/vector/chromaTestIsolation.mjs';
+import Env                                       from '../../../../src/util/Env.mjs';
 
 test.describe('Tier 1 Config Immutability', () => {
     let Config;
     let originalConfig;
     let originalClassHierarchy;
+
+    const createIsolatedConfig = () => createConfigProxy(Neo.create(ConfigProvider, {
+        data    : Config._data,
+        formulas: Config._formulas
+    }));
 
     test.beforeAll(async () => {
         originalConfig         = Neo.ai?.Config;
@@ -41,18 +46,23 @@ test.describe('Tier 1 Config Immutability', () => {
         }
     });
 
-    test('leaf defaults are not mutated by instance writes (fresh instances get clean defaults)', async () => {
-        const initialPort = Config.mcpHttpPort;
+    test('leaf defaults are not mutated by isolated instance writes (fresh instances get clean defaults)', async () => {
+        const
+            first       = createIsolatedConfig(),
+            second      = createIsolatedConfig(),
+            initialPort = second.mcpHttpPort;
 
-        // Mutate the runtime value through the singleton instance
-        Config.data.mcpHttpPort = 9999;
-        expect(Config.mcpHttpPort).toBe(9999);
+        try {
+            first.mcpHttpPort = 9999;
 
-        // A fresh instance built from the same meta-leaf tree (`_data`) gets the clean default —
-        // the instance write touched the reactive Config value, not the leaf `default`.
-        const fresh = Neo.create(ConfigProvider, {data: Config._data});
-        expect(fresh.getDataConfig('mcpHttpPort').get()).not.toBe(9999);
-        expect(fresh.getDataConfig('mcpHttpPort').get()).toBe(initialPort);
+            expect(first.mcpHttpPort).toBe(9999);
+            expect(second.mcpHttpPort).not.toBe(9999);
+            expect(second.mcpHttpPort).toBe(initialPort);
+            expect(Config.mcpHttpPort).toBe(initialPort);
+        } finally {
+            first.destroy();
+            second.destroy();
+        }
     });
 
     test('mcpHttpHost transport-host leaf owns the HOST env binding', () => {
@@ -60,9 +70,14 @@ test.describe('Tier 1 Config Immutability', () => {
         // behavior lives here on the leaf, so prove the binding resolves through it.
         expect(Config.mcpHttpHost).toBe(process.env.HOST || 'localhost');
 
-        const fresh = Neo.create(ConfigProvider, {data: Config._data});
-        fresh.setEnvOverride('HOST', 'internal-host');
-        expect(fresh.getDataConfig('mcpHttpHost').get()).toBe('internal-host');
+        const fresh = createIsolatedConfig();
+
+        try {
+            fresh.setEnvOverride('HOST', 'internal-host');
+            expect(fresh.mcpHttpHost).toBe('internal-host');
+        } finally {
+            fresh.destroy();
+        }
     });
 
     test('ships a machine-neutral orchestrator dev-sync root default', async () => {
@@ -229,7 +244,7 @@ test.describe('Tier 1 Config Immutability', () => {
         expect(Config.graphProvider).toBe(process.env.NEO_GRAPH_PROVIDER || 'openAiCompatible');
         expect(Config.embeddingProvider).toBe(process.env.NEO_EMBEDDING_PROVIDER || 'openAiCompatible');
         expect(Config.vectorDimension).toBe(Number(process.env.NEO_VECTOR_DIMENSION) || 4096);
-        expect(Config.backupPath).toBe(TIER1_DEFAULTS.backupPath);
+        expect(Config.backupPath).toBe(process.env.NEO_BACKUP_PATH || path.resolve(Config.neoRootDir, '.neo-ai-data/backups'));
         expect(Config.modelName).toBe('gemini-3.5-flash');
         expect(Config.embeddingModel).toBe('gemini-embedding-001');
 
@@ -237,8 +252,8 @@ test.describe('Tier 1 Config Immutability', () => {
             host                 : process.env.NEO_OLLAMA_HOST || 'http://127.0.0.1:11434',
             model                : process.env.NEO_OLLAMA_MODEL || 'gemma4:26b',
             embeddingModel       : process.env.NEO_OLLAMA_EMBEDDING_MODEL || 'qwen3-embedding',
-            keep_alive           : TIER1_DEFAULTS.ollama.keep_alive,
-            requireParallelModels: TIER1_DEFAULTS.ollama.requireParallelModels
+            keep_alive           : Env.parseKeepAlive('NEO_OLLAMA_KEEP_ALIVE') ?? -1,
+            requireParallelModels: Env.parseNumber('NEO_OLLAMA_REQUIRE_PARALLEL_MODELS') ?? 2
         });
         expect(Config.openAiCompatible).toMatchObject({
             host                   : process.env.NEO_OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
@@ -252,8 +267,8 @@ test.describe('Tier 1 Config Immutability', () => {
             contentionTimeoutMs    : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTENTION_TIMEOUT_MS) || 15000,
             batchEmbeddingChunkSize: Number(process.env.NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE) || 5,
             batchEmbeddingYieldMs  : Number(process.env.NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_YIELD_MS) || 0,
-            keep_alive             : TIER1_DEFAULTS.openAiCompatible.keep_alive,
-            requireParallelModels  : TIER1_DEFAULTS.openAiCompatible.requireParallelModels
+            keep_alive             : Env.parseKeepAlive('NEO_OPENAI_COMPATIBLE_KEEP_ALIVE') ?? -1,
+            requireParallelModels  : Env.parseNumber('NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS') ?? 2
         });
         expect(Config.localModels).toMatchObject({
             chat: {
@@ -268,40 +283,40 @@ test.describe('Tier 1 Config Immutability', () => {
             }
         });
         expect(Config.engines.chroma).toEqual({
-            dataDir        : process.env.NEO_CHROMA_DATA_DIR_TEST || expect.stringMatching(/neo-chroma-unit-test/),
-            dataDirProd    : expect.stringMatching(/\.neo-ai-data[/\\]chroma[/\\]unified$/),
-            dataDirTest    : process.env.NEO_CHROMA_DATA_DIR_TEST || path.join(os.tmpdir(), 'neo-chroma-unit-test'),
-            host           : process.env.NEO_CHROMA_HOST_TEST || 'localhost',
-            hostProd       : process.env.NEO_CHROMA_HOST || 'localhost',
-            hostTest       : process.env.NEO_CHROMA_HOST_TEST || 'localhost',
-            port           : Number(process.env.NEO_CHROMA_PORT_TEST) || 18180,
-            portProd       : Number(process.env.NEO_CHROMA_PORT) || 8000,
-            portTest       : Number(process.env.NEO_CHROMA_PORT_TEST) || 18180,
-            database       : process.env.NEO_CHROMA_DATABASE || 'default_database',
-            databaseTest   : process.env.NEO_CHROMA_DATABASE_TEST || CHROMA_TEST_DATABASE,
-            useTestDatabase: true
+            dataDir            : process.env.NEO_CHROMA_DATA_DIR_TEST || expect.stringMatching(/neo-chroma-unit-test/),
+            dataDirProd        : expect.stringMatching(/\.neo-ai-data[/\\]chroma[/\\]unified$/),
+            dataDirTest        : process.env.NEO_CHROMA_DATA_DIR_TEST || path.join(os.tmpdir(), 'neo-chroma-unit-test'),
+            host               : process.env.NEO_CHROMA_HOST_TEST || 'localhost',
+            hostProd           : process.env.NEO_CHROMA_HOST || 'localhost',
+            hostTest           : process.env.NEO_CHROMA_HOST_TEST || 'localhost',
+            port               : Number(process.env.NEO_CHROMA_PORT_TEST) || 18180,
+            portProd           : Number(process.env.NEO_CHROMA_PORT) || 8000,
+            portTest           : Number(process.env.NEO_CHROMA_PORT_TEST) || 18180,
+            database           : process.env.NEO_CHROMA_DATABASE || 'default_database',
+            databaseTest       : process.env.NEO_CHROMA_DATABASE_TEST || CHROMA_TEST_DATABASE,
+            useTestDatabase    : true,
+            useTestHarness     : true,
+            useUnitTestDatabase: true
         });
     });
 
     test('keeps local embedding context env overrides role-scoped (#12286)', () => {
-        const originalContext  = Config.localModels.embedding.contextLimitTokens,
-              originalSafe     = Config.localModels.embedding.safeProcessingLimitTokens,
-              originalParallel = Config.localModels.embedding.parallel;
+        const isolatedConfig = createIsolatedConfig();
 
-        Config.setEnvOverride('NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS', 12345);
-        Config.setEnvOverride('NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS', 11111);
-        Config.setEnvOverride('NEO_LOCAL_MODELS_EMBEDDING_PARALLEL', 2);
+        try {
+            isolatedConfig.setEnvOverride('NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS', 12345);
+            isolatedConfig.setEnvOverride('NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS', 11111);
+            isolatedConfig.setEnvOverride('NEO_LOCAL_MODELS_EMBEDDING_PARALLEL', 2);
 
-        expect(Config.localModels.embedding).toMatchObject({
-            contextLimitTokens       : 12345,
-            safeProcessingLimitTokens: 11111,
-            parallel                 : 2
-        });
-        expect(Config.localModels.chat.contextLimitTokens).toBe(Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || 131072);
-
-        Config.setEnvOverride('NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS', originalContext);
-        Config.setEnvOverride('NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS', originalSafe);
-        Config.setEnvOverride('NEO_LOCAL_MODELS_EMBEDDING_PARALLEL', originalParallel);
+            expect(isolatedConfig.localModels.embedding).toMatchObject({
+                contextLimitTokens       : 12345,
+                safeProcessingLimitTokens: 11111,
+                parallel                 : 2
+            });
+            expect(isolatedConfig.localModels.chat.contextLimitTokens).toBe(Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || 131072);
+        } finally {
+            isolatedConfig.destroy();
+        }
     });
 
     test('ships top-level deployment and maintenance policy defaults', async () => {
@@ -380,21 +395,28 @@ test.describe('Tier 1 Config Immutability', () => {
             selfHealRecentEventLimit: 10
         });
 
-        Config.setEnvOverride('NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED', false);
-        expect(Config.orchestrator.deploymentStateBridge.enabled).toBe(false);
-        Config.setEnvOverride('NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED', true);
-        expect(Config.orchestrator.deploymentStateBridge.enabled).toBe(true);
+        const isolatedConfig = createIsolatedConfig();
 
-        // The self-heal snapshot's recent-event cap (a distinct surface from recoveryRunLimit) is env-bound.
-        Config.setEnvOverride('NEO_DEPLOYMENT_STATE_BRIDGE_SELF_HEAL_RECENT_EVENT_LIMIT', 25);
-        expect(Config.orchestrator.deploymentStateBridge.selfHealRecentEventLimit).toBe(25);
-        Config.setEnvOverride('NEO_DEPLOYMENT_STATE_BRIDGE_SELF_HEAL_RECENT_EVENT_LIMIT', 10);
+        try {
+            isolatedConfig.setEnvOverride('NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED', false);
+            expect(isolatedConfig.orchestrator.deploymentStateBridge.enabled).toBe(false);
+            isolatedConfig.setEnvOverride('NEO_DEPLOYMENT_STATE_BRIDGE_ENABLED', true);
+            expect(isolatedConfig.orchestrator.deploymentStateBridge.enabled).toBe(true);
 
-        // Heal-event ledger retention — operator-configurable runtime policy, not a helper magic number.
-        expect(Config.orchestrator.recoveryActuator.healLedger).toMatchObject({maxEvents: 5000, pruneTriggerBytes: 1024 * 1024});
-        Config.setEnvOverride('NEO_RECOVERY_ACTUATOR_HEAL_LEDGER_MAX_EVENTS', 1234);
-        expect(Config.orchestrator.recoveryActuator.healLedger.maxEvents).toBe(1234);
-        Config.setEnvOverride('NEO_RECOVERY_ACTUATOR_HEAL_LEDGER_MAX_EVENTS', 5000);
+            // The self-heal snapshot's recent-event cap (a distinct surface from recoveryRunLimit) is env-bound.
+            isolatedConfig.setEnvOverride('NEO_DEPLOYMENT_STATE_BRIDGE_SELF_HEAL_RECENT_EVENT_LIMIT', 25);
+            expect(isolatedConfig.orchestrator.deploymentStateBridge.selfHealRecentEventLimit).toBe(25);
+
+            // Heal-event ledger retention — operator-configurable runtime policy, not a helper magic number.
+            expect(isolatedConfig.orchestrator.recoveryActuator.healLedger).toMatchObject({
+                maxEvents        : 5000,
+                pruneTriggerBytes: 1024 * 1024
+            });
+            isolatedConfig.setEnvOverride('NEO_RECOVERY_ACTUATOR_HEAL_LEDGER_MAX_EVENTS', 1234);
+            expect(isolatedConfig.orchestrator.recoveryActuator.healLedger.maxEvents).toBe(1234);
+        } finally {
+            isolatedConfig.destroy();
+        }
 
         // Provider-readiness probe parameters consumed by the orchestrator dream task
         // + standalone Sandman CLI runner. Values are concrete defaults — no module-level
@@ -452,26 +474,34 @@ test.describe('Tier 1 Config Immutability', () => {
         // rather than silently disarming appendHealEvent's prune gate and letting the shared ledger grow unbounded.
         const {validateHealLedgerRetention} = await import('../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs');
 
-        Config.setEnvOverride('NEO_RECOVERY_ACTUATOR_HEAL_LEDGER_MAX_EVENTS', -1);
-        expect(() => validateHealLedgerRetention(
-            Config.orchestrator.recoveryActuator.healLedger.maxEvents,
-            Config.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes
-        )).toThrow(/maxEvents must be a finite, non-negative number/);
-        Config.setEnvOverride('NEO_RECOVERY_ACTUATOR_HEAL_LEDGER_MAX_EVENTS', 5000);
+        const isolatedConfig = createIsolatedConfig();
+
+        try {
+            isolatedConfig.setEnvOverride('NEO_RECOVERY_ACTUATOR_HEAL_LEDGER_MAX_EVENTS', -1);
+            expect(() => validateHealLedgerRetention(
+                isolatedConfig.orchestrator.recoveryActuator.healLedger.maxEvents,
+                isolatedConfig.orchestrator.recoveryActuator.healLedger.pruneTriggerBytes
+            )).toThrow(/maxEvents must be a finite, non-negative number/);
+        } finally {
+            isolatedConfig.destroy();
+        }
     });
 
     test('ships default-off GitLab-PAT hardening leaves as CSV-backed arrays', () => {
         expect(Config.auth.allowedClientIds).toEqual([]);
         expect(Config.auth.allowedUsers).toEqual([]);
 
-        Config.setEnvOverride('NEO_AUTH_ALLOWED_CLIENT_IDS', ['mcp-oauth-app']);
-        Config.setEnvOverride('NEO_AUTH_ALLOWED_USERS', ['neo-gpt']);
+        const isolatedConfig = createIsolatedConfig();
 
-        expect(Config.auth.allowedClientIds).toEqual(['mcp-oauth-app']);
-        expect(Config.auth.allowedUsers).toEqual(['neo-gpt']);
+        try {
+            isolatedConfig.setEnvOverride('NEO_AUTH_ALLOWED_CLIENT_IDS', ['mcp-oauth-app']);
+            isolatedConfig.setEnvOverride('NEO_AUTH_ALLOWED_USERS', ['neo-gpt']);
 
-        Config.setEnvOverride('NEO_AUTH_ALLOWED_CLIENT_IDS', []);
-        Config.setEnvOverride('NEO_AUTH_ALLOWED_USERS', []);
+            expect(isolatedConfig.auth.allowedClientIds).toEqual(['mcp-oauth-app']);
+            expect(isolatedConfig.auth.allowedUsers).toEqual(['neo-gpt']);
+        } finally {
+            isolatedConfig.destroy();
+        }
     });
 
     test('keeps config ledgers inside config classes', async () => {

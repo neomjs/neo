@@ -32,11 +32,11 @@ const __filename    = fileURLToPath(import.meta.url);
 const __dirname     = path.dirname(__filename);
 
 /**
- * #11150 — Production-scale restore hardening regression tests.
+ * Production-scale restore hardening regression tests.
  *
  * The 2026-05-10 graph + Chroma recovery surfaced 3 bugs that hid until real-world
- * backup data exercised them. Each test below pins the empirical anchor that drove
- * the corresponding fix in #11151.
+ * backup data exercised them. Each test below pins the corresponding empirical
+ * regression boundary.
  *
  * 1. **Bootstrap regression** (`restore.mjs` Neo namespace): fresh-process spawn
  *    must not throw `ReferenceError: Neo is not defined` from `Compare.mjs:166`.
@@ -135,9 +135,9 @@ test.describe('restore hardening regression (#11150 / #11151)', () => {
         // surface. Mock the Memory_StorageRouter.getMemoryCollection to return a fake
         // collection with add + get spies; record per-call record-count, assert chunked.
         //
-        // #11144 changed merge-mode's Chroma primitive from `upsert()` to a preflight
-        // `get({ids})` existence check + `add()` for missing-only IDs. With no live
-        // records, every backup ID is "missing" → 1000 records still chunk into 4
+        // Merge mode uses a preflight `get({ids})` existence check plus `add()` for
+        // missing-only IDs instead of `upsert()`. With no live records, every backup
+        // ID is "missing" → 1000 records still chunk into 4
         // chunks of 250 (same CHROMA_UPSERT_CHUNK_SIZE budget). Also assert the
         // existence-preflight is chunked at the same boundary.
         const SDK                    = await import('../../../../../../ai/services.mjs');
@@ -147,7 +147,7 @@ test.describe('restore hardening regression (#11150 / #11151)', () => {
         // This test exercises chunking, not vector validity. Build fixtures AT the resolved
         // aiConfig.vectorDimension (READ it, never mutate — the reactive Provider SSOT must not be written
         // from a test) so they pass the atomic vector-write gate authentically.
-        const aiConfig       = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig       = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         const validEmbedding = new Array(aiConfig.vectorDimension).fill(0);
 
         const addCalls       = [];

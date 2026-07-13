@@ -31,7 +31,7 @@ test.describe('Neo.ai.services.knowledge-base.source.ConceptSource', () => {
     let mockRoot;
 
     test.beforeAll(async () => {
-        aiConfig    = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
+        aiConfig    = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
         ConceptSource = (await import('../../../../../../../ai/services/knowledge-base/source/ConceptSource.mjs')).default;
 
         originalRoot = aiConfig.neoRootDir;
@@ -66,7 +66,7 @@ Neo.mjs distributes application logic across dedicated Web Workers.`);
     });
 
     test('extract() emits correctly typed and chunked concepts', async () => {
-        const written = [];
+        const written     = [];
         const writeStream = {
             write(chunkStr) {
                 written.push(JSON.parse(chunkStr.trim()));
@@ -82,12 +82,12 @@ Neo.mjs distributes application logic across dedicated Web Workers.`);
 
         const chunk = written[0];
         expect(chunk).toMatchObject({
-            type: 'concept',
-            kind: 'concept',
-            name: 'Multi-Threading Architecture',
-            tier: 1,
+            type       : 'concept',
+            kind       : 'concept',
+            name       : 'Multi-Threading Architecture',
+            tier       : 1,
             description: 'Neo.mjs distributes application logic across dedicated Web Workers.',
-            content: 'Multi-Threading Architecture: Neo.mjs distributes application logic across dedicated Web Workers.'
+            content    : 'Multi-Threading Architecture: Neo.mjs distributes application logic across dedicated Web Workers.'
         });
     });
 });

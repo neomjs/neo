@@ -13,12 +13,12 @@ setup({
     }
 });
 
-import {test, expect}  from '@playwright/test';
-import fs              from 'fs/promises';
-import path            from 'path';
-import os              from 'os';
-import Neo             from '../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../src/core/_export.mjs';
+import {test, expect} from '@playwright/test';
+import fs             from 'fs/promises';
+import path           from 'path';
+import os             from 'os';
+import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
 
 test.describe('Neo.ai.services.github-workflow.sync.MetadataManager', () => {
     test.describe.configure({mode: 'serial'});
@@ -29,7 +29,7 @@ test.describe('Neo.ai.services.github-workflow.sync.MetadataManager', () => {
     let testMetadataFile;
 
     test.beforeAll(async () => {
-        aiConfig = (await import('../../../../../../ai/mcp/server/github-workflow/config.mjs')).default;
+        aiConfig = (await import('../../../../../../ai/mcp/server/github-workflow/config.template.mjs')).default;
         originalMetadataFile = aiConfig.issueSync.metadataFile;
         testMetadataFile = path.join(os.tmpdir(), `neo-metadata-manager-test-${Date.now()}.json`);
         aiConfig.issueSync.metadataFile = testMetadataFile;
@@ -48,28 +48,28 @@ test.describe('Neo.ai.services.github-workflow.sync.MetadataManager', () => {
 
     test('save() preserves specific fields for discussions and pulls, and maintains backward compatibility', async () => {
         const metadata = {
-            lastSync: '2026-05-13T00:00:00Z',
+            lastSync           : '2026-05-13T00:00:00Z',
             releasesLastFetched: '2026-05-13T00:00:00Z',
-            issues: {
+            issues             : {
                 '123': {
-                    state: 'OPEN',
-                    path: 'issues/123.md',
-                    closedAt: null,
-                    updatedAt: '2026-05-13T00:00:00Z',
-                    contentHash: 'hash1',
-                    commentsTotal: 5,
+                    state                   : 'OPEN',
+                    path                    : 'issues/123.md',
+                    closedAt                : null,
+                    updatedAt               : '2026-05-13T00:00:00Z',
+                    contentHash             : 'hash1',
+                    commentsTotal           : 5,
                     extraFieldShouldBePruned: true
                 },
                 // Milestone metadata regression — object form (freshly fetched, post-API hydrate):
                 // closed issue with milestone object persists as string title.
                 '7910': {
-                    state: 'CLOSED',
-                    path: 'issues/v11.12.0/issue-7910.md',
-                    closedAt: '2025-11-29T11:41:17Z',
-                    updatedAt: '2025-11-29T11:44:14Z',
-                    contentHash: 'hash7910',
+                    state        : 'CLOSED',
+                    path         : 'issues/v11.12.0/issue-7910.md',
+                    closedAt     : '2025-11-29T11:41:17Z',
+                    updatedAt    : '2025-11-29T11:44:14Z',
+                    contentHash  : 'hash7910',
                     commentsTotal: 1,
-                    milestone: {title: '11.12.0'}
+                    milestone    : {title: '11.12.0'}
                 },
                 // Milestone metadata regression — string form (cached, carried forward from previous save):
                 // `IssueSyncer.pullFromGitHub` seeds newMetadata.issues from existing serialized
@@ -77,46 +77,46 @@ test.describe('Neo.ai.services.github-workflow.sync.MetadataManager', () => {
                 // save() with milestone already as a string. Naive `value.milestone?.title || null`
                 // would prune to `null` here. String form MUST pass through verbatim.
                 '7911': {
-                    state: 'CLOSED',
-                    path: 'issues/v11.13.0/issue-7911.md',
-                    closedAt: '2025-11-29T12:00:00Z',
-                    updatedAt: '2025-11-29T12:00:00Z',
-                    contentHash: 'hash7911',
+                    state        : 'CLOSED',
+                    path         : 'issues/v11.13.0/issue-7911.md',
+                    closedAt     : '2025-11-29T12:00:00Z',
+                    updatedAt    : '2025-11-29T12:00:00Z',
+                    contentHash  : 'hash7911',
                     commentsTotal: 0,
-                    milestone: '11.13.0'
+                    milestone    : '11.13.0'
                 }
             },
             discussions: {
                 '456': {
-                    number: 456,
-                    path: 'discussions/456.md',
-                    closed: true,
-                    closedAt: '2026-05-13T00:00:00Z',
-                    contentHash: 'hash2',
+                    number                  : 456,
+                    path                    : 'discussions/456.md',
+                    closed                  : true,
+                    closedAt                : '2026-05-13T00:00:00Z',
+                    contentHash             : 'hash2',
                     extraFieldShouldBePruned: true
                 },
                 '457': {
                     // Backward compatibility: existing metadata might not have path/closed
-                    number: 457,
+                    number     : 457,
                     contentHash: 'hash2_legacy'
                 }
             },
             pulls: {
                 '789': {
-                    state: 'MERGED',
-                    path: 'pulls/789.md',
-                    closedAt: '2026-05-13T00:00:00Z',
-                    mergedAt: '2026-05-13T00:00:00Z',
-                    milestone: 'v1.0.0',
-                    archiveVersion: 'v1.0.0',
-                    updatedAt: '2026-05-13T00:00:00Z',
-                    contentHash: 'hash3',
+                    state                   : 'MERGED',
+                    path                    : 'pulls/789.md',
+                    closedAt                : '2026-05-13T00:00:00Z',
+                    mergedAt                : '2026-05-13T00:00:00Z',
+                    milestone               : 'v1.0.0',
+                    archiveVersion          : 'v1.0.0',
+                    updatedAt               : '2026-05-13T00:00:00Z',
+                    contentHash             : 'hash3',
                     extraFieldShouldBePruned: true
                 },
                 '790': {
                      // Backward compatibility: existing metadata might not have mergedAt/milestone
-                     state: 'OPEN',
-                     updatedAt: '2026-05-13T00:00:00Z',
+                     state      : 'OPEN',
+                     updatedAt  : '2026-05-13T00:00:00Z',
                      contentHash: 'hash3_legacy'
                 }
             }
@@ -173,21 +173,21 @@ test.describe('Neo.ai.services.github-workflow.sync.MetadataManager', () => {
 
     test('save() skips timestamp-only metadata writes (#10267)', async () => {
         const metadata = {
-            lastSync: '2026-04-23T22:00:00Z',
+            lastSync           : '2026-04-23T22:00:00Z',
             releasesLastFetched: '2026-04-23T22:00:00Z',
-            pushFailures: [],
-            issues: {
+            pushFailures       : [],
+            issues             : {
                 '10267': {
-                    state: 'OPEN',
-                    path: 'issues/10267.md',
-                    closedAt: null,
-                    updatedAt: '2026-04-23T22:03:18Z',
-                    contentHash: 'hash-10267',
+                    state        : 'OPEN',
+                    path         : 'issues/10267.md',
+                    closedAt     : null,
+                    updatedAt    : '2026-04-23T22:03:18Z',
+                    contentHash  : 'hash-10267',
                     commentsTotal: 0
                 }
             },
-            releases: {},
-            pulls: {},
+            releases   : {},
+            pulls      : {},
             discussions: {}
         };
 
@@ -196,7 +196,7 @@ test.describe('Neo.ai.services.github-workflow.sync.MetadataManager', () => {
 
         await MetadataManager.save({
             ...metadata,
-            lastSync: '2026-06-03T00:00:00Z',
+            lastSync           : '2026-06-03T00:00:00Z',
             releasesLastFetched: '2026-06-03T00:00:00Z'
         });
 
@@ -204,9 +204,9 @@ test.describe('Neo.ai.services.github-workflow.sync.MetadataManager', () => {
 
         await MetadataManager.save({
             ...metadata,
-            lastSync: '2026-06-03T00:00:00Z',
+            lastSync           : '2026-06-03T00:00:00Z',
             releasesLastFetched: '2026-06-03T00:00:00Z',
-            issues: {
+            issues             : {
                 ...metadata.issues,
                 '10267': {
                     ...metadata.issues['10267'],

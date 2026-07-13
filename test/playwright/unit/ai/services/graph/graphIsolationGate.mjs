@@ -14,7 +14,7 @@
  */
 export function assertIsolatedGraphTarget({useTestDatabase, graph, graphProd}) {
     if (useTestDatabase !== true) {
-        throw new Error('graph-isolation gate: refusing to run — storagePaths.useTestDatabase is not true, so graph writes would hit the PRODUCTION database. Run through the unit-test runner (UNIT_TEST_MODE) instead of invoking the spec bare.');
+        throw new Error('graph-isolation gate: refusing to run — storagePaths.useTestDatabase is not true, so graph writes would hit the PRODUCTION database. Run through a Playwright config instead of invoking the spec bare.');
     }
 
     if (graph === graphProd) {

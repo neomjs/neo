@@ -1,11 +1,11 @@
 import {setup} from '../../../../setup.mjs';
 setup({neoConfig: {unitTestMode: true}});
 
-import {test, expect}  from '@playwright/test';
-import Neo             from '../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../src/core/_export.mjs';
-import fs from 'fs-extra';
-import path from 'path';
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
+import fs             from 'fs-extra';
+import path           from 'path';
 
 test.describe('Neo.ai.services.knowledge-base.DatabaseService sync', () => {
     let DatabaseService;
@@ -13,14 +13,14 @@ test.describe('Neo.ai.services.knowledge-base.DatabaseService sync', () => {
     let VectorService;
 
     test.beforeAll(async () => {
-        aiConfig = (await import('../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
+        aiConfig = (await import('../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
         DatabaseService = (await import('../../../../../../ai/services.mjs')).KB_DatabaseService;
         VectorService = (await import('../../../../../../ai/services/knowledge-base/VectorService.mjs')).default;
     });
 
     test('createKnowledgeBase() emits type: adr chunks', async () => {
         const originalDataPath = aiConfig.dataPath;
-        const testDataPath = path.join(aiConfig.neoRootDir, 'dist', 'test-ai-knowledge-base.jsonl');
+        const testDataPath     = path.join(aiConfig.neoRootDir, 'dist', 'test-ai-knowledge-base.jsonl');
 
         try {
             aiConfig.dataPath = testDataPath;
@@ -34,7 +34,7 @@ test.describe('Neo.ai.services.knowledge-base.DatabaseService sync', () => {
             const content = await fs.readFile(testDataPath, 'utf8');
 
             // Assert that ADR chunks were emitted
-            const lines = content.trim().split('\n');
+            const lines     = content.trim().split('\n');
             const adrChunks = lines.filter(line => {
                 if (!line) return false;
                 const chunk = JSON.parse(line);
@@ -52,7 +52,7 @@ test.describe('Neo.ai.services.knowledge-base.DatabaseService sync', () => {
 
     test('embedKnowledgeBase forwards explicit staleStrategy while default remains unchanged', async () => {
         const originalEmbed = VectorService.embed.bind(VectorService);
-        const calls = [];
+        const calls         = [];
 
         VectorService.embed = async (knowledgeBasePath, options) => {
             calls.push({knowledgeBasePath, options});

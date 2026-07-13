@@ -28,7 +28,7 @@ test.describe('Neo.ai.services.knowledge-base.source.TicketSource', () => {
     let mockRoot;
 
     test.beforeAll(async () => {
-        aiConfig = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
+        aiConfig = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
         TicketSource = (await import('../../../../../../../ai/services/knowledge-base/source/TicketSource.mjs')).default;
 
         originalRoot = aiConfig.neoRootDir;

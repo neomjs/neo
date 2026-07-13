@@ -12,34 +12,44 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
-import Neo from '../../../../../../src/Neo.mjs';
-import * as core from '../../../../../../src/core/_export.mjs';
-import crypto from 'crypto';
+import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
+import crypto         from 'crypto';
 
 let WebhookDeliveryService;
 let GraphService;
 
 test.describe('WebhookDeliveryService', () => {
-    let fetchCalls = [];
+    let fetchCalls   = [];
     let updatedNodes = [];
+    let originalFetch, originalGetNode, originalUpsertNode;
 
     test.beforeAll(async () => {
         WebhookDeliveryService = (await import('../../../../../../ai/services/memory-core/WebhookDeliveryService.mjs')).default;
-        GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        GraphService           = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        originalFetch          = global.fetch;
+        originalGetNode        = GraphService.getNode;
+        originalUpsertNode     = GraphService.upsertNode;
+    });
+
+    test.afterAll(() => {
+        global.fetch            = originalFetch;
+        GraphService.getNode    = originalGetNode;
+        GraphService.upsertNode = originalUpsertNode;
     });
 
     test.beforeEach(() => {
         fetchCalls = [];
         updatedNodes = [];
-        
+
         // Mock global fetch
         global.fetch = async (url, options) => {
             fetchCalls.push({ url, options });
-            
+
             if (global.mockFetchResponse) {
                 return global.mockFetchResponse(url, options);
             }
-            
+
             return { ok: true, status: 200 };
         };
 
@@ -47,11 +57,11 @@ test.describe('WebhookDeliveryService', () => {
         GraphService.getNode = ({ id }) => {
             if (id === 'WAKE_SUB:123') {
                 return {
-                    id: 'WAKE_SUB:123',
+                    id        : 'WAKE_SUB:123',
                     properties: {
-                        harnessTarget: 'mcp-notifications',
+                        harnessTarget        : 'mcp-notifications',
                         harnessTargetMetadata: {
-                            url: 'http://localhost:8080/webhook',
+                            url       : 'http://localhost:8080/webhook',
                             signingKey: 'secret123'
                         }
                     }
@@ -76,10 +86,10 @@ test.describe('WebhookDeliveryService', () => {
 
     test('delivers event successfully and signs it', async () => {
         const subscription = GraphService.getNode({ id: 'WAKE_SUB:123' });
-        const eventData = {
-            eventId: '01HXXX',
+        const eventData    = {
+            eventId      : '01HXXX',
             schemaVersion: '1.0',
-            payload: { message: 'hello' }
+            payload      : { message: 'hello' }
         };
 
         await WebhookDeliveryService.deliver(subscription, eventData);
@@ -99,7 +109,7 @@ test.describe('WebhookDeliveryService', () => {
 
     test('marks degraded immediately on 4xx response', async () => {
         const subscription = GraphService.getNode({ id: 'WAKE_SUB:123' });
-        const eventData = { eventId: '01HXXX' };
+        const eventData    = { eventId: '01HXXX' };
 
         global.mockFetchResponse = () => ({ ok: false, status: 400 });
 
@@ -112,7 +122,7 @@ test.describe('WebhookDeliveryService', () => {
 
     test('retries on 5xx response and degrades after 3 failures', async () => {
         const subscription = GraphService.getNode({ id: 'WAKE_SUB:123' });
-        const eventData = { eventId: '01HXXX' };
+        const eventData    = { eventId: '01HXXX' };
 
         const originalSetTimeout = global.setTimeout;
         global.setTimeout = (fn, delay) => originalSetTimeout(fn, 10);

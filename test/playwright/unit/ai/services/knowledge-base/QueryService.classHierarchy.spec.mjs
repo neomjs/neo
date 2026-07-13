@@ -26,7 +26,7 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#getClassHierarchy', (
     let tmpHierarchyPath;
 
     test.beforeAll(async () => {
-        aiConfig      = (await import('../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
+        aiConfig      = (await import('../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
         QueryService  = (await import('../../../../../../ai/services/knowledge-base/QueryService.mjs')).default;
 
         originalHierarchyPath = aiConfig.hierarchyPath;

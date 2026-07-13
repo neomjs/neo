@@ -3,7 +3,7 @@ import fs                         from 'fs-extra';
 import path                       from 'path';
 import Neo                        from '../../../../../../src/Neo.mjs';
 import * as core                  from '../../../../../../src/core/_export.mjs';
-import AiConfig                   from '../../../../../../ai/config.mjs';
+import AiConfig                   from '../../../../../../ai/config.template.mjs';
 import {Orchestrator}             from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
 import {ProcessSupervisorService} from '../../../../../../ai/daemons/orchestrator/services/ProcessSupervisorService.mjs';
 import {

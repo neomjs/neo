@@ -2,7 +2,7 @@ import {test, expect}                   from '@playwright/test';
 import Neo                              from '../../../../../../../src/Neo.mjs';
 import * as core                        from '../../../../../../../src/core/_export.mjs';
 import DreamService                     from '../../../../../../../ai/daemons/orchestrator/services/DreamService.mjs';
-import AiConfig                         from '../../../../../../../ai/config.mjs';
+import AiConfig                         from '../../../../../../../ai/config.template.mjs';
 import {Memory_Config as MemoryConfig}  from '../../../../../../../ai/services.mjs';
 import logger                           from '../../../../../../../ai/mcp/server/memory-core/logger.mjs';
 import {mkdtemp, readdir, readFile, rm} from 'fs/promises';

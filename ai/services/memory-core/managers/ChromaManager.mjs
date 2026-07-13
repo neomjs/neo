@@ -112,10 +112,9 @@ class ChromaManager extends AbstractVectorManager {
             throw new Error(message);
         }
 
-        // Select the test database via the config-owned `useTestDatabase` toggle (a declarative env-driven
-        // leaf resolved from UNIT_TEST_MODE). Both DB names are config literals, so the test path depends on
-        // no env var the runner must remember to set — `npx playwright` without `npm run test-unit` still
-        // toggles to the test DB and cannot bleed unit collections into production by construction.
+        // Select the test database via the config-owned `useTestDatabase` toggle. Current templates
+        // compute it from unit-test or Playwright-harness inputs; existing overlays expose the same
+        // stable effective key, so consumer behavior stays migration-compatible.
         const useTestDatabase = chroma.useTestDatabase === true;
         const database        = useTestDatabase ? chroma.databaseTest : chroma.database;
 

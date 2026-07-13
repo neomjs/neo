@@ -120,7 +120,27 @@ class Config extends ConfigProvider {
              * land beside `nl_action_log` without coupling either MCP server's schema.
              * @type {string}
              */
-            memoryCoreDbPath: leaf(path.join(os.homedir(), '.neo-ai-data', 'memory-core.sqlite'), 'NEO_MEMORY_DB_PATH', 'string'),
+            memoryCoreDbPathProd: leaf(path.join(os.homedir(), '.neo-ai-data', 'memory-core.sqlite'), 'NEO_MEMORY_DB_PATH', 'string'),
+            /**
+             * @summary Per-process test destination for shared KB/NL telemetry.
+             * @type {string}
+             */
+            memoryCoreDbPathTest: leaf(
+                path.join(os.tmpdir(), `neo-memory-core-test-${process.pid}.sqlite`),
+                'NEO_TELEMETRY_DB_PATH_TEST',
+                'string'
+            ),
+            /**
+             * @summary Selects the disposable telemetry database under Playwright.
+             * @type {boolean}
+             */
+            memoryCoreDbUseTestDatabase: leaf(false, 'UNIT_TEST_MODE', 'boolean'),
+            /**
+             * @summary Selects disposable telemetry storage in every Playwright mode, including
+             * integration/E2E modes which deliberately do not claim UNIT_TEST_MODE semantics.
+             * @type {boolean}
+             */
+            memoryCoreDbUseTestHarness: leaf(false, 'NEO_TEST_CONFIG_TEMPLATES', 'boolean'),
             /**
              * @summary Repetition threshold for promoting KB queries into Agent FAQ clusters.
              *
@@ -508,6 +528,10 @@ class Config extends ConfigProvider {
                 inheritanceBoost  : 80,
                 inheritanceDecay  : 0.6
             })
+        },
+        formulas: {
+            'memoryCoreDbPath': data => data.memoryCoreDbUseTestDatabase || data.memoryCoreDbUseTestHarness ?
+                data.memoryCoreDbPathTest : data.memoryCoreDbPathProd
         }
     }
 }

@@ -13,11 +13,11 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
-import fs             from 'fs';
-import path           from 'path';
+import {test, expect}                          from '@playwright/test';
+import Neo                                     from '../../../../../../src/Neo.mjs';
+import * as core                               from '../../../../../../src/core/_export.mjs';
+import fs                                      from 'fs';
+import path                                    from 'path';
 import {snapshotAiConfig, TestLifecycleHelper} from '../../services/memory-core/util.mjs';
 
 test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
@@ -69,7 +69,7 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
     }
 
     test.beforeAll(async () => {
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
 
         const tmpDir = path.resolve(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) {
@@ -247,14 +247,14 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
             {id: 'mem-2', metadata: {sessionId: 'agent-session-3', createdAt: '2026-04-21T12:02:00Z', userId: 'tobiu'}}
         ]);
 
-        const first = await MemorySessionIngestor.syncSessionToGraph(session, {memoryCollection});
+        const first           = await MemorySessionIngestor.syncSessionToGraph(session, {memoryCollection});
         const nodesAfterFirst = new Set(GraphService.db.nodes.items.map(n => n.id));
         const edgesAfterFirst = GraphService.db.edges.items
             .map(e => `${e.source}|${e.target}|${e.type}`)
             .sort()
             .join('\n');
 
-        const second = await MemorySessionIngestor.syncSessionToGraph(session, {memoryCollection});
+        const second           = await MemorySessionIngestor.syncSessionToGraph(session, {memoryCollection});
         const nodesAfterSecond = new Set(GraphService.db.nodes.items.map(n => n.id));
         const edgesAfterSecond = GraphService.db.edges.items
             .map(e => `${e.source}|${e.target}|${e.type}`)
@@ -337,7 +337,7 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
     });
 
     test('should reject input missing session.meta.sessionId and return an error', async () => {
-        const session = {id: 'chroma-summary-bad', meta: {/* missing sessionId */}};
+        const session          = {id: 'chroma-summary-bad', meta: {/* missing sessionId */}};
         const memoryCollection = stubMemoryCollection([]);
 
         const stats = await MemorySessionIngestor.syncSessionToGraph(session, {memoryCollection});
@@ -403,7 +403,7 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
         // the session node first, but the FK-verify in linkNodes reads from SQLite — which the
         // in-memory upsert path populates via addNode → storage. This is consistent with the
         // forward-ingestion test pattern in earlier cases here.
-        const memoryCollection  = stubMemoryCollection([
+        const memoryCollection = stubMemoryCollection([
             {id: 'mem-xyz', metadata: {sessionId: 'sess-xyz', createdAt: '2026-04-21T10:00:00Z', userId: 'tobiu'}}
         ]);
         const summaryCollection = stubSummaryCollection([
@@ -464,7 +464,7 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
     });
 
     test('ingestSingleRow normalizes uppercase MEMORY: prefix to canonical lowercase', async () => {
-        const memoryCollection  = stubMemoryCollection([
+        const memoryCollection = stubMemoryCollection([
             {id: 'mem-upper', metadata: {sessionId: 'sess-upper', createdAt: '2026-04-21T10:00:00Z', userId: 'tobiu'}}
         ]);
         const summaryCollection = stubSummaryCollection([

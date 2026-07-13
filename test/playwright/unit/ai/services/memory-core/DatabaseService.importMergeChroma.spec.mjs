@@ -37,16 +37,16 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
      *   - live records (in `liveIds`) survive a colliding merge import
      */
     function buildFakeCollection({name, liveIds = []}) {
-        const live      = new Set(liveIds);
+        const live        = new Set(liveIds);
         const addCalls    = [];
         const upsertCalls = [];
 
         return {
             name,
-            _live      : live,
+            _live: live,
             addCalls,
             upsertCalls,
-            get: async ({ids = [], include}) => {
+            get  : async ({ids = [], include}) => {
                 // Existence-check shape: `get({ids, include: []})` — return live overlap.
                 const overlap = ids.filter(id => live.has(id));
                 return {ids: overlap};
@@ -81,7 +81,7 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
     }
 
     test.beforeAll(async () => {
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         if (!aiConfig.collections) aiConfig.collections = {};
         aiConfig.collections.memory  = `test-memory-${process.pid}-${Date.now()}`;
         aiConfig.collections.session = `test-session-${process.pid}-${Date.now()}`;
@@ -266,7 +266,7 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
         Memory_StorageRouter.getSummaryCollection = async () => buildFakeCollection({name: 'fake-summaries'});
 
         // truncateDatabase routes through CollectionProxy.drop() against the real
-        // production path's destructive-operation guard (#10845). The guard is
+        // production path's destructive-operation guard. The guard is
         // covered by restore-hardening.spec.mjs and is not what this test verifies;
         // stub it to a no-op so we exercise the post-truncate upsert branch in
         // isolation. Restored at end of test.
@@ -354,7 +354,7 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
         // Backward-compat aggregate: memoriesInserted = memories.inserted + summaries.inserted
         expect(result.counts.memoriesInserted).toBe(1);
 
-        // Top-level `imported` and `mode` preserved per #11141 contract
+        // Top-level `imported` and `mode` remain part of the public import-result contract.
         expect(result.imported).toBe(1);
         expect(result.mode).toBe('merge');
     });

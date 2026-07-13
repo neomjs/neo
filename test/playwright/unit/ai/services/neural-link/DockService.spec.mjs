@@ -32,7 +32,7 @@ test.describe('Neo.ai.services.neural-link.DockService — perspective tool pass
     test.beforeAll(async () => {
         // Prevent the ConnectionService singleton from auto-spawning a Bridge process at import
         // time (autoConnect → initAsync → spawnBridge) — mirrors ComponentService.spec.mjs.
-        (await import('../../../../../../ai/mcp/server/neural-link/config.mjs')).default.data.autoConnect = false;
+        (await import('../../../../../../ai/mcp/server/neural-link/config.template.mjs')).default.data.autoConnect = false;
 
         ConnectionService = (await import('../../../../../../ai/services/neural-link/ConnectionService.mjs')).default;
         originalReady           = ConnectionService.ready;

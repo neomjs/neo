@@ -1,10 +1,10 @@
-import {test, expect} from '@playwright/test';
-import path from 'path';
+import {test, expect}  from '@playwright/test';
+import path            from 'path';
 import {fileURLToPath} from 'url';
-import {setup} from '../../../../../setup.mjs';
-import Neo from '../../../../../../../src/Neo.mjs';
-import * as core from '../../../../../../../src/core/_export.mjs';
-import fs from 'fs';
+import {setup}         from '../../../../../setup.mjs';
+import Neo             from '../../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../../src/core/_export.mjs';
+import fs              from 'fs';
 
 setup({
     neoConfig: {
@@ -15,11 +15,11 @@ setup({
     }
 });
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
-const templatePath = path.resolve(__dirname, '../../../../../../../ai/mcp/server/github-workflow/config.template.mjs');
+const __filename        = fileURLToPath(import.meta.url);
+const __dirname         = path.dirname(__filename);
+const templatePath      = path.resolve(__dirname, '../../../../../../../ai/mcp/server/github-workflow/config.template.mjs');
 const templateClassName = 'Neo.ai.mcp.server.github-workflow.Config';
-const cliScriptPath = path.resolve(__dirname, '../../../../../../../ai/scripts/maintenance/syncGithubWorkflow.mjs');
+const cliScriptPath     = path.resolve(__dirname, '../../../../../../../ai/scripts/maintenance/syncGithubWorkflow.mjs');
 
 /**
  * @summary Imports the copyable GitHub workflow config template under a unit-test-only namespace.
@@ -70,10 +70,10 @@ test.describe('GitHub Workflow MCP Server Config Completeness', () => {
 
     test('config.template.mjs contains all dynamically consumed keys', async () => {
         const configModule = await importTemplateConfig();
-        const config = configModule.default;
+        const config       = configModule.default;
 
-        const syncDir = path.resolve(__dirname, '../../../../../../../ai/services/github-workflow/sync');
-        const sharedDir = path.resolve(__dirname, '../../../../../../../ai/services/github-workflow/shared');
+        const syncDir     = path.resolve(__dirname, '../../../../../../../ai/services/github-workflow/sync');
+        const sharedDir   = path.resolve(__dirname, '../../../../../../../ai/services/github-workflow/shared');
         const filesToScan = [
             path.join(syncDir, 'IssueSyncer.mjs'),
             path.join(syncDir, 'PullRequestSyncer.mjs'),
@@ -84,7 +84,7 @@ test.describe('GitHub Workflow MCP Server Config Completeness', () => {
         ];
 
         const requiredKeys = new Set();
-        const regex = /issueSyncConfig\.([a-zA-Z0-9_]+)/g;
+        const regex        = /issueSyncConfig\.([a-zA-Z0-9_]+)/g;
 
         for (const file of filesToScan) {
             if (fs.existsSync(file)) {
@@ -97,7 +97,7 @@ test.describe('GitHub Workflow MCP Server Config Completeness', () => {
         }
 
         const templateKeys = Object.keys(config.issueSync);
-        const missingKeys = [];
+        const missingKeys  = [];
 
         for (const key of requiredKeys) {
             if (!templateKeys.includes(key)) {
@@ -136,7 +136,7 @@ test.describe('GitHub Workflow MCP Server Config Completeness', () => {
         // Env binding + its parser-based validation run at construction, so each case uses a
         // fresh instance built from the template's meta-leaf tree (the singleton is already
         // env-bound at import). The leaf default is the SSOT for the fallback expectation.
-        const {_data} = (await importTemplateConfig()).default;
+        const {_data}         = (await importTemplateConfig()).default;
         const defaultLogLevel = _data.logLevel.default;
 
         // Valid value: parsed + normalized to lower-case.
@@ -172,13 +172,13 @@ test.describe('GitHub Workflow MCP Server Config Completeness', () => {
     });
 
     test('logger filters stderr by priority and always emits errors', async () => {
-        const aiConfig = (await import('../../../../../../../ai/mcp/server/github-workflow/config.mjs')).default;
-        const logger = (await import('../../../../../../../ai/mcp/server/github-workflow/logger.mjs')).default;
+        const aiConfig = (await import('../../../../../../../ai/mcp/server/github-workflow/config.template.mjs')).default;
+        const logger   = (await import('../../../../../../../ai/mcp/server/github-workflow/logger.mjs')).default;
 
-        const originalDebug = aiConfig.data.debug;
+        const originalDebug    = aiConfig.data.debug;
         const originalLogLevel = aiConfig.data.logLevel;
-        const originalError = console.error;
-        const calls = [];
+        const originalError    = console.error;
+        const calls            = [];
 
         console.error = (...args) => calls.push(args.join(' '));
 

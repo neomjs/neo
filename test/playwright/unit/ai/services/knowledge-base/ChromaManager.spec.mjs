@@ -26,7 +26,7 @@ test.describe('Neo.ai.services.knowledge-base.ChromaManager', () => {
     let originalCollectionResolveRetrySleepFn;
 
     test.beforeAll(async () => {
-        aiConfig      = (await import('../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
+        aiConfig      = (await import('../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
         ChromaManager = (await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
 
         originalClient                  = ChromaManager.client;

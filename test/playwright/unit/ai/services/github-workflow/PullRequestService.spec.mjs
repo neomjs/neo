@@ -381,7 +381,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — getPullReq
 
     test.beforeAll(async () => {
         PullRequestService = (await import('../../../../../../ai/services/github-workflow/PullRequestService.mjs')).default;
-        aiConfig           = (await import('../../../../../../ai/mcp/server/github-workflow/config.mjs')).default;
+        aiConfig           = (await import('../../../../../../ai/mcp/server/github-workflow/config.template.mjs')).default;
         fs                 = await import('fs/promises');
         path               = await import('path');
     });

@@ -1,6 +1,6 @@
 import {setup} from '../../../../setup.mjs';
 
-const appName = 'QueryReRankerTest';
+const appName             = 'QueryReRankerTest';
 const skipCiSubstrateData = !!process.env.NEO_TEST_SKIP_CI;
 
 setup({
@@ -16,25 +16,76 @@ setup({
     }
 });
 
-import {test, expect}  from '@playwright/test';
-import Neo             from '../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../../../src/manager/Instance.mjs';
-import path            from 'path';
-import {fileURLToPath} from 'url';
-import dotenv          from 'dotenv';
+import {test, expect}                     from '@playwright/test';
+import Neo                                from '../../../../../../src/Neo.mjs';
+import * as core                          from '../../../../../../src/core/_export.mjs';
+import InstanceManager                    from '../../../../../../src/manager/Instance.mjs';
+import path                               from 'path';
+import {fileURLToPath}                    from 'url';
+import dotenv                             from 'dotenv';
+import {drainMemoryWal, snapshotAiConfig} from './util.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 dotenv.config({path: path.resolve(__dirname, '../../../../../../.env'), quiet: true});
 
-let cleanupSDK;
+let cleanupSDK, embeddingService, memoryCallTool, originalEmbedText, originalEmbedTexts,
+    requestContextService, restoreAiConfig;
+
+const chromaFixtureIds = new Set(),
+      graphFixtureIds  = new Set(),
+      wakeRoutes       = [];
+
+/**
+ * @summary Creates an isolated 4096-dimensional embedding for Memory Core test fixtures.
+ * @returns {number[]} A synthetic embedding vector.
+ */
+function createEmbeddingVector() {
+    return new Array(4096).fill(Math.random());
+}
+
+/**
+ * @summary Installs matching single-item and batch embedding stubs while retaining the production methods for cleanup.
+ * @param {Object} service The TextEmbeddingService singleton.
+ * @returns {void}
+ */
+function installEmbeddingMocks(service) {
+    originalEmbedText  ??= service.embedText;
+    originalEmbedTexts ??= service.embedTexts;
+
+    service.embedText  = async () => createEmbeddingVector();
+    service.embedTexts = async texts => texts.map(() => createEmbeddingVector());
+}
 
 test.afterAll(async () => {
-    if (!cleanupSDK) return;
+    try {
+        if (cleanupSDK) {
+            for (const {agentIdentity, subscriptionId} of wakeRoutes.toReversed()) {
+                const userId = agentIdentity.startsWith('@') ? agentIdentity.slice(1) : agentIdentity;
 
-    const { cleanupChromaManager } = await import('./util.mjs');
-    await cleanupChromaManager(cleanupSDK);
+                await requestContextService.run({agentIdentityNodeId: agentIdentity, source: 'unit-test', userId}, () =>
+                    memoryCallTool('manage_wake_subscription', {action: 'unsubscribe', subscriptionId})
+                );
+            }
+
+            if (chromaFixtureIds.size > 0) {
+                const collection = await cleanupSDK.Memory_ChromaManager.getMemoryCollection();
+                await collection.delete({ids: [...chromaFixtureIds]});
+            }
+
+            cleanupSDK.Memory_GraphService.removeNodes([...graphFixtureIds]);
+
+            const {resetMemoryCoreLifecycle} = await import('./util.mjs');
+            await resetMemoryCoreLifecycle(cleanupSDK);
+        }
+    } finally {
+        if (embeddingService) {
+            embeddingService.embedText  = originalEmbedText;
+            embeddingService.embedTexts = originalEmbedTexts;
+        }
+
+        restoreAiConfig?.();
+    }
 });
 
 test.describe('StorageRouter Query Re-Ranker Defensive Handling', () => {
@@ -47,13 +98,14 @@ test.describe('StorageRouter Query Re-Ranker Defensive Handling', () => {
     test.beforeAll(async () => {
         SDK                  = await import('../../../../../../ai/services.mjs');
         cleanupSDK           = SDK;
+        restoreAiConfig    ??= snapshotAiConfig(SDK.Memory_Config, ['embeddingProvider']);
         TextEmbeddingService = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
+        embeddingService     = TextEmbeddingService;
 
         // Force offline mode — mock embeddings with deterministic 4096D vectors
         SDK.Memory_Config.data.embeddingProvider       = 'openAiCompatible';
-        SDK.Memory_Config.data.autoSummarize           = false;
 
-        TextEmbeddingService.embedText = async () => new Array(4096).fill(Math.random());
+        installEmbeddingMocks(TextEmbeddingService);
 
         // Boot lifecycle
         if (!SDK.Memory_LifecycleService._initPromise) {
@@ -74,14 +126,23 @@ test.describe('StorageRouter Query Re-Ranker Defensive Handling', () => {
             {prompt: 'What are workers?',    thought: 'Thread architecture.',  response: 'Dedicated threads for App/Data/VDom.'}
         ];
 
+        const seededIds = [];
+
         for (const turn of turns) {
-            await SDK.Memory_Service.addMemory({
+            const result = await SDK.Memory_Service.addMemory({
                 ...turn,
                 sessionId: testSessionId,
                 agent    : 'test-agent',
                 model    : 'test-model'
             });
+
+            seededIds.push(result.id);
+            chromaFixtureIds.add(result.id);
+            graphFixtureIds.add(result.id);
         }
+
+        await drainMemoryWal({SDK, ids: seededIds});
+        await SDK.Memory_Service.drainPendingGraphProjections({ids: seededIds});
     });
 
     test('StorageRouter re-ranker should NOT crash when ChromaDB returns empty/malformed query results', async () => {
@@ -230,14 +291,17 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
     test.beforeAll(async () => {
         SDK                   = await import('../../../../../../ai/services.mjs');
         cleanupSDK            = SDK;
+        restoreAiConfig     ??= snapshotAiConfig(SDK.Memory_Config, ['embeddingProvider']);
         TextEmbeddingService  = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
+        embeddingService      = TextEmbeddingService;
         RequestContextService = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
         ({callTool}           = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs'));
+        requestContextService = RequestContextService;
+        memoryCallTool        = callTool;
 
         SDK.Memory_Config.data.embeddingProvider       = 'openAiCompatible';
-        SDK.Memory_Config.data.autoSummarize           = false;
 
-        TextEmbeddingService.embedText = async () => new Array(4096).fill(Math.random());
+        installEmbeddingMocks(TextEmbeddingService);
 
         if (!SDK.Memory_LifecycleService._initPromise) {
             await SDK.Memory_LifecycleService.initAsync();
@@ -259,8 +323,8 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
         }, () => callTool(toolName, args));
     }
 
-    function subscribeActiveWakeRoute(agentIdentity) {
-        return callToolAs(agentIdentity, 'manage_wake_subscription', {
+    async function subscribeActiveWakeRoute(agentIdentity) {
+        const result = await callToolAs(agentIdentity, 'manage_wake_subscription', {
             action               : 'subscribe',
             trigger              : 'SENT_TO_ME',
             filters              : {taggedConcepts: [`unit-${crypto.randomUUID()}`]},
@@ -269,6 +333,12 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
                 appName: 'Codex'
             }
         });
+
+        if (result.status !== 'existing') {
+            wakeRoutes.push({agentIdentity, subscriptionId: result.subscriptionId});
+        }
+
+        return result;
     }
 
     async function addToolMemory({sessionId, agentIdentity, prompt = 'Externally active session memory'}) {
@@ -286,6 +356,12 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
         expect(result.error).toBeUndefined();
         expect(result.sessionId).toBe(sessionId);
 
+        chromaFixtureIds.add(result.id);
+        graphFixtureIds.add(result.id);
+
+        await drainMemoryWal({SDK, ids: [result.id]});
+        await SDK.Memory_Service.drainPendingGraphProjections({ids: [result.id]});
+
         return result;
     }
 
@@ -301,8 +377,11 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
         const collection = await SDK.Memory_ChromaManager.getMemoryCollection();
 
         const now = Date.now();
+        const ids = [`drift-test-1-${testTs}`, `drift-test-2-${testTs}`];
+
+        ids.forEach(id => chromaFixtureIds.add(id));
         await collection.add({
-            ids      : [`drift-test-1-${testTs}`, `drift-test-2-${testTs}`],
+            ids,
             documents: ['Test memory 1', 'Test memory 2'],
             metadatas: [
                 {sessionId: driftSessionId, timestamp: now - 1000, type: 'agent-interaction'},
@@ -335,10 +414,13 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
 
         // Add memories for the CURRENT session
         const collection = await SDK.Memory_ChromaManager.getMemoryCollection();
-        const now = Date.now();
+        const now        = Date.now();
+        const id         = `active-test-${testTs}`;
+
+        chromaFixtureIds.add(id);
 
         await collection.add({
-            ids      : [`active-test-${testTs}`],
+            ids      : [id],
             documents: ['Active session memory'],
             metadatas: [{sessionId: activeSessionId, timestamp: now, type: 'agent-interaction'}]
         });
@@ -485,9 +567,12 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
         const collection       = await SDK.Memory_ChromaManager.getMemoryCollection();
         const ancientSessionId = `ancient-alltime-${crypto.randomUUID()}`;
         const ancientTimestamp = Date.now() - (90 * 24 * 60 * 60 * 1000); // 90 days ago
+        const id               = `ancient-alltime-mem-${testTs}`;
+
+        chromaFixtureIds.add(id);
 
         await collection.add({
-            ids      : [`ancient-alltime-mem-${testTs}`],
+            ids      : [id],
             documents: ['Ancient unsummarized session memory'],
             metadatas: [{sessionId: ancientSessionId, timestamp: ancientTimestamp, type: 'agent-interaction'}]
         });
@@ -505,9 +590,12 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
         const ancientTimestamp = Date.now() - (60 * 24 * 60 * 60 * 1000); // 60 days ago
 
         const ancientSessionId = `ancient-session-${testTs}`;
+        const id               = `ancient-mem-${testTs}`;
+
+        chromaFixtureIds.add(id);
 
         await collection.add({
-            ids      : [`ancient-mem-${testTs}`],
+            ids      : [id],
             documents: ['Ancient memory'],
             metadatas: [{sessionId: ancientSessionId, timestamp: ancientTimestamp, type: 'agent-interaction'}]
         });

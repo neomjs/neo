@@ -43,7 +43,7 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
     const tmpFileContents = 'MOCK_FILE_CONTENT_abc123 — the SearchService should read this verbatim';
 
     test.beforeAll(async () => {
-        aiConfig      = (await import('../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
+        aiConfig      = (await import('../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
         QueryService  = (await import('../../../../../../ai/services/knowledge-base/QueryService.mjs')).default;
         SearchService = (await import('../../../../../../ai/services/knowledge-base/SearchService.mjs')).default;
 

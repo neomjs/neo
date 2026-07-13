@@ -37,7 +37,7 @@ test.describe('Neo.ai.services.neural-link.ComponentService — createComponent 
         // autoConnect=false on the shared NL config BEFORE importing ConnectionService (mirrors
         // McpServerListToolsSmoke.spec). A post-import ready-stub alone is too late: the spawn fires
         // from ConnectionService's own initAsync, gated by this config leaf.
-        (await import('../../../../../../ai/mcp/server/neural-link/config.mjs')).default.data.autoConnect = false;
+        (await import('../../../../../../ai/mcp/server/neural-link/config.template.mjs')).default.data.autoConnect = false;
 
         ConnectionService = (await import('../../../../../../ai/services/neural-link/ConnectionService.mjs')).default;
         // Also stub the readiness gate so the ComponentService singleton's initAsync resolves without a live bridge.

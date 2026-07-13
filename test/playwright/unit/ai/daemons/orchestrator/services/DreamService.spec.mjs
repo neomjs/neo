@@ -13,16 +13,14 @@ setup({
     }
 });
 
-import {test, expect}        from '@playwright/test';
-import Neo                   from '../../../../../../../src/Neo.mjs';
-import * as core             from '../../../../../../../src/core/_export.mjs';
-import InstanceManager       from '../../../../../../../src/manager/Instance.mjs';
-import fs                    from 'fs';
-import path                  from 'path';
-import os                    from 'os';
-import {TestLifecycleHelper} from '../../../services/memory-core/util.mjs';
+import {test, expect}     from '@playwright/test';
+import Neo                from '../../../../../../../src/Neo.mjs';
+import * as core          from '../../../../../../../src/core/_export.mjs';
+import fs                 from 'fs';
+import {snapshotAiConfig} from '../../../services/memory-core/util.mjs';
 
 test.describe('Neo.ai.services.memory-core.DreamService', () => {
+    let aiConfig;
     let GraphService;
     let SystemLifecycleService;
     let DreamService;
@@ -33,11 +31,12 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     let TextEmbeddingService;
     let KBRecorderService;
     let logger;
-    const testDbName = `memory-core-dream-test-${process.pid}-${Date.now()}.sqlite`;
-    let testDbPath; // Reassigned in beforeAll
-
+    let restoreAiConfig;
     let originalGenerate;
     let originalAppendFile;
+    let graphEdgeIdsBeforeTest;
+    let graphNodeIdsBeforeTest;
+    let hadNlActionLog;
     let   appendedContent = [];
     let   providerPrompt  = '';
     const freshVerifiedAt = new Date().toISOString();
@@ -92,22 +91,30 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         });
     }
 
+    /**
+     * @summary Removes only graph rows created by the current test, preserving process-lifetime system roots.
+     * @returns {void}
+     */
+    function cleanupGraphFixtures() {
+        if (!GraphService.db) return;
+
+        const nodeIds = GraphService.db.nodes.items
+            .map(node => node.id)
+            .filter(id => !graphNodeIdsBeforeTest.has(id));
+
+        GraphService.removeNodes(nodeIds);
+
+        GraphService.db.edges.items
+            .map(edge => edge.id)
+            .filter(id => id && !graphEdgeIdsBeforeTest.has(id))
+            .forEach(id => GraphService.db.removeEdge(id));
+    }
+
     test.beforeAll(async () => {
-        const
-            aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default,
-            kbConfig = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
+        aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
 
-        const tmpDir = path.resolve(process.cwd(), 'tmp');
-        if (!fs.existsSync(tmpDir)) {
-            fs.mkdirSync(tmpDir, { recursive: true });
-        }
-        testDbPath = path.join(tmpDir, testDbName);
-
-        aiConfig.storagePaths.graph = testDbPath;
-        aiConfig.autoIngestFileSystem = false; // Prevent differential sync during DreamService tests
-        aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff.md');
+        restoreAiConfig = snapshotAiConfig(aiConfig, ['remSleepBatchLimit']);
         aiConfig.remSleepBatchLimit ??= 10;
-        kbConfig.data.memoryCoreDbPath = testDbPath;
 
         GraphService = (await import('../../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         DreamService = (await import('../../../../../../../ai/daemons/orchestrator/services/DreamService.mjs')).default;
@@ -120,22 +127,12 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         KBRecorderService      = (await import('../../../../../../../ai/services/knowledge-base/KBRecorderService.mjs')).default;
         logger                 = (await import('../../../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
 
-        if (fs.existsSync(testDbPath)) {
-            try {
-                fs.unlinkSync(testDbPath);
-                if (fs.existsSync(`${testDbPath}-wal`)) fs.unlinkSync(`${testDbPath}-wal`);
-                if (fs.existsSync(`${testDbPath}-shm`)) fs.unlinkSync(`${testDbPath}-shm`);
-            } catch (e) {}
-        }
-
-        if (GraphService.db) {
-            GraphService.db.nodes.clear();
-            GraphService.db.edges.clear();
-            GraphService.db.vicinityLoadedNodes.clear();
-        }
-
         if (!SystemLifecycleService._initPromise) { await SystemLifecycleService.initAsync(); } else { await SystemLifecycleService.ready(); }
         await KBRecorderService.ready();
+
+        hadNlActionLog = Boolean(GraphService.db.storage?.db?.prepare(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'nl_action_log'"
+        ).get());
 
         // Monkey patch OpenAiCompatible
         originalGenerate = OpenAiCompatible.prototype.generate;
@@ -152,7 +149,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         // Monkey patch fs.writeFileSync
         originalAppendFile = fs.writeFileSync;
         fs.writeFileSync = function(filePath, data, options) {
-            if (filePath.endsWith('mock_sandman_handoff.md')) {
+            if (filePath === aiConfig.handoffFilePath) {
                 appendedContent.push({ filePath, data });
             } else {
                 return originalAppendFile(filePath, data, options);
@@ -165,15 +162,9 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         providerPrompt  = [];
 
         if (GraphService.db) {
-            GraphService.db.nodes.clear();
-            GraphService.db.edges.clear();
-            GraphService.db.vicinityLoadedNodes.clear();
+            graphNodeIdsBeforeTest = new Set(GraphService.db.nodes.items.map(node => node.id));
+            graphEdgeIdsBeforeTest = new Set(GraphService.db.edges.items.map(edge => edge.id));
 
-            if (GraphService.db.storage?.db) {
-                await GraphService.db.storage.clear();
-                GraphService.db.storage.db.exec('DELETE FROM GraphLog; DROP TABLE IF EXISTS nl_action_log;');
-                GraphService.db.lastSyncId = 0;
-            }
         }
 
         if (KBRecorderService?.db) {
@@ -182,45 +173,38 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test.afterEach(async () => {
-        // Symmetric cleanup per `feedback_symmetric_spec_cleanup.md`: `fullyParallel: true` lets
-        // Playwright interleave this spec with ConceptService/ConceptIngestor specs in the same
-        // worker, and `GraphService.db` is a shared singleton. Mirroring beforeEach here closes
-        // the cross-spec door — the next queued test from any spec sees a clean graph, not our
-        // trailing fixtures (CONCEPT nodes planted by the ORPHAN_CONCEPT detection test, etc.).
-        if (GraphService.db) {
-            GraphService.db.nodes.clear();
-            GraphService.db.edges.clear();
-            GraphService.db.vicinityLoadedNodes.clear();
+        cleanupGraphFixtures();
 
-            if (GraphService.db.storage?.db) {
-                await GraphService.db.storage.clear();
-                GraphService.db.storage.db.exec('DELETE FROM GraphLog; DROP TABLE IF EXISTS nl_action_log;');
-                GraphService.db.lastSyncId = 0;
+        if (GraphService.db?.storage?.db) {
+            const sqlite = GraphService.db.storage.db,
+                  exists = Boolean(sqlite.prepare(
+                      "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'nl_action_log'"
+                  ).get());
+
+            if (exists) {
+                sqlite.prepare(
+                    "DELETE FROM nl_action_log WHERE agent_id = 'neo-gpt-test' AND session_id = 'nl-action-digest-test'"
+                ).run();
+                if (!hadNlActionLog) sqlite.exec('DROP TABLE nl_action_log;');
+            } else if (hadNlActionLog) {
+                createNlActionLogTable();
             }
         }
     });
 
     test.afterAll(async () => {
-        // 'destroy' (not 'clear') so SystemLifecycleService._initPromise is reset to null.
-        // Otherwise sibling specs (e.g. DreamServiceGoldenPath) hit
-        //   `if (!_initPromise) initAsync() else ready()`
-        // → take the `ready()` branch → never honor their own `aiConfig.storagePaths.graph`
-        // → real `getContextFrontier()` returns null. Empirically traced via bisection.
-        await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'destroy');
-
         if (KBRecorderService?.db) {
             KBRecorderService.db.exec('DELETE FROM kb_query_log; DELETE FROM kb_query_faqs;');
         }
 
-        const tmpDir      = path.resolve(process.cwd(), 'tmp');
-        const mockHandoff = path.join(tmpDir, 'mock_sandman_handoff.md');
-        if (fs.existsSync(mockHandoff)) {
-            try { fs.unlinkSync(mockHandoff); } catch (e) {}
+        if (fs.existsSync(aiConfig.handoffFilePath)) {
+            try { fs.unlinkSync(aiConfig.handoffFilePath); } catch (e) {}
         }
 
         // Restore patches
         if (originalGenerate)   OpenAiCompatible.prototype.generate = originalGenerate;
         if (originalAppendFile) fs.writeFileSync = originalAppendFile;
+        restoreAiConfig?.();
     });
 
     test('should extract Graph nodes and flag deterministic capability gaps without mutating physical files', async () => {
@@ -508,6 +492,8 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('executeNLActionDigest skips cleanly when nl_action_log is absent (#9890)', async () => {
+        GraphService.db.storage.db.exec('DROP TABLE IF EXISTS nl_action_log;');
+
         const result = await DreamService.executeNLActionDigest();
 
         expect(result).toEqual({
@@ -610,7 +596,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('findUndigestedSessions fails loud when remSleepBatchLimit is malformed in the imported config', async () => {
-        const aiConfig                   = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default,
+        const aiConfig                   = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default,
               originalRemSleepBatchLimit = aiConfig.remSleepBatchLimit;
 
         aiConfig.remSleepBatchLimit = Number.NaN;
@@ -623,7 +609,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('findUndigestedSessions mixes a fresh reserve with the aged Chroma tail (#13697)', async () => {
-        const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         const original = {
             summarizationBatchLimit: aiConfig.summarizationBatchLimit,
             remSleepBatchLimit     : aiConfig.remSleepBatchLimit,
@@ -878,7 +864,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         // The weight gate lives in config (not a file-local constant). Verifying that
         // GapInferenceEngine reads the live config value means curators can tune the handoff
         // silence level without code changes — the stated goal of the config-lift.
-        const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         const original = aiConfig.data.guideGapWeightThreshold;
 
         // Plant a concept whose weight (0.5) is BELOW the default 0.8 — normally no gap emitted.
@@ -1115,7 +1101,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         // Guards against any future "simplification" that re-inlines the cycle-scope call back
         // into the session loop and silently reintroduces N×M traversal cost at ontology scale.
 
-        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
         const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
         const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
@@ -1217,7 +1203,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('processUndigestedSessions threads complete raw memory turns into topology inference (#12073)', async () => {
-        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
         const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
         const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
@@ -1311,7 +1297,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('TopologyInferenceEngine chunks complete memory turns and bounds topology output (#12073)', async () => {
-        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         const TopologyInferenceEngine = (await import('../../../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
 
         const turnDocuments = Array.from({length: 15}, (_, index) => `turn-${index}\n${'x'.repeat(1200)}`);
@@ -1378,7 +1364,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('TopologyInferenceEngine classifies non-empty invalid topology output as parse failure (#13995)', async () => {
-        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         const TopologyInferenceEngine = (await import('../../../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
         const {
             clearAggregatedFrictions,
@@ -1452,7 +1438,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         // nodes. Keep such sessions undigested so the next REM cycle retries the missing graph
         // rows instead of permanently masking them behind `graphDigested: true`.
 
-        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
         const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
         const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
@@ -1559,7 +1545,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('findUndigestedSessions excludes bounded-out sessions and re-serves back-compat undigested rows (#13835)', async () => {
-        const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         const original = {
             summarizationBatchLimit: aiConfig.summarizationBatchLimit,
             remSleepBatchLimit     : aiConfig.remSleepBatchLimit,
@@ -1608,7 +1594,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('processUndigestedSessions bounds the re-serve immediately for skip-over-band parser failures (#13984)', async () => {
-        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
         const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
         const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
@@ -1700,7 +1686,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('processUndigestedSessions defers typed under-band-choke once it reaches MAX (#13974)', async () => {
-        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
         const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
         const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
@@ -1788,7 +1774,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('processUndigestedSessions does NOT defer a transient ingestion-failure — it keeps retrying past MAX so a digestible session is never silently dropped (#13835)', async () => {
-        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
         const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
         const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
@@ -1874,7 +1860,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('processUndigestedSessions fault-isolates thrown per-session failures and digests remaining sessions (#13850)', async () => {
-        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
         const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
         const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
@@ -2001,7 +1987,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         // the storage backend, and the LLM boundary are neutralized — the DreamService↔
         // SemanticGraphExtractor choreography under test runs real. Hypothesis 9 (PRIMARY),
         // Discussion silent-failure enumeration §2.4.
-        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
         const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
         const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
@@ -2117,7 +2103,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         // and DreamService must record the failure + keep the session undigested rather than mask it behind graphDigested.
         // Only peripheral phases + storage + the LLM boundary are neutralized. Hypothesis 11,
         // Discussion silent-failure enumeration §2.4.
-        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
         const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
         const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
@@ -2222,7 +2208,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('processUndigestedSessions rethrows garbage-collection failures (#11698)', async () => {
-        const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
 
         const orig = {
             provider      : aiConfig.modelProvider,
@@ -2299,45 +2285,50 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             return { all: () => [], get: () => null, run: () => {} };
         };
 
-        // GraphService mock topology
-        GraphService.db.edges.items = [
-             { source: 'issue-blocker', target: 'issue-task-blocked', type: 'BLOCKS' }
-        ];
+        // GraphService mock topology. Use the real graph APIs so Store items and maps stay coherent;
+        // the per-test delta cleanup owns these exact fixtures without touching system roots.
+        [
+            {id: 'issue-epic-hero',       type: 'ISSUE', name: 'Epic Hero',             properties: {state: 'OPEN'}},
+            {id: 'issue-task-blocked',    type: 'ISSUE', name: 'Blocked Task',          properties: {state: 'OPEN'}},
+            {id: 'issue-blocker',         type: 'ISSUE', name: 'Blocker Bug',           properties: {state: 'OPEN'}},
+            {id: 'issue-weak-task',       type: 'ISSUE', name: 'Weak Task',              properties: {state: 'OPEN'}},
+            {id: 'issue-rejected-task',   type: 'ISSUE', name: 'Massive Stale Feature', properties: {state: 'OPEN', labels: ['needs-re-triage']}},
+            {
+                id        : 'concept-orphan-render-test',
+                type      : 'CONCEPT',
+                properties: {
+                    state        : 'OPEN',
+                    capabilityGap: JSON.stringify([
+                        "[ORPHAN_CONCEPT] The CONCEPT 'Reactivity' has no IMPLEMENTED_BY edge — either anchor it to a source file or retire the concept from nodes.jsonl if aspirational/stale."
+                    ]),
+                    lastGapCheck: Date.now()
+                }
+            },
+            {
+                id        : 'concept-reverify-render-test',
+                type      : 'CONCEPT',
+                properties: {
+                    state        : 'OPEN',
+                    capabilityGap: JSON.stringify([
+                        "[CONCEPT_REVERIFY_DUE] The CONCEPT 'Config System' has verifiedAt=null and needs source-grounded re-verification."
+                    ]),
+                    lastGapCheck: Date.now()
+                }
+            },
+            {
+                id        : 'concept-kb-demand-render-test',
+                type      : 'CONCEPT',
+                properties: {
+                    state        : 'OPEN',
+                    capabilityGap: JSON.stringify([
+                        '[KB_DEMAND_GAP] Agents asked "how does reactive config work?" 4 times (cluster abc123) but the mapped Concept Ontology area lacks strong guide coverage.'
+                    ]),
+                    lastGapCheck: Date.now()
+                }
+            }
+        ].forEach(node => GraphService.upsertNode(node));
 
-        GraphService.db.nodes.items = [
-             { id: 'issue-epic-hero', properties: { state: 'OPEN' } },
-             { id: 'issue-task-blocked', properties: { state: 'OPEN' } },
-             { id: 'issue-blocker', properties: { state: 'OPEN' } },
-             { id: 'issue-weak-task', properties: { state: 'OPEN' } },
-             { id: 'issue-rejected-task', properties: { state: 'OPEN', labels: ['needs-re-triage'] } },
-             // Planted CONCEPT with ORPHAN_CONCEPT gap to verify the ⚠️ section renders
-             // in sandman_handoff.md alongside the existing TEST/GUIDE/EXAMPLE sections.
-             { id: 'concept-orphan-render-test', properties: {
-                 state        : 'OPEN',
-                 capabilityGap: JSON.stringify([
-                     "[ORPHAN_CONCEPT] The CONCEPT 'Reactivity' has no IMPLEMENTED_BY edge — either anchor it to a source file or retire the concept from nodes.jsonl if aspirational/stale."
-                 ]),
-                 lastGapCheck: Date.now()
-             } },
-             { id: 'concept-reverify-render-test', properties: {
-                 state        : 'OPEN',
-                 capabilityGap: JSON.stringify([
-                     "[CONCEPT_REVERIFY_DUE] The CONCEPT 'Config System' has verifiedAt=null and needs source-grounded re-verification."
-                 ]),
-                 lastGapCheck: Date.now()
-             } },
-             { id: 'concept-kb-demand-render-test', properties: {
-                 state        : 'OPEN',
-                 capabilityGap: JSON.stringify([
-                     '[KB_DEMAND_GAP] Agents asked "how does reactive config work?" 4 times (cluster abc123) but the mapped Concept Ontology area lacks strong guide coverage.'
-                 ]),
-                 lastGapCheck: Date.now()
-             } }
-        ];
-
-        GraphService.db.edges.getByIndex = (idx, val) => {
-            return GraphService.db.edges.items.filter(e => e[idx] === val);
-        };
+        GraphService.db.addEdge({source: 'issue-blocker', target: 'issue-task-blocked', type: 'BLOCKS'});
         const originalLinkNodes          = GraphService.linkNodes;
         const originalGetContextFrontier = GraphService.getContextFrontier;
         GraphService.linkNodes          = () => {};
@@ -2352,7 +2343,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         TextEmbeddingService.embedText = async () => new Array(4096).fill(0.1);
 
         // Setup markdown with a conflicting gap to verify dynamic stripping / injection sequence
-        const aiConfig    = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig    = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         const handoffFile = aiConfig.handoffFilePath,
               originalModelProvider = aiConfig.modelProvider;
 
@@ -2415,7 +2406,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
     test('should retry extraction on malformed JSON payload up to 3 times to fix #9913', async () => {
         let   executionCount = 0;
-        const aiConfig       = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default,
+        const aiConfig       = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default,
               baseGenerate = OpenAiCompatible.prototype.generate,
               originalModelProvider = aiConfig.modelProvider;
 

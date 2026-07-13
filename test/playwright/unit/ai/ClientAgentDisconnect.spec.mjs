@@ -17,10 +17,12 @@ import Neo            from '../../../../src/Neo.mjs';
 const lock = (agentId, sessionId, subtreePath) => ({agentId, sessionId, subtreePath});
 
 test.describe('Neo.ai.Client - agent disconnect lock release', () => {
-    let client, originalWebSocket;
+    let client, originalCurrentWorker, originalWebSocket, originalWorker;
 
     test.beforeAll(() => {
-        originalWebSocket = globalThis.WebSocket;
+        originalCurrentWorker = Neo.currentWorker;
+        originalWebSocket     = globalThis.WebSocket;
+        originalWorker        = Neo.worker;
 
         globalThis.WebSocket = class UnitTestWebSocket {
             static CLOSED     = 3
@@ -54,6 +56,8 @@ test.describe('Neo.ai.Client - agent disconnect lock release', () => {
 
     test.afterAll(() => {
         globalThis.WebSocket = originalWebSocket
+        Neo.currentWorker    = originalCurrentWorker;
+        Neo.worker           = originalWorker
     });
 
     test.beforeEach(async () => {

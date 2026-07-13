@@ -67,7 +67,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     }
 
     test.beforeAll(async () => {
-        aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
 
         // FAIL-LOUD ISOLATION GATE: this suite writes DISCUSSION/ISSUE fixture nodes through
         // GraphService. The graph db path is a READ-ONLY computed leaf derived from the
@@ -3058,7 +3058,7 @@ test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from
     });
 
     test('under UNIT_TEST_MODE the synthesis ledger dir resolves to a TEST path — synthesis never writes the prod .neo-ai-data ledger (#15057 / RA-3 #15060)', async () => {
-        const {default: aiConfig} = await import('../../../../../../ai/mcp/server/memory-core/config.mjs');
+        const {default: aiConfig} = await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs');
         // synthesizeGoldenPath reads aiConfig.goldenPathRouteAttributionLedgerDir at its use site; the config
         // formula resolves it to the OS-temp test dir under UNIT_TEST_MODE, so the synthesis specs that trigger
         // the fail-open emit never write the tracked production `.neo-ai-data` ledger.

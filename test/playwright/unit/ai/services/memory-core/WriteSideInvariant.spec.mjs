@@ -14,8 +14,6 @@ setup({
 });
 
 import {test, expect}        from '@playwright/test';
-import fs                    from 'fs-extra';
-import path                  from 'path';
 import Neo                   from '../../../../../../src/Neo.mjs';
 import * as core             from '../../../../../../src/core/_export.mjs';
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
@@ -51,15 +49,28 @@ import RequestContextService from '../../../../../../ai/mcp/server/shared/servic
  */
 test.describe('Neo.ai.services.memory-core.WriteSideInvariant (#10017)', () => {
     let MailboxService, GraphService, LifecycleService;
-    let dbPath;
+    let graphEdgeIdsBeforeTest, graphNodeIdsBeforeTest;
+
+    /**
+     * @summary Removes only graph rows created by the current test, preserving process-lifetime system roots.
+     * @returns {void}
+     */
+    function cleanupGraphFixtures() {
+        if (!GraphService.db) return;
+
+        const nodeIds = GraphService.db.nodes.items
+            .map(node => node.id)
+            .filter(id => !graphNodeIdsBeforeTest.has(id));
+
+        GraphService.removeNodes(nodeIds);
+
+        GraphService.db.edges.items
+            .map(edge => edge.id)
+            .filter(id => id && !graphEdgeIdsBeforeTest.has(id))
+            .forEach(id => GraphService.db.removeEdge(id));
+    }
 
     test.beforeAll(async () => {
-        const tmpDir = path.resolve(process.cwd(), 'tmp');
-        if (!fs.existsSync(tmpDir)) {
-            fs.mkdirSync(tmpDir, {recursive: true});
-        }
-        dbPath = path.join(tmpDir, `neo-writeside-invariant-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
-
         // ADR B4: storagePaths.graph (→ ':memory:') + collections.{memory,session} (→ test-*)
         // resolve to test values BY CONSTRUCTION under UNIT_TEST_MODE — no singleton mutation.
 
@@ -74,35 +85,21 @@ test.describe('Neo.ai.services.memory-core.WriteSideInvariant (#10017)', () => {
         }
     });
 
-    test.afterAll(async () => {
-        const { cleanupChromaManager } = await import('./util.mjs');
-        await cleanupChromaManager();
-        if (fs.existsSync(dbPath)) {
-            try { fs.unlinkSync(dbPath); } catch (e) {}
-            try { fs.unlinkSync(dbPath + '-wal'); } catch (e) {}
-            try { fs.unlinkSync(dbPath + '-shm'); } catch (e) {}
+    test.beforeEach(() => {
+        graphNodeIdsBeforeTest = new Set(GraphService.db.nodes.items.map(node => node.id));
+        graphEdgeIdsBeforeTest = new Set(GraphService.db.edges.items.map(edge => edge.id));
+
+        if (!GraphService.db.nodes.get('AGENT:*')) {
+            GraphService.upsertNode({
+                id        : 'AGENT:*',
+                type      : 'BroadcastSentinel',
+                name      : 'Broadcast',
+                properties: {}
+            });
         }
     });
 
-    test.beforeEach(async () => {
-        if (GraphService.db) {
-            GraphService.db.nodes.clear();
-            GraphService.db.edges.clear();
-            GraphService.db.vicinityLoadedNodes?.clear();
-
-            if (GraphService.db.storage?.db) {
-                await GraphService.db.storage.clear();
-                GraphService.db.storage.db.exec('DELETE FROM GraphLog');
-            }
-        }
-
-        GraphService.upsertNode({
-            id        : 'AGENT:*',
-            type      : 'BroadcastSentinel',
-            name      : 'Broadcast',
-            properties: {}
-        });
-    });
+    test.afterEach(() => cleanupGraphFixtures());
 
     test('MailboxService.addMessage rejects writes without a bound agent identity', async () => {
         // Exemplar enforcement path. No `RequestContextService.run()` wrap

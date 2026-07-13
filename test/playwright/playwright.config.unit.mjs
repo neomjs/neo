@@ -1,3 +1,5 @@
+import './configTemplateResolver.mjs';
+
 import {defineConfig}  from '@playwright/test';
 import os              from 'os';
 import path            from 'path';

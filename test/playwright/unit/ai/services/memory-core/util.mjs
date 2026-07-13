@@ -47,7 +47,7 @@ export async function cleanupChromaManager(SDK) {
         collectionsConfig = SDK.Memory_Config?.data?.collections;
     } else {
         ChromaManager = (await import('../../../../../../ai/services/memory-core/managers/ChromaManager.mjs')).default;
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         collectionsConfig = aiConfig?.collections;
     }
 
@@ -101,7 +101,7 @@ export async function cleanupChromaManager(SDK) {
  * @returns {Promise<Object>} The `drainWalOnce` cycle summary.
  */
 export async function drainMemoryWal({ids, collection, SDK} = {}) {
-    const aiConfig       = SDK?.Memory_Config ?? (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+    const aiConfig       = SDK?.Memory_Config ?? (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
     const StorageRouter  = SDK?.Memory_StorageRouter ?? (await import('../../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
     const {drainWalOnce} = await import('../../../../../../ai/daemons/embed/drainCycle.mjs');
 

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import '../../../../src/Neo.mjs';
 import '../../../../src/core/_export.mjs';
 import '../../../../src/manager/Instance.mjs';
-import MC_Config from '../../../../ai/mcp/server/memory-core/config.mjs';
+import MC_Config     from '../../../../ai/mcp/server/memory-core/config.template.mjs';
 import ChromaManager from '../../../../ai/services/memory-core/managers/ChromaManager.mjs';
 
 test.describe('ChromaDB Recovery Test', () => {
@@ -21,20 +21,20 @@ test.describe('ChromaDB Recovery Test', () => {
         test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: ChromaConnectionError - bucket G2 (#10924)');
         test.skip(!isOnline, 'ChromaDB is not running.');
 
-        const col = await ChromaManager.getMemoryCollection();
+        const col   = await ChromaManager.getMemoryCollection();
         const count = await col.count();
         console.log(`Total memories: ${count}`);
 
-        const batchSize = 100;
-        let offset = 0;
-        let successful = 0;
+        const batchSize  = 100;
+        let   offset     = 0;
+        let   successful = 0;
 
         while (offset < count) {
             try {
                 const batch = await col.get({
                     include: ["documents"],
-                    limit: batchSize,
-                    offset: offset
+                    limit  : batchSize,
+                    offset : offset
                 });
                 successful += batch.ids.length;
             } catch (e) {
