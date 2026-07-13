@@ -84,13 +84,12 @@ N/A across listed dimensions: <one-line reason for the delta-scope justification
 
 ---
 
-### 🧪 Test-Execution & Location Audit
+### 🧪 Test-Evidence & Location Audit
 
 *This is part of the 10% AC/audit sanity layer unless execution disproves the delta.*
 
-*   **Changed surface class:** [code / test / docs-template only / PR body only]
-*   **Location check:** [pass / incorrect placement flagged / N/A]
-*   **Related verification run:** [command + result, or "No tests required: docs/template-only delta"]
+*   **Evidence:** exact-head CI [green at `<SHA>` / N/A — docs-template]; author per-surface non-CI receipt [exact-head-appropriate / unchanged from prior current receipt / obvious omission / N/A — docs-template]; reviewer falsifier [N/A or command + concern + result]
+*   **Test location:** [pass for added/moved tests / N/A]
 *   **Findings:** [pass / fail / not applicable with reason]
 
 ---
