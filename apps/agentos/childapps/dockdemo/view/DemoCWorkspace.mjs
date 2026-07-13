@@ -125,10 +125,6 @@ class DemoCWorkspace extends Container {
      */
     refreshPromise = null
     /**
-     * @member {Number} beatCount=0
-     */
-    beatCount = 0
-    /**
      * Number of coalesced producer batches appended over this workspace lifetime.
      * @member {Number} feedBatchCount=0
      */
@@ -145,8 +141,15 @@ class DemoCWorkspace extends Container {
      */
     cuePromise = Promise.resolve()
     /**
-     * Serialized, paint-confirmed tour progress. The runner emits `beat` before executing a
-     * step, so this local projection waits for that step's log/cue/refresh settlement before
+     * Hosting-surface cue promises indexed by the runner's scene/step identity. `stepSettled`
+     * consumes each entry after runner-owned work succeeds; the map never becomes runner state.
+     * @member {Map<String,Promise>} cueSettlements
+     * @protected
+     */
+    cueSettlements = new Map()
+    /**
+     * Serialized, paint-confirmed tour progress. `TourRunner.stepSettled` proves runner-owned
+     * work only, so this local projection additionally waits for its cue and dock refresh before
      * exposing progress to the viewer.
      * @member {Promise} progressPromise
      * @protected
@@ -194,11 +197,12 @@ class DemoCWorkspace extends Container {
         });
 
         me.tourRunner.on({
-            beat    : me.onTourBeat,
-            complete: me.onTourComplete,
-            error   : me.onTourError,
-            scene   : me.onTourScene,
-            scope   : me
+            beat       : me.onTourBeat,
+            complete   : me.onTourComplete,
+            error      : me.onTourError,
+            scene      : me.onTourScene,
+            stepSettled: me.onTourStepSettled,
+            scope      : me
         });
 
         me.appendFeedBatch(25);
@@ -434,7 +438,6 @@ class DemoCWorkspace extends Container {
      */
     onTourBeat(data) {
         let me            = this,
-            progress      = ++me.beatCount,
             cueSettlement = Promise.resolve();
 
         data.caption && me.setTourCaption(data.caption);
@@ -463,9 +466,25 @@ class DemoCWorkspace extends Container {
             cueSettlement = me.cuePromise
         }
 
+        me.cueSettlements.set(`${data.sceneIndex}:${data.stepIndex}`, cueSettlement)
+    }
+
+    /**
+     * Projects one successful runner step only after the hosting surface's corresponding cue
+     * and dock refresh have also settled. The runner event deliberately does not claim either
+     * hosting-surface boundary.
+     * @param {Object} data `TourRunner.stepSettled` payload.
+     */
+    onTourStepSettled(data) {
+        let me            = this,
+            key           = `${data.sceneIndex}:${data.stepIndex}`,
+            cueSettlement = me.cueSettlements.get(key) || Promise.resolve();
+
+        me.cueSettlements.delete(key);
         me.progressPromise = me.progressPromise.then(async () => {
-            await me.waitForTourBeatSettlement(progress, cueSettlement);
-            await me.setPipProgress(progress);
+            await cueSettlement;
+            await me.refreshPromise;
+            await me.setPipProgress(data.completedCount);
             // Adjacent document operations can settle within one browser frame. Keep each
             // evidenced state visible long enough to read instead of letting VDOM paints coalesce.
             await me.timeout(90)
@@ -483,6 +502,7 @@ class DemoCWorkspace extends Container {
      * @param {Object} data
      */
     onTourError(data) {
+        this.cueSettlements.clear();
         this.setTourCaption(`Tour stopped: ${data.errors[0] || 'unknown reason'}`)
     }
 
@@ -935,28 +955,6 @@ class DemoCWorkspace extends Container {
     }
 
     /**
-     * Waits for one runner log entry, its optional surface cue, and any resulting dock
-     * projection. This is a Demo-C adapter until TourRunner exposes a reusable settled-step
-     * event; it prevents the progress surface from claiming work that is still in flight.
-     * @param {Number} count One-based flattened beat count.
-     * @param {Promise} cueSettlement
-     * @returns {Promise<Boolean>}
-     */
-    async waitForTourBeatSettlement(count, cueSettlement) {
-        for (let attempt = 0; attempt < 400; attempt++) {
-            if (this.tourRunner.log.length >= count) break;
-            await this.timeout(5)
-        }
-
-        if (this.tourRunner.log.length < count) return false;
-
-        await cueSettlement;
-        await this.refreshPromise;
-
-        return true
-    }
-
-    /**
      * Runs the screenplay from a fresh document on every replay.
      * @returns {Promise<Object>|undefined}
      */
@@ -968,10 +966,10 @@ class DemoCWorkspace extends Container {
             return
         }
 
-        me.beatCount       = 0;
         me.cueErrors       = [];
         me.cuePromise      = Promise.resolve();
         me.cueReceipts     = [];
+        me.cueSettlements.clear();
         me.lastTourReceipt = null;
         me.progressPromise = Promise.resolve();
         me.dockModel       = DockZoneModel.clone(initialDocument);
@@ -1057,6 +1055,7 @@ class DemoCWorkspace extends Container {
 
         me.tourRunner?.destroy();
         me.dockService?.destroy();
+        me.cueSettlements.clear();
 
         Object.values(me.paneCache).forEach(pane => {
             pane?.isDestroyed || pane?.destroy?.()
