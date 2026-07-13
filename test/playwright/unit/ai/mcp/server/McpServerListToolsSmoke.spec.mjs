@@ -22,7 +22,7 @@ import {fileURLToPath,
 import * as yaml   from 'js-yaml';
 import Neo         from '../../../../../../src/Neo.mjs';
 import * as core   from '../../../../../../src/core/_export.mjs';
-import AiConfig    from '../../../../../../ai/config.mjs';
+import AiConfig    from '../../../../../../ai/config.template.mjs';
 import ToolService from '../../../../../../ai/mcp/ToolService.mjs';
 import {
     createDeploymentStateSnapshot,
@@ -199,7 +199,7 @@ function getServiceMappingKeys(server) {
  */
 async function listTools(server) {
     if (server.name === 'neural-link') {
-        const configUrl = pathToFileURL(path.join(repoRoot, 'ai/mcp/server/neural-link/config.mjs')).href;
+        const configUrl = pathToFileURL(path.join(repoRoot, 'ai/mcp/server/neural-link/config.template.mjs')).href;
         (await import(configUrl)).default.data.autoConnect = false;
     }
 
@@ -275,16 +275,16 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
 
     test('file-system exposes compact list descriptions plus lazy-loaded handbook detail (#13268)', async () => {
         const
-            server        = servers.find(item => item.name === 'file-system'),
-            {tools}       = await listTools(server),
-            byName        = Object.fromEntries(tools.map(tool => [tool.name, tool])),
-            moduleUrl     = pathToFileURL(path.join(repoRoot, server.toolServicePath)).href,
-            {callTool}    = await import(moduleUrl),
-            handbook      = await callTool('get_mcp_tool_handbook', {toolId: 'read_file'}),
-            missing       = await callTool('get_mcp_tool_handbook', {toolId: 'missing_tool'}),
-            healthcheck   = byName.healthcheck,
-            readFile      = byName.read_file,
-            handbookTool  = byName.get_mcp_tool_handbook;
+            server       = servers.find(item => item.name === 'file-system'),
+            {tools}      = await listTools(server),
+            byName       = Object.fromEntries(tools.map(tool => [tool.name, tool])),
+            moduleUrl    = pathToFileURL(path.join(repoRoot, server.toolServicePath)).href,
+            {callTool}   = await import(moduleUrl),
+            handbook     = await callTool('get_mcp_tool_handbook', {toolId: 'read_file'}),
+            missing      = await callTool('get_mcp_tool_handbook', {toolId: 'missing_tool'}),
+            healthcheck  = byName.healthcheck,
+            readFile     = byName.read_file,
+            handbookTool = byName.get_mcp_tool_handbook;
 
         expect(handbookTool.description.length).toBeLessThanOrEqual(120);
         expect(readFile.description).toBe('Read a workspace file by absolute path.');
@@ -313,16 +313,16 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
 
     test('knowledge-base exposes compact list descriptions plus lazy-loaded handbook detail (#9953)', async () => {
         const
-            server        = servers.find(item => item.name === 'knowledge-base'),
-            {tools}       = await listTools(server),
-            byName        = Object.fromEntries(tools.map(tool => [tool.name, tool])),
-            moduleUrl     = pathToFileURL(path.join(repoRoot, server.toolServicePath)).href,
-            {callTool}    = await import(moduleUrl),
-            handbook      = await callTool('get_mcp_tool_handbook', {toolId: 'query_documents'}),
-            missing       = await callTool('get_mcp_tool_handbook', {toolId: 'missing_tool'}),
-            queryDocs     = byName.query_documents,
-            askKnowledge  = byName.ask_knowledge_base,
-            handbookTool  = byName.get_mcp_tool_handbook;
+            server       = servers.find(item => item.name === 'knowledge-base'),
+            {tools}      = await listTools(server),
+            byName       = Object.fromEntries(tools.map(tool => [tool.name, tool])),
+            moduleUrl    = pathToFileURL(path.join(repoRoot, server.toolServicePath)).href,
+            {callTool}   = await import(moduleUrl),
+            handbook     = await callTool('get_mcp_tool_handbook', {toolId: 'query_documents'}),
+            missing      = await callTool('get_mcp_tool_handbook', {toolId: 'missing_tool'}),
+            queryDocs    = byName.query_documents,
+            askKnowledge = byName.ask_knowledge_base,
+            handbookTool = byName.get_mcp_tool_handbook;
 
         expect(handbookTool.description.length).toBeLessThanOrEqual(120);
         expect(queryDocs.description).toBe('Search the Knowledge Base and return ranked source references.');
@@ -558,17 +558,17 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
 
     test('github-workflow exposes compact list descriptions plus lazy-loaded handbook detail (#13736)', async () => {
         const
-            server        = servers.find(item => item.name === 'github-workflow'),
-            {tools}       = await listTools(server),
-            byName        = Object.fromEntries(tools.map(tool => [tool.name, tool])),
-            moduleUrl     = pathToFileURL(path.join(repoRoot, server.toolServicePath)).href,
-            {callTool}    = await import(moduleUrl),
-            handbook      = await callTool('get_mcp_tool_handbook', {toolId: 'update_issue_relationship'}),
-            missing       = await callTool('get_mcp_tool_handbook', {toolId: 'missing_tool'}),
-            relationship  = byName.update_issue_relationship,
-            conversation  = byName.get_conversation,
-            review        = byName.manage_pr_review,
-            handbookTool  = byName.get_mcp_tool_handbook;
+            server       = servers.find(item => item.name === 'github-workflow'),
+            {tools}      = await listTools(server),
+            byName       = Object.fromEntries(tools.map(tool => [tool.name, tool])),
+            moduleUrl    = pathToFileURL(path.join(repoRoot, server.toolServicePath)).href,
+            {callTool}   = await import(moduleUrl),
+            handbook     = await callTool('get_mcp_tool_handbook', {toolId: 'update_issue_relationship'}),
+            missing      = await callTool('get_mcp_tool_handbook', {toolId: 'missing_tool'}),
+            relationship = byName.update_issue_relationship,
+            conversation = byName.get_conversation,
+            review       = byName.manage_pr_review,
+            handbookTool = byName.get_mcp_tool_handbook;
 
         expect(handbookTool.description.length).toBeLessThanOrEqual(120);
         expect(handbookTool.annotations.readOnlyHint).toBe(true);
@@ -598,12 +598,12 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
 
     test('neural-link exposes compact list descriptions plus lazy-loaded handbook detail (#9953)', async () => {
         const
-            server       = servers.find(item => item.name === 'neural-link'),
-            {tools}      = await listTools(server),
-            byName       = Object.fromEntries(tools.map(tool => [tool.name, tool])),
-            moduleUrl    = pathToFileURL(path.join(repoRoot, server.toolServicePath)).href,
-            {callTool}   = await import(moduleUrl),
-            handbook     = await callTool('get_mcp_tool_handbook', {toolId: 'find_instances'}),
+            server        = servers.find(item => item.name === 'neural-link'),
+            {tools}       = await listTools(server),
+            byName        = Object.fromEntries(tools.map(tool => [tool.name, tool])),
+            moduleUrl     = pathToFileURL(path.join(repoRoot, server.toolServicePath)).href,
+            {callTool}    = await import(moduleUrl),
+            handbook      = await callTool('get_mcp_tool_handbook', {toolId: 'find_instances'}),
             missing       = await callTool('get_mcp_tool_handbook', {toolId: 'missing_tool'}),
             findInstances = byName.find_instances,
             handbookTool  = byName.get_mcp_tool_handbook;
@@ -634,14 +634,14 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
 
     test('neural-link embedded-harness projection lists only default-visible tier tools (#13084)', async () => {
         const
-            server           = servers.find(item => item.name === 'neural-link'),
-            {tools: full}    = await listTools(server),
-            moduleUrl        = pathToFileURL(path.join(repoRoot, server.toolServicePath)).href,
+            server                           = servers.find(item => item.name === 'neural-link'),
+            {tools: full}                    = await listTools(server),
+            moduleUrl                        = pathToFileURL(path.join(repoRoot, server.toolServicePath)).href,
             {listTools: listNeuralLinkTools} = await import(moduleUrl),
-            {tools: projected} = listNeuralLinkTools({toolProjection: {mode: 'harness-embedded'}}),
-            projectedNames   = projected.map(tool => tool.name).sort(),
-            expectedNames    = getHarnessEmbeddedOperationIds(server).sort(),
-            operations       = getOperationsById(server);
+            {tools: projected}               = listNeuralLinkTools({toolProjection: {mode: 'harness-embedded'}}),
+            projectedNames                   = projected.map(tool => tool.name).sort(),
+            expectedNames                    = getHarnessEmbeddedOperationIds(server).sort(),
+            operations                       = getOperationsById(server);
 
         expect(projectedNames).toEqual(expectedNames);
         expect(projected.length).toBeLessThan(full.length);
@@ -665,8 +665,8 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
 
     test('ToolService refuses embedded-harness calls outside the projected tier (#13084)', async () => {
         const
-            server = servers.find(item => item.name === 'neural-link'),
-            toolService   = Neo.create(ToolService, {
+            server      = servers.find(item => item.name === 'neural-link'),
+            toolService = Neo.create(ToolService, {
                 openApiFilePath: path.join(repoRoot, server.openApiPath),
                 serviceMapping : {
                     healthcheck: async () => ({status: 'ok'}),
@@ -750,8 +750,8 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
 
         // end-to-end: a server pinned to '' lists ZERO tools (fail-closed), never the full surface.
         const
-            server            = servers.find(item => item.name === 'neural-link'),
-            {listTools: listNL} = await import(pathToFileURL(path.join(repoRoot, server.toolServicePath)).href),
+            server               = servers.find(item => item.name === 'neural-link'),
+            {listTools: listNL}  = await import(pathToFileURL(path.join(repoRoot, server.toolServicePath)).href),
             {tools: full}        = listNL(),
             {tools: emptyForced} = listNL({toolProjection: {mode: ''}});
 

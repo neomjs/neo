@@ -28,8 +28,8 @@ import CollectionProxy       from '../../../../../../../../ai/services/memory-co
 import MemoryDatabaseService from '../../../../../../../../ai/services/memory-core/DatabaseService.mjs';
 import KbChromaManager       from '../../../../../../../../ai/services/knowledge-base/ChromaManager.mjs';
 import KbVectorService       from '../../../../../../../../ai/services/knowledge-base/VectorService.mjs';
-import kbConfig              from '../../../../../../../../ai/mcp/server/knowledge-base/config.mjs';
-import aiConfig              from '../../../../../../../../ai/mcp/server/memory-core/config.mjs';
+import kbConfig              from '../../../../../../../../ai/mcp/server/knowledge-base/config.template.mjs';
+import aiConfig              from '../../../../../../../../ai/mcp/server/memory-core/config.template.mjs';
 
 const repoRoot = process.cwd();
 
@@ -212,13 +212,15 @@ test.describe('DestructiveOperationGuard call-site wiring (#10845)', () => {
 
     test('Memory Core CollectionProxy stops before deleting a production Chroma collection', async () => {
         const
-            originalUseTestDatabase = aiConfig.engines.chroma.useTestDatabase,
-            proxy                   = Neo.create(CollectionProxy, {
+            originalUseUnitTestDatabase = aiConfig.engines.chroma.useUnitTestDatabase,
+            originalUseTestHarness      = aiConfig.engines.chroma.useTestHarness,
+            proxy                       = Neo.create(CollectionProxy, {
                 collectionType: 'memory'
             });
         let deleteCalls = 0;
 
-        aiConfig.engines.chroma.useTestDatabase = false;
+        aiConfig.engines.chroma.useUnitTestDatabase = false;
+        aiConfig.engines.chroma.useTestHarness      = false;
 
         try {
             proxy.getManagers = async () => [{
@@ -235,16 +237,21 @@ test.describe('DestructiveOperationGuard call-site wiring (#10845)', () => {
             });
             expect(deleteCalls).toBe(0);
         } finally {
-            aiConfig.engines.chroma.useTestDatabase = originalUseTestDatabase;
+            aiConfig.engines.chroma.useUnitTestDatabase = originalUseUnitTestDatabase;
+            aiConfig.engines.chroma.useTestHarness      = originalUseTestHarness;
         }
     });
 
     test('Memory Core graph truncate stops before SQLite deletion on the production graph path', async () => {
         test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
 
-        const originalUseTestDatabase = aiConfig.storagePaths.useTestDatabase;
+        const
+            originalUseUnitTestDatabase = aiConfig.storagePaths.useUnitTestDatabase,
+            originalUseTestHarness      = aiConfig.storagePaths.useTestHarness;
+
         try {
-            aiConfig.storagePaths.useTestDatabase = false;
+            aiConfig.storagePaths.useUnitTestDatabase = false;
+            aiConfig.storagePaths.useTestHarness      = false;
 
             await expect(MemoryDatabaseService.truncateDatabase({
                 include: ['graph']
@@ -253,7 +260,8 @@ test.describe('DestructiveOperationGuard call-site wiring (#10845)', () => {
                 message: expect.stringContaining('DESTRUCTIVE_TARGET_BLOCKED')
             });
         } finally {
-            aiConfig.storagePaths.useTestDatabase = originalUseTestDatabase;
+            aiConfig.storagePaths.useUnitTestDatabase = originalUseUnitTestDatabase;
+            aiConfig.storagePaths.useTestHarness      = originalUseTestHarness;
         }
     });
 

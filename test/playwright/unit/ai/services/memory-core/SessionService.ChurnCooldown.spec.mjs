@@ -47,7 +47,7 @@ test.describe('SessionService.findSessionsToSummarize — churn-gate (#13637)', 
         }
 
         svc             = SDK.Memory_SessionService;
-        aiConfig        = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        aiConfig        = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         idleThresholdMs = aiConfig.orchestrator.swarmHeartbeat.idleThresholdMs; // 10 min default
     });
 

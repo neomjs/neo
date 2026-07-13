@@ -1,7 +1,7 @@
 import {setup} from '../../../../../setup.mjs';
-import fs   from 'fs/promises';
-import os   from 'os';
-import path from 'path';
+import fs      from 'fs/promises';
+import os      from 'os';
+import path    from 'path';
 
 const appName = 'SwarmHeartbeatServiceTest';
 
@@ -22,7 +22,7 @@ setup({
 // bootstrap pattern in TaskStateService.spec / ProcessSupervisorService.spec.
 import Neo       from '../../../../../../../src/Neo.mjs';
 import * as core from '../../../../../../../src/core/_export.mjs';
-import AiConfig  from '../../../../../../../ai/config.mjs';
+import AiConfig  from '../../../../../../../ai/config.template.mjs';
 
 import {test, expect} from '@playwright/test';
 
@@ -76,6 +76,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
     let GraphService;
     let originalLifecycleInit;
     let originalGraphServiceInit;
+    let originalGetUnreadCount;
     let MailboxService;
     let originalListMessages;
     let RequestContextService;
@@ -83,6 +84,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
     test.beforeAll(async () => {
         const swarmHeartbeatModule = await import('../../../../../../../ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs');
         SwarmHeartbeatService            = swarmHeartbeatModule.default;
+        originalGetUnreadCount            = SwarmHeartbeatService.getUnreadCount;
         heartbeatAlivePath               = swarmHeartbeatModule.heartbeatAlivePath;
         githubNotificationWakeStatePath  = swarmHeartbeatModule.githubNotificationWakeStatePath;
         isGitHubRemoteUrl                = swarmHeartbeatModule.isGitHubRemoteUrl;
@@ -92,14 +94,14 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         WakeSubscriptionService      = wakeSubscriptionModule.default;
         originalEmitHeartbeatPulse   = WakeSubscriptionService.emitHeartbeatPulse;
 
-        const mailboxModule    = await import('../../../../../../../ai/services/memory-core/MailboxService.mjs');
+        const mailboxModule = await import('../../../../../../../ai/services/memory-core/MailboxService.mjs');
         MailboxService         = mailboxModule.default;
         originalListMessages   = MailboxService.listMessages;
 
-        const contextModule    = await import('../../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs');
+        const contextModule = await import('../../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs');
         RequestContextService  = contextModule.default;
 
-        const services = await import('../../../../../../../ai/services.mjs');
+        const services         = await import('../../../../../../../ai/services.mjs');
         const LifecycleService = services.Memory_LifecycleService;
         GraphService           = services.Memory_GraphService;
 
@@ -121,6 +123,9 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         }
         if (originalListMessages) {
             MailboxService.listMessages = originalListMessages;
+        }
+        if (originalGetUnreadCount) {
+            SwarmHeartbeatService.getUnreadCount = originalGetUnreadCount;
         }
     });
 
@@ -253,11 +258,11 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         const resumeCalls = [];
         SwarmHeartbeatService.checkSunsetted = async () => {
             return {
-                sunsetted          : true,
-                reason             : 'No active WAKE_SUBSCRIPTION',
-                originSessionId    : 'sid-123',
-                abandonedCount     : 0,
-                recommended_action : 'sunset_restart'
+                sunsetted         : true,
+                reason            : 'No active WAKE_SUBSCRIPTION',
+                originSessionId   : 'sid-123',
+                abandonedCount    : 0,
+                recommended_action: 'sunset_restart'
             };
         };
         SwarmHeartbeatService.resumeHarness = async (...args) => { resumeCalls.push(args) };
@@ -273,11 +278,11 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         const resumeCalls = [];
         SwarmHeartbeatService.checkSunsetted = async () => {
             return {
-                sunsetted          : true,
-                reason             : 'Subscription missing',
-                originSessionId    : 'sid-456',
-                abandonedCount     : 2,
-                recommended_action : 'sunset_restart'
+                sunsetted         : true,
+                reason            : 'Subscription missing',
+                originSessionId   : 'sid-456',
+                abandonedCount    : 2,
+                recommended_action: 'sunset_restart'
             };
         };
         SwarmHeartbeatService.resumeHarness = async (...args) => { resumeCalls.push(args) };
@@ -353,8 +358,8 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         SwarmHeartbeatService.checkSunsetted = async (identity) => {
             return {
                 identity,
-                sunsetted          : false,
-                recommended_action : identity === '@test' ? 'idle_out_nudge' : 'no_action'
+                sunsetted         : false,
+                recommended_action: identity === '@test' ? 'idle_out_nudge' : 'no_action'
             };
         };
         SwarmHeartbeatService.idleOutNudge = async (...args) => { nudgeCalls.push(args) };
@@ -493,8 +498,8 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
 
         // Capture both the SQL string and the parameters so the test asserts the
         // edge taxonomy (the resolver contract), not just the returned identity list.
-        let capturedSql       = null;
-        const capturedParams  = [];
+        let   capturedSql    = null;
+        const capturedParams = [];
         SwarmHeartbeatService.getGraphDb = () => {
             return {
                 prepare: sql => {
@@ -586,7 +591,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
     test('pulse() does not subprocess-dispatch converted dual-mode wake scripts', async () => {
         applyDefaultStubs();
         const sunsetCalls = [];
-        const idleCalls = [];
+        const idleCalls   = [];
 
         SwarmHeartbeatService.checkSunsetted = async (identity) => {
             sunsetCalls.push(identity);
@@ -718,7 +723,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         applyDefaultStubs();
         delete SwarmHeartbeatService.getReadinessSentinelMessages;
 
-        const wakeDecisionModule = await import('../../../../../../../ai/daemons/orchestrator/services/WakeDecisionService.mjs');
+        const wakeDecisionModule    = await import('../../../../../../../ai/daemons/orchestrator/services/WakeDecisionService.mjs');
         const {WakeDecisionService} = wakeDecisionModule;
 
         const targetIdentity     = '@neo-context-test';
@@ -737,7 +742,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         };
 
         try {
-            const sentinelMessages       = await SwarmHeartbeatService.getReadinessSentinelMessages(targetIdentity);
+            const sentinelMessages        = await SwarmHeartbeatService.getReadinessSentinelMessages(targetIdentity);
             const activeReadinessSentinel = WakeDecisionService.parseActiveReadinessSentinels(sentinelMessages, now);
 
             // Part 1: Context-binding contract.
@@ -892,7 +897,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         applyDefaultStubs();
         delete SwarmHeartbeatService.emitGitHubNotificationWakes;
 
-        let fetched = false;
+        let   fetched = false;
         const emitted = [];
 
         SwarmHeartbeatService.getGitRemoteUrl = async () => 'git@gitlab.com:acme/repo.git';
@@ -915,7 +920,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         applyDefaultStubs();
         delete SwarmHeartbeatService.emitGitHubNotificationWakes;
 
-        let state = {};
+        let   state   = {};
         const emitted = [];
 
         SwarmHeartbeatService.getGitRemoteUrl = async () => 'https://github.com/acme/repo.git';

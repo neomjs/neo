@@ -826,6 +826,10 @@ export async function initTier1Config({argv = process.argv, logger = console, ai
  *   {@link initConfigs}) so the template-vs-overlay import path is not read as false drift.
  * @param {String}   [options.aiRoot=aiDir]  Tier-1 root; `ai/config.mjs` is always checked.
  * @param {Object}   [options.logger=console] Log sink; injectable for tests.
+ * @param {Boolean}  [options.useConfigTemplates] Whether the process resolver has activated the
+ *   committed template graph instead of materialized overlays. Defaults to the resolver-owned
+ *   `NEO_TEST_CONFIG_TEMPLATES` boundary. Overlay drift is irrelevant in that mode because no
+ *   overlay participates in the running module graph; required-env findings remain enforced.
  * @returns {Promise<void>}
  * @throws {Error} on crash-causing overlay drift or missing required env state, naming the fix.
  */
@@ -833,7 +837,8 @@ export async function assertConfigFresh({
     aiRoot = aiDir,
     logger = console,
     requiredFindings = [],
-    serverPath
+    serverPath,
+    useConfigTemplates = process.env.NEO_TEST_CONFIG_TEMPLATES === 'true'
 } = {}) {
     const stale = [];
 
@@ -852,14 +857,14 @@ export async function assertConfigFresh({
         }
     };
 
-    const tier1Template = path.join(aiRoot, 'config.template.mjs');
-    const tier1Active   = path.join(aiRoot, 'config.mjs');
+    const tier1Template = path.join(aiRoot, 'config.template.mjs'),
+          tier1Active   = path.join(aiRoot, 'config.mjs');
 
-    if (fs.existsSync(tier1Template) && fs.existsSync(tier1Active)) {
+    if (!useConfigTemplates && fs.existsSync(tier1Template) && fs.existsSync(tier1Active)) {
         record('Tier-1 ai/config.mjs', detectDrift(await projectShape(tier1Template), await projectShape(tier1Active)));
     }
 
-    if (serverPath) {
+    if (!useConfigTemplates && serverPath) {
         const serverTemplate = path.join(serverPath, 'config.template.mjs');
         const serverActive   = path.join(serverPath, 'config.mjs');
 

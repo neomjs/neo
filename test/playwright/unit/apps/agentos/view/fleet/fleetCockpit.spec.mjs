@@ -410,10 +410,10 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         const store   = Neo.create(FleetRoster, {data: []}),
               cockpit = makeLiveCockpit(store, 1);
 
-        globalThis.AgentOS = {fleet: {registryBridge: {fleetRoster: async () => ({rows: [
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetRoster: async () => ({rows: [
             {id: 'ada',  family: 'claude', lifecycle: {state: 'running'}},
             {id: 'vega', family: 'claude', lifecycle: {state: 'stopped'}}
-        ]})}}};
+        ]})}};
 
         // the bridge wins the race: live truth lands first
         await FleetCockpit.prototype.loadRoster.call(cockpit);
@@ -458,7 +458,7 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             id: `agent-${index}`, lifecycle: {state: 'running'}
         }));
 
-        globalThis.AgentOS = {fleet: {registryBridge: {fleetRoster: async () => ({rows})}}};
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetRoster: async () => ({rows})}};
 
         await FleetCockpit.prototype.loadRoster.call(cockpit);
 
@@ -489,10 +489,10 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         cockpit.detailRecord = store.get('vega');
         const sampleInstance = cockpit.detailRecord;
 
-        globalThis.AgentOS = {fleet: {registryBridge: {fleetRoster: async () => ({rows: [
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetRoster: async () => ({rows: [
             {id: 'vega', family: 'claude', lifecycle: {state: 'running'}},
             {id: 'ada',  family: 'claude', lifecycle: {state: 'stopped'}}
-        ]})}}};
+        ]})}};
 
         await FleetCockpit.prototype.loadRoster.call(cockpit);   // first-live clear+add replaces the seed
 
@@ -515,7 +515,7 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         store.add([{agentId: 'vega'}, {agentId: 'ada'}]);
         cockpit.detailRecord = store.get('vega');
 
-        globalThis.AgentOS = {fleet: {registryBridge: {fleetRoster: async () => ({rows: []})}}};
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetRoster: async () => ({rows: []})}};
 
         await FleetCockpit.prototype.loadRoster.call(cockpit);   // authoritative empty snapshot → real Store.remove
 
@@ -537,10 +537,10 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         cockpit.detailRecord = store.get('vega');
         const instance = cockpit.detailRecord;
 
-        globalThis.AgentOS = {fleet: {registryBridge: {fleetRoster: async () => ({rows: [
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetRoster: async () => ({rows: [
             {id: 'vega', family: 'claude', lifecycle: {state: 'running'}},
             {id: 'ada',  family: 'claude', lifecycle: {state: 'stopped'}}
-        ]})}}};
+        ]})}};
 
         await FleetCockpit.prototype.loadRoster.call(cockpit);   // reconcile: record.set mutates in place (same object)
 

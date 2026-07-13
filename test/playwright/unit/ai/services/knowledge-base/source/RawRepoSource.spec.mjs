@@ -15,17 +15,17 @@ setup({
     }
 });
 
-import {test, expect}  from '@playwright/test';
-import Neo             from '../../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../../src/core/_export.mjs';
-import fs              from 'fs-extra';
-import os              from 'os';
-import path            from 'path';
-import aiConfig        from '../../../../../../../ai/mcp/server/knowledge-base/config.mjs';
-import RawRepoSource   from '../../../../../../../ai/services/knowledge-base/source/RawRepoSource.mjs';
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../../src/core/_export.mjs';
+import fs             from 'fs-extra';
+import os             from 'os';
+import path           from 'path';
+import aiConfig       from '../../../../../../../ai/mcp/server/knowledge-base/config.template.mjs';
+import RawRepoSource  from '../../../../../../../ai/services/knowledge-base/source/RawRepoSource.mjs';
 
 /**
- * @summary Unit coverage for the explicit raw repository Source fallback added by #12029.
+ * @summary Unit coverage for the explicit raw repository Source fallback.
  */
 test.describe('Neo.ai.services.knowledge-base.source.RawRepoSource (#12029)', () => {
     let originalNeoRootDir, originalSourcePaths, tempDir;

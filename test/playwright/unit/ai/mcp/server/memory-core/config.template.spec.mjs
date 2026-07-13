@@ -2,7 +2,6 @@ import { test, expect }                    from '@playwright/test';
 import path                                from 'path';
 import Neo                                 from '../../../../../../../src/Neo.mjs';
 import ConfigProvider, {createConfigProxy} from '../../../../../../../ai/ConfigProvider.mjs';
-import {TIER1_DEFAULTS}                    from '../../../../../fixtures/aiConfigDefaults.mjs';
 
 test.describe('Memory Core Config (#10010)', () => {
     let originalEnv;
@@ -11,8 +10,11 @@ test.describe('Memory Core Config (#10010)', () => {
     let originalTier1ClassHierarchy;
     let originalConfig;
     let originalClassHierarchy;
+    let tier1Template;
     let tier1TemplateData;
     let tier1TemplateFormulas;
+    let tier1Root;
+    let tier1Config;
 
     test.beforeAll(async () => {
         originalEnv = { ...process.env };
@@ -44,15 +46,17 @@ test.describe('Memory Core Config (#10010)', () => {
         // side-effect import only registers it on FIRST module-eval — in a reused Playwright worker
         // (cached module) that's a no-op — so install a fresh Tier-1 root built from the canonical
         // template tree, making inheritance deterministic across workers.
-        const tier1Template = (await import('../../../../../../../ai/config.template.mjs')).default;
+        tier1Template         = (await import('../../../../../../../ai/config.template.mjs')).default;
         tier1TemplateData     = tier1Template._data;
         tier1TemplateFormulas = tier1Template._formulas;
         Neo.ai = Neo.ai || {};
         delete Neo.ai.Config;
-        Neo.ai.Config = Neo.create(ConfigProvider, {
+        tier1Root = Neo.create(ConfigProvider, {
             data    : tier1TemplateData,
             formulas: tier1TemplateFormulas
         });
+        Neo.ai.Config = tier1Root;
+        tier1Config   = createConfigProxy(tier1Root);
     });
 
     test.afterAll(() => {
@@ -67,6 +71,8 @@ test.describe('Memory Core Config (#10010)', () => {
         } else if (Neo.classHierarchyMap?.['Neo.ai.Config']) {
             delete Neo.classHierarchyMap['Neo.ai.Config'];
         }
+
+        tier1Config.destroy();
 
         // Restore any runtime config registration that existed before this template test.
         if (originalConfig !== undefined) {
@@ -101,32 +107,35 @@ test.describe('Memory Core Config (#10010)', () => {
         // MC declares none of these locally — they resolve UP the getParent() chain to the
         // Tier-1 realm root. Read KEYED, never whole-namespace: `toEqual(config.ollama)` would
         // enumerate, and namespace enumeration is the deferred getTopLevelDataKeys local-only edge.
-        expect(config.modelProvider).toBe(TIER1_DEFAULTS.modelProvider);
-        expect(config.graphProvider).toBe(TIER1_DEFAULTS.graphProvider);
-        expect(config.embeddingProvider).toBe(TIER1_DEFAULTS.embeddingProvider);
-        expect(config.vectorDimension).toBe(TIER1_DEFAULTS.vectorDimension);
-        expect(config.backupPath).toBe(TIER1_DEFAULTS.backupPath);
-        expect(config.modelName).toBe(TIER1_DEFAULTS.modelName);
-        expect(config.embeddingModel).toBe(TIER1_DEFAULTS.embeddingModel);
+        expect(config.modelProvider).toBe(tier1Config.modelProvider);
+        expect(config.graphProvider).toBe(tier1Config.graphProvider);
+        expect(config.embeddingProvider).toBe(tier1Config.embeddingProvider);
+        expect(config.vectorDimension).toBe(tier1Config.vectorDimension);
+        expect(config.backupPath).toBe(tier1Config.backupPath);
+        expect(config.modelName).toBe(tier1Config.modelName);
+        expect(config.embeddingModel).toBe(tier1Config.embeddingModel);
 
-        expect(config.auth.host).toBe(TIER1_DEFAULTS.auth.host);
-        expect(config.auth.port).toBe(TIER1_DEFAULTS.auth.port);
-        expect(config.auth.realm).toBe(TIER1_DEFAULTS.auth.realm);
-        expect(config.auth.trustProxyIdentity).toBe(TIER1_DEFAULTS.auth.trustProxyIdentity);
+        expect(config.auth.host).toBe(tier1Config.auth.host);
+        expect(config.auth.port).toBe(tier1Config.auth.port);
+        expect(config.auth.realm).toBe(tier1Config.auth.realm);
+        expect(config.auth.trustProxyIdentity).toBe(tier1Config.auth.trustProxyIdentity);
 
-        expect(config.ollama.host).toBe(TIER1_DEFAULTS.ollama.host);
-        expect(config.ollama.model).toBe(TIER1_DEFAULTS.ollama.model);
-        expect(config.ollama.embeddingModel).toBe(TIER1_DEFAULTS.ollama.embeddingModel);
+        expect(config.ollama.host).toBe(tier1Config.ollama.host);
+        expect(config.ollama.model).toBe(tier1Config.ollama.model);
+        expect(config.ollama.embeddingModel).toBe(tier1Config.ollama.embeddingModel);
 
-        expect(config.openAiCompatible.host).toBe(TIER1_DEFAULTS.openAiCompatible.host);
-        expect(config.openAiCompatible.model).toBe(TIER1_DEFAULTS.openAiCompatible.model);
-        expect(config.openAiCompatible.embeddingModel).toBe(TIER1_DEFAULTS.openAiCompatible.embeddingModel);
+        expect(config.openAiCompatible.host).toBe(tier1Config.openAiCompatible.host);
+        expect(config.openAiCompatible.model).toBe(tier1Config.openAiCompatible.model);
+        expect(config.openAiCompatible.embeddingModel).toBe(tier1Config.openAiCompatible.embeddingModel);
 
-        expect(config.engines.chroma.host).toBe(TIER1_DEFAULTS.engines.chroma.hostTest);
-        expect(config.engines.chroma.port).toBe(TIER1_DEFAULTS.engines.chroma.portTest);
         // MC reads the Tier-1 Chroma SSOT. Under UNIT_TEST_MODE the active endpoint is the
         // isolated unit-test daemon/data dir, while the production leaf stays the unified store.
-        expect(config.engines.chroma.dataDir).toBe(TIER1_DEFAULTS.engines.chroma.dataDirTest);
+        expect(config.engines.chroma.host).toBe(tier1Template.engines.chroma.host);
+        expect(config.engines.chroma.port).toBe(tier1Template.engines.chroma.port);
+        expect(config.engines.chroma.dataDir).toBe(tier1Template.engines.chroma.dataDir);
+        expect(tier1Template.engines.chroma.host).toBe(tier1Template.engines.chroma.hostTest);
+        expect(tier1Template.engines.chroma.port).toBe(tier1Template.engines.chroma.portTest);
+        expect(tier1Template.engines.chroma.dataDir).toBe(tier1Template.engines.chroma.dataDirTest);
         expect(config.engines.chroma.dataDirProd).toContain('.neo-ai-data/chroma/unified');
         expect(config.engines.chroma.dataDir).toContain('neo-chroma-unit-test');
     });
@@ -136,7 +145,7 @@ test.describe('Memory Core Config (#10010)', () => {
     });
 
     test('inherits concrete graphProvider defaults from Tier-1 config', () => {
-        expect(TIER1_DEFAULTS.graphProvider).toBe('openAiCompatible');
+        expect(tier1Config.graphProvider).toBe('openAiCompatible');
         expect(config.graphProvider).toBe('openAiCompatible');
     });
 
@@ -170,6 +179,7 @@ test.describe('Memory Core Config (#10010)', () => {
         process.env.NEO_OPENAI_COMPATIBLE_KEEP_ALIVE = '10m';
         process.env.NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS = '4';
         process.env.UNIT_TEST_MODE = 'false';
+        process.env.NEO_TEST_CONFIG_TEMPLATES = 'false';
         process.env.NEO_CHROMA_HOST = 'chroma';
         process.env.NEO_CHROMA_PORT = '8010';
 
@@ -201,7 +211,7 @@ test.describe('Memory Core Config (#10010)', () => {
         } finally {
             if (prevRoot === undefined) {delete Neo.ai.Config} else {Neo.ai.Config = prevRoot}
             freshMC.destroy();
-            freshRoot.destroy()
+            freshRoot.destroy();
         }
     });
 
@@ -231,11 +241,35 @@ test.describe('Memory Core Config (#10010)', () => {
         // with two declarative leaves + a formula. Under the unit suite (UNIT_TEST_MODE=true) the toggle
         // resolves true and the `storagePaths.graph` formula returns `graphTest` — self-validating
         // safe-by-construction isolation (the ~10 graph-path consumers read this one resolved value).
+        expect(config.storagePaths.useUnitTestDatabase).toBe(true);
+        expect(config.storagePaths.useTestHarness).toBe(true);
         expect(config.storagePaths.useTestDatabase).toBe(true);
         expect(config.storagePaths.graphTest).toBe(':memory:');
         expect(config.storagePaths.graphProd).toContain('.neo-ai-data/sqlite/memory-core-graph.sqlite');
         expect(config.storagePaths.graph).toBe(':memory:');
         expect(config.storagePaths.graph).toBe(config.storagePaths.graphTest);
+    });
+
+    test('the Playwright harness selects disposable storage without claiming UNIT_TEST_MODE semantics', () => {
+        process.env.UNIT_TEST_MODE            = 'false';
+        process.env.NEO_TEST_CONFIG_TEMPLATES = 'true';
+
+        const freshCfg = createConfigProxy(Neo.create(ConfigProvider, {
+            data    : config._data,
+            formulas: config._formulas
+        }));
+
+        try {
+            expect(freshCfg.storagePaths.useUnitTestDatabase).toBe(false);
+            expect(freshCfg.storagePaths.useTestHarness).toBe(true);
+            expect(freshCfg.storagePaths.useTestDatabase).toBe(true);
+            expect(freshCfg.storagePaths.graph).toBe(':memory:');
+            expect(freshCfg.collections.memory).toBe(freshCfg.collections.memoryTest);
+            expect(freshCfg.memoryWal.dir).toBe(freshCfg.memoryWal.dirTest);
+            expect(freshCfg.handoffFilePath).toBe(freshCfg.handoffFilePathTest);
+        } finally {
+            freshCfg.destroy();
+        }
     });
 
     test('handoffFilePath resolves by construction to the test path under the toggle — never the tracked prod file (#13663)', () => {

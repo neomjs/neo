@@ -53,7 +53,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
     let logger;
 
     test.beforeAll(async () => {
-        aiConfig = (await import('../../../../../../ai/mcp/server/github-workflow/config.mjs')).default;
+        aiConfig = (await import('../../../../../../ai/mcp/server/github-workflow/config.template.mjs')).default;
         issueSyncConfig = aiConfig.issueSync;
         originalArchiveRoot = issueSyncConfig.archiveRoot;
         originalIssuesDir   = issueSyncConfig.issuesDir;
@@ -142,7 +142,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
 
         const chunkNumber = 1;
         const writtenPath = path.join(issueSyncConfig.issuesDir, `chunk-${chunkNumber}`, `issue-${mockIssue.number}.md`);
-        const written = await fs.readFile(writtenPath, 'utf-8');
+        const written     = await fs.readFile(writtenPath, 'utf-8');
 
         // Every comment body must appear — the bug being fixed is that second-page comments
         // were silently dropped.
@@ -200,7 +200,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         // Frontmatter commentsCount uses the same derivation — no dual-source divergence possible.
         const chunkNumber = 1;
         const writtenPath = path.join(issueSyncConfig.issuesDir, `chunk-${chunkNumber}`, `issue-${mockIssue.number}.md`);
-        const written = await fs.readFile(writtenPath, 'utf-8');
+        const written     = await fs.readFile(writtenPath, 'utf-8');
         expect(written).toContain(`commentsCount: ${COMMENT_COUNT}`);
     });
 
@@ -457,7 +457,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         const originalSorted = ReleaseNotesSyncer.sortedReleases;
         const issueNumber    = 6003;
         const oldAbs         = path.join(issueSyncConfig.issuesDir, 'chunk-77', `issue-${issueNumber}.md`);
-        const oldRel = path.relative(aiConfig.projectRoot, oldAbs);
+        const oldRel         = path.relative(aiConfig.projectRoot, oldAbs);
 
         await fs.ensureDir(path.dirname(oldAbs));
         await fs.writeFile(oldAbs, 'CLOSED ISSUE CONTENT', 'utf8');
@@ -480,7 +480,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         };
 
         try {
-            const stats = await IssueSyncer.reconcileClosedIssueLocations(metadata);
+            const stats     = await IssueSyncer.reconcileClosedIssueLocations(metadata);
             const targetAbs = path.join(issueSyncConfig.archiveRoot, 'issues', 'v13.0.0', 'chunk-1', `issue-${issueNumber}.md`);
 
             expect(stats.count).toBe(1);
@@ -678,7 +678,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
 
         const chunkNumber = 1;
         const writtenPath = path.join(issueSyncConfig.issuesDir, `chunk-${chunkNumber}`, `issue-${mockIssue.number}.md`);
-        const written = await fs.readFile(writtenPath, 'utf-8');
+        const written     = await fs.readFile(writtenPath, 'utf-8');
 
         // Fallback markers appear in rendered markdown.
         expect(written).toContain('assigned to @Ghost');
@@ -1054,8 +1054,8 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         // with the full release history, recomputes closedAt→release and moves it to v7.0.0.
         const originalSorted = ReleaseNotesSyncer.sortedReleases;
         const N              = 6001;
-        const wrongAbs = path.join(issueSyncConfig.archiveRoot, 'issues', 'v8.1.0', 'chunk-1', `issue-${N}.md`);
-        const wrongRel = path.relative(aiConfig.projectRoot, wrongAbs);
+        const wrongAbs       = path.join(issueSyncConfig.archiveRoot, 'issues', 'v8.1.0', 'chunk-1', `issue-${N}.md`);
+        const wrongRel       = path.relative(aiConfig.projectRoot, wrongAbs);
         await fs.ensureDir(path.dirname(wrongAbs));
         await fs.writeFile(wrongAbs, 'ISSUE 6001 CONTENT', 'utf8');
 
@@ -1077,7 +1077,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         };
 
         try {
-            const result = await IssueSyncer.migrateArchiveBuckets(metadata);
+            const result     = await IssueSyncer.migrateArchiveBuckets(metadata);
             const correctAbs = path.join(issueSyncConfig.archiveRoot, 'issues', 'v7.0.0', 'chunk-1', `issue-${N}.md`);
 
             expect(result.moved).toBe(1);
@@ -1100,8 +1100,8 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
     test('migrateArchiveBuckets dryRun reports the plan without moving any file (#12194)', async () => {
         const originalSorted = ReleaseNotesSyncer.sortedReleases;
         const N              = 6002;
-        const wrongAbs = path.join(issueSyncConfig.archiveRoot, 'issues', 'v8.1.0', 'chunk-1', `issue-${N}.md`);
-        const wrongRel = path.relative(aiConfig.projectRoot, wrongAbs);
+        const wrongAbs       = path.join(issueSyncConfig.archiveRoot, 'issues', 'v8.1.0', 'chunk-1', `issue-${N}.md`);
+        const wrongRel       = path.relative(aiConfig.projectRoot, wrongAbs);
         await fs.ensureDir(path.dirname(wrongAbs));
         await fs.writeFile(wrongAbs, 'DRYRUN CONTENT', 'utf8');
 
@@ -1153,13 +1153,13 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
     test('pushToGitHub heals generated-only drift without mutating GitHub (#13958)', async () => {
         const issueNumber = 43058;
         const filePath    = path.join(issueSyncConfig.issuesDir, 'chunk-1', `issue-${issueNumber}.md`);
-        const markdown = matter.stringify(
+        const markdown    = matter.stringify(
             '# Generated-only drift\n\nRemote body already matches.\n\n## Timeline\n\n### @tobiu - 2026-06-24T12:00:00Z\n\nGenerated timeline changed.\n',
             {
-                id       : issueNumber,
-                title    : 'Generated-only drift',
-                state    : 'OPEN',
-                updatedAt: '2026-06-24T12:00:00Z',
+                id           : issueNumber,
+                title        : 'Generated-only drift',
+                state        : 'OPEN',
+                updatedAt    : '2026-06-24T12:00:00Z',
                 githubUrl    : `https://github.com/neomjs/neo/issues/${issueNumber}`,
                 author       : 'tobiu',
                 commentsCount: 1,
@@ -1223,13 +1223,13 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
     test('pushToGitHub still mutates GitHub for real title/body edits (#13958)', async () => {
         const issueNumber = 43059;
         const filePath    = path.join(issueSyncConfig.issuesDir, 'chunk-1', `issue-${issueNumber}.md`);
-        const markdown = matter.stringify(
+        const markdown    = matter.stringify(
             '# Real body edit\n\nLocal body changed.\n\n## Timeline\n\n### @tobiu - 2026-06-24T12:00:00Z\n\nGenerated timeline.\n',
             {
-                id       : issueNumber,
-                title    : 'Real body edit',
-                state    : 'OPEN',
-                updatedAt: '2026-06-24T12:00:00Z',
+                id           : issueNumber,
+                title        : 'Real body edit',
+                state        : 'OPEN',
+                updatedAt    : '2026-06-24T12:00:00Z',
                 githubUrl    : `https://github.com/neomjs/neo/issues/${issueNumber}`,
                 author       : 'tobiu',
                 commentsCount: 1,
@@ -1318,8 +1318,8 @@ function buildCrossRef(i) {
     return {
         __typename: 'CrossReferencedEvent',
         createdAt : `2026-04-19T11:${minute}:00Z`,
-        actor : {login: 'tobiu'},
-        source: {__typename: 'Issue', number: 10000 + i}
+        actor     : {login: 'tobiu'},
+        source    : {__typename: 'Issue', number: 10000 + i}
     };
 }
 
@@ -1331,12 +1331,12 @@ function buildMockIssue({number, title, timelineFirst, hasNextPage, endCursor}) 
     return {
         number,
         title,
-        body     : 'This is the mock issue body.',
-        state    : 'OPEN',
-        createdAt: '2026-04-19T00:00:00Z',
-        updatedAt: '2026-04-19T12:00:00Z',
-        closedAt : null,
-        url      : `https://github.com/neomjs/neo/issues/${number}`,
+        body            : 'This is the mock issue body.',
+        state           : 'OPEN',
+        createdAt       : '2026-04-19T00:00:00Z',
+        updatedAt       : '2026-04-19T12:00:00Z',
+        closedAt        : null,
+        url             : `https://github.com/neomjs/neo/issues/${number}`,
         author          : {login: 'tobiu'},
         labels          : {nodes: [{name: 'bug'}]},
         assignees       : {nodes: [{login: 'tobiu'}]},

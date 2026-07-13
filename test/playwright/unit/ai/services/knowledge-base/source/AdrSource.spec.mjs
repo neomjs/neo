@@ -31,7 +31,7 @@ test.describe('Neo.ai.services.knowledge-base.source.AdrSource', () => {
     let mockRoot;
 
     test.beforeAll(async () => {
-        aiConfig    = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
+        aiConfig    = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
         AdrSource = (await import('../../../../../../../ai/services/knowledge-base/source/AdrSource.mjs')).default;
 
         originalRoot = aiConfig.neoRootDir;
@@ -66,7 +66,7 @@ This should be skipped.`);
     });
 
     test('extract() emits correctly typed and chunked ADRs, skipping non-matching files', async () => {
-        const written = [];
+        const written     = [];
         const writeStream = {
             write(chunkStr) {
                 written.push(JSON.parse(chunkStr.trim()));
@@ -82,9 +82,9 @@ This should be skipped.`);
 
         const chunk = written[0];
         expect(chunk).toMatchObject({
-            type: 'adr',
-            kind: 'adr',
-            name: '0001-example-adr',
+            type   : 'adr',
+            kind   : 'adr',
+            name   : '0001-example-adr',
             content: '# ADR 1\nExample decision.'
         });
     });

@@ -20,7 +20,7 @@ import fs             from 'fs';
 import http           from 'http';
 import os             from 'os';
 import path           from 'path';
-import aiConfig       from '../../../../../../ai/mcp/server/memory-core/config.mjs';
+import aiConfig       from '../../../../../../ai/mcp/server/memory-core/config.template.mjs';
 import {
     clearLmsEmbeddingInputSuffixCache,
     readGgufTokenizerMetadata,

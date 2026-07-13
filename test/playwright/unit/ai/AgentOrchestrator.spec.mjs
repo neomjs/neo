@@ -1,5 +1,6 @@
 import test              from '@playwright/test';
 import fs                from 'fs';
+import os                from 'os';
 import path              from 'path';
 import Neo               from '../../../../src/Neo.mjs';
 import * as core         from '../../../../src/core/_export.mjs';
@@ -8,7 +9,17 @@ import AgentOrchestrator from '../../../../ai/agent/AgentOrchestrator.mjs';
 import {findComputedFocusContradiction, renderComputedGoldenPathContradictionSection} from '../../../../ai/services/graph/computedGoldenPathRouting.mjs';
 import {rankByDeclaredIntent, renderDeclaredIntentFallback}                           from '../../../../ai/services/graph/goldenPathPickupBridge.mjs';
 
-const createTestHandoff = (filename, content) => {
+/**
+ * @summary Creates a private outcome directory for one fully-parallel test so another test's
+ * cleanup cannot remove its JSONL evidence.
+ * @param {String} filename Outcome filename.
+ * @returns {String}
+ */
+const createOutcomePath = filename => path.join(
+          fs.mkdtempSync(path.join(os.tmpdir(), 'neo-test-agent-orchestrator-')),
+          filename
+      ),
+      createTestHandoff = (filename, content) => {
           const filePath = path.resolve(process.cwd(), filename);
           fs.writeFileSync(filePath, content, 'utf-8');
           return filePath;
@@ -204,7 +215,7 @@ Based on priorities, the following tasks are mathematically recommended:
 `;
 
         const testHandoffPath = createTestHandoff('.neo-test-handoff-outcomes.md', content),
-              outcomePath     = path.resolve(process.cwd(), '.neo-test-agent-orchestrator/completed.jsonl'),
+              outcomePath     = createOutcomePath('completed.jsonl'),
               fakeAgent       = createFakeAgent(),
               healthCalls     = [],
               exitCodes       = [],
@@ -276,7 +287,7 @@ Based on priorities, the following tasks are mathematically recommended:
 `;
 
         const testHandoffPath = createTestHandoff('.neo-test-handoff-failed.md', content),
-              outcomePath     = path.resolve(process.cwd(), '.neo-test-agent-orchestrator/failed.jsonl'),
+              outcomePath     = createOutcomePath('failed.jsonl'),
               handoffCalls    = [],
               healthCalls     = [],
               failedEvents    = [{
@@ -343,7 +354,7 @@ Based on priorities, the following tasks are mathematically recommended:
 `;
 
         const testHandoffPath = createTestHandoff('.neo-test-handoff-blocked.md', content),
-              outcomePath     = path.resolve(process.cwd(), '.neo-test-agent-orchestrator/blocked.jsonl'),
+              outcomePath     = createOutcomePath('blocked.jsonl'),
               failedEvents    = [{
                   error: 'blocked-task-state: credentials required',
                   event: {
@@ -395,7 +406,7 @@ Based on priorities, the following tasks are mathematically recommended:
 `;
 
         const testHandoffPath = createTestHandoff('.neo-test-handoff-expired.md', content),
-              outcomePath     = path.resolve(process.cwd(), '.neo-test-agent-orchestrator/expired.jsonl'),
+              outcomePath     = createOutcomePath('expired.jsonl'),
               exitCodes       = [],
               handoffCalls    = [];
 
@@ -448,7 +459,7 @@ Based on priorities, the following tasks are mathematically recommended:
 `;
 
         const testHandoffPath = createTestHandoff('.neo-test-handoff-crashed.md', content),
-              outcomePath     = path.resolve(process.cwd(), '.neo-test-agent-orchestrator/crashed.jsonl'),
+              outcomePath     = createOutcomePath('crashed.jsonl'),
               initError       = new Error('boot failed'),
               handoffCalls    = [],
               times           = [
@@ -513,7 +524,7 @@ Based on priorities, the following tasks are mathematically recommended:
 `;
 
         const testHandoffPath = createTestHandoff('.neo-test-handoff-health-fallback.md', content),
-              outcomePath     = path.resolve(process.cwd(), '.neo-test-agent-orchestrator/health-fallback.jsonl'),
+              outcomePath     = createOutcomePath('health-fallback.jsonl'),
               exitCodes       = [];
 
         try {

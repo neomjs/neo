@@ -25,10 +25,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 /**
- * Always-on file-sink coverage for Memory Core MCP server `logger.mjs` (#10582).
+ * Always-on file-sink coverage for Memory Core MCP server `logger.mjs`.
  *
  * Symmetric with `test/playwright/unit/ai/mcp/server/knowledge-base/logger.spec.mjs`
- * (introduced in #10580). Verifies:
+ * and verifies:
  *
  * 1. Every `logger.log/info/warn/error/debug` call lands in a daily-rotated file
  *    under `aiConfig.logPath` (filename prefix `mc-server-`, distinct from KB's
@@ -48,7 +48,7 @@ test.describe('MC MCP server logger — always-on file sink (#10582)', () => {
     let originalLogPath;
 
     test.beforeAll(async () => {
-        aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
 
         tmpLogDir       = path.resolve(os.tmpdir(), `mc-logger-test-${process.pid}-${Date.now()}`);
         originalLogPath = aiConfig.data.logPath;

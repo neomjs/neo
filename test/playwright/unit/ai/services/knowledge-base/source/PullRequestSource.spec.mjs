@@ -25,7 +25,7 @@ test.describe('Neo.ai.services.knowledge-base.source.PullRequestSource', () => {
     let mockRoot;
 
     test.beforeAll(async () => {
-        aiConfig = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
+        aiConfig = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
         PullRequestSource = (await import('../../../../../../../ai/services/knowledge-base/source/PullRequestSource.mjs')).default;
 
         originalRoot = aiConfig.neoRootDir;

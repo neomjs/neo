@@ -13,13 +13,13 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import {createHash}       from 'crypto';
-import {readFileSync}     from 'fs';
-import path               from 'path';
-import {fileURLToPath}    from 'url';
-import Neo                from '../../../../../../src/Neo.mjs';
-import * as core          from '../../../../../../src/core/_export.mjs';
+import {test, expect}  from '@playwright/test';
+import {createHash}    from 'crypto';
+import {readFileSync}  from 'fs';
+import path            from 'path';
+import {fileURLToPath} from 'url';
+import Neo             from '../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../src/core/_export.mjs';
 
 const
     testDir            = path.dirname(fileURLToPath(import.meta.url)),
@@ -40,7 +40,7 @@ test.describe('Neo.ai.services.knowledge-base.HealthService provider-aware readi
         HealthService            = (await import('../../../../../../ai/services/knowledge-base/HealthService.mjs')).default;
         ChromaManager            = (await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
         DatabaseLifecycleService = (await import('../../../../../../ai/services/knowledge-base/DatabaseLifecycleService.mjs')).default;
-        aiConfig                 = (await import('../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
+        aiConfig                 = (await import('../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
     });
 
     // ---------------------------------------------------------------------------

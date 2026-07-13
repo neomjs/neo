@@ -25,18 +25,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 /**
- * Always-on file-sink coverage for Neural Link MCP server `logger.mjs` (#10582).
+ * Always-on file-sink coverage for Neural Link MCP server `logger.mjs`.
  *
- * Symmetric with KB and Memory Core logger specs (#10580 / #10582). NL differs from
+ * Symmetric with the KB and Memory Core logger specs. NL differs from
  * KB/MC in stderr semantics — NL writes `info`/`warn`/`error` to stderr always,
  * `debug` only when `aiConfig.debug === true`. The new file sink runs ALWAYS
  * regardless of level (different from stderr), so the test forces `debug: false`
  * and verifies all 4 levels still land in the file.
  *
- * The pre-#10582 NL logger interpolated `JSON.stringify(args)` directly, which
+ * The prior NL logger interpolated `JSON.stringify(args)` directly, which
  * silently destroyed Error.message and Error.stack. The replacement `stringifyArg`
  * helper unpacks Error instances and falls back gracefully on circular references
- * — symmetric with the #10580 RA2 fix on the KB side.
+ * — symmetric with the KB-side Error-serialization behavior.
  */
 test.describe('NL MCP server logger — always-on file sink (#10582)', () => {
     let logger;
@@ -45,7 +45,7 @@ test.describe('NL MCP server logger — always-on file sink (#10582)', () => {
     let originalLogPath;
 
     test.beforeAll(async () => {
-        aiConfig = (await import('../../../../../../../ai/mcp/server/neural-link/config.mjs')).default;
+        aiConfig = (await import('../../../../../../../ai/mcp/server/neural-link/config.template.mjs')).default;
 
         tmpLogDir       = path.resolve(os.tmpdir(), `nl-logger-test-${process.pid}-${Date.now()}`);
         originalLogPath = aiConfig.data.logPath;

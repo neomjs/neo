@@ -42,7 +42,7 @@ test.describe('CoalescingEngineService', () => {
     let deliverCalls;
 
     test.beforeAll(async () => {
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         if (!aiConfig.collections) aiConfig.collections = {};
         aiConfig.collections.memory = `test-memory-${process.pid}-${Date.now()}`;
         aiConfig.collections.session = `test-session-${process.pid}-${Date.now()}`;
@@ -184,7 +184,7 @@ test.describe('CoalescingEngineService', () => {
 
         expect(notificationCalledWith).not.toBeNull();
         expect(notificationCalledWith.method).toBe('notifications/message');
-        // TRACKING: #10400 Fix - mcp-notifications bypassed timer and digest envelope
+        // MCP notifications preserve the coalesced event type and payload envelope.
         expect(notificationCalledWith.params.eventType).toBe('wake/sent_to_me');
         expect(notificationCalledWith.params.payload.messageId).toBe('M1');
 

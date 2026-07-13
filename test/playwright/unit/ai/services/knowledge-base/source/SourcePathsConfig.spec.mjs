@@ -15,17 +15,25 @@ setup({
     }
 });
 
-import {test, expect}  from '@playwright/test';
-import Neo             from '../../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../../src/core/_export.mjs';
-import {KB_DEFAULTS}   from '../../../../../fixtures/knowledgeBaseConfigDefaults.mjs';
-import fs              from 'fs-extra';
-import path            from 'path';
-import {fileURLToPath} from 'url';
+import {test, expect}                            from '@playwright/test';
+import Neo                                       from '../../../../../../../src/Neo.mjs';
+import * as core                                 from '../../../../../../../src/core/_export.mjs';
+import ConfigProvider, {createConfigProxy, leaf} from '../../../../../../../ai/ConfigProvider.mjs';
+import path                                      from 'path';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
-const TEMPLATE_PATH = path.resolve(__dirname, '../../../../../../../ai/mcp/server/knowledge-base/config.template.mjs');
+/**
+ * Creates a disposable ConfigProvider that is not installed as a realm singleton.
+ * `undefined` deliberately omits the entire `sourcePaths` leaf; an object (including `{}`)
+ * declares that leaf with exactly the requested keys. Tests can therefore exercise overrides
+ * and missing-key fallbacks without writing to the imported template singleton.
+ * @param {Object|undefined} sourcePaths
+ * @returns {Neo.ai.ConfigProvider}
+ */
+function createSourcePathsConfig(sourcePaths) {
+    const data = sourcePaths === undefined ? {} : {sourcePaths: leaf(sourcePaths)};
+
+    return createConfigProxy(Neo.create(ConfigProvider, {data}));
+}
 
 /**
  * Verifies the `aiConfig.sourcePaths` config-driven override + legacy hardcoded-fallback contract
@@ -39,19 +47,8 @@ const TEMPLATE_PATH = path.resolve(__dirname, '../../../../../../../ai/mcp/serve
  * drifting away from the legacy default.
  */
 
-// Serial mode: tests mutate the shared `aiConfig.sourcePaths` singleton via per-test
-// override / delete patterns. Under local `fullyParallel` (workers=9), the per-test
-// try/finally restoration windows overlap, causing cross-test races where one test's
-// `delete aiConfig.sourcePaths[X]` is observed by a concurrent test as missing. Serial
-// mode within this file forces non-overlapping mutation windows. CI uses workers=1 so
-// this primarily defends local-DX correctness; the singleton-mutation pattern is inherent
-// to the test shape, not a workers=1 vs workers=9 distinction.
-test.describe.configure({mode: 'serial'});
-
 test.describe('aiConfig.sourcePaths config-driven path resolution (#11660)', () => {
-    let aiConfig;
-    let templateText;
-    let originalSourcePaths;
+    let templateConfig;
     let originalTier1Config;
     let originalTier1ClassHierarchy;
     let originalConfig;
@@ -77,30 +74,10 @@ test.describe('aiConfig.sourcePaths config-driven path resolution (#11660)', () 
             delete Neo.classHierarchyMap['Neo.ai.mcp.server.knowledge-base.Config'];
         }
 
-        aiConfig = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
-        // The byte-equivalence anchor MUST assert against the canonical git-tracked template,
-        // not any per-clone operator overlay (which may be stale on clones that pulled
-        // the template change without re-running `bootstrapWorktree.mjs` to refresh local config).
-        // Read the template file as text and verify the expected fallback strings appear inside
-        // the `sourcePaths` block. Text-level verification is stale-clone-safe.
-        templateText = await fs.readFile(TEMPLATE_PATH, 'utf-8');
-
-        // Stale-clone-safe init: the override/missing-key runtime tests below mutate
-        // `aiConfig.sourcePaths[name]` via override + delete. If the local clone's gitignored
-        // the operator overlay is stale and lacks the `sourcePaths` key, those mutations would crash
-        // (cannot set property of undefined). Seed empty object for the test run; restore the
-        // original state in afterAll so per-clone freshness is preserved on test exit.
-        originalSourcePaths = aiConfig.sourcePaths;
-        if (!aiConfig.sourcePaths) {
-            aiConfig.sourcePaths = {};
-        }
+        templateConfig = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
     });
 
     test.afterAll(() => {
-        // Restore clone-config freshness (or lack thereof) — don't leak the seeded sourcePaths
-        // object into subsequent specs that might import the same singleton.
-        aiConfig.sourcePaths = originalSourcePaths;
-
         if (originalTier1Config !== undefined) {
             Neo.ai.Config = originalTier1Config;
         } else if (Neo.ai?.Config) {
@@ -138,36 +115,32 @@ test.describe('aiConfig.sourcePaths config-driven path resolution (#11660)', () 
 
         for (const {name, fallback} of singlePathSources) {
             test(`${name}: template default matches Source-class hardcoded fallback (byte-equivalence anchor)`, () => {
-                // Verify the template file contains both the source-name key AND the expected
-                // fallback string within the sourcePaths block. Drift between the Source class's
-                // inline `?? '<fallback>'` and the template default would be caught by either
-                // (a) this text-grep failing OR (b) a downstream npm run ai:sync-kb producing
-                // different output. Text-grep is the cheapest of the two.
-                expect(templateText).toContain(`${name}`);
-                expect(templateText).toContain(`'${fallback}'`);
+                expect(templateConfig.sourcePaths[name]).toBe(fallback);
             });
 
             test(`${name}: override path takes precedence over fallback`, () => {
-                const sourcePaths = aiConfig.sourcePaths;
-                const original    = sourcePaths[name];
+                const
+                    override = `tenant-override/${name.toLowerCase()}`,
+                    config   = createSourcePathsConfig({[name]: override});
+
                 try {
-                    sourcePaths[name] = `tenant-override/${name.toLowerCase()}`;
-                    const resolved = aiConfig.sourcePaths?.[name] ?? fallback;
-                    expect(resolved).toBe(`tenant-override/${name.toLowerCase()}`);
+                    const resolved = config.sourcePaths?.[name] ?? fallback;
+
+                    expect(resolved).toBe(override);
                 } finally {
-                    sourcePaths[name] = original;
+                    config.destroy();
                 }
             });
 
             test(`${name}: missing config key falls through to hardcoded fallback`, () => {
-                const sourcePaths = aiConfig.sourcePaths;
-                const original    = sourcePaths[name];
+                const config = createSourcePathsConfig({});
+
                 try {
-                    delete sourcePaths[name];
-                    const resolved = aiConfig.sourcePaths?.[name] ?? fallback;
+                    const resolved = config.sourcePaths?.[name] ?? fallback;
+
                     expect(resolved).toBe(fallback);
                 } finally {
-                    sourcePaths[name] = original;
+                    config.destroy();
                 }
             });
         }
@@ -182,48 +155,46 @@ test.describe('aiConfig.sourcePaths config-driven path resolution (#11660)', () 
 
         for (const {name, fallback} of arrayPathSources) {
             test(`${name}: template default matches Source-class hardcoded fallback array (byte-equivalence anchor)`, () => {
-                // Text-grep: both the source name AND each fallback path string must appear
-                // in the template body. Stale-clone-safe; catches drift between Source class
-                // inline fallback and template default.
-                expect(templateText).toContain(`${name}`);
-                for (const segment of fallback) {
-                    expect(templateText).toContain(`'${segment}'`);
-                }
+                expect(templateConfig.sourcePaths[name]).toEqual(fallback);
             });
 
             test(`${name}: override array takes precedence over fallback`, () => {
-                const sourcePaths = aiConfig.sourcePaths;
-                const original    = sourcePaths[name];
+                const
+                    override = ['tenant-primary', 'tenant-archive'],
+                    config   = createSourcePathsConfig({[name]: override});
+
                 try {
-                    sourcePaths[name] = ['tenant-primary', 'tenant-archive'];
-                    const resolved = aiConfig.sourcePaths?.[name] ?? fallback;
-                    expect(resolved).toEqual(['tenant-primary', 'tenant-archive']);
+                    const resolved = config.sourcePaths?.[name] ?? fallback;
+
+                    expect(resolved).toEqual(override);
                 } finally {
-                    sourcePaths[name] = original;
+                    config.destroy();
                 }
             });
 
             test(`${name}: missing config key falls through to hardcoded fallback`, () => {
-                const sourcePaths = aiConfig.sourcePaths;
-                const original    = sourcePaths[name];
+                const config = createSourcePathsConfig({});
+
                 try {
-                    delete sourcePaths[name];
-                    const resolved = aiConfig.sourcePaths?.[name] ?? fallback;
+                    const resolved = config.sourcePaths?.[name] ?? fallback;
+
                     expect(resolved).toEqual(fallback);
                 } finally {
-                    sourcePaths[name] = original;
+                    config.destroy();
                 }
             });
 
             test(`${name}: single-element override array works (cloud deployment without archive subdir)`, () => {
-                const sourcePaths = aiConfig.sourcePaths;
-                const original    = sourcePaths[name];
+                const
+                    override = ['tenant-only-primary'],
+                    config   = createSourcePathsConfig({[name]: override});
+
                 try {
-                    sourcePaths[name] = ['tenant-only-primary'];
-                    const resolved = aiConfig.sourcePaths?.[name] ?? fallback;
-                    expect(resolved).toEqual(['tenant-only-primary']);
+                    const resolved = config.sourcePaths?.[name] ?? fallback;
+
+                    expect(resolved).toEqual(override);
                 } finally {
-                    sourcePaths[name] = original;
+                    config.destroy();
                 }
             });
         }
@@ -239,13 +210,8 @@ test.describe('aiConfig.sourcePaths config-driven path resolution (#11660)', () 
         };
 
         test('template default matches Source-class hardcoded sourceMap fallback (byte-equivalence anchor)', () => {
-            // Text-grep: ApiSource sourceMap keys + values must appear in template. The Object
-            // literal in the template includes both the path-key strings + the type-value strings
-            // (e.g., 'src': 'src'). Verifying both pairs are present is the cross-file drift guard.
-            expect(templateText).toContain('ApiSource');
             for (const [pathKey, typeValue] of Object.entries(apiSourceFallback)) {
-                expect(templateText).toContain(`'${pathKey}'`);
-                expect(templateText).toContain(`'${typeValue}'`);
+                expect(templateConfig.sourcePaths.ApiSource[pathKey]).toBe(typeValue);
             }
         });
 
@@ -258,19 +224,14 @@ test.describe('aiConfig.sourcePaths config-driven path resolution (#11660)', () 
             // contract this test guards is therefore "operator-supplied values win", asserted
             // against the live merged map rather than exact-equality of the whole object.
             //
-            // The override deliberately re-targets EXISTING keys only (no net-new key). Under
-            // reactive-merge a brand-new key cannot be removed again by reassignment, so it would
-            // leak onto this serial-mode shared singleton and contaminate the sibling missing-key
-            // test below. Re-targeting existing keys keeps the key SET stable, so the `finally`
-            // restore returns the singleton exactly to its byte-equivalent default. ApiSource.extract()
-            // iterates Object.entries(sourceMap) and indexes whatever directories the resolved map
-            // names, so an operator re-pointing 'src' → a tenant directory is honored at scan time.
-            const sourcePaths = aiConfig.sourcePaths;
-            const original    = {...sourcePaths.ApiSource};
+            // Use a disposable Provider seeded with the canonical fallback map. This keeps the
+            // reactive merge assertion while ensuring the registered template singleton is read-only.
+            const config = createSourcePathsConfig({ApiSource: apiSourceFallback});
+
             try {
                 // Re-target two existing path-keys to tenant directories with distinct types.
-                sourcePaths.ApiSource = {'src': 'tenant-app', 'apps': 'tenant-example'};
-                const resolved = aiConfig.sourcePaths?.ApiSource ?? apiSourceFallback;
+                config.sourcePaths.ApiSource = {'src': 'tenant-app', 'apps': 'tenant-example'};
+                const resolved = config.sourcePaths?.ApiSource ?? apiSourceFallback;
 
                 // Override-precedence: operator values win on the keys they target.
                 expect(resolved.src).toBe('tenant-app');
@@ -281,72 +242,61 @@ test.describe('aiConfig.sourcePaths config-driven path resolution (#11660)', () 
                 // Keys the override omitted retain their default (reactive-merge, not replace).
                 expect(resolved.examples).toBe(apiSourceFallback.examples);
             } finally {
-                // Re-assert the canonical default values; since no new key was introduced, this
-                // returns the shared singleton to its baseline for the sibling tests.
-                sourcePaths.ApiSource = original;
+                config.destroy();
             }
         });
 
         test('missing ApiSource key falls through to hardcoded fallback', () => {
-            const sourcePaths = aiConfig.sourcePaths;
-            const original    = sourcePaths.ApiSource;
+            const config = createSourcePathsConfig({});
+
             try {
-                delete sourcePaths.ApiSource;
-                const resolved = aiConfig.sourcePaths?.ApiSource ?? apiSourceFallback;
+                const resolved = config.sourcePaths?.ApiSource ?? apiSourceFallback;
+
                 expect(resolved).toEqual(apiSourceFallback);
             } finally {
-                sourcePaths.ApiSource = original;
+                config.destroy();
             }
         });
     });
 
     test.describe('Defensive fallback — entire sourcePaths object missing', () => {
-        test('entire aiConfig.sourcePaths object can be deleted; all 10 sources fall through to hardcoded defaults', () => {
-            const original = aiConfig.sourcePaths;
-            try {
-                delete aiConfig.sourcePaths;
+        test('entire aiConfig.sourcePaths object can be absent; all 10 sources fall through to hardcoded defaults', () => {
+            const config = createSourcePathsConfig();
 
+            try {
                 // Verify each Source class's resolution path still works via the `??` fallback.
-                // This is the byte-equivalence guarantee for deployments whose local operator
-                // overlay was generated from a config.template.mjs that didn't have
-                // the `sourcePaths` key.
-                expect(aiConfig.sourcePaths?.AdrSource          ?? 'learn/agentos/decisions').toBe('learn/agentos/decisions');
-                expect(aiConfig.sourcePaths?.ConceptSource      ?? 'resources/content/concepts').toBe('resources/content/concepts');
-                expect(aiConfig.sourcePaths?.ReleaseNotesSource ?? '.github/RELEASE_NOTES').toBe('.github/RELEASE_NOTES');
-                expect(aiConfig.sourcePaths?.SkillSource        ?? '.agents/skills').toBe('.agents/skills');
-                expect(aiConfig.sourcePaths?.TestSource         ?? 'test/playwright').toBe('test/playwright');
-                expect(aiConfig.sourcePaths?.LearningSource     ?? 'learn/tree.json').toBe('learn/tree.json');
-                expect(aiConfig.sourcePaths?.DiscussionSource   ?? ['resources/content/discussions', 'resources/content/archive/discussions']).toEqual(['resources/content/discussions', 'resources/content/archive/discussions']);
-                expect(aiConfig.sourcePaths?.PullRequestSource  ?? ['resources/content/pulls',       'resources/content/archive/pulls']).toEqual(['resources/content/pulls', 'resources/content/archive/pulls']);
-                expect(aiConfig.sourcePaths?.TicketSource       ?? ['resources/content/issues',      'resources/content/archive/issues']).toEqual(['resources/content/issues', 'resources/content/archive/issues']);
-                expect(aiConfig.sourcePaths?.ApiSource          ?? {'src': 'src', 'apps': 'app', 'examples': 'example', 'docs/app': 'app', 'ai': 'ai-infrastructure'}).toEqual({'src': 'src', 'apps': 'app', 'examples': 'example', 'docs/app': 'app', 'ai': 'ai-infrastructure'});
+                expect(config.sourcePaths?.AdrSource          ?? 'learn/agentos/decisions').toBe('learn/agentos/decisions');
+                expect(config.sourcePaths?.ConceptSource      ?? 'resources/content/concepts').toBe('resources/content/concepts');
+                expect(config.sourcePaths?.ReleaseNotesSource ?? '.github/RELEASE_NOTES').toBe('.github/RELEASE_NOTES');
+                expect(config.sourcePaths?.SkillSource        ?? '.agents/skills').toBe('.agents/skills');
+                expect(config.sourcePaths?.TestSource         ?? 'test/playwright').toBe('test/playwright');
+                expect(config.sourcePaths?.LearningSource     ?? 'learn/tree.json').toBe('learn/tree.json');
+                expect(config.sourcePaths?.DiscussionSource   ?? ['resources/content/discussions', 'resources/content/archive/discussions']).toEqual(['resources/content/discussions', 'resources/content/archive/discussions']);
+                expect(config.sourcePaths?.PullRequestSource  ?? ['resources/content/pulls',       'resources/content/archive/pulls']).toEqual(['resources/content/pulls', 'resources/content/archive/pulls']);
+                expect(config.sourcePaths?.TicketSource       ?? ['resources/content/issues',      'resources/content/archive/issues']).toEqual(['resources/content/issues', 'resources/content/archive/issues']);
+                expect(config.sourcePaths?.ApiSource          ?? {'src': 'src', 'apps': 'app', 'examples': 'example', 'docs/app': 'app', 'ai': 'ai-infrastructure'}).toEqual({'src': 'src', 'apps': 'app', 'examples': 'example', 'docs/app': 'app', 'ai': 'ai-infrastructure'});
             } finally {
-                aiConfig.sourcePaths = original;
+                config.destroy();
             }
         });
     });
 
     test.describe('LearningSource — base directory derived from tree path', () => {
         test('default learn/tree.json → base directory is learn/', () => {
-            // Read from KB_DEFAULTS fixture (frozen snapshot of KB-template defaults) rather
-            // than the live overlay-merged singleton — operator-customized
-            // `sourcePaths.LearningSource` would otherwise break this canonical-default check.
-            // This remains a one-spec drift-migration scope.
-            const treePath = KB_DEFAULTS.sourcePaths?.LearningSource ?? 'learn/tree.json';
+            const treePath = templateConfig.sourcePaths.LearningSource;
             const basePath = path.dirname(treePath);
             expect(basePath).toBe('learn');
         });
 
         test('override docs/guides/tree.json → base directory is docs/guides', () => {
-            const sourcePaths = aiConfig.sourcePaths;
-            const original    = sourcePaths.LearningSource;
+            const config = createSourcePathsConfig({LearningSource: 'docs/guides/tree.json'});
+
             try {
-                sourcePaths.LearningSource = 'docs/guides/tree.json';
-                const treePath = aiConfig.sourcePaths?.LearningSource ?? 'learn/tree.json';
+                const treePath = config.sourcePaths?.LearningSource ?? 'learn/tree.json';
                 const basePath = path.dirname(treePath);
                 expect(basePath).toBe('docs/guides');
             } finally {
-                sourcePaths.LearningSource = original;
+                config.destroy();
             }
         });
     });

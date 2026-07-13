@@ -21,6 +21,7 @@ import os             from 'os';
 import path           from 'path';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
+import {createLogger} from '../../../../../../ai/mcp/server/shared/logger.mjs';
 
 /**
  * @summary Validates the durable diagnostics emitted before `runSandman` exits on provider timeout.
@@ -34,20 +35,15 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     test.describe.configure({mode: 'serial'});
 
     let aiConfig;
-    let logger;
     let runSandmanModule;
     let providerReadinessHelper;
     let tmpLogDir;
-    let originalLogPath;
 
     test.beforeAll(async () => {
-        aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
 
         tmpLogDir = path.resolve(os.tmpdir(), `runsandman-diagnostics-${process.pid}-${Date.now()}`);
-        originalLogPath = aiConfig.data.logPath;
-        aiConfig.data.logPath = tmpLogDir;
 
-        logger           = (await import('../../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
         runSandmanModule = await import('../../../../../../ai/scripts/runners/runSandman.mjs');
         providerReadinessHelper = await import('../../../../../../ai/services/graph/providerReadinessHelper.mjs');
     });
@@ -57,8 +53,6 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     });
 
     test.afterAll(() => {
-        aiConfig.data.logPath = originalLogPath;
-
         if (tmpLogDir && fs.existsSync(tmpLogDir)) {
             fs.rmSync(tmpLogDir, {recursive: true, force: true});
         }
@@ -2154,7 +2148,12 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     });
 
     test('records a durable provider-timeout breadcrumb without leaking secrets', async () => {
-        const diagnostic = runSandmanModule.createProviderFailureDiagnostic({
+        const diagnosticLogger = createLogger({logPath: tmpLogDir}, {
+                  filePrefix: 'mc-server',
+                  fileSink  : true,
+                  flush     : true
+              }),
+              diagnostic = runSandmanModule.createProviderFailureDiagnostic({
             config: {
                 modelProvider   : 'openAiCompatible',
                 graphProvider   : 'openAiCompatible',
@@ -2178,12 +2177,13 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         });
 
         const result = await runSandmanModule.recordProviderReadinessFailure(diagnostic, {
+            log   : diagnosticLogger,
             stderr: () => {}
         });
 
-        await logger.flush();
+        await diagnosticLogger.flush();
 
-        const today = new Date().toISOString().slice(0, 10);
+        const today    = new Date().toISOString().slice(0, 10);
         const logFile  = path.join(tmpLogDir, `mc-server-${today}.log`);
         const logLines = fs.readFileSync(logFile, 'utf8');
 

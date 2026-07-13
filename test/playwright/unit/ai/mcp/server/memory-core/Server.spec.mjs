@@ -15,6 +15,8 @@ setup({
 
 import {test, expect}          from '@playwright/test';
 import {CallToolRequestSchema} from '@modelcontextprotocol/sdk/types.js';
+import {spawnSync}             from 'node:child_process';
+import os                      from 'node:os';
 import path                    from 'path';
 import fs                      from 'fs-extra';
 import Neo                     from '../../../../../../../src/Neo.mjs';
@@ -25,14 +27,16 @@ import '../../../../../../../src/manager/Instance.mjs';
 test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
     let Server;
     let GraphService;
-    let aiConfig;
-    let hadGraphStoragePath;
-    let hadGraphTestStoragePath;
-    let hadStoragePaths;
-    let originalGraphStoragePath;
-    let originalGraphTestStoragePath;
-    const testDbName = `memory-core-server-test-${process.pid}-${Date.now()}.sqlite`;
-    let testDbPath;
+    let baselineNodeIds;
+    const fixtureNodeIds = new Set([
+        '@neo-opus-4-7',
+        '@identity-collision-15027',
+        '@identity-topology-15027',
+        '@gitlab-agent-14388',
+        '@existing-gitlab-agent-14388',
+        '@colliding-gitlab-agent-14388',
+        '@concurrent-gitlab-agent-14388'
+    ]);
 
     async function createServerWithoutBoot() {
         const originalBoot = Server.prototype.boot;
@@ -56,58 +60,14 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
     }
 
     test.beforeAll(async () => {
-        aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-
-        const tmpDir = path.resolve(process.cwd(), 'tmp');
-        if (!fs.existsSync(tmpDir)) {
-            fs.mkdirSync(tmpDir, { recursive: true });
-        }
-        testDbPath = path.join(tmpDir, testDbName);
-
-        hadStoragePaths       = Boolean(aiConfig.storagePaths);
-        hadGraphStoragePath  = Object.prototype.hasOwnProperty.call(aiConfig.storagePaths || {}, 'graph');
-        hadGraphTestStoragePath = Object.prototype.hasOwnProperty.call(aiConfig.storagePaths || {}, 'graphTest');
-        originalGraphStoragePath = aiConfig.storagePaths?.graph;
-        originalGraphTestStoragePath = aiConfig.storagePaths?.graphTest;
-
-        if (!aiConfig.storagePaths) aiConfig.storagePaths = {};
-        aiConfig.storagePaths.graph = testDbPath;
-        aiConfig.storagePaths.graphTest = testDbPath;
-
         Server = (await import('../../../../../../../ai/mcp/server/memory-core/Server.mjs')).default;
         GraphService = (await import('../../../../../../../ai/services/memory-core/GraphService.mjs')).default;
-
-        if (fs.existsSync(testDbPath)) {
-            try {
-                fs.unlinkSync(testDbPath);
-                if (fs.existsSync(`${testDbPath}-wal`)) fs.unlinkSync(`${testDbPath}-wal`);
-                if (fs.existsSync(`${testDbPath}-shm`)) fs.unlinkSync(`${testDbPath}-shm`);
-            } catch (e) {}
-        }
-
-        const { TestLifecycleHelper } = await import('../../../../ai/services/memory-core/util.mjs');
-        await TestLifecycleHelper.cleanupGraphService(GraphService, null, null, null, 'clear');
+        await GraphService.ready();
+        baselineNodeIds = new Set(GraphService.db.nodes.items.map(node => node.id));
     });
 
-    test.afterAll(async () => {
-        const { TestLifecycleHelper } = await import('../../../../ai/services/memory-core/util.mjs');
-        await TestLifecycleHelper.cleanupGraphService(GraphService, null, testDbPath, fs, 'clear');
-
-        if (!hadStoragePaths) {
-            delete aiConfig.storagePaths;
-        } else if (hadGraphStoragePath) {
-            aiConfig.storagePaths.graph = originalGraphStoragePath;
-        } else {
-            delete aiConfig.storagePaths.graph;
-        }
-
-        if (hadStoragePaths) {
-            if (hadGraphTestStoragePath) {
-                aiConfig.storagePaths.graphTest = originalGraphTestStoragePath;
-            } else {
-                delete aiConfig.storagePaths.graphTest;
-            }
-        }
+    test.afterAll(() => {
+        GraphService.removeNodes([...fixtureNodeIds].filter(id => !baselineNodeIds.has(id)));
     });
 
     test('bindAgentIdentity should correctly retrieve identity without cache manipulation', async () => {
@@ -191,6 +151,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
                     subject: `topology round-trip ${context.source}`,
                     body   : 'Both transports must reach the same canonical recipient.'
                 }));
+                fixtureNodeIds.add(sent.messageId);
                 const read = await RequestContextService.run(context, () =>
                     MailboxService.markRead({messageId: sent.messageId})
                 );
@@ -253,7 +214,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         GraphService.db.autoSave = false;
 
         try {
-            GraphService.db.nodes.clear();
+            GraphService.db.nodes.remove('@neo-opus-4-7');
             GraphService.db.vicinityLoadedNodes.add('@neo-opus-4-7');
         } finally {
             GraphService.db.autoSave = wasAutoSave;
@@ -457,11 +418,26 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
     });
 
     test('#14388: a separate graph process can observe the provisioned SQLite identity', async () => {
-        await GraphService.initAsync();
+        const tmpDir     = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-server-14388-'));
+        const testDbPath = path.join(tmpDir, 'memory-core-graph.sqlite');
+        const script     = String.raw`
+            const Neo = (await import('./src/Neo.mjs')).default;
+            await import('./src/core/_export.mjs');
+            await import('./src/manager/Instance.mjs');
+            await import('./ai/mcp/server/memory-core/config.template.mjs');
 
-        const serverInstance = await createServerWithoutBoot();
+            const Server       = (await import('./ai/mcp/server/memory-core/Server.mjs')).default;
+            const GraphService = (await import('./ai/services/memory-core/GraphService.mjs')).default;
+
+            await GraphService.ready();
+
+            const originalBoot = Server.prototype.boot;
+            Server.prototype.boot = async () => {};
+
+            const serverInstance = Neo.create('Neo.ai.mcp.server.memory-core.Server');
 
         try {
+            await serverInstance.ready();
             await serverInstance.buildRequestContext({
                 userId             : 'orchestrator-visible-agent-14388',
                 username           : 'Orchestrator Visible Agent',
@@ -471,10 +447,37 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
                 providerDisplayName: 'Orchestrator Visible Agent'
             });
 
-            expect(rawGraphNode('@orchestrator-visible-agent-14388')).toBeTruthy();
+            console.log('SERVER_14388_RESULT:' + JSON.stringify({
+                graphPath: GraphService.db.storage.db.name
+            }));
+        } finally {
+            Server.prototype.boot = originalBoot;
+            serverInstance.destroy();
+        }
+        `;
+
+        try {
+            const result = spawnSync(process.execPath, ['--input-type=module', '--eval', script], {
+                cwd     : process.cwd(),
+                encoding: 'utf8',
+                env     : {
+                    ...process.env,
+                    NEO_MEMORY_DB_PATH_TEST: testDbPath,
+                    UNIT_TEST_MODE         : 'true'
+                },
+                timeout: 30_000
+            });
+
+            expect(result.error, `${result.stderr}\n${result.stdout}`).toBeUndefined();
+            expect(result.status, `${result.stderr}\n${result.stdout}`).toBe(0);
+
+            const output = result.stdout.match(/^SERVER_14388_RESULT:(.+)$/m);
+
+            expect(output, result.stdout).toBeTruthy();
+            expect(JSON.parse(output[1]).graphPath).toBe(testDbPath);
 
             const {default: Database} = await import('better-sqlite3');
-            const peerDb              = new Database(GraphService.db.storage.db.name, {readonly: true});
+            const peerDb              = new Database(testDbPath, {readonly: true});
 
             try {
                 const row = peerDb
@@ -496,7 +499,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
                 peerDb.close();
             }
         } finally {
-            serverInstance.destroy();
+            fs.removeSync(tmpDir);
         }
     });
 

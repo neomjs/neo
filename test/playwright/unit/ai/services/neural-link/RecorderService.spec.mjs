@@ -16,36 +16,12 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
-import fs             from 'fs';
-import path           from 'path';
 
 test.describe('Neo.ai.services.neural-link.RecorderService', () => {
     let RecorderService;
-    let config;
-    const testDbName = `nl-recorder-test-${process.pid}-${Date.now()}.sqlite`;
-    let testDbPath;
 
     test.beforeAll(async () => {
-        config = (await import('../../../../../../ai/mcp/server/neural-link/config.mjs')).default;
         RecorderService = (await import('../../../../../../ai/services/neural-link/RecorderService.mjs')).default;
-
-        const tmpDir = path.resolve(process.cwd(), 'tmp');
-        if (!fs.existsSync(tmpDir)) {
-            fs.mkdirSync(tmpDir, { recursive: true });
-        }
-        testDbPath = path.join(tmpDir, testDbName);
-
-        // Override the path for this test run
-        config.data.memoryCoreDbPath = testDbPath;
-
-        // Ensure old DB is gone just in case
-        if (fs.existsSync(testDbPath)) {
-            try {
-                fs.unlinkSync(testDbPath);
-                if (fs.existsSync(`${testDbPath}-wal`)) fs.unlinkSync(`${testDbPath}-wal`);
-                if (fs.existsSync(`${testDbPath}-shm`)) fs.unlinkSync(`${testDbPath}-shm`);
-            } catch (e) {}
-        }
 
         await RecorderService.initAsync();
     });
@@ -54,12 +30,6 @@ test.describe('Neo.ai.services.neural-link.RecorderService', () => {
         if (RecorderService.db) {
             try { RecorderService.db.close(); } catch (e) {}
             RecorderService.db = null;
-        }
-
-        if (fs.existsSync(testDbPath)) {
-            try { fs.unlinkSync(testDbPath); } catch (e) {}
-            if (fs.existsSync(`${testDbPath}-wal`)) try { fs.unlinkSync(`${testDbPath}-wal`); } catch (e) {}
-            if (fs.existsSync(`${testDbPath}-shm`)) try { fs.unlinkSync(`${testDbPath}-shm`); } catch (e) {}
         }
     });
 

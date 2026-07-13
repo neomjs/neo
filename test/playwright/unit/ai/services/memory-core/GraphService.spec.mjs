@@ -31,7 +31,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
     let testDbPath;
 
     test.beforeAll(async () => {
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
 
         const tmpDir = path.resolve(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) {

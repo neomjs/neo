@@ -186,7 +186,7 @@ test.describe('KnowledgeBase — fail-closed tenant isolation (#11632)', () => {
         SearchService        = (await import('../../../../../../ai/services/knowledge-base/SearchService.mjs')).default;
         VectorService        = (await import('../../../../../../ai/services/knowledge-base/VectorService.mjs')).default;
         TextEmbeddingService = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
-        aiConfig             = (await import('../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
+        aiConfig             = (await import('../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
 
         originalGetCollection   = ChromaManager.getKnowledgeBaseCollection;
         originalEmbedText       = TextEmbeddingService.embedText;

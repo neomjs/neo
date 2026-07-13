@@ -1,6 +1,7 @@
-import {test, expect} from '@playwright/test';
-import {spawnSync}    from 'node:child_process';
-import path           from 'node:path';
+import {test, expect}  from '@playwright/test';
+import {spawnSync}     from 'node:child_process';
+import path            from 'node:path';
+import {pathToFileURL} from 'node:url';
 
 import {
     AI_CONFIG_IMPLEMENTATION_BASELINE,
@@ -11,16 +12,20 @@ import {
     detectAiConfigImplementationViolations,
     detectInlineEnvLeaves,
     detectModuleScopeAiConfigCaptures,
+    detectTestConfigOverlayImports,
+    detectTestConfigProviderExports,
     lintAiConfigImplementationSsot,
     lintAiConfigModuleScopeCaptures,
     lintConfigTemplateSsot,
+    lintTestConfigAuthority,
     runLint
 } from '../../../../../../ai/scripts/lint/lint-config-template-ssot.mjs';
 
 /**
  * @summary Coverage for `ai/scripts/lint/lint-config-template-ssot.mjs` — the guard that bans
  * inline `process.env` reads inside `leaf(...)` defaults in `config.template.mjs` files and
- * mechanical ADR-19 AiConfig implementation pass-through/defaulting violations.
+ * mechanical ADR-19 AiConfig implementation pass-through/defaulting violations, executable test
+ * imports of ignored operator overlays, and exports derived from canonical config Providers.
  *
  * The antipattern it mechanizes: env-resolution branching (e.g. an inline
  * `process.env.UNIT_TEST_MODE === 'true' ? test : prod`) baked into the declarative config
@@ -177,6 +182,175 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
         expect(hits).toHaveLength(0);
     });
 
+    test('detects bound, side-effect, dynamic, and computed dynamic test imports of repo overlays', () => {
+        const file = 'test/playwright/unit/fixture.spec.mjs',
+              hits = detectTestConfigOverlayImports([
+                  `import AiConfig from '../../../ai/config.mjs';`,
+                  `import '../../../ai/mcp/server/github-workflow/config.mjs';`,
+                  `await import('../../../ai/mcp/server/memory-core/config.mjs');`,
+                  `const repoRoot = process.cwd();`,
+                  `const configUrl = pathToFileURL(path.join(repoRoot, 'ai/mcp/server/neural-link/config.mjs')).href;`,
+                  `await import(configUrl);`
+              ].join('\n'), {file});
+
+        expect(hits.map(hit => hit.kind)).toEqual([
+            'static-import',
+            'side-effect-import',
+            'dynamic-import',
+            'dynamic-import-computed'
+        ]);
+        expect(hits.map(hit => hit.replacement)).toEqual([
+            '../../../ai/config.template.mjs',
+            '../../../ai/mcp/server/github-workflow/config.template.mjs',
+            '../../../ai/mcp/server/memory-core/config.template.mjs',
+            pathToFileURL(path.resolve(process.cwd(), 'ai/mcp/server/neural-link/config.template.mjs')).href
+        ]);
+    });
+
+    test('folds concatenation, array join, and interpolated-template computed imports', () => {
+        const hits = detectTestConfigOverlayImports([
+            `const binaryPath = '../../../ai/' + 'config.mjs';`,
+            `const joinedPath = ['../../../ai/mcp/server/memory-core', 'config.mjs'].join('/');`,
+            `const templateRoot = '../../../ai/mcp/server/neural-link';`,
+            'const templatePath = `${templateRoot}/config.mjs`;',
+            `await import(binaryPath);`,
+            `await import(joinedPath);`,
+            `await import(templatePath);`
+        ].join('\n'), {file: 'test/playwright/unit/fixture.spec.mjs'});
+
+        expect(hits.map(hit => hit.kind)).toEqual([
+            'dynamic-import-computed',
+            'dynamic-import-computed',
+            'dynamic-import-computed'
+        ]);
+        expect(hits.map(hit => hit.template)).toEqual([
+            'ai/config.template.mjs',
+            'ai/mcp/server/memory-core/config.template.mjs',
+            'ai/mcp/server/neural-link/config.template.mjs'
+        ]);
+    });
+
+    test('resolves the real import-meta dirname chain used by computed config imports', () => {
+        const hits = detectTestConfigOverlayImports([
+            `const __filename = fileURLToPath(import.meta.url),`,
+            `      __dirname  = path.dirname(__filename),`,
+            `      repoRoot   = path.resolve(__dirname, '../../..'),`,
+            `      configUrl  = pathToFileURL(path.join(repoRoot, 'ai/mcp/server/neural-link/config.mjs')).href;`,
+            `await import(configUrl);`
+        ].join('\n'), {file: 'test/playwright/unit/fixture.spec.mjs'});
+
+        expect(hits).toHaveLength(1);
+        expect(hits[0].template).toBe('ai/mcp/server/neural-link/config.template.mjs');
+    });
+
+    test('resolves the import-site lexical binding instead of an unrelated nested shadow', () => {
+        const hits = detectTestConfigOverlayImports([
+            `const configUrl = '../../../ai/config.mjs';`,
+            `function unrelated() {`,
+            `    const configUrl = '/tmp/config.mjs';`,
+            `    return configUrl;`,
+            `}`,
+            `await import(configUrl);`
+        ].join('\n'), {file: 'test/playwright/unit/fixture.spec.mjs'});
+
+        expect(hits).toHaveLength(1);
+        expect(hits[0].template).toBe('ai/config.template.mjs');
+    });
+
+    test('tracks a later direct assignment to a computed import binding', () => {
+        const hits = detectTestConfigOverlayImports([
+            `let configUrl = '/tmp/safe.mjs';`,
+            `configUrl = '../../../ai/mcp/server/memory-core/config.mjs';`,
+            `await import(configUrl);`
+        ].join('\n'), {file: 'test/playwright/unit/fixture.spec.mjs'});
+
+        expect(hits).toHaveLength(1);
+        expect(hits[0].template).toBe('ai/mcp/server/memory-core/config.template.mjs');
+    });
+
+    test('tracks var bindings across their declaring block boundary', () => {
+        const hits = detectTestConfigOverlayImports([
+            `{`,
+            `    var configUrl = '../../../ai/config.mjs';`,
+            `}`,
+            `await import(configUrl);`
+        ].join('\n'), {file: 'test/playwright/unit/fixture.spec.mjs'});
+
+        expect(hits).toHaveLength(1);
+        expect(hits[0].template).toBe('ai/config.template.mjs');
+    });
+
+    test('tracks nested assignments to an uninitialized hoisted var binding', () => {
+        const hits = detectTestConfigOverlayImports([
+            `var configUrl;`,
+            `{`,
+            `    configUrl = '../../../ai/config.mjs';`,
+            `}`,
+            `await import(configUrl);`
+        ].join('\n'), {file: 'test/playwright/unit/fixture.spec.mjs'});
+
+        expect(hits).toHaveLength(1);
+        expect(hits[0].template).toBe('ai/config.template.mjs');
+    });
+
+    test('does not reinterpret an unknown disposable-repository root as the current checkout', () => {
+        const hits = detectTestConfigOverlayImports([
+            `const externalRoot = process.env.DISPOSABLE_REPO;`,
+            `const configUrl = path.join(externalRoot, 'ai/config.mjs');`,
+            `await import(configUrl);`,
+            `await import(path.join(externalRoot, 'ai/mcp/server/memory-core/config.mjs'));`
+        ].join('\n'), {file: 'test/playwright/unit/fixture.spec.mjs'});
+
+        expect(hits).toHaveLength(0);
+    });
+
+    test('ignores comments, inert fixture text, tracked no-template configs, and outside-repo paths', () => {
+        const hits = detectTestConfigOverlayImports([
+            `// await import('../../../ai/config.mjs');`,
+            'const fixture = "await import(\\\'./ai/mcp/server/memory-core/config.mjs\\\')";',
+            `import ClientConfig from '../../../ai/mcp/client/config.mjs';`,
+            `await import('/tmp/config.mjs');`
+        ].join('\n'), {file: 'test/playwright/unit/fixture.spec.mjs'});
+
+        expect(hits).toHaveLength(0);
+    });
+
+    test('detects exported snapshots and direct re-exports of imported config-template Providers', () => {
+        const file = 'test/playwright/fixtures/probe.mjs',
+              hits = detectTestConfigProviderExports([
+                  `import AiConfig from '../../../ai/config.template.mjs';`,
+                  `const snapshot = snapshotData(AiConfig.data);`,
+                  `export const FROZEN_DEFAULTS = deepFreeze(snapshot);`,
+                  `export {AiConfig};`
+              ].join('\n'), {file});
+
+        expect(hits.map(hit => hit.kind)).toEqual([
+            'config-provider-derived-export',
+            'config-provider-re-export'
+        ]);
+        expect(hits.map(hit => hit.line)).toEqual([3, 4]);
+    });
+
+    test('detects direct source re-exports of a canonical config template', () => {
+        const hits = detectTestConfigProviderExports(
+            `export {default as AiConfig} from '../../../ai/config.template.mjs';`,
+            {file: 'test/playwright/fixtures/probe.mjs'}
+        );
+
+        expect(hits).toHaveLength(1);
+        expect(hits[0].kind).toBe('config-provider-re-export');
+    });
+
+    test('allows invocation-time Provider reads and unrelated exported object keys', () => {
+        const hits = detectTestConfigProviderExports([
+            `import AiConfig from '../../../ai/config.template.mjs';`,
+            `export const readPort = () => AiConfig.network.port;`,
+            `export const metadata = {AiConfig: 'label'};`
+        ].join('\n'), {file: 'test/playwright/fixtures/probe.mjs'});
+
+        expect(hits).toHaveLength(0);
+    });
+
     // ---- baseline partitioning (injected files, no disk) ----
 
     const fileOf = (file, source) => ({file, source});
@@ -314,6 +488,51 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
 
         expect(result.exitCode).toBe(0);
         expect(result.moduleScope.newViolations).toHaveLength(0);
+    });
+
+    test('a test overlay import fails the combined lint without a baseline escape hatch', () => {
+        const testConfigFiles = [fileOf(
+            'test/playwright/unit/fixture.spec.mjs',
+            `import AiConfig from '../../../ai/config.mjs';`
+        )];
+
+        const direct = lintTestConfigAuthority({files: testConfigFiles});
+        const result = runLint({
+            files                 : [],
+            implementationFiles   : [],
+            implementationBaseline: [],
+            moduleScopeFiles      : [],
+            moduleScopeBaseline   : [],
+            testConfigFiles
+        });
+
+        expect(direct.violations).toHaveLength(1);
+        expect(result.exitCode).toBe(1);
+        expect(result.testConfig.violations).toHaveLength(1);
+        expect(result.testConfig.violations[0].template).toBe('ai/config.template.mjs');
+    });
+
+    test('a test-side config Provider snapshot fails the combined lint without a baseline escape hatch', () => {
+        const testConfigFiles = [fileOf(
+            'test/playwright/fixtures/probe.mjs',
+            [
+                `import AiConfig from '../../../ai/config.template.mjs';`,
+                `export const DEFAULTS = deepFreeze(snapshotData(AiConfig.data));`
+            ].join('\n')
+        )];
+
+        const result = runLint({
+            files                 : [],
+            implementationFiles   : [],
+            implementationBaseline: [],
+            moduleScopeFiles      : [],
+            moduleScopeBaseline   : [],
+            testConfigFiles
+        });
+
+        expect(result.exitCode).toBe(1);
+        expect(result.testConfig.violations).toHaveLength(1);
+        expect(result.testConfig.violations[0].kind).toBe('config-provider-derived-export');
     });
 
     // ---- the shipped baseline is internally well-formed ----

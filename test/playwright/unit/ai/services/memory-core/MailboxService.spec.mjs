@@ -36,7 +36,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         dbPath = path.join(tmpDir, `neo-mailbox-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
 
         // Force temp file DB config instead of :memory: to prevent initialization race wipes
-        mailboxAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        mailboxAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         mailboxAiConfig.storagePaths.graph = dbPath;
         if (!mailboxAiConfig.collections) mailboxAiConfig.collections = {};
         mailboxAiConfig.collections.memory = `test-memory-${Date.now()}`;
@@ -2573,7 +2573,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
         PermissionService = (await import('../../../../../../ai/services/memory-core/PermissionService.mjs')).default;
         LifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
 
-        mailboxAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        mailboxAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         mailboxAiConfig.storagePaths.graph = dbPath;
 
         mailboxAiConfig.data.mailbox ??= {};
@@ -2967,7 +2967,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
         PermissionService = (await import('../../../../../../ai/services/memory-core/PermissionService.mjs')).default;
         LifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
 
-        mailboxAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        mailboxAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         mailboxAiConfig.storagePaths.graph = dbPath;
 
         if (!LifecycleService._initPromise) {
@@ -3745,7 +3745,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — TTL Sweeper (#1033
         PermissionService = (await import('../../../../../../ai/services/memory-core/PermissionService.mjs')).default;
         LifecycleService  = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
 
-        mailboxAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        mailboxAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         mailboxAiConfig.storagePaths.graph = dbPath;
 
         if (!LifecycleService._initPromise) {

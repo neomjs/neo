@@ -68,8 +68,8 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
     let testDbPath;
 
     test.beforeAll(async () => {
-        rootAiConfig = (await import('../../../../../../ai/config.mjs')).default;
-        aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        rootAiConfig = (await import('../../../../../../ai/config.template.mjs')).default;
+        aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
 
         const tmpDir = path.resolve(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) {
@@ -563,13 +563,13 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             };
 
             await SemanticGraphExtractor.executeTriVectorExtraction({
-                id  : 'mock-first-fingerprint-vector-id',
-                meta: {sessionId: 'first-fingerprint-session'},
+                id      : 'mock-first-fingerprint-vector-id',
+                meta    : {sessionId: 'first-fingerprint-session'},
                 document: `First session content ${firstNeedle}`
             });
             await SemanticGraphExtractor.executeTriVectorExtraction({
-                id  : 'mock-second-fingerprint-vector-id',
-                meta: {sessionId: 'second-fingerprint-session'},
+                id      : 'mock-second-fingerprint-vector-id',
+                meta    : {sessionId: 'second-fingerprint-session'},
                 document: `Second session content ${secondNeedle}`
             });
         } finally {
@@ -903,7 +903,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             };
 
             const turnDocuments = Array.from({length: 2}, (_, index) => `turn-${index}\n${'x'.repeat(54000)}`);
-            const result = await SemanticGraphExtractor.executeTriVectorExtraction({
+            const result        = await SemanticGraphExtractor.executeTriVectorExtraction({
                 id      : 'mock-output-reserve-vector-id',
                 meta    : {sessionId: 'output-reserve-trivector-session'},
                 document: turnDocuments.join('\n\n---\n\n'),
@@ -953,13 +953,13 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
                         session_artifact: {
                             feature_namespace     : index === 0 ? 'Neo.ai.Chunked' : null,
                             human_readable_summary: `summary-${index}`,
-                            roadmap_impact: index === 1 ? 'second chunk impact' : null,
-                            graph         : {
+                            roadmap_impact        : index === 1 ? 'second chunk impact' : null,
+                            graph                 : {
                                 nodes: [
                                     {
                                         id         : `CLASS:Shared${index}`,
-                                        type: 'CLASS',
-                                        name: 'SharedThing',
+                                        type       : 'CLASS',
+                                        name       : 'SharedThing',
                                         description: `Shared description ${index}`,
                                         tags       : [`chunk-${index}`]
                                     },
@@ -974,8 +974,8 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
                                     {
                                         source       : `CLASS:Shared${index}`,
                                         target       : `CONCEPT:Chunk${index}`,
-                                        relationship: 'RELATES_TO',
-                                        weight      : index + 1,
+                                        relationship : 'RELATES_TO',
+                                        weight       : index + 1,
                                         justification: `chunk ${index}`
                                     }
                                 ]
@@ -986,7 +986,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             };
 
             const turnDocuments = Array.from({length: 4}, (_, index) => `turn-${index}\n${'x'.repeat(6000)}`);
-            const result = await SemanticGraphExtractor.executeTriVectorExtraction({
+            const result        = await SemanticGraphExtractor.executeTriVectorExtraction({
                 id      : 'mock-chunked-vector-id',
                 meta    : {sessionId: 'chunked-trivector-session'},
                 document: turnDocuments.join('\n\n---\n\n'),
@@ -1055,7 +1055,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             };
 
             const turnDocuments = Array.from({length: 3}, (_, index) => `turn-${index}\n${'x'.repeat(6000)}`);
-            const result = await SemanticGraphExtractor.executeTriVectorExtraction({
+            const result        = await SemanticGraphExtractor.executeTriVectorExtraction({
                 id      : 'mock-chunk-failure-vector-id',
                 meta    : {sessionId: 'chunk-failure-trivector-session'},
                 document: turnDocuments.join('\n\n---\n\n'),

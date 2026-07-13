@@ -1,6 +1,6 @@
 import {setup} from '../../../../setup.mjs';
 
-const appName = 'AllAgentIdleDetectionTest';
+const appName             = 'AllAgentIdleDetectionTest';
 const skipCiSubstrateData = !!process.env.NEO_TEST_SKIP_CI;
 
 setup({
@@ -14,14 +14,55 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import {execFileSync} from 'child_process';
-import path           from 'path';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
+import {test, expect}                                 from '@playwright/test';
+import {execFileSync}                                 from 'child_process';
+import {mkdtempSync, rmSync}                          from 'fs';
+import os                                             from 'os';
+import path                                           from 'path';
+import Neo                                            from '../../../../../../src/Neo.mjs';
+import * as core                                      from '../../../../../../src/core/_export.mjs';
 import {deriveAllAgentIdleCycleId, checkAllAgentIdle} from '../../../../../../ai/scripts/lifecycle/checkAllAgentIdle.mjs';
-import {resolveTargets}            from '../../../../../../ai/daemons/orchestrator/scheduling/swarmHeartbeat.mjs';
-import AiConfig                    from '../../../../../../ai/config.mjs';
+import {resolveTargets}                               from '../../../../../../ai/daemons/orchestrator/scheduling/swarmHeartbeat.mjs';
+import SQLite                                         from '../../../../../../ai/graph/storage/SQLite.mjs';
+import AiConfig                                       from '../../../../../../ai/config.template.mjs';
+
+/**
+ * @summary Creates one disposable file-backed graph that a fresh detector process can reopen.
+ * The Playwright worker keeps its canonical in-memory graph; only the returned child-process
+ * environment selects this scenario database.
+ * @returns {Promise<{cleanup:Function,db:Object,env:Object}>}
+ */
+async function createGraphScenario() {
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'neo-check-all-agent-idle-'));
+    const dbPath    = path.join(directory, 'graph.sqlite');
+    const storage   = Neo.create(SQLite, {dbPath});
+
+    const cleanup = () => {
+        if (storage.db?.open) {
+            storage.db.close();
+        }
+
+        storage.destroy();
+        rmSync(directory, {recursive: true, force: true});
+    };
+
+    try {
+        await storage.ready();
+
+        return {
+            cleanup,
+            db : storage.db,
+            env: {
+                ...process.env,
+                NEO_MEMORY_DB_PATH_TEST: dbPath,
+                UNIT_TEST_MODE         : 'true'
+            }
+        };
+    } catch (error) {
+        cleanup();
+        throw error;
+    }
+}
 
 /**
  * @summary Validation for the Phase 3 Substrate Primitive: All-Agent-Idle Detection.
@@ -32,121 +73,123 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
     test('checkAllAgentIdle.mjs emits positive signal when all configured agents are idle', async () => {
         test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
 
-        const GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
-        await GraphService.initAsync();
-
         // 1. Setup mock memory rows for both agents that are OLDER than threshold
-        const oldTime = new Date(Date.now() - 20 * 60 * 1000).toISOString(); // 20 mins ago
+        const oldTime  = new Date(Date.now() - 20 * 60 * 1000).toISOString(); // 20 mins ago
+        const scenario = await createGraphScenario();
 
-        const insertStmt = GraphService.db.storage.db.prepare(`
-            INSERT INTO Nodes (id, user_id, data) VALUES (?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET data=excluded.data
-        `);
+        try {
+            const insertStmt = scenario.db.prepare(`
+                INSERT INTO Nodes (id, user_id, data) VALUES (?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET data=excluded.data
+            `);
 
-        ['@neo-test-agent-1', '@neo-test-agent-2'].forEach(id => {
-            const dataObj = {
-                id: `memory-${id}`,
-                label: 'AGENT_MEMORY',
-                type: 'AGENT_MEMORY',
-                properties: {
-                    agentIdentity: id,
-                    timestamp: oldTime
+            ['@neo-test-agent-1', '@neo-test-agent-2'].forEach(id => {
+                const dataObj = {
+                    id        : `memory-${id}`,
+                    label     : 'AGENT_MEMORY',
+                    type      : 'AGENT_MEMORY',
+                    properties: {
+                        agentIdentity: id,
+                        timestamp    : oldTime
+                    }
+                };
+                insertStmt.run(`memory-${id}`, id, JSON.stringify(dataObj));
+            });
+
+            // 2. Execute script in a fresh process against the file-backed scenario graph.
+            const scriptPath = path.resolve(process.cwd(), 'ai/scripts/lifecycle/checkAllAgentIdle.mjs');
+            const output     = execFileSync('node', [scriptPath], {
+                encoding: 'utf-8',
+                env     : {
+                    ...scenario.env,
+                    NEO_SWARM_IDENTITIES : identitiesEnv,
+                    NEO_IDLE_THRESHOLD_MS: '600000' // 10 minutes
                 }
-            };
-            insertStmt.run(`memory-${id}`, id, JSON.stringify(dataObj));
-        });
+            });
+            const parsed = JSON.parse(output);
 
-        // 2. Execute script
-        const scriptPath = path.resolve(process.cwd(), 'ai/scripts/lifecycle/checkAllAgentIdle.mjs');
-        const output = execFileSync('node', [scriptPath], {
-            encoding: 'utf-8',
-            env: {
-                ...process.env,
-                NEO_UNIT_TEST_MODE: 'true',
-                NEO_SWARM_IDENTITIES: identitiesEnv,
-                NEO_IDLE_THRESHOLD_MS: '600000' // 10 minutes
-            }
-        });
-        const parsed = JSON.parse(output);
-
-        // 3. Assert positive signal
-        expect(parsed.allIdle).toBe(true);
-        expect(parsed.cycle_id).toBe(deriveAllAgentIdleCycleId(
-            ['@neo-test-agent-1', '@neo-test-agent-2'],
-            {
-                '@neo-test-agent-1': {
-                    lastMemTime   : oldTime,
-                    inFlightNudge : false
-                },
-                '@neo-test-agent-2': {
-                    lastMemTime   : oldTime,
-                    inFlightNudge : false
+            // 3. Assert positive signal
+            expect(parsed.allIdle).toBe(true);
+            expect(parsed.cycle_id).toBe(deriveAllAgentIdleCycleId(
+                ['@neo-test-agent-1', '@neo-test-agent-2'],
+                {
+                    '@neo-test-agent-1': {
+                        lastMemTime  : oldTime,
+                        inFlightNudge: false
+                    },
+                    '@neo-test-agent-2': {
+                        lastMemTime  : oldTime,
+                        inFlightNudge: false
+                    }
                 }
-            }
-        ));
-        expect(parsed.identities.length).toBe(2);
-        expect(parsed.details['@neo-test-agent-1'].ageMs).toBeGreaterThan(600000);
-        expect(parsed.details['@neo-test-agent-2'].ageMs).toBeGreaterThan(600000);
+            ));
+            expect(parsed.identities.length).toBe(2);
+            expect(parsed.details['@neo-test-agent-1'].ageMs).toBeGreaterThan(600000);
+            expect(parsed.details['@neo-test-agent-2'].ageMs).toBeGreaterThan(600000);
+        } finally {
+            scenario.cleanup();
+        }
     });
 
     test('checkAllAgentIdle.mjs emits negative signal when at least one agent is active', async () => {
         test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
 
-        const GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
-        await GraphService.initAsync();
-
         // 1. Setup mock memory rows. Agent 1 is old, Agent 2 is new
-        const oldTime = new Date(Date.now() - 20 * 60 * 1000).toISOString(); // 20 mins ago
-        const newTime = new Date(Date.now() - 2 * 60 * 1000).toISOString();  // 2 mins ago
+        const oldTime  = new Date(Date.now() - 20 * 60 * 1000).toISOString(); // 20 mins ago
+        const newTime  = new Date(Date.now() - 2 * 60 * 1000).toISOString();  // 2 mins ago
+        const scenario = await createGraphScenario();
 
-        const insertStmt = GraphService.db.storage.db.prepare(`
-            INSERT INTO Nodes (id, user_id, data) VALUES (?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET data=excluded.data
-        `);
+        try {
+            const insertStmt = scenario.db.prepare(`
+                INSERT INTO Nodes (id, user_id, data) VALUES (?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET data=excluded.data
+            `);
 
-        [
-            { id: '@neo-test-agent-1', time: oldTime },
-            { id: '@neo-test-agent-2', time: newTime }
-        ].forEach(item => {
-            const dataObj = {
-                id: `memory-active-${item.id}`,
-                label: 'AGENT_MEMORY',
-                type: 'AGENT_MEMORY',
-                properties: {
-                    agentIdentity: item.id,
-                    timestamp: item.time
+            [
+                {id: '@neo-test-agent-1', time: oldTime},
+                {id: '@neo-test-agent-2', time: newTime}
+            ].forEach(item => {
+                const dataObj = {
+                    id        : `memory-active-${item.id}`,
+                    label     : 'AGENT_MEMORY',
+                    type      : 'AGENT_MEMORY',
+                    properties: {
+                        agentIdentity: item.id,
+                        timestamp    : item.time
+                    }
+                };
+                insertStmt.run(`memory-active-${item.id}`, item.id, JSON.stringify(dataObj));
+            });
+
+            // 2. Execute script in a fresh process against the file-backed scenario graph.
+            const scriptPath = path.resolve(process.cwd(), 'ai/scripts/lifecycle/checkAllAgentIdle.mjs');
+            const output     = execFileSync('node', [scriptPath], {
+                encoding: 'utf-8',
+                env     : {
+                    ...scenario.env,
+                    NEO_SWARM_IDENTITIES : identitiesEnv,
+                    NEO_IDLE_THRESHOLD_MS: '600000'
                 }
-            };
-            insertStmt.run(`memory-active-${item.id}`, item.id, JSON.stringify(dataObj));
-        });
+            });
+            const parsed = JSON.parse(output);
 
-        // 2. Execute script
-        const scriptPath = path.resolve(process.cwd(), 'ai/scripts/lifecycle/checkAllAgentIdle.mjs');
-        const output = execFileSync('node', [scriptPath], {
-            encoding: 'utf-8',
-            env: {
-                ...process.env,
-                NEO_UNIT_TEST_MODE: 'true',
-                NEO_SWARM_IDENTITIES: identitiesEnv,
-                NEO_IDLE_THRESHOLD_MS: '600000'
-            }
-        });
-        const parsed = JSON.parse(output);
-
-        // 3. Assert negative signal
-        expect(parsed.allIdle).toBe(false);
-        expect(parsed.details['@neo-test-agent-2'].ageMs).toBeLessThan(600000);
+            // 3. Assert negative signal
+            expect(parsed.allIdle).toBe(false);
+            expect(parsed.details['@neo-test-agent-2'].ageMs).toBeLessThan(600000);
+        } finally {
+            scenario.cleanup();
+        }
     });
 
     test('checkAllAgentIdle.mjs treats boundary condition (no AGENT_MEMORY rows) as fully idle', async () => {
         // Execute script with an entirely unknown identity set
         const scriptPath = path.resolve(process.cwd(), 'ai/scripts/lifecycle/checkAllAgentIdle.mjs');
-        const output = execFileSync('node', [scriptPath], {
+        const output     = execFileSync('node', [scriptPath], {
             encoding: 'utf-8',
-            env: {
+            env     : {
                 ...process.env,
-                NEO_UNIT_TEST_MODE: 'true',
-                NEO_SWARM_IDENTITIES: '@neo-ghost-agent-1',
+                NEO_UNIT_TEST_MODE   : 'true',
+                NEO_SWARM_IDENTITIES : '@neo-ghost-agent-1',
                 NEO_IDLE_THRESHOLD_MS: '600000'
             }
         });
@@ -158,8 +201,8 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
             ['@neo-ghost-agent-1'],
             {
                 '@neo-ghost-agent-1': {
-                    lastMemTime   : null,
-                    inFlightNudge : false
+                    lastMemTime  : null,
+                    inFlightNudge: false
                 }
             }
         ));
@@ -175,12 +218,12 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
         expect(expected.length).toBeGreaterThan(0);
 
         const scriptPath = path.resolve(process.cwd(), 'ai/scripts/lifecycle/checkAllAgentIdle.mjs');
-        const output = execFileSync('node', [scriptPath], {
+        const output     = execFileSync('node', [scriptPath], {
             encoding: 'utf-8',
-            env: {
+            env     : {
                 ...process.env,
-                NEO_UNIT_TEST_MODE: 'true',
-                NEO_IDLE_THRESHOLD_MS : '600000'
+                NEO_UNIT_TEST_MODE   : 'true',
+                NEO_IDLE_THRESHOLD_MS: '600000'
                 // NEO_SWARM_IDENTITIES intentionally UNSET → exercises the active-local-team default.
             }
         });
@@ -207,7 +250,7 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
         GraphService.db.storage.db.prepare(
             `INSERT INTO Nodes (id, user_id, data) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET data=excluded.data`
         ).run('memory-threshold-probe', team[0], JSON.stringify({
-            id: 'memory-threshold-probe', label: 'AGENT_MEMORY', type: 'AGENT_MEMORY',
+            id        : 'memory-threshold-probe', label: 'AGENT_MEMORY', type: 'AGENT_MEMORY',
             properties: {agentIdentity: team[0], timestamp: fiveSecondsAgo}
         }));
 

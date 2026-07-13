@@ -9,7 +9,7 @@ import {
     NeuralLink_RuntimeService,
     NeuralLink_InteractionService
 } from '../../ai/services.mjs';
-import aiConfig from '../../ai/mcp/server/neural-link/config.mjs';
+import aiConfig from '../../ai/mcp/server/neural-link/config.template.mjs';
 
 export const test = base.extend({
     /**

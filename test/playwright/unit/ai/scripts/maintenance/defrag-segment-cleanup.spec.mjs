@@ -342,8 +342,8 @@ test.describe('defragChromaDB segment cleanup — unified-store-safe keep-set (#
             statePath,
             timestamp        : 123,
             uuidFactory      : () => `uuid-${++uuid}`,
-            log          : () => {},
-            writeProgress: () => {}
+            log              : () => {},
+            writeProgress    : () => {}
         });
 
         expect(result.shadowName).toBe('neo-knowledge-base-shadow-123-uuid-1');
@@ -392,9 +392,9 @@ test.describe('defragChromaDB segment cleanup — unified-store-safe keep-set (#
             statePath,
             timestamp        : 456,
             uuidFactory      : () => `uuid-${++uuid}`,
-            log          : () => {},
-            warn         : () => {},
-            writeProgress: () => {}
+            log              : () => {},
+            warn             : () => {},
+            writeProgress    : () => {}
         })).rejects.toThrow(`forced modify failure for ${collectionName}`);
 
         expect(registry.get(collectionName)).toBe(live);
@@ -411,7 +411,7 @@ test.describe('defragChromaDB segment cleanup — unified-store-safe keep-set (#
     });
 
     test('registers Neo Chroma embedding functions before defrag collection hydration', async () => {
-        const {default: AiConfig} = await import('../../../../../../ai/config.mjs');
+        const {default: AiConfig} = await import('../../../../../../ai/config.template.mjs');
         const warnings            = [];
         const originalWarn        = console.warn;
 

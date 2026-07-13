@@ -15,9 +15,7 @@ import {
     createRecoveryTargetIdentity
 } from '../../../../../../../ai/services/memory-core/helpers/recoveryRunStateStore.mjs';
 import {readHealLedger} from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
-import {TIER1_DEFAULTS} from '../../../../../fixtures/aiConfigDefaults.mjs';
 
-const DEFAULT_ACTUATOR_CONFIG       = TIER1_DEFAULTS.orchestrator.recoveryActuator;
 const DEFAULT_RUNTIME_ACCESS_CONFIG = {
     allowedServices: ['chroma', 'kb-server', 'mc-server', 'local-model']
 };
@@ -39,14 +37,19 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
               providerResidencyRepairCalls = [],
               taskOutcomes                 = [],
               actuatorConfig               = {
-                  ...DEFAULT_ACTUATOR_CONFIG,
-                  healAttemptsPath    : path.join(tmpDir, 'heal-attempts.json'),
-                  recoveryRunStateDir : path.join(tmpDir, 'recovery-runs'),
-                  baseBackoffMs       : 0,
-                  maxBackoffMs        : 0,
-                  maxAttemptsPerWindow: 2,
-                  maxAttemptsWindowMs : 60_000,
-                  verifyCooldownMs    : 5_000,
+                  enabled                    : true,
+                  blockedSupervisedTasks     : [],
+                  blockedComposeServices     : [],
+                  blockedDeployTargets       : [],
+                  healAttemptsPath           : path.join(tmpDir, 'heal-attempts.json'),
+                  recoveryRunStateDir        : path.join(tmpDir, 'recovery-runs'),
+                  recoveryRunRetentionLimit  : 100,
+                  baseBackoffMs              : 0,
+                  maxBackoffMs               : 0,
+                  maxAttemptsPerWindow       : 2,
+                  maxAttemptsWindowMs        : 60_000,
+                  verifyCooldownMs           : 5_000,
+                  healthyObservationThreshold: 1,
                   ...overrides.actuatorConfig
               },
               service = Neo.create(RecoveryActuatorService, {

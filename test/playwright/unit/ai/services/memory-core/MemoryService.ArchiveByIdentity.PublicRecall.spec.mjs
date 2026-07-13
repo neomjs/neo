@@ -72,8 +72,28 @@ test.describe('MemoryService — archive excludes identities from the PUBLIC gra
     test.describe.configure({mode: 'serial'});
 
     let MemoryService, GraphService, LifecycleService, TextEmbeddingService, StorageRouter, spy, origGetColl, origEmbed;
+    let graphEdgeIdsBeforeSuite, graphNodeIdsBeforeSuite;
 
     const CTX = {userId: 'tenant-arch', agentIdentityNodeId: '@agent-arch'};
+
+    /**
+     * @summary Removes only graph rows created by this suite, preserving process-lifetime roots and peer fixtures.
+     * @returns {void}
+     */
+    function cleanupGraphFixtures() {
+        if (!GraphService.db) return;
+
+        GraphService.db.edges.items
+            .map(edge => edge.id)
+            .filter(id => id && !graphEdgeIdsBeforeSuite.has(id))
+            .forEach(id => GraphService.db.removeEdge(id));
+
+        const nodeIds = GraphService.db.nodes.items
+            .map(node => node.id)
+            .filter(id => !graphNodeIdsBeforeSuite.has(id));
+
+        GraphService.removeNodes(nodeIds);
+    }
 
     test.beforeAll(async () => {
         GraphService         = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
@@ -92,6 +112,22 @@ test.describe('MemoryService — archive excludes identities from the PUBLIC gra
             await LifecycleService.ready();
         }
 
+        // A prior shared-worker suite can intentionally clear the graph after the process-lifetime
+        // lifecycle promise has resolved. Re-establish this public surface's canonical prerequisite
+        // explicitly; relying on one-time boot seeding makes the test order-dependent.
+        GraphService.db.getAdjacentNodes('frontier', 'both');
+        if (!GraphService.db.nodes.has('frontier')) {
+            GraphService.upsertGlobalNode({
+                id         : 'frontier',
+                type       : 'SYSTEM_ANCHOR',
+                name       : 'Active Context Frontier',
+                description: 'The shifting focal point of the active Neo OS agent session.'
+            });
+        }
+
+        graphNodeIdsBeforeSuite = new Set(GraphService.db.nodes.items.map(node => node.id));
+        graphEdgeIdsBeforeSuite = new Set(GraphService.db.edges.items.map(edge => edge.id));
+
         origEmbed                      = TextEmbeddingService.embedText;
         TextEmbeddingService.embedText = async () => new Array(4096).fill(0.1);
 
@@ -101,6 +137,7 @@ test.describe('MemoryService — archive excludes identities from the PUBLIC gra
     test.afterAll(async () => {
         if (origGetColl) StorageRouter.getMemoryCollection = origGetColl;
         if (origEmbed)   TextEmbeddingService.embedText     = origEmbed;
+        cleanupGraphFixtures();
         const {cleanupChromaManager} = await import('./util.mjs');
         await cleanupChromaManager();
     });

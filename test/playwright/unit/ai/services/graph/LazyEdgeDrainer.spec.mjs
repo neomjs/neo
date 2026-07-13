@@ -13,11 +13,11 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
-import fs             from 'fs';
-import path           from 'path';
+import {test, expect}        from '@playwright/test';
+import Neo                   from '../../../../../../src/Neo.mjs';
+import * as core             from '../../../../../../src/core/_export.mjs';
+import fs                    from 'fs';
+import path                  from 'path';
 import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
 
 test.describe('Neo.ai.daemons.services.LazyEdgeDrainer', () => {
@@ -31,13 +31,13 @@ test.describe('Neo.ai.daemons.services.LazyEdgeDrainer', () => {
     let logger;
     let originalLinkNodesAsync;
 
-    const testDbName  = `memory-core-lazy-edge-drainer-test-${process.pid}-${Date.now()}.sqlite`;
-    const queueName   = `test-lazy-edges-${process.pid}-${Date.now()}.jsonl`;
+    const testDbName = `memory-core-lazy-edge-drainer-test-${process.pid}-${Date.now()}.sqlite`;
+    const queueName  = `test-lazy-edges-${process.pid}-${Date.now()}.jsonl`;
     let testDbPath;
     let queuePath;
 
     test.beforeAll(async () => {
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
 
         const tmpDir = path.resolve(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) {

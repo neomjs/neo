@@ -17,7 +17,7 @@ import {test, expect}         from '@playwright/test';
 import Neo                    from '../../../../../../src/Neo.mjs';
 import * as core              from '../../../../../../src/core/_export.mjs';
 import InstanceManager        from '../../../../../../src/manager/Instance.mjs';
-import AiConfig               from '../../../../../../ai/config.mjs';
+import AiConfig               from '../../../../../../ai/config.template.mjs';
 import ChromaManager          from '../../../../../../ai/services/memory-core/managers/ChromaManager.mjs';
 import StorageRouter          from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
 import ChromaLifecycleService from '../../../../../../ai/services/memory-core/lifecycle/ChromaLifecycleService.mjs';

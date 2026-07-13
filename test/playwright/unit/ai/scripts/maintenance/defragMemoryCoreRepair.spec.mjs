@@ -16,7 +16,7 @@ import {
     runDefragChromaDBCli,
     writeDefragState
 } from '../../../../../../ai/scripts/maintenance/defragChromaDB.mjs';
-import AiConfig                     from '../../../../../../ai/mcp/server/memory-core/config.mjs';
+import AiConfig                     from '../../../../../../ai/mcp/server/memory-core/config.template.mjs';
 
 /**
  * AC4 — the Memory Core defrag-wiring orchestration: full (uncapped) enumeration ->
