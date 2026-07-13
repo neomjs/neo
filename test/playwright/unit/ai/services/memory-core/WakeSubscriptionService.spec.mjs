@@ -150,6 +150,33 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         return {subscriptionId, edgeId};
     }
 
+    function appendTaskEvent({
+        eventId = `task-event-${crypto.randomUUID()}`,
+        taskId = 'MSG:TASK-TYPED',
+        previousState = 'Submitted',
+        newState = 'Working',
+        originator = '@bob',
+        assignee = '@alice',
+        assignmentAuthority = 'memory-core.v1',
+        lastModifiedAt = '2026-07-12T20:01:02.003Z'
+    } = {}) {
+        return GraphService.db.storage.appendGraphLogEvent({
+            entityId : taskId,
+            eventId,
+            eventType: 'task_state_changed',
+            payload  : {
+                schemaVersion: 'task-state-change.v1',
+                taskId,
+                previousState,
+                newState,
+                originator,
+                assignee,
+                assignmentAuthority,
+                lastModifiedAt
+            }
+        })
+    }
+
     // -----------------------------------------------------------------------------
     // bootstrap
     // -----------------------------------------------------------------------------
@@ -1174,6 +1201,46 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         });
     });
 
+    test('resync replays ordered Task snapshots with stable source ids and fresh emission ids (#15114)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            const {subscriptionId} = await WakeSubscriptionService.subscribe({
+                trigger      : 'TASK_STATE_CHANGED',
+                harnessTarget: 'mcp-notifications'
+            });
+            const sqlite = GraphService.db.storage.db;
+            const before = sqlite.prepare('SELECT MAX(log_id) AS maxId FROM GraphLog').get().maxId || 0;
+
+            appendTaskEvent({
+                eventId       : 'task-event-working',
+                previousState : 'Submitted',
+                newState      : 'Working',
+                lastModifiedAt: '2026-07-12T20:01:02.003Z'
+            });
+            appendTaskEvent({
+                eventId       : 'task-event-input',
+                previousState : 'Working',
+                newState      : 'InputRequired',
+                lastModifiedAt: '2026-07-12T20:01:05.006Z'
+            });
+
+            const first  = await WakeSubscriptionService.resync({subscriptionId, sinceLogId: before});
+            const second = await WakeSubscriptionService.resync({subscriptionId, sinceLogId: before});
+
+            expect(first.eventsReplayed).toBe(2);
+            expect(first.events.map(event => event.sourceEventId))
+                .toEqual(['task-event-working', 'task-event-input']);
+            expect(first.events.every(event => typeof event.eventId === 'string')).toBe(true);
+            expect(first.events.map(event => event.payload.previousState))
+                .toEqual(['Submitted', 'Working']);
+            expect(first.events.map(event => event.payload.newState))
+                .toEqual(['Working', 'InputRequired']);
+            expect(second.events.map(event => event.sourceEventId))
+                .toEqual(first.events.map(event => event.sourceEventId));
+            expect(second.events.map(event => event.eventId))
+                .not.toEqual(first.events.map(event => event.eventId));
+        });
+    });
+
     test('emitHeartbeatPulse writes only a heartbeat GraphLog row and replays through resync', async () => {
         const sqlite           = GraphService.db.storage.db;
         const {subscriptionId} = insertDurableSubscription({
@@ -1352,7 +1419,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(emittedEvents[0].params.payload.subject).toBe('hello');
         });
 
-        test('preserves the trusted Task assignee and exact transition clock through the pump route', async () => {
+        test('preserves the typed Task snapshot/id and ignores later generic MESSAGE rewrites (#15114)', async () => {
             CoalescingEngineService.addMcpServer(mockMcpServer);
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
@@ -1362,18 +1429,12 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                 });
             });
 
-            GraphService.upsertNode({
-                id        : 'MSG:TASK-AUTHORITATIVE-CLOCK',
-                type      : 'MESSAGE',
-                properties: {
-                    from                   : '@bob',
-                    lastModifiedAt         : '2026-07-12T20:01:02.003Z',
-                    taskAssignmentAuthority: 'memory-core.v1',
-                    task                   : {
-                        state   : 'InputRequired',
-                        assignee: '@alice'
-                    }
-                }
+            appendTaskEvent({
+                eventId       : 'task-event-pump',
+                taskId        : 'MSG:TASK-AUTHORITATIVE-CLOCK',
+                previousState : 'Working',
+                newState      : 'InputRequired',
+                lastModifiedAt: '2026-07-12T20:01:02.003Z'
             });
 
             await WakeSubscriptionService.pump();
@@ -1382,15 +1443,34 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(emittedEvents).toHaveLength(1);
             expect(emittedEvents[0].params).toMatchObject({
                 eventType    : 'wake/task_state_changed',
+                eventId      : expect.any(String),
+                sourceEventId: 'task-event-pump',
                 agentIdentity: '@alice',
                 payload      : {
                     taskId        : 'MSG:TASK-AUTHORITATIVE-CLOCK',
+                    previousState : 'Working',
                     newState      : 'InputRequired',
                     originator    : '@bob',
                     assignee      : '@alice',
                     lastModifiedAt: '2026-07-12T20:01:02.003Z'
                 }
             });
+
+            GraphService.upsertNode({
+                id        : 'MSG:TASK-AUTHORITATIVE-CLOCK',
+                type      : 'MESSAGE',
+                properties: {
+                    from                   : '@bob',
+                    lastModifiedAt         : '2026-07-12T20:01:02.003Z',
+                    readAt                 : new Date().toISOString(),
+                    taskAssignmentAuthority: 'memory-core.v1',
+                    task                   : {state: 'InputRequired', assignee: '@alice'}
+                }
+            });
+            await WakeSubscriptionService.pump();
+            await CoalescingEngineService.flushAll();
+
+            expect(emittedEvents).toHaveLength(1);
         });
 
         test('does not emit SENT_TO_ME wake for wakeSuppressed mailbox-only messages', async () => {

@@ -187,6 +187,8 @@ test.describe('Wake Daemon', () => {
                 log_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 entity_id TEXT NOT NULL,
                 entity_type TEXT NOT NULL,
+                event_id TEXT,
+                event_payload TEXT,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
             );
         `);
@@ -1367,7 +1369,7 @@ test.describe('Wake Daemon', () => {
         expect(finalDigest).not.toContain('priority: normal');
     });
 
-    test('keeps same-state Task transitions at distinct authoritative clocks in one coalescing window', async () => {
+    test('keeps typed Task transitions distinct and ignores later generic MESSAGE rewrites (#15114)', async () => {
         const agentId = '@test-agent-task-clock';
         const taskId  = 'MSG:TASK-CLOCK-COALESCE';
         const subId   = insertWakeSubscription(db, {
@@ -1399,28 +1401,45 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        const writeTaskTransition = (state, lastModifiedAt) => {
-            db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(taskId, JSON.stringify({
-                id        : taskId,
-                label     : 'MESSAGE',
-                properties: {
-                    from                   : '@task-originator',
-                    lastModifiedAt,
-                    taskAssignmentAuthority: 'memory-core.v1',
-                    task                   : {state, assignee: agentId}
-                }
+        const writeTaskTransition = (eventId, previousState, newState, lastModifiedAt) => {
+            db.prepare(`
+                INSERT INTO GraphLog (entity_id, entity_type, event_id, event_payload)
+                VALUES (?, 'task_state_changed', ?, ?)
+            `).run(taskId, eventId, JSON.stringify({
+                schemaVersion      : 'task-state-change.v1',
+                taskId,
+                previousState,
+                newState,
+                originator         : '@task-originator',
+                assignee           : agentId,
+                assignmentAuthority: 'memory-core.v1',
+                lastModifiedAt
             }));
-            db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(taskId, 'nodes');
         };
 
         // Keep each mutation in a distinct daemon poll. The final state repeats the first state,
-        // but its later source clock makes it a distinct transition rather than a duplicate.
+        // but its source event id makes it a distinct transition rather than a duplicate.
         await new Promise(resolve => setTimeout(resolve, 1000));
-        writeTaskTransition('Working',       '2026-07-12T20:01:02.003Z');
+        writeTaskTransition('task-event-1', 'Submitted', 'Working',       '2026-07-12T20:01:02.003Z');
         await new Promise(resolve => setTimeout(resolve, 3500));
-        writeTaskTransition('InputRequired', '2026-07-12T20:01:05.006Z');
+        writeTaskTransition('task-event-2', 'Working', 'InputRequired', '2026-07-12T20:01:05.006Z');
         await new Promise(resolve => setTimeout(resolve, 3500));
-        writeTaskTransition('Working',       '2026-07-12T20:01:08.009Z');
+        writeTaskTransition('task-event-3', 'InputRequired', 'Working', '2026-07-12T20:01:08.009Z');
+
+        // A later unrelated mutable-node rewrite still enters generic GraphLog invalidation, but
+        // it is not a fourth Task transition.
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(taskId, JSON.stringify({
+            id        : taskId,
+            label     : 'MESSAGE',
+            properties: {
+                from                   : '@task-originator',
+                lastModifiedAt         : '2026-07-12T20:01:08.009Z',
+                readAt                 : new Date().toISOString(),
+                taskAssignmentAuthority: 'memory-core.v1',
+                task                   : {state: 'Working', assignee: agentId}
+            }
+        }));
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(taskId, 'nodes');
 
         await deliveryPromise;
 
