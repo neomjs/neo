@@ -752,6 +752,40 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         expect(missingGuide.properties.lastGapCheck).toBeGreaterThan(0);
     });
 
+    test('should persist exact CONCEPT_PROJECTION_INTEGRITY evidence for rejected ontology rows (#15125)', async () => {
+        const
+            reason    = 'target file does not exist: src/missing/ProjectionTarget.mjs',
+            sourceRow = '{"source":"concept-projection-integrity","target":"file:src/missing/ProjectionTarget.mjs","type":"IMPLEMENTED_BY"}',
+            expected  = [
+                `[CONCEPT_PROJECTION_INTEGRITY] The CONCEPT 'Projection Integrity Fixture' has a rejected ontology row (MISSING_FILE): ${reason} Source row: ${sourceRow}`
+            ];
+
+        GraphService.upsertNode({
+            id        : 'concept-projection-integrity',
+            type      : 'CONCEPT',
+            name      : 'Projection Integrity Fixture',
+            properties: {
+                conceptProjectionIntegrityFindings: [{code: 'MISSING_FILE', reason, sourceRow}],
+                name                              : 'Projection Integrity Fixture',
+                tier                              : 3,
+                uniqueToNeo                       : false,
+                validated                         : false,
+                verifiedAt                        : freshVerifiedAt,
+                weight                            : 0.3
+            }
+        });
+
+        await DreamService.inferConceptGraphGaps();
+
+        const
+            row        = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get('concept-projection-integrity'),
+            persisted  = JSON.parse(row.data),
+            storedGaps = JSON.parse(persisted.properties.capabilityGap);
+
+        expect(storedGaps).toEqual(expected);
+        expect(persisted.properties.lastGapCheck).toBeGreaterThan(0);
+    });
+
     test('should emit KB_DEMAND_GAP for repeated uncovered Agent FAQ demand (#10081)', async () => {
         const originalListAgentFaqs = KBRecorderService.listAgentFaqs;
 

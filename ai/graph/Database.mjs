@@ -121,12 +121,12 @@ class Database extends Base {
 
         // Fresh boot (`lastSyncId === 0`) is a legitimate "catch me up" signal, not a
         // short-circuit; replay the delta log so cold caches observe prior writes.
-        let delta       = this.storage.getDeltaLog(this.lastSyncId);
+        let delta = this.storage.getDeltaLog(this.lastSyncId);
         this.lastSyncId = delta.lastLogId;
 
         if (delta.invalidNodes.length > 0) {
-            let wasTransacting          = this.isExecutingTransaction;
-            let wasAutoSave             = this.autoSave;
+            let wasTransacting = this.isExecutingTransaction;
+            let wasAutoSave    = this.autoSave;
             this.isExecutingTransaction = false;
             this.autoSave               = false;
 
@@ -141,8 +141,8 @@ class Database extends Base {
         }
 
         if (delta.invalidEdges.length > 0) {
-            let wasTransacting          = this.isExecutingTransaction;
-            let wasAutoSave             = this.autoSave;
+            let wasTransacting = this.isExecutingTransaction;
+            let wasAutoSave    = this.autoSave;
             this.isExecutingTransaction = false;
             this.autoSave               = false;
 
@@ -207,8 +207,8 @@ class Database extends Base {
             let deleteCount = Math.max(1, Math.floor(me.maxGraphNodes * 0.2)); // Execute 20% chunk truncation cleanly locally guaranteeing at least 1 dropped
             let toDelete    = nodesArray.slice(0, deleteCount).map(entry => entry[0]);
 
-            let wasTransacting        = me.isExecutingTransaction;
-            let wasAutoSave           = me.autoSave;
+            let wasTransacting = me.isExecutingTransaction;
+            let wasAutoSave    = me.autoSave;
             me.isExecutingTransaction = false;
             me.autoSave               = false;
 
@@ -356,8 +356,8 @@ class Database extends Base {
         if (me.storage && !me.vicinityLoadedNodes.has(nodeId)) {
             let vicinity = me.storage.loadNodeVicinitySync(nodeId);
 
-            let wasTransacting        = me.isExecutingTransaction;
-            let wasAutoSave           = me.autoSave;
+            let wasTransacting = me.isExecutingTransaction;
+            let wasAutoSave    = me.autoSave;
             me.isExecutingTransaction = false;
             me.autoSave               = false;
 
@@ -501,6 +501,83 @@ class Database extends Base {
     }
 
     /**
+     * Removes a node only when the persistence layer can prove, in the same atomic
+     * write statement, that no incident edge exists and an optional source marker
+     * still matches. Cache removal follows the successful physical mutation with
+     * persistence disabled, preserving one coherent local view without issuing a
+     * second DELETE.
+     * @param {String} nodeId
+     * @param {Object} [options]
+     * @param {String|null} [options.requiredPropertyPath=null] Rooted dotted object path with identifier-only segments.
+     * @param {String|Number|Boolean|null} [options.requiredPropertyValue]
+     * @returns {Boolean} `true` only when the node was removed.
+     */
+    removeNodeIfUnreferenced(nodeId, options={}) {
+        if (typeof nodeId !== 'string' || nodeId.length === 0) {
+            throw new Error(`Graph Database removeNodeIfUnreferenced requires a non-empty string node id. Received: ${String(nodeId)}`);
+        }
+        if (!options || typeof options !== 'object' || Array.isArray(options)) {
+            throw new TypeError('Graph Database removeNodeIfUnreferenced options must be an object.');
+        }
+        if (options.requiredPropertyPath != null
+            && (typeof options.requiredPropertyPath !== 'string'
+                || !/^\$\.[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/.test(options.requiredPropertyPath))) {
+            throw new TypeError('requiredPropertyPath must use rooted dotted identifier syntax, e.g. `$.properties.marker`.');
+        }
+        if (this.isExecutingTransaction) {
+            throw new Error('removeNodeIfUnreferenced cannot run inside a Graph Database logical transaction.');
+        }
+
+        const storage = this.storage;
+
+        if (storage) {
+            if (typeof storage.removeNodeIfUnreferenced !== 'function'
+                || !storage.removeNodeIfUnreferenced(nodeId, options)) {
+                return false
+            }
+
+            const
+                wasAutoSave    = this.autoSave,
+                wasTransacting = this.isExecutingTransaction;
+
+            this.autoSave               = false;
+            this.isExecutingTransaction = false;
+
+            try {
+                this.removeNode(nodeId)
+            } finally {
+                this.autoSave               = wasAutoSave;
+                this.isExecutingTransaction = wasTransacting;
+            }
+
+            // Do not max-ack the GraphLog here. A peer can commit between the
+            // physical DELETE and cache cleanup; acknowledging the latest global
+            // log id would swallow that peer invalidation. Replaying our own node
+            // delete on the next sync is harmless and preserves the ordering proof.
+            return true
+        }
+
+        const
+            node                 = this.nodes.get(nodeId),
+            requiredPropertyPath = options.requiredPropertyPath,
+            requiredValue        = options.requiredPropertyValue,
+            actualValue          = requiredPropertyPath == null
+                ? requiredValue
+                : requiredPropertyPath.slice(2).split('.')
+                    .reduce((value, key) => value?.[key], node);
+
+        if (!node
+            || (requiredPropertyPath != null && actualValue !== requiredValue)
+            || this.edges.getByIndex('source', nodeId).length > 0
+            || this.edges.getByIndex('target', nodeId).length > 0) {
+            return false
+        }
+
+        this.removeNode(nodeId);
+        return true
+    }
+
+    /**
      * Parses the identical mutation buffer inversely mapping strict `.splice()` limits natively resolving failures.
      * @param {Object[]} diffLog
      * @protected
@@ -513,9 +590,9 @@ class Database extends Base {
             let mutation = trace.mutation;
 
             // Suspend mutation monitoring cleanly natively during automated rollback logic bounds!
-            let wasTransacting          = this.isExecutingTransaction;
+            let wasTransacting = this.isExecutingTransaction;
             this.isExecutingTransaction = false;
-            let wasAutoSave             = this.autoSave;
+            let wasAutoSave = this.autoSave;
             this.autoSave               = false;
 
             if (mutation.addedItems?.length > 0) {
