@@ -266,11 +266,31 @@ class Overflow extends Plugin {
         try {
             // 1. Natural widths — measured once while every button is visible, then cached.
             if (recapture || !me.naturalWidths) {
-                let rects = await owner.getDomRect(buttons.map(button => button.id));
+                const removedButtons = buttons.filter(button => button.hidden);
+
+                // A prior split removes overflowing buttons from DOM. Restore them under this method's
+                // measuring latch, then reconcile their closest common parent once so getDomRect observes
+                // natural geometry. Any resize raised by that update queues behind the latch and drains as
+                // an extent-only pass after this authoritative capture.
+                if (removedButtons.length > 0) {
+                    removedButtons.forEach(button => button.setSilent({hidden: false}));
+                    owner.updateDepth = -1;
+                    owner.update();
+                    await owner.promiseUpdate()
+                }
+
+                let previousWidths = me.naturalWidths || {},
+                    rects          = await owner.getDomRect(buttons.map(button => button.id));
 
                 me.naturalWidths = {};
                 buttons.forEach((button, index) => {
-                    me.naturalWidths[button.id] = Math.ceil(rects[index]?.width || 0)
+                    // A recapture can run after the previous split removed overflowing headers from DOM.
+                    // Their live rect is then zero by construction, not because their natural width changed.
+                    // Keep the last positive measurement for those stable button identities; newly inserted
+                    // buttons are visible on their first mutation pass and therefore still enter the cache.
+                    me.naturalWidths[button.id] = Math.ceil(
+                        rects[index]?.width || previousWidths[button.id] || 0
+                    )
                 })
             }
 

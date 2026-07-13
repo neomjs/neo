@@ -86,3 +86,9 @@
         }
     }
 }
+
+// The out-of-collection overflow button aligns its border box to this toolbar. Theme-level
+// button margins must not shift that floating geometry away from the source-owner edge.
+.neo-button.neo-tab-overflow-control {
+    margin: 0;
+}
