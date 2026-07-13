@@ -3044,6 +3044,18 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
         };
     }
 
+    function readTaskEvents(taskId) {
+        return GraphService.db.storage.db.prepare(`
+            SELECT log_id, entity_id, entity_type, event_id, event_payload
+            FROM GraphLog
+            WHERE entity_id = ? AND entity_type = 'task_state_changed'
+            ORDER BY log_id ASC
+        `).all(taskId).map(row => ({
+            ...row,
+            event_payload: JSON.parse(row.event_payload)
+        }))
+    }
+
     test('addMessage and transitionTask enforce state enum validation', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             await expect(MailboxService.addMessage({
@@ -3060,6 +3072,81 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
                 taskId: res.messageId, newState: 'AlsoInvalid'
             })).rejects.toThrow(/Invalid new task state: AlsoInvalid/);
         });
+    });
+
+    test('successful transitions append one immutable typed event while mismatch paths append none (#15114)', async () => {
+        let msgId;
+
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            msgId = (await MailboxService.addMessage({
+                to: '@bob', subject: 'typed transition event', body: 'body', task: {state: 'Submitted'}
+            })).messageId;
+        });
+
+        const mismatch = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.transitionTask({
+                taskId              : msgId,
+                newState            : 'Working',
+                expectedCurrentState: 'InputRequired'
+            })
+        );
+
+        expect(mismatch).toMatchObject({success: false, rowsAffected: 0});
+        expect(readTaskEvents(msgId)).toEqual([]);
+
+        const transition = await RequestContextService.run({agentIdentityNodeId: '@bob'}, () =>
+            MailboxService.transitionTask({taskId: msgId, newState: 'Working'})
+        );
+        const [event] = readTaskEvents(msgId);
+
+        expect(transition).toMatchObject({success: true, rowsAffected: 1});
+        expect(event.event_id).toBeTruthy();
+        expect(event.event_payload).toEqual({
+            schemaVersion      : 'task-state-change.v1',
+            taskId             : msgId,
+            previousState      : 'Submitted',
+            newState           : 'Working',
+            originator         : '@alice',
+            assignee           : '@bob',
+            assignmentAuthority: 'memory-core.v1',
+            lastModifiedAt     : readStoredTask(msgId).lastModifiedAt
+        });
+
+        const genericRows = GraphService.db.storage.db.prepare(`
+            SELECT COUNT(*) AS count FROM GraphLog
+            WHERE entity_id = ? AND entity_type = 'nodes'
+        `).get(msgId).count;
+        expect(genericRows).toBeGreaterThan(0);
+    });
+
+    test('Task state write rolls back when its typed event cannot commit (#15114)', async () => {
+        let msgId;
+
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            msgId = (await MailboxService.addMessage({
+                to: '@bob', subject: 'event rollback', body: 'body', task: {state: 'Submitted'}
+            })).messageId;
+        });
+
+        const storage        = GraphService.db.storage;
+        const originalAppend = storage.appendGraphLogEvent;
+
+        storage.appendGraphLogEvent = () => {
+            throw new Error('injected typed-event failure')
+        };
+
+        try {
+            await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+                await expect(MailboxService.transitionTask({taskId: msgId, newState: 'Working'}))
+                    .rejects.toThrow(/injected typed-event failure/);
+            });
+        } finally {
+            storage.appendGraphLogEvent = originalAppend;
+        }
+
+        expect(readStoredTask(msgId).task).toMatchObject({state: 'Submitted', assignee: '@bob'});
+        expect(readStoredTask(msgId).lastModifiedAt).toBeNull();
+        expect(readTaskEvents(msgId)).toEqual([]);
     });
 
     test('Task assignment is server-owned for direct and broadcast messages without mutating caller input', async () => {
@@ -3249,6 +3336,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
         expect(GraphService.db.nodes.get(msgId).properties.lastModifiedAt).toBe(winner.lastModifiedAt);
         expect(winner.lastModifiedAt).toBe(winnerClock);
         expect(nodeWriteCount()).toBe(writesBefore + 1);
+        expect(readTaskEvents(msgId)).toEqual([]); // interposed winner bypasses this producer; loser emits none
     });
 
     test('legacy direct Task backfills its one canonical recipient before a later transition', async () => {
@@ -3541,6 +3629,8 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
             await expect(MailboxService.transitionTask({ taskId: msgId, newState: 'Working' }))
                 .rejects.toThrow(/Unauthorized: @charlie is neither originator nor assignee/);
         });
+
+        expect(readTaskEvents(msgId)).toEqual([]);
     });
 
     test('expected-state mismatches disclose stored Task data only to authorized participants', async () => {
@@ -3600,6 +3690,9 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
             await expect(MailboxService.transitionTask({taskId: multiOriginId, newState: 'Working'}))
                 .rejects.toThrow(/ambiguous originators/);
         });
+
+        expect(readTaskEvents(hybridId)).toEqual([]);
+        expect(readTaskEvents(multiOriginId)).toEqual([]);
     });
 
     test('claim-and-lock keeps later claim attempts bound to the persisted winner', async () => {
@@ -3717,7 +3810,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — TTL Sweeper (#1033
         return msgId;
     }
 
-    test('sweep transitions Submitted/Working/InputRequired tasks past expiresAt to Expired', async () => {
+    test('sweep transitions Submitted/Working/InputRequired tasks past expiresAt to Expired with typed events (#15114)', async () => {
         const past            = '2020-01-01T00:00:00Z';
         const submittedId     = await seedTask({ state: 'Submitted',     expiresAt: past });
         const workingId       = await seedTask({ state: 'Working',       expiresAt: past });
@@ -3746,6 +3839,29 @@ test.describe('Neo.ai.services.memory-core.MailboxService — TTL Sweeper (#1033
             expect(node).toBeTruthy();
             expect(node.properties.task.state).toBe('Expired');
             expect(node.properties.lastModifiedAt).toBeTruthy();
+        }
+
+        const events = GraphService.db.storage.db.prepare(`
+            SELECT entity_id, event_id, event_payload
+            FROM GraphLog
+            WHERE entity_type = 'task_state_changed'
+            ORDER BY log_id ASC
+        `).all().map(row => ({...row, event_payload: JSON.parse(row.event_payload)}));
+
+        expect(events).toHaveLength(3);
+        expect(new Set(events.map(event => event.event_id)).size).toBe(3);
+        expect(events.map(event => event.event_payload.previousState).sort())
+            .toEqual(['InputRequired', 'Submitted', 'Working']);
+        for (const event of events) {
+            expect(event.event_payload).toMatchObject({
+                schemaVersion      : 'task-state-change.v1',
+                taskId             : event.entity_id,
+                newState           : 'Expired',
+                originator         : '@ttl-alice',
+                assignee           : '@ttl-bob',
+                assignmentAuthority: 'memory-core.v1'
+            });
+            expect(event.event_payload.lastModifiedAt).toBeTruthy();
         }
     });
 
@@ -3802,6 +3918,10 @@ test.describe('Neo.ai.services.memory-core.MailboxService — TTL Sweeper (#1033
         // Second cycle — task is already Expired; no further work
         const second = await MailboxService.sweepExpiredTasks();
         expect(second.sweptCount).toBe(0);
+        expect(GraphService.db.storage.db.prepare(`
+            SELECT COUNT(*) AS count FROM GraphLog
+            WHERE entity_id = ? AND entity_type = 'task_state_changed'
+        `).get(id).count).toBe(1);
 
         const node = GraphService.db.nodes.get(id);
         expect(node.properties.task.state).toBe('Expired');

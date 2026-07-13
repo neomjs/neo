@@ -5,7 +5,9 @@ import {
     match,
     matchHeartbeatPulse,
     parseHeartbeatPulseEntityId,
-    PERMISSION_EDGE_TYPES
+    PERMISSION_EDGE_TYPES,
+    TASK_STATE_CHANGED_ENTITY_TYPE,
+    TASK_STATE_CHANGED_SCHEMA_VERSION
 } from '../../../../../../ai/services/memory-core/heartbeatPulseEvaluator.mjs';
 
 /**
@@ -82,7 +84,6 @@ test.describe('Neo.ai.services.memory-core.heartbeatPulseEvaluator', () => {
 test.describe('Neo.ai.services.memory-core.heartbeatPulseEvaluator — match() (all 4 triggers)', () => {
     const OWNER     = '@neo-opus-vega';
     const edgeTrace = {entity_type: 'edges', entity_id: 'EDGE:e1', log_id: 7};
-    const nodeTrace = {entity_type: 'nodes', entity_id: 'MESSAGE:t1', log_id: 9};
 
     const sub  = (over = {}) => ({trigger: 'SENT_TO_ME', harnessTarget: 'mcp-notifications', agentIdentity: OWNER, filters: {}, ...over});
     const msg  = (props = {}) => ({id: 'MESSAGE:m1', label: 'MESSAGE', properties: {from: '@neo-gpt', subject: 'hi', priority: 'normal', ...props}});
@@ -208,72 +209,109 @@ test.describe('Neo.ai.services.memory-core.heartbeatPulseEvaluator — match() (
         expect(PERMISSION_EDGE_TYPES).toEqual(['CAN_REPLY_TO', 'CAN_READ_INBOX_OF', 'CAN_READ_MEMORIES_OF']);
     });
 
-    // --- TASK_STATE_CHANGED (the broadening fix: daemon matched assignee only) ---
-    const taskNode = (task, extra = {}) => ({
-        id        : 'MESSAGE:t1',
-        label     : 'MESSAGE',
-        properties: {
-            from                   : '@neo-gpt',
-            task,
-            taskAssignmentAuthority: 'memory-core.v1',
-            lastModifiedAt         : '2026-07-12T20:00:00.000Z',
-            ...extra
-        }
+    // --- TASK_STATE_CHANGED ---------------------------------------------------------------
+    const taskTrace = (payload = {}, extra = {}) => ({
+        entity_type  : 'task_state_changed',
+        entity_id    : 'MESSAGE:t1',
+        event_id     : 'task-event-1',
+        event_payload: JSON.stringify({
+            schemaVersion      : 'task-state-change.v1',
+            taskId             : 'MESSAGE:t1',
+            previousState      : 'Submitted',
+            newState           : 'Working',
+            originator         : '@neo-gpt',
+            assignee           : OWNER,
+            assignmentAuthority: 'memory-core.v1',
+            lastModifiedAt     : '2026-07-12T20:00:00.000Z',
+            ...payload
+        }),
+        log_id: 9,
+        ...extra
     });
 
     test('task_state_changed: fires when the owner is the assignee', () => {
-        const node = taskNode({state: 'in_progress', assignee: OWNER});
-        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: node}, nodeTrace))
-            .toMatchObject({type: 'task_state_changed', payload: {newState: 'in_progress', assignee: OWNER}});
+        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: null}, taskTrace()))
+            .toMatchObject({
+                type         : 'task_state_changed',
+                sourceEventId: 'task-event-1',
+                payload      : {newState: 'Working', assignee: OWNER}
+            });
     });
 
     test('task_state_changed: ALSO fires when the owner is the originator (broadened from assignee-only)', () => {
-        const node = taskNode({state: 'completed', assignee: '@neo-gpt'}, {from: OWNER});
-        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: node}, nodeTrace))
+        const trace = taskTrace({originator: OWNER, assignee: '@neo-gpt', newState: 'Completed'});
+        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: null}, trace))
             .toMatchObject({type: 'task_state_changed', payload: {originator: OWNER}});
     });
 
     test('task_state_changed: does not fire when the owner is neither originator nor assignee', () => {
-        const node = taskNode({state: 'in_progress', assignee: '@neo-gpt'}, {from: '@neo-gpt'});
-        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: node}, nodeTrace)).toBe(null);
+        const trace = taskTrace({originator: '@neo-gpt', assignee: '@neo-gpt'});
+        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: null}, trace)).toBe(null);
     });
 
     test('task_state_changed: does not trust an assignee without the server-owned authority stamp', () => {
-        const missing = taskNode(
-            {state: 'Working', assignee: OWNER},
-            {taskAssignmentAuthority: undefined}
-        );
-        const spoofed = taskNode(
-            {state: 'Working', assignee: OWNER},
-            {taskAssignmentAuthority: 'caller-spoof.v1'}
-        );
+        const missing = taskTrace({assignmentAuthority: null});
+        const spoofed = taskTrace({assignmentAuthority: 'caller-spoof.v1'});
 
-        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: missing}, nodeTrace)).toBe(null);
-        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: spoofed}, nodeTrace)).toBe(null);
+        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: null}, missing)).toBe(null);
+        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: null}, spoofed)).toBe(null);
     });
 
-    test('task_state_changed: reports the exact transition clock, never updatedAt or sentAt', () => {
-        const node = taskNode({state: 'Working', assignee: OWNER}, {
-            lastModifiedAt: '2026-07-12T20:01:02.003Z',
-            updatedAt     : '1999-01-01T00:00:00.000Z',
-            sentAt        : '1998-01-01T00:00:00.000Z'
+    test('task_state_changed: reports the immutable transition snapshot and durable event identity', () => {
+        const trace = taskTrace({
+            previousState : 'Working',
+            newState      : 'InputRequired',
+            lastModifiedAt: '2026-07-12T20:01:02.003Z'
+        }, {event_id: 'task-event-2'});
+
+        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: null}, trace)).toMatchObject({
+            sourceEventId: 'task-event-2',
+            payload      : {
+                previousState : 'Working',
+                newState      : 'InputRequired',
+                lastModifiedAt: '2026-07-12T20:01:02.003Z'
+            }
         });
-
-        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: node}, nodeTrace))
-            .toMatchObject({payload: {lastModifiedAt: '2026-07-12T20:01:02.003Z'}});
     });
 
-    test('task_state_changed: missing transition clock is not a state-change event', () => {
-        const node = taskNode(
-            {state: 'Submitted', assignee: OWNER},
-            {lastModifiedAt: undefined, sentAt: '2026-07-12T19:00:00.000Z'}
-        );
+    test('task_state_changed: malformed or incomplete typed payloads fail closed', () => {
+        const malformed        = taskTrace({}, {event_payload: '{not-json'});
+        const missingClock     = taskTrace({lastModifiedAt: null});
+        const missingEventId   = taskTrace({}, {event_id: null});
+        const emptyAssignee    = taskTrace({assignee: ''});
+        const invalidAuthority = taskTrace({assignmentAuthority: {source: 'caller'}});
+        const invalidOldState  = taskTrace({previousState: 'BANANA'});
+        const invalidNewState  = taskTrace({newState: 'NOT_A_TASK_STATE'});
+        const invalidClock     = taskTrace({lastModifiedAt: 'not-a-date'});
 
-        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: node}, nodeTrace)).toBe(null);
+        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: null}, malformed)).toBe(null);
+        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: null}, missingClock)).toBe(null);
+        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: null}, missingEventId)).toBe(null);
+        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: null}, emptyAssignee)).toBe(null);
+        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: null}, invalidAuthority)).toBe(null);
+        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: null}, invalidOldState)).toBe(null);
+        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: null}, invalidNewState)).toBe(null);
+        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: null}, invalidClock)).toBe(null);
     });
 
-    test('task_state_changed: requires a task state', () => {
-        const node = taskNode({assignee: OWNER});
-        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: node}, nodeTrace)).toBe(null);
+    test('task_state_changed: generic MESSAGE node rewrites are cache invalidation only', () => {
+        const mutableNode = {
+            id        : 'MESSAGE:t1',
+            label     : 'MESSAGE',
+            properties: {
+                from                   : '@neo-gpt',
+                lastModifiedAt         : '2026-07-12T20:00:00.000Z',
+                taskAssignmentAuthority: 'memory-core.v1',
+                task                   : {state: 'Working', assignee: OWNER}
+            }
+        };
+        const genericTrace = {entity_type: 'nodes', entity_id: 'MESSAGE:t1', log_id: 10};
+
+        expect(match(sub({trigger: 'TASK_STATE_CHANGED'}), {entity: mutableNode}, genericTrace)).toBe(null);
+    });
+
+    test('exposes the canonical typed Task-event constants', () => {
+        expect(TASK_STATE_CHANGED_ENTITY_TYPE).toBe('task_state_changed');
+        expect(TASK_STATE_CHANGED_SCHEMA_VERSION).toBe('task-state-change.v1');
     });
 });

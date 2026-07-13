@@ -253,15 +253,34 @@ function stableNormalize(value) {
 }
 
 export function getGraphLogEntries(db, lastSyncId) {
-    return db.prepare('SELECT log_id, entity_id, entity_type FROM GraphLog WHERE log_id > ? ORDER BY log_id ASC').all(lastSyncId);
+    try {
+        return db.prepare(`
+            SELECT log_id, entity_id, entity_type, event_id, event_payload
+            FROM GraphLog
+            WHERE log_id > ?
+            ORDER BY log_id ASC
+        `).all(lastSyncId)
+    } catch (error) {
+        // Backward-compatible startup against a graph opened before Memory Core has applied the
+        // additive event-column migration. Legacy rows remain readable but cannot carry typed
+        // events until the authoritative storage owner completes initSchema().
+        if (!/no such column: event_(?:id|payload)/i.test(error.message)) throw error;
+
+        return db.prepare(`
+            SELECT log_id, entity_id, entity_type, NULL AS event_id, NULL AS event_payload
+            FROM GraphLog
+            WHERE log_id > ?
+            ORDER BY log_id ASC
+        `).all(lastSyncId)
+    }
 }
 
 export function getNodesData(db, nodeIds) {
     if (!nodeIds || nodeIds.size === 0) return [];
-    const ids = Array.from(nodeIds);
-    let results = [];
+    const ids     = Array.from(nodeIds);
+    let   results = [];
     for (let i = 0; i < ids.length; i += SQLITE_IN_CLAUSE_BATCH_SIZE) {
-        let chunk = ids.slice(i, i + SQLITE_IN_CLAUSE_BATCH_SIZE);
+        let chunk        = ids.slice(i, i + SQLITE_IN_CLAUSE_BATCH_SIZE);
         let placeholders = chunk.map(() => '?').join(',');
         results = results.concat(db.prepare(`SELECT id, data FROM Nodes WHERE id IN (${placeholders})`).all(...chunk));
     }
@@ -270,10 +289,10 @@ export function getNodesData(db, nodeIds) {
 
 export function getEdgesData(db, edgeIds) {
     if (!edgeIds || edgeIds.size === 0) return [];
-    const ids = Array.from(edgeIds);
-    let results = [];
+    const ids     = Array.from(edgeIds);
+    let   results = [];
     for (let i = 0; i < ids.length; i += SQLITE_IN_CLAUSE_BATCH_SIZE) {
-        let chunk = ids.slice(i, i + SQLITE_IN_CLAUSE_BATCH_SIZE);
+        let chunk        = ids.slice(i, i + SQLITE_IN_CLAUSE_BATCH_SIZE);
         let placeholders = chunk.map(() => '?').join(',');
         results = results.concat(db.prepare(`SELECT id, data, source, target, type FROM Edges WHERE id IN (${placeholders})`).all(...chunk));
     }
@@ -297,7 +316,7 @@ export function getUnreadSunsetHandovers(db) {
           AND json_extract(data, '$.properties.handoverSummaryProcessedAt') IS NULL
           AND json_extract(data, '$.properties.taggedConcepts') LIKE '%"sunset-protocol-handover"%'
     `);
-    const rows = stmt.all();
+    const rows           = stmt.all();
     const unreadMessages = [];
 
     for (const row of rows) {

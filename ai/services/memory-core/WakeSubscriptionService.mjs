@@ -189,8 +189,9 @@ class WakeSubscriptionService extends Base {
             const storage = db.storage;
             if (!storage?.getDeltaLog) return;
 
-            const delta = storage.getDeltaLog(this.liveCursor);
-            if (delta.invalidEdges.length === 0 && delta.invalidNodes.length === 0) {
+            const delta       = storage.getDeltaLog(this.liveCursor);
+            const typedEvents = delta.events || [];
+            if (delta.invalidEdges.length === 0 && delta.invalidNodes.length === 0 && typedEvents.length === 0) {
                 this._setLiveCursor(delta.lastLogId);
                 return;
             }
@@ -209,13 +210,17 @@ class WakeSubscriptionService extends Base {
 
             for (const sub of activeSubs) {
                 for (const edgeRef of delta.invalidEdges) {
-                    const logId = this._getEntityLogId(edgeRef.id) || delta.lastLogId;
+                    const logId   = this._getEntityLogId(edgeRef.id) || delta.lastLogId;
                     const matched = this._evaluateEdgeAgainstSubscription(edgeRef, sub, logId);
                     if (matched) CoalescingEngineService.enqueue(sub, matched);
                 }
                 for (const nodeId of delta.invalidNodes) {
-                    const logId = this._getEntityLogId(nodeId) || delta.lastLogId;
+                    const logId   = this._getEntityLogId(nodeId) || delta.lastLogId;
                     const matched = this._evaluateNodeAgainstSubscription(nodeId, sub, logId);
+                    if (matched) CoalescingEngineService.enqueue(sub, matched);
+                }
+                for (const trace of typedEvents) {
+                    const matched = this._evaluateTypedEventAgainstSubscription(trace, sub);
                     if (matched) CoalescingEngineService.enqueue(sub, matched);
                 }
             }
@@ -421,9 +426,9 @@ class WakeSubscriptionService extends Base {
         this.retireStaleHarnessPresence({owner, bootId, now: nowDate});
 
         const {instanceAddress, addressType} = this._resolvePresenceAddress(metadata);
-        const presencePid = this._normalizePresencePid(presence.pid ?? (addressType === 'pid' ? instanceAddress : pid));
-        const state       = this.validHarnessPresenceStates.includes(presence.state) ? presence.state : 'unknown';
-        const wakePolicy  = this.validWakePolicies.includes(presence.wakePolicy) ? presence.wakePolicy : 'next_turn';
+        const presencePid                    = this._normalizePresencePid(presence.pid ?? (addressType === 'pid' ? instanceAddress : pid));
+        const state                          = this.validHarnessPresenceStates.includes(presence.state) ? presence.state : 'unknown';
+        const wakePolicy                     = this.validWakePolicies.includes(presence.wakePolicy) ? presence.wakePolicy : 'next_turn';
 
         const properties = {
             agentIdentity  : owner,
@@ -447,8 +452,8 @@ class WakeSubscriptionService extends Base {
         };
 
         GraphService.upsertNode({
-            id  : this._buildHarnessPresenceId(owner, bootId),
-            type: 'HARNESS_PRESENCE',
+            id         : this._buildHarnessPresenceId(owner, bootId),
+            type       : 'HARNESS_PRESENCE',
             name       : `HarnessPresence ${owner}`,
             description: 'Volatile wake-routing presence overlay for a booted harness instance.',
             properties
@@ -474,7 +479,7 @@ class WakeSubscriptionService extends Base {
         if (!sqlite || !owner) return 0;
 
         const nowMs = this._coerceDate(now).getTime();
-        const rows = sqlite.prepare(`
+        const rows  = sqlite.prepare(`
             SELECT id, data FROM Nodes
             WHERE json_extract(data, '$.label') = 'HARNESS_PRESENCE'
               AND json_extract(data, '$.properties.agentIdentity') = ?
@@ -593,7 +598,7 @@ class WakeSubscriptionService extends Base {
         const sqlite = GraphService.db?.storage?.db;
         if (!sqlite) return [];
 
-        const rows  = sqlite.prepare(`
+        const rows = sqlite.prepare(`
             SELECT data FROM Nodes
             WHERE json_extract(data, '$.label') = 'AgentIdentity'
         `).all();
@@ -1156,17 +1161,22 @@ class WakeSubscriptionService extends Base {
         const delta  = storage.getDeltaLog(sinceLogId);
         const events = [];
 
-        // Trigger evaluation walks the delta entities. SENT_TO_ME / PERMISSION_GRANTED
-        // examine edges; TASK_STATE_CHANGED examines nodes (the Task envelope payload).
+        // Trigger evaluation walks the delta entities. SENT_TO_ME / PERMISSION_GRANTED examine
+        // edges; generic nodes remain cache invalidation only. TASK_STATE_CHANGED consumes the
+        // immutable typed-event rows returned separately by getDeltaLog().
         // Filter spec is applied to the matched candidate's payload; non-matches are skipped.
         for (const edgeRef of delta.invalidEdges) {
-            const logId = this._getEntityLogId(edgeRef.id) || delta.lastLogId;
+            const logId   = this._getEntityLogId(edgeRef.id) || delta.lastLogId;
             const matched = this._evaluateEdgeAgainstSubscription(edgeRef, subscription, logId);
             if (matched) events.push(matched);
         }
         for (const nodeId of delta.invalidNodes) {
-            const logId = this._getEntityLogId(nodeId) || delta.lastLogId;
+            const logId   = this._getEntityLogId(nodeId) || delta.lastLogId;
             const matched = this._evaluateNodeAgainstSubscription(nodeId, subscription, logId);
+            if (matched) events.push(matched);
+        }
+        for (const trace of delta.events || []) {
+            const matched = this._evaluateTypedEventAgainstSubscription(trace, subscription);
             if (matched) events.push(matched);
         }
         for (const pulseTrace of this._getHeartbeatPulseLogEntries(sinceLogId)) {
@@ -1267,10 +1277,12 @@ class WakeSubscriptionService extends Base {
     }
 
     /**
-     * Evaluates a GraphLog node entry against TASK_STATE_CHANGED triggers.
-     * Returns the wake-event payload if matched, null otherwise.
+     * @summary Evaluates one generic GraphLog node-invalidation entry.
+     *
+     * Typed Task transitions deliberately do not match this path: they are evaluated from their
+     * immutable GraphLog event rows by `_evaluateTypedEventAgainstSubscription()`.
      * @protected
-     * @param {String} nodeId GraphLog-touched node ID (typically a `MESSAGE:*` carrying a Task envelope)
+     * @param {String} nodeId GraphLog-touched node ID.
      * @param {Object} subscription The cached WAKE_SUBSCRIPTION entry (id + properties)
      * @param {Number} logIdAnchor The delta block's lastLogId for the notification watermark
      * @returns {Object|null} Wrapped wake-event payload (per §6.1.2 envelope) or null when no match
@@ -1279,12 +1291,26 @@ class WakeSubscriptionService extends Base {
         const node = GraphService.db.nodes.get(nodeId);
         if (!node) return null;
 
-        // TASK_STATE_CHANGED semantics (MESSAGE node carrying a Task envelope, owner = originator OR
-        // assignee, current-state-only resync) live in the shared `match()` evaluator; this service
-        // wraps the matched result in its notification envelope.
+        // Generic nodes remain cache-invalidation inputs. The shared evaluator rejects them for
+        // TASK_STATE_CHANGED, preventing a mutable MESSAGE snapshot from manufacturing history.
         const result = match(subscription, {entity: node}, {entity_type: 'nodes', entity_id: nodeId, log_id: logIdAnchor});
 
         return result ? this._wrapEvent('wake/' + result.type, subscription, result.payload, result.logId) : null;
+    }
+
+    /**
+     * @summary Evaluates one immutable typed GraphLog event against a subscription.
+     * @protected
+     * @param {Object} trace GraphLog row with durable event id and payload.
+     * @param {Object} subscription Cached WAKE_SUBSCRIPTION entry.
+     * @returns {Object|null} Wrapped wake event preserving the source event id.
+     */
+    _evaluateTypedEventAgainstSubscription(trace, subscription) {
+        const result = match(subscription, {entity: null}, trace);
+
+        return result
+            ? this._wrapEvent('wake/' + result.type, subscription, result.payload, result.logId, result.sourceEventId)
+            : null
     }
 
     /**
@@ -1322,13 +1348,15 @@ class WakeSubscriptionService extends Base {
      * @param {Object} subscription Cached WAKE_SUBSCRIPTION entry (provides `id` + `agentIdentity`)
      * @param {Object} payload Trigger-specific inner payload returned by the shared `match()` evaluator
      * @param {String|Number} logIdAnchor GraphLog `log_id` anchor preserved across re-emissions for cursor-based catchup
-     * @returns {Object} Full notification envelope (`schemaVersion`, `eventType`, `eventId`, `logId`, `agentIdentity`, `subscriptionId`, `payload`, `emittedAt`)
+     * @param {String} [sourceEventId] Durable source event id; omitted for legacy edge/pulse events.
+     * @returns {Object} Full notification envelope (`schemaVersion`, `eventType`, `eventId`, optional `sourceEventId`, `logId`, `agentIdentity`, `subscriptionId`, `payload`, `emittedAt`)
      */
-    _wrapEvent(eventType, subscription, payload, logIdAnchor) {
+    _wrapEvent(eventType, subscription, payload, logIdAnchor, sourceEventId) {
         return {
-            schemaVersion : '1.0',
+            schemaVersion: '1.0',
             eventType,
-            eventId       : `01H${crypto.randomBytes(10).toString('hex').toUpperCase()}`,
+            eventId      : `01H${crypto.randomBytes(10).toString('hex').toUpperCase()}`,
+            ...(sourceEventId ? {sourceEventId} : {}),
             logId         : logIdAnchor,
             agentIdentity : subscription.agentIdentity,
             subscriptionId: subscription.id,
@@ -1640,7 +1668,7 @@ class WakeSubscriptionService extends Base {
         const sqlite = GraphService.db?.storage?.db;
         if (!sqlite) return null;
 
-        const row = sqlite.prepare('SELECT id, data FROM Nodes WHERE id = ? LIMIT 1').get(subscriptionId);
+        const row    = sqlite.prepare('SELECT id, data FROM Nodes WHERE id = ? LIMIT 1').get(subscriptionId);
         const parsed = this._parseDurableSubscriptionRow(row);
         return parsed?.node || null;
     }

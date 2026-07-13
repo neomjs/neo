@@ -5,6 +5,7 @@ import os               from 'os';
 import path             from 'path';
 import {
     collapseDuplicateShapeCRoutes,
+    getGraphLogEntries,
     getLastSyncId,
     getUnreadSunsetHandovers,
     markNodesAsRead,
@@ -117,7 +118,7 @@ test.describe('ai/daemons/wake/queries', () => {
 
             markSunsetHandoversSummaryProcessed(db, [node]);
 
-            const row = db.prepare('SELECT data FROM Nodes WHERE id = ?').get('msg-1');
+            const row         = db.prepare('SELECT data FROM Nodes WHERE id = ?').get('msg-1');
             const updatedNode = JSON.parse(row.data);
 
             expect(updatedNode.properties.handoverSummaryProcessedAt).toBeDefined();
@@ -139,7 +140,7 @@ test.describe('ai/daemons/wake/queries', () => {
 
             markNodesAsRead(db, [node]);
 
-            const row = db.prepare('SELECT data FROM Nodes WHERE id = ?').get('msg-1');
+            const row         = db.prepare('SELECT data FROM Nodes WHERE id = ?').get('msg-1');
             const updatedNode = JSON.parse(row.data);
 
             expect(updatedNode.properties.readAt).toBeDefined();
@@ -148,6 +149,52 @@ test.describe('ai/daemons/wake/queries', () => {
 
         test('handles empty array gracefully', () => {
             expect(() => markNodesAsRead(db, [])).not.toThrow();
+        });
+    });
+
+    test.describe('getGraphLogEntries (#15114)', () => {
+        test('projects typed event columns when the additive schema is present', () => {
+            db.exec(`
+                CREATE TABLE GraphLog (
+                    log_id INTEGER PRIMARY KEY,
+                    entity_id TEXT,
+                    entity_type TEXT,
+                    event_id TEXT,
+                    event_payload TEXT
+                )
+            `);
+            db.prepare(`
+                INSERT INTO GraphLog(log_id, entity_id, entity_type, event_id, event_payload)
+                VALUES (1, ?, 'task_state_changed', ?, ?)
+            `).run('MESSAGE:task', 'task-event-1', '{"schemaVersion":"task-state-change.v1"}');
+
+            expect(getGraphLogEntries(db, 0)).toEqual([{
+                log_id       : 1,
+                entity_id    : 'MESSAGE:task',
+                entity_type  : 'task_state_changed',
+                event_id     : 'task-event-1',
+                event_payload: '{"schemaVersion":"task-state-change.v1"}'
+            }]);
+        });
+
+        test('keeps legacy GraphLog readable before Memory Core applies the column migration', () => {
+            db.exec(`
+                CREATE TABLE GraphLog (
+                    log_id INTEGER PRIMARY KEY,
+                    entity_id TEXT,
+                    entity_type TEXT
+                )
+            `);
+            db.prepare('INSERT INTO GraphLog(log_id, entity_id, entity_type) VALUES (1, ?, ?)')
+                .run('MESSAGE:legacy', 'nodes');
+
+            expect(getGraphLogEntries(db, 0)).toEqual([{
+                log_id       : 1,
+                entity_id    : 'MESSAGE:legacy',
+                entity_type  : 'nodes',
+                event_id     : null,
+                event_payload: null
+            }]);
         });
     });
 
