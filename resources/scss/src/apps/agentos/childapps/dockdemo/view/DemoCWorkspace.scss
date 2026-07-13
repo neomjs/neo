@@ -19,7 +19,9 @@
     --grid-header-button-color-hover            : var(--fm-ink);
     --grid-header-button-glyph-color            : var(--fm-ink-dim);
     --grid-header-button-glyph-color-hover      : var(--fm-signal);
-    --grid-header-button-justify-content        : flex-start;
+    // Header buttons use row-reverse to keep their sort glyph after the label. `flex-end`
+    // therefore means physical left/start alignment for the complete label + glyph group.
+    --grid-header-button-justify-content        : flex-end;
     --grid-header-button-padding                : 0 10px;
     --tab-button-background-color               : transparent;
     --tab-button-background-color-active        : color-mix(in srgb, var(--fm-signal) 12%, transparent);
@@ -52,6 +54,17 @@
     .neo-tab-container {
         min-height: 0;
         min-width : 0;
+    }
+
+    // The generic edge-zone defaults are symmetrical. Demo C's evidence column carries two
+    // vertically stacked instruments, while the left queue card is intentionally simpler.
+    // Shift those forty pixels to the evidence side instead of starving both right-hand zones.
+    .neo-dashboard-dock-edge-band-left {
+        width: 260px;
+    }
+
+    .neo-dashboard-dock-edge-band-right {
+        width: 320px;
     }
 
     .neo-dashboard-dock-edge-rail {
@@ -91,8 +104,15 @@
         --grid-header-button-color-hover           : var(--fm-ink);
         --grid-header-button-glyph-color           : var(--fm-ink-dim);
         --grid-header-button-glyph-color-hover     : var(--fm-signal);
-        --grid-header-button-justify-content       : flex-start;
+        --grid-header-button-justify-content       : flex-end;
         --grid-header-button-padding               : 0 10px;
+
+        // Hidden sort glyphs must not indent unsorted labels (most visibly the narrow `#`
+        // column). Keep the glyph on the physical right edge without participating in flex.
+        .neo-button-glyph {
+            position: absolute;
+            right   : 10px;
+        }
     }
 }
 

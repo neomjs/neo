@@ -32,7 +32,7 @@ class DemoCScalePane extends GridContainer {
         /**
          * @member {Object} columnDefaults
          */
-        columnDefaults: {width: 130},
+        columnDefaults: {cellAlign: 'left', width: 130},
         /**
          * @member {Object[]} columns
          */

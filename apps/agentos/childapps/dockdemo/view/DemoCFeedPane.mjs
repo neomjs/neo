@@ -22,6 +22,10 @@ class DemoCFeedPane extends GridContainer {
          */
         cls: ['agentos-dockdemo-data-pane', 'agentos-dockdemo-feed-pane'],
         /**
+         * @member {Object} columnDefaults
+         */
+        columnDefaults: {cellAlign: 'left'},
+        /**
          * @member {Object[]} columns
          */
         columns: [{
@@ -30,18 +34,20 @@ class DemoCFeedPane extends GridContainer {
             width    : 105
         }, {
             dataField: 'name',
-            flex     : 1,
+            flex     : 2,
             text     : 'Event',
-            minWidth : 180
+            minWidth : 280
         }, {
             dataField: 'status',
+            flex     : 1,
             text     : 'State',
-            width    : 105
+            minWidth : 140
         }, {
             type     : 'animatedChange',
             dataField: 'value',
+            flex     : 1,
             text     : 'Value',
-            width    : 95
+            minWidth : 120
         }, {
             type     : 'sparkline',
             dataField: 'trend',

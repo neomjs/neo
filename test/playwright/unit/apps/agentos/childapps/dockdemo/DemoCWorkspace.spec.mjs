@@ -27,7 +27,9 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoCWorkspace', () => {
         const
             dataFields     = DemoCScalePane.config.columns.map(column => column.dataField),
             feedEvent      = DemoCFeedPane.config.columns.find(column => column.dataField === 'name'),
+            feedState      = DemoCFeedPane.config.columns.find(column => column.dataField === 'status'),
             feedSparkline  = DemoCFeedPane.config.columns.find(column => column.type === 'sparkline'),
+            feedValue      = DemoCFeedPane.config.columns.find(column => column.dataField === 'value'),
             scaleSparkline = DemoCScalePane.config.columns.find(column => column.type === 'sparkline');
 
         expect(new Set(dataFields).size).toBe(dataFields.length);
@@ -39,7 +41,12 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoCWorkspace', () => {
         expect(scaleSparkline.flex).toBeUndefined();
         expect(feedSparkline).toMatchObject({width: 160});
         expect(feedSparkline.flex).toBeUndefined();
-        expect(feedEvent).toMatchObject({flex: 1, minWidth: 180})
+        expect(DemoCScalePane.config.columnDefaults.cellAlign).toBe('left');
+        expect(DemoCFeedPane.config.columnDefaults.cellAlign).toBe('left');
+        expect(feedEvent).toMatchObject({flex: 2, minWidth: 280});
+        expect(feedState).toMatchObject({flex: 1, minWidth: 140});
+        expect(feedValue).toMatchObject({flex: 1, minWidth: 120});
+        expect(initialDocument.nodes['split-main'].sizes).toEqual([0.6, 0.4])
     });
 
     test('provider-owned stores and cached data panes survive split + return', async () => {

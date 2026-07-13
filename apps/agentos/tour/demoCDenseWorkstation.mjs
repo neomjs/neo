@@ -39,7 +39,7 @@ export const initialDocument = Object.freeze({
     },
     nodes: {
         root               : {type: 'edge-zone', zones: {center: 'split-main', left: 'left-tabs', right: 'split-right', bottom: 'bottom-tabs'}},
-        'split-main'       : {type: 'split', orientation: 'horizontal', children: ['scale-tabs', 'heavy-tabs'], sizes: [0.76, 0.24]},
+        'split-main'       : {type: 'split', orientation: 'horizontal', children: ['scale-tabs', 'heavy-tabs'], sizes: [0.6, 0.4]},
         'scale-tabs'       : {type: 'tabs', items: ['scale'], activeItemId: 'scale'},
         'heavy-tabs'       : {type: 'tabs', items: ['alerts', 'activity', 'topology', 'runtime', 'traces', 'logs', 'console', 'builds', 'deploys', 'security', 'memory', 'files'], activeItemId: 'alerts'},
         'left-tabs'        : {type: 'tabs', items: ['queues', 'graph'], activeItemId: 'queues'},

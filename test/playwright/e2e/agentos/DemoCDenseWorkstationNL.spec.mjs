@@ -308,6 +308,76 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
         expectDevIndexSparklineFit(await readSparklineGeometry(page, '.agentos-dockdemo-scale-pane'));
         expectDevIndexSparklineFit(await readSparklineGeometry(page, '.agentos-dockdemo-feed-pane'));
 
+        const gridLayout = await page.evaluate(() => {
+            const
+                rect = element => {
+                    const value = element?.getBoundingClientRect();
+
+                    return value && {
+                        bottom: value.bottom,
+                        left  : value.left,
+                        right : value.right,
+                        top   : value.top,
+                        width : value.width
+                    }
+                },
+                readHeaders = selector => [...document.querySelectorAll(`${selector} .neo-grid-header-button`)]
+                    .map(element => {
+                        const
+                            glyph      = element.querySelector('.neo-button-glyph'),
+                            label      = element.querySelector('.neo-button-text'),
+                            glyphStyle = getComputedStyle(glyph),
+                            style      = getComputedStyle(element);
+
+                        return {
+                            button: rect(element),
+                            glyph : rect(glyph),
+                            label : rect(label),
+                            style : {
+                                flexDirection : style.flexDirection,
+                                glyphPosition : glyphStyle.position,
+                                justifyContent: style.justifyContent,
+                                paddingLeft   : style.paddingLeft
+                            },
+                            text: label?.textContent?.trim()
+                        }
+                    }),
+                scaleHeaders = readHeaders('.agentos-dockdemo-scale-pane'),
+                feedHeaders  = readHeaders('.agentos-dockdemo-feed-pane'),
+                heavyHeader  = [...document.querySelectorAll('.neo-tab-header-toolbar')]
+                    .find(element => element.textContent?.includes('Priority Alert Observatory')),
+                scaleToolbar = document.querySelector('.agentos-dockdemo-scale-pane .neo-grid-header-toolbar');
+
+            return {
+                feedHeaders,
+                heavyWidth        : rect(heavyHeader?.closest('.neo-tab-container'))?.width,
+                leftBandWidth     : rect(document.querySelector('.neo-dashboard-dock-edge-band-left'))?.width,
+                rightBandWidth    : rect(document.querySelector('.neo-dashboard-dock-edge-band-right'))?.width,
+                scaleHeaders,
+                scaleTrailingSpace: rect(scaleToolbar)?.right - scaleHeaders.at(-1)?.button.right
+            }
+        });
+
+        for (const header of [...gridLayout.scaleHeaders, ...gridLayout.feedHeaders]) {
+            expect(header.label.left - header.button.left,
+                `${header.text} header label is physically left-aligned: ${JSON.stringify(header)}`)
+                .toBeLessThanOrEqual(16)
+        }
+
+        const feedWidths = Object.fromEntries(gridLayout.feedHeaders.map(header => [header.text, header.button.width]));
+
+        expect(gridLayout.scaleTrailingSpace,
+            'the scale grid keeps breathing room without wasting a second panel width').toBeGreaterThanOrEqual(0);
+        expect(gridLayout.scaleTrailingSpace).toBeLessThanOrEqual(140);
+        expect(gridLayout.heavyWidth, 'the dense heavy-tab panel is no longer cramped by the scale grid')
+            .toBeGreaterThanOrEqual(700);
+        expect(gridLayout.leftBandWidth).toBeCloseTo(260, 0);
+        expect(gridLayout.rightBandWidth, 'the stacked evidence cards get more room than the queue card')
+            .toBeCloseTo(320, 0);
+        expect(feedWidths.Event / feedWidths.State,
+            'Event remains the narrative column without consuming nearly the whole feed').toBeLessThanOrEqual(2.1);
+        expect(feedWidths.Event / feedWidths.Value).toBeLessThanOrEqual(2.1);
+
         // Two source-owned rails are visible and legible at workstation geometry.
         const railTabs = page.locator('.neo-dashboard-dock-rail-tab');
 
@@ -454,7 +524,7 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
                 securityReplacementFrames     : 0
             };
             const activeTabEmptySpans = {};
-            let securityNode = null;
+            let   securityNode        = null;
 
             const tick = () => {
                 const isVisible = node => {
@@ -477,8 +547,8 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
                 if (root) {
                     const
                         activeTabEmptyIds = new Set(),
-                        pipCount = root.querySelectorAll('.agentos-dockdemo-pip-done').length,
-                        previous = state.pipCounts.at(-1);
+                        pipCount          = root.querySelectorAll('.agentos-dockdemo-pip-done').length,
+                        previous          = state.pipCounts.at(-1);
 
                     if (pipCount !== previous) {
                         pipCount < previous && state.pipRegressionFrames++;
