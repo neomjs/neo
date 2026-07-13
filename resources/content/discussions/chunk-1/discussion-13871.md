@@ -9,6 +9,11 @@ createdAt: '2026-06-22T13:41:24Z'
 updatedAt: '2026-06-22T15:13:33Z'
 closed: false
 closedAt: null
+routingDispositionSchemaVersion: discussion-routing-disposition.v1
+routingDisposition: active
+routingDispositionReason: explicit-active-marker
+routingDispositionEvidence:
+  - 'marker:OQ_RESOLUTION_PENDING'
 contentTrust:
   projected: true
   quarantined: 0

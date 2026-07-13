@@ -7,6 +7,11 @@ createdAt: '2026-04-24T11:37:47Z'
 updatedAt: '2026-04-25T23:59:49Z'
 closed: true
 closedAt: '2026-04-25T23:59:49Z'
+routingDispositionSchemaVersion: discussion-routing-disposition.v1
+routingDisposition: terminal
+routingDispositionReason: github-closed
+routingDispositionEvidence:
+  - 'github:closed'
 contentTrust:
   projected: true
   quarantined: 0

@@ -7,6 +7,10 @@ createdAt: '2026-05-03T16:49:49Z'
 updatedAt: '2026-05-03T16:53:10Z'
 closed: false
 closedAt: null
+routingDispositionSchemaVersion: discussion-routing-disposition.v1
+routingDisposition: undetermined
+routingDispositionReason: no-authoritative-lifecycle-marker
+routingDispositionEvidence: []
 contentTrust:
   projected: true
   quarantined: 0

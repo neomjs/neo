@@ -9,6 +9,11 @@ createdAt: '2026-06-22T14:59:36Z'
 updatedAt: '2026-07-02T01:32:10Z'
 closed: false
 closedAt: null
+routingDispositionSchemaVersion: discussion-routing-disposition.v1
+routingDisposition: undetermined
+routingDispositionReason: resolved-scope-without-terminal-signal
+routingDispositionEvidence:
+  - 'marker:RESOLVED_TO_AC'
 contentTrust:
   projected: true
   quarantined: 0
