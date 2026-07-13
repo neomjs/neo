@@ -20,7 +20,14 @@
  * consolidated here, not the data-fetch or the output format.
  */
 
-import {TASK_ASSIGNMENT_AUTHORITY} from './taskAssignmentContract.mjs';
+import {
+    TASK_ASSIGNMENT_AUTHORITY,
+    TASK_STATES,
+    TASK_STATE_CHANGED_ENTITY_TYPE,
+    TASK_STATE_CHANGED_SCHEMA_VERSION
+} from './taskAssignmentContract.mjs';
+
+export {TASK_STATE_CHANGED_ENTITY_TYPE, TASK_STATE_CHANGED_SCHEMA_VERSION} from './taskAssignmentContract.mjs';
 
 /**
  * Canonical GraphLog `entity_type` for a heartbeat pulse.
@@ -42,6 +49,21 @@ export const HEARTBEAT_PULSE_ENTITY_PREFIX = 'HEARTBEAT_PULSE';
  * @type {String[]}
  */
 export const PERMISSION_EDGE_TYPES = ['CAN_REPLY_TO', 'CAN_READ_INBOX_OF', 'CAN_READ_MEMORIES_OF'];
+
+const TASK_STATE_SET = new Set(TASK_STATES);
+
+/**
+ * @summary True only for the canonical millisecond-precision UTC timestamp emitted by `toISOString()`.
+ * @param {String} value Timestamp candidate.
+ * @returns {Boolean}
+ */
+function isCanonicalIsoTimestamp(value) {
+    if (typeof value !== 'string') return false;
+
+    const milliseconds = Date.parse(value);
+
+    return Number.isFinite(milliseconds) && new Date(milliseconds).toISOString() === value
+}
 
 /**
  * @summary Parses a GraphLog-only heartbeat-pulse entity id into its target identity + pulse id.
@@ -93,6 +115,50 @@ export function matchHeartbeatPulse({trace, harnessTarget, agentIdentity, entity
         pulseId       : pulse.pulseId,
         logId         : trace.log_id
     };
+}
+
+/**
+ * @summary Parses and validates an immutable Task-transition GraphLog row.
+ *
+ * The row is intentionally self-contained: consumers never re-read the MESSAGE node to recover
+ * historical state. Malformed rows fail closed so generic cache invalidation cannot masquerade as
+ * a Task transition.
+ * @param {Object} trace GraphLog row with `event_id` and JSON `event_payload`.
+ * @returns {{sourceEventId:String,payload:Object,logId:(Number|String)}|null}
+ */
+export function parseTaskStateChangedTrace(trace) {
+    if (trace?.entity_type !== TASK_STATE_CHANGED_ENTITY_TYPE) return null;
+    if (typeof trace.event_id !== 'string' || !trace.event_id) return null;
+    if (typeof trace.event_payload !== 'string' || !trace.event_payload) return null;
+
+    let payload;
+
+    try {
+        payload = JSON.parse(trace.event_payload)
+    } catch (error) {
+        return null
+    }
+
+    if (!payload || payload.schemaVersion !== TASK_STATE_CHANGED_SCHEMA_VERSION) return null;
+    if (typeof payload.taskId !== 'string' || !payload.taskId || payload.taskId !== trace.entity_id) return null;
+    if (!TASK_STATE_SET.has(payload.previousState)) return null;
+    if (!TASK_STATE_SET.has(payload.newState)) return null;
+    if (typeof payload.originator !== 'string' || !payload.originator) return null;
+    if (!Object.hasOwn(payload, 'assignee') ||
+        (payload.assignee !== null && (typeof payload.assignee !== 'string' || !payload.assignee))
+    ) return null;
+    if (!Object.hasOwn(payload, 'assignmentAuthority') ||
+        (payload.assignmentAuthority !== null && typeof payload.assignmentAuthority !== 'string')
+    ) return null;
+    if (!isCanonicalIsoTimestamp(payload.lastModifiedAt)) return null;
+
+    const {schemaVersion, ...snapshot} = payload;
+
+    return {
+        sourceEventId: trace.event_id,
+        payload      : snapshot,
+        logId        : trace.log_id
+    }
 }
 
 /**
@@ -224,6 +290,28 @@ export function match(subscription, entityData, trace) {
             : null;
     }
 
+    // TASK_STATE_CHANGED — immutable GraphLog-only transition fact. This branch runs before entity
+    // resolution because the typed row carries the complete historical snapshot; re-reading the
+    // mutable MESSAGE node would recreate the duplicate/resync defect this contract closes.
+    if (trigger === 'TASK_STATE_CHANGED' && trace?.entity_type === TASK_STATE_CHANGED_ENTITY_TYPE) {
+        const event = parseTaskStateChangedTrace(trace);
+        if (!event) return null;
+
+        const {payload}    = event;
+        const isOriginator = payload.originator === agentIdentity;
+        const isAssignee   = payload.assignmentAuthority === TASK_ASSIGNMENT_AUTHORITY
+            && payload.assignee === agentIdentity;
+
+        if (!isOriginator && !isAssignee) return null;
+
+        return {
+            type         : 'task_state_changed',
+            sourceEventId: event.sourceEventId,
+            payload      : event.payload,
+            logId        : event.logId
+        }
+    }
+
     const entity = entityData?.entity;
     if (!entity) return null;
 
@@ -239,36 +327,6 @@ export function match(subscription, entityData, trace) {
     if (trigger === 'PERMISSION_GRANTED' && trace?.entity_type === 'edges'
         && PERMISSION_EDGE_TYPES.includes(entity.type) && entity.target === agentIdentity) {
         return {type: 'permission_granted', payload: {scope: entity.type, grantedBy: entity.source}, logId: trace.log_id};
-    }
-
-    // TASK_STATE_CHANGED — a MESSAGE node carrying a transitioned Task envelope, targeted at the
-    // originator or a Memory-Core-authoritative assignee. `lastModifiedAt` is mandatory so initial
-    // MESSAGE creation cannot masquerade as a transition and downstream coalescing can distinguish
-    // real same-state transitions. A later unrelated MESSAGE rewrite still re-exposes the last
-    // transition clock; durable cross-window transition-event identity is a separate follow-up.
-    if (trigger === 'TASK_STATE_CHANGED' && trace?.entity_type === 'nodes' && entity.label === 'MESSAGE') {
-        const
-            props              = entity.properties || {},
-            task               = props.task,
-            hasTrustedAssignee = props.taskAssignmentAuthority === TASK_ASSIGNMENT_AUTHORITY,
-            isOriginator       = props.from === agentIdentity,
-            isAssignee         = hasTrustedAssignee && task?.assignee === agentIdentity;
-
-        if (!task?.state || !props.lastModifiedAt) return null;
-        if (!isOriginator && !isAssignee) return null;
-
-        return {
-            type   : 'task_state_changed',
-            payload: {
-                taskId        : entity.id,
-                previousState : null,                          // GraphLog carries only the new state at resync time
-                newState      : task.state,
-                originator    : props.from,
-                assignee      : hasTrustedAssignee ? task.assignee : null,
-                lastModifiedAt: props.lastModifiedAt
-            },
-            logId: trace.log_id
-        };
     }
 
     return null;

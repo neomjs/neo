@@ -59,6 +59,16 @@ Four named enums (`CONCEPT_EDGE_TYPES`, `ADR_EDGE_TYPES`, `PROTECTED_EDGE_TYPES`
 
 **Wake-triggers ≠ edges:** `PERMISSION_GRANTED`, `SENT_TO_ME`, `TASK_STATE_CHANGED`, `HEARTBEAT_PULSE` are **wake-subscription triggers** (`WakeSubscriptionService.validTriggers`), NOT graph edges — each *fires* when a permission edge / message / task-state changes (e.g. `PERMISSION_GRANTED` fires on a `CAN_*` edge granted to the owner). They belong to the wake layer, not the edge taxonomy.
 
+**Typed GraphLog events are operational facts, not graph topology:** `task_state_changed` rows carry a
+server-owned `event_id` plus an immutable `task-state-change.v1` snapshot written in the same SQLite
+transaction as the Task state mutation (#15114 / ADR 0035 §7). Generic `nodes` / `edges` GraphLog rows
+remain cache-invalidation pointers; they never prove a Task transition and wake consumers must not
+re-read a mutable `MESSAGE` snapshot to manufacture one. The typed row is neither a node class nor an
+edge class, so `PROTECTED_EDGE_TYPES` is inapplicable. Its fact identity is append-only through the
+unique `event_id`, surfaced to wake consumers as stable `sourceEventId` while ADR 0002's transport
+`eventId` remains unique per emission; physical retention/compaction remains the separate
+consumer-watermark policy of #12329 rather than Hebbian edge decay.
+
 > **Amended by ADR 0033 (the direction contract):** registers the incoming `EVOLUTION_GOAL` node
 > class (generalizing `BUSINESS_GOAL` — shared schema family, canonical-id minted) and the
 > direction-mapping edge classes; attribution facts and their edges **join `PROTECTED_EDGE_TYPES`**

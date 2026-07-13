@@ -62,7 +62,11 @@ import {
     getDefaultInstanceTarget,
     resolveGuiInstancePid
 } from './instanceResolver.mjs';
-import {HEARTBEAT_PULSE_ENTITY_TYPE, match} from '../../services/memory-core/heartbeatPulseEvaluator.mjs';
+import {
+    HEARTBEAT_PULSE_ENTITY_TYPE,
+    match,
+    TASK_STATE_CHANGED_ENTITY_TYPE
+} from '../../services/memory-core/heartbeatPulseEvaluator.mjs';
 import {
     HEAVY_DELTA_SETTLE_MS,
     isHeavyDeltaPoll,
@@ -449,6 +453,7 @@ async function pollLoop() {
                     const entity = trace.entity_type === 'nodes' ? nodesMap.get(trace.entity_id)
                         : trace.entity_type === 'edges' ? edgesMap.get(trace.entity_id)
                         : trace.entity_type === HEARTBEAT_PULSE_ENTITY_TYPE ? {id: trace.entity_id, type: 'HEARTBEAT_PULSE'}
+                        : trace.entity_type === TASK_STATE_CHANGED_ENTITY_TYPE ? {id: trace.entity_id, type: 'TASK_STATE_CHANGED'}
                         : null;
                     if (!entity) continue; // entity might have been deleted, skipping for wake events unless it's a deletion trigger, but currently we focus on creation/updates
 
@@ -484,8 +489,8 @@ async function pollLoop() {
  * trigger semantics live in `match()`: unread-gating + `DELIVERED_TO` receipt-dedup for
  * `SENT_TO_ME`, the `CAN_*` permission edges (the former `HAS_PERMISSION` branch was dead — those
  * edges are created nowhere), and task `from`-OR-authoritative-`assignee` targeting. Task matches
- * retain their source-owned transition clock so coalescing can distinguish same-state transitions
- * that happened at different times; the clock does not by itself classify every node rewrite.
+ * retain their source-owned event id and immutable transition snapshot; generic node rewrites are
+ * cache invalidation only and cannot classify themselves as transitions.
  */
 function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
     if (!isWakeTargetEligible(sub.properties?.agentIdentity)) return null;
@@ -510,12 +515,15 @@ function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
             return {type: 'message', messageId: payload.messageId, from: payload.from, subject: payload.subject, priority: payload.priority, logId};
         case 'task_state_changed':
             return {
-                type          : 'task',
-                taskId        : payload.taskId,
-                newState      : payload.newState,
-                originator    : payload.originator,
-                assignee      : payload.assignee,
-                lastModifiedAt: payload.lastModifiedAt,
+                type               : 'task',
+                sourceEventId      : result.sourceEventId,
+                taskId             : payload.taskId,
+                previousState      : payload.previousState,
+                newState           : payload.newState,
+                originator         : payload.originator,
+                assignee           : payload.assignee,
+                assignmentAuthority: payload.assignmentAuthority,
+                lastModifiedAt     : payload.lastModifiedAt,
                 logId
             };
         case 'permission_granted':
@@ -633,18 +641,15 @@ function queueEvent(subscription, eventPayload, watermarkResetCeiling = 0, water
         );
     }
 
-    // Deduplicate within the coalescing window. A Task transition's identity includes its
-    // source-owned clock: Working -> InputRequired -> Working is three transitions even though
-    // the first and last share taskId + newState.
+    // Deduplicate within the coalescing window. Task identity is the durable source event id;
+    // clocks and current node state are payload, not an identity reconstruction mechanism.
     const isDuplicate = coalesceState[subId].queue.some(existing => {
         if (existing.type !== eventPayload.type) return false;
 
         if (eventPayload.type === 'message') {
             return existing.messageId === eventPayload.messageId;
         } else if (eventPayload.type === 'task') {
-            return existing.taskId === eventPayload.taskId
-                && existing.newState === eventPayload.newState
-                && existing.lastModifiedAt === eventPayload.lastModifiedAt;
+            return existing.sourceEventId === eventPayload.sourceEventId;
         } else if (eventPayload.type === 'permission') {
             return existing.scope === eventPayload.scope && existing.grantedBy === eventPayload.grantedBy;
         } else if (eventPayload.type === 'heartbeat') {

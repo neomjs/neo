@@ -6,7 +6,12 @@ import {canonicalizeTaggedConceptIds}           from '../graph/conceptSpineCanon
 import GraphService                             from './GraphService.mjs';
 import PermissionService                        from './PermissionService.mjs';
 import WakeSubscriptionService                  from './WakeSubscriptionService.mjs';
-import {TASK_ASSIGNMENT_AUTHORITY}              from './taskAssignmentContract.mjs';
+import {
+    TASK_ASSIGNMENT_AUTHORITY,
+    TASK_STATES,
+    TASK_STATE_CHANGED_ENTITY_TYPE,
+    TASK_STATE_CHANGED_SCHEMA_VERSION
+} from './taskAssignmentContract.mjs';
 import {
     appendMessageWalGraphProjectionMarker,
     appendWalMessage,
@@ -738,6 +743,29 @@ function applyStorageTaskMutableState(messageNode, state) {
 }
 
 /**
+ * @summary Appends one immutable source-owned Task transition to GraphLog.
+ *
+ * The caller must invoke this helper inside the same SQLite transaction as the Task state write.
+ * The payload is complete by design so wake/resync consumers never re-read the mutable MESSAGE
+ * node to reconstruct historical state.
+ * @param {Object} storage Graph storage adapter.
+ * @param {Object} snapshot Task transition fields.
+ * @returns {{eventId:String,logId:Number}}
+ * @private
+ */
+function appendTaskStateChangeEvent(storage, snapshot) {
+    return storage.appendGraphLogEvent({
+        entityId : snapshot.taskId,
+        eventId  : crypto.randomUUID(),
+        eventType: TASK_STATE_CHANGED_ENTITY_TYPE,
+        payload  : {
+            schemaVersion: TASK_STATE_CHANGED_SCHEMA_VERSION,
+            ...snapshot
+        }
+    })
+}
+
+/**
  * @summary Storage-truth read of the graph-owned mutable state on one per-recipient broadcast
  * `DELIVERED_TO` edge: `readAt` (written by `markRead`) and `archivedAt` (receiver-side archive).
  * The WAL replay's edge payload carries `readAt: null` forever — send-time truth — so a FULL
@@ -1125,7 +1153,7 @@ class MailboxService extends Base {
         singleton: true
     }
 
-    static VALID_TASK_STATES = ['Submitted', 'Working', 'InputRequired', 'Completed', 'Canceled', 'Failed', 'Rejected', 'AuthRequired', 'Unknown', 'Expired', 'Blocked'];
+    static VALID_TASK_STATES = TASK_STATES;
 
     /**
      * @summary Non-throwing check of whether a raw `to` target would resolve to a
@@ -2411,14 +2439,31 @@ class MailboxService extends Base {
             )
             WHERE id = ? AND json_extract(data, '$.properties.task.state') = ?
         `);
-        const info = stmt.run(
-            newState,
-            nextAssignee,
-            TASK_ASSIGNMENT_AUTHORITY,
-            timestamp,
-            taskId,
-            currentState
-        );
+        const commitTransition = db.storage.db.transaction(() => {
+            const info = stmt.run(
+                newState,
+                nextAssignee,
+                TASK_ASSIGNMENT_AUTHORITY,
+                timestamp,
+                taskId,
+                currentState
+            );
+
+            if (info.changes > 0) {
+                appendTaskStateChangeEvent(db.storage, {
+                    taskId,
+                    previousState      : currentState,
+                    newState,
+                    originator         : sentByTargets[0],
+                    assignee           : nextAssignee,
+                    assignmentAuthority: TASK_ASSIGNMENT_AUTHORITY,
+                    lastModifiedAt     : timestamp
+                })
+            }
+
+            return info
+        });
+        const info = commitTransition();
 
         if (info.changes === 0) {
             const fresh = getStorageTaskMutableState(taskId);
@@ -2487,7 +2532,28 @@ class MailboxService extends Base {
             return { success: true, sweptCount: 0 }
         }
 
-        const stmt = db.storage.db.prepare(`
+        const sqlite           = db.storage.db;
+        const selectCandidates = sqlite.prepare(`
+            SELECT
+                n.id AS taskId,
+                json_extract(n.data, '$.properties.task.state') AS previousState,
+                COALESCE(
+                    (SELECT target FROM Edges
+                     WHERE source = n.id AND type = 'SENT_BY'
+                     ORDER BY id ASC LIMIT 1),
+                    json_extract(n.data, '$.properties.from')
+                ) AS originator,
+                json_extract(n.data, '$.properties.task.assignee') AS assignee,
+                json_extract(n.data, '$.properties.taskAssignmentAuthority') AS assignmentAuthority
+            FROM Nodes n
+            WHERE
+                json_extract(n.data, '$.label') = 'MESSAGE'
+                AND json_extract(n.data, '$.properties.task.state') IN ('Submitted', 'Working', 'InputRequired')
+                AND json_extract(n.data, '$.properties.task.expiresAt') IS NOT NULL
+                AND datetime(json_extract(n.data, '$.properties.task.expiresAt')) < datetime(?)
+            ORDER BY n.id ASC
+        `);
+        const stmt = sqlite.prepare(`
             UPDATE Nodes
             SET data = json_set(data,
                 '$.properties.task.state', 'Expired',
@@ -2499,7 +2565,31 @@ class MailboxService extends Base {
                 AND json_extract(data, '$.properties.task.expiresAt') IS NOT NULL
                 AND datetime(json_extract(data, '$.properties.task.expiresAt')) < datetime(?)
         `);
-        const info = stmt.run(timestamp, timestamp);
+        const sweepTransaction = sqlite.transaction(() => {
+            const candidates = selectCandidates.all(timestamp);
+            const info       = stmt.run(timestamp, timestamp);
+
+            if (info.changes !== candidates.length) {
+                throw new Error(
+                    `Expired Task sweep changed ${info.changes} rows after selecting ${candidates.length} candidates.`
+                )
+            }
+
+            for (const candidate of candidates) {
+                appendTaskStateChangeEvent(db.storage, {
+                    taskId             : candidate.taskId,
+                    previousState      : candidate.previousState,
+                    newState           : 'Expired',
+                    originator         : candidate.originator,
+                    assignee           : candidate.assignee            ?? null,
+                    assignmentAuthority: candidate.assignmentAuthority ?? null,
+                    lastModifiedAt     : timestamp
+                })
+            }
+
+            return info
+        });
+        const info = sweepTransaction.immediate();
 
         if (info.changes > 0) {
             // Fast-forward `lastSyncId` so subsequent `syncCache()` calls won't treat our

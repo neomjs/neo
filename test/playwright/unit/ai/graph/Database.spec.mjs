@@ -90,6 +90,25 @@ test.describe('Neo.ai.graph.Database', () => {
         }
     }
 
+    function createSchemaProbe() {
+        const storage = Object.create(SQLite.prototype);
+
+        Object.defineProperties(storage, {
+            db: {
+                configurable: true,
+                value       : new BetterSqlite(dbPath),
+                writable    : true
+            },
+            dbPath: {
+                configurable: true,
+                value       : dbPath,
+                writable    : true
+            }
+        });
+
+        return storage
+    }
+
     test.afterEach(() => {
         db?.destroy();
         db = null;
@@ -174,7 +193,7 @@ test.describe('Neo.ai.graph.Database', () => {
         await storage.initAsync();
 
         let persistentDb = Neo.create(Database, {
-            id: 'sqlite-graph-test',
+            id     : 'sqlite-graph-test',
             storage: storage
         });
 
@@ -192,7 +211,7 @@ test.describe('Neo.ai.graph.Database', () => {
         await storageReload.initAsync();
 
         let reloadDb = Neo.create(Database, {
-            id: 'sqlite-graph-reload',
+            id     : 'sqlite-graph-reload',
             storage: storageReload
         });
 
@@ -237,7 +256,69 @@ test.describe('Neo.ai.graph.Database', () => {
             expect(storage.db.prepare('SELECT version FROM SchemaVersion WHERE id = ?').get('graph').version).toBe(1);
             expect(storage.db.prepare('PRAGMA table_info(Nodes)').all().map(column => column.name)).toContain('user_id');
             expect(storage.db.prepare('PRAGMA table_info(Edges)').all().map(column => column.name)).toContain('user_id');
+            expect(storage.db.prepare('PRAGMA table_info(GraphLog)').all().map(column => column.name))
+                .toEqual(expect.arrayContaining(['event_id', 'event_payload']));
             expect(storage.db.prepare('SELECT COUNT(*) as c FROM GraphLog').get().c).toBe(0);
+        } finally {
+            if (storage.db?.open) storage.db.close();
+            storage.destroy();
+        }
+    });
+
+    test('SQLite migrates legacy GraphLog rows and exposes typed events without losing invalidation history (#15114)', async () => {
+        seedLegacyGraphFile();
+
+        const legacyDb = new BetterSqlite(dbPath);
+
+        try {
+            legacyDb.exec(`
+                CREATE TABLE GraphLog (
+                    log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    entity_id TEXT NOT NULL,
+                    entity_type TEXT NOT NULL
+                );
+            `);
+            legacyDb.prepare('INSERT INTO GraphLog(entity_id, entity_type) VALUES (?, ?)')
+                .run('legacy-source', 'nodes');
+        } finally {
+            legacyDb.close();
+        }
+
+        const storage = Neo.create(SQLite, {dbPath});
+        await storage.initAsync();
+
+        try {
+            const columns = storage.db.prepare('PRAGMA table_info(GraphLog)').all().map(column => column.name);
+            expect(columns).toEqual(expect.arrayContaining(['event_id', 'event_payload']));
+            expect(storage.db.prepare('SELECT entity_id, entity_type FROM GraphLog WHERE log_id = 1').get())
+                .toEqual({entity_id: 'legacy-source', entity_type: 'nodes'});
+
+            const appended = storage.appendGraphLogEvent({
+                entityId : 'MESSAGE:task-1',
+                eventId  : 'task-event-1',
+                eventType: 'task_state_changed',
+                payload  : {schemaVersion: 'task-state-change.v1', taskId: 'MESSAGE:task-1'}
+            });
+            const row = storage.db.prepare(`
+                SELECT log_id, entity_id, entity_type, event_id, event_payload
+                FROM GraphLog
+                WHERE event_id = ?
+            `).get('task-event-1');
+
+            expect(appended).toEqual({eventId: 'task-event-1', logId: row.log_id});
+            expect(row).toMatchObject({
+                entity_id  : 'MESSAGE:task-1',
+                entity_type: 'task_state_changed',
+                event_id   : 'task-event-1'
+            });
+            expect(JSON.parse(row.event_payload)).toEqual({
+                schemaVersion: 'task-state-change.v1',
+                taskId       : 'MESSAGE:task-1'
+            });
+
+            const delta = storage.getDeltaLog(0);
+            expect(delta.invalidNodes).toContain('legacy-source');
+            expect(delta.events).toEqual([row]);
         } finally {
             if (storage.db?.open) storage.db.close();
             storage.destroy();
@@ -247,13 +328,12 @@ test.describe('Neo.ai.graph.Database', () => {
     test('SQLite initSchema refuses unsupported graph schema versions without wipe opt-in (#10233)', async () => {
         seedLegacyGraphFile({schemaVersion: 999});
 
-        let storage = Neo.create(SQLite, { dbPath });
+        const storage = createSchemaProbe();
 
         try {
-            await expect(storage.initAsync()).rejects.toThrow(/Unsupported SQLite graph schema version 999/);
+            expect(() => storage.initSchema()).toThrow(/Unsupported SQLite graph schema version 999/);
         } finally {
             if (storage.db?.open) storage.db.close();
-            storage.destroy();
         }
 
         const verifyDb = new BetterSqlite(dbPath);
@@ -273,13 +353,13 @@ test.describe('Neo.ai.graph.Database', () => {
         const previousWipeOptIn = process.env.NEO_ALLOW_SCHEMA_WIPE;
         const originalWarn      = console.warn;
         const warnings          = [];
-        let storage             = Neo.create(SQLite, { dbPath });
+        const storage           = createSchemaProbe();
 
         try {
             process.env.NEO_ALLOW_SCHEMA_WIPE = 'true';
             console.warn = message => warnings.push(String(message));
 
-            await storage.initAsync();
+            storage.initSchema();
 
             expect(storage.db.prepare('SELECT COUNT(*) as c FROM Nodes').get().c).toBe(0);
             expect(storage.db.prepare('SELECT COUNT(*) as c FROM Edges').get().c).toBe(0);
@@ -294,7 +374,6 @@ test.describe('Neo.ai.graph.Database', () => {
                 process.env.NEO_ALLOW_SCHEMA_WIPE = previousWipeOptIn;
             }
             if (storage.db?.open) storage.db.close();
-            storage.destroy();
         }
     });
 
@@ -360,7 +439,7 @@ test.describe('Neo.ai.graph.Database', () => {
         await storage.initAsync();
 
         let dbTransaction = Neo.create(Database, {
-            id: 'sqlite-graph-transcation',
+            id     : 'sqlite-graph-transcation',
             storage: storage
         });
 
@@ -384,7 +463,7 @@ test.describe('Neo.ai.graph.Database', () => {
         await storageReload.initAsync();
 
         let reloadDb = Neo.create(Database, {
-            id: 'sqlite-graph-txn-reload',
+            id     : 'sqlite-graph-txn-reload',
             storage: storageReload
         });
         await storageReload.load();
@@ -506,7 +585,7 @@ test.describe('Neo.ai.graph.Database', () => {
         // or shape-flexible (Collection.Base.onMutate forwards via splice which handles both,
         // Data.Store.onCollectionMutate uses only addedItems, Grid.Container.onColumnsMutate
         // ignores mutation payload). Fix at Collection.Base.splice() is consumer-safe.
-        let dbContract = Neo.create(Database, { id: 'graph-mutate-contract-test' });
+        let dbContract       = Neo.create(Database, { id: 'graph-mutate-contract-test' });
         let capturedPayloads = [];
 
         dbContract.addNode({ id: 'node-a', type: 'TEST' });

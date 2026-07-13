@@ -4,7 +4,7 @@ import NeoBase from '../../../src/core/Base.mjs';
  * The abstract blueprint defining the core interaction envelope for Native Edge Persistor paradigms.
  * Storage engines extending this Base dynamically coordinate structural object ingestion, schema mapping,
  * and GraphRAG disk mutations synchronized instantly against memory traversals bounding the Neo MCP ecosystem.
- * 
+ *
  * @class Neo.ai.graph.storage.Base
  * @extends Neo.core.Base
  */
@@ -65,16 +65,23 @@ class Base extends NeoBase {
      * Executes localized sequence polling isolating un-processed Native SQL edits securely.
      * Evaluates Database Logs verifying structurally exactly which remote Application Workers modified Graph limits.
      * @see Neo.ai.graph.Database#syncCache
-     * @param {Number} sinceId 
-     * @returns {Object} { lastLogId, invalidNodes, invalidEdges }
+     * @param {Number} sinceId
+     * @returns {Object} { lastLogId, invalidNodes, invalidEdges, events }
      */
     getDeltaLog(sinceId) {}
+
+    /**
+     * @summary Appends one immutable typed GraphLog event.
+     * @param {Object} event Typed event descriptor.
+     * @returns {{eventId:String,logId:Number}|undefined}
+     */
+    appendGraphLogEvent(event) {}
 
     /**
      * Retrieves specific isolated Graph chunks mapping immediate adjacency cleanly back resolving cache misses.
      * Fetches adjacent Node and Edge mappings bypassing massive initialization loops exclusively targeting specifically isolated Memory bounds limits natively.
      * @see Neo.ai.graph.Database#getAdjacentNodes
-     * @param {String|String[]} nodeIds 
+     * @param {String|String[]} nodeIds
      * @returns {Object} { nodes:[], edges:[] }
      */
     loadNodeVicinitySync(nodeIds) {}

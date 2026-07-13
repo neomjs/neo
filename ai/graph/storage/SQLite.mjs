@@ -2,9 +2,9 @@ import Base                                           from './Base.mjs';
 import { SQLITE_IN_CLAUSE_BATCH_SIZE }                from './constants.mjs';
 import { isDisposableStorePath, isTestRunnerContext } from '../../services/shared/storeWriteGuard.mjs';
 
-const GRAPH_SCHEMA_VERSION = 1;
+const GRAPH_SCHEMA_VERSION    = 1;
 const GRAPH_SCHEMA_VERSION_ID = 'graph';
-const GRAPH_SCHEMA_WIPE_ENV = 'NEO_ALLOW_SCHEMA_WIPE';
+const GRAPH_SCHEMA_WIPE_ENV   = 'NEO_ALLOW_SCHEMA_WIPE';
 
 /**
  * Native Write-Ahead Logging (WAL) SQLite engine proxy driving memory graph persistence logic.
@@ -108,8 +108,17 @@ class SQLite extends Base {
             CREATE TABLE IF NOT EXISTS GraphLog (
                 log_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 entity_id TEXT NOT NULL,
-                entity_type TEXT NOT NULL
+                entity_type TEXT NOT NULL,
+                event_id TEXT,
+                event_payload TEXT
             );
+        `);
+
+        this.migrateLegacyGraphLogColumns();
+        this.db.exec(`
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_graph_log_event_id
+            ON GraphLog(event_id)
+            WHERE event_id IS NOT NULL;
         `);
 
         // Trigger mapping logic binding Node constraints cleanly locally.
@@ -196,6 +205,20 @@ class SQLite extends Base {
 
         if (!this.hasColumn('Edges', 'user_id')) {
             this.db.exec('ALTER TABLE Edges ADD COLUMN user_id TEXT');
+        }
+    }
+
+    /**
+     * @summary Adds nullable typed-event columns to legacy GraphLog tables without rewriting rows.
+     * @protected
+     */
+    migrateLegacyGraphLogColumns() {
+        if (!this.hasColumn('GraphLog', 'event_id')) {
+            this.db.exec('ALTER TABLE GraphLog ADD COLUMN event_id TEXT');
+        }
+
+        if (!this.hasColumn('GraphLog', 'event_payload')) {
+            this.db.exec('ALTER TABLE GraphLog ADD COLUMN event_payload TEXT');
         }
     }
 
@@ -518,35 +541,65 @@ class SQLite extends Base {
     }
 
     /**
+     * @summary Appends one immutable typed event to GraphLog.
+     *
+     * This method deliberately does not open its own transaction. Callers that couple an event to
+     * a source mutation must invoke it inside the same `better-sqlite3` transaction as that write;
+     * standalone operational events may call it directly.
+     * @param {Object} args
+     * @param {String} args.entityId Source entity id.
+     * @param {String} args.eventId Durable server-owned event id.
+     * @param {String} args.eventType Typed GraphLog event vocabulary.
+     * @param {Object} args.payload Immutable event snapshot.
+     * @returns {{eventId:String,logId:Number}}
+     */
+    appendGraphLogEvent({entityId, eventId, eventType, payload} = {}) {
+        if (!this.db?.open) throw new Error('SQLite connection is closed (lifecycle violation).');
+        if (typeof entityId !== 'string' || !entityId) throw new TypeError('GraphLog event entityId must be a non-empty string.');
+        if (typeof eventId !== 'string' || !eventId) throw new TypeError('GraphLog event eventId must be a non-empty string.');
+        if (typeof eventType !== 'string' || !eventType) throw new TypeError('GraphLog event eventType must be a non-empty string.');
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new TypeError('GraphLog event payload must be an object.');
+
+        const info = this.db.prepare(`
+            INSERT INTO GraphLog(entity_id, entity_type, event_id, event_payload)
+            VALUES (?, ?, ?, ?)
+        `).run(entityId, eventType, eventId, JSON.stringify(payload));
+
+        return {eventId, logId: Number(info.lastInsertRowid)}
+    }
+
+    /**
      * Executes localized sequence polling isolating un-processed Native SQL edits securely resolving Cache Coherence natively cleanly.
      * Maps `AFTER UPDATE/INSERT/DELETE` trigger records stored in `GraphLog` locally comparing explicitly sequentially securely validating remote worker diffs internally perfectly accurately.
      * @see Neo.ai.graph.Database#syncCache
      * @param {Number} sinceId
-     * @returns {Object} { lastLogId, invalidNodes, invalidEdges }
+     * @returns {Object} { lastLogId, invalidNodes, invalidEdges, events }
      */
     getDeltaLog(sinceId = 0) {
-        if (!this.db) return {lastLogId: sinceId, invalidNodes: [], invalidEdges: []};
+        if (!this.db) return {lastLogId: sinceId, invalidNodes: [], invalidEdges: [], events: []};
         if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
 
-        let logs         = this.db.prepare('SELECT log_id, entity_id, entity_type FROM GraphLog WHERE log_id > ? ORDER BY log_id ASC').all(sinceId);
-        let maxId        = sinceId;
-        let invalidNodes = new Set();
+        let logs            = this.db.prepare('SELECT log_id, entity_id, entity_type, event_id, event_payload FROM GraphLog WHERE log_id > ? ORDER BY log_id ASC').all(sinceId);
+        let maxId           = sinceId;
+        let invalidNodes    = new Set();
         let invalidEdgesMap = new Map();
+        let events          = [];
 
         for (let trace of logs) {
             maxId = trace.log_id > maxId ? trace.log_id : maxId;
             if (trace.entity_type === 'nodes') invalidNodes.add(trace.entity_id);
             else if (trace.entity_type === 'edges') invalidEdgesMap.set(trace.entity_id, { id: trace.entity_id });
+            else if (trace.event_id && trace.event_payload) events.push(trace);
         }
 
         if (invalidEdgesMap.size > 0) {
-            let edgeIds = Array.from(invalidEdgesMap.keys());
+            let edgeIds   = Array.from(invalidEdgesMap.keys());
             let chunkSize = SQLITE_IN_CLAUSE_BATCH_SIZE;
             for (let i = 0; i < edgeIds.length; i += chunkSize) {
-                let chunk = edgeIds.slice(i, i + chunkSize);
+                let chunk        = edgeIds.slice(i, i + chunkSize);
                 let placeholders = chunk.map(() => '?').join(',');
-                let edgesQuery = this.db.prepare(`SELECT id, source, target FROM Edges WHERE id IN (${placeholders})`);
-                let edgesData = edgesQuery.all(...chunk);
+                let edgesQuery   = this.db.prepare(`SELECT id, source, target FROM Edges WHERE id IN (${placeholders})`);
+                let edgesData    = edgesQuery.all(...chunk);
                 for (let row of edgesData) {
                     invalidEdgesMap.set(row.id, { id: row.id, source: row.source, target: row.target });
                 }
@@ -556,7 +609,8 @@ class SQLite extends Base {
         return {
             lastLogId   : maxId,
             invalidNodes: Array.from(invalidNodes),
-            invalidEdges: Array.from(invalidEdgesMap.values())
+            invalidEdges: Array.from(invalidEdgesMap.values()),
+            events
         };
     }
 
@@ -582,20 +636,20 @@ class SQLite extends Base {
         const rawUserId = rcs ? (rcs.getUserId?.() ?? rcs.getAgentIdentityNodeId?.()) : null;
         const userId    = rawUserId == null ? null : (this.normalizeUserId ? this.normalizeUserId(rawUserId) : rawUserId);
         const userIdAt  = userId == null ? null : '@' + userId;
-        let rlsClause = `AND (user_id = ? OR user_id = ? OR user_id IS NULL OR json_extract(data, '$.properties.sharedEntity') = 1 OR json_extract(data, '$.properties.visibility') = 'team')`;
+        let   rlsClause = `AND (user_id = ? OR user_id = ? OR user_id IS NULL OR json_extract(data, '$.properties.sharedEntity') = 1 OR json_extract(data, '$.properties.visibility') = 'team')`;
 
-        const chunkSize = SQLITE_IN_CLAUSE_BATCH_SIZE;
-        let targetNodes = [];
-        let edges = [];
+        const chunkSize   = SQLITE_IN_CLAUSE_BATCH_SIZE;
+        let   targetNodes = [];
+        let   edges       = [];
 
         for (let i = 0; i < ids.length; i += chunkSize) {
-            let chunk = ids.slice(i, i + chunkSize);
+            let chunk        = ids.slice(i, i + chunkSize);
             let placeholders = chunk.map(() => '?').join(',');
 
             const nodesStmt = this.db.prepare(`SELECT data FROM Nodes WHERE id IN (${placeholders}) ${rlsClause}`);
             targetNodes.push(...nodesStmt.all(...chunk, userId, userIdAt).map(r => JSON.parse(r.data)));
 
-            const edgesStmt = this.db.prepare(`SELECT data FROM Edges WHERE (source IN (${placeholders}) OR target IN (${placeholders})) ${rlsClause}`);
+            const edgesStmt   = this.db.prepare(`SELECT data FROM Edges WHERE (source IN (${placeholders}) OR target IN (${placeholders})) ${rlsClause}`);
             const edgesParams = [...chunk, ...chunk, userId, userIdAt];
             edges.push(...edgesStmt.all(...edgesParams).map(r => JSON.parse(r.data)));
         }
@@ -610,8 +664,8 @@ class SQLite extends Base {
         if (adjacentIds.size > 0) {
             let adjIdsArray = Array.from(adjacentIds);
             for (let i = 0; i < adjIdsArray.length; i += chunkSize) {
-                let chunk = adjIdsArray.slice(i, i + chunkSize);
-                let adjPl = chunk.map(() => '?').join(',');
+                let chunk   = adjIdsArray.slice(i, i + chunkSize);
+                let adjPl   = chunk.map(() => '?').join(',');
                 let adjStmt = this.db.prepare(`SELECT data FROM Nodes WHERE id IN (${adjPl}) ${rlsClause}`);
                 adjacentNodes.push(...adjStmt.all(...chunk, userId, userIdAt).map(r => JSON.parse(r.data)));
             }
