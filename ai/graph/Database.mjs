@@ -1,77 +1,10 @@
-import Base            from '../../src/core/Base.mjs';
-import ClassSystemUtil from '../../src/util/ClassSystem.mjs';
-import Store           from './Store.mjs';
-import EdgeModel       from './EdgeModel.mjs';
-import NodeModel       from './NodeModel.mjs';
-import StorageBase     from './storage/Base.mjs';
-
-/**
- * @summary Set-compatible lazy-vicinity marker keyed by both node id and the active
- * requester scope. SQLite vicinity reads are RLS-filtered, so a node loaded for tenant A
- * cannot satisfy tenant B's cache lookup. Node-wide `delete()` preserves the existing
- * cross-worker invalidation contract, while `clear()` remains the test/reset boundary.
- */
-class RequestScopedVicinitySet {
-    scopesByNode = new Map();
-
-    /**
-     * @param {Function} scopeResolver Returns the current requester-scoped RLS cache key.
-     */
-    constructor(scopeResolver) {
-        this.scopeResolver = scopeResolver
-    }
-
-    /**
-     * Marks a node vicinity loaded for the active requester scope.
-     * @param {String} nodeId
-     * @returns {RequestScopedVicinitySet}
-     */
-    add(nodeId) {
-        let scopes = this.scopesByNode.get(nodeId);
-
-        if (!scopes) {
-            scopes = new Set();
-            this.scopesByNode.set(nodeId, scopes)
-        }
-
-        scopes.add(this.scopeResolver());
-
-        return this
-    }
-
-    /**
-     * Clears all requester-scoped vicinity markers.
-     */
-    clear() {
-        this.scopesByNode.clear()
-    }
-
-    /**
-     * Invalidates every requester scope for one node.
-     * @param {String} nodeId
-     * @returns {Boolean}
-     */
-    delete(nodeId) {
-        return this.scopesByNode.delete(nodeId)
-    }
-
-    /**
-     * Tests whether the active requester has loaded this node's RLS-filtered vicinity.
-     * @param {String} nodeId
-     * @returns {Boolean}
-     */
-    has(nodeId) {
-        return this.scopesByNode.get(nodeId)?.has(this.scopeResolver()) ?? false
-    }
-
-    /**
-     * Number of node ids with at least one requester-scoped marker.
-     * @returns {Number}
-     */
-    get size() {
-        return this.scopesByNode.size
-    }
-}
+import Base                     from '../../src/core/Base.mjs';
+import ClassSystemUtil          from '../../src/util/ClassSystem.mjs';
+import Store                    from './Store.mjs';
+import EdgeModel                from './EdgeModel.mjs';
+import NodeModel                from './NodeModel.mjs';
+import RequestScopedVicinitySet from './RequestScopedVicinitySet.mjs';
+import StorageBase              from './storage/Base.mjs';
 
 /**
  * The Database class serves as the core coordinator for the Native Edge Graph Database engine.
@@ -132,11 +65,16 @@ class Database extends Base {
          * @member {Object|Neo.ai.graph.storage.Base|null} storage_=null
          * @reactive
          */
-        storage_: null
+        storage_: null,
+        /**
+         * Requester-scoped lazy-vicinity marker set.
+         * @member {Neo.ai.graph.RequestScopedVicinitySet|null} vicinityLoadedNodes_=null
+         * @reactive
+         */
+        vicinityLoadedNodes_: null
     }
 
-    vicinityLoadedNodes = new RequestScopedVicinitySet(() => this.getVicinityCacheScope());
-    lastAccessMap       = new Map();
+    lastAccessMap = new Map();
 
     /**
      * @summary Resolves the same canonical requester key used by SQLite's RLS-filtered
@@ -154,6 +92,15 @@ class Database extends Base {
         return rawUserId == null
             ? null
             : (storage.normalizeUserId ? storage.normalizeUserId(rawUserId) : rawUserId)
+    }
+
+    /**
+     * Destroys the requester-scoped marker before the Database releases its own state.
+     */
+    destroy() {
+        this.vicinityLoadedNodes?.destroy();
+
+        super.destroy()
     }
 
     /**
@@ -350,6 +297,21 @@ class Database extends Base {
         store?.on('mutate', this.onNodesMutate, this);
 
         return store;
+    }
+
+    /**
+     * Creates the requester-scoped vicinity marker through the Neo class lifecycle.
+     * @param {Object|Neo.ai.graph.RequestScopedVicinitySet|null} value
+     * @param {Neo.ai.graph.RequestScopedVicinitySet|null} oldValue
+     * @returns {Neo.ai.graph.RequestScopedVicinitySet}
+     * @protected
+     */
+    beforeSetVicinityLoadedNodes(value, oldValue) {
+        oldValue?.destroy();
+
+        return ClassSystemUtil.beforeSetInstance(value, RequestScopedVicinitySet, {
+            scopeResolver: () => this.getVicinityCacheScope()
+        })
     }
 
     /**

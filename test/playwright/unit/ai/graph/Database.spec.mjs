@@ -100,6 +100,19 @@ test.describe('Neo.ai.graph.Database', () => {
         }
     });
 
+    test('should own requester-scoped vicinity markers through the Neo class lifecycle', () => {
+        const markers = db.vicinityLoadedNodes;
+
+        expect(markers).toBeInstanceOf(Neo.core.Base);
+        expect(markers.className).toBe('Neo.ai.graph.RequestScopedVicinitySet');
+        expect(markers.scopeResolver).toBeInstanceOf(Function);
+
+        db.destroy();
+        db = null;
+
+        expect(markers.isDestroyed).toBe(true)
+    });
+
     test('should add and retrieve a node correctly', async () => {
         db.addNode({ id: 'node1', label: 'Person', properties: { name: 'Alice' } });
 
@@ -412,7 +425,7 @@ test.describe('Neo.ai.graph.Database', () => {
     });
 
     test('should rollback remove-by-key node removal without TypeError on string.Symbol assignment (#11595)', async () => {
-        // Regression #11595: GraphMaintenanceService apoptosis pass called
+        // Regression: GraphMaintenanceService apoptosis pass called
         // GraphService.removeNodes(['CONCEPT:foo', ...]) inside a transaction; on rollback, the
         // mutate event payload's removedItems contained STRING IDs (not actual node objects)
         // because Collection.Base.splice() emitted `toRemoveArray || removedItems` — the INPUT
@@ -451,11 +464,10 @@ test.describe('Neo.ai.graph.Database', () => {
     });
 
     test('should rollback remove-by-key edge removal without TypeError (#11595)', async () => {
-        // Sibling regression #11595: same shape-mismatch class on the edge-removal path.
+        // Sibling regression: same shape-mismatch class on the edge-removal path.
         // `Database.removeEdge(edgeId)` flows STRING IDs through the mutate event. Rollback must
-        // restore the edge as an OBJECT without TypeError on string.Symbol assignment. Per #11595
-        // AC explicit requirement (caught by @neo-gpt PR #11611 Cycle 1 review): "Edge rollback
-        // remains covered; removing edges by string ID must not regress."
+        // restore the edge as an OBJECT without TypeError on string.Symbol assignment. The paired
+        // edge rollback path must remain covered; removing edges by string ID must not regress.
         let dbEdgeRollback = Neo.create(Database, { id: 'graph-edge-rollback-test' });
 
         dbEdgeRollback.addNode({ id: 'A', label: 'src' });
@@ -489,7 +501,7 @@ test.describe('Neo.ai.graph.Database', () => {
     test('Collection.splice mutate-event removedItems is always object-shaped, regardless of remove-by-key vs remove-by-object input (#11595)', async () => {
         // Direct contract test: the mutate event payload's removedItems must be the locally-built
         // actual-removed-objects array, not the input keys. V-B-A on consumer impact across the
-        // 5 mutate-event listeners in the codebase (per @neo-gpt PR #11611 Cycle 1 review):
+        // five mutate-event listeners in the codebase:
         // 2 require object-shape (Database.onEdgesMutate + onNodesMutate); 3 are payload-neutral
         // or shape-flexible (Collection.Base.onMutate forwards via splice which handles both,
         // Data.Store.onCollectionMutate uses only addedItems, Grid.Container.onColumnsMutate
@@ -637,11 +649,11 @@ test.describe('Neo.ai.graph.Database', () => {
         // Instance A adds a new edge between the nodes
         dbA.addEdge({ id: 'edge-xy', source: 'node-x', target: 'node-y', type: 'LINKS' });
 
-        // Without the #10260 fix, dbB.syncCache() would remove the edge ID from delta,
+        // Without endpoint invalidation, dbB.syncCache() would remove the edge ID from delta,
         // but it wouldn't clear 'node-x' or 'node-y' from vicinityLoadedNodes.
         dbB.syncCache();
 
-        // With #10260, they should no longer be marked as loaded
+        // With endpoint invalidation, they should no longer be marked as loaded
         expect(dbB.vicinityLoadedNodes.has('node-x')).toBe(false);
         expect(dbB.vicinityLoadedNodes.has('node-y')).toBe(false);
 
