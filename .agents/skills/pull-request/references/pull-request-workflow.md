@@ -268,7 +268,7 @@ until shape is correct.
 
 ## 9. PR Body Hygiene
 
-Do not blindly copy the entire ticket body into the PR description. The ticket holds the original context; the PR body summarizes the implementation delta.
+Do not copy ticket bodies or the optional external-contributor `.github/PULL_REQUEST_TEMPLATE.md` into agent PRs; summarize the implementation delta below.
 
 ### 9.1 Reference Hygiene
 
