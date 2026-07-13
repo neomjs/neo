@@ -51,7 +51,7 @@ function verifyFrontmatterIntegrity(content, requiredKeys) {
         return {ok: false, missing: requiredKeys.slice()};
     }
 
-    const data = parsed.data || {};
+    const data    = parsed.data || {};
     const missing = requiredKeys.filter(key => !Object.prototype.hasOwnProperty.call(data, key));
 
     return {
@@ -65,7 +65,7 @@ function verifyFrontmatterIntegrity(content, requiredKeys) {
  * "what counts as a complete Discussion frontmatter" contract so future migrations
  * can extend this single list instead of grepping all syncers.
  *
- * Currently mirrors `DiscussionSyncer.mjs:241-250` frontmatter object construction.
+ * Mirrors `DiscussionSyncer.#renderDiscussionMarkdown()` frontmatter construction.
  *
  * @param {string} content
  * @returns {{ok: boolean, missing: string[]}}
@@ -79,7 +79,11 @@ function verifyDiscussionFrontmatter(content) {
         'createdAt',
         'updatedAt',
         'closed',
-        'closedAt'
+        'closedAt',
+        'routingDispositionSchemaVersion',
+        'routingDisposition',
+        'routingDispositionReason',
+        'routingDispositionEvidence'
     ]);
 }
 

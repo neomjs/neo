@@ -14,6 +14,7 @@ import {
     updateContentIndex
 } from '../shared/contentIndex.mjs';
 import {createContentTrustSummary, projectAuthoredNodeTrust} from '../shared/conversationTrust.mjs';
+import {classifyDiscussionRoutingDisposition}                from '../shared/discussionRoutingDisposition.mjs';
 import pruneEmptyDirs                                        from '../shared/pruneEmptyDirs.mjs';
 import {verifyDiscussionFrontmatter}                         from './verifyFrontmatterIntegrity.mjs';
 
@@ -120,13 +121,13 @@ class DiscussionSyncer extends Base {
             });
         }
 
-        const buckets = new Map();
+        const buckets     = new Map();
         const activeItems = [];
 
         for (const discussion of combined.values()) {
             let version = null;
             if (discussion.closedAt) {
-                const closed = new Date(discussion.closedAt);
+                const closed  = new Date(discussion.closedAt);
                 const release = (ReleaseNotesSyncer.sortedReleases || []).find(r => new Date(r.publishedAt) > closed);
                 if (release) {
                     version = release.tagName.startsWith(issueSyncConfig.versionDirectoryPrefix)
@@ -185,9 +186,9 @@ class DiscussionSyncer extends Base {
      * @private
      */
     #getDiscussionPath(discussion, planBuckets) {
-        const filename = `${issueSyncConfig.discussionFilenamePrefix}${discussion.number}.md`;
+        const filename    = `${issueSyncConfig.discussionFilenamePrefix}${discussion.number}.md`;
         const contentRoot = issueSyncConfig.contentRoot;
-        const plan = planBuckets.get(discussion.number);
+        const plan        = planBuckets.get(discussion.number);
 
         const config = {
             contentRoot,
@@ -231,18 +232,28 @@ class DiscussionSyncer extends Base {
      * @throws {Error} When the serialized content is missing required frontmatter keys (a frontmatter-contract violation — likely a stale daemon code path).
      */
     #renderDiscussionMarkdown(discussion) {
-        const contentTrust = createContentTrustSummary();
+        const contentTrust        = createContentTrustSummary();
         const projectedDiscussion = this.#projectAuthoredNode(discussion, contentTrust, 'body');
+        const routingDisposition  = classifyDiscussionRoutingDisposition({
+            author     : discussion.author?.login,
+            authorTrust: projectedDiscussion.authorTrust,
+            body       : projectedDiscussion.body,
+            closed     : discussion.closed
+        });
 
         const frontmatter = {
-            number   : discussion.number,
-            title    : discussion.title,
-            author   : discussion.author?.login || 'unknown',
-            category : discussion.category?.name || 'Uncategorized',
-            createdAt: discussion.createdAt,
-            updatedAt: discussion.updatedAt,
-            closed   : discussion.closed,
-            closedAt : discussion.closedAt,
+            number                         : discussion.number,
+            title                          : discussion.title,
+            author                         : discussion.author?.login || 'unknown',
+            category                       : discussion.category?.name || 'Uncategorized',
+            createdAt                      : discussion.createdAt,
+            updatedAt                      : discussion.updatedAt,
+            closed                         : discussion.closed,
+            closedAt                       : discussion.closedAt,
+            routingDispositionSchemaVersion: routingDisposition.schemaVersion,
+            routingDisposition             : routingDisposition.disposition,
+            routingDispositionReason       : routingDisposition.reasonCode,
+            routingDispositionEvidence     : routingDisposition.evidence,
             contentTrust
         };
 
@@ -381,20 +392,20 @@ class DiscussionSyncer extends Base {
             allDiscussions = allDiscussions.filter(discussion => !deniedFetchedNumbers.has(discussion.number));
         }
 
-        const planBuckets = this.#planBuckets(metadata, allDiscussions);
-        let shouldPruneEmptyDirs = false;
+        const planBuckets          = this.#planBuckets(metadata, allDiscussions);
+        let   shouldPruneEmptyDirs = false;
 
         for (const discussion of allDiscussions) {
             try {
-                const targetPath  = this.#getDiscussionPath(discussion, planBuckets);
+                const targetPath = this.#getDiscussionPath(discussion, planBuckets);
                 if (!targetPath) continue;
 
                 const content     = this.#renderDiscussionMarkdown(discussion);
                 const currentHash = this.#calculateContentHash(content);
 
                 const cachedDiscussion = cachedDiscussions[discussion.number];
-                const oldPathRelative = cachedDiscussion?.path;
-                const oldAbsolutePath = oldPathRelative ? this.#resolvePath(oldPathRelative) : null;
+                const oldPathRelative  = cachedDiscussion?.path;
+                const oldAbsolutePath  = oldPathRelative ? this.#resolvePath(oldPathRelative) : null;
 
                 const needsUpdate = !cachedDiscussion ||
                     oldAbsolutePath !== targetPath;

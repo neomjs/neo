@@ -57,6 +57,15 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     let originalVectorDimension;
     let originalWarn;
 
+    /**
+     * @summary Builds a deterministic embedding with the resolved SSOT dimension, keeping tests from
+     * mutating the shared AiConfig singleton merely to fit a two-element fixture.
+     * @returns {Number[]}
+     */
+    function buildConfiguredEmbedding() {
+        return new Array(Number(aiConfig.vectorDimension)).fill(0.1)
+    }
+
     test.beforeAll(async () => {
         aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
 
@@ -828,11 +837,9 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const originalGenerate             = OpenAiCompatible.prototype.generate;
         const issuesDir                    = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-pool-scope-'));
         let   capturedWhere                = 'UNSET';
-        aiConfig.vectorDimension = 2;
-
         StorageRouter.getGraphCollection    = async () => ({query: async args => { capturedWhere = args.where; return {ids: [[]], distances: [[]]}; }});
         StorageRouter.getSummaryCollection  = async () => ({get: async () => ({documents: ['mock document']})});
-        TextEmbeddingService.embedText      = async () => [0.1, 0.2];
+        TextEmbeddingService.embedText      = async () => buildConfiguredEmbedding();
         GoldenPathSynthesizer.fetchOpenPRs  = async () => [];
         OpenAiCompatible.prototype.generate = async () => ({content: '{"strategic_brief":"stub"}'});
 
@@ -851,6 +858,651 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         // is dominated by the CONCEPT/ADR/GUIDES population and the state='OPEN' intersection is empty.
         // Both are execution-steerable (work-to-do / converge-to-drive) and embed with state metadata.
         expect(capturedWhere).toEqual({type: {'$in': ['ISSUE', 'DISCUSSION']}})
+    });
+
+    test('adaptive admission widens past 20 rejected neighbors and renders the legitimate rank-21 candidate', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const OpenAiCompatible             = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
+        const originalGenerate             = OpenAiCompatible.prototype.generate;
+        const widths                       = [];
+        const ids                          = Array.from({length: 40}, (_, index) => `issue-${92000 + index}`);
+        const rank21Id                     = ids[20];
+
+        ids.forEach((id, index) => GraphService.upsertNode({
+            id,
+            type      : 'ISSUE',
+            properties: {
+                state : 'OPEN',
+                title : index === 20 ? 'Legitimate rank-21 candidate' : `Semantic neighbor ${index + 1}`,
+                labels: index >= 20 && index < 30 ? ['bug', 'ai'] : ['not-code-ready', 'ai']
+            }
+        }));
+
+        StorageRouter.getGraphCollection = async () => ({
+            query: async ({nResults, where}) => {
+                widths.push(nResults);
+                expect(where).toEqual({type: {'$in': ['ISSUE', 'DISCUSSION']}});
+                return {
+                    ids      : [ids.slice(0, nResults)],
+                    distances: [ids.slice(0, nResults).map((id, index) => id === rank21Id ? 0 : 0.1 + index / 100)]
+                }
+            }
+        });
+        StorageRouter.getSummaryCollection  = async () => ({get: async () => ({documents: ['rank-21 admission proof']})});
+        TextEmbeddingService.embedText      = async () => buildConfiguredEmbedding();
+        OpenAiCompatible.prototype.generate = async () => ({content: '{"strategic_brief":"stub"}'});
+
+        let outcome;
+        try {
+            outcome = await GoldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled: false});
+        } finally {
+            StorageRouter.getGraphCollection   = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+            TextEmbeddingService.embedText     = originalEmbedText;
+            OpenAiCompatible.prototype.generate = originalGenerate;
+        }
+
+        const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
+        expect(widths).toEqual([20, 40]);
+        expect(handoffContent).toContain(rank21Id);
+        expect(handoffContent).toContain('Semantic: 10.00');
+        expect(outcome).toMatchObject({
+            status          : 'completed',
+            selectedTopNodes: 10,
+            scoringStats    : {
+                semanticQueryPasses         : 2,
+                semanticQueryRequestedWidth : 40,
+                semanticCorpusExhausted     : false,
+                candidateAdmissionStopReason: 'render-limit-satisfied'
+            }
+        })
+    });
+
+    test('malformed ANN envelopes and positional values fail loud on the first adaptive pass', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const malformedResults             = [
+            {
+                expectedError: 'invalid ids envelope',
+                name         : 'missing ids envelope',
+                result       : {distances: [[]]}
+            },
+            {
+                expectedError: 'invalid ids envelope',
+                name         : 'flat ids envelope',
+                result       : {ids: ['issue-flat'], distances: [[0.1]]}
+            },
+            {
+                expectedError: 'invalid ids envelope',
+                name         : 'multi-query ids envelope',
+                result       : {ids: [[], []], distances: [[], []]}
+            },
+            {
+                expectedError: 'invalid distances envelope',
+                name         : 'missing distances envelope',
+                result       : {ids: [[]]}
+            },
+            {
+                expectedError: 'invalid distances envelope',
+                name         : 'flat distances envelope',
+                result       : {ids: [['issue-flat-distance']], distances: [0.1]}
+            },
+            {
+                expectedError: 'invalid distances envelope',
+                name         : 'multi-query distances envelope',
+                result       : {ids: [[]], distances: [[], []]}
+            },
+            {
+                expectedError: 'non-string or empty id',
+                name         : 'non-string id',
+                result       : {ids: [[42]], distances: [[0.1]]}
+            },
+            {
+                expectedError: 'non-string or empty id',
+                name         : 'empty id',
+                result       : {ids: [['  ']], distances: [[0.1]]}
+            },
+            {
+                expectedError: 'non-finite, non-numeric, or negative distance',
+                name         : 'numeric-string distance',
+                result       : {ids: [['issue-string-distance']], distances: [['0.1']]}
+            },
+            {
+                expectedError: 'non-finite, non-numeric, or negative distance',
+                name         : 'negative distance',
+                result       : {ids: [['issue-negative-distance']], distances: [[-0.1]]}
+            },
+            {
+                expectedError: 'non-finite, non-numeric, or negative distance',
+                name         : 'non-finite distance',
+                result       : {ids: [['issue-infinite-distance']], distances: [[Infinity]]}
+            }
+        ];
+        let semanticResult;
+
+        StorageRouter.getGraphCollection   = async () => ({query: async () => semanticResult});
+        StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['malformed-envelope proof']})});
+        TextEmbeddingService.embedText     = async () => buildConfiguredEmbedding();
+
+        try {
+            for (const {expectedError, name, result} of malformedResults) {
+                semanticResult = result;
+                const outcome = await GoldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled: false});
+
+                expect(outcome, name).toMatchObject({
+                    status      : 'failed',
+                    reasonCode  : 'semantic-query-failed',
+                    scoringStats: {
+                        semanticQueryPasses         : 1,
+                        semanticQueryRequestedWidth : 20,
+                        candidateAdmissionStopReason: 'semantic-query-failed'
+                    }
+                });
+                expect(outcome.error, name).toContain(expectedError)
+            }
+        } finally {
+            StorageRouter.getGraphCollection   = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+            TextEmbeddingService.embedText     = originalEmbedText
+        }
+    });
+
+    test('adaptive admission bounds exact-width duplicate prefixes at the corpus-derived ceiling', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalRecordTypeRejections = Synthesizer.recordTypeGateRejections;
+        const duplicateId                  = 'issue-92050';
+        const recorded                     = [];
+        const widths                       = [];
+
+        GraphService.upsertNode({
+            id        : duplicateId,
+            type      : 'ISSUE',
+            properties: {
+                state : 'OPEN',
+                title : 'Duplicate semantic neighbor',
+                labels: ['not-code-ready', 'ai']
+            }
+        });
+
+        StorageRouter.getGraphCollection = async () => ({
+            count: async () => 25,
+            query: async ({nResults}) => {
+                widths.push(nResults);
+
+                return {
+                    ids      : [new Array(nResults).fill(duplicateId)],
+                    distances: [new Array(nResults).fill(0.1)]
+                }
+            }
+        });
+        StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['duplicate-prefix proof']})});
+        TextEmbeddingService.embedText     = async () => buildConfiguredEmbedding();
+        Synthesizer.recordTypeGateRejections = async rejections => recorded.push(rejections);
+
+        let outcome;
+        try {
+            outcome = await GoldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled: false});
+        } finally {
+            StorageRouter.getGraphCollection   = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+            TextEmbeddingService.embedText     = originalEmbedText;
+            Synthesizer.recordTypeGateRejections = originalRecordTypeRejections;
+        }
+
+        expect(widths).toEqual([20, 26]);
+        expect(outcome).toMatchObject({
+            status      : 'failed',
+            reasonCode  : 'candidate-admission-budget-exhausted',
+            scoringStats: {
+                semanticCorpusSize          : 25,
+                semanticReturnedCandidates  : 26,
+                semanticUniqueCandidates    : 1,
+                semanticCandidates          : 1,
+                nonActionableCandidates     : 1,
+                semanticQueryPasses         : 2,
+                semanticQueryRequestedWidth : 26,
+                candidateAdmissionStopReason: 'candidate-admission-budget-exhausted'
+            }
+        });
+        expect(recorded).toEqual([[]])
+    });
+
+    test('normalizeAdmissionTarget clamps fractional positive limits without mutating the config SSOT', () => {
+        expect(Synthesizer.normalizeAdmissionTarget(0.5)).toBe(1);
+        expect(Synthesizer.normalizeAdmissionTarget(2.9)).toBe(2);
+        expect(Synthesizer.normalizeAdmissionTarget(0)).toBe(1);
+        expect(Synthesizer.normalizeAdmissionTarget(Number.NaN)).toBe(1)
+    });
+
+    test('equal semantic candidates reorder after Hebbian reinforcement and ambient decay', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const OpenAiCompatible             = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
+        const originalGenerate             = OpenAiCompatible.prototype.generate;
+        const candidateA                   = 'issue-92060';
+        const candidateB                   = 'issue-92061';
+
+        for (const [id, title] of [[candidateA, 'Initially stronger'], [candidateB, 'Reinforced mover']]) {
+            GraphService.upsertNode({
+                id,
+                type      : 'ISSUE',
+                properties: {state: 'OPEN', title, labels: ['bug', 'ai']}
+            })
+        }
+        GraphService.upsertNode({id: 'session-92060', type: 'SESSION', properties: {state: 'CLOSED'}});
+        GraphService.upsertNode({id: 'session-92061', type: 'SESSION', properties: {state: 'CLOSED'}});
+        GraphService.linkNodes('session-92060', candidateA, 'RELATES_TO', 1);
+        GraphService.linkNodes('session-92061', candidateB, 'RELATES_TO', 0.1);
+
+        StorageRouter.getGraphCollection = async () => ({
+            count: async () => 2,
+            query: async () => ({
+                ids      : [[candidateA, candidateB]],
+                distances: [[0.1, 0.1]]
+            })
+        });
+        StorageRouter.getSummaryCollection  = async () => ({get: async () => ({documents: ['Hebbian reorder proof']})});
+        TextEmbeddingService.embedText      = async () => buildConfiguredEmbedding();
+        OpenAiCompatible.prototype.generate = async () => ({content: '{"strategic_brief":"stub"}'});
+
+        try {
+            const firstOutcome   = await GoldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled: false});
+            let   handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
+            expect(firstOutcome).toMatchObject({status: 'completed', selectedTopNodes: 2});
+            expect(handoffContent.indexOf(`1. **${candidateA}**`)).toBeGreaterThan(-1);
+            expect(handoffContent.indexOf(`1. **${candidateA}**`)).toBeLessThan(handoffContent.indexOf(`2. **${candidateB}**`));
+
+            // Remove the route's own output before changing ambient evidence. Two reinforcements lift B
+            // from 0.1 to 1.1; the forced 0.5 decay then leaves B at 0.55 and A at 0.5.
+            Synthesizer.pruneStaleFrontierGuideEdges({graphService: GraphService, currentTargetIds: new Set()});
+            expect(GraphService.db.storage.db.prepare(`
+                SELECT count(*) AS count
+                FROM Edges
+                WHERE source = 'frontier'
+                  AND type = 'GUIDES'
+                  AND target IN (?, ?)
+            `).get(candidateA, candidateB).count).toBe(0);
+            GraphService.linkNodes('session-92061', candidateB, 'RELATES_TO', 5);
+            GraphService.linkNodes('session-92061', candidateB, 'RELATES_TO', 5);
+            GraphService.decayGlobalTopology(0.5, 0.1, true);
+            fs.unlinkSync(tmpHandoffFile);
+
+            const
+                edgeRows      = GraphService.db.storage.db.prepare(`
+                    SELECT target, type, CAST(json_extract(data, '$.properties.weight') AS REAL) AS weight
+                    FROM Edges
+                    WHERE target IN (?, ?)
+                      AND source != 'frontier'
+                    ORDER BY target, type
+                `).all(candidateA, candidateB),
+                supportA      = GraphService.getInboundStructuralSupport({id: candidateA}),
+                supportB      = GraphService.getInboundStructuralSupport({id: candidateB}),
+                secondOutcome = await GoldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled: false});
+
+            expect(edgeRows).toEqual([
+                {target: candidateA, type: 'RELATES_TO', weight: 0.5},
+                {target: candidateB, type: 'RELATES_TO', weight: 0.55}
+            ]);
+            expect(supportB.totalWeight).toBeGreaterThan(supportA.totalWeight);
+            expect(secondOutcome).toMatchObject({status: 'completed', selectedTopNodes: 2});
+            handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
+            expect(handoffContent.indexOf(`1. **${candidateB}**`)).toBeGreaterThan(-1);
+            expect(handoffContent.indexOf(`1. **${candidateB}**`)).toBeLessThan(handoffContent.indexOf(`2. **${candidateA}**`))
+        } finally {
+            StorageRouter.getGraphCollection    = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection  = originalGetSummaryCollection;
+            TextEmbeddingService.embedText      = originalEmbedText;
+            OpenAiCompatible.prototype.generate = originalGenerate
+        }
+    });
+
+    test('a degraded later widening pass discards the earlier partial route and provisional rejections', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalRecordTypeRejections = Synthesizer.recordTypeGateRejections;
+        const ids                          = Array.from({length: 20}, (_, index) => `issue-${92100 + index}`);
+        const validId                      = ids[0];
+        const recorded                     = [];
+        const widths                       = [];
+
+        ids.forEach((id, index) => GraphService.upsertNode({
+            id,
+            type      : 'ISSUE',
+            properties: {
+                state : 'OPEN',
+                title : index === 0 ? 'Provisional survivor' : `Provisional rejection ${index}`,
+                labels: index === 0 ? ['bug', 'ai'] : ['epic', 'ai']
+            }
+        }));
+
+        StorageRouter.getGraphCollection = async () => ({
+            query: async ({nResults}) => {
+                widths.push(nResults);
+                return nResults === 20 ? {
+                    ids      : [ids],
+                    distances: [ids.map((id, index) => 0.1 + index / 100)]
+                } : {
+                    ids            : [[]],
+                    distances      : [[]],
+                    _degraded      : true,
+                    _degradedReason: 'second-pass graph query degraded'
+                }
+            }
+        });
+        StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['later-pass failure proof']})});
+        TextEmbeddingService.embedText     = async () => buildConfiguredEmbedding();
+        Synthesizer.recordTypeGateRejections = async rejections => recorded.push(rejections);
+
+        let outcome;
+        try {
+            outcome = await GoldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled: false});
+        } finally {
+            StorageRouter.getGraphCollection    = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection  = originalGetSummaryCollection;
+            TextEmbeddingService.embedText      = originalEmbedText;
+            Synthesizer.recordTypeGateRejections = originalRecordTypeRejections;
+        }
+
+        const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
+        expect(widths).toEqual([20, 40]);
+        expect(outcome).toMatchObject({
+            status      : 'failed',
+            reasonCode  : 'semantic-query-failed',
+            scoringStats: {
+                semanticQueryPasses         : 2,
+                semanticQueryRequestedWidth : 40,
+                candidateAdmissionStopReason: 'semantic-query-failed'
+            }
+        });
+        expect(handoffContent).not.toContain(validId);
+        expect(recorded).toEqual([[]])
+    });
+
+    test('a malformed ANN envelope on a later widening pass fails loud and discards provisional output', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalRecordTypeRejections = Synthesizer.recordTypeGateRejections;
+        const ids                          = Array.from({length: 40}, (_, index) => `issue-${92140 + index}`);
+        const provisionalId                = ids[0];
+        const recorded                     = [];
+        const widths                       = [];
+
+        ids.slice(0, 20).forEach((id, index) => GraphService.upsertNode({
+            id,
+            type      : 'ISSUE',
+            properties: {
+                state : 'OPEN',
+                title : index === 0 ? 'Provisional survivor' : `Provisional malformed-distance rejection ${index}`,
+                labels: index === 0 ? ['bug', 'ai'] : ['not-code-ready', 'ai']
+            }
+        }));
+
+        StorageRouter.getGraphCollection = async () => ({
+            query: async ({nResults}) => {
+                widths.push(nResults);
+                const resultIds = ids.slice(0, nResults);
+
+                return nResults === 20 ? {
+                    ids      : [resultIds],
+                    distances: [resultIds.map((id, index) => 0.1 + index / 100)]
+                } : {
+                    ids: [resultIds]
+                }
+            }
+        });
+        StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['malformed-envelope proof']})});
+        TextEmbeddingService.embedText     = async () => buildConfiguredEmbedding();
+        Synthesizer.recordTypeGateRejections = async rejections => recorded.push(rejections);
+
+        let outcome;
+        try {
+            outcome = await GoldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled: false});
+        } finally {
+            StorageRouter.getGraphCollection    = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection  = originalGetSummaryCollection;
+            TextEmbeddingService.embedText      = originalEmbedText;
+            Synthesizer.recordTypeGateRejections = originalRecordTypeRejections
+        }
+
+        expect(widths).toEqual([20, 40]);
+        expect(outcome).toMatchObject({
+            status      : 'failed',
+            reasonCode  : 'semantic-query-failed',
+            error       : 'Graph semantic query returned an invalid distances envelope; expected exactly one nested query-result array',
+            scoringStats: {
+                semanticQueryPasses         : 2,
+                semanticQueryRequestedWidth : 40,
+                candidateAdmissionStopReason: 'semantic-query-failed'
+            }
+        });
+        expect(fs.readFileSync(tmpHandoffFile, 'utf-8')).not.toContain(provisionalId);
+        expect(recorded).toEqual([[]])
+    });
+
+    test('a later structural-projection failure discards the provisional route and fails loud', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalGetInboundSupport    = GraphService.getInboundStructuralSupport;
+        const originalRecordTypeRejections = Synthesizer.recordTypeGateRejections;
+        const ids                          = Array.from({length: 20}, (_, index) => `issue-${92150 + index}`);
+        const validId                      = ids[0];
+        const recorded                     = [];
+        let   queryPass                    = 0;
+
+        ids.forEach((id, index) => GraphService.upsertNode({
+            id,
+            type      : 'ISSUE',
+            properties: {
+                state : 'OPEN',
+                title : index === 0 ? 'Provisional structural survivor' : `Structural rejection ${index}`,
+                labels: index === 0 ? ['bug', 'ai'] : ['epic', 'ai']
+            }
+        }));
+
+        StorageRouter.getGraphCollection = async () => ({
+            query: async () => {
+                queryPass++;
+                return {
+                    ids      : [ids],
+                    distances: [ids.map((id, index) => 0.1 + index / 100)]
+                }
+            }
+        });
+        StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['structural failure proof']})});
+        TextEmbeddingService.embedText      = async () => buildConfiguredEmbedding();
+        GraphService.getInboundStructuralSupport = function(data) {
+            if (queryPass === 2) throw new Error('second-pass structural projection failed');
+            return originalGetInboundSupport.call(this, data)
+        };
+        Synthesizer.recordTypeGateRejections = async rejections => recorded.push(rejections);
+
+        let outcome;
+        try {
+            outcome = await GoldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled: false});
+        } finally {
+            StorageRouter.getGraphCollection          = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection        = originalGetSummaryCollection;
+            TextEmbeddingService.embedText            = originalEmbedText;
+            GraphService.getInboundStructuralSupport  = originalGetInboundSupport;
+            Synthesizer.recordTypeGateRejections      = originalRecordTypeRejections;
+        }
+
+        const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
+        expect(queryPass).toBe(2);
+        expect(outcome).toMatchObject({
+            status      : 'failed',
+            reasonCode  : 'graph-store-mapping-failed',
+            scoringStats: {candidateAdmissionStopReason: 'graph-store-mapping-failed'}
+        });
+        expect(handoffContent).not.toContain(validId);
+        expect(recorded).toEqual([[]])
+    });
+
+    test('Discussion liveness uses decaying support, rejects protected-only archaeology, and proves short-corpus exhaustion', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalRecordTypeRejections = Synthesizer.recordTypeGateRejections;
+        const OpenAiCompatible             = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
+        const originalGenerate             = OpenAiCompatible.prototype.generate;
+        const protectedOnlyId              = 'discussion-92200';
+        const decayingId                   = 'discussion-92201';
+        const terminalId                   = 'discussion-92202';
+        const recorded                     = [];
+
+        [
+            {
+                id         : protectedOnlyId,
+                disposition: 'undetermined',
+                reason     : 'no-authoritative-lifecycle-marker',
+                evidence   : []
+            },
+            {
+                id         : decayingId,
+                disposition: 'undetermined',
+                reason     : 'no-authoritative-lifecycle-marker',
+                evidence   : []
+            },
+            {
+                id         : terminalId,
+                disposition: 'terminal',
+                reason     : 'graduated-to-ticket',
+                evidence   : ['marker:GRADUATED_TO_TICKET']
+            }
+        ].forEach(({id, disposition, reason, evidence}) => GraphService.upsertNode({
+            id,
+            type      : 'DISCUSSION',
+            properties: {
+                state                          : 'OPEN',
+                title                          : id,
+                routingDispositionSchemaVersion: 'discussion-routing-disposition.v1',
+                routingDisposition             : disposition,
+                routingDispositionReason       : reason,
+                routingDispositionEvidence     : evidence
+            }
+        }));
+        ['protected-source', 'decaying-source', 'terminal-source'].forEach(id => GraphService.upsertNode({id, type: 'ISSUE'}));
+        GraphService.linkNodes('protected-source', protectedOnlyId, 'RESOLVES', 2);
+        GraphService.linkNodes('decaying-source', decayingId, 'GUIDES', 1);
+        GraphService.linkNodes('terminal-source', terminalId, 'GUIDES', 1);
+
+        StorageRouter.getGraphCollection = async () => ({
+            query: async () => ({
+                ids      : [[protectedOnlyId, decayingId, terminalId]],
+                distances: [[0.1, 0.2, 0.3]]
+            })
+        });
+        StorageRouter.getSummaryCollection = async () => ({get: async () => ({documents: ['Discussion liveness proof']})});
+        TextEmbeddingService.embedText     = async () => buildConfiguredEmbedding();
+        Synthesizer.recordTypeGateRejections = async rejections => recorded.push(rejections);
+        OpenAiCompatible.prototype.generate = async () => ({content: '{"strategic_brief":"stub"}'});
+
+        let outcome;
+        try {
+            outcome = await GoldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled: false});
+        } finally {
+            StorageRouter.getGraphCollection    = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection  = originalGetSummaryCollection;
+            TextEmbeddingService.embedText      = originalEmbedText;
+            Synthesizer.recordTypeGateRejections = originalRecordTypeRejections;
+            OpenAiCompatible.prototype.generate = originalGenerate;
+        }
+
+        const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
+        expect(handoffContent).toContain(decayingId);
+        expect(handoffContent).not.toContain(protectedOnlyId);
+        expect(handoffContent).not.toContain(terminalId);
+        expect(recorded).toHaveLength(1);
+        expect(recorded[0]).toEqual(expect.arrayContaining([
+            {nodeId: protectedOnlyId, rejectionBucket: ['undetermined-no-decaying-support'], stage: 'discussion-liveness-gate'},
+            {nodeId: terminalId, rejectionBucket: ['terminal'], stage: 'discussion-liveness-gate'}
+        ]));
+        expect(outcome.scoringStats).toMatchObject({
+            discussionLivenessRejections: 2,
+            semanticCorpusExhausted     : true,
+            candidateAdmissionStopReason: 'semantic-corpus-exhausted'
+        })
+    });
+
+    test('a prior Golden Path GUIDES edge cannot self-authorize an undetermined Discussion on the next run', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalRecordTypeRejections = Synthesizer.recordTypeGateRejections;
+        const OpenAiCompatible             = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
+        const originalGenerate             = OpenAiCompatible.prototype.generate;
+        const discussionId                 = 'discussion-92210';
+        const recorded                     = [];
+
+        GraphService.upsertNode({
+            id        : discussionId,
+            type      : 'DISCUSSION',
+            properties: {
+                state                          : 'OPEN',
+                title                          : 'One-run convergence proof',
+                routingDispositionSchemaVersion: 'discussion-routing-disposition.v1',
+                routingDisposition             : 'active',
+                routingDispositionReason       : 'explicit-active-marker',
+                routingDispositionEvidence     : ['marker:CONVERGING']
+            }
+        });
+
+        StorageRouter.getGraphCollection = async () => ({
+            query: async () => ({ids: [[discussionId]], distances: [[0.1]]})
+        });
+        StorageRouter.getSummaryCollection  = async () => ({get: async () => ({documents: ['self-guidance proof']})});
+        TextEmbeddingService.embedText      = async () => buildConfiguredEmbedding();
+        Synthesizer.recordTypeGateRejections = async rejections => recorded.push(rejections);
+        OpenAiCompatible.prototype.generate = async () => ({content: '{"strategic_brief":"stub"}'});
+
+        try {
+            const first = await GoldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled: false});
+            expect(first.selectedTopNodes).toBe(1);
+            const priorRouteSupport = GraphService.getInboundStructuralSupport({id: discussionId});
+            expect(priorRouteSupport.totalWeight).toBeGreaterThan(0);
+            expect(priorRouteSupport.decayingWeight).toBe(0);
+
+            GraphService.upsertNode({
+                id        : discussionId,
+                type      : 'DISCUSSION',
+                properties: {
+                    state                          : 'OPEN',
+                    title                          : 'One-run convergence proof',
+                    routingDispositionSchemaVersion: 'discussion-routing-disposition.v1',
+                    routingDisposition             : 'undetermined',
+                    routingDispositionReason       : 'no-authoritative-lifecycle-marker',
+                    routingDispositionEvidence     : []
+                }
+            });
+
+            const second         = await GoldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled: false});
+            const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
+
+            expect(second.selectedTopNodes).toBe(0);
+            expect(handoffContent).not.toContain(discussionId);
+            expect(recorded.at(-1)).toEqual([
+                {
+                    nodeId         : discussionId,
+                    rejectionBucket: ['undetermined-no-decaying-support'],
+                    stage          : 'discussion-liveness-gate'
+                }
+            ])
+        } finally {
+            StorageRouter.getGraphCollection          = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection        = originalGetSummaryCollection;
+            TextEmbeddingService.embedText            = originalEmbedText;
+            Synthesizer.recordTypeGateRejections      = originalRecordTypeRejections;
+            OpenAiCompatible.prototype.generate       = originalGenerate;
+        }
     });
 
     test('synthesizeGoldenPath surfaces current incidents, focus epics, and filters non-actionable computed recommendations', async () => {
@@ -930,7 +1582,14 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             id        : discussionId,
             type      : 'DISCUSSION',
             state     : 'OPEN',
-            properties: {state: 'OPEN', title: 'Governance discussion'}
+            properties: {
+                state                          : 'OPEN',
+                title                          : 'Governance discussion',
+                routingDispositionSchemaVersion: 'discussion-routing-disposition.v1',
+                routingDisposition             : 'active',
+                routingDispositionReason       : 'explicit-active-marker',
+                routingDispositionEvidence     : ['marker:CONVERGING']
+            }
         });
         GraphService.upsertNode({
             id        : epicId,
@@ -2037,7 +2696,14 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             type      : 'DISCUSSION',
             name      : 'Open Discussion Fixture',
             state     : 'OPEN',
-            properties: {state: 'OPEN', title: 'Open Discussion Fixture'}
+            properties: {
+                state                          : 'OPEN',
+                title                          : 'Open Discussion Fixture',
+                routingDispositionSchemaVersion: 'discussion-routing-disposition.v1',
+                routingDisposition             : 'active',
+                routingDispositionReason       : 'explicit-active-marker',
+                routingDispositionEvidence     : ['marker:CONVERGING']
+            }
         });
         GraphService.upsertNode({
             id        : closedId,
@@ -2406,13 +3072,16 @@ test.describe('GoldenPathSynthesizer.hasCrossFamilyReview — author family from
             {nodeId: 'issue-11', rejectionBucket: ['not-code-ready', 'ai-generated']},
             {rejectionBucket: ['epic']},              // no nodeId → dropped
             {nodeId: '', rejectionBucket: ['epic']},   // empty nodeId → dropped
-            {nodeId: 'issue-12', rejectionBucket: 'epic'} // non-array bucket → []
+            {nodeId: 'issue-12', rejectionBucket: 'epic'}, // non-array bucket → []
+            {nodeId: 'discussion-13', rejectionBucket: ['terminal'], stage: 'discussion-liveness-gate'},
+            {nodeId: 'issue-14', rejectionBucket: ['epic'], stage: 'unknown-stage'}
         ], 4242);
 
-        expect(records.map(r => r.nodeId)).toEqual(['issue-10', 'issue-11', 'issue-12']);
+        expect(records.map(r => r.nodeId)).toEqual(['issue-10', 'issue-11', 'issue-12', 'discussion-13']);
         expect(records[0]).toEqual({nodeId: 'issue-10', rejectionBucket: ['epic'], stage: 'actionability-type-gate', at: 4242});
         expect(records[2].rejectionBucket).toEqual([]);        // non-array bucket normalized
-        expect(records.every(r => r.stage === 'actionability-type-gate' && r.at === 4242)).toBe(true);
+        expect(records[3].stage).toBe('discussion-liveness-gate');
+        expect(records.every(r => r.at === 4242)).toBe(true);
     });
 
     test('buildTypeGateRejectionRecords is empty for no rejections / a non-array input (#15057 AC3)', () => {

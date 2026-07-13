@@ -1,19 +1,22 @@
-import fs from 'fs';
-import path from 'path';
+import fs                                        from 'fs';
+import path                                      from 'path';
 import * as yaml                                 from 'js-yaml';
-import {fileURLToPath} from 'url';
-import crypto from 'crypto';
-import Base from '../../../src/core/Base.mjs';
+import {fileURLToPath}                           from 'url';
+import crypto                                    from 'crypto';
+import Base                                      from '../../../src/core/Base.mjs';
 import { Memory_StorageRouter as StorageRouter } from '../../services.mjs';
-import { Memory_GraphService as GraphService } from '../../services.mjs';
-import logger from '../../mcp/server/memory-core/logger.mjs';
-import {IDENTITIES} from '../../graph/identityRoots.mjs';
+import { Memory_GraphService as GraphService }   from '../../services.mjs';
+import logger                                    from '../../mcp/server/memory-core/logger.mjs';
+import {IDENTITIES}                              from '../../graph/identityRoots.mjs';
+import {
+    normalizeDiscussionRoutingProjection as normalizeSourceDiscussionRoutingProjection
+} from '../github-workflow/shared/discussionRoutingDisposition.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 const loadIndexMap = async (neoRootDir, type) => {
-    const map = new Map();
+    const map       = new Map();
     const typeIndex = path.resolve(neoRootDir, `resources/content/${type}/_index.json`);
     const rootIndex = path.resolve(neoRootDir, 'resources/content/_index.json');
 
@@ -66,6 +69,57 @@ class IssueIngestor extends Base {
     )
 
     /**
+     * @summary Validates the source-owned Discussion routing projection as one atomic tuple. A
+     * missing or malformed field degrades the entire tuple together, so graph/vector consumers
+     * never observe a v1 schema paired with contradictory legacy reason/evidence fields.
+     * @param {Object} meta Parsed synced-Discussion frontmatter.
+     * @returns {{schemaVersion: String, disposition: String, reason: String, evidence: String[]}}
+     */
+    static normalizeDiscussionRoutingProjection(meta = {}) {
+        const normalized = normalizeSourceDiscussionRoutingProjection({
+            schemaVersion: meta.routingDispositionSchemaVersion,
+            disposition  : meta.routingDisposition,
+            reasonCode   : meta.routingDispositionReason,
+            evidence     : meta.routingDispositionEvidence
+        });
+
+        return {
+            schemaVersion: normalized.schemaVersion,
+            disposition  : normalized.disposition,
+            reason       : normalized.reasonCode,
+            evidence     : normalized.evidence
+        }
+    }
+
+    /**
+     * @summary Chooses the canonical source when a Discussion exists in both active and archive
+     * trees during the sync writer's write-before-unlink crash window. GitHub `updatedAt` is the
+     * primary lifecycle clock; the content index and active tree provide deterministic tie-breaks.
+     * @param {Object} candidate Candidate parsed from one synced Markdown file.
+     * @param {Object|null} incumbent Current winner for the same Discussion id.
+     * @returns {Boolean} True when `candidate` must replace `incumbent`.
+     */
+    static isPreferredDiscussionSource(candidate, incumbent) {
+        if (!incumbent) {
+            return true;
+        }
+
+        if (candidate.updatedAtMs !== incumbent.updatedAtMs) {
+            return candidate.updatedAtMs > incumbent.updatedAtMs;
+        }
+
+        if (candidate.isIndexedPath !== incumbent.isIndexedPath) {
+            return candidate.isIndexedPath;
+        }
+
+        if (candidate.isArchived !== incumbent.isArchived) {
+            return !candidate.isArchived;
+        }
+
+        return candidate.filePath.localeCompare(incumbent.filePath) < 0;
+    }
+
+    /**
      * @summary Whether a ticket author qualifies for the community-multiplier boost: true when the
      * author exists, the internal-author registry is non-empty, and the author is not a registered
      * maintainer. The non-empty guard makes an unconfigured deployment degrade safely (multiplier
@@ -108,13 +162,13 @@ class IssueIngestor extends Base {
             return [];
         }
 
-        const files = filesRaw;
-        const openIssues = [];
+        const files        = filesRaw;
+        const openIssues   = [];
         const parsedIssues = [];
 
-        const neoRootDir = path.resolve(__dirname, '../../..');
+        const neoRootDir  = path.resolve(__dirname, '../../..');
         const contentRoot = path.join(neoRootDir, 'resources/content');
-        const indexMap = await loadIndexMap(neoRootDir, 'issues');
+        const indexMap    = await loadIndexMap(neoRootDir, 'issues');
 
         let nodesCollection = null;
         if (StorageRouter) {
@@ -124,25 +178,25 @@ class IssueIngestor extends Base {
         // Pass 1: Upsert all nodes
         for (const filePath of files) {
             const content = await fs.promises.readFile(filePath, 'utf8');
-            const match = content.match(/^---\n([\s\S]*?)\n---/);
+            const match   = content.match(/^---\n([\s\S]*?)\n---/);
             if (match) {
                 try {
                     const meta = yaml.load(match[1]);
                     if (meta && meta.state) {
                         const relativeToContent = path.relative(contentRoot, filePath);
-                        let id = indexMap.get(relativeToContent);
+                        let   id                = indexMap.get(relativeToContent);
                         if (id === undefined) {
                             id = meta.id || path.basename(filePath).replace(/\.md$/, '').replace(/^issue-/, '');
                         }
                         const issueId = 'issue-' + id;
 
                         GraphService.upsertNode({
-                            id: issueId,
-                            type: 'ISSUE',
-                            name: meta.title || issueId,
-                            state: meta.state,
+                            id        : issueId,
+                            type      : 'ISSUE',
+                            name      : meta.title || issueId,
+                            state     : meta.state,
                             properties: {
-                                state: meta.state,
+                                state : meta.state,
                                 labels: Array.isArray(meta.labels) ? meta.labels : []
                             },
                             updatedAt: meta.updatedAt || meta.createdAt
@@ -204,7 +258,7 @@ class IssueIngestor extends Base {
                         let isBlocked = false;
                         if (Array.isArray(meta.blockedBy)) {
                             for (const blocker of meta.blockedBy) {
-                                const blockerId = extractIssueId(blocker);
+                                const blockerId   = extractIssueId(blocker);
                                 const blockerData = parsedIssues.find(p => p.issueId === blockerId);
                                 if (blockerData && blockerData.meta.state === 'OPEN') {
                                     isBlocked = true;
@@ -238,13 +292,13 @@ class IssueIngestor extends Base {
                         }
                     }
 
-                    const body = content.replace(/^---\n[\s\S]*?\n---\n/, '').trim();
+                    const body         = content.replace(/^---\n[\s\S]*?\n---\n/, '').trim();
                     const titleAndBody = `${meta.title}\n\n${body}`;
 
                     // Markdown-Aware Vector Chunking using hash bypass
                     if (nodesCollection) {
-                        const contentHash = crypto.createHash('md5').update(titleAndBody).digest('hex');
-                        let needsEmbedding = true;
+                        const contentHash    = crypto.createHash('md5').update(titleAndBody).digest('hex');
+                        let   needsEmbedding = true;
 
                         try {
                             const existing = await nodesCollection.get({ ids: [issueId], include: ['metadatas'] });
@@ -261,7 +315,7 @@ class IssueIngestor extends Base {
                         if (needsEmbedding) {
                             logger.debug(`[IssueIngestor] Dynamically embedding OPEN issue: ${issueId}`);
                             await nodesCollection.upsert({
-                                ids: [issueId],
+                                ids      : [issueId],
                                 documents: [titleAndBody],
                                 metadatas: [{ hash: contentHash, title: meta.title, type: 'ISSUE' }]
                             });
@@ -270,9 +324,9 @@ class IssueIngestor extends Base {
 
                     openIssues.push({
                         sourceType: 'ISSUE',
-                        issueId: issueId || meta.id || path.basename(filePath).replace(/\.md$/, ''),
-                        createdAt: meta.createdAt,
-                        title: meta.title,
+                        issueId   : issueId || meta.id || path.basename(filePath).replace(/\.md$/, ''),
+                        createdAt : meta.createdAt,
+                        title     : meta.title,
                         body
                     });
                 }
@@ -307,94 +361,129 @@ class IssueIngestor extends Base {
             }
         }
 
-        const neoRootDir = path.resolve(__dirname, '../../..');
+        const neoRootDir  = path.resolve(__dirname, '../../..');
         const contentRoot = path.join(neoRootDir, 'resources/content');
-        const indexMap = await loadIndexMap(neoRootDir, 'discussions');
+        const indexMap    = await loadIndexMap(neoRootDir, 'discussions');
 
-        let nodesCollection = null;
-        try {
-            nodesCollection = await StorageRouter.getGraphCollection();
-        } catch (e) {
-            logger.warn('[IssueIngestor] Could not resolve graph collection via StorageRouter.');
-        }
+        const nodesCollection = await StorageRouter.getGraphCollection();
+        const discussions     = new Map();
 
         for (const filePath of files) {
             const content = await fs.promises.readFile(filePath, 'utf8');
-            const match = content.match(/^---\n([\s\S]*?)\n---/);
-            if (match) {
-                try {
-                    const meta = yaml.load(match[1]);
-                    if (meta) {
-                        const relativeToContent = path.relative(contentRoot, filePath);
-                        let id = indexMap.get(relativeToContent);
-                        if (id === undefined) {
-                            id = meta.number || path.basename(filePath).replace(/\.md$/, '').replace(/^discussion-/, '');
-                        }
-                        const discussionId = `discussion-${id}`;
+            const match   = content.match(/^---\n([\s\S]*?)\n---/);
+            if (!match) {
+                continue;
+            }
 
-                        // DiscussionSyncer emits lifecycle metadata; Golden Path OPEN filtering relies on graph state.
-                        const
-                            closed          = meta.closed === true,
-                            discussionState = closed ? 'CLOSED' : 'OPEN',
-                            closedAt        = closed ? (meta.closedAt || null) : null,
-                            category        = meta.category || 'Ideas';
+            let meta;
+            try {
+                meta = yaml.load(match[1]);
+            } catch (e) {
+                logger.warn(`[IssueIngestor] Failed to parse frontmatter for ${filePath}`, e);
+                continue;
+            }
 
-                        GraphService.upsertNode({
-                            id: discussionId,
-                            type: 'DISCUSSION',
-                            name: meta.title || discussionId,
-                            state: discussionState,
-                            updatedAt: meta.updatedAt || meta.createdAt,
-                            properties: {
-                                state: discussionState,
-                                closed,
-                                closedAt,
-                                category
-                            }
-                        });
+            if (!meta) {
+                continue;
+            }
 
-                        const body = content.replace(/^---\n[\s\S]*?\n---\n/, '').trim();
-                        const titleAndBody = `[DISCUSSION] ${meta.title}\n\n${body}`;
+            const relativeToContent = path.relative(contentRoot, filePath);
+            const indexedId         = indexMap.get(relativeToContent);
+            const id                = indexedId === undefined
+                ? meta.number || path.basename(filePath).replace(/\.md$/, '').replace(/^discussion-/, '')
+                : indexedId;
+            const discussionId = `discussion-${id}`;
+            const updatedAtMs  = Date.parse(meta.updatedAt || meta.createdAt || '') || Number.NEGATIVE_INFINITY;
+            const candidate    = {
+                content,
+                discussionId,
+                filePath,
+                isArchived   : relativeToContent.startsWith(`archive${path.sep}discussions${path.sep}`),
+                isIndexedPath: indexedId !== undefined,
+                meta,
+                updatedAtMs
+            };
 
-                        if (nodesCollection) {
-                            const
-                                lifecycleFingerprint = JSON.stringify({closed, closedAt, discussionState}),
-                                contentHash = crypto.createHash('md5')
-                                    .update(`${titleAndBody}\n${lifecycleFingerprint}`)
-                                    .digest('hex');
-                            let needsEmbedding = true;
+            if (this.constructor.isPreferredDiscussionSource(candidate, discussions.get(discussionId))) {
+                discussions.set(discussionId, candidate);
+            }
+        }
 
-                            try {
-                                const existing = await nodesCollection.get({ ids: [discussionId], include: ['metadatas'] });
-                                if (existing && existing.ids.length > 0) {
-                                    const exMeta = existing.metadatas[0] || {};
-                                    if (exMeta.hash === contentHash) {
-                                        needsEmbedding = false;
-                                    }
-                                }
-                            } catch (e) {}
+        for (const {content, discussionId, meta} of discussions.values()) {
+            // DiscussionSyncer emits lifecycle metadata; Golden Path OPEN filtering relies on graph state.
+            const
+                closed                          = meta.closed === true,
+                discussionState                 = closed ? 'CLOSED' : 'OPEN',
+                closedAt                        = closed ? (meta.closedAt || null) : null,
+                category                        = meta.category || 'Ideas',
+                routingProjection               = this.constructor.normalizeDiscussionRoutingProjection(meta),
+                routingDispositionSchemaVersion = routingProjection.schemaVersion,
+                routingDisposition              = routingProjection.disposition,
+                routingDispositionReason        = routingProjection.reason,
+                routingDispositionEvidence      = routingProjection.evidence;
 
-                            if (needsEmbedding) {
-                                logger.debug(`[IssueIngestor] Dynamically embedding DISCUSSION: ${discussionId}`);
-                                await nodesCollection.upsert({
-                                    ids: [discussionId],
-                                    documents: [titleAndBody],
-                                    metadatas: [{
-                                        hash: contentHash,
-                                        title: meta.title,
-                                        type: 'DISCUSSION',
-                                        state: discussionState,
-                                        closed,
-                                        closedAt,
-                                        category
-                                    }]
-                                });
-                            }
-                        }
-                    }
-                } catch (e) {
-                    logger.warn(`[IssueIngestor] Failed to parse frontmatter for ${filePath}`, e);
+            GraphService.upsertNode({
+                id        : discussionId,
+                type      : 'DISCUSSION',
+                name      : meta.title || discussionId,
+                state     : discussionState,
+                updatedAt : meta.updatedAt || meta.createdAt,
+                properties: {
+                    state: discussionState,
+                    closed,
+                    closedAt,
+                    category,
+                    routingDispositionSchemaVersion,
+                    routingDisposition,
+                    routingDispositionReason,
+                    routingDispositionEvidence
                 }
+            });
+
+            const body         = content.replace(/^---\n[\s\S]*?\n---\n/, '').trim();
+            const titleAndBody = `[DISCUSSION] ${meta.title}\n\n${body}`;
+            const
+                lifecycleFingerprint = JSON.stringify({
+                    closed,
+                    closedAt,
+                    discussionState,
+                    routingDispositionSchemaVersion,
+                    routingDisposition,
+                    routingDispositionReason,
+                    routingDispositionEvidence
+                }),
+                contentHash = crypto.createHash('md5')
+                    .update(`${titleAndBody}\n${lifecycleFingerprint}`)
+                    .digest('hex');
+            let needsEmbedding = true;
+
+            const existing = await nodesCollection.get({ ids: [discussionId], include: ['metadatas'] });
+            if (existing && existing.ids.length > 0) {
+                const exMeta = existing.metadatas[0] || {};
+                if (exMeta.hash === contentHash) {
+                    needsEmbedding = false;
+                }
+            }
+
+            if (needsEmbedding) {
+                logger.debug(`[IssueIngestor] Dynamically embedding DISCUSSION: ${discussionId}`);
+                await nodesCollection.upsert({
+                    ids      : [discussionId],
+                    documents: [titleAndBody],
+                    metadatas: [{
+                        hash                      : contentHash,
+                        title                     : meta.title,
+                        type                      : 'DISCUSSION',
+                        state                     : discussionState,
+                        closed,
+                        closedAt,
+                        category,
+                        routingDispositionSchemaVersion,
+                        routingDisposition,
+                        routingDispositionReason,
+                        routingDispositionEvidence: JSON.stringify(routingDispositionEvidence)
+                    }]
+                });
             }
         }
     }
@@ -422,19 +511,19 @@ class IssueIngestor extends Base {
             }
         }
 
-        const neoRootDir = path.resolve(__dirname, '../../..');
+        const neoRootDir  = path.resolve(__dirname, '../../..');
         const contentRoot = path.join(neoRootDir, 'resources/content');
-        const indexMap = await loadIndexMap(neoRootDir, 'pulls');
+        const indexMap    = await loadIndexMap(neoRootDir, 'pulls');
 
         for (const filePath of files) {
             const content = fs.readFileSync(filePath, 'utf8');
-            const match = content.match(/^---\n([\s\S]*?)\n---/);
+            const match   = content.match(/^---\n([\s\S]*?)\n---/);
             if (match) {
                 try {
                     const meta = yaml.load(match[1]);
                     if (meta) {
                         const relativeToContent = path.relative(contentRoot, filePath);
-                        let id = indexMap.get(relativeToContent);
+                        let   id                = indexMap.get(relativeToContent);
                         if (id === undefined) {
                             id = meta.number || path.basename(filePath).replace(/\.md$/, '').replace(/^pr-/, '');
                         }
@@ -442,10 +531,10 @@ class IssueIngestor extends Base {
 
                         // Upsert the PR node structurally
                         GraphService.upsertNode({
-                            id: prId,
-                            type: 'PULL_REQUEST',
-                            name: meta.title || prId,
-                            state: meta.state,
+                            id       : prId,
+                            type     : 'PULL_REQUEST',
+                            name     : meta.title || prId,
+                            state    : meta.state,
                             updatedAt: meta.updatedAt || meta.createdAt
                         });
 
@@ -454,7 +543,7 @@ class IssueIngestor extends Base {
                         for (const line of lines) {
                             const gapMatch = line.match(/\[(KB_GAP|TOOLING_GAP|RETROSPECTIVE)\](.*?)$/);
                             if (gapMatch) {
-                                const gapType = gapMatch[1]; // KB_GAP, TOOLING_GAP, RETROSPECTIVE
+                                const gapType    = gapMatch[1]; // KB_GAP, TOOLING_GAP, RETROSPECTIVE
                                 const gapContent = gapMatch[2].replace(/^[\`\*:\s]+/, '').trim();
 
                                 if (!gapContent) continue;

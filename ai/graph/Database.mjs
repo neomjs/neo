@@ -1,9 +1,10 @@
-import Base            from '../../src/core/Base.mjs';
-import ClassSystemUtil from '../../src/util/ClassSystem.mjs';
-import Store           from './Store.mjs';
-import EdgeModel       from './EdgeModel.mjs';
-import NodeModel       from './NodeModel.mjs';
-import StorageBase     from './storage/Base.mjs';
+import Base                     from '../../src/core/Base.mjs';
+import ClassSystemUtil          from '../../src/util/ClassSystem.mjs';
+import Store                    from './Store.mjs';
+import EdgeModel                from './EdgeModel.mjs';
+import NodeModel                from './NodeModel.mjs';
+import RequestScopedVicinitySet from './RequestScopedVicinitySet.mjs';
+import StorageBase              from './storage/Base.mjs';
 
 /**
  * The Database class serves as the core coordinator for the Native Edge Graph Database engine.
@@ -64,11 +65,43 @@ class Database extends Base {
          * @member {Object|Neo.ai.graph.storage.Base|null} storage_=null
          * @reactive
          */
-        storage_: null
+        storage_: null,
+        /**
+         * Requester-scoped lazy-vicinity marker set.
+         * @member {Neo.ai.graph.RequestScopedVicinitySet|null} vicinityLoadedNodes_=null
+         * @reactive
+         */
+        vicinityLoadedNodes_: null
     }
 
-    vicinityLoadedNodes = new Set();
-    lastAccessMap       = new Map();
+    lastAccessMap = new Map();
+
+    /**
+     * @summary Resolves the same canonical requester key used by SQLite's RLS-filtered
+     * `loadNodeVicinitySync()` query. Null is a real scope: unbound/system callers share the
+     * same public/team/shared projection, while each authenticated tenant gets its own marker.
+     * @returns {String|null} Canonical requester scope for lazy-vicinity caching.
+     * @protected
+     */
+    getVicinityCacheScope() {
+        const
+            storage   = this.storage,
+            rcs       = storage?.RequestContextService,
+            rawUserId = rcs ? (rcs.getUserId?.() ?? rcs.getAgentIdentityNodeId?.()) : null;
+
+        return rawUserId == null
+            ? null
+            : (storage.normalizeUserId ? storage.normalizeUserId(rawUserId) : rawUserId)
+    }
+
+    /**
+     * Destroys the requester-scoped marker before the Database releases its own state.
+     */
+    destroy() {
+        this.vicinityLoadedNodes?.destroy();
+
+        super.destroy()
+    }
 
     /**
      * Executes strict cache synchronization polling Native SQLite triggers for identical cross-worker coherence cleanly natively.
@@ -113,7 +146,8 @@ class Database extends Base {
             this.isExecutingTransaction = false;
             this.autoSave               = false;
 
-            let edgeIdsToRemove = [];
+            let edgeIdsToRemove = [],
+                indexedEdgeRefs = new Set();
             delta.invalidEdges.forEach(edgeRef => {
                 let edgeId = typeof edgeRef === 'string' ? edgeRef : edgeRef.id;
                 let edge   = this.edges.get(edgeId);
@@ -125,9 +159,24 @@ class Database extends Base {
                 if (target) this.vicinityLoadedNodes.delete(target);
 
                 edgeIdsToRemove.push(edgeId);
+                if (edge) indexedEdgeRefs.add(edge);
+
+                // The Store map owns only one object per id, but a prior refresh can leave an older
+                // same-id object reachable exclusively from an index Set. Collect every indexed copy.
+                for (const [property, value] of [['source', source], ['target', target]]) {
+                    if (!value) continue;
+
+                    this.edges.getByIndex(property, value)
+                        .filter(indexedEdge => indexedEdge.id === edgeId)
+                        .forEach(indexedEdge => indexedEdgeRefs.add(indexedEdge))
+                }
             });
 
             this.edges.remove(edgeIdsToRemove);
+            // Drop the exact references observed before removal as well. A refreshed Store map can
+            // point at a newer object while a secondary index still retains the prior object; without
+            // this cleanup the subsequent lazy reload double-counts the same persisted edge.
+            this.edges.updateIndexMaps?.(null, [...indexedEdgeRefs]);
 
             this.autoSave               = wasAutoSave;
             this.isExecutingTransaction = wasTransacting;
@@ -248,6 +297,21 @@ class Database extends Base {
         store?.on('mutate', this.onNodesMutate, this);
 
         return store;
+    }
+
+    /**
+     * Creates the requester-scoped vicinity marker through the Neo class lifecycle.
+     * @param {Object|Neo.ai.graph.RequestScopedVicinitySet|null} value
+     * @param {Neo.ai.graph.RequestScopedVicinitySet|null} oldValue
+     * @returns {Neo.ai.graph.RequestScopedVicinitySet}
+     * @protected
+     */
+    beforeSetVicinityLoadedNodes(value, oldValue) {
+        oldValue?.destroy();
+
+        return ClassSystemUtil.beforeSetInstance(value, RequestScopedVicinitySet, {
+            scopeResolver: () => this.getVicinityCacheScope()
+        })
     }
 
     /**

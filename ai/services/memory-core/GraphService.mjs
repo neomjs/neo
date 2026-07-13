@@ -70,7 +70,7 @@ function isValidGraphNodeId(id) {
     return typeof id === 'string' && id.length > 0;
 }
 
-const PROTECTED_EDGE_TYPES = Object.freeze([
+export const PROTECTED_EDGE_TYPES = Object.freeze([
     'ADVANCED_BY',   // business layer: goal→work advancement is history, never scent; zombie-priority is handled by explicit retirement reweight (ai/graph/businessSchema.mjs), not decay
     'ATTRIBUTED_TO', // direction layer: motion→direction attribution is measurement substrate — a velocity number built on decaying edges rots invisibly; fact-class per the direction contract (ai/graph/directionSchema.mjs)
     'IMPLEMENTS',
@@ -78,6 +78,7 @@ const PROTECTED_EDGE_TYPES = Object.freeze([
     'SYSTEM_TENET',
     'RESOLVES'
 ]);
+const PROTECTED_EDGE_TYPE_SET = new Set(PROTECTED_EDGE_TYPES);
 
 /**
  * @summary Service that manages the SQLite Knowledge Graph (Nodes and Edges).
@@ -660,6 +661,11 @@ class GraphService extends Base {
         `);
         const info = pruneStmt.run(...PROTECTED_EDGE_TYPES, pruningThreshold);
 
+        // The bulk SQL above bypasses Database's Store mutation path. Consume its SQLite-triggered
+        // invalidation delta before the clock upsert acknowledges local mutations; otherwise the
+        // acknowledgement advances lastSyncId past the changed edges and RAM keeps pre-decay weights.
+        this.db.syncCache();
+
         // Commit global clock update
         this.upsertGlobalNode({
             id        : '_SYSTEM_STATE',
@@ -880,6 +886,79 @@ class GraphService extends Base {
             return { in_degree: inCount, out_degree: outCount };
         } catch (e) {
             return { in_degree: 0, out_degree: 0 };
+        }
+    }
+
+    /**
+     * @summary Returns one RLS-safe inbound-support projection for Golden Path scoring and
+     * Discussion liveness. Total support preserves existing structural scoring; decaying support
+     * excludes protected fact edges and Golden Path's own `frontier → GUIDES` output so archaeology
+     * or a prior route cannot masquerade as current swarm motion. The same visible inbound projection
+     * exposes open-blocker and parent facts, keeping admission and cold-start inheritance cache-safe.
+     *
+     * Root, source node, and edge must all be visible at the cache return boundary. `BLOCKS`,
+     * non-positive, and non-finite weights contribute to neither projection. A missing edge weight
+     * retains the graph's established default of 1.
+     *
+     * @param {Object} data
+     * @param {String} data.id Graph node id.
+     * @returns {{totalWeight: Number, decayingWeight: Number, totalEdgeCount: Number, decayingEdgeCount: Number, hasOpenBlocker: Boolean, parentId: String|null}|null}
+     * @throws {Error} When the graph store cannot load or project the candidate topology.
+     */
+    getInboundStructuralSupport({id} = {}) {
+        if (!isValidGraphNodeId(id) || !this.db) return null;
+
+        try {
+            this.db.getAdjacentNodes(id, 'both');
+
+            const
+                rlsUserId = resolveRlsUserId(this.db.storage?.RequestContextService),
+                rootNode  = this.db.nodes.get(id);
+
+            if (!rootNode || !isRlsVisible(rootNode, rlsUserId)) return null;
+
+            const support = {
+                totalWeight      : 0,
+                decayingWeight   : 0,
+                totalEdgeCount   : 0,
+                decayingEdgeCount: 0,
+                hasOpenBlocker   : false,
+                parentId         : null
+            };
+
+            for (const edge of this.db.edges.getByIndex('target', id)) {
+                const sourceNode = this.db.nodes.get(edge.source);
+
+                if (!isRlsVisible(sourceNode, rlsUserId) || !isRlsVisible(edge, rlsUserId)) continue;
+
+                if (edge.type === 'BLOCKS') {
+                    const sourceState = sourceNode.properties?.state ?? sourceNode.state;
+                    if (sourceState === 'OPEN') support.hasOpenBlocker = true;
+                    continue
+                }
+
+                if (edge.type === 'PARENT_OF' && support.parentId === null) {
+                    support.parentId = edge.source
+                }
+
+                const weight = Number(edge.properties?.weight ?? 1);
+                if (!Number.isFinite(weight) || weight <= 0) continue;
+
+                support.totalWeight += weight;
+                support.totalEdgeCount++;
+
+                const isGoldenPathOutput = edge.type === 'GUIDES' && edge.source === 'frontier';
+                if (!PROTECTED_EDGE_TYPE_SET.has(edge.type) && !isGoldenPathOutput) {
+                    support.decayingWeight += weight;
+                    support.decayingEdgeCount++
+                }
+
+            }
+
+            return support
+        } catch (error) {
+            logger.warn(`[GraphService] getInboundStructuralSupport failed for ${id}:`, error?.message ?? error);
+            throw error
         }
     }
 

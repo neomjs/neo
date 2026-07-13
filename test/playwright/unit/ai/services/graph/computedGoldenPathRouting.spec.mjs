@@ -175,10 +175,16 @@ test.describe('computedGoldenPathRouting — the contradiction guard (routing-de
 });
 
 test.describe('computedGoldenPathRouting — the fixture-provenance guard (source-set hygiene)', () => {
+    let evaluateDiscussionLiveness;
+    let getDiscussionRoutingDisposition;
     let isActionableComputedRecommendation;
 
     test.beforeAll(async () => {
-        ({isActionableComputedRecommendation} = await import('../../../../../../ai/services/graph/computedGoldenPathRouting.mjs'));
+        ({
+            evaluateDiscussionLiveness,
+            getDiscussionRoutingDisposition,
+            isActionableComputedRecommendation
+        } = await import('../../../../../../ai/services/graph/computedGoldenPathRouting.mjs'));
     });
 
     test('a stamped test fixture never enters the scored steering surface', () => {
@@ -215,5 +221,58 @@ test.describe('computedGoldenPathRouting — the fixture-provenance guard (sourc
             type      : 'DISCUSSION',
             properties: {state: 'OPEN', title: 'v13.2 planning'}
         })).toBe(true);
+    });
+
+    test('Discussion liveness is a distinct post-actionability gate with typed rejection buckets', () => {
+        const projection = disposition => {
+            if (disposition === 'active') return {
+                routingDispositionSchemaVersion: 'discussion-routing-disposition.v1',
+                routingDisposition             : 'active',
+                routingDispositionReason       : 'explicit-active-marker',
+                routingDispositionEvidence     : ['marker:CONVERGING']
+            };
+            if (disposition === 'terminal') return {
+                routingDispositionSchemaVersion: 'discussion-routing-disposition.v1',
+                routingDisposition             : 'terminal',
+                routingDispositionReason       : 'graduated-to-ticket',
+                routingDispositionEvidence     : ['marker:GRADUATED_TO_TICKET']
+            };
+            if (disposition === 'undetermined') return {
+                routingDispositionSchemaVersion: 'discussion-routing-disposition.v1',
+                routingDisposition             : 'undetermined',
+                routingDispositionReason       : 'no-authoritative-lifecycle-marker',
+                routingDispositionEvidence     : []
+            };
+            return {}
+        };
+        const discussion = disposition => ({
+            id        : 'discussion-15090',
+            type      : 'DISCUSSION',
+            properties: {state: 'OPEN', title: 'Live lane awareness', ...projection(disposition)}
+        });
+
+        expect(isActionableComputedRecommendation(discussion('terminal'))).toBe(true);
+        expect(evaluateDiscussionLiveness(discussion('active'), 0)).toEqual({eligible: true, rejectionBucket: []});
+        expect(evaluateDiscussionLiveness(discussion('terminal'), 9)).toEqual({eligible: false, rejectionBucket: ['terminal']});
+        expect(evaluateDiscussionLiveness(discussion('undetermined'), 0)).toEqual({eligible: false, rejectionBucket: ['undetermined-no-decaying-support']});
+        expect(evaluateDiscussionLiveness(discussion('undetermined'), 0.1)).toEqual({eligible: true, rejectionBucket: []});
+        expect(evaluateDiscussionLiveness(discussion(), 0.1)).toEqual({eligible: true, rejectionBucket: []});
+
+        for (const unsupported of [-1, NaN, Infinity]) {
+            expect(evaluateDiscussionLiveness(discussion(), unsupported).eligible).toBe(false)
+        }
+
+        const partialActive = {
+            id        : 'discussion-partial-active',
+            type      : 'DISCUSSION',
+            properties: {routingDisposition: 'active'}
+        };
+        expect(getDiscussionRoutingDisposition(partialActive)).toBe('undetermined');
+        expect(evaluateDiscussionLiveness(partialActive, 0)).toEqual({
+            eligible       : false,
+            rejectionBucket: ['undetermined-no-decaying-support']
+        });
+
+        expect(evaluateDiscussionLiveness({id: 'issue-1', type: 'ISSUE'}, 0)).toEqual({eligible: true, rejectionBucket: []})
     });
 });
