@@ -668,13 +668,13 @@ paths:
         - name: windowStart
           in: query
           required: false
-          description: "Explicit inclusive window start (ISO 8601 / epoch ms). Provide together with windowEnd instead of a preset."
+          description: "Explicit inclusive window start as an ISO 8601 string. Provide together with windowEnd instead of a preset."
           schema:
             type: string
         - name: windowEnd
           in: query
           required: false
-          description: "Explicit exclusive window end (ISO 8601 / epoch ms). Provide together with windowStart instead of a preset."
+          description: "Explicit exclusive window end as an ISO 8601 string. Provide together with windowStart instead of a preset."
           schema:
             type: string
       responses:

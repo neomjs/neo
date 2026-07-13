@@ -13,7 +13,6 @@ import WakeSubscriptionService       from '../../../services/memory-core/WakeSub
 import TurnPresenceService           from '../../../services/memory-core/TurnPresenceService.mjs';
 import MemoryCoreRecorderService     from '../../../services/memory-core/MemoryCoreRecorderService.mjs';
 import {readDeploymentStateSnapshot} from '../../../services/memory-core/helpers/deploymentStateBridgeStore.mjs';
-import {buildChatModel}              from '../../../provider/buildChatModel.mjs';
 import {exploreMemoryHistory}        from '../../../services/memory-core/helpers/exploreMemoryHistory.mjs';
 import {makeChatModelGenerate}       from '../../../services/memory-core/helpers/chatModelGenerate.mjs';
 
@@ -29,8 +28,8 @@ const readDeploymentInspection = args => readDeploymentStateSnapshot({
 
 // `explore_memory_history` — the Memory/session temporal Bird View runtime op. The pure composition
 // (`exploreMemoryHistory`) is dependency-injected; this handler binds the impure edges at the MC server:
-// the recency spine + semantic enrichment ride `MemoryService`, synthesis rides the `modelProvider`
-// reactive-Provider SSOT through `buildChatModel` (read at use-site, never captured at module load), and
+// the recency spine + semantic enrichment ride `MemoryService`; synthesis reuses the generation model
+// already owned by `SessionService` instead of rebuilding provider config at the tool boundary; and
 // the `unified` roster is the union of the who-is-online buckets (every AgentIdentity sits in exactly one).
 // The real clock is injected here; the composition stays deterministic on the value it receives.
 const exploreMemoryHistoryOp = args => exploreMemoryHistory({
@@ -43,19 +42,9 @@ const exploreMemoryHistoryOp = args => exploreMemoryHistory({
         queryRecentTurns: MemoryService.queryRecentTurns.bind(MemoryService),
         queryMemories   : MemoryService.queryMemories.bind(MemoryService),
         generate        : makeChatModelGenerate({
-            // read the resolved provider leaves at the use site, then hand them to the buildChatModel
-            // seam — never thread the config SSOT's provider sub-objects into another consumer's config.
-            buildModel: () => {
-                const {modelProvider, openAiCompatible, ollama, geminiApiKey, modelName} = AiConfig;
-
-                return buildChatModel({
-                    modelProvider,
-                    openAiCompatibleConfig: openAiCompatible,
-                    ollamaConfig          : ollama,
-                    geminiApiKey,
-                    geminiModelName       : modelName
-                })
-            }
+            // SessionService is the Memory Core server's model owner and completes startup before tools
+            // dispatch. Read the live model at call time; do not thread AiConfig leaves into a second builder.
+            buildModel: () => SessionService.model
         }),
         listIdentities: async () => {
             const {online, idle, benched} = await WakeSubscriptionService.whoIsOnline();
