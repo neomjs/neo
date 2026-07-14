@@ -144,4 +144,137 @@ test.describe('Neo.dashboard.DockProjectionReconciler', () => {
             host.destroy()
         }
     })
+
+    test('normalizes an absent-item config to the inserted live component exactly once', async () => {
+        const
+            model = createRootTabsModel(),
+            pane  = Neo.create(Component, {header: {text: 'Alpha'}}),
+            host  = Neo.create(Container, {
+                items: [DockLayoutAdapter.project(model, {
+                    resolveComponentRef: () => pane
+                })]
+            }),
+            originalTab  = host.items[0],
+            nextModel    = structuredClone(model),
+            placeholders = new Map();
+
+        nextModel.items.beta = {componentRef: 'beta', kind: 'panel', title: 'Beta'};
+        nextModel.nodes['root-tabs'].items.push('beta');
+
+        const resolverCalls = [];
+
+        try {
+            const nextConfig = DockLayoutAdapter.project(nextModel, {
+                resolveComponentRef(_componentRef, item, itemId) {
+                    const placeholder = Neo.create(Component, {
+                        header: {text: item.title},
+                        hidden: true
+                    });
+
+                    placeholders.set(itemId, placeholder);
+
+                    return placeholder
+                }
+            });
+
+            await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig,
+                placeholders,
+                resolveItem(itemId) {
+                    resolverCalls.push(itemId);
+
+                    const item = nextModel.items[itemId];
+
+                    return DockLayoutAdapter.decorateProjectedItem(
+                        {ntype: 'component', html: item.title},
+                        itemId,
+                        item
+                    )
+                }
+            });
+
+            const body = originalTab.getCardContainer();
+
+            expect(host.items[0]).toBe(originalTab);
+            expect(body.items[0]).toBe(pane);
+            expect(body.items[1]).toBeInstanceOf(Component);
+            expect(body.items[1].html).toBe('Beta');
+            expect(originalTab.getTabBar().items[1].text).toBe('Beta');
+            expect(resolverCalls).toEqual(['beta'])
+        } finally {
+            host.destroy()
+        }
+    });
+
+    test('retires a pane and button that are absent from every projected tab exactly once', async () => {
+        const
+            model = createRootTabsModel(),
+            beta  = {componentRef: 'beta', kind: 'panel', title: 'Beta'};
+
+        model.items.beta = beta;
+        model.nodes['root-tabs'].items.push('beta');
+
+        const
+            panes = {
+                alpha: Neo.create(Component, {header: {text: 'Alpha'}}),
+                beta : Neo.create(Component, {header: {text: 'Beta'}})
+            },
+            host = Neo.create(Container, {
+                items: [DockLayoutAdapter.project(model, {
+                    resolveComponentRef: (_componentRef, _item, itemId) => panes[itemId]
+                })]
+            }),
+            tab             = host.items[0],
+            bar             = tab.getTabBar(),
+            betaButton      = bar.items[1],
+            betaPaneDestroy = panes.beta.destroy.bind(panes.beta),
+            betaButtonDestroy = betaButton.destroy.bind(betaButton),
+            nextModel       = structuredClone(model),
+            placeholders    = new Map();
+
+        let betaPaneDestroyCount   = 0,
+            betaButtonDestroyCount = 0;
+
+        panes.beta.destroy = (...args) => {
+            betaPaneDestroyCount++;
+            return betaPaneDestroy(...args)
+        };
+        betaButton.destroy = (...args) => {
+            betaButtonDestroyCount++;
+            return betaButtonDestroy(...args)
+        };
+
+        nextModel.nodes['root-tabs'].items = ['alpha'];
+
+        try {
+            const nextConfig = DockLayoutAdapter.project(nextModel, {
+                resolveComponentRef(_componentRef, item, itemId) {
+                    const placeholder = Neo.create(Component, {
+                        header: {text: item.title},
+                        hidden: true
+                    });
+
+                    placeholders.set(itemId, placeholder);
+
+                    return placeholder
+                }
+            });
+
+            await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig,
+                placeholders,
+                resolveItem: () => null
+            });
+
+            expect(host.items[0]).toBe(tab);
+            expect(tab.getCardContainer().items).toEqual([panes.alpha]);
+            expect(bar.items).toHaveLength(1);
+            expect(betaPaneDestroyCount).toBe(1);
+            expect(betaButtonDestroyCount).toBe(1)
+        } finally {
+            host.destroy()
+        }
+    })
 });

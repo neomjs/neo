@@ -10,8 +10,9 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 import '../../../../../../../src/manager/Instance.mjs'; // defines Neo.get — the container child-add path resolves parents through it
-import Button         from '../../../../../../../src/button/Base.mjs';
-import DemoAWorkspace from '../../../../../../../apps/agentos/childapps/dockdemo/view/DemoAWorkspace.mjs';
+import Button                   from '../../../../../../../src/button/Base.mjs';
+import DemoAWorkspace           from '../../../../../../../apps/agentos/childapps/dockdemo/view/DemoAWorkspace.mjs';
+import DockProjectionReconciler from '../../../../../../../src/dashboard/DockProjectionReconciler.mjs';
 
 import {initialDocument} from '../../../../../../../apps/agentos/tour/demoADockChoreography.mjs';
 
@@ -57,6 +58,74 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoAWorkspace', () => {
 
         expect(result.applied).toBe(true);
         expect(workspace.getDockZoneDocument().items.preview.autoHidden).toBe(true)
+    });
+
+    test('reconciliation preserves overlays and surviving chrome while a dissolved tabs node retires once', async () => {
+        const
+            host                = workspace.getReference('dock-host'),
+            previewOverlay      = host.items[1],
+            indicators          = host.items[2],
+            tabsBefore          = DockProjectionReconciler.collectProjectedTabs(host.items[0]),
+            editorTab           = tabsBefore.get('editor-tabs'),
+            sideTab             = tabsBefore.get('side-tabs'),
+            editorBody          = editorTab.getCardContainer(),
+            editorBar           = editorTab.getTabBar(),
+            sideBody            = sideTab.getCardContainer(),
+            sideBar             = sideTab.getTabBar(),
+            editorPane          = editorBody.items[0],
+            previewPane         = sideBody.items[0],
+            editorButton        = editorBar.items[0],
+            previewButton       = sideBar.items[0],
+            destroyCounts       = new Map(),
+            originalResolvePane = workspace.resolvePane.bind(workspace);
+
+        [
+            sideTab,
+            sideBar,
+            sideBody,
+            sideTab.getTabStrip(),
+            sideBar.getPlugin('tab-overflow')
+        ].filter(Boolean).forEach(component => {
+            const destroy = component.destroy.bind(component);
+
+            destroyCounts.set(component, 0);
+            component.destroy = (...args) => {
+                destroyCounts.set(component, destroyCounts.get(component) + 1);
+                return destroy(...args)
+            }
+        });
+
+        let resolverCalls = 0;
+
+        workspace.resolvePane = (...args) => {
+            resolverCalls++;
+            return originalResolvePane(...args)
+        };
+
+        const result = workspace.applyDockZoneOperation({
+            operation : 'addTab',
+            itemId    : 'preview',
+            tabsNodeId: 'editor-tabs'
+        });
+
+        expect(result.errors).toEqual([]);
+        workspace.onDockZoneDocumentChange(result.document);
+        await workspace.refreshPromise;
+
+        const
+            tabsAfter = DockProjectionReconciler.collectProjectedTabs(host.items[0]),
+            itemIds   = editorBar.sortZoneConfig.dockItemIds;
+
+        expect(host.items[1]).toBe(previewOverlay);
+        expect(host.items[2]).toBe(indicators);
+        expect(tabsAfter.get('editor-tabs')).toBe(editorTab);
+        expect(tabsAfter.has('side-tabs')).toBe(false);
+        expect(editorBody.items[itemIds.indexOf('editor')]).toBe(editorPane);
+        expect(editorBody.items[itemIds.indexOf('preview')]).toBe(previewPane);
+        expect(editorBar.items[itemIds.indexOf('editor')]).toBe(editorButton);
+        expect(editorBar.items[itemIds.indexOf('preview')]).toBe(previewButton);
+        expect(resolverCalls).toBe(0);
+        destroyCounts.forEach(count => expect(count).toBe(1))
     });
 
     test('drop truth is the RELEASE point: a stale hover selection never commits', async () => {

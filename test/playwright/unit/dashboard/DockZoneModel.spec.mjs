@@ -11,11 +11,14 @@ import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import DockZoneModel  from '../../../../src/dashboard/DockZoneModel.mjs';
 import MainContainer  from '../../../../examples/dashboard/dock/MainContainer.mjs';
+import Toolbar        from '../../../../src/toolbar/Base.mjs';
+import '../../../../src/manager/Instance.mjs';
 
 /**
  * @summary Tests for Neo.dashboard.DockZoneModel — the dock-zone semantic operations executor.
- * Pure-JSON: validity invariants, each operation, fail-closed behavior, normalizeTree collapse,
- * and the previewToOperation descriptor seam. No component construction needed.
+ * Primarily pure JSON: validity invariants, each operation, fail-closed behavior, normalizeTree
+ * collapse, and the previewToOperation descriptor seam. The standalone-example block additionally
+ * mounts its persistent toolbar to pin identity reconciliation over collection mutations.
  */
 
 /**
@@ -891,6 +894,7 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
         function createExampleHarness() {
             const example = {
                 createDefaultLayoutCollection  : MainContainer.prototype.createDefaultLayoutCollection,
+                createPerspectiveButton        : MainContainer.prototype.createPerspectiveButton,
                 createPerspectiveToolbar       : MainContainer.prototype.createPerspectiveToolbar,
                 loadLayoutCollectionFromStorage: MainContainer.prototype.loadLayoutCollectionFromStorage,
                 nextSavedPerspectiveId         : MainContainer.prototype.nextSavedPerspectiveId,
@@ -898,11 +902,17 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
                 removeActivePerspective        : MainContainer.prototype.removeActivePerspective,
                 restorePerspective             : MainContainer.prototype.restorePerspective,
                 saveCurrentPerspective         : MainContainer.prototype.saveCurrentPerspective,
+                syncPerspectiveToolbar         : MainContainer.prototype.syncPerspectiveToolbar,
 
                 layoutCollectionStorageKey: 'test.dashboard.dock.layoutCollection',
                 refreshCount              : 0,
                 savedPerspectiveCount     : 0,
                 windowId                  : 1,
+
+                onDockZoneDocumentChange(document) {
+                    this.dockModel     = document;
+                    this.refreshPromise = Promise.resolve(this.refreshDockWorkspace())
+                },
 
                 refreshDockWorkspace() {
                     this.refreshCount++
@@ -978,6 +988,52 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
             expect(example.refreshCount).toBe(3);
             expect(writes.length).toBeGreaterThanOrEqual(3);
             expect(JSON.parse(writes.at(-1).value).activeLayoutId).toBe('operator-default')
+        });
+
+        test('the perspective toolbar keeps stable controls and buttons across save and delete', () => {
+            Neo.main.addon.LocalStorage.updateLocalStorageItem = async () => {};
+
+            const
+                example        = createExampleHarness(),
+                toolbar        = Neo.create(Toolbar, example.createPerspectiveToolbar()),
+                label          = toolbar.items[0],
+                operatorButton = toolbar.items[1],
+                reviewButton   = toolbar.items[2],
+                saveButton     = toolbar.items[3],
+                deleteButton   = toolbar.items[4];
+
+            example.items = [toolbar];
+
+            try {
+                const saved = example.saveCurrentPerspective();
+
+                expect(saved.errors).toEqual([]);
+                example.syncPerspectiveToolbar();
+
+                const savedButton = toolbar.items.find(item => item.reference === `dock-perspective-${saved.layout.layoutId}`);
+
+                expect(toolbar.items[0]).toBe(label);
+                expect(toolbar.items.find(item => item.reference === 'dock-perspective-operator-default')).toBe(operatorButton);
+                expect(toolbar.items.find(item => item.reference === 'dock-perspective-review-focus')).toBe(reviewButton);
+                expect(toolbar.items.at(-2)).toBe(saveButton);
+                expect(toolbar.items.at(-1)).toBe(deleteButton);
+                expect(savedButton?.pressed).toBe(true);
+
+                const removed = example.removeActivePerspective();
+
+                expect(removed.errors).toEqual([]);
+                example.syncPerspectiveToolbar();
+
+                expect(toolbar.items[0]).toBe(label);
+                expect(toolbar.items.find(item => item.reference === 'dock-perspective-operator-default')).toBe(operatorButton);
+                expect(toolbar.items.find(item => item.reference === 'dock-perspective-review-focus')).toBe(reviewButton);
+                expect(toolbar.items.includes(savedButton)).toBe(false);
+                expect(savedButton.isDestroyed).toBe(true);
+                expect(toolbar.items.at(-2)).toBe(saveButton);
+                expect(toolbar.items.at(-1)).toBe(deleteButton)
+            } finally {
+                toolbar.destroy()
+            }
         });
 
         test('rehydrates a valid persisted collection and fails closed for invalid storage payloads', async () => {

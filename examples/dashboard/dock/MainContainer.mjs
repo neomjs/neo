@@ -1,11 +1,13 @@
-import DockLayoutAdapter    from '../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockMotionSignal     from '../../../src/dashboard/DockMotionSignal.mjs';
-import DockPreviewProducer  from '../../../src/dashboard/DockPreviewProducer.mjs';
-import DockService          from '../../../src/ai/client/DockService.mjs';
-import DockZoneModel        from '../../../src/dashboard/DockZoneModel.mjs';
-import TourRunner           from '../../../src/ai/client/TourRunner.mjs';
-import Viewport             from '../../../src/container/Viewport.mjs';
-import {previewToOperation} from '../../../src/dashboard/dockPreviewContract.mjs';
+import Component                from '../../../src/component/Base.mjs';
+import DockLayoutAdapter        from '../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockMotionSignal         from '../../../src/dashboard/DockMotionSignal.mjs';
+import DockPreviewProducer      from '../../../src/dashboard/DockPreviewProducer.mjs';
+import DockProjectionReconciler from '../../../src/dashboard/DockProjectionReconciler.mjs';
+import DockService              from '../../../src/ai/client/DockService.mjs';
+import DockZoneModel            from '../../../src/dashboard/DockZoneModel.mjs';
+import TourRunner               from '../../../src/ai/client/TourRunner.mjs';
+import Viewport                 from '../../../src/container/Viewport.mjs';
+import {previewToOperation}     from '../../../src/dashboard/dockPreviewContract.mjs';
 import '../../../src/button/Base.mjs';    // registers the `button` ntype used by the perspective toolbar
 import '../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the projection emits for tab zones
 import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype used by the perspective toolbar
@@ -76,8 +78,7 @@ const seededPerspectives = [{
  * @returns {Object}
  */
 const resolveComponentRef = (componentRef, _item, itemId) => ({
-    // the flip marker class carries the stable item identity across coarse re-projections,
-    // so the DockFlip addon can correlate pre/post-commit geometry even when instances recreate
+    // the flip marker class carries stable item identity across reconciled geometry changes
     cls  : [`dock-flip-item-${encodeURIComponent(itemId)}`],
     ntype: 'component',
     style: {alignItems: 'center', color: '#888', display: 'flex', fontSize: '20px', justifyContent: 'center'},
@@ -160,8 +161,8 @@ class MainContainer extends Viewport {
      * The in-flight deferred re-projection, tracked as an awaitable: every committed operation
      * defers its view-sync one tick ({@link #onDockZoneDocumentChange}), so any consumer that
      * must observe a SETTLED surface — the tour-replay adapter, teardown-sensitive probes —
-     * awaits this promise instead of racing that deferral. Stale-safe: each commit overwrites
-     * it, so awaiting always settles on the LATEST projection.
+     * awaits this promise instead of racing that deferral. Commits chain with their document and
+     * one-use descriptor snapshots, so staged transactions cannot overlap or cross-correlate.
      * @member {Promise|null} refreshPromise=null
      * @protected
      */
@@ -289,7 +290,7 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * Creates the top-level toolbar + dock projection items from current state.
+     * Creates the persistent top-level toolbar plus the initial dock projection.
      * @param {Object|null} [tabInsertDescriptor=null] One-use normalized `addTab` correlation
      * captured by the committing refresh; omitted for boot, restore, and unrelated projections.
      * @returns {Object[]}
@@ -310,16 +311,9 @@ class MainContainer extends Viewport {
      * @returns {Object}
      */
     createPerspectiveToolbar() {
-        let me             = this,
-            collection     = me.layoutCollection,
-            activeLayoutId = collection?.activeLayoutId,
-            layoutButtons  = Object.values(collection?.layouts || {}).map(layout => ({
-                cls    : layout.layoutId === activeLayoutId ? ['neo-dashboard-dock-perspective-active'] : [],
-                data   : {layoutId: layout.layoutId},
-                handler: () => me.restorePerspective(layout.layoutId),
-                pressed: layout.layoutId === activeLayoutId,
-                text   : layout.title
-            }));
+        let me            = this,
+            collection    = me.layoutCollection,
+            layoutButtons = Object.values(collection?.layouts || {}).map(layout => me.createPerspectiveButton(layout));
 
         return {
             cls         : ['neo-dashboard-dock-perspective-toolbar'],
@@ -361,10 +355,83 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * Returns the one-use projection correlation only when the committed descriptor actually
-     * inserts a header into its target tabs node. A same-node `addTab` reorder already had that
-     * header and therefore returns `null`; malformed, unrelated, restore, and initial paths fail
-     * closed to an instant projection.
+     * Creates one identity-keyed perspective button from the current saved-layout collection.
+     * @param {Object} layout Saved layout record.
+     * @returns {Object}
+     */
+    createPerspectiveButton(layout) {
+        let me       = this,
+            isActive = layout.layoutId === me.layoutCollection?.activeLayoutId;
+
+        return {
+            cls      : isActive ? ['neo-dashboard-dock-perspective-active'] : [],
+            handler  : () => me.restorePerspective(layout.layoutId),
+            pressed  : isActive,
+            reference: `dock-perspective-${layout.layoutId}`,
+            text     : layout.title
+        }
+    }
+
+    /**
+     * @summary Reconciles dynamic perspective buttons inside the persistent toolbar.
+     *
+     * The label and Save/Delete controls retain identity. Layout buttons key by `layoutId`, move
+     * silently into collection order, update active/title state in place, and are created or
+     * destroyed only when the saved-layout membership itself changes.
+     */
+    syncPerspectiveToolbar() {
+        let me        = this,
+            toolbar   = me.items[0],
+            layouts   = Object.values(me.layoutCollection?.layouts || {}),
+            layoutIds = new Set(layouts.map(layout => layout.layoutId)),
+            buttons;
+
+        if (toolbar?.dockNodeType !== 'perspective-toolbar') return;
+
+        buttons = new Map(toolbar.items
+            .filter(item => item.reference?.startsWith('dock-perspective-'))
+            .map(item => [item.reference.slice('dock-perspective-'.length), item]));
+
+        buttons.forEach((button, layoutId) => {
+            if (!layoutIds.has(layoutId)) {
+                toolbar.remove(button, true, true)
+            }
+        });
+
+        layouts.forEach((layout, index) => {
+            let targetIndex = index + 1,
+                button      = buttons.get(layout.layoutId),
+                currentIndex,
+                isActive;
+
+            if (!button || button.isDestroyed) {
+                button = toolbar.insert(targetIndex, me.createPerspectiveButton(layout), true)
+            } else {
+                currentIndex = toolbar.indexOf(button);
+
+                if (currentIndex !== targetIndex) {
+                    toolbar.remove(button, false, true, true);
+                    toolbar.insert(targetIndex, button, true, false)
+                }
+            }
+
+            isActive = layout.layoutId === me.layoutCollection.activeLayoutId;
+            button.set({
+                cls: isActive
+                    ? [...new Set([...button.cls, 'neo-dashboard-dock-perspective-active'])]
+                    : button.cls.filter(cls => cls !== 'neo-dashboard-dock-perspective-active'),
+                pressed: isActive,
+                text   : layout.title
+            })
+        })
+    }
+
+    /**
+     * Returns the one-use projection correlation only when the committed descriptor creates a
+     * globally absent header. `DockZoneModel` downgrades `addTab` to `moveItem` whenever the item
+     * already lives in any tabs node; those identity-preserving relocations use FLIP alone. A
+     * same-node reorder, malformed descriptor, restore, and initial path fail closed to an instant
+     * projection.
      *
      * The returned object is deliberately normalized instead of retaining caller/runtime fields,
      * and is carried only by the scheduled projection closure — it never enters `dockModel`, a
@@ -384,6 +451,7 @@ class MainContainer extends Viewport {
             && typeof tabsNodeId === 'string'
             && Array.isArray(oldItems)
             && Array.isArray(newItems)
+            && !DockZoneModel.findContainingTabsId(this.dockModel, itemId)
             && !oldItems.includes(itemId)
             && newItems.includes(itemId)
                 ? {itemId, operation: 'addTab', tabsNodeId}
@@ -394,9 +462,10 @@ class MainContainer extends Viewport {
      * The view-sync `DockSplitter` / DockService calls after a successful commit: stores the new
      * committed document and re-projects the layout from it.
      *
-     * Deferred one tick: this fires synchronously from inside the committing splitter's `onDragEnd` (via
-     * `commitResizeSplit`). Re-projecting immediately would `removeAll()` — destroying that splitter mid-handler, a
-     * use-after-destroy on the rest of `onDragEnd`. The `isDestroyed` guard covers teardown before the tick fires.
+     * Deferred one tick: this fires synchronously from inside the committing splitter's `onDragEnd`
+     * (via `commitResizeSplit`). Reconciliation still retires that splitter with its old shell, so
+     * doing it mid-handler would create a use-after-destroy on the rest of `onDragEnd`. The
+     * `isDestroyed` guard covers teardown before the tick fires.
      * A real `addTab` captures its exact normalized correlation in THIS scheduled closure; every
      * other call carries `null`, so the descriptor is consumed by one projection only.
      * @param {Object} document The committed dock-zone document.
@@ -410,12 +479,14 @@ class MainContainer extends Viewport {
 
         // Retained as an awaitable (NOT fire-and-forget): a consumer asserting page survival or
         // settled geometry must be able to await the projection this commit just scheduled —
-        // otherwise its verdict window closes before the remove/add projection has executed.
-        me.refreshPromise = me.timeout(0).then(() => {
-            if (!me.isDestroyed) {
-                return me.refreshDockWorkspace(tabInsertDescriptor)
-            }
-        })
+        // otherwise its verdict window closes before the staged transaction has executed.
+        me.refreshPromise = (me.refreshPromise || Promise.resolve())
+            .then(() => me.timeout(0))
+            .then(() => {
+                if (!me.isDestroyed) {
+                    return me.refreshDockWorkspace(tabInsertDescriptor, document)
+                }
+            })
     }
 
     /**
@@ -456,8 +527,8 @@ class MainContainer extends Viewport {
             }
 
             me.layoutCollection = DockZoneModel.clone(parsed);
-            me.dockModel        = restored.document;
-            me.refreshDockWorkspace();
+            me.onDockZoneDocumentChange(restored.document);
+            await me.refreshPromise;
 
             return {collection: me.layoutCollection, document: me.dockModel, errors: [], loaded: true}
         } catch (error) {
@@ -491,30 +562,67 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * Rebuilds the toolbar and dock projection from current state.
+     * Reconciles the dock projection while synchronizing the persistent perspective toolbar.
      * @param {Object|null} [tabInsertDescriptor=null] One-use normalized `addTab` correlation
      * captured by the commit that scheduled this refresh.
+     * @param {Object} [document=this.dockModel] Committed document snapshot owned by this refresh.
      */
-    async refreshDockWorkspace(tabInsertDescriptor=null) {
-        const flip = Neo.main?.addon?.DockFlip;
+    async refreshDockWorkspace(tabInsertDescriptor=null, document=this.dockModel) {
+        const
+            me           = this,
+            flip         = Neo.main?.addon?.DockFlip,
+            placeholders = new Map();
 
         // FLIP phase 1 (presentation-only, fail-safe): snapshot outgoing pane geometry so the
         // committed re-layout GLIDES — a human drop and an NL operation animate identically
         try {
-            await flip?.captureFirst({hostId: this.id, markerPrefix: 'dock-flip-item-'})
+            await flip?.captureFirst({hostId: me.id, markerPrefix: 'dock-flip-item-'})
         } catch (e) {/* instant landing */}
 
-        this.removeAll();
-        this.add(this.buildWorkspaceItems(tabInsertDescriptor));
+        me.syncPerspectiveToolbar();
+
+        const nextConfig = me.projectDockModel(tabInsertDescriptor, (componentRef, item, itemId) => {
+            const placeholder = Neo.create({
+                module: Component,
+                header: {text: item?.title ?? componentRef ?? itemId},
+                hidden: true
+            });
+
+            placeholders.set(itemId, placeholder);
+
+            return placeholder
+        }, document);
+
+        nextConfig.flex = 1;
+
+        await DockProjectionReconciler.reconcileProjection({
+            host       : me,
+            nextConfig,
+            placeholders,
+            resolveItem: itemId => {
+                const item = document.items[itemId];
+
+                return DockLayoutAdapter.decorateProjectedItem(
+                    resolveComponentRef(item?.componentRef, item, itemId),
+                    itemId,
+                    item,
+                    {
+                        nodeId: tabInsertDescriptor?.tabsNodeId,
+                        tabInsertDescriptor
+                    }
+                )
+            },
+            shellIndex: 1
+        });
 
         // FLIP phase 2: fire-and-forget — the addon self-waits for the swap, inverts, plays
         // the counted motion signal brackets the awaited animation window — ownership
         // lives in DockMotionSignal (fail-safe backstopped), never in the addon
         if (flip) {
-            DockMotionSignal.enter(this);
-            flip.play({hostId: this.id, markerPrefix: 'dock-flip-item-'})
+            DockMotionSignal.enter(me);
+            flip.play({hostId: me.id, markerPrefix: 'dock-flip-item-'})
                 .catch(() => {})
-                .finally(() => DockMotionSignal.leave(this))
+                .finally(() => DockMotionSignal.leave(me))
         }
     }
 
@@ -539,9 +647,8 @@ class MainContainer extends Viewport {
         }
 
         me.layoutCollection = selected.collection;
-        me.dockModel        = restored.document;
         me.persistLayoutCollection();
-        me.refreshDockWorkspace();
+        me.onDockZoneDocumentChange(restored.document);
 
         return {collection: me.layoutCollection, document: me.dockModel, errors: []}
     }
@@ -576,7 +683,7 @@ class MainContainer extends Viewport {
 
         me.layoutCollection = upserted.collection;
         me.persistLayoutCollection();
-        me.refreshDockWorkspace();
+        me.onDockZoneDocumentChange(me.dockModel);
 
         return {collection: me.layoutCollection, layout: saved.layout, errors: []}
     }
@@ -613,9 +720,8 @@ class MainContainer extends Viewport {
         }
 
         me.layoutCollection = removed.collection;
-        me.dockModel        = restored.document;
         me.persistLayoutCollection();
-        me.refreshDockWorkspace();
+        me.onDockZoneDocumentChange(restored.document);
 
         return {collection: me.layoutCollection, document: me.dockModel, errors: []}
     }
@@ -640,16 +746,19 @@ class MainContainer extends Viewport {
      * Projects the live committed {@link #dockModel} into a dock-zone container config, threading
      * the instance-bound commit-loop callbacks onto every projected affordance.
      * @param {Object|null} [tabInsertDescriptor=null] One-use normalized `addTab` correlation.
+     * @param {Function} [itemResolver=resolveComponentRef] Pane resolver used by this projection.
+     * @param {Object} [document=this.dockModel] Committed document snapshot to project.
      * @returns {Object}
      */
-    projectDockModel(tabInsertDescriptor=null) {
+    projectDockModel(tabInsertDescriptor=null, itemResolver=resolveComponentRef, document=this.dockModel) {
         let me = this;
 
-        return DockLayoutAdapter.project(me.dockModel, {
-            applyDockZoneOperation  : me.applyDockZoneOperation.bind(me),
-            onDockCrossZoneDrop     : me.onDockCrossZoneDrop.bind(me),
-            onDockZoneDocumentChange: me.onDockZoneDocumentChange.bind(me),
-            resolveComponentRef,
+        return DockLayoutAdapter.project(document, {
+            applyDockZoneOperation   : me.applyDockZoneOperation.bind(me),
+            onDockCrossZoneDrop      : me.onDockCrossZoneDrop.bind(me),
+            onDockZoneDocumentChange : me.onDockZoneDocumentChange.bind(me),
+            resolveComponentRef      : itemResolver,
+            resolveRevealComponentRef: resolveComponentRef,
             tabInsertDescriptor
         })
     }

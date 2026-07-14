@@ -634,9 +634,10 @@ class DockRail extends Container {
     }
 
     /**
-     * Materializes the revealed item's pane into the overlay's slot — resolved through the SAME
-     * `resolveComponentRef` seam the adapter uses for in-flow panes, with the `componentRef` read
-     * from the committed document (the rail's copy re-projects on every change).
+     * Materializes the revealed item's pane into the overlay's slot through the adapter's durable
+     * reveal resolver, with the `componentRef` read from the committed document (the rail's copy
+     * re-projects on every change). This resolver must outlive any transaction-only in-flow staging
+     * resolver because the user can reveal the rail long after projection reconciliation settles.
      *
      * Live-instance contract: a resolver-returned Neo INSTANCE is added as-is and PARKED on
      * dismissal (removed without destroy — moved/re-parented, never destroyed), so its identity

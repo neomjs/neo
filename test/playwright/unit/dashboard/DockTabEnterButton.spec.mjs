@@ -78,8 +78,8 @@ test.describe('Neo.dashboard.DockTabEnterButton', () => {
         DockMotionSignal.activeMotions.clear()
     });
 
-    const createButton = id => {
-        let button = Neo.create(DockTabEnterButton, {id, text: id});
+    const createButton = (id, config={}) => {
+        let button = Neo.create(DockTabEnterButton, {...config, id, text: id});
 
         buttons.push(button);
         return button
@@ -106,7 +106,9 @@ test.describe('Neo.dashboard.DockTabEnterButton', () => {
     });
 
     test('brackets a real root settle, stays idempotent, and filters bubbled child animations', () => {
-        let button = createButton('dock-tab-enter-normal'),
+        let button = createButton('dock-tab-enter-normal', {
+                cls: ['stable-header', 'neo-dashboard-dock-tab-enter', 'dock-tab-enter-item-swarm']
+            }),
             rootId = button.vdom?.id || button.id;
 
         // Construction/class correlation alone is not motion. Rendered-style discovery owns entry;
@@ -118,16 +120,24 @@ test.describe('Neo.dashboard.DockTabEnterButton', () => {
         expect(button.cls).toContain(DockMotionSignal.SIGNAL_CLS);
         button.onTabEnterAnimationSettle(createAnimationEvent('animationend', 'tab-enter-child'));
         expect(DockMotionSignal.isAnimating(button.id)).toBe(true);
+        expect(button.hasTabEnterDecoration()).toBe(true);
 
         button.onTabEnterAnimationSettle(createAnimationEvent('animationend', rootId));
         expect(DockMotionSignal.isAnimating(button.id)).toBe(false);
+        expect(button.hasTabEnterDecoration()).toBe(false);
+        expect(button.cls).toContain('stable-header');
+        expect(button.cls.some(cls => cls.startsWith('dock-tab-enter-item-'))).toBe(false);
 
         // A duplicate end is idempotent. Cancellation balances a second real start.
         button.onTabEnterAnimationSettle(createAnimationEvent('animationend', rootId));
-        button = createButton('dock-tab-enter-cancel');
+        button = createButton('dock-tab-enter-cancel', {
+            cls: ['neo-dashboard-dock-tab-enter', 'dock-tab-enter-item-terminal']
+        });
         button.beginTabEnterMotion();
         button.onTabEnterAnimationSettle(createAnimationEvent('animationcancel', button.vdom?.id || button.id));
-        expect(DockMotionSignal.isAnimating(button.id)).toBe(false)
+        expect(DockMotionSignal.isAnimating(button.id)).toBe(false);
+        expect(button.hasTabEnterDecoration()).toBe(false);
+        expect(button.cls.some(cls => cls.startsWith('dock-tab-enter-item-'))).toBe(false)
     });
 
     test('rapid replacement and destroy settle only each instance-owned entry', () => {
@@ -149,14 +159,16 @@ test.describe('Neo.dashboard.DockTabEnterButton', () => {
         expect(DockMotionSignal.activeMotions.size).toBe(0)
     });
 
-    test('the refresh owner captures a real addTab for one projection only; reorder and later refreshes stay inert', async () => {
+    test('the refresh owner captures a globally absent addTab once; moves, reorders and later refreshes stay inert', async () => {
         let initial    = createModel(),
             descriptor = {operation: 'addTab', itemId: 'terminal', tabsNodeId: 'main-tabs', index: 2},
-            inserted   = DockZoneModel.applyOperation(initial, descriptor),
+            moved      = DockZoneModel.applyOperation(initial, descriptor),
+            detached   = DockZoneModel.applyOperation(initial, {operation: 'detachItem', itemId: 'terminal'}),
+            inserted   = DockZoneModel.applyOperation(detached.document, descriptor),
             refreshes  = [],
             context    = {
                 applyDockZoneOperation() {},
-                dockModel                       : initial,
+                dockModel                       : detached.document,
                 getTabInsertProjectionDescriptor: MainContainer.prototype.getTabInsertProjectionDescriptor,
                 isDestroyed                     : false,
                 onDockCrossZoneDrop() {},
@@ -165,10 +177,15 @@ test.describe('Neo.dashboard.DockTabEnterButton', () => {
                 timeout                 : () => Promise.resolve()
             };
 
+        expect(moved.errors).toEqual([]);
+        expect(MainContainer.prototype.getTabInsertProjectionDescriptor.call(
+            {dockModel: initial}, moved.document, descriptor
+        )).toBeNull();
+        expect(detached.errors).toEqual([]);
         expect(inserted.errors).toEqual([]);
 
         MainContainer.prototype.onDockZoneDocumentChange.call(context, inserted.document, descriptor);
-        await Promise.resolve();
+        await context.refreshPromise;
 
         expect(refreshes).toEqual([{operation: 'addTab', itemId: 'terminal', tabsNodeId: 'main-tabs'}]);
         expect(JSON.stringify(context.dockModel)).not.toContain('tabInsert');
@@ -182,14 +199,14 @@ test.describe('Neo.dashboard.DockTabEnterButton', () => {
         expect(entered[0].header.module).toBe(DockTabEnterButton);
 
         // Same-target addTab is a reorder: the header existed before the commit, so no insertion.
-        let reorder = {operation: 'addTab', itemId: 'terminal', tabsNodeId: 'main-tabs', index: 0},
-            moved   = DockZoneModel.applyOperation(context.dockModel, reorder);
+        let reorder   = {operation: 'addTab', itemId: 'terminal', tabsNodeId: 'main-tabs', index: 0},
+            reordered = DockZoneModel.applyOperation(context.dockModel, reorder);
 
-        MainContainer.prototype.onDockZoneDocumentChange.call(context, moved.document, reorder);
-        await Promise.resolve();
+        MainContainer.prototype.onDockZoneDocumentChange.call(context, reordered.document, reorder);
+        await context.refreshPromise;
         expect(refreshes[1]).toBeNull();
 
-        // A later coarse projection receives no captured descriptor and recreates every header inert.
+        // A later projection receives no captured descriptor and keeps or creates every header inert.
         const later     = MainContainer.prototype.projectDockModel.call(context),
               laterTabs = findProjectedNode(later, 'main-tabs');
 

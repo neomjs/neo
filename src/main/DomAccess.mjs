@@ -87,6 +87,7 @@ class DomAccess extends Base {
                 'syncModalMask',
                 'transferCanvasToWorker',
                 'trapFocus',
+                'waitForAnimation',
                 'windowScrollTo'
             ]
         },
@@ -462,6 +463,33 @@ class DomAccess extends Base {
         }
 
         return styles
+    }
+
+    /**
+     * @summary Awaits one named CSS animation on a physical node through the browser's Animation API.
+     *
+     * App-worker components can be born with an animation class before their local DOM listeners
+     * finish mounting. The main thread already owns the physical animation, so `Animation.finished`
+     * is the race-free settlement authority. A missing, already-finished, or cancelled animation
+     * resolves safely; presentation must never wedge projection truth.
+     * @param {Object} data
+     * @param {String} data.animationName CSS animation name to match on the node itself.
+     * @param {String} data.id Physical DOM node id.
+     * @returns {Promise<Boolean>} Whether a live named animation was observed.
+     */
+    async waitForAnimation({animationName, id}) {
+        let animation = this.getElement(id)?.getAnimations?.()
+            .find(candidate => candidate.animationName === animationName);
+
+        if (!animation) {
+            return false
+        }
+
+        try {
+            await animation.finished
+        } catch (error) {/* cancellation is settlement */}
+
+        return true
     }
 
     /**

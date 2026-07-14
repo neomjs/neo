@@ -11,7 +11,8 @@ import {test, expect} from '../../fixtures.mjs';
  * 2. hovering a different indicator re-targets the exact post-drop region preview;
  * 3. releasing ON an indicator commits exactly that candidate's semantic operation through
  *    the reducer (App Worker document truth), and the committed re-layout animates
- *    (FLIP transforms observable on marker panes);
+ *    (FLIP transforms observable on marker panes) without replacing surviving panes or the
+ *    persistent preview / indicator overlays;
  * 4. Escape mid-drag cancels: the menu clears and the release commits NOTHING;
  * 5. under `prefers-reduced-motion: reduce`, the indicator layer's motion collapses to 0s
  *    THROUGH THE TOKEN on the shared overlay ancestor — the sibling-scope defect class
@@ -87,9 +88,57 @@ test.describe('Demo-A drop-indicator menu: the real-pointer §06 journey (Neural
     test.setTimeout(120000);
 
     test('drag lights the menu, indicators re-target the preview, the release commits + animates', async ({page, neuralLink}) => {
+        const pageErrors    = [],
+              runtimeErrors = [];
+
+        await page.context().exposeFunction('__recordDemoAProjectionRuntimeError', payload => runtimeErrors.push(payload));
+        await page.context().addInitScript(() => {
+            globalThis.addEventListener('error', event => {
+                globalThis.__recordDemoAProjectionRuntimeError({
+                    column : event.colno,
+                    line   : event.lineno,
+                    message: event.message,
+                    source : event.filename,
+                    type   : 'error'
+                })
+            });
+            globalThis.addEventListener('unhandledrejection', event => {
+                globalThis.__recordDemoAProjectionRuntimeError({
+                    reason: String(event.reason?.stack || event.reason?.message || event.reason),
+                    type  : 'unhandledrejection'
+                })
+            })
+        });
+        page.on('pageerror', error => {
+            const value = error == null ? '' : String(error.stack || error.message || error);
+            value && value !== 'undefined' && pageErrors.push(value)
+        });
+
         const {app, editorZone, previewZone, wsId} = await bootDemo(page, neuralLink);
 
         const editorCenter = {x: editorZone.x + editorZone.width / 2, y: editorZone.y + editorZone.height / 2};
+
+        const identity = await page.evaluate(() => {
+            const elements = {
+                editorPane    : document.querySelector('.agentos-dockdemo-pane-editor'),
+                indicators    : document.querySelector('.neo-dashboard-dock-drop-indicators'),
+                previewOverlay: document.querySelector('.neo-dock-preview'),
+                previewPane   : document.querySelector('.agentos-dockdemo-pane-preview')
+            };
+
+            globalThis.__demoAProjectionIdentity = elements;
+
+            return {
+                ids         : Object.fromEntries(Object.entries(elements).map(([key, element]) => [key, element?.id])),
+                overlayOrder: [elements.previewOverlay, elements.indicators]
+                    .map(element => [...element.parentElement.children].indexOf(element)),
+                overlaysShareHost: elements.previewOverlay?.parentElement === elements.indicators?.parentElement
+            }
+        });
+
+        expect(Object.values(identity.ids).every(Boolean), 'all pane and overlay permanence targets are mounted').toBe(true);
+        expect(identity.overlaysShareHost, 'preview and indicator overlays share the persistent dock host').toBe(true);
+        expect(identity.overlayOrder[0], 'preview overlay precedes the indicator overlay').toBeLessThan(identity.overlayOrder[1]);
 
         // FLIP observation armed before the drop lands
         await page.evaluate(() => {
@@ -179,7 +228,38 @@ test.describe('Demo-A drop-indicator menu: the real-pointer §06 journey (Neural
 
         const {flipSamples} = await page.evaluate(() => { window.__e2e.done = true; return window.__e2e });
 
-        expect(flipSamples, 'FLIP transforms were observable on marker panes during the committed re-layout').toBeGreaterThan(0)
+        expect(flipSamples, 'FLIP transforms were observable on marker panes during the committed re-layout').toBeGreaterThan(0);
+
+        const identityAfter = await page.evaluate(ids => {
+            const before = globalThis.__demoAProjectionIdentity,
+                  same   = Object.fromEntries(Object.entries(ids).map(([key, id]) => [
+                      key,
+                      before?.[key] === document.getElementById(id)
+                  ])),
+                  previewOverlay = before?.previewOverlay,
+                  indicators     = before?.indicators;
+
+            return {
+                same,
+                overlayOrder: [previewOverlay, indicators]
+                    .map(element => [...element.parentElement.children].indexOf(element)),
+                overlaysShareHost: previewOverlay?.parentElement === indicators?.parentElement
+            }
+        }, identity.ids);
+
+        expect(identityAfter.same, 'the exact pane and overlay DOM nodes survive the dissolving-source projection')
+            .toEqual({editorPane: true, indicators: true, previewOverlay: true, previewPane: true});
+        expect(identityAfter.overlaysShareHost, 'persistent overlays remain siblings after projection').toBe(true);
+        expect(identityAfter.overlayOrder, 'persistent overlay ordering remains preview then indicators')
+            .toEqual(identity.overlayOrder);
+
+        const liveComponents = await Promise.all(Object.values(identity.ids)
+            .map(id => app.getComponent(id, ['id'])));
+
+        expect(liveComponents.map(component => component.id), 'every permanence target keeps its App Worker component identity')
+            .toEqual(Object.values(identity.ids));
+        expect(runtimeErrors, 'no global error or unhandled rejection across the projection').toEqual([]);
+        expect(pageErrors, 'no Playwright pageerror across the projection').toEqual([])
     });
 
     test('Escape mid-drag cancels: the menu clears and the release commits nothing', async ({page, neuralLink}) => {
