@@ -527,7 +527,8 @@ test.describe('Workstation — dense living-data composition', () => {
                 securityFullyClippedSamples   : [],
                 securityMissingFrames         : 0,
                 securityOverflowMutationFrames: 0,
-                securityReplacementFrames     : 0
+                securityReplacementFrames     : 0,
+                securityStageFramesByBurst    : []
             };
             const activeTabEmptySpans = {};
             let   securityNode        = null,
@@ -657,9 +658,13 @@ test.describe('Workstation — dense living-data composition', () => {
                                 return hit === currentSecurityNode || currentSecurityNode.contains(hit)
                             });
 
-                        if (!securityWasStaged) state.securityStageBursts++;
+                        if (!securityWasStaged) {
+                            state.securityStageBursts++;
+                            state.securityStageFramesByBurst.push(0)
+                        }
 
                         state.securityStageFrames++;
+                        state.securityStageFramesByBurst[state.securityStageFramesByBurst.length - 1]++;
 
                         if (!securityBody) state.securityBodyMissingFrames++;
                         if (!activeHeader || !isVisible(activeHeader)) state.securityActiveHeaderMissFrames++;
@@ -823,7 +828,13 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(monitor.securityMissingFrames, 'the active Security pane never leaves the DOM after capture').toBe(0);
         expect(monitor.securityReplacementFrames, 'Security keeps the same DOM node across split and return').toBe(0);
         expect(monitor.securityStageBursts, 'split and return each expose one preserved-identity fixed stage').toBe(2);
-        expect(monitor.securityStageFrames, 'the sequential sampler observes the real fixed-stage motion').toBeGreaterThan(2);
+        expect(monitor.securityStageFramesByBurst, 'the sequential sampler isolates the split and return stages')
+            .toHaveLength(2);
+        expect(monitor.securityStageFramesByBurst[0], 'the split stage spans multiple sequential samples')
+            .toBeGreaterThan(1);
+        expect(monitor.securityStageFramesByBurst[1], 'the return stage spans multiple sequential samples')
+            .toBeGreaterThan(1);
+        expect(monitor.securityStageFrames).toBe(monitor.securityStageFramesByBurst.reduce((sum, count) => sum + count, 0));
         expect(monitor.securityBodyMissingFrames,
             'fixed staging keeps the exact pane inside its real destination body').toBe(0);
         expect(monitor.securityActiveHeaderMissFrames,
