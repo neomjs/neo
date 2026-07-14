@@ -45,7 +45,7 @@ function compactDefinedProperties(properties) {
  *
  * Handles initialization, configuration, and lifecycle management for the Memory Core MCP server.
  * This server uses a dual-transport architecture, allowing it to communicate with local CLI clients
- * via `stdio` (the default) or with cloud-native/remote clients via `sse` (StreamableHTTPServerTransport).
+ * via `stdio` (the default) or with cloud-native/remote clients via `streamable-http`.
  *
  * The transport mode and HTTP port can be configured using `aiConfig.transport` and `aiConfig.mcpHttpPort`.
  *
@@ -67,7 +67,7 @@ class Server extends BaseServer {
     /**
      * Resolved agent identity for stdio transport sessions. Populated by `boot()` via
      * `StdioIdentityResolver` + AgentIdentity graph-node binding. Null when
-     * running under SSE transport (identity flows per-request via `AuthService` /
+     * running under Streamable HTTP transport (identity flows per-request via `AuthService` /
      * `RequestContextService` instead) or when stdio resolution yielded no identity.
      * @member {Object|null} stdioIdentity=null
      * @protected
@@ -201,7 +201,7 @@ class Server extends BaseServer {
      * @summary Wraps tool dispatch in `RequestContextService.run()` when stdio identity is
      * resolved. Establishes the AsyncLocalStorage-scoped context that
      * `MemoryService.addMemory`, etc. read via `getUserId()` to tag ChromaDB writes per
-     * tenant. SSE mode leaves `stdioIdentity` null because `TransportService` already wraps
+     * tenant. Streamable HTTP mode leaves `stdioIdentity` null because `TransportService` already wraps
      * the `/mcp` request with per-request OIDC identity — re-wrapping here would clobber
      * that context.
      * @param {Function} dispatch
@@ -216,7 +216,7 @@ class Server extends BaseServer {
      * @summary Override of `BaseServer.createMcpServer` — chains super then registers the
      * mcpServer instance with `CoalescingEngineService` so it can broadcast wake events to
      * the SDK's `experimental.neo-wake-substrate` capability subscribers. Used both at boot
-     * and per-request (SSE mode) to provision dedicated server objects per connection.
+     * and per-request (Streamable HTTP mode) to provision dedicated server objects per connection.
      * @returns {McpServer}
      */
     createMcpServer() {
@@ -337,7 +337,7 @@ class Server extends BaseServer {
         }
 
         // Stdio identity resolution BEFORE healthcheck snapshot.
-        if (aiConfig.transport !== 'sse') {
+        if (this.aiConfig.transport === 'stdio') {
             this.stdioIdentity = await this.resolveStdioIdentity();
             HealthService.setStdioIdentityState(this.stdioIdentity);
 
@@ -374,7 +374,7 @@ class Server extends BaseServer {
 
         await this.connectTransport();
 
-        if (aiConfig.transport !== 'sse') {
+        if (this.aiConfig.transport === 'stdio') {
             this.logIdentityStatus();
         }
     }
@@ -411,7 +411,7 @@ class Server extends BaseServer {
     }
 
     /**
-     * @summary SSE-only hook: builds RequestContext for a `/mcp` request from `req.auth`.
+     * @summary Streamable-HTTP-only hook: builds RequestContext for a `/mcp` request from `req.auth`.
      * Invoked by `TransportService.setup` via duck-typed hook. Returns `{}` when no identity
      * is present to preserve single-tenant fallthrough.
      * @param {Object|undefined} reqAuth
@@ -598,7 +598,7 @@ class Server extends BaseServer {
     }
 
     /**
-     * @summary SSE-only hook fired by `TransportService` on session disconnect. Removes the
+     * @summary Streamable-HTTP-only hook fired by `TransportService` on session disconnect. Removes the
      * per-session McpServer from `CoalescingEngineService`'s broadcast set (counterpart to
      * `createMcpServer`'s `addMcpServer` registration) and writes a cheap idempotent
      * `SummarizationJobs.pending` marker. The orchestrator `summary` task drains that marker;
@@ -647,7 +647,7 @@ class Server extends BaseServer {
     /**
      * @summary Resolves a bare GitHub login to its seeded AgentIdentity graph node ID
      * using the `@`-prefixed AgentIdentity convention. Shared between `resolveStdioIdentity`
-     * (stdio boot) and `buildRequestContext` (per-SSE-request) so both transports reach the
+     * (stdio boot) and `buildRequestContext` (per-Streamable-HTTP request) so both transports reach the
      * same node lookup behavior.
      *
      * Missing node is non-fatal: returns `null`. Downstream services that build `AUTHORED_BY`

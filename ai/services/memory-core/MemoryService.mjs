@@ -16,7 +16,7 @@ import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER}                              
 import {normalizeAgentIdentityNodeId}                                                                                                  from '../../graph/normalizeAgentIdentityNodeId.mjs';
 
 import {CONCEPT_EXPANSION_EDGE_TYPES, MEMORY_TERMINAL_EDGE_TYPES, enrichWithConceptWalk} from '../graph/conceptAnchoredRetrieval.mjs';
-import {buildMemoryResolveCandidate} from './conceptWalkMemoryGate.mjs';
+import {buildMemoryResolveCandidate}                                                     from './conceptWalkMemoryGate.mjs';
 
 /**
  * Re-exported from `./helpers/withTimeout.mjs` (moved there so `SessionService` can share it without
@@ -175,7 +175,7 @@ function buildMailboxDelta() {
  * It handles the creation of new memory entries (including embedding generation), retrieving memories by session,
  * and performing semantic searches to find relevant past interactions.
  *
- * **Multi-tenant isolation:** When a request arrives via SSE transport with a valid OIDC Bearer
+ * **Multi-tenant isolation:** When a request arrives via Streamable HTTP with a valid OIDC Bearer
  * token, `RequestContextService.getUserId()` returns the authenticated user's identifier
  * (derived from the token's `preferred_username` / `sub` claim). Writes (`addMemory`) tag
  * ChromaDB metadata with that `userId`; reads (`listMemories`, `queryMemories`, and the
@@ -399,7 +399,7 @@ class MemoryService extends Base {
             };
 
             // Tenant-isolation tag: present only when a request context was established
-            // by the SSE transport layer. In stdio mode it is absent — single-tenant fallthrough.
+            // by the Streamable HTTP transport layer. In stdio mode it is absent — single-tenant fallthrough.
             const requestIdentity   = RequestContextService.getAgentIdentityNodeId();
             const userId            = normalizeUserId(RequestContextService.getUserId());
             const canonicalIdentity = normalizeAgentIdentityNodeId(requestIdentity || userId || agent);

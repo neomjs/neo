@@ -105,7 +105,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         }
     });
 
-    test('#15027: stdio and SSE identity paths bind through the same provider-agnostic canonicalizer', async () => {
+    test('#15027: stdio and Streamable HTTP identity paths bind through the same provider-agnostic canonicalizer', async () => {
         await GraphService.initAsync();
 
         GraphService.upsertNode({id: '@identity-topology-15027', type: 'AgentIdentity', name: 'Identity Topology'});
@@ -115,13 +115,13 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         const originalResolve       = StdioIdentityResolver.resolve;
 
         try {
-            const sseContext = await serverInstance.buildRequestContext({
+            const streamableHttpContext = await serverInstance.buildRequestContext({
                 userId  : 'identity-topology-15027',
                 username: 'Identity Topology',
                 source  : 'oidc'
             });
 
-            expect(sseContext).toMatchObject({
+            expect(streamableHttpContext).toMatchObject({
                 userId             : 'identity-topology-15027',
                 agentIdentityNodeId: '@identity-topology-15027',
                 source             : 'oidc'
@@ -145,7 +145,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
                 import('../../../../../../../ai/services/memory-core/MailboxService.mjs')
             ]);
 
-            for (const context of [sseContext, stdioContext]) {
+            for (const context of [streamableHttpContext, stdioContext]) {
                 const sent = await RequestContextService.run(context, () => MailboxService.addMessage({
                     to     : '@me',
                     subject: `topology round-trip ${context.source}`,
@@ -930,6 +930,38 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
             for (const [name, method] of originalServerMethods) {
                 serverInstance[name] = method;
             }
+            serverInstance.destroy();
+        }
+    });
+
+    test('#15188: Streamable HTTP boot skips process-level stdio identity work', async () => {
+        const serverInstance = await createServerWithoutBoot();
+        const calls          = [];
+
+        serverInstance.aiConfig = {transport: 'streamable-http'};
+        serverInstance.loadCustomConfig = async () => calls.push('loadCustomConfig');
+        serverInstance.createMcpServer = () => {
+            calls.push('createMcpServer');
+            return {server: {setRequestHandler() {}}};
+        };
+        serverInstance.prepareStartupDependency = async () => {};
+        serverInstance.resolveStdioIdentity = async () => calls.push('resolveStdioIdentity');
+        serverInstance.runHealthcheckAndLogStatus = async () => calls.push('runHealthcheckAndLogStatus');
+        serverInstance.logSiblingConcurrency = () => calls.push('logSiblingConcurrency');
+        serverInstance.connectTransport = async () => calls.push('connectTransport');
+        serverInstance.logIdentityStatus = () => calls.push('logIdentityStatus');
+
+        try {
+            await serverInstance.boot();
+
+            expect(calls).toEqual([
+                'loadCustomConfig',
+                'createMcpServer',
+                'runHealthcheckAndLogStatus',
+                'logSiblingConcurrency',
+                'connectTransport'
+            ]);
+        } finally {
             serverInstance.destroy();
         }
     });

@@ -11,7 +11,7 @@ import {listTools, callTool} from './toolService.mjs';
  *
  * Handles initialization, configuration, and lifecycle management for the Knowledge Base MCP server.
  * This server uses a dual-transport architecture, allowing it to communicate with local CLI clients
- * via `stdio` (the default) or with cloud-native/remote clients via `sse` (StreamableHTTPServerTransport).
+ * via `stdio` (the default) or with cloud-native/remote clients via `streamable-http`.
  *
  * The transport mode and HTTP port can be configured using `aiConfig.transport` and `aiConfig.mcpHttpPort`.
  *
@@ -77,10 +77,10 @@ class Server extends BaseServer {
     }
 
     /**
-     * @summary SSE-only hook: builds the KB RequestContext from authenticated transport identity.
+     * @summary Streamable-HTTP-only hook: builds the KB RequestContext from authenticated transport identity.
      *
      * Knowledge Base read and ingest services enforce tenant isolation from
-     * `RequestContextService.getUserId()`. Propagating the SSE auth context here keeps
+     * `RequestContextService.getUserId()`. Propagating the Streamable HTTP auth context here keeps
      * proxy/OIDC deployments tenant-aware while preserving single-tenant fallthrough when
      * no identity is present.
      * @param {Object|undefined} reqAuth

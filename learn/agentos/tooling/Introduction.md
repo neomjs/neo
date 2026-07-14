@@ -90,7 +90,7 @@ The servers are built using the **Neo.mjs Class System**. Every service (e.g., `
 
 ### 3. Transport Agnosticism
 
-While our default configuration uses `stdio` (standard input/output) for maximum security (local subprocesses only), the architecture is transport-agnostic. The servers can be easily exposed via HTTP/SSE for remote usage if needed, as the business logic is fully decoupled from the transport layer.
+While our default configuration uses `stdio` (standard input/output) for maximum security (local subprocesses only), the architecture is transport-agnostic. The servers can be exposed via Streamable HTTP for remote usage when needed, as the business logic is fully decoupled from the transport layer.
 
 ## Getting Started
 

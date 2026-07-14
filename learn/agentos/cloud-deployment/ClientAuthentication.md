@@ -1,6 +1,6 @@
 # Authenticating to a Deployed MCP Server
 
-A deployed Neo.mjs MCP server (Knowledge Base or Memory Core) supports two server-side authorization modes for its SSE / HTTP transport. This guide covers the **GitLab bearer** mode (`NEO_AUTH_MODE=gitlab-pat`): the server validates any GitLab bearer token against the GitLab API, with no cookie. **The client chooses how to obtain that bearer — an OAuth browser login (preferred) or a long-lived Personal Access Token (fallback) — and the server accepts both.**
+A deployed Neo.mjs MCP server (Knowledge Base or Memory Core) supports two server-side authorization modes for its Streamable HTTP transport. This guide covers the **GitLab bearer** mode (`NEO_AUTH_MODE=gitlab-pat`): the server validates any GitLab bearer token against the GitLab API, with no cookie. **The client chooses how to obtain that bearer — an OAuth browser login (preferred) or a long-lived Personal Access Token (fallback) — and the server accepts both.**
 
 > For the OIDC / OAuth 2.1 **server** mode (Keycloak, Google — where the server itself advertises Protected-Resource-Metadata and introspects tokens), see [MCP Server Authorization](../tooling/Authorization.md). That is a *different server mode* from this one: in `gitlab-pat` mode the server stays a bare-`401` resource that validates via `/api/v4/user`, and all the OAuth work happens on the **client** side (Path A below). OIDC remains the production default; `gitlab-pat` is opt-in via `NEO_AUTH_MODE`.
 

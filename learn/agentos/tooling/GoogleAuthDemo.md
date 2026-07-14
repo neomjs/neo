@@ -29,7 +29,7 @@ Update your `.env` file or IaC environment variables.
 Google provides a standard OIDC discovery endpoint. This is the easiest way to configure the server.
 
 ```bash
-NEO_TRANSPORT=sse
+NEO_TRANSPORT=streamable-http
 MCP_HTTP_PORT=3000   # legacy alias `SSE_PORT` still works during the #10808 deprecation window
 HOST=mcp.yourdomain.com
 
@@ -47,7 +47,7 @@ Ensure `HOST` is set correctly. If your server is behind a load balancer with SS
 ## Step 3: Technical Nuances
 
 ### Token Introspection
-Unlike Keycloak, Google does not strictly adhere to the RFC 7662 introspection spec for all token types in the same way. However, for **OpenID Connect**, the MCP SDK handles the validation of the Bearer token. 
+Unlike Keycloak, Google does not strictly adhere to the RFC 7662 introspection spec for all token types in the same way. However, for **OpenID Connect**, the MCP SDK handles the validation of the Bearer token.
 
 ### Audience (aud) Validation
 Google ID Tokens include the `aud` field, which matches your `NEO_OAUTH_CLIENT_ID`. The Neo.mjs MCP server will validate that the incoming token's audience is authorized to access the resource.

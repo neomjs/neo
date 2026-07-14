@@ -207,7 +207,7 @@ Supply these values per service/profile as needed:
 
 | Variable | Target | Purpose |
 |---|---|---|
-| `NEO_TRANSPORT=sse` | KB, MC | HTTP/SSE transport for deployed MCP servers. |
+| `NEO_TRANSPORT=streamable-http` | KB, MC | Streamable HTTP transport for deployed MCP servers. |
 | `MCP_HTTP_PORT` | KB, MC | Internal listener port. Current baseline: KB `3000`, MC `3001`. |
 | `NEO_PUBLIC_URL` | KB, MC | Canonical public MCP URL used for advertised endpoints and auth callbacks. |
 | `NEO_CHROMA_HOST` | KB, MC, Orchestrator | Internal Chroma host, for example `chroma`. |

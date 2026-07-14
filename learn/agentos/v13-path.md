@@ -43,13 +43,13 @@ Verified by grep + file inspection of `ai/mcp/server/*/Server.mjs`, `ai/daemons/
 
 ### D1: Factory Pattern Evaluation (challenge)
 
-The Factory pattern landed 2026-05-07 in `ai/mcp/server/shared/services/RequestContextService.mjs` — a Neo singleton wrapping `AsyncLocalStorage` to propagate per-request identity (`userId`, `username`, `agentIdentityNodeId`) into service-layer calls. SSE transport and stdio transport both wrap dispatch in `RequestContextService.run({...}, async () => { ... })`.
+The Factory pattern landed 2026-05-07 in `ai/mcp/server/shared/services/RequestContextService.mjs` — a Neo singleton wrapping `AsyncLocalStorage` to propagate per-request identity (`userId`, `username`, `agentIdentityNodeId`) into service-layer calls. Streamable HTTP and stdio transports both wrap dispatch in `RequestContextService.run({...}, async () => { ... })`.
 
-**Pros:** clean separation of concerns; services don't need auth-claim parameters; works uniformly across SSE (per-request) and stdio (per-server-boot identity).
+**Pros:** clean separation of concerns; services don't need auth-claim parameters; works uniformly across Streamable HTTP (per-request) and stdio (per-server-boot identity).
 
 **Cons / challenges to address before v13:**
 - **Adoption gap**: only 2/5 servers wrap dispatch with `RequestContextService.run`. The 3 unwrapped servers (file-system, github-workflow, neural-link) silently fall back to "no identity context" → tenant-aware code paths in their service layers behave as if single-tenant. **Resolution**: common base server class (D2) wraps dispatch uniformly.
-- **AsyncLocalStorage edge cases**: long-running async chains (e.g., `setTimeout` callbacks, daemon-spawned work) may lose context. Specific surfaces to audit: **`EventEmitter` boundaries** (handlers fire in the emitter's own context, not the caller's) and **SSE streaming async generators** (iterators that yield asynchronously to the event loop can lose context across yield points). **Open question**: does any current service spawn out-of-context async work via these patterns? Audit needed in M2.
+- **AsyncLocalStorage edge cases**: long-running async chains (e.g., `setTimeout` callbacks, daemon-spawned work) may lose context. Specific surfaces to audit: **`EventEmitter` boundaries** (handlers fire in the emitter's own context, not the caller's) and **SSE-framed Streamable HTTP async generators** (iterators that yield asynchronously to the event loop can lose context across yield points). **Open question**: does any current service spawn out-of-context async work via these patterns? Audit needed in M2.
 - **Daemon context**: the Orchestrator daemon (D3) runs scheduled work without a request-context. Services it calls need to handle `getUserId() === undefined` gracefully (as `SHARED_USER_ID` per #10556) — already designed for, but verify on each call site.
 
 **Recommendation:** keep Factory pattern; surface it in the common base class (D2); audit AsyncLocalStorage edge cases as a single-PR sweep.
@@ -59,7 +59,7 @@ The Factory pattern landed 2026-05-07 in `ai/mcp/server/shared/services/RequestC
 Eliminates the per-server `Server.mjs` boilerplate duplication. Provides:
 - MCP server initialization (capabilities, tool registration via openapi.yaml schemas)
 - Auth integration (`AuthService`, `AuthMiddleware`)
-- Transport setup (`TransportService` for SSE, stdio handler)
+- Transport setup (`TransportService` for Streamable HTTP, stdio handler)
 - Request-context wrapping (Factory pattern uniform application)
 - Healthcheck registration
 - Graceful shutdown

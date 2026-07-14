@@ -58,7 +58,7 @@ The invariant that holds regardless of the transport: **the tenant tuple is
 server-derived from the authenticated identity, never trusted from the
 payload.**
 
-The shipped HTTP/SSE deployment has three identity shapes:
+The shipped Streamable HTTP deployment has three identity shapes:
 
 - **OIDC server mode** (`NEO_AUTH_MODE=oidc`, the default) validates
   `Authorization: Bearer <token>` through the configured issuer, enforces the

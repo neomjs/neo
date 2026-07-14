@@ -2,7 +2,7 @@
 
 The `BaseServer` class (`Neo.ai.mcp.server.BaseServer`) provides a standardized template-method scaffold for all Neo.mjs MCP servers (Memory Core, Knowledge Base, GitHub Workflow, Neural Link, File System).
 
-It was introduced during the **M2 Migration Series** (Ticket #10965) to eliminate boilerplate duplication, standardize the boot lifecycle, and unify transport logic (stdio and SSE) across the entire suite.
+It was introduced during the **M2 Migration Series** (Ticket #10965) to eliminate boilerplate duplication, standardize the boot lifecycle, and unify transport logic (stdio and Streamable HTTP) across the entire suite.
 
 ## Core Responsibilities
 
@@ -11,7 +11,7 @@ The base class lifts the following common boilerplate out of individual servers:
 - **Request Handlers:** Wiring up the default `ListToolsRequestSchema` and `CallToolRequestSchema` handlers.
 - **Result Formatting:** Wrapping tool results or exceptions in the standard MCP envelope (`{content, isError, structuredContent?}`).
 - **Health Gating:** Intercepting tool calls to execute pre-dispatch health checks, gracefully degrading unready servers instead of crashing.
-- **Transport Connection:** Selecting and connecting the correct transport (stdio vs SSE) based on runtime configuration.
+- **Transport Connection:** Selecting and connecting the correct transport (`stdio` or `streamable-http`) based on runtime configuration, while rejecting every unknown server value.
 
 ## Extension Model
 
@@ -33,8 +33,8 @@ Subclasses MAY override these to augment behavior:
 - `beforeToolDispatch(context)`: Fires **before** the health check in `CallTool`. Throwing here aborts the call as a tool error (e.g., identity spoof validation).
 - `onHealthGateFailure(context)`: Fires when the health check rejects a call. Useful for telemetry (e.g., knowledge-base logging blocked dispatches).
 - `logStartupStatus(health)`: Formats the post-healthcheck startup log line.
-- `buildRequestContext(reqAuth)`: *(SSE-only)* Builds per-request context structures.
-- `onSessionClosed(sessionId, mcpServerInstance)`: *(SSE-only)* Fired when an SSE session disconnects.
+- `buildRequestContext(reqAuth)`: *(Streamable-HTTP-only)* Builds per-request context structures.
+- `onSessionClosed(sessionId, mcpServerInstance)`: *(Streamable-HTTP-only)* Fired when a Streamable HTTP session disconnects.
 
 ## The Canonical Boot Sequence
 

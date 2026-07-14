@@ -1,7 +1,7 @@
-import crypto                  from 'crypto';
-import Base                    from '../../../src/core/Base.mjs';
-import WebhookDeliveryService  from './WebhookDeliveryService.mjs';
-import logger                  from '../../mcp/server/memory-core/logger.mjs';
+import crypto                 from 'crypto';
+import Base                   from '../../../src/core/Base.mjs';
+import WebhookDeliveryService from './WebhookDeliveryService.mjs';
+import logger                 from '../../mcp/server/memory-core/logger.mjs';
 
 /**
  * @summary Token-economy throttle / coalescing engine for the cross-harness
@@ -81,7 +81,7 @@ class CoalescingEngineService extends Base {
      * @summary Registers an MCP server instance for push notifications.
      * @description Provides the engine with the handle needed to dispatch
      * notifications (Shape A) back to the client. Should be populated at boot
-     * or per-SSE session.
+     * or per-Streamable-HTTP session.
      * @param {McpServer} mcpServer
      */
     addMcpServer(mcpServer) {
@@ -192,7 +192,7 @@ class CoalescingEngineService extends Base {
     _resolveWindowMs(subscription) {
         const meta     = subscription.harnessTargetMetadata || {};
         const override = meta.coalesceWindow;
-        let seconds    = (override === undefined || override === null) ? this.defaultWindowSeconds : override;
+        let   seconds  = (override === undefined || override === null) ? this.defaultWindowSeconds : override;
         seconds        = Math.max(0, Math.min(this.maxWindowSeconds, Number(seconds) || 0));
         return seconds * 1000;
     }

@@ -103,6 +103,26 @@ test.describe('Memory Core Config (#10010)', () => {
         expect(config.memorySharing.defaultPolicy).toBe('team');
     });
 
+    test('constructs the canonical server transport values from default and env input', () => {
+        const defaultMC = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+
+        try {
+            expect(defaultMC.transport).toBe('stdio');
+        } finally {
+            defaultMC.destroy();
+        }
+
+        process.env.NEO_TRANSPORT = 'streamable-http';
+
+        const remoteMC = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+
+        try {
+            expect(remoteMC.transport).toBe('streamable-http');
+        } finally {
+            remoteMC.destroy();
+        }
+    });
+
     test('inherits deployment-wide Tier-1 defaults (provider, auth, ollama, openAiCompatible, storage) via the realm chain', () => {
         // MC declares none of these locally — they resolve UP the getParent() chain to the
         // Tier-1 realm root. Read KEYED, never whole-namespace: `toEqual(config.ollama)` would

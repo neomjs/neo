@@ -19,7 +19,7 @@ import {Readable}     from 'stream';
 /**
  * Unit coverage for the tenant-side KB push client.
  *
- * The script is the operator-facing StreamableHTTP/SSE invocation primitive for repo-push
+ * The script is the operator-facing remote MCP invocation primitive for repo-push
  * ingestion envelopes. Tests keep network/client work injected so parsing, auth headers,
  * envelope defaults, and MCP result failure semantics are verified without a live KB server.
  */
@@ -144,12 +144,12 @@ test.describe('ai/scripts/maintenance/kbPushClient — repo-push MCP client (#11
             manifestSnapshot: {pathsAfterPush: ['src/a.mjs']}
         }, {
             tenantId: 'cli-tenant',
-            repoSlug : 'neomjs/create-app'
+            repoSlug: 'neomjs/create-app'
         });
 
         expect(normalized).toEqual({
             tenantId        : 'payload-tenant',
-            repoSlug         : 'neomjs/create-app',
+            repoSlug        : 'neomjs/create-app',
             manifestSnapshot: {
                 repoSlug      : 'neomjs/create-app',
                 pathsAfterPush: ['src/a.mjs']
@@ -190,9 +190,9 @@ test.describe('ai/scripts/maintenance/kbPushClient — repo-push MCP client (#11
     });
 
     test('runPush calls ingest_source_files with envelope defaults and cleans transient client config', async () => {
-        const calls = [];
+        const calls        = [];
         const clientConfig = {data: {mcpServers: {}}};
-        const args = parseArgs([
+        const args         = parseArgs([
             '--url', 'https://kb.example.com/mcp',
             '--from-stdin',
             '--tenant-id', 'tenant-a',
@@ -225,8 +225,8 @@ test.describe('ai/scripts/maintenance/kbPushClient — repo-push MCP client (#11
             name    : 'ingest_source_files',
             envelope: {
                 tenantId: 'tenant-a',
-                repoSlug : 'neomjs/create-app',
-                files    : [{sourcePath: 'src/a.mjs', content: 'x'}]
+                repoSlug: 'neomjs/create-app',
+                files   : [{sourcePath: 'src/a.mjs', content: 'x'}]
             }
         });
         expect(calls[2].type).toBe('close');

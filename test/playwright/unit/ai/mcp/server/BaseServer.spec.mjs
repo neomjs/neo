@@ -162,6 +162,101 @@ test.describe('Neo.ai.mcp.server.BaseServer — optional hook defaults', () => {
     });
 });
 
+test.describe('Neo.ai.mcp.server.BaseServer — exhaustive server transport selection (#15188)', () => {
+    function createTransportServer(transport) {
+        const id = ++_testClassCounter;
+
+        class TransportServer extends BaseServer {
+            static config = {className: `Neo.test.mcp.server.TransportServer${id}`}
+
+            aiConfig = {transport}
+            logger   = {info() {}}
+
+            async initAsync() {}
+            getServerMetadata() { return {name: 'neo-transport-test'}; }
+            getToolService()    { return {listTools: () => ({tools: []}), callTool: async () => null}; }
+        }
+
+        return Neo.create(Neo.setupClass(TransportServer));
+    }
+
+    test('stdio starts StdioServerTransport', async () => {
+        const server = createTransportServer('stdio');
+        let connectedTransport;
+
+        server.mcpServer = {
+            connect: async transport => connectedTransport = transport
+        };
+
+        try {
+            await server.connectTransport();
+
+            expect(connectedTransport?.constructor?.name).toBe('StdioServerTransport');
+            expect(server.transport).toBe(connectedTransport);
+        } finally {
+            server.destroy();
+        }
+    });
+
+    test('streamable-http delegates to the shared Streamable HTTP service', async () => {
+        const server           = createTransportServer('streamable-http');
+        const TransportService = (await import('../../../../../../ai/mcp/server/shared/services/TransportService.mjs')).default;
+        const originalSetup    = TransportService.setup;
+        let setupOptions;
+
+        TransportService.setup = async options => setupOptions = options;
+
+        try {
+            await server.connectTransport();
+
+            expect(setupOptions).toMatchObject({
+                server,
+                aiConfig    : server.aiConfig,
+                logger      : server.logger,
+                resourceName: 'neo-transport-test MCP'
+            });
+            expect(server.transport).toBeNull();
+        } finally {
+            TransportService.setup = originalSetup;
+            server.destroy();
+        }
+    });
+
+    test('old sse server value fails with the canonical migration', async () => {
+        const server    = createTransportServer('sse');
+        let   connected = false;
+
+        server.mcpServer = {connect: async () => connected = true};
+
+        try {
+            await expect(server.connectTransport()).rejects.toThrow(
+                /Server transport "sse" was renamed to "streamable-http"/
+            );
+            expect(connected).toBe(false);
+            expect(server.transport).toBeNull();
+        } finally {
+            server.destroy();
+        }
+    });
+
+    test('arbitrary unknown server value fails before transport startup', async () => {
+        const server    = createTransportServer('websocket');
+        let   connected = false;
+
+        server.mcpServer = {connect: async () => connected = true};
+
+        try {
+            await expect(server.connectTransport()).rejects.toThrow(
+                /Unsupported server transport "websocket".*Expected "stdio" or "streamable-http"/
+            );
+            expect(connected).toBe(false);
+            expect(server.transport).toBeNull();
+        } finally {
+            server.destroy();
+        }
+    });
+});
+
 test.describe('Neo.ai.mcp.server.BaseServer — formatToolResult shapes', () => {
     test('object result without error → text + structuredContent', () => {
         const Cls    = makeTestServerClass();
@@ -240,22 +335,22 @@ test.describe('Neo.ai.mcp.server.BaseServer — formatToolResult shapes', () => 
         expect(result.isError).toBe(true);
         expect(result.content[0].text).toBe('Policy Refused executing write_file: blocked by policy');
         expect(result.structuredContent).toEqual({
-            error    : 'Policy Refused',
-            code     : 'POLICY_REFUSED',
-            reason   : 'blocked by policy',
-            policyId : 'test.policy',
-            action   : 'write_file',
-            tenet    : '#10293',
-            details  : {targetPath: '/repo/AGENTS_TENETS.md'}
+            error   : 'Policy Refused',
+            code    : 'POLICY_REFUSED',
+            reason  : 'blocked by policy',
+            policyId: 'test.policy',
+            action  : 'write_file',
+            tenet   : '#10293',
+            details : {targetPath: '/repo/AGENTS_TENETS.md'}
         });
     });
 });
 
 test.describe('Neo.ai.mcp.server.BaseServer — setupRequestHandlers wiring', () => {
     test('registers both ListTools and CallTool handlers', () => {
-        const Cls       = makeTestServerClass();
-        const server    = Neo.create(Cls);
-        const mockMcp   = makeMockMcpServer();
+        const Cls     = makeTestServerClass();
+        const server  = Neo.create(Cls);
+        const mockMcp = makeMockMcpServer();
 
         server.setupRequestHandlers(mockMcp);
 
@@ -273,9 +368,9 @@ test.describe('Neo.ai.mcp.server.BaseServer — setupRequestHandlers wiring', ()
     });
 
     test('ListTools handler returns mcpTools mapping from per-server toolService', async () => {
-        const Cls       = makeTestServerClass();
-        const server    = Neo.create(Cls);
-        const mockMcp   = makeMockMcpServer();
+        const Cls     = makeTestServerClass();
+        const server  = Neo.create(Cls);
+        const mockMcp = makeMockMcpServer();
         server.setupRequestHandlers(mockMcp);
 
         const result = await mockMcp.getListToolsHandler()({params: {}});
@@ -292,7 +387,7 @@ test.describe('Neo.ai.mcp.server.BaseServer — setupRequestHandlers wiring', ()
 
     test('ListTools handler passes projection context into per-server toolService', async () => {
         const seen = [];
-        const Cls = makeTestServerClass({
+        const Cls  = makeTestServerClass({
             buildToolProjectionContext: ({request, phase}) => {
                 expect(phase).toBe('listTools');
                 expect(request.params._meta.neoToolProjection).toBe('harness-embedded');
@@ -325,9 +420,9 @@ test.describe('Neo.ai.mcp.server.BaseServer — setupRequestHandlers wiring', ()
     });
 
     test('CallTool handler dispatches via wrapDispatch + formatToolResult', async () => {
-        const Cls       = makeTestServerClass();
-        const server    = Neo.create(Cls);
-        const mockMcp   = makeMockMcpServer();
+        const Cls     = makeTestServerClass();
+        const server  = Neo.create(Cls);
+        const mockMcp = makeMockMcpServer();
         server.setupRequestHandlers(mockMcp);
 
         const result = await mockMcp.getCallToolHandler()({
@@ -376,8 +471,8 @@ test.describe('Neo.ai.mcp.server.BaseServer — setupRequestHandlers wiring', ()
     });
 
     test('CallTool handler applies health-gate when healthService present and tool not exempt', async () => {
-        let healthCheckCalls = 0;
-        const Cls = makeTestServerClass({
+        let   healthCheckCalls = 0;
+        const Cls              = makeTestServerClass({
             getHealthService: () => ({
                 ensureHealthy: async () => { healthCheckCalls++; }
             })
@@ -394,8 +489,8 @@ test.describe('Neo.ai.mcp.server.BaseServer — setupRequestHandlers wiring', ()
     });
 
     test('CallTool handler skips health-gate for exempt tools', async () => {
-        let healthCheckCalls = 0;
-        const Cls = makeTestServerClass({
+        let   healthCheckCalls = 0;
+        const Cls              = makeTestServerClass({
             getHealthService    : () => ({ensureHealthy: async () => { healthCheckCalls++; }}),
             getHealthExemptTools: () => ['healthcheck', 'sample']
         });
@@ -430,9 +525,9 @@ test.describe('Neo.ai.mcp.server.BaseServer — setupRequestHandlers wiring', ()
 
     test('beforeToolDispatch hook fires BEFORE health gate with toolName + args', async () => {
         const order = [];
-        const Cls = makeTestServerClass({
-            getHealthService    : () => ({ensureHealthy: async () => { order.push('healthGate'); }}),
-            beforeToolDispatch  : async ({toolName, args}) => { order.push(`beforeToolDispatch:${toolName}:${args.x}`); }
+        const Cls   = makeTestServerClass({
+            getHealthService  : () => ({ensureHealthy: async () => { order.push('healthGate'); }}),
+            beforeToolDispatch: async ({toolName, args}) => { order.push(`beforeToolDispatch:${toolName}:${args.x}`); }
         });
         const server  = Neo.create(Cls);
         const mockMcp = makeMockMcpServer();
@@ -448,8 +543,8 @@ test.describe('Neo.ai.mcp.server.BaseServer — setupRequestHandlers wiring', ()
 
     test('beforeToolDispatch throw routes to formatToolError envelope (not formatHealthError)', async () => {
         const Cls = makeTestServerClass({
-            getHealthService    : () => ({ensureHealthy: async () => {}}),
-            beforeToolDispatch  : async () => { throw new Error('Identity spoof rejected'); }
+            getHealthService  : () => ({ensureHealthy: async () => {}}),
+            beforeToolDispatch: async () => { throw new Error('Identity spoof rejected'); }
         });
         const server  = Neo.create(Cls);
         const mockMcp = makeMockMcpServer();
@@ -466,9 +561,9 @@ test.describe('Neo.ai.mcp.server.BaseServer — setupRequestHandlers wiring', ()
 
     test('onHealthGateFailure hook fires with context (toolName/args/error/t0) before formatHealthError', async () => {
         const captured = [];
-        const Cls = makeTestServerClass({
-            getHealthService    : () => ({ensureHealthy: async () => { throw new Error('Service down'); }}),
-            onHealthGateFailure : async (ctx) => { captured.push(ctx); }
+        const Cls      = makeTestServerClass({
+            getHealthService   : () => ({ensureHealthy: async () => { throw new Error('Service down'); }}),
+            onHealthGateFailure: async (ctx) => { captured.push(ctx); }
         });
         const server  = Neo.create(Cls);
         const mockMcp = makeMockMcpServer();
@@ -511,7 +606,7 @@ test.describe('Neo.ai.mcp.server.BaseServer — setupRequestHandlers wiring', ()
 
     test('wrapDispatch override threads context around toolService.callTool', async () => {
         const wrapCalls = [];
-        const Cls = makeTestServerClass({
+        const Cls       = makeTestServerClass({
             wrapDispatch: async (dispatch) => {
                 wrapCalls.push('before');
                 const result = await dispatch();
@@ -596,7 +691,7 @@ test.describe('Neo.ai.mcp.server.BaseServer — initAsync canonical sequence', (
             async afterTransportConnected() { calls.push('afterTransportConnected'); }
         }
 
-        const Cls    = Neo.setupClass(SequenceServer);
+        const Cls = Neo.setupClass(SequenceServer);
         // Neo.create() auto-runs initAsync via its construction lifecycle. ready() awaits the
         // chain — calling initAsync manually would re-run the sequence and double the call list.
         const server = Neo.create(Cls);
@@ -616,7 +711,7 @@ test.describe('Neo.ai.mcp.server.BaseServer — initAsync canonical sequence', (
     });
 
     test('waitForDependentServices awaits ready() on each service in declaration order', async () => {
-        const order = [];
+        const order       = [];
         const makeService = (name) => {
             let called = false;
             return {
@@ -648,10 +743,10 @@ test.describe('Neo.ai.mcp.server.BaseServer — initAsync canonical sequence', (
     });
 
     test('loadCustomConfig is no-op when configFile unset', async () => {
-        let loadCalls = 0;
-        const Cls = makeTestServerClass();
-        const server  = Neo.create(Cls);
-        server.aiConfig = {load: async () => { loadCalls++; }};
+        let   loadCalls = 0;
+        const Cls       = makeTestServerClass();
+        const server    = Neo.create(Cls);
+        server.aiConfig = {transport: 'stdio', load: async () => { loadCalls++; }};
         // configFile remains null
 
         await server.loadCustomConfig();
@@ -659,10 +754,10 @@ test.describe('Neo.ai.mcp.server.BaseServer — initAsync canonical sequence', (
     });
 
     test('loadCustomConfig invokes aiConfig.load when configFile set', async () => {
-        let loadedFrom = null;
-        const Cls = makeTestServerClass();
-        const server = Neo.create(Cls);
-        server.aiConfig = {load: async (path) => { loadedFrom = path; }};
+        let   loadedFrom = null;
+        const Cls        = makeTestServerClass();
+        const server     = Neo.create(Cls);
+        server.aiConfig = {transport: 'stdio', load: async (path) => { loadedFrom = path; }};
         server.configFile = '/tmp/custom-config.mjs';
 
         await server.loadCustomConfig();
