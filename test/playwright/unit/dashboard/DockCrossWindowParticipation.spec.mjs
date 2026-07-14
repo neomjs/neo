@@ -14,8 +14,8 @@ import * as core      from '../../../../src/core/_export.mjs';
  * @summary Tests for Neo.dashboard.DockCrossWindowParticipation — the adapter-tier composition
  * that wires ONE dock workspace into the §2.3 cross-window contract over landed machinery only:
  * target registration lifecycle, the owner seams, foreign-vs-local drop discrimination, the
- * atomic `transferItem` composition, and the durable placement-hint updates riding the same
- * commit. The executor itself is the REAL DockZoneModel — no transfer semantics are mocked.
+ * atomic `transferItem` composition, and finite-schema publication of the executor's document
+ * pair. The executor itself is the REAL DockZoneModel — no transfer semantics are mocked.
  */
 
 /** A fresh source-workspace document ('A') — `terminal` is the item every transfer moves. */
@@ -49,7 +49,7 @@ function targetDoc() {
 }
 
 test.describe('Neo.dashboard.DockCrossWindowParticipation (ADR 0029 §2.3 — workspace wiring)', () => {
-    let DockCrossWindowParticipation, DockTabSortZone, DragCoordinator, Rectangle, WindowManager;
+    let DockCrossWindowParticipation, DockTabSortZone, DockZoneModel, DragCoordinator, Rectangle, WindowManager;
 
     const createCoordinatorStub = calls => ({
         register  : zone => calls.push(['register', zone]),
@@ -59,6 +59,7 @@ test.describe('Neo.dashboard.DockCrossWindowParticipation (ADR 0029 §2.3 — wo
     test.beforeAll(async () => {
         DockCrossWindowParticipation = (await import('../../../../src/dashboard/DockCrossWindowParticipation.mjs')).default;
         DockTabSortZone              = (await import('../../../../src/dashboard/DockTabSortZone.mjs')).default;
+        DockZoneModel                = (await import('../../../../src/dashboard/DockZoneModel.mjs')).default;
         DragCoordinator              = (await import('../../../../src/manager/DragCoordinator.mjs')).default;
         Rectangle                    = (await import('../../../../src/util/Rectangle.mjs')).default;
         WindowManager                = (await import('../../../../src/manager/Window.mjs')).default
@@ -172,30 +173,53 @@ test.describe('Neo.dashboard.DockCrossWindowParticipation (ADR 0029 §2.3 — wo
         participation.destroy()
     });
 
-    test('durable placement hints ride the SAME commit: owningWorkspaceId + semantic fallbackTarget, for addTab AND splitNode shapes', () => {
-        for (const [operation, expectedNodeId] of [
-            [{operation: 'addTab', itemId: 'terminal', tabsNodeId: 'main-tabs'}, 'main-tabs'],
-            [{operation: 'splitNode', itemId: 'terminal', targetNodeId: 'main-tabs', orientation: 'horizontal', position: 'after', sizes: [0.5, 0.5]}, 'main-tabs']
+    test('foreign addTab and splitNode publish verbatim finite item records that remain topology-capturable', () => {
+        for (const operation of [
+            {operation: 'addTab', itemId: 'terminal', tabsNodeId: 'main-tabs'},
+            {operation: 'splitNode', itemId: 'terminal', targetNodeId: 'main-tabs', orientation: 'horizontal', position: 'after', sizes: [0.5, 0.5]}
         ]) {
             const transfers     = [];
+            const source        = sourceDoc();
+            const target        = targetDoc();
+            const sourceRecord  = {...source.items.terminal};
             const participation = Neo.create(DockCrossWindowParticipation, {
                 commitTransfer    : published => transfers.push(published),
                 dragCoordinator   : createCoordinatorStub([]),
-                getDocument       : () => targetDoc(),
-                getForeignDocument: () => sourceDoc(),
+                getDocument       : () => target,
+                getForeignDocument: () => source,
                 sortGroup         : 'dock-demo',
                 windowId          : 'window-b',
                 workspaceId       : 'B'
             });
 
-            participation.commitDrop(operation, {dockItemId: 'terminal', dockSourceWorkspaceId: 'A'});
+            const result = participation.commitDrop(operation, {dockItemId: 'terminal', dockSourceWorkspaceId: 'A'});
 
-            const record = transfers[0].targetDocument.items.terminal;
+            expect(result).not.toBeNull();
+            expect(transfers).toHaveLength(1);
 
-            // the hints are in the PUBLISHED document — same commit, never a follow-up write;
-            // the fallback is a semantic node reference, never geometry (§2.1 durable tier)
-            expect(record.owningWorkspaceId).toBe('B');
-            expect(record.fallbackTarget).toEqual({nodeId: expectedNodeId, workspaceId: 'B'});
+            const {sourceDocument, targetDocument} = transfers[0];
+            const record                           = targetDocument.items.terminal;
+
+            // The generic dock item travels verbatim. Placement intent is perspective/workspace
+            // state and must never make the published `dockZone.v1` catalog open-ended.
+            expect(record).toEqual(sourceRecord);
+            expect(record).not.toHaveProperty('owningWorkspaceId');
+            expect(record).not.toHaveProperty('fallbackTarget');
+            expect(DockZoneModel.validate(sourceDocument)).toEqual([]);
+            expect(DockZoneModel.validate(targetDocument)).toEqual([]);
+
+            // The finite writer is the integration tripwire that the former loose fields failed.
+            // Exercise the real two-document capture for BOTH placement shapes.
+            const captured = DockZoneModel.captureTopologyPerspective([sourceDocument, targetDocument], {
+                layoutId       : `post-${operation.operation}`,
+                perspectiveName: `Post ${operation.operation}`,
+                revision       : 1,
+                title          : `Post ${operation.operation}`
+            });
+
+            expect(captured.errors).toEqual([]);
+            expect(captured.layout.captureScope).toBe('topology');
+            expect(captured.layout.windowDocuments).toHaveLength(1);
 
             participation.destroy()
         }
