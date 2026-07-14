@@ -81,9 +81,9 @@ const expectSignalBracket = async (page, {appearMs = 1500, clearMs = 3500} = {})
 };
 
 // The stable-marker motion witness: rAF-records {x, y, w, o} tuples for the first element
-// matching the selector. Sampling by MARKER CLASS, never by instance, is what lets observation
-// live THROUGH a removeAll+rebuild re-projection — the marker is exactly the
-// survives-recreation correlation key the FLIP addon itself uses. Fail-closed semantics:
+// matching the selector. Sampling by MARKER CLASS, never by instance, keeps observation
+// item-specific through native reparenting or a genuinely absent pane's later recreation — the
+// marker is the same stable correlation key the FLIP addon uses. Fail-closed semantics:
 // frames without a match count as gaps (no fabricated zeros), zero-size reads ARE recorded so
 // a consumer can convict them, and every consumer asserts a minimum sample floor before
 // reading shape — an oracle that observed nothing must fail, never default-pass.
@@ -159,7 +159,7 @@ test.describe('Dock motion pipeline (Neural Link) — the signal brackets real m
                 generic: identify(genericSelector)
             };
 
-            // Model removeAll()+rebuild reprojection with fresh nodes and the opposite DOM order.
+            // Model a fresh projection sample with new nodes and the opposite DOM order.
             root.replaceChildren(createMarker('beta'), createMarker(pinnedItemId));
 
             const afterReprojection = {
@@ -285,7 +285,7 @@ test.describe('Dock motion pipeline (Neural Link) — the signal brackets real m
         const { app, holderId } = await connect(page, neuralLink);
 
         // Deterministic state: restore the seeded Operator perspective through the visible product
-        // control. Restore is an unrelated coarse projection and MUST carry no tab-enter class.
+        // control. Restore is an unrelated reconciled projection and MUST carry no tab-enter class.
         await page.getByRole('button', {name: 'Operator', exact: true}).click();
         await expect.poll(async () => {
             const topo = await app.getDockTopology(holderId);
@@ -340,15 +340,15 @@ test.describe('Dock motion pipeline (Neural Link) — the signal brackets real m
         expect(result.document.nodes['main-tabs'].items.indexOf('swarm')).toBe(1);
         expect(result.document.nodes['main-tabs'].items.filter(itemId => itemId !== 'swarm'))
             .toEqual(unrelatedItems);
-        await expect(page.locator('.neo-dashboard-dock-tab-enter')).toHaveCount(1);
+        await expect(page.locator('.neo-dashboard-dock-tab-enter')).toHaveCount(0);
         await expect(page.locator(`${ENTER}${SIGNAL}`)).toHaveCount(0);
 
-        // A later restore is another full removeAll/rebuild but has no addTab descriptor. The
-        // recreated headers must be inert — the one-use correlation cannot leak across projections.
+        // A later identity-reconciled restore has no addTab descriptor. Retained or newly
+        // materialized headers must be inert — the one-use correlation cannot leak across projections.
         await page.getByRole('button', {name: 'Operator', exact: true}).click();
         await expect.poll(
             () => page.locator('.neo-dashboard-dock-tab-enter').count(),
-            {message: 'later coarse projections must not replay tab insertion', timeout: 5000, intervals: [50]}
+            {message: 'later reconciled projections must not replay tab insertion', timeout: 5000, intervals: [50]}
         ).toBe(0)
     });
 
@@ -393,6 +393,8 @@ test.describe('Dock motion pipeline (Neural Link) — the signal brackets real m
 
         // the reveal actually opened (the signal wasn't a stray)
         await expect(page.locator(OVERLAY)).toHaveCount(1);
+        await expect(page.locator(`${OVERLAY} .dock-flip-item-inspector`),
+            'the post-reconcile rail must resolve the real Inspector pane, not a staged placeholder').toBeVisible();
     });
 });
 
@@ -526,7 +528,7 @@ test.describe('Dock motion pipeline — reduced-motion collapses through the tok
         expect(result.document.nodes['main-tabs'].items.indexOf('swarm')).toBe(1);
         expect(result.document.nodes['main-tabs'].items.filter(itemId => itemId !== 'swarm'))
             .toEqual(unrelatedItems);
-        await expect(page.locator('.neo-dashboard-dock-tab-enter.dock-tab-enter-item-swarm')).toHaveCount(1);
+        await expect(page.locator('.neo-dashboard-dock-tab-enter.dock-tab-enter-item-swarm')).toHaveCount(0);
         await expect.poll(
             () => page.locator(SIGNAL).count(),
             {message: '0ms tab insertion must settle without sustained motion', timeout: 1500, intervals: [25]}

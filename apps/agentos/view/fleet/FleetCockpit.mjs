@@ -1,20 +1,22 @@
-import ActivityStream          from './ActivityStream.mjs';
-import AgentDetail             from './AgentDetail.mjs';
-import Button                  from '../../../../src/button/Base.mjs';
-import Container               from '../../../../src/container/Base.mjs';
-import DockLayoutAdapter       from '../../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockMotionSignal        from '../../../../src/dashboard/DockMotionSignal.mjs';
-import DockPerspectiveStore    from '../../../../src/dashboard/DockPerspectiveStore.mjs';
-import DockPreviewProducer     from '../../../../src/dashboard/DockPreviewProducer.mjs';
-import DockZoneModel           from '../../../../src/dashboard/DockZoneModel.mjs';
-import FleetCockpitController  from './FleetCockpitController.mjs';
-import FleetGrid               from './FleetGrid.mjs';
-import FleetRoster             from '../../store/FleetRoster.mjs';
-import StateProvider           from '../../../../src/state/Provider.mjs';
-import cockpitDockDocument     from './cockpitDockDocument.mjs';
-import cockpitPresetCollection from './cockpitPresets.mjs';
-import {mapFleetSessionHealth} from './sourceHealth.mjs';
-import {previewToOperation}    from '../../../../src/dashboard/dockPreviewContract.mjs';
+import ActivityStream           from './ActivityStream.mjs';
+import AgentDetail              from './AgentDetail.mjs';
+import Button                   from '../../../../src/button/Base.mjs';
+import Component                from '../../../../src/component/Base.mjs';
+import Container                from '../../../../src/container/Base.mjs';
+import DockLayoutAdapter        from '../../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockMotionSignal         from '../../../../src/dashboard/DockMotionSignal.mjs';
+import DockPerspectiveStore     from '../../../../src/dashboard/DockPerspectiveStore.mjs';
+import DockPreviewProducer      from '../../../../src/dashboard/DockPreviewProducer.mjs';
+import DockProjectionReconciler from '../../../../src/dashboard/DockProjectionReconciler.mjs';
+import DockZoneModel            from '../../../../src/dashboard/DockZoneModel.mjs';
+import FleetCockpitController   from './FleetCockpitController.mjs';
+import FleetGrid                from './FleetGrid.mjs';
+import FleetRoster              from '../../store/FleetRoster.mjs';
+import StateProvider            from '../../../../src/state/Provider.mjs';
+import cockpitDockDocument      from './cockpitDockDocument.mjs';
+import cockpitPresetCollection  from './cockpitPresets.mjs';
+import {mapFleetSessionHealth}  from './sourceHealth.mjs';
+import {previewToOperation}     from '../../../../src/dashboard/dockPreviewContract.mjs';
 import '../../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the dock projection emits for tab zones
 
 /**
@@ -46,14 +48,14 @@ const FIXTURE_ACTIVITY = [
  *   the current document — splitter drags, cross-zone tab drops and NL-driven operations all
  *   funnel through it;
  * - {@link #onDockZoneDocumentChange} is the **view-sync**: it stores the committed document and
- *   re-projects one tick deferred (the committing splitter must finish its own `onDragEnd` before
- *   `removeAll()` destroys it — use-after-destroy otherwise; `isDestroyed` guards teardown).
+ *   reconciles one tick deferred (the committing splitter must finish its own `onDragEnd` before
+ *   its retired shell destroys it — use-after-destroy otherwise; `isDestroyed` guards teardown).
  *
- * Projections REBUILD pane instances (`removeAll` + add), so runtime pane state lives on THIS
- * owner, never on the instances: {@link #resolveDockComponentRef} re-materializes each pane from
- * the held state ({@link #gridAdapterState} / {@link #streamAdapterState} / {@link #streamEvents}),
- * and the panes themselves stay layout-blind per the docking design's pane contract — ordinary
- * configs only, no dock wiring reaches them.
+ * Reconciliation retains existing pane and tab-chrome identities. Runtime pane state still lives
+ * on THIS owner, never only on instances: {@link #resolveDockComponentRef} materializes genuinely
+ * absent panes from held state ({@link #gridAdapterState} / {@link #streamAdapterState} /
+ * {@link #streamEvents}), and the panes stay layout-blind per the docking design's pane contract —
+ * ordinary configs only, no dock wiring reaches them.
  *
  * The roster data layer is ONE {@link AgentOS.store.FleetRoster} Store of
  * {@link AgentOS.model.FleetAgent} records, hosted by THIS view's `state.Provider` (`stores`
@@ -133,6 +135,14 @@ class FleetCockpit extends Container {
      */
     dockModel = null
     /**
+     * The serialized deferred projection queue. Each commit captures its document snapshot and
+     * chains behind the prior staged transaction, so rapid splitter/preset changes cannot overlap
+     * shells or resolve absent panes from a newer document.
+     * @member {Promise|null} refreshPromise=null
+     * @protected
+     */
+    refreshPromise = null
+    /**
      * The named preset library — a {@link Neo.dashboard.DockPerspectiveStore} over the seeded
      * workspace-scope collection ({@link module:cockpitPresets}). The store is the preset SSOT;
      * {@link #dockModel} stays the LIVE layout SSOT — presets are snapshots the switch restores
@@ -155,8 +165,8 @@ class FleetCockpit extends Container {
      */
     dockPreviewProducer = null
     /**
-     * The grid's held `adapterState` — re-projections re-materialize the pane from HERE, so a
-     * committed layout change can never reset a live grid back to its sample badge.
+     * The grid's held `adapterState` — absent-item materialization reads from HERE, so a committed
+     * layout change can never reset a live grid back to its sample badge.
      * @member {String} gridAdapterState='sample'
      * @protected
      */
@@ -187,7 +197,7 @@ class FleetCockpit extends Container {
      */
     rosterWired = false
     /**
-     * The stream's held `adapterState` — the re-projection source of truth, like
+     * The stream's held `adapterState` — the absent-item source of truth, like
      * {@link #gridAdapterState}.
      * @member {String} streamAdapterState='sample'
      * @protected
@@ -195,15 +205,15 @@ class FleetCockpit extends Container {
     streamAdapterState = 'sample'
     /**
      * The stream's held event list (chronological). Starts as the honestly-labelled fixture;
-     * {@link #loadActivity} replaces it with the live feed — re-projections read it back.
+     * {@link #loadActivity} replaces it with the live feed — absent-item materialization reads it back.
      * @member {Object[]} streamEvents=FIXTURE_ACTIVITY
      * @protected
      */
     streamEvents = FIXTURE_ACTIVITY
     /**
-     * The drill-in inspector's selected resident — OWNER-held so a re-projection re-materializes
-     * the {@link AgentOS.view.fleet.AgentDetail} pane at the current selection (`null` = the honest
-     * "select an agent" empty state). The card→detail selection wiring writes it.
+     * The drill-in inspector's selected resident — OWNER-held so a genuinely absent
+     * {@link AgentOS.view.fleet.AgentDetail} pane materializes at the current selection (`null` =
+     * the honest "select an agent" empty state). The card→detail selection wiring writes it.
      * @member {Object|null} detailRecord=null
      * @protected
      */
@@ -234,9 +244,9 @@ class FleetCockpit extends Container {
      * loop — the switch re-projects FLIP-animated exactly like any committed operation, with
      * reduced-motion collapsing through the token layer by construction.
      *
-     * Pane continuity across a switch is state-continuity, not instance identity: projections
-     * rebuild instances by design; the live surfaces re-materialize from the OWNER-held state
-     * ({@link #resolveDockComponentRef}) and the provider-owned roster store never restarts.
+     * Pane continuity across a switch preserves component identity when the item already exists;
+     * genuinely absent surfaces materialize from OWNER-held state ({@link #resolveDockComponentRef}),
+     * while the provider-owned roster store never restarts.
      * @param {String} name The preset's `perspectiveName` (or technical `layoutId`).
      * @returns {{switched: Boolean, errors: String[]}}
      */
@@ -246,7 +256,7 @@ class FleetCockpit extends Container {
 
         if (errors.length) {
             me.presetError = `${name}: ${errors[0]}`;
-            me.refreshDockWorkspace();
+            me.syncControlBar();
             return {errors, switched: false}
         }
 
@@ -300,9 +310,9 @@ class FleetCockpit extends Container {
      * from it.
      *
      * Deferred one tick: this fires synchronously from inside the committing splitter's
-     * `onDragEnd` (via `commitResizeSplit`). Re-projecting immediately would `removeAll()` —
-     * destroying that splitter mid-handler, a use-after-destroy on the rest of `onDragEnd`. The
-     * `isDestroyed` guard covers teardown before the tick fires.
+     * `onDragEnd` (via `commitResizeSplit`). Reconciliation still retires the old shell and its
+     * splitter; doing that mid-handler would create a use-after-destroy on the rest of `onDragEnd`.
+     * The `isDestroyed` guard covers teardown before the tick fires.
      * @param {Object} document The committed dock-zone document.
      */
     onDockZoneDocumentChange(document) {
@@ -310,41 +320,101 @@ class FleetCockpit extends Container {
 
         me.dockModel = document;
 
-        me.timeout(0).then(() => {
-            if (!me.isDestroyed) {
-                me.refreshDockWorkspace()
-            }
-        })
+        me.refreshPromise = (me.refreshPromise || Promise.resolve())
+            .then(() => me.timeout(0))
+            .then(() => {
+                if (!me.isDestroyed) {
+                    return me.refreshDockWorkspace(document)
+                }
+            })
     }
 
     /**
-     * @summary Rebuilds the toolbar + dock projection from current state, FLIP-bracketed: the
-     * outgoing pane geometry is snapshotted so the committed re-layout GLIDES, and the counted
-     * motion signal brackets the animation window (ownership lives in `DockMotionSignal`,
-     * fail-safe backstopped — never in the addon).
+     * @summary Reconciles the dock projection while synchronizing persistent control-bar state.
+     *
+     * The outgoing geometry is FLIP-snapshotted, then the shared reconciler transfers surviving
+     * panes and tab chrome into shell index 1. The toolbar at index 0 remains the same component;
+     * only its pressed/error state changes.
+     * @param {Object} [document=this.dockModel] Committed document snapshot owned by this refresh.
      */
-    async refreshDockWorkspace() {
-        const flip = Neo.main?.addon?.DockFlip;
+    async refreshDockWorkspace(document=this.dockModel) {
+        const
+            me           = this,
+            flip         = Neo.main?.addon?.DockFlip,
+            placeholders = new Map();
 
         try {
-            await flip?.captureFirst({hostId: this.id, markerPrefix: 'dock-flip-item-'})
+            await flip?.captureFirst({hostId: me.id, markerPrefix: 'dock-flip-item-'})
         } catch (e) {/* instant landing */}
 
-        this.removeAll();
-        this.add(this.buildWorkspaceItems());
+        me.syncControlBar();
+
+        const nextConfig = me.projectDockModel((componentRef, item, itemId) => {
+            const placeholder = Neo.create({
+                module: Component,
+                header: {text: item?.title ?? componentRef ?? itemId},
+                hidden: true
+            });
+
+            placeholders.set(itemId, placeholder);
+
+            return placeholder
+        }, document);
+
+        nextConfig.flex = 1;
+
+        await DockProjectionReconciler.reconcileProjection({
+            host       : me,
+            nextConfig,
+            placeholders,
+            resolveItem: itemId => {
+                const item = document.items[itemId];
+
+                return DockLayoutAdapter.decorateProjectedItem(
+                    me.resolveDockComponentRef(item?.componentRef, item, itemId),
+                    itemId,
+                    item
+                )
+            },
+            shellIndex: 1
+        });
 
         if (flip) {
-            DockMotionSignal.enter(this);
-            flip.play({hostId: this.id, markerPrefix: 'dock-flip-item-'})
+            DockMotionSignal.enter(me);
+            flip.play({hostId: me.id, markerPrefix: 'dock-flip-item-'})
                 .catch(() => {})
-                .finally(() => DockMotionSignal.leave(this))
+                .finally(() => DockMotionSignal.leave(me))
         }
     }
 
     /**
-     * Creates the top-level control bar + dock projection items from current state: the preset
-     * switcher on the left (one button per stored perspective, the active one pressed — plus
-     * the fail-closed error chip when a switch was refused), the fleet controls on the right.
+     * @summary Synchronizes the persistent control bar from the perspective store and refusal state.
+     */
+    syncControlBar() {
+        let me             = this,
+            activeLayoutId = me.perspectiveStore?.collection?.activeLayoutId,
+            error          = me.getReference('fleet-preset-error');
+
+        me.items[0]?.items.forEach(item => {
+            const layoutId = item.reference?.startsWith('fleet-preset-')
+                ? item.reference.slice('fleet-preset-'.length)
+                : null;
+
+            layoutId && item.set({pressed: layoutId === activeLayoutId})
+        });
+
+        if (error) {
+            error.set({
+                hidden: !me.presetError,
+                html  : me.presetError || ''
+            })
+        }
+    }
+
+    /**
+     * Creates the persistent top-level control bar plus the initial dock projection. The preset
+     * switcher derives from the stored collection; subsequent refreshes update it in place while
+     * the shared reconciler owns only the projection shell at index 1.
      * @returns {Object[]}
      */
     buildWorkspaceItems() {
@@ -352,11 +422,12 @@ class FleetCockpit extends Container {
             dockConfig     = me.projectDockModel(),
             activeLayoutId = me.perspectiveStore?.collection?.activeLayoutId,
             presetButtons  = (me.perspectiveStore?.list() || []).map(preset => ({
-                module : Button,
-                cls    : ['fm-preset-button'],
-                handler: () => me.activatePerspective(preset.perspectiveName ?? preset.layoutId),
-                pressed: preset.layoutId === activeLayoutId,
-                text   : preset.perspectiveName ?? preset.layoutId
+                module   : Button,
+                cls      : ['fm-preset-button'],
+                handler  : () => me.activatePerspective(preset.perspectiveName ?? preset.layoutId),
+                pressed  : preset.layoutId === activeLayoutId,
+                reference: `fleet-preset-${preset.layoutId}`,
+                text     : preset.perspectiveName ?? preset.layoutId
             }));
 
         dockConfig.flex = 1;
@@ -367,11 +438,13 @@ class FleetCockpit extends Container {
             flex : 'none',
             items: [
                 ...presetButtons,
-                ...(me.presetError ? [{
-                    ntype: 'component',
-                    cls  : ['fm-preset-error'],
-                    html : me.presetError
-                }] : []),
+                {
+                    ntype    : 'component',
+                    cls      : ['fm-preset-error'],
+                    hidden   : !me.presetError,
+                    html     : me.presetError || '',
+                    reference: 'fleet-preset-error'
+                },
                 '->', {
                     // The morning-start outcome summary — written by the controller after the
                     // staged bring-up settles ("N started · M rejected · K excluded"; per-member
@@ -396,16 +469,20 @@ class FleetCockpit extends Container {
     /**
      * Projects the live committed {@link #dockModel} into a dock-zone container config, threading
      * the instance-bound commit-loop callbacks onto every projected affordance.
+     * @param {Function|null} [resolveComponentRef=null] Optional item resolver for staged projections.
+     * @param {Object} [document=this.dockModel] Committed document snapshot to project.
      * @returns {Object}
      */
-    projectDockModel() {
+    projectDockModel(resolveComponentRef=null, document=this.dockModel) {
         let me = this;
 
-        return DockLayoutAdapter.project(me.dockModel, {
+        return DockLayoutAdapter.project(document, {
             applyDockZoneOperation  : me.applyDockZoneOperation.bind(me),
             onDockCrossZoneDrop     : me.onDockCrossZoneDrop.bind(me),
             onDockZoneDocumentChange: me.onDockZoneDocumentChange.bind(me),
-            resolveComponentRef     : me.resolveDockComponentRef.bind(me)
+            resolveComponentRef     : resolveComponentRef
+                || me.resolveDockComponentRef.bind(me),
+            resolveRevealComponentRef   : me.resolveDockComponentRef.bind(me)
         })
     }
 
@@ -413,11 +490,11 @@ class FleetCockpit extends Container {
      * @summary Resolves a dock item's `componentRef` to its pane config — the cockpit's keeper
      * surfaces for the live refs, honest placeholders for panes whose views are sibling leaves.
      *
-     * Every pane re-materializes from the OWNER's held runtime state (`adapterState`, events):
-     * re-projections rebuild instances, so anything set only on an instance would silently reset.
-     * The flip marker class carries the stable item identity across those rebuilds (the DockFlip
-     * correlation key). Panes stay layout-blind per the docking design's pane contract: nothing
-     * dock-specific is threaded here beyond the marker class.
+     * A genuinely absent pane materializes from the OWNER's held runtime state (`adapterState`,
+     * events); ordinary reconciliations discover the existing pane before consulting this resolver.
+     * The flip marker class carries the stable item identity across both retained and new panes.
+     * Panes stay layout-blind per the docking design's pane contract: nothing dock-specific is
+     * threaded here beyond the marker class.
      * @param {String} componentRef
      * @param {Object} item The persisted item record.
      * @param {String} itemId The stable workspace identity from the item catalog.
@@ -445,9 +522,9 @@ class FleetCockpit extends Container {
                     reference   : 'activity-stream'
                 };
             case 'agent-detail':
-                // the drill-in inspector; its selected resident is OWNER-held (re-projections
-                // rebuild instances) so a committed layout change never drops the selection — null
-                // renders the view's honest "select an agent" empty state
+                // the drill-in inspector; its selected resident is OWNER-held so a pane returning
+                // from true absence never drops the selection — null renders the view's honest
+                // "select an agent" empty state
                 return {
                     module   : AgentDetail,
                     cls      : [marker],
@@ -609,7 +686,7 @@ class FleetCockpit extends Container {
      * - not-wired / absent bridge / a thrown source → leave the representative **sample** in place
      *   (honestly labelled by the stream header); fail closed rather than blanking the surface.
      * The routed state also lands on the OWNER ({@link #streamAdapterState} / {@link #streamEvents})
-     * so re-projections re-materialize the pane at current truth.
+     * so a pane returning from true absence materializes at current truth.
      * @protected
      */
     async loadActivity() {
@@ -648,7 +725,7 @@ class FleetCockpit extends Container {
      *   state, never seven sample maintainers masquerading as live); every later one **reconciles**
      *   the Store — `record.set(row)` per known `agentId`, `store.add` for a joiner, `store.remove`
      *   for a resident absent from the snapshot (a `removeAgent` must never leave a ghost card).
-     *   Grid goes `live` (instance + the owner-held state re-projections read).
+     *   Grid goes `live` (instance + the owner-held fallback state).
      * - absent bridge / no verb / a MALFORMED answer (`rows` not an Array) / a thrown source →
      *   keep the last-known roster; fail closed rather than blanking the fleet. A resolved call is
      *   mechanically distinguishable from a failed one — only failures preserve last-known state.

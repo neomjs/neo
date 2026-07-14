@@ -27,18 +27,32 @@ import * as core      from '../../../../../../../src/core/_export.mjs';
  * docking design's pane contract, and owner-held pane state surviving re-projection.
  */
 test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)', () => {
-    let ActivityStream, AgentDetail, DockZoneModel, FleetCockpit, FleetGrid, cockpitDockDocument;
+    let ActivityStream, AgentDetail, DockProjectionReconciler, DockZoneModel, FleetCockpit, FleetGrid, cockpitDockDocument;
 
     // a projection-capable spy owner: the REAL prototype methods over controlled state, without
     // provider/store/bridge wiring (their routing has its own suite in fleetCockpit.spec.mjs)
-    const makeHost = (overrides = {}) => Object.assign(Object.create(FleetCockpit.prototype), {
-        dockModel         : cockpitDockDocument(),
-        gridAdapterState  : 'sample',
-        isDestroyed       : false,
-        streamAdapterState: 'sample',
-        streamEvents      : [],
-        timeout           : ms => new Promise(resolve => setTimeout(resolve, ms))
-    }, overrides);
+    const makeHost = (overrides = {}) => {
+        const
+            host   = Object.create(FleetCockpit.prototype),
+            values = {
+                dockModel         : cockpitDockDocument(),
+                gridAdapterState  : 'sample',
+                isDestroyed       : false,
+                refreshPromise    : null,
+                streamAdapterState: 'sample',
+                streamEvents      : [],
+                timeout           : ms => new Promise(resolve => setTimeout(resolve, ms)),
+                ...overrides
+            };
+
+        Object.defineProperties(host, Object.fromEntries(Object.entries(values).map(([key, value]) => [key, {
+            configurable: true,
+            value,
+            writable    : true
+        }])));
+
+        return host
+    };
 
     // flatten a projected config tree (items recursion) for structural assertions
     const collect = (config, out = []) => {
@@ -50,6 +64,7 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
     test.beforeAll(async () => {
         ActivityStream      = (await import('../../../../../../../apps/agentos/view/fleet/ActivityStream.mjs')).default;
         AgentDetail         = (await import('../../../../../../../apps/agentos/view/fleet/AgentDetail.mjs')).default;
+        DockProjectionReconciler = (await import('../../../../../../../src/dashboard/DockProjectionReconciler.mjs')).default;
         DockZoneModel       = (await import('../../../../../../../src/dashboard/DockZoneModel.mjs')).default;
         FleetCockpit        = (await import('../../../../../../../apps/agentos/view/fleet/FleetCockpit.mjs')).default;
         FleetGrid           = (await import('../../../../../../../apps/agentos/view/fleet/FleetGrid.mjs')).default;
@@ -95,7 +110,7 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
         // ...but the re-projection has NOT run inside the committing call stack
         expect(refreshed).toBe(0);
 
-        await new Promise(resolve => setTimeout(resolve, 5));
+        await host.refreshPromise;
         expect(refreshed).toBe(1)
     });
 
@@ -107,8 +122,80 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
         FleetCockpit.prototype.onDockZoneDocumentChange.call(host, cockpitDockDocument());
         host.isDestroyed = true;
 
-        await new Promise(resolve => setTimeout(resolve, 5));
+        await host.refreshPromise;
         expect(refreshed).toBe(0)
+    });
+
+    test('two rapid commits serialize their captured document snapshots instead of overlapping shells', async () => {
+        const
+            first = DockZoneModel.applyOperation(cockpitDockDocument(), {
+                operation: 'resizeSplit', splitNodeId: 'primary-split', sizes: [0.3, 0.7]
+            }).document,
+            second = DockZoneModel.applyOperation(first, {
+                operation: 'resizeSplit', splitNodeId: 'primary-split', sizes: [0.4, 0.6]
+            }).document,
+            starts   = [],
+            releases = [],
+            host     = makeHost({
+                refreshDockWorkspace(document) {
+                    starts.push(document);
+                    return new Promise(resolve => releases.push(resolve))
+                }
+            });
+
+        FleetCockpit.prototype.onDockZoneDocumentChange.call(host, first);
+        FleetCockpit.prototype.onDockZoneDocumentChange.call(host, second);
+
+        await new Promise(resolve => setTimeout(resolve, 5));
+        expect(starts).toEqual([first]);
+
+        releases.shift()();
+        await new Promise(resolve => setTimeout(resolve, 5));
+        expect(starts).toEqual([first, second]);
+
+        releases.shift()();
+        await host.refreshPromise
+    });
+
+    test('refresh reconciles shell index 1, preserves flex, and decorates a genuinely absent pane', async () => {
+        const
+            document = cockpitDockDocument(),
+            original = DockProjectionReconciler.reconcileProjection,
+            preset   = {reference: 'fleet-preset-fleet', set(values) { Object.assign(this, values) }},
+            error    = {set(values) { Object.assign(this, values) }},
+            host     = makeHost({
+                id              : 'fleet-test-host',
+                items           : [{items: [preset]}],
+                perspectiveStore: {collection: {activeLayoutId: 'fleet'}},
+                presetError     : null,
+                getReference(reference) {
+                    return reference === 'fleet-preset-error' ? error : null
+                }
+            });
+
+        let options;
+
+        DockProjectionReconciler.reconcileProjection = async value => {
+            options = value
+        };
+
+        try {
+            await FleetCockpit.prototype.refreshDockWorkspace.call(host, document);
+
+            expect(options.host).toBe(host);
+            expect(options.shellIndex).toBe(1);
+            expect(options.nextConfig.flex).toBe(1);
+
+            const absent = options.resolveItem('fleet');
+
+            expect(absent.module).toBe(FleetGrid);
+            expect(absent.header).toEqual({text: 'Fleet'});
+            expect(absent.dockItemId).toBe('fleet');
+            expect(absent.data).toMatchObject({componentRef: 'fleet-grid', dockItemId: 'fleet'})
+        } finally {
+            options?.placeholders?.forEach(placeholder => !placeholder.isDestroyed && placeholder.destroy());
+            DockProjectionReconciler.reconcileProjection = original
+        }
     });
 
     test('the projection threads INSTANCE-BOUND callbacks: a projected affordance routes its commit into this host\'s document', () => {
@@ -132,7 +219,7 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
         expect(result.document.nodes['primary-split'].sizes).toEqual([0.25, 0.75])
     });
 
-    test('panes are layout-blind (§2.6) and re-materialize from OWNER-held state — a re-projection can never reset a live surface', () => {
+    test('panes are layout-blind (§2.6) and absent-item fallback reads OWNER-held state', () => {
         const host = makeHost({gridAdapterState: 'live', streamAdapterState: 'stale', streamEvents: [{type: 'pr-activity', payload: {text: 'held'}}], detailRecord: {agentId: 'vega', displayName: 'Vega'}});
 
         const grid = FleetCockpit.prototype.resolveDockComponentRef.call(host, 'fleet-grid', {title: 'Fleet'}, 'fleet');
@@ -149,8 +236,8 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
         expect(stream.events).toEqual(host.streamEvents);
         expect(stream.cls).toContain('dock-flip-item-stream');
 
-        // agent-detail now renders the real drill-in view, re-materialized from OWNER-held state
-        // (the selected record) so a committed re-projection never drops the selection
+        // agent-detail now renders the real drill-in view from OWNER-held fallback state
+        // (the selected record), so returning from true absence never drops the selection
         const detail = FleetCockpit.prototype.resolveDockComponentRef.call(host, 'agent-detail', {title: 'Agent detail'}, 'detail');
 
         expect(detail.module).toBe(AgentDetail);
@@ -197,18 +284,29 @@ test.describe('Fleet cockpit — perspective presets (the switch through the com
     let DockPerspectiveStore, DockZoneModel, FleetCockpit, cockpitPresetCollection, Neo;
 
     const makePresetHost = async (overrides = {}) => {
-        const store = Neo.create(DockPerspectiveStore, {collection: cockpitPresetCollection()});
+        const
+            store  = Neo.create(DockPerspectiveStore, {collection: cockpitPresetCollection()}),
+            host   = Object.create(FleetCockpit.prototype),
+            values = {
+                dockModel         : (await import('../../../../../../../apps/agentos/view/fleet/cockpitDockDocument.mjs')).default(),
+                gridAdapterState  : 'sample',
+                isDestroyed       : false,
+                perspectiveStore  : store,
+                presetError       : null,
+                refreshPromise    : null,
+                streamAdapterState: 'sample',
+                streamEvents      : [],
+                timeout           : ms => new Promise(resolve => setTimeout(resolve, ms)),
+                ...overrides
+            };
 
-        return Object.assign(Object.create(FleetCockpit.prototype), {
-            dockModel         : (await import('../../../../../../../apps/agentos/view/fleet/cockpitDockDocument.mjs')).default(),
-            gridAdapterState  : 'sample',
-            isDestroyed       : false,
-            perspectiveStore  : store,
-            presetError       : null,
-            streamAdapterState: 'sample',
-            streamEvents      : [],
-            timeout           : ms => new Promise(resolve => setTimeout(resolve, ms))
-        }, overrides)
+        Object.defineProperties(host, Object.fromEntries(Object.entries(values).map(([key, value]) => [key, {
+            configurable: true,
+            value,
+            writable    : true
+        }])));
+
+        return host
     };
 
     test.beforeAll(async () => {
@@ -246,7 +344,7 @@ test.describe('Fleet cockpit — perspective presets (the switch through the com
         expect(host.perspectiveStore.collection.activeLayoutId).toBe('focus');
         // deferred view-sync, same as every commit
         expect(refreshed).toBe(0);
-        await new Promise(resolve => setTimeout(resolve, 5));
+        await host.refreshPromise;
         expect(refreshed).toBe(1);
 
         // Review opens the detail band and leans the split toward the trail
@@ -273,17 +371,51 @@ test.describe('Fleet cockpit — perspective presets (the switch through the com
         expect(host.streamAdapterState).toBe('live');
         expect(host.streamEvents).toBe(events);
 
-        // and the next re-materialization carries that state into the rebuilt panes
+        // and a genuinely absent pane's next materialization carries that state
         const grid = FleetCockpit.prototype.resolveDockComponentRef.call(host, 'fleet-grid', {title: 'Fleet'}, 'fleet');
         expect(grid.adapterState).toBe('live');
 
         host.perspectiveStore.destroy()
     });
 
-    test('a refused switch fails closed VISIBLY: the live layout stays byte-identical and the error renders in the bar', async () => {
-        let refreshed = 0;
+    test('the persistent control bar keeps identities while preset and refusal state change', async () => {
+        const
+            buttons = ['fleet', 'focus', 'review'].map(layoutId => ({
+                pressed  : false,
+                reference: `fleet-preset-${layoutId}`,
+                set(values) { Object.assign(this, values) }
+            })),
+            error = {
+                hidden: true,
+                html  : '',
+                set(values) { Object.assign(this, values) }
+            },
+            host = await makePresetHost({
+                items: [{items: buttons}],
+                getReference(reference) {
+                    return reference === 'fleet-preset-error' ? error : null
+                }
+            }),
+            identities = [...buttons];
 
-        const host   = await makePresetHost({refreshDockWorkspace() { refreshed++ }}),
+        FleetCockpit.prototype.syncControlBar.call(host);
+        expect(buttons.map(button => button.pressed)).toEqual([true, false, false]);
+
+        host.perspectiveStore.loadPerspective('Focus');
+        host.presetError = 'refused visibly';
+        FleetCockpit.prototype.syncControlBar.call(host);
+
+        expect(buttons).toEqual(identities);
+        expect(buttons.map(button => button.pressed)).toEqual([false, true, false]);
+        expect(error).toMatchObject({hidden: false, html: 'refused visibly'});
+
+        host.perspectiveStore.destroy()
+    });
+
+    test('a refused switch fails closed VISIBLY: the live layout stays byte-identical and the error syncs in place', async () => {
+        let synced = 0;
+
+        const host   = await makePresetHost({syncControlBar() { synced++ }}),
               before = JSON.stringify(host.dockModel);
 
         const verdict = FleetCockpit.prototype.activatePerspective.call(host, 'ghost');
@@ -292,8 +424,8 @@ test.describe('Fleet cockpit — perspective presets (the switch through the com
         expect(verdict.errors.join(' ')).toContain('no perspective named');
         expect(JSON.stringify(host.dockModel)).toBe(before);
         expect(host.presetError).toContain('ghost');
-        // the error path re-renders the bar (visible refusal), without a document commit
-        expect(refreshed).toBe(1);
+        // the error path updates the persistent bar, without a document commit or shell refresh
+        expect(synced).toBe(1);
 
         // the bar derives from state: pressed follows the active record, the error chip renders
         const bar = FleetCockpit.prototype.buildWorkspaceItems.call(host)[0];

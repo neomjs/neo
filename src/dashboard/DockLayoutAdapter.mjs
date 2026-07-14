@@ -99,12 +99,52 @@ class DockLayoutAdapter extends Base {
         let config = {...component},
             data   = {...(config.data || {})};
 
-        data.componentRef = item.componentRef || null;
+        data.componentRef = item?.componentRef || null;
         data.dockItemId   = itemId;
 
         config.data       = data;
         config.dockItemId = itemId;
-        config.header     = config.header || {text: item.title || itemId};
+        config.header     = config.header || {text: item?.title || itemId};
+
+        return config
+    }
+
+    /**
+     * @summary Applies adapter-owned item metadata and one-use add-tab decoration to a pane config.
+     *
+     * Reconciliation discovers live panes before consulting its app resolver. When a pane is genuinely
+     * absent, this pure helper lets that resolver prepare the same config the normal projection path
+     * would have emitted without copying dashboard-owned header policy into the consuming workspace.
+     * Neo instances intentionally pass through unchanged; transient header decoration remains a
+     * plain-config capability and therefore fails closed to an instant landing for custom instances.
+     * @param {*} component Resolved pane config or live component instance.
+     * @param {String} itemId Stable item identity.
+     * @param {Object} item Persisted item record.
+     * @param {Object} [options={}]
+     * @param {String|null} [options.nodeId=null] Owning projected tabs-node id.
+     * @param {Object|null} [options.tabInsertDescriptor=null] One-use normalized `addTab` correlation.
+     * @returns {*}
+     * @static
+     */
+    static decorateProjectedItem(component, itemId, item, {nodeId=null, tabInsertDescriptor=null}={}) {
+        let config = this.decorateItemConfig(component, itemId, item),
+            header;
+
+        if (config?.constructor === Object
+            && tabInsertDescriptor?.operation === 'addTab'
+            && tabInsertDescriptor.itemId === itemId
+            && tabInsertDescriptor.tabsNodeId === nodeId) {
+            header = config.header || {text: item?.title || itemId};
+            config.header = {
+                ...header,
+                cls: [...new Set([
+                    ...(Array.isArray(header.cls) ? header.cls : header.cls ? [header.cls] : []),
+                    'neo-dashboard-dock-tab-enter',
+                    `dock-tab-enter-item-${encodeURIComponent(itemId)}`
+                ])],
+                module: DockTabEnterButton
+            }
+        }
 
         return config
     }
@@ -210,6 +250,7 @@ class DockLayoutAdapter extends Base {
      * @param {Object} model
      * @param {Object} [options={}]
      * @param {Function} [options.resolveComponentRef]
+     * @param {Function} [options.resolveRevealComponentRef] Durable resolver retained by edge rails.
      * @param {Object|null} [options.tabInsertDescriptor] Runtime-only normalized `addTab`
      * correlation consumed by this projection; never part of `model`.
      * @returns {Object}
@@ -233,17 +274,20 @@ class DockLayoutAdapter extends Base {
             // supplies a sortGroup makes every projected tab sort zone a coordinator-registered
             // drag SOURCE (the workspace id rides the drag payload for the receiving window's
             // `transferItem` resolution). Absent = fully in-window, the unchanged default.
-            crossWindowSortGroup    : options.crossWindowSortGroup ?? null,
-            defaultRevealFraction   : Number.isFinite(options.defaultRevealFraction) ? options.defaultRevealFraction : null,
-            dockZoneDocument        : options.dockZoneDocument || model,
-            items                   : model.items || {},
-            nodes                   : model.nodes,
-            onDockCrossZoneDragMove : options.onDockCrossZoneDragMove,
-            onDockCrossZoneDrop     : options.onDockCrossZoneDrop,
-            onDockZoneDocumentChange: options.onDockZoneDocumentChange,
-            resolveComponentRef     : options.resolveComponentRef || (() => null),
-            tabInsertDescriptor     : options.tabInsertDescriptor ?? null,
-            workspaceId             : options.workspaceId ?? null
+            crossWindowSortGroup     : options.crossWindowSortGroup ?? null,
+            defaultRevealFraction    : Number.isFinite(options.defaultRevealFraction) ? options.defaultRevealFraction : null,
+            dockZoneDocument         : options.dockZoneDocument || model,
+            items                    : model.items || {},
+            nodes                    : model.nodes,
+            onDockCrossZoneDragMove  : options.onDockCrossZoneDragMove,
+            onDockCrossZoneDrop      : options.onDockCrossZoneDrop,
+            onDockZoneDocumentChange : options.onDockZoneDocumentChange,
+            resolveComponentRef      : options.resolveComponentRef || (() => null),
+            resolveRevealComponentRef: options.resolveRevealComponentRef
+                || options.resolveComponentRef
+                || (() => null),
+            tabInsertDescriptor: options.tabInsertDescriptor ?? null,
+            workspaceId        : options.workspaceId ?? null
         });
 
         config.cls = [...new Set([...(config.cls || []), 'neo-dashboard'])];
@@ -346,7 +390,7 @@ class DockLayoutAdapter extends Base {
             ntype                   : 'dashboard-dock-rail',
             onDockZoneDocumentChange: context.onDockZoneDocumentChange,
             railItems               : itemIds.map(itemId => this.createRailTab(itemId, edge, context)),
-            resolveComponentRef     : context.resolveComponentRef
+            resolveComponentRef     : context.resolveRevealComponentRef
         }
     }
 
@@ -633,32 +677,15 @@ class DockLayoutAdapter extends Base {
             activeIndex = items.length ? 0 : null
         }
 
-        projectedItems = items.map(itemId => {
-            let config     = this.projectItem(itemId, context),
-                descriptor = context.tabInsertDescriptor,
-                header;
-
-            // One-use operation correlation: only a real addTab's exact target header receives
-            // the dashboard-owned producer. Non-object component results fail safe to an instant
-            // landing; no broad selector or document mutation is used as a fallback.
-            if (config?.constructor === Object
-                && descriptor?.operation === 'addTab'
-                && descriptor.itemId === itemId
-                && descriptor.tabsNodeId === nodeId) {
-                header = config.header || {text: context.items[itemId]?.title || itemId};
-                config.header = {
-                    ...header,
-                    cls: [...new Set([
-                        ...(Array.isArray(header.cls) ? header.cls : header.cls ? [header.cls] : []),
-                        'neo-dashboard-dock-tab-enter',
-                        `dock-tab-enter-item-${encodeURIComponent(itemId)}`
-                    ])],
-                    module: DockTabEnterButton
-                }
-            }
-
-            return config
-        });
+        // One-use operation correlation: only a real addTab's exact target header receives
+        // the dashboard-owned producer. Non-object component results fail safe to an instant
+        // landing; no broad selector or document mutation is used as a fallback.
+        projectedItems = items.map(itemId => this.decorateProjectedItem(
+            this.projectItem(itemId, context),
+            itemId,
+            context.items[itemId],
+            {nodeId, tabInsertDescriptor: context.tabInsertDescriptor}
+        ));
 
         return {
             activeIndex,
