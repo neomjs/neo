@@ -99,9 +99,9 @@ class DemoBWorkspace extends Container {
     tourRunner = null
     /**
      * Pane instances by item id — created ONCE, handed across every re-projection and
-     * parked only for explicit window moves, torn down only with the workspace. THE
-     * object-permanence substrate: `resolvePane` hands the adapter these live instances,
-     * so no morph, pop-out, or reattach ever remounts a pane.
+     * parked for explicit window moves or an unrestored topology remainder, torn down only
+     * with the workspace. THE object-permanence substrate: `resolvePane` hands the adapter
+     * these live instances, so no morph, pop-out, or reattach ever remounts a pane.
      * @member {Object} paneCache={}
      * @protected
      */
@@ -119,6 +119,13 @@ class DemoBWorkspace extends Container {
      * @member {Object|null} restoreReport=null
      */
     restoreReport = null
+    /**
+     * The serialized projection queue. Exposing its settled promise keeps topology specs on
+     * the same deferred view-sync boundary as the live tour instead of racing the next commit.
+     * @member {Promise} refreshPromise=Promise.resolve()
+     * @protected
+     */
+    refreshPromise = Promise.resolve()
     /**
      * Beats executed in the current run — the pip strip's progress counter.
      * @member {Number} beatCount=0
@@ -321,8 +328,7 @@ class DemoBWorkspace extends Container {
                 return {errors: activated.errors, loaded: false, report: preview.report}
             }
 
-            preview.hasLivePopup && (me.popupDocument = preview.documents[1]);
-            me.onDockZoneDocumentChange(preview.documents[0]);
+            me.commitTopologyRestore(preview);
 
             return {errors: [], loaded: true, report: preview.report}
         }
@@ -336,6 +342,26 @@ class DemoBWorkspace extends Container {
         me.onDockZoneDocumentChange(result.document);
 
         return {errors: [], loaded: true}
+    }
+
+    /**
+     * @summary Commits a validated topology result while preserving panes that remain owner-held
+     * but cannot be projected because their captured window is not live.
+     * @param {Object} result
+     * @param {Object[]} result.documents Reconciled documents for the currently live topology.
+     * @param {Boolean} result.hasLivePopup Whether a second render target currently exists.
+     * @param {Object} result.report Structured reconciliation remainder.
+     * @returns {Promise}
+     * @protected
+     */
+    commitTopologyRestore({documents, hasLivePopup, report}) {
+        let me            = this,
+            liveDocuments = hasLivePopup ? documents.slice(0, 2) : documents.slice(0, 1);
+
+        me.parkUnrestoredPanes(liveDocuments, report);
+        hasLivePopup && (me.popupDocument = documents[1]);
+
+        return me.onDockZoneDocumentChange(documents[0])
     }
 
     /**
@@ -369,12 +395,32 @@ class DemoBWorkspace extends Container {
             return {documents: result.documents, errors: result.errors, hasLivePopup, loaded: false, report}
         }
 
-        if (commit) {
-            hasLivePopup && (me.popupDocument = result.documents[1]);
-            me.onDockZoneDocumentChange(result.documents[0])
-        }
+        commit && me.commitTopologyRestore({documents: result.documents, hasLivePopup, report});
 
         return {documents: result.documents, errors: [], hasLivePopup, loaded: true, report}
+    }
+
+    /**
+     * @summary Parks cached panes represented by an unrestored topology remainder before the
+     * shared reconciler can classify their temporary projection absence as a true removal.
+     * @param {Object[]} liveDocuments Documents that have an actual render target.
+     * @param {Object} report Structured topology reconciliation remainder.
+     * @protected
+     */
+    parkUnrestoredPanes(liveDocuments, report) {
+        let me              = this,
+            liveItemIds     = new Set(liveDocuments.flatMap(document => Object.keys(document?.items || {}))),
+            unrestoredItems = new Set((report?.unrestored || []).map(entry => entry.itemId));
+
+        unrestoredItems.forEach(itemId => {
+            let pane = me.paneCache[itemId];
+
+            if (!liveItemIds.has(itemId) && pane && !pane.isDestroyed) {
+                // The pane is still owned by Demo B, just not by a currently renderable document.
+                // Remove without destroy BEFORE projection so true-removal retirement never sees it.
+                pane.parent?.remove(pane, false)
+            }
+        })
     }
 
     /**
@@ -406,17 +452,20 @@ class DemoBWorkspace extends Container {
      * The view-sync half: stores the committed document and re-projects, deferred one tick
      * (the normative guard — a committing interaction surface is never destroyed mid-handler).
      * @param {Object} document
+     * @returns {Promise}
      */
     onDockZoneDocumentChange(document) {
         let me = this;
 
         me.dockModel = document;
 
-        me.timeout(0).then(() => {
-            if (!me.isDestroyed) {
-                me.refreshDockWorkspace()
-            }
-        })
+        me.refreshPromise = me.refreshPromise
+            .then(() => me.timeout(0))
+            .then(() => {
+                if (!me.isDestroyed) return me.refreshDockWorkspace()
+            });
+
+        return me.refreshPromise
     }
 
     /**
