@@ -393,14 +393,14 @@ First implementation ownership may be harness-local when the storage backend, pa
 
 ## Split/Tab Adapter Boundary
 
-The first rendering slice is an adapter, not a new layout engine. It consumes the dock-zone model and emits ordinary Neo child configs and live component moves that existing containers can own.
+The rendering boundary is an adapter/reconciler pair, not a new layout engine. `Neo.dashboard.DockLayoutAdapter` consumes the dock-zone model and emits ordinary Neo child configs; `Neo.dashboard.DockProjectionReconciler` hands surviving live components into that projection without changing their identity. Existing containers still own layout, tabs, and cards.
 
-Adapter and model both live in the dashboard layer (`src/dashboard/`) — per the operator's 2026-06-13 placement decision (see §Ownership Boundary), the dock-zone subsystem is a reusable Neo layout topic, not harness-app-private. A *further* lift into a generic core layout primitive (beyond dashboard adaptation) still requires a second independent in-repo consumer and source evidence that the logic is reusable outside dashboard adaptation.
+Adapter, projection reconciler, and model live in the dashboard layer (`src/dashboard/`) — per the operator's 2026-06-13 placement decision (see §Ownership Boundary), the dock-zone subsystem is a reusable Neo layout topic, not harness-app-private. A *further* lift into a generic core layout primitive (beyond dashboard adaptation) still requires a second independent in-repo consumer and source evidence that the logic is reusable outside dashboard adaptation.
 
 Rejected placements for the first adapter:
 
 - **Generic core layout primitive:** rejected for this slice. Core layout classes own child arrangement; they do not yet need to own dock item identity, stale component recovery, drag-drop producer handoff, or future blueprint persistence.
-- **Tab-container fork:** rejected. `Neo.tab.Container` already owns tab button order, card-backed active content, `activeIndex`, and `tabBarPosition`; the adapter should feed it compatible child/header configs rather than create a harness-only tab system.
+- **Tab-container fork:** rejected. `Neo.tab.Container` already owns tab button order, card-backed active content, `activeIndex`, and `tabBarPosition`; the adapter/reconciler pair should feed it compatible child/header configs and retained live children rather than create a harness-only tab system.
 - **Splitter-owned model:** rejected. `Neo.component.Splitter` is a resize affordance for existing siblings, not the authority for persistent split topology. The model keeps split orientation, child order, and normalized sizes; splitters may render between children later.
 - **Preview producer as adapter owner:** rejected. Drag preview state is runtime-only and converts to semantic operations on drop. The adapter receives committed model changes; it must not depend on hover rectangles or pointer lifecycle state.
 
@@ -453,6 +453,8 @@ The adapter must preserve the current `Neo.tab.Container` contract: tab headers 
 4. If neither exists, render a recoverable placeholder, validation error, or other policy-owned fail-safe state, then leave the persisted item record intact for recovery.
 
 This aligns the adapter with stale `componentRef` restore behavior: runtime component references are recoverable state, not a reason to corrupt the persisted dock tree.
+
+Repeated projections add one ownership rule: the adapter remains pure and stateless, while `DockProjectionReconciler` keys surviving tab containers by `dockNodeId` and moves each pane/header-button pair before moving its retained tab-container ancestor. The reconciler commits those descendant and ancestor handoffs separately; app-local code owns only its pane resolver, animation, and app-specific menu readiness. Workstation and Dock Demo B exercise the same transaction with different pane policies, keeping the projection contract reusable without making `DockLayoutAdapter` stateful.
 
 ## Demand Validation
 
