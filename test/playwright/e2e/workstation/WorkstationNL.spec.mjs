@@ -234,22 +234,38 @@ test.describe('Workstation — dense living-data composition', () => {
                 playElement     = document.querySelector('.workstation-tour-play'),
                 captionElement  = document.querySelector('.workstation-tour-caption'),
                 progressElement = document.querySelector('.workstation-tour-pips'),
+                storyElement    = document.querySelector('.workstation-tour-story'),
                 themeElement    = document.querySelector('.workstation-theme-button'),
                 play            = playElement?.getBoundingClientRect(),
                 caption         = captionElement?.getBoundingClientRect(),
                 progress        = progressElement?.getBoundingClientRect(),
+                story           = storyElement?.getBoundingClientRect(),
                 theme           = themeElement?.getBoundingClientRect();
 
             return {
                 captionLeft         : caption?.left,
                 captionPaddingLeft  : parseFloat(getComputedStyle(captionElement).paddingLeft),
+                playHeight          : play?.height,
                 playRight           : play?.right,
                 progressPaddingRight: parseFloat(getComputedStyle(progressElement).paddingRight),
                 progressRight       : progress?.right,
+                storyBackground     : getComputedStyle(storyElement).backgroundColor,
+                storyHeight         : story?.height,
+                storyMiddle         : story && story.top + story.height / 2,
+                themeHeight         : theme?.height,
+                themeMiddle         : theme && theme.top + theme.height / 2,
                 themeLeft           : theme?.left
             }
         });
 
+        expect(headerGeometry.playHeight, 'tour action uses the compact Workstation control height').toBe(34);
+        expect(headerGeometry.themeHeight, 'theme action uses the compact Workstation control height').toBe(34);
+        expect(headerGeometry.playHeight - headerGeometry.storyHeight, 'controls stay close to the story hierarchy')
+            .toBeLessThanOrEqual(8);
+        expect(Math.abs(headerGeometry.themeMiddle - headerGeometry.storyMiddle), 'controls and story remain centered')
+            .toBeLessThanOrEqual(1);
+        expect(headerGeometry.storyBackground, 'the story does not inherit a generic container fill')
+            .toBe('rgba(0, 0, 0, 0)');
         expect(headerGeometry.captionLeft - headerGeometry.playRight, 'tour action and story boxes never overlap')
             .toBeGreaterThanOrEqual(0);
         expect(headerGeometry.captionPaddingLeft, 'tour action and visible story copy have a deliberate gap')
@@ -276,6 +292,9 @@ test.describe('Workstation — dense living-data composition', () => {
                 gridHeader  = document.querySelector('.workstation-scale-pane .neo-grid-header-button'),
                 overflow    = document.querySelector('.neo-tab-overflow-control'),
                 rowAction   = document.querySelector('.workstation-row-action'),
+                story       = document.querySelector('.workstation-tour-story'),
+                tourButton  = document.querySelector('.workstation-tour-play'),
+                themeButton = document.querySelector('.workstation-theme-button'),
                 rippleToken = element => getComputedStyle(element)
                     .getPropertyValue('--button-ripple-background-color').trim().toLowerCase();
 
@@ -287,6 +306,9 @@ test.describe('Workstation — dense living-data composition', () => {
                 rowAction      : getComputedStyle(rowAction).backgroundColor,
                 rowActionBorder: getComputedStyle(rowAction).borderColor,
                 rowActionRipple: rippleToken(rowAction),
+                storyBackground: getComputedStyle(story).backgroundColor,
+                themeHeight    : themeButton.getBoundingClientRect().height,
+                tourHeight     : tourButton.getBoundingClientRect().height,
                 themeRipple    : rippleToken(document.querySelector('.workstation-theme-button'))
             }
         });
@@ -299,6 +321,10 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(lightChrome.rowAction, 'row actions do not use the default primary button').not.toBe('rgb(67, 93, 177)');
         expect(lightChrome.rowActionBorder).not.toBe('rgba(0, 0, 0, 0)');
         expect(lightChrome.rowActionRipple).not.toBe('#8ba6ff');
+        expect(lightChrome.storyBackground, 'light mode keeps the center story transparent')
+            .toBe('rgba(0, 0, 0, 0)');
+        expect(lightChrome.tourHeight).toBe(34);
+        expect(lightChrome.themeHeight).toBe(34);
         expect(lightChrome.themeRipple, 'theme-toggle feedback stays in the Workstation palette')
             .not.toBe('#8ba6ff');
 
