@@ -9,7 +9,8 @@ import {demoCTourScript} from '../../../../apps/agentos/tour/demoCDenseWorkstati
  * two stable Store<Model> identities, an exact 100k renderer-rich grid, a sustained capped
  * feed, one owner-exact overflow surface, two real rails, frame-sampled midpoint continuity,
  * Canvas-worker pixel change, DevIndex-sized chart geometry, honest progress paints, both
- * themes, replacement-chrome motion containment, and identity preservation.
+ * themes, replacement-chrome motion containment, sequential clip-safe fixed staging, and
+ * identity preservation.
  *
  * Run: NEO_E2E_PORT=8124 npx playwright test agentos/DemoCDenseWorkstationNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
@@ -520,11 +521,20 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
                 replacementHeaderSamples      : 0,
                 sampledFrames                 : 0,
                 securityCaptured              : false,
+                securityActiveHeaderMissFrames: 0,
+                securityBodyMissingFrames     : 0,
+                securityFullyClippedFrames    : 0,
+                securityFullyClippedSamples   : [],
                 securityMissingFrames         : 0,
+                securityOverflowMutationFrames: 0,
                 securityReplacementFrames     : 0
             };
             const activeTabEmptySpans = {};
-            let   securityNode        = null;
+            let   securityNode        = null,
+                  securityWasStaged   = false;
+
+            state.securityStageBursts = 0;
+            state.securityStageFrames = 0;
 
             const tick = () => {
                 const isVisible = node => {
@@ -619,6 +629,61 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
                     }
                 } else if (state.securityCaptured) {
                     state.securityMissingFrames++
+                }
+
+                if (currentSecurityNode) {
+                    const
+                        securityBody = currentSecurityNode.closest('.neo-tab-body-container'),
+                        staged       = currentSecurityNode.classList.contains('neo-dock-flip-fixed-stage'),
+                        activeHeader = securityBody?.closest('.neo-tab-container')
+                            ?.querySelector('.neo-tab-header-button.pressed');
+
+                    if (staged) {
+                        const
+                            bodyStyle = securityBody && getComputedStyle(securityBody),
+                            rect      = currentSecurityNode.getBoundingClientRect(),
+                            insetX    = Math.min(8, rect.width / 4),
+                            insetY    = Math.min(8, rect.height / 4),
+                            points    = [
+                                [rect.left + rect.width / 2, rect.top + rect.height / 2],
+                                [rect.left + insetX, rect.top + insetY],
+                                [rect.right - insetX, rect.top + insetY],
+                                [rect.left + insetX, rect.bottom - insetY],
+                                [rect.right - insetX, rect.bottom - insetY]
+                            ].filter(([x, y]) => x >= 0 && y >= 0 && x < innerWidth && y < innerHeight),
+                            painted = points.some(([x, y]) => {
+                                const hit = document.elementFromPoint(x, y);
+
+                                return hit === currentSecurityNode || currentSecurityNode.contains(hit)
+                            });
+
+                        if (!securityWasStaged) state.securityStageBursts++;
+
+                        state.securityStageFrames++;
+
+                        if (!securityBody) state.securityBodyMissingFrames++;
+                        if (!activeHeader || !isVisible(activeHeader)) state.securityActiveHeaderMissFrames++;
+                        if (bodyStyle?.overflowX !== 'hidden' || bodyStyle?.overflowY !== 'hidden') {
+                            state.securityOverflowMutationFrames++
+                        }
+
+                        if (!painted) {
+                            state.securityFullyClippedFrames++;
+                            state.securityFullyClippedSamples.length < 20
+                                && state.securityFullyClippedSamples.push({
+                                    bottom: Math.round(rect.bottom),
+                                    height: Math.round(rect.height),
+                                    left  : Math.round(rect.left),
+                                    right : Math.round(rect.right),
+                                    top   : Math.round(rect.top),
+                                    width : Math.round(rect.width)
+                                })
+                        }
+                    }
+
+                    securityWasStaged = staged
+                } else {
+                    securityWasStaged = false
                 }
 
                 if (root) {
@@ -757,10 +822,22 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
         expect(monitor.securityCaptured, 'the overflow cue mounts Security before its structural move').toBe(true);
         expect(monitor.securityMissingFrames, 'the active Security pane never leaves the DOM after capture').toBe(0);
         expect(monitor.securityReplacementFrames, 'Security keeps the same DOM node across split and return').toBe(0);
+        expect(monitor.securityStageBursts, 'split and return each expose one preserved-identity fixed stage').toBe(2);
+        expect(monitor.securityStageFrames, 'the sequential sampler observes the real fixed-stage motion').toBeGreaterThan(2);
+        expect(monitor.securityBodyMissingFrames,
+            'fixed staging keeps the exact pane inside its real destination body').toBe(0);
+        expect(monitor.securityActiveHeaderMissFrames,
+            'every staged frame retains a visible active tab header').toBe(0);
+        expect(monitor.securityOverflowMutationFrames,
+            'the real tab-body overflow contract stays hidden throughout both moves').toBe(0);
+        expect(monitor.securityFullyClippedFrames,
+            `every staged frame paints pane content: ${JSON.stringify(monitor.securityFullyClippedSamples)}`).toBe(0);
         expect(monitor.palettes.length, 'the actual tour materially renders both theme palettes').toBeGreaterThanOrEqual(2);
         expect(monitor.flipSamples, 'committed transformations emit visible FLIP motion').toBeGreaterThan(0);
         await expect(page.locator('.agentos-dockdemo-workspace-c'))
             .not.toHaveClass(/neo-dashboard-dock-animating/);
+        await expect(page.locator('.neo-dock-flip-fixed-stage'),
+            'fixed staging leaves no class or active presentation residue').toHaveCount(0);
         await expect(page.locator('.neo-tab-overflow-control:visible'),
             'the returned twelve-tab group restores its one real overflow control').toHaveCount(1);
 
