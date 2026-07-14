@@ -9,9 +9,9 @@ import {workstationTourScript} from '../../../../apps/workstation/tour/denseWork
  * two stable Store<Model> identities, an exact 100k renderer-rich grid, a sustained capped
  * feed, one owner-exact overflow surface, two real rails, frame-sampled midpoint continuity,
  * Canvas-worker pixel change, DevIndex-sized chart geometry, honest progress paints, both
- * themes, visible real splitters, user-driven semantic resize, pane-owned chrome,
- * replacement-chrome motion containment, sequential clip-safe fixed staging, and identity
- * preservation.
+ * themes, viewport-adaptive edge bands, visible real splitters, user-driven semantic resize,
+ * pane-owned chrome, replacement-chrome motion containment, sequential clip-safe fixed staging,
+ * and identity preservation.
  *
  * Run: NEO_E2E_PORT=8124 npx playwright test workstation/WorkstationNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
@@ -225,6 +225,64 @@ const readHorizontalSplitGeometry = page => page.evaluate(() => {
     }
 });
 
+/**
+ * Reads Workstation's app-owned responsive dock projection from the browser CSSOM.
+ * @summary Pins viewport-driven edge-band geometry without treating the persisted dock document as layout state.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<Object>}
+ */
+const readResponsiveDockGeometry = page => page.evaluate(() => {
+    const
+        root      = document.querySelector('.workstation-workspace'),
+        dockHost  = document.querySelector('.workstation-dock-host'),
+        row       = document.querySelector('.neo-dashboard-dock-edge-row'),
+        left      = document.querySelector('.neo-dashboard-dock-edge-band-left'),
+        center    = row?.querySelector(':scope > .neo-dashboard-dock-split-horizontal'),
+        right     = document.querySelector('.neo-dashboard-dock-edge-band-right'),
+        bottom    = document.querySelector('.neo-dashboard-dock-edge-band-bottom'),
+        scale     = document.querySelector('.workstation-scale-pane'),
+        isVisible = element => {
+            const style = getComputedStyle(element);
+
+            return element.getClientRects().length > 0
+                && style.display !== 'none'
+                && style.visibility !== 'hidden'
+        },
+        readRect = element => {
+            const value = element?.getBoundingClientRect();
+
+            return value && {
+                bottom: value.bottom,
+                height: value.height,
+                left  : value.left,
+                right : value.right,
+                top   : value.top,
+                width : value.width
+            }
+        },
+        readBand = (element, property) => ({
+            ...readRect(element),
+            computedExtent: Number.parseFloat(getComputedStyle(element)[property])
+        });
+
+    return {
+        bottomBand      : readBand(bottom, 'height'),
+        center          : readRect(center),
+        dockHost        : readRect(dockHost),
+        leftBand        : readBand(left, 'width'),
+        overflowControls: [...document.querySelectorAll('.neo-tab-overflow-control')]
+            .filter(isVisible).length,
+        railTabs: [...document.querySelectorAll('.neo-dashboard-dock-rail-tab')]
+            .filter(isVisible).length,
+        rightBand: readBand(right, 'width'),
+        root     : readRect(root),
+        row      : readRect(row),
+        scale    : readRect(scale),
+        splitters: document.querySelectorAll('.neo-dashboard-dock-splitter').length,
+        viewport : {height: innerHeight, width: innerWidth}
+    }
+});
+
 test.describe('Workstation — dense living-data composition', () => {
     test.setTimeout(150000);
     test.use({viewport: {height: 1440, width: 2560}});
@@ -295,6 +353,109 @@ test.describe('Workstation — dense living-data composition', () => {
             root        = page.locator('.workstation-workspace'),
             tourButton  = page.locator('.workstation-tour-play'),
             themeToggle = page.locator('.workstation-theme-button');
+
+        const
+            {dockModel: responsiveDockModelBefore} = await app.getComponent(workspaceId, ['dockModel']),
+            {feedSequence: feedSequenceBefore}     = await app.getComponent(workspaceId, ['feedSequence']);
+
+        await page.evaluate(() => {
+            globalThis.__workstationResponsiveDocument = document;
+            globalThis.__workstationResponsiveScalePane = document.querySelector('.workstation-scale-pane')
+        });
+
+        /**
+         * @summary Resizes this loaded page and waits for the responsive dock projection to settle.
+         * @param {{height:Number,width:Number}} viewport
+         * @returns {Promise<Object>}
+         */
+        const readAtViewport = async viewport => {
+            await page.setViewportSize(viewport);
+            await expect.poll(async () => {
+                const geometry = await readResponsiveDockGeometry(page);
+
+                return {
+                    height   : Math.round(geometry.root.height),
+                    railTabs : geometry.railTabs,
+                    splitters: geometry.splitters,
+                    viewport : geometry.viewport,
+                    width    : Math.round(geometry.root.width)
+                }
+            }, {
+                message  : `Workstation settles at ${viewport.width}x${viewport.height}`,
+                timeout  : 10000,
+                intervals: [25, 50, 100]
+            }).toEqual({
+                height   : viewport.height,
+                railTabs : 2,
+                splitters: 2,
+                viewport,
+                width    : viewport.width
+            });
+
+            return readResponsiveDockGeometry(page)
+        };
+
+        const
+            wideGeometry   = await readAtViewport({height: 900, width: 1280}),
+            narrowGeometry = await readAtViewport({height: 900, width: 900}),
+            shortGeometry  = await readAtViewport({height: 600, width: 900});
+
+        expect(wideGeometry.leftBand.computedExtent).toBeCloseTo(260, 1);
+        expect(wideGeometry.rightBand.computedExtent).toBeCloseTo(320, 1);
+        expect(wideGeometry.bottomBand.computedExtent).toBeCloseTo(200, 1);
+        expect(narrowGeometry.leftBand.computedExtent).toBeCloseTo(182.8125, 1);
+        expect(narrowGeometry.rightBand.computedExtent).toBeCloseTo(225, 1);
+        expect(narrowGeometry.bottomBand.computedExtent).toBeCloseTo(200, 1);
+        expect(narrowGeometry.leftBand.width).toBeLessThan(wideGeometry.leftBand.width);
+        expect(narrowGeometry.rightBand.width).toBeLessThan(wideGeometry.rightBand.width);
+        expect(narrowGeometry.center.width, 'the primary center keeps its desktop working floor')
+            .toBeGreaterThanOrEqual(400);
+        expect(narrowGeometry.scale.width, 'the 100k-row primary grid remains usable')
+            .toBeGreaterThanOrEqual(230);
+        expect(narrowGeometry.row.left).toBeGreaterThanOrEqual(narrowGeometry.dockHost.left - 1);
+        expect(narrowGeometry.row.right).toBeLessThanOrEqual(narrowGeometry.dockHost.right + 1);
+        expect(narrowGeometry.center.left).toBeGreaterThanOrEqual(narrowGeometry.row.left - 1);
+        expect(narrowGeometry.center.right).toBeLessThanOrEqual(narrowGeometry.row.right + 1);
+        expect(narrowGeometry.scale.left).toBeGreaterThanOrEqual(narrowGeometry.center.left - 1);
+        expect(narrowGeometry.scale.right).toBeLessThanOrEqual(narrowGeometry.center.right + 1);
+        expect(narrowGeometry.overflowControls, 'tab overflow remains owner-exact at the narrow desktop floor')
+            .toBe(1);
+        expect(shortGeometry.bottomBand.computedExtent).toBeCloseTo(168, 1);
+        expect(shortGeometry.bottomBand.height).toBeLessThan(wideGeometry.bottomBand.height);
+        expect(shortGeometry.center.width).toBeCloseTo(narrowGeometry.center.width, 1);
+        expect(shortGeometry.scale.width).toBeCloseTo(narrowGeometry.scale.width, 1);
+        expect(shortGeometry.scale.height, 'the short desktop keeps a usable primary grid height')
+            .toBeGreaterThanOrEqual(230);
+        expect(shortGeometry.bottomBand.bottom).toBeLessThanOrEqual(shortGeometry.dockHost.bottom + 1);
+        expect(shortGeometry.overflowControls).toBe(1);
+
+        const
+            responsiveIdentityAfter               = await readIdentity(app, workspaceId),
+            {dockModel: responsiveDockModelAfter} = await app.getComponent(workspaceId, ['dockModel']);
+
+        expect(responsiveDockModelAfter, 'viewport projection never rewrites dockZone.v1')
+            .toEqual(responsiveDockModelBefore);
+        expect(responsiveDockModelAfter.nodes['split-main'].sizes).toEqual([0.6, 0.4]);
+        expect(responsiveDockModelAfter.nodes['split-right'].sizes).toEqual([0.5, 0.5]);
+        expect(responsiveIdentityAfter, 'viewport resizing preserves panes, Provider, and Store<Model> identities')
+            .toEqual(beforeIdentity);
+        expect(
+            await page.evaluate(() => globalThis.__workstationResponsiveDocument === document
+                && globalThis.__workstationResponsiveScalePane === document.querySelector('.workstation-scale-pane')),
+            'the same document and primary pane survive every viewport'
+        ).toBe(true);
+        await expect.poll(async () => (await app.getComponent(workspaceId, ['feedSequence'])).feedSequence, {
+            message  : 'the live feed keeps advancing through viewport-only projection changes',
+            timeout  : 3000,
+            intervals: [100, 250]
+        }).toBeGreaterThan(feedSequenceBefore);
+
+        const restoredGeometry = await readAtViewport({height: 1440, width: 2560});
+
+        expect(restoredGeometry.leftBand.computedExtent).toBeCloseTo(260, 1);
+        expect(restoredGeometry.rightBand.computedExtent).toBeCloseTo(320, 1);
+        expect(restoredGeometry.bottomBand.computedExtent).toBeCloseTo(200, 1);
+        expect(restoredGeometry.overflowControls).toBe(1);
 
         await expect(tourButton).toHaveText('Start dense tour');
         await expect(themeToggle, 'one action-labelled theme toggle replaces two mode buttons').toHaveCount(1);
