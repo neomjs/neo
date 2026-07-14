@@ -1,23 +1,23 @@
-import Button        from '../../../../../src/button/Base.mjs';
-import GridContainer from '../../../../../src/grid/Container.mjs';
+import Button        from '../../../src/button/Base.mjs';
+import GridContainer from '../../../src/grid/Container.mjs';
 
 /**
- * @summary Renderer-rich virtual grid for Demo C's exact 100,000-row scale store.
+ * @summary Renderer-rich virtual grid for Workstation's exact 100,000-row scale store.
  *
  * The pane composes the generic column families proven by BigData and DevIndex: viewport-
  * bounded row/column pools, ordinary renderers, component cells, animated values, progress,
  * heatmap classes, and `type:'sparkline'` (the framework-owned OffscreenCanvas path).
  *
- * @class AgentOS.childapps.dockdemo.view.DemoCScalePane
+ * @class Workstation.view.ScalePane
  * @extends Neo.grid.Container
  */
-class DemoCScalePane extends GridContainer {
+class ScalePane extends GridContainer {
     static config = {
         /**
-         * @member {String} className='AgentOS.childapps.dockdemo.view.DemoCScalePane'
+         * @member {String} className='Workstation.view.ScalePane'
          * @protected
          */
-        className: 'AgentOS.childapps.dockdemo.view.DemoCScalePane',
+        className: 'Workstation.view.ScalePane',
         /**
          * @member {Object} body
          */
@@ -28,7 +28,7 @@ class DemoCScalePane extends GridContainer {
         /**
          * @member {String[]} cls
          */
-        cls: ['agentos-dockdemo-data-pane', 'agentos-dockdemo-scale-pane'],
+        cls: ['workstation-data-pane', 'workstation-scale-pane'],
         /**
          * @member {Object} columnDefaults
          */
@@ -53,7 +53,7 @@ class DemoCScalePane extends GridContainer {
             dataField: 'value',
             text     : 'Throughput',
             renderer : ({value}) => new Intl.NumberFormat().format(value),
-            cellCls  : ({value}) => ['agentos-dockdemo-heat', `agentos-dockdemo-heat-${Math.min(3, Math.floor((value || 0) / 2500))}`]
+            cellCls  : ({value}) => ['workstation-heat', `workstation-heat-${Math.min(3, Math.floor((value || 0) / 2500))}`]
         }, {
             type     : 'animatedChange',
             dataField: 'counter',
@@ -77,7 +77,7 @@ class DemoCScalePane extends GridContainer {
             width    : 130,
             component: ({record}) => ({
                 module : Button,
-                cls    : ['agentos-dockdemo-row-action'],
+                cls    : ['workstation-row-action'],
                 handler: () => record.counter++,
                 iconCls: 'fa fa-wave-square',
                 text   : '+1 pulse'
@@ -90,4 +90,4 @@ class DemoCScalePane extends GridContainer {
     }
 }
 
-export default Neo.setupClass(DemoCScalePane);
+export default Neo.setupClass(ScalePane);

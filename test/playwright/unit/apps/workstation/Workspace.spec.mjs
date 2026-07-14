@@ -1,48 +1,48 @@
-import {setup} from '../../../../../setup.mjs';
+import {setup} from '../../../setup.mjs';
 
 setup({
     appConfig: {
-        name: 'DockDemoWorkspaceCTest'
+        name: 'WorkstationWorkspaceTest'
     }
 });
 
 import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../../src/core/_export.mjs';
-import '../../../../../../../src/manager/Instance.mjs';
-import DemoCFeedPane  from '../../../../../../../apps/agentos/childapps/dockdemo/view/DemoCFeedPane.mjs';
-import DemoCScalePane from '../../../../../../../apps/agentos/childapps/dockdemo/view/DemoCScalePane.mjs';
-import DemoCWorkspace from '../../../../../../../apps/agentos/childapps/dockdemo/view/DemoCWorkspace.mjs';
+import Neo            from '../../../../../src/Neo.mjs';
+import * as core      from '../../../../../src/core/_export.mjs';
+import '../../../../../src/manager/Instance.mjs';
+import FeedPane  from '../../../../../apps/workstation/view/FeedPane.mjs';
+import ScalePane from '../../../../../apps/workstation/view/ScalePane.mjs';
+import Workspace from '../../../../../apps/workstation/view/Workspace.mjs';
 
-import {initialDocument} from '../../../../../../../apps/agentos/tour/demoCDenseWorkstation.mjs';
+import {initialDocument} from '../../../../../apps/workstation/tour/denseWorkstation.mjs';
 
 /**
- * @summary Pins the composition choices Demo C itself owns: one provider with two stores,
+ * @summary Pins the composition choices Workstation itself owns: one provider with two stores,
  * an exact 100k Turbo scale set, a growing capped feed, and stable pane/store identities
  * across a reducer-driven coarse projection. Primitive grid/Canvas stress remains in its
  * existing suites; the browser journey owns rendered continuity.
  */
-test.describe.serial('AgentOS.childapps.dockdemo.view.DemoCWorkspace', () => {
+test.describe.serial('Workstation.view.Workspace', () => {
     test('renderer-rich scale columns carry unique pooling keys', () => {
         const
-            dataFields     = DemoCScalePane.config.columns.map(column => column.dataField),
-            feedEvent      = DemoCFeedPane.config.columns.find(column => column.dataField === 'name'),
-            feedState      = DemoCFeedPane.config.columns.find(column => column.dataField === 'status'),
-            feedSparkline  = DemoCFeedPane.config.columns.find(column => column.type === 'sparkline'),
-            feedValue      = DemoCFeedPane.config.columns.find(column => column.dataField === 'value'),
-            scaleSparkline = DemoCScalePane.config.columns.find(column => column.type === 'sparkline');
+            dataFields     = ScalePane.config.columns.map(column => column.dataField),
+            feedEvent      = FeedPane.config.columns.find(column => column.dataField === 'name'),
+            feedState      = FeedPane.config.columns.find(column => column.dataField === 'status'),
+            feedSparkline  = FeedPane.config.columns.find(column => column.type === 'sparkline'),
+            feedValue      = FeedPane.config.columns.find(column => column.dataField === 'value'),
+            scaleSparkline = ScalePane.config.columns.find(column => column.type === 'sparkline');
 
         expect(new Set(dataFields).size).toBe(dataFields.length);
-        expect(DemoCScalePane.config.body.bufferRowRange * DemoCScalePane.config.rowHeight)
+        expect(ScalePane.config.body.bufferRowRange * ScalePane.config.rowHeight)
             .toBeGreaterThanOrEqual(0.28 * 1440);
-        expect(DemoCScalePane.config.rowHeight).toBe(50);
-        expect(DemoCFeedPane.config.rowHeight).toBe(50);
+        expect(ScalePane.config.rowHeight).toBe(50);
+        expect(FeedPane.config.rowHeight).toBe(50);
         expect(scaleSparkline).toMatchObject({width: 160});
         expect(scaleSparkline.flex).toBeUndefined();
         expect(feedSparkline).toMatchObject({width: 160});
         expect(feedSparkline.flex).toBeUndefined();
-        expect(DemoCScalePane.config.columnDefaults.cellAlign).toBe('left');
-        expect(DemoCFeedPane.config.columnDefaults.cellAlign).toBe('left');
+        expect(ScalePane.config.columnDefaults.cellAlign).toBe('left');
+        expect(FeedPane.config.columnDefaults.cellAlign).toBe('left');
         expect(feedEvent).toMatchObject({flex: 2, minWidth: 280});
         expect(feedState).toMatchObject({flex: 1, minWidth: 140});
         expect(feedValue).toMatchObject({flex: 1, minWidth: 120});
@@ -50,7 +50,7 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoCWorkspace', () => {
     });
 
     test('provider-owned stores and cached data panes survive split + return', async () => {
-        const workspace = Neo.create(DemoCWorkspace, {});
+        const workspace = Neo.create(Workspace, {});
 
         try {
             const
@@ -61,8 +61,8 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoCWorkspace', () => {
                 feedPane   = workspace.resolvePane('feed', initialDocument.items.feed),
                 feedBefore = feedStore.count;
 
-            expect(scaleStore.className).toBe('AgentOS.childapps.dockdemo.store.DemoCScale');
-            expect(feedStore.className).toBe('AgentOS.childapps.dockdemo.store.DemoCFeed');
+            expect(scaleStore.className).toBe('Workstation.store.Scale');
+            expect(feedStore.className).toBe('Workstation.store.Feed');
             expect(scaleStore.count).toBe(100000);
             expect(scaleStore.autoInitRecords).toBe(false);
             expect(scaleStore.items.slice(0, 20).every(record => record.trend
@@ -80,7 +80,7 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoCWorkspace', () => {
                 .toBe(`feed-${String(workspace.feedSequence).padStart(8, '0')}`);
             expect(feedStore.items.at(-1).id)
                 .toBe(`feed-${String(workspace.feedSequence - feedStore.maxRecords + 1).padStart(8, '0')}`);
-            expect(DemoCWorkspace.FEED_BATCH_SIZE * 1000 / DemoCWorkspace.FEED_INTERVAL_MS).toBe(10);
+            expect(Workspace.FEED_BATCH_SIZE * 1000 / Workspace.FEED_INTERVAL_MS).toBe(10);
 
             let result = workspace.applyDockZoneOperation({
                 operation   : 'splitNode',

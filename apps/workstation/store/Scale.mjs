@@ -1,23 +1,23 @@
-import DemoCRecord from '../model/DemoCRecord.mjs';
-import Store       from '../../../../../src/data/Store.mjs';
+import Record from '../model/Record.mjs';
+import Store  from '../../../src/data/Store.mjs';
 
 /**
- * @summary Demo C's target-owned 100,000-row scale store.
+ * @summary Workstation's target-owned 100,000-row scale store.
  *
  * This is the shipped BigData mechanism, localized rather than wrapped as another UI:
  * build plain objects, keep `autoInitRecords:false`, and add the complete set once in
  * Turbo Mode. Grid buffering and record hydration remain framework-owned.
  *
- * @class AgentOS.childapps.dockdemo.store.DemoCScale
+ * @class Workstation.store.Scale
  * @extends Neo.data.Store
  */
-class DemoCScale extends Store {
+class Scale extends Store {
     static config = {
         /**
-         * @member {String} className='AgentOS.childapps.dockdemo.store.DemoCScale'
+         * @member {String} className='Workstation.store.Scale'
          * @protected
          */
-        className: 'AgentOS.childapps.dockdemo.store.DemoCScale',
+        className: 'Workstation.store.Scale',
         /**
          * @member {Number} amountRows=100000
          */
@@ -31,9 +31,9 @@ class DemoCScale extends Store {
          */
         keyProperty: 'id',
         /**
-         * @member {Neo.data.Model} model=DemoCRecord
+         * @member {Neo.data.Model} model=Record
          */
-        model: DemoCRecord
+        model: Record
     }
 
     /**
@@ -82,4 +82,4 @@ class DemoCScale extends Store {
     }
 }
 
-export default Neo.setupClass(DemoCScale);
+export default Neo.setupClass(Scale);

@@ -1,5 +1,5 @@
 /**
- * @summary Demo C's data-only `neo.tour.script.v1` screenplay and opening dock document.
+ * @summary Workstation's data-only `neo.tour.script.v1` screenplay and opening dock document.
  *
  * Twenty live items prove workstation density rather than catalog density. The dominant
  * scale grid and the live feed remain mounted as the screenplay opens the real overflow
@@ -28,10 +28,10 @@ export const initialDocument = Object.freeze({
         builds   : {componentRef: 'Builds',    title: 'Build Pipeline Monitor',       kind: 'panel'},
         deploys  : {componentRef: 'Deploys',   title: 'Deployment Flight Deck',       kind: 'panel'},
         security : {componentRef: 'Security',  title: 'Security Signal Center',       kind: 'panel'},
-        memory   : {componentRef: 'Memory',    title: 'Memory Core Telemetry',        kind: 'panel'},
-        graph    : {componentRef: 'Graph',     title: 'Native Edge Graph',            kind: 'panel', autoHidden: true},
+        memory   : {componentRef: 'Memory',    title: 'Memory Pressure Telemetry',    kind: 'panel'},
+        graph    : {componentRef: 'Graph',     title: 'Dependency Graph Explorer',    kind: 'panel', autoHidden: true},
         queues   : {componentRef: 'Queues',    title: 'Task Queue Pressure',          kind: 'panel'},
-        metrics  : {componentRef: 'Metrics',   title: 'Fleet Metrics',                kind: 'panel'},
+        metrics  : {componentRef: 'Metrics',   title: 'System Metrics',                kind: 'panel'},
         audit    : {componentRef: 'Audit',     title: 'Evidence Audit',               kind: 'panel'},
         commits  : {componentRef: 'Commits',   title: 'Commit Stream',                kind: 'panel'},
         files    : {componentRef: 'Files',     title: 'Workspace Files',              kind: 'panel'},
@@ -55,9 +55,9 @@ export const initialDocument = Object.freeze({
  * vocabulary is the shipped `splitNode` + `addTab` pair.
  * @type {Object}
  */
-export const demoCTourScript = Object.freeze({
+export const workstationTourScript = Object.freeze({
     schema: 'neo.tour.script.v1',
-    id    : 'demo-c-dense-workstation',
+    id    : 'workstation-dense-tour',
     title : 'The content never stops living',
 
     workspace: {height: 1440, width: 2560},

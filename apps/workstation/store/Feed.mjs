@@ -1,22 +1,22 @@
-import DemoCRecord from '../model/DemoCRecord.mjs';
-import Store       from '../../../../../src/data/Store.mjs';
+import Record from '../model/Record.mjs';
+import Store  from '../../../src/data/Store.mjs';
 
 /**
- * @summary The provider-owned Store<Model> receiving Demo C's batched live feed.
+ * @summary The provider-owned Store<Model> receiving Workstation's batched live feed.
  *
  * Production cadence belongs to the workspace, whose lifetime survives pane parking. This
  * store owns only collection policy: newest rows first and an explicit 500-record cap.
  *
- * @class AgentOS.childapps.dockdemo.store.DemoCFeed
+ * @class Workstation.store.Feed
  * @extends Neo.data.Store
  */
-class DemoCFeed extends Store {
+class Feed extends Store {
     static config = {
         /**
-         * @member {String} className='AgentOS.childapps.dockdemo.store.DemoCFeed'
+         * @member {String} className='Workstation.store.Feed'
          * @protected
          */
-        className: 'AgentOS.childapps.dockdemo.store.DemoCFeed',
+        className: 'Workstation.store.Feed',
         /**
          * @member {String} keyProperty='id'
          */
@@ -26,9 +26,9 @@ class DemoCFeed extends Store {
          */
         maxRecords: 500,
         /**
-         * @member {Neo.data.Model} model=DemoCRecord
+         * @member {Neo.data.Model} model=Record
          */
-        model: DemoCRecord,
+        model: Record,
         /**
          * @member {Object[]} sorters
          */
@@ -36,4 +36,4 @@ class DemoCFeed extends Store {
     }
 }
 
-export default Neo.setupClass(DemoCFeed);
+export default Neo.setupClass(Feed);
