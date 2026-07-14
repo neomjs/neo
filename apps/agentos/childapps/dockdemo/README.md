@@ -13,9 +13,13 @@ and shared-heap pop-out journey. The dense living-data Workstation is a standalo
 
 ```bash
 npm install
+npm run build-themes -- -n -e dev -t all
 npm run server-start
 # → http://localhost:8080/apps/agentos/childapps/dockdemo/index.html
 ```
+
+The non-interactive theme build creates the ignored development CSS and `theme-map.json`
+artifacts a fresh checkout does not contain.
 
 ## The tour
 
