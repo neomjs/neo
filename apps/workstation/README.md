@@ -10,9 +10,13 @@ It is an independent application under `apps/workstation/` with its own boot sur
 
 ```bash
 npm install
+npm run build-themes -- -n -e dev -t all
 npm run server-start
 # → http://localhost:8080/apps/workstation/index.html
 ```
+
+The non-interactive theme build creates the ignored development CSS and `theme-map.json`
+artifacts a fresh checkout does not contain.
 
 Press **Start dense tour**. The screenplay opens the real overflow menu, scrolls the 100k grid,
 promotes a live pane through `splitNode`, returns it through `addTab`, and flips both themes.
