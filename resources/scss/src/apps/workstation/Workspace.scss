@@ -50,10 +50,72 @@
         gap: 7px;
     }
 
+    // DockLayoutAdapter already projects one real DockSplitter per split boundary. Paint that
+    // exact six-pixel interaction target instead of adding a disconnected decorative handle.
+    .neo-dashboard-dock-splitter {
+        background-color: color-mix(in srgb, var(--workstation-signal) 9%, transparent);
+        border-radius   : 999px;
+        box-shadow      : inset 0 0 0 1px color-mix(in srgb, var(--workstation-signal) 18%, transparent);
+        position        : relative;
+        transition      : background-color var(--dock-transition-duration-fast) var(--dock-transition-easing),
+                          box-shadow var(--dock-transition-duration-fast) var(--dock-transition-easing);
+        z-index         : 1;
+
+        &::after {
+            background   : color-mix(in srgb, var(--workstation-signal) 42%, var(--workstation-line));
+            border-radius: 999px;
+            content      : '';
+            left         : 50%;
+            position     : absolute;
+            top          : 50%;
+            transform    : translate(-50%, -50%);
+            transition   : background-color var(--dock-transition-duration-fast) var(--dock-transition-easing),
+                           box-shadow var(--dock-transition-duration-fast) var(--dock-transition-easing);
+        }
+
+        &:hover {
+            background-color: color-mix(in srgb, var(--workstation-signal) 18%, transparent);
+            box-shadow      : inset 0 0 0 1px color-mix(in srgb, var(--workstation-signal) 38%, transparent);
+
+            &::after {
+                background: color-mix(in srgb, var(--workstation-signal) 78%, var(--workstation-ink));
+                box-shadow: 0 0 9px color-mix(in srgb, var(--workstation-signal) 48%, transparent);
+            }
+        }
+
+        &:active {
+            background-color: color-mix(in srgb, var(--workstation-signal) 30%, transparent);
+            box-shadow      : inset 0 0 0 1px var(--workstation-signal),
+                              0 0 12px color-mix(in srgb, var(--workstation-signal) 32%, transparent);
+            opacity         : 1 !important;
+
+            &::after {
+                background: var(--workstation-signal);
+            }
+        }
+    }
+
+    .neo-dashboard-dock-splitter-horizontal::after {
+        height: 36px;
+        width : 2px;
+    }
+
+    .neo-dashboard-dock-splitter-vertical::after {
+        height: 2px;
+        width : 36px;
+    }
+
     .neo-dashboard-dock-edge-band,
     .neo-tab-container {
         min-height: 0;
         min-width : 0;
+    }
+
+    // The pane owns Workstation's visible border and radius. The generic tab body remains a
+    // layout/overflow wrapper here, not a second square opaque frame around the live pane.
+    .neo-tab-container > .neo-tab-body-container {
+        background: transparent;
+        border    : 0;
     }
 
     // The generic edge-zone defaults are symmetrical. Workstation's evidence column carries two
