@@ -3,6 +3,12 @@
 // reduced-motion collapse owned by Neo.dashboard.Container.
 
 .workstation-workspace {
+    // Workstation owns its edge-band projection policy. Inline container units let the
+    // secondary bands yield to the primary work surface without teaching dockZone.v1 about
+    // viewport pixels; the block-axis band follows the standalone viewport within the same
+    // bounded desktop contract.
+    container-type: inline-size;
+
     // Workstation is a standalone instrument, so generic grid/tab primitives inherit its own
     // palette in both skins instead of leaking their default blue/purple values.
     --grid-container-border-color              : var(--workstation-line);
@@ -120,13 +126,17 @@
 
     // The generic edge-zone defaults are symmetrical. Workstation's evidence column carries two
     // vertically stacked instruments, while the left queue card is intentionally simpler.
-    // Shift those forty pixels to the evidence side instead of starving both right-hand zones.
+    // Preserve those desktop maxima while yielding enough inline space for the primary grid.
     .neo-dashboard-dock-edge-band-left {
-        width: 260px;
+        width: clamp(180px, 20.3125cqi, 260px);
     }
 
     .neo-dashboard-dock-edge-band-right {
-        width: 320px;
+        width: clamp(220px, 25cqi, 320px);
+    }
+
+    .neo-dashboard-dock-edge-band-bottom {
+        height: clamp(140px, 28vh, 200px);
     }
 
     .neo-dashboard-dock-edge-rail {
