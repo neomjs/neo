@@ -1,8 +1,8 @@
-import {test, expect}    from '../../fixtures.mjs';
-import {demoCTourScript} from '../../../../apps/agentos/tour/demoCDenseWorkstation.mjs';
+import {test, expect}          from '../../fixtures.mjs';
+import {workstationTourScript} from '../../../../apps/workstation/tour/denseWorkstation.mjs';
 
 /**
- * @summary Mounted L3 proof for Demo C's dense, living-data workstation.
+ * @summary Mounted L3 proof for Workstation's dense, living-data workstation.
  *
  * The unit floor owns the document/script contract. This journey drives the REAL tour button
  * and owns what only the App Worker + DOM + Canvas Worker composition can prove: one Provider,
@@ -12,7 +12,7 @@ import {demoCTourScript} from '../../../../apps/agentos/tour/demoCDenseWorkstati
  * themes, replacement-chrome motion containment, sequential clip-safe fixed staging, and
  * identity preservation.
  *
- * Run: NEO_E2E_PORT=8124 npx playwright test agentos/DemoCDenseWorkstationNL -c test/playwright/playwright.config.e2e.mjs --workers=1
+ * Run: NEO_E2E_PORT=8124 npx playwright test workstation/WorkstationNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
 
 const heavyTitles = [
@@ -26,7 +26,7 @@ const heavyTitles = [
     'Build Pipeline Monitor',
     'Deployment Flight Deck',
     'Security Signal Center',
-    'Memory Core Telemetry',
+    'Memory Pressure Telemetry',
     'Workspace Files'
 ];
 
@@ -34,14 +34,14 @@ const asArray = value => Array.isArray(value) ? value : value ? [value] : [];
 
 /**
  * @param {Object} app Neural Link fixture app handle.
- * @param {String} workspaceId Demo C workspace id.
+ * @param {String} workspaceId Workstation workspace id.
  * @returns {Promise<Object>} Identity-only snapshot (counts deliberately excluded).
  */
 const readIdentity = async (app, workspaceId) => {
     const [providers, scalePanes, feedPanes, listedStores, workspace, securityPaneId] = await Promise.all([
         app.findInstances({className: 'Neo.state.Provider'}, ['id']),
-        app.findInstances({className: 'AgentOS.childapps.dockdemo.view.DemoCScalePane'}, ['id', 'store.id']),
-        app.findInstances({className: 'AgentOS.childapps.dockdemo.view.DemoCFeedPane'}, ['id', 'store.id']),
+        app.findInstances({className: 'Workstation.view.ScalePane'}, ['id', 'store.id']),
+        app.findInstances({className: 'Workstation.view.FeedPane'}, ['id', 'store.id']),
         app.listStores(),
         app.getComponent(workspaceId, ['stateProvider.id']),
         app.callMethod(workspaceId, 'getPaneIdentity', ['security'])
@@ -80,7 +80,7 @@ const readScaleSparklines = async (app, page) => {
             const element = document.getElementById(id),
                   rect    = element?.getBoundingClientRect();
 
-            return Boolean(element?.closest('.agentos-dockdemo-scale-pane')
+            return Boolean(element?.closest('.workstation-scale-pane')
                 && rect?.width > 0
                 && rect?.height > 0)
         }), instances.map(instance => instance.id));
@@ -154,7 +154,7 @@ const expectDevIndexSparklineFit = geometry => {
     expect(geometry.canvas.bottom).toBeLessThanOrEqual(geometry.content.bottom + 1)
 };
 
-test.describe('AgentOS Demo C — dense workstation composition', () => {
+test.describe('Workstation — dense living-data composition', () => {
     test.setTimeout(150000);
     test.use({viewport: {height: 1440, width: 2560}});
 
@@ -162,10 +162,10 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
         const pageErrors    = [],
               runtimeErrors = [];
 
-        await page.context().exposeFunction('__recordDemoCRuntimeError', payload => runtimeErrors.push(payload));
+        await page.context().exposeFunction('__recordWorkstationRuntimeError', payload => runtimeErrors.push(payload));
         await page.context().addInitScript(() => {
             globalThis.addEventListener('error', event => {
-                globalThis.__recordDemoCRuntimeError({
+                globalThis.__recordWorkstationRuntimeError({
                     column : event.colno,
                     line   : event.lineno,
                     message: event.message,
@@ -174,7 +174,7 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
                 })
             });
             globalThis.addEventListener('unhandledrejection', event => {
-                globalThis.__recordDemoCRuntimeError({
+                globalThis.__recordWorkstationRuntimeError({
                     reason: String(event.reason?.stack || event.reason?.message || event.reason),
                     type  : 'unhandledrejection'
                 })
@@ -186,23 +186,23 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
             value && value !== 'undefined' && pageErrors.push(value)
         });
 
-        await page.goto('/apps/agentos/childapps/dockdemo/index.html?demo=c');
-        await page.waitForSelector('.agentos-dockdemo-tour-play', {timeout: 30000});
+        await page.goto('/apps/workstation/index.html');
+        await page.waitForSelector('.workstation-tour-play', {timeout: 30000});
         await page.waitForSelector('.neo-tab-overflow-control', {timeout: 30000});
 
-        const app        = await neuralLink.connectToApp('AgentOSDockDemo'),
+        const app        = await neuralLink.connectToApp('Workstation'),
               workspaces = asArray(await app.findInstances(
-                  {className: 'AgentOS.childapps.dockdemo.view.DemoCWorkspace'},
+                  {className: 'Workstation.view.Workspace'},
                   ['id']
               )),
               workspaceId = workspaces[0]?.id;
 
-        expect(workspaces, 'the page owns exactly one Demo C workspace').toHaveLength(1);
+        expect(workspaces, 'the page owns exactly one Workstation workspace').toHaveLength(1);
         expect(workspaceId).toBeTruthy();
 
         const beforeIdentity = await readIdentity(app, workspaceId);
 
-        expect(beforeIdentity.providerCount, 'Demo C owns one root StateProvider').toBe(1);
+        expect(beforeIdentity.providerCount, 'Workstation owns one root StateProvider').toBe(1);
         expect(beforeIdentity.workspaceProviderId, 'the workspace references that one Provider')
             .toBe(beforeIdentity.providerId);
         expect(beforeIdentity.scaleStoreId).toBeTruthy();
@@ -216,14 +216,14 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
 
         expect(scaleSnapshot.count, 'the composed scale store is exactly 100,000 rows').toBe(100000);
         expect(scaleSnapshot.model?.className ?? scaleSnapshot.model)
-            .toBe('AgentOS.childapps.dockdemo.model.DemoCRecord');
+            .toBe('Workstation.model.Record');
         expect(feedBaseline.model?.className ?? feedBaseline.model)
-            .toBe('AgentOS.childapps.dockdemo.model.DemoCRecord');
+            .toBe('Workstation.model.Record');
 
         const
-            root        = page.locator('.agentos-dockdemo-workspace-c'),
-            tourButton  = page.locator('.agentos-dockdemo-tour-play'),
-            themeToggle = page.locator('.agentos-dockdemo-theme-button');
+            root        = page.locator('.workstation-workspace'),
+            tourButton  = page.locator('.workstation-tour-play'),
+            themeToggle = page.locator('.workstation-theme-button');
 
         await expect(tourButton).toHaveText('Start dense tour');
         await expect(themeToggle, 'one action-labelled theme toggle replaces two mode buttons').toHaveCount(1);
@@ -231,10 +231,10 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
 
         const headerGeometry = await page.evaluate(() => {
             const
-                playElement     = document.querySelector('.agentos-dockdemo-tour-play'),
-                captionElement  = document.querySelector('.agentos-dockdemo-tour-caption'),
-                progressElement = document.querySelector('.agentos-dockdemo-tour-pips'),
-                themeElement    = document.querySelector('.agentos-dockdemo-theme-button'),
+                playElement     = document.querySelector('.workstation-tour-play'),
+                captionElement  = document.querySelector('.workstation-tour-caption'),
+                progressElement = document.querySelector('.workstation-tour-pips'),
+                themeElement    = document.querySelector('.workstation-theme-button'),
                 play            = playElement?.getBoundingClientRect(),
                 caption         = captionElement?.getBoundingClientRect(),
                 progress        = progressElement?.getBoundingClientRect(),
@@ -265,7 +265,7 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
         const hoverTourBackground = await tourButton.evaluate(element => getComputedStyle(element).backgroundColor);
 
         expect(initialTourBackground).not.toBe('rgb(67, 93, 177)');
-        expect(hoverTourBackground, 'hover remains in the AgentOS signal palette').not.toBe('rgb(67, 93, 177)');
+        expect(hoverTourBackground, 'hover remains in the Workstation signal palette').not.toBe('rgb(67, 93, 177)');
 
         await themeToggle.click();
         await expect(root).toHaveClass(/neo-theme-neo-light/);
@@ -273,9 +273,9 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
 
         const lightChrome = await page.evaluate(() => {
             const
-                gridHeader  = document.querySelector('.agentos-dockdemo-scale-pane .neo-grid-header-button'),
+                gridHeader  = document.querySelector('.workstation-scale-pane .neo-grid-header-button'),
                 overflow    = document.querySelector('.neo-tab-overflow-control'),
-                rowAction   = document.querySelector('.agentos-dockdemo-row-action'),
+                rowAction   = document.querySelector('.workstation-row-action'),
                 rippleToken = element => getComputedStyle(element)
                     .getPropertyValue('--button-ripple-background-color').trim().toLowerCase();
 
@@ -287,27 +287,27 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
                 rowAction      : getComputedStyle(rowAction).backgroundColor,
                 rowActionBorder: getComputedStyle(rowAction).borderColor,
                 rowActionRipple: rippleToken(rowAction),
-                themeRipple    : rippleToken(document.querySelector('.agentos-dockdemo-theme-button'))
+                themeRipple    : rippleToken(document.querySelector('.workstation-theme-button'))
             }
         });
 
         expect(lightChrome.gridBackground, 'light mode does not leak the standalone grid blue')
             .not.toBe('rgb(93, 131, 167)');
         expect(lightChrome.gridColor, 'light header copy is not forced to generic white').not.toBe('rgb(255, 255, 255)');
-        expect(lightChrome.overflow, 'overflow control belongs to the AgentOS palette').not.toBe('rgb(67, 93, 177)');
+        expect(lightChrome.overflow, 'overflow control belongs to the Workstation palette').not.toBe('rgb(67, 93, 177)');
         expect(lightChrome.overflowRipple).not.toBe('#8ba6ff');
         expect(lightChrome.rowAction, 'row actions do not use the default primary button').not.toBe('rgb(67, 93, 177)');
         expect(lightChrome.rowActionBorder).not.toBe('rgba(0, 0, 0, 0)');
         expect(lightChrome.rowActionRipple).not.toBe('#8ba6ff');
-        expect(lightChrome.themeRipple, 'theme-toggle feedback stays in the AgentOS palette')
+        expect(lightChrome.themeRipple, 'theme-toggle feedback stays in the Workstation palette')
             .not.toBe('#8ba6ff');
 
         await themeToggle.click();
         await expect(root).toHaveClass(/neo-theme-neo-dark/);
         await expect(themeToggle).toHaveText('Light mode');
 
-        expectDevIndexSparklineFit(await readSparklineGeometry(page, '.agentos-dockdemo-scale-pane'));
-        expectDevIndexSparklineFit(await readSparklineGeometry(page, '.agentos-dockdemo-feed-pane'));
+        expectDevIndexSparklineFit(await readSparklineGeometry(page, '.workstation-scale-pane'));
+        expectDevIndexSparklineFit(await readSparklineGeometry(page, '.workstation-feed-pane'));
 
         const gridLayout = await page.evaluate(() => {
             const
@@ -343,11 +343,11 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
                             text: label?.textContent?.trim()
                         }
                     }),
-                scaleHeaders = readHeaders('.agentos-dockdemo-scale-pane'),
-                feedHeaders  = readHeaders('.agentos-dockdemo-feed-pane'),
+                scaleHeaders = readHeaders('.workstation-scale-pane'),
+                feedHeaders  = readHeaders('.workstation-feed-pane'),
                 heavyHeader  = [...document.querySelectorAll('.neo-tab-header-toolbar')]
                     .find(element => element.textContent?.includes('Priority Alert Observatory')),
-                scaleToolbar = document.querySelector('.agentos-dockdemo-scale-pane .neo-grid-header-toolbar');
+                scaleToolbar = document.querySelector('.workstation-scale-pane .neo-grid-header-toolbar');
 
             return {
                 feedHeaders,
@@ -384,7 +384,7 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
 
         await expect(railTabs).toHaveCount(2);
         expect((await railTabs.allTextContents()).map(value => value.trim()).sort())
-            .toEqual(['Native Edge Graph', 'Selection Inspector'].sort());
+            .toEqual(['Dependency Graph Explorer', 'Selection Inspector'].sort());
 
         // One REAL generic overflow control, outside the draggable header collection.
         const control = page.locator('.neo-tab-overflow-control');
@@ -429,12 +429,12 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
         expect(partition.sort(), 'visible + hidden is the exact heavy resident set')
             .toEqual([...heavyTitles].sort());
 
-        const memoryItem = menuItems.filter({hasText: 'Memory Core Telemetry'});
+        const memoryItem = menuItems.filter({hasText: 'Memory Pressure Telemetry'});
 
         await expect(memoryItem).toHaveCount(1);
         await memoryItem.click();
         await expect(page.locator('.neo-tab-header-button.pressed:visible')
-            .filter({hasText: 'Memory Core Telemetry'}),
+            .filter({hasText: 'Memory Pressure Telemetry'}),
         'ordinary activeIndex surfaces the selected hidden resident').toHaveCount(1);
 
         // Owner-scoped Canvas proof: disable autonomous animation, then require this exact
@@ -457,14 +457,14 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
         expect(await page.evaluate(ids => {
             const entries = Object.entries(ids);
 
-            globalThis.__demoCDomIdentity = Object.fromEntries(
+            globalThis.__workstationDomIdentity = Object.fromEntries(
                 entries.map(([key, id]) => [key, document.getElementById(id)])
             );
-            globalThis.__demoCDomIdentity.scaleBody = document.querySelector(
-                '.agentos-dockdemo-scale-pane .neo-grid-body'
+            globalThis.__workstationDomIdentity.scaleBody = document.querySelector(
+                '.workstation-scale-pane .neo-grid-body'
             );
 
-            return Object.values(globalThis.__demoCDomIdentity).every(Boolean)
+            return Object.values(globalThis.__workstationDomIdentity).every(Boolean)
         }, domIdentityIds), 'all permanence targets start as mounted DOM nodes').toBe(true);
 
         for (const sparkline of scaleSparklinesBefore) {
@@ -495,12 +495,12 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
         // frame; when mounted, every visible row must stay populated.
         await page.evaluate(identity => {
             const
-                root             = document.querySelector('.agentos-dockdemo-workspace-c'),
-                initialPipCount  = root?.querySelectorAll('.agentos-dockdemo-pip-done').length || 0,
+                root             = document.querySelector('.workstation-workspace'),
+                initialPipCount  = root?.querySelectorAll('.workstation-pip-done').length || 0,
                 initialHeaderIds = [...root?.querySelectorAll('.neo-tab-header-toolbar') || []]
                     .map(element => element.id);
 
-            const state = globalThis.__demoCMonitor = {
+            const state = globalThis.__workstationMonitor = {
                 activeTabEmptyMaxMs           : 0,
                 activeTabEmptySamples         : [],
                 blankSamples                  : [],
@@ -546,8 +546,8 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
                         && style.visibility !== 'hidden'
                 };
 
-                const root         = document.querySelector('.agentos-dockdemo-workspace-c'),
-                      body         = document.querySelector('.agentos-dockdemo-scale-pane .neo-grid-body'),
+                const root         = document.querySelector('.workstation-workspace'),
+                      body         = document.querySelector('.workstation-scale-pane .neo-grid-body'),
                       railTabCount = [...document.querySelectorAll('.neo-dashboard-dock-rail-tab')]
                           .filter(isVisible).length,
                       overflowControlCount = [...document.querySelectorAll('.neo-tab-overflow-control')]
@@ -557,7 +557,7 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
                 if (root) {
                     const
                         activeTabEmptyIds = new Set(),
-                        pipCount          = root.querySelectorAll('.agentos-dockdemo-pip-done').length,
+                        pipCount          = root.querySelectorAll('.workstation-pip-done').length,
                         previous          = state.pipCounts.at(-1);
 
                     if (pipCount !== previous) {
@@ -691,7 +691,7 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
 
                     state.palettes.includes(palette) || state.palettes.push(palette);
 
-                    if ([...root.querySelectorAll('[class*="agentos-dockdemo-pane-"]')]
+                    if ([...root.querySelectorAll('[class*="workstation-pane-"]')]
                         .some(element => getComputedStyle(element).transform !== 'none')) {
                         state.flipSamples++
                     }
@@ -753,7 +753,7 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
             requestAnimationFrame(tick)
         }, beforeIdentity);
 
-        await page.click('.agentos-dockdemo-tour-play');
+        await page.click('.workstation-tour-play');
         await expect.poll(async () => Boolean(await app.callMethod(workspaceId, 'getTourReceipt')), {
             message  : 'the native tour button settles document and surface tiers',
             timeout  : 30000,
@@ -763,9 +763,9 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
         const tourReceipt        = await app.callMethod(workspaceId, 'getTourReceipt'),
               canvasFailureState = tourReceipt.completed ? [] : await readScaleSparklines(app, page),
               monitor            = await page.evaluate(async () => {
-                  globalThis.__demoCMonitor.done = true;
+                  globalThis.__workstationMonitor.done = true;
                   await new Promise(resolve => requestAnimationFrame(resolve));
-                  return globalThis.__demoCMonitor
+                  return globalThis.__workstationMonitor
               });
 
         expect(tourReceipt.completed,
@@ -802,7 +802,7 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
         expect(monitor.sampledFrames).toBeGreaterThan(10);
         expect(monitor.midpointSeen, 'rAF sampling observes the live midpoint scroll').toBe(true);
         expect(monitor.pipCounts, 'every settled beat paints once, in order')
-            .toEqual(Array.from({length: demoCTourScript.scenes.flatMap(scene => scene.steps).length + 1}, (_, index) => index));
+            .toEqual(Array.from({length: workstationTourScript.scenes.flatMap(scene => scene.steps).length + 1}, (_, index) => index));
         expect(monitor.pipRegressionFrames, 'progress never fills early and jumps backward').toBe(0);
         expect(monitor.replacementHeaderSamples, 'the journey sampled replacement tab chrome').toBeGreaterThan(0);
         expect(monitor.chromeAnimationLeakFrames,
@@ -834,7 +834,7 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
             `every staged frame paints pane content: ${JSON.stringify(monitor.securityFullyClippedSamples)}`).toBe(0);
         expect(monitor.palettes.length, 'the actual tour materially renders both theme palettes').toBeGreaterThanOrEqual(2);
         expect(monitor.flipSamples, 'committed transformations emit visible FLIP motion').toBeGreaterThan(0);
-        await expect(page.locator('.agentos-dockdemo-workspace-c'))
+        await expect(page.locator('.workstation-workspace'))
             .not.toHaveClass(/neo-dashboard-dock-animating/);
         await expect(page.locator('.neo-dock-flip-fixed-stage'),
             'fixed staging leaves no class or active presentation residue').toHaveCount(0);
@@ -848,7 +848,7 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
 
         expect(run1.completed, `run 1 errors: ${JSON.stringify(run1.errors)}`).toBe(true);
         expect(run1.errors).toEqual([]);
-        expect(run1.log).toHaveLength(demoCTourScript.scenes.flatMap(scene => scene.steps).length);
+        expect(run1.log).toHaveLength(workstationTourScript.scenes.flatMap(scene => scene.steps).length);
         expect(run2.completed, `run 2 errors: ${JSON.stringify(run2.errors)}`).toBe(true);
         expect(run2.errors).toEqual([]);
         expect(run2.log, 'both timestamp-free document runs are deterministic').toEqual(run1.log);
@@ -883,18 +883,18 @@ test.describe('AgentOS Demo C — dense workstation composition', () => {
         const domIdentityState = await page.evaluate(ids => ({
             ...Object.fromEntries(Object.entries(ids).map(([key, id]) => [
                 key,
-                globalThis.__demoCDomIdentity?.[key] === document.getElementById(id)
+                globalThis.__workstationDomIdentity?.[key] === document.getElementById(id)
             ])),
-            scaleBody: globalThis.__demoCDomIdentity?.scaleBody
-                === document.querySelector('.agentos-dockdemo-scale-pane .neo-grid-body')
+            scaleBody: globalThis.__workstationDomIdentity?.scaleBody
+                === document.querySelector('.workstation-scale-pane .neo-grid-body')
         }), domIdentityIds);
 
         expect(domIdentityState, 'the exact always-mounted pane, body, and Canvas DOM nodes survive every projection')
             .toEqual({canvas: true, feedPane: true, scaleBody: true, scalePane: true});
         expect(scaleSparklinesAfter.every(entry => entry.properties?.offscreenRegistered),
             'the preserved scale Canvas pool is registered after the final projection').toBe(true);
-        expectDevIndexSparklineFit(await readSparklineGeometry(page, '.agentos-dockdemo-scale-pane'));
-        expectDevIndexSparklineFit(await readSparklineGeometry(page, '.agentos-dockdemo-feed-pane'));
+        expectDevIndexSparklineFit(await readSparklineGeometry(page, '.workstation-scale-pane'));
+        expectDevIndexSparklineFit(await readSparklineGeometry(page, '.workstation-feed-pane'));
         expect(runtimeErrors, 'no global error or unhandled rejection across the journey').toEqual([]);
         expect(pageErrors, 'no Playwright pageerror across the journey').toEqual([])
     })

@@ -1,27 +1,27 @@
-import Component                          from '../../../../../src/component/Base.mjs';
-import Container                          from '../../../../../src/container/Base.mjs';
-import DemoCFeed                          from '../store/DemoCFeed.mjs';
-import DemoCFeedPane                      from './DemoCFeedPane.mjs';
-import DemoCScale                         from '../store/DemoCScale.mjs';
-import DemoCScalePane                     from './DemoCScalePane.mjs';
-import DockLayoutAdapter                  from '../../../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockMotionSignal                   from '../../../../../src/dashboard/DockMotionSignal.mjs';
-import DockService                        from '../../../../../src/ai/client/DockService.mjs';
-import DockZoneModel                      from '../../../../../src/dashboard/DockZoneModel.mjs';
-import StateProvider                      from '../../../../../src/state/Provider.mjs';
-import TourRunner                         from '../../../../../src/ai/client/TourRunner.mjs';
-import {demoCTourScript, initialDocument} from '../../../tour/demoCDenseWorkstation.mjs';
-import '../../../../../src/button/Base.mjs';
-import '../../../../../src/tab/Container.mjs';
-import '../../../../../src/toolbar/Base.mjs';
+import Component                                from '../../../src/component/Base.mjs';
+import Container                                from '../../../src/container/Base.mjs';
+import Feed                                     from '../store/Feed.mjs';
+import FeedPane                                 from './FeedPane.mjs';
+import Scale                                    from '../store/Scale.mjs';
+import ScalePane                                from './ScalePane.mjs';
+import DockLayoutAdapter                        from '../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockMotionSignal                         from '../../../src/dashboard/DockMotionSignal.mjs';
+import DockService                              from '../../../src/ai/client/DockService.mjs';
+import DockZoneModel                            from '../../../src/dashboard/DockZoneModel.mjs';
+import StateProvider                            from '../../../src/state/Provider.mjs';
+import TourRunner                               from '../../../src/ai/client/TourRunner.mjs';
+import {workstationTourScript, initialDocument} from '../tour/denseWorkstation.mjs';
+import '../../../src/button/Base.mjs';
+import '../../../src/tab/Container.mjs';
+import '../../../src/toolbar/Base.mjs';
 
 /**
- * Target-owned narrative data for Demo C's lightweight resident panes. These are presentation
+ * Target-owned narrative data for Workstation's lightweight resident panes. These are presentation
  * facts only: stores and dock state remain owned by their existing authorities.
  * @type {Object}
  */
 const paneStories = Object.freeze({
-    activity : {detail: '12 residents reporting', icon: 'fa-wave-square', kicker: 'SWARM PULSE',      metric: 'LIVE'},
+    activity : {detail: '12 residents reporting', icon: 'fa-wave-square', kicker: 'SYSTEM PULSE',      metric: 'LIVE'},
     alerts   : {detail: '2 require attention',    icon: 'fa-bell',        kicker: 'PRIORITY SIGNALS', metric: '07'},
     audit    : {detail: 'all gates evidenced',    icon: 'fa-shield-alt',  kicker: 'EVIDENCE CHAIN',   metric: '100%'},
     builds   : {detail: '8 parallel checks',      icon: 'fa-cubes',       kicker: 'BUILD FABRIC',     metric: '8/8'},
@@ -29,11 +29,11 @@ const paneStories = Object.freeze({
     console  : {detail: 'semantic ops ready',     icon: 'fa-terminal',    kicker: 'COMMAND PLANE',    metric: 'ARMED'},
     deploys  : {detail: '3 regions synchronized', icon: 'fa-rocket',      kicker: 'FLIGHT DECK',      metric: '03'},
     files    : {detail: 'workspace graph indexed',icon: 'fa-folder-tree', kicker: 'SOURCE SURFACE',   metric: '25K'},
-    graph    : {detail: 'concept edges awake',    icon: 'fa-project-diagram', kicker: 'NATIVE GRAPH',  metric: '20K+'},
+    graph    : {detail: 'dependency edges awake', icon: 'fa-project-diagram', kicker: 'DEPENDENCY GRAPH',  metric: '20K+'},
     inspector: {detail: 'selection follows focus',icon: 'fa-crosshairs',  kicker: 'CONTEXT LENS',     metric: 'LOCK'},
     logs     : {detail: 'zero fatal events',      icon: 'fa-align-left',  kicker: 'STRUCTURED LOGS',  metric: '0 ERR'},
-    memory   : {detail: 'provenance retained',    icon: 'fa-brain',       kicker: 'MEMORY CORE',      metric: 'SYNC'},
-    metrics  : {detail: 'fleet envelope stable',  icon: 'fa-chart-line',  kicker: 'LIVE METRICS',     metric: '99.9'},
+    memory   : {detail: 'pressure stays bounded', icon: 'fa-brain',       kicker: 'MEMORY TELEMETRY',      metric: 'SYNC'},
+    metrics  : {detail: 'system envelope stable', icon: 'fa-chart-line',  kicker: 'LIVE METRICS',     metric: '99.9'},
     queues   : {detail: '18 lanes in motion',     icon: 'fa-stream',      kicker: 'TASK PRESSURE',    metric: '18'},
     runtime  : {detail: 'all residents responsive', icon: 'fa-heartbeat', kicker: 'RUNTIME HEALTH',  metric: 'GREEN'},
     security : {detail: 'continuous policy scan', icon: 'fa-lock',        kicker: 'TRUST ENVELOPE',  metric: 'CLEAR'},
@@ -42,7 +42,7 @@ const paneStories = Object.freeze({
 });
 
 /**
- * @summary Demo C: the dense, themed, living-data workstation showcase.
+ * @summary Workstation: the dense, themed, living-data workstation showcase.
  *
  * The workspace owns one committed `dockZone.v1` document, one root StateProvider, two
  * provider-created Store<Model> instances, and one feed timer. Pane instances are cached
@@ -50,10 +50,10 @@ const paneStories = Object.freeze({
  * the owning grid and store identities. Built-in grid and Sparkline families own pooling,
  * hydration, and OffscreenCanvas registration; this class owns only composition and story.
  *
- * @class AgentOS.childapps.dockdemo.view.DemoCWorkspace
+ * @class Workstation.view.Workspace
  * @extends Neo.container.Base
  */
-class DemoCWorkspace extends Container {
+class Workspace extends Container {
     /**
      * Five records every 500ms: the declared 10-records/sec producer contract.
      * @member {Number} FEED_BATCH_SIZE=5
@@ -68,23 +68,22 @@ class DemoCWorkspace extends Container {
 
     static config = {
         /**
-         * @member {String} className='AgentOS.childapps.dockdemo.view.DemoCWorkspace'
+         * @member {String} className='Workstation.view.Workspace'
          * @protected
          */
-        className: 'AgentOS.childapps.dockdemo.view.DemoCWorkspace',
+        className: 'Workstation.view.Workspace',
         /**
          * @member {String[]} additionalThemeFiles
          */
         additionalThemeFiles: [
-            'AgentOS.view.Viewport',
+            'Workstation.view.Viewport',
             'Neo.dashboard.Container',
-            'AgentOS.childapps.dockdemo.view.DemoAWorkspace',
-            'AgentOS.childapps.dockdemo.view.DemoCWorkspace'
+            'Workstation.view.Workspace'
         ],
         /**
          * @member {String[]} cls
          */
-        cls: ['agentos-dockdemo-workspace', 'agentos-dockdemo-workspace-c'],
+        cls: ['workstation-workspace'],
         /**
          * @member {Object} layout
          */
@@ -96,8 +95,8 @@ class DemoCWorkspace extends Container {
         stateProvider: {
             module: StateProvider,
             stores: {
-                feed : {module: DemoCFeed},
-                scale: {module: DemoCScale}
+                feed : {module: Feed},
+                scale: {module: Scale}
             }
         }
     }
@@ -193,7 +192,7 @@ class DemoCWorkspace extends Container {
             componentId: me.id,
             dockService: me.dockService,
             mode       : 'demo',
-            script     : demoCTourScript
+            script     : workstationTourScript
         });
 
         me.tourRunner.on({
@@ -209,17 +208,17 @@ class DemoCWorkspace extends Container {
 
         me.add([me.createTourBar(), me.createStatusBar(), {
             module   : Container,
-            cls      : ['agentos-dockdemo-dock-host', 'agentos-dockdemo-dock-host-c', 'neo-dashboard'],
+            cls      : ['workstation-dock-host', 'neo-dashboard'],
             flex     : 1,
             items    : [me.projectDockModel()],
             layout   : {ntype: 'fit'},
-            reference: 'dock-host-c'
+            reference: 'dock-host'
         }]);
 
         me.updateStatusBar();
         me.#feedIntervalId = setInterval(
-            () => me.appendFeedBatch(DemoCWorkspace.FEED_BATCH_SIZE),
-            DemoCWorkspace.FEED_INTERVAL_MS
+            () => me.appendFeedBatch(Workspace.FEED_BATCH_SIZE),
+            Workspace.FEED_INTERVAL_MS
         )
     }
 
@@ -236,7 +235,7 @@ class DemoCWorkspace extends Container {
      * @param {Number} amount
      * @returns {Number} Current feed count.
      */
-    appendFeedBatch(amount=DemoCWorkspace.FEED_BATCH_SIZE) {
+    appendFeedBatch(amount=Workspace.FEED_BATCH_SIZE) {
         let me      = this,
             store   = me.getStateProvider().getStore('feed'),
             records = [],
@@ -275,11 +274,11 @@ class DemoCWorkspace extends Container {
      */
     createStatusBar() {
         return {
-            cls      : ['agentos-dockdemo-statusbar'],
+            cls      : ['workstation-statusbar'],
             flex     : 'none',
             html     : '',
             ntype    : 'component',
-            reference: 'status-bar-c'
+            reference: 'status-bar'
         }
     }
 
@@ -291,41 +290,41 @@ class DemoCWorkspace extends Container {
             isLight = me.theme === 'neo-theme-neo-light';
 
         return {
-            cls   : ['agentos-dockdemo-tourbar', 'agentos-dockdemo-tourbar-c'],
+            cls   : ['workstation-tourbar'],
             flex  : 'none',
             layout: {ntype: 'hbox', align: 'center'},
             ntype : 'toolbar',
             items : [{
-                cls      : ['agentos-dockdemo-tour-play'],
+                cls      : ['workstation-tour-play'],
                 handler  : () => me.startTour(),
                 iconCls  : 'fa fa-play',
                 ntype    : 'button',
-                reference: 'tour-play-c',
+                reference: 'tour-play',
                 text     : 'Start dense tour'
             }, {
                 module: Container,
-                cls   : ['agentos-dockdemo-tour-story'],
+                cls   : ['workstation-tour-story'],
                 flex  : 1,
                 items : [{
-                    cls      : ['agentos-dockdemo-tour-caption'],
+                    cls      : ['workstation-tour-caption'],
                     flex     : 'none',
-                    html     : `${demoCTourScript.title} — twenty panes, 100k rows, a 10/sec feed, real overflow, and two themes.`,
+                    html     : `${workstationTourScript.title} — twenty panes, 100k rows, a 10/sec feed, real overflow, and two themes.`,
                     ntype    : 'component',
-                    reference: 'tour-caption-c'
+                    reference: 'tour-caption'
                 }, {
-                    cls      : ['agentos-dockdemo-tour-pips'],
+                    cls      : ['workstation-tour-pips'],
                     flex     : 'none',
                     ntype    : 'component',
-                    reference: 'tour-pips-c',
-                    vdom     : {cn: DemoCWorkspace.totalBeats().map(() => ({cls: ['agentos-dockdemo-pip']}))}
+                    reference: 'tour-pips',
+                    vdom     : {cn: Workspace.totalBeats().map(() => ({cls: ['workstation-pip']}))}
                 }],
                 layout: {ntype: 'vbox', align: 'stretch', pack: 'center'}
             }, {
-                cls      : ['agentos-dockdemo-theme-button'],
+                cls      : ['workstation-theme-button'],
                 handler  : () => me.toggleWorkspaceTheme(),
                 iconCls  : isLight ? 'fa fa-moon' : 'fa fa-sun',
                 ntype    : 'button',
-                reference: 'theme-toggle-c',
+                reference: 'theme-toggle',
                 text     : isLight ? 'Dark mode' : 'Light mode'
             }]
         }
@@ -599,14 +598,14 @@ class DemoCWorkspace extends Container {
     async refreshDockWorkspace() {
         const
             me           = this,
-            host         = me.getReference('dock-host-c'),
+            host         = me.getReference('dock-host'),
             flip         = Neo.main?.addon?.DockFlip,
             placeholders = new Map();
 
         if (!host) return;
 
         try {
-            await flip?.captureFirst({hostId: host.id, markerPrefix: 'agentos-dockdemo-pane-'})
+            await flip?.captureFirst({hostId: host.id, markerPrefix: 'workstation-pane-'})
         } catch (error) {/* instant landing */}
 
         const
@@ -634,7 +633,7 @@ class DemoCWorkspace extends Container {
 
         const nextShell = host.insert(host.items.length, nextConfig, true);
 
-        nextShell.addCls('agentos-dockdemo-chrome-settling');
+        nextShell.addCls('workstation-chrome-settling');
 
         // Atomic moves require both ownership paths to exist in the rendered tree. This update
         // mounts only the visibility-hidden target shell; the live panes remain in the visible
@@ -649,7 +648,7 @@ class DemoCWorkspace extends Container {
                       targetIndex  = targetParent?.indexOf(placeholder) ?? -1;
 
                 if (!targetParent || targetIndex < 0) {
-                    throw new Error(`Demo C projection did not parent placeholder "${itemId}"`)
+                    throw new Error(`Workstation projection did not parent placeholder "${itemId}"`)
                 }
 
                 return {
@@ -712,7 +711,7 @@ class DemoCWorkspace extends Container {
             DockMotionSignal.enter(me);
 
             try {
-                await flip.play({hostId: host.id, markerPrefix: 'agentos-dockdemo-pane-'})
+                await flip.play({hostId: host.id, markerPrefix: 'workstation-pane-'})
             } catch (error) {/* instant landing */}
             finally {
                 DockMotionSignal.leave(me)
@@ -797,10 +796,10 @@ class DemoCWorkspace extends Container {
         if (!pane || pane.isDestroyed) {
             if (itemId === 'scale') {
                 store = me.getStateProvider().getStore('scale');
-                pane  = cache[itemId] = Neo.create({module: DemoCScalePane, store})
+                pane  = cache[itemId] = Neo.create({module: ScalePane, store})
             } else if (itemId === 'feed') {
                 store = me.getStateProvider().getStore('feed');
-                pane  = cache[itemId] = Neo.create({module: DemoCFeedPane, store})
+                pane  = cache[itemId] = Neo.create({module: FeedPane, store})
             } else {
                 const story = paneStories[itemId] || {
                     detail: 'resident operational',
@@ -811,16 +810,16 @@ class DemoCWorkspace extends Container {
 
                 pane = cache[itemId] = Neo.create({
                     module: Component,
-                    cls   : ['agentos-dockdemo-pane', 'agentos-dockdemo-placeholder', `agentos-dockdemo-pane-${itemId}`],
-                    html  : `<div class="agentos-dockdemo-resident-card">
-                        <div class="agentos-dockdemo-resident-kicker"><span></span>${story.kicker}</div>
-                        <i class="fa ${story.icon} agentos-dockdemo-resident-icon"></i>
-                        <div class="agentos-dockdemo-resident-metric">${story.metric}</div>
-                        <div class="agentos-dockdemo-resident-title">${item?.title ?? itemId}</div>
-                        <div class="agentos-dockdemo-resident-footer">
+                    cls   : ['workstation-pane', 'workstation-placeholder', `workstation-pane-${itemId}`],
+                    html  : `<div class="workstation-resident-card">
+                        <div class="workstation-resident-kicker"><span></span>${story.kicker}</div>
+                        <i class="fa ${story.icon} workstation-resident-icon"></i>
+                        <div class="workstation-resident-metric">${story.metric}</div>
+                        <div class="workstation-resident-title">${item?.title ?? itemId}</div>
+                        <div class="workstation-resident-footer">
                             <span>${story.detail}</span><strong>LIVE</strong>
                         </div>
-                        <div class="agentos-dockdemo-resident-wave"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                        <div class="workstation-resident-wave"><i></i><i></i><i></i><i></i><i></i><i></i></div>
                     </div>`
                 })
             }
@@ -832,7 +831,7 @@ class DemoCWorkspace extends Container {
         // surrounding navigation groups use compact labels; the twelve-item heavy group keeps the full
         // canonical titles and therefore owns the showcase's one intentional overflow affordance.
         pane.header = {text: me.getPaneHeaderText(itemId, item)};
-        pane.addCls(`agentos-dockdemo-pane-${itemId}`);
+        pane.addCls(`workstation-pane-${itemId}`);
 
         return pane
     }
@@ -840,10 +839,10 @@ class DemoCWorkspace extends Container {
     /**
      * Replays one script's document tier from a fresh document in spec mode. Runtime-only
      * cues remain the visible tour's responsibility and are verified through its receipt.
-     * @param {Object} [script=demoCTourScript]
+     * @param {Object} [script=workstationTourScript]
      * @returns {Promise<Object>}
      */
-    async runTourSpec(script=demoCTourScript) {
+    async runTourSpec(script=workstationTourScript) {
         let me          = this,
             dockService = Neo.create(DockService, {}),
             runner      = Neo.create(TourRunner, {
@@ -896,7 +895,7 @@ class DemoCWorkspace extends Container {
      * @param {Number} count
      */
     async setPipProgress(count) {
-        const pips = this.getReference('tour-pips-c');
+        const pips = this.getReference('tour-pips');
 
         if (!pips) return;
 
@@ -904,8 +903,8 @@ class DemoCWorkspace extends Container {
 
         vdom.cn.forEach((pip, index) => {
             pip.cls = index < count
-                ? ['agentos-dockdemo-pip', 'agentos-dockdemo-pip-done']
-                : ['agentos-dockdemo-pip']
+                ? ['workstation-pip', 'workstation-pip-done']
+                : ['workstation-pip']
         });
         pips.update();
         await pips.promiseUpdate()
@@ -915,7 +914,7 @@ class DemoCWorkspace extends Container {
      * @param {String} text
      */
     setTourCaption(text) {
-        const caption = this.getReference('tour-caption-c');
+        const caption = this.getReference('tour-caption');
 
         caption && (caption.html = text)
     }
@@ -936,7 +935,7 @@ class DemoCWorkspace extends Container {
      */
     syncThemeToggle(theme) {
         const
-            button  = this.getReference('theme-toggle-c'),
+            button  = this.getReference('theme-toggle'),
             isLight = theme === 'neo-theme-neo-light';
 
         if (button) {
@@ -987,7 +986,7 @@ class DemoCWorkspace extends Container {
         await me.cuePromise;
         await me.refreshPromise;
         await me.progressPromise;
-        await me.setPipProgress(DemoCWorkspace.totalBeats().length);
+        await me.setPipProgress(Workspace.totalBeats().length);
 
         const
             elapsedMs    = Date.now() - startedAt,
@@ -1001,11 +1000,11 @@ class DemoCWorkspace extends Container {
                 errors,
                 feed       : {
                     batches       : me.feedBatchCount - feedStartBatch,
-                    configuredRate: DemoCWorkspace.FEED_BATCH_SIZE * 1000 / DemoCWorkspace.FEED_INTERVAL_MS,
+                    configuredRate: Workspace.FEED_BATCH_SIZE * 1000 / Workspace.FEED_INTERVAL_MS,
                     endCount      : feedEndCount,
                     growth        : feedEndCount - feedStartCount,
                     maxRecords    : feedStore.maxRecords,
-                    produced      : (me.feedBatchCount - feedStartBatch) * DemoCWorkspace.FEED_BATCH_SIZE,
+                    produced      : (me.feedBatchCount - feedStartBatch) * Workspace.FEED_BATCH_SIZE,
                     startCount    : feedStartCount
                 },
                 log       : runnerResult.log
@@ -1024,20 +1023,20 @@ class DemoCWorkspace extends Container {
      * @static
      */
     static totalBeats() {
-        return demoCTourScript.scenes.flatMap(scene => scene.steps)
+        return workstationTourScript.scenes.flatMap(scene => scene.steps)
     }
 
     /**
      * Updates the visible runtime receipt without creating another state authority.
      */
     updateStatusBar() {
-        let target = this.getReference('status-bar-c');
+        let target = this.getReference('status-bar');
 
         if (target) {
             let scale = this.getStateProvider().getStore('scale'),
                 feed  = this.getStateProvider().getStore('feed');
 
-            target.html = `<span>20 dock items</span><span>${new Intl.NumberFormat().format(scale.count)} scale rows</span><span>${feed.count}/${feed.maxRecords} feed rows</span><span>${DemoCWorkspace.FEED_BATCH_SIZE * 1000 / DemoCWorkspace.FEED_INTERVAL_MS} events/sec</span>`
+            target.html = `<span>20 dock items</span><span>${new Intl.NumberFormat().format(scale.count)} scale rows</span><span>${feed.count}/${feed.maxRecords} feed rows</span><span>${Workspace.FEED_BATCH_SIZE * 1000 / Workspace.FEED_INTERVAL_MS} events/sec</span>`
         }
     }
 
@@ -1066,4 +1065,4 @@ class DemoCWorkspace extends Container {
     }
 }
 
-export default Neo.setupClass(DemoCWorkspace);
+export default Neo.setupClass(Workspace);

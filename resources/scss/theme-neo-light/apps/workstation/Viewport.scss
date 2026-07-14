@@ -1,0 +1,16 @@
+:root .neo-theme-neo-light {
+    // App-owned daylight palette: Workstation is its own theme authority.
+    --workstation-ground   : #f2f5f9;
+    --workstation-panel    : #ffffff;
+    --workstation-panel-2  : #f7f9fc;
+    --workstation-rail     : #e9edf3;
+    --workstation-line     : #d3dae4;
+    --workstation-line-soft: #e4e9f0;
+    --workstation-ink      : #1f2733;
+    --workstation-ink-dim  : #5a6b80;
+    --workstation-ink-faint: #8494a7;
+    --workstation-signal   : #0f766e;
+    --workstation-state-ok : #047857;
+    --workstation-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --workstation-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}

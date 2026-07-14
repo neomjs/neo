@@ -2,7 +2,7 @@ import {setup} from '../../../../setup.mjs';
 
 setup({
     appConfig: {
-        name: 'DemoCDenseWorkstationTest'
+        name: 'WorkstationTourTest'
     }
 });
 
@@ -13,29 +13,29 @@ import DockService    from '../../../../../../src/ai/client/DockService.mjs';
 import DockZoneModel  from '../../../../../../src/dashboard/DockZoneModel.mjs';
 import TourRunner     from '../../../../../../src/ai/client/TourRunner.mjs';
 
-import {validateTourScript}               from '../../../../../../src/ai/client/tourScript.mjs';
-import {demoCTourScript, initialDocument} from '../../../../../../apps/agentos/tour/demoCDenseWorkstation.mjs';
+import {validateTourScript}                     from '../../../../../../src/ai/client/tourScript.mjs';
+import {workstationTourScript, initialDocument} from '../../../../../../apps/workstation/tour/denseWorkstation.mjs';
 
 /**
- * @summary Verifies Demo C as executable content: exact live-item density, only shipped
+ * @summary Verifies Workstation as executable content: exact live-item density, only shipped
  * operation names, fail-closed validation, green real-reducer execution, and deterministic
  * document logs. Grid/overflow/Canvas runtime behavior remains the composed E2E's authority.
  */
-test.describe.serial('apps/agentos/tour/demoCDenseWorkstation', () => {
+test.describe.serial('apps/workstation/tour/denseWorkstation', () => {
     let originalGetComponent, runner, service;
 
     /**
      * @returns {Neo.ai.client.TourRunner}
      */
     function createRunner() {
-        const holder = {dockZoneDocument: DockZoneModel.clone(initialDocument), id: 'demo-c-stage'};
+        const holder = {dockZoneDocument: DockZoneModel.clone(initialDocument), id: 'workstation-stage'};
 
         Neo.getComponent = () => holder;
         runner = Neo.create(TourRunner, {
             componentId: holder.id,
             dockService: service,
             mode       : 'spec',
-            script     : demoCTourScript
+            script     : workstationTourScript
         });
 
         return runner
@@ -55,14 +55,14 @@ test.describe.serial('apps/agentos/tour/demoCDenseWorkstation', () => {
 
     test('the body is self-contained: 20 placed items, reviewed cues, no invented operation', () => {
         const
-            {valid, errors} = validateTourScript(demoCTourScript, {operations: DockZoneModel.operations}),
+            {valid, errors} = validateTourScript(workstationTourScript, {operations: DockZoneModel.operations}),
             placed          = Object.values(initialDocument.nodes)
                 .filter(node => node.type === 'tabs')
                 .flatMap(node => node.items),
-            cues            = demoCTourScript.scenes.flatMap(scene => scene.steps)
+            cues            = workstationTourScript.scenes.flatMap(scene => scene.steps)
                 .filter(step => step.cue)
                 .map(step => step.cue.type),
-            operations      = demoCTourScript.scenes.flatMap(scene => scene.steps)
+            operations      = workstationTourScript.scenes.flatMap(scene => scene.steps)
                 .filter(step => step.type === 'op')
                 .map(step => step.descriptor.operation);
 
@@ -75,7 +75,7 @@ test.describe.serial('apps/agentos/tour/demoCDenseWorkstation', () => {
             .filter(([, item]) => item.autoHidden === true)
             .map(([itemId]) => itemId)).toEqual(['graph', 'inspector']);
         expect(cues).toEqual(['overflow', 'scroll', 'canvas-update', 'theme', 'theme']);
-        expect(demoCTourScript.scenes[0].steps[1].cue.itemId).toBe('security');
+        expect(workstationTourScript.scenes[0].steps[1].cue.itemId).toBe('security');
         expect(operations).toEqual(['splitNode', 'addTab']);
         operations.forEach(operation => expect(DockZoneModel.operations).toContain(operation));
         expect(operations).not.toContain('promote')
@@ -89,7 +89,7 @@ test.describe.serial('apps/agentos/tour/demoCDenseWorkstation', () => {
         expect(first.completed).toBe(true);
         expect(first.errors).toEqual([]);
 
-        const firstDocument = Neo.getComponent('demo-c-stage').dockZoneDocument;
+        const firstDocument = Neo.getComponent('workstation-stage').dockZoneDocument;
 
         expect(firstDocument.nodes['split-main'].children[0]).toBe('scale-tabs');
         expect(firstDocument.nodes['heavy-tabs'].activeItemId).toBe('security');

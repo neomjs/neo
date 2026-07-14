@@ -1,0 +1,19 @@
+{
+    "appPath"                     : "apps/workstation/app.mjs",
+    "basePath"                    : "../../",
+    "environment"                 : "development",
+    "mainPath"                    : "./Main.mjs",
+    "themes"                      : ["neo-theme-neo-dark", "neo-theme-neo-light"],
+    "useAiClient"                 : true,
+    "useCanvasWorker"             : false,
+    "useCanvasWorkerStartingPoint": false,
+    "useSharedWorkers"            : true,
+
+    "mainThreadAddons": [
+        "DockFlip",
+        "DragDrop",
+        "LocalStorage",
+        "Navigator",
+        "Stylesheet"
+    ]
+}

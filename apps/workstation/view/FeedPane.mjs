@@ -1,18 +1,18 @@
-import GridContainer from '../../../../../src/grid/Container.mjs';
+import GridContainer from '../../../src/grid/Container.mjs';
 
 /**
  * @summary The second live Store<Model> pane: a capped, visibly growing event stream.
  *
- * @class AgentOS.childapps.dockdemo.view.DemoCFeedPane
+ * @class Workstation.view.FeedPane
  * @extends Neo.grid.Container
  */
-class DemoCFeedPane extends GridContainer {
+class FeedPane extends GridContainer {
     static config = {
         /**
-         * @member {String} className='AgentOS.childapps.dockdemo.view.DemoCFeedPane'
+         * @member {String} className='Workstation.view.FeedPane'
          * @protected
          */
-        className: 'AgentOS.childapps.dockdemo.view.DemoCFeedPane',
+        className: 'Workstation.view.FeedPane',
         /**
          * @member {Object} body
          */
@@ -20,7 +20,7 @@ class DemoCFeedPane extends GridContainer {
         /**
          * @member {String[]} cls
          */
-        cls: ['agentos-dockdemo-data-pane', 'agentos-dockdemo-feed-pane'],
+        cls: ['workstation-data-pane', 'workstation-feed-pane'],
         /**
          * @member {Object} columnDefaults
          */
@@ -61,4 +61,4 @@ class DemoCFeedPane extends GridContainer {
     }
 }
 
-export default Neo.setupClass(DemoCFeedPane);
+export default Neo.setupClass(FeedPane);

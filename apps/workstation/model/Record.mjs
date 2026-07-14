@@ -1,23 +1,23 @@
-import Model from '../../../../../src/data/Model.mjs';
+import Model from '../../../src/data/Model.mjs';
 
 /**
- * @summary The compact record contract shared by Demo C's scale and live-feed stores.
+ * @summary The compact record contract shared by Workstation's scale and live-feed stores.
  *
  * One target-owned model keeps the two panes honest without importing either precedent's
  * product schema. The 100k store carries raw objects until the grid hydrates its viewport;
  * the feed store carries ordinary records so each batched insert updates visible component
  * and Sparkline cells through the normal Store<Model> path.
  *
- * @class AgentOS.childapps.dockdemo.model.DemoCRecord
+ * @class Workstation.model.Record
  * @extends Neo.data.Model
  */
-class DemoCRecord extends Model {
+class Record extends Model {
     static config = {
         /**
-         * @member {String} className='AgentOS.childapps.dockdemo.model.DemoCRecord'
+         * @member {String} className='Workstation.model.Record'
          * @protected
          */
-        className: 'AgentOS.childapps.dockdemo.model.DemoCRecord',
+        className: 'Workstation.model.Record',
         /**
          * @member {Object[]} fields
          */
@@ -53,4 +53,4 @@ class DemoCRecord extends Model {
     }
 }
 
-export default Neo.setupClass(DemoCRecord);
+export default Neo.setupClass(Record);

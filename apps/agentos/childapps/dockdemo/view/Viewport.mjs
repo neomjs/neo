@@ -1,17 +1,15 @@
 import BaseViewport   from '../../../../../src/container/Viewport.mjs';
 import DemoAWorkspace from './DemoAWorkspace.mjs';
 import DemoBWorkspace from './DemoBWorkspace.mjs';
-import DemoCWorkspace from './DemoCWorkspace.mjs';
 
 /**
  * @summary Viewport of the dock-demo childapp: mounts one of the showcase workspaces by URL.
  *
- * Four boot modes, resolved from the window's own search params (async — the worker reads
+ * Three boot modes, resolved from the window's own search params (async — the worker reads
  * the URL through the main-thread seam, so the workspace mounts in `onConstructed`):
  *
  * - default        → Demo A (dock choreography — `DemoAWorkspace`)
  * - `?demo=b`      → Demo B (perspectives + pop-out — `DemoBWorkspace`)
- * - `?demo=c`      → Demo C (dense workstation + living data — `DemoCWorkspace`)
  * - `?popout=<id>` → an EMPTY pop-out host: this window carries no workspace of its own;
  *   the opener's workspace reparents the live pane into this viewport on connect (the
  *   shared-heap contract — one App Worker, two render targets).
@@ -56,8 +54,7 @@ class Viewport extends BaseViewport {
 
         const workspaceByMode = {
             a: DemoAWorkspace,
-            b: DemoBWorkspace,
-            c: DemoCWorkspace
+            b: DemoBWorkspace
         };
 
         me.add({
