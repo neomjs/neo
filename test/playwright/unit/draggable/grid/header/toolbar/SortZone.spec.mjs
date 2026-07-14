@@ -64,4 +64,38 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
         const noLocked = {lockedStartColumns: {length: 0}, centerColumns: {length: 4}, lockedEndColumns: {length: 0}};
         expect(columnIndexOffset.call({owner: {gridContainer: noLocked, layoutLock: null}})).toBe(0)
     })
+
+    test('a cancelled end skips grid lock-region inference after base cleanup', async () => {
+        const
+            dragComponent = {wrapperStyle: {}},
+            owner         = {
+                addDomListeners: () => {},
+                cls            : [],
+                dragResortable : true,
+                items          : [dragComponent],
+                on             : () => {},
+                style          : {},
+                vdom           : {cn: []}
+                // Deliberately no gridContainer: reaching lock inference would throw.
+            },
+            zone = Neo.create(SortZone, {owner});
+
+        Object.assign(zone, {
+            currentIndex   : 0,
+            dragColumnField: 'alpha',
+            dragComponent,
+            itemStyles     : [{}],
+            ownerStyle     : {},
+            sortableItems  : [dragComponent],
+            startIndex     : 0,
+            timeout        : () => Promise.resolve()
+        });
+
+        await zone.processDragEnd({cancelled: true});
+
+        expect(zone.dragColumnField).toBeNull();
+        expect(zone.currentIndex).toBe(-1);
+
+        zone.destroy()
+    })
 });

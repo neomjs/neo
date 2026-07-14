@@ -495,6 +495,17 @@ class DragZone extends Base {
     }
 
     /**
+     * Handles the first-class gesture-cancel signal. Base drag zones have no semantic drop
+     * work to undo, so cancellation fires its own observable event and tears down the proxy
+     * immediately. Sort zones override this entry to restore their captured layout first.
+     * @param {Object} data
+     */
+    onDragCancel(data) {
+        this.fire('dragCancel', data);
+        this.dragEnd({...data, cancelled: true})
+    }
+
+    /**
      * You can either extend this class and override the handler or listen to the event from the outside
      * @param {Object} data
      */

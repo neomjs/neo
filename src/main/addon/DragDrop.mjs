@@ -45,6 +45,14 @@ class DragDrop extends Base {
          */
         dragElementRootId: null,
         /**
+         * True after Escape cancelled the active gesture and until the native sensor ends it.
+         * While set, move/end/drop traffic is suppressed because `drag:cancel` already closed
+         * the worker-side session.
+         * @member {Boolean} dragCancelled=false
+         * @protected
+         */
+        dragCancelled: false,
+        /**
          * @member {String} dragProxyCls='neo-dragproxy'
          */
         dragProxyCls: 'neo-dragproxy',
@@ -183,6 +191,7 @@ class DragDrop extends Base {
     addGlobalEventListeners() {
         let me = this;
 
+        document.addEventListener('keydown',    me.onKeyDown  .bind(me), true);
         document.addEventListener('drag:end',   me.onDragEnd  .bind(me), true);
         document.addEventListener('drag:move',  me.onDragMove .bind(me), true);
         document.addEventListener('drag:start', me.onDragStart.bind(me), true)
@@ -217,9 +226,7 @@ class DragDrop extends Base {
      * @param {Event} event
      */
     onDragEnd(event) {
-        let me          = this,
-            parsedEvent = me.getEventData(event),
-            isDrop      = me.pathIncludesDropZone(parsedEvent.targetPath);
+        let me = this;
 
         if (me.bodyCursorStyle) {
             DomAccess.setStyle({
@@ -230,27 +237,64 @@ class DragDrop extends Base {
             });
         }
 
-        DomEvents.sendMessageToApp({
-            ...parsedEvent,
-            dragZoneId: me.dragZoneId,
-            isDrop,
-            offsetX   : me.offsetX,
-            offsetY   : me.offsetY,
-            type      : 'drag:end'
-        });
+        if (!me.dragCancelled) {
+            let parsedEvent = me.getEventData(event),
+                isDrop      = me.pathIncludesDropZone(parsedEvent.targetPath);
 
-        if (isDrop) {
             DomEvents.sendMessageToApp({
-                ...DomEvents.getMouseEventData(event.detail.originalEvent),
+                ...parsedEvent,
                 dragZoneId: me.dragZoneId,
-                type      : 'drop'
+                isDrop,
+                offsetX   : me.offsetX,
+                offsetY   : me.offsetY,
+                type      : 'drag:end'
+            });
+
+            if (isDrop) {
+                DomEvents.sendMessageToApp({
+                    ...DomEvents.getMouseEventData(event.detail.originalEvent),
+                    dragZoneId: me.dragZoneId,
+                    type      : 'drop'
+                })
+            }
+        }
+
+        me.resetDragState()
+    }
+
+    /**
+     * Captures Escape at the gesture owner, independent of which dragged node still owns focus.
+     * A single `drag:cancel` is routed directly to the active worker drag zone; subsequent native
+     * move/end events are ignored until the sensor releases and resets the main-thread session.
+     * @param {KeyboardEvent} event
+     */
+    onKeyDown(event) {
+        let me = this;
+
+        if (event.key === 'Escape' && me.dragZoneId && !me.dragCancelled) {
+            me.dragCancelled = true;
+            event.preventDefault();
+
+            DomEvents.sendMessageToApp({
+                ...DomEvents.getKeyboardEventData(event),
+                dragZoneId: me.dragZoneId,
+                type      : 'drag:cancel'
             })
         }
+    }
+
+    /**
+     * Restores the main-thread drag owner to its between-gestures baseline.
+     * @protected
+     */
+    resetDragState() {
+        let me = this;
 
         Object.assign(me, {
             alwaysFireDragMove    : false,
             bodyCursorStyle       : null,
             boundaryContainerRect : null,
+            dragCancelled         : false,
             dragElementRootId     : null,
             dragElementRootRect   : null,
             dragProxyCls          : 'neo-dragproxy',
@@ -267,7 +311,7 @@ class DragDrop extends Base {
             popupWidth            : null,
             scrollContainerElement: null,
             scrollContainerRect   : null,
-            setScrollFactorLeft   : 1,
+            scrollFactorLeft      : 1,
             scrollFactorTop       : 1,
             windowName            : null
         })
@@ -282,6 +326,10 @@ class DragDrop extends Base {
             proxyRect       = me.dragProxyRect,
             rect            = me.boundaryContainerRect,
             data, left, top;
+
+        if (me.dragCancelled) {
+            return
+        }
 
         if (me.isWindowDragging) {
             const
@@ -372,6 +420,7 @@ class DragDrop extends Base {
             rect = event.target.getBoundingClientRect();
 
         Object.assign(me, {
+            dragCancelled: false,
             dragProxyRect: rect,
             offsetX      : event.detail.clientX - rect.left,
             offsetY      : event.detail.clientY - rect.top

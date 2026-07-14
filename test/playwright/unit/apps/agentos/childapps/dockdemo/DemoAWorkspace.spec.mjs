@@ -172,6 +172,22 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoAWorkspace', () => {
         expect(JSON.stringify(workspace.getDockZoneDocument())).toBe(before)
     });
 
+    test('the drag-cancel seam invalidates geometry and clears both affordance layers', () => {
+        const
+            indicators = workspace.getReference('drop-indicators'),
+            preview    = workspace.getReference('dock-preview');
+
+        workspace.dragGeometry = Promise.resolve({hostRect: {}, zones: []});
+        indicators.candidateSet = {candidates: []};
+        preview.dockPreview     = {itemId: 'editor'};
+
+        workspace.onDockCrossZoneDragCancel({itemId: 'editor', sourceNodeId: 'editor-tabs'});
+
+        expect(workspace.dragGeometry).toBeNull();
+        expect(indicators.candidateSet).toBeNull();
+        expect(preview.dockPreview).toBeNull()
+    });
+
     test('a release ON an indicator commits exactly that candidate (positive control)', async () => {
         const indicators = workspace.getReference('drop-indicators');
         const zones      = [{nodeId: 'side-tabs', rect: {x: 400, y: 0, width: 400, height: 600}, orientation: null}];

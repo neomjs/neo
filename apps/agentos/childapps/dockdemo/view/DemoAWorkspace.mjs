@@ -106,20 +106,12 @@ class DemoAWorkspace extends Container {
     beatCount = 0
     /**
      * Measured drag-session geometry (host rect + tabs-zone rects + the chips' root target),
-     * built lazily on the first drag-move of a gesture and invalidated on drop, Escape, and
-     * every re-projection. Doubles as the drag-active flag for the Escape guard. Runtime-only.
+     * built lazily on the first drag-move of a gesture and invalidated on drop, cancel, and
+     * every re-projection. Runtime-only.
      * @member {Object|null} dragGeometry=null
      * @protected
      */
     dragGeometry = null
-    /**
-     * Set by mid-drag Escape: the §06 cancel — indicator menu and preview clear immediately,
-     * and the release commits NOTHING. The proxy visual stays with the base drag until
-     * release (no drag-layer abort API exists; documented residual on the ticket).
-     * @member {Boolean} dragSuppressed=false
-     * @protected
-     */
-    dragSuppressed = false
     /**
      * The in-flight deferred re-projection, tracked as an awaitable. Every committed
      * operation defers its view-sync one tick ({@link #onDockZoneDocumentChange}); any
@@ -158,10 +150,6 @@ class DemoAWorkspace extends Container {
             scene   : me.onTourScene,
             scope   : me
         });
-
-        // Escape = the §06 mid-drag cancel; the keydown bubbles up from the dragged tab
-        // button (focus lives inside the projection during a header drag).
-        me.addDomListeners([{keydown: me.onWorkspaceKeyDown, scope: me}]);
 
         me.add([me.createTourBar(), {
             module   : Container,
@@ -280,15 +268,14 @@ class DemoAWorkspace extends Container {
 
     /**
      * Ends a drag affordance session: geometry cache dropped (it doubles as the drag-active
-     * flag), Escape suppression reset, indicator menu and preview cleared. Called on drop,
-     * on Escape, and by every re-projection.
+     * flag), indicator menu and preview cleared. Called on drop, cancel, and by every
+     * re-projection.
      * @protected
      */
     clearDragAffordances() {
         let me = this;
 
-        me.dragGeometry   = null;
-        me.dragSuppressed = false;
+        me.dragGeometry = null;
 
         me.getReference('drop-indicators')?.clear();
 
@@ -377,14 +364,13 @@ class DemoAWorkspace extends Container {
      * @param {Object} data {clientX, clientY, itemId, sourceNodeId}
      */
     async onDockCrossZoneDragMove({clientX, clientY, itemId, sourceNodeId}) {
-        let me = this;
+        let me              = this,
+            geometryPromise = me.ensureDragGeometry(),
+            geometry        = await geometryPromise;
 
-        if (me.dragSuppressed) return;
-
-        let geometry = await me.ensureDragGeometry();
-
-        // re-check after the await: Escape or a re-projection may have ended the session
-        if (!geometry || me.dragSuppressed || me.isDestroyed) return;
+        // Re-check the promise identity after the await: cancel or re-projection invalidates
+        // this gesture's geometry, so a late measurement can never resurrect its overlays.
+        if (!geometry || me.dragGeometry !== geometryPromise || me.isDestroyed) return;
 
         let pointer    = {x: clientX, y: clientY},
             indicators = me.getReference('drop-indicators'),
@@ -424,32 +410,29 @@ class DemoAWorkspace extends Container {
      * left the menu after hovering an indicator must not commit the stale selection), and a
      * candidate only counts when it was built for the item THIS gesture drags. A release-point
      * indicator wins over pointer inference — the §06 tier order — and both commit through
-     * `previewToOperation` unchanged. An Escape-suppressed gesture commits nothing. Same-zone
+     * `previewToOperation` unchanged. A cancelled gesture never reaches this drop seam. Same-zone
      * pointer drops stay excluded from the fallback (the within-toolbar reorder already
      * handled them); indicator drops keep self-targets deliberately (splitting your own zone
      * is a real operation).
      * @param {Object} data {clientX, clientY, itemId, sourceNodeId}
      */
     async onDockCrossZoneDrop({clientX, clientY, itemId, sourceNodeId}) {
-        let me         = this,
-            suppressed = me.dragSuppressed,
-            geometry   = me.dragGeometry ? await me.dragGeometry : null,
-            pointer    = {x: clientX, y: clientY},
-            preview    = null;
+        let me       = this,
+            geometry = me.dragGeometry ? await me.dragGeometry : null,
+            pointer  = {x: clientX, y: clientY},
+            preview  = null;
 
-        if (!suppressed) {
-            let candidate = me.getReference('drop-indicators')?.hitTest(pointer);
+        let candidate = me.getReference('drop-indicators')?.hitTest(pointer);
 
-            if (candidate?.preview?.itemId === itemId) {
-                preview = candidate.preview
-            } else if (geometry) {
-                preview = me.dockPreviewProducer.produce({
-                    pointer,
-                    zones: geometry.zones.filter(zone => zone.nodeId !== sourceNodeId),
-                    itemId,
-                    sourceNodeId
-                })
-            }
+        if (candidate?.preview?.itemId === itemId) {
+            preview = candidate.preview
+        } else if (geometry) {
+            preview = me.dockPreviewProducer.produce({
+                pointer,
+                zones: geometry.zones.filter(zone => zone.nodeId !== sourceNodeId),
+                itemId,
+                sourceNodeId
+            })
         }
 
         me.clearDragAffordances();
@@ -466,23 +449,13 @@ class DemoAWorkspace extends Container {
     }
 
     /**
-     * Escape during a live drag cancels the affordance session (§06, absorbs tree line C5):
-     * menu and preview clear instantly, the release commits nothing. Outside a drag the key
-     * passes through untouched.
-     * @param {Object} data The keydown event data.
+     * Consumes the dock-aware projection's generic `drag:cancel` seam: the main-thread drag
+     * owner already suppresses the native release, so this workspace only retires transient
+     * geometry, menu, and preview state.
+     * @param {Object} data The dock drag identity payload.
      */
-    onWorkspaceKeyDown(data) {
-        let me = this;
-
-        if (data.key === 'Escape' && me.dragGeometry) {
-            me.dragSuppressed = true;
-
-            me.getReference('drop-indicators')?.clear();
-
-            let preview = me.getReference('dock-preview');
-
-            preview && (preview.dockPreview = null)
-        }
+    onDockCrossZoneDragCancel(data) {
+        this.clearDragAffordances()
     }
 
     /**
@@ -552,6 +525,7 @@ class DemoAWorkspace extends Container {
         return DockLayoutAdapter.project(document, {
             ...demoATourScript.workspace,
             applyDockZoneOperation  : me.applyDockZoneOperation.bind(me),
+            onDockCrossZoneDragCancel: me.onDockCrossZoneDragCancel.bind(me),
             onDockCrossZoneDragMove : me.onDockCrossZoneDragMove.bind(me),
             onDockCrossZoneDrop     : me.onDockCrossZoneDrop.bind(me),
             onDockZoneDocumentChange: me.onDockZoneDocumentChange.bind(me),
