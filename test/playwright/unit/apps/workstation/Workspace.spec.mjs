@@ -6,9 +6,10 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../src/Neo.mjs';
-import * as core      from '../../../../../src/core/_export.mjs';
+import {test, expect}           from '@playwright/test';
+import Neo                      from '../../../../../src/Neo.mjs';
+import * as core                from '../../../../../src/core/_export.mjs';
+import DockProjectionReconciler from '../../../../../src/dashboard/DockProjectionReconciler.mjs';
 import '../../../../../src/manager/Instance.mjs';
 import FeedPane  from '../../../../../apps/workstation/view/FeedPane.mjs';
 import ScalePane from '../../../../../apps/workstation/view/ScalePane.mjs';
@@ -26,7 +27,7 @@ const readTabChrome = workspace => {
         shell        = workspace.getReference('dock-host').items[0],
         itemIdByPane = new Map(Object.entries(workspace.paneCache).map(([itemId, pane]) => [pane, itemId]));
 
-    return new Map([...workspace.collectProjectedTabs(shell)].map(([nodeId, tab]) => {
+    return new Map([...DockProjectionReconciler.collectProjectedTabs(shell)].map(([nodeId, tab]) => {
         const
             bar     = tab.getTabBar(),
             body    = tab.getCardContainer(),

@@ -6,6 +6,7 @@ import Scale                                    from '../store/Scale.mjs';
 import ScalePane                                from './ScalePane.mjs';
 import DockLayoutAdapter                        from '../../../src/dashboard/DockLayoutAdapter.mjs';
 import DockMotionSignal                         from '../../../src/dashboard/DockMotionSignal.mjs';
+import DockProjectionReconciler                 from '../../../src/dashboard/DockProjectionReconciler.mjs';
 import DockService                              from '../../../src/ai/client/DockService.mjs';
 import DockZoneModel                            from '../../../src/dashboard/DockZoneModel.mjs';
 import StateProvider                            from '../../../src/state/Provider.mjs';
@@ -570,281 +571,6 @@ class Workspace extends Container {
     }
 
     /**
-     * Returns every tab-overflow projection owned by one dock shell.
-     * @param {Neo.container.Base} shell
-     * @returns {Neo.tab.plugin.Overflow[]}
-     */
-    getOverflowPlugins(shell) {
-        return Object.entries(this.dockModel.nodes)
-            .filter(([, node]) => node.type === 'tabs')
-            .map(([nodeId]) => shell.down({dockNodeId: nodeId})?.getTabBar()?.getPlugin('tab-overflow'))
-            .filter(Boolean)
-    }
-
-    /**
-     * @summary Collects the keyed tab-chrome owners below one projected dock shell.
-     * @param {Neo.component.Base|null} root
-     * @returns {Map<String,Neo.tab.Container>}
-     */
-    collectProjectedTabs(root) {
-        const tabs = new Map();
-
-        const visit = component => {
-            if (!component || component.isDestroyed) return;
-
-            if (component.dockNodeType === 'tabs') {
-                tabs.set(component.dockNodeId, component);
-                return
-            }
-
-            component.items?.forEach(visit)
-        };
-
-        visit(root);
-
-        return tabs
-    }
-
-    /**
-     * @summary Replaces surviving projected tab configs with geometry-equivalent staging placeholders.
-     *
-     * The adapter remains a stateless JSON-to-config projection. Workstation alone keys the config
-     * by `dockNodeId`, records its desired item/active state, and substitutes a visibility-hidden
-     * component only when a live tab container with that logical identity already exists.
-     * @param {*} config
-     * @param {Map<String,Neo.tab.Container>} currentTabs
-     * @param {Map<String,Object>} plans
-     * @returns {*}
-     */
-    prepareTabChromeProjection(config, currentTabs, plans) {
-        if (Array.isArray(config)) {
-            return config.map(item => this.prepareTabChromeProjection(item, currentTabs, plans))
-        }
-
-        if (config?.constructor !== Object) return config;
-
-        if (config.dockNodeType === 'tabs') {
-            const
-                nodeId       = config.dockNodeId,
-                currentTab   = currentTabs.get(nodeId) || null,
-                desiredItems = [...(config.headerToolbar?.sortZoneConfig?.dockItemIds || [])],
-                plan         = {
-                    activeIndex: config.activeIndex,
-                    config,
-                    desiredItems,
-                    placeholder: null,
-                    tab        : currentTab
-                };
-
-            plans.set(nodeId, plan);
-
-            if (currentTab) {
-                plan.placeholder = Neo.create({
-                    module  : Component,
-                    cls     : ['workstation-tab-chrome-placeholder'],
-                    flex    : config.flex,
-                    hidden  : true,
-                    hideMode: 'visibility',
-                    style   : config.style
-                });
-
-                return plan.placeholder
-            }
-
-            return config
-        }
-
-        return Array.isArray(config.items)
-            ? {...config, items: this.prepareTabChromeProjection(config.items, currentTabs, plans)}
-            : config
-    }
-
-    /**
-     * @summary Moves retained tab chrome into its staged projected slot silently.
-     *
-     * Cross-tab card/button moves commit before this method runs. Keeping descendant and ancestor moves
-     * in separate host updates prevents the main-thread delta from retiring a child after its ancestor
-     * has already landed. New/removed logical tab nodes remain ordinary projected instances.
-     * @param {Map<String,Object>} plans
-     * @returns {Map<String,Object>}
-     */
-    moveRetainedTabChrome(plans) {
-        plans.forEach((plan, nodeId) => {
-            const
-                tab          = plan.tab,
-                placeholder  = plan.placeholder,
-                sourceParent = tab?.parent,
-                targetParent = placeholder?.parent,
-                targetIndex  = targetParent?.indexOf(placeholder) ?? -1;
-
-            if (!placeholder) return;
-
-            if (!sourceParent || !targetParent || targetIndex < 0) {
-                throw new Error(`Workstation could not stage surviving tab chrome "${nodeId}"`)
-            }
-
-            // A floating overflow control is aligned outside the dock host. Its target toolbar briefly
-            // leaves the main-thread DOM during native reparenting, and the align layer hides the control.
-            // Visibility mode keeps that exact DOM node mounted until the destination target is present.
-            tab.getTabBar()?.getPlugin('tab-overflow')?.control?.setSilent({hideMode: 'visibility'});
-            targetParent.remove(placeholder, true, true);
-            sourceParent.remove(tab, false, true, true);
-            tab.setSilent({
-                cls      : plan.config.cls,
-                flex     : plan.config.flex,
-                listeners: plan.config.listeners,
-                style    : plan.config.style,
-                // Flexbox stores parent-owned sizing on the child's wrapper. A retained tab
-                // otherwise carries its source split ratio into the destination projection.
-                wrapperStyle: {...tab.wrapperStyle, flex: plan.config.flex ?? null}
-            });
-            targetParent.insert(targetIndex, tab, true, false)
-        });
-
-        return plans
-    }
-
-    /**
-     * @summary Reconciles paired live cards/buttons before their retained tab ancestors move.
-     *
-     * Both shells are mounted before this method runs. Cross-tab transfers first move each cached pane
-     * and existing header button as a pair while their tab-container ancestors remain stationary. The
-     * caller commits this ownership layer before `moveRetainedTabChrome()` handles the ancestor layer.
-     * @param {Map<String,Object>} plans
-     * @param {Map<String,Neo.component.Base>} placeholders
-     * @param {Map<String,Neo.tab.Container>} currentTabs
-     * @param {Neo.container.Base} nextShell
-     * @returns {Map<String,Object>}
-     */
-    reconcileTabChrome(plans, placeholders, currentTabs, nextShell) {
-        const me = this;
-
-        const
-            nextTabs = me.collectProjectedTabs(nextShell),
-            allTabs  = new Set([...currentTabs.values(), ...nextTabs.values()]);
-
-        plans.forEach((plan, nodeId) => {
-            plan.tab = nextTabs.get(nodeId) || plan.tab;
-
-            if (!plan.tab) {
-                throw new Error(`Workstation did not project tab chrome "${nodeId}"`)
-            }
-        });
-
-        const findItemState = pane => {
-            for (const tab of allTabs) {
-                if (tab.isDestroyed) continue;
-
-                const
-                    body  = tab.getCardContainer(),
-                    index = body?.items.indexOf(pane) ?? -1;
-
-                if (index > -1) {
-                    return {
-                        bar   : tab.getTabBar(),
-                        body,
-                        button: tab.getTabBar().items[index],
-                        index,
-                        tab
-                    }
-                }
-            }
-
-            return null
-        };
-
-        plans.forEach(plan => {
-            const
-                targetTab  = plan.tab,
-                targetBar  = targetTab.getTabBar(),
-                targetBody = targetTab.getCardContainer();
-
-            plan.desiredItems.forEach((itemId, targetIndex) => {
-                const
-                    item        = me.dockModel.items[itemId],
-                    pane        = me.resolvePane(itemId, item),
-                    placeholder = placeholders.get(itemId);
-
-                if (placeholder?.parent) {
-                    const placeholderIndex = targetBody.indexOf(placeholder);
-
-                    if (placeholder.parent !== targetBody || placeholderIndex < 0) {
-                        throw new Error(`Workstation projected item "${itemId}" into the wrong tab body`)
-                    }
-
-                    targetBody.removeAt(placeholderIndex, true, true);
-                    targetBar.removeAt(placeholderIndex, true, true);
-                    placeholders.delete(itemId)
-                }
-
-                const state = findItemState(pane);
-
-                if (!state) {
-                    targetTab.insert(targetIndex, pane, true);
-                    return
-                }
-
-                if (state.tab === targetTab && state.index === targetIndex) return;
-
-                state.body.removeAt(state.index, false, true, true);
-                state.bar.removeAt(state.index, false, true, true);
-                targetBody.insert(targetIndex, pane, true, false);
-                targetBar.insert(targetIndex, state.button, true, false)
-            })
-        });
-
-        plans.forEach((plan, nodeId) => {
-            const
-                tab                 = plan.tab,
-                bar                 = tab.getTabBar(),
-                body                = tab.getCardContainer(),
-                activeIndex         = plan.activeIndex,
-                projectedSortConfig = plan.config.headerToolbar?.sortZoneConfig || {},
-                sortConfig          = {
-                    ...bar.sortZoneConfig,
-                    ...projectedSortConfig,
-                    dockItemIds: [...plan.desiredItems]
-                };
-
-            if (body.items.length !== plan.desiredItems.length
-                || bar.items.length !== plan.desiredItems.length) {
-                throw new Error(`Workstation tab chrome "${nodeId}" did not reconcile its exact item set`)
-            }
-
-            tab._activeIndex         = activeIndex;
-            body.layout._activeIndex = activeIndex;
-            bar.setSilent({sortZoneConfig: sortConfig});
-            bar.sortZone?.setSilent?.({
-                dockItemIds     : [...plan.desiredItems],
-                dockSourceNodeId: sortConfig.dockSourceNodeId,
-                dockWorkspaceId : sortConfig.dockWorkspaceId,
-                sortGroup       : sortConfig.sortGroup
-            });
-
-            plan.desiredItems.forEach((itemId, index) => {
-                const
-                    pane   = me.resolvePane(itemId, me.dockModel.items[itemId]),
-                    button = bar.items[index],
-                    header = tab.getTabButtonConfig(pane.header, index);
-
-                if (body.items[index] !== pane || !button) {
-                    throw new Error(`Workstation tab chrome "${nodeId}" lost item "${itemId}"`)
-                }
-
-                body.layout.applyChildAttributes(pane, index, true);
-                button.setSilent({
-                    domListeners: header.domListeners,
-                    index,
-                    pressed     : index === activeIndex,
-                    text        : header.text
-                })
-            })
-        });
-
-        return plans
-    }
-
-    /**
      * @summary Returns a serializable identity receipt for one live logical tab surface.
      * @param {String} nodeId
      * @returns {Object|null}
@@ -852,7 +578,7 @@ class Workspace extends Container {
     getTabChromeIdentity(nodeId) {
         const
             shell = this.getReference('dock-host')?.items[0],
-            tab   = this.collectProjectedTabs(shell).get(nodeId);
+            tab   = DockProjectionReconciler.collectProjectedTabs(shell).get(nodeId);
 
         if (!tab) return null;
 
@@ -882,15 +608,9 @@ class Workspace extends Container {
     /**
      * Atomically hands cached panes from the current projection to a staged next projection.
      *
-     * The next shell is first mounted with `hideMode: 'visibility'` and non-rendered placeholders,
-     * so every old and new pane parent exists in the rendered tree and has this host as its real
-     * lowest common ancestor. Replacing each placeholder through `Container.insert()` then uses
-     * Neo's native cross-parent atomic-move path: the live pane is detached silently with
-     * `keepMounted`, inserted at the model-owned target index, and remains the same DOM node. The
-     * old shell is retained but hidden for the one full host update that reconciles the ownership
-     * transaction. Only after every live DOM node has moved is that now-empty shell removed in a
-     * cleanup update. The newly visible toolbar then recaptures its natural widths; a zero-control
-     * interval is valid when the reduced tab set fits.
+     * {@link Neo.dashboard.DockProjectionReconciler} owns the renderer-safe staged ownership
+     * transaction shared with other docking workspaces. Workstation supplies its cached-pane resolver,
+     * header text, FLIP motion, retained-indicator suppression, and the heavy Overflow menu witness.
      * @returns {Promise<void>}
      */
     async refreshDockWorkspace() {
@@ -906,101 +626,41 @@ class Workspace extends Container {
             await flip?.captureFirst({hostId: host.id, markerPrefix: 'workstation-pane-'})
         } catch (error) {/* instant landing */}
 
-        const
-            oldShell    = host.items[0],
-            currentTabs = me.collectProjectedTabs(oldShell),
-            tabPlans    = new Map(),
-            nextConfig  = me.prepareTabChromeProjection(me.projectDockModel((componentRef, item, itemId) => {
-                const placeholder = Neo.create({
-                    module: Component,
-                    header: {text: me.getPaneHeaderText(itemId, item)},
-                    hidden: true
-                });
+        const nextConfig = me.projectDockModel((componentRef, item, itemId) => {
+            const placeholder = Neo.create({
+                module: Component,
+                header: {text: me.getPaneHeaderText(itemId, item)},
+                hidden: true
+            });
 
-                placeholders.set(itemId, placeholder);
+            placeholders.set(itemId, placeholder);
 
-                return placeholder
-            }), currentTabs, tabPlans);
-
-        // Pane placeholders inside a discarded config for a retained tab node never enter a parent.
-        // Retire them now; only genuinely new tab nodes need their projected placeholders for pairing.
-        tabPlans.forEach(plan => {
-            if (!plan.tab) return;
-
-            plan.desiredItems.forEach(itemId => {
-                const placeholder = placeholders.get(itemId);
-
-                if (placeholder && !placeholder.parent) {
-                    placeholder.destroy();
-                    placeholders.delete(itemId)
-                }
-            })
+            return placeholder
         });
 
-        nextConfig.hidden   = true;
-        nextConfig.hideMode = 'visibility';
+        let animationSuppressedBars = [];
 
-        const nextShell = host.insert(host.items.length, nextConfig, true);
+        const {nextShell} = await DockProjectionReconciler.reconcileProjection({
+            host,
+            nextConfig,
+            placeholders,
+            resolveItem: itemId => me.resolvePane(itemId, me.dockModel.items[itemId]),
+            onProjectionStaged({plans}) {
+                const retainedTabBars = [...plans.values()]
+                    .filter(plan => plan.tab)
+                    .map(plan => plan.tab.getTabBar());
 
-        const
-            retainedTabBars = [...tabPlans.values()]
-                .filter(plan => plan.tab)
-                .map(plan => plan.tab.getTabBar()),
-            animationSuppressedBars = retainedTabBars
-                .filter(bar => !bar.cls.includes('neo-no-animation'));
+                animationSuppressedBars = retainedTabBars
+                    .filter(bar => !bar.cls.includes('neo-no-animation'));
 
-        // Native reparenting keeps each toolbar DOM node, but CSS animations restart when that node
-        // re-enters the document. Reuse the tab drag contract so retained pressed indicators settle at
-        // their final color immediately; genuinely new tab chrome keeps its ordinary entry animation.
-        animationSuppressedBars.forEach(bar => {
-            bar.setSilent({cls: [...bar.cls, 'neo-no-animation']})
+                // Native reparenting keeps each toolbar DOM node, but CSS animations restart when it
+                // re-enters the document. Retained indicators settle immediately; new chrome still enters.
+                animationSuppressedBars.forEach(bar => {
+                    bar.setSilent({cls: [...bar.cls, 'neo-no-animation']})
+                })
+            },
+            waitForOverflowProjection: plugin => me.waitForOverflowProjection(plugin)
         });
-
-        // Atomic moves require both ownership paths to exist in the rendered tree. This update
-        // mounts only the visibility-hidden target shell; layered ownership commits then move
-        // retained pane/header pairs before their ancestor tab containers.
-        host.updateDepth = -1;
-        host.update();
-        await host.promiseUpdate();
-
-        me.reconcileTabChrome(tabPlans, placeholders, currentTabs, nextShell);
-
-        // A removed logical tab can be the source of a returning pane. Hide that now-empty source in
-        // the descendant commit; the next commit destroys it with the retiring shell exactly once.
-        currentTabs.forEach((tab, nodeId) => {
-            if (!tabPlans.has(nodeId)) {
-                tab.setSilent({hideMode: 'visibility', hidden: true})
-            }
-        });
-        host.updateDepth = -1;
-        host.update();
-        await host.promiseUpdate();
-
-        me.moveRetainedTabChrome(tabPlans);
-
-        oldShell.setSilent({hideMode: 'visibility'});
-        oldShell.setSilent({hidden: true});
-        nextShell.setSilent({hidden: false});
-        host.updateDepth = -1;
-        host.update();
-        await host.promiseUpdate();
-
-        // Descendants and retained tab ancestors have now landed in separate ownership commits. This
-        // cleanup update removes only the empty shell and any genuinely retired tab chrome.
-        oldShell !== nextShell && host.remove(oldShell, true, true);
-        host.updateDepth = -1;
-        host.update();
-        await host.promiseUpdate();
-
-        const overflowPlugins = me.getOverflowPlugins(nextShell);
-
-        // Retained plugins keep their exact control identity. Re-capture only after the ownership commit,
-        // when every paired button is under its final toolbar and the visible shell owns current geometry.
-        overflowPlugins.forEach(plugin => {
-            plugin.control?.hidden && (plugin.control.hidden = false)
-        });
-        await Promise.all(overflowPlugins.map(plugin => plugin.project(true)));
-        await Promise.all(overflowPlugins.map(plugin => me.waitForOverflowProjection(plugin)));
 
         const heavyOverflow = nextShell.down({dockNodeId: 'heavy-tabs'})
             ?.getTabBar()?.getPlugin('tab-overflow');

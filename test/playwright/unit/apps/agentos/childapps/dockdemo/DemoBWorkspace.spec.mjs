@@ -10,8 +10,9 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 import '../../../../../../../src/manager/Instance.mjs'; // defines Neo.get — the container child-add path resolves parents through it
-import DemoBWorkspace from '../../../../../../../apps/agentos/childapps/dockdemo/view/DemoBWorkspace.mjs';
-import DockZoneModel  from '../../../../../../../src/dashboard/DockZoneModel.mjs';
+import DemoBWorkspace           from '../../../../../../../apps/agentos/childapps/dockdemo/view/DemoBWorkspace.mjs';
+import DockProjectionReconciler from '../../../../../../../src/dashboard/DockProjectionReconciler.mjs';
+import DockZoneModel            from '../../../../../../../src/dashboard/DockZoneModel.mjs';
 
 import {initialDocument} from '../../../../../../../apps/agentos/tour/demoBPerspectives.mjs';
 
@@ -114,14 +115,24 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoBWorkspace', () => {
     });
 
     test('pane instances are PERMANENT: the same objects survive a re-projection', async () => {
-        const workbenchBefore = workspace.resolvePane('workbench', initialDocument.items.workbench);
-        const inspectorBefore = workspace.resolvePane('inspector', initialDocument.items.inspector);
+        const
+            workbenchBefore = workspace.resolvePane('workbench', initialDocument.items.workbench),
+            inspectorBefore = workspace.resolvePane('inspector', initialDocument.items.inspector),
+            chromeBefore    = DockProjectionReconciler.collectProjectedTabs(
+                workspace.getReference('dock-host-b').items[0]
+            );
 
         await workspace.refreshDockWorkspace();
 
+        const chromeAfter = DockProjectionReconciler.collectProjectedTabs(
+            workspace.getReference('dock-host-b').items[0]
+        );
+
         expect(workspace.resolvePane('workbench', initialDocument.items.workbench)).toBe(workbenchBefore);
         expect(workspace.resolvePane('inspector', initialDocument.items.inspector)).toBe(inspectorBefore);
-        expect(workbenchBefore.isDestroyed).toBeFalsy()
+        expect(workbenchBefore.isDestroyed).toBeFalsy();
+        expect([...chromeAfter.keys()]).toEqual([...chromeBefore.keys()]);
+        chromeBefore.forEach((tab, nodeId) => expect(chromeAfter.get(nodeId)).toBe(tab))
     });
 
     test('popOutPane guards: unknown, uncached, and double detach all fail closed', async () => {
