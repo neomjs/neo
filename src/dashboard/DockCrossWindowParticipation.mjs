@@ -23,9 +23,10 @@ import DockZoneModel         from './DockZoneModel.mjs';
  *   heap): the converted `addTab`/`splitNode` descriptor becomes the nested `target` of ONE
  *   semantic `transferItem` operation, executed through the landed atomic two-document executor
  *   ({@link Neo.dashboard.DockZoneModel#transferItem}) — commit-or-neither, item record verbatim,
- *   live component instances move and are never re-instantiated (§2.6). The durable placement
- *   hints (`owningWorkspaceId`, `fallbackTarget`) update on the transferred record **in the same
- *   commit**, per the §2.1 durable-tier table — semantic node references, never geometry.
+ *   live component instances move and are never re-instantiated (§2.6). The adapter publishes
+ *   those finite documents unchanged. Durable placement intent belongs to the separate topology
+ *   hint layer; once that layer exists, its workspace-set owner must join it to the document-pair
+ *   transaction instead of extending a `dockZone.v1` item record.
  *
  * Layer discipline (the target's established layer note, unchanged): `src/dashboard/` imports no app module —
  * every seam below arrives from the app-side workspace composition, which keeps authoring the
@@ -69,7 +70,7 @@ class DockCrossWindowParticipation extends Base {
          * Owner seam: publishes an atomically-transferred document PAIR through the workspace
          * set's change-notification path. Receives
          * `{sourceWorkspaceId, sourceDocument, targetWorkspaceId, targetDocument, descriptor}`
-         * where both documents are the executor's committed results (hints already updated).
+         * where both documents are the executor's unchanged, finite committed results.
          * @member {Function|null} commitTransfer=null
          */
         commitTransfer: null,
@@ -161,13 +162,12 @@ class DockCrossWindowParticipation extends Base {
      * @summary The discriminated commit — the one decision this class adds. A payload whose
      * `dockSourceWorkspaceId` IS this workspace commits through the landed single-document seam;
      * any other source workspace composes ONE `transferItem` descriptor (the converted operation
-     * nested as its `target`) and executes the landed atomic two-document transfer, updating the
-     * durable placement hints on the transferred record in the same commit. Discrimination is
-     * workspace IDENTITY, never item-id presence in the target catalog — an id collision across
-     * workspaces rides the executor's fail-closed rejection. Every unprovable input — missing
-     * payload identity, unresolvable source document, executor errors — fails closed: nothing
-     * commits, `null` returns, both documents stay untouched (the executor's commit-or-neither
-     * contract).
+     * nested as its `target`) and publishes the landed atomic two-document transfer verbatim.
+     * Discrimination is workspace IDENTITY, never item-id presence in the target catalog — an id
+     * collision across workspaces rides the executor's fail-closed rejection. Every unprovable
+     * input — missing payload identity, unresolvable source document, executor errors — fails
+     * closed: nothing commits, `null` returns, both documents stay untouched (the executor's
+     * commit-or-neither contract).
      * @param {Object} operation The converted `addTab`/`splitNode` descriptor from the target's
      *     preview→operation pipeline.
      * @param {Object} draggedItem The coordinator's drag payload — carries `dockItemId` +
@@ -212,18 +212,6 @@ class DockCrossWindowParticipation extends Base {
         if (result.errors.length) {
             return null
         }
-
-        // Durable placement hints ride the SAME commit (§2.1 / §2.3 mandatory): ownership moves
-        // to this workspace, and the fallback is the semantic node the item just entered — the
-        // tabs node of an `addTab`, the split target of a `splitNode`. Never geometry. The
-        // executor returned fresh committed clones, so stamping here mutates no caller state.
-        const record = result.targetDocument.items[itemId];
-
-        record.owningWorkspaceId = me.workspaceId;
-        record.fallbackTarget    = {
-            nodeId     : operation.operation === 'addTab' ? operation.tabsNodeId : operation.targetNodeId,
-            workspaceId: me.workspaceId
-        };
 
         me.commitTransfer({
             descriptor,
