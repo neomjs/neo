@@ -456,6 +456,8 @@ This aligns the adapter with stale `componentRef` restore behavior: runtime comp
 
 Repeated projections add one ownership rule: the adapter remains pure and stateless, while `DockProjectionReconciler` keys surviving tab containers by `dockNodeId` and moves each pane/header-button pair before moving its retained tab-container ancestor. The reconciler commits those descendant and ancestor handoffs separately; app-local code owns only its pane resolver, animation, and app-specific menu readiness. Workstation and Dock Demo B exercise the same transaction with different pane policies, keeping the projection contract reusable without making `DockLayoutAdapter` stateful.
 
+The resolver may return either an existing live component or a materializable component config; the reconciler normalizes an inserted config to its one live instance. Once every projected tabs destination is known, a live pane/header-button pair absent from all of them is a **true projection retirement** and is destroyed exactly once. This cleanup cannot infer broader app ownership from a single committed document. A consumer that intentionally retains a pane outside the currently renderable projection — for example, during a popup handoff or as an unrestored `no-live-window` topology remainder — must park that live instance with a non-destroying removal before reconciliation. A cache guard that recreates an `isDestroyed` entry is recovery safety, not identity preservation.
+
 ## Demand Validation
 
 The contract is justified by two independent shapes:

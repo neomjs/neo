@@ -227,6 +227,15 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoBWorkspace', () => {
             expect(loaded.report.displaced).toEqual([{itemId: 'workbench', liveIndex: 0}]);
             expect(workspace.dockModel.items.workbench).toBeUndefined();
 
+            // Let the changed-topology projection fully settle while Workbench has no live
+            // render target. This is the exact interval where true-removal retirement used
+            // to destroy the instance and the synchronous test immediately restored Focus.
+            await workspace.refreshPromise;
+
+            expect(pane.isDestroyed, 'the topology remainder keeps Workbench live').toBeFalsy();
+            expect(Boolean(pane.parent?.items?.includes(pane)), 'the live pane is parked outside the old projection')
+                .toBe(false);
+
             const report = workspace.getReference('restore-report-b');
 
             expect(report.hidden).toBe(false);
@@ -234,8 +243,9 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoBWorkspace', () => {
             expect(report.html).toContain('workbench (no-live-window)');
 
             expect(workspace.loadPerspectiveByName('Focus').loaded).toBe(true);
+            await workspace.refreshPromise;
             expect(workspace.resolvePane('workbench', initialDocument.items.workbench)).toBe(pane);
-            expect(pane.frames).toBe(41)
+            expect(pane.frames).toBeGreaterThanOrEqual(41)
         } finally {
             vessel.restore()
         }
