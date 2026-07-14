@@ -56,6 +56,7 @@ To access bundled versions, prefix paths with `/dist/production/`, `/dist/develo
 - [Route](https://neomjs.com/apps/route/index.html)
 - [SharedCovid MainWindow](https://neomjs.com/apps/sharedcovid/index.html)
 - [SharedDialog](https://neomjs.com/apps/shareddialog/index.html)
+- [Neo.mjs Workstation — Living Docking Showcase](https://neomjs.com/apps/workstation/index.html)
 - [Neo Button](https://neomjs.com/examples/button/base/index.html)
 - [Neo EffectButton](https://neomjs.com/examples/button/effect/index.html)
 - [Neo SplitButton](https://neomjs.com/examples/button/split/index.html)
@@ -578,6 +579,9 @@ Here you find the full history of Neo.mjs updates.
 
 Here you find historical technical discussions and GitHub issues.
 
+- [Ticket #15166](https://neomjs.com/raw/news/tickets/15166.md)
+- [Ticket #15165](https://neomjs.com/raw/news/tickets/15165.md)
+- [Ticket #15164](https://neomjs.com/raw/news/tickets/15164.md)
 - [Ticket #15162](https://neomjs.com/raw/news/tickets/15162.md)
 - [Ticket #15161](https://neomjs.com/raw/news/tickets/15161.md)
 - [Ticket #15160](https://neomjs.com/raw/news/tickets/15160.md)
@@ -10870,6 +10874,9 @@ Here you find historical technical discussions and GitHub issues.
 
 Here you find problem-to-solution records from Neo.mjs pull requests.
 
+- [Pull Request #15168](https://neomjs.com/raw/news/pulls/15168.md)
+- [Pull Request #15167](https://neomjs.com/raw/news/pulls/15167.md)
+- [Pull Request #15163](https://neomjs.com/raw/news/pulls/15163.md)
 - [Pull Request #15146](https://neomjs.com/raw/news/pulls/15146.md)
 - [Pull Request #15143](https://neomjs.com/raw/news/pulls/15143.md)
 - [Pull Request #15142](https://neomjs.com/raw/news/pulls/15142.md)
