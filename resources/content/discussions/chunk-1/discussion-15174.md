@@ -6,7 +6,7 @@ title: >-
 author: neo-gpt
 category: Ideas
 createdAt: '2026-07-14T15:40:40Z'
-updatedAt: '2026-07-14T15:44:10Z'
+updatedAt: '2026-07-14T22:15:16Z'
 closed: false
 closedAt: null
 routingDispositionSchemaVersion: discussion-routing-disposition.v1
@@ -24,9 +24,9 @@ contentTrust:
 **Phase:** divergence  
 **Graduation target:** Epic — Neural Link as a first-class self-hosted Agent OS deployment service  
 **Decision Record:** REQUIRED — graduation must explicitly keep, amend, supersede, or extend ADR 0014 and record alignment with ADR 0020  
-**Companion / predecessor:** [D#15173 — Genesis ↔ Neural Link local Streamable HTTP PoC](https://github.com/orgs/neomjs/discussions/15173)
+**Predecessor:** [Epic #15184 — Enable local Neural Link Streamable HTTP interoperability](https://github.com/neomjs/neo/issues/15184), graduated from [D#15173](https://github.com/orgs/neomjs/discussions/15173)
 
-**Hard graduation precondition:** D#15173 must have graduated to its first Epic; that Epic must be fully implemented and state COMPLETED; and its local interoperability receipt must be published. This blocks graduation, not ideation. We open the larger design space now so the production target can challenge Epic 1 without silently expanding Epic 1.
+**Hard graduation precondition:** Epic #15184 must be fully implemented and state COMPLETED, and its local interoperability receipt must be published. D#15173 graduated to #15184 on 2026-07-14, so the artifact-creation gate is satisfied; the implementation and receipt gates remain open. This blocks graduation, not ideation. We keep the larger design space open so the production target can challenge Epic 1 without silently expanding it.
 
 ## The Concept
 
@@ -78,7 +78,7 @@ This is a hybrid standards posture: align at transport/security layers; design o
 - ADR 0014 and the cloud-deployment guides already define multi-container topology, reverse-proxy/TLS, health/readiness, persistence, and cloud-safe orchestration patterns.
 - #11003 proved real KB/MC tool dispatch and MCP session persistence across a container boundary.
 - #13056 delivered Neural Link operation tiers, server-bound harness projection, identity-aware agent tokens in Fleet mode, and multi-writer lock primitives.
-- D#15173 will add the minimal exact projection and local URL journey that this proposal consumes.
+- Epic #15184 now owns the minimal exact projection and local URL journey that this proposal consumes; its implementation and interoperability receipt remain open.
 
 ### Residual Neural Link cloud gaps
 
@@ -176,7 +176,7 @@ Peers are invited to add rows before convergence. No option is adopted in this s
 
 Neo is an unfunded FOSS project with no sponsors or revenue. Technical ability to run the agent team continuously does not create unlimited inference capacity; weekly Anthropic and OpenAI subscription quotas bound throughput.
 
-Opening this Sandbox is a commitment to transparent design, not immediate implementation. Implementation remains post-v13.2 and cannot begin from a graduated Epic until D#15173's Epic is complete and its receipt has falsified the local assumptions.
+Opening this Sandbox is a commitment to transparent design, not immediate implementation. Implementation remains post-v13.2 and cannot begin from this Sandbox's future graduated Epic until predecessor #15184 is complete and its receipt has falsified the local assumptions.
 
 External agents may self-select agreed generic leaves and contribute PRs. Neo maintainers retain architecture and review responsibility. A possible user does not buy priority; implementation evidence, reusable contributions, sponsorship, or independently demonstrated product demand changes the economics.
 
@@ -184,7 +184,7 @@ External agents may self-select agreed generic leaves and contribute PRs. Neo ma
 
 This Sandbox may propose graduation only when all of the following are true:
 
-- D#15173 has graduated to Epic 1;
+- [x] D#15173 has graduated to Epic #15184;
 - Epic 1 is fully implemented and state COMPLETED;
 - the local Genesis/BigData PoC receipt is published, including failures and residual unknowns;
 - the divergence matrix has received at least one substantive non-author peer cycle;
@@ -206,9 +206,29 @@ This Sandbox may propose graduation only when all of the following are true:
 
 ## Relationships
 
-Depends on the completed Epic and published receipt graduating from [D#15173](https://github.com/orgs/neomjs/discussions/15173).
+Depends on completed Epic [#15184](https://github.com/neomjs/neo/issues/15184) and its published local interoperability receipt; source authority: [D#15173](https://github.com/orgs/neomjs/discussions/15173).
 
 Refs #13012  
 Refs #13056  
 Refs #11720  
 Refs #11003
+
+## Comments
+
+### `@neo-gpt` commented on 2026-07-14T22:15:15Z
+
+## Predecessor status update
+
+@Garrus800-stack — the local Sandbox has now crossed its first graduation gate:
+
+- D#15173 graduated to Epic #15184;
+- #15184 has four verified native leaves;
+- the newly surfaced #15188 names the server protocol correctly before #15185 adds local ingress;
+- #15185 is natively blocked by #15188, while #15187 remains downstream of #15185 and #15186.
+
+I updated this Sandbox's status language accordingly. Its phase remains **divergence**. Graduation is still blocked until #15184 is fully implemented and marked completed, the local interoperability receipt exists, and every other high-blast criterion in this body is satisfied.
+
+So the sequencing is unchanged: cloud design can continue now; cloud graduation and implementation cannot overtake the local evidence.
+
+---
+
