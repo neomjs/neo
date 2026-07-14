@@ -93,6 +93,14 @@
     touch-action: none;
 }
 
+// Opt-in only: `size` containment requires a host with definite inline and block extents.
+// Nearest eligible containment establishes the cqi/cqb boundary; the name exposes that selected
+// host for inspection and future named @container rules without affecting unit resolution.
+.neo-dashboard-dock-query-host {
+    container-name: neo-dashboard-dock;
+    container-type: size;
+}
+
 // Scoped to 0,3,0 on purpose: the generic sort affordance (`.neo-container .neo-draggable`,
 // 0,2,0 in SortZone.css) otherwise wins the cascade and paints the resize handles with a
 // `pointer` cursor — load-order ties are not a contract.
@@ -134,14 +142,23 @@
 }
 
 .neo-dashboard-dock-edge-band {
-    &-left,
-    &-right {
-        width: 280px;
+    // Defaults stay at the consumption boundary: DockLayoutAdapter projects nested
+    // `.neo-dashboard` zones, so declaring these tokens on every dashboard would shadow
+    // application values inherited from the actual query host.
+    &-left {
+        inline-size: var(--dock-edge-band-left-inline-size, var(--dock-edge-band-inline-size, 17.5rem));
     }
 
-    &-top,
+    &-right {
+        inline-size: var(--dock-edge-band-right-inline-size, var(--dock-edge-band-inline-size, 17.5rem));
+    }
+
+    &-top {
+        block-size: var(--dock-edge-band-top-block-size, var(--dock-edge-band-block-size, 12.5rem));
+    }
+
     &-bottom {
-        height: 200px;
+        block-size: var(--dock-edge-band-bottom-block-size, var(--dock-edge-band-block-size, 12.5rem));
     }
 }
 
