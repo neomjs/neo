@@ -214,6 +214,60 @@ test.describe('Neo.main.addon.DockFlip', () => {
         expect(frame, 'only the post-invert frame remains on the preserved-identity path').toBe(1)
     });
 
+    test('skips the detach poll when an exact marker keeps its direct parent but crosses an ancestor boundary', async () => {
+        const
+            markerClass         = 'dock-flip-item-alpha',
+            marker              = createMarker(markerClass, {height: 100, left: 0, top: 0, width: 100}),
+            markerParent        = {parentElement: null},
+            sourceAncestor      = {parentElement: null},
+            destinationAncestor = {parentElement: null},
+            host                = {
+                classList    : createClassList(),
+                parentElement: null,
+                querySelector() {
+                    return null
+                },
+                querySelectorAll() {
+                    return [marker]
+                }
+            };
+
+        sourceAncestor.parentElement      = host;
+        destinationAncestor.parentElement = host;
+        markerParent.parentElement        = sourceAncestor;
+        marker.parentElement              = markerParent;
+
+        globalThis.document = {
+            getElementById(id) {
+                return id === 'dock-host' ? host : null
+            }
+        };
+        globalThis.getComputedStyle = () => ({
+            getPropertyValue(name) {
+                return name === '--dock-transition-duration' ? '1ms' : 'linear'
+            }
+        });
+
+        dockFlip.captureFirst({hostId: 'dock-host', markerPrefix: 'dock-flip-item-'});
+        markerParent.parentElement = destinationAncestor;
+        marker.setRect({height: 100, left: 80, top: 40, width: 100});
+
+        let frame = 0;
+
+        globalThis.requestAnimationFrame = callback => {
+            frame++;
+            callback()
+        };
+
+        await expect(dockFlip.play({
+            hostId      : 'dock-host',
+            markerPrefix: 'dock-flip-item-'
+        })).resolves.toBe(true);
+
+        expect(marker.parentElement, 'the marker direct parent remains identical').toBe(markerParent);
+        expect(frame, 'the changed ancestor lineage bypasses the detach poll').toBe(1)
+    });
+
     test('retains the bounded wait for an exact same-parent set whose projection is still ambiguous', async () => {
         const
             markerClass = 'dock-flip-item-alpha',
@@ -317,7 +371,11 @@ test.describe('Neo.main.addon.DockFlip', () => {
     test('fixed-stages a preserved cross-parent move without changing the destination clip', async () => {
         const
             markerClass     = 'dock-flip-item-alpha',
+            defaultClass    = 'dock-flip-item-beta',
+            effectiveClass  = 'dock-flip-item-gamma',
             marker          = createMarker(markerClass, {bottom: 100, height: 100, left: 0, right: 100, top: 0, width: 100}),
+            defaultMarker   = createMarker(defaultClass, {bottom: 100, height: 100, left: 0, right: 100, top: 0, width: 100}),
+            effectiveMarker = createMarker(effectiveClass, {bottom: 100, height: 100, left: 0, right: 100, top: 0, width: 100}),
             sourceBody      = {parentElement: null},
             destinationBody = {
                 parentElement: null,
@@ -333,7 +391,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
                     return null
                 },
                 querySelectorAll() {
-                    return [marker]
+                    return [marker, defaultMarker, effectiveMarker]
                 }
             },
             visibleStyle = {
@@ -352,6 +410,8 @@ test.describe('Neo.main.addon.DockFlip', () => {
         sourceBody.parentElement      = host;
         destinationBody.parentElement = host;
         marker.parentElement          = sourceBody;
+        defaultMarker.parentElement   = sourceBody;
+        effectiveMarker.parentElement = sourceBody;
         marker.style.position         = 'relative';
         marker.style.zIndex           = '7';
 
@@ -360,20 +420,31 @@ test.describe('Neo.main.addon.DockFlip', () => {
                 return id === 'dock-host' ? host : null
             }
         };
-        globalThis.getComputedStyle = element => element === destinationBody
-            ? {...visibleStyle, overflowX: 'hidden', overflowY: 'hidden'}
-            : visibleStyle;
+        globalThis.getComputedStyle = element => {
+            if (element === destinationBody) {
+                return {...visibleStyle, overflowX: 'hidden', overflowY: 'hidden'}
+            }
+
+            return element === effectiveMarker ? {...visibleStyle, zIndex: '13'} : visibleStyle
+        };
 
         dockFlip.captureFirst({hostId: 'dock-host', markerPrefix: 'dock-flip-item-'});
         marker.parentElement = destinationBody;
+        defaultMarker.parentElement = destinationBody;
+        effectiveMarker.parentElement = destinationBody;
         marker.setRect({bottom: 200, height: 100, left: 200, right: 300, top: 100, width: 100});
+        defaultMarker.setRect({bottom: 200, height: 100, left: 200, right: 300, top: 100, width: 100});
+        effectiveMarker.setRect({bottom: 200, height: 100, left: 200, right: 300, top: 100, width: 100});
 
         const stageSamples = [];
 
         globalThis.requestAnimationFrame = callback => {
             stageSamples.push({
-                position: marker.style.position,
-                staged  : marker.classList.contains('neo-dock-flip-fixed-stage')
+                defaultZIndex  : defaultMarker.style.zIndex,
+                effectiveZIndex: effectiveMarker.style.zIndex,
+                position       : marker.style.position,
+                staged         : marker.classList.contains('neo-dock-flip-fixed-stage'),
+                zIndex         : marker.style.zIndex
             });
             callback()
         };
@@ -383,11 +454,21 @@ test.describe('Neo.main.addon.DockFlip', () => {
             markerPrefix: 'dock-flip-item-'
         })).resolves.toBe(true);
 
-        expect(stageSamples).toEqual([{position: 'fixed', staged: true}]);
+        expect(stageSamples).toEqual([{
+            defaultZIndex  : '2',
+            effectiveZIndex: '13',
+            position       : 'fixed',
+            staged         : true,
+            zIndex         : '7'
+        }]);
         expect(marker.parentElement, 'the live pane remains the destination body child').toBe(destinationBody);
+        expect(defaultMarker.parentElement).toBe(destinationBody);
+        expect(effectiveMarker.parentElement).toBe(destinationBody);
         expect(destinationBody.style.overflow, 'the real tab-body clip is never mutated').toBeUndefined();
         expect(marker.style.position).toBe('relative');
         expect(marker.style.zIndex).toBe('7');
+        expect(defaultMarker.style.zIndex, 'default stacking restores its exact empty inline value').toBe('');
+        expect(effectiveMarker.style.zIndex, 'computed stacking never leaks into the inline style').toBe('');
         expect(marker.classList.contains('neo-dock-flip-fixed-stage')).toBe(false)
     });
 
@@ -428,6 +509,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
         sourceBody.parentElement      = host;
         destinationBody.parentElement = host;
         marker.parentElement          = sourceBody;
+        marker.style.zIndex           = '9';
 
         globalThis.document = {
             getElementById(id) {
@@ -454,6 +536,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
         });
 
         expect(marker.style.position).toBe('fixed');
+        expect(marker.style.zIndex).toBe('9');
         expect(marker.classList.contains('neo-dock-flip-fixed-stage')).toBe(true);
 
         dockFlip.destroy();
@@ -461,6 +544,7 @@ test.describe('Neo.main.addon.DockFlip', () => {
 
         expect(marker.style.position).toBe('');
         expect(marker.style.transform).toBe('');
+        expect(marker.style.zIndex).toBe('9');
         expect(marker.classList.contains('neo-dock-flip-fixed-stage')).toBe(false);
 
         releaseFrame();
@@ -470,41 +554,59 @@ test.describe('Neo.main.addon.DockFlip', () => {
 
     test('restores the host class and every temporary style when a post-invert frame fails', async () => {
         const
-            markerClass = 'dock-flip-item-alpha',
-            outgoing    = createMarker(markerClass, {height: 100, left: 0, top: 0, width: 100}),
-            incoming    = createMarker(markerClass, {height: 100, left: 80, top: 40, width: 100}),
-            host        = {
-                classList: createClassList(),
-                markers  : [outgoing],
+            markerClass     = 'dock-flip-item-alpha',
+            marker          = createMarker(markerClass, {bottom: 100, height: 100, left: 0, right: 100, top: 0, width: 100}),
+            sourceBody      = {parentElement: null},
+            destinationBody = {
+                parentElement: null,
+                getBoundingClientRect() {
+                    return {bottom: 200, height: 100, left: 200, right: 300, top: 100, width: 100}
+                }
+            },
+            host            = {
+                classList    : createClassList(),
+                parentElement: null,
+                querySelector() {
+                    return null
+                },
                 querySelectorAll() {
-                    return this.markers
+                    return [marker]
+                }
+            },
+            visibleStyle = {
+                contain    : 'none',
+                filter     : 'none',
+                overflowX  : 'visible',
+                overflowY  : 'visible',
+                perspective: 'none',
+                transform  : 'none',
+                willChange : 'auto',
+                getPropertyValue(name) {
+                    return name === '--dock-transition-duration' ? '1ms' : 'linear'
                 }
             };
+
+        sourceBody.parentElement      = host;
+        destinationBody.parentElement = host;
+        marker.parentElement          = sourceBody;
+        marker.style.position         = 'relative';
+        marker.style.zIndex           = '11';
 
         globalThis.document = {
             getElementById(id) {
                 return id === 'dock-host' ? host : null
             }
         };
-        globalThis.getComputedStyle = () => ({
-            getPropertyValue(name) {
-                return name === '--dock-transition-duration' ? '1ms' : 'linear'
-            }
-        });
+        globalThis.getComputedStyle = element => element === destinationBody
+            ? {...visibleStyle, overflowX: 'hidden', overflowY: 'hidden'}
+            : visibleStyle;
 
         dockFlip.captureFirst({hostId: 'dock-host', markerPrefix: 'dock-flip-item-'});
+        marker.parentElement = destinationBody;
+        marker.setRect({bottom: 200, height: 100, left: 200, right: 300, top: 100, width: 100});
 
-        outgoing.isConnected = false;
-        host.markers          = [incoming];
-
-        let frame = 0;
-
-        globalThis.requestAnimationFrame = callback => {
-            if (++frame === 2) {
-                throw new Error('forced post-invert frame failure')
-            }
-
-            callback()
+        globalThis.requestAnimationFrame = () => {
+            throw new Error('forced post-invert frame failure')
         };
 
         await expect(dockFlip.play({
@@ -513,11 +615,14 @@ test.describe('Neo.main.addon.DockFlip', () => {
         })).resolves.toBe(false);
 
         expect(host.classList.contains('dock-animating')).toBe(false);
-        expect(incoming.style).toMatchObject({
+        expect(marker.style).toMatchObject({
             opacity        : '',
+            position       : 'relative',
             transform      : '',
             transformOrigin: '',
-            transition     : ''
-        })
+            transition     : '',
+            zIndex         : '11'
+        });
+        expect(marker.classList.contains('neo-dock-flip-fixed-stage')).toBe(false)
     })
 });

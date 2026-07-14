@@ -16,7 +16,7 @@ import Base from './Base.mjs';
  * the DOM nodes are new. Entering elements (no First rect) fade/scale in from their landing
  * spot; exiting elements are the outgoing tree's problem and need no animation.
  *
- * Native atomic cross-parent moves preserve the exact marker nodes. That branch skips the
+ * Native atomic cross-boundary moves preserve the exact marker nodes. That branch skips the
  * replacement-tree detach poll and, when the First rect would be clipped by the destination,
  * temporarily fixes the same node to its Last viewport rect before applying the inverse. The
  * real parent and clipping contract remain untouched; unsafe containing blocks land instantly.
@@ -49,7 +49,7 @@ class DockFlip extends Base {
     }
 
     /**
-     * First-phase marker, parent, and rect snapshots keyed by host id.
+     * First-phase marker, ancestor-lineage, stacking, and rect snapshots keyed by host id.
      * @member {Object} #firstSnapshots={}
      * @private
      */
@@ -85,20 +85,82 @@ class DockFlip extends Base {
     }
 
     /**
-     * @summary Returns whether the captured connected marker set has landed across a parent boundary.
-     * @param {Map<String, HTMLElement>} firstMarkers
-     * @param {Map<String, HTMLElement>} markers
-     * @param {Map<String, HTMLElement>} firstParents
+     * @summary Captures one marker's ancestor identities through its owning dock host.
+     * @param {HTMLElement} el
+     * @param {HTMLElement} hostEl
+     * @returns {HTMLElement[]}
+     * @protected
+     */
+    captureAncestorLineage(el, hostEl) {
+        const lineage = [];
+
+        let current = el.parentElement;
+
+        while (current) {
+            lineage.push(current);
+
+            if (current === hostEl) break;
+
+            current = current.parentElement
+        }
+
+        return lineage
+    }
+
+    /**
+     * @summary Reports whether a marker moved across any captured ancestor boundary.
+     * @param {HTMLElement} el
+     * @param {HTMLElement[]} firstLineage
+     * @param {HTMLElement} hostEl
      * @returns {Boolean}
      * @protected
      */
-    hasPreservedMarkerSet(firstMarkers, markers, firstParents) {
+    hasAncestorLineageChanged(el, firstLineage, hostEl) {
+        const lineage = this.captureAncestorLineage(el, hostEl);
+
+        return Boolean(firstLineage)
+            && (lineage.length !== firstLineage.length
+            || lineage.some((ancestor, index) => ancestor !== firstLineage[index])
+            )
+    }
+
+    /**
+     * @summary Returns whether the captured connected marker set has landed across an ancestor boundary.
+     * @param {Map<String, HTMLElement>} firstMarkers
+     * @param {Map<String, HTMLElement>} markers
+     * @param {Map<String, HTMLElement[]>} firstLineages
+     * @param {HTMLElement} hostEl
+     * @returns {Boolean}
+     * @protected
+     */
+    hasPreservedMarkerSet(firstMarkers, markers, firstLineages, hostEl) {
         const exactSet = firstMarkers?.size === markers.size
             && [...markers].every(([key, el]) => el.isConnected && firstMarkers.get(key) === el);
 
-        // An exact same-parent set can still be the outgoing tree while an async delta is
-        // pending. A parent change is the falsifier that Neo's atomic cross-parent move landed.
-        return exactSet && [...markers].some(([key, el]) => firstParents.get(key) !== el.parentElement)
+        // An exact unchanged-lineage set can still be the outgoing tree while an async delta is
+        // pending. Any ancestor change is the falsifier that Neo's atomic boundary move landed.
+        return exactSet && [...markers].some(([key, el]) =>
+            this.hasAncestorLineageChanged(el, firstLineages.get(key), hostEl)
+        )
+    }
+
+    /**
+     * @summary Resolves the fixed-stage stacking value without lowering captured or effective numeric stacking.
+     * @param {HTMLElement} el
+     * @param {...String} capturedValues
+     * @returns {String}
+     * @protected
+     */
+    resolveFixedStageZIndex(el, ...capturedValues) {
+        const
+            computedValue = globalThis.getComputedStyle?.(el)?.zIndex,
+            values        = [...capturedValues, computedValue]
+                .map(value => String(value ?? '').trim())
+                .filter(value => /^[+-]?\d+$/.test(value))
+                .map(Number)
+                .filter(Number.isFinite);
+
+        return String(Math.max(2, ...values))
     }
 
     /**
@@ -234,16 +296,19 @@ class DockFlip extends Base {
      */
     captureFirst({hostId, markerPrefix}) {
         const
-            markers = this.collectMarkers(hostId, markerPrefix),
-            parents = new Map(),
-            rects   = new Map();
+            hostEl   = document.getElementById(hostId),
+            markers  = this.collectMarkers(hostId, markerPrefix),
+            lineages = new Map(),
+            rects    = new Map(),
+            zIndexes = new Map();
 
         markers.forEach((el, key) => {
-            parents.set(key, el.parentElement);
+            lineages.set(key, this.captureAncestorLineage(el, hostEl));
             rects.set(key, el.getBoundingClientRect());
+            zIndexes.set(key, this.resolveFixedStageZIndex(el, el.style.zIndex));
         });
 
-        this.#firstSnapshots[hostId] = {els: [...markers.values()], markers, parents, rects}
+        this.#firstSnapshots[hostId] = {els: [...markers.values()], lineages, markers, rects, zIndexes}
     }
 
     /**
@@ -343,9 +408,10 @@ class DockFlip extends Base {
         }
 
         const
-            firstMarkers = first.markers,
-            firstParents = first.parents,
-            firstRects   = first.rects;
+            firstLineages = first.lineages,
+            firstMarkers  = first.markers,
+            firstRects    = first.rects,
+            firstZIndexes = first.zIndexes;
 
         try {
             // Both consumers pass a workspace host ABOVE the projected `.neo-dashboard`.
@@ -368,7 +434,7 @@ class DockFlip extends Base {
             let
                 frame              = 0,
                 markers            = this.collectMarkers(hostId, markerPrefix),
-                preservedMarkerSet = this.hasPreservedMarkerSet(firstMarkers, markers, firstParents);
+                preservedMarkerSet = this.hasPreservedMarkerSet(firstMarkers, markers, firstLineages, hostEl);
 
             // stage A: the swap lands asynchronously through the delta pipeline — the OLD
             // tree's markers would satisfy a naive presence-poll instantly and measure
@@ -415,13 +481,14 @@ class DockFlip extends Base {
                 }
 
                 const
-                    dx                = firstRect.left - last.left,
-                    dy                = firstRect.top  - last.top,
-                    sx                = last.width  > 0 ? firstRect.width  / last.width  : 1,
-                    sy                = last.height > 0 ? firstRect.height / last.height : 1,
-                    preservedIdentity = firstMarkers.get(key) === el && el.isConnected,
-                    movedAcrossParent = preservedIdentity && firstParents.get(key) !== el.parentElement,
-                    clippingContext   = movedAcrossParent && this.getClippingContext(el, hostEl),
+                    dx                  = firstRect.left - last.left,
+                    dy                  = firstRect.top  - last.top,
+                    sx                  = last.width  > 0 ? firstRect.width  / last.width  : 1,
+                    sy                  = last.height > 0 ? firstRect.height / last.height : 1,
+                    preservedIdentity   = firstMarkers.get(key) === el && el.isConnected,
+                    movedAcrossBoundary = preservedIdentity
+                        && this.hasAncestorLineageChanged(el, firstLineages.get(key), hostEl),
+                    clippingContext    = movedAcrossBoundary && this.getClippingContext(el, hostEl),
                     needsFixedStage   = clippingContext && this.isRectClipped(firstRect, clippingContext),
                     fixedStage        = needsFixedStage && this.canUseFixedStage(el);
 
@@ -433,9 +500,10 @@ class DockFlip extends Base {
                 if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5 || Math.abs(sx - 1) > 0.005 || Math.abs(sy - 1) > 0.005) {
                     moves.push({
                         el,
+                        firstZIndex: firstZIndexes.get(key),
                         fixedStage,
                         last,
-                        transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
+                        transform  : `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
                     })
                 }
             });
@@ -453,13 +521,19 @@ class DockFlip extends Base {
             this.#activeCleanups.add(cancel);
 
             moves.forEach(move => {
-                const {el, fixedStage, last, transform, fade} = move;
+                const {el, firstZIndex, fixedStage, last, transform, fade} = move;
 
                 move.hadStageClass = el.classList.contains('neo-dock-flip-fixed-stage');
                 move.styleSnapshot = this.captureInlineStyles(el);
 
                 if (fixedStage) {
                     el.classList.add('neo-dock-flip-fixed-stage');
+
+                    const zIndex = this.resolveFixedStageZIndex(
+                        el,
+                        firstZIndex,
+                        move.styleSnapshot.zIndex
+                    );
 
                     Object.assign(el.style, {
                         bottom   : 'auto',
@@ -475,7 +549,7 @@ class DockFlip extends Base {
                         right    : 'auto',
                         top      : `${last.top}px`,
                         width    : `${last.width}px`,
-                        zIndex   : '2'
+                        zIndex
                     })
                 }
 
