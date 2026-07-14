@@ -4,6 +4,7 @@ import CounterPane                        from './CounterPane.mjs';
 import DockLayoutAdapter                  from '../../../../../src/dashboard/DockLayoutAdapter.mjs';
 import DockMotionSignal                   from '../../../../../src/dashboard/DockMotionSignal.mjs';
 import DockPerspectiveStore               from '../../../../../src/dashboard/DockPerspectiveStore.mjs';
+import DockProjectionReconciler           from '../../../../../src/dashboard/DockProjectionReconciler.mjs';
 import DockService                        from '../../../../../src/ai/client/DockService.mjs';
 import DockTopologyReconciler             from '../../../../../src/dashboard/DockTopologyReconciler.mjs';
 import DockZoneModel                      from '../../../../../src/dashboard/DockZoneModel.mjs';
@@ -28,7 +29,7 @@ import '../../../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype 
  *   The switcher bar rebuilds from store lifecycle events — buttons are born from
  *   `perspectiveSaved`, never hardcoded.
  * - **Pop-out** rides the shared-heap vessel: panes are INSTANCE-CACHED (created once,
- *   parked across every re-projection — the reveal-pane-cache precedent), so detaching the
+ *   handed across every re-projection by `DockProjectionReconciler`), so detaching the
  *   workbench moves the LIVE component into the popup window's view tree
  *   (`mainView.add(instance)` — both windows share one App Worker) and reattaching moves it
  *   home. The {@link AgentOS.childapps.dockdemo.view.CounterPane} witness makes the
@@ -97,8 +98,8 @@ class DemoBWorkspace extends Container {
      */
     tourRunner = null
     /**
-     * Pane instances by item id — created ONCE, parked (removed without destroy) across
-     * every re-projection and window move, torn down only with the workspace. THE
+     * Pane instances by item id — created ONCE, handed across every re-projection and
+     * parked only for explicit window moves, torn down only with the workspace. THE
      * object-permanence substrate: `resolvePane` hands the adapter these live instances,
      * so no morph, pop-out, or reattach ever remounts a pane.
      * @member {Object} paneCache={}
@@ -352,13 +353,13 @@ class DemoBWorkspace extends Container {
             liveDocuments = hasLivePopup ? [me.dockModel, me.popupDocument] : [me.dockModel],
             result        = DockTopologyReconciler.reconcile(layout, liveDocuments),
             report        = DockZoneModel.clone({
-                applied       : result.applied,
-                displaced     : result.displaced,
-                errors        : result.errors,
-                mapping       : result.mapping,
+                applied        : result.applied,
+                displaced      : result.displaced,
+                errors         : result.errors,
+                mapping        : result.mapping,
                 noWindowSpawned: true,
-                unmatchedLive : result.unmatchedLive,
-                unrestored    : result.unrestored
+                unmatchedLive  : result.unmatchedLive,
+                unrestored     : result.unrestored
             });
 
         me.restoreReport = report;
@@ -382,10 +383,10 @@ class DemoBWorkspace extends Container {
      * @protected
      */
     renderRestoreReport() {
-        let me      = this,
-            target  = me.getReference('restore-report-b'),
-            report  = me.restoreReport,
-            escape  = value => String(value)
+        let me     = this,
+            target = me.getReference('restore-report-b'),
+            report = me.restoreReport,
+            escape = value => String(value)
                 .replaceAll('&', '&amp;')
                 .replaceAll('<', '&lt;')
                 .replaceAll('>', '&gt;'),
@@ -581,15 +582,17 @@ class DemoBWorkspace extends Container {
 
     /**
      * Projects the committed document, threading the instance-bound holder callbacks.
+     * @param {Function|null} [resolveComponentRef=null]
      * @returns {Object}
      */
-    projectDockModel() {
+    projectDockModel(resolveComponentRef=null) {
         let me = this;
 
         return DockLayoutAdapter.project(me.dockModel, {
             applyDockZoneOperation  : me.applyDockZoneOperation.bind(me),
             onDockZoneDocumentChange: me.onDockZoneDocumentChange.bind(me),
-            resolveComponentRef     : (componentRef, item, itemId) => me.resolvePane(itemId, item)
+            resolveComponentRef     : resolveComponentRef
+                || ((componentRef, item, itemId) => me.resolvePane(itemId, item))
         })
     }
 
@@ -647,16 +650,16 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * Rebuilds the toolbar-adjacent projection from the committed document, FLIP-bracketed.
-     * Cached pane instances are PARKED first (removed without destroy) so the coarse
-     * teardown of the old projection shell can never reap them — the object-permanence
-     * mechanic every capability in this demo leans on.
+     * Reconciles the toolbar-adjacent projection from the committed document, FLIP-bracketed.
+     * The shared projection reconciler moves cached panes and tab chrome into the staged tree
+     * before retiring the empty shell, so object permanence no longer depends on coarse parking.
      * @protected
      */
     async refreshDockWorkspace() {
         const
-            me   = this,
-            host = me.getReference('dock-host-b');
+            me           = this,
+            host         = me.getReference('dock-host-b'),
+            placeholders = new Map();
 
         if (host) {
             const flip = Neo.main?.addon?.DockFlip;
@@ -665,13 +668,24 @@ class DemoBWorkspace extends Container {
                 await flip?.captureFirst({hostId: host.id, markerPrefix: 'agentos-dockdemo-pane-'})
             } catch (e) {/* instant landing */}
 
-            // park every cached live pane before the old projection tree is destroyed
-            Object.values(me.paneCache).forEach(pane => {
-                pane?.parent && !pane.isDestroyed && pane.parent.remove(pane, false)
+            const nextConfig = me.projectDockModel((componentRef, item, itemId) => {
+                const placeholder = Neo.create({
+                    module: Component,
+                    header: {text: item?.title ?? itemId},
+                    hidden: true
+                });
+
+                placeholders.set(itemId, placeholder);
+
+                return placeholder
             });
 
-            host.removeAt(0);
-            host.insert(0, me.projectDockModel());
+            await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig,
+                placeholders,
+                resolveItem: itemId => me.resolvePane(itemId, me.dockModel.items[itemId])
+            });
 
             if (flip) {
                 DockMotionSignal.enter(me);

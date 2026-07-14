@@ -377,20 +377,6 @@ body:has(.workstation-workspace) .neo-button.neo-tab-overflow-control {
     border-radius: 6px;
 }
 
-// Coarse document projection deliberately replaces tab chrome while moving live pane nodes.
-// Keep that replacement chrome motionless: re-enabling the generic pressed-tab animation on
-// an already-pressed fresh node restarts it. Identity-preserving reconciliation is the shared
-// follow-up that can restore ordinary indicator motion without replaying bootstrap effects.
-.workstation-chrome-settling {
-    .neo-tab-button-indicator {
-        animation-duration: 0ms !important;
-    }
-
-    .neo-active-tab-indicator {
-        transition-duration: 0ms !important;
-    }
-}
-
 .workstation-placeholder {
     background:
         radial-gradient(circle at 82% 16%, color-mix(in srgb, var(--workstation-signal) 16%, transparent), transparent 38%),

@@ -6,6 +6,7 @@ import Scale                                    from '../store/Scale.mjs';
 import ScalePane                                from './ScalePane.mjs';
 import DockLayoutAdapter                        from '../../../src/dashboard/DockLayoutAdapter.mjs';
 import DockMotionSignal                         from '../../../src/dashboard/DockMotionSignal.mjs';
+import DockProjectionReconciler                 from '../../../src/dashboard/DockProjectionReconciler.mjs';
 import DockService                              from '../../../src/ai/client/DockService.mjs';
 import DockZoneModel                            from '../../../src/dashboard/DockZoneModel.mjs';
 import StateProvider                            from '../../../src/state/Provider.mjs';
@@ -570,29 +571,46 @@ class Workspace extends Container {
     }
 
     /**
-     * Returns every tab-overflow projection owned by one dock shell.
-     * @param {Neo.container.Base} shell
-     * @returns {Neo.tab.plugin.Overflow[]}
+     * @summary Returns a serializable identity receipt for one live logical tab surface.
+     * @param {String} nodeId
+     * @returns {Object|null}
      */
-    getOverflowPlugins(shell) {
-        return Object.entries(this.dockModel.nodes)
-            .filter(([, node]) => node.type === 'tabs')
-            .map(([nodeId]) => shell.down({dockNodeId: nodeId})?.getTabBar()?.getPlugin('tab-overflow'))
-            .filter(Boolean)
+    getTabChromeIdentity(nodeId) {
+        const
+            shell = this.getReference('dock-host')?.items[0],
+            tab   = DockProjectionReconciler.collectProjectedTabs(shell).get(nodeId);
+
+        if (!tab) return null;
+
+        const
+            bar     = tab.getTabBar(),
+            body    = tab.getCardContainer(),
+            plugin  = bar.getPlugin('tab-overflow'),
+            buttons = {};
+
+        Object.entries(this.paneCache).forEach(([itemId, pane]) => {
+            const index = body.items.indexOf(pane);
+
+            index > -1 && (buttons[itemId] = bar.items[index]?.id || null)
+        });
+
+        return {
+            bodyId           : body.id,
+            buttons,
+            containerId      : tab.id,
+            headerId         : bar.id,
+            overflowControlId: plugin?.control?.id || null,
+            overflowPluginId : plugin?.id || null,
+            stripId          : tab.getTabStrip().id
+        }
     }
 
     /**
      * Atomically hands cached panes from the current projection to a staged next projection.
      *
-     * The next shell is first mounted with `hideMode: 'visibility'` and non-rendered placeholders,
-     * so every old and new pane parent exists in the rendered tree and has this host as its real
-     * lowest common ancestor. Replacing each placeholder through `Container.insert()` then uses
-     * Neo's native cross-parent atomic-move path: the live pane is detached silently with
-     * `keepMounted`, inserted at the model-owned target index, and remains the same DOM node. The
-     * old shell is retained but hidden for the one full host update that reconciles the ownership
-     * transaction. Only after every live DOM node has moved is that now-empty shell removed in a
-     * cleanup update. The newly visible toolbar then recaptures its natural widths; a zero-control
-     * interval is valid when the reduced tab set fits.
+     * {@link Neo.dashboard.DockProjectionReconciler} owns the renderer-safe staged ownership
+     * transaction shared with other docking workspaces. Workstation supplies its cached-pane resolver,
+     * header text, FLIP motion, retained-indicator suppression, and the heavy Overflow menu witness.
      * @returns {Promise<void>}
      */
     async refreshDockWorkspace() {
@@ -608,104 +626,50 @@ class Workspace extends Container {
             await flip?.captureFirst({hostId: host.id, markerPrefix: 'workstation-pane-'})
         } catch (error) {/* instant landing */}
 
-        const
-            oldShell           = host.items[0],
-            oldOverflowPlugins = me.getOverflowPlugins(oldShell),
-            nextConfig         = me.projectDockModel((componentRef, item, itemId) => {
-                const placeholder = Neo.create({
-                    module: Component,
-                    header: {text: me.getPaneHeaderText(itemId, item)},
-                    hidden: true
-                });
-
-                placeholders.set(itemId, placeholder);
-
-                return placeholder
+        const nextConfig = me.projectDockModel((componentRef, item, itemId) => {
+            const placeholder = Neo.create({
+                module: Component,
+                header: {text: me.getPaneHeaderText(itemId, item)},
+                hidden: true
             });
 
-        // Overflow controls are intentionally floating direct-body children, so the dock host is not their
-        // common parent and cannot hide them as part of the shell transaction. Retire the source projection
-        // first; the destination plugin independently recreates its truthful affordance from the new header.
-        oldOverflowPlugins.forEach(plugin => plugin.control && (plugin.control.hidden = true));
+            placeholders.set(itemId, placeholder);
 
-        nextConfig.hidden   = true;
-        nextConfig.hideMode = 'visibility';
-
-        const nextShell = host.insert(host.items.length, nextConfig, true);
-
-        nextShell.addCls('workstation-chrome-settling');
-
-        // Atomic moves require both ownership paths to exist in the rendered tree. This update
-        // mounts only the visibility-hidden target shell; the live panes remain in the visible
-        // old shell until the single ownership reconciliation below.
-        host.updateDepth = -1;
-        host.update();
-        await host.promiseUpdate();
-
-        const
-            transfers = [...placeholders].map(([itemId, placeholder]) => {
-                const targetParent = placeholder.parent,
-                      targetIndex  = targetParent?.indexOf(placeholder) ?? -1;
-
-                if (!targetParent || targetIndex < 0) {
-                    throw new Error(`Workstation projection did not parent placeholder "${itemId}"`)
-                }
-
-                return {
-                    itemId,
-                    pane: me.resolvePane(itemId, me.dockModel.items[itemId]),
-                    placeholder,
-                    targetIndex,
-                    targetParent
-                }
-            });
-
-        transfers.forEach(({pane, placeholder, targetIndex, targetParent}) => {
-            const sourceParent = pane.parent;
-
-            targetParent.remove(placeholder, true, true);
-            sourceParent && sourceParent !== targetParent
-                && sourceParent.remove(pane, false, true, true);
-            targetParent.insert(targetIndex, pane, true, false)
+            return placeholder
         });
 
-        const overflowPlugins = me.getOverflowPlugins(nextShell);
+        let animationSuppressedBars = [];
 
-        // Capture natural header widths while the destination shell is still visibility-hidden. Overflow's
-        // measuring latch restores any removeDom headers and coalesces mutation/resize races internally.
-        await Promise.all(overflowPlugins.map(plugin => plugin.project(true)));
-        await Promise.all(overflowPlugins.map(plugin => me.waitForOverflowProjection(plugin)));
+        const {nextShell} = await DockProjectionReconciler.reconcileProjection({
+            host,
+            nextConfig,
+            placeholders,
+            resolveItem: itemId => me.resolvePane(itemId, me.dockModel.items[itemId]),
+            onProjectionStaged({plans}) {
+                const retainedTabBars = [...plans.values()]
+                    .filter(plan => plan.tab)
+                    .map(plan => plan.tab.getTabBar());
 
-        oldShell.setSilent({hideMode: 'visibility'});
-        oldShell.setSilent({hidden: true});
-        nextShell.setSilent({hidden: false});
-        host.updateDepth = -1;
-        host.update();
-        await host.promiseUpdate();
+                animationSuppressedBars = retainedTabBars
+                    .filter(bar => !bar.cls.includes('neo-no-animation'));
 
-        // The first update above is the ownership transaction: both parent trees exist, so Neo
-        // emits DOM moves for the live pane ids. This second update removes only an empty shell.
-        oldShell !== nextShell && host.remove(oldShell, true, true);
-        host.updateDepth = -1;
-        host.update();
-        await host.promiseUpdate();
-
-        await Promise.all(overflowPlugins.map(plugin => plugin.project(false)));
-        await Promise.all(overflowPlugins.map(plugin => me.waitForOverflowProjection(plugin)));
-
-        // Floating controls sit under document.body rather than below the dock host, so they cannot
-        // participate in the common-parent ownership update above. Activate only the destination
-        // projection after the source shell (and its control) has been destroyed: this preserves the
-        // exact-one-control invariant without exposing a transient duplicate or leaving the new button
-        // in the hidden/unmounted state used while its owner shell was staged.
-        overflowPlugins.forEach(plugin => {
-            plugin.control?.hidden && (plugin.control.hidden = false)
+                // Native reparenting keeps each toolbar DOM node, but CSS animations restart when it
+                // re-enters the document. Retained indicators settle immediately; new chrome still enters.
+                animationSuppressedBars.forEach(bar => {
+                    bar.setSilent({cls: [...bar.cls, 'neo-no-animation']})
+                })
+            },
+            waitForOverflowProjection: plugin => me.waitForOverflowProjection(plugin)
         });
 
         const heavyOverflow = nextShell.down({dockNodeId: 'heavy-tabs'})
             ?.getTabBar()?.getPlugin('tab-overflow');
 
         await me.waitForOverflowMenu(heavyOverflow);
+
+        // Changing only animation-duration keeps the same CSS Animation object. Waiting out the
+        // theme's 260ms window before restoring it prevents a delayed replay on retained indicators.
+        const chromeAnimationSettle = me.timeout(300);
 
         if (flip) {
             DockMotionSignal.enter(me);
@@ -717,6 +681,14 @@ class Workspace extends Container {
                 DockMotionSignal.leave(me)
             }
         }
+
+        await chromeAnimationSettle;
+        animationSuppressedBars.forEach(bar => {
+            bar.setSilent({cls: bar.cls.filter(cls => cls !== 'neo-no-animation')})
+        });
+        host.updateDepth = -1;
+        host.update();
+        await host.promiseUpdate()
     }
 
     /**
