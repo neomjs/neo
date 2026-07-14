@@ -9,7 +9,7 @@ import {workstationTourScript} from '../../../../apps/workstation/tour/denseWork
  * two stable Store<Model> identities, an exact 100k renderer-rich grid, a sustained capped
  * feed, one owner-exact overflow surface, two real rails, frame-sampled midpoint continuity,
  * Canvas-worker pixel change, DevIndex-sized chart geometry, honest progress paints, both
- * themes, viewport-adaptive edge bands, visible real splitters, user-driven semantic resize,
+ * themes, host-relative edge bands, visible real splitters, user-driven semantic resize,
  * pane-owned chrome, replacement-chrome motion containment, sequential clip-safe fixed staging,
  * and identity preservation.
  *
@@ -249,7 +249,7 @@ const readHorizontalSplitGeometry = page => page.evaluate(() => {
 
 /**
  * Reads Workstation's app-owned responsive dock projection from the browser CSSOM.
- * @summary Pins viewport-driven edge-band geometry without treating the persisted dock document as layout state.
+ * @summary Pins host-relative edge-band geometry without treating the persisted dock document as layout state.
  * @param {import('@playwright/test').Page} page
  * @returns {Promise<Object>}
  */
@@ -282,28 +282,106 @@ const readResponsiveDockGeometry = page => page.evaluate(() => {
                 width : value.width
             }
         },
-        readBand = (element, property) => ({
-            ...readRect(element),
-            computedExtent: Number.parseFloat(getComputedStyle(element)[property])
-        });
+        nearestQueryContainerId = (element, axis) => {
+            for (let candidate = element?.parentElement; candidate; candidate = candidate.parentElement) {
+                const containerType = getComputedStyle(candidate).containerType;
+
+                if (containerType === 'size' || (axis === 'inline' && containerType === 'inline-size')) {
+                    return candidate.id
+                }
+            }
+
+            return null
+        },
+        readBand = (element, property, axis) => {
+            const style = getComputedStyle(element);
+
+            return {
+                ...readRect(element),
+                computedExtent         : Number.parseFloat(style[property]),
+                logicalProperty        : property,
+                nearestQueryContainerId: nearestQueryContainerId(element, axis)
+            }
+        },
+        readHost = element => {
+            const
+                rect   = readRect(element),
+                style  = getComputedStyle(element),
+                number = property => Number.parseFloat(style[property]) || 0;
+
+            return {
+                ...rect,
+                boxSizing       : style.boxSizing,
+                containerName   : style.containerName,
+                containerType   : style.containerType,
+                contentBlockSize: rect.height
+                    - number('borderTopWidth') - number('borderBottomWidth')
+                    - number('paddingTop') - number('paddingBottom'),
+                contentInlineSize: rect.width
+                    - number('borderLeftWidth') - number('borderRightWidth')
+                    - number('paddingLeft') - number('paddingRight'),
+                id: element.id
+            }
+        };
 
     return {
-        bottomBand      : readBand(bottom, 'height'),
+        bottomBand      : readBand(bottom, 'blockSize', 'block'),
         center          : readRect(center),
-        dockHost        : readRect(dockHost),
-        leftBand        : readBand(left, 'width'),
+        dockHost        : readHost(dockHost),
+        leftBand        : readBand(left, 'inlineSize', 'inline'),
         overflowControls: [...document.querySelectorAll('.neo-tab-overflow-control')]
             .filter(isVisible).length,
         railTabs: [...document.querySelectorAll('.neo-dashboard-dock-rail-tab')]
             .filter(isVisible).length,
-        rightBand: readBand(right, 'width'),
-        root     : readRect(root),
-        row      : readRect(row),
-        scale    : readRect(scale),
-        splitters: document.querySelectorAll('.neo-dashboard-dock-splitter').length,
-        viewport : {height: innerHeight, width: innerWidth}
+        rightBand   : readBand(right, 'inlineSize', 'inline'),
+        root        : readRect(root),
+        rootFontSize: Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
+        row         : readRect(row),
+        scale       : readRect(scale),
+        splitters   : document.querySelectorAll('.neo-dashboard-dock-splitter').length,
+        viewport    : {height: innerHeight, width: innerWidth}
     }
 });
+
+/**
+ * Applies an exact content-box extent through the mounted dock host's production border-box model.
+ * @summary Separates child-workspace responsiveness from outer viewport responsiveness without reloading Neo.
+ * @param {import('@playwright/test').Page} page
+ * @param {{height:Number,width:Number}} size
+ * @returns {Promise<void>}
+ */
+const setDockHostContentSize = (page, size) => page.evaluate(({height, width}) => {
+    const
+        host        = document.querySelector('.workstation-dock-host'),
+        style       = getComputedStyle(host),
+        number      = property => Number.parseFloat(style[property]) || 0,
+        blockExtras = number('borderTopWidth') + number('borderBottomWidth')
+            + number('paddingTop') + number('paddingBottom'),
+        inlineExtras = number('borderLeftWidth') + number('borderRightWidth')
+            + number('paddingLeft') + number('paddingRight');
+
+    host.style.setProperty('block-size', `${height + blockExtras}px`, 'important');
+    host.style.setProperty('box-sizing', 'border-box', 'important');
+    host.style.setProperty('flex', 'none', 'important');
+    host.style.setProperty('inline-size', `${width + inlineExtras}px`, 'important')
+}, size);
+
+/**
+ * Restores the host's engine-projected inline style after the nested-host probe.
+ * @summary Keeps the remainder of the whitebox journey aligned with the component VDOM.
+ * @param {import('@playwright/test').Page} page
+ * @param {String|null} value
+ * @returns {Promise<void>}
+ */
+const restoreDockHostStyle = (page, value) => page.evaluate(style => {
+    const host = document.querySelector('.workstation-dock-host');
+
+    if (style === null) {
+        host.removeAttribute('style')
+    } else {
+        host.setAttribute('style', style)
+    }
+}, value);
 
 test.describe('Workstation — dense living-data composition', () => {
     test.setTimeout(150000);
@@ -426,17 +504,83 @@ test.describe('Workstation — dense living-data composition', () => {
             return readResponsiveDockGeometry(page)
         };
 
+        /**
+         * @summary Resizes only the mounted dock host and waits for its two-axis query projection.
+         * @param {{height:Number,width:Number}} size
+         * @returns {Promise<Object>}
+         */
+        const readAtHost = async size => {
+            await setDockHostContentSize(page, size);
+            await expect.poll(async () => {
+                const {dockHost} = await readResponsiveDockGeometry(page);
+
+                return {
+                    blockSize    : Math.round(dockHost.contentBlockSize),
+                    boxSizing    : dockHost.boxSizing,
+                    containerName: dockHost.containerName,
+                    containerType: dockHost.containerType,
+                    inlineSize   : Math.round(dockHost.contentInlineSize)
+                }
+            }, {
+                message  : `Dock host settles at ${size.width}x${size.height}`,
+                timeout  : 10000,
+                intervals: [25, 50, 100]
+            }).toEqual({
+                blockSize    : size.height,
+                boxSizing    : 'border-box',
+                containerName: 'neo-dashboard-dock',
+                containerType: 'size',
+                inlineSize   : size.width
+            });
+
+            return readResponsiveDockGeometry(page)
+        };
+
         const
             wideGeometry   = await readAtViewport({height: 900, width: 1280}),
             narrowGeometry = await readAtViewport({height: 900, width: 900}),
             shortGeometry  = await readAtViewport({height: 600, width: 900});
 
-        expect(wideGeometry.leftBand.computedExtent).toBeCloseTo(260, 1);
-        expect(wideGeometry.rightBand.computedExtent).toBeCloseTo(320, 1);
-        expect(wideGeometry.bottomBand.computedExtent).toBeCloseTo(200, 1);
-        expect(narrowGeometry.leftBand.computedExtent).toBeCloseTo(182.8125, 1);
-        expect(narrowGeometry.rightBand.computedExtent).toBeCloseTo(225, 1);
-        expect(narrowGeometry.bottomBand.computedExtent).toBeCloseTo(200, 1);
+        /**
+         * @summary Asserts each band resolves its cq unit and rem clamp against the measured dock host.
+         * @param {Object} geometry
+         * @returns {void}
+         */
+        const assertHostRelativeBandGeometry = geometry => {
+            const
+                clamp                    = (floor, value, cap) => Math.min(cap, Math.max(floor, value)),
+                {dockHost, rootFontSize} = geometry;
+
+            expect(rootFontSize).toBeGreaterThan(0);
+            expect(dockHost.id).toBeTruthy();
+            expect(dockHost.boxSizing).toBe('border-box');
+            expect(dockHost.containerType).toBe('size');
+            expect(dockHost.containerName).toBe('neo-dashboard-dock');
+            expect(geometry.leftBand.nearestQueryContainerId).toBe(dockHost.id);
+            expect(geometry.rightBand.nearestQueryContainerId).toBe(dockHost.id);
+            expect(geometry.bottomBand.nearestQueryContainerId).toBe(dockHost.id);
+            expect(geometry.leftBand.computedExtent).toBeCloseTo(clamp(
+                rootFontSize * 11.25,
+                dockHost.contentInlineSize * 0.203125,
+                rootFontSize * 16.25
+            ), 1);
+            expect(geometry.rightBand.computedExtent).toBeCloseTo(clamp(
+                rootFontSize * 13.75,
+                dockHost.contentInlineSize * 0.25,
+                rootFontSize * 20
+            ), 1);
+            expect(geometry.bottomBand.computedExtent).toBeCloseTo(clamp(
+                rootFontSize * 8.75,
+                dockHost.contentBlockSize * 0.28,
+                rootFontSize * 12.5
+            ), 1)
+        };
+
+        expect(wideGeometry.leftBand.logicalProperty).toBe('inlineSize');
+        expect(wideGeometry.bottomBand.logicalProperty).toBe('blockSize');
+        assertHostRelativeBandGeometry(wideGeometry);
+        assertHostRelativeBandGeometry(narrowGeometry);
+        assertHostRelativeBandGeometry(shortGeometry);
         expect(narrowGeometry.leftBand.width).toBeLessThan(wideGeometry.leftBand.width);
         expect(narrowGeometry.rightBand.width).toBeLessThan(wideGeometry.rightBand.width);
         expect(narrowGeometry.center.width, 'the primary center keeps its desktop working floor')
@@ -451,7 +595,6 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(narrowGeometry.scale.right).toBeLessThanOrEqual(narrowGeometry.center.right + 1);
         expect(narrowGeometry.overflowControls, 'tab overflow remains owner-exact at the narrow desktop floor')
             .toBe(1);
-        expect(shortGeometry.bottomBand.computedExtent).toBeCloseTo(168, 1);
         expect(shortGeometry.bottomBand.height).toBeLessThan(wideGeometry.bottomBand.height);
         expect(shortGeometry.center.width).toBeCloseTo(narrowGeometry.center.width, 1);
         expect(shortGeometry.scale.width).toBeCloseTo(narrowGeometry.scale.width, 1);
@@ -459,6 +602,49 @@ test.describe('Workstation — dense living-data composition', () => {
             .toBeGreaterThanOrEqual(230);
         expect(shortGeometry.bottomBand.bottom).toBeLessThanOrEqual(shortGeometry.dockHost.bottom + 1);
         expect(shortGeometry.overflowControls).toBe(1);
+
+        const dockHostStyleBefore = await page.locator('.workstation-dock-host').getAttribute('style');
+
+        await readAtViewport({height: 900, width: 1400});
+
+        const largeHostGeometry = await readAtHost({height: 600, width: 1100});
+
+        assertHostRelativeBandGeometry(largeHostGeometry);
+        expect(largeHostGeometry.rightBand.computedExtent)
+            .toBeCloseTo(largeHostGeometry.dockHost.contentInlineSize * 0.25, 1);
+        expect(largeHostGeometry.bottomBand.computedExtent)
+            .toBeCloseTo(largeHostGeometry.dockHost.contentBlockSize * 0.28, 1);
+
+        await page.setViewportSize({height: 850, width: 1300});
+
+        const fixedHostGeometry = await readResponsiveDockGeometry(page);
+
+        expect(fixedHostGeometry.viewport).toEqual({height: 850, width: 1300});
+        expect(fixedHostGeometry.dockHost.contentInlineSize).toBeCloseTo(1100, 1);
+        expect(fixedHostGeometry.dockHost.contentBlockSize).toBeCloseTo(600, 1);
+        assertHostRelativeBandGeometry(fixedHostGeometry);
+        expect(fixedHostGeometry.leftBand.computedExtent)
+            .toBeCloseTo(largeHostGeometry.leftBand.computedExtent, 2);
+        expect(fixedHostGeometry.rightBand.computedExtent)
+            .toBeCloseTo(largeHostGeometry.rightBand.computedExtent, 2);
+        expect(fixedHostGeometry.bottomBand.computedExtent)
+            .toBeCloseTo(largeHostGeometry.bottomBand.computedExtent, 2);
+
+        await page.setViewportSize({height: 900, width: 1400});
+
+        const smallHostGeometry = await readAtHost({height: 450, width: 700});
+
+        assertHostRelativeBandGeometry(smallHostGeometry);
+        expect(smallHostGeometry.rightBand.computedExtent)
+            .toBeCloseTo(smallHostGeometry.rootFontSize * 13.75, 1);
+        expect(smallHostGeometry.bottomBand.computedExtent)
+            .toBeCloseTo(smallHostGeometry.rootFontSize * 8.75, 1);
+        expect(smallHostGeometry.rightBand.computedExtent)
+            .toBeLessThan(largeHostGeometry.rightBand.computedExtent);
+        expect(smallHostGeometry.bottomBand.computedExtent)
+            .toBeLessThan(largeHostGeometry.bottomBand.computedExtent);
+
+        await restoreDockHostStyle(page, dockHostStyleBefore);
 
         const
             responsiveIdentityAfter               = await readIdentity(app, workspaceId),
