@@ -31,6 +31,11 @@ const heavyTitles = [
     'Workspace Files'
 ];
 
+const initialTabNodeIds = [
+    'scale-tabs', 'heavy-tabs', 'left-tabs',
+    'right-top-tabs', 'right-bottom-tabs', 'bottom-tabs'
+];
+
 const asArray = value => Array.isArray(value) ? value : value ? [value] : [];
 
 /**
@@ -65,6 +70,19 @@ const readIdentity = async (app, workspaceId) => {
         workspaceProviderId: workspace['stateProvider.id']
     }
 };
+
+/**
+ * @summary Reads the component identity receipt for every opening-document tab surface.
+ * @param {Object} app Neural Link fixture app handle.
+ * @param {String} workspaceId Workstation workspace id.
+ * @returns {Promise<Object>}
+ */
+const readTabChromeIdentity = async (app, workspaceId) => Object.fromEntries(await Promise.all(
+    initialTabNodeIds.map(async nodeId => [
+        nodeId,
+        await app.callMethod(workspaceId, 'getTabChromeIdentity', [nodeId])
+    ])
+));
 
 /**
  * Returns only mounted Sparkline components owned by the scale pane.
@@ -212,8 +230,12 @@ const readDockChrome = page => page.evaluate(() => {
 const readHorizontalSplitGeometry = page => page.evaluate(() => {
     const
         splitter = document.querySelector('.neo-dashboard-dock-splitter-horizontal'),
-        children = [...splitter.parentElement.children]
-            .filter(element => !element.classList.contains('neo-dashboard-dock-splitter')),
+        children = splitter && [...splitter.parentElement.children]
+            .filter(element => !element.classList.contains('neo-dashboard-dock-splitter'));
+
+    if (!splitter || children.length < 2) return null;
+
+    const
         first    = children[0].getBoundingClientRect(),
         second   = children[1].getBoundingClientRect(),
         boundary = splitter.getBoundingClientRect();
@@ -285,7 +307,10 @@ const readResponsiveDockGeometry = page => page.evaluate(() => {
 
 test.describe('Workstation — dense living-data composition', () => {
     test.setTimeout(150000);
-    test.use({viewport: {height: 1440, width: 2560}});
+    test.use({
+        reducedMotion: 'no-preference',
+        viewport     : {height: 1440, width: 2560}
+    });
 
     test('the real tour keeps density, data, Canvas output, themes, rails, and identities live', async ({page, neuralLink}) => {
         const pageErrors    = [],
@@ -329,7 +354,9 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(workspaces, 'the page owns exactly one Workstation workspace').toHaveLength(1);
         expect(workspaceId).toBeTruthy();
 
-        const beforeIdentity = await readIdentity(app, workspaceId);
+        const
+            beforeIdentity = await readIdentity(app, workspaceId),
+            beforeChrome   = await readTabChromeIdentity(app, workspaceId);
 
         expect(beforeIdentity.providerCount, 'Workstation owns one root StateProvider').toBe(1);
         expect(beforeIdentity.workspaceProviderId, 'the workspace references that one Provider')
@@ -339,6 +366,10 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(beforeIdentity.securityPaneId, 'the transformed heavy resident has a stable pane identity').toBeTruthy();
         expect(beforeIdentity.scaleStoreId, 'scale and feed are distinct Store<Model> identities')
             .not.toBe(beforeIdentity.feedStoreId);
+        expect(Object.values(beforeChrome).every(Boolean), 'all opening tab surfaces expose identity receipts')
+            .toBe(true);
+        expect(beforeChrome['heavy-tabs'].overflowPluginId, 'the heavy surface owns one Overflow plugin').toBeTruthy();
+        expect(beforeChrome['heavy-tabs'].overflowControlId, 'the heavy surface owns one floating control').toBeTruthy();
 
         const scaleSnapshot = await app.inspectStore(beforeIdentity.scaleStoreId, 2, 0),
               feedBaseline  = await app.inspectStore(beforeIdentity.feedStoreId, 2, 0);
@@ -775,7 +806,7 @@ test.describe('Workstation — dense living-data composition', () => {
         await expect.poll(async () => {
             const geometry = await readHorizontalSplitGeometry(page);
 
-            return geometry.firstWidth - dragGeometryBefore.firstWidth
+            return geometry ? geometry.firstWidth - dragGeometryBefore.firstWidth : -Infinity
         }, {
             message  : 'the deferred projection applies the committed split to live DOM extents',
             timeout  : 10000,
@@ -799,6 +830,7 @@ test.describe('Workstation — dense living-data composition', () => {
             {dockModel: dragModelAfter} = await app.getComponent(workspaceId, ['dockModel']),
             dragGeometryAfter           = await readHorizontalSplitGeometry(page),
             dragIdentityAfter           = await readIdentity(app, workspaceId),
+            dragChromeAfter             = await readTabChromeIdentity(app, workspaceId),
             scalePanePreserved          = await page.evaluate(() => globalThis.__workstationPreResizeScalePane
                 === document.querySelector('.workstation-scale-pane'));
 
@@ -808,6 +840,8 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(dragGeometryBefore.secondWidth - dragGeometryAfter.secondWidth).toBeGreaterThan(80);
         expect(dragIdentityAfter, 'the user resize preserves pane, Provider, and Store<Model> identities')
             .toEqual(dragIdentityBefore);
+        expect(dragChromeAfter, 'a resize preserves every opening tab surface and paired button identity')
+            .toEqual(beforeChrome);
         expect(scalePanePreserved, 'the exact scale pane DOM node survives splitter re-projection').toBe(true);
         expect(await page.locator('.neo-dashboard-dock-splitter').count()).toBe(boundaryCount);
         expectDevIndexSparklineFit(await readSparklineGeometry(page, '.workstation-scale-pane'));
@@ -901,6 +935,27 @@ test.describe('Workstation — dense living-data composition', () => {
             return Object.values(globalThis.__workstationDomIdentity).every(Boolean)
         }, domIdentityIds), 'all permanence targets start as mounted DOM nodes').toBe(true);
 
+        // Header buttons are deliberately excluded from this persistent DOM sample. tab.plugin.Overflow
+        // removes overflowed buttons from the DOM while retaining their components, so button DOM identity
+        // is not stable across an intentional overflow transition. The component matrix still covers them.
+        const capturedChromeDomNodes = await page.evaluate(receipts => {
+            const captured = globalThis.__workstationChromeDomIdentity = {};
+
+            Object.entries(receipts).forEach(([nodeId, receipt]) => {
+                ['containerId', 'headerId', 'bodyId', 'stripId', 'overflowControlId'].forEach(key => {
+                    const id      = receipt[key],
+                          element = id && document.getElementById(id);
+
+                    element && (captured[`${nodeId}:${key}`] = element)
+                });
+            });
+
+            return Object.keys(captured).length
+        }, beforeChrome);
+
+        expect(capturedChromeDomNodes, 'mounted tab chrome has a persistent structural DOM identity sample')
+            .toBeGreaterThanOrEqual(initialTabNodeIds.length * 4 + 1);
+
         for (const sparkline of scaleSparklinesBefore) {
             await app.setProperties(sparkline.id, {usePulse: false, useTransition: false})
         }
@@ -929,9 +984,11 @@ test.describe('Workstation — dense living-data composition', () => {
         // frame; when mounted, every visible row must stay populated.
         await page.evaluate(identity => {
             const
-                root             = document.querySelector('.workstation-workspace'),
-                initialPipCount  = root?.querySelectorAll('.workstation-pip-done').length || 0,
-                initialHeaderIds = [...root?.querySelectorAll('.neo-tab-header-toolbar') || []]
+                root                = document.querySelector('.workstation-workspace'),
+                initialPipCount     = root?.querySelectorAll('.workstation-pip-done').length || 0,
+                initialContainerIds = [...root?.querySelectorAll('.neo-tab-container') || []]
+                    .map(element => element.id),
+                initialHeaderIds    = [...root?.querySelectorAll('.neo-tab-header-toolbar') || []]
                     .map(element => element.id);
 
             const state = globalThis.__workstationMonitor = {
@@ -940,19 +997,23 @@ test.describe('Workstation — dense living-data composition', () => {
                 blankSamples                  : [],
                 blankFrames                   : 0,
                 chromeAnimationLeakFrames     : 0,
+                chromeAnimationMaxTargets     : 0,
                 done                          : false,
                 flipSamples                   : 0,
+                initialContainerIds,
+                initialContainerMissingFrames : 0,
                 initialHeaderIds,
+                initialHeaderMissingFrames    : 0,
                 midpointSeen                  : false,
                 missingBodyFrames             : 0,
+                novelContainerIds             : [],
+                novelHeaderIds                : [],
                 overflowControlCounts         : {},
                 overflowControlDuplicateFrames: 0,
                 palettes                      : [],
                 pipCounts                     : [initialPipCount],
                 pipRegressionFrames           : 0,
                 railMismatchFrames            : 0,
-                replacementHeaderBirth        : {},
-                replacementHeaderSamples      : 0,
                 sampledFrames                 : 0,
                 securityCaptured              : false,
                 securityActiveHeaderMissFrames: 0,
@@ -960,6 +1021,7 @@ test.describe('Workstation — dense living-data composition', () => {
                 securityFullyClippedFrames    : 0,
                 securityFullyClippedSamples   : [],
                 securityMissingFrames         : 0,
+                securityPresenceTransitions   : [],
                 securityOverflowMutationFrames: 0,
                 securityReplacementFrames     : 0,
                 securityStageFramesByBurst    : []
@@ -989,6 +1051,19 @@ test.describe('Workstation — dense living-data composition', () => {
                           .filter(isVisible).length,
                       currentSecurityNode = document.getElementById(identity.securityPaneId);
 
+                if (Boolean(currentSecurityNode) !== Boolean(state.securityPresent)) {
+                    state.securityPresent = Boolean(currentSecurityNode);
+                    state.securityPresenceTransitions.length < 20 && state.securityPresenceTransitions.push({
+                        activeHeaders: [...document.querySelectorAll('.neo-tab-header-button.pressed')]
+                            .filter(isVisible)
+                            .map(element => element.textContent?.trim() || ''),
+                        caption : document.querySelector('.workstation-tour-caption')?.textContent?.trim() || '',
+                        pipCount: root?.querySelectorAll('.workstation-pip-done').length || 0,
+                        present : state.securityPresent,
+                        time    : Math.round(performance.now())
+                    })
+                }
+
                 if (root) {
                     const
                         activeTabEmptyIds = new Set(),
@@ -1000,22 +1075,39 @@ test.describe('Workstation — dense living-data composition', () => {
                         state.pipCounts.push(pipCount)
                     }
 
-                    [...root.querySelectorAll('.neo-tab-header-toolbar')].filter(isVisible).forEach(toolbar => {
-                        if (!state.initialHeaderIds.includes(toolbar.id)) {
-                            state.replacementHeaderBirth[toolbar.id] ??= performance.now();
+                    state.initialContainerIds.some(id => !document.getElementById(id))
+                        && state.initialContainerMissingFrames++;
+                    state.initialHeaderIds.some(id => !document.getElementById(id))
+                        && state.initialHeaderMissingFrames++;
 
-                            if (performance.now() - state.replacementHeaderBirth[toolbar.id] <= 320) {
-                                state.replacementHeaderSamples++;
-
-                                const hasRunningEntryEffect = toolbar.getAnimations({subtree: true}).some(animation =>
-                                    animation.playState === 'running'
-                                    && Number(animation.effect?.getTiming().duration) > 0
-                                );
-
-                                hasRunningEntryEffect && state.chromeAnimationLeakFrames++
-                            }
+                    [...root.querySelectorAll('.neo-tab-container')].filter(isVisible).forEach(container => {
+                        if (!state.initialContainerIds.includes(container.id)
+                            && !state.novelContainerIds.includes(container.id)) {
+                            state.novelContainerIds.push(container.id)
                         }
                     });
+
+                    const visibleToolbars = [...root.querySelectorAll('.neo-tab-header-toolbar')].filter(isVisible);
+
+                    visibleToolbars.forEach(toolbar => {
+                        if (!state.initialHeaderIds.includes(toolbar.id)) {
+                            state.novelHeaderIds.includes(toolbar.id) || state.novelHeaderIds.push(toolbar.id);
+                        }
+                    });
+
+                    const runningChromeTargets = visibleToolbars.filter(toolbar =>
+                        toolbar.getAnimations({subtree: true}).some(animation =>
+                            ['delaybgcolor', 'neo-dock-tab-enter'].includes(animation.animationName)
+                            && animation.playState === 'running'
+                            && Number(animation.effect?.getTiming().duration) > 0
+                        )
+                    ).length;
+
+                    state.chromeAnimationMaxTargets = Math.max(
+                        state.chromeAnimationMaxTargets,
+                        runningChromeTargets
+                    );
+                    runningChromeTargets > 1 && state.chromeAnimationLeakFrames++;
 
                     [...root.querySelectorAll('.neo-tab-container')].filter(isVisible).forEach(container => {
                         const
@@ -1245,9 +1337,18 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(monitor.pipCounts, 'every settled beat paints once, in order')
             .toEqual(Array.from({length: workstationTourScript.scenes.flatMap(scene => scene.steps).length + 1}, (_, index) => index));
         expect(monitor.pipRegressionFrames, 'progress never fills early and jumps backward').toBe(0);
-        expect(monitor.replacementHeaderSamples, 'the journey sampled replacement tab chrome').toBeGreaterThan(0);
+        expect(monitor.initialContainerIds).toHaveLength(initialTabNodeIds.length);
+        expect(monitor.initialHeaderIds).toHaveLength(initialTabNodeIds.length);
+        expect(monitor.initialContainerMissingFrames,
+            'every surviving tab.Container remains in the DOM through all projections').toBe(0);
+        expect(monitor.initialHeaderMissingFrames,
+            'every surviving header toolbar remains in the DOM through all projections').toBe(0);
+        expect(monitor.novelContainerIds, 'splitNode creates exactly one genuine temporary tab surface').toHaveLength(1);
+        expect(monitor.novelHeaderIds, 'that temporary surface creates exactly one genuine new header').toHaveLength(1);
+        expect(monitor.chromeAnimationMaxTargets,
+            'operation-correlated chrome motion is scoped to at most one logical header').toBeLessThanOrEqual(1);
         expect(monitor.chromeAnimationLeakFrames,
-            'fresh replacement chrome does not replay shared entry animations').toBe(0);
+            'coarse projection never replays construction or entry motion across multiple headers').toBe(0);
         expect(monitor.activeTabEmptyMaxMs,
             `no visible active tab exposes a sustained empty paint: ${JSON.stringify(monitor.activeTabEmptySamples)}`)
             .toBeLessThan(17);
@@ -1261,7 +1362,9 @@ test.describe('Workstation — dense living-data composition', () => {
             .toBe(0);
         expect(monitor.overflowControlCounts['1'], 'the real overflow state is observed').toBeGreaterThan(0);
         expect(monitor.securityCaptured, 'the overflow cue mounts Security before its structural move').toBe(true);
-        expect(monitor.securityMissingFrames, 'the active Security pane never leaves the DOM after capture').toBe(0);
+        expect(monitor.securityMissingFrames,
+            `the active Security pane never leaves the DOM after capture: ${JSON.stringify(monitor.securityPresenceTransitions)}`)
+            .toBe(0);
         expect(monitor.securityReplacementFrames, 'Security keeps the same DOM node across split and return').toBe(0);
         expect(monitor.securityStageBursts, 'split and return each expose one preserved-identity fixed stage').toBe(2);
         expect(monitor.securityStageFramesByBurst, 'the sequential sampler isolates the split and return stages')
@@ -1320,11 +1423,74 @@ test.describe('Workstation — dense living-data composition', () => {
             intervals: [50, 100]
         }).toBe(true);
 
-        const afterIdentity        = await readIdentity(app, workspaceId),
-              scaleSparklinesAfter = await readScaleSparklines(app, page);
+        const postTourChrome = await readTabChromeIdentity(app, workspaceId);
+
+        expect(postTourChrome, 'split + return preserves the complete opening tab-chrome identity matrix')
+            .toEqual(beforeChrome);
+
+        const indicatorSetup = await page.evaluate(receipt => {
+            const
+                strip     = document.getElementById(receipt.stripId),
+                indicator = strip?.querySelector('.neo-active-tab-indicator'),
+                parseTime = value => value.endsWith('ms') ? parseFloat(value) : parseFloat(value) * 1000,
+                durations = indicator
+                    ? getComputedStyle(indicator).transitionDuration.split(',').map(value => parseTime(value.trim()))
+                    : [];
+
+            if (!indicator) return null;
+
+            const state = globalThis.__workstationIndicatorMotion = {
+                ends      : 0,
+                properties: [],
+                runs      : 0
+            };
+
+            indicator.addEventListener('transitionrun', event => {
+                if (event.target === indicator) {
+                    state.runs++;
+                    state.properties.includes(event.propertyName) || state.properties.push(event.propertyName)
+                }
+            });
+            indicator.addEventListener('transitionend', event => {
+                event.target === indicator && state.ends++
+            });
+
+            return {
+                durationMs : Math.max(0, ...durations),
+                indicatorId: indicator.id || null
+            }
+        }, postTourChrome['heavy-tabs']);
+
+        expect(indicatorSetup?.durationMs, 'the ordinary indicator keeps a non-zero theme transition')
+            .toBeGreaterThan(0);
+
+        const nextVisibleHeavyTab = page.locator(
+            `[id="${postTourChrome['heavy-tabs'].headerId}"] .neo-tab-header-button:visible:not(.pressed)`
+        ).first();
+
+        await expect(nextVisibleHeavyTab, 'the returned dense group exposes another direct tab target').toBeVisible();
+        await nextVisibleHeavyTab.click();
+        await expect.poll(() => page.evaluate(() => globalThis.__workstationIndicatorMotion?.runs || 0), {
+            message  : 'ordinary active-tab input starts the standard indicator transition',
+            timeout  : 5000,
+            intervals: [25, 50]
+        }).toBeGreaterThan(0);
+        await expect.poll(() => page.evaluate(() => globalThis.__workstationIndicatorMotion?.ends || 0), {
+            message  : 'the standard indicator transition completes on the retained strip DOM node',
+            timeout  : 5000,
+            intervals: [25, 50]
+        }).toBeGreaterThan(0);
+        await expect(root).not.toHaveClass(/neo-dashboard-dock-animating/);
+
+        const
+            afterIdentity        = await readIdentity(app, workspaceId),
+            afterChrome          = await readTabChromeIdentity(app, workspaceId),
+            scaleSparklinesAfter = await readScaleSparklines(app, page);
 
         expect(afterIdentity, 'workspace, heavy pane, data panes, Provider, and stores survive all transformations')
             .toEqual(beforeIdentity);
+        expect(afterChrome, 'ordinary active-tab input also preserves every tab-chrome component identity')
+            .toEqual(beforeChrome);
         expect(scaleSparklinesAfter.length, 'the viewport-bounded scale component pool remains live')
             .toBeGreaterThan(0);
         expect(stableScaleComponentIds.every(id => scaleSparklinesAfter.some(entry => entry.id === id)),
@@ -1337,9 +1503,22 @@ test.describe('Workstation — dense living-data composition', () => {
             scaleBody: globalThis.__workstationDomIdentity?.scaleBody
                 === document.querySelector('.workstation-scale-pane .neo-grid-body')
         }), domIdentityIds);
+        const chromeDomIdentityState = await page.evaluate(() => {
+            const entries    = Object.entries(globalThis.__workstationChromeDomIdentity || {}),
+                  mismatches = entries
+                      .filter(([, element]) => element !== document.getElementById(element.id))
+                      .map(([key, element]) => ({id: element.id, key}));
+
+            return {
+                count: entries.length,
+                mismatches
+            }
+        });
 
         expect(domIdentityState, 'the exact always-mounted pane, body, and Canvas DOM nodes survive every projection')
             .toEqual({canvas: true, feedPane: true, scaleBody: true, scalePane: true});
+        expect(chromeDomIdentityState, 'every sampled structural chrome DOM node remains the exact same object')
+            .toEqual({count: capturedChromeDomNodes, mismatches: []});
         expect(scaleSparklinesAfter.every(entry => entry.properties?.offscreenRegistered),
             'the preserved scale Canvas pool is registered after the final projection').toBe(true);
         expectDevIndexSparklineFit(await readSparklineGeometry(page, '.workstation-scale-pane'));

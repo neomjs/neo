@@ -17,6 +17,33 @@ import Workspace from '../../../../../apps/workstation/view/Workspace.mjs';
 import {initialDocument} from '../../../../../apps/workstation/tour/denseWorkstation.mjs';
 
 /**
+ * @summary Captures object identities for every live logical tab surface in one Workstation shell.
+ * @param {Workstation.view.Workspace} workspace
+ * @returns {Map<String,Object>}
+ */
+const readTabChrome = workspace => {
+    const
+        shell        = workspace.getReference('dock-host').items[0],
+        itemIdByPane = new Map(Object.entries(workspace.paneCache).map(([itemId, pane]) => [pane, itemId]));
+
+    return new Map([...workspace.collectProjectedTabs(shell)].map(([nodeId, tab]) => {
+        const
+            bar     = tab.getTabBar(),
+            body    = tab.getCardContainer(),
+            buttons = new Map(body.items.map((pane, index) => [itemIdByPane.get(pane), bar.items[index]]));
+
+        return [nodeId, {
+            bar,
+            body,
+            buttons,
+            overflow: bar.getPlugin('tab-overflow'),
+            strip   : tab.getTabStrip(),
+            tab
+        }]
+    }))
+};
+
+/**
  * @summary Pins the composition choices Workstation itself owns: one provider with two stores,
  * an exact 100k Turbo scale set, a growing capped feed, and stable pane/store identities
  * across a reducer-driven coarse projection. Primitive grid/Canvas stress remains in its
@@ -54,12 +81,20 @@ test.describe.serial('Workstation.view.Workspace', () => {
 
         try {
             const
-                provider   = workspace.getStateProvider(),
-                scaleStore = provider.getStore('scale'),
-                feedStore  = provider.getStore('feed'),
-                scalePane  = workspace.resolvePane('scale', initialDocument.items.scale),
-                feedPane   = workspace.resolvePane('feed', initialDocument.items.feed),
-                feedBefore = feedStore.count;
+                provider       = workspace.getStateProvider(),
+                scaleStore     = provider.getStore('scale'),
+                feedStore      = provider.getStore('feed'),
+                scalePane      = workspace.resolvePane('scale', initialDocument.items.scale),
+                feedPane       = workspace.resolvePane('feed', initialDocument.items.feed),
+                feedBefore     = feedStore.count,
+                initialChrome  = readTabChrome(workspace),
+                initialNodeIds = [...initialChrome.keys()],
+                securityButton = initialChrome.get('heavy-tabs').buttons.get('security');
+
+            expect(new Set(initialNodeIds)).toEqual(new Set([
+                'scale-tabs', 'heavy-tabs', 'left-tabs',
+                'right-top-tabs', 'right-bottom-tabs', 'bottom-tabs'
+            ]));
 
             expect(scaleStore.className).toBe('Workstation.store.Scale');
             expect(feedStore.className).toBe('Workstation.store.Feed');
@@ -95,6 +130,51 @@ test.describe.serial('Workstation.view.Workspace', () => {
             workspace.onDockZoneDocumentChange(result.document);
             await workspace.refreshPromise;
 
+            const
+                splitChrome   = readTabChrome(workspace),
+                temporaryNode = splitChrome.get('tabs-security-0'),
+                destroyCounts = new Map();
+
+            expect(splitChrome.size).toBe(initialChrome.size + 1);
+            expect(temporaryNode).toBeTruthy();
+            expect(temporaryNode.buttons.get('security')).toBe(securityButton);
+            expect(temporaryNode.body.items[0]).toBe(workspace.resolvePane('security', initialDocument.items.security));
+            expect(splitChrome.get('heavy-tabs').bar.sortZoneConfig.dockItemIds)
+                .toEqual(initialDocument.nodes['heavy-tabs'].items.filter(itemId => itemId !== 'security'));
+
+            initialNodeIds.forEach(nodeId => {
+                const
+                    before = initialChrome.get(nodeId),
+                    after  = splitChrome.get(nodeId);
+
+                expect(after.tab, `${nodeId} keeps its tab.Container`).toBe(before.tab);
+                expect(after.bar, `${nodeId} keeps its header toolbar`).toBe(before.bar);
+                expect(after.body, `${nodeId} keeps its body container`).toBe(before.body);
+                expect(after.strip, `${nodeId} keeps its indicator strip`).toBe(before.strip);
+                expect(after.overflow, `${nodeId} keeps its Overflow plugin`).toBe(before.overflow);
+
+                before.buttons.forEach((button, itemId) => {
+                    itemId !== 'security'
+                        && expect(after.buttons.get(itemId), `${itemId} keeps its tab button`).toBe(button)
+                })
+            });
+
+            [
+                temporaryNode.tab,
+                temporaryNode.bar,
+                temporaryNode.body,
+                temporaryNode.strip,
+                temporaryNode.overflow
+            ].forEach(component => {
+                const destroy = component.destroy.bind(component);
+
+                destroyCounts.set(component, 0);
+                component.destroy = (...args) => {
+                    destroyCounts.set(component, destroyCounts.get(component) + 1);
+                    return destroy(...args)
+                }
+            });
+
             result = workspace.applyDockZoneOperation({
                 operation : 'addTab',
                 itemId    : 'security',
@@ -104,6 +184,33 @@ test.describe.serial('Workstation.view.Workspace', () => {
             expect(result.errors).toEqual([]);
             workspace.onDockZoneDocumentChange(result.document);
             await workspace.refreshPromise;
+
+            const returnedChrome = readTabChrome(workspace);
+
+            expect(returnedChrome.size).toBe(initialChrome.size);
+            expect(returnedChrome.has('tabs-security-0')).toBe(false);
+            expect(returnedChrome.get('heavy-tabs').buttons.get('security')).toBe(securityButton);
+            expect(returnedChrome.get('heavy-tabs').bar.sortZoneConfig.dockItemIds)
+                .toEqual(result.document.nodes['heavy-tabs'].items);
+            expect(returnedChrome.get('heavy-tabs').tab.activeIndex)
+                .toBe(result.document.nodes['heavy-tabs'].items.indexOf('security'));
+            expect(securityButton.pressed).toBe(true);
+            destroyCounts.forEach(count => expect(count).toBe(1));
+
+            initialNodeIds.forEach(nodeId => {
+                const
+                    before = initialChrome.get(nodeId),
+                    after  = returnedChrome.get(nodeId);
+
+                expect(after.tab).toBe(before.tab);
+                expect(after.bar).toBe(before.bar);
+                expect(after.body).toBe(before.body);
+                expect(after.strip).toBe(before.strip);
+                expect(after.overflow).toBe(before.overflow);
+                before.buttons.forEach((button, itemId) => {
+                    expect(after.buttons.get(itemId), `${itemId} returns with its original tab button`).toBe(button)
+                })
+            });
 
             expect(workspace.resolvePane('scale', initialDocument.items.scale)).toBe(scalePane);
             expect(workspace.resolvePane('feed', initialDocument.items.feed)).toBe(feedPane);

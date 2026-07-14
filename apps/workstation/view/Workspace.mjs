@@ -582,6 +582,304 @@ class Workspace extends Container {
     }
 
     /**
+     * @summary Collects the keyed tab-chrome owners below one projected dock shell.
+     * @param {Neo.component.Base|null} root
+     * @returns {Map<String,Neo.tab.Container>}
+     */
+    collectProjectedTabs(root) {
+        const tabs = new Map();
+
+        const visit = component => {
+            if (!component || component.isDestroyed) return;
+
+            if (component.dockNodeType === 'tabs') {
+                tabs.set(component.dockNodeId, component);
+                return
+            }
+
+            component.items?.forEach(visit)
+        };
+
+        visit(root);
+
+        return tabs
+    }
+
+    /**
+     * @summary Replaces surviving projected tab configs with geometry-equivalent staging placeholders.
+     *
+     * The adapter remains a stateless JSON-to-config projection. Workstation alone keys the config
+     * by `dockNodeId`, records its desired item/active state, and substitutes a visibility-hidden
+     * component only when a live tab container with that logical identity already exists.
+     * @param {*} config
+     * @param {Map<String,Neo.tab.Container>} currentTabs
+     * @param {Map<String,Object>} plans
+     * @returns {*}
+     */
+    prepareTabChromeProjection(config, currentTabs, plans) {
+        if (Array.isArray(config)) {
+            return config.map(item => this.prepareTabChromeProjection(item, currentTabs, plans))
+        }
+
+        if (config?.constructor !== Object) return config;
+
+        if (config.dockNodeType === 'tabs') {
+            const
+                nodeId       = config.dockNodeId,
+                currentTab   = currentTabs.get(nodeId) || null,
+                desiredItems = [...(config.headerToolbar?.sortZoneConfig?.dockItemIds || [])],
+                plan         = {
+                    activeIndex: config.activeIndex,
+                    config,
+                    desiredItems,
+                    placeholder: null,
+                    tab        : currentTab
+                };
+
+            plans.set(nodeId, plan);
+
+            if (currentTab) {
+                plan.placeholder = Neo.create({
+                    module  : Component,
+                    cls     : ['workstation-tab-chrome-placeholder'],
+                    flex    : config.flex,
+                    hidden  : true,
+                    hideMode: 'visibility',
+                    style   : config.style
+                });
+
+                return plan.placeholder
+            }
+
+            return config
+        }
+
+        return Array.isArray(config.items)
+            ? {...config, items: this.prepareTabChromeProjection(config.items, currentTabs, plans)}
+            : config
+    }
+
+    /**
+     * @summary Moves retained tab chrome into its staged projected slot silently.
+     *
+     * Cross-tab card/button moves commit before this method runs. Keeping descendant and ancestor moves
+     * in separate host updates prevents the main-thread delta from retiring a child after its ancestor
+     * has already landed. New/removed logical tab nodes remain ordinary projected instances.
+     * @param {Map<String,Object>} plans
+     * @returns {Map<String,Object>}
+     */
+    moveRetainedTabChrome(plans) {
+        plans.forEach((plan, nodeId) => {
+            const
+                tab          = plan.tab,
+                placeholder  = plan.placeholder,
+                sourceParent = tab?.parent,
+                targetParent = placeholder?.parent,
+                targetIndex  = targetParent?.indexOf(placeholder) ?? -1;
+
+            if (!placeholder) return;
+
+            if (!sourceParent || !targetParent || targetIndex < 0) {
+                throw new Error(`Workstation could not stage surviving tab chrome "${nodeId}"`)
+            }
+
+            // A floating overflow control is aligned outside the dock host. Its target toolbar briefly
+            // leaves the main-thread DOM during native reparenting, and the align layer hides the control.
+            // Visibility mode keeps that exact DOM node mounted until the destination target is present.
+            tab.getTabBar()?.getPlugin('tab-overflow')?.control?.setSilent({hideMode: 'visibility'});
+            targetParent.remove(placeholder, true, true);
+            sourceParent.remove(tab, false, true, true);
+            tab.setSilent({
+                cls      : plan.config.cls,
+                flex     : plan.config.flex,
+                listeners: plan.config.listeners,
+                style    : plan.config.style,
+                // Flexbox stores parent-owned sizing on the child's wrapper. A retained tab
+                // otherwise carries its source split ratio into the destination projection.
+                wrapperStyle: {...tab.wrapperStyle, flex: plan.config.flex ?? null}
+            });
+            targetParent.insert(targetIndex, tab, true, false)
+        });
+
+        return plans
+    }
+
+    /**
+     * @summary Reconciles paired live cards/buttons before their retained tab ancestors move.
+     *
+     * Both shells are mounted before this method runs. Cross-tab transfers first move each cached pane
+     * and existing header button as a pair while their tab-container ancestors remain stationary. The
+     * caller commits this ownership layer before `moveRetainedTabChrome()` handles the ancestor layer.
+     * @param {Map<String,Object>} plans
+     * @param {Map<String,Neo.component.Base>} placeholders
+     * @param {Map<String,Neo.tab.Container>} currentTabs
+     * @param {Neo.container.Base} nextShell
+     * @returns {Map<String,Object>}
+     */
+    reconcileTabChrome(plans, placeholders, currentTabs, nextShell) {
+        const me = this;
+
+        const
+            nextTabs = me.collectProjectedTabs(nextShell),
+            allTabs  = new Set([...currentTabs.values(), ...nextTabs.values()]);
+
+        plans.forEach((plan, nodeId) => {
+            plan.tab = nextTabs.get(nodeId) || plan.tab;
+
+            if (!plan.tab) {
+                throw new Error(`Workstation did not project tab chrome "${nodeId}"`)
+            }
+        });
+
+        const findItemState = pane => {
+            for (const tab of allTabs) {
+                if (tab.isDestroyed) continue;
+
+                const
+                    body  = tab.getCardContainer(),
+                    index = body?.items.indexOf(pane) ?? -1;
+
+                if (index > -1) {
+                    return {
+                        bar   : tab.getTabBar(),
+                        body,
+                        button: tab.getTabBar().items[index],
+                        index,
+                        tab
+                    }
+                }
+            }
+
+            return null
+        };
+
+        plans.forEach(plan => {
+            const
+                targetTab  = plan.tab,
+                targetBar  = targetTab.getTabBar(),
+                targetBody = targetTab.getCardContainer();
+
+            plan.desiredItems.forEach((itemId, targetIndex) => {
+                const
+                    item        = me.dockModel.items[itemId],
+                    pane        = me.resolvePane(itemId, item),
+                    placeholder = placeholders.get(itemId);
+
+                if (placeholder?.parent) {
+                    const placeholderIndex = targetBody.indexOf(placeholder);
+
+                    if (placeholder.parent !== targetBody || placeholderIndex < 0) {
+                        throw new Error(`Workstation projected item "${itemId}" into the wrong tab body`)
+                    }
+
+                    targetBody.removeAt(placeholderIndex, true, true);
+                    targetBar.removeAt(placeholderIndex, true, true);
+                    placeholders.delete(itemId)
+                }
+
+                const state = findItemState(pane);
+
+                if (!state) {
+                    targetTab.insert(targetIndex, pane, true);
+                    return
+                }
+
+                if (state.tab === targetTab && state.index === targetIndex) return;
+
+                state.body.removeAt(state.index, false, true, true);
+                state.bar.removeAt(state.index, false, true, true);
+                targetBody.insert(targetIndex, pane, true, false);
+                targetBar.insert(targetIndex, state.button, true, false)
+            })
+        });
+
+        plans.forEach((plan, nodeId) => {
+            const
+                tab                 = plan.tab,
+                bar                 = tab.getTabBar(),
+                body                = tab.getCardContainer(),
+                activeIndex         = plan.activeIndex,
+                projectedSortConfig = plan.config.headerToolbar?.sortZoneConfig || {},
+                sortConfig          = {
+                    ...bar.sortZoneConfig,
+                    ...projectedSortConfig,
+                    dockItemIds: [...plan.desiredItems]
+                };
+
+            if (body.items.length !== plan.desiredItems.length
+                || bar.items.length !== plan.desiredItems.length) {
+                throw new Error(`Workstation tab chrome "${nodeId}" did not reconcile its exact item set`)
+            }
+
+            tab._activeIndex         = activeIndex;
+            body.layout._activeIndex = activeIndex;
+            bar.setSilent({sortZoneConfig: sortConfig});
+            bar.sortZone?.setSilent?.({
+                dockItemIds     : [...plan.desiredItems],
+                dockSourceNodeId: sortConfig.dockSourceNodeId,
+                dockWorkspaceId : sortConfig.dockWorkspaceId,
+                sortGroup       : sortConfig.sortGroup
+            });
+
+            plan.desiredItems.forEach((itemId, index) => {
+                const
+                    pane   = me.resolvePane(itemId, me.dockModel.items[itemId]),
+                    button = bar.items[index],
+                    header = tab.getTabButtonConfig(pane.header, index);
+
+                if (body.items[index] !== pane || !button) {
+                    throw new Error(`Workstation tab chrome "${nodeId}" lost item "${itemId}"`)
+                }
+
+                body.layout.applyChildAttributes(pane, index, true);
+                button.setSilent({
+                    domListeners: header.domListeners,
+                    index,
+                    pressed     : index === activeIndex,
+                    text        : header.text
+                })
+            })
+        });
+
+        return plans
+    }
+
+    /**
+     * @summary Returns a serializable identity receipt for one live logical tab surface.
+     * @param {String} nodeId
+     * @returns {Object|null}
+     */
+    getTabChromeIdentity(nodeId) {
+        const
+            shell = this.getReference('dock-host')?.items[0],
+            tab   = this.collectProjectedTabs(shell).get(nodeId);
+
+        if (!tab) return null;
+
+        const
+            bar     = tab.getTabBar(),
+            body    = tab.getCardContainer(),
+            plugin  = bar.getPlugin('tab-overflow'),
+            buttons = {};
+
+        Object.entries(this.paneCache).forEach(([itemId, pane]) => {
+            const index = body.items.indexOf(pane);
+
+            index > -1 && (buttons[itemId] = bar.items[index]?.id || null)
+        });
+
+        return {
+            bodyId           : body.id,
+            buttons,
+            containerId      : tab.id,
+            headerId         : bar.id,
+            overflowControlId: plugin?.control?.id || null,
+            overflowPluginId : plugin?.id || null,
+            stripId          : tab.getTabStrip().id
+        }
+    }
+
+    /**
      * Atomically hands cached panes from the current projection to a staged next projection.
      *
      * The next shell is first mounted with `hideMode: 'visibility'` and non-rendered placeholders,
@@ -609,9 +907,10 @@ class Workspace extends Container {
         } catch (error) {/* instant landing */}
 
         const
-            oldShell           = host.items[0],
-            oldOverflowPlugins = me.getOverflowPlugins(oldShell),
-            nextConfig         = me.projectDockModel((componentRef, item, itemId) => {
+            oldShell    = host.items[0],
+            currentTabs = me.collectProjectedTabs(oldShell),
+            tabPlans    = new Map(),
+            nextConfig  = me.prepareTabChromeProjection(me.projectDockModel((componentRef, item, itemId) => {
                 const placeholder = Neo.create({
                     module: Component,
                     header: {text: me.getPaneHeaderText(itemId, item)},
@@ -621,60 +920,63 @@ class Workspace extends Container {
                 placeholders.set(itemId, placeholder);
 
                 return placeholder
-            });
+            }), currentTabs, tabPlans);
 
-        // Overflow controls are intentionally floating direct-body children, so the dock host is not their
-        // common parent and cannot hide them as part of the shell transaction. Retire the source projection
-        // first; the destination plugin independently recreates its truthful affordance from the new header.
-        oldOverflowPlugins.forEach(plugin => plugin.control && (plugin.control.hidden = true));
+        // Pane placeholders inside a discarded config for a retained tab node never enter a parent.
+        // Retire them now; only genuinely new tab nodes need their projected placeholders for pairing.
+        tabPlans.forEach(plan => {
+            if (!plan.tab) return;
+
+            plan.desiredItems.forEach(itemId => {
+                const placeholder = placeholders.get(itemId);
+
+                if (placeholder && !placeholder.parent) {
+                    placeholder.destroy();
+                    placeholders.delete(itemId)
+                }
+            })
+        });
 
         nextConfig.hidden   = true;
         nextConfig.hideMode = 'visibility';
 
         const nextShell = host.insert(host.items.length, nextConfig, true);
 
-        nextShell.addCls('workstation-chrome-settling');
+        const
+            retainedTabBars = [...tabPlans.values()]
+                .filter(plan => plan.tab)
+                .map(plan => plan.tab.getTabBar()),
+            animationSuppressedBars = retainedTabBars
+                .filter(bar => !bar.cls.includes('neo-no-animation'));
+
+        // Native reparenting keeps each toolbar DOM node, but CSS animations restart when that node
+        // re-enters the document. Reuse the tab drag contract so retained pressed indicators settle at
+        // their final color immediately; genuinely new tab chrome keeps its ordinary entry animation.
+        animationSuppressedBars.forEach(bar => {
+            bar.setSilent({cls: [...bar.cls, 'neo-no-animation']})
+        });
 
         // Atomic moves require both ownership paths to exist in the rendered tree. This update
-        // mounts only the visibility-hidden target shell; the live panes remain in the visible
-        // old shell until the single ownership reconciliation below.
+        // mounts only the visibility-hidden target shell; layered ownership commits then move
+        // retained pane/header pairs before their ancestor tab containers.
         host.updateDepth = -1;
         host.update();
         await host.promiseUpdate();
 
-        const
-            transfers = [...placeholders].map(([itemId, placeholder]) => {
-                const targetParent = placeholder.parent,
-                      targetIndex  = targetParent?.indexOf(placeholder) ?? -1;
+        me.reconcileTabChrome(tabPlans, placeholders, currentTabs, nextShell);
 
-                if (!targetParent || targetIndex < 0) {
-                    throw new Error(`Workstation projection did not parent placeholder "${itemId}"`)
-                }
-
-                return {
-                    itemId,
-                    pane: me.resolvePane(itemId, me.dockModel.items[itemId]),
-                    placeholder,
-                    targetIndex,
-                    targetParent
-                }
-            });
-
-        transfers.forEach(({pane, placeholder, targetIndex, targetParent}) => {
-            const sourceParent = pane.parent;
-
-            targetParent.remove(placeholder, true, true);
-            sourceParent && sourceParent !== targetParent
-                && sourceParent.remove(pane, false, true, true);
-            targetParent.insert(targetIndex, pane, true, false)
+        // A removed logical tab can be the source of a returning pane. Hide that now-empty source in
+        // the descendant commit; the next commit destroys it with the retiring shell exactly once.
+        currentTabs.forEach((tab, nodeId) => {
+            if (!tabPlans.has(nodeId)) {
+                tab.setSilent({hideMode: 'visibility', hidden: true})
+            }
         });
+        host.updateDepth = -1;
+        host.update();
+        await host.promiseUpdate();
 
-        const overflowPlugins = me.getOverflowPlugins(nextShell);
-
-        // Capture natural header widths while the destination shell is still visibility-hidden. Overflow's
-        // measuring latch restores any removeDom headers and coalesces mutation/resize races internally.
-        await Promise.all(overflowPlugins.map(plugin => plugin.project(true)));
-        await Promise.all(overflowPlugins.map(plugin => me.waitForOverflowProjection(plugin)));
+        me.moveRetainedTabChrome(tabPlans);
 
         oldShell.setSilent({hideMode: 'visibility'});
         oldShell.setSilent({hidden: true});
@@ -683,29 +985,31 @@ class Workspace extends Container {
         host.update();
         await host.promiseUpdate();
 
-        // The first update above is the ownership transaction: both parent trees exist, so Neo
-        // emits DOM moves for the live pane ids. This second update removes only an empty shell.
+        // Descendants and retained tab ancestors have now landed in separate ownership commits. This
+        // cleanup update removes only the empty shell and any genuinely retired tab chrome.
         oldShell !== nextShell && host.remove(oldShell, true, true);
         host.updateDepth = -1;
         host.update();
         await host.promiseUpdate();
 
-        await Promise.all(overflowPlugins.map(plugin => plugin.project(false)));
-        await Promise.all(overflowPlugins.map(plugin => me.waitForOverflowProjection(plugin)));
+        const overflowPlugins = me.getOverflowPlugins(nextShell);
 
-        // Floating controls sit under document.body rather than below the dock host, so they cannot
-        // participate in the common-parent ownership update above. Activate only the destination
-        // projection after the source shell (and its control) has been destroyed: this preserves the
-        // exact-one-control invariant without exposing a transient duplicate or leaving the new button
-        // in the hidden/unmounted state used while its owner shell was staged.
+        // Retained plugins keep their exact control identity. Re-capture only after the ownership commit,
+        // when every paired button is under its final toolbar and the visible shell owns current geometry.
         overflowPlugins.forEach(plugin => {
             plugin.control?.hidden && (plugin.control.hidden = false)
         });
+        await Promise.all(overflowPlugins.map(plugin => plugin.project(true)));
+        await Promise.all(overflowPlugins.map(plugin => me.waitForOverflowProjection(plugin)));
 
         const heavyOverflow = nextShell.down({dockNodeId: 'heavy-tabs'})
             ?.getTabBar()?.getPlugin('tab-overflow');
 
         await me.waitForOverflowMenu(heavyOverflow);
+
+        // Changing only animation-duration keeps the same CSS Animation object. Waiting out the
+        // theme's 260ms window before restoring it prevents a delayed replay on retained indicators.
+        const chromeAnimationSettle = me.timeout(300);
 
         if (flip) {
             DockMotionSignal.enter(me);
@@ -717,6 +1021,14 @@ class Workspace extends Container {
                 DockMotionSignal.leave(me)
             }
         }
+
+        await chromeAnimationSettle;
+        animationSuppressedBars.forEach(bar => {
+            bar.setSilent({cls: bar.cls.filter(cls => cls !== 'neo-no-animation')})
+        });
+        host.updateDepth = -1;
+        host.update();
+        await host.promiseUpdate()
     }
 
     /**
