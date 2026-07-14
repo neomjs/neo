@@ -209,7 +209,7 @@ class Workspace extends Container {
 
         me.add([me.createTourBar(), me.createStatusBar(), {
             module   : Container,
-            cls      : ['workstation-dock-host', 'neo-dashboard'],
+            cls      : ['workstation-dock-host', 'neo-dashboard', 'neo-dashboard-dock-query-host'],
             flex     : 1,
             items    : [me.projectDockModel()],
             layout   : {ntype: 'fit'},
