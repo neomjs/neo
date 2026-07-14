@@ -1,0 +1,439 @@
+// Workstation — dense, living-data composition. Theme values come exclusively from the
+// app-owned Workstation token layer; all motion rides the dashboard aliases, including the
+// reduced-motion collapse owned by Neo.dashboard.Container.
+
+.workstation-workspace {
+    // Workstation is a standalone instrument, so generic grid/tab primitives inherit its own
+    // palette in both skins instead of leaking their default blue/purple values.
+    --grid-container-border-color              : var(--workstation-line);
+    --grid-container-cell-background-color     : var(--workstation-panel);
+    --grid-container-cell-background-color-even: var(--workstation-panel-2);
+    --grid-container-color                     : var(--workstation-ink-dim);
+    --grid-container-header-cell-border-bottom : 1px solid var(--workstation-line);
+    --grid-cell-background-color-hover          : color-mix(in srgb, var(--workstation-signal) 10%, var(--workstation-panel));
+    --grid-cell-progress-active-color           : var(--workstation-signal);
+    --grid-cell-progress-track-color            : var(--workstation-line);
+    --grid-header-button-background-color       : var(--workstation-panel-2);
+    --grid-header-button-background-color-hover : color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
+    --grid-header-button-color                  : var(--workstation-ink);
+    --grid-header-button-color-hover            : var(--workstation-ink);
+    --grid-header-button-glyph-color            : var(--workstation-ink-dim);
+    --grid-header-button-glyph-color-hover      : var(--workstation-signal);
+    // Header buttons use row-reverse to keep their sort glyph after the label. `flex-end`
+    // therefore means physical left/start alignment for the complete label + glyph group.
+    --grid-header-button-justify-content        : flex-end;
+    --grid-header-button-padding                : 0 10px;
+    --tab-button-background-color               : transparent;
+    --tab-button-background-color-active        : color-mix(in srgb, var(--workstation-signal) 12%, transparent);
+    --tab-button-background-color-hover         : color-mix(in srgb, var(--workstation-signal) 8%, transparent);
+    --tab-button-glyph-color                    : var(--workstation-ink-dim);
+    --tab-button-text-color                     : var(--workstation-ink-dim);
+    --tab-indicator-background-color-active     : var(--workstation-signal);
+    --tab-strip-background-color                : var(--workstation-panel-2);
+
+    background:
+        radial-gradient(circle at 22% 8%, color-mix(in srgb, var(--workstation-signal) 8%, transparent), transparent 32%),
+        var(--workstation-ground);
+    color: var(--workstation-ink);
+
+    .workstation-tourbar,
+    .workstation-statusbar {
+        transition: background var(--dock-transition-duration-fast) var(--dock-transition-easing),
+                    color var(--dock-transition-duration-fast) var(--dock-transition-easing);
+    }
+
+    .neo-dashboard-dock-edge-zone {
+        gap: 7px;
+    }
+
+    .neo-dashboard-dock-edge-row {
+        gap: 7px;
+    }
+
+    .neo-dashboard-dock-edge-band,
+    .neo-tab-container {
+        min-height: 0;
+        min-width : 0;
+    }
+
+    // The generic edge-zone defaults are symmetrical. Workstation's evidence column carries two
+    // vertically stacked instruments, while the left queue card is intentionally simpler.
+    // Shift those forty pixels to the evidence side instead of starving both right-hand zones.
+    .neo-dashboard-dock-edge-band-left {
+        width: 260px;
+    }
+
+    .neo-dashboard-dock-edge-band-right {
+        width: 320px;
+    }
+
+    .neo-dashboard-dock-edge-rail {
+        background   : color-mix(in srgb, var(--workstation-signal) 18%, var(--workstation-rail));
+        border        : 1px solid color-mix(in srgb, var(--workstation-signal) 52%, var(--workstation-line));
+        border-radius : 7px;
+        box-shadow    : 0 0 22px color-mix(in srgb, var(--workstation-signal) 12%, transparent);
+        overflow      : hidden;
+
+        .neo-dashboard-dock-rail-tab {
+            background: transparent;
+            border    : 0;
+            color     : var(--workstation-ink);
+            font-family: var(--workstation-font-mono);
+        }
+    }
+
+    .neo-tab-header-toolbar {
+        background   : var(--workstation-panel-2);
+        border-bottom: 1px solid var(--workstation-line);
+    }
+
+    .neo-tab-header-button.pressed {
+        .neo-button-glyph,
+        .neo-button-text {
+            color: var(--workstation-ink);
+        }
+    }
+
+    // Theme classes live on the grid primitives themselves, so inherited workspace
+    // variables alone cannot out-rank their light-skin defaults.
+    .neo-grid-header-button {
+        --grid-header-button-background-color      : var(--workstation-panel-2);
+        --grid-header-button-background-color-hover: color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
+        --grid-header-button-background-image      : none;
+        --grid-header-button-color                 : var(--workstation-ink);
+        --grid-header-button-color-hover           : var(--workstation-ink);
+        --grid-header-button-glyph-color           : var(--workstation-ink-dim);
+        --grid-header-button-glyph-color-hover     : var(--workstation-signal);
+        --grid-header-button-justify-content       : flex-end;
+        --grid-header-button-padding               : 0 10px;
+
+        // Hidden sort glyphs must not indent unsorted labels (most visibly the narrow `#`
+        // column). Keep the glyph on the physical right edge without participating in flex.
+        .neo-button-glyph {
+            position: absolute;
+            right   : 10px;
+        }
+    }
+}
+
+.workstation-tourbar {
+    background: linear-gradient(90deg,
+        color-mix(in srgb, var(--workstation-signal) 13%, var(--workstation-panel)),
+        var(--workstation-panel) 55%);
+    border-bottom: 1px solid color-mix(in srgb, var(--workstation-signal) 30%, var(--workstation-line));
+    box-shadow   : 0 8px 28px color-mix(in srgb, var(--workstation-ground) 66%, transparent);
+    gap          : 12px;
+    height       : 64px;
+    padding      : 8px 14px;
+
+    .workstation-tour-story {
+        gap      : 8px;
+        min-width: 0;
+    }
+
+    .workstation-tour-caption {
+        color        : var(--workstation-ink-dim);
+        font-family  : var(--workstation-font-mono);
+        font-size    : 12px;
+        overflow     : hidden;
+        padding-left : 12px;
+        text-overflow: ellipsis;
+        white-space  : nowrap;
+    }
+
+    .workstation-tour-pips {
+        display: flex;
+        gap    : 5px;
+        padding: 0 12px;
+
+        .workstation-pip {
+            background   : var(--workstation-line);
+            border-radius: 999px;
+            flex         : 1;
+            height       : 4px;
+            max-width    : 48px;
+            transition   : background .2s ease, box-shadow .2s ease;
+        }
+
+        .workstation-pip-done {
+            background: var(--workstation-signal);
+            box-shadow: 0 0 8px color-mix(in srgb, var(--workstation-signal) 45%, transparent);
+        }
+    }
+
+    .workstation-theme-button {
+        --button-background-color       : var(--workstation-panel-2);
+        --button-background-color-active: color-mix(in srgb, var(--workstation-signal) 18%, var(--workstation-panel-2));
+        --button-background-color-hover : color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
+        --button-border                 : 1px solid var(--workstation-line);
+        --button-border-active          : 1px solid var(--workstation-signal);
+        --button-border-hover           : 1px solid color-mix(in srgb, var(--workstation-signal) 55%, var(--workstation-line));
+        --button-glyph-color            : var(--workstation-ink-dim);
+        --button-glyph-color-active     : var(--workstation-signal);
+        --button-glyph-color-hover      : var(--workstation-signal);
+        --button-ripple-background-color: color-mix(in srgb, var(--workstation-signal) 32%, transparent);
+        --button-text-color             : var(--workstation-ink);
+        --button-text-color-active      : var(--workstation-ink);
+        --button-text-color-hover       : var(--workstation-ink);
+        border-radius: 7px;
+        font-family  : var(--workstation-font-mono);
+        margin       : 0;
+    }
+}
+
+.workstation-workspace .neo-button.workstation-tour-play {
+    --button-background-color       : var(--workstation-signal);
+    --button-background-color-active: color-mix(in srgb, var(--workstation-signal) 78%, var(--workstation-ink));
+    --button-background-color-hover : color-mix(in srgb, var(--workstation-signal) 88%, var(--workstation-panel));
+    --button-border                 : 1px solid var(--workstation-signal);
+    --button-border-active          : 1px solid var(--workstation-signal);
+    --button-border-hover           : 1px solid var(--workstation-signal);
+    --button-glyph-color            : var(--workstation-ground);
+    --button-glyph-color-active     : var(--workstation-ground);
+    --button-glyph-color-hover      : var(--workstation-ground);
+    --button-ripple-background-color: color-mix(in srgb, var(--workstation-ground) 24%, transparent);
+    --button-text-color             : var(--workstation-ground);
+    --button-text-color-active      : var(--workstation-ground);
+    --button-text-color-hover       : var(--workstation-ground);
+}
+
+// Beat generic button focus/pressed descendant colors without relying on theme load order.
+.workstation-workspace .workstation-tourbar {
+    .workstation-theme-button {
+        .neo-button-glyph,
+        .neo-button-text {
+            color: var(--workstation-ink);
+        }
+    }
+}
+
+.workstation-statusbar {
+    align-items  : center;
+    background   : var(--workstation-panel-2);
+    border-bottom: 1px solid var(--workstation-line);
+    display      : flex;
+    flex         : 0 0 34px;
+    gap          : 8px;
+    min-height   : 34px;
+    padding      : 5px 12px;
+    position     : relative;
+    z-index      : 2;
+
+    span {
+        background    : color-mix(in srgb, var(--workstation-signal) 9%, var(--workstation-panel));
+        border        : 1px solid color-mix(in srgb, var(--workstation-signal) 32%, var(--workstation-line));
+        border-radius : 999px;
+        color         : var(--workstation-ink-dim);
+        font-family   : var(--workstation-font-mono);
+        font-size     : 10px;
+        letter-spacing: .04em;
+        padding       : 3px 9px;
+        text-transform: uppercase;
+    }
+}
+
+.workstation-dock-host {
+    padding: 12px;
+}
+
+.workstation-data-pane {
+    background   : var(--workstation-panel);
+    border       : 1px solid var(--workstation-line-soft);
+    border-radius: 8px;
+    min-height   : 0;
+    min-width    : 0;
+    overflow     : hidden;
+
+    .neo-grid-header-toolbar {
+        background: var(--workstation-panel-2);
+    }
+
+    // The Sparkline component's intrinsic canvas is 300x150. Workstation must load the
+    // same cell-fit contract proven by DevIndex instead of letting that size escape.
+    .neo-sparkline-wrapper {
+        contain  : strict;
+        height   : 100%;
+        min-width: 0;
+        position: relative;
+        width    : 100%;
+
+        .neo-sparkline-canvas {
+            height  : 100%;
+            left    : 0;
+            position: absolute;
+            top     : 0;
+            width   : 100%;
+        }
+    }
+}
+
+.workstation-workspace .neo-button.workstation-row-action {
+    --button-background-color       : color-mix(in srgb, var(--workstation-signal) 8%, var(--workstation-panel-2));
+    --button-background-color-active: color-mix(in srgb, var(--workstation-signal) 20%, var(--workstation-panel-2));
+    --button-background-color-hover : color-mix(in srgb, var(--workstation-signal) 14%, var(--workstation-panel-2));
+    --button-border                 : 1px solid color-mix(in srgb, var(--workstation-signal) 34%, var(--workstation-line));
+    --button-border-active          : 1px solid var(--workstation-signal);
+    --button-border-hover           : 1px solid color-mix(in srgb, var(--workstation-signal) 62%, var(--workstation-line));
+    --button-glyph-color            : var(--workstation-signal);
+    --button-glyph-color-active     : var(--workstation-signal);
+    --button-glyph-color-hover      : var(--workstation-signal);
+    --button-ripple-background-color: color-mix(in srgb, var(--workstation-signal) 28%, transparent);
+    --button-text-color             : var(--workstation-ink-dim);
+    --button-text-color-active      : var(--workstation-ink);
+    --button-text-color-hover       : var(--workstation-ink);
+    border-radius: 6px;
+    font-family  : var(--workstation-font-mono);
+    height       : 30px;
+}
+
+// The generic overflow button is a floating direct-body child. Scope its cockpit skin to
+// documents that actually contain Workstation rather than coupling the shared plugin to this app.
+body:has(.workstation-workspace) .neo-button.neo-tab-overflow-control {
+    --button-background-color       : color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
+    --button-background-color-active: color-mix(in srgb, var(--workstation-signal) 24%, var(--workstation-panel-2));
+    --button-background-color-hover : color-mix(in srgb, var(--workstation-signal) 18%, var(--workstation-panel-2));
+    --button-border                 : 1px solid color-mix(in srgb, var(--workstation-signal) 42%, var(--workstation-line));
+    --button-border-active          : 1px solid var(--workstation-signal);
+    --button-border-hover           : 1px solid color-mix(in srgb, var(--workstation-signal) 70%, var(--workstation-line));
+    --button-glyph-color            : var(--workstation-signal);
+    --button-glyph-color-active     : var(--workstation-signal);
+    --button-glyph-color-hover      : var(--workstation-signal);
+    --button-ripple-background-color: color-mix(in srgb, var(--workstation-signal) 32%, transparent);
+    border-radius: 6px;
+}
+
+// Coarse document projection deliberately replaces tab chrome while moving live pane nodes.
+// Keep that replacement chrome motionless: re-enabling the generic pressed-tab animation on
+// an already-pressed fresh node restarts it. Identity-preserving reconciliation is the shared
+// follow-up that can restore ordinary indicator motion without replaying bootstrap effects.
+.workstation-chrome-settling {
+    .neo-tab-button-indicator {
+        animation-duration: 0ms !important;
+    }
+
+    .neo-active-tab-indicator {
+        transition-duration: 0ms !important;
+    }
+}
+
+.workstation-placeholder {
+    background:
+        radial-gradient(circle at 82% 16%, color-mix(in srgb, var(--workstation-signal) 16%, transparent), transparent 38%),
+        linear-gradient(145deg, var(--workstation-panel), color-mix(in srgb, var(--workstation-signal) 5%, var(--workstation-panel-2)));
+    border        : 1px solid var(--workstation-line-soft);
+    border-radius : 8px;
+    overflow      : hidden;
+    padding       : 0;
+    position      : relative;
+
+    &::after {
+        background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--workstation-signal) 55%, transparent), transparent);
+        content   : '';
+        height    : 1px;
+        left      : 8%;
+        position  : absolute;
+        right     : 8%;
+        top       : 0;
+    }
+}
+
+.workstation-resident-card {
+    box-sizing    : border-box;
+    display       : flex;
+    flex-direction: column;
+    height        : 100%;
+    min-height    : 0;
+    padding       : clamp(12px, 2vw, 24px);
+    position      : relative;
+}
+
+.workstation-resident-kicker {
+    align-items   : center;
+    color         : var(--workstation-ink-dim);
+    display       : flex;
+    font-family   : var(--workstation-font-mono);
+    font-size     : 10px;
+    font-weight   : 700;
+    gap           : 7px;
+    letter-spacing: .13em;
+
+    span {
+        background   : var(--workstation-state-ok);
+        border-radius: 50%;
+        box-shadow   : 0 0 12px color-mix(in srgb, var(--workstation-state-ok) 72%, transparent);
+        height       : 6px;
+        width        : 6px;
+    }
+}
+
+.workstation-resident-icon {
+    color    : color-mix(in srgb, var(--workstation-signal) 72%, var(--workstation-ink));
+    font-size: clamp(18px, 2vw, 30px);
+    margin   : auto 0 8px;
+    opacity  : .82;
+}
+
+.workstation-resident-metric {
+    color         : var(--workstation-ink);
+    font-family   : var(--workstation-font-mono);
+    font-size     : clamp(24px, 4vw, 58px);
+    font-weight   : 800;
+    letter-spacing: -.06em;
+    line-height   : .95;
+    text-shadow   : 0 0 28px color-mix(in srgb, var(--workstation-signal) 18%, transparent);
+}
+
+.workstation-resident-title {
+    color         : var(--workstation-ink);
+    font-family   : var(--workstation-font-sans);
+    font-size     : clamp(11px, 1.2vw, 16px);
+    font-weight   : 650;
+    letter-spacing: .02em;
+    margin-top    : 8px;
+}
+
+.workstation-resident-footer {
+    align-items   : center;
+    border-top    : 1px solid var(--workstation-line-soft);
+    color         : var(--workstation-ink-faint);
+    display       : flex;
+    font-family   : var(--workstation-font-mono);
+    font-size     : 9px;
+    gap           : 8px;
+    justify-content: space-between;
+    margin-top    : 14px;
+    padding-top   : 9px;
+    text-transform: uppercase;
+
+    strong {
+        color         : var(--workstation-state-ok);
+        font-size     : 9px;
+        letter-spacing: .12em;
+    }
+}
+
+.workstation-resident-wave {
+    align-items: end;
+    display    : flex;
+    gap        : 3px;
+    height     : 15px;
+    margin-top : 9px;
+
+    i {
+        background   : color-mix(in srgb, var(--workstation-signal) 68%, var(--workstation-line));
+        border-radius: 2px;
+        display      : block;
+        height       : 40%;
+        width        : 8px;
+
+        &:nth-child(2), &:nth-child(5) {height: 78%}
+        &:nth-child(3) {height: 100%}
+        &:nth-child(4) {height: 62%}
+        &:nth-child(6) {height: 28%}
+    }
+}
+
+.workstation-heat-0 {background: color-mix(in srgb, var(--workstation-panel-2) 92%, var(--workstation-signal))}
+.workstation-heat-1 {background: color-mix(in srgb, var(--workstation-panel-2) 84%, var(--workstation-signal))}
+.workstation-heat-2 {background: color-mix(in srgb, var(--workstation-panel-2) 76%, var(--workstation-signal))}
+.workstation-heat-3 {background: color-mix(in srgb, var(--workstation-panel-2) 66%, var(--workstation-signal))}

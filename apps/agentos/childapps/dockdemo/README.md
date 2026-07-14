@@ -1,9 +1,13 @@
-# Demo A — Dock Choreography Showcase
+# Dock Demos A/B — Choreography and Perspectives
 
 Layouts that rebuild themselves: a themed dock workspace where every transition is a real,
 committed `dockZone.v1` operation — split, resize, tab-fold, auto-hide — played as a scripted,
 deterministic tour. The ticking clock in the editor pane is the continuity witness: wall-time
 truth a viewer verifies with their own eyes while the layout reorganizes around it.
+
+The default route runs Demo A's choreography. Add `?demo=b` for Demo B's named perspectives
+and shared-heap pop-out journey. The dense living-data Workstation is a standalone application at
+`apps/workstation/`; it is not an AgentOS dockdemo mode.
 
 ## Run it
 
