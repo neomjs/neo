@@ -122,7 +122,7 @@ class DockProjectionReconciler extends Base {
      * @param {Neo.container.Base} options.host Dock host containing the current shell.
      * @param {*} options.nextConfig Fresh {@link Neo.dashboard.DockLayoutAdapter} projection.
      * @param {Map<String,Neo.component.Base>} options.placeholders Item placeholders created by the caller.
-     * @param {Function} options.resolveItem Resolves one live pane by dock item id.
+     * @param {Function} options.resolveItem Resolves one live pane or materializable config by dock item id.
      * @param {Function|null} [options.onProjectionStaged=null]
      * @param {Number} [options.shellIndex=0]
      * @param {Function|null} [options.waitForOverflowProjection=null]
@@ -292,16 +292,17 @@ class DockProjectionReconciler extends Base {
      * @param {Map<String,Neo.component.Base>} placeholders
      * @param {Map<String,Neo.tab.Container>} currentTabs
      * @param {Neo.container.Base} nextShell
-     * @param {Function} resolveItem Resolves one live pane by dock item id.
+     * @param {Function} resolveItem Resolves one live pane or materializable config by dock item id.
      * @returns {Map<String,Object>}
      * @static
      */
     static reconcileTabChrome(plans, placeholders, currentTabs, nextShell, resolveItem) {
         const
-            nextTabs      = this.collectProjectedTabs(nextShell),
-            allTabs       = new Set([...currentTabs.values(), ...nextTabs.values()]),
-            liveItems     = new Map(),
-            resolvedItems = new Map();
+            nextTabs       = this.collectProjectedTabs(nextShell),
+            allTabs        = new Set([...currentTabs.values(), ...nextTabs.values()]),
+            desiredItemIds = new Set([...plans.values()].flatMap(plan => plan.desiredItems)),
+            liveItems      = new Map(),
+            resolvedItems  = new Map();
 
         if (typeof resolveItem !== 'function') {
             throw new Error('Dock projection reconciliation requires a live item resolver')
@@ -386,7 +387,7 @@ class DockProjectionReconciler extends Base {
                 const state = findItemState(pane);
 
                 if (!state) {
-                    targetTab.insert(targetIndex, pane, true);
+                    resolvedItems.set(itemId, targetTab.insert(targetIndex, pane, true));
                     return
                 }
 
@@ -396,6 +397,35 @@ class DockProjectionReconciler extends Base {
                 state.bar.removeAt(state.index, false, true, true);
                 targetBody.insert(targetIndex, pane, true, false);
                 targetBar.insert(targetIndex, state.button, true, false)
+            })
+        });
+
+        // Items absent from every projected tabs node are true retirements, not moves. Resolve
+        // their post-transfer positions from pane identity (the source sort arrays are intentionally
+        // not rewritten until the final exact-state pass), then remove each body/button pair in
+        // descending index order so sibling positions stay valid. Items desired anywhere in the
+        // next projection are excluded: their existing pane/button pair already moved above.
+        const retirementsByBody = new Map();
+
+        [...liveItems]
+            .filter(([itemId]) => !desiredItemIds.has(itemId))
+            .map(([itemId, pane]) => ({itemId, pane, state: findItemState(pane)}))
+            .filter(retirement => retirement.state)
+            .forEach(retirement => {
+                const bodyRetirements = retirementsByBody.get(retirement.state.body) || [];
+
+                bodyRetirements.push(retirement);
+                retirementsByBody.set(retirement.state.body, bodyRetirements)
+            });
+
+        retirementsByBody.forEach(retirements => {
+            retirements.sort((a, b) => b.state.index - a.state.index).forEach(({itemId, state}) => {
+                if (!state.button) {
+                    throw new Error(`Dock projection could not retire item "${itemId}" without its tab button`)
+                }
+
+                state.body.removeAt(state.index, true, true);
+                state.bar.removeAt(state.index, true, true)
             })
         });
 

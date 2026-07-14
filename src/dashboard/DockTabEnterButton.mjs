@@ -9,15 +9,15 @@ import TabHeaderButton  from '../tab/header/Button.mjs';
  * This component is intentionally dashboard-owned: the generic {@link Neo.tab.header.Button}
  * stays unaware of dock documents and operations. {@link Neo.dashboard.DockLayoutAdapter} selects
  * this subclass only for the header whose `itemId` + `tabsNodeId` match the transient descriptor
- * carried by the consuming projection. The correlation never enters the dock document and the
- * class does not survive a later coarse projection.
+ * carried by the consuming projection. The correlation never enters the dock document; this
+ * permanent header consumes its one-use classes when the rendered animation settles or collapses.
  *
  * The CSS duration/easing remain token-owned. Once mounted, the App Worker asks the main-thread DOM
  * authority for this header's rendered animation name + duration and opens the signal only for the
- * exact non-zero tab-entry animation. This avoids racing the framework's delayed local-listener
- * mount against `animationstart`, while a token-collapsed 0ms animation creates no false signal.
- * End, cancellation, replacement, and destroy settle idempotently, with `DockMotionSignal`'s
- * fail-safe remaining the final lost-event backstop.
+ * exact non-zero tab-entry animation. The same authority awaits the physical `CSSAnimation` so a
+ * newly born header cannot finish before its local `animationend` listener mounts. A token-collapsed
+ * 0ms animation creates no false signal. End, cancellation, replacement, and destroy settle
+ * idempotently, with `DockMotionSignal`'s fail-safe remaining the final lost-event backstop.
  *
  * @class Neo.dashboard.DockTabEnterButton
  * @extends Neo.tab.header.Button
@@ -95,7 +95,37 @@ class DockTabEnterButton extends TabHeaderButton {
         super.afterSetMounted(value, oldValue);
 
         if (oldValue !== undefined) {
-            value ? this.syncRenderedTabEnterMotion() : this.finishTabEnterMotion()
+            if (value) {
+                this.syncRenderedTabEnterMotion()
+            } else {
+                this.finishTabEnterMotion();
+                this.consumeTabEnterDecoration()
+            }
+        }
+    }
+
+    /**
+     * Whether this permanent header still carries the transient add-tab correlation.
+     * @returns {Boolean}
+     * @protected
+     */
+    hasTabEnterDecoration() {
+        return this.cls?.includes('neo-dashboard-dock-tab-enter') === true
+    }
+
+    /**
+     * Removes the one-use animation class and its item-correlation marker without disturbing
+     * stable header classes. Identity reconciliation keeps this instance alive across later
+     * projections, so the producer itself owns consumption instead of relying on teardown.
+     * @protected
+     */
+    consumeTabEnterDecoration() {
+        let cls     = Array.isArray(this.cls) ? this.cls : this.cls ? [this.cls] : [],
+            nextCls = cls.filter(value => value !== 'neo-dashboard-dock-tab-enter'
+                && !value.startsWith('dock-tab-enter-item-'));
+
+        if (nextCls.length !== cls.length) {
+            this.cls = nextCls
         }
     }
 
@@ -138,12 +168,31 @@ class DockTabEnterButton extends TabHeaderButton {
                 style: ['animation-name', 'animation-duration']
             })
         } catch {
+            if (me.mounted && !me.isDestroyed && !me.isDestroying) {
+                me.consumeTabEnterDecoration()
+            }
+
             return
         }
 
-        if (me.mounted && !me.isDestroyed && !me.isDestroying
-            && DockTabEnterButton.hasRenderedTabEnterMotion(styles)) {
-            me.beginTabEnterMotion()
+        if (me.mounted && !me.isDestroyed && !me.isDestroying && me.hasTabEnterDecoration()) {
+            if (DockTabEnterButton.hasRenderedTabEnterMotion(styles)) {
+                me.beginTabEnterMotion();
+
+                try {
+                    await Neo.main.DomAccess.waitForAnimation({
+                        animationName: 'neo-dock-tab-enter',
+                        id           : me.id
+                    })
+                } catch (error) {/* instant settlement */}
+
+                if (me.mounted && !me.isDestroyed && !me.isDestroying && me.hasTabEnterDecoration()) {
+                    me.finishTabEnterMotion();
+                    me.consumeTabEnterDecoration()
+                }
+            } else {
+                me.consumeTabEnterDecoration()
+            }
         }
     }
 
@@ -165,7 +214,8 @@ class DockTabEnterButton extends TabHeaderButton {
      */
     onTabEnterAnimationSettle(data) {
         if (data?.target?.id === (this.vdom?.id || this.id)) {
-            this.finishTabEnterMotion()
+            this.finishTabEnterMotion();
+            this.consumeTabEnterDecoration()
         }
     }
 }

@@ -1,10 +1,12 @@
 import ClockPane                          from './ClockPane.mjs';
+import Component                          from '../../../../../src/component/Base.mjs';
 import Container                          from '../../../../../src/container/Base.mjs';
 import DockDropIndicators                 from '../../../../../src/dashboard/DockDropIndicators.mjs';
 import DockLayoutAdapter                  from '../../../../../src/dashboard/DockLayoutAdapter.mjs';
 import DockMotionSignal                   from '../../../../../src/dashboard/DockMotionSignal.mjs';
 import DockPreview                        from '../../../view/DockPreview.mjs';
 import DockPreviewProducer                from '../../../../../src/dashboard/DockPreviewProducer.mjs';
+import DockProjectionReconciler           from '../../../../../src/dashboard/DockProjectionReconciler.mjs';
 import DockService                        from '../../../../../src/ai/client/DockService.mjs';
 import DockZoneModel                      from '../../../../../src/dashboard/DockZoneModel.mjs';
 import TourRunner                         from '../../../../../src/ai/client/TourRunner.mjs';
@@ -36,11 +38,10 @@ import '../../../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype 
  * feed binds the runner's `beat` / `scene` / `complete` / `error` events; captions narrate
  * the operations in vocabulary terms, so the tour teaches the API by describing itself.
  *
- * Refresh note: `refreshDockWorkspace()` follows the current normative coarse pattern
- * (wholesale re-projection). A known stale-DOM defect on retired components under this
- * pattern is tracked on the dashboard lane; recording takes are sequenced behind that fix.
- * The `workspace` advisory block of the screenplay (hover-reveal opt-in) is threaded into
- * the projection options — inert until the rail interaction layer lands, correct afterwards.
+ * Re-projection follows the shared staged ownership transaction: surviving panes and tab chrome
+ * move into the next projected shell while the preview and indicator overlays remain persistent
+ * siblings. The `workspace` advisory block of the screenplay (hover-reveal opt-in) is threaded
+ * into the projection options — inert until the rail interaction layer lands, correct afterwards.
  * @class AgentOS.childapps.dockdemo.view.DemoAWorkspace
  * @extends Neo.container.Base
  */
@@ -124,8 +125,8 @@ class DemoAWorkspace extends Container {
      * operation defers its view-sync one tick ({@link #onDockZoneDocumentChange}); any
      * consumer that must resolve PROJECTED components — the reveal cue path — awaits this
      * promise instead of racing that deferral (an unawaited lookup runs within ~0ms of
-     * the commit, resolves `null`, and no-ops silently). Stale-safe: each commit
-     * overwrites it, so awaiting always settles on the LATEST projection.
+     * the commit, resolves `null`, and no-ops silently). Commits chain onto this promise
+     * with their document snapshot, so staged shell transactions never overlap.
      * @member {Promise|null} refreshPromise=null
      * @protected
      */
@@ -172,7 +173,7 @@ class DemoAWorkspace extends Container {
             flex     : 1,
             layout   : {ntype: 'fit'},
             reference: 'dock-host',
-            // The projection child is index 0 and the ONLY child the coarse refresh replaces;
+            // The projection child is index 0 and the ONLY child the shared reconciler stages;
             // the preview renderer + indicator menu are PERSISTENT siblings (absolute overlays
             // via the skin) — object permanence across every re-projection.
             items: [me.projectDockModel(), {
@@ -220,8 +221,8 @@ class DemoAWorkspace extends Container {
                 reference: 'tour-play',
                 text     : 'Tour'
             }, {
-                cls      : ['agentos-dockdemo-tour-caption'],
-                flex     : 1,
+                cls : ['agentos-dockdemo-tour-caption'],
+                flex: 1,
                 // the cold-open invite: the human drag comes FIRST, the agent tour second —
                 // the §06 camera beat opens on a hand on the layout, then "watch an agent do it"
                 html     : `${demoATourScript.title} — drag any tab: every drop option lights up. Then press Tour to watch an agent drive the same operations.`,
@@ -268,11 +269,13 @@ class DemoAWorkspace extends Container {
 
         me.dockModel = document;
 
-        me.refreshPromise = me.timeout(0).then(() => {
-            if (!me.isDestroyed) {
-                return me.refreshDockWorkspace()
-            }
-        })
+        me.refreshPromise = (me.refreshPromise || Promise.resolve())
+            .then(() => me.timeout(0))
+            .then(() => {
+                if (!me.isDestroyed) {
+                    return me.refreshDockWorkspace(document)
+                }
+            })
     }
 
     /**
@@ -539,33 +542,38 @@ class DemoAWorkspace extends Container {
      * Projects the committed document into the live container config, carrying the
      * instance-bound reducer + view-sync callbacks and the screenplay's workspace advisory
      * (the hover-reveal opt-in) as projection options.
+     * @param {Function|null} [resolveComponentRef=null] Optional item resolver for staged projections.
+     * @param {Object} [document=this.dockModel] Committed document snapshot to project.
      * @returns {Object}
      */
-    projectDockModel() {
+    projectDockModel(resolveComponentRef=null, document=this.dockModel) {
         let me = this;
 
-        return DockLayoutAdapter.project(me.dockModel, {
+        return DockLayoutAdapter.project(document, {
             ...demoATourScript.workspace,
             applyDockZoneOperation  : me.applyDockZoneOperation.bind(me),
             onDockCrossZoneDragMove : me.onDockCrossZoneDragMove.bind(me),
             onDockCrossZoneDrop     : me.onDockCrossZoneDrop.bind(me),
             onDockZoneDocumentChange: me.onDockZoneDocumentChange.bind(me),
-            resolveComponentRef     : componentRef => me.resolvePane(componentRef)
+            resolveComponentRef     : resolveComponentRef
+                || (componentRef => me.resolvePane(componentRef)),
+            resolveRevealComponentRef    : componentRef => me.resolvePane(componentRef)
         })
     }
 
     /**
-     * Re-projection from the committed document, scoped to the dock-host subtree — the tour
-     * bar lives OUTSIDE the refreshed container, so the caption feed's rapid per-beat
-     * updates never race a teardown of their own component (in-flight vdom replies to a
-     * destroyed component wedge, and ancestor updates then yield to the wedge forever).
-     * The dock subtree itself still rebuilds coarsely per the current normative pattern.
+     * Re-projection from the committed document, scoped to the dock-host subtree. The shared
+     * reconciler stages shell index 0 and transfers surviving tab chrome/panes before cleanup;
+     * the tour bar stays outside the host while preview/indicator overlays remain its persistent
+     * siblings. Drag-affordance geometry is still invalidated before structural ownership moves.
+     * @param {Object} [document=this.dockModel] Committed document snapshot owned by this refresh.
      * @protected
      */
-    async refreshDockWorkspace() {
+    async refreshDockWorkspace(document=this.dockModel) {
         const
-            me   = this,
-            host = me.getReference('dock-host');
+            me           = this,
+            host         = me.getReference('dock-host'),
+            placeholders = new Map();
 
         if (host) {
             const flip = Neo.main?.addon?.DockFlip;
@@ -580,10 +588,32 @@ class DemoAWorkspace extends Container {
                 await flip?.captureFirst({hostId: host.id, markerPrefix: 'agentos-dockdemo-pane-'})
             } catch (e) {/* instant landing */}
 
-            // Surgical: only the projection child (index 0) rebuilds — the preview renderer
-            // and the indicator menu are persistent overlay siblings and must survive.
-            host.removeAt(0);
-            host.insert(0, this.projectDockModel());
+            const nextConfig = me.projectDockModel((componentRef, item, itemId) => {
+                const placeholder = Neo.create({
+                    module: Component,
+                    header: {text: item?.title ?? componentRef ?? itemId},
+                    hidden: true
+                });
+
+                placeholders.set(itemId, placeholder);
+
+                return placeholder
+            }, document);
+
+            await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig,
+                placeholders,
+                resolveItem: itemId => {
+                    const item = document.items[itemId];
+
+                    return DockLayoutAdapter.decorateProjectedItem(
+                        me.resolvePane(item?.componentRef ?? itemId),
+                        itemId,
+                        item
+                    )
+                }
+            });
 
             // FLIP phase 2: fire-and-forget — the addon self-waits for the new tree to paint,
             // inverts the survivors onto their old geometry and releases the transition
@@ -607,7 +637,7 @@ class DemoAWorkspace extends Container {
      */
     resolvePane(componentRef) {
         if (componentRef === 'Editor') {
-            // the flip marker rides the cls config so FLIP correlation survives instance recreation
+            // the flip marker rides the cls config so newly materialized panes join FLIP correlation
             return {cls: ['agentos-dockdemo-clock-pane', 'agentos-dockdemo-pane-editor'], module: ClockPane}
         }
 
@@ -666,8 +696,8 @@ class DemoAWorkspace extends Container {
 
         if (me.tourRunner.log.length) {
             // restart semantics: reset the stage to the opening document before replaying
-            me.dockModel = DockZoneModel.clone(initialDocument);
-            me.refreshDockWorkspace()
+            me.onDockZoneDocumentChange(DockZoneModel.clone(initialDocument));
+            await me.refreshPromise
         }
 
         me.beatCount = 0;

@@ -592,7 +592,8 @@ class DemoBWorkspace extends Container {
             applyDockZoneOperation  : me.applyDockZoneOperation.bind(me),
             onDockZoneDocumentChange: me.onDockZoneDocumentChange.bind(me),
             resolveComponentRef     : resolveComponentRef
-                || ((componentRef, item, itemId) => me.resolvePane(itemId, item))
+                || ((componentRef, item, itemId) => me.resolvePane(itemId, item)),
+            resolveRevealComponentRef  : (componentRef, item, itemId) => me.resolvePane(itemId, item)
         })
     }
 

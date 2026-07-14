@@ -295,6 +295,29 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         expect(unrelated.items[0].items.every(item => item.header.module === undefined)).toBe(true)
     });
 
+    test('an absent-item resolver can reuse the adapter-owned metadata and addTab decoration', () => {
+        const
+            item   = {componentRef: 'Swarm', kind: 'panel', title: 'Swarm'},
+            config = DockLayoutAdapter.decorateProjectedItem(
+                {ntype: 'component'},
+                'swarm',
+                item,
+                {
+                    nodeId             : 'main-tabs',
+                    tabInsertDescriptor: {operation: 'addTab', itemId: 'swarm', tabsNodeId: 'main-tabs'}
+                }
+            );
+
+        expect(config.dockItemId).toBe('swarm');
+        expect(config.data).toEqual({componentRef: 'Swarm', dockItemId: 'swarm'});
+        expect(config.header.text).toBe('Swarm');
+        expect(config.header.module).toBe(DockTabEnterButton);
+        expect(config.header.cls).toEqual([
+            'neo-dashboard-dock-tab-enter',
+            'dock-tab-enter-item-swarm'
+        ])
+    });
+
     test('projects the documented edge-zone root model through the dashboard adapter', () => {
         let result = DockLayoutAdapter.project(createEdgeZoneModel(), {
                 resolveComponentRef: componentRef => ({
@@ -340,6 +363,27 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         });
         expect(placeholder.header.text).toBe('Missing');
         expect(model).toEqual(snapshot);
+    });
+
+    test('keeps a tabs-node item absent from the catalog recoverable', () => {
+        let model = createModel();
+
+        model.nodes['missing-tabs'] = {
+            type        : 'tabs',
+            items       : ['unknown'],
+            activeItemId: 'unknown'
+        };
+
+        let result      = DockLayoutAdapter.project(model, {resolveComponentRef: () => null}),
+            placeholder = getProjectedChildren(getProjectedChildren(result)[1])[1].items[0];
+
+        expect(placeholder.ntype).toBe('dashboard-panel');
+        expect(placeholder.data).toEqual({
+            componentRef       : null,
+            dockItemId         : 'unknown',
+            missingComponentRef: true
+        });
+        expect(placeholder.header.text).toBe('unknown')
     });
 
     test('normalizes invalid split sizes without rewriting the model', () => {
@@ -454,9 +498,11 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
     });
 
     test('threads reducer callbacks from projection context into the rail affordance', () => {
-        let applyDockZoneOperation   = () => null,
-            model                    = createEdgeZoneModel(),
-            onDockZoneDocumentChange = () => null;
+        let applyDockZoneOperation    = () => null,
+            model                     = createEdgeZoneModel(),
+            onDockZoneDocumentChange  = () => null,
+            resolveComponentRef       = componentRef => ({hidden: true, ntype: 'component', reference: componentRef}),
+            resolveRevealComponentRef = componentRef => ({html: componentRef, ntype: 'component'});
 
         model.items.terminal.autoHidden = true;
 
@@ -465,7 +511,8 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
                 autoHideRevealOnHover: true,
                 defaultRevealFraction: 0.4,
                 onDockZoneDocumentChange,
-                resolveComponentRef  : componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+                resolveComponentRef,
+                resolveRevealComponentRef
             }),
             rail = result.items[0].items.find(item => item.dockNodeType === 'edge-rail');
 
@@ -473,12 +520,15 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         expect(rail.applyDockZoneOperation).toBe(applyDockZoneOperation);
         expect(rail.onDockZoneDocumentChange).toBe(onDockZoneDocumentChange);
         expect(rail.dockZoneDocument).toBe(model);
+        expect(rail.resolveComponentRef).toBe(resolveRevealComponentRef);
+        expect(rail.resolveComponentRef('terminal')).toEqual({html: 'terminal', ntype: 'component'});
         // Workspace-level interaction options thread through; they default when absent.
         expect(rail.autoHideRevealOnHover).toBe(true);
         expect(rail.defaultRevealFraction).toBe(0.4);
-        expect(DockLayoutAdapter.project(model, {
-            resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
-        }).items[0].items.find(item => item.dockNodeType === 'edge-rail').autoHideRevealOnHover).toBe(false);
+        rail = DockLayoutAdapter.project(model, {resolveComponentRef})
+            .items[0].items.find(item => item.dockNodeType === 'edge-rail');
+        expect(rail.autoHideRevealOnHover).toBe(false);
+        expect(rail.resolveComponentRef).toBe(resolveComponentRef)
     });
 
     test('resolveRevealExtent returns the committed split share, else null', () => {
