@@ -903,7 +903,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/portal/index.html</loc>
-    <lastmod>2026-07-14T09:25:27Z</lastmod>
+    <lastmod>2026-07-14T11:24:42Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld/index.html</loc>
@@ -2251,12 +2251,20 @@
     <priority>0.4</priority>
   </url>
   <url>
+    <loc>https://neomjs.com/news/tickets/15172</loc>
+    <lastmod>2026-07-14T11:24:28Z</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/tickets/15171</loc>
+    <lastmod>2026-07-14T11:24:28Z</lastmod>
+  </url>
+  <url>
     <loc>https://neomjs.com/news/tickets/15166</loc>
-    <lastmod>2026-07-14T08:53:54Z</lastmod>
+    <lastmod>2026-07-14T11:24:28Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/15165</loc>
-    <lastmod>2026-07-14T08:53:54Z</lastmod>
+    <lastmod>2026-07-14T11:24:28Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/15164</loc>
@@ -2344,7 +2352,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/15136</loc>
-    <lastmod>2026-07-13T19:34:48Z</lastmod>
+    <lastmod>2026-07-14T11:24:28Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/15135</loc>
@@ -6436,7 +6444,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/13158</loc>
-    <lastmod>2026-07-14T08:53:58Z</lastmod>
+    <lastmod>2026-07-14T11:24:32Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/13157</loc>
@@ -43411,8 +43419,18 @@
     <lastmod>2026-05-30T17:22:01+02:00</lastmod>
   </url>
   <url>
+    <loc>https://neomjs.com/news/pulls/15170</loc>
+    <lastmod>2026-07-14T11:24:41Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/15169</loc>
+    <lastmod>2026-07-14T11:24:41Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://neomjs.com/news/pulls/15168</loc>
-    <lastmod>2026-07-14T08:54:09Z</lastmod>
+    <lastmod>2026-07-14T11:24:41Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
