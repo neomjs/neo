@@ -353,6 +353,27 @@ class SortZone extends DragZone {
     }
 
     /**
+     * Cancels an active sort without applying its transient index. The normal end pipeline still
+     * owns placeholder/proxy/layout cleanup, while `cancelled` makes every commit branch fail shut.
+     * @param {Object} data The `drag:cancel` event data.
+     */
+    async onDragCancel(data={}) {
+        let me = this;
+
+        if (!me.dragComponent || me.dragEndActive) {
+            return
+        }
+
+        me.currentIndex     = me.startIndex;
+        me.isOverDragging   = false;
+        me.isWindowDragging = false;
+
+        me.fire('dragCancel', data);
+
+        await me.onDragEnd({...data, cancelled: true})
+    }
+
+    /**
      * Drag:end entry point. The drag listeners fan out across the owner and its child items, so one
      * native release can deliver multiple drag:end events. This entry latches synchronously and routes
      * exactly one delivery into {@link #processDragEnd} — without it, the async drop pipeline runs
@@ -467,7 +488,7 @@ class SortZone extends DragZone {
                 me.dragComponent.wrapperStyle = style;
             }
 
-            if (!me.isWindowDragging && !me.isRemoteDragging && me.startIndex !== me.currentIndex) {
+            if (!data.cancelled && !me.isWindowDragging && !me.isRemoteDragging && me.startIndex !== me.currentIndex) {
                 let fromIndex, toIndex;
 
                 if (me.dragPlaceholder) {
@@ -486,7 +507,7 @@ class SortZone extends DragZone {
                 // calling into a destroyed owner chain throws.
                 me.owner?.isDestroyed || me.moveTo(fromIndex, toIndex);
             } else {
-                me.traceEvent({t: 'end', from: me.startIndex, to: me.currentIndex, noop: true});
+                me.traceEvent({t: data.cancelled ? 'cancel' : 'end', from: me.startIndex, to: me.currentIndex, noop: true});
             }
 
             // activeTrace stays set until the next onDragStart replaces it: subclasses record

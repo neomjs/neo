@@ -308,6 +308,30 @@ class DragCoordinator extends Manager {
     }
 
     /**
+     * Cancels cross-window arbitration without committing either the active remote target or
+     * the source's terminal-drop path. Target hover state is released before the source sort
+     * zone restores its captured layout.
+     * @param {Object} data
+     * @param {Neo.component.Base} data.draggedItem
+     * @param {Neo.draggable.container.SortZone} data.sourceSortZone
+     */
+    onDragCancel(data) {
+        let me               = this,
+            {sourceSortZone} = data;
+
+        if (me.activeTargetZone) {
+            me.activeTargetZone.onRemoteDragLeave();
+            me.activeTargetZone = null
+        }
+
+        for (const [windowId, candidate] of me.nativeWindowDropCandidates.entries()) {
+            if (candidate.sourceSortZone === sourceSortZone || candidate.targetSortZone === sourceSortZone) {
+                me.clearNativeWindowDropCandidate(windowId)
+            }
+        }
+    }
+
+    /**
      * @summary Handles geometry updates for native OS-titlebar popup reintegration.
      *
      * Consumes high-frequency window geometry updates for native OS-titlebar popup drags,

@@ -37,14 +37,6 @@ async function bootDemo(page, neuralLink) {
     await page.waitForSelector('.agentos-dockdemo-tour-play',          {timeout: 20000});
     await page.waitForSelector('.neo-tab-header-button.neo-draggable', {timeout: 20000});
 
-    // Early-gesture drag-listener race (engine tier, pre-existing): a pointer drag started
-    // within ~1s of mount renders a proxy (main-thread addon) but is DEAF to every worker-side
-    // sort zone — their delegated drag:start/move DOM-listener registration round-trip has not
-    // landed yet, so no dock seam fires. The `.neo-draggable` cls is NOT a sufficient readiness
-    // witness (it lands before the listener registration). Bisected: probe at +0ms fails, at
-    // +1000ms lights the menu — settle until the engine exposes a registration-complete signal.
-    await page.waitForTimeout(1200);
-
     const app        = await neuralLink.connectToApp('AgentOSDockDemo');
     const workspaces = await app.findInstances({className: 'AgentOS.childapps.dockdemo.view.DemoAWorkspace'}, ['id']);
     const wsId       = Array.isArray(workspaces) ? workspaces[0]?.id : workspaces?.id;
@@ -77,8 +69,12 @@ async function dragPreviewHeaderTo(page, target) {
 
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
-    // clear the drag threshold first, then travel — real pointer cadence
+    // Clear the distance threshold, then wait for the App Worker to finish the drag-start
+    // handshake. This starts at first paint without a boot settle while respecting the Mouse
+    // sensor's intentional 100ms click-vs-drag delay. `neo-is-dragging` is worker-stamped after
+    // main-thread configs land, so the target leg cannot outrun drag readiness.
     await page.mouse.move(box.x + box.width / 2 + 12, box.y + box.height / 2 + 12, {steps: 4});
+    await expect(page.locator('.neo-tab-header-toolbar.neo-is-dragging')).toBeVisible();
     await page.mouse.move(target.x, target.y, {steps: 15});
     // let the move stream round-trip (main thread → worker → vdom → DOM)
     await page.waitForTimeout(400)
@@ -271,17 +267,15 @@ test.describe('Demo-A drop-indicator menu: the real-pointer §06 journey (Neural
 
         await expect(page.locator('.neo-dashboard-dock-drop-indicators:not(.neo-dashboard-dock-drop-indicators-hidden)')).toBeVisible();
 
-        // Keystroke delivery note: the base sort zone placeholder-swaps the dragged button out
-        // of the DOM, so browser focus falls to <body> and an element-scoped keydown listener
-        // cannot receive a real Escape mid-drag — gesture-time key capture is an engine-tier
-        // primitive gap (ticketed with the drag-listener race). The CANCEL SEAM itself is
-        // exercised end-to-end here: the workspace's Escape handler fires mid-REAL-drag, and
-        // the REAL pointer release proves the commit suppression.
-        await app.callMethod(wsId, 'onWorkspaceKeyDown', [{key: 'Escape'}]);
-        await page.waitForTimeout(300);
+        // Focus has fallen to <body> after the placeholder swap. The main-thread drag owner
+        // captures the REAL key and routes `drag:cancel` directly to the active worker zone.
+        await page.keyboard.press('Escape');
 
-        // the §06 cancel: menu + preview clear while the pointer is still down
+        // The §06 cancel is complete while the pointer is still down: affordances clear,
+        // worker drag state retires, and the proxy is destroyed rather than riding to release.
         await expect(page.locator('.neo-dashboard-dock-drop-indicators')).toHaveClass(/neo-dashboard-dock-drop-indicators-hidden/);
+        await expect(page.locator('.neo-tab-header-toolbar.neo-is-dragging')).toHaveCount(0);
+        await expect(page.locator('.neo-dragproxy')).toHaveCount(0);
 
         await page.mouse.up();
         await page.waitForTimeout(500);

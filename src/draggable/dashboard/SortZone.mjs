@@ -291,7 +291,7 @@ class DashboardSortZone extends SortZone {
         let me = this;
 
         if (!me.isRemoteDragging) {
-            DragCoordinator.onDragEnd({
+            DragCoordinator[data.cancelled ? 'onDragCancel' : 'onDragEnd']({
                 draggedItem   : me.dragComponent,
                 sourceSortZone: me
             })

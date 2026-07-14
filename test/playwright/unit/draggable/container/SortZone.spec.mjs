@@ -155,6 +155,23 @@ test.describe.serial('Neo.draggable.container.SortZone', () => {
         expect(container.items[4].id).toBe('btnA');
     });
 
+    test('drag:cancel restores the captured index and commits no reorder', async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+
+        await sortZone.onDragStart({
+            path: [{id: 'btnA', cls: ['neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 100}}]
+        });
+
+        sortZone.currentIndex = 2;
+
+        await sortZone.onDragCancel({key: 'Escape'});
+
+        expect(container.items.map(item => item.id)).toEqual(['btnA', 'btnB', 'sep1', 'btnC', 'btnD']);
+        expect(sortZone.currentIndex).toBe(-1);
+        expect(sortZone.dragProxy).toBeNull()
+    });
+
      test('Correctly handles placeholder in index calculation', async () => {
         await new Promise(resolve => setTimeout(resolve, 10));
         sortZone = container.sortZone;
