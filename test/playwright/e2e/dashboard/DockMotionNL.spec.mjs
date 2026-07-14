@@ -290,9 +290,21 @@ test.describe('Dock motion pipeline (Neural Link) — the signal brackets real m
         await expect.poll(async () => {
             const topo = await app.getDockTopology(holderId);
             const doc  = topo?.document ?? topo;
-            return doc.nodes['main-tabs']?.items?.join(',')
-        }, {message: 'Operator restore must re-seed the main tab pair', timeout: 10000, intervals: [100]}).toBe('strategy,swarm');
+            const node = doc.nodes['main-tabs'];
+
+            return Boolean(node?.items?.includes('swarm')
+                && node.items.some(itemId => itemId !== 'swarm')
+                && node.activeItemId !== 'swarm')
+        }, {message: 'Operator restore must expose Swarm as an inactive main tab', timeout: 10000, intervals: [100]}).toBe(true);
         await expect(page.locator('.neo-dashboard-dock-tab-enter')).toHaveCount(0);
+
+        const restoredTopology = await app.getDockTopology(holderId),
+              restoredDocument = restoredTopology?.document ?? restoredTopology,
+              restoredItems    = restoredDocument.nodes['main-tabs'].items,
+              unrelatedItems   = restoredItems.filter(itemId => itemId !== 'swarm'),
+              expectedItems    = [...unrelatedItems];
+
+        expectedItems.splice(1, 0, 'swarm');
 
         // Remove the inactive Swarm tab first. Adding it back into the SAME tab container creates a
         // new header without changing the container's footprint — the non-FLIP producer must carry
@@ -324,7 +336,10 @@ test.describe('Dock motion pipeline (Neural Link) — the signal brackets real m
 
         expect(result.errors).toEqual([]);
         expect(result.applied).toBe(true);
-        expect(result.document.nodes['main-tabs'].items).toEqual(['strategy', 'swarm']);
+        expect(result.document.nodes['main-tabs'].items).toEqual(expectedItems);
+        expect(result.document.nodes['main-tabs'].items.indexOf('swarm')).toBe(1);
+        expect(result.document.nodes['main-tabs'].items.filter(itemId => itemId !== 'swarm'))
+            .toEqual(unrelatedItems);
         await expect(page.locator('.neo-dashboard-dock-tab-enter')).toHaveCount(1);
         await expect(page.locator(`${ENTER}${SIGNAL}`)).toHaveCount(0);
 
@@ -476,8 +491,20 @@ test.describe('Dock motion pipeline — reduced-motion collapses through the tok
         await expect.poll(async () => {
             const topo = await app.getDockTopology(holderId);
             const doc  = topo?.document ?? topo;
-            return doc.nodes['main-tabs']?.items?.join(',')
-        }, {message: 'Operator restore must re-seed the reduced-motion setup', timeout: 10000, intervals: [100]}).toBe('strategy,swarm');
+            const node = doc.nodes['main-tabs'];
+
+            return Boolean(node?.items?.includes('swarm')
+                && node.items.some(itemId => itemId !== 'swarm')
+                && node.activeItemId !== 'swarm')
+        }, {message: 'Operator restore must expose Swarm as an inactive main tab', timeout: 10000, intervals: [100]}).toBe(true);
+
+        const restoredTopology = await app.getDockTopology(holderId),
+              restoredDocument = restoredTopology?.document ?? restoredTopology,
+              restoredItems    = restoredDocument.nodes['main-tabs'].items,
+              unrelatedItems   = restoredItems.filter(itemId => itemId !== 'swarm'),
+              expectedItems    = [...unrelatedItems];
+
+        expectedItems.splice(1, 0, 'swarm');
 
         const detached = await app.executeDockOperation(holderId, {operation: 'detachItem', itemId: 'swarm'});
         expect(detached.errors).toEqual([]);
@@ -494,6 +521,11 @@ test.describe('Dock motion pipeline — reduced-motion collapses through the tok
         });
 
         expect(result.errors).toEqual([]);
+        expect(result.applied).toBe(true);
+        expect(result.document.nodes['main-tabs'].items).toEqual(expectedItems);
+        expect(result.document.nodes['main-tabs'].items.indexOf('swarm')).toBe(1);
+        expect(result.document.nodes['main-tabs'].items.filter(itemId => itemId !== 'swarm'))
+            .toEqual(unrelatedItems);
         await expect(page.locator('.neo-dashboard-dock-tab-enter.dock-tab-enter-item-swarm')).toHaveCount(1);
         await expect.poll(
             () => page.locator(SIGNAL).count(),
