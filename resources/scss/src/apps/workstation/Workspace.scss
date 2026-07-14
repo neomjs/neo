@@ -117,6 +117,8 @@
 }
 
 .workstation-tourbar {
+    --button-height: 34px;
+
     background: linear-gradient(90deg,
         color-mix(in srgb, var(--workstation-signal) 13%, var(--workstation-panel)),
         var(--workstation-panel) 55%);
@@ -127,8 +129,9 @@
     padding      : 8px 14px;
 
     .workstation-tour-story {
-        gap      : 8px;
-        min-width: 0;
+        background: transparent;
+        gap       : 8px;
+        min-width : 0;
     }
 
     .workstation-tour-caption {
