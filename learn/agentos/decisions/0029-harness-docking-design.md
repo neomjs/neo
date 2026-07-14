@@ -4,7 +4,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-07-02 (#14423; PR #14425; pending human merge gate per ADR-0005 lifecycle). **Re-homed** in the same PR from `learn/agentos/HarnessDockingDesign.md` (contract-doc tier) to decision-record tier after the ADR-0005 `ADR_REQUIRED` audit (operator-flagged, review cycle 3) — see §1 Context for why the authority belongs here. |
+| **Status** | Accepted — 2026-07-02 (#14423; PR #14425 merged to `dev`). **Re-homed** in the same PR from `learn/agentos/HarnessDockingDesign.md` (contract-doc tier) to decision-record tier after the ADR-0005 `ADR_REQUIRED` audit (operator-flagged, review cycle 3) — see §1 Context for why the authority belongs here. |
 | **Author** | @neo-fable-clio (Clio, Claude Fable 5, Claude Code). The cross-window seam contract descends from Discussion #13370's graduated Option-4 convergence (cross-family); the §7 auto-hide contract was written implementation-sufficient for its claimed leaf owner (@neo-opus-grace, #13280). |
 | **Resolves** | #14423 — the #13158 design-gate sub: settle the seven shared design questions (layout model, perspectives, cross-window drag, grouped drag/overflow, core-lift disposition, container contract, auto-hide UI) before further implementation lands on the current base (operator direction, 2026-07-02). |
 | **Parent epic** | #13158 (*QT-parity docking polish*) under #13012 (Agent Harness). Operator re-ranked 2026-07-02 as an agent-harness cornerstone: the docking shell is the substrate the #13015 FM-UX and #13444 HOME surfaces stand on. |
@@ -205,7 +205,7 @@ Semantics, all mandatory:
 
 - **Atomic:** validate against both documents first; then remove from source (tree + catalog) and insert into target (catalog + placement descriptor) and normalize both; commit both documents or neither. A half-transferred item is a contract violation, not an error state.
 - **Identity-preserving:** the item record (id, `componentRef`, `title`, `kind`, policy hints, `blueprint`, metadata) travels verbatim. The live component instance is **moved, never re-instantiated** — it exists once in the shared heap throughout (this is the §4 Prior-Art moat behavior; it must never regress to serialize-and-recreate).
-- **Hint-updating:** the durable placement hints (`owningWorkspaceId`, `fallbackTarget`) update in the same commit.
+- **Hint-layer transaction (conditional on that layer existing):** the currently landed transfer commits the document pair only and MUST NOT place perspective-specific fields inside item records. When §2.2's separate placement-hint layer lands, the worker-owned workspace-set transaction updates its `owningWorkspaceId` / semantic `fallbackTarget` entries atomically with the source and target documents. An adapter that cannot commit all three surfaces publishes the executor's finite documents unchanged.
 - **Pipeline-conforming:** a cross-window drop produces `transferItem` from the accepted `dockPreview` exactly as an in-window drop produces `moveItem`/`splitNode`/`addTab`.
 
 `detachItem` (landed) remains the single-document operation for item → OS-window embodiment without a target workspace; `transferItem` is dock-tree → dock-tree across documents.
@@ -219,7 +219,7 @@ Semantics, all mandatory:
 The dock tree already models the group: a `tabs` node. Grouped drag therefore moves a **node**, not N items:
 
 - `moveNode` — `{nodeId, targetNodeId, placement}` within one document: re-parents the subtree per the placement descriptor; `normalizeTree` guarantees invariants afterward.
-- `transferNode` — the §2.3 `transferItem` semantics applied to a subtree: atomic two-document commit, all member item records travel verbatim, all live component instances move without re-instantiation, hints update per item.
+- `transferNode` — the §2.3 `transferItem` semantics applied to a subtree: atomic two-document commit, all member item records travel verbatim, and all live component instances move without re-instantiation. Once the separate hint layer exists, its workspace-set transaction updates one entry per member alongside the document pair; item records remain unchanged.
 
 The preview layer carries grouped intent with one additive, optional, runtime-only field on the existing payload — `groupNodeId` — set when the drag source is a group handle (tab-bar drag surface) rather than a single tab. `dockPreview` stays at `v1`; the field is documented here and remains forbidden in persisted state like every other preview field. Placement kinds are unchanged (`edge-*`, `split-*`, `tab-*` — a group dropped `tab-into` merges its items into the target tabs node in order).
 
@@ -350,7 +350,7 @@ Per the parent epic's discipline (one Contract-Ledgered leaf per capability), im
 | Leaf | Contract section | Status |
 |---|---|---|
 | Auto-hide UI: reveal overlay + pin control + rail drag source | §2.7 | **#13280 (in flight, Grace)** — held design-first by owner decision; this record is its contract |
-| `CrossWindowDragTarget` formalization + dock workspace target + `transferItem` | §2.3 | unfiled; file at claim time citing §2.3 |
+| `CrossWindowDragTarget` formalization + dock workspace target + `transferItem` | §2.3 | document-pair participation landed in #14769 / PR #15017; placement-hint integration remains part of §2.2's future workspace-set transaction |
 | Topology perspectives: the hint layer on `dockLayout.v2` + switcher + restore reconciliation | §2.2 | envelope + model-level capture/collection substrate landed; NL capture/list/restore tools are in review (#15019); the placement-hint layer + atomic multi-window restore remain |
 | Grouped drag (`moveNode`/`transferNode`) + tab overflow affordance | §2.4 | unfiled |
 | Core lift to a non-dashboard namespace | §2.5 | **gated** — fires only on the named trigger |
