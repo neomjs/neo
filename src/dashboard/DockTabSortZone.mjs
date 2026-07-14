@@ -192,13 +192,16 @@ class DockTabSortZone extends TabHeaderSortZone {
             {clientX, clientY} = data || {};
 
         if (me.sortGroup && me.dragComponent) {
-            me.dragCoordinator?.onDragEnd({
+            me.dragCoordinator?.[data.cancelled ? 'onDragCancel' : 'onDragEnd']({
                 draggedItem   : me.dragComponent,
                 sourceSortZone: me
             })
         }
 
-        if (me.remoteDropCommitted) {
+        if (data.cancelled) {
+            me.remoteDropCommitted = false;
+            itemId && tabContainer?.fire('dockCrossZoneDragCancel', {itemId, sourceNodeId: me.dockSourceNodeId})
+        } else if (me.remoteDropCommitted) {
             me.remoteDropCommitted = false
         } else if (itemId && tabContainer && Neo.isNumber(clientX) && Neo.isNumber(clientY)) {
             tabContainer.fire('dockCrossZoneDrop', {clientX, clientY, itemId, sourceNodeId: me.dockSourceNodeId})

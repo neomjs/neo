@@ -279,6 +279,7 @@ class DockLayoutAdapter extends Base {
             dockZoneDocument         : options.dockZoneDocument || model,
             items                    : model.items || {},
             nodes                    : model.nodes,
+            onDockCrossZoneDragCancel: options.onDockCrossZoneDragCancel,
             onDockCrossZoneDragMove  : options.onDockCrossZoneDragMove,
             onDockCrossZoneDrop      : options.onDockCrossZoneDrop,
             onDockZoneDocumentChange : options.onDockZoneDocumentChange,
@@ -719,6 +720,9 @@ class DockLayoutAdapter extends Base {
             },
             items    : projectedItems,
             listeners: {
+                // Cancel is a gesture lifecycle signal, not a synthetic drop: the workspace clears
+                // transient affordances while the sort zone restores its captured layout.
+                dockCrossZoneDragCancel: data => context.onDockCrossZoneDragCancel?.(data),
                 // Live-drag hover: the dock-aware SortZone streams `dockCrossZoneDragMove` per frame; the
                 // owner renders the transient affordance tier (indicator menu / preview) from it. Same
                 // closure-captured context seam as the drop below.

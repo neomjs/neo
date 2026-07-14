@@ -435,6 +435,48 @@ test.describe('Neo.dashboard.DockCrossWindowParticipation (ADR 0029 §2.3 — wo
         zone.destroy()
     });
 
+    test('drag:cancel releases remote hover and emits only the dock cancel seam', async () => {
+        const
+            fires  = [],
+            leaves = [];
+
+        const zone = Neo.create(DockTabSortZone, {
+            dockItemIds     : ['terminal'],
+            dockSourceNodeId: 'side-tabs',
+            dockWorkspaceId : 'A',
+            owner           : {
+                addDomListeners: () => {},
+                cls            : [],
+                dragResortable : false,
+                items          : [],
+                on             : () => {},
+                style          : {},
+                up             : () => ({fire: (name, data) => fires.push([name, data])})
+            },
+            sortGroup: 'dock-crosswindow-cancel-test',
+            windowId : 'cwd-cancel-a'
+        });
+
+        await zone.resolveDragCoordinator();
+        zone.dragCoordinator = DragCoordinator;
+        zone.dragComponent   = {id: 'tab-proxy', dockItemId: 'terminal', dockSourceWorkspaceId: 'A'};
+        zone.startIndex      = 0;
+
+        DragCoordinator.activeTargetZone = {
+            onRemoteDragLeave: () => leaves.push('leave'),
+            onRemoteDrop     : () => { throw new Error('cancel must never commit the remote target') }
+        };
+
+        await zone.processDragEnd({cancelled: true});
+
+        expect(leaves).toEqual(['leave']);
+        expect(DragCoordinator.activeTargetZone).toBeNull();
+        expect(fires.filter(([name]) => name === 'dockCrossZoneDragCancel')).toHaveLength(1);
+        expect(fires.filter(([name]) => name === 'dockCrossZoneDrop')).toHaveLength(0);
+
+        zone.destroy()
+    });
+
     test('a source zone without a sortGroup is coordinator-inert: no remote engagement, no suspension — the dock stays fully in-window', async () => {
         const previews = [];
 

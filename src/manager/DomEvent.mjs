@@ -38,6 +38,7 @@ const globalDomEvents = [
     'click',
     'contextmenu',
     'dblclick',
+    'drag:cancel',
     'drag:end',
     'drag:move',
     'drag:start',
@@ -256,9 +257,12 @@ class DomEvent extends Base {
             let dragZone = data.dragZoneId && Neo.get(data.dragZoneId);
 
             if (dragZone) {
-                // drag:move & drag:end
                 if (eventName.startsWith('drag:')) {
-                    dragZone[eventName === 'drag:move' ? 'onDragMove' : 'onDragEnd']?.(data)
+                    dragZone[{
+                        'drag:cancel': 'onDragCancel',
+                        'drag:end'   : 'onDragEnd',
+                        'drag:move'  : 'onDragMove'
+                    }[eventName]]?.(data)
                 } else {
                     dragZone.fire(eventName, data);
                     dragZone[{
