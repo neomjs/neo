@@ -75,8 +75,9 @@ test.describe.serial('apps/workstation/tour/denseWorkstation', () => {
             .filter(([, item]) => item.autoHidden === true)
             .map(([itemId]) => itemId)).toEqual(['graph', 'inspector']);
         expect(cues).toEqual(['overflow', 'scroll', 'canvas-update', 'theme', 'theme']);
-        expect(workstationTourScript.scenes[0].steps[1].cue.itemId).toBe('security');
-        expect(operations).toEqual(['splitNode', 'addTab']);
+        expect(workstationTourScript.scenes.flatMap(scene => scene.steps)
+            .find(step => step.cue?.type === 'overflow').cue.itemId).toBe('security');
+        expect(operations).toEqual(['resizeSplit', 'splitNode', 'addTab']);
         operations.forEach(operation => expect(DockZoneModel.operations).toContain(operation));
         expect(operations).not.toContain('promote')
     });
@@ -92,6 +93,7 @@ test.describe.serial('apps/workstation/tour/denseWorkstation', () => {
         const firstDocument = Neo.getComponent('workstation-stage').dockZoneDocument;
 
         expect(firstDocument.nodes['split-main'].children[0]).toBe('scale-tabs');
+        expect(firstDocument.nodes['split-main'].sizes).toEqual([0.52, 0.48]);
         expect(firstDocument.nodes['heavy-tabs'].activeItemId).toBe('security');
         expect(firstDocument.nodes['heavy-tabs'].items.at(-1)).toBe('security');
 
