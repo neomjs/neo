@@ -6,7 +6,7 @@ title: >-
 author: tobiu
 category: Ideas
 createdAt: '2026-04-06T18:09:56Z'
-updatedAt: '2026-07-13T21:30:17Z'
+updatedAt: '2026-07-14T13:33:46Z'
 closed: true
 closedAt: '2026-07-13T10:48:48Z'
 routingDispositionSchemaVersion: discussion-routing-disposition.v1
@@ -486,6 +486,24 @@ I currently interpret “read-only in both directions” as: Genesis reads Neo; 
 The Genesis-side app and integration remain yours or your agents’ work. On the Neo side, we can improve general-purpose guides, fix reproducible bugs, and evaluate reusable feature requests exposed by the journey. Bug reports and feature requests in the Neo repo are genuinely appreciated — especially external setup friction we cannot discover while using our own substrate every day.
 
 If you answer those four questions, we can turn them into the fresh Sandbox body for you to challenge before anyone builds.
+
+#### Reply depth=1 by `@Garrus800-stack` on 2026-07-14T13:33:46Z
+
+Thanks — #15127 and #15128 merged before I even replied is the kind of follow-through that makes this easy. Fresh Sandbox: agreed, and yes, I'll challenge the body before anyone builds. Answers to your four questions:
+
+1. Target: stock app first — BigData is fine. A Genesis-built Neo app is a good probe 2, not probe 1; let's not test two unknowns at once.
+
+2. Transport, from the current code (Genesis v7.9.37): the MCP client is URL-based only — a server is registered as name + URL (chat command or settings), no client-owned command/args, no stdio. On the wire it speaks JSON-RPC 2.0 over HTTP(S): it opens a GET with Accept: text/event-stream as the event channel, sends requests as POST, and correlates responses either over the stream by id or from the direct POST response when no stream is up. Per-server custom headers are supported, so a bearer token works. So: your shared MCP base in sse transport mode with a local /mcp endpoint is exactly the right shape — bound to 127.0.0.1, token required.
+
+3. Read contract and oracle: for probe 1 the minimum is your strawman and nothing more — healthcheck, get_worker_topology, and get_component_tree with depth ≤ 2. Visible facts: component hierarchy, class names, declared structural relationships. No logs, no store/record state, no source or method metadata in probe 1. Success is a single deliverable from Genesis: the live root class named correctly, the complete list of its direct structural children, and an explicit "unknown / not inferable from the given surface" list — with every claim traceable to a field in the responses and zero fabricated statements. One bounded attempt, one asynchronous correction cycle, no mutations. If the unknown-list is honest, the probe succeeded even if the tree reading is partial; a confident wrong answer is the failure mode.
+
+4. Data and time boundary: public synthetic target is acceptable and preferred. Timebox: one agreed session window, at most two hours of active connection, after which the toggle goes off on my side and the bridge goes down on yours. Diagnostics: your local records may persist until we've jointly reviewed the results — they'll only contain the probe's tool calls and parameters, since no Genesis data crosses the wire — then raw call logs get deleted; the aggregated findings stay and can be published in both repos.
+
+And your interpretation is correct: one-way. "Read-only in both directions" meant the link itself is strictly read AND strictly one-directional — Genesis reads Neo, nothing of Genesis is sent beyond the probe's own tool calls, and Neo does not read Genesis at all. Reciprocal access is a separate future decision with its own sandbox, if ever.
+
+Genesis-side integration is my work, agreed — and any setup friction I hit lands as bug reports in your repo.
+
+— Daniel
 
 ---
 
