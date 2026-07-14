@@ -9,8 +9,9 @@ import {workstationTourScript} from '../../../../apps/workstation/tour/denseWork
  * two stable Store<Model> identities, an exact 100k renderer-rich grid, a sustained capped
  * feed, one owner-exact overflow surface, two real rails, frame-sampled midpoint continuity,
  * Canvas-worker pixel change, DevIndex-sized chart geometry, honest progress paints, both
- * themes, replacement-chrome motion containment, sequential clip-safe fixed staging, and
- * identity preservation.
+ * themes, visible real splitters, user-driven semantic resize, pane-owned chrome,
+ * replacement-chrome motion containment, sequential clip-safe fixed staging, and identity
+ * preservation.
  *
  * Run: NEO_E2E_PORT=8124 npx playwright test workstation/WorkstationNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
@@ -154,6 +155,76 @@ const expectDevIndexSparklineFit = geometry => {
     expect(geometry.canvas.bottom).toBeLessThanOrEqual(geometry.content.bottom + 1)
 };
 
+/**
+ * @summary Reads the rendered Workstation splitter and pane-boundary style contract.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<Object>}
+ */
+const readDockChrome = page => page.evaluate(() => {
+    const
+        horizontal = document.querySelector('.neo-dashboard-dock-splitter-horizontal'),
+        vertical   = document.querySelector('.neo-dashboard-dock-splitter-vertical'),
+        scalePane  = document.querySelector('.workstation-scale-pane'),
+        tabBody    = scalePane?.closest('.neo-tab-body-container'),
+        readStyle  = element => {
+            const
+                style  = getComputedStyle(element),
+                handle = getComputedStyle(element, '::after');
+
+            return {
+                active          : element.matches(':active'),
+                background      : style.backgroundColor,
+                borderRadius    : style.borderRadius,
+                boxShadow       : style.boxShadow,
+                cursor          : style.cursor,
+                handleBackground: handle.backgroundColor,
+                handleHeight    : handle.height,
+                handleWidth     : handle.width,
+                opacity         : style.opacity
+            }
+        },
+        bodyStyle = getComputedStyle(tabBody),
+        paneStyle = getComputedStyle(scalePane);
+
+    return {
+        horizontal: readStyle(horizontal),
+        pane      : {
+            borderColor : paneStyle.borderColor,
+            borderRadius: paneStyle.borderRadius
+        },
+        splitterCount: document.querySelectorAll('.neo-dashboard-dock-splitter').length,
+        tabBody      : {
+            background  : bodyStyle.backgroundColor,
+            borderBottom: bodyStyle.borderBottomWidth,
+            borderLeft  : bodyStyle.borderLeftWidth,
+            borderRight : bodyStyle.borderRightWidth,
+            borderTop   : bodyStyle.borderTopWidth
+        },
+        vertical: readStyle(vertical)
+    }
+});
+
+/**
+ * @summary Reads the two live child extents around Workstation's horizontal split boundary.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<Object>}
+ */
+const readHorizontalSplitGeometry = page => page.evaluate(() => {
+    const
+        splitter = document.querySelector('.neo-dashboard-dock-splitter-horizontal'),
+        children = [...splitter.parentElement.children]
+            .filter(element => !element.classList.contains('neo-dashboard-dock-splitter')),
+        first    = children[0].getBoundingClientRect(),
+        second   = children[1].getBoundingClientRect(),
+        boundary = splitter.getBoundingClientRect();
+
+    return {
+        boundaryWidth: boundary.width,
+        firstWidth   : first.width,
+        secondWidth  : second.width
+    }
+});
+
 test.describe('Workstation — dense living-data composition', () => {
     test.setTimeout(150000);
     test.use({viewport: {height: 1440, width: 2560}});
@@ -283,6 +354,39 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(initialTourBackground).not.toBe('rgb(67, 93, 177)');
         expect(hoverTourBackground, 'hover remains in the Workstation signal palette').not.toBe('rgb(67, 93, 177)');
 
+        const
+            horizontalSplitter = page.locator('.neo-dashboard-dock-splitter-horizontal'),
+            verticalSplitter   = page.locator('.neo-dashboard-dock-splitter-vertical'),
+            darkDockRest       = await readDockChrome(page);
+
+        await expect(horizontalSplitter, 'the horizontal document boundary projects one real splitter').toHaveCount(1);
+        await expect(verticalSplitter, 'the vertical document boundary projects one real splitter').toHaveCount(1);
+        expect(darkDockRest.splitterCount).toBe(2);
+        expect(darkDockRest.horizontal.cursor).toBe('ew-resize');
+        expect(darkDockRest.vertical.cursor).toBe('ns-resize');
+        expect(darkDockRest.horizontal.background, 'the horizontal splitter is visible at rest')
+            .not.toBe('rgba(0, 0, 0, 0)');
+        expect(darkDockRest.vertical.background, 'the vertical splitter is visible at rest')
+            .not.toBe('rgba(0, 0, 0, 0)');
+        expect(darkDockRest.horizontal.handleWidth).toBe('2px');
+        expect(darkDockRest.horizontal.handleHeight).toBe('36px');
+        expect(darkDockRest.vertical.handleWidth).toBe('36px');
+        expect(darkDockRest.vertical.handleHeight).toBe('2px');
+        expect(darkDockRest.tabBody).toEqual({
+            background  : 'rgba(0, 0, 0, 0)',
+            borderBottom: '0px',
+            borderLeft  : '0px',
+            borderRight : '0px',
+            borderTop   : '0px'
+        });
+        expect(darkDockRest.pane.borderRadius).toBe('8px');
+
+        await horizontalSplitter.hover();
+        const darkDockHover = await readDockChrome(page);
+
+        expect(darkDockHover.horizontal.background, 'dark splitter hover strengthens the real boundary')
+            .not.toBe(darkDockRest.horizontal.background);
+
         await themeToggle.click();
         await expect(root).toHaveClass(/neo-theme-neo-light/);
         await expect(themeToggle).toHaveText('Dark mode');
@@ -327,6 +431,44 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(lightChrome.themeHeight).toBe(34);
         expect(lightChrome.themeRipple, 'theme-toggle feedback stays in the Workstation palette')
             .not.toBe('#8ba6ff');
+
+        const lightDockRest = await readDockChrome(page);
+
+        expect(lightDockRest.splitterCount).toBe(2);
+        expect(lightDockRest.horizontal.background, 'light mode retains a visible resting splitter')
+            .not.toBe('rgba(0, 0, 0, 0)');
+        expect(lightDockRest.tabBody.background, 'light mode keeps the tab body out of pane chrome')
+            .toBe('rgba(0, 0, 0, 0)');
+        expect(lightDockRest.tabBody.borderTop).toBe('0px');
+        expect(lightDockRest.pane.borderRadius).toBe('8px');
+
+        // Neo's delegated drag listeners register after the draggable cls renders. Existing
+        // dock-pointer journeys hold this known engine-tier readiness floor until the main-thread
+        // registration round-trip gains an explicit completion signal.
+        await page.waitForTimeout(1200);
+        await horizontalSplitter.hover();
+        const lightDockHover = await readDockChrome(page);
+
+        expect(lightDockHover.horizontal.background, 'light splitter hover strengthens the real boundary')
+            .not.toBe(lightDockRest.horizontal.background);
+
+        const lightSplitterBox = await horizontalSplitter.boundingBox();
+
+        await page.mouse.move(
+            lightSplitterBox.x + lightSplitterBox.width / 2,
+            lightSplitterBox.y + lightSplitterBox.height / 2
+        );
+        await page.mouse.down();
+
+        const lightDockActive = await readDockChrome(page);
+
+        expect(lightDockActive.horizontal.active, 'the real light-mode splitter owns the active pointer target')
+            .toBe(true);
+        expect(lightDockActive.horizontal.background, 'light splitter active feedback is distinct from hover')
+            .not.toBe(lightDockHover.horizontal.background);
+        expect(lightDockActive.horizontal.opacity, 'the active handle remains legible during DockSplitter drag')
+            .toBe('1');
+        await page.mouse.up();
 
         await themeToggle.click();
         await expect(root).toHaveClass(/neo-theme-neo-dark/);
@@ -404,6 +546,111 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(feedWidths.Event / feedWidths.State,
             'Event remains the narrative column without consuming nearly the whole feed').toBeLessThanOrEqual(2.1);
         expect(feedWidths.Event / feedWidths.Value).toBeLessThanOrEqual(2.1);
+
+        const
+            {dockModel: dragModelBefore} = await app.getComponent(workspaceId, ['dockModel']),
+            boundaryCount                = Object.values(dragModelBefore.nodes)
+                .filter(node => node.type === 'split')
+                .reduce((count, node) => count + node.children.length - 1, 0),
+            dragGeometryBefore = await readHorizontalSplitGeometry(page),
+            dragIdentityBefore = await readIdentity(app, workspaceId),
+            dragSplitterBox    = await horizontalSplitter.boundingBox();
+
+        expect(boundaryCount, 'each opening-document split contributes one boundary').toBe(2);
+        expect(await page.locator('.neo-dashboard-dock-splitter').count(),
+            'the DOM owns exactly one real splitter per model boundary').toBe(boundaryCount);
+        expect(dragGeometryBefore.boundaryWidth).toBe(6);
+
+        await page.evaluate(() => {
+            const root = document.querySelector('.workstation-workspace');
+
+            globalThis.__workstationPreResizeScalePane = document.querySelector('.workstation-scale-pane');
+            globalThis.__workstationSplitterMotion = {
+                observer: new MutationObserver(() => {
+                    root.classList.contains('neo-dashboard-dock-animating')
+                        && (globalThis.__workstationSplitterMotion.seen = true)
+                }),
+                seen: root.classList.contains('neo-dashboard-dock-animating')
+            };
+            globalThis.__workstationSplitterMotion.observer.observe(root, {
+                attributeFilter: ['class'],
+                attributes     : true
+            })
+        });
+        await page.mouse.move(
+            dragSplitterBox.x + dragSplitterBox.width / 2,
+            dragSplitterBox.y + dragSplitterBox.height / 2
+        );
+        await page.mouse.down();
+
+        const darkDockActive = await readDockChrome(page);
+
+        expect(darkDockActive.horizontal.active, 'the real dark-mode splitter owns the active pointer target')
+            .toBe(true);
+        expect(darkDockActive.horizontal.background, 'dark splitter active feedback is distinct from hover')
+            .not.toBe(darkDockHover.horizontal.background);
+        await page.mouse.move(
+            dragSplitterBox.x + dragSplitterBox.width / 2 + 12,
+            dragSplitterBox.y + dragSplitterBox.height / 2,
+            {steps: 4}
+        );
+        await page.mouse.move(
+            dragSplitterBox.x + dragSplitterBox.width / 2 + 120,
+            dragSplitterBox.y + dragSplitterBox.height / 2,
+            {steps: 15}
+        );
+        await page.waitForTimeout(400);
+        await page.mouse.up();
+
+        await expect.poll(async () => {
+            const {dockModel} = await app.getComponent(workspaceId, ['dockModel']);
+
+            return dockModel.nodes['split-main'].sizes[0] - dragModelBefore.nodes['split-main'].sizes[0]
+        }, {
+            message  : 'the user drag commits a semantic resizeSplit document change',
+            timeout  : 10000,
+            intervals: [50, 100]
+        }).toBeGreaterThan(0.02);
+        await expect.poll(async () => {
+            const geometry = await readHorizontalSplitGeometry(page);
+
+            return geometry.firstWidth - dragGeometryBefore.firstWidth
+        }, {
+            message  : 'the deferred projection applies the committed split to live DOM extents',
+            timeout  : 10000,
+            intervals: [50, 100]
+        }).toBeGreaterThan(80);
+        await expect.poll(() => page.evaluate(() => globalThis.__workstationSplitterMotion.seen), {
+            message  : 'the committed splitter resize enters the shared dock-motion lifecycle',
+            timeout  : 10000,
+            intervals: [25, 50]
+        }).toBe(true);
+        await expect(root, 'splitter re-projection settles its real FLIP motion before geometry evidence')
+            .not.toHaveClass(/neo-dashboard-dock-animating/);
+        await expect(page.locator('.neo-dock-flip-fixed-stage'),
+            'splitter motion leaves no fixed-stage presentation residue').toHaveCount(0);
+        await page.evaluate(() => {
+            globalThis.__workstationSplitterMotion.observer.disconnect();
+            delete globalThis.__workstationSplitterMotion
+        });
+
+        const
+            {dockModel: dragModelAfter} = await app.getComponent(workspaceId, ['dockModel']),
+            dragGeometryAfter           = await readHorizontalSplitGeometry(page),
+            dragIdentityAfter           = await readIdentity(app, workspaceId),
+            scalePanePreserved          = await page.evaluate(() => globalThis.__workstationPreResizeScalePane
+                === document.querySelector('.workstation-scale-pane'));
+
+        expect(dragModelAfter.nodes['split-main'].sizes[0]).toBeGreaterThan(dragModelBefore.nodes['split-main'].sizes[0]);
+        expect(dragModelAfter.nodes['split-main'].sizes[1]).toBeLessThan(dragModelBefore.nodes['split-main'].sizes[1]);
+        expect(dragGeometryAfter.firstWidth - dragGeometryBefore.firstWidth).toBeGreaterThan(80);
+        expect(dragGeometryBefore.secondWidth - dragGeometryAfter.secondWidth).toBeGreaterThan(80);
+        expect(dragIdentityAfter, 'the user resize preserves pane, Provider, and Store<Model> identities')
+            .toEqual(dragIdentityBefore);
+        expect(scalePanePreserved, 'the exact scale pane DOM node survives splitter re-projection').toBe(true);
+        expect(await page.locator('.neo-dashboard-dock-splitter').count()).toBe(boundaryCount);
+        expectDevIndexSparklineFit(await readSparklineGeometry(page, '.workstation-scale-pane'));
+        expectDevIndexSparklineFit(await readSparklineGeometry(page, '.workstation-feed-pane'));
 
         // Two source-owned rails are visible and legible at workstation geometry.
         const railTabs = page.locator('.neo-dashboard-dock-rail-tab');
@@ -829,6 +1076,8 @@ test.describe('Workstation — dense living-data composition', () => {
             'alerts', 'activity', 'topology', 'runtime', 'traces', 'logs',
             'console', 'builds', 'deploys', 'memory', 'files', 'security'
         ]);
+        expect(tourReceipt.document.nodes['split-main'].sizes, 'the visible tour demonstrates resizeSplit')
+            .toEqual([0.52, 0.48]);
 
         expect(monitor.sampledFrames).toBeGreaterThan(10);
         expect(monitor.midpointSeen, 'rAF sampling observes the live midpoint scroll').toBe(true);
@@ -886,6 +1135,8 @@ test.describe('Workstation — dense living-data composition', () => {
         expect(run1.completed, `run 1 errors: ${JSON.stringify(run1.errors)}`).toBe(true);
         expect(run1.errors).toEqual([]);
         expect(run1.log).toHaveLength(workstationTourScript.scenes.flatMap(scene => scene.steps).length);
+        expect(run1.log.filter(entry => entry.type === 'op').map(entry => entry.operation))
+            .toEqual(['resizeSplit', 'splitNode', 'addTab']);
         expect(run2.completed, `run 2 errors: ${JSON.stringify(run2.errors)}`).toBe(true);
         expect(run2.errors).toEqual([]);
         expect(run2.log, 'both timestamp-free document runs are deterministic').toEqual(run1.log);

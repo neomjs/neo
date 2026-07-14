@@ -2,10 +2,10 @@
  * @summary Workstation's data-only `neo.tour.script.v1` screenplay and opening dock document.
  *
  * Twenty live items prove workstation density rather than catalog density. The dominant
- * scale grid and the live feed remain mounted as the screenplay opens the real overflow
- * menu, scrolls the 100k grid, promotes a heavy tab through the shipped `splitNode`
- * descriptor, returns it through `addTab`, and flips both themes. Surface cues are visual
- * actions; the two document operations remain the deterministic runner log.
+ * scale grid and the live feed remain mounted as the screenplay resizes a real split,
+ * opens the real overflow menu, scrolls the 100k grid, promotes a heavy tab through the
+ * shipped `splitNode` descriptor, returns it through `addTab`, and flips both themes.
+ * Surface cues are visual actions; the three document operations remain deterministic.
  */
 
 /**
@@ -77,6 +77,14 @@ export const workstationTourScript = Object.freeze({
                 {path: 'items.inspector.autoHidden', equals: true}
             ]
         }, {
+            type      : 'op',
+            caption   : 'resizeSplit(split-main → 52/48): the real boundary yields and the document keeps the proportion',
+            descriptor: {operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.52, 0.48]},
+            expect    : [
+                {path: 'nodes.split-main.sizes.0', equals: 0.52},
+                {path: 'nodes.split-main.sizes.1', equals: 0.48}
+            ]
+        }, {
             type   : 'pause',
             ms     : 1400,
             cue    : {type: 'overflow', itemId: 'security'},
@@ -126,6 +134,7 @@ export const workstationTourScript = Object.freeze({
             caption: 'finale: every data surface remains live and security returns through the ordinary tab path',
             expect : [
                 {path: 'nodes.split-main.children.0', equals: 'scale-tabs'},
+                {path: 'nodes.split-main.sizes', equals: [0.52, 0.48]},
                 {path: 'nodes.heavy-tabs.activeItemId', equals: 'security'},
                 {path: 'nodes.heavy-tabs.items.11', equals: 'security'}
             ]
