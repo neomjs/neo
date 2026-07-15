@@ -59,11 +59,11 @@ test.describe('Neo.ai.client.InstanceService — remove_component undo capture',
         parent  = Neo.create(Container, {appName, id: parentId, items: []});
         child   = Neo.create(Component, {appName, id: childId, width: 120});
 
-        child.parentId = parentId;
-        child.toJSON   = () => ({ntype: 'component', id: childId, width: 120}); // stub: a small JSON-safe config — a real toJSON can exceed record()'s payload cap / carry non-serializable refs (the documented serializable-config bound)
-        parent.indexOf = () => 2;     // stub: the child's tree position (real indexOf needs it mounted in items)
-        parent.insert  = () => child; // stub: the re-insert (its vdom path is Neo's; we assert the re-dispatch args)
-        child.destroy  = () => {}      // stub: skip the unitTestMode vdom teardown (capture happens before destroy)
+        child.parentId           = parentId;
+        child.toRecreationConfig = () => ({ntype: 'component', id: childId, width: 120}); // stub: the authored-input, JSON-safe recreation contract
+        parent.indexOf           = () => 2;     // stub: the child's tree position (real indexOf needs it mounted in items)
+        parent.insert            = () => child; // stub: the re-insert (its vdom path is Neo's; we assert the re-dispatch args)
+        child.destroy            = () => {}     // stub: skip the unitTestMode vdom teardown (capture happens before destroy)
     });
 
     test.afterEach(() => {
@@ -82,7 +82,7 @@ test.describe('Neo.ai.client.InstanceService — remove_component undo capture',
         expect(op.reverse.args.id).toBe(parentId);
         expect(op.reverse.args.method).toBe('insert');
         expect(op.reverse.args.args[0]).toBe(2);                       // the captured index (position-preserving)
-        expect(op.reverse.args.args[1]).toMatchObject({id: childId});  // the captured config (toJSON snapshot)
+        expect(op.reverse.args.args[1]).toMatchObject({id: childId});  // the captured recreation config
         expect(op.originWriter).toEqual(ID)
     });
 

@@ -1,6 +1,10 @@
 import Base     from '../component/Base.mjs';
 import NeoArray from '../util/Array.mjs';
 
+const classOwners = {
+    state: Symbol('state')
+};
+
 /**
  * @class Neo.component.StatusBadge
  * @extends Neo.component.Base
@@ -290,15 +294,11 @@ class StatusBadge extends Base {
      */
     afterSetState(value, oldValue) {
         let me        = this,
-            {cls}     = me,
             isEmpty   = !value || value === '',
             vdomRoot  = me.getVdomRoot(),
             labelNode = vdomRoot.cn[1];
 
-        NeoArray.remove(cls, 'neo-state-' + oldValue);
-        NeoArray.add(cls, 'neo-state-' + value);
-
-        me.cls = cls;
+        me.setClsContribution(classOwners.state, ['neo-state-' + value]);
 
         labelNode.removeDom = isEmpty;
 

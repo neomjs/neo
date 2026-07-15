@@ -1,5 +1,8 @@
 import Component from './Base.mjs';
-import NeoArray  from '../util/Array.mjs';
+
+const classOwners = {
+    cellIconCls: Symbol('cellIconCls')
+};
 
 /**
  * @class Neo.component.Icon
@@ -38,11 +41,7 @@ class Icon extends Component {
      * @param {String|String[]|null} oldValue
      */
     afterSetCellIconCls(value, oldValue) {
-        let cls = this.cls;
-
-        NeoArray.removeAdd(cls, oldValue, value);
-
-        this.cls = cls
+        this.setClsContribution(classOwners.cellIconCls, value)
     }
 
     /**

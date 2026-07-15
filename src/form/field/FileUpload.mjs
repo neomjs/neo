@@ -1,13 +1,17 @@
-import Field    from './Base.mjs';
-import NeoArray from '../../util/Array.mjs';
+import Field from './Base.mjs';
 
 const
+    classOwners      = {
+        empty  : Symbol('empty'),
+        invalid: Symbol('invalid'),
+        state  : Symbol('state')
+    },
     sizeRE           = /^(\d+)(kb|mb|gb)?$/i,
     sizeMultiplier   = {
-        unit : 1,
-        kb   : 1000,
-        mb   : 1000000,
-        gb   : 1000000000
+        unit: 1,
+        kb  : 1000,
+        mb  : 1000000,
+        gb  : 1000000000
     },
     httpSuccessCodes = {
         2 : 1,
@@ -313,23 +317,23 @@ class FileUpload extends Field {
         error_ : null,
 
         // UI strings which can be overridden for other languages
-        chooseFile           : 'Choose file',
-        documentText         : 'Document',
-        invalidFileFormat    : 'invalid file format',
-        pleaseUseTheseTypes  : 'Please use these file types {allowedFileTypes}',
-        fileSizeMoreThan     : 'File size exceeds {allowedFileSize}',
-        uploadError          : 'Please try again',
-        documentDeleteError  : 'Document delete service error',
-        isNoLongerAvailable  : 'is no longer available',
-        documentStatusError  : 'Document status service error',
-        uploadFailed         : 'Upload failed',
-        scanning             : 'Scanning',
-        uploading            : 'Uploading...',
-        malwareFoundInFile   : 'Malware found in file',
-        pleaseCheck          : 'Please check the file and try again',
-        successfullyUploaded : 'Successfully uploaded',
-        fileWasDeleted       : 'File was deleted',
-        fileIsInAnErrorState : 'File is in an error state'
+        chooseFile          : 'Choose file',
+        documentText        : 'Document',
+        invalidFileFormat   : 'invalid file format',
+        pleaseUseTheseTypes : 'Please use these file types {allowedFileTypes}',
+        fileSizeMoreThan    : 'File size exceeds {allowedFileSize}',
+        uploadError         : 'Please try again',
+        documentDeleteError : 'Document delete service error',
+        isNoLongerAvailable : 'is no longer available',
+        documentStatusError : 'Document status service error',
+        uploadFailed        : 'Upload failed',
+        scanning            : 'Scanning',
+        uploading           : 'Uploading...',
+        malwareFoundInFile  : 'Malware found in file',
+        pleaseCheck         : 'Please check the file and try again',
+        successfullyUploaded: 'Successfully uploaded',
+        fileWasDeleted      : 'File was deleted',
+        fileIsInAnErrorState: 'File is in an error state'
     }
 
     /**
@@ -371,19 +375,16 @@ class FileUpload extends Field {
     }
 
     async clear() {
-        const
-            me      = this,
-            { cls } = me;
+        const me = this;
 
-        NeoArray.add(cls, 'neo-field-empty');
-        me.cls = cls;
+        me.setClsContribution(classOwners.empty, ['neo-field-empty']);
 
         me.vdom.cn[3] = {
-            id    : `${me.id}-input`,
-            cls   : 'neo-file-upload-input',
-            tag   : 'input',
-            type  : 'file',
-            value : ''
+            id   : `${me.id}-input`,
+            cls  : 'neo-file-upload-input',
+            tag  : 'input',
+            type : 'file',
+            value: ''
         };
         me.state = 'ready';
         me.error = '';
@@ -400,13 +401,12 @@ class FileUpload extends Field {
      */
     onInputValueChange({ files }) {
         const
-            me           = this,
-            {cls, types} = me,
-            body         = me.vdom.cn[1];
+            me      = this,
+            {types} = me,
+            body    = me.vdom.cn[1];
 
         if (files.length) {
-            NeoArray.remove(cls, 'neo-field-empty');
-            me.cls = cls;
+            me.setClsContribution(classOwners.empty, []);
 
             const
                 file     = files.item(0),
@@ -692,12 +692,9 @@ class FileUpload extends Field {
 
     afterSetDocument(document) {
         if (document) {
-            const
-                me    = this,
-                {cls} = me;
+            const me = this;
 
-            NeoArray.remove(cls, 'neo-field-empty');
-            me.cls = cls;
+            me.setClsContribution(classOwners.empty, []);
 
             me.documentId = document.id;
             me.fileSize = me.formatSize(document.size);
@@ -770,15 +767,9 @@ class FileUpload extends Field {
             me.fireChangeEvent(me.file)
         }
         me.validate();
-        me.update();
-
-        // Processing above may mutate cls
-        const { cls } = me;
-
-        NeoArray.remove(cls, 'neo-file-upload-state-' + oldValue);
-        NeoArray.add(cls, 'neo-file-upload-state-' + value);
-        NeoArray[me.file || me.document ? 'remove' : 'add', 'neo-field-empty'];
-        me.cls = cls;
+        me.setClsContribution(classOwners.state, ['neo-file-upload-state-' + value], true);
+        me.setClsContribution(classOwners.empty, me.file || me.document ? [] : ['neo-field-empty'], true);
+        me.update()
     }
 
     /**
@@ -860,12 +851,9 @@ class FileUpload extends Field {
      * @returns {Boolean}
      */
     validate() {
-        const
-            { cls } = this,
-            isValid = this.isValid();
+        const isValid = this.isValid();
 
-        NeoArray.toggle(cls, 'neo-invalid', !isValid);
-        this.cls = cls;
+        this.setClsContribution(classOwners.invalid, isValid ? [] : ['neo-invalid']);
 
         return isValid;
     }

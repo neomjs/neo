@@ -1,6 +1,11 @@
 import Component from '../../../component/Base.mjs';
 import NeoArray  from '../../../util/Array.mjs';
 
+const classOwners = {
+    isLastChild    : Symbol('isLastChild'),
+    showHelperLines: Symbol('showHelperLines')
+};
+
 /**
  * @class Neo.grid.column.component.Tree
  * @extends Neo.component.Base
@@ -125,7 +130,7 @@ class Tree extends Component {
      * @protected
      */
     afterSetIsLastChild(value, oldValue) {
-        this.toggleCls('is-last-child', value)
+        this.setClsContribution(classOwners.isLastChild, value ? ['is-last-child'] : [])
     }
 
     /**
@@ -152,7 +157,7 @@ class Tree extends Component {
      * @protected
      */
     afterSetShowHelperLines(value, oldValue) {
-        this.toggleCls('show-helper-lines', value)
+        this.setClsContribution(classOwners.showHelperLines, value ? ['show-helper-lines'] : [])
     }
 
     /**

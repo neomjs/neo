@@ -1,5 +1,9 @@
 import Component from '../../../component/Base.mjs';
-import NeoArray  from '../../../util/Array.mjs';
+
+const classOwners = {
+    align  : Symbol('align'),
+    iconCls: Symbol('iconCls')
+};
 
 /**
  * Base class for form field Triggers
@@ -102,10 +106,7 @@ class Base extends Component {
      * @protected
      */
     afterSetAlign(value, oldValue) {
-        let cls = this.cls;
-
-        NeoArray[value === 'start' ? 'add' : 'remove'](cls, 'neo-align-start');
-        this.cls = cls
+        this.setClsContribution(classOwners.align, value === 'start' ? ['neo-align-start'] : [])
     }
 
     /**
@@ -138,15 +139,7 @@ class Base extends Component {
      * @protected
      */
     afterSetIconCls(value, oldValue) {
-        let {cls} = this;
-
-        NeoArray.remove(cls, oldValue?.split(' '));
-
-        if (value && value !== '') {
-            NeoArray.add(cls, value?.split(' '))
-        }
-
-        this.cls = cls
+        this.setClsContribution(classOwners.iconCls, value?.split(' '))
     }
 
     /**

@@ -98,7 +98,7 @@ class Resizable extends BaseResizable {
         }
 
         if (toolbar) {
-            toolbar.removeCls('neo-is-resizing');
+            toolbar.setClsContribution(me, []);
             me.timeout(10).then(() => {
                 toolbar.dragResortable = true
             })
@@ -112,7 +112,7 @@ class Resizable extends BaseResizable {
         let toolbar = this.owner.parent;
 
         if (toolbar) {
-            toolbar.addCls('neo-is-resizing');
+            toolbar.setClsContribution(this, ['neo-is-resizing']);
             toolbar.dragResortable = false
         }
 

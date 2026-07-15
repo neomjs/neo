@@ -1,6 +1,10 @@
 import Base     from './Base.mjs';
 import NeoArray from '../util/Array.mjs';
 
+const classOwners = {
+    horizontal: Symbol('horizontal')
+};
+
 /**
  * @class Neo.component.Process
  * @extends Neo.component.Base
@@ -128,14 +132,9 @@ class Process extends Base {
      * @protected
      */
     afterSetHorizontal(isHorizontal) {
-        let {cls}       = this,
-            positionCls = isHorizontal ? 'neo-process-horizontal' : 'neo-process-vertical',
-            removeCls   = !isHorizontal ? 'neo-process-horizontal' : 'neo-process-vertical';
-
-        NeoArray.add(cls, positionCls);
-        NeoArray.remove(cls, removeCls);
-
-        this.cls = cls
+        this.setClsContribution(classOwners.horizontal, [
+            isHorizontal ? 'neo-process-horizontal' : 'neo-process-vertical'
+        ])
     }
 
     /**

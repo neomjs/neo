@@ -115,7 +115,7 @@ class PrefixField extends Plugin {
               inputEl = owner.getInputEl(),
               labelEl = owner.getLabelEl();
 
-        owner    .addCls(me.ownerCls);
+        owner.setClsContribution(me, [me.ownerCls]);
         inputEl.cls.push(me.inputCls);
         labelEl.cls.push(me.labelCls)
     }

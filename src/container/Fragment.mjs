@@ -119,6 +119,13 @@ class Fragment extends Container {
     createLayout(value) {
         return null
     }
+
+    /**
+     * Fragments have no physical class-bearing node.
+     * @summary Keeps root and wrapper class projection inert for comment-anchored ranges.
+     * @protected
+     */
+    syncClassNodes() {}
 }
 
 export default Neo.setupClass(Fragment);

@@ -1,6 +1,8 @@
 import Markdown from '../../component/Markdown.mjs';
 import {marked} from '../../../node_modules/marked/lib/marked.esm.js';
 
+const labClsOwner = Symbol('app.content.Component.labCls');
+
 /**
  * @summary Displays interactive content (Markdown) within the Portal application.
  * @class Neo.app.content.Component
@@ -27,7 +29,7 @@ class Component extends Markdown {
         // issuesUrl is intentionally NOT defaulted here: this generic content base must not bake in a
         // portal-app route. It inherits Neo.component.Markdown's neutral default
         // (https://github.com/neomjs/neo/issues/); each consuming portal view sets its own cross-link
-        // target (e.g. '#/news/tickets/') as a per-content-type config (#12209).
+        // target (e.g. '#/news/tickets/') as a per-content-type config.
         /**
          * @member {Object} record_=null
          * @reactive
@@ -132,7 +134,7 @@ class Component extends Markdown {
 
             me.value = content;
 
-            me.toggleCls('lab', record.name?.startsWith('Lab:'));
+            me.toggleCls('lab', record.name?.startsWith('Lab:'), labClsOwner);
 
             Neo.main.addon.IntersectionObserver.observe({
                 disconnect: true,

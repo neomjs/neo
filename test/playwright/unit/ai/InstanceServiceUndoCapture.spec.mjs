@@ -16,7 +16,7 @@ setup({
 import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
-import Component          from '../../../../src/component/Base.mjs';
+import Button             from '../../../../src/button/Base.mjs';
 import ComponentManager   from '../../../../src/manager/Component.mjs'; // binds Neo.getComponent + registers components
 import InstanceManager    from '../../../../src/manager/Instance.mjs';  // binds Neo.get + registers instances
 import InstanceService    from '../../../../src/ai/client/InstanceService.mjs';
@@ -39,7 +39,13 @@ test.describe('Neo.ai.client.InstanceService — set_instance_properties undo ca
         service            = Neo.create(InstanceService, {
             client: {transactionService, writeGuard: Neo.create(WriteGuard)}
         });
-        component = Neo.create(Component, {appName, id: 'undo-capture-cmp', width: 100})
+        component = Neo.create(Button, {
+            appName,
+            id   : 'undo-capture-cmp',
+            cls  : ['authored-action'],
+            ui   : 'ghost',
+            width: 100
+        })
     });
 
     test.afterEach(() => {
@@ -75,6 +81,19 @@ test.describe('Neo.ai.client.InstanceService — set_instance_properties undo ca
         // the most-recent write's reverse restores the prior value (200), the older restores the original (100)
         expect(stack.committed[1].ops[0].reverse.args.properties).toEqual({width: 200});
         expect(stack.committed[0].ops[0].reverse.args.properties).toEqual({width: 100})
+    });
+
+    test('captures caller-authored cls without promoting rendered owner contributions', () => {
+        service.setInstanceProperties({
+            id        : 'undo-capture-cmp',
+            properties: {cls: ['next-action']}
+        }, ID);
+
+        const op = transactionService.stackOf({id: ID}).committed[0].ops[0];
+
+        expect(op.reverse.args.properties.cls).toEqual(['authored-action']);
+        expect(op.reverse.args.properties.cls).not.toContain('neo-button-ghost');
+        expect(op.reverse.args.properties.cls).not.toContain('icon-left')
     });
 
     test('a legacy write (no context) applies but is NOT captured — no writer identity, no per-writer stack', () => {

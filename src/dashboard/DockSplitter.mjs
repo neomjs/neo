@@ -1,7 +1,8 @@
 import Component     from '../component/Base.mjs';
 import DragZone      from '../draggable/DragZone.mjs';
 import DockZoneModel from './DockZoneModel.mjs';
-import NeoArray      from '../util/Array.mjs';
+
+const orientationClsOwner = Symbol('dashboard.DockSplitter.orientation');
 
 /**
  * @summary Runtime splitter affordance that converts drag completion into a `resizeSplit` operation.
@@ -123,18 +124,12 @@ class DockSplitter extends Component {
     afterSetOrientation(value, oldValue) {
         let me          = this,
             orientation = me.getValidatedOrientation(value),
-            cls         = me.cls || [],
             height      = orientation === 'vertical' ? me.size : null,
             width       = orientation === 'vertical' ? null    : me.size;
 
-        if (oldValue) {
-            NeoArray.remove(cls, `neo-dashboard-dock-splitter-${oldValue}`)
-        }
-
-        NeoArray.add(cls, `neo-dashboard-dock-splitter-${orientation}`);
+        me.setClsContribution(orientationClsOwner, [`neo-dashboard-dock-splitter-${orientation}`]);
 
         me.set({
-            cls,
             height,
             minHeight: height,
             minWidth : width,

@@ -2,6 +2,10 @@ import BaseDragZone from '../../draggable/DragZone.mjs';
 import NeoArray     from '../../util/Array.mjs';
 import VDomUtil     from '../../util/VDom.mjs';
 
+const
+    fallbackDraggableStates = new WeakMap(),
+    normalizeClassNames     = value => [...new Set((Array.isArray(value) ? value : value ? [value] : []).filter(Boolean))];
+
 /**
  * @class Neo.draggable.container.DragZone
  * @extends Neo.draggable.DragZone
@@ -51,8 +55,7 @@ class DragZone extends BaseDragZone {
      */
     adjustItemCls(draggable) {
         let me      = this,
-            {owner} = me,
-            wrapperCls;
+            {owner} = me;
 
         owner.items.forEach(item => {
             // spacers
@@ -60,10 +63,7 @@ class DragZone extends BaseDragZone {
                 return;
             }
 
-            wrapperCls = item.wrapperCls || [];
-
-            NeoArray.toggle(wrapperCls, 'neo-draggable', draggable);
-            item.wrapperCls = wrapperCls;
+            me.setItemDraggableCls(item, draggable)
         });
     }
 
@@ -113,11 +113,46 @@ class DragZone extends BaseDragZone {
      * @param {Neo.component.Base} data.item
      */
     onItemInsert(data) {
-        let {item}     = data,
-            wrapperCls = item.wrapperCls || [];
+        this.setItemDraggableCls(data.item, true)
+    }
 
-        NeoArray.add(wrapperCls, 'neo-draggable');
-        item.wrapperCls = wrapperCls;
+    /**
+     * @summary Applies the drag marker without requiring every draggable item to implement the component contribution API.
+     *
+     * Full components keep the marker as an owner-keyed wrapper class contribution. Lightweight item implementations retain
+     * the legacy wrapperCls mutation contract, which keeps drag zones compatible with functional components and test doubles.
+     * @param {Neo.component.Base|Object} item
+     * @param {Boolean}                   draggable
+     * @protected
+     */
+    setItemDraggableCls(item, draggable) {
+        if (typeof item.setWrapperClsContribution === 'function') {
+            item.setWrapperClsContribution(this, draggable ? ['neo-draggable'] : [])
+        } else {
+            let current = normalizeClassNames(item.wrapperCls),
+                state   = fallbackDraggableStates.get(item),
+                wrapperCls;
+
+            if (!state) {
+                state = {aggregate: current, authored: current};
+                fallbackDraggableStates.set(item, state)
+            } else if (!Neo.isEqual(current, state.aggregate)) {
+                state.authored = normalizeClassNames([
+                    ...state.authored.filter(cls => current.includes(cls)),
+                    ...current.filter(cls => cls !== 'neo-draggable')
+                ])
+            }
+
+            wrapperCls = [...state.authored];
+            draggable && NeoArray.add(wrapperCls, 'neo-draggable');
+
+            state.aggregate = wrapperCls;
+            item.wrapperCls = wrapperCls;
+
+            if (!draggable) {
+                fallbackDraggableStates.delete(item)
+            }
+        }
     }
 
     /**

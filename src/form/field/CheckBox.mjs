@@ -2,6 +2,12 @@ import ComponentManager from '../../manager/Component.mjs';
 import Field            from './Base.mjs';
 import NeoArray         from '../../util/Array.mjs';
 
+const classOwners = {
+    invalid      : Symbol('invalid'),
+    labelPosition: Symbol('labelPosition'),
+    useAlertState: Symbol('useAlertState')
+};
+
 /**
  * @class Neo.form.field.CheckBox
  * @extends Neo.form.field.Base
@@ -327,12 +333,7 @@ class CheckBox extends Field {
      * @protected
      */
     afterSetLabelPosition(value, oldValue) {
-        let me    = this,
-            {cls} = me;
-
-        NeoArray.remove(cls, 'neo-label-' + oldValue);
-        NeoArray.add(   cls, 'neo-label-' + value);
-        me.cls = cls
+        this.setClsContribution(classOwners.labelPosition, ['neo-label-' + value])
     }
 
     /**
@@ -412,9 +413,7 @@ class CheckBox extends Field {
      * @protected
      */
     afterSetUseAlertState(value, oldValue) {
-        let {cls} = this;
-        NeoArray.toggle(cls, 'neo-use-alert-state', value);
-        this.cls = cls
+        this.setClsContribution(classOwners.useAlertState, value ? ['neo-use-alert-state'] : [])
     }
 
     /**
@@ -630,15 +629,13 @@ class CheckBox extends Field {
      */
     updateError(value, silent=false) {
         let me        = this,
-            {cls}     = me,
             showError = value && me.showErrorTexts,
             errorNode, errorWrapper;
 
         if (!(me.clean && !me.mounted)) {
             me._error = value; // silent update
 
-            NeoArray.toggle(cls, 'neo-invalid', value);
-            me.cls = cls;
+            me.setClsContribution(classOwners.invalid, value ? ['neo-invalid'] : [], silent);
 
             errorWrapper = me.vdom.cn[1];
             errorNode    = errorWrapper.cn[0];

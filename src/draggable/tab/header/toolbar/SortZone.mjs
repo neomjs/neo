@@ -1,5 +1,6 @@
 import BaseSortZone from '../../../container/SortZone.mjs';
-import NeoArray     from '../../../../util/Array.mjs';
+
+const animationClsOwner = Symbol('draggable.tab.header.toolbar.SortZone.animationCls');
 
 /**
  * @class Neo.draggable.tab.header.toolbar.SortZone
@@ -43,12 +44,7 @@ class SortZone extends BaseSortZone {
         const promise = super.processDragEnd(data);
 
         this.timeout(300).then(() => {
-            let me      = this,
-                {owner} = me,
-                cls     = owner.cls || [];
-
-            NeoArray.remove(cls, 'neo-no-animation');
-            owner.cls = cls
+            this.setOwnerClsContribution(animationClsOwner, [])
         });
 
         await promise
@@ -58,12 +54,7 @@ class SortZone extends BaseSortZone {
      * @param {Object} data
      */
     async onDragStart(data) {
-        let me      = this,
-            {owner} = me,
-            cls     = owner.cls || [];
-
-        NeoArray.add(cls, 'neo-no-animation');
-        owner.cls = cls;
+        this.setOwnerClsContribution(animationClsOwner, ['neo-no-animation']);
 
         await super.onDragStart(data)
     }

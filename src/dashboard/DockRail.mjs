@@ -3,7 +3,8 @@ import Container              from '../container/Base.mjs';
 import DockRevealOverlay      from './DockRevealOverlay.mjs';
 import DockRevealStateMachine from './DockRevealStateMachine.mjs';
 import DockZoneModel          from './DockZoneModel.mjs';
-import NeoArray               from '../util/Array.mjs';
+
+const edgeClsOwner = Symbol('dashboard.DockRail.edge');
 
 /**
  * @summary Runtime edge-rail affordance rendering committed auto-hidden items as real button
@@ -203,17 +204,11 @@ class DockRail extends Container {
     afterSetEdge(value, oldValue) {
         let me         = this,
             edge       = me.getValidatedEdge(value),
-            isVertical = edge === 'left' || edge === 'right',
-            cls        = me.cls || [];
+            isVertical = edge === 'left' || edge === 'right';
 
-        if (oldValue) {
-            NeoArray.remove(cls, `neo-dashboard-dock-edge-rail-${me.getValidatedEdge(oldValue)}`)
-        }
-
-        NeoArray.add(cls, `neo-dashboard-dock-edge-rail-${edge}`);
+        me.setClsContribution(edgeClsOwner, [`neo-dashboard-dock-edge-rail-${edge}`]);
 
         me.set({
-            cls,
             layout: {ntype: isVertical ? 'vbox' : 'hbox', align: 'stretch'}
         })
     }

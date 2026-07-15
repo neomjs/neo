@@ -4,6 +4,11 @@ import TreeList           from '../tree/List.mjs';
 import TreeAccordionModel from '../selection/TreeAccordionModel.mjs';
 import VDomUtil           from '../util/VDom.mjs';
 
+const classOwners = {
+    firstParentIsVisible     : Symbol('firstParentIsVisible'),
+    rootParentsAreCollapsible: Symbol('rootParentsAreCollapsible')
+};
+
 /**
  * @class Neo.tree.Accordion
  * @extends Neo.tree.List
@@ -111,7 +116,10 @@ class AccordionTree extends TreeList {
     afterSetFirstParentIsVisible(value, oldValue) {
         let firstRecord = this.store.first();
 
-        this.toggleCls('first-parent-not-visible', !value);
+        this.setClsContribution(
+            classOwners.firstParentIsVisible,
+            value ? [] : ['first-parent-not-visible']
+        );
 
         if (firstRecord) {
             firstRecord.visible = value
@@ -128,7 +136,10 @@ class AccordionTree extends TreeList {
     afterSetRootParentsAreCollapsible(value, oldValue) {
         let me = this;
 
-        me[!value ? 'addCls' : 'removeCls']('root-not-collapsible');
+        me.setClsContribution(
+            classOwners.rootParentsAreCollapsible,
+            value ? [] : ['root-not-collapsible']
+        );
 
         if (me.vnodeInitialized && value === false) {
             let {store} = me;
@@ -272,7 +283,7 @@ class AccordionTree extends TreeList {
                         cls  : [itemCls + '-content'],
                         id   : id + '__item-content',
                         style: {pointerEvents: 'none'},
-                        cn: [{
+                        cn   : [{
                             flag: 'name',
                             tag : 'span',
                             cls : [itemCls + '-content-header'],

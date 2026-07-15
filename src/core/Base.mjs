@@ -562,6 +562,16 @@ class Base {
     }
 
     /**
+     * Returns the replay-safe source value for a mutable property.
+     * @summary Provides a narrow override point while preserving public getter semantics by default.
+     * @param {String} key Property or namespace path.
+     * @returns {*}
+     */
+    getMutationSnapshotValue(key) {
+        return Neo.ns(key, false, this)
+    }
+
+    /**
      * Used inside createId() as the default value passed to the IdGenerator.
      * Override this method as needed.
      * @returns {String}

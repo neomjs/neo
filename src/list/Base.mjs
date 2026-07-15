@@ -4,6 +4,11 @@ import ListModel       from '../selection/ListModel.mjs';
 import NeoArray        from '../util/Array.mjs';
 import Store           from '../data/Store.mjs';
 
+const classOwners = {
+    useCheckBoxes : Symbol('useCheckBoxes'),
+    useWrapperNode: Symbol('useWrapperNode')
+};
+
 /**
  * @class Neo.list.Base
  * @extends Neo.component.Base
@@ -384,11 +389,7 @@ class List extends Component {
      * @protected
      */
     afterSetUseCheckBoxes(value, oldValue) {
-        let me    = this,
-            {cls} = me;
-
-        NeoArray.toggle(cls, 'neo-use-checkicons', !!value);
-        me.cls = cls
+        this.setClsContribution(classOwners.useCheckBoxes, value ? ['neo-use-checkicons'] : [])
     }
 
     /**
@@ -413,14 +414,10 @@ class List extends Component {
      * @protected
      */
     afterSetUseWrapperNode(value, oldValue) {
-        let me                = this,
-            {cls, wrapperCls} = me;
+        let me = this;
 
-        NeoArray[value ? 'add' : 'remove'](cls, 'neo-use-wrapper-node');
-        NeoArray[value ? 'add' : 'remove'](wrapperCls, 'neo-list-wrapper');
-
-        me.wrapperCls = wrapperCls;
-        me.cls        = cls
+        me.setWrapperClsContribution(classOwners.useWrapperNode, value ? ['neo-list-wrapper'] : []);
+        me.setClsContribution(classOwners.useWrapperNode, value ? ['neo-use-wrapper-node'] : [])
     }
 
     /**

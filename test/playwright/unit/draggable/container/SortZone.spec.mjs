@@ -93,6 +93,49 @@ test.describe.serial('Neo.draggable.container.SortZone', () => {
         expect(sortZone.sortableItems[2].id).toBe('btnD');
     });
 
+    test('keeps subclass and base owner class contributions independent', async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+
+        const
+            animationOwner = Symbol('animation'),
+            draggingOwner  = Symbol('dragging');
+
+        sortZone.setOwnerClsContribution(animationOwner, ['neo-no-animation']);
+        sortZone.setOwnerClsContribution(draggingOwner,  ['neo-is-dragging']);
+
+        expect(container.cls).toEqual(expect.arrayContaining(['neo-no-animation', 'neo-is-dragging']));
+
+        sortZone.setOwnerClsContribution(draggingOwner, []);
+
+        expect(container.cls).toContain('neo-no-animation');
+        expect(container.cls).not.toContain('neo-is-dragging')
+    });
+
+    test('lightweight drag fallback preserves an authored draggable marker', async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+
+        const item = {wrapperCls: ['neo-draggable']};
+
+        sortZone.setItemDraggableCls(item, true);
+        sortZone.setItemDraggableCls(item, false);
+
+        expect(item.wrapperCls).toEqual(['neo-draggable'])
+    });
+
+    test('lightweight owner fallback preserves an overlapping authored root class', () => {
+        const
+            contributionOwner = Symbol('dragging'),
+            owner             = {cls: ['neo-is-dragging']},
+            zone              = {owner};
+
+        SortZone.prototype.setOwnerClsContribution.call(zone, contributionOwner, ['neo-is-dragging']);
+        SortZone.prototype.setOwnerClsContribution.call(zone, contributionOwner, []);
+
+        expect(owner.cls).toEqual(['neo-is-dragging'])
+    });
+
     test('Correctly moves item from end to start (skipping non-sortables)', async () => {
         await new Promise(resolve => setTimeout(resolve, 10));
         sortZone = container.sortZone;

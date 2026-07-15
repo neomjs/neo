@@ -1,10 +1,11 @@
 import BaseContainer   from '../container/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
 import CssUtil         from '../util/Css.mjs';
-import NeoArray        from '../util/Array.mjs';
 import Store           from '../data/Store.mjs';
 import TableBody       from './Body.mjs';
 import * as header     from './header/_export.mjs';
+
+const wrapperClsOwner = Symbol('table.Container.customScrollbars');
 
 /**
  * @class Neo.table.Container
@@ -270,9 +271,10 @@ class Container extends BaseContainer {
      * @protected
      */
     afterSetUseCustomScrollbars(value, oldValue) {
-        if (value === true) {
-            this.vdom.cls = NeoArray.union(this.vdom.cls, ['neo-use-custom-scrollbar'])
-        }
+        this.setWrapperClsContribution(
+            wrapperClsOwner,
+            value ? ['neo-use-custom-scrollbar'] : []
+        )
     }
 
     /**

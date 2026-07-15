@@ -12,6 +12,7 @@ setup({
 import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../../src/Neo.mjs';
 import * as core       from '../../../../../src/core/_export.mjs';
+import Button          from '../../../../../src/button/Base.mjs';
 import InstanceManager from '../../../../../src/manager/Instance.mjs';
 import Component       from '../../../../../src/component/Base.mjs';
 import ComponentColumn from '../../../../../src/grid/column/Component.mjs';
@@ -59,7 +60,7 @@ test.describe.serial('Neo.grid.column.Component', () => {
         });
 
         record = RecordFactory.createRecord(model, {
-            id: '1',
+            id  : '1',
             name: 'John'
         });
     });
@@ -68,7 +69,7 @@ test.describe.serial('Neo.grid.column.Component', () => {
         const gridContainer = {
             appName,
             windowId: 'win-1',
-            body: {
+            body    : {
                 getStateProvider: () => null
             }
         };
@@ -118,14 +119,14 @@ test.describe.serial('Neo.grid.column.Component', () => {
 
         // 4. Different record
         const record2 = RecordFactory.createRecord(model, {
-            id: '2',
+            id  : '2',
             name: 'Bob'
         });
 
         const cmp4 = column.cellRenderer({
             component: cmp1,
             gridContainer,
-            record: record2,
+            record   : record2,
             row
         });
 
@@ -133,5 +134,55 @@ test.describe.serial('Neo.grid.column.Component', () => {
         // set() SHOULD be called because record reference changed
         expect(cmp1.setCallCount).toBe(2);
         expect(cmp1.lastRecordVersion).toBe(1); // record2 starts at version 1
+    });
+
+    test('pooled Button reuse preserves unchanged semantic classes', async () => {
+        const buttonColumn = Neo.create(ComponentColumn, {
+            component: ({record}) => ({
+                module: Button,
+                cls   : ['pooled-action'],
+                text  : record.name,
+                ui    : 'ghost'
+            })
+        });
+        const gridContainer = {
+            appName,
+            windowId: 'win-1',
+            body    : {
+                getStateProvider: () => null
+            }
+        };
+        const row       = {id: 'row-1'};
+        const component = buttonColumn.cellRenderer({
+            gridContainer,
+            record,
+            row
+        });
+        const expectedClasses = [...component.cls];
+        const record2         = RecordFactory.createRecord(model, {
+            id  : '2',
+            name: 'Jane'
+        });
+
+        for (const silent of [false, true]) {
+            const reused = buttonColumn.cellRenderer({
+                component,
+                gridContainer,
+                record: silent ? record : record2,
+                row,
+                silent
+            });
+
+            await Promise.resolve();
+
+            expect(reused).toBe(component);
+            expect(reused.cls).toEqual(expectedClasses);
+            expect(reused.cls).toContain('neo-button-ghost');
+            expect(reused.cls).toContain('icon-left');
+            expect(new Set(reused.cls).size).toBe(reused.cls.length)
+        }
+
+        component.destroy();
+        buttonColumn.destroy()
     });
 });

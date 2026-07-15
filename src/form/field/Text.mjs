@@ -6,6 +6,18 @@ import StringUtil   from '../../util/String.mjs';
 import VDomUtil     from '../../util/VDom.mjs';
 import VNodeUtil    from '../../util/VNode.mjs';
 
+const classOwners = {
+    dirty             : Symbol('dirty'),
+    editable          : Symbol('editable'),
+    focus             : Symbol('focus'),
+    hover             : Symbol('hover'),
+    inputValue        : Symbol('inputValue'),
+    invalid           : Symbol('invalid'),
+    labelPosition     : Symbol('labelPosition'),
+    placeholderContent: Symbol('placeholderContent'),
+    readOnly          : Symbol('readOnly')
+};
+
 /**
  * @class Neo.form.field.Text
  * @extends Neo.form.field.Base
@@ -420,11 +432,9 @@ class Text extends Field {
      * @protected
      */
     afterSetEditable(value, oldValue) {
-        let me      = this,
-            {cls} = me;
+        let me = this;
 
-        NeoArray.toggle(cls, 'neo-not-editable', !value);
-        me.cls = cls;
+        me.setClsContribution(classOwners.editable, value ? [] : ['neo-not-editable']);
 
         me.updateReadOnlyState()
     }
@@ -518,15 +528,15 @@ class Text extends Field {
      * @protected
      */
     afterSetInputValue(value, oldValue) {
-        let me    = this,
-            {cls} = me;
+        let me  = this,
+            cls = [];
 
         me.getInputEl().value = me.containsFocus ? value : me.inputValueRenderer(value);
 
-        me.useAlertState && NeoArray.toggle(cls, 'neo-empty-required', me.isEmpty() && me.required);
+        me.useAlertState && me.isEmpty() && me.required && cls.push('neo-empty-required');
+        value !== null && value !== undefined && value.toString().length > 0 && cls.push('neo-has-content');
 
-        NeoArray.toggle(cls, 'neo-has-content', me.hasContent());
-        me.cls = cls;
+        me.setClsContribution(classOwners.inputValue, cls);
 
         me.updateValueFromInputValue(value)
     }
@@ -564,15 +574,13 @@ class Text extends Field {
      * @protected
      */
     afterSetLabelPosition(value, oldValue) {
-        let me          = this,
-            {cls, vdom} = me,
+        let me     = this,
+            {vdom} = me,
             centerBorderElCls, isEmpty;
 
         vdom.cn[1].removeDom = value !== 'top' ? true : !Boolean(me.subLabelText);
 
-        NeoArray.remove(cls, 'label-' + oldValue);
-        NeoArray.add(cls, 'label-' + value);
-        me.cls = cls; // todo: silent update if needed
+        me.setClsContribution(classOwners.labelPosition, ['label-' + value]);
 
         if (oldValue === 'inline') {
             vdom.cn[0] = me.getLabelEl(); // remove the wrapper
@@ -738,17 +746,16 @@ class Text extends Field {
      * @protected
      */
     afterSetPlaceholderText(value, oldValue) {
-        let me    = this,
-            {cls} = me;
+        let me = this;
 
         me.changeInputElKey('placeholder', value === '' ? null : value);
 
         // a non-empty placeholder needs to keep the 'neo-has-content' rule
         // => labelPosition: 'inline' should keep the label at the top
-        if (Neo.isEmpty(value) !== Neo.isEmpty(oldValue)) {
-            NeoArray[value !== null && value.toString().length > 0 ? 'add' : 'remove'](cls, 'neo-has-content');
-            me.cls = cls
-        }
+        me.setClsContribution(
+            classOwners.placeholderContent,
+            value !== null && value !== undefined && value.toString().length > 0 ? ['neo-has-content'] : []
+        )
     }
 
     /**
@@ -758,11 +765,9 @@ class Text extends Field {
      * @protected
      */
     afterSetReadOnly(value, oldValue) {
-        let me    = this,
-            {cls} = me;
+        let me = this;
 
-        NeoArray[value ? 'add' : 'remove'](cls, 'neo-readonly');
-        me.cls = cls;
+        me.setClsContribution(classOwners.readOnly, value ? ['neo-readonly'] : []);
 
         me.updateReadOnlyState();
 
@@ -913,8 +918,7 @@ class Text extends Field {
      * @protected
      */
     afterSetValue(value, oldValue) {
-        let me = this,
-            cls;
+        let me = this;
 
         me.silentVdomUpdate = true;
 
@@ -922,9 +926,7 @@ class Text extends Field {
 
         me.validate(); // silent
 
-        cls = me.cls;
-        NeoArray.toggle(cls, 'neo-is-dirty', me.isDirty);
-        me.cls = cls;
+        me.setClsContribution(classOwners.dirty, me.isDirty ? ['neo-is-dirty'] : [], true);
 
         me.silentVdomUpdate = false;
 
@@ -1351,12 +1353,10 @@ class Text extends Field {
     onFocusEnter(data) {
         super.onFocusEnter(data);
 
-        let me    = this,
-            {cls} = me;
+        let me = this;
 
         if (!me.readOnly) {
-            NeoArray.add(cls, 'neo-focus');
-            me.cls = cls;
+            me.setClsContribution(classOwners.focus, ['neo-focus']);
 
             if (me.labelPosition === 'inline') {
                 if (me.centerBorderElWidth) {
@@ -1376,16 +1376,11 @@ class Text extends Field {
      */
     onFocusLeave(data) {
         let me             = this,
-            centerBorderEl = me.getCenterBorderEl(), // labelPosition: 'inline'
-            cls;
+            centerBorderEl = me.getCenterBorderEl(); // labelPosition: 'inline'
 
         if (!me.readOnly) {
             me.validate(false);
-
-            cls = me.cls; // has to get set after validate()
-
-            NeoArray.remove(cls, 'neo-focus');
-            me.cls = cls;
+            me.setClsContribution(classOwners.focus, []);
 
             if (centerBorderEl && me.isEmpty()) {
                 delete centerBorderEl.width
@@ -1438,12 +1433,10 @@ class Text extends Field {
      * @param {Object} data
      */
     onMouseEnter(data) {
-        let me    = this,
-            {cls} = me;
+        let me = this;
 
         if (!me.readOnly) {
-            NeoArray.add(cls, 'neo-hovered');
-            me.cls = cls
+            me.setClsContribution(classOwners.hover, ['neo-hovered'])
         }
     }
 
@@ -1451,12 +1444,10 @@ class Text extends Field {
      * @param {Object} data
      */
     onMouseLeave(data) {
-        let me    = this,
-            {cls} = me;
+        let me = this;
 
         if (!me.readOnly) {
-            NeoArray.remove(cls, 'neo-hovered');
-            me.cls = cls
+            me.setClsContribution(classOwners.hover, [])
         }
     }
 
@@ -1538,13 +1529,11 @@ class Text extends Field {
      @param {Boolean} silent=false
      */
     updateError(value, silent = false) {
-        let me    = this,
-            {cls} = me,
+        let me = this,
             errorNode, errorWrapper;
 
         if (!(me.clean && !me.mounted)) {
-            NeoArray[value ? 'add' : 'remove'](cls, 'neo-invalid');
-            me.cls = cls;
+            me.setClsContribution(classOwners.invalid, value ? ['neo-invalid'] : [], silent);
 
             errorWrapper = VDomUtil.find(me.vdom, {cls: 'neo-textfield-error-wrapper'}).vdom;
             errorNode    = errorWrapper.cn[0];
@@ -1632,12 +1621,12 @@ class Text extends Field {
      * @returns {Boolean} Returns true in case there are no client-side errors
      */
     validate(silent=true) {
-        let me          = this,
+        let me                                                    = this,
             {inputPattern, maxLength, minLength, required, value} = me,
-            returnValue = true,
-            valueLength = value?.toString().length,
-            isEmpty     = value !== 0 && (!value || valueLength < 1),
-            errorParam  = {inputPattern, maxLength, minLength, valueLength},
+            returnValue                                           = true,
+            valueLength                                           = value?.toString().length,
+            isEmpty                                               = value !== 0 && (!value || valueLength < 1),
+            errorParam                                            = {inputPattern, maxLength, minLength, valueLength},
             errorText;
 
         if (!silent) {

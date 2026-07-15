@@ -42,7 +42,7 @@ class Responsive extends Plugin {
         let me      = this,
             {owner} = me;
 
-        owner.addCls('neo-responsive');
+        owner.setClsContribution(me, ['neo-responsive']);
 
         Neo.first('viewport').addDomListeners([
             {resize: me.onResize, scope: me}

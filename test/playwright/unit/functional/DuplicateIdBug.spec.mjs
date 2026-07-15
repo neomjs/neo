@@ -50,12 +50,12 @@ test.describe('Functional Component Duplicate ID Bug', () => {
             if (ns) {
                 delete ns['MainView'];
             }
-            
+
             return defineComponent({
                 config: {
                     className: 'GS.describing.functional.MainView'
                 },
-            
+
                 createVdom(config) {
                     return {
                         cn: [{
@@ -74,11 +74,11 @@ test.describe('Functional Component Duplicate ID Bug', () => {
 
         // First execution of live preview code
         let MainView1 = createModule('Home');
-        
+
         let fnCmp1 = Neo.create(MainView1, {
             appName
         });
-        
+
         container.add(fnCmp1);
         await container.timeout(50);
 
@@ -104,5 +104,17 @@ test.describe('Functional Component Duplicate ID Bug', () => {
         // Ensure it rendered correctly the second time
         expect(container.items[0]).toBeDefined();
         expect(container.items[0].id).toBe(fnCmp2.id);
+    });
+
+    test('layout fallback preserves an overlapping authored wrapper class', () => {
+        const item = {
+            ignoreLayout: false,
+            wrapperCls  : ['neo-layout-fit-item']
+        };
+
+        container.layout.applyChildAttributes(item, 0);
+        container.layout.removeChildAttributes(item, 0);
+
+        expect(item.wrapperCls).toEqual(['neo-layout-fit-item'])
     });
 });

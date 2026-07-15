@@ -6,12 +6,13 @@ import ScrollManager       from './ScrollManager.mjs';
 import Store               from '../data/Store.mjs';
 import FooterToolbar       from './footer/Toolbar.mjs';
 import HorizontalScrollbar from './HorizontalScrollbar.mjs';
-import NeoArray            from '../util/Array.mjs';
 import VerticalScrollbar   from './VerticalScrollbar.mjs';
 import View                from './View.mjs';
 import * as column         from './column/_export.mjs';
 import * as header         from './header/_export.mjs';
 import {isDescriptor}      from '../core/ConfigSymbols.mjs';
+
+const hideScrollbarOwner = Symbol('grid.Container.hideScrollbar');
 
 /**
  * @summary The main entry point for creating Data Grids in Neo.mjs.
@@ -1413,27 +1414,15 @@ class GridContainer extends BaseContainer {
 
         me.getVdomRoot()['aria-colcount'] = me.columns.count;
 
-        let cls = 'neo-hide-scrollbar';
-
         if (me.bodyStart) {
-            let startCls = [...me.bodyStart.wrapperCls];
-            if (!startCls.includes(cls)) {
-                startCls.push(cls);
-                me.bodyStart.wrapperCls = startCls;
-            }
+            me.bodyStart.setWrapperClsContribution(hideScrollbarOwner, ['neo-hide-scrollbar'])
         }
 
         if (me.body) {
-            let bodyCls = [...me.body.wrapperCls];
-            let hasCls  = bodyCls.includes(cls);
-
-            if (me.bodyEnd && !hasCls) {
-                bodyCls.push(cls);
-                me.body.wrapperCls = bodyCls;
-            } else if (!me.bodyEnd && hasCls) {
-                NeoArray.remove(bodyCls, cls);
-                me.body.wrapperCls = bodyCls;
-            }
+            me.body.setWrapperClsContribution(
+                hideScrollbarOwner,
+                me.bodyEnd ? ['neo-hide-scrollbar'] : []
+            )
         }
 
         if (me.scrollManager) {

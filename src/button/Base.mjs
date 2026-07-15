@@ -2,6 +2,12 @@ import Component      from '../component/Base.mjs';
 import NeoArray       from '../util/Array.mjs';
 import {isDescriptor} from '../core/ConfigSymbols.mjs';
 
+const classOwners = {
+    iconPosition: Symbol('iconPosition'),
+    pressed     : Symbol('pressed'),
+    text        : Symbol('text')
+};
+
 /**
  * @summary The default button component for the Neo.mjs framework.
  *
@@ -306,12 +312,7 @@ class Button extends Component {
      * @protected
      */
     afterSetIconPosition(value, oldValue) {
-        let cls = this.cls;
-
-        NeoArray.remove(cls, 'icon-' + oldValue);
-        NeoArray.add(cls, 'icon-' + value);
-
-        this.cls = cls
+        this.setClsContribution(classOwners.iconPosition, value ? [`icon-${value}`] : [])
     }
 
     /**
@@ -362,10 +363,7 @@ class Button extends Component {
      * @protected
      */
     afterSetPressed(value, oldValue) {
-        let cls = this.cls;
-
-        NeoArray.toggle(cls, 'pressed', value === true);
-        this.cls = cls
+        this.setClsContribution(classOwners.pressed, value ? ['pressed'] : [])
     }
 
     /**
@@ -403,11 +401,8 @@ class Button extends Component {
     afterSetText(value, oldValue) {
         let me         = this,
             isEmpty    = !value || value === '',
-            vdomRoot   = me.getVdomRoot(),
             {textNode} = me;
 
-        NeoArray.toggle(me._cls,      'no-text', isEmpty);
-        NeoArray.toggle(vdomRoot.cls, 'no-text', isEmpty);
         textNode.removeDom = isEmpty;
 
         if (!isEmpty) {
@@ -420,6 +415,7 @@ class Button extends Component {
             }
         }
 
+        me.setClsContribution(classOwners.text, isEmpty ? ['no-text'] : []);
         me.update()
     }
 

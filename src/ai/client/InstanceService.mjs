@@ -458,7 +458,11 @@ class InstanceService extends Service {
         const oldValues = {};
 
         Object.keys(properties).forEach(key => {
-            oldValues[key] = this.safeSerialize(Neo.ns(key, false, instance))
+            oldValues[key] = this.safeSerialize(
+                typeof instance.getMutationSnapshotValue === 'function'
+                    ? instance.getMutationSnapshotValue(key)
+                    : Neo.ns(key, false, instance)
+            )
         });
 
         return {
@@ -530,8 +534,9 @@ class InstanceService extends Service {
      * **Server-stamped only** (`undoKind === 'remove_component'`), canonical `destroy(true)` shape, writer identity
      * present, not an undo replay — else `null`, so {@link #recordUndo} no-ops (a generic `call_method` stays
      * non-undoable). Position-preserving: the reverse re-inserts at the original `index` (not an appending re-create),
-     * so undo restores tree order. The config is a documented JSON-safe `toJSON` snapshot (serializable-config bound,
-     * not full live-state fidelity); the data-not-code + payload-cap guards in {@link Neo.ai.TransactionService} bound it.
+     * so undo restores tree order. The config prefers the component's authored-input `toRecreationConfig()` snapshot,
+     * falling back to `toJSON()` for legacy instances; the data-not-code + payload-cap guards in
+     * {@link Neo.ai.TransactionService} bound it.
      * @param {Object} params
      * @param {Object|null} params.context  The Bridge-stamped `{agentId, sessionId}` writer pair.
      * @param {String} params.id  The component id being destroyed.
@@ -566,7 +571,11 @@ class InstanceService extends Service {
 
         const
             index  = parent.indexOf(id),
-            config = this.safeSerialize(typeof instance.toJSON === 'function' ? instance.toJSON() : null);
+            config = this.safeSerialize(
+                typeof instance.toRecreationConfig === 'function'
+                    ? instance.toRecreationConfig()
+                    : typeof instance.toJSON === 'function' ? instance.toJSON() : null
+            );
 
         if (index < 0 || !config || typeof config !== 'object') {
             return null

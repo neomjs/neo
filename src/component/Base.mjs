@@ -12,9 +12,25 @@ import VNodeUtil        from '../util/VNode.mjs';
 import {isDescriptor}   from '../core/ConfigSymbols.mjs';
 
 const
-    addUnits          = value => value == null ? value : isNaN(value) ? value : `${value}px`,
-    closestController = Symbol.for('closestController'),
-    lengthRE          = /^\d+\w+$/;
+    addUnits              = value => value == null ? value : isNaN(value) ? value : `${value}px`,
+    classContributions    = Symbol('classContributions'),
+    classNodesInitialized = Symbol('classNodesInitialized'),
+    classProjection       = Symbol('classProjection'),
+    classOwners           = {
+        disabled     : Symbol('disabled'),
+        intrinsicRoot: Symbol('intrinsicRoot'),
+        intrinsicWrap: Symbol('intrinsicWrap'),
+        isLoading    : Symbol('isLoading'),
+        scrollable   : Symbol('scrollable'),
+        sharedTooltip: Symbol('sharedTooltip'),
+        theme        : Symbol('theme'),
+        ui           : Symbol('ui')
+    },
+    closestController         = Symbol.for('closestController'),
+    lengthRE                  = /^\d+\w+$/,
+    normalizeClassNames       = value => [...new Set((Array.isArray(value) ? value : value ? [value] : []).filter(Boolean))],
+    wrapperClassContributions = Symbol('wrapperClassContributions'),
+    wrapperClassProjection    = Symbol('wrapperClassProjection');
 
 /**
  * @typedef {Object} ComponentReferenceConfig
@@ -86,6 +102,19 @@ class Component extends Abstract {
          * @member {String[]} baseCls=[]
          */
         baseCls: [],
+        /**
+         * CSS selectors authored by the component consumer.
+         *
+         * `clone: 'none'` preserves the private provenance carried by the aggregate getter until
+         * `beforeSetCls()` extracts a fresh authored-only array. Functional components keep the
+         * inherited default cloning contract from `component.Abstract`.
+         * @member {String[]|null} cls=null
+         */
+        cls: {
+            [isDescriptor]: true,
+            clone         : 'none',
+            value         : null
+        },
         /**
          * manager.Focus will change this flag on focusin & out dom events
          * @member {Boolean} containsFocus_=false
@@ -296,7 +325,11 @@ class Component extends Abstract {
          * @member {String[]|null} wrapperCls_=null
          * @reactive
          */
-        wrapperCls_: null,
+        wrapperCls_: {
+            [isDescriptor]: true,
+            clone         : 'none',
+            value         : null
+        },
         /**
          * Top level style attributes. Useful in case getVdomRoot() does not point to the top level DOM node.
          *
@@ -324,6 +357,19 @@ class Component extends Abstract {
     construct(config) {
         let me = this;
 
+        Object.defineProperties(me, {
+            [classContributions]: {
+                value: new Map()
+            },
+            [classNodesInitialized]: {
+                value   : false,
+                writable: true
+            },
+            [wrapperClassContributions]: {
+                value: new Map()
+            }
+        });
+
         if (!Object.hasOwn(me, '_vdom') && me._vdom) {
             me._vdom = Neo.clone(me._vdom, true)
         }
@@ -350,14 +396,20 @@ class Component extends Abstract {
     }
 
     /**
-     * Add a new cls to the vdomRoot
-     * @param {String} value
+     * Adds classes to the caller-authored contribution, or to a named engine owner.
+     * @param {String|String[]} value
+     * @param {*}               [owner] Stable owner key for engine-derived classes.
      */
-    addCls(value) {
-        let {cls} = this;
+    addCls(value, owner) {
+        let cls = owner === undefined ? this.getAuthoredCls() : this.getClsContribution(owner);
 
         NeoArray.add(cls, value);
-        this.cls = cls
+
+        if (owner === undefined) {
+            this.cls = cls
+        } else {
+            this.setClsContribution(owner, cls)
+        }
     }
 
     /**
@@ -377,14 +429,20 @@ class Component extends Abstract {
     }
 
     /**
-     * Add a new wrapperCls to the top level node
-     * @param {String} value
+     * Adds wrapper classes to the caller-authored contribution, or to a named engine owner.
+     * @param {String|String[]} value
+     * @param {*}               [owner] Stable owner key for engine-derived classes.
      */
-    addWrapperCls(value) {
-        let {wrapperCls} = this;
+    addWrapperCls(value, owner) {
+        let cls = owner === undefined ? this.getAuthoredWrapperCls() : this.getWrapperClsContribution(owner);
 
-        NeoArray.add(wrapperCls, value);
-        this.wrapperCls = wrapperCls
+        NeoArray.add(cls, value);
+
+        if (owner === undefined) {
+            this.wrapperCls = cls
+        } else {
+            this.setWrapperClsContribution(owner, cls)
+        }
     }
 
     /**
@@ -404,24 +462,7 @@ class Component extends Abstract {
      * @protected
      */
     afterSetCls(value, oldValue) {
-        oldValue = oldValue || [];
-
-        let me       = this,
-            vdom     = me.vdom,
-            vdomRoot = me.getVdomRoot(),
-            cls;
-
-        if (vdom !== vdomRoot) {
-            // we are using a wrapper node
-            vdomRoot.cls = [...value]
-        } else {
-            // we need to merge changes
-            cls = NeoArray.union(me.wrapperCls, value);
-            NeoArray.remove(cls, NeoArray.difference(oldValue, value));
-            vdom.cls = cls
-        }
-
-        me.update()
+        this.syncClassNodes()
     }
 
     /**
@@ -431,10 +472,7 @@ class Component extends Abstract {
      * @protected
      */
     afterSetDisabled(value, oldValue) {
-        let cls = this.cls;
-
-        NeoArray[value ? 'add' : 'remove'](cls, 'neo-disabled');
-        this.cls = cls
+        this.setClsContribution(classOwners.disabled, value ? ['neo-disabled'] : [])
     }
 
 
@@ -531,8 +569,8 @@ class Component extends Abstract {
      */
     afterSetIsLoading(value, oldValue) {
         if (value || oldValue !== undefined) {
-            let me                 = this,
-                {wrapperCls, vdom} = me,
+            let me     = this,
+                {vdom} = me,
                 maskIndex;
 
             if (oldValue !== undefined && vdom.cn) {
@@ -552,8 +590,8 @@ class Component extends Abstract {
                 vdom.cn.push(me.createLoadingMask(value))
             }
 
-            NeoArray.toggle(wrapperCls, 'neo-masked', value);
-            me.set({vdom, wrapperCls})
+            me.setWrapperClsContribution(classOwners.isLoading, value ? ['neo-masked'] : []);
+            me.vdom = vdom
         }
     }
 
@@ -704,9 +742,9 @@ class Component extends Abstract {
 
             if (value) {
                 me.addStyle(overflowKey + ':auto');
-                me.addCls('neo-scrollable')
+                me.setClsContribution(classOwners.scrollable, ['neo-scrollable'])
             } else {
-                me.removeCls('neo-scrollable')
+                me.setClsContribution(classOwners.scrollable, [])
             }
         }
     }
@@ -741,24 +779,10 @@ class Component extends Abstract {
      */
     afterSetTheme(value, oldValue) {
         if (value || oldValue !== undefined) {
-            let me          = this,
-                {cls}       = me,
-                needsUpdate = false;
+            let me = this;
 
-            if (oldValue && cls.includes(oldValue)) {
-                NeoArray.remove(cls, oldValue);
-                needsUpdate = true
-            }
-
-            // We do not need to add a DOM based CSS selector, in case the theme is already inherited
-            if (value !== me.parent?.theme) {
-                value && NeoArray.add(cls, value);
-                needsUpdate = true
-            }
-
-            if (needsUpdate) {
-                me.cls = cls
-            }
+            // We do not need to add a DOM based CSS selector in case the theme is already inherited.
+            me.setClsContribution(classOwners.theme, value && value !== me.parent?.theme ? [value] : [])
         }
     }
 
@@ -780,6 +804,7 @@ class Component extends Abstract {
      */
     afterSetTooltip(value, oldValue) {
         oldValue?.destroy?.();
+        this.setClsContribution(classOwners.sharedTooltip, []);
 
         if (value) {
             if (Neo.ns('Neo.tooltip.Base')) {
@@ -800,18 +825,10 @@ class Component extends Abstract {
      * @param {String|null} oldValue
      */
     afterSetUi(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
-
-        if (oldValue) {
-            NeoArray.remove(cls, `neo-${me.ntype}-${oldValue}`)
-        }
-
-        if (value && value !== '') {
-            NeoArray.add(cls, `neo-${me.ntype}-${value}`)
-        }
-
-        me.cls = cls
+        this.setClsContribution(
+            classOwners.ui,
+            value && value !== '' ? [`neo-${this.ntype}-${value}`] : []
+        )
     }
 
     /**
@@ -848,30 +865,7 @@ class Component extends Abstract {
      * @protected
      */
     afterSetWrapperCls(value, oldValue) {
-        oldValue = oldValue || [];
-        value    = value    || [];
-
-        let me       = this,
-            {vdom}   = me,
-            vdomRoot = me.getVdomRoot(),
-            cls      = vdom.cls || [];
-
-        if (vdom === vdomRoot) {
-            // we need to merge changes
-            cls = NeoArray.union(cls, value);
-            NeoArray.remove(cls, NeoArray.difference(oldValue, value));
-            vdom.cls = cls
-        } else {
-            // we are not using a wrapper => cls & wrapperCls share the same node
-            value = value ? value : [];
-
-            oldValue && NeoArray.remove(cls, oldValue);
-            NeoArray.add(cls, value);
-
-            vdom.cls = cls
-        }
-
-        me.update()
+        this.syncClassNodes()
     }
 
     /**
@@ -919,7 +913,7 @@ class Component extends Abstract {
      * @protected
      */
     beforeGetCls(value) {
-        return value ? [...value] : []
+        return this.projectClassNames(this.composeCls(value), value, classProjection)
     }
 
     /**
@@ -937,7 +931,7 @@ class Component extends Abstract {
      * @protected
      */
     beforeGetWrapperCls(value) {
-        return value ? [...value] : []
+        return this.projectClassNames(this.composeWrapperCls(value), value, wrapperClassProjection)
     }
 
     /**
@@ -985,7 +979,272 @@ class Component extends Abstract {
      * @protected
      */
     beforeSetCls(value, oldValue) {
-        return NeoArray.union(value || [], this.baseCls, this.getBaseClass());
+        return this.resolveAuthoredClassNames(value, classProjection)
+    }
+
+    /**
+     * Normalizes caller-authored wrapper classes without absorbing layout or plugin contributions.
+     * @param {String[]|String|null} value
+     * @param {String[]|null}        oldValue
+     * @returns {String[]}
+     * @protected
+     */
+    beforeSetWrapperCls(value, oldValue) {
+        return this.resolveAuthoredClassNames(value, wrapperClassProjection)
+    }
+
+    /**
+     * Composes caller-authored root classes with structural and engine-owned contributions.
+     * @summary Keeps class provenance separate while preserving the public aggregate getter.
+     * @param {String[]|String|null} [value]
+     * @returns {String[]}
+     * @protected
+     */
+    composeCls(value=this.getAuthoredCls()) {
+        return NeoArray.union(
+            normalizeClassNames(value),
+            normalizeClassNames(this.baseCls),
+            normalizeClassNames(this.getBaseClass()),
+            ...[...(this[classContributions]?.values() || [])]
+        )
+    }
+
+    /**
+     * Composes caller-authored wrapper classes with layout and engine-owned contributions.
+     * @summary Keeps wrapper ownership independent from the physical VDOM projection.
+     * @param {String[]|String|null} [value]
+     * @returns {String[]}
+     * @protected
+     */
+    composeWrapperCls(value=this.getAuthoredWrapperCls()) {
+        return NeoArray.union(
+            normalizeClassNames(value),
+            ...[...(this[wrapperClassContributions]?.values() || [])]
+        )
+    }
+
+    /**
+     * Marks an aggregate getter clone with its authored and rendered source projections.
+     * @summary Preserves provenance when legacy callers mutate and reassign the same clone.
+     * @param {String[]} value
+     * @param {String[]} authored
+     * @param {Symbol}   projectionKey
+     * @returns {String[]}
+     * @protected
+     */
+    projectClassNames(value, authored, projectionKey) {
+        Object.defineProperty(value, projectionKey, {
+            value: {
+                authored: normalizeClassNames(authored),
+                rendered: [...value]
+            }
+        });
+
+        return value
+    }
+
+    /**
+     * Resolves authored intent from a fresh input or a mutate-and-reassign getter clone.
+     * @summary Stops rendered owner tokens from being promoted by legacy array round trips.
+     * @param {String[]|String|null} value
+     * @param {Symbol}              projectionKey
+     * @returns {String[]}
+     * @protected
+     */
+    resolveAuthoredClassNames(value, projectionKey) {
+        const projection = value?.[projectionKey];
+
+        if (!projection) {
+            return normalizeClassNames(value)
+        }
+
+        const {authored, rendered} = projection;
+
+        return normalizeClassNames(value.filter(cls => authored.includes(cls) || !rendered.includes(cls)))
+    }
+
+    /**
+     * Returns only the caller-authored root class input stored by the reactive config.
+     * @summary Prevents derived classes from being promoted during mutation or serialization.
+     * @returns {String[]}
+     */
+    getAuthoredCls() {
+        return normalizeClassNames(this.getConfig('cls')?.get())
+    }
+
+    /**
+     * Returns only the caller-authored wrapper class input stored by the reactive config.
+     * @summary Prevents layout classes from being promoted during mutation or serialization.
+     * @returns {String[]}
+     */
+    getAuthoredWrapperCls() {
+        return normalizeClassNames(this.getConfig('wrapperCls')?.get())
+    }
+
+    /**
+     * Returns one engine owner's current root contribution.
+     * @param {*} owner
+     * @returns {String[]}
+     * @protected
+     */
+    getClsContribution(owner) {
+        return [...(this[classContributions]?.get(owner) || [])]
+    }
+
+    /**
+     * Returns the replay-safe source value for a mutable component property.
+     * @summary Keeps class snapshots caller-authored while preserving normal getter semantics for every other key.
+     * @param {String} key Property or namespace path.
+     * @returns {*}
+     */
+    getMutationSnapshotValue(key) {
+        if (key === 'cls') {
+            return this.getAuthoredCls()
+        }
+
+        if (key === 'wrapperCls') {
+            return this.getAuthoredWrapperCls()
+        }
+
+        return super.getMutationSnapshotValue(key)
+    }
+
+    /**
+     * Returns a recreatable VDOM snapshot without promoting composed classes into intrinsic ownership.
+     * @summary Preserves structural VDOM classes while reactive owners rebuild their own contributions.
+     * @returns {Object}
+     * @protected
+     */
+    getSerializableVdom() {
+        let me       = this,
+            vdom     = Neo.clone(me.vdom, true),
+            liveRoot = me.getVdomRoot(),
+            vdomRoot = liveRoot === me.vdom ? vdom : VDomUtil.getById(vdom, liveRoot.id);
+
+        if (me[classNodesInitialized] && vdomRoot) {
+            vdomRoot.cls = me.getClsContribution(classOwners.intrinsicRoot);
+
+            if (vdom !== vdomRoot) {
+                vdom.cls = me.getWrapperClsContribution(classOwners.intrinsicWrap)
+            }
+        }
+
+        return vdom
+    }
+
+    /**
+     * Returns one engine owner's current wrapper contribution.
+     * @param {*} owner
+     * @returns {String[]}
+     * @protected
+     */
+    getWrapperClsContribution(owner) {
+        return [...(this[wrapperClassContributions]?.get(owner) || [])]
+    }
+
+    /**
+     * Replaces one engine owner's complete root class contribution.
+     * @summary Gives config hooks and plugins exact ownership over their rendered tokens.
+     * @param {*}                     owner Stable owner key.
+     * @param {String[]|String|null} value
+     * @param {Boolean}              [silent=false]
+     * @returns {Boolean} True when the contribution changed.
+     */
+    setClsContribution(owner, value, silent=false) {
+        return this.setClassContribution(classContributions, owner, value, silent)
+    }
+
+    /**
+     * Replaces one engine owner's complete wrapper class contribution.
+     * @summary Gives layouts and plugins exact ownership over their rendered tokens.
+     * @param {*}                     owner Stable owner key.
+     * @param {String[]|String|null} value
+     * @param {Boolean}              [silent=false]
+     * @returns {Boolean} True when the contribution changed.
+     */
+    setWrapperClsContribution(owner, value, silent=false) {
+        return this.setClassContribution(wrapperClassContributions, owner, value, silent)
+    }
+
+    /**
+     * Updates one contribution map and projects the resulting logical class layers.
+     * @summary Centralizes deduplication, owner replacement, and silent VDOM batching.
+     * @param {Symbol}                mapKey
+     * @param {*}                     owner
+     * @param {String[]|String|null} value
+     * @param {Boolean}              silent
+     * @returns {Boolean}
+     * @protected
+     */
+    setClassContribution(mapKey, owner, value, silent) {
+        if (owner === undefined || owner === null) {
+            throw new Error('A stable class contribution owner is required')
+        }
+
+        const
+            map      = this[mapKey],
+            next     = normalizeClassNames(value),
+            previous = map.get(owner) || [];
+
+        if (Neo.isEqual(next, previous)) {
+            return false
+        }
+
+        if (next.length) {
+            map.set(owner, next)
+        } else {
+            map.delete(owner)
+        }
+
+        this.syncClassNodes(silent);
+
+        return true
+    }
+
+    /**
+     * Rebuilds the physical class projection from the root and wrapper ownership layers.
+     * @summary Retains shared tokens until their final logical owner releases them.
+     * @param {Boolean} [silent=false]
+     * @protected
+     */
+    syncClassNodes(silent=false) {
+        let me        = this,
+            wasSilent = me.silentVdomUpdate,
+            {vdom}    = me,
+            vdomRoot  = me.getVdomRoot();
+
+        if (!me[classNodesInitialized]) {
+            const
+                intrinsicRoot = normalizeClassNames(vdomRoot?.cls),
+                intrinsicWrap = vdom === vdomRoot ? [] : normalizeClassNames(vdom?.cls);
+
+            intrinsicRoot.length && me[classContributions].set(classOwners.intrinsicRoot, intrinsicRoot);
+            intrinsicWrap.length && me[wrapperClassContributions].set(classOwners.intrinsicWrap, intrinsicWrap);
+            me[classNodesInitialized] = true
+        }
+
+        if (silent) {
+            me.silentVdomUpdate = true
+        }
+
+        try {
+            const
+                cls        = me.cls,
+                wrapperCls = me.wrapperCls;
+
+            if (vdom === vdomRoot) {
+                vdom.cls = NeoArray.union(wrapperCls, cls)
+            } else {
+                vdom.cls     = [...wrapperCls];
+                vdomRoot.cls = [...cls]
+            }
+
+            me.update()
+        } finally {
+            if (silent) {
+                me.silentVdomUpdate = wasSilent
+            }
+        }
     }
 
     /**
@@ -1169,8 +1428,7 @@ class Component extends Abstract {
         } else {
             me._tooltip = value;
             Neo.tooltip.Base.createSingleton(me.app);
-            me.addCls('neo-uses-shared-tooltip');
-            me.update()
+            me.setClsContribution(classOwners.sharedTooltip, ['neo-uses-shared-tooltip'])
         }
     }
 
@@ -1600,14 +1858,20 @@ class Component extends Abstract {
      */
 
     /**
-     * Remove a cls from the vdomRoot
-     * @param {String} value
+     * Removes classes from the caller-authored contribution, or from a named engine owner.
+     * @param {String|String[]} value
+     * @param {*}               [owner] Stable owner key for engine-derived classes.
      */
-    removeCls(value) {
-        let cls = this.cls;
+    removeCls(value, owner) {
+        let cls = owner === undefined ? this.getAuthoredCls() : this.getClsContribution(owner);
 
         NeoArray.remove(cls, value);
-        this.cls = cls
+
+        if (owner === undefined) {
+            this.cls = cls
+        } else {
+            this.setClsContribution(owner, cls)
+        }
     }
 
 
@@ -1681,15 +1945,21 @@ class Component extends Abstract {
     }
 
     /**
-     * Toggle a cls inside the vdomRoot of the component
-     * @param {String} value
+     * Toggles classes in the caller-authored contribution, or in a named engine owner.
+     * @param {String}  value
      * @param {Boolean} [add] Use this param to enforce an add() or remove() operation.
+     * @param {*}       [owner] Stable owner key for engine-derived classes.
      */
-    toggleCls(value, add) {
-        let cls = this.cls;
+    toggleCls(value, add, owner) {
+        let cls = owner === undefined ? this.getAuthoredCls() : this.getClsContribution(owner);
 
         NeoArray.toggle(cls, value, add);
-        this.cls = cls
+
+        if (owner === undefined) {
+            this.cls = cls
+        } else {
+            this.setClsContribution(owner, cls)
+        }
     }
 
     /**
@@ -1742,6 +2012,20 @@ class Component extends Abstract {
             width       : me.width,
             wrapperCls  : me.wrapperCls,
             wrapperStyle: me.wrapperStyle
+        }
+    }
+
+    /**
+     * Serializes the source configuration needed to recreate this component.
+     * @summary Separates caller-authored class inputs from the live rendered projection returned by toJSON().
+     * @returns {Object}
+     */
+    toRecreationConfig() {
+        return {
+            ...this.toJSON(),
+            cls       : this.getAuthoredCls(),
+            vdom      : this.getSerializableVdom(),
+            wrapperCls: this.getAuthoredWrapperCls()
         }
     }
 

@@ -5,6 +5,10 @@ import Matrix          from '../util/Matrix.mjs';
 import NeoArray        from '../util/Array.mjs';
 import Store           from '../data/Store.mjs';
 
+const classOwners = {
+    followSelection: Symbol('followSelection')
+};
+
 const itemsMounted = Symbol.for('itemsMounted');
 const lockWheel    = Symbol.for('lockWheel'); // we can not use itemsMounted, since it is connected to onSort()
 
@@ -26,7 +30,7 @@ class Helix extends Component {
         ntype: 'helix',
         /**
          * The background color of the helix container
-         * @member {String} backgroundColor_='#000000'
+         * @member {String} backgroundColor_='#000000' ticket-ref-ok: CSS hex color literal
          * @reactive
          */
         backgroundColor_: '#000000',
@@ -317,10 +321,7 @@ class Helix extends Component {
      * @protected
      */
     afterSetFollowSelection(value, oldValue) {
-        let {cls} = this;
-
-        NeoArray[value ? 'add' : 'remove'](cls, 'neo-follow-selection');
-        this.cls = cls
+        this.setClsContribution(classOwners.followSelection, value ? ['neo-follow-selection'] : [])
     }
 
     /**

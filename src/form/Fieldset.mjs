@@ -1,6 +1,10 @@
 import FormContainer from '../form/Container.mjs';
 import Legend        from '../component/Legend.mjs';
-import NeoArray      from '../util/Array.mjs';
+
+const classOwners = {
+    collapsed  : Symbol('collapsed'),
+    collapsible: Symbol('collapsible')
+};
 
 /**
  * @class Neo.form.Fieldset
@@ -88,7 +92,7 @@ class Fieldset extends FormContainer {
     afterSetCollapsed(value, oldValue) {
         let me = this;
 
-        NeoArray[value ? 'add' : 'remove'](me._cls, 'neo-collapsed');
+        me.setClsContribution(classOwners.collapsed, value ? ['neo-collapsed'] : [], true);
 
         if (oldValue !== undefined) {
             me.items.forEach((item, index) => {
@@ -131,11 +135,10 @@ class Fieldset extends FormContainer {
      * @protected
      */
     afterSetCollapsible(value, oldValue) {
-        let me            = this,
-            {cls, legend} = me;
+        let me       = this,
+            {legend} = me;
 
-        NeoArray[value ? 'add' : 'remove'](cls, 'neo-collapsible');
-        me.cls = cls;
+        me.setClsContribution(classOwners.collapsible, value ? ['neo-collapsible'] : []);
 
         if (legend) {
             legend.useIcon = value;

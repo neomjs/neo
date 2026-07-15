@@ -1,7 +1,8 @@
-import Card     from './Card.mjs';
-import NeoArray from '../util/Array.mjs';
+import Card from './Card.mjs';
 
-const configSymbol = Symbol.for('configSymbol');
+const configSymbol    = Symbol.for('configSymbol');
+const rootClsOwner    = Symbol('layout.Cube.rootCls');
+const wrapperClsOwner = Symbol('layout.Cube.wrapperCls');
 
 /**
  * See: examples/layout.Cube for a demo.
@@ -115,12 +116,12 @@ class Cube extends Card {
         me.nestVdom();
 
         me.observeConfig(container, 'mounted', value => {
-            value && container.addCls('neo-animate')
+            value && container.setClsContribution(rootClsOwner, ['neo-animate'])
         })
 
         if (container.mounted) {
             container.promiseUpdate().then(() => {
-                container.addCls('neo-animate')
+                container.setClsContribution(rootClsOwner, ['neo-animate'])
             })
         }
     }
@@ -267,28 +268,28 @@ class Cube extends Card {
      * @param {Number} index
      */
     applyChildAttributes(item, index) {
-        let {wrapperCls} = item;
+        let wrapperCls = [];
 
         if (index < 6) {
-            wrapperCls = NeoArray.union(wrapperCls, 'neo-face', Object.keys(Cube.faces)[index]);
+            wrapperCls.push('neo-face', Object.keys(Cube.faces)[index]);
 
             switch (index) {
                 case 0:
                 case 1:
-                    wrapperCls = NeoArray.union(wrapperCls, 'neo-face-z');
+                    wrapperCls.push('neo-face-z');
                     break;
                 case 2:
                 case 3:
-                    wrapperCls = NeoArray.union(wrapperCls, 'neo-face-x');
+                    wrapperCls.push('neo-face-x');
                     break;
                 case 4:
                 case 5:
-                    wrapperCls = NeoArray.union(wrapperCls, 'neo-face-y');
+                    wrapperCls.push('neo-face-y');
                     break;
             }
-
-            item.wrapperCls = wrapperCls
         }
+
+        this.setItemWrapperClsContribution(item, wrapperClsOwner, wrapperCls)
     }
 
     /**
@@ -350,28 +351,7 @@ class Cube extends Card {
      * @protected
      */
     removeChildAttributes(item, index) {
-        let {wrapperCls} = item;
-
-        if (index < 6) {
-            NeoArray.remove(wrapperCls, ['neo-face', Object.keys(Cube.faces)[index]]);
-
-            switch (index) {
-                case 0:
-                case 1:
-                    NeoArray.remove(wrapperCls, 'neo-face-z');
-                    break;
-                case 2:
-                case 3:
-                    NeoArray.remove(wrapperCls, 'neo-face-x');
-                    break;
-                case 4:
-                case 5:
-                    NeoArray.remove(wrapperCls, 'neo-face-y');
-                    break;
-            }
-
-            item.wrapperCls = wrapperCls
-        }
+        this.setItemWrapperClsContribution(item, wrapperClsOwner, [])
     }
 
     /**
@@ -380,11 +360,11 @@ class Cube extends Card {
     removeRenderAttributes() {
         super.removeRenderAttributes();
 
-        let me                 = this,
-            {container}        = me,
-            {cls, style, vdom} = container;
+        let me            = this,
+            {container}   = me,
+            {style, vdom} = container;
 
-        NeoArray.remove(cls, 'neo-animate');
+        container.setClsContribution(rootClsOwner, [], true);
 
         Object.assign(style, {
             '--perspective': null,
@@ -396,7 +376,7 @@ class Cube extends Card {
             '--side-z'     : null
         });
 
-        container.set({cls, style});
+        container.set({style});
 
         vdom.cn = container.getVdomItemsRoot().cn;
 

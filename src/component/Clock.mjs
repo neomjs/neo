@@ -1,5 +1,8 @@
 import Component from './Base.mjs';
-import NeoArray  from '../util/Array.mjs';
+
+const classOwners = {
+    showDisc: Symbol('showDisc')
+};
 
 /**
  * Simple CSS based clock to get used inside form.field.trigger.Time
@@ -76,10 +79,7 @@ class Clock extends Component {
      * @protected
      */
     afterSetShowDisc(value, oldValue) {
-        let {cls} = this;
-
-        NeoArray[value ? 'add' : 'remove'](cls, 'neo-show-disc')
-        this.cls = cls
+        this.setClsContribution(classOwners.showDisc, value ? ['neo-show-disc'] : [])
     }
 
     /**

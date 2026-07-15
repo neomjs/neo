@@ -400,13 +400,7 @@ class MainContainerController extends ComponentController {
         logo.vdom.src = logoPath + (theme === 'neo-theme-dark' ? 'covid_logo_dark.jpg' : 'covid_logo_light.jpg');
         logo.update();
 
-        cls = [...component.cls];
-
-        component.cls.forEach(item => {
-            if (item.includes('neo-theme')) {
-                NeoArray.remove(cls, item)
-            }
-        });
+        cls = component.getAuthoredCls().filter(item => !item.includes('neo-theme'));
 
         NeoArray.add(cls, theme);
         component.cls = cls;

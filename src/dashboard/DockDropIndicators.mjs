@@ -1,7 +1,12 @@
 import Component             from '../component/Base.mjs';
 import Container             from '../container/Base.mjs';
-import NeoArray              from '../util/Array.mjs';
 import {isValidCandidateSet} from './dockPreviewContract.mjs';
+
+const classOwners = {
+    activeCandidate: Symbol('activeCandidate'),
+    placement      : Symbol('placement'),
+    visibility     : Symbol('visibility')
+};
 
 /**
  * @summary The drag-time drop-indicator menu: renders every valid drop option simultaneously —
@@ -127,12 +132,12 @@ class DockDropIndicators extends Container {
                 ...['center', 'top', 'right', 'bottom', 'left'].map(position => ({
                     module      : Component,
                     candidateKey: `cross-${position}`,
-                    cls         : ['neo-dashboard-dock-drop-indicator', `neo-dashboard-dock-drop-indicator-${position}`, 'neo-dashboard-dock-drop-indicator-off']
+                    cls         : ['neo-dashboard-dock-drop-indicator', `neo-dashboard-dock-drop-indicator-${position}`]
                 })),
                 ...['top', 'right', 'bottom', 'left'].map(edge => ({
                     module      : Component,
                     candidateKey: `chip-${edge}`,
-                    cls         : ['neo-dashboard-dock-drop-chip', `neo-dashboard-dock-drop-chip-${edge}`, 'neo-dashboard-dock-drop-indicator-off']
+                    cls         : ['neo-dashboard-dock-drop-chip', `neo-dashboard-dock-drop-chip-${edge}`]
                 }))
             ]
         }
@@ -158,11 +163,14 @@ class DockDropIndicators extends Container {
 
         me.items?.forEach(child => {
             if (child.candidateKey) {
-                let candidate = me.#indicatorRects.get(child.candidateKey)?.candidate,
-                    cls       = child.cls || [];
+                let candidate = me.#indicatorRects.get(child.candidateKey)?.candidate;
 
-                NeoArray[candidate && candidate.preview?.previewId === activeId ? 'add' : 'remove'](cls, 'neo-dashboard-dock-drop-indicator-active');
-                child.set({cls})
+                child.setClsContribution(
+                    classOwners.activeCandidate,
+                    candidate && candidate.preview?.previewId === activeId
+                        ? ['neo-dashboard-dock-drop-indicator-active']
+                        : []
+                )
             }
         });
 
@@ -275,15 +283,16 @@ class DockDropIndicators extends Container {
         let me                                                           = this,
             {chipInset, chipSize, hostRect, indicatorGap, indicatorSize} = me,
             set                                                          = me.candidateSet,
-            cls                                                          = me.cls || [],
             validHost                                                    = !!hostRect && [hostRect.x, hostRect.y].every(v => typeof v === 'number' && !Number.isNaN(v)),
             visible                                                      = validHost && isValidCandidateSet(set),
             placements                                                   = new Map();
 
         me.#indicatorRects.clear();
 
-        NeoArray[visible ? 'remove' : 'add'](cls, 'neo-dashboard-dock-drop-indicators-hidden');
-        me.set({cls});
+        me.setClsContribution(
+            classOwners.visibility,
+            visible ? [] : ['neo-dashboard-dock-drop-indicators-hidden']
+        );
 
         if (visible) {
             let zone    = set.zone.rect,
@@ -340,16 +349,18 @@ class DockDropIndicators extends Container {
 
             if (!key) return;
 
-            let placement = placements.get(key),
-                childCls  = child.cls || [];
+            let placement = placements.get(key);
 
-            NeoArray[placement ? 'remove' : 'add'](childCls, 'neo-dashboard-dock-drop-indicator-off');
+            child.setClsContribution(
+                classOwners.placement,
+                placement ? [] : ['neo-dashboard-dock-drop-indicator-off'],
+                Boolean(placement)
+            );
 
             if (placement) {
                 me.#indicatorRects.set(key, placement);
 
                 child.set({
-                    cls  : childCls,
                     style: {
                         ...child.style,
                         height: `${placement.rect.height}px`,
@@ -358,8 +369,6 @@ class DockDropIndicators extends Container {
                         width : `${placement.rect.width}px`
                     }
                 })
-            } else {
-                child.set({cls: childCls})
             }
         })
     }

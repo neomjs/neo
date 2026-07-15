@@ -2,7 +2,10 @@ import Button    from '../button/Base.mjs';
 import Component from '../component/Base.mjs';
 import Container from '../container/Base.mjs';
 import Label     from '../component/Label.mjs';
-import NeoArray  from '../util/Array.mjs';
+
+const classOwners = {
+    dock: Symbol('dock')
+};
 
 /**
  * @class Neo.toolbar.Base
@@ -67,20 +70,15 @@ class Toolbar extends Container {
         }
 
         let me            = this,
-            {cls}         = me,
-            dockPositions = me.getStaticConfig('dockPositions'),
             layoutConfig  = me.getLayoutConfig();
-
-        dockPositions.forEach(key => {
-            key !== null && NeoArray.toggle(cls, 'neo-dock-' + key, key === value)
-        });
 
         if (!me.layout) {
             layoutConfig.ntype = 'flexbox';
-            me.set({cls, layout: layoutConfig})
+            me.setClsContribution(classOwners.dock, value ? [`neo-dock-${value}`] : [], true);
+            me.set({layout: layoutConfig})
         } else {
             me.layout.set(layoutConfig);
-            me.cls = cls;
+            me.setClsContribution(classOwners.dock, value ? [`neo-dock-${value}`] : [])
         }
     }
 

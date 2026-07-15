@@ -1,5 +1,6 @@
-import Base     from './Base.mjs';
-import NeoArray from '../util/Array.mjs';
+import Base from './Base.mjs';
+
+const wrapperClsOwner = Symbol('layout.Fit.wrapperCls');
 
 /**
  * @class Neo.layout.Fit
@@ -31,9 +32,11 @@ class Fit extends Base {
      * @param {Number} index
      */
     applyChildAttributes(item, index) {
-        if (!item.ignoreLayout) {
-            item.wrapperCls = NeoArray.union(item.wrapperCls, 'neo-layout-fit-item')
-        }
+        this.setItemWrapperClsContribution(
+            item,
+            wrapperClsOwner,
+            item.ignoreLayout ? [] : ['neo-layout-fit-item']
+        )
     }
 
     /**
@@ -43,12 +46,7 @@ class Fit extends Base {
      * @param {Number} index
      */
     removeChildAttributes(item, index) {
-        if (!item.ignoreLayout) {
-            let {wrapperCls} = item;
-
-            NeoArray.remove(wrapperCls, 'neo-layout-fit-item');
-            item.wrapperCls = wrapperCls
-        }
+        this.setItemWrapperClsContribution(item, wrapperClsOwner, [])
     }
 }
 

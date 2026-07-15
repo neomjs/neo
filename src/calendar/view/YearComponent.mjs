@@ -1,6 +1,9 @@
 import Component from '../../component/Base.mjs';
 import DateUtil  from '../../util/Date.mjs';
-import NeoArray  from '../../util/Array.mjs';
+
+const classOwners = {
+    showCellBorders: Symbol('showCellBorders')
+};
 
 const todayDate = new Date();
 
@@ -360,10 +363,7 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetShowCellBorders(value, oldValue) {
-        let cls = this.cls;
-
-        NeoArray[value ? 'add' : 'remove'](cls, 'neo-show-cell-borders');
-        this.cls = cls
+        this.setClsContribution(classOwners.showCellBorders, value ? ['neo-show-cell-borders'] : [])
     }
 
     /**

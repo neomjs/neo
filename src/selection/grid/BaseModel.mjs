@@ -130,19 +130,10 @@ class BaseModel extends Model {
 
                         if (row) {
                             let isSelected    = me.isSelectedRow(recordId),
-                                alreadySelect = row.vdom.cls?.includes(me.selectedCls);
+                                alreadySelect = row.cls.includes(me.selectedCls);
 
                             if (isSelected !== alreadySelect) {
-                                // Mutate VDOM directly: Toggle selection class on the row
-                                NeoArray[isSelected ? 'add' : 'remove'](row.vdom.cls, me.selectedCls);
-
-                                if (isSelected) {
-                                    row.vdom['aria-selected'] = true
-                                } else {
-                                    delete row.vdom['aria-selected']
-                                }
-
-                                hasChanged = true
+                                hasChanged = row.setSelectedCls(me.selectedCls, isSelected, true)
                             }
 
                             if (hasChanged && !silent) {

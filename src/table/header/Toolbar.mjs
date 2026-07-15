@@ -1,5 +1,7 @@
 import BaseToolbar from '../../toolbar/Base.mjs';
 
+const wrapperClsOwner = Symbol('table.header.Toolbar.locked');
+
 /**
  * @class Neo.table.header.Toolbar
  * @extends Neo.toolbar.Base
@@ -131,7 +133,7 @@ class Toolbar extends BaseToolbar {
             if (item.width)    {style.width    = item.width    + 'px'}
 
             if (item.dock) {
-                item.vdom.cls = ['neo-locked'];
+                item.setWrapperClsContribution(wrapperClsOwner, ['neo-locked']);
 
                 if (item.dock === 'left') {
                     style.left = dockLeftWidth + 'px'
@@ -139,7 +141,8 @@ class Toolbar extends BaseToolbar {
 
                 dockLeftWidth += (item.width + 1) // todo: borders fix
             } else {
-                item.vdom.cls = [] // remove the button cls from the th tag
+                // The header Button's wrapper is the positioning layer; its logical root remains the th node.
+                item.setWrapperClsContribution(wrapperClsOwner, [])
             }
 
             item.wrapperStyle = style;

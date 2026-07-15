@@ -1,6 +1,10 @@
 import Container    from '../../../../src/container/Base.mjs';
 import HealthSwatch from './HealthSwatch.mjs';
 
+const classOwners = {
+    animateCounts: Symbol('animateCounts')
+};
+
 /**
  * Canonical category order for the health summary — the five session-state buckets in the SSOT
  * legend order (working · idle · wedged · rate-limited · benched/offline). One vocabulary shared
@@ -174,10 +178,10 @@ class HealthBar extends Container {
      * @protected
      */
     updateAnimateCls() {
-        const cls = (this.cls || []).filter(c => c !== 'fm-animate-counts');
-
-        this.animateCounts && cls.push('fm-animate-counts');
-        this.cls = cls
+        this.setClsContribution(
+            classOwners.animateCounts,
+            this.animateCounts ? ['fm-animate-counts'] : []
+        )
     }
 
     /**

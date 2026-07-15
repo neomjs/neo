@@ -2,7 +2,11 @@ import Button           from '../button/Base.mjs';
 import Container        from '../container/Base.mjs';
 import DockMotionSignal from './DockMotionSignal.mjs';
 import Label            from '../component/Label.mjs';
-import NeoArray         from '../util/Array.mjs';
+
+const classOwners = {
+    edge      : Symbol('edge'),
+    visibility: Symbol('visibility')
+};
 
 /**
  * @summary Presentation host for the transient reveal of an auto-hidden dock item — an
@@ -261,16 +265,9 @@ class DockRevealOverlay extends Container {
      * @protected
      */
     afterSetEdge(value, oldValue) {
-        let me  = this,
-            cls = me.cls || [];
+        let me = this;
 
-        if (oldValue) {
-            NeoArray.remove(cls, `neo-dashboard-dock-reveal-overlay-${oldValue}`)
-        }
-
-        NeoArray.add(cls, `neo-dashboard-dock-reveal-overlay-${value}`);
-
-        me.cls = cls;
+        me.setClsContribution(classOwners.edge, value ? [`neo-dashboard-dock-reveal-overlay-${value}`] : []);
         me.isConstructed && me.syncSnapshot()
     }
 
@@ -419,13 +416,15 @@ class DockRevealOverlay extends Container {
             isVertical = edge === 'left' || edge === 'right',
             fraction   = Number.isFinite(me.revealExtent) ? me.revealExtent : me.defaultRevealFraction,
             item       = me.revealedItem,
-            pct        = `${Math.round(fraction * 10000) / 100}%`,
-            cls        = me.cls || [];
+            pct        = `${Math.round(fraction * 10000) / 100}%`;
 
-        NeoArray[me.visible ? 'remove' : 'add'](cls, 'neo-dashboard-dock-reveal-overlay-hidden');
+        me.setClsContribution(
+            classOwners.visibility,
+            me.visible ? [] : ['neo-dashboard-dock-reveal-overlay-hidden'],
+            true
+        );
 
         me.set({
-            cls,
             style: {
                 ...(me.style || {}),
                 height: isVertical ? null : pct,

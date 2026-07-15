@@ -1,8 +1,13 @@
 import BaseComponent     from '../../../component/Base.mjs';
 import DateUtil          from '../../../util/Date.mjs';
-import NeoArray          from '../../../util/Array.mjs';
 import TimeAxisComponent from './TimeAxisComponent.mjs';
 import VDomUtil          from '../../../util/VDom.mjs';
+
+const classOwners = {
+    eventBorder     : Symbol('eventBorder'),
+    showWeekends    : Symbol('showWeekends'),
+    timeAxisPosition: Symbol('timeAxisPosition')
+};
 
 const todayDate = new Date();
 
@@ -401,13 +406,7 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetEventBorder(value, oldValue) {
-        let me    = this,
-            {cls} = me;
-
-        oldValue && NeoArray.remove(cls, `neo-event-border-${oldValue}`);
-        value    && NeoArray.add(   cls, `neo-event-border-${value}`);
-
-        me.cls = cls
+        this.setClsContribution(classOwners.eventBorder, value ? [`neo-event-border-${value}`] : [])
     }
 
     /**
@@ -494,12 +493,9 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetShowWeekends(value, oldValue) {
-        let me    = this,
-            {cls} = me;
+        let me = this;
 
-        NeoArray[value ? 'add' : 'remove'](cls, 'neo-show-weekends');
-
-        me._cls = cls; // silent update
+        me.setClsContribution(classOwners.showWeekends, value ? ['neo-show-weekends'] : [], true);
 
         if (oldValue !== undefined) {
             me.updateHeader(false, true);
@@ -515,16 +511,14 @@ class Component extends BaseComponent {
      */
     afterSetTimeAxisPosition(value, oldValue) {
         let me                = this,
-            {cls}             = me,
             timeAxisContainer = me.getColumnTimeAxisContainer();
 
-        NeoArray[value === 'end' ? 'add' : 'remove'](cls, 'neo-timeaxis-end');
+        me.setClsContribution(classOwners.timeAxisPosition, value === 'end' ? ['neo-timeaxis-end'] : [], true);
 
         if (oldValue !== undefined) {
             timeAxisContainer.cn.unshift(timeAxisContainer.cn.pop()) // switch the order of the 2 items
         }
 
-        me.cls = cls; // silent update
         me.update()
     }
 

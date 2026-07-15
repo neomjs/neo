@@ -1,6 +1,10 @@
 import Component from '../component/Base.mjs';
 import NeoArray  from '../util/Array.mjs';
 
+const classOwners = {
+    render: Symbol('grid.Row.render')
+};
+
 /**
  * @summary Represents a single visible row in the Grid.
  *
@@ -316,11 +320,13 @@ class Row extends Component {
             gridContainer    = gridBody.gridContainer,
             vdom             = me.vdom,
             {columns}        = gridContainer,
-            cellConfig, column, columnPosition, i, isMounted, lastColumnIndex, oldCn, poolIndex, poolSize, pooledCells;
+            cellConfig, classChanged, column, columnPosition, i, isMounted, lastColumnIndex, oldCn, poolIndex,
+            poolSize, pooledCells, rowCls, selectedCls;
 
         if (!record) {
             vdom.style = {display: 'none'};
-            !silent && me.update();
+            classChanged = me.setClsContribution(classOwners.render, [], silent);
+            !silent && !classChanged && me.update();
             return
         }
 
@@ -373,7 +379,7 @@ class Row extends Component {
             }
         }
 
-        let rowCls = gridBody.getRowClass(record, rowIndex);
+        rowCls = gridBody.getRowClass(record, rowIndex);
 
         if (gridBody.stripedRows && rowIndex % 2 !== 0) {
             rowCls.push('neo-even')
@@ -386,7 +392,8 @@ class Row extends Component {
         }
 
         if (selectedRows?.includes(recordId)) {
-            rowCls.push('neo-selected');
+            selectedCls = selectionModel?.selectedCls || 'neo-selected';
+            rowCls.push(selectedCls);
             vdom['aria-selected'] = true;
             // Note: fire('select') should ideally be handled by the SelectionModel observing the store/records,
             // or we keep it here but suppress events during rendering if needed.
@@ -394,8 +401,6 @@ class Row extends Component {
         } else {
             delete vdom['aria-selected']
         }
-
-        vdom.cls = rowCls;
 
         lastColumnIndex = columnPositions.getCount() - 1;
         poolSize        = cellPoolSize;
@@ -573,7 +578,8 @@ class Row extends Component {
             }
         }
 
-        !silent && me.update()
+        classChanged = me.setClsContribution(classOwners.render, rowCls, silent);
+        !silent && !classChanged && me.update()
     }
 
     /**
@@ -597,6 +603,28 @@ class Row extends Component {
      */
     getCellId(dataField) {
         return `${this.id}__${dataField}`
+    }
+
+    /**
+     * Updates the rendered row-selection token without flattening the row's other owned classes.
+     * @summary Lets selection models preserve pooled row class provenance across record reuse.
+     * @param {String}  selectedCls
+     * @param {Boolean} selected
+     * @param {Boolean} [silent=false]
+     * @returns {Boolean}
+     */
+    setSelectedCls(selectedCls, selected, silent=false) {
+        let cls = this.getClsContribution(classOwners.render);
+
+        NeoArray.toggle(cls, selectedCls, selected);
+
+        if (selected) {
+            this.vdom['aria-selected'] = true
+        } else {
+            delete this.vdom['aria-selected']
+        }
+
+        return this.setClsContribution(classOwners.render, cls, silent)
     }
 
     /**

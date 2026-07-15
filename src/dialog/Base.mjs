@@ -1,7 +1,12 @@
-import NeoArray from '../util/Array.mjs';
 import Panel    from '../container/Panel.mjs';
 import Toolbar  from './header/Toolbar.mjs';
 import VDomUtil from '../util/VDom.mjs';
+
+const classOwners = {
+    headerDraggable: Symbol('dialog.headerDraggable'),
+    maximized      : Symbol('dialog.maximized'),
+    modal          : Symbol('dialog.modal')
+};
 
 let DragZone;
 
@@ -204,13 +209,13 @@ class Dialog extends Panel {
      * @protected
      */
     afterSetDraggable(value, oldValue) {
-        let me = this,
-            cls;
+        let me = this;
 
         if (oldValue !== undefined && me.headerToolbar) {
-            cls = me.headerToolbar.cls;
-            NeoArray[value ? 'add' : 'remove'](cls, 'neo-draggable');
-            me.headerToolbar.cls = cls
+            me.headerToolbar.setClsContribution(
+                classOwners.headerDraggable,
+                value ? ['neo-draggable'] : []
+            )
         }
 
         value && import('../draggable/DragZone.mjs').then(module => {
@@ -243,17 +248,15 @@ class Dialog extends Panel {
     async afterSetMaximized(value, oldValue) {
         let me        = this,
             firstCall = oldValue === undefined,
-            {cls}     = me.vdom;
+            cls       = value ? ['neo-maximized'] : [];
 
-        !firstCall && NeoArray.add(cls, 'animated-hiding-showing');
-        NeoArray.toggle(cls, 'neo-maximized', value);
-        me.update();
+        !firstCall && cls.push('animated-hiding-showing');
+        me.setClsContribution(classOwners.maximized, cls);
 
         if (!firstCall) {
             await(me.timeout(250));
 
-            NeoArray.remove(cls, 'animated-hiding-showing');
-            me.update()
+            me.setClsContribution(classOwners.maximized, me.maximized ? ['neo-maximized'] : [])
         }
     }
 
@@ -266,8 +269,7 @@ class Dialog extends Panel {
     afterSetModal(value, oldValue) {
         let me = this;
 
-        NeoArray.toggle(me.vdom.cls, 'neo-modal', value);
-        me.update();
+        me.setClsContribution(classOwners.modal, value ? ['neo-modal'] : []);
 
         me.vnodeInitialized && me.syncModalMask()
     }
@@ -527,8 +529,6 @@ class Dialog extends Panel {
             cls                 = ['neo-header-toolbar', 'neo-toolbar'],
             headers             = me.headers || [];
 
-        me.draggable && cls.push('neo-draggable');
-
         me.headerToolbar = Neo.create({
             module   : Toolbar,
             appName,
@@ -541,6 +541,12 @@ class Dialog extends Panel {
             windowId,
             ...me.headerConfig
         });
+
+        me.headerToolbar.setClsContribution(
+            classOwners.headerDraggable,
+            me.draggable ? ['neo-draggable'] : [],
+            true
+        );
 
         headers.unshift(me.headerToolbar);
 

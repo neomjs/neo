@@ -1,5 +1,6 @@
-import Base     from './Base.mjs';
-import NeoArray from '../util/Array.mjs';
+import Base from './Base.mjs';
+
+const wrapperClsOwner = Symbol('layout.Card.wrapperCls');
 
 /**
  * @class Neo.layout.Card
@@ -82,7 +83,7 @@ class Card extends Base {
             sCfg            = me.constructor,
             needsTransition = me.slideDirection && oldValue !== undefined,
             needsUpdate     = false,
-            i, isActiveIndex, item, items, len, module, wrapperCls;
+            i, isActiveIndex, item, items, len, module;
 
         if (Neo.isNumber(value) && container) {
             items = container.items;
@@ -112,10 +113,10 @@ class Card extends Base {
                 }
 
                 if (item instanceof Neo.component.Base) {
-                    wrapperCls = item.wrapperCls;
-
-                    NeoArray.remove(wrapperCls, isActiveIndex ? sCfg.inactiveItemCls : sCfg.activeItemCls);
-                    NeoArray.add(   wrapperCls, isActiveIndex ? sCfg.activeItemCls   : sCfg.inactiveItemCls);
+                    me.setItemWrapperClsContribution(item, wrapperClsOwner, [
+                        sCfg.itemCls,
+                        isActiveIndex ? sCfg.activeItemCls : sCfg.inactiveItemCls
+                    ]);
 
                     if (removeInactiveCards || needsUpdate) {
                         if (isActiveIndex) {
@@ -126,8 +127,6 @@ class Card extends Base {
                             item.vdom.removeDom = true
                         }
                     }
-
-                    item.wrapperCls = wrapperCls
                 }
             }
 
@@ -150,12 +149,7 @@ class Card extends Base {
         let me            = this,
             isActiveIndex = me.activeIndex === index,
             sCfg          = me.constructor,
-            childCls      = item.wrapperCls || [],
             {vdom}        = item;
-
-        NeoArray.add(   childCls, sCfg.itemCls);
-        NeoArray.remove(childCls, isActiveIndex ? sCfg.inactiveItemCls : sCfg.activeItemCls);
-        NeoArray.add(   childCls, isActiveIndex ? sCfg.activeItemCls   : sCfg.inactiveItemCls);
 
         if (me.removeInactiveCards) {
             if (isActiveIndex) {
@@ -167,14 +161,14 @@ class Card extends Base {
             }
         }
 
-        if (keepInDom && item.setSilent) {
-            // Container.insert() uses keepInDom for atomic moves. Keep the item-level class mutation
-            // inside that silent transaction; the caller's common-parent update owns the one DOM commit.
-            item.setSilent({wrapperCls: childCls})
-        } else {
-            item.wrapperCls = childCls;
-            me.removeInactiveCards && item.update?.() // can get called for an item config
-        }
+        // Container.insert() uses keepInDom for atomic moves. Keep the item-level class mutation
+        // inside that silent transaction; the caller's common-parent update owns the one DOM commit.
+        me.setItemWrapperClsContribution(item, wrapperClsOwner, [
+            sCfg.itemCls,
+            isActiveIndex ? sCfg.activeItemCls : sCfg.inactiveItemCls
+        ], keepInDom);
+
+        !keepInDom && me.removeInactiveCards && item.update?.() // can get called for an item config
     }
 
     /**
@@ -229,6 +223,17 @@ class Card extends Base {
         container.fire('cardLoaded', {item});
 
         return item
+    }
+
+    /**
+     * Releases the complete card-item class contribution when switching layouts.
+     * @summary Prevents inactive and active card state from leaking into the next layout.
+     * @param {Neo.component.Base} item
+     * @param {Number} index
+     * @protected
+     */
+    removeChildAttributes(item, index) {
+        this.setItemWrapperClsContribution(item, wrapperClsOwner, [])
     }
 
     /**

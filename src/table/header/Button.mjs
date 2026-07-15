@@ -1,7 +1,11 @@
 import BaseButton        from '../../button/Base.mjs';
-import NeoArray          from '../../util/Array.mjs';
 import TextField         from '../../form/field/Text.mjs';
 import {resolveCallback} from '../../util/Function.mjs';
+
+const classOwners = {
+    isSorted: Symbol('isSorted'),
+    sortable: Symbol('sortable')
+};
 
 /**
  * @class Neo.table.header.Button
@@ -126,26 +130,22 @@ class Button extends BaseButton {
      */
     afterSetIsSorted(value, oldValue) {
         let me        = this,
-            {cls}     = me,
-            container = me.up('table-container');
+            container = me.up('table-container'),
+            cls;
 
         switch (value) {
             case null:
-                NeoArray.add(cls, 'neo-sort-hidden');
+                cls = ['neo-sort-hidden'];
                 break
             case 'ASC':
-                NeoArray.remove(cls, 'neo-sort-desc');
-                NeoArray.remove(cls, 'neo-sort-hidden');
-                NeoArray.add(cls, 'neo-sort-asc');
+                cls = ['neo-sort-asc'];
                 break
             case 'DESC':
-                NeoArray.remove(cls, 'neo-sort-asc');
-                NeoArray.remove(cls, 'neo-sort-hidden');
-                NeoArray.add(cls, 'neo-sort-desc');
+                cls = ['neo-sort-desc'];
                 break
         }
 
-        me.cls = cls;
+        me.setClsContribution(classOwners.isSorted, cls || []);
 
         // testing check until all example tables have a store
         if (!container || !container.store) {
@@ -206,13 +206,7 @@ class Button extends BaseButton {
      * @protected
      */
     afterSetSortable(value, oldValue) {
-        let me    = this,
-            {cls} = me;
-
-        NeoArray.toggle(cls, 'neo-sort-hidden', !value);
-
-        me.cls = cls;
-        me.update()
+        this.setClsContribution(classOwners.sortable, value ? [] : ['neo-sort-hidden'])
     }
 
     /**
@@ -378,12 +372,9 @@ class Button extends BaseButton {
      * @protected
      */
     removeSortingCss() {
-        let me    = this,
-            {cls} = me;
+        let me = this;
 
-        NeoArray.add(cls, 'neo-sort-hidden');
-
-        me.cls       = cls;
+        me.setClsContribution(classOwners.isSorted, ['neo-sort-hidden']);
         me._isSorted = null
     }
 }

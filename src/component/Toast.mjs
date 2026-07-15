@@ -2,6 +2,12 @@ import Component    from '../component/Base.mjs';
 import NeoArray     from "../util/Array.mjs";
 import ToastManager from '../manager/Toast.mjs';
 
+const classOwners = {
+    fadeOut       : Symbol('fadeOut'),
+    position      : Symbol('position'),
+    slideDirection: Symbol('slideDirection')
+};
+
 /**
  * @class Neo.component.Toast
  * @extends Neo.component.Base
@@ -193,7 +199,7 @@ class Toast extends Component {
      * @param {String} oldValue
      */
     afterSetPosition(value, oldValue) {
-        value && this.addCls(`neo-toast-${value}`)
+        this.setClsContribution(classOwners.position, value ? [`neo-toast-${value}`] : [])
     }
 
     /**
@@ -202,7 +208,7 @@ class Toast extends Component {
      * @param {String} oldValue
      */
     afterSetSlideDirection(value, oldValue) {
-        value && this.addCls(`neo-toast-slide-${value}-in`)
+        this.setClsContribution(classOwners.slideDirection, value ? [`neo-toast-slide-${value}-in`] : [])
     }
 
     /**
@@ -271,7 +277,7 @@ class Toast extends Component {
             }
         });
 
-        me.addCls('neo-toast-fade-out')
+        me.setClsContribution(classOwners.fadeOut, ['neo-toast-fade-out'])
     }
 
     /**

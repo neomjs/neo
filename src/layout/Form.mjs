@@ -1,5 +1,6 @@
-import Base     from './Base.mjs';
-import NeoArray from '../util/Array.mjs';
+import Base from './Base.mjs';
+
+const wrapperClsOwner = Symbol('layout.Form.wrapperCls');
 
 /**
  * @class Neo.layout.Form
@@ -54,15 +55,19 @@ class Form extends Base {
      * @param {Number} index
      */
     applyChildAttributes(item, index) {
+        let wrapperCls = [];
+
         if (!item.ignoreLayout) {
             if (item.ntype === 'fieldset') {
-                item.wrapperCls = NeoArray.union(item.wrapperCls, 'neo-layout-form-subfieldset')
-            } else if (child.ntype === 'legend') {
-                item.wrapperCls = NeoArray.union(item.wrapperCls, 'neo-layout-form-legend')
+                wrapperCls.push('neo-layout-form-subfieldset')
+            } else if (item.ntype === 'legend') {
+                wrapperCls.push('neo-layout-form-legend')
             } else {
-                item.wrapperCls = NeoArray.union(item.wrapperCls, 'neo-layout-form-item')
+                wrapperCls.push('neo-layout-form-item')
             }
         }
+
+        this.setItemWrapperClsContribution(item, wrapperClsOwner, wrapperCls)
     }
 
     /**
@@ -74,6 +79,8 @@ class Form extends Base {
      */
     removeChildAttributes(item, index) {
         let style = item.wrapperStyle || {};
+
+        this.setItemWrapperClsContribution(item, wrapperClsOwner, []);
 
         style.flex = item.flex || null;
         item.wrapperStyle = style

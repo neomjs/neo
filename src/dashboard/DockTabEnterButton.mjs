@@ -110,7 +110,7 @@ class DockTabEnterButton extends TabHeaderButton {
      * @protected
      */
     hasTabEnterDecoration() {
-        return this.cls?.includes('neo-dashboard-dock-tab-enter') === true
+        return this.getAuthoredCls().includes('neo-dashboard-dock-tab-enter')
     }
 
     /**
@@ -120,7 +120,7 @@ class DockTabEnterButton extends TabHeaderButton {
      * @protected
      */
     consumeTabEnterDecoration() {
-        let cls     = Array.isArray(this.cls) ? this.cls : this.cls ? [this.cls] : [],
+        let cls     = this.getAuthoredCls(),
             nextCls = cls.filter(value => value !== 'neo-dashboard-dock-tab-enter'
                 && !value.startsWith('dock-tab-enter-item-'));
 

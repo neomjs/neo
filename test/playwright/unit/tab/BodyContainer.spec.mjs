@@ -73,12 +73,12 @@ test.describe('Neo.tab.BodyContainer atomic moves', () => {
         tabBar.update = () => tabBarUpdates++;
 
         const
-            afterSetPressed    = remainingTab.afterSetPressed.bind(remainingTab),
-            afterSetWrapperCls = remainingCard.afterSetWrapperCls.bind(remainingCard);
+            afterSetPressed           = remainingTab.afterSetPressed.bind(remainingTab),
+            setWrapperClsContribution = remainingCard.setWrapperClsContribution.bind(remainingCard);
 
-        remainingCard.afterSetWrapperCls = (...args) => {
-            remainingCardWasSilent = Boolean(remainingCard.silentVdomUpdate);
-            afterSetWrapperCls(...args)
+        remainingCard.setWrapperClsContribution = (owner, value, silent) => {
+            remainingCardWasSilent = Boolean(silent);
+            return setWrapperClsContribution(owner, value, silent)
         };
         remainingTab.afterSetPressed = (...args) => {
             remainingTabWasSilent = Boolean(remainingTab.silentVdomUpdate);
@@ -134,11 +134,11 @@ test.describe('Neo.tab.BodyContainer atomic moves', () => {
             placeholder = target.items[0];
         let wrapperUpdateWasSilent = false;
 
-        const afterSetWrapperCls = card.afterSetWrapperCls.bind(card);
+        const setWrapperClsContribution = card.setWrapperClsContribution.bind(card);
 
-        card.afterSetWrapperCls = (...args) => {
-            wrapperUpdateWasSilent = Boolean(card.silentVdomUpdate);
-            afterSetWrapperCls(...args)
+        card.setWrapperClsContribution = (owner, value, silent) => {
+            wrapperUpdateWasSilent = Boolean(silent);
+            return setWrapperClsContribution(owner, value, silent)
         };
 
         expect(card.wrapperCls).toContain('neo-inactive-item');

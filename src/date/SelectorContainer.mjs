@@ -3,9 +3,12 @@ import Container                      from '../container/Base.mjs';
 import DateSelectorModel              from '../selection/DateSelectorModel.mjs';
 import DayViewComponent               from './DayViewComponent.mjs';
 import DateUtil                       from '../util/Date.mjs';
-import NeoArray                       from '../util/Array.mjs';
 import SelectorContainerStateProvider from './SelectorContainerStateProvider.mjs';
 import Toolbar                        from '../toolbar/Base.mjs';
+
+const classOwners = {
+    showCellBorders: Symbol('showCellBorders')
+};
 
 const todayDate = new Date();
 
@@ -229,11 +232,7 @@ class SelectorContainer extends Container {
      * @protected
      */
     afterSetShowCellBorders(value, oldValue) {
-        let me    = this,
-            {cls} = me;
-
-        NeoArray.toggle(cls, 'neo-hide-inner-borders', !value);
-        me.cls = cls
+        this.setClsContribution(classOwners.showCellBorders, value ? [] : ['neo-hide-inner-borders'])
     }
 
     /**

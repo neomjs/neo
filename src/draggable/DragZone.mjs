@@ -6,6 +6,20 @@ import NeoArray           from '../util/Array.mjs';
 import Observable         from '../core/Observable.mjs';
 import VDomUtil           from '../util/VDom.mjs';
 
+const
+    draggingClsOwner    = Symbol('draggable.DragZone.draggingCls'),
+    fallbackClsStates   = new WeakMap(),
+    normalizeClassNames = value => [...new Set((Array.isArray(value) ? value : value ? [value] : []).filter(Boolean))];
+
+const reconcileFallbackAuthored = (state, current) => {
+    const owned = new Set([...state.contributions.values()].flat());
+
+    state.authored = normalizeClassNames([
+        ...state.authored.filter(cls => current.includes(cls)),
+        ...current.filter(cls => !owned.has(cls))
+    ])
+};
+
 /**
  * @class Neo.draggable.DragZone
  * @extends Neo.core.Base
@@ -336,12 +350,9 @@ class DragZone extends Base {
      * @param {Object} data
      */
     dragEnd(data) {
-        let me      = this,
-            {owner} = me,
-            {cls}   = owner;
+        let me = this;
 
-        NeoArray.remove(cls, 'neo-is-dragging');
-        owner.cls = cls;
+        me.setOwnerClsContribution(draggingClsOwner, []);
 
         if (me.dragProxy) {
             if (me.dragPlaceholder) {
@@ -395,10 +406,9 @@ class DragZone extends Base {
      * @param {Object} data
      */
     async dragStart(data) {
-        let me                         = this,
-            {appName, owner, windowId} = me,
-            {cls}                      = owner,
-            rect                       = me.getDragElementRect(data),
+        let me                  = this,
+            {appName, windowId} = me,
+            rect                = me.getDragElementRect(data),
             mainData, offsetX, offsetY;
 
         me.setData();
@@ -411,8 +421,7 @@ class DragZone extends Base {
 
         me.boundaryContainerRect = mainData.boundaryContainerRect
 
-        NeoArray.add(cls, 'neo-is-dragging');
-        owner.cls = cls;
+        me.setOwnerClsContribution(draggingClsOwner, ['neo-is-dragging']);
 
         offsetX = data.clientX - rect.left;
         offsetY = data.clientY - rect.top;
@@ -434,6 +443,63 @@ class DragZone extends Base {
             offsetX,
             offsetY
         })
+    }
+
+    /**
+     * Replaces the root class contribution owned by this drag zone.
+     * @summary Keeps full component owners owner-aware while preserving lightweight drag-owner compatibility.
+     * @param {*}        contributionOwner Stable contribution key.
+     * @param {String[]} value
+     * @returns {Boolean|undefined}
+     * @protected
+     */
+    setOwnerClsContribution(contributionOwner, value) {
+        let me      = this,
+            {owner} = me,
+            cls, current, next, previous, state;
+
+        if (typeof owner.setClsContribution === 'function') {
+            return owner.setClsContribution(contributionOwner, value)
+        }
+
+        current = normalizeClassNames(owner.cls);
+        next    = normalizeClassNames(value);
+        state   = fallbackClsStates.get(owner);
+
+        if (!state) {
+            state = {
+                aggregate    : current,
+                authored     : current,
+                contributions: new Map()
+            };
+            fallbackClsStates.set(owner, state)
+        } else if (!Neo.isEqual(current, state.aggregate)) {
+            reconcileFallbackAuthored(state, current)
+        }
+
+        previous = state.contributions.get(contributionOwner) || [];
+
+        if (Neo.isEqual(next, previous) && Neo.isEqual(current, state.aggregate)) {
+            return false
+        }
+
+        if (next.length) {
+            state.contributions.set(contributionOwner, next)
+        } else {
+            state.contributions.delete(contributionOwner)
+        }
+
+        cls = [...state.authored];
+        state.contributions.forEach(contribution => NeoArray.add(cls, contribution));
+        state.aggregate = cls;
+
+        owner.cls = cls;
+
+        if (!state.contributions.size) {
+            fallbackClsStates.delete(owner)
+        }
+
+        return true
     }
 
     /**

@@ -1,6 +1,11 @@
 import BaseButton from '../../button/Base.mjs';
-import NeoArray   from '../../util/Array.mjs';
 import TextField  from '../../form/field/Text.mjs';
+
+const classOwners = {
+    isSorted: Symbol('isSorted'),
+    locked  : Symbol('locked'),
+    sortable: Symbol('sortable')
+};
 
 /**
  * @class Neo.grid.header.Button
@@ -123,26 +128,22 @@ class Button extends BaseButton {
      */
     afterSetIsSorted(value, oldValue) {
         let me        = this,
-            {cls}     = me,
-            container = me.up('grid-container');
+            container = me.up('grid-container'),
+            cls;
 
         switch (value) {
             case null:
-                NeoArray.add(cls, 'neo-sort-hidden');
+                cls = ['neo-sort-hidden'];
                 break
             case 'ASC':
-                NeoArray.remove(cls, 'neo-sort-desc');
-                NeoArray.remove(cls, 'neo-sort-hidden');
-                NeoArray.add(cls, 'neo-sort-asc');
+                cls = ['neo-sort-asc'];
                 break
             case 'DESC':
-                NeoArray.remove(cls, 'neo-sort-asc');
-                NeoArray.remove(cls, 'neo-sort-hidden');
-                NeoArray.add(cls, 'neo-sort-desc');
+                cls = ['neo-sort-desc'];
                 break
         }
 
-        me.cls = cls;
+        me.setClsContribution(classOwners.isSorted, cls || []);
 
         // testing check until all example grids have a store
         if (!container || !container.store) {
@@ -162,18 +163,7 @@ class Button extends BaseButton {
      * @protected
      */
     afterSetLocked(value, oldValue) {
-        let {cls} = this;
-
-        NeoArray.remove(cls, 'neo-locked-start');
-        NeoArray.remove(cls, 'neo-locked-end');
-
-        if (value === 'start') {
-            NeoArray.add(cls, 'neo-locked-start')
-        } else if (value === 'end') {
-            NeoArray.add(cls, 'neo-locked-end')
-        }
-
-        this.cls = cls
+        this.setClsContribution(classOwners.locked, value ? [`neo-locked-${value}`] : [])
     }
 
     /**
@@ -247,13 +237,7 @@ class Button extends BaseButton {
      * @protected
      */
     afterSetSortable(value, oldValue) {
-        let me    = this,
-            {cls} = me;
-
-        NeoArray.toggle(cls, 'neo-sort-hidden', !value);
-
-        me.cls = cls;
-        me.update()
+        this.setClsContribution(classOwners.sortable, value ? [] : ['neo-sort-hidden'])
     }
 
     /**
@@ -375,12 +359,9 @@ class Button extends BaseButton {
      * @protected
      */
     removeSortingCss() {
-        let me    = this,
-            {cls} = me;
+        let me = this;
 
-        NeoArray.add(cls, 'neo-sort-hidden');
-
-        me.cls       = cls;
+        me.setClsContribution(classOwners.isSorted, ['neo-sort-hidden']);
         me._isSorted = null
     }
 

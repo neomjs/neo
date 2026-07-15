@@ -160,7 +160,7 @@ class Popover extends Plugin {
               target     = me.owner,
               targetVdom = target.vdom;
 
-        target.addCls(me.popovertargetCls);
+        target.setClsContribution(me, [me.popovertargetCls]);
         targetVdom.popovertarget = me.popoverId
     }
 

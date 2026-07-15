@@ -1,5 +1,7 @@
 import Base from '../core/Base.mjs';
 
+const motionClsOwner = Symbol('dashboard.DockMotionSignal.motionCls');
+
 /**
  * @summary The dock motion-observability signal: `neo-dashboard-dock-animating` lifecycle owner.
  *
@@ -99,7 +101,7 @@ class DockMotionSignal extends Base {
         if (!entry) {
             entry = {count: 0, timer: null};
             this.activeMotions.set(component, entry);
-            component.addCls(this.SIGNAL_CLS)
+            component.setClsContribution(motionClsOwner, [this.SIGNAL_CLS])
         }
 
         entry.count++;
@@ -109,7 +111,7 @@ class DockMotionSignal extends Base {
         entry.timer && clearTimeoutFn(entry.timer);
         entry.timer = setTimeoutFn(() => {
             this.activeMotions.delete(component);
-            this.isLive(component) && component.removeCls(this.SIGNAL_CLS)
+            this.isLive(component) && component.setClsContribution(motionClsOwner, [])
         }, this.FAIL_SAFE_MS)
     }
 
@@ -149,7 +151,7 @@ class DockMotionSignal extends Base {
         if (entry.count <= 0) {
             entry.timer && clearTimeoutFn(entry.timer);
             this.activeMotions.delete(component);
-            this.isLive(component) && component.removeCls(this.SIGNAL_CLS)
+            this.isLive(component) && component.setClsContribution(motionClsOwner, [])
         }
     }
 }

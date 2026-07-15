@@ -6,6 +6,10 @@ import Row from './Row.mjs';
 import RowModel from '../selection/grid/RowModel.mjs';
 import VDomUtil from '../util/VDom.mjs';
 
+const classOwners = {
+    isScrolling: Symbol('isScrolling')
+};
+
 /**
  * @summary Manages the scrollable viewport and row rendering for the Grid.
  *
@@ -488,7 +492,7 @@ class GridBody extends Component {
      * @protected
      */
     afterSetIsScrolling(value, oldValue) {
-        this.toggleCls('neo-is-scrolling', value);
+        this.setClsContribution(classOwners.isScrolling, value ? ['neo-is-scrolling'] : []);
         this.fire('isScrollingChange', { value })
     }
 

@@ -1,5 +1,4 @@
 import DragZone  from './DragZone.mjs';
-import NeoArray  from '../../util/Array.mjs';
 import Rectangle from '../../util/Rectangle.mjs';
 import VDomUtil  from '../../util/VDom.mjs';
 
@@ -254,9 +253,7 @@ class SortZone extends DragZone {
             );
 
             sortableItems.forEach(item => {
-                const wrapperCls = item.wrapperCls || [];
-                NeoArray.toggle(wrapperCls, 'neo-draggable', draggable);
-                item.wrapperCls = wrapperCls
+                me.setItemDraggableCls(item, draggable)
             });
         } else {
             super.adjustItemCls(draggable)

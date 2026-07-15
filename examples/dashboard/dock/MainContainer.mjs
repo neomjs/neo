@@ -12,6 +12,10 @@ import '../../../src/button/Base.mjs';    // registers the `button` ntype used b
 import '../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the projection emits for tab zones
 import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype used by the perspective toolbar
 
+const classOwners = {
+    activePerspective: Symbol('activePerspective')
+};
+
 /**
  * A representative dock-zone document (`neo.harness.dockZone.v1`): an edge-zone root whose center is a
  * horizontal split of a two-tab main zone and a vertical side-split of two single-tab zones, plus a
@@ -187,6 +191,7 @@ class MainContainer extends Viewport {
         me.dockModel           = DockZoneModel.restoreActiveSavedLayout(me.layoutCollection).document || DockZoneModel.clone(initialDockModel);
 
         me.add(me.buildWorkspaceItems());
+        me.syncPerspectiveToolbar();
         me.layoutCollectionLoadPromise = me.loadLayoutCollectionFromStorage()
     }
 
@@ -364,7 +369,6 @@ class MainContainer extends Viewport {
             isActive = layout.layoutId === me.layoutCollection?.activeLayoutId;
 
         return {
-            cls      : isActive ? ['neo-dashboard-dock-perspective-active'] : [],
             handler  : () => me.restorePerspective(layout.layoutId),
             pressed  : isActive,
             reference: `dock-perspective-${layout.layoutId}`,
@@ -416,10 +420,12 @@ class MainContainer extends Viewport {
             }
 
             isActive = layout.layoutId === me.layoutCollection.activeLayoutId;
+            button.setClsContribution(
+                classOwners.activePerspective,
+                isActive ? ['neo-dashboard-dock-perspective-active'] : [],
+                true
+            );
             button.set({
-                cls: isActive
-                    ? [...new Set([...button.cls, 'neo-dashboard-dock-perspective-active'])]
-                    : button.cls.filter(cls => cls !== 'neo-dashboard-dock-perspective-active'),
                 pressed: isActive,
                 text   : layout.title
             })

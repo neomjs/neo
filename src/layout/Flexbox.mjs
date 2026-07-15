@@ -1,6 +1,8 @@
 import Base     from './Base.mjs';
 import NeoArray from '../util/Array.mjs';
 
+const wrapperClsOwner = Symbol('layout.Flexbox.wrapperCls');
+
 /**
  * @class Neo.layout.Flexbox
  * @extends Neo.layout.Base
@@ -162,23 +164,15 @@ class Flexbox extends Base {
     /**
      * Applies CSS classes to the container this layout is bound to
      */
-    applyRenderAttributes() {
-        let me                  = this,
-            {container, prefix} = me,
-            {wrapperCls}        = container;
+    applyRenderAttributes(silent=false) {
+        let me          = this,
+            {container} = me;
 
         if (!container) {
             Neo.logError('layout.Flexbox: applyRenderAttributes -> container not yet created', me.containerId)
         }
 
-        NeoArray.add(wrapperCls, prefix + 'container');
-
-        me.align     && NeoArray.add(wrapperCls, prefix + 'align-'     + me.align);
-        me.direction && NeoArray.add(wrapperCls, prefix + 'direction-' + me.direction);
-        me.pack      && NeoArray.add(wrapperCls, prefix + 'pack-'      + me.pack);
-        me.wrap      && NeoArray.add(wrapperCls, prefix + 'wrap-'      + me.wrap);
-
-        container.wrapperCls = wrapperCls
+        me.setItemWrapperClsContribution(container, wrapperClsOwner, me.getContainerWrapperCls(), silent)
     }
 
     /**
@@ -226,6 +220,25 @@ class Flexbox extends Base {
     }
 
     /**
+     * Returns the complete class contribution owned by this flexbox layout.
+     * @summary Keeps flexbox replacement atomic instead of diffing the flattened wrapper classes.
+     * @returns {String[]}
+     * @protected
+     */
+    getContainerWrapperCls() {
+        let me       = this,
+            {prefix} = me;
+
+        return [
+            prefix + 'container',
+            me.align     && prefix + 'align-'     + me.align,
+            me.direction && prefix + 'direction-' + me.direction,
+            me.pack      && prefix + 'pack-'      + me.pack,
+            me.wrap      && prefix + 'wrap-'      + me.wrap
+        ].filter(Boolean)
+    }
+
+    /**
      * Removes all CSS rules from a container item this layout is bound to.
      * Gets called when switching to a different layout.
      * @param {Neo.component.Base} item
@@ -245,22 +258,14 @@ class Flexbox extends Base {
      * @protected
      */
     removeRenderAttributes() {
-        let me                  = this,
-            {container, prefix} = me,
-            {wrapperCls}        = container;
+        let me          = this,
+            {container} = me;
 
         if (!container) {
             Neo.logError('layout.Flexbox: removeRenderAttributes -> container not yet created', me.containerId)
         }
 
-        NeoArray.remove(wrapperCls, prefix + 'container');
-
-        me.align     && NeoArray.remove(wrapperCls, prefix + 'align-'     + me.align);
-        me.direction && NeoArray.remove(wrapperCls, prefix + 'direction-' + me.direction);
-        me.pack      && NeoArray.remove(wrapperCls, prefix + 'pack-'      + me.pack);
-        me.wrap      && NeoArray.remove(wrapperCls, prefix + 'wrap-'      + me.wrap);
-
-        container.wrapperCls = wrapperCls
+        me.setItemWrapperClsContribution(container, wrapperClsOwner, [])
     }
 
     /**
@@ -309,18 +314,11 @@ class Flexbox extends Base {
      * @protected
      */
     updateInputValue(value, oldValue, propertyName) {
-        let me                  = this,
-            {container, prefix} = me,
-            {wrapperCls}        = container;
+        let me          = this,
+            {container} = me;
 
         if (container?.vnodeInitialized) {
-            NeoArray.remove(wrapperCls, prefix + propertyName + '-' + oldValue);
-
-            if (value !== null) {
-                NeoArray.add(wrapperCls, prefix + propertyName + '-' + value)
-            }
-
-            container.wrapperCls = wrapperCls
+            me.setItemWrapperClsContribution(container, wrapperClsOwner, me.getContainerWrapperCls())
         }
     }
 }

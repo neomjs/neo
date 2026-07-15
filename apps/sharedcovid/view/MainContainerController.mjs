@@ -597,13 +597,7 @@ class MainContainerController extends ComponentController {
         [component.appName, ...me.connectedApps].forEach(appName => {
             component = me.getMainView(appName);
 
-            cls = [...component.cls];
-
-            component.cls.forEach(item => {
-                if (item.includes('neo-theme')) {
-                    NeoArray.remove(cls, item)
-                }
-            });
+            cls = component.getAuthoredCls().filter(item => !item.includes('neo-theme'));
 
             NeoArray.add(cls, theme);
             component.cls = cls

@@ -2,6 +2,11 @@ import Base     from './Base.mjs';
 import Toolbar  from '../toolbar/Base.mjs';
 import NeoArray from '../util/Array.mjs';
 
+const classOwners = {
+    expanded  : Symbol('expanded'),
+    scrollable: Symbol('scrollable')
+};
+
 /**
  * @class Neo.container.AccordionItem
  * @extends Neo.container.Base
@@ -107,17 +112,13 @@ class AccordionContainer extends Base {
      * @param {Boolean} isExpanded
      */
     afterSetExpanded(isExpanded) {
-        let me    = this,
-            {cls} = me,
-            fn    = isExpanded ? 'add' : 'remove';
+        let me = this;
 
-        NeoArray[fn](cls, 'neo-expanded');
-        me.cls = cls;
+        me.setClsContribution(classOwners.expanded, isExpanded ? ['neo-expanded'] : []);
 
         // Ensure scrollbars are not flipping in and out
         me.timeout(450).then(() => {
-            NeoArray[fn](cls, 'neo-scrollable');
-            me.cls = cls
+            me.setClsContribution(classOwners.scrollable, me.expanded ? ['neo-scrollable'] : [])
         })
     }
 

@@ -108,6 +108,30 @@ const readScaleSparklines = async (app, page) => {
 };
 
 /**
+ * Returns only mounted pooled action Buttons owned by the scale pane.
+ * @param {Object} app Neural Link fixture app handle.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<Object[]>}
+ */
+const readScaleActionButtons = async (app, page) => {
+    const instances = asArray(await app.findInstances(
+        {className: 'Neo.button.Base'},
+        ['id', 'cls', 'iconPosition', 'record.id', 'record.name']
+    )),
+        scaleIds = await page.evaluate(ids => ids.filter(id => {
+            const element = document.getElementById(id),
+                  rect    = element?.getBoundingClientRect();
+
+            return Boolean(element?.matches('.workstation-row-action')
+                && element.closest('.workstation-scale-pane')
+                && rect?.width > 0
+                && rect?.height > 0)
+        }), instances.map(instance => instance.id));
+
+    return instances.filter(instance => scaleIds.includes(instance.id))
+};
+
+/**
  * Reads the first visible Sparkline's cell/content geometry from one data pane.
  * @param {import('@playwright/test').Page} page
  * @param {String} paneSelector
@@ -457,6 +481,76 @@ test.describe('Workstation — dense living-data composition', () => {
             .toBe('Workstation.model.Record');
         expect(feedBaseline.model?.className ?? feedBaseline.model)
             .toBe('Workstation.model.Record');
+
+        await test.step('pooled Button keeps semantic class ownership across record reuse', async () => {
+            const actions = await readScaleActionButtons(app, page),
+                  target  = actions[0];
+
+            expect(target, 'the scale grid exposes a mounted pooled action Button').toBeTruthy();
+
+            const
+                initialRecordId = target.properties['record.id'],
+                readProjection  = async () => {
+                    const state = await app.getComponent(target.id, [
+                        'cls', 'iconPosition', 'record.id', 'vdom.cls'
+                    ]),
+                        dom = await page.locator(`[id="${target.id}"]`).evaluate(element => {
+                            const rect = element.getBoundingClientRect();
+
+                            return {
+                                classes      : [...element.classList],
+                                flexDirection: getComputedStyle(element).flexDirection,
+                                height       : rect.height,
+                                width        : rect.width
+                            }
+                        });
+
+                    return {dom, state}
+                };
+
+            await app.setProperties(target.id, {iconPosition: 'right'});
+
+            await expect.poll(async () => {
+                const {dom, state} = await readProjection();
+
+                return state.iconPosition === 'right'
+                    && state.cls.filter(cls => cls === 'icon-right').length === 1
+                    && state['vdom.cls'].filter(cls => cls === 'icon-right').length === 1
+                    && dom.classes.filter(cls => cls === 'icon-right').length === 1
+                    && dom.flexDirection === 'row-reverse'
+            }, {
+                message  : 'the owner config, VDOM, DOM, and computed style agree before recycling',
+                timeout  : 5000,
+                intervals: [50, 100]
+            }).toBe(true);
+
+            const beforeRecycle = await readProjection();
+
+            expect(await app.callMethod(workspaceId, 'scrollScaleGrid', [50000])).toBe(true);
+
+            await expect.poll(async () => {
+                const {dom, state} = await readProjection();
+
+                return state['record.id'] !== initialRecordId
+                    && state.iconPosition === 'right'
+                    && state.cls.includes('workstation-row-action')
+                    && state.cls.includes('neo-button')
+                    && state.cls.filter(cls => cls === 'icon-right').length === 1
+                    && state['vdom.cls'].filter(cls => cls === 'icon-right').length === 1
+                    && dom.classes.filter(cls => cls === 'icon-right').length === 1
+                    && dom.flexDirection === 'row-reverse'
+                    && Math.abs(dom.width  - beforeRecycle.dom.width)  <= 1
+                    && Math.abs(dom.height - beforeRecycle.dom.height) <= 1
+            }, {
+                message  : 'the same Button identity keeps its semantic class after owning a different record',
+                timeout  : 10000,
+                intervals: [50, 100, 250]
+            }).toBe(true);
+
+            expect(await app.callMethod(workspaceId, 'scrollScaleGrid', [0])).toBe(true);
+            await app.setProperties(target.id, {iconPosition: 'left'});
+            await expect(page.locator(`[id="${target.id}"]`)).toHaveCSS('flex-direction', 'row')
+        });
 
         const
             root        = page.locator('.workstation-workspace'),

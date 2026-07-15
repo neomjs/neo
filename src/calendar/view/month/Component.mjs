@@ -3,6 +3,10 @@ import DateUtil      from '../../../util/Date.mjs';
 import NeoArray      from '../../../util/Array.mjs';
 import VDomUtil      from '../../../util/VDom.mjs';
 
+const classOwners = {
+    eventBorder: Symbol('eventBorder')
+};
+
 const todayDate = new Date();
 
 const today = {
@@ -245,13 +249,7 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetEventBorder(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
-
-        oldValue && NeoArray.remove(cls, `neo-event-border-${oldValue}`);
-        value    && NeoArray.add(   cls, `neo-event-border-${value}`);
-
-        me.cls = cls
+        this.setClsContribution(classOwners.eventBorder, value ? [`neo-event-border-${value}`] : [])
     }
 
     /**

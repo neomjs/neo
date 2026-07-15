@@ -66,7 +66,7 @@ class AnimateRows extends Base {
         // Add the re-bound listeners
         owner.store = store;
 
-        owner.addCls('neo-animate-rows')
+        owner.setClsContribution(me, ['neo-animate-rows'])
     }
 
     /**

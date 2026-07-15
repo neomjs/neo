@@ -229,13 +229,9 @@ class Model extends Base {
      * @param {Neo.component.Base} component
      */
     register(component) {
-        let me  = this,
-            cls = component.wrapperCls || [];
+        let me = this;
 
-        if (me.cls && !cls.includes(me.cls)) {
-            cls.push(me.cls);
-            component.wrapperCls = cls
-        }
+        component.setWrapperClsContribution(me, me.cls ? [me.cls] : []);
 
         me.view = component;
         me.addDomListener();
@@ -360,12 +356,7 @@ class Model extends Base {
             {view} = me;
 
         if (!view.isDestroying) {
-            let cls = view.wrapperCls || [];
-
-            if (me.cls && cls.includes(me.cls)) {
-                NeoArray.remove(cls, me.cls);
-                view.wrapperCls = cls
-            }
+            view.setWrapperClsContribution(me, []);
 
             me.deselectAll();
 

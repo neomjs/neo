@@ -88,6 +88,15 @@ test.describe('Neo.grid.Row cell-id scheme migration (#12930)', () => {
             parent             : gridBody,
             record,
             rowIndex           : 0,
+            setClsContribution(owner, value) {
+                const
+                    next    = [...value],
+                    changed = !Neo.isEqual(next, this.vdom.cls || []);
+
+                this.vdom.cls = next;
+
+                return changed
+            },
             vdom               : {cn: []}
         }
     }

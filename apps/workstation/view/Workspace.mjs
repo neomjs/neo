@@ -16,6 +16,11 @@ import '../../../src/button/Base.mjs';
 import '../../../src/tab/Container.mjs';
 import '../../../src/toolbar/Base.mjs';
 
+const classOwners = {
+    animationSuppressed: Symbol('animationSuppressed'),
+    paneIdentity       : Symbol('paneIdentity')
+};
+
 /**
  * Target-owned narrative data for Workstation's lightweight resident panes. These are presentation
  * facts only: stores and dock state remain owned by their existing authorities.
@@ -657,7 +662,7 @@ class Workspace extends Container {
                 // Native reparenting keeps each toolbar DOM node, but CSS animations restart when it
                 // re-enters the document. Retained indicators settle immediately; new chrome still enters.
                 animationSuppressedBars.forEach(bar => {
-                    bar.setSilent({cls: [...bar.cls, 'neo-no-animation']})
+                    bar.setClsContribution(classOwners.animationSuppressed, ['neo-no-animation'], true)
                 })
             },
             waitForOverflowProjection: plugin => me.waitForOverflowProjection(plugin)
@@ -685,7 +690,7 @@ class Workspace extends Container {
 
         await chromeAnimationSettle;
         animationSuppressedBars.forEach(bar => {
-            bar.setSilent({cls: bar.cls.filter(cls => cls !== 'neo-no-animation')})
+            bar.setClsContribution(classOwners.animationSuppressed, [], true)
         });
         host.updateDepth = -1;
         host.update();
@@ -804,7 +809,7 @@ class Workspace extends Container {
         // surrounding navigation groups use compact labels; the twelve-item heavy group keeps the full
         // canonical titles and therefore owns the showcase's one intentional overflow affordance.
         pane.header = {text: me.getPaneHeaderText(itemId, item)};
-        pane.addCls(`workstation-pane-${itemId}`);
+        pane.setClsContribution(classOwners.paneIdentity, [`workstation-pane-${itemId}`]);
 
         return pane
     }

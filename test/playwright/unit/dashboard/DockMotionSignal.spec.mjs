@@ -9,6 +9,7 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
+import Component      from '../../../../src/component/Base.mjs';
 
 test.describe('Neo.dashboard.DockMotionSignal (the motion-contract observability signal)', () => {
     let DockMotionSignal;
@@ -35,8 +36,12 @@ test.describe('Neo.dashboard.DockMotionSignal (the motion-contract observability
             isDestroyed : false,
             isDestroying: false,
             calls,
-            addCls      : cls => calls.push(['add', cls]),
-            removeCls   : cls => calls.push(['remove', cls])
+            setClsContribution(owner, cls) {
+                calls.push(cls.length
+                    ? ['add', cls[0]]
+                    : ['remove', 'neo-dashboard-dock-animating']
+                )
+            }
         };
     };
 
@@ -83,6 +88,25 @@ test.describe('Neo.dashboard.DockMotionSignal (the motion-contract observability
         DockMotionSignal.enter(c, t.setTimeoutFn, t.clearTimeoutFn);
         expect(DockMotionSignal.isAnimating('ws-2')).toBe(true);
         expect(c.calls[2]).toEqual(['add', 'neo-dashboard-dock-animating'])
+    });
+
+    test('the presentation-only signal is excluded from recreation snapshots', () => {
+        const
+            t         = makeTimers(),
+            component = Neo.create(Component, {
+                appName: 'DashboardDockMotionSignalTest',
+                cls    : ['authored-workspace']
+            });
+
+        DockMotionSignal.enter(component, t.setTimeoutFn, t.clearTimeoutFn);
+
+        const snapshot = component.toRecreationConfig();
+
+        expect(component.cls).toContain('neo-dashboard-dock-animating');
+        expect(snapshot.cls).toEqual(['authored-workspace']);
+        expect(snapshot.vdom.cls).not.toContain('neo-dashboard-dock-animating');
+
+        component.destroy()
     });
 
     test('every new enter re-arms the fail-safe — the backstop covers the LAST starter', () => {

@@ -1,5 +1,7 @@
 import ContentComponent from '../../../../src/app/content/Component.mjs';
 
+const labClsOwner = Symbol('Portal.view.content.Component.labCls');
+
 // GitHub bot/app actors whose `github.com/<login>.png` avatar 404s — bot avatars live at
 // `avatars.githubusercontent.com/in/<app-id>` (not derivable from the login), so these fall back to a
 // no-network Font Awesome GitHub glyph instead of a broken image request.
@@ -132,7 +134,7 @@ class Component extends ContentComponent {
 
             me.value = content;
 
-            me.toggleCls('lab', record.name?.startsWith('Lab:'));
+            me.toggleCls('lab', record.name?.startsWith('Lab:'), labClsOwner);
 
             Neo.main.addon.IntersectionObserver.observe({
                 disconnect: true,

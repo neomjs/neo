@@ -2,8 +2,12 @@ import BaseContainer from '../container/Base.mjs';
 import BodyContainer from './BodyContainer.mjs';
 import HeaderButton  from './header/Button.mjs';
 import HeaderToolbar from './header/Toolbar.mjs';
-import NeoArray      from '../util/Array.mjs';
 import Strip         from './Strip.mjs';
+
+const classOwners = {
+    plain         : Symbol('plain'),
+    tabBarPosition: Symbol('tabBarPosition')
+};
 
 /**
  * @summary Manages a tabbed interface with a header toolbar and a content body.
@@ -178,11 +182,10 @@ class Container extends BaseContainer {
      * @protected
      */
     afterSetPlain(value, oldValue) {
-        let me    = this,
-            {cls} = me;
-
-        NeoArray[value ? 'unshift' : 'remove'](cls, me.tabContainerCls + '-plain');
-        me.cls = cls
+        this.setClsContribution(
+            classOwners.plain,
+            value ? [this.tabContainerCls + '-plain'] : []
+        )
     }
 
     /**
@@ -207,12 +210,9 @@ class Container extends BaseContainer {
      * @protected
      */
     afterSetTabBarPosition(value, oldValue) {
-        let me    = this,
-            {cls} = me;
+        let me = this;
 
-        NeoArray.remove(cls, 'neo-' + oldValue);
-        NeoArray.add(cls, 'neo-' + value);
-        me.setSilent({cls});
+        me.setClsContribution(classOwners.tabBarPosition, ['neo-' + value], true);
 
         if (me.vnodeInitialized) {
             me.layout.setSilent(me.getLayoutConfig());

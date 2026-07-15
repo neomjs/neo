@@ -1,6 +1,20 @@
 import Base     from '../core/Base.mjs';
 import NeoArray from '../util/Array.mjs';
 
+const
+    fallbackWrapperStates = new WeakMap(),
+    normalizeClassNames   = value => [...new Set((Array.isArray(value) ? value : value ? [value] : []).filter(Boolean))],
+    wrapperClsOwner       = Symbol('layout.Base.wrapperCls');
+
+const reconcileFallbackAuthored = (state, current) => {
+    const owned = new Set([...state.contributions.values()].flat());
+
+    state.authored = normalizeClassNames([
+        ...state.authored.filter(cls => current.includes(cls)),
+        ...current.filter(cls => !owned.has(cls))
+    ])
+};
+
 /**
  * The base class for all other layouts.
  * Use it directly in case you want to create a container without a layout.
@@ -85,18 +99,13 @@ class Layout extends Base {
      */
     applyRenderAttributes(silent=false) {
         let me                        = this,
-            {container, containerCls} = me,
-            {wrapperCls}              = container;
+            {container, containerCls} = me;
 
-        if (containerCls) {
-            if (!container) {
-                Neo.logError(me.className + ': applyRenderAttributes -> container not yet created', me.containerId)
-            }
-
-            NeoArray.add(wrapperCls, containerCls);
-
-            container[silent ? 'setSilent' :  'set']({wrapperCls})
+        if (!container) {
+            Neo.logError(me.className + ': applyRenderAttributes -> container not yet created', me.containerId)
         }
+
+        me.setItemWrapperClsContribution(container, wrapperClsOwner, containerCls ? [containerCls] : [], silent)
     }
 
     /**
@@ -144,19 +153,14 @@ class Layout extends Base {
      * @protected
      */
     removeRenderAttributes() {
-        let me                        = this,
-            {container, containerCls} = me,
-            {wrapperCls}              = container;
+        let me          = this,
+            {container} = me;
 
-        if (containerCls) {
-            if (!container) {
-                Neo.logError(me.className + ': removeRenderAttributes -> container not yet created', me.containerId)
-            }
-
-            NeoArray.remove(wrapperCls, containerCls);
-
-            container.wrapperCls = wrapperCls
+        if (!container) {
+            Neo.logError(me.className + ': removeRenderAttributes -> container not yet created', me.containerId)
         }
+
+        me.setItemWrapperClsContribution(container, wrapperClsOwner, [])
     }
 
     /**
@@ -180,6 +184,66 @@ class Layout extends Base {
         } else {
             return container.promiseUpdate()
         }
+    }
+
+    /**
+     * Replaces one layout owner's wrapper class contribution on a container item.
+     * @summary Keeps full components owner-aware while preserving functional and lightweight item compatibility.
+     * @param {Neo.component.Base|Object} item
+     * @param {*}                         owner Stable owner key.
+     * @param {String[]|String|null}     value
+     * @param {Boolean}                  [silent=false]
+     * @returns {Boolean} True when the contribution changed.
+     * @protected
+     */
+    setItemWrapperClsContribution(item, owner, value, silent=false) {
+        if (typeof item.setWrapperClsContribution === 'function') {
+            return item.setWrapperClsContribution(owner, value, silent)
+        }
+
+        let current = normalizeClassNames(item.wrapperCls),
+            next    = normalizeClassNames(value),
+            state   = fallbackWrapperStates.get(item),
+            previous, wrapperCls;
+
+        if (!state) {
+            state = {
+                aggregate    : current,
+                authored     : current,
+                contributions: new Map()
+            };
+            fallbackWrapperStates.set(item, state)
+        } else if (!Neo.isEqual(current, state.aggregate)) {
+            reconcileFallbackAuthored(state, current)
+        }
+
+        previous = state.contributions.get(owner) || [];
+
+        if (Neo.isEqual(next, previous) && Neo.isEqual(current, state.aggregate)) {
+            return false
+        }
+
+        if (next.length) {
+            state.contributions.set(owner, next)
+        } else {
+            state.contributions.delete(owner)
+        }
+
+        wrapperCls = [...state.authored];
+        state.contributions.forEach(contribution => NeoArray.add(wrapperCls, contribution));
+        state.aggregate = wrapperCls;
+
+        if (silent && typeof item.setSilent === 'function') {
+            item.setSilent({wrapperCls})
+        } else {
+            item.wrapperCls = wrapperCls
+        }
+
+        if (!state.contributions.size) {
+            fallbackWrapperStates.delete(item)
+        }
+
+        return true
     }
 
     /**

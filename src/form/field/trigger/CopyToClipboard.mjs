@@ -1,5 +1,8 @@
-import Base     from './Base.mjs';
-import NeoArray from '../../../util/Array.mjs';
+import Base from './Base.mjs';
+
+const classOwners = {
+    hidden: Symbol('hidden')
+};
 
 /**
  * Copy to clipboard Trigger to copy the input value of TextFields or subclasses to clipboard.
@@ -51,9 +54,7 @@ class CopyToClipboard extends Base {
      * @protected
      */
     afterSetHidden(value, oldValue) {
-        let {cls} = this;
-        NeoArray[value? 'add' : 'remove'](cls, 'neo-is-hidden');
-        this.cls = cls
+        this.setClsContribution(classOwners.hidden, value ? ['neo-is-hidden'] : [])
     }
 
     /**

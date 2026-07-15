@@ -1,7 +1,10 @@
 import { createSequence } from '../../util/Function.mjs';
 import Component        from '../../component/Base.mjs';
 import ComponentManager from '../../manager/Component.mjs';
-import NeoArray         from '../../util/Array.mjs';
+
+const classOwners = {
+    isTouched: Symbol('isTouched')
+};
 
 /**
  * Abstract base class for form fields
@@ -117,10 +120,7 @@ class Field extends Component {
      * @param {String|null} oldValue
      */
     afterSetIsTouched(value, oldValue) {
-        let {cls} = this;
-
-        NeoArray.toggle(cls, 'neo-is-touched', value);
-        this.cls = cls
+        this.setClsContribution(classOwners.isTouched, value ? ['neo-is-touched'] : [])
     }
 
     /**

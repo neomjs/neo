@@ -80,13 +80,7 @@ class ScrollManager extends Base {
      * @param {Boolean} oldValue
      */
     afterSetDragScroll(value, oldValue) {
-        let cls = 'neo-mouse-drag-scroll';
-
-        if (value) {
-            this.gridBody.addCls(cls)
-        } else if (oldValue) {
-            this.gridBody.removeCls(cls)
-        }
+        this.gridBody.setClsContribution(this, value ? ['neo-mouse-drag-scroll'] : []);
 
         if (this.mounted) {
             this.updateDragScrollAddon(value)

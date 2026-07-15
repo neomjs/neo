@@ -5,6 +5,10 @@ import DateUtil          from '../util/Date.mjs';
 import NeoArray          from '../util/Array.mjs';
 import VDomUtil          from '../util/VDom.mjs';
 
+const classOwners = {
+    showCellBorders: Symbol('showCellBorders')
+};
+
 const todayDate = new Date();
 
 const today = {
@@ -303,11 +307,7 @@ class DateSelector extends Component {
      * @protected
      */
     afterSetShowCellBorders(value, oldValue) {
-        let me    = this,
-            {cls} = me;
-
-        NeoArray.toggle(cls, 'neo-hide-inner-borders', !value);
-        me.cls = cls
+        this.setClsContribution(classOwners.showCellBorders, value ? [] : ['neo-hide-inner-borders'])
     }
 
     /**
