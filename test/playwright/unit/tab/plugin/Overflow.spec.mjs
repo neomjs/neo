@@ -125,6 +125,36 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(plugin.measuring, 'no pass is left latched').toBe(false)
     });
 
+    test('a recapture restores hidden-button config and VDOM removal state atomically', async () => {
+        const
+            makeButton = id => ({
+                hidden: id === 'b2',
+                id,
+                setSilent(values) { Object.assign(this, values) },
+                show() {
+                    this.hidden = false;
+                    delete this.vdom.removeDom
+                },
+                vdom: {removeDom: true}
+            }),
+            buttons = [makeButton('b1'), makeButton('b2')],
+            plugin  = createPlugin(async ids => ids ? [{width: 10}, {width: 10}] : {width: 1000});
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        plugin.owner.items         = buttons;
+        plugin.owner.promiseUpdate = async () => {};
+        plugin.owner.update        = () => {};
+
+        await plugin.project(true);
+
+        buttons.forEach(button => {
+            expect(button.hidden).toBe(false);
+            expect(button.vdom.removeDom,
+                'silent visibility restoration must not strand a removeDom marker').toBeUndefined()
+        })
+    });
+
     test('all-fit teardown: syncControl destroys and nulls the control when the overflow set empties (so a later overflow recreates a fresh one, not a dead instance)', async () => {
         // A wide extent keeps nothing overflowing, so the create-time auto-project (onOwnerMounted) settles
         // cleanly with no control; await a tick so it does not race the direct syncControl call below.

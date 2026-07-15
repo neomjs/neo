@@ -273,9 +273,14 @@ class Overflow extends Plugin {
                 // natural geometry. Any resize raised by that update queues behind the latch and drains as
                 // an extent-only pass after this authoritative capture.
                 if (removedButtons.length > 0) {
-                    removedButtons.forEach(button => button.setSilent({hidden: false}));
+                    removedButtons.forEach(button => {
+                        button.setSilent({hidden: false});
+                        // setSilent intentionally bypasses Component#show(). Keep the config and VDOM
+                        // surfaces atomic or a later `button.hidden = false` becomes a no-op while the
+                        // stale removeDom marker keeps the supposedly visible header physically absent.
+                        delete button.vdom.removeDom
+                    });
                     owner.updateDepth = -1;
-                    owner.update();
                     await owner.promiseUpdate()
                 }
 
@@ -355,7 +360,14 @@ class Overflow extends Plugin {
             // Neo's built-in `hidden` (removeDom) rather than a cls needing an external stylesheet rule —
             // the natural-width cache (captured while every button was visible) survives the DOM removal,
             // so a later widen re-measures nothing and simply flips `hidden` back.
-            button.hidden = isHidden;
+            if (isHidden) {
+                button.hidden = true
+            } else if (button.hidden || button.vdom?.removeDom) {
+                // Repair both surfaces. A prior silent batch can already report hidden=false while
+                // removeDom still exists; assigning false again is then a reactive no-op, whereas
+                // show() clears the marker and schedules the toolbar update which remounts the header.
+                button.show()
+            }
 
             if (isHidden) {
                 hiddenMeta.push({iconCls: button.iconCls, index, text: button.text})
