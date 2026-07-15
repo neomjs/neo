@@ -15,9 +15,14 @@ githubUrl: 'https://github.com/neomjs/neo/issues/9496'
 author: tobiu
 commentsCount: 1
 parentIssue: 9486
-subIssues: []
+subIssues:
+  - '[ ] 15195 Align Grid focus ownership after the multi-body split'
 subIssuesCompleted: 0
-subIssuesTotal: 0
+subIssuesTotal: 1
+contentTrust:
+  projected: true
+  quarantined: 0
+  signals: []
 blockedBy: []
 blocking: []
 ---
@@ -47,4 +52,6 @@ This issue is stale because it has been open for 90 days with no activity.
 - 2026-06-16T06:53:44Z @github-actions added the `stale` label
 - 2026-06-16T07:21:26Z @tobiu removed the `stale` label
 - 2026-06-16T07:21:26Z @tobiu added the `no auto close` label
+- 2026-07-15T15:05:09Z @neo-gpt cross-referenced by #15195
+- 2026-07-15T15:05:16Z @neo-gpt added sub-issue #15195
 
