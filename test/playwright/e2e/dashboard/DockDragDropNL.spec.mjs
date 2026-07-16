@@ -37,9 +37,14 @@ test.describe('Dock drag-and-drop journey (Neural Link)', () => {
 
         const readModel = async () => (await app.getComponent(holderId, ['dockModel'])).dockModel;
 
+        // Position-scoped seed precondition: the drag needs its two participants adjacent at
+        // the HEAD of main-tabs; the tail may evolve with the example (7 items today — the
+        // overflow-pressure scene) without invalidating this journey.
         const before = await readModel();
-        expect(before?.nodes?.['main-tabs']?.items, 'the example must seed main-tabs as [strategy, swarm]')
+        expect(before?.nodes?.['main-tabs']?.items?.slice(0, 2), 'the example must seed main-tabs with [strategy, swarm] leading')
             .toEqual(['strategy', 'swarm']);
+
+        const seedTail = before.nodes['main-tabs'].items.slice(2);
 
         // product truth #1: the dock projects draggable tab headers (not just a static model). Both panes of
         // main-tabs plus the two single-tab side zones = four draggable tab headers.
@@ -57,19 +62,23 @@ test.describe('Dock drag-and-drop journey (Neural Link)', () => {
         const strategyBox = await strategyTab.boundingBox();
         const swarmBox    = await swarmTab.boundingBox();
 
-        // native drag: Strategy header -> just past Swarm's right edge (the {steps} cadence arms Neo's drag sensor)
+        // native drag: Strategy header -> Swarm's CENTER (the {steps} cadence arms Neo's drag
+        // sensor). Releasing at the sibling's center crosses exactly ONE midpoint — a single
+        // deterministic swap regardless of how many tabs follow in the bar.
         await page.mouse.move(strategyBox.x + strategyBox.width / 2, strategyBox.y + strategyBox.height / 2);
         await page.mouse.down();
         await page.mouse.move(swarmBox.x + swarmBox.width / 2, swarmBox.y + swarmBox.height / 2, { steps: 30 });
-        await page.mouse.move(swarmBox.x + swarmBox.width + 12, swarmBox.y + swarmBox.height / 2, { steps: 30 });
         await page.mouse.up();
         await page.waitForTimeout(1000);
 
         const after = await readModel();
         console.log('[dock-dnd] main-tabs:', JSON.stringify(before?.nodes?.['main-tabs']?.items), '->', JSON.stringify(after?.nodes?.['main-tabs']?.items));
 
-        // product truth #2: the drag mutated the COMMITTED dock model in the App Worker
-        expect(after?.nodes?.['main-tabs']?.items, 'the tab-drag must reorder the committed dock model — the whole point of the engine')
+        // product truth #2: the drag mutated the COMMITTED dock model in the App Worker —
+        // exactly the head pair swapped, the tail untouched (the single-swap proof)
+        expect(after?.nodes?.['main-tabs']?.items?.slice(0, 2), 'the tab-drag must reorder the committed dock model — the whole point of the engine')
             .toEqual(['swarm', 'strategy']);
+        expect(after?.nodes?.['main-tabs']?.items?.slice(2), 'the reorder moved ONLY the dragged pair — the tail is untouched')
+            .toEqual(seedTail);
     });
 });
