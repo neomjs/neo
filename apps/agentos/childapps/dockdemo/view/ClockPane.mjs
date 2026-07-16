@@ -29,6 +29,14 @@ class ClockPane extends Component {
          */
         cls: ['agentos-dockdemo-pane', 'agentos-dockdemo-clock-pane'],
         /**
+         * Test-determinism seam: a non-null value freezes the clock line to exactly this
+         * string (the tick stops; the pane stays fully visible). Visual-baseline harnesses
+         * set it over the Neural Link as plain JSON — the sanctioned alternative to masking
+         * the pane out of a golden or hot-patching the tick. `null` resumes live time.
+         * @member {String|null} frozenTime_=null
+         */
+        frozenTime_: null,
+        /**
          * @member {Object} _vdom
          */
         _vdom: {
@@ -62,8 +70,22 @@ class ClockPane extends Component {
 
         if (value) {
             me.updateTime();
-            me.#clockIntervalId = setInterval(() => me.updateTime(), 1000)
+
+            if (!me.frozenTime) {
+                me.#clockIntervalId = setInterval(() => me.updateTime(), 1000)
+            }
         }
+    }
+
+    /**
+     * Freezing stops the tick and renders the constant; thawing (null) resumes the live
+     * clock when mounted. Reuses the mount lifecycle so interval hygiene stays in one place.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetFrozenTime(value, oldValue) {
+        oldValue !== undefined && this.afterSetMounted(this.mounted, this.mounted)
     }
 
     /**
@@ -80,13 +102,13 @@ class ClockPane extends Component {
     }
 
     /**
-     * Renders the current wall time into the clock line.
+     * Renders the current wall time — or the frozen constant — into the clock line.
      */
     updateTime() {
         let me     = this,
             {vdom} = me;
 
-        vdom.cn[1].html = new Date().toLocaleTimeString('en-GB');
+        vdom.cn[1].html = me.frozenTime || new Date().toLocaleTimeString('en-GB');
         me.update()
     }
 

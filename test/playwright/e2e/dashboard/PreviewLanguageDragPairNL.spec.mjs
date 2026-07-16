@@ -24,15 +24,18 @@ import {test, expect} from '../../fixtures.mjs';
  * 4. under `prefers-reduced-motion: reduce`, the signal path's motion collapses to 0s
  *    through the token vocabulary (indicator transition AND the hover-lock breath).
  *
- * Determinism: the demo's live seconds clock (`.agentos-dockdemo-clock-time` — a deliberate
- * continuity witness) is MASKED in every capture, so the affordance surfaces hold a tight
- * pixel threshold. Baselines refresh ONLY via `--update-snapshots` — a refreshed golden is
- * a reviewed design decision (the PR diff is the review surface).
+ * Determinism: the demo's live seconds clock is FROZEN worker-side for the run (the
+ * `ClockPane.updateTime` prototype is patched to render a constant through the Neural Link
+ * fixture) — the pane stays fully VISIBLE in every golden. It sits at the editor-zone park
+ * point, inside the very affordance cluster the baselines certify, so masking it would
+ * paint over the evidence subject; freezing kills the churn without hiding one pixel of it.
+ * Baselines refresh ONLY via `--update-snapshots` — a refreshed golden is a reviewed
+ * design decision (the PR diff is the review surface).
  *
  * Run: NEO_E2E_PORT=8096 npx playwright test PreviewLanguageDragPairNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
 
-test.describe('Preview design language — the same-real-drag capture pair (Neural Link)', () => {
+test.describe('Preview design language — the same-scripted-drag capture set (Neural Link)', () => {
     test.setTimeout(180000);
 
     test.skip(process.env.NEO_TEST_SKIP_CI === 'true', 'rendered-platform goldens — local harness only');
@@ -55,6 +58,19 @@ test.describe('Preview design language — the same-real-drag capture pair (Neur
         const host       = (Array.isArray(workspaces) ? workspaces[0] : workspaces)?.id;
 
         expect(host, 'the DemoAWorkspace must exist in the App Worker').toBeTruthy();
+
+        // Freeze the seconds clock for the whole run through the pane's own determinism seam
+        // (`frozenTime` config, plain JSON over the link — no masking, no hot patching). The
+        // pane sits at the editor-zone park point INSIDE the certified affordance cluster —
+        // it must stay fully visible in the goldens, so its churn dies at the source.
+        const clocks  = await app.findInstances({className: 'AgentOS.childapps.dockdemo.view.ClockPane'}, ['id']);
+        const clockId = (Array.isArray(clocks) ? clocks[0] : clocks)?.id;
+
+        expect(clockId, 'the ClockPane must exist in the App Worker').toBeTruthy();
+        await app.callMethod(clockId, 'set', [{frozenTime: '10:00:00'}]);
+        await page.waitForFunction(() =>
+            document.querySelector('.agentos-dockdemo-clock-time')?.textContent === '10:00:00'
+        , null, {timeout: 10000});
 
         const zoneBoxes = await page.$$eval('.neo-dashboard-dock-tabs', els =>
             els.map(el => { const r = el.getBoundingClientRect(); return {x: r.x, y: r.y, width: r.width, height: r.height} })
@@ -117,14 +133,11 @@ test.describe('Preview design language — the same-real-drag capture pair (Neur
 
     test('the identical scripted gesture, replayed per scene: default/signal × dark/light + the pulse witness', async ({page, neuralLink}) => {
         const {app, editorCenter, host, workspaceBox} = await bootDemo(page, neuralLink);
-        // The live clock is masked (see header), so the remaining noise floor is sub-pixel
-        // anti-aliasing on live-gesture frames — a language or palette regression diffs in
-        // the tens of thousands of pixels.
-        const shot = {
-            clip         : workspaceBox,
-            mask         : [page.locator('.agentos-dockdemo-clock-time')],
-            maxDiffPixels: 150
-        };
+        // The clock is frozen worker-side (see bootDemo), so the remaining noise floor is
+        // sub-pixel anti-aliasing on live-gesture frames — a language or palette regression
+        // diffs in the tens of thousands of pixels. NO masks: every certified surface is
+        // fully visible in the baselines.
+        const shot = {clip: workspaceBox, maxDiffPixels: 150};
 
         // The positive motion witness arms BEFORE any signal gesture: the hover-lock pulse
         // replays on every re-lock (the -active class toggles), and `animationstart` is
