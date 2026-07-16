@@ -61,10 +61,19 @@ test.describe('AgentOS fleet cockpit — the AgentDetail Mailbox tab live (#1527
         // the honest today-state: no wiring injects snapshots yet → unobserved, said plainly
         await expect(pane.locator('.fm-mailbox-state')).toHaveText(/Mailbox feed not wired/);
 
-        // possession: the pane follows the drilled resident; the snapshot is honestly null
+        // Possession: the pane follows the drilled resident; the snapshot is honestly null.
+        //
+        // The wait is load-bearing, not padding. The drill ISSUES an async mirror read, so asserting
+        // `snapshot === null` the instant after the click would pass before that read could ever have
+        // landed — green for the wrong reason, and blind to a snapshot arriving a tick later. A
+        // negative assertion has to outlive the thing it proves absent. (No fleet server runs in this
+        // suite, so the read fails closed and nothing is assigned; the wait is what makes that a
+        // finding rather than a coincidence.)
+        await page.waitForTimeout(500);
+
         const [mounted] = await app.queryComponent({className: 'AgentOS.view.fleet.MailboxPane'}, ['record', 'snapshot', 'id']);
         expect(mounted?.properties?.record?.agentId, 'the pane record follows the drill').toBe(expectedAgentId);
-        expect(mounted?.properties?.snapshot ?? null, 'no snapshot = no fabricated rows').toBe(null);
+        expect(mounted?.properties?.snapshot ?? null, 'a fail-closed read assigns NOTHING — never a fabricated snapshot').toBe(null);
 
         // inject a live adapter-shaped snapshot through the possession seam — the wiring's contract
         const capturedAt = new Date().toISOString();
