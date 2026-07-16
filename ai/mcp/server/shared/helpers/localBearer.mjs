@@ -77,19 +77,22 @@ export function generateLocalBearerToken() {
  * The returned surfaces can be passed directly to a child server process and an MCP client. The
  * helper performs no logging, file/database writes, environment mutation, or durable config
  * update; process exit remains the credential-revocation boundary.
+ * @param {String} [bearerToken] Optional caller-owned token for a coordinated one-shot launch.
  * @returns {{serverEnv: Object, clientHeaders: Object}}
  */
-export function createLocalBearerLaunchContract() {
-    const token = generateLocalBearerToken();
+export function createLocalBearerLaunchContract(bearerToken = generateLocalBearerToken()) {
+    if (!isLocalBearerToken(bearerToken)) {
+        throw new TypeError('Local-bearer launch contracts require a canonical 32-byte unpadded-base64url token.')
+    }
 
     return Object.freeze({
         serverEnv: Object.freeze({
             NEO_AUTH_MODE              : 'local-bearer',
-            NEO_AUTH_LOCAL_BEARER_TOKEN: token,
+            NEO_AUTH_LOCAL_BEARER_TOKEN: bearerToken,
             NEO_MCP_LISTEN_HOST        : '127.0.0.1'
         }),
         clientHeaders: Object.freeze({
-            Authorization: `Bearer ${token}`
+            Authorization: `Bearer ${bearerToken}`
         })
     })
 }

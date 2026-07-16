@@ -32,11 +32,6 @@ class Bridge extends Base {
          */
         className: 'Neo.ai.mcp.server.neural-link.Bridge',
         /**
-         * @member {Number} port=8081
-         * @protected
-         */
-        port: 8081,
-        /**
          * @member {Boolean} singleton=true
          * @protected
          */
@@ -59,31 +54,41 @@ class Bridge extends Base {
     wss = null
 
     /**
-     * Async initialization.
+     * @summary Completes class initialization without claiming a network listener.
+     * Network binding belongs to the standalone entrypoint so it can
+     * finish config freshness checks and optional overlay loading before starting the Bridge.
      * @returns {Promise<void>}
      */
     async initAsync() {
-        // Skip the port bind under unitTestMode — tests instantiate the singleton (for handleConnection
-        // handshake-auth + verify coverage) without standing up a real WebSocket server.
-        if (Neo.config.unitTestMode) return;
-        await this.startServer();
+        await super.initAsync()
     }
 
     /**
-     * Starts the WebSocket server.
+     * @summary Starts the WebSocket server on the entrypoint-supplied loopback host and port.
+     * @param {Object} options
+     * @param {String} options.host Entrypoint-supplied literal loopback host.
+     * @param {Number} options.port Entrypoint-supplied Bridge listener port.
      * @returns {Promise<void>}
      */
-    async startServer() {
+    async startServer({host, port} = {}) {
+        if (host !== '127.0.0.1' && host !== '::1') {
+            throw new TypeError('Bridge.startServer() requires a literal loopback host.')
+        }
+
+        if (!Number.isInteger(port) || port < 1 || port > 65535) {
+            throw new TypeError('Bridge.startServer() requires an integer TCP port in the range 1..65535.')
+        }
+
         if (this.wss) {
             logger.warn('Bridge: WebSocket Server is already running.');
             return;
         }
 
         return new Promise((resolve, reject) => {
-            const wss = new WebSocketServer({port: this.port});
+            const wss = new WebSocketServer({host, port});
 
             wss.on('listening', () => {
-                logger.info(`Bridge: Listening on port ${this.port}`);
+                logger.info(`Bridge: Listening on ${host}:${port}`);
                 this.wss = wss;
 
                 wss.on('connection', (ws, req) => this.handleConnection(ws, req));
