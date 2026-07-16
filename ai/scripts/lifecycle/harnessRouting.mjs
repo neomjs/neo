@@ -12,6 +12,7 @@
  */
 import {IDENTITIES}                   from '../../graph/identityRoots.mjs';
 import {normalizeAgentIdentityNodeId} from '../../graph/normalizeAgentIdentityNodeId.mjs';
+import {resolveResidentFamily}        from '../../services/graph/agentFamilyResolution.mjs';
 
 export {normalizeAgentIdentityNodeId};
 
@@ -84,7 +85,10 @@ export function resolveHarnessTargetForIdentity(identity, {identities = IDENTITI
 
     if (!entry) return null;
 
-    const family = entry.properties?.modelFamily || entry.properties?.family;
+    // Era-chain-first: the hydration index is the family truth source; the flat `modelFamily`
+    // fallback inside the resolver covers exactly the retirement witness populations (post-epoch
+    // residents + injected test registries outside the static roster).
+    const family = resolveResidentFamily(entry);
     const target = FAMILY_HARNESS_TARGETS[family];
 
     return target ? applyHarnessMetadataDefaults(target) : null;

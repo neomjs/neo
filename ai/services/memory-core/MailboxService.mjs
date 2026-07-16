@@ -24,6 +24,7 @@ import {
 } from './helpers/messageWalStore.mjs';
 import {IDENTITIES}                   from '../../graph/identityRoots.mjs';
 import {normalizeAgentIdentityNodeId} from '../../graph/normalizeAgentIdentityNodeId.mjs';
+import {resolveResidentFamilyById}    from '../graph/agentFamilyResolution.mjs';
 import {getMissingMemoryWalLeaves}    from './helpers/memoryWalStore.mjs';
 import {execFile}                     from 'child_process';
 import {promisify}                    from 'util';
@@ -206,9 +207,12 @@ function getMailboxIdentityStorageVariants(identity) {
  * Resolution policy:
  * - `'AGENT:*'` and `role:` / `human:` prefixes pass through unchanged.
  * - Targets that already match a registered graph node ID pass through.
- * - `AGENT:<family>/<model>` patterns resolve to the single AgentIdentity node whose
- *   `properties.modelFamily === '<family>'` and `accountType === 'agent'` when the
- *   match is unambiguous; reject when zero or more-than-one candidate matches.
+ * - `AGENT:<family>/<model>` patterns resolve to the single AgentIdentity node whose model
+ *   family matches `'<family>'` and `accountType === 'agent'` when the match is unambiguous;
+ *   reject when zero or more-than-one candidate matches. The family fact reads era-chain-first
+ *   (`resolveResidentFamilyById` — the identity trail's hydration projection) for rostered
+ *   residents; the node's flat `properties.modelFamily` remains the fallback for
+ *   runtime-provisioned identities that exist only in the graph (a retirement-gated read).
  * - All other unresolvable forms reject with a clear error naming both the original
  *   and normalized values.
  *
@@ -240,9 +244,10 @@ function validateMailboxTarget(normalizedTo, originalTo, db = GraphService.requi
     }
     if (exists) return normalizedTo;
 
-    // Attempt alias resolution: AGENT:<family>/<model> → AgentIdentity with matching
-    // modelFamily. Looks at the ORIGINAL caller-supplied value to preserve the
-    // `AGENT:` prefix that normalize already stripped.
+    // Attempt alias resolution: AGENT:<family>/<model> → AgentIdentity with matching model
+    // family. Looks at the ORIGINAL caller-supplied value to preserve the `AGENT:` prefix that
+    // normalize already stripped. The family fact reads era-chain-first for rostered residents;
+    // the node's flat property covers runtime-provisioned identities only (retirement-gated).
     if (typeof originalTo === 'string' && originalTo.startsWith('AGENT:') && originalTo !== 'AGENT:*') {
         const aliasPart = originalTo.slice('AGENT:'.length);
         const slashIdx  = aliasPart.indexOf('/');
@@ -255,8 +260,10 @@ function validateMailboxTarget(normalizedTo, originalTo, db = GraphService.requi
                     const props = getRecordProperties(node);
                     if (label !== 'AgentIdentity') return null;
                     if (props.accountType !== 'agent') return null;
-                    if (props.modelFamily !== family) return null;
-                    return getRecordField(node, 'id');
+
+                    const nodeId = getRecordField(node, 'id');
+                    if ((resolveResidentFamilyById(nodeId) ?? props.modelFamily) !== family) return null;
+                    return nodeId;
                 })
                 .filter(Boolean);
 
