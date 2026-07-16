@@ -1,5 +1,6 @@
 import {test, expect}                                                      from '@playwright/test';
 import {findAntipatterns, filterAllowlistedHits, ALLOWLIST, ESCAPE_MARKER} from '../../../../../../buildScripts/util/check-aiconfig-antipatterns.mjs';
+import {A1_IMPORT_GATE}                                                    from '../../../../../../buildScripts/util/check-aiconfig-antipatterns.mjs';
 import {spawnSync}                                                         from 'node:child_process';
 import fs                                                                  from 'node:fs';
 import path                                                                from 'node:path';
@@ -156,6 +157,112 @@ test.describe('check-aiconfig-antipatterns guard — rule-scoped allowlist compo
 
             expect(result.status).toBe(0);
             expect(result.stdout).toContain('0 new violations')
+        } finally {
+            fs.rmSync(tmpFile, {force: true})
+        }
+    })
+});
+
+/**
+ * Coverage for the A1 two-signal rule — module-level env re-derivation flags ONLY in files that
+ * import the config SSOT. The negatives are the load-bearing half: the C1-sanctioned pure-defaults
+ * module (env literals, NO config import) and function-local env reads must stay green, or the
+ * lint would fight the very shape the design prescribes for non-entrypoint helpers.
+ */
+test.describe('check-aiconfig-antipatterns guard — A1 module-level env re-derivation (two-signal)', () => {
+    const importHeader = "import AiConfig from '../ConfigProvider.mjs';\n";
+
+    test('A1: flags a module-level re-derivation when the file imports the config SSOT', () => {
+        const content = importHeader + "const DB_PATH = process.env.NEO_DB_PATH || path.join(root, 'db');\n";
+
+        expect(findAntipatterns(content).map(h => h.rule)).toEqual(['A1'])
+    });
+
+    test('A1: the Neo.ai.Config runtime root also opens the gate', () => {
+        const content = "const cfg = Neo.ai.Config;\nlet cacheDir = process.env.NEO_CACHE_DIR ?? cfg.cacheDir;\n";
+
+        expect(findAntipatterns(content).map(h => h.rule)).toEqual(['A1'])
+    });
+
+    test('A1: a comment-only config-root mention never opens the gate (config templates document their realm)', () => {
+        const content = "// Loads the Tier-1 realm root (Neo.ai.Config) so getParent() inheritance resolves.\nconst dataDir = process.env.NEO_AI_DAEMON_DIR || './data';\n";
+
+        expect(findAntipatterns(content)).toEqual([])
+    });
+
+    test('A1: a multi-line import block carrying the config token opens the gate (the line-grep blind spot)', () => {
+        const content = "import {\n    AiConfig,\n    other\n} from '../services.mjs';\nconst port = Number(process.env.NEO_FLEET_PORT) || 8083;\n";
+
+        expect(findAntipatterns(content).map(h => h.rule)).toEqual(['A1'])
+    });
+
+    test('A1: the C1-sanctioned pure-defaults module (NO config import) never flags', () => {
+        const content = "const DEFAULT_DB_PATH = process.env.NEO_DB_PATH || './data/db';\nexport {DEFAULT_DB_PATH};\n";
+
+        expect(A1_IMPORT_GATE.test(content)).toBe(false);
+        expect(findAntipatterns(content)).toEqual([])
+    });
+
+    test('A1: function-local env reads never flag (module-level anchoring)', () => {
+        const content = importHeader + "function resolve() {\n    const port = process.env.NEO_PORT || 3000;\n    return port\n}\n";
+
+        expect(findAntipatterns(content)).toEqual([])
+    });
+
+    test('A1: an env token inside a STRING on a real declaration line never flags (classify the token, not the declaration)', () => {
+        expect(findAntipatterns(importHeader + "const msg = 'reads process.env.PATH at boot';\n")).toEqual([]);
+        expect(findAntipatterns(importHeader + 'const doc = "set process.env.NEO_PORT before running";\n')).toEqual([]);
+        expect(findAntipatterns(importHeader + 'const note = `about process.env.NEO_X`;\n')).toEqual([]);
+        expect(findAntipatterns(importHeader + 'const x = compute(); /* process.env.NEO_Y */\n')).toEqual([])
+    });
+
+    test('A1: an escape marker on the IMPORT/gate line exempts only that line — other declarations still flag', () => {
+        const content = importHeader.trimEnd() + ` // ${ESCAPE_MARKER}: gate-line note\n` +
+            "const P = process.env.NEO_P || 'x';\n";
+
+        expect(findAntipatterns(content).map(h => h.rule)).toEqual(['A1'])
+    });
+
+    test('A1: comment and string occurrences never flag; the escape marker is honored', () => {
+        const commented = importHeader + "// const DB_PATH = process.env.NEO_DB_PATH || fallback;\n";
+        const escaped   = importHeader + `const BOOT_FLAG = process.env.NEO_BOOT_FLAG; // ${ESCAPE_MARKER}: bootstrap boundary, reads before the provider exists\n`;
+
+        expect(findAntipatterns(commented)).toEqual([]);
+        expect(findAntipatterns(escaped)).toEqual([])
+    });
+
+    test('A1: DOCUMENTED BOUNDARY — an env read inside a template interpolation is outside the current mask vocabulary', () => {
+        // The shared codeMask on dev classifies strings/comments only; template interpolations mask
+        // as string text, so an interpolated read is invisible to A1 by construction. This pin makes
+        // the boundary explicit: it flips to a positive when the parser-grade shared masking
+        // authority lands (the successor lane decomposed from this rule's review arc). Until then a
+        // module-level `const url = `${process.env.X}`` is the escape-marker/judgment residue class.
+        expect(findAntipatterns(importHeader + 'const url = `${process.env.NEO_HOST}`;\n')).toEqual([])
+    });
+
+    test('A1: rule-scoped grandfathering — the wake daemon is exempt for A1 only, and A1 stays independent of B3/A5 sets', () => {
+        const content = importHeader + "const DB_PATH = process.env.NEO_DB_PATH || './db';\nif (hasEnvValue('NEO_X')) { run(); }\n";
+        const hits    = findAntipatterns(content);
+
+        expect(hits.map(h => h.rule).sort()).toEqual(['A1', 'A5']);
+        expect(filterAllowlistedHits(hits, 'ai/daemons/wake/daemon.mjs').map(h => h.rule)).toEqual(['A5']);
+        expect(filterAllowlistedHits(hits, 'ai/services/fresh/NewService.mjs').map(h => h.rule).sort()).toEqual(['A1', 'A5']);
+        expect(ALLOWLIST.A1.has('ai/daemons/wake/daemon.mjs')).toBe(true)
+    });
+
+    test('A1 CLI regression: an import-gated module-level re-derivation in a fresh ai/ file exits non-zero', () => {
+        const tmpFile = path.join(repoRoot, `ai/.a1-rederivation-regression-${process.pid}.mjs`);
+
+        try {
+            fs.writeFileSync(tmpFile, "import AiConfig from './ConfigProvider.mjs';\nconst DB_PATH = process.env.NEO_DB_PATH || './db';\n", 'utf-8');
+
+            const result = spawnSync(process.execPath, [checkerPath, tmpFile], {
+                cwd     : repoRoot,
+                encoding: 'utf-8'
+            });
+
+            expect(result.status).toBe(1);
+            expect(result.stderr).toContain('[A1]')
         } finally {
             fs.rmSync(tmpFile, {force: true})
         }
