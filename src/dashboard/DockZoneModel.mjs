@@ -6,7 +6,7 @@ import Base from '../core/Base.mjs';
  *
  * @summary Executor for the harness dock-zone semantic operations (`neo.harness.dockZone.v1`).
  *
- * The "missing middle" of the harness docking line: `AgentOS.view.DockPreview.previewToOperation()`
+ * The "missing middle" of the harness docking line: `Neo.dashboard.DockPreview.previewToOperation()`
  * produces an operation descriptor on drop, this executor applies it to mutate the persisted
  * dock-zone tree, and `Neo.dashboard.DockLayoutAdapter` renders the committed result. The contract
  * and data model are defined in `learn/agentos/HarnessDockZoneModel.md` (§Data Model + §Operations);

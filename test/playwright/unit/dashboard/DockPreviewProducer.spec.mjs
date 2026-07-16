@@ -17,7 +17,7 @@ test.describe('Neo.dashboard.DockPreviewProducer (ADR 0029 §2.3 — the dock pr
 
     test.beforeAll(async () => {
         DockPreviewProducer = (await import('../../../../src/dashboard/DockPreviewProducer.mjs')).default;
-        DockPreview         = (await import('../../../../apps/agentos/view/DockPreview.mjs')).default;
+        DockPreview         = (await import('../../../../src/dashboard/DockPreview.mjs')).default;
         producer            = Neo.create(DockPreviewProducer)
     });
 

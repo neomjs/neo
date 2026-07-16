@@ -1,3 +1,6 @@
+// The dockdemo childapp's own projection anchor: its viewport extends Neo.container.Viewport
+// directly (not the AgentOS viewport), so the app-level projections never load here —
+// each app surface carries its own copy of the domain-alias projections by design.
 // §06 authority (dock-choreography design artifact): these component-domain aliases map accept
 // and reject to the artifact's dark signal/hot column. Global FM light-native tokens remain
 // #14681's authority; this layer does not mint a parallel --fm-* vocabulary.

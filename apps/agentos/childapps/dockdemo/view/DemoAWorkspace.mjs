@@ -4,8 +4,8 @@ import Container                          from '../../../../../src/container/Bas
 import DockDropIndicators                 from '../../../../../src/dashboard/DockDropIndicators.mjs';
 import DockLayoutAdapter                  from '../../../../../src/dashboard/DockLayoutAdapter.mjs';
 import DockMotionSignal                   from '../../../../../src/dashboard/DockMotionSignal.mjs';
-import DockPreview                        from '../../../view/DockPreview.mjs';
-import DockPreviewProducer                from '../../../../../src/dashboard/DockPreviewProducer.mjs';
+import DockDragAffordances                from '../../../../../src/dashboard/DockDragAffordances.mjs';
+import DockPreview                        from '../../../../../src/dashboard/DockPreview.mjs';
 import DockProjectionReconciler           from '../../../../../src/dashboard/DockProjectionReconciler.mjs';
 import DockService                        from '../../../../../src/ai/client/DockService.mjs';
 import DockZoneModel                      from '../../../../../src/dashboard/DockZoneModel.mjs';
@@ -76,42 +76,33 @@ class DemoAWorkspace extends Container {
     }
 
     /**
-     * The live committed dock-zone document — the single source of truth the view projects
-     * from. Initialized to the screenplay's opening stage; advanced by
-     * {@link #onDockZoneDocumentChange} on every committed operation.
-     * @member {Object|null} dockModel=null
-     */
-    dockModel = null
-    /**
-     * The app-side Neural Link dock seam this workspace registers against and the tour
-     * runner drives through.
-     * @member {Neo.ai.client.DockService|null} dockService=null
-     */
-    dockService = null
-    /**
-     * Drag-preview producer enabling manual drive (tab drag previews) alongside the tour —
-     * manual interaction stays available the whole time; the tour is a guest, not a lock.
-     * @member {Neo.dashboard.DockPreviewProducer|null} dockPreviewProducer=null
-     */
-    dockPreviewProducer = null
-    /**
-     * The tour runner playing the Demo-A screenplay against this workspace.
-     * @member {Neo.ai.client.TourRunner|null} tourRunner=null
-     */
-    tourRunner = null
-    /**
      * Beats executed in the current run — the pip strip's progress counter.
      * @member {Number} beatCount=0
      */
     beatCount = 0
+
     /**
-     * Measured drag-session geometry (host rect + tabs-zone rects + the chips' root target),
-     * built lazily on the first drag-move of a gesture and invalidated on drop, cancel, and
-     * every re-projection. Runtime-only.
-     * @member {Object|null} dragGeometry=null
-     * @protected
+     * The live committed dock-zone document — the single source of truth the view projects.
+     * Mutated exclusively through {@link #applyDockZoneOperation} results.
+     * @member {Object|null} dockModel=null
      */
-    dragGeometry = null
+    dockModel = null
+
+    /**
+     * The app-side Neural Link dock seam this workspace registers against and the tour
+     * runner drives operations through.
+     * @member {Neo.ai.client.DockService|null} dockService=null
+     */
+    dockService = null
+
+    /**
+     * The shared drag-affordance gesture controller (owner duck-type: this workspace).
+     * Composed in {@link #construct} over the persistent overlay siblings; cleared on every
+     * re-projection and destroyed with the workspace.
+     * @member {Neo.dashboard.DockDragAffordances|null} dragAffordances=null
+     */
+    dragAffordances = null
+
     /**
      * The in-flight deferred re-projection, tracked as an awaitable. Every committed
      * operation defers its view-sync one tick ({@link #onDockZoneDocumentChange}); any
@@ -125,6 +116,12 @@ class DemoAWorkspace extends Container {
     refreshPromise = null
 
     /**
+     * The tour runner playing the Demo-A screenplay against this workspace.
+     * @member {Neo.ai.client.TourRunner|null} tourRunner=null
+     */
+    tourRunner = null
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -132,9 +129,8 @@ class DemoAWorkspace extends Container {
 
         let me = this;
 
-        me.dockModel           = DockZoneModel.clone(initialDocument);
-        me.dockPreviewProducer = Neo.create(DockPreviewProducer);
-        me.dockService         = Neo.create(DockService, {});
+        me.dockModel   = DockZoneModel.clone(initialDocument);
+        me.dockService = Neo.create(DockService, {});
 
         me.tourRunner = Neo.create(TourRunner, {
             componentId: me.id,
@@ -171,7 +167,17 @@ class DemoAWorkspace extends Container {
                 module   : DockDropIndicators,
                 reference: 'drop-indicators'
             }]
-        }])
+        }]);
+
+        // The shared gesture controller composes the overlays it just created — one
+        // app-neutral owner (producer lifecycle, memoized geometry, §06 tiers, release-truth
+        // drop, generation guards) instead of a workspace-local orchestration copy.
+        me.dragAffordances = Neo.create(DockDragAffordances, {
+            host      : me.getReference('dock-host'),
+            indicators: me.getReference('drop-indicators'),
+            owner     : me,
+            preview   : me.getReference('dock-preview')
+        })
     }
 
     /**
@@ -267,198 +273,6 @@ class DemoAWorkspace extends Container {
     }
 
     /**
-     * Ends a drag affordance session: geometry cache dropped (it doubles as the drag-active
-     * flag), indicator menu and preview cleared. Called on drop, cancel, and by every
-     * re-projection.
-     * @protected
-     */
-    clearDragAffordances() {
-        let me = this;
-
-        me.dragGeometry = null;
-
-        me.getReference('drop-indicators')?.clear();
-
-        let preview = me.getReference('dock-preview');
-
-        preview && (preview.dockPreview = null)
-    }
-
-    /**
-     * Measures the drag-session geometry once per gesture (memoized as a promise so the
-     * ~60hz move stream never stacks measurements): the host rect (the indicator layer's
-     * coordinate origin), every projected tabs-zone rect with its parent-split orientation,
-     * and the chips' root target — the edge-zone's CENTER node when the document root is an
-     * edge-zone ("split the main workspace area"), the root itself otherwise. `splitNode`
-     * accepts any existing node as its wrap target, so the chip commits are well-defined.
-     * @returns {Promise<Object|null>} {hostRect, zones, root} or null when nothing is measurable
-     * @protected
-     */
-    ensureDragGeometry() {
-        let me = this;
-
-        if (me.dragGeometry) return me.dragGeometry;
-
-        let host  = me.getReference('dock-host'),
-            nodes = me.dockModel?.nodes || {};
-
-        if (!host) return Promise.resolve(null);
-
-        let zoneEntries = Object.keys(nodes)
-                .filter(nodeId => nodes[nodeId].type === 'tabs')
-                .map(nodeId => ({nodeId, container: host.down({dockNodeId: nodeId})}))
-                .filter(zone => zone.container),
-            rootId      = nodes[me.dockModel.root]?.type === 'edge-zone'
-                ? (nodes[me.dockModel.root].zones?.center ?? me.dockModel.root)
-                : me.dockModel.root;
-
-        me.dragGeometry = me.getDomRect([host.id, ...zoneEntries.map(zone => zone.container.id)]).then(([hostRect, ...zoneRects]) => {
-            let geometry = hostRect && {
-                hostRect,
-                root : {nodeId: rootId, rect: hostRect},
-                zones: zoneEntries
-                    .map((zone, index) => ({
-                        nodeId     : zone.nodeId,
-                        rect       : zoneRects[index],
-                        orientation: Object.values(nodes).find(node => node.type === 'split' && node.children?.includes(zone.nodeId))?.orientation ?? null
-                    }))
-                    .filter(zone => zone.rect)
-            };
-
-            // A gesture's FIRST move can outrace measurability (fresh mount, mid-layout):
-            // a degenerate result must not latch for the whole gesture — uncache so the
-            // next move frame re-measures and the session self-heals.
-            if (!geometry || geometry.zones.length < 1) {
-                me.dragGeometry = null;
-                return null
-            }
-
-            let indicators = me.getReference('drop-indicators');
-
-            indicators && (indicators.hostRect = geometry.hostRect);
-
-            return geometry
-        });
-
-        return me.dragGeometry
-    }
-
-    /**
-     * Converts a measured viewport rect into the dock-host's local space — the coordinate
-     * system both overlay children (preview renderer, indicator menu) position in.
-     * @param {Object} rect viewport-space {x, y, width, height}
-     * @param {Object} hostRect the measured host rect
-     * @returns {Object}
-     * @protected
-     */
-    localRect(rect, hostRect) {
-        return {x: rect.x - hostRect.x, y: rect.y - hostRect.y, width: rect.width, height: rect.height}
-    }
-
-    /**
-     * The per-frame drag consumer (`dockCrossZoneDragMove` via the projection): the §06
-     * primary tier. The indicator menu follows the hovered zone (candidate set swaps on zone
-     * change only — object permanence lets the cross GLIDE); the pointer selects an indicator
-     * geometrically; the selected candidate's preview — or the pointer-inference FALLBACK
-     * tier when no indicator is hovered — feeds the renderer with its exact target region.
-     * @param {Object} data {clientX, clientY, itemId, sourceNodeId}
-     */
-    async onDockCrossZoneDragMove({clientX, clientY, itemId, sourceNodeId}) {
-        let me              = this,
-            geometryPromise = me.ensureDragGeometry(),
-            geometry        = await geometryPromise;
-
-        // Re-check the promise identity after the await: cancel or re-projection invalidates
-        // this gesture's geometry, so a late measurement can never resurrect its overlays.
-        if (!geometry || me.dragGeometry !== geometryPromise || me.isDestroyed) return;
-
-        let pointer    = {x: clientX, y: clientY},
-            indicators = me.getReference('drop-indicators'),
-            preview    = me.getReference('dock-preview'),
-            producer   = me.dockPreviewProducer,
-            zone       = producer.hitTestZone(geometry.zones, pointer);
-
-        if (indicators) {
-            if ((zone?.nodeId ?? null) !== (indicators.candidateSet?.zone?.nodeId ?? null)) {
-                indicators.candidateSet = zone
-                    ? producer.produceCandidates({pointer, zones: geometry.zones, itemId, sourceNodeId, root: geometry.root})
-                    : null
-            }
-        }
-
-
-        let candidate   = indicators?.updatePointer(pointer) ?? null,
-            dockPreview = candidate?.preview
-                ?? producer.produce({pointer, zones: geometry.zones, itemId, sourceNodeId});
-
-        if (preview) {
-            preview.dockPreview = dockPreview;
-
-            if (dockPreview) {
-                let targetRect = dockPreview.target.nodeId === geometry.root.nodeId
-                    ? geometry.root.rect
-                    : geometry.zones.find(entry => entry.nodeId === dockPreview.target.nodeId)?.rect;
-
-                targetRect && preview.applyTargetGeometry(me.localRect(targetRect, geometry.hostRect))
-            }
-        }
-    }
-
-    /**
-     * The drop half (`dockCrossZoneDrop` via the projection): the indicator is re-hit-tested
-     * at the RELEASE coordinates — release truth, never cached hover truth (a pointer that
-     * left the menu after hovering an indicator must not commit the stale selection), and a
-     * candidate only counts when it was built for the item THIS gesture drags. A release-point
-     * indicator wins over pointer inference — the §06 tier order — and both commit through
-     * `previewToOperation` unchanged. A cancelled gesture never reaches this drop seam. Same-zone
-     * pointer drops stay excluded from the fallback (the within-toolbar reorder already
-     * handled them); indicator drops keep self-targets deliberately (splitting your own zone
-     * is a real operation).
-     * @param {Object} data {clientX, clientY, itemId, sourceNodeId}
-     */
-    async onDockCrossZoneDrop({clientX, clientY, itemId, sourceNodeId}) {
-        let me       = this,
-            geometry = me.dragGeometry ? await me.dragGeometry : null,
-            pointer  = {x: clientX, y: clientY},
-            preview  = null;
-
-        let candidate = me.getReference('drop-indicators')?.hitTest(pointer);
-
-        if (candidate?.preview?.itemId === itemId) {
-            preview = candidate.preview
-        } else if (geometry) {
-            preview = me.dockPreviewProducer.produce({
-                pointer,
-                zones: geometry.zones.filter(zone => zone.nodeId !== sourceNodeId),
-                itemId,
-                sourceNodeId
-            })
-        }
-
-        me.clearDragAffordances();
-
-        let descriptor = previewToOperation(preview);
-
-        if (descriptor) {
-            let result = me.applyDockZoneOperation(descriptor);
-
-            if (result && !result.errors?.length && result.document) {
-                me.onDockZoneDocumentChange(result.document)
-            }
-        }
-    }
-
-    /**
-     * Consumes the dock-aware projection's generic `drag:cancel` seam: the main-thread drag
-     * owner already suppresses the native release, so this workspace only retires transient
-     * geometry, menu, and preview state.
-     * @param {Object} data The dock drag identity payload.
-     */
-    onDockCrossZoneDragCancel(data) {
-        this.clearDragAffordances()
-    }
-
-    /**
      * Caption feed + progress strip: every step surfaces its narration before executing
      * and lights its pip.
      * @param {Object} data The runner's beat payload.
@@ -524,12 +338,12 @@ class DemoAWorkspace extends Container {
 
         return DockLayoutAdapter.project(document, {
             ...demoATourScript.workspace,
-            applyDockZoneOperation  : me.applyDockZoneOperation.bind(me),
-            onDockCrossZoneDragCancel: me.onDockCrossZoneDragCancel.bind(me),
-            onDockCrossZoneDragMove : me.onDockCrossZoneDragMove.bind(me),
-            onDockCrossZoneDrop     : me.onDockCrossZoneDrop.bind(me),
-            onDockZoneDocumentChange: me.onDockZoneDocumentChange.bind(me),
-            resolveComponentRef     : resolveComponentRef
+            applyDockZoneOperation   : me.applyDockZoneOperation.bind(me),
+            onDockCrossZoneDragCancel: data => me.dragAffordances.onDragCancel(data),
+            onDockCrossZoneDragMove  : data => me.dragAffordances.onDragMove(data),
+            onDockCrossZoneDrop      : data => me.dragAffordances.onDrop(data),
+            onDockZoneDocumentChange : me.onDockZoneDocumentChange.bind(me),
+            resolveComponentRef      : resolveComponentRef
                 || (componentRef => me.resolvePane(componentRef)),
             resolveRevealComponentRef    : componentRef => me.resolvePane(componentRef)
         })
@@ -554,7 +368,7 @@ class DemoAWorkspace extends Container {
 
             // A re-projection ends any drag affordance session: rects go stale and the drop
             // pipeline restarts its measurement lazily on the next gesture.
-            me.clearDragAffordances();
+            me.dragAffordances.clear();
 
             // FLIP phase 1: snapshot the outgoing geometry (presentation-only — any failure
             // lands the new layout instantly, so the try/catch guards motion, never truth)
@@ -688,7 +502,7 @@ class DemoAWorkspace extends Container {
 
         me.tourRunner?.destroy();
         me.dockService?.destroy();
-        me.dockPreviewProducer?.destroy();
+        me.dragAffordances?.destroy();
 
         super.destroy(...args)
     }
