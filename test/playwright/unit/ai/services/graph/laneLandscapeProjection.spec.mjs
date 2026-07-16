@@ -166,7 +166,7 @@ test.describe('laneLandscapeProjection — current-state lane landscape', () => 
             now
         });
 
-        expect(result.coverage).toEqual({totalOpenItems: 2, edgeCount: 1, degraded: false});
+        expect(result.coverage).toEqual({totalOpenItems: 2, edgeCount: 1, degraded: false, degradedReasons: []});
         expect(result.authorityCoverage.unassignedIds).toEqual(['issue-1']);
         expect(result.dependencyPath).toEqual([{id: 'issue-1', blockedBy: ['issue-2']}]);
     });
@@ -186,6 +186,8 @@ test.describe('laneLandscapeProjection — current-state lane landscape', () => 
         expect(result.coverage.degraded).toBe(true);
         // the partial evidence still surfaces — labelled incomplete rather than discarded
         expect(result.coverage.totalOpenItems).toBe(1);
+        // and it says WHICH part is missing: a degraded flag without its reason is only half-honest
+        expect(result.coverage.degradedReasons).toEqual(['open issues: walk stopped at the bound']);
     });
 
     test('buildLaneLandscape fail-closed: a source read error yields an honest degraded landscape', async () => {
@@ -199,5 +201,7 @@ test.describe('laneLandscapeProjection — current-state lane landscape', () => 
         expect(result.coverage.totalOpenItems).toBe(0);
         expect(result.goalTrajectory).toEqual([]);
         expect(result.notAuthority).toBe(true);
+        // the failure names itself rather than presenting as an empty landscape
+        expect(result.coverage.degradedReasons.join(' ')).toContain('graphql down');
     });
 });

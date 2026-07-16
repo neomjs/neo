@@ -655,6 +655,16 @@ paths:
               schema:
                 type: object
                 description: The non-authoritative current-state landscape. Nothing here is durable — it is a query-time view.
+                required:
+                  - schemaVersion
+                  - capturedAt
+                  - generatedAt
+                  - goalTrajectory
+                  - dependencyPath
+                  - authorityCoverage
+                  - coverage
+                  - synthesis
+                  - notAuthority
                 properties:
                   schemaVersion:
                     type: string
@@ -669,17 +679,49 @@ paths:
                     description: Open epics and their open children — the goal dimension.
                     items:
                       type: object
+                      required: [id, openChildCount, openChildren]
+                      properties:
+                        id:
+                          type: string
+                          description: Namespaced census id (`issue-N` / `pr-N`).
+                        openChildCount:
+                          type: integer
+                        openChildren:
+                          type: array
+                          items:
+                            type: string
                   dependencyPath:
                     type: array
                     description: Open items and the open items blocking them — the dependency / critical-path dimension.
                     items:
                       type: object
+                      required: [id, blockedBy]
+                      properties:
+                        id:
+                          type: string
+                        blockedBy:
+                          type: array
+                          description: Only still-open blockers — a closed blocker is not a live dependency.
+                          items:
+                            type: string
                   authorityCoverage:
                     type: object
                     description: Assigned vs unassigned counts plus the unassigned ids named — authority coverage, never an assignment recommendation.
+                    required: [assignedCount, unassignedCount, unassignedIds]
+                    properties:
+                      assignedCount:
+                        type: integer
+                      unassignedCount:
+                        type: integer
+                      unassignedIds:
+                        type: array
+                        description: Unassigned per the SOURCE's own assignee/author evidence — never inferred from a local store's silence.
+                        items:
+                          type: string
                   coverage:
                     type: object
                     description: "Census completeness. A degraded census means the narrative is withheld rather than served partial."
+                    required: [totalOpenItems, edgeCount, degraded, degradedReasons]
                     properties:
                       totalOpenItems:
                         type: integer
@@ -687,9 +729,16 @@ paths:
                         type: integer
                       degraded:
                         type: boolean
+                        description: True unless the source itself reported no next page. A read that merely succeeded proves nothing about completeness.
+                      degradedReasons:
+                        type: array
+                        description: Why completeness could not be claimed — empty when the census is proven exhaustive. A degraded flag without its reason is only half-honest.
+                        items:
+                          type: string
                   synthesis:
                     type: object
                     description: The cited structural narrative, or an honest absence with its reason.
+                    required: [available, narrative, unavailableReason, inferenceInputIds]
                     properties:
                       available:
                         type: boolean

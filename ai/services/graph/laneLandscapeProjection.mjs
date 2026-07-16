@@ -74,13 +74,17 @@ function isEpic(item) {
  * @param {Object[]} [params.edges=[]] Relation edges `{type:'PARENT_OF'|'BLOCKS', source, target}`
  *   (`PARENT_OF`: source is the epic; `BLOCKS`: source blocks target).
  * @param {Date}     params.now Capture time (injected — no hidden clock).
- * @param {Boolean}  [params.degraded=false] Marks the census incomplete (e.g. a source read failed);
- *   surfaced honestly on `coverage.degraded` rather than presenting partial data as the whole picture.
+ * @param {Boolean}  [params.degraded=false] Marks the census incomplete (a source read failed, or the
+ *   walk never proved exhaustion); surfaced honestly on `coverage.degraded` rather than presenting
+ *   partial data as the whole picture.
+ * @param {String[]} [params.degradedReasons=[]] Why completeness could not be claimed, carried from the
+ *   census manifest. A `degraded` flag without its reason is only half-honest: the caller learns the
+ *   picture is partial but not which part is missing, and cannot judge what the answer is worth.
  * @returns {Object} A frozen `notAuthority` landscape: `{capturedAt, goalTrajectory, dependencyPath,
  *   authorityCoverage, coverage, notAuthority}`.
  * @throws {TypeError} When `now` is not a valid Date/timestamp.
  */
-export function projectLaneLandscape({items = [], edges = [], now, degraded = false} = {}) {
+export function projectLaneLandscape({items = [], edges = [], now, degraded = false, degradedReasons = []} = {}) {
     const capturedDate = now instanceof Date ? now : new Date(now);
     if (Number.isNaN(capturedDate.getTime())) {
         throw new TypeError('[laneLandscapeProjection] now must be a valid Date/timestamp (inject the clock).')
@@ -145,7 +149,10 @@ export function projectLaneLandscape({items = [], edges = [], now, degraded = fa
         coverage: Object.freeze({
             totalOpenItems: openItems.length,
             edgeCount     : relEdges.length,
-            degraded      : degraded === true
+            degraded      : degraded === true,
+            // The provenance of the degradation: a caller must be able to see WHICH part of the
+            // picture is missing, not merely that some part is.
+            degradedReasons: Object.freeze(Array.isArray(degradedReasons) ? [...degradedReasons] : [])
         }),
         notAuthority: true
     })
@@ -171,10 +178,25 @@ export async function buildLaneLandscape({queryOpenWorkCensus, queryRelationEdge
         const {items, edges}     = normalizeLaneLandscapeCensus({censusItems: census?.items, edgeRows});
 
         // Truncation is degradation even when nothing threw: a walk the source never confirmed as
-        // exhausted describes an unknown fraction of the landscape, and saying so is the contract.
-        return projectLaneLandscape({items, edges, now, degraded: census?.manifest?.exhausted !== true})
+        // exhausted describes an unknown fraction of the landscape, and saying so — with the reason —
+        // is the contract.
+        const exhausted = census?.manifest?.exhausted === true;
+
+        return projectLaneLandscape({
+            items,
+            edges,
+            now,
+            degraded       : !exhausted,
+            degradedReasons: exhausted ? [] : (census?.manifest?.reasons ?? ['census exhaustion was not proven'])
+        })
     } catch (error) {
-        return projectLaneLandscape({items: [], edges: [], now, degraded: true})
+        return projectLaneLandscape({
+            items          : [],
+            edges          : [],
+            now,
+            degraded       : true,
+            degradedReasons: [`census read failed: ${error instanceof Error ? error.message : String(error)}`]
+        })
     }
 }
 
