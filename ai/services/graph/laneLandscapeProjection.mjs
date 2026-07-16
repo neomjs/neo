@@ -14,6 +14,8 @@
  * on-demand synthesis wrap this function; the projection itself has no host dependency.
  */
 
+import {hashSourceManifest, projectDrillDown} from '../memory-core/helpers/birdViewCitations.mjs';
+
 /**
  * @summary Flattens a source list that arrives either as bare strings or as connection objects
  * (`{name}` for labels, `{login}` for people), dropping entries that carry neither.
@@ -29,6 +31,38 @@ function flattenSourceList(list, key) {
     return (Array.isArray(list) ? list : [])
         .map(entry => typeof entry === 'string' ? entry : entry?.[key])
         .filter(Boolean)
+}
+
+/**
+ * @summary Builds the citation for one open census row — the record that supports its presence in the
+ * landscape, plus the call that drills into it.
+ *
+ * The citation id is the landscape row id, so a caller can join a citation to the dimension entry it
+ * supports; the drill-down addresses the source the way the source addresses itself (by number). A row
+ * the source gave no number is still cited by id — it just cannot offer a drill-down, and saying so beats
+ * inventing a target that would 404.
+ *
+ * @param {Object} item A normalized census row.
+ * @returns {Object} `{id, type, ref, drillDown?}`.
+ */
+function buildLandscapeCitation(item) {
+    const isPr     = item.kind === 'pr',
+          citation = {
+              id  : item.id,
+              type: isPr ? 'pull_request' : 'issue',
+              ref : item.url ?? null
+          };
+
+    if (item.number == null) {
+        return citation
+    }
+
+    const drillDown = projectDrillDown({
+        operation: 'get_conversation',
+        arguments: isPr ? {pr_number: Number(item.number)} : {issue_number: Number(item.number)}
+    });
+
+    return drillDown ? {...citation, drillDown} : citation
 }
 
 /**
@@ -137,10 +171,25 @@ export function projectLaneLandscape({items = [], edges = [], now, degraded = fa
         })
         .sort((a, b) => a.id.localeCompare(b.id));
 
+    // Citations — the records supporting the rows above, joinable to them by id. Built from the open
+    // items the projection actually kept, so a citation can never point at something the landscape
+    // does not describe.
+    const citations = openItems
+        .map(buildLandscapeCitation)
+        .sort((a, b) => a.id.localeCompare(b.id));
+
+    // The manifest fingerprints exactly that member set. The census carries no per-item revision, so
+    // this keys on identity — which is the honest fingerprint for a STRUCTURAL view: an edited body
+    // does not change the landscape, while a state change removes the item from the census and moves
+    // the hash.
+    const sourceManifestHash = hashSourceManifest(citations);
+
     return Object.freeze({
         capturedAt       : capturedDate.toISOString(),
         goalTrajectory   : Object.freeze(goalTrajectory.map(entry => Object.freeze({...entry, openChildren: Object.freeze(entry.openChildren)}))),
         dependencyPath   : Object.freeze(dependencyPath.map(entry => Object.freeze({...entry, blockedBy: Object.freeze(entry.blockedBy)}))),
+        citations        : Object.freeze(citations.map(citation => Object.freeze(citation))),
+        sourceManifestHash,
         authorityCoverage: Object.freeze({
             assignedCount  : assignedIds.length,
             unassignedCount: unassignedIds.length,
@@ -237,6 +286,9 @@ export function normalizeLaneLandscapeCensus({censusItems = [], edgeRows = []} =
             return {
                 id   : number != null && String(number).length > 0 ? `${kind}-${number}` : '',
                 kind,
+                // Retained so a citation can name the drill-down target: the namespaced id is the join
+                // key for relation edges, but the source addresses its own records by number.
+                number,
                 state: row?.state ?? null,
                 type : kind === 'pr' ? 'PULL_REQUEST' : 'ISSUE',
                 labels,

@@ -72,14 +72,25 @@ export async function exploreLaneLandscape({now, generatedAt, deps} = {}) {
         }
     }
 
+    // Mark which citations the narrative could actually have drawn on. The census is broader than the
+    // prompt — an item with no epic, blocker, or ownership gap is cited but never enumerated — so a
+    // caller auditing the narrative needs the two sets distinguished rather than conflated.
+    const inferenceIdSet = new Set(inferenceInputIds),
+          citations      = landscape.citations.map(citation => Object.freeze({
+              ...citation,
+              inSynthesis: available && inferenceIdSet.has(citation.id)
+          }));
+
     return Object.freeze({
-        schemaVersion    : 'lane-landscape.v1',
-        capturedAt       : landscape.capturedAt,
-        generatedAt      : typeof stamp === 'string' ? stamp : new Date(stamp).toISOString(),
-        goalTrajectory   : landscape.goalTrajectory,
-        dependencyPath   : landscape.dependencyPath,
-        authorityCoverage: landscape.authorityCoverage,
-        coverage         : landscape.coverage,
+        schemaVersion     : 'lane-landscape.v1',
+        capturedAt        : landscape.capturedAt,
+        generatedAt       : typeof stamp === 'string' ? stamp : new Date(stamp).toISOString(),
+        goalTrajectory    : landscape.goalTrajectory,
+        dependencyPath    : landscape.dependencyPath,
+        authorityCoverage : landscape.authorityCoverage,
+        coverage          : landscape.coverage,
+        citations         : Object.freeze(citations),
+        sourceManifestHash: landscape.sourceManifestHash,
 
         synthesis: Object.freeze({
             available,

@@ -98,6 +98,53 @@ test.describe('laneLandscapeProjection — current-state lane landscape', () => 
         expect(result.goalTrajectory.map(entry => entry.id)).toEqual(['issue-100', 'issue-200']);
     });
 
+    test('citations name the record behind every row, joinable by id, with an invocable drill-down', () => {
+        const result = projectLaneLandscape({
+            items: [
+                {id: 'issue-1', number: 1,  kind: 'issue', state: 'OPEN', url: 'https://github.com/neomjs/neo/issues/1'},
+                {id: 'pr-2',    number: 2,  kind: 'pr',    state: 'OPEN', url: 'https://github.com/neomjs/neo/pull/2'},
+                {id: 'issue-3', number: 3,  kind: 'issue', state: 'CLOSED'}
+            ],
+            now
+        });
+
+        // the citation id IS the row id — a caller can join a citation to the dimension entry it supports
+        expect(result.citations.map(citation => citation.id)).toEqual(['issue-1', 'pr-2']);
+        expect(result.citations[0]).toEqual({
+            id       : 'issue-1',
+            type     : 'issue',
+            ref      : 'https://github.com/neomjs/neo/issues/1',
+            drillDown: {operation: 'get_conversation', arguments: {issue_number: 1}}
+        });
+        // a PR drills down by pr_number, not issue_number — the source addresses them differently
+        expect(result.citations[1].type).toBe('pull_request');
+        expect(result.citations[1].drillDown).toEqual({operation: 'get_conversation', arguments: {pr_number: 2}});
+        // a closed item is not in the landscape, so it must not be cited as if it were
+        expect(result.citations.some(citation => citation.id === 'issue-3')).toBe(false);
+    });
+
+    test('a row the source gave no number is still cited — without a drill-down it cannot honestly offer', () => {
+        const result = projectLaneLandscape({
+            items: [{id: 'issue-x', kind: 'issue', state: 'OPEN', url: null}],
+            now
+        });
+
+        expect(result.citations[0]).toEqual({id: 'issue-x', type: 'issue', ref: null});
+        expect(result.citations[0].drillDown).toBeUndefined();
+    });
+
+    test('the manifest fingerprints the member set: order-independent, and it moves when membership does', () => {
+        const landscape = items => projectLaneLandscape({items, now}).sourceManifestHash;
+
+        const a = {id: 'issue-1', number: 1, kind: 'issue', state: 'OPEN'},
+              b = {id: 'issue-2', number: 2, kind: 'issue', state: 'OPEN'};
+
+        // same members, different retrieval order → same fingerprint
+        expect(landscape([a, b])).toBe(landscape([b, a]));
+        // a member leaving the census (closed, or simply gone) moves it
+        expect(landscape([a])).not.toBe(landscape([a, b]));
+    });
+
     test('now is required (fail-loud, no hidden clock) and the result is frozen', () => {
         expect(() => projectLaneLandscape({items: [], now: undefined})).toThrow(/now must be a valid Date/);
 
@@ -126,6 +173,7 @@ test.describe('laneLandscapeProjection — current-state lane landscape', () => 
         expect(items[0]).toEqual({
             id       : 'issue-1',
             kind     : 'issue',
+            number   : 1,
             state    : 'OPEN',
             type     : 'ISSUE',
             labels   : ['epic'],

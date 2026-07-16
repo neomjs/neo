@@ -663,6 +663,8 @@ paths:
                   - dependencyPath
                   - authorityCoverage
                   - coverage
+                  - citations
+                  - sourceManifestHash
                   - synthesis
                   - notAuthority
                 properties:
@@ -735,6 +737,39 @@ paths:
                         description: Why completeness could not be claimed — empty when the census is proven exhaustive. A degraded flag without its reason is only half-honest.
                         items:
                           type: string
+                  citations:
+                    type: array
+                    description: The record behind every landscape row, joinable to the dimensions by id.
+                    items:
+                      type: object
+                      required: [id, type, ref, inSynthesis]
+                      properties:
+                        id:
+                          type: string
+                          description: The landscape row id this citation supports (`issue-N` / `pr-N`).
+                        type:
+                          type: string
+                          description: "`issue` or `pull_request` — a PR is a first-class landscape member, not edge decoration."
+                        ref:
+                          type: string
+                          nullable: true
+                          description: Source URL, or null when the source gave none.
+                        inSynthesis:
+                          type: boolean
+                          description: Whether this record reached the narrative. The census is broader than the prompt, so a cited row is not necessarily a narrated one.
+                        drillDown:
+                          type: object
+                          description: The call that opens this record. Absent when the source gave no addressable number — an honest omission rather than a target that would 404.
+                          required: [operation, arguments]
+                          properties:
+                            operation:
+                              type: string
+                            arguments:
+                              type: object
+                              additionalProperties: true
+                  sourceManifestHash:
+                    type: string
+                    description: Change-detection fingerprint of the landscape's member set. Keys on identity, not content — an edited body does not change the structure, while a state change removes the item from the census and moves the hash.
                   synthesis:
                     type: object
                     description: The cited structural narrative, or an honest absence with its reason.

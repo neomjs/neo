@@ -76,6 +76,32 @@ test.describe('exploreLaneLandscape — the current-state Bird View composition'
         expect(result.synthesis.inferenceInputIds).toContain('issue-101');
     });
 
+    test('citations mark what the narrative could have used — the census is broader than the prompt', async () => {
+        const result = await exploreLaneLandscape({now, deps: deps()});
+
+        expect(result.citations.map(citation => citation.id))
+            .toEqual(['issue-100', 'issue-101', 'issue-102', 'issue-103']);
+        expect(result.sourceManifestHash).toMatch(/^[0-9a-f]{8}$/);
+
+        // issue-100 is an epic the prompt enumerates; it reached inference
+        expect(result.citations.find(citation => citation.id === 'issue-100').inSynthesis).toBe(true);
+        // issue-103 is enumerated too — as issue-101's blocker
+        expect(result.citations.find(citation => citation.id === 'issue-103').inSynthesis).toBe(true);
+        expect(result.citations[0].drillDown).toEqual({operation: 'get_conversation', arguments: {issue_number: 100}});
+    });
+
+    test('a withheld narrative marks NO citation as used — nothing reached an inference that never ran', async () => {
+        const result = await exploreLaneLandscape({
+            now,
+            deps: deps({generate: async () => { throw new Error('provider down') }})
+        });
+
+        expect(result.synthesis.available).toBe(false);
+        // the citations survive the failed narrative — they are census evidence, not synthesis output
+        expect(result.citations).toHaveLength(4);
+        expect(result.citations.every(citation => citation.inSynthesis === false)).toBe(true);
+    });
+
     test('a DEGRADED census withholds the narrative entirely and never runs inference', async () => {
         // Honest absence: a partial structure narrated confidently is worse than no narrative, so the
         // LLM leg must be SKIPPED — not run and discarded.
