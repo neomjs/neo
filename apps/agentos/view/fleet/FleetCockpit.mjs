@@ -779,12 +779,16 @@ class FleetCockpit extends Container {
             return {detached: false, errors: result.errors}
         }
 
+        // the window name stays an IMMUTABLE local across every await below: a raced reattach
+        // nulls the bookkeeping entry, but a stale-open cleanup still needs the name to close by
+        let windowName = `fm-agent-detail-${me.id}`;
+
         me.detachedDetail = {
             connectTimer  : null,
             homeTabIndex  : homeIndex,
             homeTabsNodeId: home,
             windowId      : null,
-            windowName    : `fm-agent-detail-${me.id}`
+            windowName
         };
         me.detachedDetailPane   = pane;
         me.detailVesselState    = 'opening';
@@ -812,10 +816,16 @@ class FleetCockpit extends Container {
             url           : `${basePath}apps/agentos/childapps/widget/index.html?detail=agent-detail&cockpitId=${me.id}`,
             windowFeatures: `height=640,width=480,left=${winData.screenLeft + 160},top=${winData.screenTop + 120}`,
             windowId      : me.windowId,
-            windowName    : me.detachedDetail.windowName
+            windowName
         });
 
         if (generation !== me.detailVesselGeneration) {
+            // the generation died DURING the open (a raced reattach/teardown already restored the
+            // dock state) — but a `true` completion means the vessel MATERIALIZED under the dead
+            // generation: stale continuations own the cleanup of resources they acquired, so close
+            // the orphan by its immutable name (fire-and-forget; nothing else may be touched)
+            opened && Neo.Main.windowClose({names: [windowName], windowId: me.windowId}).catch(() => {});
+
             return {detached: false, errors: ['superseded by a newer vessel operation']}
         }
 
@@ -853,7 +863,9 @@ class FleetCockpit extends Container {
      * SAME instance), and the vessel closes unless it already closed itself. Bookkeeping clears
      * BEFORE the async close — the cleared entry is the {@link #onWindowDisconnect} re-entrancy
      * guard. Increments {@link #detailVesselGeneration} first, so every in-flight admission
-     * continuation (open, URL read, connect timer) goes inert.
+     * continuation (open, URL read, connect timer) goes inert — and its OWN post-projection
+     * continuation revalidates the same way: a destroy (or newer operation) landing during the
+     * await limits this path to the vessel cleanup it still owns, never a cockpit-field write.
      * @param {Object} [options={}]
      * @param {Boolean} [options.windowAlreadyClosed=false] `true` when the disconnect path runs
      *     the reattach (the vessel is already gone — do not close it again).
@@ -868,7 +880,8 @@ class FleetCockpit extends Container {
             return {errors: ['agent-detail is not detached'], reattached: false}
         }
 
-        me.detailVesselGeneration++;
+        let generation = ++me.detailVesselGeneration;
+
         entry.connectTimer && clearTimeout(entry.connectTimer);
 
         let failure = me.lastDetailVesselFailure;
@@ -897,6 +910,16 @@ class FleetCockpit extends Container {
         me.onDockZoneDocumentChange(result.document);
 
         await me.refreshPromise;
+
+        if (me.isDestroyed || generation !== me.detailVesselGeneration) {
+            // a destroy (or a newer vessel operation) landed during the projection await: this
+            // continuation may perform ONLY the vessel cleanup it still owns — teardown skipped
+            // the close because this reattach had already cleared the bookkeeping entry — and
+            // must never resurrect cockpit fields (the pane is the newer owner's, or destroyed)
+            windowAlreadyClosed || Neo.Main.windowClose({names: [entry.windowName], windowId: me.windowId}).catch(() => {});
+
+            return {errors: ['superseded by teardown or a newer vessel operation'], reattached: false}
+        }
 
         // an external re-tree while detached left a stand-in occupying the slot, and the
         // reconciler keeps tree-live occupants — swap it for the live instance, same position

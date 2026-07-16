@@ -28,7 +28,7 @@ import StateProvider from '../../../../../../../src/state/Provider.mjs';
  * @param {String|null} [options.popupUrl=null] The URL `getByPath` reports for the vessel window.
  * @returns {Object} spy state + `restore()`.
  */
-function installWindowVessel({openResult = true, popupUrl = null} = {}) {
+function installWindowVessel({deferOpen = false, openResult = true, popupUrl = null} = {}) {
     let previous = {
             getByPath    : Neo.Main.getByPath,
             getWindowData: Neo.Main.getWindowData,
@@ -36,15 +36,20 @@ function installWindowVessel({openResult = true, popupUrl = null} = {}) {
             windowOpen   : Neo.Main.windowOpen
         },
         previousWindowConfigs = Neo.windowConfigs,
-        state = {closeCalls: [], openCalls: []};
+        state = {closeCalls: [], openCalls: [], resolveOpen: null};
 
     Neo.windowConfigs = {'unit-window': {basePath: './'}};
 
     Neo.Main.getByPath     = async () => popupUrl;
     Neo.Main.getWindowData = async () => ({screenLeft: 10, screenTop: 20});
-    Neo.Main.windowOpen    = async data => {
+    Neo.Main.windowOpen    = data => {
         state.openCalls.push(data);
-        return openResult
+
+        // deferOpen models the REAL race window: the popup's Boolean completion arriving
+        // arbitrarily late — the test resolves it manually via resolveOpen(value)
+        return deferOpen
+            ? new Promise(resolve => {state.resolveOpen = resolve})
+            : Promise.resolve(openResult)
     };
     Neo.Main.windowClose   = async data => {
         state.closeCalls.push(data)
@@ -53,6 +58,7 @@ function installWindowVessel({openResult = true, popupUrl = null} = {}) {
     return {
         get closeCalls() { return state.closeCalls },
         get openCalls()  { return state.openCalls },
+        resolveOpen(value) { state.resolveOpen?.(value) },
         restore() {
             Object.assign(Neo.Main, previous);
             Neo.windowConfigs = previousWindowConfigs
@@ -356,6 +362,75 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — detail pop-out state m
         await cockpit.reattachAgentDetail();
 
         expect(cockpit.getAgentDetailPane()).toBe(pane)
+    });
+
+    test('stale open completion: a vessel materializing after reattach is closed, never orphaned', async () => {
+        vessel = installWindowVessel({deferOpen: true, popupUrl: null});
+
+        const pane = await revealDetail();
+
+        // the open hangs (real popups complete arbitrarily late) — the admission is in flight
+        const popOutPromise = cockpit.popOutAgentDetail();
+
+        await expect.poll(() => vessel.openCalls.length, {timeout: 2000}).toBe(1);
+
+        // the user reattaches while the open is STILL pending: dock state restores, generation dies
+        const reattach = await cockpit.reattachAgentDetail({windowAlreadyClosed: true});
+
+        expect(reattach.reattached).toBe(true);
+        expect(cockpit.detailVesselState).toBe('docked');
+        expect(vessel.closeCalls).toHaveLength(0);
+
+        // NOW the vessel materializes under the dead generation — the stale continuation owns
+        // exactly one cleanup: close the orphan by its immutable name; it touches nothing else
+        vessel.resolveOpen(true);
+
+        const result = await popOutPromise;
+
+        expect(result.detached).toBe(false);
+        expect(result.errors[0]).toContain('superseded');
+
+        await expect.poll(() => vessel.closeCalls.length, {timeout: 2000}).toBe(1);
+        expect(vessel.closeCalls[0].names).toEqual([`fm-agent-detail-${cockpit.id}`]);
+
+        // zero resurrection: the docked state the reattach restored is untouched
+        expect(cockpit.detailVesselState).toBe('docked');
+        expect(cockpit.detachedDetail).toBeNull();
+        expect(cockpit.getReference('agent-detail')).toBe(pane)
+    });
+
+    test('destroy during reattach: the stale continuation cleans the vessel only, never resurrects fields', async () => {
+        vessel = installWindowVessel({popupUrl: vesselUrl()});
+
+        const pane = await revealDetail();
+
+        await cockpit.popOutAgentDetail();
+        await simulateConnect('vessel-win-7');
+
+        expect(cockpit.detailVesselState).toBe('windowed');
+
+        // start the reattach, then destroy the cockpit while it awaits the projection —
+        // teardown skips the vessel close (the reattach already cleared the bookkeeping),
+        // so the stale continuation still owns exactly that close
+        const reattachPromise = cockpit.reattachAgentDetail();
+
+        cockpit.destroy();
+
+        const result = await reattachPromise;
+
+        expect(result.reattached).toBe(false);
+        expect(result.errors[0]).toContain('superseded');
+
+        // the pane died with the cockpit (teardown's job), the vessel closed exactly once
+        // (the continuation's job), and no live handle was resurrected post-destroy
+        // (core destroy() deletes instance fields — falsy is the destroyed-object truth)
+        expect(pane.isDestroyed).toBe(true);
+        expect(cockpit.detachedDetailPane).toBeFalsy();
+
+        await expect.poll(() => vessel.closeCalls.length, {timeout: 2000}).toBe(1);
+        expect(vessel.closeCalls[0].names).toEqual([`fm-agent-detail-${cockpit.id}`]);
+
+        cockpit = null
     });
 
     test('destroy while detached: vessel closed, pane destroyed, late events inert', async () => {
