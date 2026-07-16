@@ -143,6 +143,27 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
         expect(matchDeferencePhrase('This is not a merge decision, your call.')).toBe('your call');
     });
 
+    test('STATUS-ONLY human-domain facts carry no attribution grammar — fire (cycle-3 probes, pinned verbatim)', () => {
+        // A completed or stative fact about a human-owned surface hands no decision to anyone:
+        // without ownership (your/yours/you), open-choice (or/whether/either), or pending-decision
+        // (-eligible) grammar in the decisive segment, the exemption has no positive evidence.
+        expect(matchDeferencePhrase('The merge landed, your call.')).toBe('your call');
+        expect(matchDeferencePhrase('The release is live, your move.')).toBe('your move');
+        expect(matchDeferencePhrase('The credentials expired, your call.')).toBe('your call');
+    });
+
+    test('negation ANYWHERE in the decisive segment kills the exemption — contractions, modals, noun-before-negation (cycle-3 probes, pinned verbatim)', () => {
+        expect(matchDeferencePhrase("Don't merge it, your call.")).toBe('your call');
+        expect(matchDeferencePhrase("You can't merge it, your call.")).toBe('your call');
+        expect(matchDeferencePhrase("The merge isn't yours, your call.")).toBe('your call');
+        expect(matchDeferencePhrase("The credentials aren't yours to rotate, your call.")).toBe('your call');
+        expect(matchDeferencePhrase('Your call on whether the merge should not proceed.')).toBe('your call');
+    });
+
+    test('explicit ownership grammar is positive attribution — the second cycle-3 control exempts', () => {
+        expect(matchDeferencePhrase('The merge is your decision, your call.')).toBeNull();
+    });
+
     test('offer-shaped phrases are NEVER exemption-eligible — an agent offering a human-only action fires', () => {
         // "Would you like me to merge this PR?" is the agent proposing to cross the human-only
         // merge gate — the opposite of role-attribution. Offer-shaped phrases (would you like

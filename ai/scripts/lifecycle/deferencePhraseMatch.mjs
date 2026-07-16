@@ -103,13 +103,31 @@ function isReportedMentionContext(text, startIndex) {
 const EXEMPTION_ELIGIBLE_PHRASE_RE = /^(?:your call|your move|your steer on)$/i;
 
 /**
- * @summary Detects a NEGATED human-domain mention inside one segment (`not a merge decision`).
- * A negated mention is not positive attribution — the segment fires.
+ * @summary Detects negation ANYWHERE in a decisive segment — before or after the domain noun,
+ * including contractions and modals (`Don't merge it`, `the merge isn't yours`, `should not
+ * proceed`). A negated segment is never positive attribution — it fires.
  * @param {String} segment Text segment to test.
  * @returns {Boolean}
  */
-function isNegatedHumanMention(segment) {
-    return /\b(?:not|no|never|isn'?t|wasn'?t|aren'?t|without)\b[^.!?;]*?\b(?:merge|squash|credentials?|release|stamp)/i.test(segment);
+function isNegatedSegment(segment) {
+    return /\b(?:not|no|never|neither|nor|don'?t|doesn'?t|didn'?t|can'?t|cannot|couldn'?t|won'?t|wouldn'?t|shouldn'?t|mustn'?t|isn'?t|wasn'?t|aren'?t|weren'?t|without)\b/i.test(segment);
+}
+
+/**
+ * @summary Detects DECISION-ATTRIBUTION grammar in a decisive segment — the positive evidence that
+ * an open decision is being handed to or owned by the human, as opposed to a completed/status-only
+ * fact (`The merge landed`, `The release is live`, `The credentials expired` — those fire):
+ *
+ *  - ownership grammar: `yours` / `your <decision/gate/…>` / second-person `you decide`;
+ *  - open-choice grammar: `merge on the exception OR ask for the stamp`, `WHETHER we release`;
+ *  - pending-decision status: `merge-eligible` (eligibility = the decision is still open).
+ * @param {String} segment Text segment to test.
+ * @returns {Boolean}
+ */
+function hasAttributionGrammar(segment) {
+    return /\byours?\b|\byou\b/i.test(segment) ||
+           /\b(?:or|whether|either)\b/i.test(segment) ||
+           /\beligible\b/i.test(segment);
 }
 
 /**
@@ -139,9 +157,12 @@ function classifyDomainSegment(segment) {
  *     `your steer on the next lane` too) when it carries prose, else the predicate segment
  *     immediately before the phrase. There is NO wider clause-window fallback: an outer historical
  *     fact (`the merge landed, …`) can never lend authority to a neutral attachment.
- *  3. The decisive segment exempts ONLY on a pure, non-negated human-domain signal. Neutral,
- *     unenumerated, competing, maintainer, or negated segments (`not a merge decision`) all fire —
- *     ambiguity fails toward firing, mechanically.
+ *  3. The decisive segment exempts ONLY when it carries all three positive legs: a pure
+ *     human-domain signal, DECISION-ATTRIBUTION grammar ({@link hasAttributionGrammar} — a
+ *     completed/status-only fact like `The merge landed` is not attribution), and zero negation
+ *     anywhere in the segment ({@link isNegatedSegment} — `Don't merge it`, `the merge isn't
+ *     yours`, `should not proceed` all fire). Neutral, unenumerated, competing, maintainer,
+ *     status-only, or negated segments fire — ambiguity fails toward firing, mechanically.
  * @param {String} phrase Matched deference phrase.
  * @param {String} text Searchable assistant final-turn text.
  * @param {Number} startIndex Match start index.
@@ -162,7 +183,9 @@ function isHumanOnlyDomainContext(phrase, text, startIndex, endIndex) {
               ? objectSegment
               : (clauseBefore.split(/[,—:()]/).filter(s => s.trim()).pop() || '');
 
-    return classifyDomainSegment(decisive) === 'human' && !isNegatedHumanMention(decisive);
+    return classifyDomainSegment(decisive) === 'human' &&
+           hasAttributionGrammar(decisive) &&
+           !isNegatedSegment(decisive);
 }
 
 /**
