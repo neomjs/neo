@@ -116,7 +116,7 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
             // fleet-agent operations (incl. the configureAgent scoped-config patch — never identity,
             // never credential) + the read-observe verbs (boot-identity fact + activity snapshot +
             // assembled roster DTO — advisory reads, no lifecycle-write)
-            ['configureAgent', 'defineAgent', 'fleetActivity', 'fleetRoster', 'fleetRuntimeStatus', 'fleetStatus', 'getAgent', 'getBootIdentity', 'listAgents', 'removeAgent', 'restartAgent', 'setAvatar', 'setRepo', 'startAgent', 'stopAgent'].sort()
+            ['configureAgent', 'connectTenant', 'defineAgent', 'fleetActivity', 'fleetRoster', 'fleetRuntimeStatus', 'fleetStatus', 'getAgent', 'getBootIdentity', 'listAgents', 'listTenants', 'removeAgent', 'restartAgent', 'setAvatar', 'setRepo', 'startAgent', 'stopAgent'].sort()
         );
         expect(FLEET_WIRE_METHODS).toContain('getBootIdentity');   // the read-observe verbs ride the wire; the lifecycle-write restart actuator does NOT (R3)
         expect(FLEET_WIRE_METHODS).toContain('fleetActivity');
@@ -130,5 +130,7 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
         // ...and neither may its READ counterpart: getDefinition is the only surface carrying
         // metadata.launch (the public projection redacts it), so it stays off the wire too
         expect(FLEET_WIRE_METHODS).not.toContain('getDefinition');
+        // the tenant-credential reader is Brain-internal only — the PAT must never be wire-reachable
+        expect(FLEET_WIRE_METHODS).not.toContain('getCredential');
     });
 });
