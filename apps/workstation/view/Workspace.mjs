@@ -4,8 +4,11 @@ import Feed                                     from '../store/Feed.mjs';
 import FeedPane                                 from './FeedPane.mjs';
 import Scale                                    from '../store/Scale.mjs';
 import ScalePane                                from './ScalePane.mjs';
+import DockDragAffordances                      from '../../../src/dashboard/DockDragAffordances.mjs';
+import DockDropIndicators                       from '../../../src/dashboard/DockDropIndicators.mjs';
 import DockLayoutAdapter                        from '../../../src/dashboard/DockLayoutAdapter.mjs';
 import DockMotionSignal                         from '../../../src/dashboard/DockMotionSignal.mjs';
+import DockPreview                              from '../../../src/dashboard/DockPreview.mjs';
 import DockProjectionReconciler                 from '../../../src/dashboard/DockProjectionReconciler.mjs';
 import DockService                              from '../../../src/ai/client/DockService.mjs';
 import DockZoneModel                            from '../../../src/dashboard/DockZoneModel.mjs';
@@ -124,6 +127,12 @@ class Workspace extends Container {
      */
     tourRunner = null
     /**
+     * The shared drag-affordance gesture controller (producer lifecycle, memoized geometry,
+     * release-truth drop, generation guards) — composed at construct, destroyed with the view.
+     * @member {Neo.dashboard.DockDragAffordances|null} dragAffordances=null
+     */
+    dragAffordances = null
+    /**
      * @member {Object} paneCache={}
      * @protected
      */
@@ -217,13 +226,31 @@ class Workspace extends Container {
         me.appendFeedBatch(25);
 
         me.add([me.createTourBar(), me.createStatusBar(), {
-            module   : Container,
-            cls      : ['workstation-dock-host', 'neo-dashboard', 'neo-dashboard-dock-query-host'],
-            flex     : 1,
-            items    : [me.projectDockModel()],
+            module: Container,
+            cls   : ['workstation-dock-host', 'neo-dashboard', 'neo-dashboard-dock-query-host'],
+            flex  : 1,
+            // The projection child is index 0 and the ONLY child the shared reconciler stages;
+            // the preview renderer + indicator menu are PERSISTENT siblings (absolute overlays
+            // via the skin) — object permanence across every re-projection.
+            items: [me.projectDockModel(), {
+                module   : DockPreview,
+                reference: 'dock-preview'
+            }, {
+                module   : DockDropIndicators,
+                reference: 'drop-indicators'
+            }],
             layout   : {ntype: 'fit'},
             reference: 'dock-host'
         }]);
+
+        // The shared gesture controller composes the overlays it just created — the same
+        // app-neutral owner Demo-A rides; the flagship adds zero orchestration of its own.
+        me.dragAffordances = Neo.create(DockDragAffordances, {
+            host      : me.getReference('dock-host'),
+            indicators: me.getReference('drop-indicators'),
+            owner     : me,
+            preview   : me.getReference('dock-preview')
+        });
 
         // The reactive afterSet fires before the dock host exists during construction —
         // re-apply the active language now that the host is live (both orders converge).
@@ -552,9 +579,12 @@ class Workspace extends Container {
         let me = this;
 
         return DockLayoutAdapter.project(me.dockModel, {
-            applyDockZoneOperation  : me.applyDockZoneOperation.bind(me),
-            onDockZoneDocumentChange: me.onDockZoneDocumentChange.bind(me),
-            resolveComponentRef     : resolveComponentRef
+            applyDockZoneOperation   : me.applyDockZoneOperation.bind(me),
+            onDockCrossZoneDragCancel: data => me.dragAffordances.onDragCancel(data),
+            onDockCrossZoneDragMove  : data => me.dragAffordances.onDragMove(data),
+            onDockCrossZoneDrop      : data => me.dragAffordances.onDrop(data),
+            onDockZoneDocumentChange : me.onDockZoneDocumentChange.bind(me),
+            resolveComponentRef      : resolveComponentRef
                 || ((componentRef, item, itemId) => me.resolvePane(itemId, item)),
             resolveRevealComponentRef  : (componentRef, item, itemId) => me.resolvePane(itemId, item)
         })
@@ -652,6 +682,10 @@ class Workspace extends Container {
             placeholders = new Map();
 
         if (!host) return;
+
+        // Every re-projection retires the active gesture session — a stale geometry promise
+        // must never survive a topology change (the controller's generation guards depend on it).
+        me.dragAffordances?.clear();
 
         try {
             await flip?.captureFirst({hostId: host.id, markerPrefix: 'workstation-pane-'})
@@ -1057,6 +1091,7 @@ class Workspace extends Container {
 
         me.tourRunner?.destroy();
         me.dockService?.destroy();
+        me.dragAffordances?.destroy();
         me.cueSettlements.clear();
 
         Object.values(me.paneCache).forEach(pane => {
