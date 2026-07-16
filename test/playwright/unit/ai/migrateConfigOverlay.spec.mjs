@@ -93,6 +93,19 @@ test.describe('ai/scripts/setup/migrateConfigOverlay — declaration-level diff 
         expect(result.deltas.fn).toBe(undefined);
     });
 
+    test('diffLeafTrees: a custom SUBTREE with nested leaves survives per-leaf, never skipped wholesale', () => {
+        // Operator data-preservation: the group is absent from base, and the nested descriptor's
+        // function-valued parse made the namespace-level stringify reject — the whole group landed
+        // in `skipped` and the operator value silently vanished from the rendered overlay.
+        const overlay = {customGroup: {customLeaf: leafD('operator-value', 'NEO_CUSTOM', 'string')}},
+              result  = diffLeafTrees({}, overlay);
+
+        expect(result.custom).toEqual(['customGroup.customLeaf']);
+        expect(result.skipped).toEqual([]);
+        expect(result.deltas.customGroup.customLeaf).toBe(overlay.customGroup.customLeaf);
+        expect(renderValue(result.deltas.customGroup.customLeaf)).toBe('leaf("operator-value", "NEO_CUSTOM", "string")');
+    });
+
     test('diffLeafTrees: key-order differences in descriptors are NOT deltas', () => {
         const base    = {x: {default: 1, env: 'E', type: 'number', parse: () => {}}},
               overlay = {x: {type: 'number', env: 'E', default: 1, parse: () => {}}};

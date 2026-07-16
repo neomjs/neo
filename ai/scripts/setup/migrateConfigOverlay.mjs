@@ -136,6 +136,15 @@ function walkLeafTrees(baseData, overlayData, prefix, result) {
         }
 
         if (baseValue === undefined) {
+            // A custom SUBTREE (absent from base) can hold nested leaf descriptors. Serializing the
+            // whole namespace would hit a descriptor's function-valued `parse` and skip it wholesale —
+            // silently dropping operator data — so recurse with an empty base: every nested entry
+            // re-enters this branch individually and leaves render via their projection.
+            if (!isLeafDescriptor(overlayValue) && overlayValue && typeof overlayValue === 'object' && !Array.isArray(overlayValue)) {
+                walkLeafTrees({}, overlayValue, pathKey, result);
+                continue;
+            }
+
             const rendered = stableStringify(isLeafDescriptor(overlayValue) ? projectLeaf(overlayValue).projection : overlayValue);
             if (rendered === undefined) {
                 result.skipped.push(pathKey);
