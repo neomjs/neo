@@ -194,6 +194,12 @@ class MailboxPane extends Container {
 
     /**
      * @summary Classify the snapshot into the pane's honest state.
+     *
+     * The unrecognized-envelope guard fails CLOSED to `unobserved`. A snapshot the pane cannot
+     * recognize — `{}`, a torn payload, a future producer shape — has no `rows`, so a bare
+     * length check would render "No active messages for @x": a confident, honest-LOOKING empty
+     * inbox fabricated out of a payload we never understood. `empty` is a claim about the
+     * subject's mail and may only be made when the producer actually said so.
      * @returns {String} 'unobserved' | 'denied' | 'degraded' | 'empty' | 'rows'
      * @protected
      */
@@ -203,7 +209,9 @@ class MailboxPane extends Container {
         if (!snapshot)                                  return 'unobserved';
         if (snapshot.admission?.state === 'denied')     return 'denied';
         if (snapshot.capability?.state === 'degraded')  return 'degraded';
-        if (!snapshot.rows?.length)                     return 'empty';
+        // an envelope without the producer's own rows array is unrecognized, not empty
+        if (!Array.isArray(snapshot.rows))              return 'unobserved';
+        if (snapshot.rows.length === 0)                 return 'empty';
 
         return 'rows'
     }

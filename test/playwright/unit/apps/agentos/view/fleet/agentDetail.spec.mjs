@@ -280,4 +280,51 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
 
         detail.destroy()
     });
+
+    test('subject possession: a re-seat onto a DIFFERENT resident drops the previous subject mail', () => {
+        const detail  = createDetail({agentId: 'vega', state: 'ok'}),
+              mailbox = detail.down({reference: 'mailbox-pane'});
+
+        // the wiring has supplied vega's inbox
+        mailbox.snapshot = {
+            capability: {source: 'memory-core:mailbox', state: 'wired', confidence: 'observed', capturedAt: '2026-07-12T00:00:00.000Z', reason: null},
+            admission : {state: 'granted', viewerIdentity: '@tobiu', subjectAgentId: '@neo-opus-vega', checkedAt: '2026-07-12T00:00:00.000Z', reason: null},
+            page      : {limit: 50, offset: 0, count: 1},
+            rows      : [{messageId: 'MESSAGE:vega-only', subject: 'vega private mail', from: '@neo-gpt', recipientClass: 'agent', priority: 'high', status: 'unread', taskState: null, partOfThread: null, relatedTickets: [], wakeSuppressed: false, sentAt: '2026-07-12T00:00:00.000Z', readAt: null}]
+        };
+        expect(mailbox.getPaneState()).toBe('rows');
+
+        // drill a DIFFERENT resident: vega's mail must not render under ada's name
+        detail.record = makeRecord({agentId: 'ada', state: 'ok'});
+
+        expect(mailbox.record.agentId).toBe('ada');
+        expect(mailbox.snapshot, "a subject's mail cannot survive onto another subject").toBe(null);
+        expect(mailbox.getPaneState()).toBe('unobserved');
+
+        detail.destroy()
+    });
+
+    test('subject possession: a SAME-subject re-seat (roster refresh) keeps the snapshot', () => {
+        const detail   = createDetail({agentId: 'vega', state: 'ok'}),
+              mailbox  = detail.down({reference: 'mailbox-pane'}),
+              snapshot = {
+                  capability: {source: 'memory-core:mailbox', state: 'wired', confidence: 'observed', capturedAt: '2026-07-12T00:00:00.000Z', reason: null},
+                  admission : {state: 'granted', viewerIdentity: '@tobiu', subjectAgentId: '@neo-opus-vega', checkedAt: '2026-07-12T00:00:00.000Z', reason: null},
+                  page      : {limit: 50, offset: 0, count: 0},
+                  rows      : []
+              };
+
+        mailbox.snapshot = snapshot;
+
+        // a roster refresh restamps the SAME resident — dropping the inbox here would blank a
+        // correct pane on every poll
+        applySet(detail, {state: 'starting'});
+
+        // deep-equal, not identity: the reactive config layer may hand back an equal object, and
+        // the contract is that the subject's mail SURVIVES a same-subject re-seat
+        expect(mailbox.snapshot).toEqual(snapshot);
+        expect(mailbox.getPaneState()).toBe('empty');
+
+        detail.destroy()
+    });
 });

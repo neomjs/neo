@@ -97,6 +97,41 @@ test.describe('AgentOS.view.fleet.MailboxPane — the read-only S1 mailbox tab',
         pane.destroy()
     });
 
+    test('an unrecognized envelope fails CLOSED to unobserved — never a fabricated empty inbox', () => {
+        // `empty` is a claim about the SUBJECT'S MAIL ("No active messages for @x") and may only be
+        // made when the producer actually said so. A torn/unknown payload has no rows either, so a
+        // bare length check renders a confident, honest-LOOKING empty inbox out of something the
+        // pane never understood — the exact fail-open this pane's four honest states exist to kill.
+        const unrecognized = [
+            {},
+            {capability: {state: 'wired'}},                       // producer half-answered
+            {rows: null},                                         // torn
+            {rows: 'MESSAGE:not-an-array'},                       // wrong type
+            {admission: {state: 'granted'}, page: {limit: 50}}    // envelope without the rows array
+        ];
+
+        unrecognized.forEach(snapshot => {
+            const pane = createPane({snapshot});
+
+            expect(pane.getPaneState(), JSON.stringify(snapshot)).toBe('unobserved');
+            expect(pane.getReference('mailbox-state').text).toContain('not wired');
+            expect(pane.getReference('mailbox-rows').hidden).toBe(true);
+
+            pane.destroy()
+        });
+
+        // the producer's OWN empty answer is still explicitly empty — the guard must not swallow it
+        const honest = createPane({snapshot: {
+            capability: {state: 'wired', confidence: 'observed', capturedAt: CAPTURED_AT, reason: null},
+            admission : {state: 'granted', viewerIdentity: '@tobiu', subjectAgentId: '@neo-gpt', checkedAt: CAPTURED_AT, reason: null},
+            page      : {limit: 50, offset: 0, count: 0},
+            rows      : []
+        }});
+
+        expect(honest.getPaneState()).toBe('empty');
+        honest.destroy()
+    });
+
     test('degraded (non-admission) carries the adapter reason; empty is explicit, not blank', () => {
         const pane = createPane({
             snapshot: {

@@ -318,8 +318,19 @@ class AgentDetail extends Container {
         header.hidden = !record;
         tabs.hidden   = !record;
 
-        // the mailbox tab follows the drilled-in resident (its snapshot is wiring-injected)
-        me.getReference('mailbox-pane').record = record;
+        // The mailbox tab follows the drilled-in resident. A snapshot is one SUBJECT's mail, so it
+        // cannot survive a re-seat onto a different resident: retaining it renders resident A's
+        // inbox under resident B's name — mail attributed to an agent who never received it. The
+        // pane drops to its honest `unobserved` state until the wiring supplies THIS subject's
+        // snapshot. A same-subject re-seat (a roster refresh restamping the record) keeps it.
+        const
+            mailbox   = me.getReference('mailbox-pane'),
+            sameAgent = mailbox.record?.agentId && mailbox.record.agentId === record?.agentId;
+
+        mailbox.set({
+            record,
+            ...(sameAgent ? {} : {snapshot: null})
+        });
 
         if (!record) {
             return
