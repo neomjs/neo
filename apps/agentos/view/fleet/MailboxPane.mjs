@@ -250,6 +250,13 @@ class MailboxPane extends Container {
     /**
      * @summary The honest-state line, named per state — the denial carries viewer + subject (an
      * auditable sentence, never a bare "no messages"), the degrade carries the adapter's reason.
+     *
+     * The degrade line deliberately does NOT name a cause. `capability.state: 'degraded'` covers
+     * both a genuine source outage AND the adapter's own fail-closed refusals (an unbound request
+     * identity, an asserted viewer that does not match the binding, an inadmissible namespace
+     * subject) — all of which arrive as `admission.state: 'unavailable'`. Saying "source degraded"
+     * would blame Memory Core for a refusal the adapter made, so the line states only what this
+     * view actually knows — no rows, and the reason verbatim from the owner.
      * @param {String} state From {@link #getPaneState} (never 'rows' here).
      * @returns {String}
      * @protected
@@ -263,7 +270,7 @@ class MailboxPane extends Container {
             case 'denied':
                 return `Access denied: ${snapshot.admission.viewerIdentity || 'the viewer'} holds no read grant for ${subject}'s inbox`;
             case 'degraded':
-                return `Mailbox source degraded: ${snapshot.capability?.reason || 'source unavailable'}`;
+                return `Mailbox unavailable: ${snapshot.capability?.reason || 'source unavailable'}`;
             case 'empty':
                 return `No active messages for ${subject}`;
             default:

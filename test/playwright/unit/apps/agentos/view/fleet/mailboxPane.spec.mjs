@@ -118,6 +118,40 @@ test.describe('AgentOS.view.fleet.MailboxPane — the read-only S1 mailbox tab',
         pane.destroy()
     });
 
+    test('an adapter REFUSAL is never blamed on the source: the line names no cause it cannot know', () => {
+        // The adapter's fail-closed refusals all arrive as admission 'unavailable' beside
+        // capability 'degraded' — identical in shape to a real outage. The pane cannot tell them
+        // apart and must not guess: "source degraded" would blame Memory Core for a refusal the
+        // adapter made about the VIEWER. The owner's reason is the only honest content.
+        const refusals = [
+            'asserted viewerIdentity does not match the bound request identity',
+            'mailbox mirror requires a bound request identity to attribute admission',
+            'mailbox mirror requires one direct subjectAgentId — namespace targets are not admissible'
+        ];
+
+        refusals.forEach(reason => {
+            const pane = createPane({
+                snapshot: {
+                    capability: {state: 'degraded', confidence: 'none', capturedAt: CAPTURED_AT, reason},
+                    admission : {state: 'unavailable', viewerIdentity: null, subjectAgentId: null, checkedAt: CAPTURED_AT, reason},
+                    rows      : [],
+                    page      : {limit: 50, offset: 0, count: 0}
+                }
+            });
+
+            const text = pane.getReference('mailbox-state').text;
+
+            expect(pane.getPaneState()).toBe('degraded');
+            expect(text, 'the owner reason is carried verbatim').toContain(reason);
+            expect(text, 'no fabricated source-outage attribution').not.toContain('source degraded');
+            // a refusal shows no rows and no page window — never a half-truth
+            expect(pane.getReference('mailbox-rows').hidden).toBe(true);
+            expect(pane.getReference('mailbox-page').hidden).toBe(true);
+
+            pane.destroy()
+        })
+    });
+
     test('rows: newest-first flat-chrono, page bounds shown, fresh chip from capturedAt', () => {
         const pane = createPane({
             snapshot: wiredSnapshot([
