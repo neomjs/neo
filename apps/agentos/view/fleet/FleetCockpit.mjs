@@ -1228,7 +1228,12 @@ class FleetCockpit extends Container {
      * surface names WHY it shows sample (cold) or last-known (degraded) data; a fully live
      * spine renders nothing. Render-only over existing truth: the routing matrices in
      * {@link #loadRoster} / {@link #loadActivity} stay the sole state writers, and every one
-     * of their exits (including the no-bridge guards — absence IS the cold truth) drives this.
+     * of their exits (including the no-bridge guards — absence IS the cold truth) CALLS this.
+     * A call is not a truth transition: the loads run at construction plus after successful
+     * lifecycle intents, and their failure exits fail-closed PRESERVE last-known states — so
+     * once live, a mid-session transport loss does not advance the owner truth this renders.
+     * The ongoing liveness owner (loss/recovery transitions with a retained reason) is a
+     * dedicated follow-up mechanism, not this consumer.
      * @protected
      */
     syncSpineBanner() {

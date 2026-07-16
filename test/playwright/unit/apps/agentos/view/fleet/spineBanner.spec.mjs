@@ -4,8 +4,10 @@ import {deriveSpineBanner} from '../../../../../../../apps/agentos/view/fleet/sp
 /**
  * The full derivation matrix for the cockpit's per-SPINE honesty line: `sample` (cold — the
  * spine is unreachable) beats `stale` (reachable but degraded) beats `live`; ONLY the fully
- * live spine hides the banner (nominal earns zero pixels). The sync wiring in the cockpit is
- * a five-line consumer of this pure seam and rides the load-routing suites.
+ * live spine hides the banner (nominal earns zero pixels). The slot-sync consumer is witnessed
+ * directly in fleetCockpit.spec.mjs against a recording banner slot — including the owner-truth
+ * immobility boundary (once live, failure exits preserve live; the transition is the dedicated
+ * liveness owner's contract, not this reducer's).
  */
 test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
 
@@ -25,12 +27,14 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
         }
     });
 
-    test('cold names the cause AND the one-command remedy', () => {
+    test('cold names the cause AND a remedy that EXISTS at this head', () => {
         const {text} = deriveSpineBanner({gridAdapterState: 'sample', streamAdapterState: 'live'});
 
         expect(text).toContain('Fleet server offline');
         expect(text).toContain('sample data');
-        expect(text).toContain('npm run cockpit')
+        // the shipped transport command — also the correct mid-session restart remedy once a
+        // composed launcher exists, since the app server survives a fleet-transport loss
+        expect(text).toContain('npm run ai:fleet-server')
     });
 
     test('degraded names the honest data state', () => {

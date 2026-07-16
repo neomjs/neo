@@ -25,7 +25,7 @@ export function deriveSpineBanner({gridAdapterState, streamAdapterState}) {
         return {
             hidden: false,
             kind  : 'cold',
-            text  : 'Fleet server offline — showing sample data · start it: npm run cockpit'
+            text  : 'Fleet server offline — showing sample data · start it: npm run ai:fleet-server'
         }
     }
 
