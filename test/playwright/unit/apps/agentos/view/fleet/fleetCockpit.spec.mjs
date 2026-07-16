@@ -62,10 +62,17 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
 
         const stream = makeStream(),
               // the real banner sync runs against this fake: its getReference returns null for
-              // the banner slot, so the guard no-ops — production code, no stub drift
+              // the banner slot, so the guard no-ops — production code, no stub drift. The loss
+              // edge + recovery clear are wired from the prototype for the same reason, and
+              // `streamAdapterState` mirrors the class field default because the never-wired
+              // guard reads it: a fake missing it would let a pre-wired throw claim last-known
+              // data that never existed.
               cockpit = {
-                  getReference   : reference => reference === 'activity-stream' ? stream : null,
-                  syncSpineBanner: FleetCockpit.prototype.syncSpineBanner
+                  clearDegradedReason: FleetCockpit.prototype.clearDegradedReason,
+                  degradeWiredSurface: FleetCockpit.prototype.degradeWiredSurface,
+                  getReference       : reference => reference === 'activity-stream' ? stream : null,
+                  streamAdapterState : 'sample',
+                  syncSpineBanner    : FleetCockpit.prototype.syncSpineBanner
               };
 
         await FleetCockpit.prototype.loadActivity.call(cockpit);
@@ -158,14 +165,19 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         return {adapterState: 'sample', store}
     };
 
-    const makeCockpit = (grid, rosterWired = false) => ({
-        getReference      : reference => reference === 'fleet-grid' ? grid : null,
+    const makeCockpit = (grid, rosterWired = false, gridAdapterState = 'sample') => ({
+        clearDegradedReason: FleetCockpit.prototype.clearDegradedReason,
+        degradeWiredSurface: FleetCockpit.prototype.degradeWiredSurface,
+        getReference       : reference => reference === 'fleet-grid' ? grid : null,
+        // mirrors the class field default — the loss edge reads it to keep a never-wired surface
+        // on its honest sample seed instead of claiming last-known data
+        gridAdapterState,
         mapRosterRow      : FleetCockpit.prototype.mapRosterRow,
         reconcileRoster   : FleetCockpit.prototype.reconcileRoster,
         reconcileSelection: FleetCockpit.prototype.reconcileSelection,
         rosterWired,
         // the real banner sync: null getReference for the slot → guarded no-op, no stub drift
-        syncSpineBanner   : FleetCockpit.prototype.syncSpineBanner
+        syncSpineBanner    : FleetCockpit.prototype.syncSpineBanner
     });
 
     const routeLoadRoster = async (bridge, {known, items, rosterWired} = {}) => {
@@ -398,10 +410,14 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         const cockpit = {
             // the real accessor runs against this fake's getReference — the detail consumers
             // route through it (docked: projected pane; detached: the owner-held handle)
-            detachedDetailPane: null,
-            getAgentDetailPane: FleetCockpit.prototype.getAgentDetailPane,
-            getReference      : reference => reference === 'fleet-grid' ? grid : reference === 'agent-detail' ? detail : null,
+            detachedDetailPane : null,
+            getAgentDetailPane : FleetCockpit.prototype.getAgentDetailPane,
+            clearDegradedReason: FleetCockpit.prototype.clearDegradedReason,
+            degradeWiredSurface: FleetCockpit.prototype.degradeWiredSurface,
+            getReference       : reference => reference === 'fleet-grid' ? grid : reference === 'agent-detail' ? detail : null,
             grid,
+            // mirrors the class field defaults the loss edge reads
+            gridAdapterState  : 'sample',
             id                : `fake-fleet-cockpit-${index}`,
             lastLiveRows      : null,
             mapRosterRow      : FleetCockpit.prototype.mapRosterRow,
@@ -411,7 +427,7 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             reconcilingRoster : false,
             rosterWired       : false,
             // the real banner sync: null getReference for the slot → guarded no-op, no stub drift
-            syncSpineBanner   : FleetCockpit.prototype.syncSpineBanner
+            syncSpineBanner    : FleetCockpit.prototype.syncSpineBanner
         };
 
         store.on({load: cockpit.onRosterStoreLoad, scope: cockpit});
@@ -947,14 +963,17 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
         // a REAL store the REAL loadRoster reconciles into — the record is the card's data surface
         const store   = Neo.create(Store, {keyProperty: 'agentId', model: FleetAgent});
         const cockpit = {
-            getReference      : reference => reference === 'fleet-grid' ? {adapterState: 'sample', store} : null,
-            mapRosterRow      : FleetCockpit.prototype.mapRosterRow,
-            reconcileRoster   : FleetCockpit.prototype.reconcileRoster,
-            reconcileSelection: FleetCockpit.prototype.reconcileSelection,
-            loadRoster        : FleetCockpit.prototype.loadRoster,
-            rosterWired       : false,
+            clearDegradedReason: FleetCockpit.prototype.clearDegradedReason,
+            degradeWiredSurface: FleetCockpit.prototype.degradeWiredSurface,
+            getReference       : reference => reference === 'fleet-grid' ? {adapterState: 'sample', store} : null,
+            gridAdapterState   : 'sample',
+            mapRosterRow       : FleetCockpit.prototype.mapRosterRow,
+            reconcileRoster    : FleetCockpit.prototype.reconcileRoster,
+            reconcileSelection : FleetCockpit.prototype.reconcileSelection,
+            loadRoster         : FleetCockpit.prototype.loadRoster,
+            rosterWired        : false,
             // the real banner sync: null getReference for the slot → guarded no-op, no stub drift
-            syncSpineBanner   : FleetCockpit.prototype.syncSpineBanner
+            syncSpineBanner    : FleetCockpit.prototype.syncSpineBanner
         };
 
         // boot: the real loadRoster reads the bridge — the agent is stopped, so the record resolves to 'off'
@@ -1049,33 +1068,113 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
         expect(banner.calls[0]).toEqual({cls: ['fm-spine-banner', 'fm-spine-banner-live'], hidden: true, html: ''})
     });
 
-    test('owner-truth immobility: once live, a thrown load PRESERVES live and the slot stays hidden', async () => {
-        // the boundary this leaf does NOT cross, pinned as a spec: the loads fail-closed PRESERVE
-        // owner states, so a post-live transport loss never advances the truth this consumer
-        // renders — the loss/recovery transition is the dedicated liveness owner's contract
-        const banner = makeBanner(),
-              stream = {adapterState: 'live', set() {}},
-              host   = {
-                  getReference: reference =>
-                      reference === 'fleet-spine-banner' ? banner :
-                      reference === 'activity-stream'    ? stream : null,
-                  gridAdapterState  : 'live',
-                  streamAdapterState: 'live',
-                  loadActivity      : FleetCockpit.prototype.loadActivity,
-                  syncSpineBanner   : FleetCockpit.prototype.syncSpineBanner
-              };
+    /**
+     * @summary Builds a live host driving the REAL loadActivity through the REAL loss edge.
+     */
+    const makeLivenessHost = banner => {
+        const stream = {adapterState: 'live', set() {}};
 
-        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetActivity: async () => { throw new Error('transport lost') }}};
+        return {
+            clearDegradedReason: FleetCockpit.prototype.clearDegradedReason,
+            degradeWiredSurface: FleetCockpit.prototype.degradeWiredSurface,
+            degradedReason     : null,
+            getReference       : reference =>
+                reference === 'fleet-spine-banner' ? banner :
+                reference === 'activity-stream'    ? stream : null,
+            gridAdapterState  : 'live',
+            loadActivity      : FleetCockpit.prototype.loadActivity,
+            streamAdapterState: 'live',
+            streamEvents      : [],
+            syncSpineBanner   : FleetCockpit.prototype.syncSpineBanner
+        }
+    };
+
+    const withBridge = async (fleetActivity, host) => {
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetActivity}};
 
         try {
             await host.loadActivity()
         } finally {
             delete globalThis.AgentOS?.fleet
         }
+    };
+
+    test('owner-truth MOBILITY: once live, a thrown load advances to stale and the slot NAMES the loss', async () => {
+        // This inverts the immobility pin that previously stood here. That spec recorded the gap on
+        // purpose — "the loss/recovery transition is the dedicated liveness owner's contract" — and
+        // this leaf IS that owner, so the pin is discharged, not broken. `live` must stop meaning
+        // "was live once": a transport death the operator can't see is the dishonest state.
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        await withBridge(async () => { throw new Error('transport lost') }, host);
+
+        expect(host.streamAdapterState).toBe('stale');
+        expect(host.degradedReason).toBe('transport lost');
+        expect(banner.calls[0].hidden).toBe(false);
+        expect(banner.calls[0].cls).toContain('fm-spine-banner-degraded');
+        // the retained reason is NAMED, not generic copy
+        expect(banner.calls[0].html).toContain('transport lost');
+        expect(banner.calls[0].html).toContain('last-known')
+    });
+
+    test('recovery: a later successful poll returns live, clears the reason, and re-hides the slot', async () => {
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        await withBridge(async () => { throw new Error('transport lost') }, host);
+        expect(host.streamAdapterState).toBe('stale');
+
+        await withBridge(async () => ({capability: {state: 'wired'}, events: []}), host);
 
         expect(host.streamAdapterState).toBe('live');
-        expect(banner.calls).toHaveLength(1);
-        expect(banner.calls[0].hidden).toBe(true)
+        expect(host.degradedReason, 'a stale cause must never outlive the degrade it explained').toBe(null);
+        expect(banner.calls.at(-1).hidden).toBe(true)
+    });
+
+    test('the retained reason survives while the OTHER surface is still degraded', async () => {
+        // clearing on the first recovery would strand the banner on generic copy while a real,
+        // named degrade is still live on the sibling surface
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        host.gridAdapterState = 'stale';
+        host.degradedReason   = 'roster bridge unreachable';
+
+        await withBridge(async () => ({capability: {state: 'wired'}, events: []}), host);
+
+        expect(host.streamAdapterState).toBe('live');
+        expect(host.degradedReason).toBe('roster bridge unreachable');
+        expect(banner.calls.at(-1).hidden).toBe(false);
+        expect(banner.calls.at(-1).html).toContain('roster bridge unreachable')
+    });
+
+    test('a never-wired surface stays cold-honest: a pre-live throw never claims last-known data', async () => {
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        host.streamAdapterState = 'sample';
+
+        await withBridge(async () => { throw new Error('transport lost') }, host);
+
+        // 'stale' would tell the operator we are showing last-known data that never existed
+        expect(host.streamAdapterState).toBe('sample');
+        expect(host.degradedReason).toBe(null)
+    });
+
+    test('the degraded reason is redacted + bounded before it reaches operator-visible chrome', async () => {
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        await withBridge(async () => { throw new Error('502 from bridge (Authorization: Bearer super-secret)') }, host);
+
+        expect(host.degradedReason).not.toContain('super-secret');
+        expect(host.degradedReason).toContain('502 from bridge');
+        expect(banner.calls[0].html).not.toContain('super-secret');
+
+        const long = makeLivenessHost(makeBanner());
+        await withBridge(async () => { throw new Error('x'.repeat(400)) }, long);
+        expect(long.degradedReason.length).toBeLessThanOrEqual(120)
     });
 
     test('a missing slot is a guarded no-op — never a throw', () => {

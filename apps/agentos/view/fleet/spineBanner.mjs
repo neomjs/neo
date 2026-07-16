@@ -15,10 +15,13 @@
  * @param {Object} options
  * @param {String} options.gridAdapterState   `'sample'|'stale'|'live'` — the roster surface truth.
  * @param {String} options.streamAdapterState `'sample'|'stale'|'live'` — the activity surface truth.
+ * @param {String|null} [options.degradedReason] The liveness owner's retained safe reason for the
+ *     current degrade. Named verbatim when present — the generic copy is the fallback for a degrade
+ *     whose cause the owner never learned, so the line never invents a cause it cannot see.
  * @returns {{hidden: Boolean, kind: String, text: String}} `kind` is `'live'|'cold'|'degraded'`
  *     — the class hook; `hidden` is `true` only for the fully live spine.
  */
-export function deriveSpineBanner({gridAdapterState, streamAdapterState}) {
+export function deriveSpineBanner({gridAdapterState, streamAdapterState, degradedReason = null}) {
     const states = [gridAdapterState, streamAdapterState];
 
     if (states.includes('sample')) {
@@ -30,10 +33,14 @@ export function deriveSpineBanner({gridAdapterState, streamAdapterState}) {
     }
 
     if (states.includes('stale')) {
+        const reason = typeof degradedReason === 'string' && degradedReason.trim();
+
         return {
             hidden: false,
             kind  : 'degraded',
-            text  : 'Fleet feed degraded — showing last-known data'
+            text  : reason
+                ? `Fleet feed degraded — showing last-known data · ${reason}`
+                : 'Fleet feed degraded — showing last-known data'
         }
     }
 
