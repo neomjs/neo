@@ -6,10 +6,10 @@ import path from 'path';
  *
  * This helper is the single source-of-truth for active-tier and archive-tier on-disk path math
  * across all content types (issues, pulls, discussions, release-notes). It supersedes the
- * two-primitive model (`chunkPath.mjs` ID-range for active + `archivePath.mjs` ordinal for archive)
- * that ADR 0004 §3.1 retires.
+ * two-primitive model — `chunkPath.mjs` ID-range for active plus `archivePath.mjs` ordinal for
+ * archive — which is retired.
  *
- * **Universal Ordinal-100 Rule** (ADR 0004 §2.2):
+ * **Universal Ordinal-100 Rule:**
  *   1. `itemIndex` = zero-based ordinal within a collection bucket (active = ascending GitHub ID;
  *      archive = ascending GitHub ID within version-folder bucket; release-notes = ascending semver)
  *   2. `chunkNumber = Math.floor(itemIndex / itemsPerChunk) + 1` (1-based)
@@ -17,21 +17,22 @@ import path from 'path';
  *   4. Archive tier path: `{contentRoot}/archive/{type}/{version|bucket}/chunk-{N}/{filename}`
  *
  * No flat-vs-chunked branching. No ID-range math. No `<NNN>xx/` folders. ONE primitive applied
- * universally under ADR 0004's single path-resolution contract.
+ * universally under a single path-resolution contract.
  *
  * **Sealed-chunk invariant:** `.github/workflows/prevent-reopen.yml` enforces that closed items
  * past their 24h-grace window cannot be reopened; the CI guard preserves archive immutability.
  * Therefore once a chunk is sealed at archive-cut, membership is mechanically immutable — this
  * is what makes the ordinal chunking safe. Anyone reading this helper MUST mentally factor that
- * primitive in (ADR 0004 §5.4 anti-pattern: "Skipping `prevent-reopen.yml` in the mental model").
+ * primitive in; treating the reopen guard as incidental is the classic misread here.
  *
  * **V-B-A obligation for path-mutating call sites:** before authoring any file in
  * `ai/services/github-workflow/sync/*.mjs`, `ai/services/github-workflow/shared/*Path.mjs`,
  * `ai/mcp/server/github-workflow/config{,.template}.mjs`, `ai/services/ingestion/IssueIngestor.mjs`,
  * `buildScripts/release/publish.mjs`, or any consumer of `resources/content/...`, you MUST read
- * ADR 0004 start-to-finish, then verify the chosen pattern against this helper's signature.
+ * `learn/agentos/decisions/0004-github-content-architecture.md` start-to-finish, then verify the
+ * chosen pattern against this helper's signature.
  *
- * @see ADR 0004 (`learn/agentos/decisions/0004-github-content-architecture.md`)
+ * @see learn/agentos/decisions/0004-github-content-architecture.md (the governing decision record)
  * @see .github/workflows/prevent-reopen.yml (sealed-chunk substrate)
  */
 
@@ -47,7 +48,7 @@ export const DEFAULT_CHUNK_PREFIX    = 'chunk-';
  * @property {String} path Path relative to the `contentRoot` (consumers join with their own contentRoot)
  * @property {String} [bucket] Non-release archive bucket name (e.g., `'rejected'`); mutually exclusive with `version`
  *
- * @summary Per-item entry in the `_index.json` substrate (ADR 0004 §3.2).
+ * @summary Per-item entry in the `_index.json` substrate.
  * The index map enables O(1) ID-keyed lookup once chunk position is no longer derivable from the
  * GitHub identifier alone. Maintained at sync time by syncers; consumed at read time by
  * `LocalFileService#getIssueById` and KB / Native Edge Graph ingestors.
@@ -125,14 +126,104 @@ export default function contentPath(config = {}) {
     if (version !== undefined && version !== null) validateSegment(version, 'version');
     if (bucket  !== undefined && bucket  !== null) validateSegment(bucket,  'bucket');
 
-    const chunkNumber  = chunkNumberFor(itemIndex, itemsPerChunk);
-    const chunkDir     = `${chunkPrefix}${chunkNumber}`;
-    const archiveTier  = (version !== undefined && version !== null) || (bucket !== undefined && bucket !== null);
-    const bucketDir    = archiveTier
+    const chunkNumber = chunkNumberFor(itemIndex, itemsPerChunk);
+    const chunkDir    = `${chunkPrefix}${chunkNumber}`;
+    const archiveTier = (version !== undefined && version !== null) || (bucket !== undefined && bucket !== null);
+    const bucketDir   = archiveTier
         ? path.join(contentRoot, 'archive', type, version || bucket)
         : path.join(contentRoot, type);
 
     return path.join(bucketDir, chunkDir, filename);
+}
+
+/**
+ * @summary Inverts {@link contentPath} — reads an on-disk path back into its tier coordinates.
+ *
+ * The forward direction answers "where should this item go"; this answers "where does this file
+ * actually live". Both are path math, so both belong to this module: a second module deriving
+ * chunk/version by its own string-splitting would be a parallel truth free to disagree.
+ *
+ * The distinction is load-bearing for `_index.json`. An entry built from a *planned* ordinal
+ * records intent, and intent goes stale the moment a later pass relocates the file — the exact
+ * mechanism behind the archive-move drift, where the index kept naming active paths for files that
+ * had already been renamed away. An entry built from the written path describes reality and cannot
+ * disagree with the filesystem it was read from.
+ *
+ * Returns `null` for anything that is not a chunked content path, so callers can treat "not ours"
+ * as data rather than as an exception.
+ *
+ * **`filePath` must be absolute or contentRoot-relative — NOT projectRoot-relative.** This subsystem
+ * carries three path conventions, and two of them are bare relative strings distinguishable only by
+ * a leading `resources/content/`:
+ *
+ *   - absolute                          — `/…/resources/content/pulls/chunk-1/pr-9537.md`
+ *   - contentRoot-relative              — `pulls/chunk-1/pr-9537.md`            (`_index.json` entries)
+ *   - projectRoot-relative              — `resources/content/pulls/chunk-1/pr-9537.md` (`metadata.{type}[].path`)
+ *
+ * Passing the third against a `contentRoot` of `resources/content` resolves to
+ * `resources/content/resources/content/…` and parses as `null`. Nothing in the string itself reveals
+ * which convention produced it, so the caller must know; resolve metadata paths against the project
+ * root before handing them here.
+ *
+ * @param {Object} config
+ * @param {String} config.contentRoot Repository-relative or absolute root, e.g. `'resources/content'`
+ * @param {String} config.filePath Absolute or contentRoot-relative path to a content file
+ * @param {String} [config.chunkPrefix='chunk-'] Chunk-subdirectory prefix
+ * @returns {{type: String, version: String|null, bucket: String|null, chunkNumber: Number, filename: String}|null}
+ *
+ * @example
+ *   // Absolute
+ *   parseContentPath({contentRoot: '/repo/resources/content', filePath: '/repo/resources/content/archive/pulls/v13.0.0/chunk-2/pr-10124.md'})
+ *   // → {type: 'pulls', version: 'v13.0.0', bucket: null, chunkNumber: 2, filename: 'pr-10124.md'}
+ *
+ * @example
+ *   // contentRoot-relative — the `_index.json` entry shape
+ *   parseContentPath({contentRoot: 'resources/content', filePath: 'pulls/chunk-1/pr-9537.md'})
+ *   // → {type: 'pulls', version: null, bucket: null, chunkNumber: 1, filename: 'pr-9537.md'}
+ */
+export function parseContentPath(config = {}) {
+    const {contentRoot, filePath, chunkPrefix = DEFAULT_CHUNK_PREFIX} = config;
+
+    validateSegment(contentRoot, 'contentRoot', {allowPath: true});
+    validateSegment(filePath,    'filePath',    {allowPath: true});
+
+    const relative = path.relative(path.resolve(contentRoot), path.resolve(contentRoot, filePath));
+
+    // Escapes the content root — not ours to describe.
+    if (relative.startsWith('..') || path.isAbsolute(relative)) return null;
+
+    const segments = relative.split(path.sep).filter(Boolean);
+
+    // Active: {type}/{chunk-N}/{filename}          → 3 segments
+    // Archive: archive/{type}/{version}/{chunk-N}/{filename} → 5 segments
+    const archiveTier = segments[0] === 'archive';
+    const expected    = archiveTier ? 5 : 3;
+
+    if (segments.length !== expected) return null;
+
+    const filename   = segments[expected - 1],
+          chunkDir   = segments[expected - 2],
+          type       = archiveTier ? segments[1] : segments[0],
+          versionSeg = archiveTier ? segments[2] : null;
+
+    if (!chunkDir.startsWith(chunkPrefix)) return null;
+
+    const chunkNumber = Number(chunkDir.slice(chunkPrefix.length));
+
+    if (!Number.isInteger(chunkNumber) || chunkNumber < 1) return null;
+
+    // `version` vs `bucket` is not recoverable from the path alone — both occupy the same segment.
+    // Version-shaped segments carry the configured prefix; anything else is a non-release bucket.
+    // Callers that know their tier can ignore the split.
+    const isVersion = /^v\d/.test(versionSeg || '');
+
+    return {
+        type,
+        version: archiveTier && isVersion  ? versionSeg : null,
+        bucket : archiveTier && !isVersion ? versionSeg : null,
+        chunkNumber,
+        filename
+    };
 }
 
 /**
