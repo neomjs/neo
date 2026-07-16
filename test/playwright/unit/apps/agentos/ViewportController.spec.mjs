@@ -86,3 +86,38 @@ test.describe('AgentOS.view.ViewportController — route → keeper-view tab', (
         expect(routes.sort()).toEqual(Object.keys(ViewportController.config.routes).sort())
     })
 });
+
+test.describe('AgentOS.view.Viewport — accepted-definition composition boundary', () => {
+    test('authors the Accounts intent listener and FleetCockpit reference at the shared owner', () => {
+        const
+            shellConfig  = Viewport.config.items.find(item => item.reference === 'shell'),
+            fleetConfig  = shellConfig.items.find(item => item.header.route === '/fleet'),
+            accountsHost = shellConfig.items.find(item => item.header.route === '/accounts'),
+            accounts     = accountsHost.items.find(item => item.reference === 'accounts');
+
+        expect(fleetConfig.reference).toBe('fleet-cockpit');
+        expect(accounts.listeners).toEqual({agentDefinitionAccepted: 'up.onAgentDefinitionAccepted'})
+    });
+
+    test('refreshes the separate Fleet roster only for a valid accepted definition', async () => {
+        const
+            calls   = [],
+            cockpit = {loadRoster: async () => calls.push('loadRoster')},
+            stub    = {getReference: reference => reference === 'fleet-cockpit' ? cockpit : null};
+
+        await expect(Viewport.prototype.onAgentDefinitionAccepted.call(stub, {agent: {id: 'resident-42'}}))
+            .resolves.toBe(true);
+        expect(calls).toEqual(['loadRoster']);
+
+        await expect(Viewport.prototype.onAgentDefinitionAccepted.call(stub, {agent: {}}))
+            .resolves.toBe(false);
+        expect(calls).toEqual(['loadRoster'])
+    });
+
+    test('fails closed when the Fleet cockpit is absent', async () => {
+        const stub = {getReference: () => null};
+
+        await expect(Viewport.prototype.onAgentDefinitionAccepted.call(stub, {agent: {id: 'resident-42'}}))
+            .resolves.toBe(false)
+    })
+});

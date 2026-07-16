@@ -72,6 +72,20 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
         expect(result.credential).toBeUndefined();
     });
 
+    test('defineAgent exposes only controlled registry-domain reasons; unexpected failures still throw', () => {
+        registryStub.defineAgent = () => {
+            throw new TypeError("FleetRegistryService.defineAgent: id 'alice' already exists; use a scoped update operation.")
+        };
+        expect(FleetControlBridge.defineAgent({githubUsername: 'alice', harnessType: 'codex'})).toEqual({
+            status: 'rejected',
+            reason: "id 'alice' already exists; use a scoped update operation."
+        });
+
+        registryStub.defineAgent = () => { throw new Error('/secret/storage/path failed') };
+        expect(() => FleetControlBridge.defineAgent({githubUsername: 'alice', harnessType: 'codex'}))
+            .toThrow('/secret/storage/path failed')
+    });
+
     test('configureAgent forwards one curated payload and returns accepted/rejected domain outcomes', () => {
         const intent = {id: 'alice', harnessType: 'claude-code', mcpServers: {'memory-core': false}};
 
