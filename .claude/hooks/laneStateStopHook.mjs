@@ -408,9 +408,12 @@ const HARNESS_MARKER_PATTERNS = Object.freeze([
  *    do not.
  *  - Text-less records (tool_result-only) and harness marker records ({@link HARNESS_MARKER_PATTERNS})
  *    are skipped; malformed lines are tolerated.
- *  - `attachment` records carrying a non-empty string `attachment.prompt` (the queued mid-TURN
- *    operator-message field — "sent while you were working" deliveries never materialize as
- *    user-role records) are candidates in the same pass; other attachment kinds never are.
+ *  - `attachment` records are classified by ENVELOPE PROVENANCE before any payload text is read:
+ *    only the corpus-verified operator/wake delivery shape (`attachment.type: 'queued_command'`,
+ *    `commandMode: 'prompt'`, `source_uuid` present — the queued mid-TURN operator messages that
+ *    never materialize as user-role records) yields a candidate. Prompt-bearing records of any
+ *    OTHER envelope shape (task notifications, unknown modes) are walk-stopping autonomous
+ *    boundaries; prompt-less attachment kinds are skipped.
  *  - The FIRST remaining candidate decides — the walk never continues past it, so an autonomous
  *    boundary (a newer `[WAKE]`) is returned as-is and correctly out-classifies any older operator
  *    prose (`classifyPromptingContext` owns the [WAKE]/synthetic/handoff semantics; this walk owns
@@ -437,14 +440,28 @@ export function extractLatestHumanUserTextFromJsonl(jsonl = '') {
         // Mid-TURN operator messages ("sent while you were working") are delivered as
         // attachment records carrying the queued text at `attachment.prompt` — never as
         // user-role records — so the walk considers them in the SAME backward pass (the
-        // newest-candidate rule must hold across record kinds). Corpus-verified shapes on
-        // this field: [WAKE] digests and task-notification payloads (both rejected by the
-        // classifier's dialogue gates) and genuine operator prose. Attachment records
-        // without a non-empty string `attachment.prompt` (other attachment kinds) are
-        // never candidates.
+        // newest-candidate rule holds across record kinds). ENVELOPE PROVENANCE decides the
+        // record KIND before any payload text is read: the corpus-total structural split is
+        // `attachment.type: 'queued_command'` + `commandMode: 'prompt'` + a `source_uuid`
+        // (operator/wake deliveries) vs `commandMode: 'task-notification'` with neither
+        // (background-task events). Payload markers stay defense-in-depth in the shared
+        // classifier — never the sender/kind identity. Prompt-less attachment kinds are not
+        // prompting records at all (skip); a prompt-bearing record whose envelope is NOT the
+        // verified operator/wake shape — task notifications and every unknown mode — is a
+        // structurally synthetic/unknown authority and STOPS the walk as an autonomous
+        // boundary, so it can never leak past to older operator prose.
         if (record.type === 'attachment') {
-            const prompt = record.attachment?.prompt;
+            const attachment = record.attachment,
+                  prompt     = attachment?.prompt;
+
             if (typeof prompt !== 'string' || !prompt.trim()) continue;
+
+            const isOperatorDelivery = attachment.type === 'queued_command' &&
+                attachment.commandMode === 'prompt' &&
+                !!attachment.source_uuid;
+
+            if (!isOperatorDelivery) return '';
+
             if (HARNESS_MARKER_PATTERNS.some(re => re.test(prompt))) continue;
             return prompt;
         }
@@ -524,7 +541,7 @@ async function main() {
         // best-effort; classification falls back to stop_hook_active when promptingText is empty
     }
     const promptingText = extractLatestHumanUserTextFromJsonl(transcriptJsonl);
-    let evidenceText = '';
+    let   evidenceText  = '';
     try {
         evidenceText = collectLaneStateToolEvidenceFromJsonl(transcriptJsonl);
     } catch {

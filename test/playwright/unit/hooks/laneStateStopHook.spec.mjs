@@ -363,12 +363,25 @@ test.describe('laneStateStopHook — extractLatestHumanUserTextFromJsonl (#14440
     });
 
     // ── Mid-TURN operator messages: attachment-delivered prompts (never user-role records) ──────
-    const attachmentOperator = JSON.stringify({type: 'attachment',
-              attachment: {prompt: 'why is the walk still blind here? scope-ruling attached.'}}),
-          attachmentWake     = JSON.stringify({type: 'attachment',
-              attachment: {prompt: '[WAKE][priority:normal] 1 events for @neo-opus-vega'}}),
-          attachmentTaskNote = JSON.stringify({type: 'attachment',
-              attachment: {prompt: '<task-notification>\n<task-id>b123</task-id>\n</task-notification>'}}),
+    // Fixtures mirror the REAL `queued_command` envelopes (corpus-total split): operator/wake
+    // deliveries carry `commandMode: 'prompt'` + `source_uuid` + `origin`; task notifications
+    // carry `commandMode: 'task-notification'` and neither. Envelope provenance — not payload
+    // prose — is the sender/kind identity.
+    const attachmentOperator = JSON.stringify({type: 'attachment', attachment: {
+              type  : 'queued_command', commandMode: 'prompt', source_uuid: 'u-op-1', origin: {kind: 'human'},
+              prompt: 'why is the walk still blind here? scope-ruling attached.'}}),
+          attachmentWake     = JSON.stringify({type: 'attachment', attachment: {
+              type  : 'queued_command', commandMode: 'prompt', source_uuid: 'u-wake-1', origin: {kind: 'human'},
+              prompt: '[WAKE][priority:normal] 1 events for @neo-opus-vega'}}),
+          attachmentTaskNote = JSON.stringify({type: 'attachment', attachment: {
+              type  : 'queued_command', commandMode: 'task-notification',
+              prompt: '<task-notification>\n<task-id>b123</task-id>\n</task-notification>'}}),
+          attachmentTaskNoteUntagged = JSON.stringify({type: 'attachment', attachment: {
+              type  : 'queued_command', commandMode: 'task-notification',
+              prompt: 'background task complete'}}),
+          attachmentUnknownMode = JSON.stringify({type: 'attachment', attachment: {
+              type  : 'queued_command', commandMode: 'mystery-mode', source_uuid: 'u-x-1',
+              prompt: 'genuine-looking prose from an unknown delivery mode'}}),
           attachmentOther    = JSON.stringify({type: 'attachment',
               attachment: {kind: 'file', path: '/tmp/x.png'}});
 
@@ -392,9 +405,23 @@ test.describe('laneStateStopHook — extractLatestHumanUserTextFromJsonl (#14440
         })).toBe(false);
     });
 
-    test('injected attachment shapes never rescue a chain: [WAKE] digests and task-notification payloads fail the dialogue gates', () => {
-        for (const injected of [attachmentWake, attachmentTaskNote]) {
+    test('a [WAKE]-prose operator-envelope attachment is a candidate the dialogue gates then reject', () => {
+        const jsonl = [operatorMsg, assistant, metaFeedback, attachmentWake].join('\n');
+        expect(extractLatestHumanUserTextFromJsonl(jsonl)).toBe('[WAKE][priority:normal] 1 events for @neo-opus-vega');
+        expect(isOperatorInLoop({
+            stopHookActive            : true,
+            promptingText             : extractLatestHumanUserTextFromJsonl(jsonl),
+            promptingTextHumanFiltered: true
+        })).toBe(false);
+    });
+
+    test('structurally synthetic attachments are walk-stopping boundaries — envelope decides, prose is irrelevant', () => {
+        // The tagged AND the untagged task-notification (the falsifier that killed the
+        // text-prefix design) plus an unknown prompt-bearing mode: each STOPS the walk —
+        // older operator prose can never leak past a newer synthetic/unknown boundary.
+        for (const injected of [attachmentTaskNote, attachmentTaskNoteUntagged, attachmentUnknownMode]) {
             const jsonl = [operatorMsg, assistant, metaFeedback, injected].join('\n');
+            expect(extractLatestHumanUserTextFromJsonl(jsonl)).toBe('');
             expect(isOperatorInLoop({
                 stopHookActive            : true,
                 promptingText             : extractLatestHumanUserTextFromJsonl(jsonl),
@@ -403,7 +430,7 @@ test.describe('laneStateStopHook — extractLatestHumanUserTextFromJsonl (#14440
         }
     });
 
-    test('attachment records without attachment.prompt (other kinds) are never candidates', () => {
+    test('attachment records without attachment.prompt (other kinds) are skipped, not boundaries', () => {
         const jsonl = [operatorMsg, assistant, attachmentOther].join('\n');
         expect(extractLatestHumanUserTextFromJsonl(jsonl)).toBe('full stop. we need to talk about the release notes.');
     });
@@ -607,7 +634,7 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
                 {type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: 'driving the lane…'}]}},
                 {type: 'user', isMeta: true, message: {role: 'user', content: 'Stop hook feedback:\nTurn-end refused — L3_No_Hold_State: there is no hold state, and you do not get to stop.'}},
                 {type: 'queue-operation', operation: 'enqueue', timestamp: '2026-07-16T07:00:00Z'},
-                {type: 'attachment', attachment: {prompt: 'full stop — answering your fork question now, hold the lane.'}}
+                {type: 'attachment', attachment: {type: 'queued_command', commandMode: 'prompt', source_uuid: 'u-e2e-1', origin: {kind: 'human'}, prompt: 'full stop — answering your fork question now, hold the lane.'}}
             ]
         });
         expect(log).toContain('ALLOW');
@@ -622,7 +649,7 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
             transcriptRecords: [
                 {type: 'user', message: {role: 'user', content: '[WAKE][priority:normal] 1 events for @neo-opus-vega'}},
                 {type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: 'driving the lane…'}]}},
-                {type: 'attachment', attachment: {prompt: '<task-notification>\n<task-id>b9</task-id>\n<status>completed</status>\n</task-notification>'}}
+                {type: 'attachment', attachment: {type: 'queued_command', commandMode: 'task-notification', prompt: 'background task b9 completed without a tag prefix'}}
             ]
         });
         expect(log).toContain('BLOCK');
