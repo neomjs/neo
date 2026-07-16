@@ -71,3 +71,22 @@
     --fm-font-mono     : ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     --fm-font-sans     : system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
+
+// DockPreview domain-alias projections (moved here from the app's DockPreview theme file
+// when the renderer lifted to Neo.dashboard.DockPreview — the app anchor is the loading
+// vehicle; the childapp dockdemo carries its own copy for the same reason).
+// §06 authority (dock-choreography design artifact): these component-domain aliases map accept
+// and reject to the artifact's light signal/hot column without pre-empting #14681's global FM
+// light-native token system.
+:root .neo-theme-neo-light {
+    --agent-dock-preview-accept      : #0d9488;
+    --agent-dock-preview-accept-fill : rgba(13, 148, 136, 0.14);
+    --agent-dock-preview-reject      : #be123c;
+    --agent-dock-preview-reject-fill : rgba(190, 18, 60, 0.12);
+
+    // The Signal-glow candidate's language: the deep-pigment daylight signal, a paper-safe
+    // 14% flood, and a near-white chip ground (light chips float, they don't glow).
+    --agent-dock-preview-signal        : #0f766e;
+    --agent-dock-preview-signal-fill   : rgba(15, 118, 110, 0.14);
+    --agent-dock-preview-signal-ground : rgba(255, 255, 255, 0.94);
+}

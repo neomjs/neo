@@ -3,7 +3,7 @@
  * placement-kind vocabulary, structural validation, the preview→operation conversion, and the
  * split-ratio normalizer.
  *
- * Extracted from `AgentOS.view.DockPreview` so the three sides of the docking line share ONE source
+ * Extracted from the preview renderer (now `Neo.dashboard.DockPreview`) so the three sides of the docking line share ONE source
  * of truth without a layer inversion: the producer (`Neo.dashboard.DockPreviewProducer`, src), the
  * renderer (that app-layer view), AND the src-layer drop owners (`examples/dashboard/dock`, the FM
  * cockpit) — the src/example layers cannot import `apps/`, so the model-semantic half of the

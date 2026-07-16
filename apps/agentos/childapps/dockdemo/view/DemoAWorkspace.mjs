@@ -4,7 +4,7 @@ import Container                          from '../../../../../src/container/Bas
 import DockDropIndicators                 from '../../../../../src/dashboard/DockDropIndicators.mjs';
 import DockLayoutAdapter                  from '../../../../../src/dashboard/DockLayoutAdapter.mjs';
 import DockMotionSignal                   from '../../../../../src/dashboard/DockMotionSignal.mjs';
-import DockPreview                        from '../../../view/DockPreview.mjs';
+import DockPreview                        from '../../../../../src/dashboard/DockPreview.mjs';
 import DockPreviewProducer                from '../../../../../src/dashboard/DockPreviewProducer.mjs';
 import DockProjectionReconciler           from '../../../../../src/dashboard/DockProjectionReconciler.mjs';
 import DockService                        from '../../../../../src/ai/client/DockService.mjs';
@@ -524,12 +524,12 @@ class DemoAWorkspace extends Container {
 
         return DockLayoutAdapter.project(document, {
             ...demoATourScript.workspace,
-            applyDockZoneOperation  : me.applyDockZoneOperation.bind(me),
+            applyDockZoneOperation   : me.applyDockZoneOperation.bind(me),
             onDockCrossZoneDragCancel: me.onDockCrossZoneDragCancel.bind(me),
-            onDockCrossZoneDragMove : me.onDockCrossZoneDragMove.bind(me),
-            onDockCrossZoneDrop     : me.onDockCrossZoneDrop.bind(me),
-            onDockZoneDocumentChange: me.onDockZoneDocumentChange.bind(me),
-            resolveComponentRef     : resolveComponentRef
+            onDockCrossZoneDragMove  : me.onDockCrossZoneDragMove.bind(me),
+            onDockCrossZoneDrop      : me.onDockCrossZoneDrop.bind(me),
+            onDockZoneDocumentChange : me.onDockZoneDocumentChange.bind(me),
+            resolveComponentRef      : resolveComponentRef
                 || (componentRef => me.resolvePane(componentRef)),
             resolveRevealComponentRef    : componentRef => me.resolvePane(componentRef)
         })

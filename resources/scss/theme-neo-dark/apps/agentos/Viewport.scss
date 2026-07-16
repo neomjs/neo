@@ -64,3 +64,22 @@
     --fm-font-mono     : ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     --fm-font-sans     : system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
+
+// DockPreview domain-alias projections (moved here from the app's DockPreview theme file
+// when the renderer lifted to Neo.dashboard.DockPreview — the app anchor is the loading
+// vehicle; the childapp dockdemo carries its own copy for the same reason).
+// §06 authority (dock-choreography design artifact): these component-domain aliases map accept
+// and reject to the artifact's dark signal/hot column. Global FM light-native tokens remain
+// #14681's authority; this layer does not mint a parallel --fm-* vocabulary.
+:root .neo-theme-neo-dark {
+    --agent-dock-preview-accept      : #5eead4;
+    --agent-dock-preview-accept-fill : rgba(94, 234, 212, 0.20);
+    --agent-dock-preview-reject      : #f4718b;
+    --agent-dock-preview-reject-fill : rgba(244, 113, 139, 0.16);
+
+    // The Signal-glow candidate's language (the preview design-language exploration): the
+    // dark signal column as chroma, an 18% flood, and the deep chip ground.
+    --agent-dock-preview-signal        : #5eead4;
+    --agent-dock-preview-signal-fill   : rgba(94, 234, 212, 0.18);
+    --agent-dock-preview-signal-ground : rgba(11, 14, 19, 0.92);
+}

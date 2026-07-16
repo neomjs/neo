@@ -1,4 +1,4 @@
-import {setup} from '../../../setup.mjs';
+import {setup} from '../../setup.mjs';
 
 setup({
     appConfig: {
@@ -6,16 +6,16 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../src/Neo.mjs';
-import * as core      from '../../../../../src/core/_export.mjs';
-import DockPreview    from '../../../../../apps/agentos/view/DockPreview.mjs';
-import fs             from 'fs';
-import path           from 'path';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../src/Neo.mjs';
+import * as core       from '../../../../src/core/_export.mjs';
+import DockPreview     from '../../../../src/dashboard/DockPreview.mjs';
+import fs              from 'fs';
+import path            from 'path';
 import {fileURLToPath} from 'url';
 
 /**
- * @summary Tests for AgentOS.view.DockPreview — the drag-time dock preview renderer.
+ * @summary Tests for Neo.dashboard.DockPreview — the drag-time dock preview renderer.
  * Covers the pure contract logic (validity / affordance mapping / semantic-drop conversion /
  * geometry) plus the component lifecycle (render, fail-closed cleanup, drag-source binding).
  */
@@ -41,12 +41,12 @@ function preview(overrides = {}) {
 const
     __filename = fileURLToPath(import.meta.url),
     __dirname  = path.dirname(__filename),
-    repoRoot   = path.resolve(__dirname, '../../../../..');
+    repoRoot   = path.resolve(__dirname, '../../../..');
 
-test.describe('AgentOS.view.DockPreview', () => {
+test.describe('Neo.dashboard.DockPreview', () => {
     test.describe('stylesheet contract (visible affordances)', () => {
         test('the structural scss backs the emitted affordance classes with visible styling', () => {
-            const scss = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/apps/agentos/DockPreview.scss'), 'utf8');
+            const scss = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/DockPreview.scss'), 'utf8');
 
             expect(scss).toContain('.neo-dock-preview-affordance');
             expect(scss).toContain('.neo-dock-preview-accepted');
@@ -57,54 +57,64 @@ test.describe('AgentOS.view.DockPreview', () => {
             expect(scss).toContain('opacity')
         });
 
-        test('both harness themes define the accept/reject affordance tokens', () => {
-            const dark  = fs.readFileSync(path.join(repoRoot, 'resources/scss/theme-neo-dark/apps/agentos/DockPreview.scss'), 'utf8');
-            const light = fs.readFileSync(path.join(repoRoot, 'resources/scss/theme-neo-light/apps/agentos/DockPreview.scss'), 'utf8');
+        test('every agentos app anchor projects the full alias set in both modes', () => {
+            // Post-lift loading model: the renderer is app-neutral (Neo.dashboard.DockPreview);
+            // each APP SURFACE carries its own projection copy on its always-mounted viewport
+            // anchor — the FM app AND the dockdemo childapp (whose viewport extends
+            // Neo.container.Viewport directly, so the app-level file never loads there).
+            const anchors = [
+                'resources/scss/theme-neo-dark/apps/agentos/Viewport.scss',
+                'resources/scss/theme-neo-light/apps/agentos/Viewport.scss',
+                'resources/scss/theme-neo-dark/apps/agentos/childapps/dockdemo/Viewport.scss',
+                'resources/scss/theme-neo-light/apps/agentos/childapps/dockdemo/Viewport.scss'
+            ];
 
-            expect(dark).toContain('neo-theme-neo-dark');
-            expect(dark).toContain('--agent-dock-preview-accept');
-            expect(dark).toContain('--agent-dock-preview-reject');
+            anchors.forEach(anchor => {
+                const source = fs.readFileSync(path.join(repoRoot, anchor), 'utf8');
 
-            expect(light).toContain('neo-theme-neo-light');
-            expect(light).toContain('--agent-dock-preview-accept');
-            expect(light).toContain('--agent-dock-preview-reject');
-
-            // The Signal-glow candidate's language rides the SAME app-neutral alias surface:
-            // both skins must define the signal trio (chroma / flood fill / chip ground), so a
-            // consumer app can never silently fall back on one mode only.
-            ['--agent-dock-preview-signal ', '--agent-dock-preview-signal-fill', '--agent-dock-preview-signal-ground'].forEach(alias => {
-                expect(dark).toContain(alias);
-                expect(light).toContain(alias)
+                [
+                    '--agent-dock-preview-accept',
+                    '--agent-dock-preview-accept-fill',
+                    '--agent-dock-preview-reject',
+                    '--agent-dock-preview-reject-fill',
+                    '--agent-dock-preview-signal',
+                    '--agent-dock-preview-signal-fill',
+                    '--agent-dock-preview-signal-ground'
+                ].forEach(alias => {
+                    expect(source, `${alias} projected in ${anchor}`).toMatch(new RegExp(`${alias}\\s*:`))
+                })
             })
         })
 
         test('domain-token consumers stay on the declared DockPreview contract', () => {
-            const structural = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/apps/agentos/DockPreview.scss'), 'utf8'),
-                  dark       = fs.readFileSync(path.join(repoRoot, 'resources/scss/theme-neo-dark/apps/agentos/DockPreview.scss'), 'utf8'),
-                  light      = fs.readFileSync(path.join(repoRoot, 'resources/scss/theme-neo-light/apps/agentos/DockPreview.scss'), 'utf8'),
+            const structural = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/DockPreview.scss'), 'utf8'),
                   consumers  = [...new Set(
-                      [structural, dark, light].flatMap(source =>
-                          [...source.matchAll(/var\((--(?:fm|dock-transition)-[\w-]+)/g)].map(match => match[1])
-                      )
+                      [...structural.matchAll(/var\((--(?:fm|dock-transition)-[\w-]+)/g)].map(match => match[1])
                   )].sort();
 
-            // This explicit census fails if a call site invents a pseudo-token such as
-            // --dock-transition-duration-fast or an undeclared --fm-* semantic alias.
+            // The structural (shared-tier) file is where CONSUMPTION happens — it may read the
+            // dock motion aliases and NOTHING app-flavored. This census fails if a call site
+            // invents a pseudo-token or reaches for an --fm-* app palette directly (the shared
+            // tier must stay app-neutral; apps project palettes through the domain aliases).
             expect(consumers).toEqual([
                 '--dock-transition-duration',
                 '--dock-transition-easing'
             ]);
 
-            expect(dark).toMatch(/--agent-dock-preview-accept\s*:\s*#5eead4;/);
-            expect(dark).toMatch(/--agent-dock-preview-reject\s*:\s*#f4718b;/);
-            expect(light).toMatch(/--agent-dock-preview-accept\s*:\s*#0d9488;/);
-            expect(light).toMatch(/--agent-dock-preview-reject\s*:\s*#be123c;/)
+            // The FM identity values stay pinned at their app anchors (dark glow / light pigment).
+            const darkAnchor  = fs.readFileSync(path.join(repoRoot, 'resources/scss/theme-neo-dark/apps/agentos/Viewport.scss'), 'utf8'),
+                  lightAnchor = fs.readFileSync(path.join(repoRoot, 'resources/scss/theme-neo-light/apps/agentos/Viewport.scss'), 'utf8');
+
+            expect(darkAnchor).toMatch(/--agent-dock-preview-accept\s*:\s*#5eead4;/);
+            expect(darkAnchor).toMatch(/--agent-dock-preview-reject\s*:\s*#f4718b;/);
+            expect(lightAnchor).toMatch(/--agent-dock-preview-accept\s*:\s*#0d9488;/);
+            expect(lightAnchor).toMatch(/--agent-dock-preview-reject\s*:\s*#be123c;/)
         })
 
         test('the signal language has no literal fallbacks and stays dock-owned across its shared consumers', () => {
             const
                 containerScss = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/Container.scss'), 'utf8'),
-                previewScss   = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/apps/agentos/DockPreview.scss'), 'utf8'),
+                previewScss   = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/DockPreview.scss'), 'utf8'),
                 // strip line comments: the census asserts on SELECTORS and declarations, not prose
                 uncomment     = source => source.replace(/\/\/[^\n]*/g, ''),
                 signalStart   = containerScss.indexOf('.neo-preview-lang-signal');
