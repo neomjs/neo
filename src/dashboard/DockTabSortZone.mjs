@@ -61,6 +61,15 @@ class DockTabSortZone extends TabHeaderSortZone {
          */
         dockWorkspaceId: null,
         /**
+         * Slack in px around the source toolbar's REAL bounds inside which a release still counts
+         * as a within-toolbar gesture (the base reorder applies). A release farther out than this
+         * on any side is dock-gesture territory: the tracked reorder is voided so the cross-zone
+         * drop owns the outcome. Orientation-independent — it pads the measured toolbar rect, not
+         * an axis-derived span. Per-app / per-instance tunable like any Neo config.
+         * @member {Number} dockReleaseTolerance=32
+         */
+        dockReleaseTolerance: 32,
+        /**
          * §2.3 registry identity for the SOURCE side: {@link Neo.manager.DragCoordinator} resolves
          * remote-target candidates from the source zone's `sortGroup` + the pointer's screen-space
          * window, so a `null` group short-circuits both coordinator feeds — the dock stays fully
@@ -77,6 +86,18 @@ class DockTabSortZone extends TabHeaderSortZone {
      * @member {Boolean} remoteDropCommitted=false
      */
     remoteDropCommitted = false
+
+    /**
+     * The source toolbar's PRISTINE viewport rect, measured once per gesture at
+     * {@link #onDragStart} — BEFORE the base runs: the base sort trims its in-memory `ownerRect`
+     * to the button span AND (via its inherited `expandOwnerOnDrag`) writes those trimmed
+     * dimensions onto the toolbar's live style, so neither the base rect nor any post-`super`
+     * measure is a release-decision surface. This pre-mutation snapshot is the real toolbar
+     * boundary {@link #releaseVoidsReorder} decides against.
+     * @member {Object|null} dockSourceToolbarRect=null
+     * @protected
+     */
+    dockSourceToolbarRect = null
 
     /**
      * The resolved {@link Neo.manager.DragCoordinator} singleton, warmed at {@link #construct} for a
@@ -157,15 +178,47 @@ class DockTabSortZone extends TabHeaderSortZone {
      * @param {Object} data
      */
     async onDragStart(data) {
+        let me = this;
+
+        // The real toolbar boundary — measured BEFORE the base runs: the base drag-start (with
+        // its inherited `expandOwnerOnDrag`) WRITES the trimmed button-span dimensions onto the
+        // toolbar's live style, so any post-`super` measure reads the mutated box, not the
+        // toolbar's true extent. One pre-gesture measure, off the per-frame hot path.
+        me.dockSourceToolbarRect = await me.owner?.getDomRect() ?? null;
+
         await super.onDragStart(data);
 
-        let me   = this,
-            item = me.dragComponent;
+        let item = me.dragComponent;
 
         if (item) {
             item.dockItemId              = me.dockItemIds?.[me.startIndex] ?? null;
             item.dockSourceWorkspaceId   = me.dockWorkspaceId
         }
+    }
+
+    /**
+     * The release-boundary decision {@link #processDragEnd} consumes: a release farther than
+     * {@link #dockReleaseTolerance} beyond the source toolbar's REAL bounds (any side, any
+     * orientation) is dock-gesture territory — the within-toolbar reorder the pointer's PATH
+     * recorded while crossing sibling buttons is geometrically void there. Left unvoided, the
+     * base commit re-adds the item to its source zone and silently reverts the cross-zone commit
+     * (last write wins). Near / in-toolbar releases return false — the base reorder applies.
+     * Pure over instance state (no measuring, no side effects) so witnesses can drive it with
+     * explicit rects.
+     * @param {Object} data
+     * @param {Number} data.clientX release viewport x
+     * @param {Number} data.clientY release viewport y
+     * @returns {Boolean} true = void the tracked reorder (cross-zone territory)
+     */
+    releaseVoidsReorder({clientX, clientY}) {
+        let me                     = this,
+            rect                   = me.dockSourceToolbarRect,
+            {dockReleaseTolerance} = me;
+
+        if (!rect || !Neo.isNumber(clientX) || !Neo.isNumber(clientY)) return false;
+
+        return clientX < rect.x - dockReleaseTolerance || clientX > rect.x + rect.width  + dockReleaseTolerance
+            || clientY < rect.y - dockReleaseTolerance || clientY > rect.y + rect.height + dockReleaseTolerance
     }
 
     /**
@@ -239,6 +292,10 @@ class DockTabSortZone extends TabHeaderSortZone {
                 draggedItem   : me.dragComponent,
                 sourceSortZone: me
             })
+        }
+
+        if (!data.cancelled && me.releaseVoidsReorder(data || {})) {
+            me.currentIndex = me.startIndex
         }
 
         if (data.cancelled) {
