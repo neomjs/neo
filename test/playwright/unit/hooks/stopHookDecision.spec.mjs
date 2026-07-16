@@ -94,6 +94,8 @@ test.describe('ai/scripts/lifecycle/stopHookDecision — shared no-hold decision
     test('isOperatorInLoop: synthetic hook prompts are lifecycle noise, not operator turns', () => {
         expect(isSyntheticPromptingText('<hook_prompt hook_run_id="stop:1">No-hold reminder</hook_prompt>')).toBe(true);
         expect(isSyntheticPromptingText('<turn_aborted>interrupted by new prompt</turn_aborted>')).toBe(true);
+        expect(isSyntheticPromptingText('<task-notification>\n<task-id>b123</task-id>\n</task-notification>')).toBe(true);
+        expect(isOperatorInLoop({stopHookActive: false, promptingText: '<task-notification>done</task-notification>'})).toBe(false);
         expect(isOperatorInLoop({stopHookActive: false, promptingText: '<hook_prompt hook_run_id="stop:1">No-hold reminder</hook_prompt>'})).toBe(false);
         expect(isOperatorInLoop({stopHookActive: false, promptingText: '<turn_aborted>interrupted by new prompt</turn_aborted>'})).toBe(false);
     });

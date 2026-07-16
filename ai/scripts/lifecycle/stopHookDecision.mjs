@@ -35,7 +35,11 @@ const AUTONOMOUS_HANDOFF_PATTERNS = Object.freeze([
 
 const SYNTHETIC_PROMPT_PATTERNS = Object.freeze([
     /^\s*<hook_prompt\b/i,
-    /^\s*<turn_aborted\b/i
+    /^\s*<turn_aborted\b/i,
+    // Background-task event payloads: harness-generated lifecycle noise that rides the same
+    // delivery channels as queued operator messages (corpus-verified as the one injected shape
+    // in attachment-delivered prompts) — never operator dialogue.
+    /^\s*<task-notification\b/i
 ]);
 
 /**
