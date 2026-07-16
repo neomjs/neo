@@ -118,4 +118,32 @@ test.describe('check-whitespace.mjs — merge inheritance', () => {
 
         expect(runOn([path.join(tempDir, 'resources/content/discussions/d-1.md')]).status).toBe(0);
     });
+
+    // NOTE ON WHAT IS *NOT* PINNED HERE. Two obvious-looking witnesses were written and deleted for
+    // being vacuous — they passed against the un-fixed helper, so they proved nothing:
+    //   · an INHERITED tab-bearing path: absent from the diverged set either way (quoted or not), so
+    //     both versions skip it. Same verdict, different reason — it cannot discriminate.
+    //   · a Windows-separator candidate: on POSIX `path.sep` IS `/`, so the normalization is an
+    //     identity no-op and the assertion cannot fail on this CI. The Win32 arm of
+    //     `.split(path.sep).join('/')` is reasoned, not proven — stated in the PR rather than
+    //     dressed in a green test.
+    // The authored-tab witness below is the real one: it reproduces the fail-open.
+    test('a TAB-bearing path AUTHORED during the merge still fails — without -z, git quotes it and the guard SKIPS it', () => {
+        execSync('git checkout -b sync-odd-names-2', { cwd: tempDir, stdio: 'ignore' });
+        writeFile('resources/content/discussions/tab\there.md', PIPELINE_CONTENT);
+        execSync('git add -A', { cwd: tempDir, stdio: 'ignore' });
+        execSync('git commit -m "chore(data): Hourly data sync pipeline update"', { cwd: tempDir, stdio: 'ignore' });
+        execSync('git checkout dev', { cwd: tempDir, stdio: 'ignore' });
+        execSync('git merge --no-commit --no-ff sync-odd-names-2', { cwd: tempDir, stdio: 'ignore' });
+
+        // Diverge it: now it is authored here, quoting or not.
+        writeFile('resources/content/discussions/tab\there.md', PIPELINE_CONTENT + 'edited   \n');
+        execSync('git add -A', { cwd: tempDir, stdio: 'ignore' });
+
+        const result = runOn(['"resources/content/discussions/tab\there.md"']);
+
+        expect(result.status).toBe(1);
+        expect(result.output).toContain('Trailing whitespace found in');
+    });
+
 });

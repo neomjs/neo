@@ -40,15 +40,28 @@ export function createInheritedFromMergeFilter(gitRoot) {
         // Staged content that DIFFERS from MERGE_HEAD: authored or edited here. Everything else the
         // merge staged still matches MERGE_HEAD and is therefore inherited. A file the merge did not
         // carry at all also reads as diverged (MERGE_HEAD lacks it), which is the correct answer.
+        //
+        // `-z` is load-bearing, not hygiene. Without it git C-QUOTES any path carrying a tab, a
+        // space, a quote or a non-ASCII byte (`"a\tb.md"`), and a newline in a filename would even
+        // split one path into two. Those mangled entries never match the lookup below, so the file
+        // reads as NOT diverged — i.e. inherited — and the guard silently SKIPS the very paths that
+        // are hardest to eyeball. That is a fail-OPEN in a guard, which is worse than the block it
+        // replaces. `-z` emits raw NUL-terminated paths with no quoting at all.
         divergedFromMergeHead = new Set(
-            execSync('git diff --cached --name-only MERGE_HEAD', {cwd: gitRoot, encoding: 'utf-8'})
-                .trim().split('\n').filter(Boolean)
+            execSync('git diff --cached --name-only -z MERGE_HEAD', {cwd: gitRoot, encoding: 'utf-8'})
+                .split('\0').filter(Boolean)
         )
     } catch (e) {
         return () => false
     }
 
-    return file => !divergedFromMergeHead.has(path.relative(gitRoot, path.resolve(gitRoot, file)))
+    // git always reports `/`; `path.relative` yields the PLATFORM separator, so on Windows every
+    // candidate would arrive as `a\b.md`, match nothing, and read as authored — blocking every merge
+    // on that platform. Normalising the candidate (never the git output) keeps the comparison in
+    // git's own vocabulary.
+    return file => !divergedFromMergeHead.has(
+        path.relative(gitRoot, path.resolve(gitRoot, file)).split(path.sep).join('/')
+    )
 }
 
 /**
