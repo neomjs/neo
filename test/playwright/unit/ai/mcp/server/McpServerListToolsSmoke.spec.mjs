@@ -160,6 +160,20 @@ function getHarnessEmbeddedOperationIds(server) {
 }
 
 /**
+ * @summary Returns one exact profile declaration from a server's root OpenAPI contract.
+ * @param {Object} server      The MCP server fixture.
+ * @param {String} profileName Exact profile name.
+ * @returns {Object|null} The declared profile, or null when absent.
+ */
+function getExactToolProfile(server, profileName) {
+    const
+        openApiFile = path.join(repoRoot, server.openApiPath),
+        doc         = yaml.load(fs.readFileSync(openApiFile, 'utf8'));
+
+    return doc['x-neo-exact-tool-profiles']?.profiles?.[profileName] || null;
+}
+
+/**
  * @summary Parses the real per-server `serviceMapping` object without invoking handlers.
  * This catches OpenAPI/toolService drift while avoiding tool side effects.
  *
@@ -679,6 +693,137 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
         await expect(toolService.callTool('patch_code', {}, {toolProjection})).rejects.toThrow(
             /Tool "patch_code" is not visible in the harness-embedded projection/
         );
+    });
+
+    test('neural-link local probe lists the exact OpenAPI-owned set and constrained tree schema (#15186)', async () => {
+        const
+            server                           = servers.find(item => item.name === 'neural-link'),
+            profileName                      = 'local-readonly-probe',
+            profile                          = getExactToolProfile(server, profileName),
+            moduleUrl                        = pathToFileURL(path.join(repoRoot, server.toolServicePath)).href,
+            {listTools: listNeuralLinkTools} = await import(moduleUrl),
+            {tools}                          = listNeuralLinkTools({toolProjection: {mode: profileName}}),
+            listedNames                      = tools.map(tool => tool.name),
+            declaredNames                    = Object.keys(profile.tools),
+            treeSchema                       = tools.find(tool => tool.name === 'get_component_tree').inputSchema;
+
+        expect(declaredNames).toEqual(['healthcheck', 'get_worker_topology', 'get_component_tree']);
+        expect(listedNames).toEqual(declaredNames);
+        expect(treeSchema.required).toEqual(['depth']);
+        expect(treeSchema.properties.depth).toMatchObject({
+            type   : 'integer',
+            minimum: 1,
+            maximum: 2
+        });
+        expect(treeSchema.properties.lean).toMatchObject({
+            type   : 'boolean',
+            enum   : [true],
+            default: true
+        });
+    });
+
+    test('neural-link local probe applies one exact list/call contract and rejects widening inputs (#15186)', async () => {
+        const
+            server         = servers.find(item => item.name === 'neural-link'),
+            profileName    = 'local-readonly-probe',
+            toolProjection = {mode: profileName},
+            calls          = [],
+            toolService    = Neo.create(ToolService, {
+                openApiFilePath: path.join(repoRoot, server.openApiPath),
+                serviceMapping : {
+                    healthcheck        : async () => calls.push(['healthcheck', {}]),
+                    get_worker_topology: async () => calls.push(['get_worker_topology', {}]),
+                    get_component_tree : async args => {
+                        calls.push(['get_component_tree', args]);
+                        return args;
+                    },
+                    patch_code: async () => ({patched: true})
+                }
+            }),
+            {tools}      = toolService.listTools({toolProjection}),
+            listedNames = tools.map(tool => tool.name);
+
+        await expect(toolService.callTool('healthcheck', {}, {toolProjection})).resolves.toEqual(1);
+        await expect(toolService.callTool('get_worker_topology', {}, {toolProjection})).resolves.toEqual(2);
+        await expect(toolService.callTool('get_component_tree', {depth: 1}, {toolProjection})).resolves.toEqual({
+            depth: 1,
+            lean : true
+        });
+        await expect(toolService.callTool('get_component_tree', {
+            depth    : 2,
+            lean     : true,
+            rootId   : 'root',
+            sessionId: 'session'
+        }, {toolProjection})).resolves.toMatchObject({depth: 2, lean: true});
+
+        expect(listedNames).toEqual(calls.slice(0, 3).map(([toolName]) => toolName));
+        expect(calls[2][1]).toEqual({depth: 1, lean: true});
+
+        for (const args of [
+            {},
+            {depth: -1},
+            {depth: 3},
+            {depth: 1.5},
+            {depth: 1, lean: false}
+        ]) {
+            await expect(toolService.callTool('get_component_tree', args, {toolProjection})).rejects.toThrow();
+        }
+
+        await expect(toolService.callTool('patch_code', {}, {toolProjection})).rejects.toThrow(
+            /Tool "patch_code" is not visible in the local-readonly-probe projection/
+        );
+        await expect(toolService.callTool('neural-link__healthcheck', {}, {toolProjection})).rejects.toThrow(
+            /Tool "neural-link__healthcheck" is not visible in the local-readonly-probe projection/
+        );
+    });
+
+    test('neural-link local probe is server-pinned and unknown profile names fail closed (#15186)', async () => {
+        const
+            server      = servers.find(item => item.name === 'neural-link'),
+            profileName = 'local-readonly-probe',
+            moduleUrl   = pathToFileURL(path.join(repoRoot, 'ai/mcp/server/neural-link/Server.mjs')).href,
+            Server      = (await import(moduleUrl)).default,
+            ctx         = Server.prototype.buildToolProjectionContext,
+            toolService = Neo.create(ToolService, {
+                openApiFilePath: path.join(repoRoot, server.openApiPath),
+                serviceMapping : {healthcheck: async () => ({status: 'ok'})}
+            });
+
+        for (const request of [
+            {params: {}},
+            {params: {_meta: {}}},
+            {params: {_meta: {neoToolProjection: 'full'}}},
+            {params: {_meta: {neoToolProjection: 'harness-embedded'}}}
+        ]) {
+            expect(ctx.call({toolProjectionMode: profileName}, {request})).toEqual({mode: profileName});
+        }
+
+        for (const mode of ['unknown-profile', '', ' local-readonly-probe', 'local-readonly-probe ']) {
+            const toolProjection = {mode};
+
+            expect(toolService.listTools({toolProjection}).tools).toEqual([]);
+            await expect(toolService.callTool('healthcheck', {}, {toolProjection})).rejects.toThrow(/not visible/);
+        }
+    });
+
+    test('ToolService rejects malformed and reserved exact-profile declarations atomically (#15186)', () => {
+        const
+            server          = servers.find(item => item.name === 'neural-link'),
+            openApiFile     = path.join(repoRoot, server.openApiPath),
+            openApiDocument = yaml.load(fs.readFileSync(openApiFile, 'utf8')),
+            toolService     = Neo.create(ToolService, {openApiFilePath: openApiFile});
+
+        toolService.initializeToolMapping();
+
+        openApiDocument['x-neo-exact-tool-profiles'].profiles = {
+            'harness-embedded': {tools: {healthcheck: {}}},
+            ' unknown'        : {tools: {healthcheck: {}}},
+            unknown_tool      : {tools: {not_an_operation: {}}},
+            invalid_input     : {tools: {healthcheck: {inputSchema: {type: 'string'}}}},
+            invalid_ref       : {tools: {healthcheck: {inputSchema: {$ref: '#/components/schemas/Missing'}}}}
+        };
+
+        expect(toolService.buildExactToolProfiles(openApiDocument)).toEqual({});
     });
 
     test('neural-link server-instance forced mode is the ceiling — client cannot widen via _meta (#13106)', async () => {
