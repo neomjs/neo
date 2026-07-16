@@ -51,6 +51,9 @@ const __dirname  = path.dirname(__filename);
 const ROOT_DIR   = path.resolve(__dirname, '../../..');
 
 const CONFIG_TEMPLATE_BASENAME           = 'config.template.mjs';
+// The Tier-1 root base: canonical default leaves live here since the template/base split — the
+// declarative-SSOT rules must cover it exactly like a template, or base-only leaves bypass the lint.
+const CONFIG_BASE_BASENAME               = 'configBase.mjs';
 const CONFIG_OVERLAY_BASENAME            = 'config.mjs';
 const SCAN_ROOT_REL                      = 'ai';
 const TEST_SCAN_ROOT_REL                 = 'test';
@@ -175,7 +178,7 @@ function walkConfigTemplates(dir) {
         if (entry.isDirectory()) {
             if (entry.name === 'node_modules') continue;
             out.push(...walkConfigTemplates(full));
-        } else if (entry.name === CONFIG_TEMPLATE_BASENAME) {
+        } else if (entry.name === CONFIG_TEMPLATE_BASENAME || entry.name === CONFIG_BASE_BASENAME) {
             out.push(full);
         }
     }
@@ -220,6 +223,7 @@ function shouldScanAiConfigImplementation(file) {
         normalized.endsWith('.mjs') &&
         normalized !== SELF_REL_FILE &&
         basename !== CONFIG_TEMPLATE_BASENAME &&
+        basename !== CONFIG_BASE_BASENAME &&
         basename !== CONFIG_OVERLAY_BASENAME;
 }
 

@@ -271,8 +271,15 @@ export function detectOverlayShape(source) {
  * @protected
  */
 async function main() {
-    const write       = process.argv.includes('--write'),
-          overlayPath = path.join(neoRootDir, 'ai/config.mjs');
+    // --ai-root <dir>: operate on a Tier-1 root other than the repo's `ai/` — the seam that lets
+    // `initTier1Config` drive the SAME conversion in its child-process cascade AND lets specs pin
+    // the cascade against disposable fixture roots. The Neo bootstrap always comes from THIS repo.
+    const rootFlagAt = process.argv.indexOf('--ai-root'),
+          aiRoot     = rootFlagAt !== -1 && process.argv[rootFlagAt + 1]
+              ? path.resolve(process.argv[rootFlagAt + 1])
+              : path.join(neoRootDir, 'ai'),
+          write       = process.argv.includes('--write'),
+          overlayPath = path.join(aiRoot, 'config.mjs');
 
     if (!fs.existsSync(overlayPath)) {
         console.log('[migrate-config-overlay] no ai/config.mjs overlay exists — nothing to migrate (fresh bootstraps already get the subclass shape from the template copy).');
@@ -291,7 +298,7 @@ async function main() {
     const Neo = (await import(path.join(neoRootDir, 'src/Neo.mjs'))).default;
     await import(path.join(neoRootDir, 'src/core/_export.mjs'));
 
-    const ConfigBase = (await import(path.join(neoRootDir, 'ai/configBase.mjs'))).default;
+    const ConfigBase = (await import(path.join(aiRoot, 'configBase.mjs'))).default;
     await import(overlayPath);
 
     // Reach the snapshot's class via the registry singleton — NOT via the config proxy's

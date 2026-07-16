@@ -160,7 +160,7 @@ function buildCategories() {
             label  : 'retired config flag',
             items  : RETIRED_CONFIG_FLAGS,
             pattern: RETIRED_CONFIG_FLAGS.map(f => `^[[:space:]]*${escapeRegex(f)}[[:space:]]*:`).join('|'),
-            include: ['config.template.mjs'],
+            include: ['config.template.mjs', 'configBase.mjs'],
             exclude: [],
             roots  : [SEARCH_ROOT],
             help   : [
