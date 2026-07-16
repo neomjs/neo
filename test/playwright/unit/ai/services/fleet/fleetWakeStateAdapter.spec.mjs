@@ -43,14 +43,41 @@ test.describe('fleetWakeStateAdapter — daemon liveness (PID file + process pro
         expect(resolveDaemonLiveness({pidFilePath: '/x/wake.pid', readFile: enoent})).toEqual({alive: false, reason: null})
     })
 
-    test('a live recorded process reads alive; EPERM proves existence too', () => {
-        expect(resolveDaemonLiveness({pidFilePath: '/x/wake.pid', readFile: () => '4242\n', probeProcess: () => {}}).alive).toBe(true)
-        expect(resolveDaemonLiveness({pidFilePath: '/x/wake.pid', readFile: () => '4242', probeProcess: eperm}).alive).toBe(true)
+    test('a live, identity-verified process reads alive; EPERM still verifies identity', () => {
+        const daemonCmd = () => 'node /repo/ai/daemons/wake/daemon.mjs'
+
+        expect(resolveDaemonLiveness({pidFilePath: '/x/wake.pid', readFile: () => '4242\n', probeProcess: () => {}, readProcessCommand: daemonCmd}).alive).toBe(true)
+        expect(resolveDaemonLiveness({pidFilePath: '/x/wake.pid', readFile: () => '4242', probeProcess: eperm, readProcessCommand: daemonCmd}).alive).toBe(true)
     })
 
     test('a stale PID file (ESRCH) is OBSERVED dead, with the staleness named', () => {
         expect(resolveDaemonLiveness({pidFilePath: '/x/wake.pid', readFile: () => '4242', probeProcess: esrch}))
             .toEqual({alive: false, reason: 'stale PID file: recorded process is gone'})
+    })
+
+    test('a responding PID is NOT the daemon until its command carries the launch marker — reuse reads observed-dead', () => {
+        expect(resolveDaemonLiveness({
+            pidFilePath       : '/x/wake.pid',
+            readFile          : () => '4242',
+            probeProcess      : () => {},
+            readProcessCommand: () => '/usr/bin/some-unrelated-tool --serve'
+        })).toEqual({alive: false, reason: 'PID reused by another process: recorded daemon is gone'})
+    })
+
+    test('an unreadable process identity degrades to unknown — a responding PID alone proves nothing', () => {
+        expect(resolveDaemonLiveness({
+            pidFilePath       : '/x/wake.pid',
+            readFile          : () => '4242',
+            probeProcess      : () => {},
+            readProcessCommand: () => null
+        })).toEqual({alive: 'unknown', reason: 'wake daemon process identity unreadable'})
+
+        expect(resolveDaemonLiveness({
+            pidFilePath       : '/x/wake.pid',
+            readFile          : () => '4242',
+            probeProcess      : () => {},
+            readProcessCommand: () => { throw new Error('ps unavailable') }
+        })).toEqual({alive: 'unknown', reason: 'ps unavailable'})
     })
 
     test('unreadable or malformed PID state degrades to unknown with the reason preserved', () => {
@@ -84,7 +111,8 @@ test.describe('fleetWakeStateAdapter — the graduated four-state mapping', () =
 })
 
 test.describe('fleetWakeStateAdapter — the fleet snapshot + capability envelope', () => {
-    const agents = [{id: 'grace'}, {id: 'vega'}, {id: 'euclid'}]
+    const agents    = [{id: 'grace'}, {id: 'vega'}, {id: 'euclid'}],
+          daemonCmd = () => 'node /repo/ai/daemons/wake/daemon.mjs'
 
     test('both sources readable: wired/observed capability and per-agent taxonomy rows', async () => {
         const {capability, states} = await readFleetWakeStateSnapshot({
@@ -92,7 +120,8 @@ test.describe('fleetWakeStateAdapter — the fleet snapshot + capability envelop
             resolveSubscriptionState: agent => agent.id === 'vega' ? 'none' : 'active',
             pidFilePath             : '/x/wake.pid',
             readFile                : () => '4242',
-            probeProcess            : () => {}
+            probeProcess            : () => {},
+            readProcessCommand      : daemonCmd
         })
 
         expect(capability).toMatchObject({source: WAKE_SOURCE_LABEL, state: 'wired', confidence: 'observed', reason: null})
@@ -116,10 +145,11 @@ test.describe('fleetWakeStateAdapter — the fleet snapshot + capability envelop
 
     test('unknown-on-unreachable: no subscription reader degrades every row honestly, with reasons', async () => {
         const {capability, states} = await readFleetWakeStateSnapshot({
-            agents      : [{id: 'grace'}],
-            pidFilePath : '/x/wake.pid',
-            readFile    : () => '4242',
-            probeProcess: () => {}
+            agents            : [{id: 'grace'}],
+            pidFilePath       : '/x/wake.pid',
+            readFile          : () => '4242',
+            probeProcess      : () => {},
+            readProcessCommand: daemonCmd
         })
 
         expect(capability).toMatchObject({state: 'degraded', confidence: 'partial'})
@@ -139,7 +169,8 @@ test.describe('fleetWakeStateAdapter — the fleet snapshot + capability envelop
             resolveSubscriptionState: () => { throw new Error('graph offline') },
             pidFilePath             : '/x/wake.pid',
             readFile                : () => '4242',
-            probeProcess            : () => {}
+            probeProcess            : () => {},
+            readProcessCommand      : daemonCmd
         })
 
         expect(capability).toMatchObject({state: 'degraded', confidence: 'partial'})
@@ -160,9 +191,96 @@ test.describe('fleetWakeStateAdapter — the fleet snapshot + capability envelop
             resolveSubscriptionState: () => 'none',
             pidFilePath             : '/x/wake.pid',
             readFile                : () => '4242',
-            probeProcess            : () => {}
+            probeProcess            : () => {},
+            readProcessCommand      : daemonCmd
         })
 
         expect(states.map(row => row.agentId)).toEqual(['grace'])
+    })
+
+    test('diagnostics are ROW-LOCAL: one throwing row names only itself; siblings keep their own truth', async () => {
+        const {capability, states} = await readFleetWakeStateSnapshot({
+            agents,
+            resolveSubscriptionState: agent => {
+                if (agent.id === 'vega') throw new Error('graph offline for vega')
+                return agent.id === 'grace' ? 'active' : 'none'
+            },
+            pidFilePath       : '/x/wake.pid',
+            readFile          : () => '4242',
+            probeProcess      : () => {},
+            readProcessCommand: daemonCmd
+        })
+
+        expect(states).toEqual([
+            {agentId: 'grace',  wake: 'on',      confidence: 'observed', source: WAKE_SOURCE_LABEL},
+            {agentId: 'vega',   wake: 'unknown', confidence: 'none',     source: WAKE_SOURCE_LABEL, reason: 'graph offline for vega'},
+            {agentId: 'euclid', wake: 'off',     confidence: 'observed', source: WAKE_SOURCE_LABEL}
+        ])
+        expect(capability).toMatchObject({state: 'degraded', confidence: 'partial'})
+        expect(capability.reason).toContain('failed for 1 agent(s)')
+    })
+
+    test('an out-of-contract reader value degrades the CAPABILITY — garbage cannot hide under wired/observed', async () => {
+        const {capability, states} = await readFleetWakeStateSnapshot({
+            agents                  : [{id: 'grace'}, {id: 'vega'}],
+            resolveSubscriptionState: agent => agent.id === 'grace' ? 'garbage' : 'active',
+            pidFilePath             : '/x/wake.pid',
+            readFile                : () => '4242',
+            probeProcess            : () => {},
+            readProcessCommand      : daemonCmd
+        })
+
+        expect(states[0]).toMatchObject({wake: 'unknown', confidence: 'none', reason: 'truth source returned an out-of-contract value'})
+        expect(states[1]).toMatchObject({wake: 'on', confidence: 'observed'})
+        expect(capability).toMatchObject({state: 'degraded', confidence: 'partial'})
+        expect(capability.reason).toContain('out-of-contract values for 1 agent(s)')
+    })
+
+    test('row reasons are REDACTED before any Body projection — a transport dump cannot leak a token', async () => {
+        const {states} = await readFleetWakeStateSnapshot({
+            agents                  : [{id: 'grace'}],
+            resolveSubscriptionState: () => { throw new Error('fetch failed: token=glpat-SECRET-abc123 rejected') },
+            pidFilePath             : '/x/wake.pid',
+            readFile                : () => '4242',
+            probeProcess            : () => {},
+            readProcessCommand      : daemonCmd
+        })
+
+        expect(states[0].reason).not.toContain('glpat-SECRET-abc123')
+        expect(states[0].reason).toContain('[redacted')
+    })
+
+    test('the bulk identity scan drives per-agent membership through the identity mapping — one scan, no fan-out', async () => {
+        let scans = 0
+
+        const {capability, states} = await readFleetWakeStateSnapshot({
+            agents                          : [{id: 'grace', githubUsername: 'neo-opus-grace'}, {id: 'vega', githubUsername: 'neo-opus-vega'}],
+            listActiveSubscriptionIdentities: () => { scans++; return ['@neo-opus-grace'] },
+            pidFilePath                     : '/x/wake.pid',
+            readFile                        : () => '4242',
+            probeProcess                    : () => {},
+            readProcessCommand              : daemonCmd
+        })
+
+        expect(scans).toBe(1)
+        expect(states).toEqual([
+            {agentId: 'grace', wake: 'on',  confidence: 'observed', source: WAKE_SOURCE_LABEL},
+            {agentId: 'vega',  wake: 'off', confidence: 'observed', source: WAKE_SOURCE_LABEL}
+        ])
+        expect(capability).toMatchObject({state: 'wired', confidence: 'observed'})
+    })
+
+    test('a failing bulk scan degrades every row honestly — never a fabricated empty fleet', async () => {
+        const {capability, states} = await readFleetWakeStateSnapshot({
+            agents                          : [{id: 'grace'}],
+            listActiveSubscriptionIdentities: () => { throw new Error('graph read surface unavailable') },
+            pidFilePath                     : '/x/wake.pid',
+            readFile                        : () => '4242',
+            probeProcess                    : () => {},
+            readProcessCommand              : daemonCmd
+        })
+
+        expect(states[0]).toMatchObject({wake: 'unknown', confidence: 'none', reason: 'graph read surface unavailable'})
+        expect(capability).toMatchObject({state: 'degraded', confidence: 'partial'})
     })
 })

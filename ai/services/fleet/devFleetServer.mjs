@@ -17,13 +17,16 @@
 
 // Neo namespace bootstrap (entry-point invariant): `Neo` + `core/_export` populate globalThis.Neo so
 // the fleet singletons' `Neo.setupClass` succeeds at module-load; `InstanceManager` binds the aliases.
-import Neo                          from '../../../src/Neo.mjs';
-import * as core                    from '../../../src/core/_export.mjs';
-import InstanceManager              from '../../../src/manager/Instance.mjs';
-import AiConfig                     from '../../config.mjs';
-import {startFleetBridgeServer}     from './fleetBridgeServer.mjs';
-import {wireBootIdentityReadSource} from './wireBootIdentityReadSource.mjs';
-import {pathToFileURL}              from 'node:url';
+import Neo                                    from '../../../src/Neo.mjs';
+import * as core                              from '../../../src/core/_export.mjs';
+import InstanceManager                        from '../../../src/manager/Instance.mjs';
+import AiConfig                               from '../../config.mjs';
+import FleetManager                           from './FleetManager.mjs';
+import {startFleetBridgeServer}               from './fleetBridgeServer.mjs';
+import {readActiveWakeSubscriptionIdentities} from './readActiveWakeSubscriptionIdentities.mjs';
+import {wireBootIdentityReadSource}           from './wireBootIdentityReadSource.mjs';
+import path                                   from 'node:path';
+import {pathToFileURL}                        from 'node:url';
 
 const port = Number(process.env.NEO_FLEET_PORT) || 8083;
 
@@ -34,6 +37,15 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     // orchestrator's advisory fact from the shared runtime-state dir (read at this use site), instead of
     // the advisory-unknown fallback. Fail-soft — an absent dir leaves the seam honestly unwired.
     wireBootIdentityReadSource({dir: AiConfig.orchestrator.dataDir});
+
+    // Wire the wake-telltale producer sources (the S2 axis): the config-resolved daemon PID path +
+    // the trusted bulk subscription scan. This entrypoint is where config resolution belongs; the
+    // adapter itself never resolves it. Fail-soft by construction — a failing scan or an absent
+    // daemon degrades to honest per-row `unknown` inside the adapter, never a fabricated state.
+    FleetManager.wakeStateOptions = {
+        pidFilePath                     : path.join(AiConfig.wakeDaemon.dataDir, 'wake-daemon.pid'),
+        listActiveSubscriptionIdentities: readActiveWakeSubscriptionIdentities
+    };
 
     startFleetBridgeServer({port})
         .then(server => {

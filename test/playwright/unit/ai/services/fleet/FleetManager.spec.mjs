@@ -198,6 +198,7 @@ test.describe('Neo.ai.services.fleet.FleetManager — fleetWakeStatus (roster ×
             pidFilePath             : '/x/wake-daemon.pid',
             readFile                : () => '4242',
             probeProcess            : () => {},
+            readProcessCommand      : () => 'node /repo/ai/daemons/wake/daemon.mjs',
             resolveSubscriptionState: agent => agent.id === 'alice' ? 'active' : 'none'
         };
 
