@@ -361,6 +361,135 @@ test.describe('laneStateStopHook — extractLatestHumanUserTextFromJsonl (#14440
             promptingTextHumanFiltered: true
         })).toBe(true);
     });
+
+    // ── Mid-TURN operator messages: attachment-delivered prompts (never user-role records) ──────
+    // Fixtures mirror the REAL `queued_command` envelopes (full local corpus census: 360/360
+    // current-format prompt deliveries carry `commandMode: 'prompt'` + a 36-char STRING
+    // `source_uuid` + `origin.kind: 'human'`; 118/118 task notifications carry
+    // `commandMode: 'task-notification'` and neither field; pre-July envelopes lack
+    // `origin`/`timestamp` and are format history outside the live contract). Envelope
+    // provenance — VALIDATED shape, not field truthiness — is the sender/kind identity;
+    // payload prose is never it.
+    const attachmentOperator = JSON.stringify({type: 'attachment', attachment: {
+              type  : 'queued_command', commandMode: 'prompt', source_uuid: 'u-op-1', origin: {kind: 'human'},
+              prompt: 'why is the walk still blind here? scope-ruling attached.'}}),
+          attachmentWake     = JSON.stringify({type: 'attachment', attachment: {
+              type  : 'queued_command', commandMode: 'prompt', source_uuid: 'u-wake-1', origin: {kind: 'human'},
+              prompt: '[WAKE][priority:normal] 1 events for @neo-opus-vega'}}),
+          attachmentTaskNote = JSON.stringify({type: 'attachment', attachment: {
+              type  : 'queued_command', commandMode: 'task-notification',
+              prompt: '<task-notification>\n<task-id>b123</task-id>\n</task-notification>'}}),
+          attachmentTaskNoteUntagged = JSON.stringify({type: 'attachment', attachment: {
+              type  : 'queued_command', commandMode: 'task-notification',
+              prompt: 'background task complete'}}),
+          // Isolates commandMode as the ONLY invalid leg: every other human-envelope leg is
+          // valid (string source_uuid + origin.kind 'human'), so a pass here would prove the
+          // mode check specifically, not a confounded second leg.
+          attachmentUnknownMode = JSON.stringify({type: 'attachment', attachment: {
+              type  : 'queued_command', commandMode: 'mystery-mode', source_uuid: 'u-x-1', origin: {kind: 'human'},
+              prompt: 'genuine-looking prose from an unknown delivery mode'}}),
+          // Malformed prompt-bearing envelope: PRESENT non-string prompt with every provenance
+          // leg valid — must stop the walk (a skip would leak past to older operator prose).
+          attachmentObjectPrompt = JSON.stringify({type: 'attachment', attachment: {
+              type  : 'queued_command', commandMode: 'prompt', source_uuid: 'u-op-9', origin: {kind: 'human'},
+              prompt: {nested: 'object payload'}}}),
+          attachmentOther    = JSON.stringify({type: 'attachment',
+              attachment: {kind: 'file', path: '/tmp/x.png'}});
+
+    test('an attachment-delivered mid-turn operator message is the decisive candidate', () => {
+        const jsonl = [wakeMsg, assistant, metaFeedback, attachmentOperator, assistant].join('\n');
+        expect(extractLatestHumanUserTextFromJsonl(jsonl)).toBe('why is the walk still blind here? scope-ruling attached.');
+        expect(isOperatorInLoop({
+            stopHookActive            : true,
+            promptingText             : extractLatestHumanUserTextFromJsonl(jsonl),
+            promptingTextHumanFiltered: true
+        })).toBe(true);
+    });
+
+    test('newest-candidate ordering holds across record kinds: a NEWER [WAKE] user record wins over an older operator attachment', () => {
+        const jsonl = [attachmentOperator, assistant, metaFeedback, wakeMsg, assistant].join('\n');
+        expect(extractLatestHumanUserTextFromJsonl(jsonl)).toBe('[WAKE][priority:normal] 1 events for @neo-opus-vega');
+        expect(isOperatorInLoop({
+            stopHookActive            : true,
+            promptingText             : extractLatestHumanUserTextFromJsonl(jsonl),
+            promptingTextHumanFiltered: true
+        })).toBe(false);
+    });
+
+    test('a [WAKE]-prose operator-envelope attachment is a candidate the dialogue gates then reject', () => {
+        const jsonl = [operatorMsg, assistant, metaFeedback, attachmentWake].join('\n');
+        expect(extractLatestHumanUserTextFromJsonl(jsonl)).toBe('[WAKE][priority:normal] 1 events for @neo-opus-vega');
+        expect(isOperatorInLoop({
+            stopHookActive            : true,
+            promptingText             : extractLatestHumanUserTextFromJsonl(jsonl),
+            promptingTextHumanFiltered: true
+        })).toBe(false);
+    });
+
+    test('structurally synthetic attachments are walk-stopping boundaries — envelope decides, prose is irrelevant', () => {
+        // The tagged AND the untagged task-notification (the falsifier that killed the
+        // text-prefix design) plus an unknown prompt-bearing mode: each STOPS the walk —
+        // older operator prose can never leak past a newer synthetic/unknown boundary.
+        for (const injected of [attachmentTaskNote, attachmentTaskNoteUntagged, attachmentUnknownMode]) {
+            const jsonl = [operatorMsg, assistant, metaFeedback, injected].join('\n');
+            expect(extractLatestHumanUserTextFromJsonl(jsonl)).toBe('');
+            expect(isOperatorInLoop({
+                stopHookActive            : true,
+                promptingText             : extractLatestHumanUserTextFromJsonl(jsonl),
+                promptingTextHumanFiltered: true
+            })).toBe(false);
+        }
+    });
+
+    test('attachment records without attachment.prompt (other kinds) are skipped, not boundaries', () => {
+        const jsonl = [operatorMsg, assistant, attachmentOther].join('\n');
+        expect(extractLatestHumanUserTextFromJsonl(jsonl)).toBe('full stop. we need to talk about the release notes.');
+    });
+
+    test('a PRESENT non-string prompt is a MALFORMED envelope — walk-stopping, never a skip (cycle-3 boundary)', () => {
+        // All provenance legs valid; only the prompt VALUE is malformed. The prompt-less rule
+        // (absent/blank → skip) must not swallow it: skipping would leak past to older prose.
+        const jsonl = [operatorMsg, assistant, metaFeedback, attachmentObjectPrompt].join('\n');
+        expect(extractLatestHumanUserTextFromJsonl(jsonl)).toBe('');
+        expect(isOperatorInLoop({
+            stopHookActive            : true,
+            promptingText             : extractLatestHumanUserTextFromJsonl(jsonl),
+            promptingTextHumanFiltered: true
+        })).toBe(false);
+        // The prompt-less boundary stays a skip: absent prompt and blank-string prompt.
+        const blankPrompt = JSON.stringify({type: 'attachment', attachment: {
+            type: 'queued_command', commandMode: 'prompt', source_uuid: 'u-op-10', origin: {kind: 'human'}, prompt: '   '}});
+        expect(extractLatestHumanUserTextFromJsonl([operatorMsg, assistant, blankPrompt].join('\n')))
+            .toBe('full stop. we need to talk about the release notes.');
+    });
+
+    test('the human predicate VALIDATES envelope shape — spoofable variants are walk-stopping, never candidates (cycle-2 reviewer falsifiers)', () => {
+        // Each variant passed the previous truthiness check and classified midChainOperator:true
+        // at the prior head; all four must stop the walk: an object source_uuid, a whitespace
+        // source_uuid, a valid-string source_uuid with a non-human origin, and a missing origin.
+        const spoofObjectUuid = JSON.stringify({type: 'attachment', attachment: {
+                  type  : 'queued_command', commandMode: 'prompt', source_uuid: {spoof: true}, origin: {kind: 'human'},
+                  prompt: 'prose behind an object-valued source uuid'}}),
+              spoofBlankUuid  = JSON.stringify({type: 'attachment', attachment: {
+                  type  : 'queued_command', commandMode: 'prompt', source_uuid: '   ', origin: {kind: 'human'},
+                  prompt: 'prose behind a whitespace source uuid'}}),
+              spoofTaskOrigin = JSON.stringify({type: 'attachment', attachment: {
+                  type  : 'queued_command', commandMode: 'prompt', source_uuid: 'u-real-string', origin: {kind: 'task'},
+                  prompt: 'prose behind a non-human origin kind'}}),
+              spoofNoOrigin   = JSON.stringify({type: 'attachment', attachment: {
+                  type  : 'queued_command', commandMode: 'prompt', source_uuid: 'u-real-string',
+                  prompt: 'prose behind a missing origin'}});
+
+        for (const injected of [spoofObjectUuid, spoofBlankUuid, spoofTaskOrigin, spoofNoOrigin]) {
+            const jsonl = [operatorMsg, assistant, metaFeedback, injected].join('\n');
+            expect(extractLatestHumanUserTextFromJsonl(jsonl)).toBe('');
+            expect(isOperatorInLoop({
+                stopHookActive            : true,
+                promptingText             : extractLatestHumanUserTextFromJsonl(jsonl),
+                promptingTextHumanFiltered: true
+            })).toBe(false);
+        }
+    });
 });
 
 test.describe('laneStateStopHook — end-to-end (spawned hook against the real Stop payload)', () => {
@@ -545,6 +674,87 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
                 {type: 'user', message: {role: 'user', content: '[WAKE][priority:normal] 1 events for @neo-opus-vega'}},
                 {type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: 'driving the lane…'}]}},
                 {type: 'user', isMeta: true, message: {role: 'user', content: 'Stop hook feedback:\nTurn-end refused — L3_No_Hold_State: there is no hold state, and you do not get to stop.'}}
+            ]
+        });
+        expect(log).toContain('BLOCK');
+        expect(log).toContain('midChainOperator=false');
+        expect(JSON.parse(stdout).decision).toBe('block');
+    });
+
+    test('mid-TURN attachment-delivered operator message → ALLOW (the queued-delivery chain shape)', async () => {
+        const {stdout, log} = await runHook('Understood — over to you.', {
+            enforce          : true,
+            stopHookActive   : true,
+            transcriptRecords: [
+                {type: 'user', message: {role: 'user', content: '[WAKE][priority:normal] 1 events for @neo-opus-vega'}},
+                {type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: 'driving the lane…'}]}},
+                {type: 'user', isMeta: true, message: {role: 'user', content: 'Stop hook feedback:\nTurn-end refused — L3_No_Hold_State: there is no hold state, and you do not get to stop.'}},
+                {type: 'queue-operation', operation: 'enqueue', timestamp: '2026-07-16T07:00:00Z'},
+                {type: 'attachment', attachment: {type: 'queued_command', commandMode: 'prompt', source_uuid: 'u-e2e-1', origin: {kind: 'human'}, prompt: 'full stop — answering your fork question now, hold the lane.'}}
+            ]
+        });
+        expect(log).toContain('ALLOW');
+        expect(log).toContain('midChainOperator=true');
+        expect(stdout).toBe('');
+    });
+
+    test('injected attachment payloads (task-notification) keep a chain BLOCKED — no false-ALLOW channel', async () => {
+        const {stdout, log} = await runHook(validTerminal, {
+            enforce          : true,
+            stopHookActive   : true,
+            transcriptRecords: [
+                {type: 'user', message: {role: 'user', content: '[WAKE][priority:normal] 1 events for @neo-opus-vega'}},
+                {type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: 'driving the lane…'}]}},
+                {type: 'attachment', attachment: {type: 'queued_command', commandMode: 'task-notification', prompt: 'background task b9 completed without a tag prefix'}}
+            ]
+        });
+        expect(log).toContain('BLOCK');
+        expect(log).toContain('midChainOperator=false');
+        expect(JSON.parse(stdout).decision).toBe('block');
+    });
+
+    test('an UNKNOWN prompt-bearing mode ABOVE older operator prose keeps the chain BLOCKED (walk-stop at the spawned seam)', async () => {
+        // The unknown-mode record is NEWER than a genuine operator user record; the walk must stop
+        // at the unknown boundary rather than leak past it to the older dialogue evidence. Every
+        // OTHER human-envelope leg is valid (string source_uuid + origin.kind 'human') so the mode
+        // check is isolated — not confounded by a second invalid leg.
+        const {stdout, log} = await runHook(validTerminal, {
+            enforce          : true,
+            stopHookActive   : true,
+            transcriptRecords: [
+                {type: 'user', message: {role: 'user', content: 'full stop. we need to talk about the release notes.'}},
+                {type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: 'driving the lane…'}]}},
+                {type: 'attachment', attachment: {type: 'queued_command', commandMode: 'mystery-mode', source_uuid: 'u-x-e2e', origin: {kind: 'human'}, prompt: 'genuine-looking prose from an unknown delivery mode'}}
+            ]
+        });
+        expect(log).toContain('BLOCK');
+        expect(log).toContain('midChainOperator=false');
+        expect(JSON.parse(stdout).decision).toBe('block');
+    });
+
+    test('a MALFORMED present prompt (object value) ABOVE older operator prose keeps the chain BLOCKED (spawned seam)', async () => {
+        const {stdout, log} = await runHook(validTerminal, {
+            enforce          : true,
+            stopHookActive   : true,
+            transcriptRecords: [
+                {type: 'user', message: {role: 'user', content: 'full stop. we need to talk about the release notes.'}},
+                {type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: 'driving the lane…'}]}},
+                {type: 'attachment', attachment: {type: 'queued_command', commandMode: 'prompt', source_uuid: 'u-op-e2e', origin: {kind: 'human'}, prompt: {nested: 'object payload'}}}
+            ]
+        });
+        expect(log).toContain('BLOCK');
+        expect(log).toContain('midChainOperator=false');
+        expect(JSON.parse(stdout).decision).toBe('block');
+    });
+
+    test('a malformed prompt-mode envelope (object source_uuid) is walk-stopping at the spawned seam — BLOCKED', async () => {
+        const {stdout, log} = await runHook(validTerminal, {
+            enforce          : true,
+            stopHookActive   : true,
+            transcriptRecords: [
+                {type: 'user', message: {role: 'user', content: 'full stop. we need to talk about the release notes.'}},
+                {type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: 'driving the lane…'}]}},
+                {type: 'attachment', attachment: {type: 'queued_command', commandMode: 'prompt', source_uuid: {spoof: true}, origin: {kind: 'human'}, prompt: 'prose behind an object-valued source uuid'}}
             ]
         });
         expect(log).toContain('BLOCK');
