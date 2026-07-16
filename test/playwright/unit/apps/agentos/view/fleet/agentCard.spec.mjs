@@ -375,4 +375,54 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
 
         card.destroy()
     });
+
+    test('name slot: the display name renders with its provenance chip; a rename re-renders IN PLACE — same instance, never a re-key (§2.3.2, #14641)', () => {
+        const
+            card       = createCard({agentId: 'vega', displayName: 'Vega', state: 'ok'}),
+            beforeId   = card.id,
+            name       = () => card.down({reference: 'card-name'}),
+            provenance = () => card.down({reference: 'name-provenance'});
+
+        expect(name().text).toBe('Vega');
+        expect(name().cls).not.toContain('fm-card-name-id');
+
+        // provenance is stated, reachable, and honest: declared display state, trail not yet wired
+        expect(provenance().text).toBe('declared');
+        expect(provenance().cls).toContain('is-declared-proxy');
+        expect(provenance().vdom.title).toContain('declared display state');
+        expect(provenance().vdom.title).toContain('vega');
+        expect(provenance().vdom['aria-label']).toBe(provenance().vdom.title);
+
+        // the §2.3.2 fixture: a rename mutates DISPLAY STATE on the SAME card instance
+        applySet(card, {displayName: 'Vega Prime'});
+        expect(card.id).toBe(beforeId);
+        expect(name().text).toBe('Vega Prime');
+        expect(provenance().vdom.title).toContain('Vega Prime');
+
+        card.destroy()
+    });
+
+    test('name slot: no display name → the durable id renders as the drill target in the mono register, chip says so (#14641)', () => {
+        const
+            card       = createCard({agentId: 'guest-agent-7', displayName: null, state: 'ok'}),
+            name       = () => card.down({reference: 'card-name'}),
+            provenance = () => card.down({reference: 'name-provenance'});
+
+        // never a blank drill target: the never-renamed anchor itself renders, register-flagged
+        expect(name().text).toBe('guest-agent-7');
+        expect(name().cls).toContain('fm-card-name-id');
+        expect(provenance().text).toBe('id');
+        expect(provenance().cls).toContain('is-durable-id');
+
+        // a later rename flips the register back — in place, same instance
+        const beforeId = card.id;
+
+        applySet(card, {displayName: 'Guest Seven'});
+        expect(card.id).toBe(beforeId);
+        expect(name().text).toBe('Guest Seven');
+        expect(name().cls).not.toContain('fm-card-name-id');
+        expect(provenance().text).toBe('declared');
+
+        card.destroy()
+    })
 });
