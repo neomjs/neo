@@ -111,7 +111,7 @@ The full divergence rules (valid-options-only, correlation-ceiling, option-cards
 
 **Discipline-family framing**: §5.2 extends AGENTS.md §3.5 V-B-A (factual-tier empirical-tool) to **architectural-tier** — running a cross-substrate sweep against design proposals instead of empirical claims. Both gates share the same core epistemics: surface the falsifying evidence before assertion.
 
-**Out of scope**: low-blast-radius proposals (single-PR-worth, bounded artifact, no cross-substrate coupling) do NOT require §5.2 — would create discipline-fatigue without commensurate signal. §5.1's matrix remains optional-but-recommended for those.
+**Out of scope**: proposals outside every trigger above (single-PR-worth, bounded artifact, no cross-substrate coupling) do NOT require §5.2 — would create discipline-fatigue without commensurate signal. §5.1's matrix remains optional-but-recommended for those. Note this exemption is NARROWER than §6.1's low-blast consensus class: an epic-bound (≥3 subs) wave is Step-Back-mandatory even when its consensus class is low-blast (empirical anchor: D#15249, 2026-07-16 — author and design authority both read the two axes as one; caught only at PR-review cycle 1).
 
 **Cross-skill complement**: `peer-role-mode.md` §8 third halt-trigger (convergence-rate tripwire) fires §5.2 mechanically when 3 peers reach agreement on a high-blast-radius proposal within ≤2 rounds AND no STEP_BACK comment yet exists. Detector-phrase patterns for 3rd-peer-post detection: "I agree with @peer's option X", "Adopt Option X", "Going with X" — when posted within ≤2 rounds on a high-blast-radius proposal.
 
@@ -125,7 +125,7 @@ Graduation is the transition from speculative Discussion to actionable Epic / ti
 
 ### 6.1 Scope Classification (mandatory in Discussion body header)
 
-Author declares scope in Discussion body via `Scope: high-blast` or `Scope: low-blast`. Default on ambiguity: **high-blast** (conservative). Cross-family reviewers can challenge classification via `[GRADUATION_DEFERRED — reclassification request]`. Operator can override classification under AGENTS.md §0 Invariant.
+Author declares scope in Discussion body via `Scope: high-blast` or `Scope: low-blast`. Default on ambiguity: **high-blast** (conservative). Cross-family reviewers can challenge classification via `[GRADUATION_DEFERRED — reclassification request]`. Operator can override classification under AGENTS.md §0 Invariant. Blast-class governs the §6 Consensus Mandate only — §5.2's Step-Back triggers fire independently of it: an epic-bound (≥3 subs) wave is Step-Back-mandatory even when its consensus class is low-blast.
 
 | Class | Definition | Graduation gate |
 |-------|------------|-----------------|
