@@ -11,11 +11,17 @@
  * `Object` / `Neo.core.Base` member, so a crafted `{method:'getManager'}` / `{method:'constructor'}`
  * request cannot reach a non-operation.
  *
- * `getBootIdentity`, `fleetActivity`, and `fleetRoster` are **read-observe** verbs — the advisory
- * boot-identity fact, the bounded fleet activity snapshot, and the assembled roster cockpit DTO:
- * they carry NO lifecycle-write / restart authority. The R3 read-observe ÷ lifecycle-write seam
- * keeps the daemon-core restart actuator physically OFF this client wire — only advisory reads
- * ride it.
+ * `getBootIdentity`, `fleetActivity`, `fleetRoster`, and `fleetMailboxMirror` are **read-observe**
+ * verbs — the advisory boot-identity fact, the bounded fleet activity snapshot, the assembled roster
+ * cockpit DTO, and one agent's mailbox mirror: they carry NO lifecycle-write / restart authority. The
+ * R3 read-observe ÷ lifecycle-write seam keeps the daemon-core restart actuator physically OFF this
+ * client wire — only advisory reads ride it.
+ *
+ * `fleetMailboxMirror` is admission-gated one layer down and carries no mutation verb: its snapshot
+ * is body-free and its source is deliberately unwired, so today it can only answer an honest
+ * `unavailable`. Being on this list is what makes the read seam REAL rather than a Node-side method
+ * the browser can never name — an allowlist omission fails closed and silent, which reads exactly
+ * like a wired-but-empty mailbox from the pane's side.
  *
  * **Dependency-free by design** — imported by both a Node module and an App-Worker (browser) module,
  * so it MUST NOT pull in the Node-only FleetControlBridge / crypto / fs chain.
@@ -24,5 +30,5 @@
 export const FLEET_WIRE_METHODS = Object.freeze([
     'defineAgent', 'configureAgent', 'setRepo', 'setAvatar', 'listAgents', 'getAgent',
     'startAgent', 'stopAgent', 'restartAgent', 'removeAgent', 'fleetStatus', 'fleetRuntimeStatus',
-    'getBootIdentity', 'fleetActivity', 'fleetRoster', 'connectTenant', 'listTenants'
+    'getBootIdentity', 'fleetActivity', 'fleetRoster', 'fleetMailboxMirror', 'connectTenant', 'listTenants'
 ]);
