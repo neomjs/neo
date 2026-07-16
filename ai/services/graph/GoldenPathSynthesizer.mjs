@@ -26,6 +26,7 @@ import {
     resolveAuthorFamily       as resolvePrAuthorFamily
 } from './agentFamilyResolution.mjs';
 import {
+    buildComputedRouteFromPass,
     buildFailureOutcome                          as buildRouteFailureOutcome,
     evaluateDiscussionLiveness                   as evaluateRouteDiscussionLiveness,
     findComputedFocusContradiction               as findRouteFocusContradiction,
@@ -1633,18 +1634,52 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
 
         logger.info(`[GoldenPathSynthesizer] Mathematical Golden Path established. Anchored ${topNodes.length} strategic nodes to frontier.`);
 
+        // Typed computed-route.v1 producer: consumers (handoff renderer, AgentOrchestrator, the
+        // projection channel) read this typed object + the JSON sidecar instead of reparsing the
+        // rendered Markdown. Declared-intent advisory items surface once the fallback renderer
+        // exposes its structured set; until then the advisory renders not-applicable.
+        //
+        // Fail-open: this enrichment is ADDITIVE. Any failure (an unmaterialized config leaf, a
+        // malformed pass outcome, a sidecar write error) yields a null typed route plus a logged
+        // warning — never a thrown pass. The rendered Markdown handoff is the unaffected base.
+        let computedRoute = null;
+
+        try {
+            const routeAlgorithmVersion = 'golden-path.tri-vector.v1';
+            const scoredSourceIds       = scoredNodes.map(entry => entry?.node?.id ?? entry?.id).filter(Boolean);
+
+            computedRoute = buildComputedRouteFromPass({
+                routeFailure,
+                routedTopNodes,
+                focusContradiction,
+                declaredIntentItems: [],
+                scoredSourceIds,
+                now                : handoffTimestamp,
+                ttlMs              : aiConfig.goldenPathRouteTtlMs,
+                routeVersion       : routeAlgorithmVersion,
+                algorithmVersion   : routeAlgorithmVersion
+            });
+
+            fs.writeFileSync(path.join(path.dirname(handoffFile), 'computed-route.json'), JSON.stringify(computedRoute, null, 2) + '\n', 'utf-8')
+        } catch (routeError) {
+            computedRoute = null;
+            logger.warn(`[GoldenPathSynthesizer] Typed computed-route enrichment failed (route absent this pass): ${routeError.message}`)
+        }
+
         return routeFailure ? {
             ...routeFailure,
             wroteHandoff    : true,
             selectedTopNodes: scoringStats.selectedTopNodes,
             prunedGuideEdges: scoringStats.prunedGuideEdges,
-            scoringStats
+            scoringStats,
+            computedRoute
         } : {
             status          : 'completed',
             wroteHandoff    : true,
             selectedTopNodes: scoringStats.selectedTopNodes,
             prunedGuideEdges: scoringStats.prunedGuideEdges,
-            scoringStats
+            scoringStats,
+            computedRoute
         };
     }
 }
