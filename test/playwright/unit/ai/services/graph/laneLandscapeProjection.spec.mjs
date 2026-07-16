@@ -23,13 +23,14 @@ import * as core      from '../../../../../../src/core/_export.mjs';
  * unknown handling, and the fail-loud injected clock.
  */
 test.describe('laneLandscapeProjection — current-state lane landscape', () => {
-    let projectLaneLandscape;
+    let projectLaneLandscape, normalizeLaneLandscapeCensus;
 
     const now = new Date('2026-07-16T09:00:00.000Z');
 
     test.beforeAll(async () => {
         const mod = await import('../../../../../../ai/services/graph/laneLandscapeProjection.mjs');
-        projectLaneLandscape = mod.projectLaneLandscape;
+        projectLaneLandscape         = mod.projectLaneLandscape;
+        normalizeLaneLandscapeCensus = mod.normalizeLaneLandscapeCensus;
     });
 
     test('authority coverage: open items split into assigned vs unassigned gaps', () => {
@@ -103,5 +104,39 @@ test.describe('laneLandscapeProjection — current-state lane landscape', () => 
         expect(Object.isFrozen(result)).toBe(true);
         expect(Object.isFrozen(result.dependencyPath)).toBe(true);
         expect(result.coverage.totalOpenItems).toBe(0);
+    });
+
+    test('normalizeLaneLandscapeCensus parses flat + properties + string-JSON rows; drops unparseable/id-less', () => {
+        const {items, edges} = normalizeLaneLandscapeCensus({
+            nodeRows: [
+                {id: 'issue-1', data: JSON.stringify({properties: {state: 'OPEN', assignees: ['ada'], labels: ['epic']}})},
+                {id: 'issue-2', data: {state: 'OPEN'}},   // object (not string) + flat shape
+                {id: 'issue-3', data: '{bad json'},       // unparseable payload → still an item (id kept, fields null)
+                {data: 'no id'}                            // no id → dropped
+            ],
+            edgeRows: [
+                {source: 'issue-1', target: 'issue-2', type: 'BLOCKS'},
+                {source: 'issue-1', type: 'PARENT_OF'}    // no target → dropped
+            ]
+        });
+
+        expect(items.map(item => item.id)).toEqual(['issue-1', 'issue-2', 'issue-3']);
+        expect(items[0]).toEqual({id: 'issue-1', state: 'OPEN', type: null, labels: ['epic'], assignee: 'ada'});
+        expect(items[1].state).toBe('OPEN');
+        expect(edges).toEqual([{type: 'BLOCKS', source: 'issue-1', target: 'issue-2'}]);
+    });
+
+    test('normalizeLaneLandscapeCensus output feeds projectLaneLandscape end-to-end', () => {
+        const census = normalizeLaneLandscapeCensus({
+            nodeRows: [
+                {id: 'issue-1', data: JSON.stringify({properties: {state: 'OPEN'}})},
+                {id: 'issue-2', data: JSON.stringify({properties: {state: 'OPEN', assignees: ['euclid']}})}
+            ],
+            edgeRows: [{source: 'issue-2', target: 'issue-1', type: 'BLOCKS'}]
+        });
+        const result = projectLaneLandscape({...census, now});
+
+        expect(result.authorityCoverage.unassignedIds).toEqual(['issue-1']);
+        expect(result.dependencyPath).toEqual([{id: 'issue-1', blockedBy: ['issue-2']}]);
     });
 });

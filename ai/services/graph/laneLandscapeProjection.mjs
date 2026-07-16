@@ -130,3 +130,43 @@ export function projectLaneLandscape({items = [], edges = [], now} = {}) {
         notAuthority: true
     })
 }
+
+/**
+ * @summary Normalizes raw Native-Edge-Graph node + edge rows into the `{items, edges}` census
+ * shape {@link projectLaneLandscape} consumes. The graph stores a node's fields either flat or under
+ * a `properties` object and its payload as a JSON string; this reads both shapes and drops a row it
+ * cannot parse rather than fabricating a field.
+ * @param {Object}   params
+ * @param {Object[]} [params.nodeRows=[]] Raw node rows `{id, data}` (`data` a JSON string or object).
+ * @param {Object[]} [params.edgeRows=[]] Raw edge rows `{source, target, type}`.
+ * @returns {{items: Object[], edges: Object[]}}
+ */
+export function normalizeLaneLandscapeCensus({nodeRows = [], edgeRows = []} = {}) {
+    const items = (Array.isArray(nodeRows) ? nodeRows : [])
+        .map(row => {
+            let data = {};
+            try {
+                data = typeof row?.data === 'string' ? JSON.parse(row.data) : (row?.data ?? {})
+            } catch (error) {
+                data = {}
+            }
+
+            const props    = data?.properties ?? data ?? {};
+            const assignee = props.assignee ?? (Array.isArray(props.assignees) ? props.assignees[0] : null) ?? null;
+
+            return {
+                id      : String(row?.id ?? data?.id ?? ''),
+                state   : props.state ?? data?.state ?? null,
+                type    : props.type ?? data?.type ?? null,
+                labels  : Array.isArray(props.labels) ? props.labels : [],
+                assignee: assignee != null ? String(assignee) : null
+            }
+        })
+        .filter(item => item.id.length > 0);
+
+    const edges = (Array.isArray(edgeRows) ? edgeRows : [])
+        .filter(edge => edge && edge.source != null && edge.target != null && edge.type)
+        .map(edge => ({type: String(edge.type), source: String(edge.source), target: String(edge.target)}));
+
+    return {items, edges}
+}
