@@ -572,8 +572,28 @@ class GoldenPathSynthesizer extends Base {
      * @returns {String}
      */
     static buildDeclaredIntentFallback(remState = {}) {
+        const {items, cause} = this.buildDeclaredIntentItems(remState);
+
+        // Renders `''` for an empty set, so an unavailable/short-circuited compute keeps the
+        // caller's normal empty section — the pre-extraction behavior.
+        return renderDeclaredIntentFallback(items, aiConfig.goldenPathTopNodeRenderLimit, cause)
+    }
+
+    /**
+     * @summary Computes the ranked declared-intent set backing the frontier-empty fallback, separated
+     * from its rendering so ONE walk feeds both the human section and the typed route's advisory slot.
+     *
+     * Keeping compute and render apart is what lets the typed `computed-route.v1` advisory carry the
+     * same declared-intent items the handoff shows, instead of the two drifting apart or the bounded
+     * SQLite walk running twice.
+     *
+     * @param {Object} [remState={}] Measured REM pipeline state; feeds the honest cause classification.
+     * @returns {{items: Object[], cause: Object|null}} Ranked `{id, title, inOpenEpic, epicActivity,
+     *   blocked, filedAt}` leaves (empty when unavailable) plus the measured frontier-empty cause.
+     */
+    static buildDeclaredIntentItems(remState = {}) {
         const sqliteDb = GraphService.db?.storage?.db;
-        if (!sqliteDb) return '';
+        if (!sqliteDb) return {items: [], cause: null};
 
         // Fully SQLite-sourced — cold-cache correct BY CONSTRUCTION. The in-memory node/edge stores are
         // lazy, so this fallback (which exists to rescue exactly the cold cache) reads open issues, their
@@ -597,7 +617,7 @@ class GoldenPathSynthesizer extends Base {
             inboundStmt = sqliteDb.prepare(`SELECT source, type FROM Edges WHERE target = ?`);
             stateStmt   = sqliteDb.prepare(`SELECT json_extract(data, '$.properties.state') AS s1, json_extract(data, '$.state') AS s2 FROM Nodes WHERE id = ?`);
         } catch (error) {
-            return '';
+            return {items: [], cause: null};
         }
 
         const isOpenNode = nodeId => {
@@ -623,6 +643,9 @@ class GoldenPathSynthesizer extends Base {
 
             items.push({
                 id          : String(id).replace(/^issue-/, ''),
+                // Carried for the typed route's advisory slot, which needs a human label; the
+                // rendered section shows the id alone and ignores it.
+                title       : nodeData.properties?.title || nodeData.properties?.name || null,
                 inOpenEpic,
                 epicActivity: getIssueFocusStructuralWeight(parentEdge.source),
                 blocked,
@@ -644,7 +667,7 @@ class GoldenPathSynthesizer extends Base {
             frontierAnchorEmpty: true
         });
 
-        return renderDeclaredIntentFallback(rankByDeclaredIntent(items), aiConfig.goldenPathTopNodeRenderLimit, cause);
+        return {items: rankByDeclaredIntent(items), cause};
     }
 
     /**
