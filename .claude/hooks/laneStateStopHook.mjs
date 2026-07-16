@@ -162,17 +162,33 @@ const SELF_IMPROVABILITY_CLAUSE = `friction→gold applies to THIS hook: if it f
 // decision happens. This is the hook-READ side; the daemon-WRITE side is a sibling lane.
 const LIFECYCLE_STATE_FILE = path.join(LOG_DIR, 'lifecycle-state.json');
 
+// Freshness window for the daemon-written state: anything older degrades exactly like a missing
+// file. Sized generously above the writer's cadence (minutes-scale) so daemon hiccups never starve
+// the board, while a dead writer can no longer serve day-old data as "live" — the empirically-hit
+// failure: an orphaned 10-day-old file (its producer since removed from the tree) fed every block
+// directive a fabricated top-ROI advisory, because staleness was never checked.
+const LIFECYCLE_STATE_TTL_MS = 6 * 60 * 60 * 1000;
+
 /**
  * @summary Reads the daemon-written lane-state file. FAIL-OPEN by construction: a missing, unreadable,
- * or malformed file returns `null` — the hook then injects the bare reminder and never throws. The
- * file is an enrichment, never a dependency (the hook works before the daemon-write side ships, and
- * degrades cleanly if the daemon is down). Exported for unit tests.
- * @returns {Object|null} `{openPRs, unreadCount, generatedAt}` or `null` on any read/parse failure.
+ * malformed, or STALE file returns `null` — the hook then injects the bare reminder and never throws.
+ * The file is an enrichment, never a dependency (the hook works before the daemon-write side ships,
+ * and degrades cleanly if the daemon is down). `generatedAt` is contract, not garnish: a state that
+ * cannot prove its freshness (missing / unparseable / older than {@link LIFECYCLE_STATE_TTL_MS}) is
+ * treated as stale — the write producer MUST stamp it. Exported for unit tests.
+ * @returns {Object|null} `{openPRs, unreadCount, generatedAt}` or `null` on any read/parse/staleness failure.
  */
 export function readLifecycleState() {
     try {
         const state = JSON.parse(fs.readFileSync(LIFECYCLE_STATE_FILE, 'utf8'));
-        return state && typeof state === 'object' ? state : null;
+
+        if (!state || typeof state !== 'object') return null;
+
+        const generatedAt = Date.parse(state.generatedAt);
+
+        if (!Number.isFinite(generatedAt) || Date.now() - generatedAt > LIFECYCLE_STATE_TTL_MS) return null;
+
+        return state;
     } catch {
         return null;
     }
@@ -247,8 +263,12 @@ export function formatGoldenPathDirection(state) {
 
         // Render ONLY entries carrying a usable id; skip null / non-object / idless entries so a single
         // malformed element never crashes the formatter (the malformed-shape fail-open the board uses).
+        // Epoch-scale id tails (13+ digits) cannot be tracker artifacts — real golden-path ids carry
+        // tracker-scale numbers; a machine-timestamp tail is the signature of a test fixture minted
+        // with Date.now() (two such rows once rode a polluted state file into every block directive).
         const valid = lanes.filter(lane => lane && typeof lane === 'object' &&
-            typeof lane.id === 'string' && lane.id.trim() !== '');
+            typeof lane.id === 'string' && lane.id.trim() !== '' &&
+            !/\d{13,}\s*$/.test(lane.id));
         if (!valid.length) return '';
 
         const rows = valid.map((lane, index) => {
