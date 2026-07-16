@@ -23,7 +23,7 @@ import * as core      from '../../../../../../src/core/_export.mjs';
  * substitution, one-version route identity, and the consumer-side fail-open guard.
  */
 test.describe('computedRouteResult — computed-route.v1 contract', () => {
-    let buildComputedRouteResult, validateComputedRouteResult,
+    let buildComputedRouteResult, validateComputedRouteResult, computeSourceManifestHash,
         COMPUTED_ROUTE_SCHEMA_VERSION, COMPUTED_ROUTE_STATUSES;
 
     // A minimally-valid `computed-ranked` result; individual tests override one facet.
@@ -46,6 +46,7 @@ test.describe('computedRouteResult — computed-route.v1 contract', () => {
         validateComputedRouteResult   = mod.validateComputedRouteResult;
         COMPUTED_ROUTE_SCHEMA_VERSION = mod.COMPUTED_ROUTE_SCHEMA_VERSION;
         COMPUTED_ROUTE_STATUSES       = mod.COMPUTED_ROUTE_STATUSES;
+        computeSourceManifestHash     = mod.computeSourceManifestHash;
     });
 
     test('stamps schemaVersion + notAuthority and freezes the result', () => {
@@ -160,5 +161,20 @@ test.describe('computedRouteResult — computed-route.v1 contract', () => {
         });
         expect(badKind.valid).toBe(false);
         expect(badKind.errors.some(e => /none.*zero/.test(e))).toBe(true);
+    });
+
+    test('computeSourceManifestHash is deterministic, order-independent, and dedup-stable', () => {
+        // deterministic
+        expect(computeSourceManifestHash(['issue-1', 'issue-2'])).toBe(computeSourceManifestHash(['issue-1', 'issue-2']));
+        // order-independent — identifies the source SET, not the ranking order
+        expect(computeSourceManifestHash(['issue-1', 'issue-2'])).toBe(computeSourceManifestHash(['issue-2', 'issue-1']));
+        // duplicate submissions collapse to the same digest
+        expect(computeSourceManifestHash(['issue-1', 'issue-1', 'issue-2'])).toBe(computeSourceManifestHash(['issue-1', 'issue-2']));
+        // a changed set changes the digest
+        expect(computeSourceManifestHash(['issue-1', 'issue-2'])).not.toBe(computeSourceManifestHash(['issue-1', 'issue-3']));
+        // the empty set is stable and hex-shaped; non-empty is hex-shaped too
+        expect(computeSourceManifestHash([])).toBe(computeSourceManifestHash([]));
+        expect(computeSourceManifestHash([])).toMatch(/^[0-9a-f]{8}$/);
+        expect(computeSourceManifestHash(['issue-1'])).toMatch(/^[0-9a-f]{8}$/);
     });
 });

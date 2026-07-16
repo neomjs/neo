@@ -327,3 +327,26 @@ export function validateComputedRouteResult(result) {
 
     return {valid: errors.length === 0, errors}
 }
+
+/**
+ * @summary Computes a deterministic, order-independent manifest hash over a set of source ids —
+ * the `sourceManifestHash` component of route identity. Two passes over the same set of scored
+ * sources produce the same hash regardless of ranking order or duplicate submissions; any change
+ * to the set changes the hash. Uses FNV-1a over the deduplicated, sorted id list.
+ * @param {String[]} ids Source ids in the scored manifest (route ranking order is irrelevant here).
+ * @returns {String} An 8-char lowercase hex digest. The empty set has a stable digest.
+ */
+export function computeSourceManifestHash(ids) {
+    const normalized = [...new Set((Array.isArray(ids) ? ids : []).map(String))].sort();
+    const joined     = normalized.join('\n');
+
+    // FNV-1a (32-bit): offset basis 0x811c9dc5, prime 0x01000193. Math.imul keeps the multiply
+    // in 32-bit space; the final `>>> 0` normalizes to an unsigned integer before hex encoding.
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < joined.length; i++) {
+        hash ^= joined.charCodeAt(i);
+        hash  = Math.imul(hash, 0x01000193)
+    }
+
+    return (hash >>> 0).toString(16).padStart(8, '0')
+}
