@@ -1,5 +1,5 @@
-import aiConfig         from './config.mjs';
-import IngestionService from '../../../services/knowledge-base/IngestionService.mjs';
+import aiConfig                          from './config.mjs';
+import IngestionService                  from '../../../services/knowledge-base/IngestionService.mjs';
 import {isRemoteKnowledgeBaseDeployment} from '../../../services/knowledge-base/helpers/deploymentMode.mjs';
 
 const ingestToolName = 'ingest_source_files';
@@ -37,7 +37,7 @@ const assertToolTransportAllowed = toolName => {
     if (getEffectiveToolName(toolName) === ingestToolName && !isRemoteIngestDeployment()) {
         throw new Error(
             '`ingest_source_files` is only exposed when the Knowledge Base MCP server runs ' +
-            'with `transport: "sse"` (StreamableHTTP). Use `npm run ai:ingest-tenant` or ' +
+            'with `transport: "streamable-http"`. Use `npm run ai:ingest-tenant` or ' +
             'direct service ingestion for local stdio workflows.'
         );
     }
@@ -77,12 +77,12 @@ const ingestSourceFilesViaMcp = async args => {
 
     if (batchSize > threshold) {
         return {
-            error    : 'KB ingest work volume exceeds MCP-callable threshold',
-            message  : `Batch volume ${batchSize} exceeds the MCP-synchronous threshold ${threshold}. ` +
+            error  : 'KB ingest work volume exceeds MCP-callable threshold',
+            message: `Batch volume ${batchSize} exceeds the MCP-synchronous threshold ${threshold}. ` +
                        `Re-invoke ingest_source_files with at most ${threshold} files/chunks per call; ` +
                        `a tenant-scoped bulk ingestion facade is planned (Phase 2C).`,
-            code     : 'KB_INGEST_VOLUME_EXCEEDED',
-            bulkPath : null,
+            code    : 'KB_INGEST_VOLUME_EXCEEDED',
+            bulkPath: null,
             batchSize,
             threshold
         };

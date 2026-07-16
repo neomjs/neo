@@ -38,14 +38,14 @@ A deployment's `config.mjs` is gitignored and copied from `config.template.mjs`.
 | `spoofRejectionMode` | `'overwrite'` | Policy for conflicting client-supplied tenant metadata. `'overwrite'` logs + replaces with server-derived values; `'reject'` fails the call with `KB_TENANT_SPOOF_REJECTED`. A multi-tenant cloud deployment should consider `'reject'` (fail-closed) — see [Security](./Security.md). |
 | `mcpSyncMaxChunks` | `50` | The [#10572](https://github.com/neomjs/neo/issues/10572) work-volume gate threshold — an MCP-callable sync/ingest batch over this count is refused (the bulk CLI bypasses it). See [Hook Wiring](./HookWiring.md). |
 
-### Transport + auth (cloud / SSE)
+### Transport + auth (cloud / Streamable HTTP)
 
 | Key | Default | Meaning |
 |---|---|---|
-| `transport` | `'stdio'` | `'stdio'` (local single-repo) or `'sse'` (StreamableHTTP — a cloud deployment serving remote tenants). |
-| `mcpHttpPort` | `3000` | The port the SSE transport listens on (only when `transport === 'sse'`). |
-| `publicUrl` | `null` | Canonical public URL — required behind a reverse proxy for OAuth 2.1 / OIDC audience claims + SSE callback advertising. |
-| `auth.mode` | `'oidc'` | Server-side bearer strategy for HTTP/SSE: `'oidc'` uses OIDC introspection + audience enforcement; `'gitlab-pat'` validates a GitLab OAuth token or PAT against `/api/v4/user` and returns a bare bearer challenge on failure. |
+| `transport` | `'stdio'` | `'stdio'` (local single-repo) or `'streamable-http'` (a cloud deployment serving remote tenants). These are the only supported server values. |
+| `mcpHttpPort` | `3000` | The port the Streamable HTTP transport listens on (only when `transport === 'streamable-http'`). |
+| `publicUrl` | `null` | Canonical public URL — required behind a reverse proxy for OAuth 2.1 / OIDC audience claims and protected-resource advertising. |
+| `auth.mode` | `'oidc'` | Server-side bearer strategy for Streamable HTTP: `'oidc'` uses OIDC introspection + audience enforcement; `'gitlab-pat'` validates a GitLab OAuth token or PAT against `/api/v4/user` and returns a bare bearer challenge on failure. |
 | `auth.issuerUrl` / `auth.host` / `auth.realm` | `null` / `null` / `'master'` | OIDC authority inputs for the default server mode. `issuerUrl` is preferred when the provider publishes discovery metadata directly. |
 | `auth.clientId` / `auth.clientSecret` | `null` / `''` | OIDC introspection client credentials for deployments that require them. |
 | `auth.trustProxyIdentity` | `false` | Accept identity from a trusted reverse-proxy header after the ingress strips spoofable client-supplied headers. |
@@ -59,6 +59,14 @@ same `/mcp` route as external callers. When a deployment sets
 the server can answer correctly while Compose keeps it unhealthy.
 
 Each key is also bindable via an environment variable (`NEO_KB_DEFAULT_TENANT_ID`, `NEO_TRANSPORT`, `MCP_HTTP_PORT`, …) — see `config.template.mjs`'s `envBindings` map for the full set.
+
+> [!IMPORTANT]
+> **v13.2 server-value migration:** replace `NEO_TRANSPORT=sse` with
+> `NEO_TRANSPORT=streamable-http` (or make the equivalent `aiConfig.transport`
+> edit) before upgrading. The old server value now fails startup with a migration
+> error; it no longer falls through to stdio. Update configuration and rebuild or
+> recreate the affected MCP servers together with the Neo upgrade. This does not
+> change the MCP client's separate `transportType: 'sse'` legacy capability.
 
 ## Tenant push-client environment
 

@@ -10,15 +10,15 @@ For the operator-facing decision model — how to choose repo slugs, treat crede
 
 | Surface | Caller | Volume policy | Built for |
 |---|---|---|---|
-| `ingest_source_files` | A remote MCP client of the `sse` / StreamableHTTP deployment — an agent in the tenant workspace, or a tenant push client | Gated — refuses a batch over `mcpSyncMaxChunks` (default 50); listed/callable only when the KB server runs with `transport === 'sse'` | Incremental pushes: a commit's worth of changed files |
-| `npm run ai:kb-push-client` | A tenant git hook or CI job; wraps the remote MCP call | Same MCP gate as `ingest_source_files` | Operator-facing repo-push invocation over StreamableHTTP/SSE |
+| `ingest_source_files` | A remote MCP client of the Streamable HTTP deployment — an agent in the tenant workspace, or a tenant push client | Gated — refuses a batch over `mcpSyncMaxChunks` (default 50); listed/callable only when the KB server runs with `transport === 'streamable-http'` | Incremental pushes: a commit's worth of changed files |
+| `npm run ai:kb-push-client` | A tenant git hook or CI job; wraps the remote MCP call | Same MCP gate as `ingest_source_files` | Operator-facing repo-push invocation over the configured remote MCP client transport |
 | `npm run ai:ingest-tenant` | A shell process co-located with the KB server — the cloud operator, a CI job | Ungated (`viaMcp: false`) | Initial tenant onboarding (5k–50k chunks), large back-fills |
 
 The fork between them is the [#10572](https://github.com/neomjs/neo/issues/10572) **MCP work-volume gate**. An MCP tool call holds the calling agent's turn open; embedding tens of thousands of chunks synchronously inside one call is the wrong shape. The gate makes that structural — `ingest_source_files` *refuses* an over-volume batch (it returns a refusal payload, it does not block), and the bulk CLI is the sanctioned path for the volume the gate rejects. `viaMcp: false` — passed only by the CLI — is the single sanctioned gate bypass.
 
 ## Transport and auth model
 
-The KB MCP server runs dual-transport (`ai/mcp/server/knowledge-base/Server.mjs`): `stdio` for a local single-repo deployment, or `sse` (StreamableHTTP) for a cloud deployment serving remote tenants — selected by `aiConfig.transport` with `aiConfig.mcpHttpPort`. `ingest_source_files` is transport-gated: it is listed and callable only when the KB server runs with `transport === 'sse'`. Local `stdio` clients do not see it and direct calls fail closed with guidance to use the local CLI/service path instead. The `ai:ingest-tenant` CLI is **not** a remote facade — it imports the KB services directly and runs on the deployment host.
+The KB MCP server runs dual-transport (`ai/mcp/server/knowledge-base/Server.mjs`): `stdio` for a local single-repo deployment, or `streamable-http` for a cloud deployment serving remote tenants — selected by `aiConfig.transport` with `aiConfig.mcpHttpPort`. `ingest_source_files` is transport-gated: it is listed and callable only when the KB server runs with `transport === 'streamable-http'`. Local `stdio` clients do not see it and direct calls fail closed with guidance to use the local CLI/service path instead. The `ai:ingest-tenant` CLI is **not** a remote facade — it imports the KB services directly and runs on the deployment host.
 
 The deployable repo-push path is `npm run ai:kb-push-client`. It is a tenant-side MCP client wrapper around `ingest_source_files`:
 
@@ -145,7 +145,7 @@ A `pre-push` hook is the recommended trigger: it fires once per `git push`, rece
 1. Read the pushed ref range (`<local-ref> <local-sha> <remote-ref> <remote-sha>`) from the hook's stdin.
 2. Enumerate changed files — `git diff --name-only --diff-filter=ACMR <remote-sha> <local-sha>` for adds/modifies, `--diff-filter=D` for deletes.
 3. Assemble the envelope — changed files into `files`, deleted paths into `deleted`, the SHA pair into `baseRevision` / `headRevision`.
-4. Submit it — when `NEO_KB_MCP_URL` is configured, pipe the envelope to `ai:kb-push-client`, which calls the `sse` / StreamableHTTP `ingest_source_files` endpoint; an initial import of an existing repo still goes to the deployment-host bulk CLI. In local `stdio` mode, use the CLI/service path instead; the MCP tool is intentionally hidden.
+4. Submit it — when `NEO_KB_MCP_URL` is configured, pipe the envelope to `ai:kb-push-client`, which calls the remote `ingest_source_files` endpoint; an initial import of an existing repo still goes to the deployment-host bulk CLI. In local `stdio` mode, use the CLI/service path instead; the MCP tool is intentionally hidden.
 5. Inspect the returned summary — a non-empty `errors` array fails the hook so the developer sees it.
 
 The example combines **tombstones + revision-boundary** — the precise-but-cheap pair for a hook that already runs `git diff`.

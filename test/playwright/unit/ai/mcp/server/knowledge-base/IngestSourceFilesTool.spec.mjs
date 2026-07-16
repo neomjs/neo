@@ -68,7 +68,7 @@ test.describe('ingest_source_files MCP facade — work-volume gate (#11634)', ()
     test.beforeEach(() => {
         // Tight, predictable threshold; restore the real service method before each spec.
         aiConfig.mcpSyncMaxChunks                       = 5;
-        aiConfig.transport                              = 'sse';
+        aiConfig.transport                              = 'streamable-http';
         IngestionService.ingestSourceFiles = originalIngest;
     });
 
@@ -142,8 +142,8 @@ test.describe('ingest_source_files MCP facade — work-volume gate (#11634)', ()
         expect('error' in result).toBe(false);
     });
 
-    test('ingest_source_files is listed for the remote SSE transport profile', () => {
-        aiConfig.transport = 'sse';
+    test('ingest_source_files is listed for the remote Streamable HTTP transport profile', () => {
+        aiConfig.transport = 'streamable-http';
 
         const {tools} = listTools();
         const tool    = tools.find(item => item.name === 'ingest_source_files');
@@ -162,6 +162,6 @@ test.describe('ingest_source_files MCP facade — work-volume gate (#11634)', ()
         const {tools} = listTools();
 
         expect(tools.find(item => item.name === 'ingest_source_files')).toBeUndefined();
-        await expect(callTool('ingest_source_files', {files: []})).rejects.toThrow(/transport: "sse"/);
+        await expect(callTool('ingest_source_files', {files: []})).rejects.toThrow(/transport: "streamable-http"/);
     });
 });

@@ -143,7 +143,7 @@ export function resolveSummaryVisibilityUserId({userId, participatingAgents} = {
  *
  * **Identity flow:**
  *
- * 1. **SSE transport:** `AuthService.verifyAccessToken` validates the incoming Bearer
+ * 1. **Streamable HTTP transport:** `AuthService.verifyAccessToken` validates the incoming Bearer
  *    token via OIDC introspection and returns `{userId, username, ...}` on the auth context,
  *    extracted from the introspection response's `preferred_username` / `sub` / `name` /
  *    `email` claims. `TransportService` wraps each `/mcp` request with
@@ -153,7 +153,7 @@ export function resolveSummaryVisibilityUserId({userId, participatingAgents} = {
  *    looks up the matching AgentIdentity graph node, then wraps every
  *    `CallToolRequestSchema` dispatch with `RequestContextService.run({userId, username,
  *    agentIdentityNodeId, source: 'env-var' | 'gh-cli'}, ...)`. Stdio now reaches parity with
- *    SSE — per-agent GitHub account pinning tags writes with the correct tenant regardless of
+ *    Streamable HTTP — per-agent GitHub account pinning tags writes with the correct tenant regardless of
  *    transport.
  * 3. **Service-layer consumption:** `MemoryService.addMemory`, `SummaryService.querySummaries`,
  *    etc. call `RequestContextService.getUserId()` and either tag ChromaDB writes with
@@ -226,7 +226,7 @@ class RequestContextService extends Base {
      *                                                the identity is unbound (e.g. unseeded
      *                                                agent or stdio `unresolved` source).
      * @param {String}   [context.source]             Provenance tag indicating where this
-     *                                                identity originated: `'oidc'` (SSE bearer
+     *                                                identity originated: `'oidc'` (Streamable HTTP bearer
      *                                                token), `'env-var'` (stdio
      *                                                `NEO_AGENT_IDENTITY`), `'gh-cli'` (stdio
      *                                                `gh api user` fallback), or `'unresolved'`.
@@ -323,7 +323,7 @@ class RequestContextService extends Base {
 
         return new Error(
             `Cannot ${operation}: no agent identity context bound. No identity resolved — set ` +
-            `NEO_AGENT_IDENTITY (stdio) or provide a valid Bearer token (SSE multi-user mode).`
+            `NEO_AGENT_IDENTITY (stdio) or provide a valid Bearer token (Streamable HTTP multi-user mode).`
         );
     }
 

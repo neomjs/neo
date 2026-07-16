@@ -56,7 +56,7 @@ services:
         NEO_SOURCE: local  # build the local checkout under test, not a remote clone
         TARGET_SERVER: knowledge-base
     environment:
-      - NEO_TRANSPORT=sse
+      - NEO_TRANSPORT=streamable-http
       - NEO_AUTO_SYNC=false
       - NEO_KB_AUTO_START_DATABASE=false
       - NEO_CHROMA_HOST=chroma
@@ -94,7 +94,7 @@ services:
         NEO_SOURCE: local  # build the local checkout under test, not a remote clone
         TARGET_SERVER: knowledge-base
     environment:
-      - NEO_TRANSPORT=sse
+      - NEO_TRANSPORT=streamable-http
       - NEO_AUTO_SYNC=false
       - NEO_KB_AUTO_START_DATABASE=false
       - NEO_CHROMA_HOST=chroma
@@ -132,7 +132,7 @@ services:
         NEO_SOURCE: local  # build the local checkout under test, not a remote clone
         TARGET_SERVER: memory-core
     environment:
-      - NEO_TRANSPORT=sse
+      - NEO_TRANSPORT=streamable-http
       - NEO_MC_PRIMARY=false
       - NEO_AUTO_SUMMARIZE=false
       - NEO_MEM_AUTO_START_DATABASE=false
@@ -195,7 +195,7 @@ services:
         NEO_SOURCE: local  # build the local checkout under test, not a remote clone
         TARGET_SERVER: memory-core
     environment:
-      - NEO_TRANSPORT=sse
+      - NEO_TRANSPORT=streamable-http
       - NEO_MC_PRIMARY=false
       - NEO_AUTO_SUMMARIZE=false
       - NEO_MEM_AUTO_START_DATABASE=false

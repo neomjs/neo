@@ -89,7 +89,7 @@ Key components of a server include:
 
 1.  **Dual Transport Architecture**: The servers are built to support multiple transport layers depending on the environment:
     *   **`StdioServerTransport`**: The default behavior. Servers communicate over the standard input/output of their process. This eliminates the need for port management and network configuration, making it perfect for local CLI agents.
-    *   **`StreamableHTTPServerTransport` (SSE)**: Configurable via the `transport: 'sse'` setting. The servers will dynamically load an Express app and expose a unified `/mcp` endpoint. This is essential for deploying the servers as containerized microservices (e.g., Docker) where `stdio` is not accessible to remote agents.
+    *   **`StreamableHTTPServerTransport`**: Configurable via the server-side `transport: 'streamable-http'` setting. The servers dynamically load an Express app and expose a unified `/mcp` endpoint. This is essential for deploying the servers as containerized microservices (e.g., Docker) where `stdio` is not accessible to remote agents. Client-side `type: 'sse'` remains a distinct legacy transport for endpoints that actually implement it.
 
 2.  **`openapi.yaml`**: Each server has an OpenAPI 3 specification that defines the tools it provides. The `operationId` of each path becomes the tool's name, and the schema and description are used to generate the tool manifest for the agent. This provides a structured, language-agnostic way to define capabilities.
 

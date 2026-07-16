@@ -20,8 +20,8 @@ Use the same underlying ingestion service through three operational surfaces:
 
 | Surface | Use when | Volume / lifecycle |
 |---|---|---|
-| `ingest_source_files` | A tenant agent or push client sends a bounded incremental change set to the cloud MCP endpoint running with `transport === 'sse'`. | MCP-callable only in the remote StreamableHTTP profile and volume-gated by `mcpSyncMaxChunks`; split or use the CLI when the gate refuses. |
-| `npm run ai:kb-push-client` | A tenant git hook or CI job needs an operator-facing invocation wrapper for the remote MCP call. | Runs in the tenant workspace, uses StreamableHTTP/SSE, carries an automation identity bearer token, and preserves the MCP gate. |
+| `ingest_source_files` | A tenant agent or push client sends a bounded incremental change set to the cloud MCP endpoint running with `transport === 'streamable-http'`. | MCP-callable only in the remote Streamable HTTP profile and volume-gated by `mcpSyncMaxChunks`; split or use the CLI when the gate refuses. |
+| `npm run ai:kb-push-client` | A tenant git hook or CI job needs an operator-facing invocation wrapper for the remote MCP call. | Runs in the tenant workspace, uses the configured remote MCP client transport, carries an automation identity bearer token, and preserves the MCP gate. |
 | `npm run ai:ingest-tenant -- <tenantId> ...` | A deployment operator, CI job, or onboarding script performs an initial import, full backfill, or large re-push. | Runs on the deployment host, bypasses the MCP turn-volume gate via `viaMcp: false`, and holds the heavy-maintenance lease. |
 
 All three surfaces call `KnowledgeBaseIngestionService.ingestSourceFiles()`. The MCP facade is hidden and fail-closed for local `stdio` server sessions because repo-push ingestion is an operator-facing remote deployment path, not an interactive local agent tool. A future non-MCP HTTP/queue receiver may share the same service, but it is not the shipped #11743 path.

@@ -30,7 +30,7 @@ Target-tier shorthand:
 
 | env var | current readers | target tier | deletion/keep rationale |
 |---|---|---|---|
-| `NEO_AUTH_HOST` | `memory-core/config.template.mjs:125`; `knowledge-base/config.template.mjs:70` | Tier 3 | Runtime binding for OAuth/OIDC authority host in deployed SSE mode. |
+| `NEO_AUTH_HOST` | `memory-core/config.template.mjs:125`; `knowledge-base/config.template.mjs:70` | Tier 3 | Runtime binding for OAuth/OIDC authority host in deployed Streamable HTTP mode. |
 | `NEO_AUTH_ISSUER_URL` | `memory-core/config.template.mjs:128`; `knowledge-base/config.template.mjs:73` | Tier 3 | Runtime binding for external issuer URL behind reverse proxies. |
 | `NEO_AUTH_PORT` | `memory-core/config.template.mjs:126`; `knowledge-base/config.template.mjs:71` | Tier 3 | Runtime binding for local auth server port; keep env-overridable for deployment. |
 | `NEO_AUTH_REALM` | `memory-core/config.template.mjs:127`; `knowledge-base/config.template.mjs:72` | Tier 3 | Runtime binding for auth realm; deployment/operator concern. |
@@ -47,7 +47,7 @@ Target-tier shorthand:
 | `NEO_GRAPH_DECAY_FACTOR` | `memory-core/config.template.mjs:281` | Tier 2 | Memory Core graph tuning. Prefer per-server config default over env keep-list. |
 | `HOST` | `shared/services/TransportService.mjs:112` | Defer | Bare generic env fallback for advertised URL construction. `NEO_PUBLIC_URL` is the canonical deployment surface; #10825/Phase 1.5 should decide whether `HOST` remains. |
 | `LOCALAPPDATA` | `memory-core/services/lifecycle/InferenceLifecycleService.mjs:120` | Tier 3 | Host OS discovery for Windows local inference integration; not a Neo operator var but legitimate process environment input. |
-| `MCP_HTTP_PORT` | `shared/helpers/DeploymentConfig.mjs:36`; `memory-core/config.template.mjs:103`; `knowledge-base/config.template.mjs:48` | Tier 3 | Runtime binding for SSE/HTTP server port. Keep one canonical name per concept. |
+| `MCP_HTTP_PORT` | `shared/helpers/DeploymentConfig.mjs:36`; `memory-core/config.template.mjs:103`; `knowledge-base/config.template.mjs:48` | Tier 3 | Runtime binding for the Streamable HTTP server port. Keep one canonical name per concept. |
 | `NEO_MEMORY_COLLECTION_NAME` | `memory-core/config.template.mjs:259` | Tier 2 | Collection name default; move to per-server config unless container override remains a proven need. |
 | `NEO_AGENT_ID` | `knowledge-base/Server.mjs:189,191`; `knowledge-base/services/KBRecorderService.mjs:202`; `knowledge-base/services/toolService.mjs:42` | Tier 3 | Identity binding for KB telemetry and request attribution. Keep until request-context identity fully replaces it. |
 | `NEO_AGENT_IDENTITY` | `shared/services/StdioIdentityResolver.mjs:70` | Tier 3 | Canonical local agent identity binding for stdio MCP sessions. |
@@ -92,7 +92,7 @@ Target-tier shorthand:
 | `NEO_REAL_TIME_MEMORY_PARSING` | `memory-core/config.template.mjs:80` | Tier 3 | Operator one-shot/daemon toggle; keep opt-in env to prevent accidental graph writes. |
 | `NEO_SESSION_COLLECTION_NAME` | `memory-core/config.template.mjs:260` | Tier 2 | Collection name default; move to per-server config unless deployment override remains necessary. |
 | `SSE_PORT` | `shared/helpers/DeploymentConfig.mjs:37` | Delete | Legacy dev-branch-only alias targeted by #10823. |
-| `NEO_TRANSPORT` | `memory-core/config.template.mjs:95`; `knowledge-base/config.template.mjs:40` | Tier 3 | Runtime binding for stdio vs SSE server mode. |
+| `NEO_TRANSPORT` | `memory-core/config.template.mjs:95`; `knowledge-base/config.template.mjs:40` | Tier 3 | Runtime binding for `stdio` vs `streamable-http` server mode. |
 | `USER` | `knowledge-base/Server.mjs:189,191`; `knowledge-base/services/KBRecorderService.mjs:202`; `knowledge-base/services/toolService.mjs:42` | Tier 3 | Host identity fallback. Keep as fallback only while request-bound identity migration remains incomplete. |
 
 ## Count Summary

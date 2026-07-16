@@ -9,5 +9,5 @@
  * @returns {Boolean} True when remote tenant-ingestion behavior should be enabled.
  */
 export function isRemoteKnowledgeBaseDeployment(aiConfig) {
-    return aiConfig.transport === 'sse'
+    return aiConfig.transport === 'streamable-http'
 }

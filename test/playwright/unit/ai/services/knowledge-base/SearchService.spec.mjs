@@ -359,7 +359,7 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
 
         QueryService.queryDocuments = async () => ({results: []});
         ChromaManager.getKnowledgeBaseCollection = async () => ({count: async () => 0});
-        aiConfig.transport = 'sse';
+        aiConfig.transport = 'streamable-http';
 
         try {
             const result = await SearchService.ask({query: 'anything'});

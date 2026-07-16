@@ -1,18 +1,18 @@
-import aiConfig                          from '../../mcp/server/knowledge-base/config.mjs';
-import Base                              from '../../../src/core/Base.mjs';
-import {buildChatModel}                  from '../../provider/buildChatModel.mjs';
-import {PROVIDER_TIMEOUT_CODE}           from '../../provider/createTimeoutError.mjs';
-import ChromaManager                     from './ChromaManager.mjs';
-import fs                                from 'fs-extra';
-import logger                            from '../../mcp/server/knowledge-base/logger.mjs';
-import path                              from 'path';
-import QueryService                      from './QueryService.mjs';
-import {checkAskRateLimit}               from './helpers/askRateLimit.mjs';
-import {isRemoteKnowledgeBaseDeployment} from './helpers/deploymentMode.mjs';
-import {getMissingAskSynthesisLeaves}    from './helpers/askSynthesisGuard.mjs';
-import GraphService                      from '../memory-core/GraphService.mjs';
+import aiConfig                                                                      from '../../mcp/server/knowledge-base/config.mjs';
+import Base                                                                          from '../../../src/core/Base.mjs';
+import {buildChatModel}                                                              from '../../provider/buildChatModel.mjs';
+import {PROVIDER_TIMEOUT_CODE}                                                       from '../../provider/createTimeoutError.mjs';
+import ChromaManager                                                                 from './ChromaManager.mjs';
+import fs                                                                            from 'fs-extra';
+import logger                                                                        from '../../mcp/server/knowledge-base/logger.mjs';
+import path                                                                          from 'path';
+import QueryService                                                                  from './QueryService.mjs';
+import {checkAskRateLimit}                                                           from './helpers/askRateLimit.mjs';
+import {isRemoteKnowledgeBaseDeployment}                                             from './helpers/deploymentMode.mjs';
+import {getMissingAskSynthesisLeaves}                                                from './helpers/askSynthesisGuard.mjs';
+import GraphService                                                                  from '../memory-core/GraphService.mjs';
 import {CONCEPT_EXPANSION_EDGE_TYPES, KB_TERMINAL_EDGE_TYPES, enrichWithConceptWalk} from '../graph/conceptAnchoredRetrieval.mjs';
-import {buildKbFileResolveCandidate}     from './conceptWalkKbFileGate.mjs';
+import {buildKbFileResolveCandidate}                                                 from './conceptWalkKbFileGate.mjs';
 
 const LOCAL_EMPTY_COLLECTION_ANSWER  = "The knowledge base collection is empty. Populate it with the release artifact via 'npm run ai:download-kb' (or build locally with 'npm run ai:sync-kb').";
 const REMOTE_EMPTY_COLLECTION_ANSWER = "The knowledge base collection is empty. In a cloud or remote tenant-ingestion deployment, inspect ingestion state first: call get_ingestion_progress(), then inspect_deployment or get_deployment_state_snapshot for tenantRepoSync / deployment-state details. For push-mode tenants, run the configured ingest_source_files or bulk tenant-ingest path before retrying the query.";
@@ -160,7 +160,7 @@ class SearchService extends Base {
     /**
      * Returns the operator-facing answer for a healthy but empty KB collection.
      *
-     * Local stdio deployments need the curated Neo corpus download/sync hint. Remote SSE deployments
+     * Local stdio deployments need the curated Neo corpus download/sync hint. Remote Streamable HTTP deployments
      * expose tenant-ingestion tools, so an empty collection is first an ingestion-state diagnostic.
      *
      * @returns {String} The empty-collection remediation message.

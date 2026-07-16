@@ -87,7 +87,7 @@ function heartbeatLivenessStaleMs() {
  * logic without bootstrapping the full Memory Core runtime.
  *
  * Three input shapes matter:
- * 1. `null` — stdioIdentity never populated (SSE transport, or resolver ran before the
+ * 1. `null` — stdioIdentity never populated (Streamable HTTP transport, or resolver ran before the
  *    setter was invoked). Projects to `{source: 'unresolved', bound: false, nodeId: null, warning: null}`.
  * 2. Resolved without graph node — a resolver yielded a userId but no seeded
  *    AgentIdentity graph node matched. Projects to `{source: <resolved>, bound: false, nodeId: null, warning}`.
@@ -98,7 +98,7 @@ function heartbeatLivenessStaleMs() {
  *    The success shape that A2A operation requires.
  *
  * Cloud / multi-tenant request identities (`proxy-header`, `oidc`) intentionally do not warn:
- * tenant users are not expected to have AgentIdentity graph nodes, and SSE healthcheck boot state
+ * tenant users are not expected to have AgentIdentity graph nodes, and Streamable HTTP healthcheck boot state
  * normally remains unresolved because request identity flows through `RequestContextService`.
  *
  * The projection itself stays pure and does not assign top-level health. The healthcheck
@@ -868,7 +868,7 @@ class HealthService extends Base {
     /**
      * Cached stdio identity state for the healthcheck `identity` observability block.
      * Populated by `Server.mjs` post-`resolveStdioIdentity()` via {@link HealthService#setStdioIdentityState}.
-     * Null when the setter hasn't fired yet (SSE transport, pre-boot, or timing races — all of
+     * Null when the setter hasn't fired yet (Streamable HTTP transport, pre-boot, or timing races — all of
      * which project to `source: 'unresolved'` via {@link buildIdentityBlock}).
      * @member {Object|null} #stdioIdentityState
      * @private
@@ -1802,8 +1802,8 @@ class HealthService extends Base {
     /**
      * Caches the resolved stdio identity so the healthcheck `identity` block can surface
      * it. Called by `Server.mjs` after `resolveStdioIdentity()` completes in the
-     * stdio boot path. SSE transport does not call this — per-request OIDC identity is
-     * orthogonal to process-level stdio identity; observability for SSE per-request state
+     * stdio boot path. Streamable HTTP transport does not call this — per-request OIDC identity is
+     * orthogonal to process-level stdio identity; observability for Streamable HTTP per-request state
      * is a separate concern.
      *
      * Clears the healthcheck cache so the next call returns a fresh payload including

@@ -43,7 +43,7 @@ class Config extends ConfigProvider {
              */
             debug: leaf(false, 'NEO_DEBUG', 'boolean'),
             /**
-             * Transport protocol for the MCP server ('stdio' or 'sse').
+             * Server transport protocol. Supported values are exactly `stdio` and `streamable-http`.
              * @type {string}
              */
             transport: leaf('stdio', 'NEO_TRANSPORT', 'string'),
@@ -59,7 +59,8 @@ class Config extends ConfigProvider {
              */
             openApiPath: leaf(path.join(__dirname, 'openapi.yaml'), 'NEO_AI_MCP_KB_OPENAPI_PATH', 'string'),
             /**
-             * Port the MCP server's HTTP/SSE transport listens on (only used when `transport === 'sse'`).
+             * Port the MCP server's Streamable HTTP transport listens on (only used when
+             * `transport === 'streamable-http'`).
              *
              * Operator env var: `MCP_HTTP_PORT`.
              * @type {number}
@@ -68,7 +69,7 @@ class Config extends ConfigProvider {
             /**
              * Optional public canonical URL for this MCP server.
              * When configured, this URL is explicitly used as the resource indicator
-             * for OAuth 2.1 / OIDC audience claims and SSE callback advertising.
+             * for OAuth 2.1 / OIDC audience claims and protected-resource advertising.
              * Required when deploying behind reverse proxies (Nginx/Caddy) where
              * the internal host:port bindings do not match the public-facing URL.
              * Example: 'https://mcp.neo.mjs.com/knowledge-base'
@@ -85,7 +86,8 @@ class Config extends ConfigProvider {
              */
             allowedHosts: leaf(null, 'NEO_MCP_ALLOWED_HOSTS', 'string'),
             /**
-             * Optional Express middleware function for authentication (only used if transport is 'sse').
+             * Optional Express middleware function for authentication (only used when
+             * `transport === 'streamable-http'`).
              * @type {Function|null}
              */
             authMiddleware: leaf(null),

@@ -1,6 +1,6 @@
 # Memory Core MCP Authentication
 
-The Memory Core MCP server enforces **tenant-scoped identity** on every tool invocation — regardless of whether the caller connects over **stdio** (local agents, CI runners) or **SSE** (cloud-native, multi-tenant deployments). This guide describes the dual-path identity resolution, the `AgentIdentity` graph-node binding, and the anti-spoof invariant that together close the multi-tenant isolation contract shipped across tickets #10000, #10144, and #10145.
+The Memory Core MCP server enforces **tenant-scoped identity** on every tool invocation — regardless of whether the caller connects over **stdio** (local agents, CI runners) or **Streamable HTTP** (cloud-native, multi-tenant deployments). This guide describes the dual-path identity resolution, the `AgentIdentity` graph-node binding, and the anti-spoof invariant that together close the multi-tenant isolation contract shipped across tickets #10000, #10144, and #10145.
 
 ## Why Identity Matters Here
 
@@ -16,19 +16,19 @@ Three invariants together close the contract:
 
 | Transport | Identity Source | Implementation |
 |---|---|---|
-| **SSE** | OIDC Bearer-token introspection, or GitLab bearer validation in `gitlab-pat` mode | `AuthService.verifyAccessToken` (shipped in #10000) and `AuthService.createGitlabPatVerifier()` |
+| **Streamable HTTP** | OIDC Bearer-token introspection, or GitLab bearer validation in `gitlab-pat` mode | `AuthService.verifyAccessToken` (shipped in #10000) and `AuthService.createGitlabPatVerifier()` |
 | **stdio** | `NEO_AGENT_IDENTITY` env-var, then `gh api user` fallback | `StdioIdentityResolver` (ticket #10145) |
 
 Both paths end at the same destination: a `RequestContextService.run(context, ...)` wrap around tool dispatch, where the `context` shape is identical. Service-layer code reading `RequestContextService.getUserId()` is transport-agnostic.
 
-### SSE Path — OIDC via `AuthService`
+### Streamable HTTP Path — OIDC via `AuthService`
 
 Operators configure the Memory Core with either an OIDC discovery URL or a Keycloak-style issuer/realm pair. The `AuthService` handles discovery, token introspection, audience enforcement, and extracts `preferred_username` / `sub` as the authoritative `userId`. `TransportService` wraps each `/mcp` HTTP request in `RequestContextService.run()` using the auth context.
 
 Deployment example — Memory Core running behind Keycloak in a multi-tenant cloud environment (env vars consumed by `ai/mcp/server/memory-core/config.template.mjs` directly, no per-server prefix translation):
 
 ```
-NEO_TRANSPORT=sse
+NEO_TRANSPORT=streamable-http
 MCP_HTTP_PORT=3001       # legacy alias `SSE_PORT` still works during the #10808 deprecation window
 NEO_PUBLIC_URL=https://mcp.example.com/mc
 NEO_AUTH_ISSUER_URL=https://auth.example.com/realms/neo/
@@ -40,7 +40,7 @@ NEO_OAUTH_CLIENT_SECRET=<secret>
 
 Once the server starts, every tool call from a client MUST arrive with `Authorization: Bearer <token>` where the token was issued by the configured issuer AND audience-matches the Memory Core's canonical public URL (configured via `NEO_PUBLIC_URL`). Tokens with `aud` claims targeting a different resource are rejected per RFC 9068.
 
-### SSE Path — GitLab Bearer via `gitlab-pat`
+### Streamable HTTP Path — GitLab Bearer via `gitlab-pat`
 
 Cloud deployments can opt into `NEO_AUTH_MODE=gitlab-pat`. In that mode the server validates the incoming bearer against the configured GitLab instance's `/api/v4/user` endpoint and stamps the request with the GitLab username plus provider-neutral metadata (`authProvider`, `authSource`, `providerBaseUrl`, `providerUserId`, `providerUsername`, `providerDisplayName`). User and client allowlists, when configured, are checked before request context is built.
 
@@ -163,7 +163,7 @@ All fields are populated on a best-effort basis. `userId` is `undefined` only wh
 
 ## OAuth 2.1 Spec Version
 
-The SSE path validates Bearer tokens per OAuth 2.1 draft conventions (audience enforcement, introspection-based validation, resource indicator checks per RFC 9068). Implementations targeting this Memory Core MUST:
+The Streamable HTTP path validates Bearer tokens per OAuth 2.1 draft conventions (audience enforcement, introspection-based validation, resource indicator checks per RFC 9068). Implementations targeting this Memory Core MUST:
 
 - Issue tokens with a specific `aud` (audience) claim matching the Memory Core's public URL
 - Support RFC 7662 introspection (or expose introspection metadata in the OIDC discovery document)
@@ -232,7 +232,7 @@ The `[neo-memory-core MCP] Identity: <userId> via <source> — bound to <nodeId>
 
 The `AuthMiddleware` refused a tool-call argument. Check that the client is not attempting to supply `userId`, `agent.authorLogin`, `from`, or any other field listed above. If the tool legitimately needs to pass an identity-adjacent value, rename the field at the schema layer.
 
-### SSE transport returns 401 despite a valid-looking Bearer token
+### Streamable HTTP transport returns 401 despite a valid-looking Bearer token
 
 - Check the `aud` (audience) claim of the token — must match the Memory Core's public URL.
 - Check that the OIDC introspection endpoint is reachable from the Memory Core process.
@@ -245,13 +245,13 @@ flowchart TD
     subgraph MCP ["MCP Tool Call Dispatch"]
         direction TD
 
-        SSE["SSE Transport\nTransportService"]
+        HTTP["Streamable HTTP Transport\nTransportService"]
         STDIO["Stdio Transport\nServer.mjs"]
 
         AuthSvc["AuthService\n(OIDC introspect)"]
         StdioRes["StdioIdentityResolver\n(env-var + gh-CLI)"]
 
-        SSE --> AuthSvc
+        HTTP --> AuthSvc
         STDIO --> StdioRes
 
         Bind["bindAgentIdent\n(graph lookup)"]
@@ -461,7 +461,7 @@ Shipping the guarded projector or migration script does **not** mutate a live gr
 
 ## Related Tickets
 
-- #10000 — Hardened Identity Ingestion (SSE OIDC path + RequestContextService)
+- #10000 — Hardened Identity Ingestion (Streamable HTTP OIDC path + RequestContextService)
 - #10144 — AgentIdentity node type + seed script
 - #10145 — OAuth2 authentication layer for Memory Core MCP connections (this doc)
 - #10016 — Multi-Tenant Identity & Data Privacy (parent sub-epic)

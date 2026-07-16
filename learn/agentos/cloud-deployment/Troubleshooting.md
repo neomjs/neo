@@ -18,7 +18,7 @@ Work top-to-bottom — each error means you cleared the layer above it.
 
 ### `Not Acceptable: Client must accept text/event-stream`
 
-**Layer:** you reached the MCP endpoint — it is a Streamable-HTTP / SSE endpoint, not a web page; the client omitted the required `Accept` header.
+**Layer:** you reached the Streamable HTTP MCP endpoint, not a web page; the client omitted the required `Accept` header.
 
 **Fix:** send `Accept: application/json, text/event-stream` on every request.
 
@@ -42,7 +42,7 @@ Work top-to-bottom — each error means you cleared the layer above it.
 
 ### A body of `event: message` / `data: {…}`
 
-**Not an error.** That is the normal Streamable-HTTP / SSE framing — a successful `initialize` returns `event: message` plus a `data:` line carrying the JSON-RPC result (including `serverInfo`).
+**Not an error.** That is normal SSE response framing within Streamable HTTP — a successful `initialize` returns `event: message` plus a `data:` line carrying the JSON-RPC result (including `serverInfo`).
 
 ## Deployment gotchas
 
@@ -178,7 +178,7 @@ curl -sS -X POST "$URL" "${AUTH[@]}" \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
 ```
 
-A healthy server returns `event: message` SSE framing carrying the JSON-RPC results. A `Server not initialized` error means step 1's handshake was skipped.
+A healthy Streamable HTTP server can return `event: message` SSE framing carrying the JSON-RPC results. A `Server not initialized` error means step 1's handshake was skipped.
 
 > There is no auth-free `GET /health` liveness endpoint today — the server exposes only the authenticated `/mcp` route — so external liveness checks run the `initialize` handshake above (or rely on the container's internal healthcheck).
 

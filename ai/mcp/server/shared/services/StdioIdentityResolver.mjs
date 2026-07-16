@@ -4,10 +4,10 @@ import Base       from '../../../../../src/core/Base.mjs';
 /**
  * @summary Resolves the active agent identity for stdio MCP transport sessions.
  *
- * The stdio transport has no request-level authentication primitive (unlike the SSE transport's
+ * The stdio transport has no request-level authentication primitive (unlike the Streamable HTTP transport's
  * OIDC Bearer token flow handled by `AuthService`). Identity must be pinned at process-boot time
  * so that every subsequent `callTool` dispatch inherits a consistent tenant tag via
- * `RequestContextService`, bringing stdio to **parity with the SSE identity propagation**.
+ * `RequestContextService`, bringing stdio to **parity with Streamable HTTP identity propagation**.
  *
  * **Resolution chain** (first match wins):
  *
@@ -24,7 +24,7 @@ import Base       from '../../../../../src/core/Base.mjs';
  *    failure — preserves the existing local-agent developer experience.
  *
  * **Intentionally NOT in scope:**
- * - OAuth2/OIDC token validation — that's `AuthService` (SSE transport only)
+ * - OAuth2/OIDC token validation — that's `AuthService` (Streamable HTTP transport only)
  * - AgentIdentity graph-node binding — the consumer (`memory-core/Server.mjs`) calls
  *   the shared `normalizeAgentIdentityNodeId()` boundary before the graph lookup, then
  *   composes the full RequestContext. Keeping the graph lookup out of this service preserves
@@ -32,7 +32,7 @@ import Base       from '../../../../../src/core/Base.mjs';
  *
  * This class is a key example of the framework's **multi-tenant identity resolution** model
  * and demonstrates concepts like **agent identity**, **OAuth fallback patterns**, **zero-friction
- * developer experience**, and **stdio-SSE transport parity**.
+ * developer experience**, and **stdio/Streamable-HTTP transport parity**.
  *
  * @class Neo.ai.mcp.server.shared.services.StdioIdentityResolver
  * @extends Neo.core.Base
