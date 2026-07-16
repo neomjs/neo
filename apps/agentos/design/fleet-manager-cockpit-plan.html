@@ -364,17 +364,17 @@
             <tr><td>throttle</td><td>none · overage · rate-limited · unknown</td></tr>
           </table></div>
           <ul class="subs" style="margin-top:12px">
-            <li><span class="s-tag">truth</span><span class="s-txt">Wake state has substrate today (#14537's control verb + the daemon toggles). Throttle truth has <b>no service surface yet</b> — a named W2 wiring leaf; the telltale ships with <span class="mono">unknown</span> as the honest default until it lands. Design never blocks on wiring.</span></li>
+            <li><span class="s-tag">truth</span><span class="s-txt">Producer truth (amended, D#15249 cycle 3): the daemon toggles are <b>control state only</b> — no roster observation field exists for either axis, so <b>both</b> axes render <span class="mono">unknown</span> until the two named W2 read-producer leaves land (#14537 stays write-adjacency). Design never blocks on wiring.</span></li>
           </ul>
         </div>
       </div>
 
       <div class="lane">
-        <div class="lane-head"><span class="lane-id">S3</span><h3>Catch-up view</h3><span class="reg-scope rs-in">v13.2</span><span class="lane-own"><b>ruled:</b> D#15249 · feeds #14620</span></div>
-        <div class="lane-body"><p>A <b>projection</b> of the ActivityStream (#14606) — same feed contract, digest mode. Invoked, not ambient, so the density contract does not bite. A separate surface would fork the feed contract; this entry forbids that fork.</p>
+        <div class="lane-head"><span class="lane-id">S3</span><h3>Catch-up view</h3><span class="reg-scope rs-in">v13.2</span><span class="lane-own"><b>ruled:</b> D#15249 · cites #14620</span></div>
+        <div class="lane-body"><p><b>Renders</b> the source-owned digest contract (#14620, consuming the #12679-orbit producer: <i>renders, never synthesizes</i>). The ActivityStream (#14606) is the <b>drill-through adjacency</b>, not the parent surface — one synthesis authority, one live feed; the pane forks neither. Invoked, not ambient, so the density contract does not bite.</p>
           <ul class="subs">
             <li><span class="s-tag">model</span><span class="s-txt">Fleet digest is the entry; agent digest is the drill-down — the cockpit's fleet→agent object model, applied to time.</span></li>
-            <li><span class="s-tag">anchor</span><span class="s-txt">An explicit "mark caught-up" pins the anchor; soft fallback = last cockpit visit for first-run. Last-operator-action is rejected — it conflates reading with acting.</span></li>
+            <li><span class="s-tag">anchor</span><span class="s-txt">An explicit "mark caught-up" <b>sets</b> the Fleet-owned runtime <span class="mono">lastSeen</span> anchor (render≠memory — never a graph write); soft fallback = last cockpit visit for first-run. Last-operator-action is rejected — it conflates reading with acting.</span></li>
           </ul>
         </div>
       </div>
