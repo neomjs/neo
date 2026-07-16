@@ -283,4 +283,29 @@ test.describe('fleetWakeStateAdapter — the fleet snapshot + capability envelop
         expect(states[0]).toMatchObject({wake: 'unknown', confidence: 'none', reason: 'graph read surface unavailable'})
         expect(capability).toMatchObject({state: 'degraded', confidence: 'partial'})
     })
+
+    test('a failing bulk scan AND an unconfigured daemon report confidence none — a reader that only throws is not a source', async () => {
+        // The sibling case above keeps `partial` honestly: its PID probe still observes liveness.
+        // Strip that last source and NOTHING is observed, so the envelope must say so — the mere
+        // existence of a (throw-only) reader function must not buy partial visibility.
+        const {capability, states} = await readFleetWakeStateSnapshot({
+            agents                          : [{id: 'grace'}],
+            listActiveSubscriptionIdentities: () => { throw new Error('graph read surface unavailable') }
+        })
+
+        expect(states[0]).toMatchObject({wake: 'unknown', confidence: 'none', reason: 'graph read surface unavailable'})
+        expect(capability).toMatchObject({state: 'degraded', confidence: 'none'})
+        expect(capability.reason).toContain('PID file path not configured')
+    })
+
+    test('every row state stays inside the closed four-state taxonomy, whatever the sources do', async () => {
+        const {states} = await readFleetWakeStateSnapshot({
+            agents                          : [{id: 'grace'}, {id: 'vega'}, {id: 'euclid'}],
+            listActiveSubscriptionIdentities: () => { throw new Error('graph offline') }
+        })
+
+        for (const row of states) {
+            expect(WAKE_STATES).toContain(row.wake)
+        }
+    })
 })

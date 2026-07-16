@@ -21,6 +21,7 @@ import Neo                                    from '../../../src/Neo.mjs';
 import * as core                              from '../../../src/core/_export.mjs';
 import InstanceManager                        from '../../../src/manager/Instance.mjs';
 import AiConfig                               from '../../config.mjs';
+import memoryCoreConfig                       from '../../mcp/server/memory-core/config.mjs';
 import FleetManager                           from './FleetManager.mjs';
 import {startFleetBridgeServer}               from './fleetBridgeServer.mjs';
 import {readActiveWakeSubscriptionIdentities} from './readActiveWakeSubscriptionIdentities.mjs';
@@ -42,8 +43,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     // the trusted bulk subscription scan. This entrypoint is where config resolution belongs; the
     // adapter itself never resolves it. Fail-soft by construction — a failing scan or an absent
     // daemon degrades to honest per-row `unknown` inside the adapter, never a fabricated state.
+    //
+    // The `wakeDaemon` subtree is owned by the memory-core config, NOT Tier-1 `AiConfig` (which
+    // carries only the flat `wakeDaemonHeartbeatAlivePath` leaf) — so the daemon's own authority
+    // (`ai/daemons/wake/daemon.mjs`) is the one to mirror here.
     FleetManager.wakeStateOptions = {
-        pidFilePath                     : path.join(AiConfig.wakeDaemon.dataDir, 'wake-daemon.pid'),
+        pidFilePath                     : path.join(memoryCoreConfig.wakeDaemon.dataDir, 'wake-daemon.pid'),
         listActiveSubscriptionIdentities: readActiveWakeSubscriptionIdentities
     };
 

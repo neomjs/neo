@@ -138,9 +138,12 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtime
                         state     : 'not-wired',
                         confidence: 'none'
                     },
-                // The S2 wake telltale axis: the four-state observation row produced Brain-side
-                // (`on | off | suppressed | unknown`), tri-state honest like `lifecycle` — a row
-                // without a producer snapshot reads not-wired/none ("cannot see"), never a guess.
+                // The S2 wake telltale axis: the four-state observation row produced Brain-side.
+                // `state` is CLOSED over `on | off | suppressed | unknown` — absence of a producer
+                // is `unknown`, never a fifth value: consumers switch on this enum, so leaking a
+                // wiring fact into the observation field would force every one of them to re-derive
+                // the taxonomy. The wiring axis is carried by `sources.wake` + the capability
+                // envelope, and `confidence: 'none'` + `reason` keep the row itself honest.
                 wake: wake
                     ? {
                         source    : FLEET_COCKPIT_SOURCES.wake,
@@ -150,8 +153,9 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtime
                     }
                     : {
                         source    : FLEET_COCKPIT_SOURCES.wake,
-                        state     : 'not-wired',
-                        confidence: 'none'
+                        state     : 'unknown',
+                        confidence: 'none',
+                        reason    : 'wake-state producer not wired'
                     },
                 sources: {
                     roster: {

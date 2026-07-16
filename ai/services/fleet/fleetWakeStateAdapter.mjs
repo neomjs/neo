@@ -194,6 +194,8 @@ export async function readFleetWakeStateSnapshot({
 } = {}) {
     // The bulk reader wins when provided: one fresh scan per snapshot becomes a per-agent
     // membership resolver — same row semantics, no fan-out, no long-lived cache to go stale.
+    let bulkScanFailed = false
+
     if (!resolveSubscriptionState && listActiveSubscriptionIdentities) {
         try {
             const identities = new Set(await listActiveSubscriptionIdentities())
@@ -202,6 +204,10 @@ export async function readFleetWakeStateSnapshot({
         } catch (error) {
             const reason = redactReason(error)
 
+            // A wholesale scan failure yields a reader that can only throw. It is a row-reason
+            // carrier, NOT a source of truth — `bulkScanFailed` keeps the capability envelope from
+            // counting its mere existence as partial visibility.
+            bulkScanFailed          = true
             resolveSubscriptionState = () => { throw new Error(reason || 'subscription scan failed') }
         }
     }
@@ -267,10 +273,14 @@ export async function readFleetWakeStateSnapshot({
         states.push(row)
     }
 
+    // `hasReader` proves a function exists; `readerUsable` proves it can answer. Only the latter
+    // counts as truth — otherwise a throwing scan plus an unreadable daemon reports `partial`
+    // visibility while observing exactly nothing.
     const livenessSourceOk = liveness.alive !== 'unknown',
-          readerClean      = hasReader && failedRows === 0 && invalidRows === 0,
+          readerUsable     = hasReader && !bulkScanFailed,
+          readerClean      = readerUsable && failedRows === 0 && invalidRows === 0,
           fullyOk          = livenessSourceOk && readerClean,
-          anyTruth         = livenessSourceOk || hasReader
+          anyTruth         = livenessSourceOk || readerUsable
 
     return {
         capability: {
