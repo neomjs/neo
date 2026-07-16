@@ -25,6 +25,14 @@ Per §9 Strategic-Fit Step-Back:
 - **Decision**: [Approve / Approve+Follow-Up / Request Changes / Drop+Supersede]
 - **Rationale**: [1-2 sentences on why this meta-decision fits the current delta context. Treat Approve+Follow-Up as the worst normal outcome, not a convenient residual bucket.]
 
+**Required only when Decision is Drop+Supersede:**
+
+- **Disposition:** [implementation-off | ticket-prescription-off | ticket-premise-dead]
+- **Source-coordinate falsifiers:** [exact paths/lines/anchors proving the premise failure]
+- **Salvage map:** [what is reusable, where it lands, and what is discarded]
+- **Successor landing pad:** [ticket / amended ticket / closure artifact]
+- **Successor map citation:** [successor URL or anchor that cites this salvage map]
+
 ---
 
 ### ⚓ Prior Review Anchor

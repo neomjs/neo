@@ -484,10 +484,19 @@ function getAgentPrReviewBodyLintScript() {
  * @summary Executes the review-body lint workflow script with stubbed GitHub Actions services.
  * @param {Object} options Execution options.
  * @param {String} options.body Review body to validate.
+ * @param {Object|null} [options.activationIssue] Activation issue GraphQL projection.
+ * @param {String} [options.createdAt='2026-07-16T13:57:02Z'] Reviewed PR creation timestamp.
  * @param {String} [options.reviewer='neo-gpt'] GitHub login for the simulated reviewer.
+ * @param {String} [options.state='approved'] GitHub webhook review state.
  * @returns {Promise<Object>} Captured workflow comments, failures, and log lines.
  */
-async function runAgentPrReviewBodyLintWorkflow({body, reviewer = 'neo-gpt'} = {}) {
+async function runAgentPrReviewBodyLintWorkflow({
+    activationIssue,
+    body,
+    createdAt = '2026-07-16T13:57:02Z',
+    reviewer = 'neo-gpt',
+    state = 'approved'
+} = {}) {
     const
         comments = [],
         failures = [],
@@ -498,15 +507,34 @@ async function runAgentPrReviewBodyLintWorkflow({body, reviewer = 'neo-gpt'} = {
                 review: {
                     id  : 1391001,
                     user: {login: reviewer},
-                    body
+                    body,
+                    state
                 },
-                pull_request: {number: 13910}
+                pull_request: {created_at: createdAt, number: 13910}
             }
         },
         coreStub = {
             setFailed: message => failures.push(message)
         },
+        defaultActivationIssue = {
+            id                            : 'I_kwDOABcD15257',
+            closedByPullRequestsReferences: {
+                totalCount: 1,
+                nodes     : [{
+                    number     : 15310,
+                    state      : 'MERGED',
+                    mergedAt   : '2026-07-16T13:57:03Z',
+                    baseRefName: 'dev'
+                }],
+                pageInfo: {hasNextPage: false}
+            }
+        },
         githubStub = {
+            graphql: async () => ({
+                repository: {
+                    activationIssue: activationIssue === undefined ? defaultActivationIssue : activationIssue
+                }
+            }),
             rest: {
                 issues: {
                     createComment: async payload => comments.push(payload)
@@ -554,9 +582,10 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
     let GraphqlService;
     let originalQuery;
 
-    const PR_NODE_ID  = 'PR_kwDOABcD9999999999';
-    const PR_HEAD_OID = 'abcdef1234567890abcdef1234567890abcdef12';
-    const REVIEW_NODE = {
+    const PR_NODE_ID                 = 'PR_kwDOABcD9999999999';
+    const PR_HEAD_OID                = 'abcdef1234567890abcdef1234567890abcdef12';
+    const REVIEW_BUDGET_ACTIVATED_AT = '2026-07-16T13:57:03Z';
+    const REVIEW_NODE                = {
         id         : 'PRR_kwDOABcD1111111111',
         url        : 'https://github.com/neomjs/neo/pull/11273#pullrequestreview-12345',
         state      : 'APPROVED',
@@ -564,11 +593,35 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         databaseId : 12345
     };
     const pullRequestNode = (overrides = {}) => ({
+        createdAt     : '2026-07-16T13:57:02Z',
         id            : PR_NODE_ID,
         headRefOid    : PR_HEAD_OID,
         reviewDecision: 'APPROVED',
-        reviews       : {nodes: []},
+        reviews       : {nodes: [], pageInfo: {hasPreviousPage: false}},
         ...overrides
+    });
+    const activationPullRequest = (overrides = {}) => ({
+        id         : 'PR_kwDOABcD15310',
+        number     : 15310,
+        state      : 'MERGED',
+        mergedAt   : REVIEW_BUDGET_ACTIVATED_AT,
+        baseRefName: 'dev',
+        ...overrides
+    });
+    const activationIssueNode = (nodes = [activationPullRequest()], overrides = {}) => ({
+        id                            : 'I_kwDOABcD15257',
+        closedByPullRequestsReferences: {
+            totalCount: nodes.length,
+            nodes,
+            pageInfo  : {hasNextPage: false}
+        },
+        ...overrides
+    });
+    const pullRequestLookup = (pullRequestOverrides = {}, activationIssue = activationIssueNode()) => ({
+        repository: {
+            activationIssue,
+            pullRequest: pullRequestNode(pullRequestOverrides)
+        }
     });
 
     // Compact review body that passes BOTH layers of the tool-boundary template-anchor validator:
@@ -674,7 +727,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
     const VALID_MICRO_DELTA_REVIEW_BODY = [
         '# Pull Request Micro-Delta Review',
         '',
-        '> **Context:** This review is using the Micro-Delta Approval format because the Review-Loop Cost Circuit Breaker has fired and the convergence assessment is state (a): the underlying PR has previously received thorough semantic review and has reached the mechanical-hygiene or metadata-drift phase.',
+        '> **Context:** This review uses the Micro-Delta format because prior semantic review is complete and only mechanical-hygiene or metadata-drift remains.',
         '',
         '### State Vector',
         '- **Target SHA:** abc1234',
@@ -691,8 +744,54 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         '',
         '### Verdict',
         '- [ ] **APPROVED** (All mechanical-hygiene cleared. Merge-ready.)',
-        '- [x] **CHANGES_REQUESTED** (Mechanical-hygiene defects remain as listed above.)',
-        '- [ ] **MAINTAINER POLISH FAST PATH APPLIED** (Reviewer unilaterally patched and pushed fixes. Approved.)'
+        '- [x] **COMMENTED CLOSURE** (RC2 budget spent; record the closure packet without creating another ordinary RC.)',
+        '- [ ] **MAINTAINER POLISH FAST PATH APPLIED** (Reviewer unilaterally patched and pushed fixes. Approved.)',
+        '',
+        '### RC2 Closure Packet',
+        '- **Consumer sweep:** Fleet card and detail consumers checked.',
+        '- **Falsifier/property matrix:** Existing RA properties all pass.',
+        '- **Carried-vs-new census:** two carried, zero new.',
+        '- **Truth-fold:** ticket and PR body now match the exact head.',
+        '- **Semantic-surface freeze:** only the existing roster capability may receive property refinements.'
+    ].join('\n');
+
+    const VALID_DROP_SUPERSEDE_REVIEW_BODY = VALID_FOLLOWUP_REVIEW_BODY
+        .replace('**Status:** Approved', '**Status:** Drop+Supersede')
+        .replace('- **Decision**: Approve', '- **Decision**: Drop+Supersede') + [
+            '',
+            '- **Disposition:** ticket-prescription-off',
+            '- **Source-coordinate falsifiers:** `src/owner.mjs:42` contradicts the ticket-owned boundary.',
+            '- **Salvage map:** Preserve the parser fixture; discard the stale adapter.',
+            '- **Successor landing pad:** Amend issue #15257 in place.',
+            '- **Successor map citation:** https://github.com/neomjs/neo/issues/15257#issuecomment-1'
+        ].join('\n');
+
+    const priorRequestChanges = ({
+        body='Prior ordinary request changes.',
+        commit='1111111111111111111111111111111111111111',
+        id='PRR_prior',
+        reviewer='neo-gpt',
+        state='CHANGES_REQUESTED',
+        submittedAt='2026-07-16T16:40:00Z'
+    } = {}) => ({
+        body,
+        id,
+        state,
+        submittedAt,
+        author: {login: reviewer},
+        commit: {oid: commit}
+    });
+    const managedReviewBody = (body, outcome='within-budget', extraAudit=[]) => [
+        body,
+        '',
+        '---',
+        '[review-budget-managed]',
+        `- outcome: ${outcome}`,
+        '- ordinary-limit: 2',
+        '- activation-issue: 15257',
+        '- activation-pr: 15310',
+        `- activated-at: ${REVIEW_BUDGET_ACTIVATED_AT}`,
+        ...extraAudit
     ].join('\n');
 
     // Micro-Review (Cycle-1, blast-scaled light shape) — the minimal floor: header + Class
@@ -722,7 +821,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         // Tests override per-case via reassigning GraphqlService.query.
         GraphqlService.query = async (queryString) => {
             if (queryString.includes('GetPullRequestId')) {
-                return {repository: {pullRequest: pullRequestNode()}};
+                return pullRequestLookup();
             }
 
             if (queryString.includes('AddPullRequestReview')) {
@@ -813,7 +912,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async () => {
             graphqlCallCount++;
-            return {repository: {pullRequest: pullRequestNode()}};
+            return pullRequestLookup();
         };
 
         const result = await PullRequestService.managePrReview({
@@ -995,7 +1094,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         // (event REQUEST_CHANGES → review state CHANGES_REQUESTED).
         let capturedVariables;
         GraphqlService.query = async (queryString, variables) => {
-            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: pullRequestNode()}};
+            if (queryString.includes('GetPullRequestId')) return pullRequestLookup();
             if (queryString.includes('AddPullRequestReview')) {
                 capturedVariables = variables;
                 return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'CHANGES_REQUESTED'}}};
@@ -1016,10 +1115,415 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(result.state).toBe('CHANGES_REQUESTED');
     });
 
+    test('#15257: post-cutover third ordinary RC is refused across heads, reviewers, and an honest retraction', async () => {
+        let   mutationCallCount = 0;
+        const reviews           = [
+            priorRequestChanges({
+                body : `${VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')}\n\n[review-budget-managed]`,
+                state: 'DISMISSED'
+            }),
+            {
+                body       : 'Retraction after repair.',
+                id         : 'PRR_retraction',
+                state      : 'APPROVED',
+                submittedAt: '2026-07-16T16:45:00Z',
+                author     : {login: 'neo-gpt'},
+                commit     : {oid: '2222222222222222222222222222222222222222'}
+            },
+            priorRequestChanges({
+                commit     : '3333333333333333333333333333333333333333',
+                id         : 'PRR_second',
+                reviewer   : 'neo-opus-ada',
+                submittedAt: '2026-07-16T16:50:00Z'
+            })
+        ];
+
+        GraphqlService.query = async queryString => {
+            if (queryString.includes('GetPullRequestId')) {
+                return pullRequestLookup({
+                    createdAt: '2026-07-16T13:57:04Z',
+                    reviews  : {nodes: reviews, pageInfo: {hasPreviousPage: false}}
+                });
+            }
+
+            if (queryString.includes('AddPullRequestReview')) mutationCallCount++;
+            return null;
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 15257,
+            state    : 'REQUEST_CHANGES',
+            body     : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+        });
+
+        expect(result.code).toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
+        expect(result.reviewBudget.submittedRequestChanges).toBe(2);
+        expect(result.message).toContain('ordinary limit is 2');
+        expect(mutationCallCount).toBe(0);
+    });
+
+    test('#15257: PR lookup projects cutover, prior bodies, and history completeness', async () => {
+        let lookupQuery;
+        let lookupVariables;
+
+        GraphqlService.query = async (queryString, variables) => {
+            if (queryString.includes('GetPullRequestId')) {
+                lookupQuery = queryString;
+                lookupVariables = variables;
+                return pullRequestLookup();
+            }
+
+            return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'CHANGES_REQUESTED'}}};
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 15257,
+            state    : 'REQUEST_CHANGES',
+            body     : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(lookupQuery).toContain('createdAt');
+        expect(lookupQuery).toContain('activationIssue');
+        expect(lookupQuery).toContain('closedByPullRequestsReferences');
+        expect(lookupQuery).toContain('mergedAt');
+        expect(lookupQuery).toContain('baseRefName');
+        expect(lookupQuery).toContain('body');
+        expect(lookupQuery).toContain('hasPreviousPage');
+        expect(lookupVariables.activationIssueNumber).toBe(15257);
+    });
+
+    test('#15257: OpenAPI admits the null pre-activation cutover receipt', () => {
+        const openApi = yaml.load(fs.readFileSync(
+            path.resolve(process.cwd(), 'ai/mcp/server/github-workflow/openapi.yaml'),
+            'utf8'
+        ));
+        const activatedAt = openApi.paths['/pulls/{pr_number}/review/manage']
+            .post.responses['200'].content['application/json'].schema
+            .properties.reviewBudget.properties.activatedAt;
+
+        expect(activatedAt.type).toBe('string');
+        expect(activatedAt.format).toBe('date-time');
+        expect(activatedAt.nullable).toBe(true)
+    });
+
+    test('#15257: earliest merged dev closer is the stable cutover while non-dev and unmerged refs are ignored', async () => {
+        let capturedBody;
+        const activationIssue = activationIssueNode([
+            activationPullRequest({number: 15314, mergedAt: '2026-07-16T14:05:00Z'}),
+            activationPullRequest({number: 15309, mergedAt: '2026-07-16T13:50:00Z', baseRefName: 'main'}),
+            activationPullRequest({number: 15312, mergedAt: '2026-07-16T13:57:03Z'}),
+            activationPullRequest({number: 15311, state: 'OPEN', mergedAt: null})
+        ], {state: 'OPEN'});
+
+        GraphqlService.query = async (queryString, variables) => {
+            if (queryString.includes('GetPullRequestId')) {
+                return pullRequestLookup({createdAt: '2026-07-16T14:06:00Z'}, activationIssue)
+            }
+
+            capturedBody = variables.body;
+            return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'CHANGES_REQUESTED'}}}
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 15320,
+            state    : 'REQUEST_CHANGES',
+            body     : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(result.reviewBudget.activatedAt).toBe('2026-07-16T13:57:03Z');
+        expect(result.reviewBudget.activationIssueNumber).toBe(15257);
+        expect(result.reviewBudget.activationPullRequestNumber).toBe(15312);
+        expect(capturedBody).toContain('- activation-issue: 15257');
+        expect(capturedBody).toContain('- activation-pr: 15312')
+    });
+
+    test('#15257: missing, incomplete, and malformed activation relations fail closed', async () => {
+        const cases = [{
+            name           : 'missing activation issue',
+            activationIssue: null,
+            message        : 'Cannot resolve review-budget activation issue'
+        }, {
+            name           : 'truncated activation relation',
+            activationIssue: activationIssueNode([], {
+                closedByPullRequestsReferences: {
+                    totalCount: 1,
+                    nodes     : [],
+                    pageInfo  : {hasNextPage: true}
+                }
+            }),
+            message: 'complete closing-PR history'
+        }, {
+            name           : 'merged dev closer without timestamp',
+            activationIssue: activationIssueNode([
+                activationPullRequest({number: 15312, mergedAt: null})
+            ]),
+            message: 'without a valid mergedAt'
+        }];
+
+        for (const item of cases) {
+            GraphqlService.query = async queryString => {
+                if (queryString.includes('GetPullRequestId')) {
+                    return pullRequestLookup({createdAt: '2026-07-16T14:06:00Z'}, item.activationIssue)
+                }
+
+                throw new Error(`${item.name}: mutation must not run`)
+            };
+
+            const result = await PullRequestService.managePrReview({
+                action   : 'create',
+                pr_number: 15320,
+                state    : 'REQUEST_CHANGES',
+                body     : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+            });
+
+            expect(result.code, item.name).toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
+            expect(result.message, item.name).toContain(item.message)
+        }
+    });
+
+    test('#15257: createdAt equality is grandfathered while one millisecond after cutover is gated', async () => {
+        const prior             = [priorRequestChanges(), priorRequestChanges({id: 'PRR_second'})];
+        let   createdAt         = REVIEW_BUDGET_ACTIVATED_AT;
+        let   mutationCallCount = 0;
+
+        GraphqlService.query = async queryString => {
+            if (queryString.includes('GetPullRequestId')) {
+                return pullRequestLookup({
+                    createdAt,
+                    reviews: {nodes: prior, pageInfo: {hasPreviousPage: false}}
+                });
+            }
+
+            mutationCallCount++;
+            return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'CHANGES_REQUESTED'}}};
+        };
+
+        const input = {
+            action   : 'create',
+            pr_number: 15257,
+            state    : 'REQUEST_CHANGES',
+            body     : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+        };
+
+        const grandfathered = await PullRequestService.managePrReview(input);
+
+        expect(grandfathered.error).toBeUndefined();
+        expect(grandfathered.reviewBudget.outcome).toBe('grandfathered');
+
+        createdAt = '2026-07-16T13:57:03.001Z';
+        const gated = await PullRequestService.managePrReview(input);
+
+        expect(gated.code).toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
+        expect(mutationCallCount).toBe(1);
+    });
+
+    test('#15257: pre-activation and grandfathered RC bodies are dispatched byte-for-byte unchanged', async () => {
+        const inputBody = VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes');
+
+        for (const item of [{
+            name      : 'activation issue has no merged closer',
+            createdAt : '2026-07-16T13:57:04Z',
+            activation: activationIssueNode([]),
+            outcome   : 'pre-activation'
+        }, {
+            name      : 'created before cutover',
+            createdAt : '2026-07-16T13:57:02Z',
+            activation: activationIssueNode(),
+            outcome   : 'grandfathered'
+        }]) {
+            let submittedBody;
+            GraphqlService.query = async (queryString, variables) => {
+                if (queryString.includes('GetPullRequestId')) {
+                    return pullRequestLookup({createdAt: item.createdAt}, item.activation)
+                }
+
+                submittedBody = variables.body;
+                return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'CHANGES_REQUESTED'}}}
+            };
+
+            const result = await PullRequestService.managePrReview({
+                action   : 'create',
+                pr_number: 15257,
+                state    : 'REQUEST_CHANGES',
+                body     : inputBody
+            });
+
+            expect(result.error, item.name).toBeUndefined();
+            expect(result.reviewBudget.outcome, item.name).toBe(item.outcome);
+            expect(submittedBody, item.name).toBe(inputBody)
+        }
+    });
+
+    test('#15257: one complete terminal Drop+Supersede passes after RC2; a second is refused', async () => {
+        let capturedVariables;
+        let reviews = [priorRequestChanges(), priorRequestChanges({id: 'PRR_second'})];
+
+        GraphqlService.query = async (queryString, variables) => {
+            if (queryString.includes('GetPullRequestId')) {
+                return pullRequestLookup({
+                    createdAt: '2026-07-16T13:57:04Z',
+                    reviews  : {nodes: reviews, pageInfo: {hasPreviousPage: false}}
+                });
+            }
+
+            capturedVariables = variables;
+            return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'CHANGES_REQUESTED'}}};
+        };
+
+        const first = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 15257,
+            state    : 'REQUEST_CHANGES',
+            body     : VALID_DROP_SUPERSEDE_REVIEW_BODY
+        });
+
+        expect(first.error).toBeUndefined();
+        expect(first.reviewBudget.outcome).toBe('terminal-drop-supersede');
+        expect(capturedVariables.body).toContain(VALID_DROP_SUPERSEDE_REVIEW_BODY);
+        expect(capturedVariables.body).toContain('[review-budget-managed]');
+        expect(capturedVariables.body).toContain('- outcome: terminal-drop-supersede');
+
+        reviews = [...reviews, priorRequestChanges({
+            body: VALID_DROP_SUPERSEDE_REVIEW_BODY,
+            id  : 'PRR_terminal'
+        })];
+
+        const second = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 15257,
+            state    : 'REQUEST_CHANGES',
+            body     : VALID_DROP_SUPERSEDE_REVIEW_BODY
+        });
+
+        expect(second.code).toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
+        expect(second.message).toContain('already has a validated terminal Drop+Supersede');
+    });
+
+    test('#15257: incomplete Drop+Supersede fails before GraphQL dispatch', async () => {
+        let graphqlCallCount = 0;
+        GraphqlService.query = async () => { graphqlCallCount++ };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 15257,
+            state    : 'REQUEST_CHANGES',
+            body     : VALID_FOLLOWUP_REVIEW_BODY
+                .replace('**Status:** Approved', '**Status:** Drop+Supersede')
+                .replace('- **Decision**: Approve', '- **Decision**: Drop+Supersede')
+        });
+
+        expect(result.code).toBe('DROP_SUPERSEDE_CONTRACT_VALIDATION_FAILED');
+        expect(result.missing_drop_supersede).toContain('Salvage map');
+        expect(graphqlCallCount).toBe(0);
+    });
+
+    test('#15257: one-sided Drop+Supersede anchors are intent but never a valid terminal exception', async () => {
+        const cases = [
+            VALID_DROP_SUPERSEDE_REVIEW_BODY.replace('**Status:** Drop+Supersede', '**Status:** Request Changes'),
+            VALID_DROP_SUPERSEDE_REVIEW_BODY.replace('- **Decision**: Drop+Supersede', '- **Decision**: Request Changes')
+        ];
+
+        for (const body of cases) {
+            let graphqlCallCount = 0;
+            GraphqlService.query = async () => { graphqlCallCount++ };
+
+            const result = await PullRequestService.managePrReview({
+                action   : 'create',
+                pr_number: 15257,
+                state    : 'REQUEST_CHANGES',
+                body
+            });
+
+            expect(result.code).toBe('DROP_SUPERSEDE_CONTRACT_VALIDATION_FAILED');
+            expect(result.missing_drop_supersede).toContain('Status + Decision: Drop+Supersede');
+            expect(graphqlCallCount).toBe(0)
+        }
+    });
+
+    test('#15257: reason-bearing override is persisted and echoed after RC2', async () => {
+        let capturedVariables;
+
+        GraphqlService.query = async (queryString, variables) => {
+            if (queryString.includes('GetPullRequestId')) {
+                return pullRequestLookup({
+                    createdAt: '2026-07-16T13:57:04Z',
+                    reviews  : {
+                        nodes   : [priorRequestChanges(), priorRequestChanges({id: 'PRR_second'})],
+                        pageInfo: {hasPreviousPage: false}
+                    }
+                });
+            }
+
+            capturedVariables = variables;
+            return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'CHANGES_REQUESTED'}}};
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action                    : 'create',
+            pr_number                 : 15257,
+            state                     : 'REQUEST_CHANGES',
+            body                      : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes'),
+            reviewBudgetOverrideReason: 'Operator-declared release safety exception with audit receipt #15257.'
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(result.reviewBudget.outcome).toBe('disclosed-override');
+        expect(result.reviewBudget.overrideReason).toContain('release safety exception');
+        expect(capturedVariables.body).toContain('[review-budget-override]');
+        expect(capturedVariables.body).toContain('- submitted-request-changes: 2');
+        expect(capturedVariables.body).toContain('- ordinary-limit: 2');
+    });
+
+    test('#15257: incomplete/truncated history and invalid override disclosure fail closed', async () => {
+        const cases = [{
+            name    : 'truncated history',
+            reviews : {nodes: [], pageInfo: {hasPreviousPage: true}},
+            override: undefined,
+            message : 'complete submitted-review history'
+        }, {
+            name   : 'newline override',
+            reviews: {
+                nodes   : [priorRequestChanges(), priorRequestChanges({id: 'PRR_second'})],
+                pageInfo: {hasPreviousPage: false}
+            },
+            override: 'line one\nline two',
+            message : 'non-empty single line'
+        }];
+
+        for (const item of cases) {
+            GraphqlService.query = async queryString => {
+                if (queryString.includes('GetPullRequestId')) {
+                    return pullRequestLookup({
+                        createdAt: '2026-07-16T13:57:04Z',
+                        reviews  : item.reviews
+                    });
+                }
+
+                throw new Error(`${item.name}: mutation must not run`);
+            };
+
+            const result = await PullRequestService.managePrReview({
+                action                    : 'create',
+                pr_number                 : 15257,
+                state                     : 'REQUEST_CHANGES',
+                body                      : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes'),
+                reviewBudgetOverrideReason: item.override
+            });
+
+            expect(result.code, item.name).toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
+            expect(result.message, item.name).toContain(item.message);
+        }
+    });
+
     test('action:create + state:COMMENT → state enum maps to COMMENT event', async () => {
         let capturedVariables;
         GraphqlService.query = async (queryString, variables) => {
-            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: pullRequestNode()}};
+            if (queryString.includes('GetPullRequestId')) return pullRequestLookup();
             if (queryString.includes('AddPullRequestReview')) {
                 capturedVariables = variables;
                 return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'COMMENTED'}}};
@@ -1043,6 +1547,10 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let capturedQuery;
         let capturedVariables;
         GraphqlService.query = async (queryString, variables) => {
+            if (queryString.includes('GetPullRequestReview')) {
+                return {node: {id: REVIEW_NODE.id, body: VALID_REVIEW_BODY, state: 'APPROVED'}}
+            }
+
             capturedQuery     = queryString;
             capturedVariables = variables;
             return {updatePullRequestReview: {pullRequestReview: {...REVIEW_NODE, submittedAt: '2026-05-13T01:00:00Z'}}};
@@ -1061,6 +1569,73 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(capturedVariables.pullRequestReviewId).toBe('PRR_kwDOABcD1111111111');
         expect(capturedVariables.body).toContain('Updated review body.');
         expect(capturedVariables.body).toContain('[ARCH_ALIGNMENT]'); // template anchor preserved through dispatch
+    });
+
+    test('#15257: review updates cannot promote or demote ordinary RC and terminal Drop+Supersede', async () => {
+        const ordinaryBody = managedReviewBody(
+            VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+        );
+        const terminalBody = managedReviewBody(VALID_DROP_SUPERSEDE_REVIEW_BODY, 'terminal-drop-supersede');
+
+        for (const item of [{current: ordinaryBody, incoming: terminalBody}, {current: terminalBody, incoming: ordinaryBody}]) {
+            let updateCalls = 0;
+
+            GraphqlService.query = async queryString => {
+                if (queryString.includes('GetPullRequestReview')) {
+                    return {node: {id: REVIEW_NODE.id, body: item.current, state: 'CHANGES_REQUESTED'}}
+                }
+
+                updateCalls++;
+                return null
+            };
+
+            const result = await PullRequestService.managePrReview({
+                action   : 'update',
+                review_id: REVIEW_NODE.id,
+                body     : item.incoming
+            });
+
+            expect(result.code).toBe('PR_REVIEW_BUDGET_AUDIT_IMMUTABLE');
+            expect(result.terminalClassificationChanged).toBe(true);
+            expect(updateCalls).toBe(0)
+        }
+    });
+
+    test('#15257: review updates cannot add/remove provenance or rewrite managed audit fields', async () => {
+        const currentBody = managedReviewBody(
+            VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+        );
+        const cases = [{
+            incoming: currentBody.replace('[review-budget-managed]\n', ''),
+            changed : 'marker'
+        }, {
+            incoming: currentBody.replace('- ordinary-limit: 2', '- ordinary-limit: 3'),
+            changed : 'audit'
+        }, {
+            incoming: `- ordinary-limit: 2\n${currentBody.replace('- ordinary-limit: 2', '- ordinary-limit: 3')}`,
+            changed : 'duplicate-field-mask'
+        }];
+
+        for (const item of cases) {
+            let updateCalls = 0;
+            GraphqlService.query = async queryString => {
+                if (queryString.includes('GetPullRequestReview')) {
+                    return {node: {id: REVIEW_NODE.id, body: currentBody, state: 'CHANGES_REQUESTED'}}
+                }
+
+                updateCalls++;
+                return null
+            };
+
+            const result = await PullRequestService.managePrReview({
+                action   : 'update',
+                review_id: REVIEW_NODE.id,
+                body     : item.incoming
+            });
+
+            expect(result.code, item.changed).toBe('PR_REVIEW_BUDGET_AUDIT_IMMUTABLE');
+            expect(updateCalls, item.changed).toBe(0)
+        }
     });
 
     test('rejects invalid action', async () => {
@@ -1175,7 +1750,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async () => {
             graphqlCallCount++;
-            return {repository: {pullRequest: pullRequestNode()}};
+            return pullRequestLookup();
         };
 
         const result = await PullRequestService.managePrReview({
@@ -1235,7 +1810,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async () => {
             graphqlCallCount++;
-            return {repository: {pullRequest: pullRequestNode()}};
+            return pullRequestLookup();
         };
 
         const result = await PullRequestService.managePrReview({
@@ -1300,7 +1875,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async () => {
             graphqlCallCount++;
-            return {repository: {pullRequest: pullRequestNode()}};
+            return pullRequestLookup();
         };
 
         const result = await PullRequestService.managePrReview({
@@ -1321,7 +1896,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async (queryString) => {
             graphqlCallCount++;
-            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: pullRequestNode()}};
+            if (queryString.includes('GetPullRequestId')) return pullRequestLookup();
             if (queryString.includes('AddPullRequestReview')) return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}};
             return null;
         };
@@ -1342,7 +1917,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async (queryString) => {
             graphqlCallCount++;
-            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: pullRequestNode()}};
+            if (queryString.includes('GetPullRequestId')) return pullRequestLookup();
             if (queryString.includes('AddPullRequestReview')) return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}};
             return null;
         };
@@ -1350,7 +1925,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         const result = await PullRequestService.managePrReview({
             action   : 'create',
             pr_number: 13910,
-            state    : 'REQUEST_CHANGES',
+            state    : 'COMMENT',
             body     : VALID_MICRO_DELTA_REVIEW_BODY
         });
 
@@ -1366,7 +1941,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async () => {
             graphqlCallCount++;
-            return {repository: {pullRequest: pullRequestNode()}};
+            return pullRequestLookup();
         };
 
         const result = await PullRequestService.managePrReview({
@@ -1391,7 +1966,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async () => {
             graphqlCallCount++;
-            return {repository: {pullRequest: pullRequestNode()}};
+            return pullRequestLookup();
         };
 
         const result = await PullRequestService.managePrReview({
@@ -1409,7 +1984,8 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
 
     test('#13910: workflow lint accepts documented Micro-Delta review bodies', async () => {
         const result = await runAgentPrReviewBodyLintWorkflow({
-            body: VALID_MICRO_DELTA_REVIEW_BODY
+            body : VALID_MICRO_DELTA_REVIEW_BODY,
+            state: 'commented'
         });
 
         expect(result.failures).toEqual([]);
@@ -1422,7 +1998,8 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             .replace('- **Measured Discussion Cost:** > 24KB\n', '');
 
         const result = await runAgentPrReviewBodyLintWorkflow({
-            body: incompleteBody
+            body : incompleteBody,
+            state: 'commented'
         });
 
         expect(result.failures).toEqual([
@@ -1439,12 +2016,149 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             .replace('- **Remaining Blocker Class:** mechanical-hygiene', '- **Remaining Blocker Class:** semantic-blocker');
 
         const result = await runAgentPrReviewBodyLintWorkflow({
-            body: semanticShortcutBody
+            body : semanticShortcutBody,
+            state: 'commented'
         });
 
         expect(result.failures[0]).toContain('micro-delta review body missing required circuit-breaker anchors');
         expect(result.comments[0].body).toContain('mechanical-hygiene or metadata-drift');
         expect(result.comments[0].body).toContain('full follow-up review template instead');
+    });
+
+    test('#15257: workflow provenance applies only after the activation issue closing-PR cutover', async () => {
+        const body          = VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes');
+        const grandfathered = await runAgentPrReviewBodyLintWorkflow({
+            body,
+            createdAt: '2026-07-16T13:57:02Z',
+            state    : 'changes_requested'
+        });
+        const postCutover = await runAgentPrReviewBodyLintWorkflow({
+            body,
+            createdAt: '2026-07-16T13:57:04Z',
+            state    : 'changes_requested'
+        });
+
+        expect(grandfathered.failures).toEqual([]);
+        expect(postCutover.failures).toEqual([
+            'Post-activation agent REQUEST_CHANGES review lacks managed-path provenance or `[review-budget-bypass] reason: ...` disclosure. Use manage_pr_review or disclose the direct gh/UI bypass.'
+        ])
+    });
+
+    test('#15257: workflow treats zero merged dev closers as pre-activation', async () => {
+        const result = await runAgentPrReviewBodyLintWorkflow({
+            activationIssue: {
+                id                            : 'I_kwDOABcD15257',
+                closedByPullRequestsReferences: {
+                    totalCount: 2,
+                    nodes     : [{number: 15311, state: 'OPEN', mergedAt: null, baseRefName: 'dev'}, {
+                        number     : 15312,
+                        state      : 'MERGED',
+                        mergedAt   : '2026-07-16T13:50:00Z',
+                        baseRefName: 'main'
+                    }],
+                    pageInfo: {hasNextPage: false}
+                }
+            },
+            body     : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes'),
+            createdAt: '2026-07-16T14:00:00Z',
+            state    : 'changes_requested'
+        });
+
+        expect(result.failures).toEqual([])
+    });
+
+    test('#15257: workflow fails closed on missing, truncated, or malformed activation relations', async () => {
+        const body  = VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes');
+        const cases = [{
+            name           : 'missing issue',
+            activationIssue: null,
+            message        : 'Cannot resolve review-budget activation issue #15257.'
+        }, {
+            name           : 'truncated relation',
+            activationIssue: {
+                id                            : 'I_kwDOABcD15257',
+                closedByPullRequestsReferences: {
+                    totalCount: 1,
+                    nodes     : [],
+                    pageInfo  : {hasNextPage: true}
+                }
+            },
+            message: 'Cannot prove the complete closing-PR history for review-budget activation issue #15257.'
+        }, {
+            name           : 'invalid mergedAt',
+            activationIssue: {
+                id                            : 'I_kwDOABcD15257',
+                closedByPullRequestsReferences: {
+                    totalCount: 1,
+                    nodes     : [{number: 15312, state: 'MERGED', mergedAt: null, baseRefName: 'dev'}],
+                    pageInfo  : {hasNextPage: false}
+                }
+            },
+            message: 'Review-budget activation issue #15257 has a merged dev closer without a valid mergedAt.'
+        }];
+
+        for (const item of cases) {
+            const result = await runAgentPrReviewBodyLintWorkflow({
+                activationIssue: item.activationIssue,
+                body,
+                createdAt      : '2026-07-16T14:00:00Z',
+                state          : 'changes_requested'
+            });
+
+            expect(result.failures, item.name).toEqual([item.message])
+        }
+    });
+
+    test('#15257: workflow never lets bypass or COMMENTED weaken Drop+Supersede validation', async () => {
+        const commented = await runAgentPrReviewBodyLintWorkflow({
+            body : VALID_DROP_SUPERSEDE_REVIEW_BODY,
+            state: 'commented'
+        });
+        const malformedBypass = await runAgentPrReviewBodyLintWorkflow({
+            body: [
+                VALID_FOLLOWUP_REVIEW_BODY
+                    .replace('**Status:** Approved', '**Status:** Drop+Supersede')
+                    .replace('- **Decision**: Approve', '- **Decision**: Drop+Supersede'),
+                '[review-budget-bypass] reason: emergency direct review'
+            ].join('\n'),
+            createdAt: '2026-07-16T13:57:04Z',
+            state    : 'changes_requested'
+        });
+
+        expect(commented.failures).toEqual([
+            'A terminal Drop+Supersede verdict must use GitHub review state CHANGES_REQUESTED.'
+        ]);
+        expect(malformedBypass.failures[0]).toContain('Drop+Supersede body is incomplete')
+    });
+
+    test('#15257: workflow rejects either one-sided Drop+Supersede contradiction', async () => {
+        const cases = [
+            VALID_DROP_SUPERSEDE_REVIEW_BODY.replace('**Status:** Drop+Supersede', '**Status:** Request Changes'),
+            VALID_DROP_SUPERSEDE_REVIEW_BODY.replace('- **Decision**: Drop+Supersede', '- **Decision**: Request Changes')
+        ];
+
+        for (const body of cases) {
+            const result = await runAgentPrReviewBodyLintWorkflow({body, state: 'changes_requested'});
+
+            expect(result.failures).toHaveLength(1);
+            expect(result.failures[0]).toContain('Drop+Supersede body is incomplete');
+            expect(result.failures[0]).toContain('Status + Decision')
+        }
+    });
+
+    test('#15257: workflow rejects override-only provenance after cutover', async () => {
+        const body = managedReviewBody(
+            VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+        ).replace('[review-budget-managed]\n', '[review-budget-override]\n');
+        const result = await runAgentPrReviewBodyLintWorkflow({
+            body,
+            createdAt: '2026-07-16T13:57:04Z',
+            state    : 'changes_requested'
+        });
+
+        expect(result.failures).toEqual([
+            '`[review-budget-override]` is valid only with managed-path provenance.'
+        ])
     });
 
     test('#13910: workflow lint requires Premise Coherence for canonical reviews', async () => {
@@ -1468,7 +2182,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async (queryString) => {
             graphqlCallCount++;
-            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: pullRequestNode()}};
+            if (queryString.includes('GetPullRequestId')) return pullRequestLookup();
             if (queryString.includes('AddPullRequestReview')) return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}};
             return null;
         };
@@ -1492,7 +2206,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             .replace('**Class:** micro — a one-line doc typo fix', '**Class:** a one-line doc typo fix');
 
         let graphqlCallCount = 0;
-        GraphqlService.query = async () => { graphqlCallCount++; return {repository: {pullRequest: pullRequestNode()}}; };
+        GraphqlService.query = async () => { graphqlCallCount++; return pullRequestLookup(); };
 
         const result = await PullRequestService.managePrReview({
             action   : 'create',
@@ -1521,7 +2235,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async () => {
             graphqlCallCount++;
-            return {repository: {pullRequest: pullRequestNode()}};
+            return pullRequestLookup();
         };
 
         const result = await PullRequestService.managePrReview({
@@ -1578,7 +2292,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async (queryString) => {
             graphqlCallCount++;
-            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: pullRequestNode()}};
+            if (queryString.includes('GetPullRequestId')) return pullRequestLookup();
             if (queryString.includes('AddPullRequestReview')) return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}};
             return null;
         };
@@ -1602,7 +2316,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async (queryString) => {
             graphqlCallCount++;
-            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: pullRequestNode()}};
+            if (queryString.includes('GetPullRequestId')) return pullRequestLookup();
             if (queryString.includes('AddPullRequestReview')) return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}};
             return null;
         };
@@ -1634,7 +2348,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async () => {
             graphqlCallCount++;
-            return {repository: {pullRequest: pullRequestNode()}};
+            return pullRequestLookup();
         };
 
         const body = [
@@ -1692,7 +2406,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let graphqlCallCount = 0;
         GraphqlService.query = async (queryString) => {
             graphqlCallCount++;
-            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: pullRequestNode()}};
+            if (queryString.includes('GetPullRequestId')) return pullRequestLookup();
             if (queryString.includes('AddPullRequestReview')) return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}};
             return null;
         };

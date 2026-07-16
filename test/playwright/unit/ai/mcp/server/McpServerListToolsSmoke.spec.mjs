@@ -578,6 +578,7 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
             moduleUrl    = pathToFileURL(path.join(repoRoot, server.toolServicePath)).href,
             {callTool}   = await import(moduleUrl),
             handbook     = await callTool('get_mcp_tool_handbook', {toolId: 'update_issue_relationship'}),
+            reviewHandbook = await callTool('get_mcp_tool_handbook', {toolId: 'manage_pr_review'}),
             missing      = await callTool('get_mcp_tool_handbook', {toolId: 'missing_tool'}),
             relationship = byName.update_issue_relationship,
             conversation = byName.get_conversation,
@@ -590,6 +591,9 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
         expect(relationship.description).not.toContain('Run `sync_all`');
         expect(conversation.description).toBe('Fetch a pull request or issue conversation with optional comment-window selectors.');
         expect(review.description).toBe('Create or update one formal PR review with body and review state validation.');
+        expect(review.inputSchema.properties.reviewBudgetOverrideReason).toMatchObject({type: 'string'});
+        expect(reviewHandbook.handbook).toContain('reviewBudgetOverrideReason');
+        expect(reviewHandbook.handbook).toContain('two submitted RCs');
 
         for (const tool of tools) {
             expect(tool.description.length, `github-workflow.${tool.name} description is not compact`).toBeLessThanOrEqual(120);

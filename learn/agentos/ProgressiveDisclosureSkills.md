@@ -85,7 +85,7 @@ Invoked when terminating a task.
 Invoked when evaluating a PR (either peer-reviewing another agent or guiding a human).
 - **Evaluation Metrics:** Quantifies quality across 7 dimensions (e.g., `[ARCH_ALIGNMENT]`, `[EXECUTION_QUALITY]`).
 - **Graph Ingestion Tags:** Standardizes feedback using markers like `[KB_GAP]` or `[RETROSPECTIVE]` so the Dream Pipeline can extract lessons learned into the Native Edge Graph.
-- **Circuit Breaker:** For deep PRs (≥3 formal reviews or >24KB discussion), classifies review convergence — micro-delta for semantically-cleared PRs (+ a Maintainer Polish Fast Path for metadata fixes), full review for converging blockers, and a **scope-too-big break-up verdict** (decompose via `epic-create`) for non-converging semantic churn. Discussion size is a cost signal, not a scope signal.
+- **Budgeted Review Closure:** Post-cutover PRs get at most two ordinary `CHANGES_REQUESTED` reviews; after RC2, convergence continues through a `COMMENTED` closure packet, approval/polish, guarded Approve+Follow-Up, or one validator-complete terminal Drop+Supersede. Discussion size remains cost telemetry, never a scope classifier.
 - **LGTM/Required Actions:** Ensures every review resolves in a clear state.
 - **Review Intake Guard:** Pairs with `post-review-pickup` so a fresh session checks for an author lane before entering review-only mode, unless a review-first rationale applies.
 - **Prior-art sweep gate:** Before scoring, a cheap 3–10-call Memory Core sweep (`memory-mining`) of the PR's decision space — a prior session may have settled the shape or an ADR may already govern it. PR-review is V-B-A's last line of defense, where CI-green ≠ AC-met (per `AGENTS.md` §verify_before_assert).

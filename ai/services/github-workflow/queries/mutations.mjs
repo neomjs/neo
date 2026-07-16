@@ -522,23 +522,44 @@ export const UPDATE_PROJECT_V2_ITEM_SINGLE_SELECT = `
  * resolving the id once.
  *
  * Variables required:
- * - $owner:    String!
- * - $repo:     String!
- * - $prNumber: Int!
+ * - $activationIssueNumber: Int!
+ * - $owner:                 String!
+ * - $repo:                  String!
+ * - $prNumber:              Int!
  */
 export const GET_PULL_REQUEST_ID = `
   query GetPullRequestId(
+    $activationIssueNumber: Int!
     $owner: String!
     $repo: String!
     $prNumber: Int!
   ) {
     repository(owner: $owner, name: $repo) {
+      activationIssue: issue(number: $activationIssueNumber) {
+        id
+        closedByPullRequestsReferences(first: 100, includeClosedPrs: true) {
+          totalCount
+          nodes {
+            id
+            number
+            state
+            mergedAt
+            baseRefName
+          }
+          pageInfo {
+            hasNextPage
+          }
+        }
+      }
       pullRequest(number: $prNumber) {
+        createdAt
         id
         headRefOid
         reviewDecision
         reviews(last: 100) {
           nodes {
+            body
+            id
             state
             submittedAt
             url
@@ -550,7 +571,32 @@ export const GET_PULL_REQUEST_ID = `
               oid
             }
           }
+          pageInfo {
+            hasPreviousPage
+          }
         }
+      }
+    }
+  }
+`;
+
+/**
+ * Query one submitted review before a body-only update.
+ *
+ * The managed review-budget audit lives in the review body because GitHub exposes no
+ * custom immutable metadata field on a review. Reading the current body before update
+ * lets the managed path refuse edits that would erase terminal or budget provenance.
+ *
+ * Variables required:
+ * - $reviewId: ID! - GraphQL node ID of the submitted pull-request review.
+ */
+export const GET_PULL_REQUEST_REVIEW = `
+  query GetPullRequestReview($reviewId: ID!) {
+    node(id: $reviewId) {
+      ... on PullRequestReview {
+        body
+        id
+        state
       }
     }
   }
