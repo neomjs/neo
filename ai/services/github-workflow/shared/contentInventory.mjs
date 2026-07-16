@@ -131,7 +131,7 @@ export function resolveArchivedLocation(inventory, id) {
  * @param {'issues'|'pulls'|'discussions'} options.type Content type segment
  * @param {String} options.filePrefix File-leaf prefix (e.g. `'pr-'`)
  * @param {Map<Number, Array<Object>>} [options.inventory] Pre-built inventory; scanned when omitted
- * @returns {Promise<{type: String, ok: Boolean, indexedTotal: Number, corpusTotal: Number, uniqueIds: Number, staleIndexEntries: Array<Object>, inconsistentIndexEntries: Array<Object>, unindexedIds: Array<Number>, identicalDuplicateIds: Array<Number>, divergentDuplicateIds: Array<Number>}>}
+ * @returns {Promise<{type: String, ok: Boolean, indexedTotal: Number, corpusTotal: Number, uniqueIds: Number, staleIndexEntries: Array<Object>, inconsistentIndexEntries: Array<Object>, duplicateIndexEntryIds: Array<Number>, unindexedIds: Array<Number>, identicalDuplicateIds: Array<Number>, divergentDuplicateIds: Array<Number>}>}
  */
 export async function validateContentIntegrity(issueSyncConfig = {}, {type, filePrefix, inventory} = {}) {
     const contentRoot = contentRootFor(issueSyncConfig),
@@ -163,7 +163,20 @@ export async function validateContentIntegrity(issueSyncConfig = {}, {type, file
         }
     }
 
-    const indexedIds   = new Set(indexed.map(entry => Number(entry.id))),
+    // Duplicate rows for one id. `updateContentIndex` keys by `{type, id}` and so cannot create them,
+    // which is exactly why they must be checked on READ: a hand-edit, a bad merge, or any writer that
+    // appends rather than upserts produces two assertions about where one id lives, and every
+    // path-existence check passes on both. The first one wins at lookup, silently and arbitrarily.
+    const seenIds                = new Set(),
+          duplicateIndexEntryIds = [];
+
+    for (const entry of indexed) {
+        const id = Number(entry.id);
+
+        seenIds.has(id) ? duplicateIndexEntryIds.push(id) : seenIds.add(id);
+    }
+
+    const indexedIds   = seenIds,
           unindexedIds = [...corpus.keys()].filter(id => !indexedIds.has(id));
 
     const identicalDuplicateIds = [],
@@ -186,13 +199,14 @@ export async function validateContentIntegrity(issueSyncConfig = {}, {type, file
     return {
         type,
         ok          : staleIndexEntries.length === 0 && inconsistentIndexEntries.length === 0 &&
-                      unindexedIds.length === 0 && identicalDuplicateIds.length === 0 &&
-                      divergentDuplicateIds.length === 0,
+                      duplicateIndexEntryIds.length === 0 && unindexedIds.length === 0 &&
+                      identicalDuplicateIds.length === 0 && divergentDuplicateIds.length === 0,
         indexedTotal: indexed.length,
         corpusTotal,
         uniqueIds   : corpus.size,
         staleIndexEntries,
         inconsistentIndexEntries,
+        duplicateIndexEntryIds,
         unindexedIds,
         identicalDuplicateIds,
         divergentDuplicateIds
@@ -212,6 +226,7 @@ export function formatIntegrityReport(result = {}) {
         `  unique ids           : ${result.uniqueIds}`,
         `  stale indexed paths  : ${result.staleIndexEntries?.length ?? 0}`,
         `  inconsistent entries : ${result.inconsistentIndexEntries?.length ?? 0}`,
+        `  duplicate index rows : ${result.duplicateIndexEntryIds?.length ?? 0}`,
         `  unindexed artifacts  : ${result.unindexedIds?.length ?? 0}`,
         `  identical duplicates : ${result.identicalDuplicateIds?.length ?? 0}`,
         `  divergent duplicates : ${result.divergentDuplicateIds?.length ?? 0}`,

@@ -1,15 +1,16 @@
-import aiConfig           from '../../mcp/server/github-workflow/config.mjs';
-import Base               from '../../../src/core/Base.mjs';
-import logger             from '../../mcp/server/github-workflow/logger.mjs';
-import HealthService      from './HealthService.mjs';
-import IssueSyncer        from './sync/IssueSyncer.mjs';
-import MetadataManager    from './sync/MetadataManager.mjs';
-import ReleaseNotesSyncer from './sync/ReleaseNotesSyncer.mjs';
-import DiscussionSyncer   from './sync/DiscussionSyncer.mjs';
-import PullRequestSyncer  from './sync/PullRequestSyncer.mjs';
-import RepositoryService  from './RepositoryService.mjs';
-import {exec}             from 'child_process';
-import {promisify}        from 'util';
+import aiConfig                from '../../mcp/server/github-workflow/config.mjs';
+import Base                    from '../../../src/core/Base.mjs';
+import logger                  from '../../mcp/server/github-workflow/logger.mjs';
+import HealthService           from './HealthService.mjs';
+import IssueSyncer             from './sync/IssueSyncer.mjs';
+import MetadataManager         from './sync/MetadataManager.mjs';
+import ReleaseNotesSyncer      from './sync/ReleaseNotesSyncer.mjs';
+import DiscussionSyncer        from './sync/DiscussionSyncer.mjs';
+import PullRequestSyncer       from './sync/PullRequestSyncer.mjs';
+import RepositoryService       from './RepositoryService.mjs';
+import {formatIntegrityReport} from './shared/contentInventory.mjs';
+import {exec}                  from 'child_process';
+import {promisify}             from 'util';
 
 const execAsync = promisify(exec);
 
@@ -177,6 +178,30 @@ class SyncService extends Base {
         //     entries that disagree), so the generated-content diff stays empty when nothing drifted.
         const pullIndexStats = await PullRequestSyncer.reconcilePullRequestIndex();
 
+        // 7c. One terminal integrity verdict, CONSUMED. Every pass above reports its own outcome and
+        //     degrades softly on its own terms, which is exactly how a corpus reaches the commit with
+        //     each step reporting success and the whole known-broken: a repair that fails logs and
+        //     returns, an unrepaired duplicate stays unindexed, and nothing downstream asks. So the
+        //     verdict is taken AFTER placement, restoration and projection are final, and it aborts —
+        //     before the metadata save, before the derive, before the auto-push. Committing a corpus
+        //     we have already measured as broken is worse than failing the run: the run can be
+        //     retried, but a generated commit is what every consumer then reads as truth.
+        const pullIntegrity = await PullRequestSyncer.verifyCorpusIntegrity();
+
+        if (pullDuplicateStats.failed.length > 0 || !pullIntegrity.ok) {
+            logger.error(formatIntegrityReport(pullIntegrity));
+
+            throw new Error(
+                'Pull corpus integrity is not clean after repair — refusing to commit generated content. ' +
+                `stale=${pullIntegrity.staleIndexEntries.length} ` +
+                `inconsistent=${pullIntegrity.inconsistentIndexEntries.length} ` +
+                `duplicateIndexRows=${pullIntegrity.duplicateIndexEntryIds.length} ` +
+                `unindexed=${pullIntegrity.unindexedIds.length} ` +
+                `divergentDuplicates=${pullIntegrity.divergentDuplicateIds.length} ` +
+                `failedRepairs=${pullDuplicateStats.failed.length}`
+            );
+        }
+
         // 8. Self-heal push failures: If a previously failed issue was successfully pulled, remove it from the failure list
         if (newMetadata.pushFailures?.length > 0) {
             newMetadata.pushFailures = newMetadata.pushFailures.filter(failedId => !newMetadata.issues[failedId]);
@@ -215,7 +240,8 @@ class SyncService extends Base {
             discussionStats,
             pullStats2,
             pullDuplicateStats,
-            pullIndexStats
+            pullIndexStats,
+            pullIntegrity
         };
     }
 

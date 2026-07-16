@@ -312,6 +312,21 @@ test.describe('Neo.ai.services.github-workflow.shared.contentInventory', () => {
             expect((await validateContentIntegrity(config, inventoryOpts)).inconsistentIndexEntries).toHaveLength(0)
         });
 
+        test('detects DUPLICATE index rows for one id — two assertions about where it lives', async () => {
+            // `updateContentIndex` keys by {type, id} and so cannot produce these, which is exactly
+            // why they must be checked on READ: a hand-edit, a bad merge, or any writer that appends
+            // rather than upserts makes two rows for one id. Every path-existence check passes on
+            // both, and the first one wins at lookup — silently and arbitrarily.
+            const a = await writeActive(1, 10);
+
+            await writeContentIndex(config, [indexEntry(10, a), {...indexEntry(10, a), chunkNumber: 2}]);
+
+            const result = await validateContentIntegrity(config, inventoryOpts);
+
+            expect(result.duplicateIndexEntryIds).toEqual([10]);
+            expect(result.ok).toBe(false)
+        });
+
         test('detects an artifact that no index entry names', async () => {
             await writeActive(1, 10);
             await writeContentIndex(config, []);

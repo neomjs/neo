@@ -1,20 +1,20 @@
-import aiConfig                                                                from '../../../mcp/server/github-workflow/config.mjs';
-import Base                                                                    from '../../../../src/core/Base.mjs';
-import crypto                                                                  from 'crypto';
-import {existsSync}                                                            from 'fs';
-import fs                                                                      from 'fs/promises';
-import logger                                                                  from '../../../mcp/server/github-workflow/logger.mjs';
-import matter                                                                  from 'gray-matter';
-import path                                                                    from 'path';
-import semver                                                                  from 'semver';
-import GraphqlService                                                          from '../GraphqlService.mjs';
-import ReleaseNotesSyncer                                                      from './ReleaseNotesSyncer.mjs';
-import {FETCH_PULL_REQUESTS_FOR_SYNC, FETCH_SINGLE_PULL_FOR_SYNC}              from '../queries/pullRequestQueries.mjs';
-import contentPath, {parseContentPath, pathSegmentOptionsFor}                  from '../shared/contentPath.mjs';
-import {buildContentInventory, resolveArchivedLocation}                        from '../shared/contentInventory.mjs';
-import {createContentIndexEntryFromPath, readContentIndex, updateContentIndex} from '../shared/contentIndex.mjs';
-import {createContentTrustSummary, projectAuthoredNodeTrust}                   from '../shared/conversationTrust.mjs';
-import pruneEmptyDirs                                                          from '../shared/pruneEmptyDirs.mjs';
+import aiConfig                                                                   from '../../../mcp/server/github-workflow/config.mjs';
+import Base                                                                       from '../../../../src/core/Base.mjs';
+import crypto                                                                     from 'crypto';
+import {existsSync}                                                               from 'fs';
+import fs                                                                         from 'fs/promises';
+import logger                                                                     from '../../../mcp/server/github-workflow/logger.mjs';
+import matter                                                                     from 'gray-matter';
+import path                                                                       from 'path';
+import semver                                                                     from 'semver';
+import GraphqlService                                                             from '../GraphqlService.mjs';
+import ReleaseNotesSyncer                                                         from './ReleaseNotesSyncer.mjs';
+import {FETCH_PULL_REQUESTS_FOR_SYNC, FETCH_SINGLE_PULL_FOR_SYNC}                 from '../queries/pullRequestQueries.mjs';
+import contentPath, {parseContentPath, pathSegmentOptionsFor}                     from '../shared/contentPath.mjs';
+import {buildContentInventory, resolveArchivedLocation, validateContentIntegrity} from '../shared/contentInventory.mjs';
+import {createContentIndexEntryFromPath, readContentIndex, updateContentIndex}    from '../shared/contentIndex.mjs';
+import {createContentTrustSummary, projectAuthoredNodeTrust}                      from '../shared/conversationTrust.mjs';
+import pruneEmptyDirs                                                             from '../shared/pruneEmptyDirs.mjs';
 
 const issueSyncConfig   = aiConfig.issueSync;
 const pullRequestConfig = aiConfig.pullRequest;
@@ -867,6 +867,24 @@ class PullRequestSyncer extends Base {
     }
 
     /**
+     * @summary The terminal integrity verdict over the pull corpus.
+     *
+     * A thin owner-side wrapper, and deliberately a method rather than a call the orchestrator makes
+     * itself. Two reasons, both structural: the orchestrator would otherwise have to know
+     * pull-specific facts (the type segment, the filename prefix) that belong to this syncer, and a
+     * bare module call is unstubbable — the Stage-2 sequencing specs stub every pull pass, and a
+     * verdict they cannot stub reads the real `resources/content` from a unit run.
+     *
+     * @returns {Promise<Object>} The structured result from `validateContentIntegrity`.
+     */
+    async verifyCorpusIntegrity() {
+        return validateContentIntegrity(issueSyncConfig, {
+            type      : 'pulls',
+            filePrefix: aiConfig.issueSync.pullFilenamePrefix || 'pr-'
+        });
+    }
+
+    /**
      * @summary Realigns `_index.json` with the pull corpus on disk. The repair half of this lane.
      *
      * The index is a PROJECTION of the corpus, so it can always be recomputed from it — and once a
@@ -882,12 +900,15 @@ class PullRequestSyncer extends Base {
      * clean — it upserts only entries that actually disagree with disk, so a healthy corpus writes
      * nothing and the generated-content diff stays empty.
      *
-     * Ambiguous ids are SKIPPED rather than indexed. An entry for one of two artifacts would name a
-     * copy and thereby bless it as canonical — the arbitrary choice this lane refuses to make on the
-     * corpus's behalf. They surface in the integrity result for repair from source.
+     * A projection REMOVES as well as writes. Skipping an ambiguous id is not enough when a row for
+     * it already exists: that row names one of two divergent artifacts and thereby blesses it as
+     * canonical — the arbitrary choice this lane refuses — and it does so silently, because the path
+     * it names is real and resolves. The same holds for an id whose artifact is gone entirely: the
+     * row survives as a lookup into nothing. "Exactly one artifact, or no row" is the contract; an
+     * index that only ever grows is a cache, not a projection.
      *
      * @param {Map<number, Array<object>>} [inventory] Pre-built corpus inventory; scanned when omitted.
-     * @returns {Promise<{reindexed: Number, unchanged: Number, skippedAmbiguous: Number[]}>}
+     * @returns {Promise<{reindexed: Number, unchanged: Number, removed: Number, skippedAmbiguous: Number[]}>}
      */
     async reconcilePullRequestIndex(inventory = null) {
         const corpus = inventory || await buildContentInventory(issueSyncConfig, {
@@ -902,6 +923,7 @@ class PullRequestSyncer extends Base {
         );
 
         const upsert           = [],
+              remove           = [],
               skippedAmbiguous = [];
 
         let unchanged = 0;
@@ -909,6 +931,13 @@ class PullRequestSyncer extends Base {
         for (const [id, copies] of corpus) {
             if (copies.length > 1) {
                 skippedAmbiguous.push(id);
+
+                // Not merely un-indexed: any EXISTING row for this id must go. It names one of two
+                // divergent artifacts, and a row is an assertion that the id resolves there — which
+                // is the canonical-by-implication choice this lane refuses to make on the corpus's
+                // behalf. Silently, too: the path is real, so every existence check passes.
+                if (existing.has(id)) remove.push({type: 'pulls', id});
+
                 continue;
             }
 
@@ -935,16 +964,22 @@ class PullRequestSyncer extends Base {
             upsert.push(entry);
         }
 
-        if (upsert.length > 0) {
-            await updateContentIndex(issueSyncConfig, {upsert});
-            logger.info(`🧭 Realigned ${upsert.length} pull index entr${upsert.length === 1 ? 'y' : 'ies'} with the corpus (${unchanged} already correct).`);
+        // A row whose id owns NO artifact at all is a lookup into nothing. The projection drops it
+        // rather than leaving a resolvable-looking entry behind.
+        for (const id of existing.keys()) {
+            if (!corpus.has(id)) remove.push({type: 'pulls', id});
+        }
+
+        if (upsert.length > 0 || remove.length > 0) {
+            await updateContentIndex(issueSyncConfig, {upsert, remove});
+            logger.info(`🧭 Realigned the pull index with the corpus: ${upsert.length} written, ${remove.length} removed, ${unchanged} already correct.`);
         }
 
         if (skippedAmbiguous.length > 0) {
-            logger.warn(`⚠️ ${skippedAmbiguous.length} pull request(s) own more than one artifact and were left unindexed: ${skippedAmbiguous.join(', ')}`);
+            logger.warn(`⚠️ ${skippedAmbiguous.length} pull request(s) own more than one artifact and are unindexed pending repair: ${skippedAmbiguous.join(', ')}`);
         }
 
-        return {reindexed: upsert.length, unchanged, skippedAmbiguous};
+        return {reindexed: upsert.length, unchanged, removed: remove.length, skippedAmbiguous};
     }
 
     /**

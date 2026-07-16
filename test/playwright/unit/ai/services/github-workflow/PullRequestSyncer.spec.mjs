@@ -811,6 +811,42 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         expect((await readContentIndex(aiConfig.issueSync)).find(e => e.id === prNumber).chunkNumber).toBe(2);
     });
 
+    test('REMOVES an existing row for an ambiguous id — un-indexing is not enough', async () => {
+        // Skipping the id leaves any prior row in place, and that row names one of two divergent
+        // artifacts — an assertion that the id resolves there, which is the canonical-by-implication
+        // choice this lane refuses. Silently, too: the path is real, so every existence check passes.
+        const prNumber = 10124;
+
+        for (const chunk of ['chunk-1', 'chunk-2']) {
+            const dir = path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', chunk);
+
+            await fs.ensureDir(dir);
+            await fs.writeFile(path.join(dir, `pr-${prNumber}.md`), `divergent ${chunk}`, 'utf8');
+        }
+
+        // A pre-existing row blessing chunk-1.
+        await fs.writeJson(path.join(aiConfig.issueSync.contentRoot, '_index.json'), [
+            {type: 'pulls', id: prNumber, version: 'v13.0.0', chunkNumber: 1, path: `archive/pulls/v13.0.0/chunk-1/pr-${prNumber}.md`}
+        ]);
+
+        const stats = await PullRequestSyncer.reconcilePullRequestIndex();
+
+        expect(stats.skippedAmbiguous).toEqual([prNumber]);
+        expect(stats.removed).toBe(1);
+        expect((await readContentIndex(aiConfig.issueSync)).find(e => e.id === prNumber)).toBeUndefined();
+    });
+
+    test('REMOVES a row whose id owns no artifact at all — a lookup into nothing', async () => {
+        await fs.writeJson(path.join(aiConfig.issueSync.contentRoot, '_index.json'), [
+            {type: 'pulls', id: 4040, version: null, chunkNumber: 1, path: 'pulls/chunk-1/pr-4040.md'}
+        ]);
+
+        const stats = await PullRequestSyncer.reconcilePullRequestIndex();
+
+        expect(stats.removed).toBe(1);
+        expect((await readContentIndex(aiConfig.issueSync)).find(e => e.id === 4040)).toBeUndefined();
+    });
+
     test('leaves an ambiguous id UNINDEXED rather than blessing a copy as canonical', async () => {
         const prNumber = 10124;
 
