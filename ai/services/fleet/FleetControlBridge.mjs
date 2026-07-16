@@ -1,6 +1,7 @@
 import Base                     from '../../../src/core/Base.mjs';
 import FleetManager             from './FleetManager.mjs';
 import FleetRegistryService     from './FleetRegistryService.mjs';
+import FleetTenantService       from './FleetTenantService.mjs';
 import {resolveIdentityDisplay} from './resolveIdentityDisplay.mjs';
 
 import {LAUNCHABLE_HARNESS_TYPES, getHarnessAuthMode} from './deriveHarnessLaunchSpec.mjs';
@@ -102,6 +103,13 @@ class FleetControlBridge extends Base {
      * @member {Function|null} identityResolver=null
      */
     identityResolver = null
+    /**
+     * Remote-tenant collaborator seam. Defaults (via {@link getTenantService}) to the
+     * `FleetTenantService` singleton; inject a stub in tests. A plain field, mirroring `registry` /
+     * `manager`.
+     * @member {Object|null} tenantService=null
+     */
+    tenantService = null
 
     /**
      * @returns {Object} the registry collaborator (injected stub or the default singleton).
@@ -125,6 +133,14 @@ class FleetControlBridge extends Base {
      */
     getManager() {
         return this.manager || FleetManager;
+    }
+
+    /**
+     * @returns {Object} the remote-tenant collaborator (injected stub or the default singleton).
+     * @protected
+     */
+    getTenantService() {
+        return this.tenantService || FleetTenantService;
     }
 
     // ---- capability allowlist (the ONLY pane-reachable operations) ----------
@@ -156,6 +172,30 @@ class FleetControlBridge extends Base {
 
             throw error
         }
+    }
+
+    /**
+     * @summary Connect a remote Agent-OS tenant (tenant URL + PAT) — the design-partner entry: the
+     * cockpit points at a HOSTED tenant instead of standing up the local stack. Delegates to
+     * `FleetTenantService.connectTenant`; the credential is stored encrypted Node-side and is
+     * **never** echoed back — the return is the public descriptor (`{id, endpoint, status,
+     * deploymentClass, connectedAt}`) or a controlled `{status: 'rejected', reason}` outcome. The
+     * same secret-omission boundary {@link #defineAgent} enforces for agent PATs.
+     * @param {Object} params `{tenantUrl, credential}`
+     * @returns {Promise<Object>} the public tenant descriptor, or `{status: 'rejected', reason}`.
+     */
+    connectTenant(params) {
+        return this.getTenantService().connectTenant(params);
+    }
+
+    /**
+     * @summary The connected remote tenants — public descriptors only, never a credential: the
+     * read half of the remote-tenant surface, riding the same read-observe wire class as
+     * {@link #fleetRoster}.
+     * @returns {Object[]}
+     */
+    listTenants() {
+        return this.getTenantService().listTenants();
     }
 
     /**
@@ -340,7 +380,7 @@ class FleetControlBridge extends Base {
      * accordingly rather than duplicated.
      * @returns {Object} the serializable cockpit DTO `{sources, capabilities, rows, events}`.
      */
-    fleetRoster() {
+    async fleetRoster() {
         const
             me       = this,
             registry = me.getRegistry(),
@@ -354,17 +394,25 @@ class FleetControlBridge extends Base {
             authMode  : getHarnessAuthMode(agent.harnessType)
         }));
 
+        // The S2 wake axis joins the roster here: the producer snapshot (subscription intent ×
+        // daemon liveness, entrypoint-injected sources) becomes per-row wake telltale state + one
+        // wake capability. Fail-honest end to end: an un-injected producer — or a manager seam
+        // without the producer method at all — yields not-wired/unknown, never a guessed state.
+        const wake = await manager.fleetWakeStatus?.() ?? null;
+
         return createFleetCockpitStatus({
             agents,
             fleetStatus  : manager.fleetRepoStatus() ?? [],
             runtimeStatus: manager.fleetRuntimeStatus() ?? [],
+            wakeStatus   : wake?.states ?? [],
             capabilities : {
                 activity: createNotWiredCapability(FLEET_COCKPIT_SOURCES.activity, 'activity rides the dedicated fleetActivity verb'),
                 runtime : {
                     source    : FLEET_COCKPIT_SOURCES.runtime,
                     state     : 'wired',
                     confidence: 'observed'
-                }
+                },
+                wake: wake?.capability ?? createNotWiredCapability(FLEET_COCKPIT_SOURCES.wake, 'wake-state producer not wired')
             }
         });
     }

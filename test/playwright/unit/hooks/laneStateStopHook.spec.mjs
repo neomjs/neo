@@ -212,6 +212,29 @@ test.describe('laneStateStopHook — pure idle-out decision logic', () => {
             expect(dir).not.toContain('undefined');
         });
 
+        test('fixture-shaped ids never survive into the advisory — the #15265 pollution, verbatim', () => {
+            // the two rows the polluted 2026-07-06 state file actually served (epoch-millisecond
+            // id tails minted with Date.now() — impossible tracker artifacts)
+            const dir = formatGoldenPathDirection({goldenPathDirection: [
+                {id: 'discussion-open-1783347784287', score: 10,   title: 'Open Discussion Fixture'},
+                {id: 'issue-actionable-1783347784287', score: 3.33, title: 'Actionable Issue Fixture'}
+            ]});
+            expect(dir, 'an all-fixture direction degrades to the bare reminder').toBe('');
+
+            // a real lane sandwiched between fixtures survives alone, renumbered from 1
+            const mixed = formatGoldenPathDirection({goldenPathDirection: [
+                {id: 'discussion-open-1783347784287', score: 10, title: 'Open Discussion Fixture'},
+                {id: 'issue-14442', score: 9.5, title: 'Business engine'},
+                {id: 'issue-actionable-1783347784287', score: 3.33}
+            ]});
+            expect(mixed).toContain('1. issue-14442');
+            expect(mixed).not.toContain('Fixture');
+            expect(mixed).not.toContain('1783347784287');
+
+            // tracker-scale id tails stay servable — the guard targets epoch-scale (13+ digit) tails only
+            expect(formatGoldenPathDirection({goldenPathDirection: [{id: 'issue-9999999'}]})).toContain('1. issue-9999999');
+        });
+
         test('score is optional + a non-finite score is omitted cleanly (no "score NaN")', () => {
             const dir = formatGoldenPathDirection({goldenPathDirection: [{id: 'issue-1', score: 'x'}, {id: 'issue-2'}]});
             expect(dir).toContain('1. issue-1');
@@ -783,12 +806,40 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
         const {stdout, log} = await runHook(block('{"laneContinuation":"verified-no-lane"}'), {
             enforce       : true,
             promptingText : '[WAKE] 1 event',
-            lifecycleState: {goldenPathDirection: [{id: 'issue-14442', score: 13.5, title: 'Business engine'}]}
+            lifecycleState: {generatedAt: new Date().toISOString(), goldenPathDirection: [{id: 'issue-14442', score: 13.5, title: 'Business engine'}]}
         });
         expect(log).toContain('BLOCK');
         const decision = JSON.parse(stdout);
         expect(decision.decision).toBe('block');
         expect(decision.reason).toContain('Release-goal direction');
         expect(decision.reason).toContain('issue-14442 — score 13.50 — Business engine');
+    });
+
+    test('a STALE lifecycle-state degrades like a missing file — dead writers cannot serve "live" advisories (#15265)', async () => {
+        const {stdout} = await runHook(block('{"laneContinuation":"verified-no-lane"}'), {
+            enforce      : true,
+            promptingText: '[WAKE] 1 event',
+            // the forensic shape: a 10-day-old orphan (its producer removed from the tree) carrying
+            // fixture rows — served on every block until freshness became contract
+            lifecycleState: {
+                generatedAt        : '2026-07-06T14:23:04.288Z',
+                goldenPathDirection: [{id: 'discussion-open-1783347784287', score: 10, title: 'Open Discussion Fixture'}]
+            }
+        });
+        const decision = JSON.parse(stdout);
+        expect(decision.decision).toBe('block');
+        expect(decision.reason).not.toContain('Release-goal direction');
+        expect(decision.reason).not.toContain('Fixture');
+    });
+
+    test('a lifecycle-state without generatedAt cannot prove freshness — not served (#15265)', async () => {
+        const {stdout} = await runHook(block('{"laneContinuation":"verified-no-lane"}'), {
+            enforce       : true,
+            promptingText : '[WAKE] 1 event',
+            lifecycleState: {goldenPathDirection: [{id: 'issue-14442', score: 13.5, title: 'Business engine'}]}
+        });
+        const decision = JSON.parse(stdout);
+        expect(decision.decision).toBe('block');
+        expect(decision.reason).not.toContain('Release-goal direction');
     });
 });

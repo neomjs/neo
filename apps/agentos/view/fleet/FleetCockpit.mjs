@@ -15,6 +15,7 @@ import FleetRoster              from '../../store/FleetRoster.mjs';
 import StateProvider            from '../../../../src/state/Provider.mjs';
 import cockpitDockDocument      from './cockpitDockDocument.mjs';
 import cockpitPresetCollection  from './cockpitPresets.mjs';
+import {deriveSpineBanner}      from './spineBanner.mjs';
 import {mapFleetSessionHealth}  from './sourceHealth.mjs';
 import {previewToOperation}     from '../../../../src/dashboard/dockPreviewContract.mjs';
 import '../../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the dock projection emits for tab zones
@@ -86,9 +87,14 @@ class FleetCockpit extends Container {
          * plain containers, so per-class loading never fetches it; the consuming workspace
          * declares the dependency (the projection root carries the matching `.neo-dashboard`
          * scope class itself).
-         * @member {String[]} additionalThemeFiles=['Neo.dashboard.Container']
+         * Theme files this view needs that its own namespace does not pull in. `SpineBanner` is here
+         * because the banner is a plain component slot (`fleet-spine-banner`) rather than its own
+         * class — nothing requests `AgentOS.view.fleet.SpineBanner`, so without this entry the
+         * stylesheet is built and never loaded, and the banner renders unstyled. Any future
+         * class-less slot with its own SCSS needs the same registration.
+         * @member {String[]} additionalThemeFiles=['Neo.dashboard.Container','AgentOS.view.fleet.SpineBanner']
          */
-        additionalThemeFiles: ['Neo.dashboard.Container'],
+        additionalThemeFiles: ['Neo.dashboard.Container', 'AgentOS.view.fleet.SpineBanner'],
         /**
          * @member {String[]} baseCls=['fm-fleet-cockpit']
          */
@@ -100,6 +106,15 @@ class FleetCockpit extends Container {
          * @member {Neo.controller.Component} controller=FleetCockpitController
          */
         controller: FleetCockpitController,
+        /**
+         * The bounded connect window (ms) an opened detail vessel gets before the
+         * `failed-timeout` edge fires and the admission rolls back to docked. Boundedness is the
+         * contract — an admission may fail, it may never hang. Non-reactive class-config default:
+         * `Neo.overwrites`-eligible and instance-configurable (witnesses pass a short window at
+         * creation).
+         * @member {Number} detailVesselConnectWindowMs=10000
+         */
+        detailVesselConnectWindowMs: 10000,
         /**
          * The cockpit-level roster host — ONE provider-owned {@link AgentOS.store.FleetRoster}
          * instance (autoLoaded from the JSON sample seed) that the grid + health bar bind; the
@@ -218,6 +233,59 @@ class FleetCockpit extends Container {
      * @protected
      */
     detailRecord = null
+    /**
+     * Detached-detail bookkeeping — `null` while the inspector is docked. While detached it holds
+     * `{homeTabsNodeId, homeTabIndex, windowId, windowName, connectTimer}`: the tabs node + EXACT
+     * index the reattach restores (`addTab` APPENDS by default — the stored index is the only
+     * placement truth), the vessel's `windowId` once it connects (`null` until then), the window
+     * name for the close call, and the bounded connect-window timer id. Cleared BEFORE the
+     * reattach's async vessel close — the cleared entry is the {@link #onWindowDisconnect}
+     * re-entrancy guard.
+     * @member {Object|null} detachedDetail=null
+     * @protected
+     */
+    detachedDetail = null
+    /**
+     * The live {@link AgentOS.view.fleet.AgentDetail} instance handle while it is OUT of this
+     * cockpit's projected tree (parked mid-flight or mounted in its vessel window). A
+     * popup-mounted pane lives in the vessel's view tree — out of this cockpit's `down()` /
+     * `getReference` reach — so every detail consumer routes through {@link #getAgentDetailPane}.
+     * `null` while docked (the projection owns the pane); survives one projection cycle past
+     * reattach so {@link #resolveDockComponentRef} re-adopts the SAME instance, never a recreation.
+     * @member {Neo.container.Base|null} detachedDetailPane=null
+     * @protected
+     */
+    detachedDetailPane = null
+    /**
+     * The vessel admission state machine's observable state — one word of truth for witnesses,
+     * Neural Link reads and the shell affordance:
+     * `docked → opening → connected → windowed → reattaching → docked`, with the two terminal
+     * failure edges `failed-blocked` (`Neo.Main.windowOpen` returned `false` — the blocked-popup
+     * PRIMARY failure path; it never throws) and `failed-timeout` (the bounded connect window
+     * expired before the vessel joined the heap). Both failure states roll back through the
+     * standard reattach and settle at `docked`; {@link #lastDetailVesselFailure} keeps the
+     * post-rollback trace.
+     * @member {String} detailVesselState='docked'
+     * @protected
+     */
+    detailVesselState = 'docked'
+    /**
+     * Generation counter for async-boundary revalidation: incremented at every pop-out start,
+     * reattach start and destroy. Every awaited continuation (vessel open, connect URL read,
+     * connect timer) re-checks its captured generation and goes inert on mismatch — a reattach or
+     * teardown racing an in-flight admission can never act on stale state.
+     * @member {Number} detailVesselGeneration=0
+     * @protected
+     */
+    detailVesselGeneration = 0
+    /**
+     * The last vessel admission failure (`'blocked'` / `'timeout'`), kept after the rollback
+     * settles so the failure stays observable once {@link #detailVesselState} returns to
+     * `docked`. `null` after a clean detach/reattach cycle.
+     * @member {String|null} lastDetailVesselFailure=null
+     * @protected
+     */
+    lastDetailVesselFailure = null
 
     /**
      * @summary Seed the layout SSOT and build the toolbar + dock projection as instance items —
@@ -233,6 +301,13 @@ class FleetCockpit extends Container {
         me.dockPreviewProducer = Neo.create(DockPreviewProducer);
         me.perspectiveStore    = Neo.create(DockPerspectiveStore, {collection: cockpitPresetCollection()});
         me.dockModel           = me.dockModel || cockpitDockDocument();
+
+        // vessel lifecycle: the popped-out inspector reparents on connect, comes home on disconnect
+        Neo.currentWorker.on({
+            connect   : me.onWindowConnect,
+            disconnect: me.onWindowDisconnect,
+            scope     : me
+        });
 
         me.add(me.buildWorkspaceItems())
     }
@@ -367,7 +442,10 @@ class FleetCockpit extends Container {
             host       : me,
             nextConfig,
             placeholders,
-            resolveItem: itemId => {
+            // a detached inspector is owner-preserved: the reconciler parks the pane (never
+            // destroys it) and retires only its obsolete tab button
+            preserveItemIds: me.detachedDetailPane ? ['detail'] : [],
+            resolveItem    : itemId => {
                 const item = document.items[itemId];
 
                 return DockLayoutAdapter.decorateProjectedItem(
@@ -409,6 +487,18 @@ class FleetCockpit extends Container {
                 html  : me.presetError || ''
             })
         }
+
+        let toggle = me.getReference('detail-window-toggle');
+
+        if (toggle) {
+            let state = me.detailVesselState,
+                out   = state === 'opening' || state === 'connected' || state === 'windowed';
+
+            toggle.set({
+                disabled: state === 'reattaching',
+                text    : out ? 'Reattach detail' : 'Pop out detail'
+            })
+        }
     }
 
     /**
@@ -444,6 +534,15 @@ class FleetCockpit extends Container {
                     hidden   : !me.presetError,
                     html     : me.presetError || '',
                     reference: 'fleet-preset-error'
+                }, {
+                    // the per-SPINE honesty line: names WHY the surface shows sample/last-known
+                    // data (cold/degraded); a fully live spine renders nothing — zero nominal
+                    // pixels. Derived from the owner-held adapter states by syncSpineBanner.
+                    ntype    : 'component',
+                    cls      : ['fm-spine-banner'],
+                    hidden   : true,
+                    reference: 'fleet-spine-banner',
+                    role     : 'status'
                 },
                 '->', {
                     // The morning-start outcome summary — written by the controller after the
@@ -455,6 +554,16 @@ class FleetCockpit extends Container {
                     cls      : ['fm-fleet-start-summary'],
                     hidden   : true,
                     reference: 'fleet-start-summary'
+                }, {
+                    // SHELL-owned pop-out affordance — panes are layout-blind and the shell owns
+                    // docking behavior. Routes by the vessel state machine; the label is synced
+                    // by syncControlBar so it always names the action it will take.
+                    module   : Button,
+                    cls      : ['fm-detail-window-toggle'],
+                    handler  : me.onDetailWindowToggle.bind(me),
+                    iconCls  : 'fa-solid fa-arrow-up-right-from-square',
+                    reference: 'detail-window-toggle',
+                    text     : 'Pop out detail'
                 }, {
                     module : Button,
                     cls    : ['fm-fleet-start'],
@@ -522,9 +631,30 @@ class FleetCockpit extends Container {
                     reference   : 'activity-stream'
                 };
             case 'agent-detail':
+                // the pane lives in its vessel window — a preset restore (or an NL-driven addTab)
+                // can re-tree the `detail` item while detached, and materializing here would STEAL
+                // the live instance out of its window: an honest stand-in instead. The reattach
+                // swaps it for the live pane post-projection (the reconciler prefers tree-live
+                // occupants over this resolver, so the swap cannot ride the normal adoption).
+                if (me.detachedDetail) {
+                    return {
+                        ntype    : 'component',
+                        cls      : [marker, 'fm-pane-placeholder'],
+                        html     : 'Agent detail is open in its own window',
+                        reference: 'agent-detail-standin'
+                    }
+                }
+
+                // reattach re-adoption: the parked LIVE instance returns to the projection —
+                // same instance id, same runtime state, never a recreation
+                if (me.detachedDetailPane) {
+                    return me.detachedDetailPane
+                }
+
                 // the drill-in inspector; its selected resident is OWNER-held so a pane returning
                 // from true absence never drops the selection — null renders the view's honest
-                // "select an agent" empty state
+                // "select an agent" empty state. The pane stays layout-blind: the pop-out
+                // affordance lives in SHELL chrome, never on the pane.
                 return {
                     module   : AgentDetail,
                     cls      : [marker],
@@ -612,17 +742,315 @@ class FleetCockpit extends Container {
     }
 
     /**
+     * @summary Resolve the live {@link AgentOS.view.fleet.AgentDetail} instance wherever it
+     * currently renders — the projected tree while docked, the owner-held handle while detached.
+     * A vessel-mounted pane lives in the popup's view tree, out of this cockpit's `down()` /
+     * `getReference` reach, so every detail consumer (record mutation, selection reconciliation,
+     * the card→detail drill) routes through this accessor — the popped-out inspector stays as
+     * live as the docked one.
+     * @returns {Neo.container.Base|null} The detail pane, or `null` before its first materialization.
+     */
+    getAgentDetailPane() {
+        return this.detachedDetailPane || this.getReference('agent-detail')
+    }
+
+    /**
+     * @summary Detach the agent-detail inspector into its own OS window on the shared heap —
+     * the `docked → opening` edge of the vessel admission state machine.
+     *
+     * The dock document stays the layout SSOT: `detachItem` prunes the `detail` item from the
+     * tree while preserving its catalog record, and the tabs node + EXACT index are stored FIRST
+     * (`addTab` appends by default — the stored index is the only placement truth the reattach
+     * has). The LIVE pane parks via the reconciler's `preserveItemIds` (awaited, so the vessel's
+     * connect can never race a pane the old shell still holds), then the widget-childapp vessel
+     * opens. `Neo.Main.windowOpen` resolves **Boolean** — `false` IS the blocked-popup failure
+     * (it never throws), taking the `failed-blocked` edge and rolling back through the standard
+     * reattach. A vessel that opens but never joins the heap inside the bounded connect window
+     * takes the `failed-timeout` edge the same way. Every awaited continuation revalidates
+     * {@link #detailVesselGeneration}.
+     * @returns {Promise<{detached: Boolean, errors: String[]}>}
+     */
+    async popOutAgentDetail() {
+        let me   = this,
+            pane = me.getReference('agent-detail'),
+            home = DockZoneModel.findContainingTabsId(me.dockModel, 'detail');
+
+        if (me.detachedDetail || !pane || !home) {
+            return {detached: false, errors: ['agent-detail is not a docked, projected pane']}
+        }
+
+        let generation = ++me.detailVesselGeneration,
+            homeIndex  = me.dockModel.nodes[home].items.indexOf('detail'),
+            result     = me.applyDockZoneOperation({operation: 'detachItem', itemId: 'detail'});
+
+        if (result.errors.length) {
+            return {detached: false, errors: result.errors}
+        }
+
+        // the window name stays an IMMUTABLE local across every await below: a raced reattach
+        // nulls the bookkeeping entry, but a stale-open cleanup still needs the name to close by
+        let windowName = `fm-agent-detail-${me.id}`;
+
+        me.detachedDetail = {
+            connectTimer  : null,
+            homeTabIndex  : homeIndex,
+            homeTabsNodeId: home,
+            windowId      : null,
+            windowName
+        };
+        me.detachedDetailPane   = pane;
+        me.detailVesselState    = 'opening';
+        me.lastDetailVesselFailure = null;
+
+        // the re-projection parks the preserved pane (alive on the shared heap, out of every
+        // parent) and retires its tab button — awaited before the vessel opens
+        me.onDockZoneDocumentChange(result.document);
+        await me.refreshPromise;
+
+        if (generation !== me.detailVesselGeneration) {
+            return {detached: false, errors: ['superseded by a newer vessel operation']}
+        }
+
+        let {windowConfigs} = Neo,
+            firstWindowId   = Object.keys(windowConfigs)[0],
+            {basePath}      = windowConfigs[firstWindowId],
+            winData         = await Neo.Main.getWindowData({windowId: me.windowId});
+
+        if (generation !== me.detailVesselGeneration) {
+            return {detached: false, errors: ['superseded by a newer vessel operation']}
+        }
+
+        let opened = await Neo.Main.windowOpen({
+            url           : `${basePath}apps/agentos/childapps/widget/index.html?detail=agent-detail&cockpitId=${me.id}`,
+            windowFeatures: `height=640,width=480,left=${winData.screenLeft + 160},top=${winData.screenTop + 120}`,
+            windowId      : me.windowId,
+            windowName
+        });
+
+        if (generation !== me.detailVesselGeneration) {
+            // the generation died DURING the open (a raced reattach/teardown already restored the
+            // dock state) — but a `true` completion means the vessel MATERIALIZED under the dead
+            // generation: stale continuations own the cleanup of resources they acquired, so close
+            // the orphan by its immutable name (fire-and-forget; nothing else may be touched)
+            opened && Neo.Main.windowClose({names: [windowName], windowId: me.windowId}).catch(() => {});
+
+            return {detached: false, errors: ['superseded by a newer vessel operation']}
+        }
+
+        if (!opened) {
+            // the PRIMARY real-world failure: the browser blocked the popup. Boolean grammar —
+            // no exception ever fires here. Restore the docked state commit-or-neither.
+            me.detailVesselState       = 'failed-blocked';
+            me.lastDetailVesselFailure = 'blocked';
+
+            await me.reattachAgentDetail({windowAlreadyClosed: true});
+
+            return {detached: false, errors: ['popup blocked: the vessel window did not open']}
+        }
+
+        // bounded connect window: a vessel that opened but never joins the heap rolls back
+        me.detachedDetail.connectTimer = setTimeout(() => {
+            if (generation === me.detailVesselGeneration && me.detailVesselState === 'opening') {
+                me.detailVesselState       = 'failed-timeout';
+                me.lastDetailVesselFailure = 'timeout';
+                me.reattachAgentDetail()
+            }
+        }, me.detailVesselConnectWindowMs);
+
+        me.syncControlBar();
+
+        return {detached: true, errors: []}
+    }
+
+    /**
+     * @summary Bring the detached inspector home — the `* → reattaching → docked` edge.
+     *
+     * `addTab` returns the `detail` item into its remembered tabs node at its remembered EXACT
+     * index (first-tabs fallback with honest append when a preset retired the node); the parked
+     * instance is re-adopted by the projection ({@link #resolveDockComponentRef} hands back the
+     * SAME instance), and the vessel closes unless it already closed itself. Bookkeeping clears
+     * BEFORE the async close — the cleared entry is the {@link #onWindowDisconnect} re-entrancy
+     * guard. Increments {@link #detailVesselGeneration} first, so every in-flight admission
+     * continuation (open, URL read, connect timer) goes inert — and its OWN post-projection
+     * continuation revalidates the same way: a destroy (or newer operation) landing during the
+     * await limits this path to the vessel cleanup it still owns, never a cockpit-field write.
+     * @param {Object} [options={}]
+     * @param {Boolean} [options.windowAlreadyClosed=false] `true` when the disconnect path runs
+     *     the reattach (the vessel is already gone — do not close it again).
+     * @returns {Promise<{reattached: Boolean, errors: String[]}>}
+     */
+    async reattachAgentDetail({windowAlreadyClosed=false}={}) {
+        let me    = this,
+            entry = me.detachedDetail,
+            pane  = me.detachedDetailPane;
+
+        if (!entry || !pane) {
+            return {errors: ['agent-detail is not detached'], reattached: false}
+        }
+
+        let generation = ++me.detailVesselGeneration;
+
+        entry.connectTimer && clearTimeout(entry.connectTimer);
+
+        let failure = me.lastDetailVesselFailure;
+
+        me.detailVesselState = 'reattaching';
+
+        let homeLive = me.dockModel.nodes[entry.homeTabsNodeId]?.type === 'tabs',
+            home     = homeLive
+                ? entry.homeTabsNodeId
+                : Object.keys(me.dockModel.nodes).find(id => me.dockModel.nodes[id].type === 'tabs'),
+            result   = me.applyDockZoneOperation({
+                operation : 'addTab',
+                itemId    : 'detail',
+                tabsNodeId: home,
+                index     : homeLive ? entry.homeTabIndex : undefined
+            });
+
+        if (result.errors.length) {
+            return {errors: result.errors, reattached: false}
+        }
+
+        me.detachedDetail = null;
+
+        // the re-projection re-adopts the instance: the resolver hands it back and the
+        // container insert performs the atomic move out of the vessel viewport (core contract)
+        me.onDockZoneDocumentChange(result.document);
+
+        await me.refreshPromise;
+
+        if (me.isDestroyed || generation !== me.detailVesselGeneration) {
+            // a destroy (or a newer vessel operation) landed during the projection await: this
+            // continuation may perform ONLY the vessel cleanup it still owns — teardown skipped
+            // the close because this reattach had already cleared the bookkeeping entry — and
+            // must never resurrect cockpit fields (the pane is the newer owner's, or destroyed)
+            windowAlreadyClosed || Neo.Main.windowClose({names: [entry.windowName], windowId: me.windowId}).catch(() => {});
+
+            return {errors: ['superseded by teardown or a newer vessel operation'], reattached: false}
+        }
+
+        // an external re-tree while detached left a stand-in occupying the slot, and the
+        // reconciler keeps tree-live occupants — swap it for the live instance, same position
+        let standin = me.getReference('agent-detail-standin');
+
+        if (standin) {
+            let parent = standin.parent,
+                index  = parent.items.indexOf(standin);
+
+            parent.remove(standin, true);
+            parent.insert(index, pane)
+        }
+
+        me.detachedDetailPane      = null;
+        me.detailVesselState       = 'docked';
+        me.lastDetailVesselFailure = failure;
+
+        me.syncControlBar();
+
+        if (!windowAlreadyClosed) {
+            try {
+                await Neo.Main.windowClose({names: [entry.windowName], windowId: me.windowId})
+            } catch (error) {
+                return {errors: [`popup close failed: ${error?.message || error}`], reattached: true}
+            }
+        }
+
+        return {errors: [], reattached: true}
+    }
+
+    /**
+     * @summary The SHELL-owned window-toggle affordance routes by the state machine: docked →
+     * {@link #popOutAgentDetail}; opening/connected/windowed → {@link #reattachAgentDetail};
+     * a reattach already in flight is a guarded no-op. The pane itself carries no dock semantics —
+     * panes stay layout-blind; the shell owns docking behavior.
+     * @returns {Promise<Object>} The routed operation's result.
+     */
+    onDetailWindowToggle() {
+        let me                         = this,
+            {detailVesselState: state} = me;
+
+        if (state === 'reattaching') {
+            return Promise.resolve({errors: ['reattach in flight'], reattached: false})
+        }
+
+        return me.detachedDetail ? me.reattachAgentDetail() : me.popOutAgentDetail()
+    }
+
+    /**
+     * @summary A window joined the shared heap: if it is OUR detail vessel (the pop-out URL
+     * carries `detail=agent-detail&cockpitId=<this.id>`), take the `opening → connected →
+     * windowed` edges — move the parked LIVE pane into the vessel's main view. The instance
+     * moves trees on the one App-Worker heap; nothing re-instantiates. The URL read is an async
+     * boundary: the captured generation revalidates after it.
+     * @param {Object} data `{appName, windowId}`
+     * @protected
+     */
+    async onWindowConnect(data) {
+        let me         = this,
+            {windowId} = data,
+            app        = Neo.apps[windowId],
+            generation = me.detailVesselGeneration;
+
+        if (!app || me.isDestroyed || !me.detachedDetail || !me.detachedDetailPane) {
+            return
+        }
+
+        let url    = await Neo.Main.getByPath({path: 'document.URL', windowId}),
+            params = new URL(url).searchParams;
+
+        if (
+            generation !== me.detailVesselGeneration ||
+            me.detailVesselState !== 'opening'       ||
+            params.get('cockpitId') !== me.id        ||
+            params.get('detail') !== 'agent-detail'
+        ) {
+            return
+        }
+
+        let {connectTimer} = me.detachedDetail;
+
+        connectTimer && clearTimeout(connectTimer);
+
+        me.detachedDetail.connectTimer = null;
+        me.detachedDetail.windowId     = windowId;
+        me.detailVesselState           = 'connected';
+
+        app.mainView.add(me.detachedDetailPane);
+
+        me.detailVesselState = 'windowed';
+        me.syncControlBar()
+    }
+
+    /**
+     * @summary The detail vessel closed (user-closed or crashed): correlate by `windowId` and
+     * bring the inspector HOME through the standard reattach — the document records the return
+     * and the projection re-adopts the parked instance. A reattach-initiated close never
+     * re-enters: {@link #reattachAgentDetail} clears the bookkeeping before closing the vessel.
+     * @param {Object} data `{appName, windowId}`
+     * @protected
+     */
+    onWindowDisconnect(data) {
+        let me = this;
+
+        if (!me.isDestroyed && me.detachedDetail?.windowId === data.windowId) {
+            me.reattachAgentDetail({windowAlreadyClosed: true})
+        }
+    }
+
+    /**
      * @summary Keep the open detail inspector truthful over time — route the roster store's
-     * `recordChange` to the mounted {@link AgentOS.view.fleet.AgentDetail} when the changed record
+     * `recordChange` to the live {@link AgentOS.view.fleet.AgentDetail} when the changed record
      * is the one being inspected (mirrors how the grid routes `recordChange` to its cards). A roster
      * re-poll mutating the selected resident (state, lane, sources) thus re-renders the detail in
      * place — the view is reactive to record MUTATION, not only to a re-seat onto a new record.
+     * Routed through {@link #getAgentDetailPane} so a popped-out inspector updates exactly like a
+     * docked one.
      * @param {Object} data The store `recordChange` event `{record, ...}`.
      * @protected
      */
     onDetailRecordChange({record}) {
         if (record === this.detailRecord) {
-            this.getReference('agent-detail')?.applyRecord()
+            this.getAgentDetailPane()?.applyRecord()
         }
     }
 
@@ -655,19 +1083,40 @@ class FleetCockpit extends Container {
 
         if (current !== me.detailRecord) {
             me.detailRecord = current;
-            me.getReference('agent-detail')?.set({record: current})
+            me.getAgentDetailPane()?.set({record: current})
         }
     }
 
     /**
-     * @summary Detach the roster-store load guard and release the drop producer; the provider
-     * tears the owned store itself down.
+     * @summary Detach the roster-store load guard, the vessel lifecycle listeners and the drop
+     * producer; the provider tears the owned store itself down. A still-detached inspector is
+     * OWNED state outside any projection: bump the generation (in-flight admission continuations
+     * go inert), clear the connect timer, close its vessel (fire-and-forget — the guard in
+     * {@link #onWindowDisconnect} keeps a late event inert) and destroy the instance.
      * @param {...*} args
      */
     destroy(...args) {
         let me = this;
 
         me.getReference('fleet-grid')?.store?.un({load: me.onRosterStoreLoad, recordChange: me.onDetailRecordChange, scope: me});
+
+        Neo.currentWorker.un({
+            connect   : me.onWindowConnect,
+            disconnect: me.onWindowDisconnect,
+            scope     : me
+        });
+
+        me.detailVesselGeneration++;
+
+        if (me.detachedDetail) {
+            me.detachedDetail.connectTimer && clearTimeout(me.detachedDetail.connectTimer);
+            Neo.Main.windowClose({names: [me.detachedDetail.windowName], windowId: me.windowId}).catch(() => {});
+            me.detachedDetail = null
+        }
+
+        me.detachedDetailPane?.destroy();
+        me.detachedDetailPane = null;
+
         me.dockPreviewProducer?.destroy();
         me.dockPreviewProducer = null;
         me.perspectiveStore?.destroy();
@@ -695,6 +1144,8 @@ class FleetCockpit extends Container {
             bridge = globalThis.AgentOS?.fleet?.registryBridge;
 
         if (!stream || typeof bridge?.fleetActivity !== 'function') {
+            // no bridge/verb IS the cold truth — the spine banner must say so
+            me.syncSpineBanner();
             return
         }
 
@@ -712,6 +1163,8 @@ class FleetCockpit extends Container {
             // not-wired / absent bridge → keep the honestly-labelled 'sample' seed
         } catch (error) {
             // fail-closed: the sample seed stays rather than blanking the feed
+        } finally {
+            me.syncSpineBanner()
         }
     }
 
@@ -739,6 +1192,8 @@ class FleetCockpit extends Container {
             bridge = globalThis.AgentOS?.fleet?.registryBridge;
 
         if (!grid?.store || typeof bridge?.fleetRoster !== 'function') {
+            // no bridge/verb IS the cold truth — the spine banner must say so
+            me.syncSpineBanner();
             return
         }
 
@@ -768,6 +1223,39 @@ class FleetCockpit extends Container {
             grid.adapterState   = 'live'
         } catch (error) {
             // fail-closed: the last-known roster stays rather than blanking the fleet
+        } finally {
+            me.syncSpineBanner()
+        }
+    }
+
+    /**
+     * @summary Renders the per-SPINE honesty line from the owner-held adapter states — the
+     * surface names WHY it shows sample (cold) or last-known (degraded) data; a fully live
+     * spine renders nothing. Render-only over existing truth: the routing matrices in
+     * {@link #loadRoster} / {@link #loadActivity} stay the sole state writers, and every one
+     * of their exits (including the no-bridge guards — absence IS the cold truth) CALLS this.
+     * A call is not a truth transition: the loads run at construction plus after successful
+     * lifecycle intents, and their failure exits fail-closed PRESERVE last-known states — so
+     * once live, a mid-session transport loss does not advance the owner truth this renders.
+     * The ongoing liveness owner (loss/recovery transitions with a retained reason) is a
+     * dedicated follow-up mechanism, not this consumer.
+     * @protected
+     */
+    syncSpineBanner() {
+        let me     = this,
+            banner = me.getReference('fleet-spine-banner');
+
+        if (banner) {
+            let {hidden, kind, text} = deriveSpineBanner({
+                gridAdapterState  : me.gridAdapterState,
+                streamAdapterState: me.streamAdapterState
+            });
+
+            banner.set({
+                cls : ['fm-spine-banner', `fm-spine-banner-${kind}`],
+                hidden,
+                html: text
+            })
         }
     }
 

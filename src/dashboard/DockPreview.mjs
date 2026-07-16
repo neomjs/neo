@@ -1,11 +1,11 @@
-import Component                from '../../../src/component/Base.mjs';
-import * as dockPreviewContract from '../../../src/dashboard/dockPreviewContract.mjs';
+import Component                from '../component/Base.mjs';
+import * as dockPreviewContract from './dockPreviewContract.mjs';
 
 /**
- * @class AgentOS.view.DockPreview
+ * @class Neo.dashboard.DockPreview
  * @extends Neo.component.Base
  *
- * @summary Drag-time dock preview renderer for the Agent Harness.
+ * @summary Drag-time dock preview renderer — the app-neutral overlay every docking workspace composes.
  *
  * Consumes the runtime-only `dockPreview` contract object
  * (schema `neo.harness.dockPreview.v1`, specified in `learn/agentos/HarnessDockZoneModel.md`)
@@ -17,14 +17,14 @@ import * as dockPreviewContract from '../../../src/dashboard/dockPreviewContract
  * - **Visual only.** This overlay never owns pointer events and never adds a parallel drag
  *   system. The existing dashboard / sort-zone drag lifecycle is the single event source; the
  *   overlay is purely reactive to a `dockPreview` produced upstream and to drag-lifecycle
- *   terminals (drag end / boundary exit) wired via {@link AgentOS.view.DockPreview#bindDragSource}.
+ *   terminals (drag end / boundary exit) wired via {@link Neo.dashboard.DockPreview#bindDragSource}.
  * - **Runtime only.** `dockPreview` payloads, `DOMRect`s, screen coordinates and overlay nodes are
  *   never written into the persisted dock-zone model. This component has no write path to a
  *   persisted model — it reads a preview and emits transient VDOM plus operation descriptors.
  * - **Fail closed.** A missing, malformed, stale or `rejected`-placement preview clears the
- *   affordance and performs no model mutation ({@link AgentOS.view.DockPreview.isValidPreview}).
+ *   affordance and performs no model mutation ({@link Neo.dashboard.DockPreview.isValidPreview}).
  * - **Semantic drop.** On an accepted drop the owning adapter converts the preview into a semantic
- *   operation (`moveItem` / `splitNode` / `addTab`); {@link AgentOS.view.DockPreview.previewToOperation}
+ *   operation (`moveItem` / `splitNode` / `addTab`); {@link Neo.dashboard.DockPreview.previewToOperation}
  *   yields that operation DESCRIPTOR — this overlay never mutates the dock tree itself.
  *
  * The producer (raw drag geometry -> `dockPreview`) and the operation executor (descriptor ->
@@ -58,25 +58,13 @@ class DockPreview extends Component {
      * @static
      */
     static TAB_KINDS = dockPreviewContract.TAB_KINDS
-    /**
-     * Thickness in px of an edge-zone affordance band.
-     * @member {Number} edgeBandSize=24
-     * @static
-     */
-    static edgeBandSize = 24
-    /**
-     * Thickness in px of a split / tab guide line.
-     * @member {Number} splitLineSize=6
-     * @static
-     */
-    static splitLineSize = 6
 
     static config = {
         /**
-         * @member {String} className='AgentOS.view.DockPreview'
+         * @member {String} className='Neo.dashboard.DockPreview'
          * @protected
          */
-        className: 'AgentOS.view.DockPreview',
+        className: 'Neo.dashboard.DockPreview',
         /**
          * @member {String} ntype='dock-preview'
          * @protected
@@ -93,12 +81,25 @@ class DockPreview extends Component {
          * @member {Object|null} dockPreview_=null
          * @reactive
          */
-        dockPreview_: null
+        dockPreview_: null,
+        /**
+         * Thickness in px of an edge-zone affordance band. The overlay clamps it to the target
+         * rect, so an oversized value degrades gracefully; consumers tune it per instance for
+         * their hardware / UI density (touch surfaces want wider bands).
+         * @member {Number} edgeBandSize=24
+         */
+        edgeBandSize: 24,
+        /**
+         * Thickness in px of a split / tab guide line. Per-instance policy, same rationale as
+         * {@link Neo.dashboard.DockPreview#edgeBandSize}.
+         * @member {Number} splitLineSize=6
+         */
+        splitLineSize: 6
     }
 
     /**
      * The drag surface this overlay listens to for lifecycle-terminal cleanup. Wired via
-     * {@link AgentOS.view.DockPreview#bindDragSource}; never a pointer-owning surface of our own.
+     * {@link Neo.dashboard.DockPreview#bindDragSource}; never a pointer-owning surface of our own.
      * @member {Object|null} dragSource=null
      * @protected
      */
@@ -194,18 +195,22 @@ class DockPreview extends Component {
      * The rect is runtime-only input; it is never persisted.
      * @param {Object|null} affordance
      * @param {Object|null} targetRect {x, y, width, height}
+     * @param {Object} [options] sizing policy — instances pass their configs; the defaults are
+     *     this pure helper's own contract for bare static calls
+     * @param {Number} [options.edgeBandSize=24]
+     * @param {Number} [options.splitLineSize=6]
      * @returns {Object|null}
      * @static
      */
-    static affordanceGeometry(affordance, targetRect) {
+    static affordanceGeometry(affordance, targetRect, {edgeBandSize = 24, splitLineSize = 6} = {}) {
         if (!affordance || !targetRect) return null;
 
         let {height, width, x, y} = targetRect;
 
         if ([height, width, x, y].some(v => typeof v !== 'number' || Number.isNaN(v))) return null;
 
-        let band = Math.min(this.edgeBandSize, width, height),
-            line = this.splitLineSize;
+        let band = Math.min(edgeBandSize, width, height),
+            line = splitLineSize;
 
         if (affordance.group === 'edge') {
             switch (affordance.edge) {
@@ -262,7 +267,10 @@ class DockPreview extends Component {
 
         if (!affordance || !node) return;
 
-        let geo = DockPreview.affordanceGeometry(affordance, targetRect);
+        let geo = DockPreview.affordanceGeometry(affordance, targetRect, {
+            edgeBandSize : me.edgeBandSize,
+            splitLineSize: me.splitLineSize
+        });
 
         if (!geo) return;
 
@@ -285,7 +293,7 @@ class DockPreview extends Component {
      * surface and clears the transient overlay on either. This is the ONLY coupling to the drag
      * lifecycle: the overlay consumes existing signals and owns no pointer events of its own.
      * @param {Object|null} dragSource a Neo.draggable sort/drag zone (or any Observable)
-     * @returns {AgentOS.view.DockPreview} this, for chaining
+     * @returns {Neo.dashboard.DockPreview} this, for chaining
      */
     bindDragSource(dragSource) {
         let me = this;
@@ -324,7 +332,7 @@ class DockPreview extends Component {
      *
      * The node carries semantic classes (group + concrete kind + accept/reject) and the target
      * node id as a data attribute; positioning is applied separately via
-     * {@link AgentOS.view.DockPreview#applyTargetGeometry}. The overlay is pointer-transparent so
+     * {@link Neo.dashboard.DockPreview#applyTargetGeometry}. The overlay is pointer-transparent so
      * it never intercepts the live drag.
      * @param {Object} affordance
      * @returns {Object} VDOM node

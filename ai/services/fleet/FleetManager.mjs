@@ -4,6 +4,7 @@ import Base                             from '../../../src/core/Base.mjs';
 import FleetLifecycleService            from './FleetLifecycleService.mjs';
 import {inspectFleetRepos}              from './inspectFleetRepos.mjs';
 import {readFleetThrottleStateSnapshot} from './fleetThrottleStateAdapter.mjs';
+import {readFleetWakeStateSnapshot}     from './fleetWakeStateAdapter.mjs';
 import {startAgentProvisioned}          from './startAgentProvisioned.mjs';
 
 const
@@ -71,6 +72,15 @@ class FleetManager extends Base {
      * @member {Function|null} provisionAndStartFn=null
      */
     provisionAndStartFn = null
+    /**
+     * Wake-state observation options for {@link fleetWakeStatus} — `{pidFilePath,
+     * resolveSubscriptionState}` per the `fleetWakeStateAdapter` contract. `null` ⇒ every source is
+     * honestly `unknown`: this service is not a config entrypoint — config resolution belongs to the
+     * composing process entrypoint, which resolves the daemon PID path + the identity-bound
+     * subscription read path and injects them here. Plain field, mirroring the sibling seams.
+     * @member {Object|null} wakeStateOptions=null
+     */
+    wakeStateOptions = null
     /**
      * Fleet repo-status aggregator seam. Defaults (via {@link getRepoStatusFn}) to `inspectFleetRepos`;
      * inject a recording stub for tests. Plain field.
@@ -182,6 +192,28 @@ class FleetManager extends Base {
             if (status.failureReason != null) row.failureReason = status.failureReason;
 
             return row;
+        });
+    }
+
+    /**
+     * @summary Turnkey wake-state observability: the per-agent wake axis of the S2 telltale taxonomy
+     * (`on | off | suppressed | unknown`) across the registered roster — the third fleet view beside
+     * {@link fleetRepoStatus} (repos) and {@link fleetRuntimeStatus} (processes).
+     *
+     * Delegates to `fleetWakeStateAdapter.readFleetWakeStateSnapshot` with the registry roster (one
+     * row per REGISTERED agent, same one-agent-set rule as the sibling views) plus the injected
+     * {@link #member-wakeStateOptions}. Observation truth only: subscription intent × daemon PID-file
+     * liveness; the `setWakeEnabled` control verb mutates state this view independently observes.
+     * Fail-honest: with no injected options every row reads `unknown` under a `degraded/none`
+     * capability — "we cannot see" stays distinguishable from "the fleet is off"; the state is never
+     * invented.
+     * @returns {Promise<{capability: Object, states: Object[]}>} Adapter snapshot: per-agent
+     * `{agentId, wake, confidence, source}` rows (+ `reason` on `unknown`) and the capability envelope.
+     */
+    fleetWakeStatus() {
+        return readFleetWakeStateSnapshot({
+            agents: this.getLifecycleService().getRegistry().listAgents(),
+            ...(this.wakeStateOptions || {})
         });
     }
 

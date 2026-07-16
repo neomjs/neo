@@ -60,8 +60,13 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
     const routeLoadActivity = async bridge => {
         bridge ? ((globalThis.AgentOS ??= {}).fleet = {registryBridge: bridge}) : clearBridge();
 
-        const stream  = makeStream(),
-              cockpit = {getReference: reference => reference === 'activity-stream' ? stream : null};
+        const stream = makeStream(),
+              // the real banner sync runs against this fake: its getReference returns null for
+              // the banner slot, so the guard no-ops — production code, no stub drift
+              cockpit = {
+                  getReference   : reference => reference === 'activity-stream' ? stream : null,
+                  syncSpineBanner: FleetCockpit.prototype.syncSpineBanner
+              };
 
         await FleetCockpit.prototype.loadActivity.call(cockpit);
 
@@ -158,7 +163,9 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         mapRosterRow      : FleetCockpit.prototype.mapRosterRow,
         reconcileRoster   : FleetCockpit.prototype.reconcileRoster,
         reconcileSelection: FleetCockpit.prototype.reconcileSelection,
-        rosterWired
+        rosterWired,
+        // the real banner sync: null getReference for the slot → guarded no-op, no stub drift
+        syncSpineBanner   : FleetCockpit.prototype.syncSpineBanner
     });
 
     const routeLoadRoster = async (bridge, {known, items, rosterWired} = {}) => {
@@ -389,6 +396,10 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         const grid = {adapterState: 'sample', store};
 
         const cockpit = {
+            // the real accessor runs against this fake's getReference — the detail consumers
+            // route through it (docked: projected pane; detached: the owner-held handle)
+            detachedDetailPane: null,
+            getAgentDetailPane: FleetCockpit.prototype.getAgentDetailPane,
             getReference      : reference => reference === 'fleet-grid' ? grid : reference === 'agent-detail' ? detail : null,
             grid,
             id                : `fake-fleet-cockpit-${index}`,
@@ -398,7 +409,9 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             reconcileRoster   : FleetCockpit.prototype.reconcileRoster,
             reconcileSelection: FleetCockpit.prototype.reconcileSelection,
             reconcilingRoster : false,
-            rosterWired       : false
+            rosterWired       : false,
+            // the real banner sync: null getReference for the slot → guarded no-op, no stub drift
+            syncSpineBanner   : FleetCockpit.prototype.syncSpineBanner
         };
 
         store.on({load: cockpit.onRosterStoreLoad, scope: cockpit});
@@ -858,6 +871,9 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
                 detailRecord: null,
                 dockModel   : {items: {detail: {autoHidden: true}}},
                 applyDockZoneOperation(op) { applied.push(op); return {document: {revealed: true}, errors: []} },
+                // the controller drill routes through the OWNER accessor (docked pane here;
+                // the vessel-held handle while detached — the pop-out suite covers that phase)
+                getAgentDetailPane() { return detail },
                 onDockZoneDocumentChange(doc) { this.committed = doc }
             },
             controller = Object.create(FleetCockpitController.prototype);
@@ -885,6 +901,7 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
                 detailRecord: null,
                 dockModel   : {items: {detail: {autoHidden: false}}},   // already revealed
                 applyDockZoneOperation(op) { applied.push(op); return {document: {}, errors: []} },
+                getAgentDetailPane() { return detail },
                 onDockZoneDocumentChange() { this.reprojected = true }
             },
             controller = Object.create(FleetCockpitController.prototype);
@@ -935,7 +952,9 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
             reconcileRoster   : FleetCockpit.prototype.reconcileRoster,
             reconcileSelection: FleetCockpit.prototype.reconcileSelection,
             loadRoster        : FleetCockpit.prototype.loadRoster,
-            rosterWired       : false
+            rosterWired       : false,
+            // the real banner sync: null getReference for the slot → guarded no-op, no stub drift
+            syncSpineBanner   : FleetCockpit.prototype.syncSpineBanner
         };
 
         // boot: the real loadRoster reads the bridge — the agent is stopped, so the record resolves to 'off'
@@ -965,5 +984,101 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
         expect(cockpit.gridAdapterState).toBe('live');
 
         store.destroy()
+    })
+});
+
+/**
+ * The slot-sync consumer witness: `syncSpineBanner` against a REAL recording banner slot — the
+ * derivation lands on the component (cls hook + hidden + html), a missing slot stays a guarded
+ * no-op, and the owner-truth immobility boundary is pinned as a spec: once live, a failure exit
+ * PRESERVES live and the slot stays hidden (the loss/recovery transition belongs to the
+ * dedicated liveness owner, not this consumer).
+ */
+test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', () => {
+    let FleetCockpit;
+
+    test.beforeAll(async () => {
+        FleetCockpit = (await import('../../../../../../../apps/agentos/view/fleet/FleetCockpit.mjs')).default
+    });
+
+    const makeBanner = () => {
+        const calls = [];
+
+        return {calls, set(config) { calls.push(config) }}
+    };
+
+    const makeHost = (gridAdapterState, streamAdapterState, banner) => ({
+        getReference   : reference => reference === 'fleet-spine-banner' ? banner : null,
+        gridAdapterState,
+        streamAdapterState,
+        syncSpineBanner: FleetCockpit.prototype.syncSpineBanner
+    });
+
+    test('a cold owner writes the REAL slot: cold class hook, visible, cause + shipped remedy', () => {
+        const banner = makeBanner();
+
+        makeHost('sample', 'sample', banner).syncSpineBanner();
+
+        expect(banner.calls).toHaveLength(1);
+
+        const {cls, hidden, html} = banner.calls[0];
+
+        expect(cls).toEqual(['fm-spine-banner', 'fm-spine-banner-cold']);
+        expect(hidden).toBe(false);
+        expect(html).toContain('Fleet server offline');
+        expect(html).toContain('npm run ai:fleet-server')
+    });
+
+    test('a degraded owner writes the degraded hook + last-known copy', () => {
+        const banner = makeBanner();
+
+        makeHost('live', 'stale', banner).syncSpineBanner();
+
+        const {cls, hidden, html} = banner.calls[0];
+
+        expect(cls).toEqual(['fm-spine-banner', 'fm-spine-banner-degraded']);
+        expect(hidden).toBe(false);
+        expect(html).toContain('last-known')
+    });
+
+    test('a fully live owner hides the REAL slot with empty copy — zero nominal pixels', () => {
+        const banner = makeBanner();
+
+        makeHost('live', 'live', banner).syncSpineBanner();
+
+        expect(banner.calls[0]).toEqual({cls: ['fm-spine-banner', 'fm-spine-banner-live'], hidden: true, html: ''})
+    });
+
+    test('owner-truth immobility: once live, a thrown load PRESERVES live and the slot stays hidden', async () => {
+        // the boundary this leaf does NOT cross, pinned as a spec: the loads fail-closed PRESERVE
+        // owner states, so a post-live transport loss never advances the truth this consumer
+        // renders — the loss/recovery transition is the dedicated liveness owner's contract
+        const banner = makeBanner(),
+              stream = {adapterState: 'live', set() {}},
+              host   = {
+                  getReference: reference =>
+                      reference === 'fleet-spine-banner' ? banner :
+                      reference === 'activity-stream'    ? stream : null,
+                  gridAdapterState  : 'live',
+                  streamAdapterState: 'live',
+                  loadActivity      : FleetCockpit.prototype.loadActivity,
+                  syncSpineBanner   : FleetCockpit.prototype.syncSpineBanner
+              };
+
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetActivity: async () => { throw new Error('transport lost') }}};
+
+        try {
+            await host.loadActivity()
+        } finally {
+            delete globalThis.AgentOS?.fleet
+        }
+
+        expect(host.streamAdapterState).toBe('live');
+        expect(banner.calls).toHaveLength(1);
+        expect(banner.calls[0].hidden).toBe(true)
+    });
+
+    test('a missing slot is a guarded no-op — never a throw', () => {
+        expect(() => makeHost('sample', 'sample', null).syncSpineBanner()).not.toThrow()
     })
 });

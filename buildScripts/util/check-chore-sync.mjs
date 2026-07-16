@@ -1,7 +1,9 @@
-import { execSync } from 'node:child_process';
-import process from 'node:process';
-import path from 'node:path';
+import { execSync }      from 'node:child_process';
+import process           from 'node:process';
+import path              from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { createInheritedFromMergeFilter } from './mergeInheritance.mjs';
 
 // Anchor git checks to the repository that owns this hook script, not the caller's cwd.
 const __filename = fileURLToPath(import.meta.url);
@@ -17,7 +19,7 @@ try {
     process.exit(1);
 }
 
-const normalizedGitRoot = path.resolve(gitRoot);
+const normalizedGitRoot    = path.resolve(gitRoot);
 const normalizedScriptRoot = path.resolve(scriptRoot);
 
 if (normalizedScriptRoot !== normalizedGitRoot) {
@@ -38,7 +40,7 @@ try {
 
 // Allowed branches for chore-sync data
 const ALLOWED_PREFIXES = ['chore/sync-', 'agent/sync-'];
-const isDataBranch = ALLOWED_PREFIXES.some(prefix => branch.startsWith(prefix));
+const isDataBranch     = ALLOWED_PREFIXES.some(prefix => branch.startsWith(prefix));
 
 if (isDataBranch) {
     process.exit(0);
@@ -84,8 +86,31 @@ if (process.env.NEO_SYNC_AUTOCOMMIT === '1') {
     process.exit(0);
 }
 
+// A merge stages EVERY file it brings in, including the sync pipeline's commits already living on
+// the branch being merged. Those files are not authored here, so the check below must not read them
+// as leakage: this guard exists to stop a feature branch from AUTHORING sync data, and inheriting a
+// commit is not authoring.
+//
+// Without this allowance `git merge origin/dev` is impossible on any branch older than the last
+// `chore(data)` commit (dev takes roughly two per six hours), and the only ways through are worse
+// than the block: `--no-verify` also skips the AiConfig test-mutation lint, and unstaging the files
+// makes the merge commit REVERT dev's sync data once it lands.
+//
+// The allowance is NOT "a merge is in progress, stand down" — that would wave through a sync file
+// hand-edited during a conflict resolution, which is authoring wearing a merge's clothes. A staged
+// sync file is inherited only if the index still matches what the merge brought in; anything the
+// working tree changed on top of MERGE_HEAD is authored here and stays a violation.
+//
+// Deliberately evaluated AFTER the NEO_SYNC_AUTOCOMMIT arm: that arm guards the pipeline's own
+// commits, which are never merges, and must keep failing on mixed content regardless.
+// Shared with `check-whitespace.mjs`: both guards read the staged set, so both inherit the same
+// merge problem, and two copies of the rule would drift — the copy that drifts being the one that
+// silently fails open on the content it exists to police. `createInheritedFromMergeFilter` fails
+// closed outside a merge, so an ordinary commit is checked in full.
+const isInherited = createInheritedFromMergeFilter(gitRoot);
+
 const violatingFiles = stagedFiles.filter(file =>
-    isGeneratedSyncFile(file)
+    isGeneratedSyncFile(file) && !isInherited(file)
 );
 
 // Allow explicit override via --force-data or bypassing hooks

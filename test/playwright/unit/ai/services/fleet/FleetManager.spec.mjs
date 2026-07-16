@@ -186,6 +186,47 @@ test.describe('Neo.ai.services.fleet.FleetManager — Codex Desktop cleanup fail
     });
 });
 
+test.describe('Neo.ai.services.fleet.FleetManager — fleetWakeStatus (roster × wake observation)', () => {
+    test.afterEach(() => {
+        FleetManager.lifecycleService = null;
+        FleetManager.wakeStateOptions = null;
+    });
+
+    test('composes the roster with the injected wake truth sources — every registered agent gets a taxonomy row', async () => {
+        FleetManager.lifecycleService = {getRegistry: () => ({listAgents: () => [{id: 'alice'}, {id: 'bob'}]})};
+        FleetManager.wakeStateOptions = {
+            pidFilePath             : '/x/wake-daemon.pid',
+            readFile                : () => '4242',
+            probeProcess            : () => {},
+            readProcessCommand      : () => 'node /repo/ai/daemons/wake/daemon.mjs',
+            resolveSubscriptionState: agent => agent.id === 'alice' ? 'active' : 'none'
+        };
+
+        const {capability, states} = await FleetManager.fleetWakeStatus();
+
+        expect(capability).toMatchObject({state: 'wired', confidence: 'observed'});
+        expect(states).toEqual([
+            {agentId: 'alice', wake: 'on',  confidence: 'observed', source: 'fleet:wakeState'},
+            {agentId: 'bob',   wake: 'off', confidence: 'observed', source: 'fleet:wakeState'}
+        ]);
+    });
+
+    test('with no injected options every row is honestly unknown under a degraded/none capability — never invented', async () => {
+        FleetManager.lifecycleService = {getRegistry: () => ({listAgents: () => [{id: 'alice'}]})};
+
+        const {capability, states} = await FleetManager.fleetWakeStatus();
+
+        expect(capability).toMatchObject({state: 'degraded', confidence: 'none'});
+        expect(states).toEqual([{
+            agentId   : 'alice',
+            wake      : 'unknown',
+            confidence: 'none',
+            source    : 'fleet:wakeState',
+            reason    : 'subscription read path unavailable'
+        }]);
+    });
+});
+
 test.describe('Neo.ai.services.fleet.FleetManager — fleetThrottleStatus (roster × throttle observation)', () => {
     test.afterEach(() => {
         FleetManager.lifecycleService     = null;

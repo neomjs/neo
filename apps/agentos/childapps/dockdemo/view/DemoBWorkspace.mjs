@@ -5,7 +5,7 @@ import DockDropIndicators                 from '../../../../../src/dashboard/Doc
 import DockLayoutAdapter                  from '../../../../../src/dashboard/DockLayoutAdapter.mjs';
 import DockMotionSignal                   from '../../../../../src/dashboard/DockMotionSignal.mjs';
 import DockPerspectiveStore               from '../../../../../src/dashboard/DockPerspectiveStore.mjs';
-import DockPreview                        from '../../../view/DockPreview.mjs';
+import DockPreview                        from '../../../../../src/dashboard/DockPreview.mjs';
 import DockPreviewProducer                from '../../../../../src/dashboard/DockPreviewProducer.mjs';
 import DockProjectionReconciler           from '../../../../../src/dashboard/DockProjectionReconciler.mjs';
 import DockService                        from '../../../../../src/ai/client/DockService.mjs';
