@@ -121,7 +121,7 @@ The full divergence rules (valid-options-only, correlation-ceiling, option-cards
 
 *(Codified per `#11217`, graduated from Discussion `#11216` under its own dogfooded protocol — recursive substrate validation)*
 
-Graduation is the transition from speculative Discussion to actionable Epic / ticket / PR. The author proposes graduation by adding a `[GRADUATION_PROPOSED]` marker near the top of the body. **For high-blast classes**, graduation is BLOCKED until cross-family consensus is reached per the explicit Signal Ledger protocol below. **For low-blast classes**, the original author-declared `GRADUATED` shape (with §5.1 Double Diamond peer-review-cycle satisfied) suffices.
+Graduation is the transition from speculative Discussion to actionable Epic / ticket / PR. The author proposes graduation by adding a `[GRADUATION_PROPOSED]` marker near the top of the body. **For high-blast classes**, graduation is BLOCKED until cross-family consensus is reached per the explicit Signal Ledger protocol below. **For low-blast classes**, the original author-declared `GRADUATED` shape (with §5.1 peer-review-cycle satisfied) suffices for the §6 consensus axis — §5.2's triggers still fire independently.
 
 ### 6.1 Scope Classification (mandatory in Discussion body header)
 
