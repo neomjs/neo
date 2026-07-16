@@ -80,6 +80,26 @@ export const LIFTED_CAPABILITY_KEYS = Object.freeze([
 ]);
 
 /**
+ * @summary Per-resident seed-era facts, recorded verbatim from the registry entries at the moment
+ * the era-owned flat fields were retired from `identityRoots.mjs` — this map is now the RECORDED
+ * FACT OWNER the seed eras are built from (the same epoch-snapshot contract as
+ * {@link REGISTRY_MODEL_DESIGNATIONS}: these facts held AS OF migration; where a value was stale
+ * then, the stale value is still the recorded fact and eras version it). Reading the LIVE registry
+ * here would recreate the moving-mirror problem the module header forbids: a later edit to an
+ * identity entry must never silently rewrite a historical era.
+ * @type {Object}
+ */
+export const REGISTRY_SEED_FACTS = Object.freeze({
+    '@neo-opus-ada'  : Object.freeze({family: 'claude', tier: 'frontier', capabilities: Object.freeze({contextWindowInput: 1048576, hosting: 'cloud', parallelToolCalls: true, sunsetTriggers: Object.freeze(['Anthropic releases a successor Opus-class model with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch']), thoughtBudget: 'max'})}),
+    '@neo-opus-grace': Object.freeze({family: 'claude', tier: 'frontier', capabilities: Object.freeze({contextWindowInput: 1048576, hosting: 'cloud', parallelToolCalls: true, sunsetTriggers: Object.freeze(['Anthropic releases a successor Opus-class model with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch']), thoughtBudget: 'max'})}),
+    '@neo-opus-vega' : Object.freeze({family: 'claude', tier: 'frontier', capabilities: Object.freeze({contextWindowInput: 1048576, hosting: 'cloud', parallelToolCalls: true, sunsetTriggers: Object.freeze(['Anthropic releases a successor Opus-class model with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch']), thoughtBudget: 'max'})}),
+    '@neo-fable'     : Object.freeze({family: 'claude', tier: 'frontier', capabilities: Object.freeze({contextWindowInput: 1048576, hosting: 'cloud', parallelToolCalls: true, sunsetTriggers: Object.freeze(['Anthropic releases a successor Fable-class model with material reasoning capability upgrade', 'Anthropic deprecates the Fable model branch']), thoughtBudget: 'max'})}),
+    '@neo-fable-clio': Object.freeze({family: 'claude', tier: 'frontier', capabilities: Object.freeze({contextWindowInput: 1048576, hosting: 'cloud', parallelToolCalls: true, sunsetTriggers: Object.freeze(['Anthropic releases a successor Fable-class model with material reasoning capability upgrade', 'Anthropic deprecates the Fable model branch']), thoughtBudget: 'max'})}),
+    '@neo-gemini-pro': Object.freeze({family: 'gemini', tier: 'frontier', capabilities: Object.freeze({contextWindowInput: 1048576, hosting: 'cloud', parallelToolCalls: true, sunsetTriggers: Object.freeze(['Google releases Gemini 4.x with material reasoning capability upgrade', 'Gemini 3.x branch deprecation announcement']), thoughtBudget: 'high'})}),
+    '@neo-gpt'       : Object.freeze({family: 'gpt', tier: 'frontier', capabilities: Object.freeze({contextWindowInput: 353400, hosting: 'cloud', parallelToolCalls: true, sunsetTriggers: Object.freeze(['OpenAI releases a successor Sol-tier model with material reasoning capability upgrade', 'GPT-5.x family deprecation']), thoughtBudget: 'xhigh'})})
+});
+
+/**
  * @summary True when the resident's immutable creation timestamp is later than the migration
  * epoch and therefore its first embodiment era must open from live observation.
  * @param {Object} seed A registry entry
@@ -114,6 +134,12 @@ export function migrateResident(seed) {
         return {valid: false, reason: `no recorded model designation for "${seed.id}" — extend the designations map from the model-stats registry, never guess`, identity: null, episodes: null};
     }
 
+    const seedFacts = REGISTRY_SEED_FACTS[seed.id];
+
+    if (!seedFacts) {
+        return {valid: false, reason: `no recorded seed-era facts for "${seed.id}" — extend REGISTRY_SEED_FACTS from the recorded epoch snapshot, never from the live registry`, identity: null, episodes: null};
+    }
+
     const identity = createIdentityStateNode({
         identityKey: seed.id,
         socialLayer: {
@@ -126,20 +152,20 @@ export function migrateResident(seed) {
         return {valid: false, reason: identity.reason, identity: null, episodes: null};
     }
 
-    const capabilities = {provenance: 'flat-registry-backfill (facts held as of migration; earlier history unrecorded)'};
-
-    for (const key of LIFTED_CAPABILITY_KEYS) {
-        if (properties[key] !== undefined) {
-            capabilities[key] = properties[key];
-        }
-    }
+    // Era facts come from the module-owned epoch snapshot ({@link REGISTRY_SEED_FACTS}) — the
+    // registry entries retired their era-owned flat fields, and a live read here would let a
+    // later identity edit silently rewrite a historical era (the moving-mirror trap).
+    const capabilities = {
+        provenance: 'flat-registry-backfill (facts held as of migration; earlier history unrecorded)',
+        ...seedFacts.capabilities
+    };
 
     const era = createEmbodiedEpisodeNode({
         identityKey: seed.id,
         model,
-        family     : properties.modelFamily || properties.family,
+        family     : seedFacts.family,
         since      : MIGRATION_EPOCH,
-        ...(properties.tier !== undefined ? {tier: properties.tier} : {}),
+        ...(seedFacts.tier !== undefined ? {tier: seedFacts.tier} : {}),
         capabilities
     });
 
