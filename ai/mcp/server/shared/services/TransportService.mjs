@@ -12,8 +12,8 @@ import RequestContextService from './RequestContextService.mjs';
  * - **Session Management:** Handles the lifecycle of stateful MCP sessions via `Mcp-Session-Id`.
  * - **Transport Abstraction:** Decouples the Express app and CORS configuration from the
  *   individual server logic (e.g. Knowledge Base, Memory Core).
- * - **Auth Integration:** Automatically wires up the **Authorization Anchor** when OIDC
- *   configuration is detected in the environment.
+ * - **Auth Integration:** Automatically wires up the configured OIDC, GitLab-PAT, or
+ *   possession-only local-bearer strategy.
  * - **CORS Enforcement:** Ensures cross-origin compatibility for modern browser-based AI agents.
  * - **Request-Context Propagation:** Each `/mcp` request is wrapped in
  *   `RequestContextService.run({userId, username, sessionId}, ...)` before dispatching to the MCP
@@ -131,6 +131,11 @@ class TransportService extends Base {
      */
     async setup(options) {
         const { server, aiConfig, logger, resourceName } = options;
+        const isLocalBearer                              = aiConfig.auth.mode === 'local-bearer';
+
+        if (isLocalBearer && aiConfig.mcpListenHost !== '127.0.0.1') {
+            throw new Error("Local-bearer mode requires mcpListenHost to be the literal IPv4 loopback address '127.0.0.1'")
+        }
 
         const { createMcpExpressApp }           = await import('@modelcontextprotocol/sdk/server/express.js');
         const { StreamableHTTPServerTransport } = await import('@modelcontextprotocol/sdk/server/streamableHttp.js');
@@ -143,6 +148,24 @@ class TransportService extends Base {
         const app = createMcpExpressApp({allowedHosts: this.computeAllowedHosts(aiConfig)});
 
         this.app = app;
+
+        // Browser-originated requests are outside the trusted-loopback contract. Presence is the
+        // discriminator: even an empty Origin header is rejected before wildcard CORS, auth, or
+        // MCP dispatch; non-browser clients legitimately omit Origin.
+        if (isLocalBearer) {
+            app.use((req, res, next) => {
+                if (Object.hasOwn(req.headers, 'origin')) {
+                    res.status(403).json({
+                        jsonrpc: '2.0',
+                        error  : {code: -32000, message: 'Origin header is not allowed in local-bearer mode'},
+                        id     : null
+                    });
+                    return
+                }
+
+                next()
+            })
+        }
 
         app.use(cors.default({
             origin        : '*',
@@ -163,8 +186,8 @@ class TransportService extends Base {
         const mcpServerUrl = aiConfig.publicUrl ? new URL(aiConfig.publicUrl) : getFullUrl(aiConfig.mcpHttpHost, aiConfig.mcpHttpPort);
         this.mcpServerUrl = mcpServerUrl;
 
-        // Optional Authorization: OIDC/OAuth (host / issuerUrl) OR the GitLab-PAT bearer mode.
-        if (aiConfig.auth.host || aiConfig.auth.issuerUrl || aiConfig.auth.mode === 'gitlab-pat') {
+        // Optional Authorization: OIDC/OAuth (host / issuerUrl), GitLab-PAT, or local-bearer.
+        if (aiConfig.auth.host || aiConfig.auth.issuerUrl || aiConfig.auth.mode === 'gitlab-pat' || isLocalBearer) {
             const { default: AuthService } = await import('./AuthService.mjs');
             await AuthService.setup({
                 app,
@@ -264,11 +287,17 @@ class TransportService extends Base {
 
         const port = aiConfig.mcpHttpPort;
         await new Promise((resolve, reject) => {
-            this.httpServer = app.listen(port, () => {
-                logger.info(`[${resourceName}] Server started on Streamable HTTP transport (Port: ${port})`);
+            const onListening = () => {
+                const hostSuffix = aiConfig.mcpListenHost ? `, Host: ${aiConfig.mcpListenHost}` : '';
+
+                logger.info(`[${resourceName}] Server started on Streamable HTTP transport (Port: ${port}${hostSuffix})`);
                 logger.info(`[${resourceName}] Available tools loaded from OpenAPI spec`);
                 resolve();
-            });
+            };
+
+            this.httpServer = aiConfig.mcpListenHost
+                ? app.listen(port, aiConfig.mcpListenHost, onListening)
+                : app.listen(port, onListening);
             this.httpServer.on('error', reject);
         });
     }

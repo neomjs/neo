@@ -454,3 +454,129 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitLab-PAT midd
         expect(res.statusCode).toBe(401);
     });
 });
+
+/**
+ * @summary Consumed-boundary coverage for the possession-only local-bearer strategy.
+ *
+ * Drives the verifier through the real SDK middleware so header parsing, AuthInfo expiry, strict
+ * token shape, identity absence, and token non-observability are proven at the consumed seam.
+ */
+test.describe('Neo.ai.mcp.server.shared.services.AuthService — local-bearer middleware boundary', () => {
+    let AuthService, generateLocalBearerToken, requireBearerAuth, InvalidTokenError;
+
+    function mockReq(authHeader) {
+        const headers = authHeader === undefined ? {} : {authorization: authHeader};
+
+        return {headers, get(name) { return headers[String(name).toLowerCase()]; }}
+    }
+
+    function mockRes() {
+        return {
+            statusCode: 200,
+            headers   : {},
+            body      : undefined,
+            ended     : false,
+            status(code) { this.statusCode = code; return this; },
+            set(field, value) {
+                if (field && typeof field === 'object') {
+                    Object.entries(field).forEach(([key, item]) => {
+                        this.headers[String(key).toLowerCase()] = item
+                    })
+                } else {
+                    this.headers[String(field).toLowerCase()] = value
+                }
+                return this
+            },
+            json(payload) { this.body = payload; this.ended = true; return this; }
+        }
+    }
+
+    function installLocalMiddleware(token, logEntries = []) {
+        const
+            middlewares = [],
+            app         = {use: middleware => middlewares.push(middleware)},
+            aiConfig    = {auth: {mode: 'local-bearer', localBearerToken: token}},
+            logger      = {info: message => logEntries.push(String(message))};
+
+        AuthService.setupLocalBearer({app, aiConfig, logger}, {requireBearerAuth, InvalidTokenError});
+
+        expect(middlewares).toHaveLength(1);
+        return middlewares[0]
+    }
+
+    test.beforeAll(async () => {
+        AuthService             = (await import('../../../../../../../ai/mcp/server/shared/services/AuthService.mjs')).default;
+        generateLocalBearerToken = (await import('../../../../../../../ai/mcp/server/shared/helpers/localBearer.mjs')).generateLocalBearerToken;
+        requireBearerAuth       = (await import('@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js')).requireBearerAuth;
+        InvalidTokenError       = (await import('@modelcontextprotocol/sdk/server/auth/errors.js')).InvalidTokenError;
+    });
+
+    test('a valid token passes with possession metadata and no resolved identity', async () => {
+        const
+            token      = generateLocalBearerToken(),
+            logEntries = [],
+            middleware = installLocalMiddleware(token, logEntries),
+            req        = mockReq(`Bearer ${token}`),
+            res        = mockRes();
+
+        let nextError = 'unset';
+        await middleware(req, res, error => { nextError = error; });
+
+        expect(nextError).toBeUndefined();
+        expect(res.ended).toBe(false);
+        expect(req.auth).toMatchObject({
+            clientId : 'neo-local-bearer',
+            scopes   : [],
+            expiresAt: Number.MAX_SAFE_INTEGER,
+            source   : 'local-bearer'
+        });
+        expect(req.auth).not.toHaveProperty('userId');
+        expect(req.auth).not.toHaveProperty('username');
+        expect(logEntries.join('\n')).not.toContain(token);
+    });
+
+    test('missing headers, malformed schemes, and length mismatches fail through the SDK boundary', async () => {
+        const
+            token      = generateLocalBearerToken(),
+            middleware = installLocalMiddleware(token);
+
+        for (const authHeader of [undefined, `Basic ${token}`, 'Bearer short']) {
+            const req = mockReq(authHeader),
+                  res = mockRes();
+            let nextCalled = false;
+
+            await middleware(req, res, () => { nextCalled = true; });
+
+            expect(nextCalled).toBe(false);
+            expect(res.statusCode).toBe(401);
+        }
+    });
+
+    test('a different canonical token fails without exposing either credential', async () => {
+        const
+            configuredToken = generateLocalBearerToken(),
+            presentedToken  = generateLocalBearerToken(),
+            logEntries      = [],
+            middleware      = installLocalMiddleware(configuredToken, logEntries),
+            req             = mockReq(`Bearer ${presentedToken}`),
+            res             = mockRes();
+
+        let nextCalled = false;
+        await middleware(req, res, () => { nextCalled = true; });
+
+        expect(nextCalled).toBe(false);
+        expect(res.statusCode).toBe(401);
+        expect(String(res.body?.error_description || res.body?.error || '')).not.toContain(configuredToken);
+        expect(String(res.body?.error_description || res.body?.error || '')).not.toContain(presentedToken);
+        expect(logEntries.join('\n')).not.toContain(configuredToken);
+        expect(logEntries.join('\n')).not.toContain(presentedToken);
+    });
+
+    test('startup rejects missing, padded, and non-32-byte configured credentials', () => {
+        const token = generateLocalBearerToken();
+
+        for (const invalidToken of ['', `${token}=`, 'short']) {
+            expect(() => installLocalMiddleware(invalidToken)).toThrow(/canonical 32-byte unpadded-base64url token/)
+        }
+    });
+});
