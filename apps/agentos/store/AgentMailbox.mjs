@@ -50,11 +50,13 @@ class AgentMailbox extends Store {
     /**
      * @summary Replace the store content with one adapter snapshot's rows — wholesale, never a
      * per-row merge: rows are immutable timestamped facts, so a new snapshot IS the new truth.
-     * Thread-collapse display state initializes fresh on each replace (thread heads collapsed).
+     * Thread-collapse display state initializes fresh on each replace (thread heads collapsed) —
+     * seeded EXPLICITLY because the collection updates same-key records in place, where a model
+     * default would let the previous snapshot's display state leak through.
      * @param {Object[]} rows Frozen mirror rows from `readFleetMailboxMirror`.
      */
     applySnapshotRows(rows) {
-        this.data = (Array.isArray(rows) ? rows : []).map(row => ({...row}))
+        this.data = (Array.isArray(rows) ? rows : []).map(row => ({...row, threadCollapsed: true}))
     }
 }
 
