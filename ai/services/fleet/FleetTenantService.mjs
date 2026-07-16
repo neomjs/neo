@@ -157,18 +157,22 @@ class FleetTenantService extends Base {
         // live and cannot authenticate. Reversed, the worst case is an encrypted credential with no
         // descriptor — invisible, harmless, and overwritten by the next connect.
         const previousCredentials = this.readCredentials();
-
-        this.writeCredential(descriptor.id, credential);
+        let   credentialPublished = false;
 
         try {
+            this.writeCredential(descriptor.id, credential);
+            credentialPublished = true;
             this.writeDescriptor(descriptor)
         } catch (error) {
-            // Roll the credential back to the pre-connect snapshot. A failed rollback is swallowed
-            // deliberately: the descriptor never published, so there is no false connected state to
-            // correct, and the stored credential is unreachable without one.
-            try {
-                this.writeCredentials(previousCredentials)
-            } catch (rollbackError) {}
+            // The credential write is atomic, so a failure before it returns leaves the old snapshot
+            // untouched and needs no compensating write. A descriptor failure happens after the new
+            // credential landed, so only that branch restores the pre-connect snapshot. A failed
+            // rollback cannot be repaired synchronously here; keep the public outcome bounded.
+            if (credentialPublished) {
+                try {
+                    this.writeCredentials(previousCredentials)
+                } catch (rollbackError) {}
+            }
 
             return {status: 'rejected', reason: 'tenant connection could not be persisted'};
         }

@@ -214,6 +214,42 @@ test.describe.serial('Neo.ai.services.fleet.FleetTenantService — connectTenant
         expect(Object.values(FleetTenantService.readCredentials())).not.toContain('pat-doomed')
     })
 
+    test('a credential-store failure returns the bounded rejection and preserves both prior stores', async () => {
+        FleetTenantService.probeFn = async () => ({ok: true})
+
+        const first = await FleetTenantService.connectTenant({tenantUrl: 'https://kept.example.com', credential: 'pat-kept'})
+
+        const descriptorBefore = fs.readFileSync(path.join(tmpDir, 'tenants.json')),
+              credentialBefore = fs.readFileSync(path.join(tmpDir, 'tenant-credentials.enc'))
+
+        const publishAtomically = FleetTenantService.publishAtomically.bind(FleetTenantService)
+
+        FleetTenantService.publishAtomically = (file, contents) => {
+            if (file.endsWith('tenant-credentials.enc')) {
+                throw new Error(`credential write failed with ${PAT}`)
+            }
+
+            return publishAtomically(file, contents)
+        }
+
+        let result
+
+        try {
+            result = await FleetTenantService.connectTenant({tenantUrl: 'https://doomed.example.com', credential: 'pat-doomed'})
+        } finally {
+            FleetTenantService.publishAtomically = publishAtomically
+        }
+
+        expect(result).toEqual({status: 'rejected', reason: 'tenant connection could not be persisted'})
+        expect(JSON.stringify(result)).not.toContain(PAT)
+        expect(fs.readFileSync(path.join(tmpDir, 'tenants.json'))).toEqual(descriptorBefore)
+        expect(fs.readFileSync(path.join(tmpDir, 'tenant-credentials.enc'))).toEqual(credentialBefore)
+        expect(FleetTenantService.listTenants().map(tenant => tenant.endpoint)).toEqual(['https://kept.example.com'])
+        expect(FleetTenantService.getCredential(first.id)).toBe('pat-kept')
+        expect(Object.values(FleetTenantService.readCredentials())).not.toContain('pat-doomed')
+        expect(fs.readdirSync(tmpDir).filter(name => name.includes('.tmp'))).toEqual([])
+    })
+
     test('publication is atomic and leaves no temp files behind', async () => {
         FleetTenantService.probeFn = async () => ({ok: true})
 
