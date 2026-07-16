@@ -86,7 +86,7 @@ The full divergence rules (valid-options-only, correlation-ceiling, option-cards
 
 ### 5.2. Step 2.5: Architectural Step-Back (High-Blast-Radius Convergence Gate)
 
-§5.1 is the **divergence-phase** gate (matrix must be in body before convergence). §5.2 is the **convergence-phase** gate (cross-substrate sweep must run before graduation). Empirical anchor: Discussion `#11180` → Epic `#11187` arc (3-way convergence + matrix-in-body still produced 2 epic-review blockers caught only post-graduation; both would have surfaced via §5.2 sweep pre-graduation).
+§5.1 is the **divergence-phase** gate (matrix must be in body before convergence). §5.2 is the **convergence-phase** gate (cross-substrate sweep must run before graduation).
 
 **Trigger — high-blast-radius (any ONE qualifies)**:
 - Modifies durable content layout (`resources/content/`, `learn/`, `.agents/`)
@@ -109,11 +109,11 @@ The full divergence rules (valid-options-only, correlation-ceiling, option-cards
 7. **Active vs archive boundary sweep** — Do not generalize archive logic to active state unless active-state churn and lookup semantics are explicitly handled.
 8. **Existing primitive sweep** — Grep CI/workflows/scripts for primitives that make the design simpler (e.g., `.github/workflows/prevent-reopen.yml` for `closedAt`-immutability leverage).
 
-**Discipline-family framing**: §5.2 extends AGENTS.md §3.5 V-B-A (factual-tier empirical-tool) to **architectural-tier** — running a cross-substrate sweep against design proposals instead of empirical claims. Both gates share the same core epistemics: surface the falsifying evidence before assertion.
+**Discipline-family framing**: §5.2 extends AGENTS.md §3.5 V-B-A (factual-tier empirical-tool) to **architectural-tier** — running a cross-substrate sweep against design proposals instead of empirical claims.
 
-**Out of scope**: proposals outside every trigger above (single-PR-worth, bounded artifact, no cross-substrate coupling) do NOT require §5.2 — would create discipline-fatigue without commensurate signal. §5.1's matrix remains optional-but-recommended for those. Note this exemption is NARROWER than §6.1's low-blast consensus class: an epic-bound (≥3 subs) wave is Step-Back-mandatory even when its consensus class is low-blast (empirical anchor: D#15249, 2026-07-16 — author and design authority both read the two axes as one; caught only at PR-review cycle 1).
+**Out of scope**: proposals outside every trigger above (single-PR-worth, bounded artifact, no cross-substrate coupling) do NOT require §5.2 — would create discipline-fatigue without commensurate signal. §5.1's matrix remains optional-but-recommended for those. Note: narrower than §6.1's low-blast consensus class — the two axes are independent (anchor: D#15249, a same-day two-maintainer misread).
 
-**Cross-skill complement**: `peer-role-mode.md` §8 third halt-trigger (convergence-rate tripwire) fires §5.2 mechanically when 3 peers reach agreement on a high-blast-radius proposal within ≤2 rounds AND no STEP_BACK comment yet exists. Detector-phrase patterns for 3rd-peer-post detection: "I agree with @peer's option X", "Adopt Option X", "Going with X" — when posted within ≤2 rounds on a high-blast-radius proposal.
+**Cross-skill complement**: `peer-role-mode.md` §8 third halt-trigger (convergence-rate tripwire) fires §5.2 mechanically when 3 peers reach agreement on a high-blast-radius proposal within ≤2 rounds AND no STEP_BACK comment yet exists. Detector-phrase patterns for 3rd-peer-post detection: "I agree with @peer's option X", "Adopt Option X", "Going with X".
 
 **Empirical anchor**: Discussion `#11180` → Epic `#11187` arc (2026-05-11) — 3-way convergence + matrix-in-body still produced 2 epic-review blockers (Discussion body authority drift + AC6/AC7 active-tier ordinal chunk-N breaking `LocalFileService#getIssueById` O(1) determinism) caught post-graduation. §5.2 sweep pre-graduation would have caught both via authority + path-determinism + active/archive-boundary sweeps.
 
@@ -125,7 +125,7 @@ Graduation is the transition from speculative Discussion to actionable Epic / ti
 
 ### 6.1 Scope Classification (mandatory in Discussion body header)
 
-Author declares scope in Discussion body via `Scope: high-blast` or `Scope: low-blast`. Default on ambiguity: **high-blast** (conservative). Cross-family reviewers can challenge classification via `[GRADUATION_DEFERRED — reclassification request]`. Operator can override classification under AGENTS.md §0 Invariant. Blast-class governs the §6 Consensus Mandate only — §5.2's Step-Back triggers fire independently of it: an epic-bound (≥3 subs) wave is Step-Back-mandatory even when its consensus class is low-blast.
+Author declares scope in Discussion body via `Scope: high-blast` or `Scope: low-blast`. Default on ambiguity: **high-blast** (conservative). Cross-family reviewers can challenge classification via `[GRADUATION_DEFERRED — reclassification request]`. Operator can override classification under AGENTS.md §0 Invariant. Blast-class governs the §6 Consensus Mandate only; §5.2's Step-Back triggers fire independently (an epic-bound wave is Step-Back-mandatory even when low-blast here).
 
 | Class | Definition | Graduation gate |
 |-------|------------|-----------------|
