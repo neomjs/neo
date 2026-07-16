@@ -15,6 +15,7 @@ import FleetRoster              from '../../store/FleetRoster.mjs';
 import StateProvider            from '../../../../src/state/Provider.mjs';
 import cockpitDockDocument      from './cockpitDockDocument.mjs';
 import cockpitPresetCollection  from './cockpitPresets.mjs';
+import {deriveSpineBanner}      from './spineBanner.mjs';
 import {mapFleetSessionHealth}  from './sourceHealth.mjs';
 import {previewToOperation}     from '../../../../src/dashboard/dockPreviewContract.mjs';
 import '../../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the dock projection emits for tab zones
@@ -528,6 +529,15 @@ class FleetCockpit extends Container {
                     hidden   : !me.presetError,
                     html     : me.presetError || '',
                     reference: 'fleet-preset-error'
+                }, {
+                    // the per-SPINE honesty line: names WHY the surface shows sample/last-known
+                    // data (cold/degraded); a fully live spine renders nothing — zero nominal
+                    // pixels. Derived from the owner-held adapter states by syncSpineBanner.
+                    ntype    : 'component',
+                    cls      : ['fm-spine-banner'],
+                    hidden   : true,
+                    reference: 'fleet-spine-banner',
+                    role     : 'status'
                 },
                 '->', {
                     // The morning-start outcome summary — written by the controller after the
@@ -1129,6 +1139,8 @@ class FleetCockpit extends Container {
             bridge = globalThis.AgentOS?.fleet?.registryBridge;
 
         if (!stream || typeof bridge?.fleetActivity !== 'function') {
+            // no bridge/verb IS the cold truth — the spine banner must say so
+            me.syncSpineBanner();
             return
         }
 
@@ -1146,6 +1158,8 @@ class FleetCockpit extends Container {
             // not-wired / absent bridge → keep the honestly-labelled 'sample' seed
         } catch (error) {
             // fail-closed: the sample seed stays rather than blanking the feed
+        } finally {
+            me.syncSpineBanner()
         }
     }
 
@@ -1173,6 +1187,8 @@ class FleetCockpit extends Container {
             bridge = globalThis.AgentOS?.fleet?.registryBridge;
 
         if (!grid?.store || typeof bridge?.fleetRoster !== 'function') {
+            // no bridge/verb IS the cold truth — the spine banner must say so
+            me.syncSpineBanner();
             return
         }
 
@@ -1202,6 +1218,34 @@ class FleetCockpit extends Container {
             grid.adapterState   = 'live'
         } catch (error) {
             // fail-closed: the last-known roster stays rather than blanking the fleet
+        } finally {
+            me.syncSpineBanner()
+        }
+    }
+
+    /**
+     * @summary Renders the per-SPINE honesty line from the owner-held adapter states — the
+     * surface names WHY it shows sample (cold) or last-known (degraded) data; a fully live
+     * spine renders nothing. Render-only over existing truth: the routing matrices in
+     * {@link #loadRoster} / {@link #loadActivity} stay the sole state writers, and every one
+     * of their exits (including the no-bridge guards — absence IS the cold truth) drives this.
+     * @protected
+     */
+    syncSpineBanner() {
+        let me     = this,
+            banner = me.getReference('fleet-spine-banner');
+
+        if (banner) {
+            let {hidden, kind, text} = deriveSpineBanner({
+                gridAdapterState  : me.gridAdapterState,
+                streamAdapterState: me.streamAdapterState
+            });
+
+            banner.set({
+                cls : ['fm-spine-banner', `fm-spine-banner-${kind}`],
+                hidden,
+                html: text
+            })
         }
     }
 

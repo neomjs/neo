@@ -60,8 +60,13 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
     const routeLoadActivity = async bridge => {
         bridge ? ((globalThis.AgentOS ??= {}).fleet = {registryBridge: bridge}) : clearBridge();
 
-        const stream  = makeStream(),
-              cockpit = {getReference: reference => reference === 'activity-stream' ? stream : null};
+        const stream = makeStream(),
+              // the real banner sync runs against this fake: its getReference returns null for
+              // the banner slot, so the guard no-ops — production code, no stub drift
+              cockpit = {
+                  getReference   : reference => reference === 'activity-stream' ? stream : null,
+                  syncSpineBanner: FleetCockpit.prototype.syncSpineBanner
+              };
 
         await FleetCockpit.prototype.loadActivity.call(cockpit);
 
@@ -158,7 +163,9 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         mapRosterRow      : FleetCockpit.prototype.mapRosterRow,
         reconcileRoster   : FleetCockpit.prototype.reconcileRoster,
         reconcileSelection: FleetCockpit.prototype.reconcileSelection,
-        rosterWired
+        rosterWired,
+        // the real banner sync: null getReference for the slot → guarded no-op, no stub drift
+        syncSpineBanner   : FleetCockpit.prototype.syncSpineBanner
     });
 
     const routeLoadRoster = async (bridge, {known, items, rosterWired} = {}) => {
@@ -402,7 +409,9 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             reconcileRoster   : FleetCockpit.prototype.reconcileRoster,
             reconcileSelection: FleetCockpit.prototype.reconcileSelection,
             reconcilingRoster : false,
-            rosterWired       : false
+            rosterWired       : false,
+            // the real banner sync: null getReference for the slot → guarded no-op, no stub drift
+            syncSpineBanner   : FleetCockpit.prototype.syncSpineBanner
         };
 
         store.on({load: cockpit.onRosterStoreLoad, scope: cockpit});
@@ -943,7 +952,9 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
             reconcileRoster   : FleetCockpit.prototype.reconcileRoster,
             reconcileSelection: FleetCockpit.prototype.reconcileSelection,
             loadRoster        : FleetCockpit.prototype.loadRoster,
-            rosterWired       : false
+            rosterWired       : false,
+            // the real banner sync: null getReference for the slot → guarded no-op, no stub drift
+            syncSpineBanner   : FleetCockpit.prototype.syncSpineBanner
         };
 
         // boot: the real loadRoster reads the bridge — the agent is stopped, so the record resolves to 'off'
