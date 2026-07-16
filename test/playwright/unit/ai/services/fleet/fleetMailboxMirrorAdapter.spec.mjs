@@ -79,7 +79,7 @@ test.describe('fleetMailboxMirrorAdapter — viewer-admitted per-agent mailbox m
         })
         expect(snapshot.capability.state).toBe('wired')
         expect(snapshot.capability.source).toBe(FLEET_COCKPIT_SOURCES.a2a)
-        expect(snapshot.page).toEqual({limit: DEFAULT_FLEET_MAILBOX_MIRROR_LIMIT, offset: 0, count: 1})
+        expect(snapshot.page).toEqual({limit: DEFAULT_FLEET_MAILBOX_MIRROR_LIMIT, offset: 0, count: 1, hasMore: false})
 
         const [row] = snapshot.rows
         expect(row.subject).toBe('[review-queue] both heads unchanged')
@@ -258,6 +258,32 @@ test.describe('fleetMailboxMirrorAdapter — viewer-admitted per-agent mailbox m
         expect(noPath.rows).toEqual([])
     })
 
+    test('hasMore is the PRODUCER answering, never the consumer guessing from a full page', async () => {
+        const message = index => ({messageId: `MESSAGE:${index}`, subject: `m${index}`, sentAt: '2026-07-16T11:00:00.000Z'})
+
+        const read = async ({limit}) => ({messages: Array.from({length: Math.min(limit, 3)}, (_, i) => message(i))})
+
+        // limit 2, three available: the probe (limit+1 = 3) finds a third row → more follows, and
+        // the snapshot still returns only the 2 asked for
+        const more = await readFleetMailboxMirror({
+            capturedAt: CAPTURED_AT, resolveBoundIdentity: boundAs('@tobiu'), subjectAgentId: '@neo-gpt',
+            limit     : 2, listMessages: read
+        })
+        expect(more.rows).toHaveLength(2);
+        expect(more.page).toMatchObject({limit: 2, count: 2, hasMore: true});
+
+        // THE FALSIFIER: an EXACTLY-FULL final page. `count === limit` here too, so a consumer
+        // inferring the boundary from the count would offer Next, the next read would answer with an
+        // empty window at a positive offset, and the pane would render a global "no messages" while
+        // hiding the strip — trapping the operator with no way back. The probe finds no fourth row.
+        const exact = await readFleetMailboxMirror({
+            capturedAt: CAPTURED_AT, resolveBoundIdentity: boundAs('@tobiu'), subjectAgentId: '@neo-gpt',
+            limit     : 3, listMessages: read
+        })
+        expect(exact.rows).toHaveLength(3);
+        expect(exact.page, 'a full page that IS the last page must say so').toMatchObject({limit: 3, count: 3, hasMore: false})
+    })
+
     test('pagination bounds: limit clamps to [1, MAX], offset clamps to >= 0, bounds echo on the snapshot', async () => {
         const calls = []
         const read  = async args => { calls.push(args); return {messages: []} }
@@ -270,17 +296,20 @@ test.describe('fleetMailboxMirrorAdapter — viewer-admitted per-agent mailbox m
             ...bounds
         })
 
+        // the READ probes one row past the page (to learn hasMore honestly); the SNAPSHOT still
+        // echoes — and returns — the clamped page bound. The two numbers differ by exactly one, on
+        // purpose: `limit` is what the caller gets, `limit + 1` is what the question costs.
         const over = await paged({limit: 9999, offset: -5})
-        expect(calls[0].limit).toBe(MAX_FLEET_MAILBOX_MIRROR_LIMIT)
+        expect(calls[0].limit).toBe(MAX_FLEET_MAILBOX_MIRROR_LIMIT + 1)
         expect(calls[0].offset).toBe(0)
-        expect(over.page).toEqual({limit: MAX_FLEET_MAILBOX_MIRROR_LIMIT, offset: 0, count: 0})
+        expect(over.page).toEqual({limit: MAX_FLEET_MAILBOX_MIRROR_LIMIT, offset: 0, count: 0, hasMore: false})
 
         await paged({limit: 0, offset: 25.7})
-        expect(calls[1].limit).toBe(1)
+        expect(calls[1].limit).toBe(2)   // clamped 1 + the probe row
         expect(calls[1].offset).toBe(25)
 
         await paged({limit: 'not-a-number'})
-        expect(calls[2].limit).toBe(DEFAULT_FLEET_MAILBOX_MIRROR_LIMIT)
+        expect(calls[2].limit).toBe(DEFAULT_FLEET_MAILBOX_MIRROR_LIMIT + 1)   // default + the probe row
     })
 
     test('active-inbox default is STRUCTURAL: the adapter never forwards an includeArchived key', async () => {

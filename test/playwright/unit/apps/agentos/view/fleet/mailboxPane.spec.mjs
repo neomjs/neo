@@ -358,7 +358,7 @@ test.describe('AgentOS.view.fleet.MailboxPane — the read-only S1 mailbox tab',
     });
 
     test('pagination TRANSITIONS: row 51 is reachable — the window can move, not just describe itself', () => {
-        const pane  = createPane({snapshot: wiredSnapshot([row({messageId: 'MESSAGE:a'})], {limit: 50, offset: 0, count: 50})}),
+        const pane  = createPane({snapshot: wiredSnapshot([row({messageId: 'MESSAGE:a'})], {limit: 50, offset: 0, count: 50, hasMore: true})}),
               fired = [];
 
         pane.on('pageRequest', data => fired.push(data.offset));
@@ -379,7 +379,7 @@ test.describe('AgentOS.view.fleet.MailboxPane — the read-only S1 mailbox tab',
         expect(fired).toEqual([50]);
 
         // page 2, short (the producer ran out): older disables, newer opens, range reflects the window
-        pane.snapshot = wiredSnapshot([row({messageId: 'MESSAGE:b'})], {limit: 50, offset: 50, count: 10});
+        pane.snapshot = wiredSnapshot([row({messageId: 'MESSAGE:b'})], {limit: 50, offset: 50, count: 10, hasMore: false});
         expect(step('fm-mailbox-page-prev').disabled).toBe(false);
         expect(step('fm-mailbox-page-prev')['data-offset']).toBe('0');
         expect(step('fm-mailbox-page-next'), 'a short page is the producer saying it ran out').toMatchObject({disabled: true});

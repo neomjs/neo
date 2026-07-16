@@ -512,10 +512,15 @@ class MailboxPane extends Container {
      * @returns {Object[]} the page strip's child vdom nodes.
      * @protected
      */
-    buildPageVdom({limit, offset, count}) {
+    buildPageVdom({limit, offset, count, hasMore}) {
         const
             atStart = offset <= 0,
-            atEnd   = count < limit;
+            // The producer's own boundary fact, never inferred from `count === limit`. A full page
+            // is ambiguous — it cannot distinguish "more follows" from "that was exactly the last
+            // one" — and guessing enables Next on an exactly-full final page, whose read returns an
+            // empty window at a positive offset: the pane then renders a global "no messages" and
+            // hides the strip, trapping the operator with no way back.
+            atEnd   = !hasMore;
 
         return [{
             tag          : 'button',
