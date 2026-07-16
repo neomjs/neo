@@ -363,10 +363,11 @@ test.describe('laneStateStopHook — extractLatestHumanUserTextFromJsonl (#14440
     });
 
     // ── Mid-TURN operator messages: attachment-delivered prompts (never user-role records) ──────
-    // Fixtures mirror the REAL `queued_command` envelopes (corpus-total split): operator/wake
-    // deliveries carry `commandMode: 'prompt'` + `source_uuid` + `origin`; task notifications
-    // carry `commandMode: 'task-notification'` and neither. Envelope provenance — not payload
-    // prose — is the sender/kind identity.
+    // Fixtures mirror the REAL `queued_command` envelopes (corpus census: 47/47 genuine prompt
+    // deliveries across two sessions carry `commandMode: 'prompt'` + a 36-char STRING `source_uuid`
+    // + `origin.kind: 'human'`; task notifications carry `commandMode: 'task-notification'` and
+    // neither). Envelope provenance — VALIDATED shape, not field truthiness — is the sender/kind
+    // identity; payload prose is never it.
     const attachmentOperator = JSON.stringify({type: 'attachment', attachment: {
               type  : 'queued_command', commandMode: 'prompt', source_uuid: 'u-op-1', origin: {kind: 'human'},
               prompt: 'why is the walk still blind here? scope-ruling attached.'}}),
@@ -433,6 +434,34 @@ test.describe('laneStateStopHook — extractLatestHumanUserTextFromJsonl (#14440
     test('attachment records without attachment.prompt (other kinds) are skipped, not boundaries', () => {
         const jsonl = [operatorMsg, assistant, attachmentOther].join('\n');
         expect(extractLatestHumanUserTextFromJsonl(jsonl)).toBe('full stop. we need to talk about the release notes.');
+    });
+
+    test('the human predicate VALIDATES envelope shape — spoofable variants are walk-stopping, never candidates (cycle-2 reviewer falsifiers)', () => {
+        // Each variant passed the previous truthiness check and classified midChainOperator:true
+        // at the prior head; all four must stop the walk: an object source_uuid, a whitespace
+        // source_uuid, a valid-string source_uuid with a non-human origin, and a missing origin.
+        const spoofObjectUuid = JSON.stringify({type: 'attachment', attachment: {
+                  type  : 'queued_command', commandMode: 'prompt', source_uuid: {spoof: true}, origin: {kind: 'human'},
+                  prompt: 'prose behind an object-valued source uuid'}}),
+              spoofBlankUuid  = JSON.stringify({type: 'attachment', attachment: {
+                  type  : 'queued_command', commandMode: 'prompt', source_uuid: '   ', origin: {kind: 'human'},
+                  prompt: 'prose behind a whitespace source uuid'}}),
+              spoofTaskOrigin = JSON.stringify({type: 'attachment', attachment: {
+                  type  : 'queued_command', commandMode: 'prompt', source_uuid: 'u-real-string', origin: {kind: 'task'},
+                  prompt: 'prose behind a non-human origin kind'}}),
+              spoofNoOrigin   = JSON.stringify({type: 'attachment', attachment: {
+                  type  : 'queued_command', commandMode: 'prompt', source_uuid: 'u-real-string',
+                  prompt: 'prose behind a missing origin'}});
+
+        for (const injected of [spoofObjectUuid, spoofBlankUuid, spoofTaskOrigin, spoofNoOrigin]) {
+            const jsonl = [operatorMsg, assistant, metaFeedback, injected].join('\n');
+            expect(extractLatestHumanUserTextFromJsonl(jsonl)).toBe('');
+            expect(isOperatorInLoop({
+                stopHookActive            : true,
+                promptingText             : extractLatestHumanUserTextFromJsonl(jsonl),
+                promptingTextHumanFiltered: true
+            })).toBe(false);
+        }
     });
 });
 
@@ -650,6 +679,38 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
                 {type: 'user', message: {role: 'user', content: '[WAKE][priority:normal] 1 events for @neo-opus-vega'}},
                 {type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: 'driving the lane…'}]}},
                 {type: 'attachment', attachment: {type: 'queued_command', commandMode: 'task-notification', prompt: 'background task b9 completed without a tag prefix'}}
+            ]
+        });
+        expect(log).toContain('BLOCK');
+        expect(log).toContain('midChainOperator=false');
+        expect(JSON.parse(stdout).decision).toBe('block');
+    });
+
+    test('an UNKNOWN prompt-bearing mode ABOVE older operator prose keeps the chain BLOCKED (walk-stop at the spawned seam)', async () => {
+        // The unknown-mode record is NEWER than a genuine operator user record; the walk must stop
+        // at the unknown boundary rather than leak past it to the older dialogue evidence.
+        const {stdout, log} = await runHook(validTerminal, {
+            enforce          : true,
+            stopHookActive   : true,
+            transcriptRecords: [
+                {type: 'user', message: {role: 'user', content: 'full stop. we need to talk about the release notes.'}},
+                {type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: 'driving the lane…'}]}},
+                {type: 'attachment', attachment: {type: 'queued_command', commandMode: 'mystery-mode', source_uuid: 'u-x-e2e', prompt: 'genuine-looking prose from an unknown delivery mode'}}
+            ]
+        });
+        expect(log).toContain('BLOCK');
+        expect(log).toContain('midChainOperator=false');
+        expect(JSON.parse(stdout).decision).toBe('block');
+    });
+
+    test('a malformed prompt-mode envelope (object source_uuid) is walk-stopping at the spawned seam — BLOCKED', async () => {
+        const {stdout, log} = await runHook(validTerminal, {
+            enforce          : true,
+            stopHookActive   : true,
+            transcriptRecords: [
+                {type: 'user', message: {role: 'user', content: 'full stop. we need to talk about the release notes.'}},
+                {type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: 'driving the lane…'}]}},
+                {type: 'attachment', attachment: {type: 'queued_command', commandMode: 'prompt', source_uuid: {spoof: true}, origin: {kind: 'human'}, prompt: 'prose behind an object-valued source uuid'}}
             ]
         });
         expect(log).toContain('BLOCK');

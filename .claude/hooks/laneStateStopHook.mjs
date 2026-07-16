@@ -409,11 +409,12 @@ const HARNESS_MARKER_PATTERNS = Object.freeze([
  *  - Text-less records (tool_result-only) and harness marker records ({@link HARNESS_MARKER_PATTERNS})
  *    are skipped; malformed lines are tolerated.
  *  - `attachment` records are classified by ENVELOPE PROVENANCE before any payload text is read:
- *    only the corpus-verified operator/wake delivery shape (`attachment.type: 'queued_command'`,
- *    `commandMode: 'prompt'`, `source_uuid` present — the queued mid-TURN operator messages that
- *    never materialize as user-role records) yields a candidate. Prompt-bearing records of any
- *    OTHER envelope shape (task notifications, unknown modes) are walk-stopping autonomous
- *    boundaries; prompt-less attachment kinds are skipped.
+ *    only the corpus-VALIDATED operator/wake delivery shape (`attachment.type: 'queued_command'`,
+ *    `commandMode: 'prompt'`, a non-empty STRING `source_uuid`, `origin.kind === 'human'` — the
+ *    queued mid-TURN operator messages that never materialize as user-role records; 47/47 in the
+ *    live two-session census) yields a candidate. Prompt-bearing records missing ANY predicate leg
+ *    (task notifications, unknown modes, object/whitespace `source_uuid`, missing or non-`'human'`
+ *    `origin.kind`) are walk-stopping autonomous boundaries; prompt-less attachment kinds are skipped.
  *  - The FIRST remaining candidate decides — the walk never continues past it, so an autonomous
  *    boundary (a newer `[WAKE]`) is returned as-is and correctly out-classifies any older operator
  *    prose (`classifyPromptingContext` owns the [WAKE]/synthetic/handoff semantics; this walk owns
@@ -441,15 +442,17 @@ export function extractLatestHumanUserTextFromJsonl(jsonl = '') {
         // attachment records carrying the queued text at `attachment.prompt` — never as
         // user-role records — so the walk considers them in the SAME backward pass (the
         // newest-candidate rule holds across record kinds). ENVELOPE PROVENANCE decides the
-        // record KIND before any payload text is read: the corpus-total structural split is
-        // `attachment.type: 'queued_command'` + `commandMode: 'prompt'` + a `source_uuid`
-        // (operator/wake deliveries) vs `commandMode: 'task-notification'` with neither
-        // (background-task events). Payload markers stay defense-in-depth in the shared
-        // classifier — never the sender/kind identity. Prompt-less attachment kinds are not
-        // prompting records at all (skip); a prompt-bearing record whose envelope is NOT the
-        // verified operator/wake shape — task notifications and every unknown mode — is a
-        // structurally synthetic/unknown authority and STOPS the walk as an autonomous
-        // boundary, so it can never leak past to older operator prose.
+        // record KIND before any payload text is read, and the human predicate VALIDATES the
+        // observed delivery shape rather than testing field truthiness: the live corpus census
+        // (47/47 genuine prompt deliveries across two sessions) is `attachment.type:
+        // 'queued_command'` + `commandMode: 'prompt'` + a non-empty STRING `source_uuid` + `origin.
+        // kind === 'human'`; background-task events are `commandMode: 'task-notification'` with
+        // neither. Payload markers stay defense-in-depth in the shared classifier — never the
+        // sender/kind identity. Prompt-less attachment kinds are not prompting records at all
+        // (skip); a prompt-bearing record whose envelope misses ANY predicate leg — task
+        // notifications, unknown modes, object/whitespace `source_uuid`, missing or non-`'human'`
+        // `origin.kind` — is a structurally synthetic/unknown/spoofable authority and STOPS the
+        // walk as an autonomous boundary, so it can never leak past to older operator prose.
         if (record.type === 'attachment') {
             const attachment = record.attachment,
                   prompt     = attachment?.prompt;
@@ -458,7 +461,8 @@ export function extractLatestHumanUserTextFromJsonl(jsonl = '') {
 
             const isOperatorDelivery = attachment.type === 'queued_command' &&
                 attachment.commandMode === 'prompt' &&
-                !!attachment.source_uuid;
+                typeof attachment.source_uuid === 'string' && attachment.source_uuid.trim() !== '' &&
+                attachment.origin?.kind === 'human';
 
             if (!isOperatorDelivery) return '';
 
