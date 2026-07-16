@@ -173,6 +173,9 @@ function normalizeAdvisoryItem(item, index) {
  * @param {Object}   params.freshness `{status, checkedAt, expiresAt}`.
  * @param {Object}   params.route `{kind, items}` — `kind` is explicit; `computed-ranked`/`current-focus-substitution` carry items, `none` carries none.
  * @param {Object}   [params.advisoryFallback] `{kind:'declared-intent', status, items}` context; never executable.
+ * @param {Object}   [params.probe=null] `{query, ranAt}` falsifying query for an empty/substitution
+ *   route — the exact query whose non-empty result would falsify a "starved" claim; `null` when the
+ *   producer has not wired a falsifier (the claim renders honestly as unwired).
  * @param {Array}    [params.citations=[]] Top-level citations.
  * @returns {Object} A deeply-frozen `ComputedRouteResult`.
  * @throws {TypeError|RangeError} On any contract violation.
@@ -188,7 +191,8 @@ export function buildComputedRouteResult({
     freshness,
     route,
     advisoryFallback,
-    citations = []
+    probe            = null,
+    citations        = []
 } = {}) {
     if (!COMPUTED_ROUTE_STATUSES.has(status)) {
         throw new RangeError(`[computedRouteResult] status must be one of ${[...COMPUTED_ROUTE_STATUSES].join(', ')}; got ${JSON.stringify(status)}.`)
@@ -245,6 +249,14 @@ export function buildComputedRouteResult({
         })
     }
 
+    let probeValue = null;
+    if (probe !== undefined && probe !== null) {
+        assertPlainObject(probe, 'probe');
+        assertNonEmptyString(probe.query, 'probe.query');
+        assertNonEmptyString(probe.ranAt, 'probe.ranAt');
+        probeValue = Object.freeze({query: probe.query, ranAt: probe.ranAt})
+    }
+
     return Object.freeze({
         schemaVersion: COMPUTED_ROUTE_SCHEMA_VERSION,
         status,
@@ -274,6 +286,7 @@ export function buildComputedRouteResult({
 
         advisoryFallback: advisory,
 
+        probe       : probeValue,
         citations   : Object.freeze(Array.isArray(citations) ? [...citations] : []),
         notAuthority: true
     })

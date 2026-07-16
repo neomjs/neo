@@ -177,4 +177,19 @@ test.describe('computedRouteResult — computed-route.v1 contract', () => {
         expect(computeSourceManifestHash([])).toMatch(/^[0-9a-f]{8}$/);
         expect(computeSourceManifestHash(['issue-1'])).toMatch(/^[0-9a-f]{8}$/);
     });
+
+    test('probe: a valid {query, ranAt} is stamped; absent defaults to null; malformed fails loud', () => {
+        const withProbe = buildComputedRouteResult(baseParams({
+            status: 'empty',
+            route : {kind: 'none', items: []},
+            probe : {query: 'actionable open issues', ranAt: '2026-07-16T06:00:00.000Z'}
+        }));
+        expect(withProbe.probe).toEqual({query: 'actionable open issues', ranAt: '2026-07-16T06:00:00.000Z'});
+
+        // absent → honest null (falsifier unwired)
+        expect(buildComputedRouteResult(baseParams()).probe).toBe(null);
+
+        // malformed → fail loud (a probe present must carry both fields)
+        expect(() => buildComputedRouteResult(baseParams({probe: {query: 'x'}}))).toThrow(/probe\.ranAt/);
+    });
 });

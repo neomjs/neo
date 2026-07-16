@@ -380,4 +380,18 @@ test.describe('buildComputedRouteFromPass — canonical pass outcome → typed c
     test('ttlMs is required — fail-loud, no local default', () => {
         expect(() => buildComputedRouteFromPass(base({ttlMs: undefined}))).toThrow(/ttlMs must be a finite number/);
     });
+
+    test('computed-ranked equal-score items order deterministically by id (stable rank ties)', () => {
+        const result = buildComputedRouteFromPass(base({
+            routedTopNodes: [
+                {node: {id: 'issue-30', properties: {title: 'c'}}, score: 5},
+                {node: {id: 'issue-10', properties: {title: 'a'}}, score: 5},
+                {node: {id: 'issue-20', properties: {title: 'b'}}, score: 5}
+            ]
+        }));
+
+        // equal scores collapse to id-ascending order with dense ranks — no fabricated movement
+        expect(result.route.items.map(i => i.id)).toEqual(['issue-10', 'issue-20', 'issue-30']);
+        expect(result.route.items.map(i => i.rank)).toEqual([1, 2, 3]);
+    });
 });

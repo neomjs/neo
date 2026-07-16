@@ -507,12 +507,16 @@ export function buildComputedRouteFromPass({
     }
 
     if (Array.isArray(routedTopNodes) && routedTopNodes.length > 0) {
-        const items = routedTopNodes.map((item, index) => ({
-            id   : item.node?.id,
-            title: item.node?.properties?.title || item.node?.properties?.name || item.node?.name || 'Untitled',
-            score: typeof item.score === 'number' ? item.score : null,
-            rank : index + 1
-        }));
+        // Deterministic rank-tie ordering: equal-score items sort stably by id, so a diff of two
+        // consecutive routes never fabricates movement from an unstable ordering.
+        const items = routedTopNodes
+            .map(item => ({
+                id   : item.node?.id,
+                title: item.node?.properties?.title || item.node?.properties?.name || item.node?.name || 'Untitled',
+                score: typeof item.score === 'number' ? item.score : null
+            }))
+            .sort((a, b) => ((b.score ?? -Infinity) - (a.score ?? -Infinity)) || String(a.id).localeCompare(String(b.id)))
+            .map((item, index) => ({...item, rank: index + 1}));
 
         return buildComputedRouteResult({...base, status: 'fresh', route: {kind: 'computed-ranked', items}})
     }
