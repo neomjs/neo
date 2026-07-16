@@ -482,11 +482,16 @@ test.describe('AgentOS.view.fleet.MailboxPane — the read-only S1 mailbox tab',
         pane.destroy()
     });
 
-    test('a DISABLED step refuses the request — the primitive disables the LOOK, not the handler', () => {
-        // Global `.neo-disabled` styling blocks pointer activation, but the config emits no native
-        // `disabled` attribute and `button.Base.onClick` never checks it. Keyboard or programmatic
-        // activation can still reach the handler, so the range owner must reject a closed edge too.
-        // Otherwise stepping past the last page reads an empty window at a positive offset.
+    test('a DISABLED step refuses the request — the handler guard closes what the routed gates cannot', () => {
+        // A ROUTED activation never gets this far: `.neo-disabled` sets `pointer-events: none`, and
+        // `manager/DomEvent` breaks its listener walk on a disabled component for every non-resize
+        // event — a keyboard Enter arrives as a click on that same route and stops there too. This
+        // test enters the handler DIRECTLY, which is the one path those gates miss, since
+        // `button.Base.onClick` never consults the config. So what is pinned here is the guard
+        // against programmatic entry — NOT a claim that a real click or keypress reaches the
+        // handler. Unguarded, stepping past the last page reads an empty window at a positive
+        // offset. The AT half of the residual (still announced enabled, still focusable) is
+        // `aria-disabled`'s job and is pinned separately.
         const pane  = createPane({snapshot: wiredSnapshot([row({messageId: 'MESSAGE:a'})], {limit: 50, offset: 0, count: 50, hasMore: false})}),
               fired = [];
 
@@ -496,7 +501,7 @@ test.describe('AgentOS.view.fleet.MailboxPane — the read-only S1 mailbox tab',
         expect(pane.getReference('mailbox-page-prev').disabled).toBe(true);
         expect(pane.getReference('mailbox-page-next').disabled).toBe(true);
 
-        // activating them anyway — exactly what a keyboard user reaching the styled-disabled control does
+        // entering the handler directly: the routed gates are BYPASSED here, not defeated
         pane.onPrevPageClick();
         pane.onNextPageClick();
 

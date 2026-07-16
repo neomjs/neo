@@ -621,13 +621,15 @@ class MailboxPane extends Container {
     /**
      * @summary Request the newer page.
      *
-     * The disabled check is NOT redundant with the control's own state. Global `.neo-disabled`
-     * styling blocks pointer activation, but `Neo.component.Base` emits no native `disabled`
-     * attribute and `Neo.button.Base.onClick` invokes `handler` without consulting the config.
-     * Keyboard or programmatic activation can therefore still reach the handler. Trusting CSS alone
-     * would leave the range edge open to exactly the operator it appears closed to — and stepping
-     * past the last page reads an empty window at a positive offset, which is the trap the `hasMore`
-     * boundary exists to prevent.
+     * The disabled check is defense in depth — not the edge's only gate, and not evidence that a
+     * ROUTED activation escapes. Two layers already close that route: global `.neo-disabled` sets
+     * `pointer-events: none`, and `manager/DomEvent` breaks its listener walk on a `disabled`
+     * component for every non-resize event. A keyboard Enter on a native button arrives as a click
+     * on that same route, so it stops there too. What no layer covers is DIRECT entry:
+     * `Neo.button.Base.onClick` never consults the config, so a programmatic call reaches `handler`
+     * with the routed gates bypassed. Stepping past the last page reads an empty window at a
+     * positive offset — the trap the `hasMore` boundary exists to prevent, and cheap to refuse here.
+     * @see src/manager/DomEvent.mjs — the listener walk that breaks on `disabled`
      * @protected
      */
     onPrevPageClick() {
