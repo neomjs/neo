@@ -67,8 +67,9 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
     });
 
     test('still fires when a live use follows a carved mention of the same phrase', () => {
-        // The live-use sentence names a maintainer-owned surface (a lane) — "on the merge" would
-        // now be correct Tier-4 role-attribution under the domain-scoping exemption, not a slip.
+        // The live-use sentence names a maintainer-owned surface (a lane), so it fires; an
+        // "on the merge" object IS correct Tier-4 role-attribution and exempts (pinned in the
+        // object-form attribution test below — comment and runtime agree).
         expect(matchDeferencePhrase('The phrase your call recurs. Your call on the lane?')).toBe('your call');
         expect(matchDeferencePhrase('Clio owns it per your call, but honestly, your call?')).toBe('your call');
     });
@@ -97,12 +98,14 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
         expect(matchDeferencePhrase('The merge is your gate, your call.')).toBeNull();
     });
 
-    test('NEUTRAL attachments fire even beside human-domain facts — absence of a maintainer noun is not evidence', () => {
-        // Sharpened per cycle-2 review: these two previously exempted via the clause-window
-        // fallback. Their decisive segments ("ship now or hold"; "on timing") are neutral — the
-        // outer release/credentials facts lend no authority to the delegated decision.
-        expect(matchDeferencePhrase('The release direction is yours — ship now or hold, your call.')).toBe('your call');
+    test('NEUTRAL objects fire; explicit copular ownership exempts (relation-bound, superseding the cycle-2 token reading)', () => {
+        // "your call on timing" — the object names no human-only decision → fires (the outer
+        // credentials fact lends no authority to a neutral object).
         expect(matchDeferencePhrase('Rotating the credentials is operator-owned, your call on timing.')).toBe('your call');
+        // "The release direction is yours" is a genuine copular-ownership RELATION — the same
+        // shape as "The merge is your decision" — so the delegation is real and exempts. (The
+        // cycle-2 token-legs design fired here; the relation reading supersedes it.)
+        expect(matchDeferencePhrase('The release direction is yours — ship now or hold, your call.')).toBeNull();
     });
 
     test('the same phrases OUTSIDE human-only-domain clauses keep firing (spec-pinned positive)', () => {
@@ -162,6 +165,44 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
 
     test('explicit ownership grammar is positive attribution — the second cycle-3 control exempts', () => {
         expect(matchDeferencePhrase('The merge is your decision, your call.')).toBeNull();
+    });
+
+    test('OBJECT-form attribution: the eligible phrase\'s own possessive assigns the decision (cycle-4 false-refusal probes, pinned verbatim)', () => {
+        // `your call/move/steer` already says WHOSE decision it is; a pure human-only object
+        // completes the relation. These previously fired because the phrase (with its
+        // possessive) was excluded from the decisive segment.
+        expect(matchDeferencePhrase('Your call on the merge.')).toBeNull();
+        expect(matchDeferencePhrase('Your call on release timing.')).toBeNull();
+        expect(matchDeferencePhrase('Your steer on the merge.')).toBeNull();
+        // Punctuation-attached objects: colon and em-dash complements reach the object too.
+        expect(matchDeferencePhrase('Your call: whether to merge.')).toBeNull();
+        expect(matchDeferencePhrase('Your move — merge or hold.')).toBeNull();
+    });
+
+    test('PREDICATE-form: loose tokens inside historical facts never exempt (cycle-4 false-exemption probes, pinned verbatim)', () => {
+        // Each contains a human-domain noun plus one unbound `you/your/or/whether/eligible`
+        // token; none assigns an OPEN decision to the human through a relation.
+        expect(matchDeferencePhrase('You merged it yesterday, your call.')).toBe('your call');
+        expect(matchDeferencePhrase('The merge broke your build, your call.')).toBe('your call');
+        expect(matchDeferencePhrase('The merge landed either way, your call.')).toBe('your call');
+        expect(matchDeferencePhrase('Whether the merge landed is unknown, your call.')).toBe('your call');
+        expect(matchDeferencePhrase('The merge-eligible label disappeared, your call.')).toBe('your call');
+    });
+
+    test('negation is RELATION-scoped, both apostrophes (cycle-4 probes, pinned verbatim)', () => {
+        // Negation inside the ownership relation kills it — ASCII and typographic apostrophes.
+        expect(matchDeferencePhrase("The merge isn't yours, your call.")).toBe('your call');
+        expect(matchDeferencePhrase('The merge isn’t yours, your call.')).toBe('your call');
+        expect(matchDeferencePhrase("The credentials aren't yours to rotate, your call.")).toBe('your call');
+        // Negation of an UNRELATED proposition does not cancel explicit ownership.
+        expect(matchDeferencePhrase('The merge is yours though CI is not green, your call.')).toBeNull();
+    });
+
+    test('MIXED authority fires: coordinated agent tasks and first-person branches (cycle-4 probes, pinned verbatim)', () => {
+        expect(matchDeferencePhrase('Your call on whether to merge, or whether I update docs.')).toBe('your call');
+        expect(matchDeferencePhrase('Merge or update the docs, your call.')).toBe('your call');
+        // The all-human/bare-option list stays exempt — `hold` is the same decision's counter-option.
+        expect(matchDeferencePhrase('Merge now or hold, your call.')).toBeNull();
     });
 
     test('offer-shaped phrases are NEVER exemption-eligible — an agent offering a human-only action fires', () => {
