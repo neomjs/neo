@@ -38,6 +38,21 @@ test.describe('fleetCockpitStatus - Body-side cockpit DTO contract', () => {
         expect(snapshot.rows[1]).toMatchObject({id: 'guest', family: null, engineTag: null})
     })
 
+    test('folds the display-name chain in the CARD-CONTRACT order: displayName -> name -> githubUsername -> id', () => {
+        const snapshot = createFleetCockpitStatus({
+            agents: [
+                {id: 'full',  githubUsername: 'full-gh',  name: 'Full Name',  displayName: 'Chosen'},
+                {id: 'named', githubUsername: 'named-gh', name: 'Named'},
+                {id: 'login', githubUsername: 'login-gh'},
+                {id: 'bare'}
+            ]
+        })
+
+        // one folded field, resolved Brain-side ONCE — the Body name slot consumes it and never
+        // re-implements the chain (a view-side copy would be a second truth that drifts)
+        expect(snapshot.rows.map(row => row.displayName)).toEqual(['Chosen', 'Named', 'login-gh', 'bare'])
+    })
+
     test('hoists assembler-stamped launch truth — tri-state null when un-stamped, never derived in this pure map', () => {
         const snapshot = createFleetCockpitStatus({
             agents: [
