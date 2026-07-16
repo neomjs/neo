@@ -107,7 +107,18 @@ test.describe('AgentOS.view.fleet.MailboxPane — the read-only S1 mailbox tab',
             {capability: {state: 'wired'}},                       // producer half-answered
             {rows: null},                                         // torn
             {rows: 'MESSAGE:not-an-array'},                       // wrong type
-            {admission: {state: 'granted'}, page: {limit: 50}}    // envelope without the rows array
+            {admission: {state: 'granted'}, page: {limit: 50}},   // envelope without the rows array
+            // reviewer's exact falsifiers: a bare rows array is NOT the producer's envelope. The
+            // producer emits {capability, admission, rows, page} on EVERY state — its own degrades
+            // included — so these came from somewhere else, and rendering them fabricates a mail
+            // claim ("No active messages for @x" / a stranger's message list) from a shape the pane
+            // never recognized.
+            {rows: []},
+            {rows: [row({messageId: 'MESSAGE:from-nowhere'})]},
+            // each single missing member fails closed on its own
+            {admission: {state: 'granted'}, rows: [], page: {limit: 50, offset: 0, count: 0}},
+            {capability: {state: 'wired'}, rows: [], page: {limit: 50, offset: 0, count: 0}},
+            {capability: {state: 'wired'}, admission: {state: 'granted'}, rows: []}
         ];
 
         unrecognized.forEach(snapshot => {

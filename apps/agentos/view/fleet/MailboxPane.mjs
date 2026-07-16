@@ -3,6 +3,27 @@ import Container                                      from '../../../../src/cont
 import {classifyPaneFreshness, describePaneFreshness} from './agentFreshness.mjs';
 
 /**
+ * @summary Is this payload the mirror adapter's own envelope?
+ *
+ * The producer emits `{capability, admission, rows, page}` — always all four, on EVERY state
+ * including its degrades, because the not-wired snapshot is built by the same pure half as a live
+ * one. So a payload missing any of them did not come from that producer, and reading a mail claim
+ * out of it is fabrication: `{rows: []}` would render "No active messages for @x" and
+ * `{rows: [message]}` would render a stranger's message list, both from a shape the pane never
+ * recognized. Structural recognition only — the STATES inside it are the producer's to declare.
+ * @param {Object} snapshot Candidate payload.
+ * @returns {Boolean}
+ * @private
+ */
+function isRecognizedMirrorEnvelope(snapshot) {
+    return Boolean(snapshot)
+        && typeof snapshot.capability === 'object' && snapshot.capability !== null
+        && typeof snapshot.admission  === 'object' && snapshot.admission  !== null
+        && typeof snapshot.page       === 'object' && snapshot.page       !== null
+        && Array.isArray(snapshot.rows)
+}
+
+/**
  * The AgentDetail **Mailbox tab** — the S1 view half: a read-only, viewer-admitted mirror of the
  * drilled-in resident's ACTIVE A2A inbox, rendered from one Fleet mailbox-mirror adapter snapshot.
  *
@@ -219,12 +240,18 @@ class MailboxPane extends Container {
     getPaneState() {
         const snapshot = this.snapshot;
 
-        if (!snapshot)                                  return 'unobserved';
-        if (snapshot.admission?.state === 'denied')     return 'denied';
-        if (snapshot.capability?.state === 'degraded')  return 'degraded';
-        // an envelope without the producer's own rows array is unrecognized, not empty
-        if (!Array.isArray(snapshot.rows))              return 'unobserved';
-        if (snapshot.rows.length === 0)                 return 'empty';
+        if (!snapshot) return 'unobserved';
+
+        // The producer's envelope is `{capability, admission, rows, page}`. A payload missing ANY of
+        // them is not a mailbox — it is something else that happens to have a rows array, and
+        // reading rows/empty/page out of it fabricates a claim about this agent's mail from a
+        // shape we never understood. Checked BEFORE denied/degraded so a torn payload cannot
+        // borrow their authority either.
+        if (!isRecognizedMirrorEnvelope(snapshot)) return 'unobserved';
+
+        if (snapshot.admission.state === 'denied')    return 'denied';
+        if (snapshot.capability.state === 'degraded') return 'degraded';
+        if (snapshot.rows.length === 0)              return 'empty';
 
         return 'rows'
     }
