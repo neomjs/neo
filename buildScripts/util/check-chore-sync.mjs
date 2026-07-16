@@ -1,7 +1,9 @@
-import { execSync } from 'node:child_process';
-import process from 'node:process';
-import path from 'node:path';
+import { execSync }      from 'node:child_process';
+import process           from 'node:process';
+import path              from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { createInheritedFromMergeFilter } from './mergeInheritance.mjs';
 
 // Anchor git checks to the repository that owns this hook script, not the caller's cwd.
 const __filename = fileURLToPath(import.meta.url);
@@ -17,7 +19,7 @@ try {
     process.exit(1);
 }
 
-const normalizedGitRoot = path.resolve(gitRoot);
+const normalizedGitRoot    = path.resolve(gitRoot);
 const normalizedScriptRoot = path.resolve(scriptRoot);
 
 if (normalizedScriptRoot !== normalizedGitRoot) {
@@ -38,7 +40,7 @@ try {
 
 // Allowed branches for chore-sync data
 const ALLOWED_PREFIXES = ['chore/sync-', 'agent/sync-'];
-const isDataBranch = ALLOWED_PREFIXES.some(prefix => branch.startsWith(prefix));
+const isDataBranch     = ALLOWED_PREFIXES.some(prefix => branch.startsWith(prefix));
 
 if (isDataBranch) {
     process.exit(0);
@@ -101,27 +103,14 @@ if (process.env.NEO_SYNC_AUTOCOMMIT === '1') {
 //
 // Deliberately evaluated AFTER the NEO_SYNC_AUTOCOMMIT arm: that arm guards the pipeline's own
 // commits, which are never merges, and must keep failing on mixed content regardless.
-let inheritedFromMerge = new Set();
-
-try {
-    execSync('git rev-parse -q --verify MERGE_HEAD', { cwd: gitRoot, stdio: 'ignore' });
-
-    // Files whose staged content DIFFERS from MERGE_HEAD's — i.e. authored/edited here rather than
-    // inherited. Everything else the merge staged matches MERGE_HEAD and is therefore inherited.
-    const divergedFromMergeHead = new Set(
-        execSync('git diff --cached --name-only MERGE_HEAD', { cwd: gitRoot, encoding: 'utf-8' })
-            .trim().split('\n').filter(Boolean)
-    );
-
-    inheritedFromMerge = new Set(stagedFiles.filter(file => !divergedFromMergeHead.has(file)));
-} catch (e) {
-    // No MERGE_HEAD (or the diff failed) — an ordinary commit. `inheritedFromMerge` stays empty, so
-    // the check below applies in full. Failing closed here is deliberate: a guard that cannot prove
-    // a file was inherited must treat it as authored.
-}
+// Shared with `check-whitespace.mjs`: both guards read the staged set, so both inherit the same
+// merge problem, and two copies of the rule would drift — the copy that drifts being the one that
+// silently fails open on the content it exists to police. `createInheritedFromMergeFilter` fails
+// closed outside a merge, so an ordinary commit is checked in full.
+const isInherited = createInheritedFromMergeFilter(gitRoot);
 
 const violatingFiles = stagedFiles.filter(file =>
-    isGeneratedSyncFile(file) && !inheritedFromMerge.has(file)
+    isGeneratedSyncFile(file) && !isInherited(file)
 );
 
 // Allow explicit override via --force-data or bypassing hooks
