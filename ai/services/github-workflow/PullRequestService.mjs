@@ -895,6 +895,17 @@ function appendReviewBudgetManagedAudit(body, audit) {
 }
 
 /**
+ * @summary Returns machine-owned review-budget audit fields found in the supplied lines.
+ * @param {String[]} lines Review-body lines to inspect.
+ * @returns {String[]} Reserved audit-field labels present in the lines.
+ */
+function getReviewBudgetAuditFields(lines) {
+    return REVIEW_BUDGET_AUDIT_FIELDS.filter(label =>
+        lines.some(line => line.trim().startsWith(`- ${label}:`))
+    )
+}
+
+/**
  * @summary Captures the exact machine-owned review-budget suffix and rejects ambiguous duplicates.
  * @param {String} body Review body.
  * @returns {{auditFieldsOutsideTail: String[], managedCount: Number, overrideCount: Number, structureValid: Boolean, tail: String}}
@@ -918,9 +929,7 @@ function getReviewBudgetAuditSnapshot(body) {
         ? Math.min(...allIndices.map(index => Math.max(0, index - 1)))
         : -1;
     const prefixLines            = firstBlockLine >= 0 ? lines.slice(0, firstBlockLine) : lines;
-    const auditFieldsOutsideTail = allIndices.length === 0 ? [] : REVIEW_BUDGET_AUDIT_FIELDS.filter(label =>
-        prefixLines.some(line => line.trim().startsWith(`- ${label}:`))
-    );
+    const auditFieldsOutsideTail = allIndices.length === 0 ? [] : getReviewBudgetAuditFields(prefixLines);
 
     return {
         auditFieldsOutsideTail,
@@ -928,6 +937,30 @@ function getReviewBudgetAuditSnapshot(body) {
         overrideCount: overrideIndices.length,
         structureValid,
         tail         : firstBlockLine >= 0 ? lines.slice(firstBlockLine).join('\n').trimEnd() : ''
+    }
+}
+
+/**
+ * @summary Rejects caller-authored review-budget provenance before a review CREATE reaches GitHub.
+ * @param {String} body Candidate review body.
+ * @returns {Object|null} Structured validation failure or `null` when no reserved provenance exists.
+ */
+function getReviewBudgetCreateAuditValidationFailure(body) {
+    const lines                          = body.replace(/\r\n/g, '\n').split('\n');
+    const snapshot                       = getReviewBudgetAuditSnapshot(body);
+    const reservedReviewBudgetProvenance = [
+        ...(snapshot.managedCount > 0 ? [REVIEW_BUDGET_MANAGED_MARKER] : []),
+        ...(snapshot.overrideCount > 0 ? [REVIEW_BUDGET_OVERRIDE_MARKER] : []),
+        ...getReviewBudgetAuditFields(lines)
+    ];
+
+    if (reservedReviewBudgetProvenance.length === 0) return null;
+
+    return {
+        error  : 'PR Review Budget Audit Validation Failed',
+        message: 'A review CREATE body cannot supply service-owned review-budget provenance. Remove the reserved marker or audit fields; manage_pr_review appends the canonical receipt when applicable.',
+        code   : 'PR_REVIEW_BUDGET_AUDIT_RESERVED',
+        reservedReviewBudgetProvenance
     }
 }
 
@@ -1741,6 +1774,12 @@ class PullRequestService extends Base {
                     message: `Invalid state '${state}'. Must be one of: ${Object.keys(stateToEvent).join(', ')}.`,
                     code   : 'INVALID_ARGUMENTS'
                 };
+            }
+
+            const reviewBudgetAuditValidationFailure = getReviewBudgetCreateAuditValidationFailure(body);
+
+            if (reviewBudgetAuditValidationFailure) {
+                return reviewBudgetAuditValidationFailure
             }
 
             if (MICRO_DELTA_COMMENTED_CLOSURE_PATTERN.test(body) && event !== 'COMMENT') {

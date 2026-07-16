@@ -813,7 +813,7 @@ paths:
       description: |
         Create or update one formal PR review. Read `.agents/skills/pr-review/SKILL.md` and use its exact cycle template. Create requires `pr_number`, `state`, and `body`; update requires `review_id` and `body`.
 
-        APPROVED requires reviewer-keyed `acknowledgedRequestChanges` for outstanding current-head RCs. REQUEST_CHANGES is budgeted on post-cutover PRs: two submitted RCs, then COMMENT/APPROVED or one complete terminal Drop+Supersede. Incomplete history fails closed. `reviewBudgetOverrideReason` is a disclosed exceptional bypass persisted in the review body. Direct gh/UI submission is outside this pre-submit gate and only receives workflow telemetry.
+        APPROVED requires reviewer-keyed `acknowledgedRequestChanges` for outstanding current-head RCs. REQUEST_CHANGES is budgeted on post-cutover PRs: two submitted RCs, then COMMENT/APPROVED or one complete terminal Drop+Supersede. Incomplete history fails closed. `reviewBudgetOverrideReason` is a disclosed exceptional bypass persisted in the review body. CREATE bodies must not supply service-owned `[review-budget-managed]` / `[review-budget-override]` marker lines or their reserved audit-field list entries; the service rejects them before GitHub access and appends the canonical receipt itself when applicable. Direct gh/UI submission is outside this pre-submit gate and only receives workflow telemetry.
       tags: [PullRequests]
       parameters:
         - name: pr_number
@@ -848,7 +848,7 @@ paths:
                   example: APPROVED
                 body:
                   type: string
-                  description: The review body.
+                  description: The human-authored review body. For `create`, service-owned review-budget marker lines and reserved audit-field list entries are rejected.
                 review_id:
                   type: string
                   description: The GraphQL node ID of the existing review (required for `update`, e.g. `PRR_*`).
