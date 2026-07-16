@@ -220,6 +220,19 @@ test.describe('Neo.dashboard.DockDragAffordances', () => {
 
         expect(await rig.controller.ensureGeometry()).toBe(null);
         expect(rig.controller.dragGeometry, 'degenerate measure uncaches — the next frame re-measures').toBe(null);
+
+        // zero-AREA rects are truthy but equally unmeasurable (a node measured before its
+        // layout settles reports 0×0 and can never contain a pointer) — the flagship-boot
+        // frame shape, verbatim: collapsed host, every zone at zero area
+        rig.controller.clear();
+        rig.controller.host.getDomRect = async ids => [
+            {x: 0, y: 119, width: 24, height: 24},
+            {x: 220, y: 131, width: 0, height: 0},
+            {x: 226, y: 131, width: 180, height: 0}
+        ];
+
+        expect(await rig.controller.ensureGeometry(), 'zero-area zones = degenerate').toBe(null);
+        expect(rig.controller.dragGeometry, 'zero-area frame uncaches — the session self-heals once layout lands').toBe(null);
         destroyAll(rig)
     });
 

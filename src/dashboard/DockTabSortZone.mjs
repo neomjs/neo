@@ -241,6 +241,24 @@ class DockTabSortZone extends TabHeaderSortZone {
             })
         }
 
+        // A release beyond the source toolbar is dock-gesture territory (the cross-zone drop
+        // below owns it): the reorder the pointer's PATH recorded while crossing sibling
+        // buttons is geometrically void — left in place, the base within-toolbar commit
+        // re-adds the item to its source zone and silently reverts the cross-zone commit
+        // (last write wins). The base trims `ownerRect` to the BUTTON SPAN and refreshes only
+        // x/y/width/height, so the check reads those — expanded by one band-height of
+        // tolerance: a sloppy release NEAR the toolbar stays a reorder; a release a zone away
+        // (always far beyond one band) suppresses. Cancels and same-band releases stay untouched.
+        let {ownerRect} = me,
+            tolerance   = ownerRect?.height || 0;
+
+        if (!data.cancelled && ownerRect && Neo.isNumber(clientX) && Neo.isNumber(clientY) && (
+            clientX < ownerRect.x - tolerance || clientX > ownerRect.x + ownerRect.width  + tolerance ||
+            clientY < ownerRect.y - tolerance || clientY > ownerRect.y + ownerRect.height + tolerance
+        )) {
+            me.currentIndex = me.startIndex
+        }
+
         if (data.cancelled) {
             me.remoteDropCommitted = false;
             itemId && tabContainer?.fire('dockCrossZoneDragCancel', {itemId, sourceNodeId: me.dockSourceNodeId})

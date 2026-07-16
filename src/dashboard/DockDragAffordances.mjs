@@ -127,7 +127,7 @@ class DockDragAffordances extends Base {
                 : me.owner.dockModel.root;
 
         me.dragGeometry = host.getDomRect([host.id, ...zoneEntries.map(zone => zone.container.id)]).then(([hostRect, ...zoneRects]) => {
-            let geometry = hostRect && {
+            let geometry = hostRect?.width > 0 && hostRect?.height > 0 && {
                 hostRect,
                 root : {nodeId: rootId, rect: hostRect},
                 zones: zoneEntries
@@ -136,12 +136,15 @@ class DockDragAffordances extends Base {
                         rect       : zoneRects[index],
                         orientation: Object.values(nodes).find(node => node.type === 'split' && node.children?.includes(zone.nodeId))?.orientation ?? null
                     }))
-                    .filter(zone => zone.rect)
+                    // A zero-AREA rect is truthy but unmeasurable — a node measured before its
+                    // layout settles reports 0×0 and can never contain a pointer. Treat it like
+                    // a missing rect so the degeneracy check below sees the truth.
+                    .filter(zone => zone.rect?.width > 0 && zone.rect?.height > 0)
             };
 
-            // A gesture's FIRST move can outrace measurability (fresh mount, mid-layout):
-            // a degenerate result must not latch for the whole gesture — uncache so the
-            // next move frame re-measures and the session self-heals.
+            // A gesture's FIRST move can outrace measurability (fresh mount, mid-layout —
+            // missing OR zero-area rects): a degenerate result must not latch for the whole
+            // gesture — uncache so the next move frame re-measures and the session self-heals.
             if (!geometry || geometry.zones.length < 1) {
                 me.dragGeometry = null;
                 return null
