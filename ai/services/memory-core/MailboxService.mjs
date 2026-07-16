@@ -1875,6 +1875,10 @@ class MailboxService extends Base {
                     };
                     if (messageNode.properties.task !== undefined) summary.task = messageNode.properties.task;
                     if (messageNode.properties.wakeSuppressed) summary.wakeSuppressed = true;
+                    // Thread membership is graph state (the PART_OF_THREAD edge), already resolved
+                    // above for the `threadId` filter. Project it so callers can group a thread
+                    // without re-walking edges — consumers that only filtered by it never saw it.
+                    if (foundThreadId) summary.partOfThread = foundThreadId;
                     const relatedTickets = getRelatedTicketsForMessage(db, messageNode.id, messageNode);
                     if (relatedTickets.length > 0) {
                         summary.relatedTickets = relatedTickets;
