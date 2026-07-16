@@ -329,9 +329,18 @@ class AgentDetail extends Container {
      * @protected
      */
     async loadMailboxMirror({offset = 0} = {}) {
-        let me      = this,
-            subject = me.record?.agentId,
-            bridge  = globalThis.AgentOS?.fleet?.registryBridge;
+        let me       = this,
+            username = me.record?.githubUsername,
+            bridge   = globalThis.AgentOS?.fleet?.registryBridge;
+
+        // The read asks for the resident's MAILBOX identity, never the Fleet registry key: a mailbox
+        // subject is an AgentIdentity node id (`@neo-opus-vega`) while `agentId` is a registry key
+        // (`vega`), so passing the key would request a subject that does not exist — and any answer
+        // to it would be about someone else. A resident with no identity authority is honestly
+        // unreadable: no read is issued at all, rather than one aimed at a guess.
+        const subject = typeof username === 'string' && username.trim()
+            ? (username.trim().startsWith('@') ? username.trim() : `@${username.trim()}`)
+            : null;
 
         if (!subject || typeof bridge?.fleetMailboxMirror !== 'function') {
             return
@@ -342,8 +351,11 @@ class AgentDetail extends Container {
         try {
             const snapshot = await bridge.fleetMailboxMirror({subjectAgentId: subject, offset});
 
-            // a newer drill won, the subject moved, or the view is gone — drop it on the floor
-            if (me.isDestroyed || generation !== me.mailboxReadGeneration || me.record?.agentId !== subject) {
+            // A newer drill won, the subject moved, or the view is gone — drop it on the floor.
+            // The re-check compares the SAME field the read was aimed with (`githubUsername`), not
+            // the registry key: comparing across the two id spaces would never match and would
+            // silently discard every snapshot.
+            if (me.isDestroyed || generation !== me.mailboxReadGeneration || me.record?.githubUsername !== username) {
                 return
             }
 

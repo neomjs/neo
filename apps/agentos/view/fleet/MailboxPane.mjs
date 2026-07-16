@@ -249,11 +249,62 @@ class MailboxPane extends Container {
         // borrow their authority either.
         if (!isRecognizedMirrorEnvelope(snapshot)) return 'unobserved';
 
-        if (snapshot.admission.state === 'denied')    return 'denied';
+        const named = typeof snapshot.admission.subjectAgentId === 'string'
+            && snapshot.admission.subjectAgentId.trim().length > 0;
+
+        // A snapshot that NAMES a subject must name THIS one. Anything else is about someone else,
+        // and no state inside it may borrow this resident's pane to say it.
+        if (named && !this.isSnapshotForThisSubject()) return 'unobserved';
+
+        // A denial names the subject in its own sentence ("X holds no grant for Y's inbox"), so an
+        // unattributed denial cannot be rendered — it would put a name in that sentence that the
+        // producer never admitted.
+        if (snapshot.admission.state === 'denied') return named ? 'denied' : 'unobserved';
+
+        // A degrade claims nothing about anyone's MAIL — it reports on the READ. The adapter's own
+        // refusals (unbound identity, viewer mismatch, inadmissible subject) legitimately resolve NO
+        // subject, so gating them on one would swallow the honest reason and leave the operator with
+        // a silent pane. This is the one state that may speak without an admitted subject.
         if (snapshot.capability.state === 'degraded') return 'degraded';
-        if (snapshot.rows.length === 0)              return 'empty';
+
+        // `rows` and `empty` are claims about THIS resident's mail. Both require a verified subject:
+        // an unattributed row list is a stranger's inbox, and an unattributed zero is "no mail for
+        // someone" rendered as "no mail for HIM".
+        if (!named)                     return 'unobserved';
+        if (snapshot.rows.length === 0) return 'empty';
 
         return 'rows'
+    }
+
+    /**
+     * @summary Does the snapshot's admitted subject match the resident this pane is showing?
+     *
+     * The possession guard clears the snapshot on re-seat and the read is generation-latched, but
+     * both protect the SEQUENCE. Neither reads the envelope: a `granted` snapshot for Vega assigned
+     * onto Ada's pane renders Vega's mail under Ada's name with every guard satisfied, because the
+     * record was already correct when it landed. The envelope has to be asked who it is about.
+     *
+     * The comparison is against `githubUsername` — the resident's mailbox identity authority — never
+     * `agentId`, which is the Fleet registry key (`vega` vs the subject `@neo-opus-vega`) and for
+     * custom / multi-instance residents need not correspond at all. Canonicalization is a single
+     * `@` prefix, matching the graph's node-id form the adapter already returns.
+     *
+     * Fails CLOSED on every unknown: no record, no identity authority, or no admitted subject means
+     * the pane cannot prove the mail is this resident's — and unprovable ownership renders nothing.
+     * @returns {Boolean}
+     * @protected
+     */
+    isSnapshotForThisSubject() {
+        const
+            username = this.record?.githubUsername,
+            subject  = this.snapshot?.admission?.subjectAgentId;
+
+        if (typeof username !== 'string' || !username.trim()) return false;
+        if (typeof subject  !== 'string' || !subject.trim())  return false;
+
+        const canonical = username.trim().startsWith('@') ? username.trim() : `@${username.trim()}`;
+
+        return subject.trim() === canonical
     }
 
     /**

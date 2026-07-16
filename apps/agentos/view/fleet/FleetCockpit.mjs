@@ -1282,14 +1282,22 @@ class FleetCockpit extends Container {
         const sessionHealth = mapFleetSessionHealth(row.lifecycle, row.sources);
 
         return {
-            agentId      : row.id,
-            authMode     : row.authMode ?? null,
-            avatarUrl    : row.avatarUrl ?? null,
-            displayName  : row.displayName ?? null,
-            engineTag    : row.engineTag ?? null,
-            family       : row.family ?? null,
-            launchable   : row.launchable ?? null,
-            openLaneCount: row.openLaneCount ?? null,
+            agentId    : row.id,
+            authMode   : row.authMode ?? null,
+            avatarUrl  : row.avatarUrl ?? null,
+            displayName: row.displayName ?? null,
+            // The resident's MAILBOX identity authority, preserved from the DTO rather than derived
+            // from `agentId`: the registry id is a Fleet key (`vega`), while a mailbox subject is an
+            // AgentIdentity node id (`@neo-opus-vega`), and for custom / multi-instance residents the
+            // two need not correspond at all. Any surface that must decide "is this snapshot about
+            // THIS resident" has to compare compatible ids — comparing the registry key would either
+            // never match or, worse, match the wrong resident. `null` = no identity authority, which
+            // is an honest "cannot verify", never an implicit pass.
+            githubUsername: row.githubUsername ?? null,
+            engineTag     : row.engineTag ?? null,
+            family        : row.family ?? null,
+            launchable    : row.launchable ?? null,
+            openLaneCount : row.openLaneCount ?? null,
             // the authoritative identity-root participation fact (tri-state null = no root) —
             // the eligibility partition excludes any KNOWN non-active status before a lifecycle
             // write; null stays eligible (open-set honesty for forks/custom residents)

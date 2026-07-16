@@ -40,7 +40,14 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
     // a real store-backed record — the production shape (an AgentOS.store.FleetRoster row). The store
     // mirrors FleetRoster's keyProperty (the collection default 'id' would shadow the model's).
     const makeRecord = data => {
-        const row   = {...data, sources: data.sources === undefined ? observedSources : data.sources},
+        const row = {
+                  // mirrors production: the roster DTO carries the mailbox identity authority beside
+                  // the registry key. A fixture without it is a resident the mailbox cannot verify —
+                  // valid, but not the default case, so tests opt INTO that by passing null.
+                  githubUsername: data.githubUsername === undefined ? `neo-${data.agentId}` : data.githubUsername,
+                  ...data,
+                  sources: data.sources === undefined ? observedSources : data.sources
+              },
               store = Neo.create(Store, {keyProperty: 'agentId', model: FleetAgent, data: [row]});
 
         stores.push(store);
@@ -310,7 +317,7 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
             now     : NOW,
             snapshot: {
                 capability: {source: 'memory-core:mailbox', state: 'wired', confidence: 'observed', capturedAt: '2026-07-11T23:59:50.000Z', reason: null},
-                admission : {state: 'granted', viewerIdentity: '@tobiu', subjectAgentId: '@neo-opus-vega', checkedAt: '2026-07-11T23:59:50.000Z', reason: null},
+                admission : {state: 'granted', viewerIdentity: '@tobiu', subjectAgentId: '@neo-vega', checkedAt: '2026-07-11T23:59:50.000Z', reason: null},
                 page      : {limit: 50, offset: 0, count: 0},
                 rows      : []
             }
@@ -334,7 +341,7 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
         (globalThis.AgentOS ??= {}).fleet = {registryBridge: {
             fleetMailboxMirror: async params => {
                 calls.push(params);
-                return mirrorSnapshot('@neo-opus-vega', [{messageId: 'MESSAGE:real', subject: 'from the verb'}])
+                return mirrorSnapshot('@neo-vega', [{messageId: 'MESSAGE:real', subject: 'from the verb'}])
             }
         }};
 
@@ -346,8 +353,10 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
 
             // the drill itself issues the read — no injection, no manual kick required
             expect(calls.length).toBeGreaterThan(0);
-            // and every read is scoped to THIS subject: a mirror read for anyone else is a leak
-            expect(calls.every(params => params.subjectAgentId === 'vega')).toBe(true);
+            // Every read is scoped to THIS subject's MAILBOX identity — a mirror read for anyone
+            // else is a leak. Note it asks for `@neo-vega`, not the registry key `vega`: the two are
+            // different id spaces, and asking with the key would request a subject that does not exist.
+            expect(calls.every(params => params.subjectAgentId === '@neo-vega')).toBe(true);
             expect(mailbox.getPaneState()).toBe('rows');
             expect(mailbox.snapshot.rows[0].subject).toBe('from the verb');
 
@@ -364,7 +373,7 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
 
         (globalThis.AgentOS ??= {}).fleet = {registryBridge: {
             fleetMailboxMirror: async ({subjectAgentId}) =>
-                subjectAgentId === 'vega' ? vegaRead : mirrorSnapshot('ada', [{messageId: 'MESSAGE:ada', subject: 'ada mail'}])
+                subjectAgentId === 'vega' ? vegaRead : mirrorSnapshot('@neo-ada', [{messageId: 'MESSAGE:ada', subject: 'ada mail'}])
         }};
 
         try {
@@ -376,7 +385,7 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
             detail.record = makeRecord({agentId: 'ada', state: 'ok'});   // drill B while A is in flight
             await detail.loadMailboxMirror();                     // ada's read lands first
 
-            releaseVega(mirrorSnapshot('vega', [{messageId: 'MESSAGE:vega', subject: 'VEGA PRIVATE MAIL'}]));
+            releaseVega(mirrorSnapshot('@neo-vega', [{messageId: 'MESSAGE:vega', subject: 'VEGA PRIVATE MAIL'}]));
             await pending;                                        // vega's stale read resolves LAST
 
             // the newest drill wins: vega's late answer must be dropped on the floor, not rendered
@@ -421,7 +430,7 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
         // the wiring has supplied vega's inbox
         mailbox.snapshot = {
             capability: {source: 'memory-core:mailbox', state: 'wired', confidence: 'observed', capturedAt: '2026-07-12T00:00:00.000Z', reason: null},
-            admission : {state: 'granted', viewerIdentity: '@tobiu', subjectAgentId: '@neo-opus-vega', checkedAt: '2026-07-12T00:00:00.000Z', reason: null},
+            admission : {state: 'granted', viewerIdentity: '@tobiu', subjectAgentId: '@neo-vega', checkedAt: '2026-07-12T00:00:00.000Z', reason: null},
             page      : {limit: 50, offset: 0, count: 1},
             rows      : [{messageId: 'MESSAGE:vega-only', subject: 'vega private mail', from: '@neo-gpt', recipientClass: 'agent', priority: 'high', status: 'unread', taskState: null, partOfThread: null, relatedTickets: [], wakeSuppressed: false, sentAt: '2026-07-12T00:00:00.000Z', readAt: null}]
         };
@@ -442,7 +451,7 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
               mailbox  = detail.down({reference: 'mailbox-pane'}),
               snapshot = {
                   capability: {source: 'memory-core:mailbox', state: 'wired', confidence: 'observed', capturedAt: '2026-07-12T00:00:00.000Z', reason: null},
-                  admission : {state: 'granted', viewerIdentity: '@tobiu', subjectAgentId: '@neo-opus-vega', checkedAt: '2026-07-12T00:00:00.000Z', reason: null},
+                  admission : {state: 'granted', viewerIdentity: '@tobiu', subjectAgentId: '@neo-vega', checkedAt: '2026-07-12T00:00:00.000Z', reason: null},
                   page      : {limit: 50, offset: 0, count: 0},
                   rows      : []
               };

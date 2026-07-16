@@ -55,6 +55,12 @@ function createPane(config = {}) {
     return Neo.create(MailboxPane, {
         appName,
         now: NOW,
+        // Mirrors production: the pane always shows a drilled resident, and its record carries the
+        // mailbox identity authority the snapshot's admitted subject is checked against. The default
+        // matches `wiredSnapshot`'s subject — a pane whose record names a DIFFERENT resident (or no
+        // resident at all) cannot prove the mail is his, and renders nothing. Tests opt into that by
+        // passing their own record.
+        record: {agentId: 'vega', githubUsername: 'neo-opus-vega'},
         ...config
     })
 }
@@ -134,7 +140,7 @@ test.describe('AgentOS.view.fleet.MailboxPane — the read-only S1 mailbox tab',
         // the producer's OWN empty answer is still explicitly empty — the guard must not swallow it
         const honest = createPane({snapshot: {
             capability: {state: 'wired', confidence: 'observed', capturedAt: CAPTURED_AT, reason: null},
-            admission : {state: 'granted', viewerIdentity: '@tobiu', subjectAgentId: '@neo-gpt', checkedAt: CAPTURED_AT, reason: null},
+            admission : {state: 'granted', viewerIdentity: '@tobiu', subjectAgentId: '@neo-opus-vega', checkedAt: CAPTURED_AT, reason: null},
             page      : {limit: 50, offset: 0, count: 0},
             rows      : []
         }});
@@ -143,11 +149,57 @@ test.describe('AgentOS.view.fleet.MailboxPane — the read-only S1 mailbox tab',
         honest.destroy()
     });
 
+    test("a GRANTED snapshot about another resident never renders under this one's name", () => {
+        // The reviewer's exact falsifier. The possession guard and the generation latch both protect
+        // the SEQUENCE and neither reads the envelope: a granted snapshot for Vega assigned onto
+        // Ada's pane satisfies every one of them, because Ada's record was already correct when it
+        // landed. The envelope has to be asked who it is ABOUT.
+        const ada = createPane({
+            record  : {agentId: 'ada', githubUsername: 'neo-opus-ada'},
+            snapshot: wiredSnapshot([row({messageId: 'MESSAGE:vega-private', subject: 'VEGA PRIVATE MAIL'})])
+        });
+
+        expect(ada.getPaneState(), "vega's mail must not render on ada's pane").toBe('unobserved');
+        expect(ada.getReference('mailbox-rows').hidden).toBe(true);
+        expect(JSON.stringify(ada.getReference('mailbox-rows').vdom)).not.toContain('VEGA PRIVATE MAIL');
+        ada.destroy();
+
+        // an EMPTY snapshot about someone else is equally inadmissible: rendering it would say
+        // "No active messages for ada" on the strength of a read about vega
+        const adaEmpty = createPane({
+            record  : {agentId: 'ada', githubUsername: 'neo-opus-ada'},
+            snapshot: wiredSnapshot([], {limit: 50, offset: 0, count: 0})
+        });
+        expect(adaEmpty.getPaneState()).toBe('unobserved');
+        adaEmpty.destroy();
+
+        // a DENIAL about someone else cannot be shown either — its sentence names the subject
+        const adaDenied = createPane({
+            record  : {agentId: 'ada', githubUsername: 'neo-opus-ada'},
+            snapshot: {
+                capability: {state: 'degraded', confidence: 'none', capturedAt: CAPTURED_AT, reason: 'Unauthorized: no CAN_READ_INBOX_OF permission for @neo-opus-vega'},
+                admission : {state: 'denied', viewerIdentity: '@tobiu', subjectAgentId: '@neo-opus-vega', checkedAt: CAPTURED_AT, reason: 'Unauthorized: no CAN_READ_INBOX_OF permission for @neo-opus-vega'},
+                rows      : [],
+                page      : {limit: 50, offset: 0, count: 0}
+            }
+        });
+        expect(adaDenied.getPaneState()).toBe('unobserved');
+        adaDenied.destroy();
+
+        // and a resident with NO identity authority is honestly unverifiable — never an implicit pass
+        const unverifiable = createPane({
+            record  : {agentId: 'custom-resident', githubUsername: null},
+            snapshot: wiredSnapshot([row({messageId: 'MESSAGE:x'})])
+        });
+        expect(unverifiable.getPaneState()).toBe('unobserved');
+        unverifiable.destroy()
+    });
+
     test('degraded (non-admission) carries the adapter reason; empty is explicit, not blank', () => {
         const pane = createPane({
             snapshot: {
                 capability: {state: 'degraded', confidence: 'none', capturedAt: CAPTURED_AT, reason: 'database not initialized'},
-                admission : {state: 'unavailable', viewerIdentity: '@tobiu', subjectAgentId: '@neo-gpt', checkedAt: CAPTURED_AT, reason: 'database not initialized'},
+                admission : {state: 'unavailable', viewerIdentity: '@tobiu', subjectAgentId: '@neo-opus-vega', checkedAt: CAPTURED_AT, reason: 'database not initialized'},
                 rows      : [],
                 page      : {limit: 50, offset: 0, count: 0}
             }
@@ -339,7 +391,7 @@ test.describe('AgentOS.view.fleet.MailboxPane — the read-only S1 mailbox tab',
     test('a denial or degrade never fakes a page window', () => {
         const denied = createPane({snapshot: {
             capability: {state: 'degraded', confidence: 'none', capturedAt: CAPTURED_AT, reason: 'no grant'},
-            admission : {state: 'denied', viewerIdentity: '@x', subjectAgentId: '@neo-gpt', checkedAt: CAPTURED_AT, reason: 'Unauthorized: no CAN_READ_INBOX_OF permission for @neo-gpt'},
+            admission : {state: 'denied', viewerIdentity: '@x', subjectAgentId: '@neo-opus-vega', checkedAt: CAPTURED_AT, reason: 'Unauthorized: no CAN_READ_INBOX_OF permission for @neo-gpt'},
             rows      : [],
             page      : {limit: 50, offset: 0, count: 0}
         }});
