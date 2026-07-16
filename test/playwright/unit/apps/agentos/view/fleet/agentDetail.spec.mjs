@@ -50,6 +50,26 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
 
     const createDetail = (data, config = {}) => Neo.create(AgentDetail, {appName, now: NOW, record: makeRecord(data), ...config});
 
+    // an adapter-shaped mirror snapshot (the `fleetMailboxMirror` verb's envelope)
+    const mirrorSnapshot = (subjectAgentId, rows = []) => ({
+        capability: {source: 'memory-core:mailbox', state: 'wired', confidence: 'observed', capturedAt: '2026-07-12T00:00:00.000Z', reason: null},
+        admission : {state: 'granted', viewerIdentity: '@tobiu', subjectAgentId, checkedAt: '2026-07-12T00:00:00.000Z', reason: null},
+        page      : {limit: 50, offset: 0, count: rows.length},
+        rows      : rows.map(row => ({
+            from          : '@neo-gpt',
+            recipientClass: 'agent',
+            priority      : 'normal',
+            status        : 'unread',
+            taskState     : null,
+            partOfThread  : null,
+            relatedTickets: [],
+            wakeSuppressed: false,
+            sentAt        : '2026-07-12T00:00:00.000Z',
+            readAt        : null,
+            ...row
+        }))
+    });
+
     // the cockpit routes the store's recordChange to the view; standalone units drive the same seam.
     const applySet = (detail, values) => {
         detail.record.set(values);
@@ -279,6 +299,92 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
         expect(chip(detail, 'lane').cls).toContain('is-lost');
 
         detail.destroy()
+    });
+
+    test('the drill READS the mirror through the Fleet seam — the pane is fed by the verb, not by injection', async () => {
+        const calls = [];
+
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {
+            fleetMailboxMirror: async params => {
+                calls.push(params);
+                return mirrorSnapshot('@neo-opus-vega', [{messageId: 'MESSAGE:real', subject: 'from the verb'}])
+            }
+        }};
+
+        try {
+            const detail  = createDetail({agentId: 'vega', state: 'ok'}),
+                  mailbox = detail.down({reference: 'mailbox-pane'});
+
+            await detail.loadMailboxMirror();
+
+            // the drill itself issues the read — no injection, no manual kick required
+            expect(calls.length).toBeGreaterThan(0);
+            // and every read is scoped to THIS subject: a mirror read for anyone else is a leak
+            expect(calls.every(params => params.subjectAgentId === 'vega')).toBe(true);
+            expect(mailbox.getPaneState()).toBe('rows');
+            expect(mailbox.snapshot.rows[0].subject).toBe('from the verb');
+
+            detail.destroy()
+        } finally {
+            delete globalThis.AgentOS?.fleet
+        }
+    });
+
+    test('race: a stale in-flight read for A can never land on B', async () => {
+        let releaseVega;
+
+        const vegaRead = new Promise(resolve => { releaseVega = resolve });
+
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {
+            fleetMailboxMirror: async ({subjectAgentId}) =>
+                subjectAgentId === 'vega' ? vegaRead : mirrorSnapshot('ada', [{messageId: 'MESSAGE:ada', subject: 'ada mail'}])
+        }};
+
+        try {
+            const detail  = createDetail({agentId: 'vega', state: 'ok'}),
+                  mailbox = detail.down({reference: 'mailbox-pane'});
+
+            const pending = detail.loadMailboxMirror();          // vega's read hangs
+
+            detail.record = makeRecord({agentId: 'ada', state: 'ok'});   // drill B while A is in flight
+            await detail.loadMailboxMirror();                     // ada's read lands first
+
+            releaseVega(mirrorSnapshot('vega', [{messageId: 'MESSAGE:vega', subject: 'VEGA PRIVATE MAIL'}]));
+            await pending;                                        // vega's stale read resolves LAST
+
+            // the newest drill wins: vega's late answer must be dropped on the floor, not rendered
+            expect(mailbox.record.agentId).toBe('ada');
+            expect(JSON.stringify(mailbox.snapshot)).not.toContain('VEGA PRIVATE MAIL');
+            expect(mailbox.snapshot.rows[0].subject).toBe('ada mail');
+
+            detail.destroy()
+        } finally {
+            delete globalThis.AgentOS?.fleet
+        }
+    });
+
+    test('the read fails closed: an absent verb or a throw leaves the pane honestly unobserved', async () => {
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {}};   // bridge without the verb
+
+        try {
+            const detail  = createDetail({agentId: 'vega', state: 'ok'}),
+                  mailbox = detail.down({reference: 'mailbox-pane'});
+
+            await detail.loadMailboxMirror();
+            expect(mailbox.snapshot).toBe(null);
+            expect(mailbox.getPaneState()).toBe('unobserved');
+
+            globalThis.AgentOS.fleet.registryBridge = {fleetMailboxMirror: async () => { throw new Error('bridge boom') }};
+            await detail.loadMailboxMirror();
+
+            // never a fabricated snapshot, and never "no mail" for a read that did not happen
+            expect(mailbox.snapshot).toBe(null);
+            expect(mailbox.getPaneState()).toBe('unobserved');
+
+            detail.destroy()
+        } finally {
+            delete globalThis.AgentOS?.fleet
+        }
     });
 
     test('subject possession: a re-seat onto a DIFFERENT resident drops the previous subject mail', () => {

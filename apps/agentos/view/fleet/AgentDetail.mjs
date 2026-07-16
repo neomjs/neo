@@ -276,6 +276,60 @@ class AgentDetail extends Container {
     }
 
     /**
+     * Monotonic read generation for {@link #loadMailboxMirror}. A drill is a user gesture and the
+     * mirror read is async, so two reads can be in flight across a fast A→B→A drill; only the
+     * newest may land.
+     * @member {Number} mailboxReadGeneration=0
+     * @protected
+     */
+    mailboxReadGeneration = 0
+
+    /**
+     * @summary Read THIS resident's mailbox mirror through the Fleet read seam and hand it to the pane.
+     *
+     * The pane renders and never fetches; this view owns the read because it owns the drill, and it
+     * stays shell-agnostic so the popped-out inspector reads exactly like the docked one. The Body
+     * never touches MailboxService — it calls the authenticated `fleetMailboxMirror` read verb, whose
+     * source holds the identity binding, and whose admission is the Memory Core primitive's own
+     * fail-closed gate.
+     *
+     * **Race-safe by generation, not by hope.** A drill is a gesture; the read is async. Across a
+     * fast A→B drill the in-flight read for A resolves AFTER B is seated, and assigning it would
+     * render A's inbox under B's name — the exact defect the possession guard exists to prevent,
+     * re-entering through the back door. The generation latch AND the re-checked subject both have
+     * to hold before a snapshot lands.
+     *
+     * Fail-closed: an absent verb or a throw leaves the pane `unobserved` — it never fabricates a
+     * snapshot, and never renders "no mail" for a read that did not happen.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async loadMailboxMirror() {
+        let me      = this,
+            subject = me.record?.agentId,
+            bridge  = globalThis.AgentOS?.fleet?.registryBridge;
+
+        if (!subject || typeof bridge?.fleetMailboxMirror !== 'function') {
+            return
+        }
+
+        const generation = ++me.mailboxReadGeneration;
+
+        try {
+            const snapshot = await bridge.fleetMailboxMirror({subjectAgentId: subject});
+
+            // a newer drill won, the subject moved, or the view is gone — drop it on the floor
+            if (me.isDestroyed || generation !== me.mailboxReadGeneration || me.record?.agentId !== subject) {
+                return
+            }
+
+            me.getReference('mailbox-pane').snapshot = snapshot
+        } catch (error) {
+            // fail-closed: the pane stays honestly unobserved rather than inventing a snapshot
+        }
+    }
+
+    /**
      * Triggered after the per-pane ledgers changed — re-render just the freshness chips (a feed
      * stamping a new `observedAt` must re-label the pane without a full record re-seat).
      * @param {Object|null} value
@@ -321,8 +375,8 @@ class AgentDetail extends Container {
         // The mailbox tab follows the drilled-in resident. A snapshot is one SUBJECT's mail, so it
         // cannot survive a re-seat onto a different resident: retaining it renders resident A's
         // inbox under resident B's name — mail attributed to an agent who never received it. The
-        // pane drops to its honest `unobserved` state until the wiring supplies THIS subject's
-        // snapshot. A same-subject re-seat (a roster refresh restamping the record) keeps it.
+        // pane drops to its honest `unobserved` state until THIS subject's snapshot arrives.
+        // A same-subject re-seat (a roster refresh restamping the record) keeps it.
         const
             mailbox   = me.getReference('mailbox-pane'),
             sameAgent = mailbox.record?.agentId && mailbox.record.agentId === record?.agentId;
@@ -331,6 +385,8 @@ class AgentDetail extends Container {
             record,
             ...(sameAgent ? {} : {snapshot: null})
         });
+
+        sameAgent || me.loadMailboxMirror();
 
         if (!record) {
             return
