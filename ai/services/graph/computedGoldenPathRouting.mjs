@@ -244,18 +244,25 @@ export function findComputedFocusContradiction({
  * nodes into routing" clause: focus becomes the route only when nothing else survives, never alongside
  * a surviving computed candidate.
  *
+ * The executable rows are NOT assembled here. They are the typed route's `current-focus-substitution`
+ * items, passed in by the caller: this section renders them and never independently filters, bounds, or
+ * orders a route. A second assembly here is precisely how the human section and the machine route drift
+ * apart — the actionability authority and the render bound live in the typed producer, once.
+ *
  * @param {Object} options
- * @param {Object} options.contradiction Result from `findComputedFocusContradiction` (carries the focus
- *   candidates surfaced as the route + the blocked computed candidates).
+ * @param {Object} options.contradiction Result from `findComputedFocusContradiction` — supplies the
+ *   explanatory diagnostics (focus context + blocked computed candidates) only.
+ * @param {Object[]} [options.routeItems=[]] The typed route's `{id, title, rank}` substitution items.
+ *   Empty means the typed route is `kind: 'none'` (visibility-only focus) — diagnostic, no numbered route.
  * @param {Object} [options.stats={}] Candidate-count diagnostics for the current pass.
  * @param {Date|String} [options.capturedAt=new Date()] Current pass capture timestamp.
  * @returns {String} Markdown section.
  */
 export function renderComputedGoldenPathContradictionSection({
     contradiction,
-    stats       = {},
-    capturedAt  = new Date(),
-    renderLimit
+    routeItems = [],
+    stats      = {},
+    capturedAt = new Date()
 } = {}) {
     const count       = value => Number.isFinite(Number(value)) ? Number(value) : 0;
     const focusItems  = contradiction?.focusCandidates || [];
@@ -263,18 +270,7 @@ export function renderComputedGoldenPathContradictionSection({
     const blockedRefs = (contradiction?.blockedNodes || [])
         .map(item => item.node.id)
         .join(', ') || 'none';
-
-    // Route ONLY focus candidates that pass the SAME actionability authority the computed surface uses —
-    // an epic umbrella / not-code-ready item is visibility, never an immediate machine route. Reusing
-    // isActionableComputedRecommendation (not a divergent label list) keeps a single authority.
-    const routableFocus = focusItems.filter(candidate => isActionableComputedRecommendation({
-        id        : `issue-${candidate.number}`,
-        type      : 'ISSUE',
-        properties: {labels: candidate.labels, title: candidate.title}
-    }));
-    // Bound to the caller's Golden Path render limit — no hidden default: unbounded only when the caller
-    // supplies none (the synthesizer passes aiConfig.goldenPathTopNodeRenderLimit).
-    const routedFocus = Number.isFinite(renderLimit) ? routableFocus.slice(0, renderLimit) : routableFocus;
+    const routedFocus = Array.isArray(routeItems) ? routeItems : [];
 
     const lines = [
         '',
@@ -293,16 +289,13 @@ export function renderComputedGoldenPathContradictionSection({
             ''
         );
 
-        routedFocus.forEach((candidate, index) => {
-            const label = candidate.title || candidate.name ||
-                (Array.isArray(candidate.reasons) ? candidate.reasons.join(', ') : 'Current Release / Incident Focus');
-
-            // Emit the indented `- *…*` continuation line the AgentOrchestrator route parser requires:
-            // a bare `N. **issue-N**:` row without it renders for humans but extracts ZERO directives,
-            // leaving the never-empty floor silently unroutable. Mirrors the canonical route row shape.
+        // Rendered straight from the typed route: id, order and rank are the machine route's, so the
+        // human rows and the executable set cannot disagree. `score` is intentionally null for a
+        // substitution — no numeric formatting may touch it and invent a score the route never carried.
+        routedFocus.forEach(item => {
             lines.push(
-                `${index + 1}. **issue-${candidate.number}**: Current Release / Incident Focus`,
-                `   - *${label}*`
+                `${item.rank}. **${item.id}**: Current Release / Incident Focus`,
+                `   - *${item.title}*`
             )
         });
     } else {

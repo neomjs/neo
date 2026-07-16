@@ -1481,10 +1481,14 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
 
             markdownAppend += `\n> **Strategic Interpretation:**\n> ${strategicBrief}\n\n`;
         } else if (focusContradiction) {
+            // The renderer no longer assembles a route of its own: it renders the typed substitution
+            // items, so the human rows and the executable route are one set. A `kind: 'none'` route
+            // (visibility-only focus — epic umbrella / not-code-ready) passes no items and keeps the
+            // diagnostic-only branch, which is the honest "no immediate machine route" state.
             markdownAppend = this.constructor.renderComputedGoldenPathContradictionSection({
                 capturedAt   : handoffTimestamp,
                 contradiction: focusContradiction,
-                renderLimit  : aiConfig.goldenPathTopNodeRenderLimit,
+                routeItems   : computedRoute?.route?.kind === 'current-focus-substitution' ? computedRoute.route.items : [],
                 stats        : scoringStats
             });
             logger.info('[GoldenPathSynthesizer] Computed route contradicted Current Focus; rendered diagnostic instead of routing content work.');
