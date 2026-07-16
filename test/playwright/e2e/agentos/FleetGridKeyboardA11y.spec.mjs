@@ -1,5 +1,81 @@
-import {test, expect}                                       from '../../fixtures.mjs';
-import {NeuralLink_DataService, NeuralLink_InstanceService} from '../../../../ai/services.mjs';
+import {test, expect}           from '../../fixtures.mjs';
+import {NeuralLink_DataService} from '../../../../ai/services.mjs';
+
+const KEYBOARD_SOURCES = {
+    roster    : {source: 'fleet:listAgents',    state: 'wired', confidence: 'observed'},
+    repoStatus: {source: 'fleet:fleetStatus',   state: 'wired', confidence: 'observed'},
+    runtime   : {source: 'fleet:runtimeStatus', state: 'wired', confidence: 'observed'}
+};
+
+/**
+ * @summary Build one production-shaped Fleet roster DTO row for the keyboard witness.
+ * @param {Object} row Stable identity/display fields.
+ * @returns {Object}
+ */
+function createKeyboardRosterRow(row) {
+    return {
+        ...row,
+        avatarUrl: '',
+        lifecycle: {source: KEYBOARD_SOURCES.runtime.source, state: 'running', confidence: 'observed'},
+        sources  : KEYBOARD_SOURCES
+    }
+}
+
+const KEYBOARD_ROSTER_ROWS = [
+    {id: 'a11y-b', displayName: 'Bravo',   engineTag: 'fixture', family: 'claude'},
+    {id: 'a11y-c', displayName: 'Charlie', engineTag: 'fixture', family: 'claude'},
+    {id: 'a11y-d', displayName: 'Delta',   engineTag: 'fixture', family: 'claude'}
+].map(createKeyboardRosterRow);
+
+/**
+ * @summary Start a test-owned Fleet bridge which serves three wired residents, records lifecycle
+ * requests, and rejects Stop. The app still exercises its production `installFleetBridge` /
+ * `createFleetRegistryBridge` client. A deterministic rejection keeps the card-local status visible
+ * without a success-driven roster refresh, making lifecycle intent evidence observable without
+ * inferring from transient UI.
+ * @returns {Promise<{close: Function, requests: Object[], setRosterRows: Function}>}
+ */
+async function startRejectingFleetBridge() {
+    const
+        {startFleetBridgeServer} = await import('../../../../ai/services/fleet/fleetBridgeServer.mjs'),
+        requests                 = [];
+
+    let rosterRows = KEYBOARD_ROSTER_ROWS;
+
+    const
+        server                   = await startFleetBridgeServer({
+            port    : 8083,
+            dispatch: async request => {
+                requests.push(request);
+
+                if (request.method === 'stopAgent') {
+                    return {ok: false, error: 'fleet: stop rejected by keyboard witness'}
+                }
+
+                if (request.method === 'fleetRoster') {
+                    return {ok: true, result: {rows: rosterRows}}
+                }
+
+                if (request.method === 'fleetActivity') {
+                    return {
+                        ok    : true,
+                        result: {
+                            capability: {source: 'fleet:test', state: 'wired', confidence: 'observed'},
+                            events    : []
+                        }
+                    }
+                }
+
+                return {ok: false, error: `fleet: unexpected keyboard-witness method '${request.method}'`}
+            }
+        });
+
+    return {
+        requests,
+        close        : () => new Promise(resolve => server.close(resolve)),
+        setRosterRows: rows => rosterRows = rows
+    }
+}
 
 /**
  * @summary The FM cockpit keyboard-a11y contract proven on the MOUNTED grid via Neural Link possession —
@@ -7,9 +83,10 @@ import {NeuralLink_DataService, NeuralLink_InstanceService} from '../../../../ai
  * `role=list` owner of NON-interactive `role=listitem` cards, each with a dedicated native drill
  * `<button>` (the resident name) + sibling lifecycle Buttons in ordinary Tab order. This spec EXECUTES —
  * not merely infers — every claimed path: native Enter AND Space activation on the drill; a lifecycle
- * Button that fires its intent WITHOUT drilling; the optional drill-only Up/Down jump with zero page
- * scroll; and gate-3 focus continuity restoring the resident's EXACT semantic child (drill AND toggle)
- * across an index-shifting rebuild. Zero uncaught page errors throughout.
+ * Button that fires its intent WITHOUT drilling (proven by a test-owned recording/rejecting Fleet
+ * loopback); the optional drill-only Up/Down jump with zero page scroll; and gate-3 focus continuity
+ * restoring the resident's EXACT semantic child (drill AND toggle) across an index-shifting rebuild.
+ * Zero uncaught page errors throughout.
  *
  * @see apps/agentos/view/fleet/AgentCard.mjs
  * @see apps/agentos/view/fleet/FleetGrid.mjs
@@ -18,6 +95,16 @@ import {NeuralLink_DataService, NeuralLink_InstanceService} from '../../../../ai
 test.describe('AgentOS fleet grid — keyboard a11y (native list/listitem + drill Button, Neural Link, #14619)', () => {
     test.setTimeout(90000);
 
+    let fleet;
+
+    test.beforeEach(async () => {
+        fleet = await startRejectingFleetBridge()
+    });
+
+    test.afterEach(async () => {
+        await fleet?.close()
+    });
+
     test('list/listitem topology + native drill Enter/Space + lifecycle isolation + drill jump + gate-3 restoration (drill AND toggle)', async ({page, neuralLink}) => {
         const pageErrors = [];
         page.on('pageerror', err => pageErrors.push(err.message));
@@ -25,34 +112,28 @@ test.describe('AgentOS fleet grid — keyboard a11y (native list/listitem + dril
         await page.goto('/apps/agentos/index.html');
         await expect(page.locator('.agent-shell')).toBeVisible({timeout: 60000});
         await expect(page.locator('.fm-fleet-grid')).toBeVisible({timeout: 30000});
-        await expect(page.locator('.fm-fleet-title')).not.toHaveText('Fleet · 0 agents', {timeout: 30000});
+        // The production fleetRoster read path, backed by the test-owned loopback, must replace the
+        // sample roster with the three deterministic residents before any keyboard claim.
+        await expect(page.locator('.fm-fleet-title')).toHaveText('Fleet · 3 agents', {timeout: 30000});
 
         const
             app       = await neuralLink.connectToApp('AgentOS'),
             sessionId = app.sessionId,
-            stores    = await NeuralLink_DataService.listStores({sessionId}),
-            roster    = stores.stores.find(candidate => candidate.model === 'AgentOS.model.FleetAgent');
+            [grid]    = await app.queryComponent({className: 'AgentOS.view.fleet.FleetGrid'}, ['id']),
+            [cockpit] = await app.queryComponent({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']);
 
-        expect(roster, 'the provider-hosted FleetRoster store should be registered').toBeTruthy();
+        expect(grid, 'the mounted FleetGrid should be possessable').toBeTruthy();
+        expect(cockpit, 'the mounted FleetCockpit should own roster reconciliation').toBeTruthy();
 
-        // three ONLINE cards with DISTINCT names so identity is provable across a rebuild (sorted by
-        // agentId → Bravo, Charlie, Delta)
-        // wired sources so the lifecycle Buttons are ENABLED (focusable — gate-3 can restore focus to a
-        // control) AND the control-status starts HIDDEN, so its appearance after a lifecycle activation
-        // proves the emitted INTENT rendered, not a not-wired source banner.
-        const wired = {
-            roster    : {source: 'fleet:listAgents',    state: 'wired', confidence: 'observed'},
-            repoStatus: {source: 'fleet:fleetStatus',   state: 'wired', confidence: 'observed'},
-            runtime   : {source: 'fleet:runtimeStatus', state: 'wired', confidence: 'observed'}
-        };
-        const fixture = [
-            {agentId: 'a11y-b', state: 'ok', displayName: 'Bravo',   engineTag: 'fixture', family: 'claude', laneLine: 'kbd fixture', avatarUrl: '', sources: wired},
-            {agentId: 'a11y-c', state: 'ok', displayName: 'Charlie', engineTag: 'fixture', family: 'claude', laneLine: 'kbd fixture', avatarUrl: '', sources: wired},
-            {agentId: 'a11y-d', state: 'ok', displayName: 'Delta',   engineTag: 'fixture', family: 'claude', laneLine: 'kbd fixture', avatarUrl: '', sources: wired}
-        ];
+        const
+            cockpitId = cockpit.properties.id,
+            gridState = await app.getComponent(grid.properties.id, ['store.id']),
+            rosterId  = gridState['store.id'];
 
-        await NeuralLink_InstanceService.callMethod({sessionId, id: roster.id, method: 'clear'});
-        await NeuralLink_InstanceService.callMethod({sessionId, id: roster.id, method: 'add', args: [fixture]});
+        expect(rosterId, 'the mounted FleetGrid should expose its exact bound FleetRoster store').toBeTruthy();
+
+        const seeded = await NeuralLink_DataService.inspectStore({sessionId, storeId: rosterId, limit: 10});
+        expect(seeded.count, 'the grid-bound roster should hold the three loopback residents').toBe(3);
 
         const cards  = page.locator('.fm-fleet-cards .fm-agent-card');
         const drills = page.locator('.fm-fleet-cards .fm-agent-card .fm-card-drill');
@@ -67,7 +148,9 @@ test.describe('AgentOS fleet grid — keyboard a11y (native list/listitem + dril
         // the drill is a dedicated NATIVE <button>; the toggle is a SEPARATE native <button> (Tab isolation)
         expect(await drills.nth(0).evaluate(el => el.tagName)).toBe('BUTTON');
         await expect(drills.nth(0)).toContainText('Bravo');
-        const bravoToggle = cards.nth(0).locator('.fm-card-control-verbs button').first();
+        const
+            bravoCard   = cards.filter({has: page.locator('.fm-card-drill', {hasText: 'Bravo'})}),
+            bravoToggle = bravoCard.locator('.fm-card-control-verbs button').first();
         expect(await bravoToggle.evaluate(el => el.tagName)).toBe('BUTTON');
 
         // ── NATIVE drill activation — BOTH Enter AND Space (native <button> semantics) ──
@@ -87,45 +170,50 @@ test.describe('AgentOS fleet grid — keyboard a11y (native list/listitem + dril
         expect(await page.evaluate(() => window.scrollY)).toBe(scrollBefore);
 
         // ── LIFECYCLE ISOLATION: activating a control Button fires its lifecycle intent WITHOUT drilling ──
-        // Bravo is 'ok' → its toggle is the STOP verb; activating it must NOT switch the detail pane (no
-        // drill leakage), and the emitted intent → Lane-C round-trip renders a control-status on Bravo's
-        // card (the visible proof the intent was emitted + handled, not swallowed into a drill).
+        // Bravo is 'ok' → its toggle is the STOP verb. The test-owned bridge records exactly one
+        // minimal stop request and rejects it with a named reason; the detail must stay on Charlie
+        // (no drill leakage), while Bravo renders the honest terminal rejection.
         await bravoToggle.focus();
         expect(await page.evaluate(() => !!document.activeElement?.closest?.('.fm-card-control-verbs'))).toBe(true);
         await page.keyboard.press('Enter');
+        await expect.poll(
+            () => fleet.requests.filter(request => ['startAgent', 'stopAgent', 'restartAgent'].includes(request.method)),
+            {message: 'the lifecycle Button should emit exactly one minimal Stop request'}
+        ).toEqual([{method: 'stopAgent', params: 'a11y-b'}]);
         await expect(page.locator('.fm-agent-detail')).toContainText('Charlie'); // no drill leakage — still Charlie
-        await expect(cards.nth(0).locator('.fm-card-control-status')).toBeVisible({timeout: 10000});
+        await expect(bravoCard.locator('.fm-card-control-status')).toContainText(
+            '⚠ rejected: fleet: stop rejected by keyboard witness',
+            {timeout: 10000}
+        );
 
         // ── gate-3 focus continuity across an index-shifting rebuild — for BOTH drill AND a lifecycle control ──
         // (a) DRILL: focus Charlie's drill, add a joiner that sorts above → focus follows Charlie's drill
-        await drills.nth(1).focus();
+        const
+            charlieCard  = cards.filter({has: page.locator('.fm-card-drill', {hasText: 'Charlie'})}),
+            charlieDrill = charlieCard.locator('.fm-card-drill');
+
+        await charlieDrill.focus();
         await page.waitForTimeout(500); // let focusin reach the App-Worker (containsFocus) before the rebuild
-        await NeuralLink_InstanceService.callMethod({sessionId, id: roster.id, method: 'add', args: [[
-            {agentId: 'a11y-a', state: 'ok', displayName: 'Alpha', engineTag: 'fixture', family: 'claude', laneLine: 'joiner', avatarUrl: '', sources: wired}
-        ]]});
+        const alpha = createKeyboardRosterRow({id: 'a11y-a', displayName: 'Alpha', engineTag: 'fixture', family: 'claude'});
+        fleet.setRosterRows([...KEYBOARD_ROSTER_ROWS, alpha]);
+        await app.callMethod(cockpitId, 'loadRoster');
         await expect(cards).toHaveCount(4);
-        await expect.poll(async () => page.evaluate(() => document.activeElement?.textContent)).toContain('Charlie');
-        expect(await page.evaluate(() => document.activeElement?.classList?.contains('fm-card-drill'))).toBe(true);
+        await expect(charlieDrill).toBeFocused();
 
         // (b) TOGGLE: focus Charlie's TOGGLE, add another joiner → focus follows Charlie's TOGGLE (the exact
         // semantic child, NOT the drill) — proves gate-3 restores the specific control, not just the drill
-        const charlieCard   = cards.filter({has: page.locator('.fm-card-drill', {hasText: 'Charlie'})});
         const charlieToggle = charlieCard.locator('.fm-card-control-verbs button').first();
         await charlieToggle.focus();
         // let the focusin propagate to the App-Worker (manager.Focus → containsFocus) BEFORE the rebuild:
         // gate-3 reads worker-side containsFocus, which lags the synchronous DOM focus by one main↔worker
         // hop. A real async roster rebuild never races freshly-set focus this tightly; the wait models that.
         await page.waitForTimeout(500);
-        await NeuralLink_InstanceService.callMethod({sessionId, id: roster.id, method: 'add', args: [[
-            {agentId: 'a11y-0', state: 'ok', displayName: 'Zero', engineTag: 'fixture', family: 'claude', laneLine: 'joiner2', avatarUrl: '', sources: wired}
-        ]]});
+        const zero = createKeyboardRosterRow({id: 'a11y-0', displayName: 'Zero', engineTag: 'fixture', family: 'claude'});
+        fleet.setRosterRows([...KEYBOARD_ROSTER_ROWS, alpha, zero]);
+        await app.callMethod(cockpitId, 'loadRoster');
         await expect(cards).toHaveCount(5);
-        // focus landed on a control-verb Button INSIDE Charlie's card (not the drill, not <body>)
-        await expect.poll(async () => page.evaluate(() => {
-            const el = document.activeElement;
-            return el?.closest?.('.fm-agent-card')?.querySelector('.fm-card-drill')?.textContent ?? null;
-        })).toContain('Charlie');
-        expect(await page.evaluate(() => !!document.activeElement?.closest?.('.fm-card-control-verbs'))).toBe(true);
+        // Focus landed on Charlie's exact toggle (not merely some control, the drill, or <body>).
+        await expect(charlieToggle).toBeFocused();
 
         expect(pageErrors, 'no uncaught page errors during the keyboard journey').toEqual([])
     })
