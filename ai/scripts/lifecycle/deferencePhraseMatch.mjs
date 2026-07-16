@@ -47,6 +47,17 @@ export const DEFERENCE_REMINDER = 'It looks like you slipped into the "helpful a
 const HUMAN_ONLY_DOMAIN_RE = /\bmerge(?:s|d|-eligible)?\b|\bsquash\b|\bcredentials?\b|\brelease\b|\bstamp\b/i;
 
 /**
+ * Maintainer-owned decision surfaces — the work agents decide and drive themselves (lanes, reviews,
+ * tickets, designs, epics, discussions, specs, implementations). A deference phrase attaching to one
+ * of these is the genuine helpful-assistant slip even when a human-owned FACT (a merge that landed,
+ * a live release) sits in the same clause: historical keyword co-occurrence is not decision
+ * attribution. Deliberately excludes bare `PR` — pull requests appear in both postures (an agent
+ * decides its shape; the human merges it), so it carries no attachment signal on its own.
+ * @type {RegExp}
+ */
+const MAINTAINER_DOMAIN_RE = /\blanes?\b|\bre-?reviews?\b|\breviews?\b|\btickets?\b|\bdesigns?\b|\bepics?\b|\bdiscussions?\b|\bspecs?\b|\bimplementations?\b|\brefactors?\b|\bbacklog\b/i;
+
+/**
  * @summary Replaces markdown code spans and fences before deference phrase matching.
  * @param {String} text Assistant final-turn text.
  * @returns {String}
@@ -82,12 +93,38 @@ function isReportedMentionContext(text, startIndex) {
 }
 
 /**
- * @summary Checks whether a match's surrounding CLAUSE names a strictly human-owned domain.
+ * @summary Classifies one attachment segment's domain signal.
+ * @param {String} segment Text segment to classify.
+ * @returns {('human'|'maintainer'|'competing'|null)} The decisive signal, or `null` when neutral.
+ */
+function classifyDomainSegment(segment) {
+    const human      = HUMAN_ONLY_DOMAIN_RE.test(segment),
+          maintainer = MAINTAINER_DOMAIN_RE.test(segment);
+
+    if (human && maintainer) return 'competing';
+    if (human)               return 'human';
+    if (maintainer)          return 'maintainer';
+    return null;
+}
+
+/**
+ * @summary Checks whether a match's DECISION ATTACHMENT names a strictly human-owned domain.
  *
- * The clause window runs from the previous sentence/clause boundary to the next one, capped at
- * 120 characters each way — local enough that a merge-clause exemption cannot bleed into an
- * adjacent lane-deference sentence, wide enough for natural phrasing ("merge on the exception or
- * ask for the stamp, your call").
+ * Attachment is resolved in stages, nearest-first, and the FIRST stage carrying any domain signal
+ * decides — mere keyword co-occurrence farther out cannot override the phrase's actual object:
+ *
+ *  1. **Object segment** — a complement directly after the phrase (`your call on the next lane`),
+ *     up to the next comma/dash/clause boundary.
+ *  2. **Predicate segment** — the comma/dash-delimited segment immediately before the phrase
+ *     (`…, ask for the stamp, your call`).
+ *  3. **Clause window** — the previous sentence/clause boundary to the next, capped at 120
+ *     characters each way (natural phrasing like `the release direction is yours — ship or hold,
+ *     your call` carries its signal here).
+ *
+ * At the decisive stage the exemption applies ONLY to a pure human-domain signal; a competing
+ * signal (both domains present) or a maintainer signal fires the hook, and a fully neutral chain
+ * fires too — ambiguity fails toward firing, so a historical merge/release fact in the same
+ * sentence can never suppress lane/review deference.
  * @param {String} text Searchable assistant final-turn text.
  * @param {Number} startIndex Match start index.
  * @param {Number} endIndex Match end index.
@@ -97,9 +134,20 @@ function isHumanOnlyDomainContext(text, startIndex, endIndex) {
     const before       = text.slice(Math.max(0, startIndex - 120), startIndex),
           after        = text.slice(endIndex, Math.min(text.length, endIndex + 120)),
           clauseBefore = before.split(/[.!?\n;]/).pop() || '',
-          clauseAfter  = after.split(/[.!?\n;]/, 1)[0] || '';
+          clauseAfter  = after.split(/[.!?\n;]/, 1)[0]  || '';
 
-    return HUMAN_ONLY_DOMAIN_RE.test(`${clauseBefore} ${clauseAfter}`);
+    // Stage 1: the phrase's direct object ("your call on/about/whether …") up to a segment break.
+    const objectMatch  = clauseAfter.match(/^\s*(?:on|about|whether|which|for|regarding)\b[^,—:()]*/i),
+          objectSignal = objectMatch ? classifyDomainSegment(objectMatch[0]) : null;
+    if (objectSignal) return objectSignal === 'human';
+
+    // Stage 2: the predicate segment immediately before the phrase.
+    const predicate       = clauseBefore.split(/[,—:()]/).filter(s => s.trim()).pop() || '',
+          predicateSignal = classifyDomainSegment(predicate);
+    if (predicateSignal) return predicateSignal === 'human';
+
+    // Stage 3: the full bounded clause window.
+    return classifyDomainSegment(`${clauseBefore} ${clauseAfter}`) === 'human';
 }
 
 /**

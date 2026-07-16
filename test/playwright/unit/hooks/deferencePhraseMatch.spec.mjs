@@ -107,6 +107,23 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
         expect(matchDeferencePhrase('The merge landed an hour ago. Picking the next lane is open — your call.')).toBe('your call');
     });
 
+    test('SAME-clause historical human-domain facts cannot suppress maintainer-decision deference (reviewer falsifiers, pinned verbatim)', () => {
+        // Both fixtures are the exact-head falsifiers from the cycle-1 review: a human-owned FACT
+        // (a landed merge, a live release) co-occurring in the same clause with a deference phrase
+        // whose actual attachment is a maintainer-owned decision (a lane, a review). Keyword
+        // co-occurrence is not decision attribution — the nearest attachment segment decides.
+        expect(matchDeferencePhrase('The merge landed an hour ago, picking the next lane is open — your call.')).toBe('your call');
+        expect(matchDeferencePhrase('The release is live, choose the next review — your move.')).toBe('your move');
+    });
+
+    test('a COMPETING attachment segment (both domains in the decisive segment) fails toward firing', () => {
+        expect(matchDeferencePhrase('Merge the review lane rework or not, your call.')).toBe('your call');
+    });
+
+    test('phrase-object attachment outranks an earlier human-domain predicate ("on the <maintainer surface>")', () => {
+        expect(matchDeferencePhrase('The stamp landed, your call on the next review.')).toBe('your call');
+    });
+
     test('the reminder names the domain-scoping boundary', () => {
         expect(DEFERENCE_REMINDER).toContain('Domain-scoping');
         expect(DEFERENCE_REMINDER).toContain('merge execution');
