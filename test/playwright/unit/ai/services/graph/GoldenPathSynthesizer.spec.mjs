@@ -430,6 +430,53 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).not.toContain('- Merged PRs:');
     });
 
+    test('an early unavailable exit republishes honest typed state, so a prior pass route cannot still execute', async () => {
+        // The stale-route class: the early exits return before the sidecar write, so without an
+        // honest republication the PREVIOUS pass's fresh, unexpired, executable route stays on disk
+        // and a consumer keeps routing work this pass never computed.
+        const routePath  = path.join(path.dirname(tmpHandoffFile), 'computed-route.json');
+        const capturedAt = new Date(Date.now() - 60 * 1000).toISOString();
+        const expiresAt  = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+        fs.mkdirSync(path.dirname(routePath), {recursive: true});
+        fs.writeFileSync(routePath, JSON.stringify({
+            schemaVersion     : 'computed-route.v1',
+            status            : 'fresh',
+            notAuthority      : true,
+            capturedAt,
+            expiresAt,
+            routeVersion      : 'rv-prior',
+            sourceManifestHash: 'hash-prior',
+            sourceWatermark   : 'wm-prior',
+            provenance        : {producer: 'GoldenPathSynthesizer', runId: null, algorithmVersion: 'v-prior', citations: []},
+            freshness         : {status: 'fresh', checkedAt: capturedAt, expiresAt},
+            route             : {kind: 'computed-ranked', items: [{id: 'issue-9999', title: 'Prior pass executable route', score: 9.9, rank: 1}]}
+        }, null, 2), 'utf-8');
+
+        const originalGetGraphCollection = StorageRouter.getGraphCollection;
+
+        StorageRouter.getGraphCollection = async () => {
+            throw new Error('storage router unavailable')
+        };
+
+        try {
+            const outcome = await GoldenPathSynthesizer.synthesizeGoldenPath();
+
+            expect(outcome.reasonCode).toBe('storage-router-unavailable');
+        } finally {
+            StorageRouter.getGraphCollection = originalGetGraphCollection;
+        }
+
+        // This pass now owns the CURRENT typed state: the prior executable route is replaced by an
+        // honest degraded outcome, which the consumer's freshness gate refuses.
+        const republished = JSON.parse(fs.readFileSync(routePath, 'utf-8'));
+
+        expect(republished.status).toBe('degraded');
+        expect(republished.freshness.status).toBe('unverifiable');
+        expect(republished.route.kind).toBe('none');
+        expect(republished.route.items).toEqual([]);
+    });
+
     test('synthesizeGoldenPath overwrites stale author sections when semantic candidates are empty', async () => {
         const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
