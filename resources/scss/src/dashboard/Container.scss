@@ -264,3 +264,44 @@
     &-bottom::before { transform: rotate(45deg)   translate(-1px, -1px); }
     &-left::before   { transform: rotate(135deg)  translate(-1px, 1px);  }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────────────
+// Preview-language variant «Signal glow» — the design-exploration switch. The mission-
+// control identity for the drop affordances: signal-teal chips on deep ground with an
+// opacity-only hover-lock breath. STRICTLY ADDITIVE: without the host modifier the
+// default family above renders unchanged, and the §06 grammar/hit-testing is untouched —
+// this is skin, never behavior. Color fallbacks mirror the dark-skin token values (the
+// family's shipped pattern); durations/easings stay token-only through the dock aliases,
+// so the reduced-motion collapse governs with nothing to override it. The light skin's
+// deep-pigment `--fm-signal` keeps the identity legible on paper.
+// ─────────────────────────────────────────────────────────────────────────────────────
+.neo-preview-lang-signal {
+    .neo-dashboard-dock-drop-indicator,
+    .neo-dashboard-dock-drop-chip {
+        background  : color-mix(in srgb, var(--fm-ground, #0b0e13) 92%, transparent);
+        border-color: color-mix(in srgb, var(--fm-signal, #5eead4) 45%, var(--fm-line, #262f3d));
+        box-shadow  : 0 2px 10px rgb(0 0 0 / 40%);
+
+        &::before {
+            border-color: var(--fm-signal, #5eead4);
+        }
+
+        &-active {
+            // the hover-lock breath: one opacity rise on lock — replays on each re-lock
+            // because the class toggles; transform/opacity discipline holds
+            animation   : neo-preview-signal-lock var(--dock-transition-duration-fast) var(--dock-transition-easing);
+            background  : color-mix(in srgb, var(--fm-signal, #5eead4) 18%, var(--fm-ground, #0b0e13));
+            border-color: var(--fm-signal, #5eead4);
+            box-shadow  : 0 2px 12px color-mix(in srgb, var(--fm-signal, #5eead4) 30%, transparent);
+        }
+    }
+
+    .neo-dashboard-dock-drop-indicator-center::before {
+        border-color: var(--fm-signal, #5eead4);
+    }
+}
+
+@keyframes neo-preview-signal-lock {
+    0%   { opacity: 0.55; }
+    100% { opacity: 1; }
+}
