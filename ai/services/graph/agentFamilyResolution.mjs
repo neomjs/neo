@@ -73,6 +73,30 @@ export function resolveResidentFamily(identity) {
 }
 
 /**
+ * Registry entries keyed by canonical `@<identity>` id — the lookup seam for id-keyed family
+ * resolution ({@link resolveResidentFamilyById}).
+ * @type {Map<String,Object>}
+ */
+const IDENTITY_BY_ID = new Map(IDENTITIES.map(identity => [identity.id, identity]));
+
+/**
+ * @summary Resolves a model family by canonical identity id — era-chain-first for rostered
+ * residents ({@link resolveResidentFamily}), `undefined` for ids outside the static registry.
+ *
+ * Consumers holding a GRAPH node (mailbox alias resolution, wake routing) call this with the
+ * node id and fall back to the node's own flat property when it returns `undefined` — that
+ * fallback population is runtime-provisioned identities (auto-provisioned at request time,
+ * never in the static roster), the second retirement witness beside the post-epoch residents.
+ * @param {String} id Canonical `@<identity>` node id.
+ * @returns {String|undefined} The model family, or `undefined` when the id is not rostered.
+ */
+export function resolveResidentFamilyById(id) {
+    const identity = IDENTITY_BY_ID.get(id);
+
+    return identity ? resolveResidentFamily(identity) : undefined
+}
+
+/**
  * @summary Derives the core swarm login-to-family map from the AgentIdentity registry.
  *
  * `identityRoots.mjs` is the canonical handle indirection seam for named Neo maintainers.

@@ -2536,6 +2536,69 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
                 })).rejects.toThrow(/Ambiguous 'to' alias.*multifam/);
             });
         });
+
+        test('#14750 rostered residents resolve era-chain-first: a spoofed flat node property neither matches nor masks', async () => {
+            // A rostered resident's graph node carries a WRONG flat modelFamily. The family fact
+            // must read through the identity trail (era chain → currentEra.family), so:
+            // (a) the alias for the TRUE family still finds the node;
+            // (b) the alias for the SPOOFED family does NOT match it (the flat property is
+            //     no longer the read for rostered residents).
+            GraphService.upsertNode({
+                id        : '@neo-gemini-pro',
+                type      : 'AgentIdentity',
+                name      : 'Gemini Pro',
+                properties: { modelFamily: 'spoofed-family', accountType: 'agent' }
+            });
+
+            await RequestContextService.run({ agentIdentityNodeId: '@neo-gemini-pro' }, async () => {
+                await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+            });
+
+            await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+                const res = await MailboxService.addMessage({
+                    to     : 'AGENT:gemini/pro',
+                    subject: 'era-chain resolution',
+                    body   : 'The identity trail, not the node property, owns the family fact.'
+                });
+                expect(res.status).toBe('sent');
+
+                let sentTo;
+                for (const edge of GraphService.db.edges.items) {
+                    if (edge.source === res.messageId && edge.type === 'SENT_TO') {
+                        sentTo = edge.target;
+                    }
+                }
+                expect(sentTo).toBe('@neo-gemini-pro');
+
+                await expect(MailboxService.addMessage({
+                    to     : 'AGENT:spoofed-family/pro',
+                    subject: 'spoof must not resolve',
+                    body   : 'A flat property divergence cannot re-route a rostered resident.'
+                })).rejects.toThrow(/Unrecognized 'to' format/);
+            });
+        });
+
+        test('#14750 runtime-provisioned identities (unrostered) keep resolving via the flat node property — the second retirement witness', async () => {
+            GraphService.upsertNode({
+                id        : '@runtime-provisioned-x',
+                type      : 'AgentIdentity',
+                name      : 'Runtime Provisioned',
+                properties: { modelFamily: 'provisioned-fam', accountType: 'agent' }
+            });
+
+            await RequestContextService.run({ agentIdentityNodeId: '@runtime-provisioned-x' }, async () => {
+                await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+            });
+
+            await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+                const res = await MailboxService.addMessage({
+                    to     : 'AGENT:provisioned-fam/any',
+                    subject: 'fallback resolution',
+                    body   : 'Graph-only identities read their own node property until era chains exist for them.'
+                });
+                expect(res.status).toBe('sent');
+            });
+        });
     });
 });
 
