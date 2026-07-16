@@ -709,19 +709,22 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
 
         fs.mkdirSync(aiRoot, {recursive: true});
 
+        // The overlay must carry the CANONICAL `extends ConfigBase` shape — the production
+        // discriminator (`isSubclassOverlaySource`) deliberately matches only that class name, so a
+        // non-canonical fixture name routes to full-snapshot diffing and fabricates env drift.
         const templateSrc = [
-            `export class AiConfigBase {`,
+            `export class ConfigBase {`,
             `    static config = {data: {`,
             `        modelProvider: leaf('openAiCompatible', 'NEO_MODEL_PROVIDER', 'string'),`,
             `        timeout      : leaf(1000, 'NEO_TIMEOUT', 'number')`,
             `    }}`,
             `}`,
-            `export default AiConfigBase;`,
+            `export default ConfigBase;`,
             ``
         ].join('\n');
         const subclassOverlaySrc = [
-            `import {AiConfigBase} from './config.template.mjs';`,
-            `class AiConfig extends AiConfigBase {`,
+            `import {ConfigBase} from './config.template.mjs';`,
+            `class AiConfig extends ConfigBase {`,
             `    static config = {data: {`,
             `        modelProvider: leaf('gemini', 'NEO_MODEL_PROVIDER', 'string')`,
             `    }}`,

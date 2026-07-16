@@ -1,3 +1,4 @@
+import {execFileSync}  from 'child_process';
 import fs              from 'fs-extra';
 import path            from 'path';
 import {fileURLToPath} from 'url';
@@ -373,8 +374,26 @@ export function formatStaleOverlayDriftItems(drift) {
  * @param {String} src Source text to project.
  * @returns {{imports: String[], exports: String[], envVars: String[], leafDefaults: Object[], requiredLeaves: String[]}}
  */
-export function projectSourceShape(src) {
-    const imports = [];
+/**
+ * @summary Strips comments from config source before shape projection.
+ *
+ * Block comments (including JSDoc) vanish entirely — a documentation EXAMPLE like a
+ * `leaf(true, 'NEO_DEBUG', 'boolean')` snippet inside a docblock must never contribute env-var /
+ * leaf-default entries to the projected shape (that phantom drift reads as crash-causing to
+ * {@link assertConfigFresh}). Line comments are stripped only when the `//` STARTS the line, so
+ * inline protocol literals (`'https://gitlab.com'`) survive untouched.
+ * @param {String} src Source text.
+ * @returns {String}
+ */
+export function stripSourceComments(src) {
+    return src
+        .replace(/\/\*[\s\S]*?\*\//g, ' ')
+        .replace(/^\s*\/\/.*$/gm, ' ');
+}
+
+export function projectSourceShape(rawSrc) {
+    const src     = stripSourceComments(rawSrc),
+          imports = [];
 
     for (const match of src.matchAll(/^import\s+([\s\S]*?)\s+from\s+['"]([^'"]+)['"]/gm)) {
         const body   = match[1];
@@ -441,6 +460,42 @@ export async function projectShape(filePath) {
     const src = await fs.readFile(filePath, 'utf-8');
 
     return projectSourceShape(src)
+}
+
+/**
+ * @summary Projects the Tier-1 DEFAULTS surface — `ai/configBase.mjs` since the template/base
+ * split (the thin `config.template.mjs` carries only the subclass registration shell), falling back
+ * to the template itself on pre-split trees. Every Tier-1 freshness comparison measures overlays
+ * against THIS surface; comparing a legacy snapshot against the thin template would read the whole
+ * defaults tree as removed, and comparing against template+base union would demand the template's
+ * own registration imports of a snapshot that never needs them.
+ * @param {String} aiRoot Tier-1 root directory.
+ * @returns {Promise<{imports: String[], exports: String[], envVars: String[], leafDefaults: Object[], requiredLeaves: String[]}>}
+ */
+export async function projectTier1DefaultsShape(aiRoot) {
+    const basePath = path.join(aiRoot, 'configBase.mjs');
+
+    return projectShape(fs.existsSync(basePath) ? basePath : path.join(aiRoot, 'config.template.mjs'))
+}
+
+/**
+ * @summary Routes one Tier-1 overlay to its shape-correct drift detection.
+ *
+ * - **Subclass overlay** (`class X extends ConfigBase`): absent leaves are inherited by
+ *   construction — only residual same-leaf conflicts against the defaults surface count.
+ * - **Legacy snapshot** (pre-split full copy): full missing-leaf diffing against the defaults
+ *   surface, so every base-only leaf added upstream is visible drift (the class this machinery
+ *   exists to retire).
+ * @param {String} activeSrc Active overlay source text.
+ * @param {Object} defaultsShape Projected Tier-1 defaults surface ({@link projectTier1DefaultsShape}).
+ * @returns {{drift: Object, overlayShape: ('subclass'|'snapshot')}}
+ */
+export function detectTier1OverlayDrift(activeSrc, defaultsShape) {
+    const activeShape = projectSourceShape(activeSrc);
+
+    return isSubclassOverlaySource(activeSrc)
+        ? {drift: detectSubclassOverlayResidualDrift(defaultsShape, activeShape), overlayShape: 'subclass'}
+        : {drift: detectDrift(defaultsShape, activeShape), overlayShape: 'snapshot'}
 }
 
 /**
@@ -540,7 +595,11 @@ export function detectDrift(templateShape, configShape) {
  * @returns {Boolean}
  */
 function isSubclassOverlaySource(src) {
-    return /\bextends\s+[A-Za-z_$][\w$]*\b/.test(src)
+    // `extends ConfigBase` SPECIFICALLY (matching `detectOverlayShape` in migrateConfigOverlay.mjs):
+    // legacy snapshots extend ConfigProvider, and matching any `extends` classified every snapshot
+    // as a subclass overlay — residual-only detection then hid exactly the missing-base-leaf drift
+    // class this machinery exists to surface.
+    return /\bextends\s+ConfigBase\b/.test(src)
 }
 
 /**
@@ -622,11 +681,25 @@ export function collectStaleOverlayFindings({aiRoot = aiDir, serversRoot = serve
         }
     };
 
-    collectPair({
-        activePath  : path.join(aiRoot, 'config.mjs'),
-        label       : 'Tier-1 ai/config.mjs',
-        templatePath: path.join(aiRoot, 'config.template.mjs')
-    });
+    // Tier-1 pair: measure against the DEFAULTS surface (configBase.mjs since the split), routed
+    // per overlay shape — not against the thin registration template.
+    const tier1Active = path.join(aiRoot, 'config.mjs');
+
+    if (fs.existsSync(path.join(aiRoot, 'config.template.mjs')) && fs.existsSync(tier1Active)) {
+        const defaultsShape = projectSourceShape(
+                  fs.readFileSync(fs.existsSync(path.join(aiRoot, 'configBase.mjs'))
+                      ? path.join(aiRoot, 'configBase.mjs')
+                      : path.join(aiRoot, 'config.template.mjs'), 'utf-8')),
+              {drift}       = detectTier1OverlayDrift(fs.readFileSync(tier1Active, 'utf-8'), defaultsShape);
+
+        if (drift.hasDrift) {
+            findings.push({
+                label: 'Tier-1 ai/config.mjs',
+                drift,
+                items: formatStaleOverlayDriftItems(drift)
+            })
+        }
+    }
 
     if (!fs.existsSync(serversRoot)) {
         return findings
@@ -776,21 +849,44 @@ export async function initTier1Config({argv = process.argv, logger = console, ai
         return {action: 'clone'}
     }
 
-    const drift = detectDrift(
-        await projectShape(templatePath),
-        await projectShape(activePath)
-    );
+    const activeSrc             = await fs.readFile(activePath, 'utf-8'),
+          defaultsShape         = await projectTier1DefaultsShape(aiRoot),
+          {drift, overlayShape} = detectTier1OverlayDrift(activeSrc, defaultsShape);
 
     if (!drift.hasDrift) {
-        return {action: 'silent'}
+        return {action: 'silent', overlayShape}
     }
 
     const migrate = argv.includes(MIGRATE_FLAG);
 
     if (migrate) {
-        logger.log(`[Neo AI] Migrating stale Tier-1 ai/config.mjs (drift detected, ${MIGRATE_FLAG} set)...`);
-        await fs.copy(templatePath, activePath);
-        return {action: 'migrate', drift}
+        // A subclass overlay is OPERATOR-AUTHORED deltas — never overwritten by automation.
+        // Residual drift (an explicit delta whose base identity changed) is the operator's edit
+        // to make; automation only reports it.
+        if (overlayShape === 'subclass') {
+            logger.warn('[Neo AI] Tier-1 ai/config.mjs is a subclass overlay with residual leaf conflicts — operator-owned deltas are never auto-migrated:');
+            drift.changedLeafDefaults.forEach(leaf => logger.warn(`  ~ ${formatChangedLeafDefault(leaf)}`));
+            return {action: 'warn', drift, overlayShape}
+        }
+
+        // Legacy SNAPSHOT overlay: route through the shape-aware declaration-level conversion —
+        // NEVER the blind template copy (the thin registration shell would erase every operator
+        // delta; the pre-split copy semantic no longer applies). The child process performs the
+        // full live-declaration diff, writes a `.pre-migration.bak` beside the old overlay, and
+        // generates the delta-only subclass — operator deltas survive by construction, and a
+        // second run no-ops on the (now subclass-shaped) overlay.
+        logger.log(`[Neo AI] Migrating legacy snapshot ai/config.mjs via declaration-level conversion (drift detected, ${MIGRATE_FLAG} set)...`);
+        const cliPath = fileURLToPath(new URL('./migrateConfigOverlay.mjs', import.meta.url));
+
+        try {
+            const out = execFileSync(process.execPath, [cliPath, '--write', '--ai-root', aiRoot], {encoding: 'utf-8'});
+            out.trim().split('\n').forEach(line => logger.log(`  ${line}`));
+        } catch (error) {
+            logger.warn(`[Neo AI] Declaration-level migration failed (${error.message}); the overlay was left untouched. Run \`node ${cliPath} --ai-root ${aiRoot}\` for the preview/report.`);
+            return {action: 'warn', drift, overlayShape}
+        }
+
+        return {action: 'migrate', drift, overlayShape}
     }
 
     logger.warn('[Neo AI] Stale Tier-1 ai/config.mjs — template has evolved:');
@@ -861,7 +957,14 @@ export async function assertConfigFresh({
           tier1Active   = path.join(aiRoot, 'config.mjs');
 
     if (!useConfigTemplates && fs.existsSync(tier1Template) && fs.existsSync(tier1Active)) {
-        record('Tier-1 ai/config.mjs', detectDrift(await projectShape(tier1Template), await projectShape(tier1Active)));
+        // Dual-shape routing: a subclass overlay inherits absent leaves (residual conflicts only);
+        // a legacy snapshot gets full missing-leaf diffing against the defaults surface (configBase).
+        const {drift} = detectTier1OverlayDrift(
+            await fs.readFile(tier1Active, 'utf-8'),
+            await projectTier1DefaultsShape(aiRoot)
+        );
+
+        record('Tier-1 ai/config.mjs', drift);
     }
 
     if (!useConfigTemplates && serverPath) {
