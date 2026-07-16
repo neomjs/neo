@@ -61,15 +61,19 @@ Before creating any Epic, architecture/substrate ticket, or ticket touching `ai/
 
 ### 1d. The Ungraduated-Discussion Cross-Check (High-Blast-Radius Mandatory)
 
-**Trigger:** if the proposed ticket is high-blast-radius (Epic, new skill / rule / workflow change, substrate-level architecture change) AND cites a Discussion (`#NNNN`) that has **not yet been formally graduated** (no `GRADUATED` marker in body, Discussion still open or graduation incomplete), the default action is **BLOCK ticket creation**.
+**Trigger:** if a proposed ticket cites a Discussion below §6.2 quorum AND matches any mechanical high-blast trigger in `ideation-sandbox-workflow.md §5.2`, default to **BLOCK creation**. At quorum, file the real `#N` before recording its back-reference marker.
 
-**Why the gate exists:** creating the ticket gives premature convergence a backlog center-of-gravity. Preventing creation at-source pairs with `ideation-sandbox-workflow.md` §5.1, which gates the Discussion side.
+**Why:** a pre-quorum ticket creates a premature center-of-gravity; this pairs with the Discussion-side §5.1 gate.
 
-**Substantive-rationale exception (3-part):** the block can be passed if the ticket body contains **all three** of the following:
+**Three-act boundary:** creation is pre-quorum-blocked by default; marker recording is post-quorum; work-start and merge eligibility are post-marker. Any pre-marker PR stays draft with `Refs #N`, never `Resolves #N`.
 
-1. **Explicit substantive-rationale declaration** with cite-able context. The author identifies who made the call — peer, operator, or self — for attribution metadata, but rationale-content is the reviewable gate, not identity.
-2. **Inline divergence-matrix substance** preempting the cited Discussion's expected gap. The matrix should include at least the recommended option + 2 alternative shapes with falsifying sources.
-3. **Acknowledgment that downstream amendments may be required** once the cited Discussion graduates — the ticket explicitly states which sections may need refresh post-Discussion-graduation, so future agents do not treat the early-filing as final.
+**Pre-quorum reservation exception:** the body MUST carry all three:
+
+1. attributed, cite-able substantive rationale (identity alone is insufficient);
+2. an inline divergence matrix: recommendation + 2 alternatives, each with a falsifier;
+3. the sections that must be refreshed after graduation.
+
+The shell also carries `[PROVISIONAL_UNGRADUATED: D#N]`, links the source Discussion, marks scope provisional, and omits final ACs; do not assign, claim, or start it. At quorum, promote the body/graduated-artifact ledger, record `[GRADUATED_TO_TICKET: #N]`, and remove the provisional marker; only then may a PR use `Resolves` and move toward ready/merge eligibility.
 
 For source anchors (`#11078` / `#11082` / `#11083` / `#11084`), Discussion `#11091` authority context, and substrate-decay review, read [`../../ideation-sandbox/audits/double-diamond-divergence-guard.md`](../../ideation-sandbox/audits/double-diamond-divergence-guard.md).
 

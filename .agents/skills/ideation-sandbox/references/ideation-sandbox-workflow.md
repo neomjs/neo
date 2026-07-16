@@ -181,9 +181,9 @@ For the canonical markdown template (post-Epic `#11796` family-keyed shape, same
 
 ### 6.7 Author Actions Post-Consensus
 
-**Precondition (if author's family has no other active identity):** author posts `[AUTHOR_SIGNAL]` at the current body anchor *before* the final non-author-APPROVED poll. The author-signal covers the author-family's quorum representation per §6.2 — without it the floor-2 cannot be reached when only one non-author family is active.
+**Author-family precondition:** the family's sole active identity posts `[AUTHOR_SIGNAL]` at the current body anchor before the final non-author poll; otherwise floor-2 fails.
 
-At §6.2 quorum, author graduates in order: add `[GRADUATED_TO_TICKET: #N]`; update §6.6 sections plus any `Decision Record:` line; file the ADR / Epic / ticket / PR; then `closeDiscussion(reason: RESOLVED)`. `Decision Record: REQUIRED` => file/update ADR; name merge gate. Full sequence + archaeological-source framing: [`audits/consensus-mandate.md §author-actions`](../audits/consensus-mandate.md).
+At §6.2 quorum: file the target artifact for its real `#N` → record `[GRADUATED_TO_TICKET: #N]` plus §6.6 / `Decision Record:` sections → close RESOLVED. Pre-quorum reservations follow `ticket-create-workflow.md §1d`: keep `[PROVISIONAL_UNGRADUATED: D#N]` (and any PR draft with `Refs`) until quorum; then promote, record, remove the marker, and only then become ready/merge-eligible. `Decision Record: REQUIRED` => file/update ADR; name merge gate. Full sequence: [`audits/consensus-mandate.md §author-actions`](../audits/consensus-mandate.md).
 
 Closure: [`audits/discussion-lifecycle-closure.md`](../audits/discussion-lifecycle-closure.md); guard: `npm run ai:audit-discussion-lifecycle`.
 
