@@ -13,12 +13,13 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
-import fs             from 'fs-extra';
-import matter         from 'gray-matter';
-import path           from 'path';
+import {test, expect}     from '@playwright/test';
+import Neo                from '../../../../../../src/Neo.mjs';
+import * as core          from '../../../../../../src/core/_export.mjs';
+import fs                 from 'fs-extra';
+import matter             from 'gray-matter';
+import path               from 'path';
+import {readContentIndex} from '../../../../../../ai/services/github-workflow/shared/contentIndex.mjs';
 
 test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
     let aiConfig;
@@ -379,6 +380,104 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
 
         expect(stats.count).toBe(0);
         await expect(fs.pathExists(activePath)).resolves.toBe(true);    // untouched
+    });
+
+    // --- the move/index mutation set: a rename that does not carry its `_index.json` entry does not
+    //     relocate a file, it hides it. This is the mechanism behind the stale-lookup backlog. ---
+
+    test('an archive move carries its _index.json upsert — the entry names the file it actually moved to', async () => {
+        const prNumber   = 13001,
+              activePath = path.join(aiConfig.issueSync.pullsDir, 'chunk-1', `pr-${prNumber}.md`);
+
+        await fs.ensureDir(path.dirname(activePath));
+        await fs.writeFile(activePath, `---\nnumber: ${prNumber}\nstate: MERGED\nclosedAt: '2026-05-01T00:00:00Z'\n---\nbody`, 'utf-8');
+
+        // The index names the file's CURRENT (active) location, as it would before the move.
+        await fs.writeJson(path.join(aiConfig.issueSync.contentRoot, '_index.json'), [
+            {type: 'pulls', id: prNumber, version: null, chunkNumber: 1, path: `pulls/chunk-1/pr-${prNumber}.md`}
+        ]);
+
+        ReleaseNotesSyncer.sortedReleases = [{tagName: 'v13.0.0', publishedAt: '2026-06-01T00:00:00Z'}];
+
+        const stats = await PullRequestSyncer.reconcileClosedPullRequestLocations({pulls: {}});
+        const entry = (await readContentIndex(aiConfig.issueSync)).find(e => e.type === 'pulls' && e.id === prNumber);
+
+        // The lookup is asserted BEFORE any counter this fix introduced. A counter is bookkeeping the
+        // change itself added, so a spec that trips on it first proves only that the new field exists
+        // — the defect (a lookup naming a file that moved) would never be evaluated. Pre-fix this
+        // reads `pulls/chunk-1/...`: the file is in the archive and the index still points at active.
+        expect(entry.path).toBe(`archive/pulls/v13.0.0/chunk-1/pr-${prNumber}.md`);
+        expect(entry.version).toBe('v13.0.0');
+        expect(entry.chunkNumber).toBe(1);
+
+        // The entry resolves to a file that exists: the property the stale-lookup backlog violates.
+        await expect(fs.pathExists(path.join(aiConfig.issueSync.contentRoot, entry.path))).resolves.toBe(true);
+
+        expect(stats.count).toBe(1);
+        expect(stats.indexed).toBe(1);
+    });
+
+    test('a marooned move with NO metadata entry is still indexed — the delta cache is not the index', async () => {
+        // The production shape. "The next sync rebuilds `_index.json`" is false for exactly this set:
+        // the rebuild only covers PRs in its own delta fetch, and a marooned backlog is the set the
+        // delta never names. If the move does not carry the entry, nothing ever writes it.
+        const prNumber   = 11530,
+              activePath = path.join(aiConfig.issueSync.pullsDir, 'chunk-1', `pr-${prNumber}.md`);
+
+        await fs.ensureDir(path.dirname(activePath));
+        await fs.writeFile(activePath, `---\nnumber: ${prNumber}\nstate: MERGED\nclosedAt: '2026-05-01T00:00:00Z'\n---\nbody`, 'utf-8');
+
+        ReleaseNotesSyncer.sortedReleases = [{tagName: 'v13.0.0', publishedAt: '2026-06-01T00:00:00Z'}];
+
+        const stats = await PullRequestSyncer.reconcileClosedPullRequestLocations({pulls: {}});
+        const entry = (await readContentIndex(aiConfig.issueSync)).find(e => e.id === prNumber);
+
+        // Asserted before the counter: pre-fix there is no entry at all for this PR, and nothing
+        // downstream would ever create one.
+        expect(entry, 'a marooned move must still produce an index entry').toBeDefined();
+        expect(entry.path).toBe(`archive/pulls/v13.0.0/chunk-1/pr-${prNumber}.md`);
+        expect(stats.indexed).toBe(1);
+    });
+
+    test('every PR moved in one pass is indexed — not just the last one', async () => {
+        // A single batched index write must not collapse to one entry: the pass that produced the
+        // backlog moved 1,325 files at once.
+        const numbers = [12001, 12002, 12003];
+
+        for (const n of numbers) {
+            const p = path.join(aiConfig.issueSync.pullsDir, 'chunk-1', `pr-${n}.md`);
+            await fs.ensureDir(path.dirname(p));
+            await fs.writeFile(p, `---\nnumber: ${n}\nstate: MERGED\nclosedAt: '2026-05-01T00:00:00Z'\n---\n`, 'utf-8');
+        }
+
+        ReleaseNotesSyncer.sortedReleases = [{tagName: 'v13.0.0', publishedAt: '2026-06-01T00:00:00Z'}];
+
+        const stats = await PullRequestSyncer.reconcileClosedPullRequestLocations({pulls: {}});
+        const index = await readContentIndex(aiConfig.issueSync);
+
+        for (const n of numbers) {
+            const entry = index.find(e => e.id === n);
+
+            expect(entry, `PR ${n} must be indexed`).toBeDefined();
+            await expect(fs.pathExists(path.join(aiConfig.issueSync.contentRoot, entry.path))).resolves.toBe(true);
+        }
+
+        expect(stats.count).toBe(3);
+        expect(stats.indexed).toBe(3);
+    });
+
+    test('a pass that moves nothing writes no index entries', async () => {
+        const prNumber   = 22223,
+              activePath = path.join(aiConfig.issueSync.pullsDir, 'chunk-1', `pr-${prNumber}.md`);
+
+        await fs.ensureDir(path.dirname(activePath));
+        await fs.writeFile(activePath, `---\nnumber: ${prNumber}\nstate: OPEN\n---\n`, 'utf-8');
+        ReleaseNotesSyncer.sortedReleases = [{tagName: 'v13.0.0', publishedAt: '2026-06-01T00:00:00Z'}];
+
+        const stats = await PullRequestSyncer.reconcileClosedPullRequestLocations({pulls: {}});
+
+        expect(stats.count).toBe(0);
+        expect(stats.indexed).toBe(0);
     });
 
     test('is a no-op when no releases are loaded (fail-safe)', async () => {

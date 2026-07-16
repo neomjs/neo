@@ -1,21 +1,21 @@
-import aiConfig                                                   from '../../../mcp/server/github-workflow/config.mjs';
-import Base                                                       from '../../../../src/core/Base.mjs';
-import crypto                                                     from 'crypto';
-import {existsSync}                                               from 'fs';
-import fs                                                         from 'fs/promises';
-import logger                                                     from '../../../mcp/server/github-workflow/logger.mjs';
-import matter                                                     from 'gray-matter';
-import path                                                       from 'path';
-import semver                                                     from 'semver';
-import GraphqlService                                             from '../GraphqlService.mjs';
-import ReleaseNotesSyncer                                         from './ReleaseNotesSyncer.mjs';
-import {FETCH_PULL_REQUESTS_FOR_SYNC, FETCH_SINGLE_PULL_FOR_SYNC} from '../queries/pullRequestQueries.mjs';
-import contentPath                                                from '../shared/contentPath.mjs';
-import {createContentIndexEntry, updateContentIndex}              from '../shared/contentIndex.mjs';
-import {createContentTrustSummary, projectAuthoredNodeTrust}      from '../shared/conversationTrust.mjs';
-import pruneEmptyDirs                                             from '../shared/pruneEmptyDirs.mjs';
+import aiConfig                                                                       from '../../../mcp/server/github-workflow/config.mjs';
+import Base                                                                           from '../../../../src/core/Base.mjs';
+import crypto                                                                         from 'crypto';
+import {existsSync}                                                                   from 'fs';
+import fs                                                                             from 'fs/promises';
+import logger                                                                         from '../../../mcp/server/github-workflow/logger.mjs';
+import matter                                                                         from 'gray-matter';
+import path                                                                           from 'path';
+import semver                                                                         from 'semver';
+import GraphqlService                                                                 from '../GraphqlService.mjs';
+import ReleaseNotesSyncer                                                             from './ReleaseNotesSyncer.mjs';
+import {FETCH_PULL_REQUESTS_FOR_SYNC, FETCH_SINGLE_PULL_FOR_SYNC}                     from '../queries/pullRequestQueries.mjs';
+import contentPath                                                                    from '../shared/contentPath.mjs';
+import {createContentIndexEntry, createContentIndexEntryFromPath, updateContentIndex} from '../shared/contentIndex.mjs';
+import {createContentTrustSummary, projectAuthoredNodeTrust}                          from '../shared/conversationTrust.mjs';
+import pruneEmptyDirs                                                                 from '../shared/pruneEmptyDirs.mjs';
 
-const issueSyncConfig = aiConfig.issueSync;
+const issueSyncConfig   = aiConfig.issueSync;
 const pullRequestConfig = aiConfig.pullRequest;
 
 /**
@@ -163,7 +163,7 @@ class PullRequestSyncer extends Base {
             });
         }
 
-        const buckets = new Map();
+        const buckets     = new Map();
         const activeItems = [];
 
         for (const pr of combined.values()) {
@@ -257,13 +257,22 @@ class PullRequestSyncer extends Base {
      * an entry exists). It NEVER moves a file back to active (sealed-chunk semantics), NEVER deletes, and
      * NEVER re-fetches from GitHub.
      *
+     * A move and its `_index.json` upsert are ONE mutation set. The index is the id→path lookup every
+     * reader resolves through, so a rename that does not carry its entry does not relocate a file —
+     * it hides it: the artifact is fine, the lookup points at nothing, and no pass complains. Relying
+     * on "the next sync rebuilds the index" does not save it either, because that rebuild only covers
+     * the PRs in its own delta fetch, and a marooned backlog is precisely the set the delta never
+     * names. Entries are derived from the path the file NOW occupies rather than from the plan that
+     * chose it — a plan records intent, and intent is what goes stale.
+     *
      * @param {object} metadata Sync metadata; a moved PR's `path` is updated in place when cached.
-     * @returns {Promise<{count: number, pullRequests: number[]}>} Archived count + the PR numbers moved.
+     * @returns {Promise<{count: number, pullRequests: number[], indexed: number}>} Archived count, the
+     *     PR numbers moved, and the number of index entries realigned with them.
      */
     async reconcileClosedPullRequestLocations(metadata) {
         logger.info('🔄 Reconciling closed pull request locations...');
 
-        const stats = { count: 0, pullRequests: [] };
+        const stats = { count: 0, pullRequests: [], indexed: 0 };
 
         // Buckets are derived from release history; without it the correct archive version is unknown.
         if (!ReleaseNotesSyncer.sortedReleases || ReleaseNotesSyncer.sortedReleases.length === 0) {
@@ -304,7 +313,8 @@ class PullRequestSyncer extends Base {
         }
 
         // Bucket the scanned corpus (+ any cached metadata) by release date, exactly as the live sync does.
-        const planBuckets = this.#planBuckets(metadata, scanned);
+        const planBuckets  = this.#planBuckets(metadata, scanned),
+              indexUpserts = [];
 
         for (const pr of scanned) {
             // Only terminal PRs (CLOSED or MERGED) are archive candidates; an open PR belongs in active.
@@ -326,6 +336,14 @@ class PullRequestSyncer extends Base {
                 await fs.mkdir(path.dirname(correctPath), { recursive: true });
                 await fs.rename(pr.absPath, correctPath);
 
+                // Derived from the destination, not the plan: the entry describes where the file is.
+                indexUpserts.push(createContentIndexEntryFromPath({
+                    issueSyncConfig,
+                    type    : 'pulls',
+                    id      : pr.number,
+                    filePath: correctPath
+                }));
+
                 // Update the metadata path when this PR is tracked; marooned files outside the delta-only
                 // cache simply move (the next sync rebuilds metadata against the new location).
                 if (metadata.pulls?.[pr.number]) {
@@ -339,10 +357,25 @@ class PullRequestSyncer extends Base {
             }
         }
 
+        // One write for the pass, after the moves that earned the entries. An upsert per rename would
+        // re-read and re-sort the whole index once per file; batching keeps the pass linear.
+        if (indexUpserts.length > 0) {
+            try {
+                await updateContentIndex(issueSyncConfig, {upsert: indexUpserts});
+                stats.indexed = indexUpserts.length;
+            } catch (e) {
+                // Loud, and NOT swallowed into a success: the files have already moved, so a failed
+                // index write leaves exactly the stale-lookup state this method exists to prevent.
+                // The caller decides whether a corpus whose index is known-behind may be committed.
+                logger.error(`❌ Archived ${indexUpserts.length} pull request(s) but could not update _index.json: ${e.message}`);
+                throw e;
+            }
+        }
+
         await pruneEmptyDirs(pullsDir);
 
         logger.info(stats.count > 0
-            ? `📦 Archived ${stats.count} closed pull request(s)`
+            ? `📦 Archived ${stats.count} closed pull request(s) (${stats.indexed} index entr${stats.indexed === 1 ? 'y' : 'ies'} realigned)`
             : '✓ No closed pull requests need archiving');
 
         return stats;
@@ -473,9 +506,9 @@ class PullRequestSyncer extends Base {
             synced: []
         };
 
-        const cachedPulls = metadata.pulls || {};
-        const planBuckets = this.#planBuckets(metadata, allPullRequests);
-        let shouldPruneEmptyDirs = false;
+        const cachedPulls          = metadata.pulls || {};
+        const planBuckets          = this.#planBuckets(metadata, allPullRequests);
+        let   shouldPruneEmptyDirs = false;
 
         for (const pr of allPullRequests) {
             try {
@@ -483,7 +516,7 @@ class PullRequestSyncer extends Base {
                 const content     = this.#renderPullRequestMarkdown(pr);
                 const currentHash = this.#calculateContentHash(content);
 
-                const cachedPull = cachedPulls[pr.number];
+                const cachedPull      = cachedPulls[pr.number];
                 const oldPathRelative = cachedPull?.path;
                 const oldAbsolutePath = oldPathRelative ? this.#resolvePath(oldPathRelative) : null;
 
