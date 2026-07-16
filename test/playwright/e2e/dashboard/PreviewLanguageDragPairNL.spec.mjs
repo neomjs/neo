@@ -24,13 +24,14 @@ import {test, expect} from '../../fixtures.mjs';
  * 4. under `prefers-reduced-motion: reduce`, the signal path's motion collapses to 0s
  *    through the token vocabulary (indicator transition AND the hover-lock breath).
  *
- * Determinism: the demo's live seconds clock is FROZEN worker-side for the run (the
- * `ClockPane.updateTime` prototype is patched to render a constant through the Neural Link
- * fixture) — the pane stays fully VISIBLE in every golden. It sits at the editor-zone park
- * point, inside the very affordance cluster the baselines certify, so masking it would
- * paint over the evidence subject; freezing kills the churn without hiding one pixel of it.
- * Baselines refresh ONLY via `--update-snapshots` — a refreshed golden is a reviewed
- * design decision (the PR diff is the review surface).
+ * Determinism: the demo's live seconds clock is FROZEN worker-side for the run — the
+ * pane's own `frozenTime` config is set to a constant through the Neural Link fixture
+ * (plain JSON possession, no code patching) — and the pane stays fully VISIBLE in every
+ * golden. It sits at the editor-zone park point, inside the very affordance cluster the
+ * baselines certify, so masking it would paint over the evidence subject; freezing kills
+ * the churn without hiding one pixel of it. Baselines refresh ONLY via
+ * `--update-snapshots` — a refreshed golden is a reviewed design decision (the PR diff is
+ * the review surface).
  *
  * Run: NEO_E2E_PORT=8096 npx playwright test PreviewLanguageDragPairNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
