@@ -389,6 +389,7 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         const grid = {adapterState: 'sample', store};
 
         const cockpit = {
+            getAgentDetailPane: FleetCockpit.prototype.getAgentDetailPane,
             getReference      : reference => reference === 'fleet-grid' ? grid : reference === 'agent-detail' ? detail : null,
             grid,
             id                : `fake-fleet-cockpit-${index}`,
@@ -855,8 +856,9 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
             detail  = {record: null, set(cfg) { Object.assign(this, cfg) }},
             applied = [],
             cockpit = {
-                detailRecord: null,
-                dockModel   : {items: {detail: {autoHidden: true}}},
+                detailRecord      : null,
+                dockModel         : {items: {detail: {autoHidden: true}}},
+                getAgentDetailPane: () => detail,
                 applyDockZoneOperation(op) { applied.push(op); return {document: {revealed: true}, errors: []} },
                 onDockZoneDocumentChange(doc) { this.committed = doc }
             },
@@ -882,8 +884,9 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
             detail  = {record: null, set(cfg) { Object.assign(this, cfg) }},
             applied = [],
             cockpit = {
-                detailRecord: null,
-                dockModel   : {items: {detail: {autoHidden: false}}},   // already revealed
+                detailRecord      : null,
+                dockModel         : {items: {detail: {autoHidden: false}}},   // already revealed
+                getAgentDetailPane: () => detail,
                 applyDockZoneOperation(op) { applied.push(op); return {document: {}, errors: []} },
                 onDockZoneDocumentChange() { this.reprojected = true }
             },

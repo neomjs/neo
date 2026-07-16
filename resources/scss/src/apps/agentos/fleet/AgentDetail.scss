@@ -58,6 +58,24 @@
         color      : var(--fm-ink-dim);
     }
 
+    /* the pop-out affordance — icon-only ghost beside the engine tag; its label rides
+       aria-label/title (mode-synced: detach while docked, reattach while windowed) */
+    .fm-detail-popout {
+        flex      : none;
+        padding   : 2px 6px;
+        min-height: 0;
+        background: transparent;
+        border    : none;
+        font-size : 11px;
+        color     : var(--fm-ink-dim);
+        cursor    : pointer;
+
+        &:hover,
+        &:focus-visible {
+            color: var(--fm-ink);
+        }
+    }
+
     /* the durable anchor — always shown, smallest + faintest: the name is display state OVER it */
     .fm-detail-id {
         font-family: var(--fm-font-mono);

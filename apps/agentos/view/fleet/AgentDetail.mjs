@@ -1,3 +1,4 @@
+import Button                                         from '../../../../src/button/Base.mjs';
 import Container                                      from '../../../../src/container/Base.mjs';
 import FamilyRail                                     from './FamilyRail.mjs';
 import Image                                          from '../../../../src/component/Image.mjs';
@@ -77,8 +78,12 @@ const paneConfig = pane => ({
  * {@link module:apps/agentos/view/fleet/agentFreshness}; this view is its first consumer.
  *
  * **Shell-agnostic + layout-blind:** the view takes ordinary configs only — no
- * dock/layout/Electron coupling reaches it — so the pop-out leaf (T4.15) reparents it into its own
- * OS window without change.
+ * dock/layout/Electron coupling reaches it — so the pop-out (T4.15) reparents it into its own
+ * OS window without change. The header's pop-out affordance keeps that contract: it only FIRES
+ * `popOutIntent` with the current {@link #popOutMode}; the owning cockpit routes the intent
+ * through the dock layer and writes the mode back. The affordance is record-gated (it rides the
+ * identity header) — a popped-out inspector whose resident leaves the roster falls back to the
+ * empty state, and closing its window manually is the documented reattach path.
  *
  * @class AgentOS.view.fleet.AgentDetail
  * @extends Neo.container.Base
@@ -129,6 +134,15 @@ class AgentDetail extends Container {
          * @member {Number} freshnessRefreshMs=30000
          */
         freshnessRefreshMs: 30000,
+        /**
+         * Where this inspector currently renders — `'docked'` (inside the cockpit's dock
+         * projection) or `'windowed'` (its own OS window on the shared heap). DISPLAY state the
+         * owning cockpit writes after routing a `popOutIntent`; the view only flips its affordance
+         * (icon + accessible label) — it never executes dock or window operations itself.
+         * @member {String} popOutMode_='docked'
+         * @reactive
+         */
+        popOutMode_: 'docked',
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @reactive
@@ -187,6 +201,16 @@ class AgentDetail extends Container {
                         cls      : ['fm-detail-engine'],
                         flex     : 'none',
                         reference: 'detail-engine'
+                    }, {
+                        // the layout-blind pop-out affordance: fires intent, executes nothing —
+                        // the owning cockpit routes it through the dock layer (T4.15); icon +
+                        // accessible label sync from popOutMode via syncPopOutAffordance
+                        module   : Button,
+                        cls      : ['fm-detail-popout'],
+                        flex     : 'none',
+                        handler  : 'up.onPopOutButtonClick',
+                        iconCls  : 'fa-solid fa-arrow-up-right-from-square',
+                        reference: 'detail-popout-button'
                     }]
                 }, {
                     // the durable anchor, rendered small beneath the display name — name is display
@@ -223,7 +247,49 @@ class AgentDetail extends Container {
         // render flush; a later re-seat (applyRecord) keeps the root, so the region survives.
         Object.assign(this.vdom, {role: 'region', 'aria-label': 'Agent detail'});
         this.applyRecord();
+        this.syncPopOutAffordance();
         this.startFreshnessAging()
+    }
+
+    /**
+     * Triggered after the popOutMode config changed — the owning cockpit writes the mode after
+     * routing an intent; the view flips only its affordance rendering.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetPopOutMode(value, oldValue) {
+        this.isConstructed && this.syncPopOutAffordance()
+    }
+
+    /**
+     * @summary Render the pop-out affordance for the current {@link #popOutMode}: the detach icon +
+     * label while docked, the reattach icon + label while windowed. Vdom-level `aria-label` (the
+     * house idiom) keeps the icon-only button accessible in both states.
+     * @protected
+     */
+    syncPopOutAffordance() {
+        let me       = this,
+            windowed = me.popOutMode === 'windowed',
+            button   = me.getReference('detail-popout-button'),
+            label    = windowed ? 'Reattach to the cockpit' : 'Pop out to its own window';
+
+        if (button) {
+            button.iconCls = windowed
+                ? 'fa-solid fa-down-left-and-up-right-to-center'
+                : 'fa-solid fa-arrow-up-right-from-square';
+
+            button.changeVdomRootKey('aria-label', label);
+            button.changeVdomRootKey('title', label)
+        }
+    }
+
+    /**
+     * @summary The affordance click: report intent only — the owning cockpit decides what a click
+     * means for the current mode and executes the dock/window operations.
+     */
+    onPopOutButtonClick() {
+        this.fire('popOutIntent', {mode: this.popOutMode})
     }
 
     /**

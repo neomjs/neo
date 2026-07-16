@@ -254,4 +254,33 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
 
         detail.destroy()
     });
+
+    test('the pop-out affordance is layout-blind: it fires popOutIntent only, and its mode flips icon + accessible label (#14610)', () => {
+        const
+            detail  = createDetail({agentId: 'vega', state: 'ok'}),
+            button  = detail.getReference('detail-popout-button'),
+            intents = [];
+
+        detail.on('popOutIntent', data => intents.push(data));
+
+        // docked defaults: the detach affordance, labeled for icon-only accessibility
+        expect(button).toBeTruthy();
+        expect(button.iconCls).toContain('fa-arrow-up-right-from-square');
+        expect(button.vdom['aria-label']).toBe('Pop out to its own window');
+
+        // a click reports INTENT — the view executes no dock/window operation itself
+        detail.onPopOutButtonClick();
+        expect(intents).toHaveLength(1);
+        expect(intents[0].mode).toBe('docked');
+
+        // the owner writes the mode back — the affordance flips to the reattach rendering
+        detail.popOutMode = 'windowed';
+        expect(button.iconCls).toContain('fa-down-left-and-up-right-to-center');
+        expect(button.vdom['aria-label']).toBe('Reattach to the cockpit');
+
+        detail.onPopOutButtonClick();
+        expect(intents[1].mode).toBe('windowed');
+
+        detail.destroy()
+    });
 });
