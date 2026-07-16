@@ -382,6 +382,119 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         await expect(fs.pathExists(activePath)).resolves.toBe(true);    // untouched
     });
 
+    // --- the divergent-duplicate mechanism: an ordinal recomputed from a delta-sized view of a
+    //     sealed bucket is not a smaller truth, it is a different number — so the write lands BESIDE
+    //     the existing copy instead of on it, and the two renderings diverge from there. ---
+
+    test('refreshing an already-archived PR overwrites its artifact instead of creating a rival copy', async () => {
+        // The production shape, reproduced: PR 10124 lives at chunk-2 of a sealed bucket. The delta
+        // sync fetches it with NO cache entry — so the planner ranks it against the one PR it can
+        // see, computes ordinal 0, and resolves chunk-1. Pre-fix that wrote a SECOND artifact and
+        // left the first in place, because the unlink is gated on `cachedPull?.path`, which a cache
+        // miss makes null.
+        const prNumber    = 10124,
+              existingDir = path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', 'chunk-2');
+
+        await fs.ensureDir(existingDir);
+        await fs.writeFile(path.join(existingDir, `pr-${prNumber}.md`), 'stale rendering, fewer comments', 'utf8');
+
+        ReleaseNotesSyncer.sortedReleases = [{tagName: 'v13.0.0', publishedAt: '2026-06-01T00:00:00Z'}];
+
+        GraphqlService.query = async () => ({
+            repository: {
+                pullRequests: {
+                    nodes   : [buildPullRequest(prNumber)],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+
+        // Empty cache — the marooned case the delta never names.
+        await PullRequestSyncer.syncPullRequests({pulls: {}});
+
+        const rival    = path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', 'chunk-1', `pr-${prNumber}.md`),
+              occupied = path.join(existingDir, `pr-${prNumber}.md`);
+
+        // Exactly one artifact, at the location the PR already owned.
+        await expect(fs.pathExists(rival)).resolves.toBe(false);
+        await expect(fs.pathExists(occupied)).resolves.toBe(true);
+
+        // And it was REFRESHED in place, not merely left alone — the stale rendering is gone.
+        expect(await fs.readFile(occupied, 'utf8')).not.toBe('stale rendering, fewer comments');
+        expect(matter(await fs.readFile(occupied, 'utf8')).data.number).toBe(prNumber);
+    });
+
+    test('a new archive arrival is ranked against the bucket ON DISK, not against the delta', async () => {
+        // The ordinal is defined over complete bucket membership. With a threshold of 2 and two PRs
+        // already sealed in v13.0.0, a third belongs in chunk-2. A planner that sees only the delta
+        // ranks it 0 and resolves chunk-1 — confidently wrong, and it would land on top of an
+        // existing chunk that the full ordering says is full.
+        const originalThreshold = aiConfig.issueSync.archiveChunkThreshold;
+
+        aiConfig.issueSync.archiveChunkThreshold = 2;
+
+        try {
+            const sealedDir = path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', 'chunk-1');
+
+            await fs.ensureDir(sealedDir);
+            await fs.writeFile(path.join(sealedDir, 'pr-100.md'), 'sealed', 'utf8');
+            await fs.writeFile(path.join(sealedDir, 'pr-200.md'), 'sealed', 'utf8');
+
+            ReleaseNotesSyncer.sortedReleases = [{tagName: 'v13.0.0', publishedAt: '2026-06-01T00:00:00Z'}];
+
+            GraphqlService.query = async () => ({
+                repository: {
+                    pullRequests: {
+                        nodes   : [buildPullRequest(300)],
+                        pageInfo: {hasNextPage: false, endCursor: null}
+                    }
+                }
+            });
+
+            await PullRequestSyncer.syncPullRequests({pulls: {}});
+
+            // Complete membership [100, 200, 300] → 300 is ordinal 2 → chunk-2 at a threshold of 2.
+            await expect(fs.pathExists(path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', 'chunk-2', 'pr-300.md'))).resolves.toBe(true);
+            await expect(fs.pathExists(path.join(sealedDir, 'pr-300.md'))).resolves.toBe(false);
+        } finally {
+            aiConfig.issueSync.archiveChunkThreshold = originalThreshold;
+        }
+    });
+
+    test('a PR owning two archived artifacts is REFUSED, not guessed at — and the sync survives it', async () => {
+        // Nothing on disk says which copy is current, so writing to either canonicalises a guess and
+        // destroys the evidence. The PR is skipped; the run continues; the integrity pass reports it.
+        const prNumber = 10124;
+
+        for (const chunk of ['chunk-1', 'chunk-2']) {
+            const dir = path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', chunk);
+
+            await fs.ensureDir(dir);
+            await fs.writeFile(path.join(dir, `pr-${prNumber}.md`), `divergent ${chunk}`, 'utf8');
+        }
+
+        ReleaseNotesSyncer.sortedReleases = [{tagName: 'v13.0.0', publishedAt: '2026-06-01T00:00:00Z'}];
+
+        // A healthy PR alongside the corrupt one: one bad id must not wedge the whole run.
+        GraphqlService.query = async () => ({
+            repository: {
+                pullRequests: {
+                    nodes   : [buildPullRequest(prNumber), buildPullRequest(777)],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+
+        const stats = await PullRequestSyncer.syncPullRequests({pulls: {}});
+
+        // The corrupt id is not synced; the healthy one is.
+        expect(stats.synced).toEqual([777]);
+
+        // Neither copy was overwritten and no third appeared — the divergence is preserved as evidence.
+        expect(await fs.readFile(path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', 'chunk-1', `pr-${prNumber}.md`), 'utf8')).toBe('divergent chunk-1');
+        expect(await fs.readFile(path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', 'chunk-2', `pr-${prNumber}.md`), 'utf8')).toBe('divergent chunk-2');
+    });
+
     // --- the move/index mutation set: a rename that does not carry its `_index.json` entry does not
     //     relocate a file, it hides it. This is the mechanism behind the stale-lookup backlog. ---
 

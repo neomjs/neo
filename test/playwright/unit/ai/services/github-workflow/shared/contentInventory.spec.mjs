@@ -232,6 +232,42 @@ test.describe('Neo.ai.services.github-workflow.shared.contentInventory', () => {
             expect(archived).toContain('v13.0.0')
         });
 
+        test('detects an entry whose chunkNumber contradicts its own path — a real file, described wrongly', async () => {
+            // The costume a path-existence check cannot see through. The entry names a file that
+            // exists, so "every indexed path resolves" passes — and the entry still lies about where
+            // the file sits. This is what a plan-derived chunkNumber produces once placement can
+            // legitimately differ from the plan.
+            const archived = await writeArchived('v13.0.0', 2, 10124);
+
+            await writeContentIndex(config, [indexEntry(10124, archived, 'v13.0.0', 1)]);
+
+            const result = await validateContentIntegrity(config, inventoryOpts);
+
+            expect(result.staleIndexEntries).toHaveLength(0);          // the path is real
+            expect(result.inconsistentIndexEntries).toHaveLength(1);   // and the coordinates are not
+            expect(result.inconsistentIndexEntries[0].actual).toEqual({version: 'v13.0.0', chunkNumber: 2});
+            expect(result.ok).toBe(false)
+        });
+
+        test('detects an entry whose version contradicts its own path', async () => {
+            const archived = await writeArchived('v13.0.0', 1, 55);
+
+            await writeContentIndex(config, [indexEntry(55, archived, 'v12.0.0', 1)]);
+
+            const result = await validateContentIntegrity(config, inventoryOpts);
+
+            expect(result.inconsistentIndexEntries).toHaveLength(1);
+            expect(result.ok).toBe(false)
+        });
+
+        test('an entry that agrees with its path is NOT flagged — the check can pass', async () => {
+            const archived = await writeArchived('v13.0.0', 2, 66);
+
+            await writeContentIndex(config, [indexEntry(66, archived, 'v13.0.0', 2)]);
+
+            expect((await validateContentIntegrity(config, inventoryOpts)).inconsistentIndexEntries).toHaveLength(0)
+        });
+
         test('detects an artifact that no index entry names', async () => {
             await writeActive(1, 10);
             await writeContentIndex(config, []);

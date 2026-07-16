@@ -128,17 +128,35 @@ export function resolveArchivedLocation(inventory, id) {
  * @param {'issues'|'pulls'|'discussions'} options.type Content type segment
  * @param {String} options.filePrefix File-leaf prefix (e.g. `'pr-'`)
  * @param {Map<Number, Array<Object>>} [options.inventory] Pre-built inventory; scanned when omitted
- * @returns {Promise<{type: String, ok: Boolean, indexedTotal: Number, corpusTotal: Number, uniqueIds: Number, staleIndexEntries: Array<Object>, unindexedIds: Array<Number>, identicalDuplicateIds: Array<Number>, divergentDuplicateIds: Array<Number>}>}
+ * @returns {Promise<{type: String, ok: Boolean, indexedTotal: Number, corpusTotal: Number, uniqueIds: Number, staleIndexEntries: Array<Object>, inconsistentIndexEntries: Array<Object>, unindexedIds: Array<Number>, identicalDuplicateIds: Array<Number>, divergentDuplicateIds: Array<Number>}>}
  */
 export async function validateContentIntegrity(issueSyncConfig = {}, {type, filePrefix, inventory} = {}) {
     const contentRoot = contentRootFor(issueSyncConfig),
           corpus      = inventory || await buildContentInventory(issueSyncConfig, {type, filePrefix}),
           indexed     = (await readContentIndex(issueSyncConfig)).filter(entry => entry.type === type);
 
-    const staleIndexEntries = [];
+    const staleIndexEntries        = [],
+          inconsistentIndexEntries = [];
 
     for (const entry of indexed) {
-        if (!existsSync(path.resolve(contentRoot, entry.path))) staleIndexEntries.push(entry);
+        if (!existsSync(path.resolve(contentRoot, entry.path))) {
+            staleIndexEntries.push(entry);
+            continue;
+        }
+
+        // An entry's coordinates must agree with its own path. They can drift apart whenever the
+        // chunk is derived from a planned ordinal while the file is written somewhere else — the
+        // entry then names a real file and still lies about where it sits, which every check that
+        // only tests path existence will pass. Compared against the path the entry itself carries,
+        // so this needs no filesystem opinion beyond the file being there.
+        const parsed = parseContentPath({contentRoot, filePath: entry.path});
+
+        if (!parsed || parsed.chunkNumber !== entry.chunkNumber || (parsed.version ?? null) !== (entry.version ?? null)) {
+            inconsistentIndexEntries.push({
+                entry,
+                actual: parsed && {version: parsed.version, chunkNumber: parsed.chunkNumber}
+            });
+        }
     }
 
     const indexedIds   = new Set(indexed.map(entry => Number(entry.id))),
@@ -163,12 +181,14 @@ export async function validateContentIntegrity(issueSyncConfig = {}, {type, file
 
     return {
         type,
-        ok          : staleIndexEntries.length === 0 && unindexedIds.length === 0 &&
-                      identicalDuplicateIds.length === 0 && divergentDuplicateIds.length === 0,
+        ok          : staleIndexEntries.length === 0 && inconsistentIndexEntries.length === 0 &&
+                      unindexedIds.length === 0 && identicalDuplicateIds.length === 0 &&
+                      divergentDuplicateIds.length === 0,
         indexedTotal: indexed.length,
         corpusTotal,
         uniqueIds   : corpus.size,
         staleIndexEntries,
+        inconsistentIndexEntries,
         unindexedIds,
         identicalDuplicateIds,
         divergentDuplicateIds
@@ -187,6 +207,7 @@ export function formatIntegrityReport(result = {}) {
         `  corpus artifacts     : ${result.corpusTotal}`,
         `  unique ids           : ${result.uniqueIds}`,
         `  stale indexed paths  : ${result.staleIndexEntries?.length ?? 0}`,
+        `  inconsistent entries : ${result.inconsistentIndexEntries?.length ?? 0}`,
         `  unindexed artifacts  : ${result.unindexedIds?.length ?? 0}`,
         `  identical duplicates : ${result.identicalDuplicateIds?.length ?? 0}`,
         `  divergent duplicates : ${result.divergentDuplicateIds?.length ?? 0}`,

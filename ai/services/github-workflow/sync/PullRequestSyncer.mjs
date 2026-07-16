@@ -1,19 +1,20 @@
-import aiConfig                                                                       from '../../../mcp/server/github-workflow/config.mjs';
-import Base                                                                           from '../../../../src/core/Base.mjs';
-import crypto                                                                         from 'crypto';
-import {existsSync}                                                                   from 'fs';
-import fs                                                                             from 'fs/promises';
-import logger                                                                         from '../../../mcp/server/github-workflow/logger.mjs';
-import matter                                                                         from 'gray-matter';
-import path                                                                           from 'path';
-import semver                                                                         from 'semver';
-import GraphqlService                                                                 from '../GraphqlService.mjs';
-import ReleaseNotesSyncer                                                             from './ReleaseNotesSyncer.mjs';
-import {FETCH_PULL_REQUESTS_FOR_SYNC, FETCH_SINGLE_PULL_FOR_SYNC}                     from '../queries/pullRequestQueries.mjs';
-import contentPath                                                                    from '../shared/contentPath.mjs';
-import {createContentIndexEntry, createContentIndexEntryFromPath, updateContentIndex} from '../shared/contentIndex.mjs';
-import {createContentTrustSummary, projectAuthoredNodeTrust}                          from '../shared/conversationTrust.mjs';
-import pruneEmptyDirs                                                                 from '../shared/pruneEmptyDirs.mjs';
+import aiConfig                                                   from '../../../mcp/server/github-workflow/config.mjs';
+import Base                                                       from '../../../../src/core/Base.mjs';
+import crypto                                                     from 'crypto';
+import {existsSync}                                               from 'fs';
+import fs                                                         from 'fs/promises';
+import logger                                                     from '../../../mcp/server/github-workflow/logger.mjs';
+import matter                                                     from 'gray-matter';
+import path                                                       from 'path';
+import semver                                                     from 'semver';
+import GraphqlService                                             from '../GraphqlService.mjs';
+import ReleaseNotesSyncer                                         from './ReleaseNotesSyncer.mjs';
+import {FETCH_PULL_REQUESTS_FOR_SYNC, FETCH_SINGLE_PULL_FOR_SYNC} from '../queries/pullRequestQueries.mjs';
+import contentPath                                                from '../shared/contentPath.mjs';
+import {buildContentInventory, resolveArchivedLocation}           from '../shared/contentInventory.mjs';
+import {createContentIndexEntryFromPath, updateContentIndex}      from '../shared/contentIndex.mjs';
+import {createContentTrustSummary, projectAuthoredNodeTrust}      from '../shared/conversationTrust.mjs';
+import pruneEmptyDirs                                             from '../shared/pruneEmptyDirs.mjs';
 
 const issueSyncConfig   = aiConfig.issueSync;
 const pullRequestConfig = aiConfig.pullRequest;
@@ -135,12 +136,22 @@ class PullRequestSyncer extends Base {
 
     /**
      * @summary Pre-computes bucket distribution for all pull requests based on historical milestones/releases.
+     *
+     * The ordinal is defined against COMPLETE bucket membership, and neither input carries it:
+     * `metadata.pulls` is rebuilt from each run's delta fetch and `fetchedPullRequests` is that delta.
+     * Ranking a PR against the handful of its bucket a delta happens to include does not produce a
+     * roughly-right chunk, it produces a confidently wrong one — and the sync then writes there.
+     * Passing `inventory` seeds each bucket with the ids already on disk in it, which is the only
+     * complete membership that exists, because the files outlive every cache describing them.
+     *
      * @param {object} metadata Current sync metadata
      * @param {Array<object>} fetchedPullRequests PRs fetched in the current sync run
+     * @param {Map<number, Array<object>>} [inventory] Complete corpus inventory. Omitted, buckets are
+     *     ranked against the delta alone — correct only when the delta IS the corpus.
      * @returns {Map<number, {version: string|null, itemCount: number, itemIndex: number}>}
      * @private
      */
-    #planBuckets(metadata, fetchedPullRequests = []) {
+    #planBuckets(metadata, fetchedPullRequests = [], inventory = null) {
         const combined = new Map();
 
         for (const [idStr, pr] of Object.entries(metadata.pulls || {})) {
@@ -163,8 +174,20 @@ class PullRequestSyncer extends Base {
             });
         }
 
+        // Keyed by number so a bucket cannot hold an id twice — a duplicate would consume an ordinal
+        // slot and shift every later member's chunk by one.
         const buckets     = new Map();
         const activeItems = [];
+
+        const addToBucket = (version, number, pr = null) => {
+            if (!buckets.has(version)) buckets.set(version, new Map());
+
+            const bucket = buckets.get(version);
+
+            // A seeded id carries only its number; a classified PR carries its node. Never let the
+            // seed overwrite the richer entry.
+            if (pr || !bucket.has(number)) bucket.set(number, pr || {number});
+        };
 
         for (const pr of combined.values()) {
             let version = null;
@@ -181,8 +204,23 @@ class PullRequestSyncer extends Base {
                 continue;
             }
 
-            if (!buckets.has(version)) buckets.set(version, []);
-            buckets.get(version).push(pr);
+            addToBucket(version, pr.number, pr);
+        }
+
+        // Seed from disk AFTER classification, and never for a PR classified active. An open PR with
+        // a stray archived artifact is corruption; seeding it would hand that PR an archive plan and
+        // the sync would seal a live PR away. Membership is inherited from the corpus only for ids
+        // this run has no live opinion about — which is the whole marooned backlog.
+        if (inventory) {
+            const activeIds = new Set(activeItems.map(pr => pr.number));
+
+            for (const [id, copies] of inventory) {
+                if (activeIds.has(id)) continue;
+
+                for (const copy of copies) {
+                    if (copy.version) addToBucket(copy.version, id);
+                }
+            }
         }
 
         const plans = new Map();
@@ -197,9 +235,10 @@ class PullRequestSyncer extends Base {
             });
         });
 
-        for (const [version, prs] of buckets.entries()) {
-            prs.sort((a, b) => a.number - b.number);
-            const itemCount = prs.length;
+        for (const [version, bucket] of buckets.entries()) {
+            const prs       = [...bucket.values()].sort((a, b) => a.number - b.number),
+                  itemCount = prs.length;
+
             prs.forEach((pr, index) => {
                 plans.set(pr.number, {
                     version,
@@ -214,15 +253,53 @@ class PullRequestSyncer extends Base {
 
     /**
      * Determines the correct local file path for a given pull request based on its state.
+     *
+     * An already-archived PR keeps the artifact it owns. Archive ordinals are fixed when a bucket is
+     * cut, so recomputing one at refresh time answers a different question than the one that placed
+     * the file: the planner ranks the PR against the PRs it can currently see, and a delta-sized view
+     * of a sealed bucket yields a different chunk. The write then lands beside the existing copy
+     * rather than on it, and the two renderings diverge from that moment on. Reusing the occupied
+     * location makes a refresh overwrite the file that exists — a second copy becomes unreachable by
+     * construction rather than merely unlikely.
+     *
      * @param {object} pr The GitHub pull request object.
      * @param {Map<number, object>} planBuckets Precomputed bucket distribution.
+     * @param {Map<number, Array<object>>} [inventory] Complete corpus inventory; enables the
+     *     preserve-existing rule. Omitted, placement falls back to the plan alone.
      * @returns {string} The absolute file path for the PR's Markdown file.
+     * @throws {Error} When the PR already owns more than one archived artifact.
      * @private
      */
-    #getPullRequestPath(pr, planBuckets = new Map()) {
+    #getPullRequestPath(pr, planBuckets = new Map(), inventory = null) {
         const filename = `${aiConfig.issueSync.pullFilenamePrefix || 'pr-'}${pr.number}.md`;
 
         const plan = planBuckets.get(pr.number);
+
+        // Terminal only. An OPEN pull request belongs in active regardless of what sits in the
+        // archive — an open PR with an archived artifact is itself corruption, and preserving that
+        // location would keep a live PR sealed away where the next refresh can never surface it.
+        // Mirrors the reconcile's archive-candidate rule.
+        const isTerminal = pr.state === 'CLOSED' || pr.state === 'MERGED';
+
+        if (inventory && isTerminal) {
+            const archived = resolveArchivedLocation(inventory, pr.number);
+
+            // Two artifacts for one id: the corpus is already corrupt here and nothing on disk says
+            // which copy is current. Refuse this PR rather than pick — writing to either would
+            // canonicalise a guess and destroy the evidence of the divergence. The per-PR catch in
+            // the sync loop turns this into a skip, so one corrupt id cannot wedge the run, and the
+            // integrity pass reports it for repair from source.
+            if (archived.status === 'ambiguous') {
+                throw new Error(
+                    `pull request #${pr.number} owns ${archived.copies.length} archived artifacts ` +
+                    `(${archived.copies.map(copy => copy.absPath).join(', ')}) — refusing to guess which is current`
+                );
+            }
+
+            if (archived.status === 'unique') {
+                return archived.entry.absPath;
+            }
+        }
 
         const config = {
             contentRoot  : issueSyncConfig.contentRoot,
@@ -312,8 +389,14 @@ class PullRequestSyncer extends Base {
             }
         }
 
-        // Bucket the scanned corpus (+ any cached metadata) by release date, exactly as the live sync does.
-        const planBuckets  = this.#planBuckets(metadata, scanned),
+        // Bucket the scanned corpus (+ any cached metadata) by release date, exactly as the live sync
+        // does — and against the same complete membership, so a file moved here lands on the ordinal
+        // the full bucket ordering chooses rather than one derived from this pass's view of it.
+        const inventory = await buildContentInventory(issueSyncConfig, {
+            type      : 'pulls',
+            filePrefix: aiConfig.issueSync.pullFilenamePrefix || 'pr-'
+        });
+        const planBuckets  = this.#planBuckets(metadata, scanned, inventory),
               indexUpserts = [];
 
         for (const pr of scanned) {
@@ -506,13 +589,20 @@ class PullRequestSyncer extends Base {
             synced: []
         };
 
-        const cachedPulls          = metadata.pulls || {};
-        const planBuckets          = this.#planBuckets(metadata, allPullRequests);
+        const cachedPulls = metadata.pulls || {};
+        // The corpus, not the cache. `metadata.pulls` is rebuilt from this run's delta, so it cannot
+        // answer "where does PR N already live" for anything the delta did not fetch — and that set
+        // is precisely where the rival copies were written.
+        const inventory = await buildContentInventory(issueSyncConfig, {
+            type      : 'pulls',
+            filePrefix: aiConfig.issueSync.pullFilenamePrefix || 'pr-'
+        });
+        const planBuckets          = this.#planBuckets(metadata, allPullRequests, inventory);
         let   shouldPruneEmptyDirs = false;
 
         for (const pr of allPullRequests) {
             try {
-                const targetPath  = this.#getPullRequestPath(pr, planBuckets);
+                const targetPath  = this.#getPullRequestPath(pr, planBuckets, inventory);
                 const content     = this.#renderPullRequestMarkdown(pr);
                 const currentHash = this.#calculateContentHash(content);
 
@@ -569,7 +659,16 @@ class PullRequestSyncer extends Base {
         const indexEntries = [];
 
         allPullRequests.forEach(p => {
-            const plan = planBuckets.get(p.number);
+            // A PR the loop above refused or failed on has no resolved path. It must drop out of the
+            // cache entirely rather than be recorded with an undefined one: absent, the next run
+            // re-fetches it; recorded-as-null, the entry claims a location that does not exist and we
+            // have written the same class of lie this lane exists to remove. Skipping also keeps one
+            // bad id from throwing out here — outside the per-PR catch — and taking the whole run's
+            // metadata and index write down with it.
+            if (!p.relativeOutputPath) {
+                logger.warn(`⚠️ Pull request #${p.number} produced no path — omitted from metadata and index this run.`);
+                return;
+            }
 
             metadata.pulls[p.number] = {
                 number     : p.number,
@@ -582,14 +681,15 @@ class PullRequestSyncer extends Base {
                 path       : p.relativeOutputPath
             };
 
-            indexEntries.push(createContentIndexEntry({
+            // From the written path, NOT from the plan. These can now legitimately disagree: an
+            // already-archived PR keeps its occupied location while the plan proposes a freshly
+            // ranked one, so an entry built from `plan.itemIndex` would carry a chunkNumber that
+            // contradicts its own path — an index internally inconsistent with the file it names.
+            indexEntries.push(createContentIndexEntryFromPath({
                 issueSyncConfig,
-                type     : 'pulls',
-                id       : p.number,
-                filePath : path.resolve(aiConfig.projectRoot, p.relativeOutputPath),
-                itemIndex: plan ? plan.itemIndex : 0,
-                version  : p.state === 'OPEN' ? null : plan?.version || null,
-                bucket   : null
+                type    : 'pulls',
+                id      : p.number,
+                filePath: path.resolve(aiConfig.projectRoot, p.relativeOutputPath)
             }));
         });
 
@@ -620,6 +720,12 @@ class PullRequestSyncer extends Base {
      * file, and mutates the passed `metadata` in place. The caller persists metadata afterwards.
      * Mirrors `IssueSyncer#refetchIssuesByNumber`.
      *
+     * Placement is resolved against the complete corpus, not against the refetch list. This path is
+     * the narrowest view in the syncer — one PR — so ranking a bucket from it produced the most
+     * confidently wrong ordinal available, and the write landed beside the artifact it was sent to
+     * repair. A recovery primitive that manufactures the drift it exists to remove is worse than no
+     * recovery primitive, because it is invoked precisely when the corpus is already suspect.
+     *
      * @param {Array<Number>|Set<Number>} numbers The pull-request numbers to refetch.
      * @param {Object} metadata The sync metadata object (mutated in place).
      * @param {Object} [indexMutations=null] Optional accumulator for `_index.json` updates.
@@ -628,6 +734,11 @@ class PullRequestSyncer extends Base {
     async refetchPullsByNumber(numbers, metadata, indexMutations = null) {
         const stats = {refetched: {count: 0, pulls: []}, errors: []};
         const list  = [...numbers];
+
+        const inventory = await buildContentInventory(issueSyncConfig, {
+            type      : 'pulls',
+            filePrefix: aiConfig.issueSync.pullFilenamePrefix || 'pr-'
+        });
 
         for (const prNumber of list) {
             try {
@@ -649,8 +760,8 @@ class PullRequestSyncer extends Base {
                     continue;
                 }
 
-                const planBuckets = this.#planBuckets(metadata, [pr]);
-                const targetPath  = this.#getPullRequestPath(pr, planBuckets);
+                const planBuckets = this.#planBuckets(metadata, [pr], inventory);
+                const targetPath  = this.#getPullRequestPath(pr, planBuckets, inventory);
                 if (!targetPath) {
                     if (indexMutations) {
                         indexMutations.remove.push({type: 'pulls', id: prNumber});
@@ -680,15 +791,14 @@ class PullRequestSyncer extends Base {
                 };
 
                 if (indexMutations) {
-                    const plan = planBuckets.get(prNumber);
-                    indexMutations.upsert.push(createContentIndexEntry({
+                    // Derived from the written path: with placement now preserving an occupied
+                    // archive location, a plan-derived chunkNumber can contradict the very path it
+                    // ships beside.
+                    indexMutations.upsert.push(createContentIndexEntryFromPath({
                         issueSyncConfig,
-                        type     : 'pulls',
-                        id       : prNumber,
-                        filePath : this.#resolvePath(this.#relativePath(targetPath)),
-                        itemIndex: plan ? plan.itemIndex : 0,
-                        version  : pr.state === 'OPEN' ? null : plan?.version || null,
-                        bucket   : null
+                        type    : 'pulls',
+                        id      : prNumber,
+                        filePath: this.#resolvePath(this.#relativePath(targetPath))
                     }));
                 }
             } catch (e) {
