@@ -87,9 +87,14 @@ class FleetCockpit extends Container {
          * plain containers, so per-class loading never fetches it; the consuming workspace
          * declares the dependency (the projection root carries the matching `.neo-dashboard`
          * scope class itself).
-         * @member {String[]} additionalThemeFiles=['Neo.dashboard.Container']
+         * Theme files this view needs that its own namespace does not pull in. `SpineBanner` is here
+         * because the banner is a plain component slot (`fleet-spine-banner`) rather than its own
+         * class — nothing requests `AgentOS.view.fleet.SpineBanner`, so without this entry the
+         * stylesheet is built and never loaded, and the banner renders unstyled. Any future
+         * class-less slot with its own SCSS needs the same registration.
+         * @member {String[]} additionalThemeFiles=['Neo.dashboard.Container','AgentOS.view.fleet.SpineBanner']
          */
-        additionalThemeFiles: ['Neo.dashboard.Container'],
+        additionalThemeFiles: ['Neo.dashboard.Container', 'AgentOS.view.fleet.SpineBanner'],
         /**
          * @member {String[]} baseCls=['fm-fleet-cockpit']
          */
