@@ -28,7 +28,7 @@ const repoRoot   = path.resolve(__dirname, '../../../../../../');
  *
  * Two B4-safe surfaces (no shared-singleton mutation, no live-DB risk): the pure `checkAskRateLimit`
  * rolling-window helper, and the `askSynthesis` config contract read from the canonical
- * `config.template.mjs` (per the tests-import-the-canonical-template discipline). The env-only API-key
+ * `configBase.mjs` ledger. The env-only API-key
  * guarantee is verified at the source level so it holds regardless of the test environment.
  */
 test.describe('ai/knowledge-base — ask-synthesis runaway breaker (checkAskRateLimit)', () => {
@@ -85,8 +85,8 @@ test.describe('ai/knowledge-base — ask-synthesis runaway breaker (checkAskRate
     });
 });
 
-test.describe('ai/knowledge-base — askSynthesis config contract (canonical template source)', () => {
-    // Source-level assertions: read the canonical template TEXT, do NOT import/construct the proxy.
+test.describe('ai/knowledge-base — askSynthesis config contract (canonical base source)', () => {
+    // Source-level assertions: read the canonical config-base TEXT, do NOT import/construct the proxy.
     // Importing it registers `Neo.ai.Config`, which collides with config.mjs-importing specs sharing a
     // unitTestMode worker. Source-reads verify the declared leaf contract directly, are env-independent
     // (hold regardless of any value in the test shell), and register zero classes — so they are collision-free.
@@ -94,7 +94,7 @@ test.describe('ai/knowledge-base — askSynthesis config contract (canonical tem
 
     test.beforeAll(async () => {
         src = await fs.readFile(
-            path.join(repoRoot, 'ai/mcp/server/knowledge-base/config.template.mjs'), 'utf8'
+            path.join(repoRoot, 'ai/mcp/server/knowledge-base/configBase.mjs'), 'utf8'
         );
     });
 
