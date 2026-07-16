@@ -9,7 +9,8 @@ const WIRE_SOURCES = Object.freeze({
         repoStatus : 'fleet:fleetStatus',
         roster     : 'fleet:listAgents',
         runtime    : 'fleet:runtimeStatus',
-        lifecycle  : 'fleet:lifecycle'
+        lifecycle  : 'fleet:lifecycle',
+        wake       : 'fleet:wakeState'
     })
 
 export const FLEET_COCKPIT_EVENT_TYPES = Object.freeze([
@@ -70,7 +71,7 @@ function githubAvatarUrl(githubUsername) {
  * @param {Object}   options.capabilities  Optional source-capability overrides from wired adapters.
  * @returns {Object} serializable cockpit DTO `{sources, capabilities, rows, events}`.
  */
-export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtimeStatus = [], events = [], capabilities = {}} = {}) {
+export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtimeStatus = [], wakeStatus = [], events = [], capabilities = {}} = {}) {
     const suppliedCapabilities = capabilities || {}
 
     const statusByAgentId = new Map(
@@ -81,17 +82,26 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtime
         runtimeStatus.map(entry => [entry.agentId || entry.id, sanitizePayload(entry)])
     )
 
+    const wakeByAgentId = new Map(
+        wakeStatus.map(entry => [entry.agentId || entry.id, sanitizePayload(entry)])
+    )
+
     return {
         sources     : FLEET_COCKPIT_SOURCES,
         capabilities: {
             activity: suppliedCapabilities.activity || createNotWiredCapability(FLEET_COCKPIT_SOURCES.activity, 'A2A / PR / lane activity adapter not wired'),
-            runtime : suppliedCapabilities.runtime || createNotWiredCapability(FLEET_COCKPIT_SOURCES.runtime, 'runtime process status is pending the Fleet runtime-status wire method')
+            runtime : suppliedCapabilities.runtime || createNotWiredCapability(FLEET_COCKPIT_SOURCES.runtime, 'runtime process status is pending the Fleet runtime-status wire method'),
+            // The wake telltale axis (S2): four-state observation (`on | off | suppressed |
+            // unknown`) produced Brain-side; not-wired here is the honest default until the
+            // assembler passes a snapshot — the pane renders "cannot see", never a guessed state.
+            wake    : suppliedCapabilities.wake || createNotWiredCapability(FLEET_COCKPIT_SOURCES.wake, 'wake-state producer not wired')
         },
         rows: agents.map(agent => {
             const publicAgent = sanitizePayload(agent),
                   agentId     = publicAgent.id,
                   repoStatus  = statusByAgentId.get(agentId) || null,
-                  runtime     = runtimeByAgentId.get(agentId) || null
+                  runtime     = runtimeByAgentId.get(agentId) || null,
+                  wake        = wakeByAgentId.get(agentId) || null
 
             return {
                 id            : agentId,
@@ -128,6 +138,25 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtime
                         state     : 'not-wired',
                         confidence: 'none'
                     },
+                // The S2 wake telltale axis: the four-state observation row produced Brain-side.
+                // `state` is CLOSED over `on | off | suppressed | unknown` — absence of a producer
+                // is `unknown`, never a fifth value: consumers switch on this enum, so leaking a
+                // wiring fact into the observation field would force every one of them to re-derive
+                // the taxonomy. The wiring axis is carried by `sources.wake` + the capability
+                // envelope, and `confidence: 'none'` + `reason` keep the row itself honest.
+                wake: wake
+                    ? {
+                        source    : FLEET_COCKPIT_SOURCES.wake,
+                        state     : wake.wake ?? 'unknown',
+                        confidence: wake.confidence ?? 'none',
+                        ...(wake.reason != null && {reason: wake.reason})
+                    }
+                    : {
+                        source    : FLEET_COCKPIT_SOURCES.wake,
+                        state     : 'unknown',
+                        confidence: 'none',
+                        reason    : 'wake-state producer not wired'
+                    },
                 sources: {
                     roster: {
                         source    : FLEET_COCKPIT_SOURCES.roster,
@@ -143,6 +172,11 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtime
                         source    : FLEET_COCKPIT_SOURCES.runtime,
                         state     : runtime ? 'wired' : 'not-wired',
                         confidence: runtime ? (runtime.confidence ?? 'observed') : 'none'
+                    },
+                    wake: {
+                        source    : FLEET_COCKPIT_SOURCES.wake,
+                        state     : wake ? 'wired' : 'not-wired',
+                        confidence: wake ? (wake.confidence ?? 'none') : 'none'
                     }
                 }
             }
