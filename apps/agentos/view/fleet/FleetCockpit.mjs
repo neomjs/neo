@@ -35,14 +35,6 @@ const FIXTURE_ACTIVITY = [
 ];
 
 /**
- * @summary The bounded connect window for the detail vessel admission (ms): a popup that opened
- * but never joins the shared heap inside this window takes the `failed-timeout` edge and rolls
- * back to docked. Boundedness is the contract — an admission may fail, it may never hang.
- * @type {Number}
- */
-const DETAIL_VESSEL_CONNECT_WINDOW_MS = 10000;
-
-/**
  * @summary The Fleet keeper-view — the FM cockpit's default mission-control surface (design SSOT §01),
  * composed as a LIVE DOCK PROJECTION: the fleet zone (a density-ranked card roster + the
  * scale-to-a-glance health bar) over the live activity stream in the SSOT's ~1.55fr / 1fr split,
@@ -108,6 +100,15 @@ class FleetCockpit extends Container {
          * @member {Neo.controller.Component} controller=FleetCockpitController
          */
         controller: FleetCockpitController,
+        /**
+         * The bounded connect window (ms) an opened detail vessel gets before the
+         * `failed-timeout` edge fires and the admission rolls back to docked. Boundedness is the
+         * contract — an admission may fail, it may never hang. Non-reactive class-config default:
+         * `Neo.overwrites`-eligible and instance-configurable (witnesses pass a short window at
+         * creation).
+         * @member {Number} detailVesselConnectWindowMs=10000
+         */
+        detailVesselConnectWindowMs: 10000,
         /**
          * The cockpit-level roster host — ONE provider-owned {@link AgentOS.store.FleetRoster}
          * instance (autoLoaded from the JSON sample seed) that the grid + health bar bind; the
@@ -279,14 +280,6 @@ class FleetCockpit extends Container {
      * @protected
      */
     lastDetailVesselFailure = null
-    /**
-     * The bounded connect window (ms) this instance grants an opened vessel before the
-     * `failed-timeout` edge fires. Instance-level so witnesses can exercise the timeout path
-     * deterministically; the module default is the product truth.
-     * @member {Number} detailVesselConnectWindowMs=DETAIL_VESSEL_CONNECT_WINDOW_MS
-     * @protected
-     */
-    detailVesselConnectWindowMs = DETAIL_VESSEL_CONNECT_WINDOW_MS
 
     /**
      * @summary Seed the layout SSOT and build the toolbar + dock projection as instance items —

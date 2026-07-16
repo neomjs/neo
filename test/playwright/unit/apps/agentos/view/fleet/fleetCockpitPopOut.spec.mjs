@@ -256,9 +256,18 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — detail pop-out state m
     test('bounded connect window: a vessel that never joins takes the failed-timeout edge and rolls back', async () => {
         vessel = installWindowVessel({popupUrl: null});
 
-        const pane = await revealDetail();
+        // the short window rides the class-config contract: passed at CREATION (instance config
+        // over the `static config` default), never poked onto an internal field post-construct
+        cockpit.destroy();
+        cockpit = Neo.create(FleetCockpit, {
+            detailVesselConnectWindowMs: 20,
+            stateProvider              : {
+                module: StateProvider,
+                stores: {fleetRoster: {module: FleetRoster, autoLoad: false}}
+            }
+        });
 
-        cockpit.detailVesselConnectWindowMs = 20;
+        const pane = await revealDetail();
 
         const result = await cockpit.popOutAgentDetail();
 
