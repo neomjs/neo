@@ -24,9 +24,10 @@
  * @see .agents/skills/ideation-sandbox/audits/consensus-mandate.md §quorum-rule — Tier-2 rule background
  */
 
-import { execFileSync } from 'child_process';
-import { Command }      from 'commander';
-import { IDENTITIES }   from '../../graph/identityRoots.mjs';
+import { execFileSync }              from 'child_process';
+import { Command }                   from 'commander';
+import { IDENTITIES }                from '../../graph/identityRoots.mjs';
+import { resolveResidentFamilyById } from '../../services/graph/agentFamilyResolution.mjs';
 
 export const SWEEP_VERSION = '1.0.0';
 
@@ -112,9 +113,11 @@ export function parseArgs(argv) {
  * suppressing same-family DEFERRED / VETO pressure.
  */
 export function resolveIdentitiesForFamily(family) {
+    // Era-chain-first family match ({@link resolveResidentFamilyById}); the resolver's flat
+    // fallback covers the retirement witness populations, keeping membership identical pre/post.
     const matches = IDENTITIES.filter(node =>
         node.type === 'AgentIdentity' &&
-        node.properties?.modelFamily === family
+        resolveResidentFamilyById(node.id) === family
     );
 
     if (matches.length === 0) {
@@ -233,7 +236,7 @@ export async function revalidationSweep({
     const representative = identities[0];
     const identityLogins = identities.map(identity => identity.id);
     const resolvedSince  = since || representative.properties.since;
-    const resolvedUntil = until || sweepAt;
+    const resolvedUntil  = until || sweepAt;
 
     if (!resolvedSince) {
         throw new Error(
@@ -249,7 +252,7 @@ export async function revalidationSweep({
     for (const match of matches) {
         const notification = buildNotificationBody({
             family,
-            identityLogin : representative.id,
+            identityLogin: representative.id,
             identityLogins,
             since        : resolvedSince,
             sweepAt
@@ -257,9 +260,9 @@ export async function revalidationSweep({
 
         if (dryRun) {
             results.push({
-                number      : match.number,
-                title       : match.title,
-                action      : 'DRY_RUN_WOULD_NOTIFY',
+                number: match.number,
+                title : match.title,
+                action: 'DRY_RUN_WOULD_NOTIFY',
                 notification
             });
         } else {
@@ -273,9 +276,9 @@ export async function revalidationSweep({
     }
 
     return {
-        sweepVersion: SWEEP_VERSION,
+        sweepVersion : SWEEP_VERSION,
         family,
-        identityLogin : representative.id,
+        identityLogin: representative.id,
         identityLogins,
         since        : resolvedSince,
         until        : resolvedUntil,
