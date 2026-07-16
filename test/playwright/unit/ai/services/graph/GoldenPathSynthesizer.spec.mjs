@@ -430,6 +430,53 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).not.toContain('- Merged PRs:');
     });
 
+    test('an early unavailable exit republishes honest typed state, so a prior pass route cannot still execute', async () => {
+        // The stale-route class: the early exits return before the sidecar write, so without an
+        // honest republication the PREVIOUS pass's fresh, unexpired, executable route stays on disk
+        // and a consumer keeps routing work this pass never computed.
+        const routePath  = path.join(path.dirname(tmpHandoffFile), 'computed-route.json');
+        const capturedAt = new Date(Date.now() - 60 * 1000).toISOString();
+        const expiresAt  = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+        fs.mkdirSync(path.dirname(routePath), {recursive: true});
+        fs.writeFileSync(routePath, JSON.stringify({
+            schemaVersion     : 'computed-route.v1',
+            status            : 'fresh',
+            notAuthority      : true,
+            capturedAt,
+            expiresAt,
+            routeVersion      : 'rv-prior',
+            sourceManifestHash: 'hash-prior',
+            sourceWatermark   : 'wm-prior',
+            provenance        : {producer: 'GoldenPathSynthesizer', runId: null, algorithmVersion: 'v-prior', citations: []},
+            freshness         : {status: 'fresh', checkedAt: capturedAt, expiresAt},
+            route             : {kind: 'computed-ranked', items: [{id: 'issue-9999', title: 'Prior pass executable route', score: 9.9, rank: 1}]}
+        }, null, 2), 'utf-8');
+
+        const originalGetGraphCollection = StorageRouter.getGraphCollection;
+
+        StorageRouter.getGraphCollection = async () => {
+            throw new Error('storage router unavailable')
+        };
+
+        try {
+            const outcome = await GoldenPathSynthesizer.synthesizeGoldenPath();
+
+            expect(outcome.reasonCode).toBe('storage-router-unavailable');
+        } finally {
+            StorageRouter.getGraphCollection = originalGetGraphCollection;
+        }
+
+        // This pass now owns the CURRENT typed state: the prior executable route is replaced by an
+        // honest degraded outcome, which the consumer's freshness gate refuses.
+        const republished = JSON.parse(fs.readFileSync(routePath, 'utf-8'));
+
+        expect(republished.status).toBe('degraded');
+        expect(republished.freshness.status).toBe('unverifiable');
+        expect(republished.route.kind).toBe('none');
+        expect(republished.route.items).toEqual([]);
+    });
+
     test('synthesizeGoldenPath overwrites stale author sections when semantic candidates are empty', async () => {
         const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
@@ -1663,6 +1710,20 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(computedSection).toContain('> **Strategic Interpretation:**\n> stub');
         expect(computedSection).not.toContain(epicId);    // epic label still excluded from rendered recommendations
         expect(computedSection).not.toContain(notReadyId);
+
+        // Handoff-parity pin: the human section and the typed route describe the SAME route. The
+        // section renders FROM route.items, so an id-set/order divergence is structurally impossible
+        // — this pins that the two representations cannot drift apart again.
+        const typedRoute  = JSON.parse(fs.readFileSync(path.join(path.dirname(tmpHandoffFile), 'computed-route.json'), 'utf-8')),
+              renderedIds = [...computedSection.matchAll(/^\d+\. \*\*([^*]+)\*\*:/gm)].map(match => match[1]);
+
+        expect(typedRoute.route.kind).toBe('computed-ranked');
+        expect(typedRoute.route.items.map(item => item.id)).toEqual([discussionId, readyId]);
+        expect(renderedIds).toEqual(typedRoute.route.items.map(item => item.id));
+
+        // Route/advisory separation: a ranked route carries no declared-intent advisory items, so the
+        // advisory can never be mistaken for the executable slot.
+        expect(typedRoute.advisoryFallback?.items ?? []).toEqual([]);
     });
 
     test('synthesizeGoldenPath renders a contradiction diagnostic for blog routing during PRIO-zero focus (#13849)', async () => {

@@ -6,9 +6,6 @@ import Neo               from '../../../../src/Neo.mjs';
 import * as core         from '../../../../src/core/_export.mjs';
 import AgentOrchestrator from '../../../../ai/agent/AgentOrchestrator.mjs';
 
-import {findComputedFocusContradiction, renderComputedGoldenPathContradictionSection} from '../../../../ai/services/graph/computedGoldenPathRouting.mjs';
-import {rankByDeclaredIntent, renderDeclaredIntentFallback}                           from '../../../../ai/services/graph/goldenPathPickupBridge.mjs';
-
 /**
  * @summary Creates a private outcome directory for one fully-parallel test so another test's
  * cleanup cannot remove its JSONL evidence.
@@ -19,10 +16,29 @@ const createOutcomePath = filename => path.join(
           fs.mkdtempSync(path.join(os.tmpdir(), 'neo-test-agent-orchestrator-')),
           filename
       ),
-      createTestHandoff = (filename, content) => {
-          const filePath = path.resolve(process.cwd(), filename);
-          fs.writeFileSync(filePath, content, 'utf-8');
-          return filePath;
+      // A fixture representing a FRESH route must carry a complete freshness proof: a real future
+      // expiry, matching freshness, and named provenance. An absent expiry is a falsifier case
+      // below — never the happy-path default (a fixture without one silently blesses a bypass).
+      writeComputedRoute = (items, {kind = 'computed-ranked', extra = {}} = {}) => {
+          const dir        = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-test-agent-route-')),
+                capturedAt = new Date(Date.now() - 60 * 1000).toISOString(),
+                expiresAt  = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+          fs.writeFileSync(path.join(dir, 'computed-route.json'), JSON.stringify({
+              schemaVersion     : 'computed-route.v1',
+              status            : 'fresh',
+              notAuthority      : true,
+              capturedAt,
+              expiresAt,
+              routeVersion      : 'rv-test',
+              sourceManifestHash: 'hash-test',
+              sourceWatermark   : 'wm-test',
+              provenance        : {producer: 'GoldenPathSynthesizer', runId: null, algorithmVersion: 'v-test', citations: []},
+              freshness         : {status: 'fresh', checkedAt: capturedAt, expiresAt},
+              route             : {kind, items},
+              ...extra
+          }), 'utf-8');
+          return path.join(dir, 'sandman_handoff.md');
       },
       readJsonl = filePath => fs.readFileSync(filePath, 'utf-8')
           .trim()
@@ -69,157 +85,140 @@ const createOutcomePath = filename => path.join(
       };
 
 test.describe('Neo.ai.agent.AgentOrchestrator', () => {
-    test('Golden Path regex correctly extracts issue IDs and descriptions', async () => {
-        const content = `
-# Autonomous Handoff
+    test('readComputedRoute maps the typed computed-ranked route to issue directives', () => {
+        const handoffPath = writeComputedRoute([
+            {id: 'issue-9900', title: 'docs: restructure CodebaseOverview "Query Entry Points"'},
+            {id: 'issue-9844', title: 'feat: Implement Safe Commit Pipeline'}
+        ]);
 
-## Computed Golden Path (Strategic Recommendation)
+        const orchestrator = Neo.create(AgentOrchestrator, {handoffPath});
+        const directives   = orchestrator.readComputedRoute();
 
-Based on priorities, the following tasks are mathematically recommended:
-
-1. **issue-9900**: Score 3.25 (Semantic: 1.12, Structural: 1.00)
-   - *docs: restructure CodebaseOverview "Query Entry Points" to lead with ask_knowledge_base*
-2. **issue-9844**: Score 2.08 (Semantic: 1.04, Structural: 0.00)
-   - *feat: Implement Safe Commit Pipeline for Autonomous Agent Execution*
-
-> **Strategic Interpretation:**
-> Pivot memory synthesis.
-`;
-
-        const testHandoffPath = createTestHandoff('.neo-test-handoff.md', content);
-
-        try {
-            const orchestrator = Neo.create(AgentOrchestrator, {
-                handoffPath: testHandoffPath
-            });
-
-            const directives = orchestrator.parseGoldenPath();
-
-            test.expect(directives).not.toBeNull();
-            test.expect(directives.length).toBe(2);
-            test.expect(directives[0].issueId).toBe('9900');
-            test.expect(directives[0].description).toBe('docs: restructure CodebaseOverview "Query Entry Points" to lead with ask_knowledge_base');
-            test.expect(directives[1].issueId).toBe('9844');
-        } finally {
-            if (fs.existsSync(testHandoffPath)) {
-                fs.unlinkSync(testHandoffPath);
-            }
-        }
+        test.expect(directives.length).toBe(2);
+        test.expect(directives[0].issueId).toBe('9900');
+        test.expect(directives[0].description).toBe('docs: restructure CodebaseOverview "Query Entry Points"');
+        test.expect(directives[1].issueId).toBe('9844');
     });
 
-    test('Golden Path parser ignores visibility-only Silent Threads', async () => {
-        const content = `
-# Autonomous Handoff
-
-## Silent Threads
-
-- **[#7777](https://github.com/neomjs/neo/issues/7777)** — Quiet issue — 30 days idle; visibility-only, no routing
-
-## Computed Golden Path (Strategic Recommendation)
-
-1. **issue-9900**: Score 3.25 (Semantic: 1.12, Structural: 1.00)
-   - *docs: restructure CodebaseOverview "Query Entry Points" to lead with ask_knowledge_base*
-`;
-
-        const testHandoffPath = createTestHandoff('.neo-test-handoff-silent.md', content);
-
-        try {
-            const orchestrator = Neo.create(AgentOrchestrator, {
-                handoffPath: testHandoffPath
-            });
-
-            const directives = orchestrator.parseGoldenPath();
-
-            test.expect(directives).not.toBeNull();
-            test.expect(directives.length).toBe(1);
-            test.expect(directives[0].issueId).toBe('9900');
-            test.expect(directives.map(directive => directive.issueId)).not.toContain('7777');
-        } finally {
-            if (fs.existsSync(testHandoffPath)) {
-                fs.unlinkSync(testHandoffPath);
-            }
-        }
-    });
-
-    test('the current-focus contradiction fallback render round-trips through parseGoldenPath (the never-empty floor actually routes)', async () => {
-        // The producer render (routing module) and the consumer parser (this class) form a byte-format
-        // contract. A render-substring assertion is NOT proof of routability — only feeding the real
-        // render through the real parser is. This guards the regression where the focus-as-route rows
-        // lacked the `- *…*` continuation line and silently extracted ZERO directives.
-        const contradiction = findComputedFocusContradiction({
-            currentFocusCandidates: [{number: 14988, reasons: ['incident'], labels: ['bug'], title: 'Fleet auth restart supervised'}],
-            topNodes              : [{
-                node : {id: 'issue-200', type: 'ISSUE', properties: {labels: ['documentation'], title: 'docs: release notes'}},
-                score: 1, semantic: 1, structural: 0
-            }]
+    test('readComputedRoute fail-open: a missing sidecar yields zero directives', () => {
+        const orchestrator = Neo.create(AgentOrchestrator, {
+            handoffPath: path.join(os.tmpdir(), 'neo-test-no-such-dir-xyz', 'sandman_handoff.md')
         });
 
-        test.expect(contradiction).not.toBeNull();
-
-        const section = renderComputedGoldenPathContradictionSection({contradiction, stats: {}, renderLimit: 5}),
-              content = `# Autonomous Handoff\n${section}`,
-              handoff = createTestHandoff('.neo-test-handoff-contradiction.md', content);
-
-        try {
-            const orchestrator = Neo.create(AgentOrchestrator, {handoffPath: handoff}),
-                  directives   = orchestrator.parseGoldenPath();
-
-            test.expect(directives).not.toBeNull();
-            test.expect(directives.length).toBe(1);
-            test.expect(directives[0].issueId).toBe('14988');
-            // the blocked content candidate is diagnostic-only, never a routed directive
-            test.expect(directives.map(directive => directive.issueId)).not.toContain('200');
-        } finally {
-            if (fs.existsSync(handoff)) {
-                fs.unlinkSync(handoff);
-            }
-        }
+        test.expect(orchestrator.readComputedRoute()).toEqual([]);
     });
 
-    test('the declared-intent frontier-empty fallback render yields ZERO parseGoldenPath directives (advisory, not executed route — by design)', async () => {
-        // The declared-intent fallback is a provisional cold-cache rescue, explicitly "not the semantic
-        // ranking" and additive-never-gating per the direction contract. It renders as a separate `### …`
-        // section with `#N` rows so the executed-route parser deliberately does NOT consume it. Elevating
-        // it into the executed route would make declared intent gate execution — this locks the boundary.
-        const section = renderDeclaredIntentFallback(
-                  rankByDeclaredIntent([{id: '14620', inOpenEpic: true, epicActivity: 3, blocked: false, filedAt: '2026-07-10'}]),
-                  5,
-                  {code: 'COLD_START', phrase: 'cold cache'}
-              ),
-              content = `# Autonomous Handoff\n${section}`,
-              handoff = createTestHandoff('.neo-test-handoff-declared-intent.md', content);
+    test('readComputedRoute routes a current-focus-substitution route — the never-empty floor is preserved', () => {
+        // When every computed candidate is blocked by live Current Focus, the producer emits a
+        // current-focus-substitution route carrying the actionable focus item; the consumer routes it.
+        // The blocked content candidate is diagnostic-only and never appears in route.items.
+        const handoffPath = writeComputedRoute(
+            [{id: 'issue-14988', title: 'Fleet auth restart supervised'}],
+            {kind: 'current-focus-substitution'}
+        );
 
-        try {
-            const orchestrator = Neo.create(AgentOrchestrator, {handoffPath: handoff}),
-                  directives   = orchestrator.parseGoldenPath();
+        const orchestrator = Neo.create(AgentOrchestrator, {handoffPath});
+        const directives   = orchestrator.readComputedRoute();
 
-            // section-shaped but non-executable: no `**issue-N**:` rows → an empty directive list, never a route
-            test.expect(directives).toEqual([]);
-        } finally {
-            if (fs.existsSync(handoff)) {
-                fs.unlinkSync(handoff);
+        test.expect(directives.length).toBe(1);
+        test.expect(directives[0].issueId).toBe('14988');
+        test.expect(directives.map(directive => directive.issueId)).not.toContain('200');
+    });
+
+    test('readComputedRoute does NOT route declared-intent advisory items — advisory, not executed route', () => {
+        // The declared-intent fallback is an empty route (kind none) carrying advisory context only.
+        // Routing it would make declared intent gate execution; the executable slot is route.items only.
+        const handoffPath = writeComputedRoute([], {
+            kind : 'none',
+            extra: {
+                status          : 'empty',
+                advisoryFallback: {
+                    kind  : 'declared-intent',
+                    status: 'available',
+                    items : [{id: 'issue-14620', title: 'Unblocked epic leaf'}]
+                }
             }
-        }
+        });
+
+        const orchestrator = Neo.create(AgentOrchestrator, {handoffPath});
+
+        test.expect(orchestrator.readComputedRoute()).toEqual([]);
+    });
+
+    test('readComputedRoute REFUSES a route carrying no expiresAt — absent freshness proof is never read as freshness', () => {
+        // The exact bypass the consumer previously carried: an `expiresAt &&` guard skipped the
+        // expiry gate whenever the field was absent, so a route with no freshness proof executed.
+        // JSON.stringify drops the undefined key, reproducing a sidecar written without an expiry.
+        const handoffPath = writeComputedRoute(
+            [{id: 'issue-1', title: 'Must not route without an expiry'}],
+            {extra: {expiresAt: undefined}}
+        );
+
+        const orchestrator = Neo.create(AgentOrchestrator, {handoffPath});
+
+        test.expect(orchestrator.readComputedRoute()).toEqual([]);
+    });
+
+    test('readComputedRoute REFUSES an expired route', () => {
+        const past        = new Date(Date.now() - 60 * 1000).toISOString(),
+              handoffPath = writeComputedRoute(
+                  [{id: 'issue-1', title: 'Expired route'}],
+                  {extra: {expiresAt: past, freshness: {status: 'fresh', checkedAt: past, expiresAt: past}}}
+              );
+
+        const orchestrator = Neo.create(AgentOrchestrator, {handoffPath});
+
+        test.expect(orchestrator.readComputedRoute()).toEqual([]);
+    });
+
+    test('readComputedRoute REFUSES an executable route carried under a non-fresh status', () => {
+        // A stale/degraded/missing pass outcome must never route, even when it carries a populated
+        // executable slot — that combination is a producer breach, not a route to run.
+        const handoffPath = writeComputedRoute(
+            [{id: 'issue-1', title: 'Executable slot under a stale status'}],
+            {extra: {status: 'stale'}}
+        );
+
+        const orchestrator = Neo.create(AgentOrchestrator, {handoffPath});
+
+        test.expect(orchestrator.readComputedRoute()).toEqual([]);
+    });
+
+    test('readComputedRoute REFUSES the WHOLE route when any item is malformed', () => {
+        // Never a partial route: executing only the well-formed subset would silently drop work the
+        // producer believed it had routed.
+        const handoffPath = writeComputedRoute([
+            {id: 'issue-1', title: 'Well formed'},
+            {id: 'issue-2'}
+        ]);
+
+        const orchestrator = Neo.create(AgentOrchestrator, {handoffPath});
+
+        test.expect(orchestrator.readComputedRoute()).toEqual([]);
+    });
+
+    test('readComputedRoute REFUSES an unattributed route (no provenance.producer)', () => {
+        const handoffPath = writeComputedRoute(
+            [{id: 'issue-1', title: 'Unattributed route'}],
+            {extra: {provenance: {runId: null, algorithmVersion: 'v-test', citations: []}}}
+        );
+
+        const orchestrator = Neo.create(AgentOrchestrator, {handoffPath});
+
+        test.expect(orchestrator.readComputedRoute()).toEqual([]);
     });
 
     test('execute records completed outcomes for exhausted Golden Path directives', async () => {
-        const content = `
-# Autonomous Handoff
-
-## Computed Golden Path (Strategic Recommendation)
-
-1. **issue-9900**: Score 3.25 (Semantic: 1.12, Structural: 1.00)
-   - *docs: restructure CodebaseOverview "Query Entry Points" to lead with ask_knowledge_base*
-2. **issue-9844**: Score 2.08 (Semantic: 1.04, Structural: 0.00)
-   - *feat: Implement Safe Commit Pipeline for Autonomous Agent Execution*
-`;
-
-        const testHandoffPath = createTestHandoff('.neo-test-handoff-outcomes.md', content),
+        const testHandoffPath = writeComputedRoute([{id: 'issue-9900', title: 'docs: restructure CodebaseOverview'}, {id: 'issue-9844', title: 'feat: Safe Commit Pipeline'}]),
               outcomePath     = createOutcomePath('completed.jsonl'),
               fakeAgent       = createFakeAgent(),
               healthCalls     = [],
               exitCodes       = [],
+              // Consumed in call order: the first tick is readComputedRoute's route-expiry check,
+              // then the outcome start/end. Route admission always costs one now() read — the
+              // consumer checks expiry unconditionally rather than skipping it when absent.
               times           = [
+                  '2026-06-06T08:00:00.000Z',
                   '2026-06-06T08:00:00.000Z',
                   '2026-06-06T08:00:03.000Z'
               ];
@@ -277,16 +276,7 @@ Based on priorities, the following tasks are mathematically recommended:
     });
 
     test('execute records failed outcomes for Golden Path dead-letter events', async () => {
-        const content = `
-# Autonomous Handoff
-
-## Computed Golden Path (Strategic Recommendation)
-
-1. **issue-9900**: Score 3.25 (Semantic: 1.12, Structural: 1.00)
-   - *docs: restructure CodebaseOverview "Query Entry Points" to lead with ask_knowledge_base*
-`;
-
-        const testHandoffPath = createTestHandoff('.neo-test-handoff-failed.md', content),
+        const testHandoffPath = writeComputedRoute([{id: 'issue-9900', title: 'docs: restructure CodebaseOverview'}]),
               outcomePath     = createOutcomePath('failed.jsonl'),
               handoffCalls    = [],
               healthCalls     = [],
@@ -344,16 +334,7 @@ Based on priorities, the following tasks are mathematically recommended:
     });
 
     test('execute records blocked outcomes for blocked-task-state dead-letter events', async () => {
-        const content = `
-# Autonomous Handoff
-
-## Computed Golden Path (Strategic Recommendation)
-
-1. **issue-9900**: Score 3.25 (Semantic: 1.12, Structural: 1.00)
-   - *docs: restructure CodebaseOverview "Query Entry Points" to lead with ask_knowledge_base*
-`;
-
-        const testHandoffPath = createTestHandoff('.neo-test-handoff-blocked.md', content),
+        const testHandoffPath = writeComputedRoute([{id: 'issue-9900', title: 'docs: restructure CodebaseOverview'}]),
               outcomePath     = createOutcomePath('blocked.jsonl'),
               failedEvents    = [{
                   error: 'blocked-task-state: credentials required',
@@ -396,16 +377,7 @@ Based on priorities, the following tasks are mathematically recommended:
     });
 
     test('execute records expired outcomes when execution timeout fires', async () => {
-        const content = `
-# Autonomous Handoff
-
-## Computed Golden Path (Strategic Recommendation)
-
-1. **issue-9900**: Score 3.25 (Semantic: 1.12, Structural: 1.00)
-   - *docs: restructure CodebaseOverview "Query Entry Points" to lead with ask_knowledge_base*
-`;
-
-        const testHandoffPath = createTestHandoff('.neo-test-handoff-expired.md', content),
+        const testHandoffPath = writeComputedRoute([{id: 'issue-9900', title: 'docs: restructure CodebaseOverview'}]),
               outcomePath     = createOutcomePath('expired.jsonl'),
               exitCodes       = [],
               handoffCalls    = [];
@@ -449,20 +421,14 @@ Based on priorities, the following tasks are mathematically recommended:
     });
 
     test('execute records crashed outcome and handoff id when agent bootstrap fails', async () => {
-        const content = `
-# Autonomous Handoff
-
-## Computed Golden Path (Strategic Recommendation)
-
-1. **issue-9920**: Score 4.00 (Semantic: 1.00, Structural: 1.00)
-   - *Golden Path issue-task failure envelope and requeue policy*
-`;
-
-        const testHandoffPath = createTestHandoff('.neo-test-handoff-crashed.md', content),
+        const testHandoffPath = writeComputedRoute([{id: 'issue-9920', title: 'Golden Path failure envelope'}]),
               outcomePath     = createOutcomePath('crashed.jsonl'),
               initError       = new Error('boot failed'),
               handoffCalls    = [],
+              // Consumed in call order: the first tick is readComputedRoute's route-expiry check,
+              // then the outcome start/end.
               times           = [
+                  '2026-06-06T09:00:00.000Z',
                   '2026-06-06T09:00:00.000Z',
                   '2026-06-06T09:00:01.000Z'
               ];
@@ -514,16 +480,7 @@ Based on priorities, the following tasks are mathematically recommended:
     });
 
     test('health projection failures do not block JSONL outcome persistence', async () => {
-        const content = `
-# Autonomous Handoff
-
-## Computed Golden Path (Strategic Recommendation)
-
-1. **issue-9900**: Score 3.25 (Semantic: 1.12, Structural: 1.00)
-   - *docs: restructure CodebaseOverview "Query Entry Points" to lead with ask_knowledge_base*
-`;
-
-        const testHandoffPath = createTestHandoff('.neo-test-handoff-health-fallback.md', content),
+        const testHandoffPath = writeComputedRoute([{id: 'issue-9900', title: 'docs: restructure CodebaseOverview'}]),
               outcomePath     = createOutcomePath('health-fallback.jsonl'),
               exitCodes       = [];
 

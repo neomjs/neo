@@ -569,6 +569,12 @@ class Config extends ConfigProvider {
              */
             goldenPathActivePrStateFreshnessMs: leaf(60 * 60 * 1000, 'NEO_GOLDEN_PATH_ACTIVE_PR_STATE_FRESHNESS_MS', 'number'),
             /**
+             * Freshness TTL (ms) stamped onto the typed computed-route result's `expiresAt`. A
+             * route older than this is treated as stale rather than implied-current. Defaults to 1h.
+             * @type {number}
+             */
+            goldenPathRouteTtlMs: leaf(60 * 60 * 1000, 'NEO_GOLDEN_PATH_ROUTE_TTL_MS', 'number'),
+            /**
              * Maximum Golden Path priority nodes rendered into the Sandman handoff. The
              * Golden Path is the one section that earns more depth than the 5-row
              * convention applied to every other category; defaults to 10.

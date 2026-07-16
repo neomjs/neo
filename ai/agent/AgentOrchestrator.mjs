@@ -1,8 +1,9 @@
-import Base   from '../../src/core/Base.mjs';
-import Agent  from '../Agent.mjs';
-import crypto from 'crypto';
-import fs     from 'fs';
-import path   from 'path';
+import Base                          from '../../src/core/Base.mjs';
+import Agent                         from '../Agent.mjs';
+import crypto                        from 'crypto';
+import fs                            from 'fs';
+import path                          from 'path';
+import {validateComputedRouteResult} from '../services/graph/computedRouteResult.mjs';
 
 const OUTCOME_STATUSES = new Set(['completed', 'failed', 'blocked', 'expired', 'exhausted', 'crashed']),
       REASON_CODES     = new Set([
@@ -19,9 +20,10 @@ const OUTCOME_STATUSES = new Set(['completed', 'failed', 'blocked', 'expired', '
       RETRY_POLICIES    = new Set(['preserve-urgency', 'demote-next-cycle', 'blocked-handoff', 'no-retry']);
 
 /**
- * Parses sandman_handoff.md and injects the resulting directives into a headless agent loop.
- * Golden Path scoring remains owned by graph synthesis; this runner only records
- * terminal issue-task outcomes so later cycles can reason from durable evidence.
+ * Reads the typed computed-route.v1 sidecar (computed-route.json) written by GoldenPathSynthesizer
+ * and injects its executable route as directives into a headless agent loop. Golden Path scoring
+ * remains owned by graph synthesis; this runner only records terminal issue-task outcomes so later
+ * cycles can reason from durable evidence.
  * @class Neo.ai.agent.AgentOrchestrator
  * @extends Neo.core.Base
  */
@@ -80,36 +82,85 @@ class AgentOrchestrator extends Base {
     }
 
     /**
-     * Parses the golden path handoff document using semantic regex.
-     * @returns {Array<{issueId: String, description: String}>|null}
+     * Reads the typed computed-route.v1 sidecar and returns its executable route as directives.
+     * Only `route.items` (the executable slot) becomes directives; the declared-intent advisory is
+     * context and is never routed.
+     *
+     * Every admission axis fails CLOSED to an empty directive list — the orchestrator then exits
+     * cleanly, never throwing. A route is refused when it is missing, unreadable, contract-invalid,
+     * not fresh (status/freshness), lacking a parseable capturedAt/expiresAt, expired, unattributed
+     * (no provenance.producer), or carrying a malformed item. Absence of freshness proof is never
+     * read as freshness: a route with no expiry is refused rather than bypassing the expiry gate,
+     * and a malformed item set rejects the whole route rather than executing its well-formed subset.
+     * @returns {Array<{issueId: String, description: String}>}
      */
-    parseGoldenPath() {
-        if (!fs.existsSync(this.handoffPath)) {
-            console.warn(`[AgentOrchestrator] No handoff file found at ${this.handoffPath}`);
-            return null;
+    readComputedRoute() {
+        const routePath = path.join(path.dirname(this.handoffPath), 'computed-route.json');
+
+        if (!fs.existsSync(routePath)) {
+            console.warn(`[AgentOrchestrator] No computed-route.json sidecar found at ${routePath}`);
+            return [];
         }
 
-        const content         = fs.readFileSync(this.handoffPath, 'utf-8');
-        const goldenPathMatch = content.match(/## Computed Golden Path[^\n]*\n([\s\S]*?)(?=\n#|$)/);
-
-        if (!goldenPathMatch) {
-             console.warn('[AgentOrchestrator] No "## Computed Golden Path" section found.');
-             return null;
+        let result;
+        try {
+            result = JSON.parse(fs.readFileSync(routePath, 'utf-8'));
+        } catch (error) {
+            console.warn(`[AgentOrchestrator] computed-route.json is unreadable: ${error.message}`);
+            return [];
         }
 
-        const sectionChunk = goldenPathMatch[1];
-        const directives   = [];
-        const regex        = /\d+\.\s\*\*issue-(\d+)\*\*:[^\n]*\n\s+-\s\*(.*?)\*/g;
-        let match;
-
-        while ((match = regex.exec(sectionChunk)) !== null) {
-            directives.push({
-                issueId    : match[1],
-                description: match[2].trim()
-            });
+        const {valid, errors} = validateComputedRouteResult(result);
+        if (!valid) {
+            console.warn(`[AgentOrchestrator] computed-route.json failed contract validation: ${errors.join('; ')}`);
+            return [];
         }
 
-        return directives;
+        // Only a FRESH route is executable. Empty/missing/stale/degraded are honest pass outcomes,
+        // never a route to run: an executable slot carried under a non-fresh status is a producer
+        // breach and must not reach the agent loop.
+        if (result.status !== 'fresh' || result.freshness?.status !== 'fresh') {
+            console.warn(`[AgentOrchestrator] computed-route.json is not fresh (status=${result.status}, freshness=${result.freshness?.status}); not routing.`);
+            return [];
+        }
+
+        // Timestamps are REQUIRED, not optional. A route with no parseable capture/expiry carries no
+        // freshness proof, so it can never be treated as current — a missing expiry fails CLOSED
+        // rather than bypassing the expiry gate.
+        const capturedAtMs = Date.parse(result.capturedAt ?? ''),
+              expiresAtMs  = Date.parse(result.expiresAt ?? '');
+
+        if (!Number.isFinite(capturedAtMs) || !Number.isFinite(expiresAtMs)) {
+            console.warn('[AgentOrchestrator] computed-route.json lacks a parseable capturedAt/expiresAt; not routing an unprovenanced route.');
+            return [];
+        }
+
+        if (expiresAtMs <= this.now().getTime()) {
+            console.warn(`[AgentOrchestrator] computed-route.json expired at ${result.expiresAt}; not routing a stale route.`);
+            return [];
+        }
+
+        // An unattributed route is not routable: provenance must name the producing pass.
+        if (typeof result.provenance?.producer !== 'string' || result.provenance.producer.length === 0) {
+            console.warn('[AgentOrchestrator] computed-route.json carries no provenance.producer; not routing an unattributed route.');
+            return [];
+        }
+
+        // A malformed item set is a contract breach, not a partial route to run — reject the whole
+        // route rather than silently executing the well-formed subset.
+        const items     = result.route.items,
+              malformed = items.find(item => typeof item?.id !== 'string' || item.id.length === 0 ||
+                                             typeof item?.title !== 'string' || item.title.length === 0);
+
+        if (malformed) {
+            console.warn(`[AgentOrchestrator] computed-route.json contains a malformed route item (${JSON.stringify(malformed)}); not routing.`);
+            return [];
+        }
+
+        return items.map(item => ({
+            issueId    : String(item.id).replace(/^issue-/, ''),
+            description: item.title
+        }));
     }
 
     /**
@@ -384,7 +435,7 @@ class AgentOrchestrator extends Base {
     async execute({ dryRun = false, runId = `agent-orchestrator-${crypto.randomUUID()}` } = {}) {
         console.log('⏳ Initializing Neo AgentOrchestrator...');
 
-        const directives = this.parseGoldenPath();
+        const directives = this.readComputedRoute();
 
         if (!directives || directives.length === 0) {
             console.log('✅ No immediate Golden Path directives found. AgentOrchestrator exiting cleanly.');
