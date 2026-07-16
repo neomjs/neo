@@ -340,7 +340,7 @@ class FleetControlBridge extends Base {
      * accordingly rather than duplicated.
      * @returns {Object} the serializable cockpit DTO `{sources, capabilities, rows, events}`.
      */
-    fleetRoster() {
+    async fleetRoster() {
         const
             me       = this,
             registry = me.getRegistry(),
@@ -354,17 +354,25 @@ class FleetControlBridge extends Base {
             authMode  : getHarnessAuthMode(agent.harnessType)
         }));
 
+        // The S2 wake axis joins the roster here: the producer snapshot (subscription intent ×
+        // daemon liveness, entrypoint-injected sources) becomes per-row wake telltale state + one
+        // wake capability. Fail-honest end to end: an un-injected producer — or a manager seam
+        // without the producer method at all — yields not-wired/unknown, never a guessed state.
+        const wake = await manager.fleetWakeStatus?.() ?? null;
+
         return createFleetCockpitStatus({
             agents,
             fleetStatus  : manager.fleetRepoStatus() ?? [],
             runtimeStatus: manager.fleetRuntimeStatus() ?? [],
+            wakeStatus   : wake?.states ?? [],
             capabilities : {
                 activity: createNotWiredCapability(FLEET_COCKPIT_SOURCES.activity, 'activity rides the dedicated fleetActivity verb'),
                 runtime : {
                     source    : FLEET_COCKPIT_SOURCES.runtime,
                     state     : 'wired',
                     confidence: 'observed'
-                }
+                },
+                wake: wake?.capability ?? createNotWiredCapability(FLEET_COCKPIT_SOURCES.wake, 'wake-state producer not wired')
             }
         });
     }

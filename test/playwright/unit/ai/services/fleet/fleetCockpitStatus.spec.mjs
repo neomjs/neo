@@ -244,4 +244,40 @@ test.describe('fleetCockpitStatus - Body-side cockpit DTO contract', () => {
         expect(() => createFleetCockpitEvent({type: 'lifecycle-request'})).toThrow('source is required')
         expect(() => createFleetCockpitEvent({type: 'free-form', source: FLEET_COCKPIT_SOURCES.lifecycle})).toThrow('unsupported event type')
     })
+
+    // The wake row's `state` is CLOSED over the S2 four-state taxonomy. The wiring fact belongs to
+    // the capability + `sources.wake`; leaking it into the observation field would hand every
+    // consumer a fifth value it never agreed to switch on.
+    test('an unwired wake producer reads unknown/none in the ROW, and not-wired only in the wiring axes', () => {
+        const snapshot = createFleetCockpitStatus({agents: [{id: 'grace', githubUsername: 'neo-opus-grace'}]}),
+              row      = snapshot.rows[0]
+
+        expect(row.wake).toEqual({
+            source    : FLEET_COCKPIT_SOURCES.wake,
+            state     : 'unknown',
+            confidence: 'none',
+            reason    : 'wake-state producer not wired'
+        })
+        expect(row.sources.wake).toMatchObject({state: 'not-wired', confidence: 'none'})
+        expect(snapshot.capabilities.wake).toMatchObject({state: 'not-wired'})
+    })
+
+    test('wake row state stays inside the four-state taxonomy for every producer answer, wired or not', () => {
+        const agents   = [{id: 'grace'}, {id: 'vega'}, {id: 'euclid'}, {id: 'ada'}],
+              snapshot = createFleetCockpitStatus({
+                  agents,
+                  wakeStatus: [
+                      {agentId: 'grace',  wake: 'on',        confidence: 'observed'},
+                      {agentId: 'vega',   wake: 'suppressed', confidence: 'observed'},
+                      {agentId: 'euclid', wake: 'unknown',    confidence: 'none', reason: 'graph offline'}
+                      // 'ada' has no producer row at all — absence must read unknown.
+                  ]
+              })
+
+        expect(snapshot.rows.map(row => row.wake.state)).toEqual(['on', 'suppressed', 'unknown', 'unknown'])
+
+        for (const row of snapshot.rows) {
+            expect(['on', 'off', 'suppressed', 'unknown']).toContain(row.wake.state)
+        }
+    })
 })

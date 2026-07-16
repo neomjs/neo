@@ -212,7 +212,7 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
 
     // ---- fleetRoster: the assembled cockpit DTO with the identity join (the Brain-side assembler) ----
 
-    test('fleetRoster assembles roster + repo + runtime and joins identity display facts through the resolver seam', () => {
+    test('fleetRoster assembles roster + repo + runtime and joins identity display facts through the resolver seam', async () => {
         registryStub.listAgents = () => {
             calls.push(['listAgents']);
             return [
@@ -229,7 +229,7 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
             return login === 'neo-gpt' ? {family: 'gpt', engineTag: 'GPT-5.6 Sol'} : {family: null, engineTag: null};
         };
 
-        const dto = FleetControlBridge.fleetRoster();
+        const dto = await FleetControlBridge.fleetRoster();
 
         // the resolver was consulted once per agent, keyed by githubUsername
         expect(calls).toContainEqual(['resolveIdentityDisplay', 'neo-gpt']);
@@ -257,12 +257,12 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
         expect(dto.capabilities.runtime.state).toBe('wired');
     });
 
-    test('fleetRoster defaults the resolver to the identity-roots join when not injected — family real, engineTag honestly null', () => {
+    test('fleetRoster defaults the resolver to the identity-roots join when not injected — family real, engineTag honestly null', async () => {
         registryStub.listAgents        = () => [{id: 'neo-gpt', githubUsername: 'neo-gpt', harnessType: 'codex'}];
         managerStub.fleetRepoStatus    = () => [];
         managerStub.fleetRuntimeStatus = () => [];
 
-        const [row] = FleetControlBridge.fleetRoster().rows;
+        const [row] = (await FleetControlBridge.fleetRoster()).rows;
 
         // compare against the LIVE root: family is the stable identity fact the roots CAN answer;
         // engineTag stays null until a truthful current-engine source exists (session/era metadata)
@@ -270,7 +270,7 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
         expect(row.engineTag).toBeNull();
     });
 
-    test('fleetRoster stamps launch-derived truth per row — templated families carry their auth mode, native-neo stays honestly unlaunchable', () => {
+    test('fleetRoster stamps launch-derived truth per row — templated families carry their auth mode, native-neo stays honestly unlaunchable', async () => {
         registryStub.listAgents = () => [
             {id: 'desk',   githubUsername: 'desk-gh',   harnessType: 'claude-desktop'},
             {id: 'cli',    githubUsername: 'cli-gh',    harnessType: 'codex'},
@@ -281,7 +281,7 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
         managerStub.fleetRuntimeStatus = () => [];
         FleetControlBridge.identityResolver = () => ({family: null, engineTag: null});
 
-        const rows = FleetControlBridge.fleetRoster().rows;
+        const rows = (await FleetControlBridge.fleetRoster()).rows;
 
         // DERIVED at read time from the launch seam (LAUNCHABLE_HARNESS_TYPES / getHarnessAuthMode)
         // — a family flips cockpit-launchable exactly when its launch template lands; there is no
