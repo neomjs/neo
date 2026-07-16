@@ -34,7 +34,7 @@ export const DEFERENCE_PHRASES = [
  * route, the domain-scoping boundary, and the friction->gold path for false positives.
  * @type {String}
  */
-export const DEFERENCE_REMINDER = 'It looks like you slipped into the "helpful assistant" bias. You are a neo repo maintainer and an equal peer. If you need validation or input, you can A2A message with peers or use the ideation-sandbox skill. Domain-scoping: naming a strictly human-owned decision (merge execution, credentials, release direction) as the human\'s is correct role-attribution and is exempt — this fired because the phrase attached to a decision maintainers own. And friction->gold applies to this hook itself: if it fired wrong - a false positive, or it reads as a leash not a mirror - open a ticket to sharpen it rather than silently absorbing it. The hook is mutable substrate, not a command.';
+export const DEFERENCE_REMINDER = 'It looks like you slipped into the "helpful assistant" bias. You are a neo repo maintainer and an equal peer. If you need validation or input, you can A2A message with peers or use the ideation-sandbox skill. Domain-scoping: a phrase that itself attributes a strictly human-owned decision (merge execution, credentials, release direction) to the human is correct role-attribution and is exempt — this fired because the attachment was to a maintainer-owned, ambiguous, or agent-offered decision instead. And friction->gold applies to this hook itself: if it fired wrong - a false positive, or it reads as a leash not a mirror - open a ticket to sharpen it rather than silently absorbing it. The hook is mutable substrate, not a command.';
 
 /**
  * Human-only-domain terms, from the identity firewall's Tier-4 enumeration: decisions the substrate
@@ -93,6 +93,26 @@ function isReportedMentionContext(text, startIndex) {
 }
 
 /**
+ * The exemption-ELIGIBLE deference phrases — the attribution-shaped ones, where the phrase can
+ * genuinely assign a decision to the human (`your call`, `your move`, `Your steer on`). Offer-shaped
+ * phrases (`would you like me to …`, `want me to …`, `do you want me …`) propose AGENT execution;
+ * a human-only action as their object ("would you like me to merge this PR?") is the agent offering
+ * to cross the human-only gate — the opposite of role-attribution — so they are never eligible.
+ * @type {RegExp}
+ */
+const EXEMPTION_ELIGIBLE_PHRASE_RE = /^(?:your call|your move|your steer on)$/i;
+
+/**
+ * @summary Detects a NEGATED human-domain mention inside one segment (`not a merge decision`).
+ * A negated mention is not positive attribution — the segment fires.
+ * @param {String} segment Text segment to test.
+ * @returns {Boolean}
+ */
+function isNegatedHumanMention(segment) {
+    return /\b(?:not|no|never|isn'?t|wasn'?t|aren'?t|without)\b[^.!?;]*?\b(?:merge|squash|credentials?|release|stamp)/i.test(segment);
+}
+
+/**
  * @summary Classifies one attachment segment's domain signal.
  * @param {String} segment Text segment to classify.
  * @returns {('human'|'maintainer'|'competing'|null)} The decisive signal, or `null` when neutral.
@@ -108,46 +128,41 @@ function classifyDomainSegment(segment) {
 }
 
 /**
- * @summary Checks whether a match's DECISION ATTACHMENT names a strictly human-owned domain.
+ * @summary Checks whether a match POSITIVELY attributes a strictly human-owned decision.
  *
- * Attachment is resolved in stages, nearest-first, and the FIRST stage carrying any domain signal
- * decides — mere keyword co-occurrence farther out cannot override the phrase's actual object:
+ * The exemption requires positive evidence, never the absence of a maintainer noun:
  *
- *  1. **Object segment** — a complement directly after the phrase (`your call on the next lane`),
- *     up to the next comma/dash/clause boundary.
- *  2. **Predicate segment** — the comma/dash-delimited segment immediately before the phrase
- *     (`…, ask for the stamp, your call`).
- *  3. **Clause window** — the previous sentence/clause boundary to the next, capped at 120
- *     characters each way (natural phrasing like `the release direction is yours — ship or hold,
- *     your call` carries its signal here).
- *
- * At the decisive stage the exemption applies ONLY to a pure human-domain signal; a competing
- * signal (both domains present) or a maintainer signal fires the hook, and a fully neutral chain
- * fires too — ambiguity fails toward firing, so a historical merge/release fact in the same
- * sentence can never suppress lane/review deference.
+ *  1. Only attribution-shaped phrases are eligible ({@link EXEMPTION_ELIGIBLE_PHRASE_RE}) —
+ *     offer-shaped phrases propose agent execution and always fire.
+ *  2. The DECISIVE segment is the phrase's own attachment: the object segment directly after the
+ *     phrase (up to a comma/dash/clause break — covers phrase-internal complements like
+ *     `your steer on the next lane` too) when it carries prose, else the predicate segment
+ *     immediately before the phrase. There is NO wider clause-window fallback: an outer historical
+ *     fact (`the merge landed, …`) can never lend authority to a neutral attachment.
+ *  3. The decisive segment exempts ONLY on a pure, non-negated human-domain signal. Neutral,
+ *     unenumerated, competing, maintainer, or negated segments (`not a merge decision`) all fire —
+ *     ambiguity fails toward firing, mechanically.
+ * @param {String} phrase Matched deference phrase.
  * @param {String} text Searchable assistant final-turn text.
  * @param {Number} startIndex Match start index.
  * @param {Number} endIndex Match end index.
  * @returns {Boolean}
  */
-function isHumanOnlyDomainContext(text, startIndex, endIndex) {
+function isHumanOnlyDomainContext(phrase, text, startIndex, endIndex) {
+    if (!EXEMPTION_ELIGIBLE_PHRASE_RE.test(phrase)) return false;
+
     const before       = text.slice(Math.max(0, startIndex - 120), startIndex),
           after        = text.slice(endIndex, Math.min(text.length, endIndex + 120)),
           clauseBefore = before.split(/[.!?\n;]/).pop() || '',
           clauseAfter  = after.split(/[.!?\n;]/, 1)[0]  || '';
 
-    // Stage 1: the phrase's direct object ("your call on/about/whether …") up to a segment break.
-    const objectMatch  = clauseAfter.match(/^\s*(?:on|about|whether|which|for|regarding)\b[^,—:()]*/i),
-          objectSignal = objectMatch ? classifyDomainSegment(objectMatch[0]) : null;
-    if (objectSignal) return objectSignal === 'human';
+    // The phrase's own object when present, else its immediate predicate — never the wide window.
+    const objectSegment = clauseAfter.split(/[,—:()]/, 1)[0] || '',
+          decisive      = /\w/.test(objectSegment)
+              ? objectSegment
+              : (clauseBefore.split(/[,—:()]/).filter(s => s.trim()).pop() || '');
 
-    // Stage 2: the predicate segment immediately before the phrase.
-    const predicate       = clauseBefore.split(/[,—:()]/).filter(s => s.trim()).pop() || '',
-          predicateSignal = classifyDomainSegment(predicate);
-    if (predicateSignal) return predicateSignal === 'human';
-
-    // Stage 3: the full bounded clause window.
-    return classifyDomainSegment(`${clauseBefore} ${clauseAfter}`) === 'human';
+    return classifyDomainSegment(decisive) === 'human' && !isNegatedHumanMention(decisive);
 }
 
 /**
@@ -192,7 +207,7 @@ export function matchDeferencePhrase(text = '', phrases = DEFERENCE_PHRASES) {
 
             if (!isReportedMentionContext(searchableText, startIndex) &&
                 !isAttributiveCitationContext(phrase, searchableText, startIndex) &&
-                !isHumanOnlyDomainContext(searchableText, startIndex, endIndex)) {
+                !isHumanOnlyDomainContext(phrase, searchableText, startIndex, endIndex)) {
                 return true;
             }
         }

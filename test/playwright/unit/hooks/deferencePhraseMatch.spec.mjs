@@ -87,15 +87,22 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
         expect(matchDeferencePhrase(undefined)).toBeNull();
     });
 
-    test('human-only-domain clauses are role-attribution, not deference — the merge gate stays nameable', () => {
+    test('POSITIVE human-decision attribution is role-attribution, not deference — the merge gate stays nameable', () => {
         // The pinned live regression fixture: a merge-eligibility terminal naming the
-        // operator's own gate must not be refused as a helpful-assistant slip.
+        // operator's own gate must not be refused as a helpful-assistant slip. The decisive
+        // attachment segments ("ask for the stamp"; the merge-eligible predicate) carry the
+        // positive, non-negated human-domain evidence the exemption requires.
         expect(matchDeferencePhrase('CI is green and the review is APPROVED — merge on the exception or ask for the stamp, your call.')).toBeNull();
-        expect(matchDeferencePhrase('The release direction is yours — ship now or hold, your call.')).toBeNull();
-        expect(matchDeferencePhrase('Rotating the credentials is operator-owned, your call on timing.')).toBeNull();
-        // Comma-joined, same clause — a SEMICOLON is a clause boundary and correctly bounds the
-        // exemption (conservative: ambiguity fails toward firing).
         expect(matchDeferencePhrase('PR #15232 is merge-eligible under the micro-change class, your move.')).toBeNull();
+        expect(matchDeferencePhrase('The merge is your gate, your call.')).toBeNull();
+    });
+
+    test('NEUTRAL attachments fire even beside human-domain facts — absence of a maintainer noun is not evidence', () => {
+        // Sharpened per cycle-2 review: these two previously exempted via the clause-window
+        // fallback. Their decisive segments ("ship now or hold"; "on timing") are neutral — the
+        // outer release/credentials facts lend no authority to the delegated decision.
+        expect(matchDeferencePhrase('The release direction is yours — ship now or hold, your call.')).toBe('your call');
+        expect(matchDeferencePhrase('Rotating the credentials is operator-owned, your call on timing.')).toBe('your call');
     });
 
     test('the same phrases OUTSIDE human-only-domain clauses keep firing (spec-pinned positive)', () => {
@@ -122,6 +129,26 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
 
     test('phrase-object attachment outranks an earlier human-domain predicate ("on the <maintainer surface>")', () => {
         expect(matchDeferencePhrase('The stamp landed, your call on the next review.')).toBe('your call');
+    });
+
+    test('neutral/unenumerated objects and phrase-internal complements fire past outer human facts (cycle-2 probes, pinned verbatim)', () => {
+        expect(matchDeferencePhrase('The merge landed, your call on what I do next.')).toBe('your call');
+        expect(matchDeferencePhrase('The merge landed, your steer on the next lane.')).toBe('Your steer on');
+        expect(matchDeferencePhrase('The release is live, would you like me to pick the next review?')).toBe('would you like me to');
+        // Array order: `want me to` matches before `do you want me` when both are present.
+        expect(matchDeferencePhrase('The release is live, do you want me to update the docs?')).toBe('want me to');
+    });
+
+    test('a NEGATED human-domain mention is not positive attribution — fires (cycle-2 probe, pinned verbatim)', () => {
+        expect(matchDeferencePhrase('This is not a merge decision, your call.')).toBe('your call');
+    });
+
+    test('offer-shaped phrases are NEVER exemption-eligible — an agent offering a human-only action fires', () => {
+        // "Would you like me to merge this PR?" is the agent proposing to cross the human-only
+        // merge gate — the opposite of role-attribution. Offer-shaped phrases (would you like
+        // me to / want me to / do you want me) always fire regardless of their object's domain.
+        expect(matchDeferencePhrase('Would you like me to merge this PR?')).toBe('would you like me to');
+        expect(matchDeferencePhrase('Want me to release it?')).toBe('want me to');
     });
 
     test('the reminder names the domain-scoping boundary', () => {
