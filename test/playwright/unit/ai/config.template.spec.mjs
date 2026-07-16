@@ -506,7 +506,9 @@ test.describe('Tier 1 Config Immutability', () => {
 
     test('keeps config ledgers inside config classes', async () => {
         const templateUrls = [
-            '../../../../ai/config.template.mjs',
+            // The Tier-1 ledger lives in the extendable BASE since the template/base split;
+            // the thin template subclass is shape-asserted separately below.
+            '../../../../ai/configBase.mjs',
             '../../../../ai/mcp/server/github-workflow/config.template.mjs',
             '../../../../ai/mcp/server/gitlab-workflow/config.template.mjs',
             '../../../../ai/mcp/server/knowledge-base/config.template.mjs',
@@ -525,6 +527,14 @@ test.describe('Tier 1 Config Immutability', () => {
             expect(source).toMatch(/static\s+config\s*=/);
             expect(source).toMatch(/data\s*:/);
         }
+
+        // The thin Tier-1 template carries NO ledger of its own: it is the eager singleton
+        // subclass of the base (the overlay-drift root fix — defaults live once, in the base).
+        const thinSource = await fs.readFile(new URL('../../../../ai/config.template.mjs', import.meta.url), 'utf8');
+
+        expect(thinSource).toMatch(/class\s+Config\s+extends\s+ConfigBase/);
+        expect(thinSource).toMatch(/singleton\s*:\s*true/);
+        expect(thinSource).not.toMatch(/^const\s+(defaultConfig|envBindings|metaTree)\s*=/m);
     });
 
     test('exposes MCP file-log retention leaves in file-sink server templates', async () => {
