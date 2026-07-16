@@ -1,16 +1,15 @@
 # Pull Request Workflow
 
-This document outlines the authoritative protocol for structuring and executing Pull Requests within the Neo.mjs project. **This protocol applies to all agents, including headless autonomous sub-agents.**
-
-By consolidating the PR creation logic here, we prevent our agents from falling into tactical loops and enforce architectural reflection before any code is merged.
+This is the authoritative PR protocol for every agent. PR creation is an architectural handoff, not proof that a polished diff has the right shape.
 
 ## 1. The "Stepping Back" Reflection Protocol (Pre-Commit Gate)
 
-The act of opening a PR is an irreversible state transition in the Agent OS. Before executing the final `git commit` and `gh pr create`, you MUST step back from the tactical implementation and assume the persona of an Architect.
+Before the final `git commit` and `gh pr create`—an irreversible Agent OS handoff—step back from implementation and act as an Architect.
 
-**Scope Creep vs. Iteration:** You must explicitly "think outside the box" and challenge your initial tactical assumptions:
-- **Minor Gaps:** If your reflection uncovers minor misses (e.g., missed JSDoc, missing Anchor & Echo context, logical edge cases, missing unit tests validating new logic, or incorrect test file placement per `unit-test.md`), you MUST fix them and add rapid successive commits to your local branch to polish the execution *before* opening the PR.
-- **Major Refactors:** If you realize a mathematically superior architecture exists (e.g., massive GC optimization) that is *out-of-scope* for the current ticket, DO NOT attempt to scope-creep and cram it into the active branch. Secure the "good enough" execution, and instead formally propose a **Follow-Up System Enhancement Ticket** conceptually linked to the original.
+**Scope Creep vs. Iteration:** challenge the original assumptions before handoff:
+- **Minor gaps:** repair JSDoc/Anchor & Echo, edge cases, tests, and test placement on the branch before opening the PR.
+- **Major refactors:** do not cram an out-of-scope superior architecture into this branch; keep the bounded solution and file a linked follow-up ticket.
+- **Tier 2.5 foreign-authority trigger:** If a repair would change a reviewer's contract or another named peer's consumer surface, send that owner the fork, recommendation, and evidence, then continue fork-independent author work. Named authority—not uncertainty—triggers this; the reply is never a wait gate.
 
 *If and only if* you pass this reflection phase, proceed to the Git execution sequence.
 
