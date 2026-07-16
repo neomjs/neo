@@ -81,4 +81,14 @@ test.describe('LocalBearer helper', () => {
         expect(contract.clientHeaders.Authorization).toBe(`Bearer ${token}`);
         expect(isLocalBearerToken(token)).toBe(true);
     });
+
+    test('reuses an explicitly supplied canonical token and rejects malformed overrides', () => {
+        const token    = generateLocalBearerToken(),
+              contract = createLocalBearerLaunchContract(token);
+
+        expect(contract.serverEnv.NEO_AUTH_LOCAL_BEARER_TOKEN).toBe(token);
+        expect(contract.clientHeaders.Authorization).toBe(`Bearer ${token}`);
+        expect(() => createLocalBearerLaunchContract('not-a-canonical-token'))
+            .toThrow('canonical 32-byte unpadded-base64url token');
+    });
 });

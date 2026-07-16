@@ -38,6 +38,15 @@ const sign = (agentId, expiresAt = Date.now() + 3_600_000) => {
 const makeWs  = () => ({readyState: 1, closed: null, sent: [], handlers: {}, on(event, handler) {this.handlers[event] = handler}, send(d) {this.sent.push(d)}, close(code, reason) {this.closed = {code, reason}}, terminate() {}});
 const makeReq = query => ({url: `/?${query}`, headers: {host: '127.0.0.1:8081'}});
 
+test.describe('Bridge listener boundary (#15187)', () => {
+    test('rejects wildcard and non-loopback bind hosts before opening a listener', async () => {
+        await expect(Bridge.startServer({host: '0.0.0.0', port: 8081}))
+            .rejects.toThrow('literal loopback host');
+        await expect(Bridge.startServer({host: '192.0.2.1', port: 8081}))
+            .rejects.toThrow('literal loopback host')
+    })
+});
+
 test.describe('Bridge.handleConnection — agent handshake auth (#13172)', () => {
     test.beforeEach(() => {
         // isolate the singleton's connection maps + configure fleet mode (a verify key is present)

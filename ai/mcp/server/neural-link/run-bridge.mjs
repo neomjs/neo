@@ -38,6 +38,7 @@ if (options.debug) {
         logger.info('Starting Neural Link Bridge...');
 
         await Bridge.ready();
+        await Bridge.startServer({host: '127.0.0.1', port: aiConfig.port});
 
         // Keep process alive
         process.on('SIGINT', async () => {
