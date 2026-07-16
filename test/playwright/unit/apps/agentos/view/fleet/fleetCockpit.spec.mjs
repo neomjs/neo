@@ -1008,10 +1008,10 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
 
 /**
  * The slot-sync consumer witness: `syncSpineBanner` against a REAL recording banner slot — the
- * derivation lands on the component (cls hook + hidden + html), a missing slot stays a guarded
- * no-op, and the owner-truth immobility boundary is pinned as a spec: once live, a failure exit
- * PRESERVES live and the slot stays hidden (the loss/recovery transition belongs to the
- * dedicated liveness owner, not this consumer).
+ * derivation lands on the component (cls hook + hidden + html) and a missing slot stays a guarded
+ * no-op. This suite also carries the liveness owner's transition matrix, because the transition is
+ * only real if it reaches the slot: a state that moves without the banner moving is the same silent
+ * failure as never moving at all.
  */
 test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', () => {
     let FleetCockpit;
@@ -1179,5 +1179,112 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
 
     test('a missing slot is a guarded no-op — never a throw', () => {
         expect(() => makeHost('sample', 'sample', null).syncSpineBanner()).not.toThrow()
+    })
+});
+
+/**
+ * The liveness owner's LIFECYCLE witness. A transition matrix proves the owner tells the truth while
+ * it runs; this proves it stops running. The pop-out / reattach path destroys and re-creates the
+ * cockpit, so a leaked interval would keep re-polling the bridge on behalf of a destroyed surface
+ * and write states onto detached children — a timer that outlives its owner is a liar with no one
+ * left to correct it.
+ */
+test.describe('Fleet cockpit — the liveness owner lifecycle (start/stop, #15293)', () => {
+    let FleetCockpit;
+
+    test.beforeAll(async () => {
+        FleetCockpit = (await import('../../../../../../../apps/agentos/view/fleet/FleetCockpit.mjs')).default
+    });
+
+    /**
+     * @summary A host wired to the REAL start/stop with counting timer primitives — the leak is
+     * observable as a set/clear imbalance, not inferred from reading the source.
+     */
+    const makeTimerHost = () => {
+        const cleared = [];
+        let   nextId  = 0;
+
+        return {
+            cleared,
+            polls               : 0,
+            livenessPollInterval: 50,
+            livenessTimerId     : null,
+            loadActivity() { this.polls++ },
+            loadRoster()   { this.polls++ },
+            startLiveness: FleetCockpit.prototype.startLiveness,
+            stopLiveness : FleetCockpit.prototype.stopLiveness,
+            // counting stand-ins: the real ones are globals, and the assertion is about balance
+            _setInterval  : () => ++nextId,
+            _clearInterval: id => cleared.push(id)
+        }
+    };
+
+    test('start is idempotent: a second call never stacks a second timer', () => {
+        const host     = makeTimerHost(),
+              original = globalThis.setInterval;
+
+        globalThis.setInterval = host._setInterval;
+
+        try {
+            host.startLiveness();
+            const first = host.livenessTimerId;
+
+            host.startLiveness();
+            host.startLiveness();
+
+            // a stacked timer would double the poll rate against the bridge for the same cockpit
+            expect(host.livenessTimerId).toBe(first)
+        } finally {
+            globalThis.setInterval = original
+        }
+    });
+
+    test('stop clears the timer exactly once and is safe on a never-started cockpit', () => {
+        const host          = makeTimerHost(),
+              originalSet   = globalThis.setInterval,
+              originalClear = globalThis.clearInterval;
+
+        globalThis.setInterval   = host._setInterval;
+        globalThis.clearInterval = host._clearInterval;
+
+        try {
+            // never started → nothing to clear, and no throw
+            expect(() => host.stopLiveness()).not.toThrow();
+            expect(host.cleared).toHaveLength(0);
+
+            host.startLiveness();
+            const id = host.livenessTimerId;
+
+            host.stopLiveness();
+            expect(host.cleared).toEqual([id]);
+            expect(host.livenessTimerId, 'a stale id would make a later stop clear a stranger timer').toBe(null);
+
+            // exact-once: a second stop is a no-op, never a double-clear
+            host.stopLiveness();
+            expect(host.cleared).toEqual([id]);
+
+            // and the cockpit can start again cleanly after a stop (the reattach path)
+            host.startLiveness();
+            expect(host.livenessTimerId).not.toBe(null)
+        } finally {
+            globalThis.setInterval   = originalSet;
+            globalThis.clearInterval = originalClear
+        }
+    });
+
+    test('the owner actually re-drives the real seams on the cadence', async () => {
+        const host = makeTimerHost();
+
+        host.livenessPollInterval = 10;
+        host.startLiveness();
+
+        try {
+            await new Promise(resolve => setTimeout(resolve, 45));
+
+            // both seams, every tick: re-driving the real verbs IS the mechanism
+            expect(host.polls, 'the owner must poll, not just hold a timer id').toBeGreaterThanOrEqual(4)
+        } finally {
+            host.stopLiveness()
+        }
     })
 });
