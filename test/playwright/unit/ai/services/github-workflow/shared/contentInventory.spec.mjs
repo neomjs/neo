@@ -1,9 +1,9 @@
-import {test, expect}      from '@playwright/test';
-import fs                  from 'fs/promises';
-import os                  from 'os';
-import path                from 'path';
-import {parseContentPath}  from '../../../../../../../ai/services/github-workflow/shared/contentPath.mjs';
-import {writeContentIndex} from '../../../../../../../ai/services/github-workflow/shared/contentIndex.mjs';
+import {test, expect}                            from '@playwright/test';
+import fs                                        from 'fs/promises';
+import os                                        from 'os';
+import path                                      from 'path';
+import {parseContentPath, pathSegmentOptionsFor} from '../../../../../../../ai/services/github-workflow/shared/contentPath.mjs';
+import {writeContentIndex}                       from '../../../../../../../ai/services/github-workflow/shared/contentIndex.mjs';
 import {
     buildContentInventory,
     resolveArchivedLocation,
@@ -89,6 +89,50 @@ test.describe('Neo.ai.services.github-workflow.shared.contentInventory', () => {
 
             expect(parsed.bucket).toBe('rejected');
             expect(parsed.version).toBeNull()
+        });
+
+        test('an OVERRIDDEN chunk prefix parses — the vocabulary is configured, not universal', () => {
+            // A hardcoded `chunk-` agrees with the shipped default and diverges silently the moment a
+            // deployment overrides it: the forward build would emit `slice-3/` while the inverse only
+            // recognised `chunk-3/`, and the two halves of one contract would disagree with nothing red.
+            expect(parseContentPath({
+                contentRoot: 'resources/content',
+                filePath   : 'archive/pulls/v13.0.0/slice-2/pr-10124.md',
+                chunkPrefix: 'slice-'
+            })).toEqual({type: 'pulls', version: 'v13.0.0', bucket: null, chunkNumber: 2, filename: 'pr-10124.md'})
+        });
+
+        test('an OVERRIDDEN version prefix classifies release buckets — not as named buckets', () => {
+            // The version/bucket split is decided by the prefix. Hardcoding `/^v\d/` would reclassify
+            // every release bucket as a non-release bucket under an override — silently, since both
+            // are valid shapes and neither throws.
+            const parsed = parseContentPath({
+                contentRoot  : 'resources/content',
+                filePath     : 'archive/pulls/rel-13.0.0/chunk-1/pr-5.md',
+                versionPrefix: 'rel-'
+            });
+
+            expect(parsed.version).toBe('rel-13.0.0');
+            expect(parsed.bucket).toBeNull()
+        });
+
+        test('under an overridden version prefix, a `v`-shaped segment is a BUCKET, not a version', () => {
+            // The inverse of the above, and the reason this must be config-driven rather than
+            // permissive: with `rel-` configured, `v13.0.0` is not a release bucket at all.
+            const parsed = parseContentPath({
+                contentRoot  : 'resources/content',
+                filePath     : 'archive/pulls/v13.0.0/chunk-1/pr-5.md',
+                versionPrefix: 'rel-'
+            });
+
+            expect(parsed.bucket).toBe('v13.0.0');
+            expect(parsed.version).toBeNull()
+        });
+
+        test('pathSegmentOptionsFor maps config names to parse options, and defaults when absent', () => {
+            expect(pathSegmentOptionsFor({archiveChunkPrefix: 'slice-', versionDirectoryPrefix: 'rel-'}))
+                .toEqual({chunkPrefix: 'slice-', versionPrefix: 'rel-'});
+            expect(pathSegmentOptionsFor({})).toEqual({chunkPrefix: 'chunk-', versionPrefix: 'v'})
         });
 
         test('a projectRoot-relative path does NOT parse — the convention trap, pinned', () => {

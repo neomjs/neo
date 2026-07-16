@@ -1,6 +1,6 @@
-import fs                                                                           from 'fs-extra';
-import path                                                                         from 'path';
-import {chunkNumberFor, DEFAULT_ITEMS_PER_CHUNK, parseContentPath, validateSegment} from './contentPath.mjs';
+import fs                                                                                                  from 'fs-extra';
+import path                                                                                                from 'path';
+import {chunkNumberFor, DEFAULT_ITEMS_PER_CHUNK, parseContentPath, pathSegmentOptionsFor, validateSegment} from './contentPath.mjs';
 
 export const CONTENT_INDEX_FILENAME = '_index.json';
 
@@ -182,7 +182,7 @@ export function createContentIndexEntry(config = {}) {
 export function createContentIndexEntryFromPath(config = {}) {
     const {issueSyncConfig, type, id, filePath} = config,
           contentRoot                           = contentRootFor(issueSyncConfig),
-          parsed                                = parseContentPath({contentRoot, filePath});
+          parsed                                = parseContentPath({contentRoot, filePath, ...pathSegmentOptionsFor(issueSyncConfig)});
 
     if (!parsed) {
         throw new TypeError(`filePath is not a chunked content path under the content root: ${filePath}`);

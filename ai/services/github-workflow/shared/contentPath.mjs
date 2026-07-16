@@ -38,6 +38,9 @@ import path from 'path';
 
 export const DEFAULT_ITEMS_PER_CHUNK = 100;
 export const DEFAULT_CHUNK_PREFIX    = 'chunk-';
+// Mirrors `issueSync.versionDirectoryPrefix`. A default, not a universal: it exists so the inverse
+// parse has the same fallback the forward build does, NOT so callers may skip threading the config.
+export const DEFAULT_VERSION_PREFIX  = 'v';
 
 /**
  * @typedef {Object} ContentIndexEntry
@@ -165,10 +168,18 @@ export default function contentPath(config = {}) {
  * which convention produced it, so the caller must know; resolve metadata paths against the project
  * root before handing them here.
  *
+ * **Both segment vocabularies are configured, not universal.** `chunkPrefix` and `versionPrefix`
+ * default to the values the shipped config happens to use (`chunk-` / `v`), which is exactly why a
+ * hardcoded parser passes every test and still diverges the moment a deployment overrides either:
+ * the forward direction would build `slice-3/` while the inverse only recognises `chunk-3/`, and the
+ * two halves of one contract would disagree silently. Callers holding an `issueSyncConfig` must pass
+ * `archiveChunkPrefix` / `versionDirectoryPrefix` through.
+ *
  * @param {Object} config
  * @param {String} config.contentRoot Repository-relative or absolute root, e.g. `'resources/content'`
  * @param {String} config.filePath Absolute or contentRoot-relative path to a content file
- * @param {String} [config.chunkPrefix='chunk-'] Chunk-subdirectory prefix
+ * @param {String} [config.chunkPrefix='chunk-'] Chunk-subdirectory prefix; pass `archiveChunkPrefix`
+ * @param {String} [config.versionPrefix='v'] Release-bucket prefix; pass `versionDirectoryPrefix`
  * @returns {{type: String, version: String|null, bucket: String|null, chunkNumber: Number, filename: String}|null}
  *
  * @example
@@ -182,7 +193,12 @@ export default function contentPath(config = {}) {
  *   // → {type: 'pulls', version: null, bucket: null, chunkNumber: 1, filename: 'pr-9537.md'}
  */
 export function parseContentPath(config = {}) {
-    const {contentRoot, filePath, chunkPrefix = DEFAULT_CHUNK_PREFIX} = config;
+    const {
+        contentRoot,
+        filePath,
+        chunkPrefix   = DEFAULT_CHUNK_PREFIX,
+        versionPrefix = DEFAULT_VERSION_PREFIX
+    } = config;
 
     validateSegment(contentRoot, 'contentRoot', {allowPath: true});
     validateSegment(filePath,    'filePath',    {allowPath: true});
@@ -213,9 +229,13 @@ export function parseContentPath(config = {}) {
     if (!Number.isInteger(chunkNumber) || chunkNumber < 1) return null;
 
     // `version` vs `bucket` is not recoverable from the path alone — both occupy the same segment.
-    // Version-shaped segments carry the configured prefix; anything else is a non-release bucket.
-    // Callers that know their tier can ignore the split.
-    const isVersion = /^v\d/.test(versionSeg || '');
+    // Version-shaped segments carry the configured prefix followed by a digit; anything else is a
+    // non-release bucket. Built from `versionPrefix` rather than a literal so an overridden prefix
+    // does not silently reclassify every release bucket as a named bucket. Callers that know their
+    // tier can ignore the split.
+    const isVersion = versionSeg
+        ? versionSeg.startsWith(versionPrefix) && /^\d/.test(versionSeg.slice(versionPrefix.length))
+        : false;
 
     return {
         type,
@@ -223,6 +243,25 @@ export function parseContentPath(config = {}) {
         bucket : archiveTier && !isVersion ? versionSeg : null,
         chunkNumber,
         filename
+    };
+}
+
+/**
+ * @summary Maps an `issueSync` config block to {@link parseContentPath}'s segment options.
+ *
+ * The two vocabularies live under different names on each side — `archiveChunkPrefix` /
+ * `versionDirectoryPrefix` in config, `chunkPrefix` / `versionPrefix` in the path math — so every
+ * call site that translated them by hand would be a place the mapping could drift. One helper means
+ * a renamed config key breaks in one file instead of four, and callers cannot accidentally thread
+ * only half of it.
+ *
+ * @param {Object} issueSyncConfig GitHub workflow `issueSync` config block
+ * @returns {{chunkPrefix: String, versionPrefix: String}}
+ */
+export function pathSegmentOptionsFor(issueSyncConfig = {}) {
+    return {
+        chunkPrefix  : issueSyncConfig.archiveChunkPrefix     || DEFAULT_CHUNK_PREFIX,
+        versionPrefix: issueSyncConfig.versionDirectoryPrefix || DEFAULT_VERSION_PREFIX
     };
 }
 

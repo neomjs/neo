@@ -1,8 +1,8 @@
-import {existsSync}                       from 'fs';
-import fs                                 from 'fs/promises';
-import path                               from 'path';
-import {parseContentPath}                 from './contentPath.mjs';
-import {readContentIndex, contentRootFor} from './contentIndex.mjs';
+import {existsSync}                              from 'fs';
+import fs                                        from 'fs/promises';
+import path                                      from 'path';
+import {parseContentPath, pathSegmentOptionsFor} from './contentPath.mjs';
+import {readContentIndex, contentRootFor}        from './contentIndex.mjs';
 
 /**
  * @module ai/services/github-workflow/shared/contentInventory
@@ -40,6 +40,9 @@ import {readContentIndex, contentRootFor} from './contentIndex.mjs';
  */
 export async function buildContentInventory(issueSyncConfig = {}, {type, filePrefix} = {}) {
     const contentRoot = contentRootFor(issueSyncConfig),
+          // The segment vocabularies are configured, not universal — a hardcoded parse agrees with
+          // the default and diverges silently under any override.
+          segments    = pathSegmentOptionsFor(issueSyncConfig),
           idPattern   = new RegExp(`(?:^|[\\\\/])${filePrefix}(\\d+)\\.md$`),
           inventory   = new Map();
 
@@ -52,7 +55,7 @@ export async function buildContentInventory(issueSyncConfig = {}, {type, filePre
             if (!match) continue;
 
             const absPath = path.join(root, rel),
-                  parsed  = parseContentPath({contentRoot, filePath: absPath});
+                  parsed  = parseContentPath({contentRoot, filePath: absPath, ...segments});
 
             // A file whose path does not parse is off-contract (wrong depth, no chunk dir). Record
             // it with null coordinates rather than skipping: an unparseable artifact is exactly the
@@ -132,6 +135,7 @@ export function resolveArchivedLocation(inventory, id) {
  */
 export async function validateContentIntegrity(issueSyncConfig = {}, {type, filePrefix, inventory} = {}) {
     const contentRoot = contentRootFor(issueSyncConfig),
+          segments    = pathSegmentOptionsFor(issueSyncConfig),
           corpus      = inventory || await buildContentInventory(issueSyncConfig, {type, filePrefix}),
           indexed     = (await readContentIndex(issueSyncConfig)).filter(entry => entry.type === type);
 
@@ -149,7 +153,7 @@ export async function validateContentIntegrity(issueSyncConfig = {}, {type, file
         // entry then names a real file and still lies about where it sits, which every check that
         // only tests path existence will pass. Compared against the path the entry itself carries,
         // so this needs no filesystem opinion beyond the file being there.
-        const parsed = parseContentPath({contentRoot, filePath: entry.path});
+        const parsed = parseContentPath({contentRoot, filePath: entry.path, ...segments});
 
         if (!parsed || parsed.chunkNumber !== entry.chunkNumber || (parsed.version ?? null) !== (entry.version ?? null)) {
             inconsistentIndexEntries.push({

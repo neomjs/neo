@@ -10,7 +10,7 @@ import semver                                                                  f
 import GraphqlService                                                          from '../GraphqlService.mjs';
 import ReleaseNotesSyncer                                                      from './ReleaseNotesSyncer.mjs';
 import {FETCH_PULL_REQUESTS_FOR_SYNC, FETCH_SINGLE_PULL_FOR_SYNC}              from '../queries/pullRequestQueries.mjs';
-import contentPath, {parseContentPath}                                         from '../shared/contentPath.mjs';
+import contentPath, {parseContentPath, pathSegmentOptionsFor}                  from '../shared/contentPath.mjs';
 import {buildContentInventory, resolveArchivedLocation}                        from '../shared/contentInventory.mjs';
 import {createContentIndexEntryFromPath, readContentIndex, updateContentIndex} from '../shared/contentIndex.mjs';
 import {createContentTrustSummary, projectAuthoredNodeTrust}                   from '../shared/conversationTrust.mjs';
@@ -207,19 +207,30 @@ class PullRequestSyncer extends Base {
             addToBucket(version, pr.number, pr);
         }
 
-        // Seed from disk AFTER classification, and never for a PR classified active. An open PR with
-        // a stray archived artifact is corruption; seeding it would hand that PR an archive plan and
-        // the sync would seal a live PR away. Membership is inherited from the corpus only for ids
-        // this run has no live opinion about — which is the whole marooned backlog.
+        // Seed from disk AFTER classification, and never for an id this run already classified. An
+        // open PR with a stray archived artifact is corruption; seeding it would hand that PR an
+        // archive plan and the sync would seal a live PR away. Membership is inherited from the
+        // corpus only for ids this run has no live opinion about — which is the whole marooned
+        // backlog.
+        //
+        // BOTH tiers. Seeding only the versioned buckets left the active collection ranking a PR
+        // against the delta alone — the same partial-ordinal defect this exists to remove, one tier
+        // over, and invisible because the archive half looked fixed. An active file is a member of
+        // the active collection exactly as an archived file is a member of its bucket; both ordinals
+        // are defined over complete membership.
         if (inventory) {
-            const activeIds = new Set(activeItems.map(pr => pr.number));
+            const classified = new Set(activeItems.map(pr => pr.number));
+
+            for (const bucket of buckets.values()) {
+                for (const id of bucket.keys()) classified.add(id);
+            }
 
             for (const [id, copies] of inventory) {
-                if (activeIds.has(id)) continue;
+                if (classified.has(id)) continue;
 
-                for (const copy of copies) {
-                    if (copy.version) addToBucket(copy.version, id);
-                }
+                const archived = copies.find(copy => copy.version);
+
+                archived ? addToBucket(archived.version, id) : activeItems.push({number: id});
             }
         }
 
@@ -816,7 +827,7 @@ class PullRequestSyncer extends Base {
 
                 inventory.set(id, [{
                     absPath    : targetPath,
-                    ...parseContentPath({contentRoot: issueSyncConfig.contentRoot, filePath: targetPath})
+                    ...parseContentPath({contentRoot: issueSyncConfig.contentRoot, filePath: targetPath, ...pathSegmentOptionsFor(issueSyncConfig)})
                 }]);
 
                 metadata.pulls ??= {};
