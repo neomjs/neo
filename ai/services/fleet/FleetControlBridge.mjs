@@ -394,25 +394,31 @@ class FleetControlBridge extends Base {
             authMode  : getHarnessAuthMode(agent.harnessType)
         }));
 
-        // The S2 wake axis joins the roster here: the producer snapshot (subscription intent ×
-        // daemon liveness, entrypoint-injected sources) becomes per-row wake telltale state + one
-        // wake capability. Fail-honest end to end: an un-injected producer — or a manager seam
+        // The S2 telltale axes join the roster here: each producer snapshot becomes per-row state +
+        // one capability. Fail-honest end to end: an un-injected producer — or a manager seam
         // without the producer method at all — yields not-wired/unknown, never a guessed state.
-        const wake = await manager.fleetWakeStatus?.() ?? null;
+        // Read concurrently: the axes share no state, so serializing them would just add the
+        // slower one's latency to every roster read.
+        const [wake, throttle] = await Promise.all([
+            manager.fleetWakeStatus?.()     ?? null,
+            manager.fleetThrottleStatus?.() ?? null
+        ]);
 
         return createFleetCockpitStatus({
             agents,
-            fleetStatus  : manager.fleetRepoStatus() ?? [],
-            runtimeStatus: manager.fleetRuntimeStatus() ?? [],
-            wakeStatus   : wake?.states ?? [],
-            capabilities : {
+            fleetStatus   : manager.fleetRepoStatus() ?? [],
+            runtimeStatus : manager.fleetRuntimeStatus() ?? [],
+            wakeStatus    : wake?.states ?? [],
+            throttleStatus: throttle?.states ?? [],
+            capabilities  : {
                 activity: createNotWiredCapability(FLEET_COCKPIT_SOURCES.activity, 'activity rides the dedicated fleetActivity verb'),
                 runtime : {
                     source    : FLEET_COCKPIT_SOURCES.runtime,
                     state     : 'wired',
                     confidence: 'observed'
                 },
-                wake: wake?.capability ?? createNotWiredCapability(FLEET_COCKPIT_SOURCES.wake, 'wake-state producer not wired')
+                wake    : wake?.capability     ?? createNotWiredCapability(FLEET_COCKPIT_SOURCES.wake, 'wake-state producer not wired'),
+                throttle: throttle?.capability ?? createNotWiredCapability(FLEET_COCKPIT_SOURCES.throttle, 'throttle-state producer not wired')
             }
         });
     }
