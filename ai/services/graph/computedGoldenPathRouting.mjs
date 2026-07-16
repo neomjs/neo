@@ -461,6 +461,7 @@ export function renderComputedGoldenPathFailureSection({
  * @param {Number}   params.ttlMs Route freshness TTL in ms, injected from config (no local default).
  * @param {String}   params.routeVersion Route-version token (route identity).
  * @param {String}   params.algorithmVersion Scoring-algorithm version (provenance).
+ * @param {Number}   [params.renderLimit=null] Max current-focus-substitution rows (the render limit); unbounded when null.
  * @param {String}   [params.runId=null] Optional per-pass run id (provenance).
  * @returns {Object} A typed `computed-route.v1` `ComputedRouteResult`.
  * @throws {TypeError} When `ttlMs` is not a finite number.
@@ -475,6 +476,7 @@ export function buildComputedRouteFromPass({
     ttlMs,
     routeVersion,
     algorithmVersion,
+    renderLimit         = null,
     runId               = null
 } = {}) {
     if (typeof ttlMs !== 'number' || !Number.isFinite(ttlMs)) {
@@ -516,9 +518,32 @@ export function buildComputedRouteFromPass({
     }
 
     if (focusContradiction) {
-        // The computed route was fully blocked by live Current Focus — degraded, not empty:
-        // candidates existed but none is a safe immediate route this pass.
-        return buildComputedRouteResult({...base, status: 'degraded', route: {kind: 'none', items: []}})
+        // Every computed candidate was blocked by live Current Focus. The never-empty floor:
+        // surface the ACTIONABLE focus items (incident/prio-zero) as a current-focus-substitution
+        // route, reusing the same actionability authority the render uses (epic / not-code-ready
+        // excluded, bounded by the render limit).
+        const focusCandidates = Array.isArray(focusContradiction.focusCandidates) ? focusContradiction.focusCandidates : [];
+        const routableFocus   = focusCandidates.filter(candidate => isActionableComputedRecommendation({
+            id        : `issue-${candidate.number}`,
+            type      : 'ISSUE',
+            properties: {labels: candidate.labels, title: candidate.title}
+        }));
+        const boundedFocus = Number.isFinite(renderLimit) ? routableFocus.slice(0, renderLimit) : routableFocus;
+
+        if (boundedFocus.length > 0) {
+            const items = boundedFocus.map((candidate, index) => ({
+                id   : `issue-${candidate.number}`,
+                title: candidate.title || candidate.name || (Array.isArray(candidate.reasons) ? candidate.reasons.join(', ') : 'Current Release / Incident Focus'),
+                score: null,
+                rank : index + 1
+            }));
+
+            return buildComputedRouteResult({...base, status: 'fresh', route: {kind: 'current-focus-substitution', items}})
+        }
+
+        // No actionable focus (epic umbrella / not-code-ready): honest empty route, matching the
+        // render's diagnostic-only branch — an umbrella is not an immediate machine route.
+        return buildComputedRouteResult({...base, status: 'empty', route: {kind: 'none', items: []}})
     }
 
     const hasDeclaredIntent = Array.isArray(declaredIntentItems) && declaredIntentItems.length > 0;

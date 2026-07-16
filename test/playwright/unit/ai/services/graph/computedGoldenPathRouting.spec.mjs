@@ -325,14 +325,35 @@ test.describe('buildComputedRouteFromPass — canonical pass outcome → typed c
         expect(result.freshness.status).toBe('unverifiable');
     });
 
-    test('focus-contradiction branch: candidates existed but all blocked → degraded/none', () => {
+    test('focus-contradiction with actionable focus → current-focus-substitution routes the focus (never-empty floor)', () => {
         const result = buildComputedRouteFromPass(base({
-            focusContradiction: {blockedIds: new Set(['issue-1']), blockedNodes: [{node: {id: 'issue-1'}}]}
+            focusContradiction: {
+                blockedIds     : new Set(['issue-1']),
+                blockedNodes   : [{node: {id: 'issue-1'}}],
+                focusCandidates: [{number: 14988, reasons: ['incident'], labels: ['bug'], title: 'Fleet auth restart supervised'}]
+            }
         }));
 
         expect(validateComputedRouteResult(result).valid).toBe(true);
-        expect(result.status).toBe('degraded');
+        expect(result.status).toBe('fresh');
+        expect(result.route.kind).toBe('current-focus-substitution');
+        expect(result.route.items.map(i => i.id)).toEqual(['issue-14988']);
+        expect(result.route.items[0].title).toBe('Fleet auth restart supervised');
+    });
+
+    test('focus-contradiction with only NON-actionable focus (epic umbrella) → honest empty route', () => {
+        const result = buildComputedRouteFromPass(base({
+            focusContradiction: {
+                blockedIds     : new Set(['issue-1']),
+                blockedNodes   : [{node: {id: 'issue-1'}}],
+                focusCandidates: [{number: 99, reasons: ['incident'], labels: ['epic'], title: 'Umbrella epic'}]
+            }
+        }));
+
+        expect(validateComputedRouteResult(result).valid).toBe(true);
+        expect(result.status).toBe('empty');
         expect(result.route.kind).toBe('none');
+        expect(result.route.items).toHaveLength(0);
     });
 
     test('empty branch WITH declared intent → empty route + available advisory (advisory never routes)', () => {

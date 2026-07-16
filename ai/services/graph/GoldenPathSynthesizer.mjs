@@ -1657,7 +1657,8 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 now                : handoffTimestamp,
                 ttlMs              : aiConfig.goldenPathRouteTtlMs,
                 routeVersion       : routeAlgorithmVersion,
-                algorithmVersion   : routeAlgorithmVersion
+                algorithmVersion   : routeAlgorithmVersion,
+                renderLimit        : aiConfig.goldenPathTopNodeRenderLimit
             });
 
             fs.writeFileSync(path.join(path.dirname(handoffFile), 'computed-route.json'), JSON.stringify(computedRoute, null, 2) + '\n', 'utf-8')
