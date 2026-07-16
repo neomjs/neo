@@ -21,9 +21,13 @@ test.describe('AgentOS fleet cockpit — native Button→detail live drill (#146
         await expect(page.locator('.fm-fleet-cockpit')).toBeVisible({timeout: 60000});
         await expect(page.locator('.fm-agent-card').first()).toBeVisible({timeout: 30000});
 
-        const app   = await neuralLink.connectToApp('AgentOS'),
-              cards = await app.queryComponent({className: 'AgentOS.view.fleet.AgentCard'}, ['record', 'id']);
+        const
+            app       = await neuralLink.connectToApp('AgentOS'),
+            cards     = await app.queryComponent({className: 'AgentOS.view.fleet.AgentCard'}, ['record', 'id']),
+            [cockpit] = await app.queryComponent({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']);
+
         expect(cards.length, 'the fleet should render cards with records').toBeGreaterThan(0);
+        expect(cockpit?.properties?.id, 'the cockpit should expose its committed dock document').toBeTruthy();
 
         // Pin ONE specific card and derive its EXACT durable identity + DOM element id (=== the
         // component id) — so activation and assertion reference the same resident, not the set.
@@ -33,15 +37,33 @@ test.describe('AgentOS fleet cockpit — native Button→detail live drill (#146
         const expectedAgentId = target.properties.record.agentId,
               targetCardId    = target.properties.id;
 
-        // The REAL DOM click targets THAT card's dedicated native drill Button. The non-interactive
-        // listitem/card and its avatar deliberately do not own activation after native-button convergence.
+        const
+            detail        = page.locator('.fm-agent-detail'),
+            readDockModel = async () => (await app.getComponent(cockpit.properties.id, ['dockModel'])).dockModel,
+            dockBefore    = await readDockModel();
+
+        expect(dockBefore.items.detail.autoHidden, 'the Fleet preset starts with detail auto-hidden').toBe(true);
+
+        // Negative boundary: the avatar/listitem is inert. A redundant whole-card click listener would
+        // keep the positive Button journey green while silently restoring mouse-only activation, so pin
+        // the committed dock document byte-for-byte before exercising the dedicated control.
+        await page.locator(`[id="${targetCardId}"] .fm-card-avatar`).click();
+        await page.waitForTimeout(250); // allow a wrongly-restored main→worker click route to commit
+
+        const dockAfterAvatar = await readDockModel();
+        expect(dockAfterAvatar, 'avatar activation must not mutate the committed dock document').toEqual(dockBefore);
+        await expect(detail, 'avatar activation must not reveal the inspector').not.toBeVisible();
+
+        // The positive REAL DOM click targets THAT card's dedicated native drill Button.
         await page.locator(`[id="${targetCardId}"] .fm-card-drill`).click();
 
         // the auto-hidden inspector reveals + renders a resident + the four SSOT panes
-        const detail = page.locator('.fm-agent-detail');
         await expect(detail).toBeVisible({timeout: 15000});
         await expect(detail.locator('.fm-detail-name')).not.toBeEmpty();
         await expect(detail.locator('.fm-detail-pane')).toHaveCount(4);
+
+        const dockAfterDrill = await readDockModel();
+        expect(dockAfterDrill.items.detail.autoHidden, 'the dedicated Button must commit the reveal').toBe(false);
 
         // Engine truth: the mounted inspector holds the EXACT activated resident — equality, not
         // set-membership. The Button routed through owner-held selection to the exact durable id.
