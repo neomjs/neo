@@ -1115,6 +1115,99 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(result.state).toBe('CHANGES_REQUESTED');
     });
 
+    test('#15309: create reserves service-owned review-budget provenance before GraphQL', async () => {
+        const reservedAuditFields = [
+            'outcome',
+            'ordinary-limit',
+            'activation-issue',
+            'activation-pr',
+            'activated-at',
+            'reason',
+            'submitted-request-changes'
+        ];
+        const cases = [{
+            name : 'displaced managed marker',
+            state: 'APPROVED',
+            body : `${VALID_REVIEW_BODY}\n\n[review-budget-managed]`,
+            field: '[review-budget-managed]'
+        }, {
+            name : 'duplicate managed marker',
+            state: 'COMMENT',
+            body : `${VALID_REVIEW_BODY}\n\n---\n[review-budget-managed]\n\n---\n[review-budget-managed]`,
+            field: '[review-budget-managed]'
+        }, {
+            name : 'override marker without service provenance',
+            state: 'COMMENT',
+            body : `${VALID_REVIEW_BODY}\n\n[review-budget-override]`,
+            field: '[review-budget-override]'
+        }, ...reservedAuditFields.map((field, index) => ({
+            name : `reserved audit field ${field}`,
+            state: ['APPROVED', 'COMMENT', 'REQUEST_CHANGES'][index % 3],
+            body : `${VALID_REVIEW_BODY}\n\n- ${field}: caller-authored`,
+            field
+        }))];
+
+        for (const item of cases) {
+            let graphqlCallCount = 0;
+            GraphqlService.query = async () => {
+                graphqlCallCount++;
+                return pullRequestLookup()
+            };
+
+            const result = await PullRequestService.managePrReview({
+                action   : 'create',
+                pr_number: 15309,
+                state    : item.state,
+                body     : item.body
+            });
+
+            expect(result.code, item.name).toBe('PR_REVIEW_BUDGET_AUDIT_RESERVED');
+            expect(result.reservedReviewBudgetProvenance, item.name).toContain(item.field);
+            expect(graphqlCallCount, item.name).toBe(0)
+        }
+    });
+
+    test('#15309: incidental prose passes while managed CREATE appends one canonical receipt', async () => {
+        let capturedVariables;
+
+        GraphqlService.query = async (queryString, variables) => {
+            if (queryString.includes('GetPullRequestId')) return pullRequestLookup();
+
+            capturedVariables = variables;
+            return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'COMMENTED'}}}
+        };
+
+        const proseResult = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 15309,
+            state    : 'COMMENT',
+            body     : `The strings [review-budget-managed] and "- outcome:" are discussed inline, not supplied as machine fields.\n\n${VALID_REVIEW_BODY}`
+        });
+
+        expect(proseResult.error).toBeUndefined();
+        expect(capturedVariables.event).toBe('COMMENT');
+
+        GraphqlService.query = async (queryString, variables) => {
+            if (queryString.includes('GetPullRequestId')) {
+                return pullRequestLookup({createdAt: '2026-07-16T13:57:04Z'})
+            }
+
+            capturedVariables = variables;
+            return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'CHANGES_REQUESTED'}}}
+        };
+
+        const managedResult = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 15309,
+            state    : 'REQUEST_CHANGES',
+            body     : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+        });
+
+        expect(managedResult.error).toBeUndefined();
+        expect(capturedVariables.body.match(/^\[review-budget-managed\]$/gm)).toHaveLength(1);
+        expect(capturedVariables.body.match(/^\[review-budget-override\]$/gm)).toBeNull()
+    });
+
     test('#15257: post-cutover third ordinary RC is refused across heads, reviewers, and an honest retraction', async () => {
         let   mutationCallCount = 0;
         const reviews           = [
@@ -1195,15 +1288,20 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(lookupVariables.activationIssueNumber).toBe(15257);
     });
 
-    test('#15257: OpenAPI admits the null pre-activation cutover receipt', () => {
+    test('#15257/#15309: OpenAPI documents the cutover receipt and reserved CREATE provenance', () => {
         const openApi = yaml.load(fs.readFileSync(
             path.resolve(process.cwd(), 'ai/mcp/server/github-workflow/openapi.yaml'),
             'utf8'
         ));
-        const activatedAt = openApi.paths['/pulls/{pr_number}/review/manage']
-            .post.responses['200'].content['application/json'].schema
+        const operation   = openApi.paths['/pulls/{pr_number}/review/manage'].post;
+        const bodySchema  = operation.requestBody.content['application/json'].schema.properties.body;
+        const activatedAt = operation.responses['200'].content['application/json'].schema
             .properties.reviewBudget.properties.activatedAt;
 
+        expect(operation.description).toContain('[review-budget-managed]');
+        expect(operation.description).toContain('[review-budget-override]');
+        expect(operation.description).toContain('rejects them before GitHub access');
+        expect(bodySchema.description).toContain('reserved audit-field list entries are rejected');
         expect(activatedAt.type).toBe('string');
         expect(activatedAt.format).toBe('date-time');
         expect(activatedAt.nullable).toBe(true)
@@ -1445,7 +1543,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         }
     });
 
-    test('#15257: reason-bearing override is persisted and echoed after RC2', async () => {
+    test('#15257/#15309: reason-bearing override appends one canonical override and managed receipt', async () => {
         let capturedVariables;
 
         GraphqlService.query = async (queryString, variables) => {
@@ -1474,7 +1572,8 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(result.error).toBeUndefined();
         expect(result.reviewBudget.outcome).toBe('disclosed-override');
         expect(result.reviewBudget.overrideReason).toContain('release safety exception');
-        expect(capturedVariables.body).toContain('[review-budget-override]');
+        expect(capturedVariables.body.match(/^\[review-budget-override\]$/gm)).toHaveLength(1);
+        expect(capturedVariables.body.match(/^\[review-budget-managed\]$/gm)).toHaveLength(1);
         expect(capturedVariables.body).toContain('- submitted-request-changes: 2');
         expect(capturedVariables.body).toContain('- ordinary-limit: 2');
     });
