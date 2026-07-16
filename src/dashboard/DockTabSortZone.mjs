@@ -105,6 +105,49 @@ class DockTabSortZone extends TabHeaderSortZone {
     }
 
     /**
+     * Extends the base proxy config (which copies the owner's cls): the dock proxy is a
+     * BODY-mounted embodiment (`DragZone#proxyParentId` defaults to `document.body`), so
+     * descendant scoping from the dock host cannot reach it — ownership, theme, and the host's
+     * active preview language must travel WITH the embodiment instead:
+     * - `neo-dock-dragproxy` — the dock-ownership marker. Shared dock skins scope to this,
+     *   never to the generic `.neo-dragproxy` every drag system (grid, list, tree) shares.
+     * - the NEAREST ancestor theme cls — app theme files project the `--agent-dock-preview-*`
+     *   palette aliases onto the theme class, so carrying it makes the aliases resolve ON the
+     *   proxy at its body mount. Nearest-first matters: an app can theme-swap an inner root
+     *   while `document.body` keeps the boot theme (the Workstation toggle does exactly this),
+     *   so `getTheme()` — which resolves the outer boot theme — is only the no-ancestor
+     *   fallback. Nearest-ancestor mirrors what the CSS cascade gave the drag source itself.
+     * - the host's `neo-preview-lang-*` modifier — the language gate, read off the same
+     *   parent chain (the modifier lives on the dock host, an ancestor; the open-selector
+     *   contract mirrors `Workstation.view.Workspace#previewLanguage`).
+     * @returns {Object}
+     */
+    getDragProxyConfig() {
+        let me       = this,
+            config   = super.getDragProxyConfig(),
+            cls      = [...config.cls, 'neo-dock-dragproxy'],
+            language = null,
+            theme    = null,
+            parent   = me.owner;
+
+        while (parent && !(language && theme)) {
+            const parentCls = parent.cls || [];
+
+            language ??= parentCls.find(item => item.startsWith('neo-preview-lang-'));
+            theme    ??= parentCls.find(item => item.startsWith('neo-theme-'));
+
+            parent = parent.parent
+        }
+
+        theme ??= me.owner.getTheme();
+
+        language                          && cls.push(language);
+        theme && !cls.includes(theme) && cls.push(theme);
+
+        return {...config, cls}
+    }
+
+    /**
      * Extends the base drag-start: after the base resolves the dragged tab button, stamps the
      * cross-window payload identity onto it — `dockItemId` (the dock catalog id) +
      * `dockSourceWorkspaceId` (this document's workspace-set key). The coordinator hands exactly

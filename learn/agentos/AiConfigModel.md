@@ -1,5 +1,7 @@
 # The aiConfig configuration model
 
+> **Non-authoritative intent notes.** The authority for every AiConfig pattern, antipattern, and sanctioned shape is [ADR 0019](decisions/0019-aiconfig-reactive-provider-ssot.md) — the read-gate every `ai/` config touch must consult first. If this page and the ADR ever disagree, the ADR wins.
+
 > The Brain's configuration (`aiConfig`) is **hierarchical nested data**: a tree of `Neo.state.Provider`s where each layer owns only its slice and inherits the rest up a parent chain. This page is the *intent* behind that shape. Read it before changing how config is loaded, merged, or migrated — the model quietly makes several "obvious" approaches (source-level drift detection, overlay cloning, hand-written merge) the **wrong layer**.
 
 ## The shape

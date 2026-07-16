@@ -7,6 +7,8 @@ import SourceHealthMarker      from './SourceHealthMarker.mjs';
 import StateDot                from './StateDot.mjs';
 import {normalizeFleetSources} from './sourceHealth.mjs';
 
+import {describeNameProvenance, resolveNameSlot} from './nameSlot.mjs';
+
 /**
  * The resident card: the cockpit's atom. Composes the class-based fleet primitives (FamilyRail +
  * StateDot + SourceHealthMarker) with a profile avatar, name, engine tag, and the lane row —
@@ -125,6 +127,15 @@ class AgentCard extends Container {
                     flex     : 1,
                     handler  : 'onCardSelect',
                     reference: 'card-name'
+                }, {
+                    // the name-slot provenance chip, density-calibrated: the `named` word only for
+                    // a wired naming-layer trail (the divergent state), a quiet outline glyph for
+                    // declared-proxy (today's uniform reality — long copy on title/aria), and NO
+                    // chip for the durable-id case (the name slot's mono register IS that signal).
+                    // applyRecord writes it.
+                    ntype    : 'component',
+                    flex     : 'none',
+                    reference: 'name-provenance'
                 }, {
                     ntype    : 'component',
                     cls      : ['fm-card-engine'],
@@ -294,7 +305,25 @@ class AgentCard extends Container {
         // stamped count — rendering "0 lanes" there would fabricate a fact no producer stated
         const laneCount = Number.isInteger(record.openLaneCount) && record.openLaneCount > 0 ? record.openLaneCount : null;
 
-        me.getReference('card-name').text          = record.displayName ?? '';
+        // the name slot: the folded display name as MUTABLE DISPLAY STATE over the durable id —
+        // a record with no folded name renders the id itself in the mono register (never a blank
+        // drill target), and the provenance chip states how the rendered name is grounded
+        const
+            nameSlot   = resolveNameSlot(record),
+            nameButton = me.getReference('card-name'),
+            provenance = me.getReference('name-provenance'),
+            chip       = describeNameProvenance(nameSlot.provenance.state);
+
+        nameButton.text = nameSlot.text;
+        nameButton[nameSlot.isFallback ? 'addCls' : 'removeCls']('fm-card-name-id');
+
+        provenance.set({cls: chip.cls, hidden: chip.hidden, text: chip.text});
+
+        if (!chip.hidden) {
+            provenance.changeVdomRootKey('title', nameSlot.provenance.label);
+            provenance.changeVdomRootKey('aria-label', nameSlot.provenance.label)
+        }
+
         me.getReference('card-engine').text        = record.engineTag ?? '';
         me.getReference('card-lane').text          = record.laneLine ?? '';
 
