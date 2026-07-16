@@ -64,6 +64,34 @@
         }
     }
 
+    /* the durable-id fallback register: when no display name is folded, the id renders as the
+       drill target in mono — display state OVER the anchor, and honestly the anchor itself here */
+    .fm-card-name-id .neo-button-text {
+        font-family: var(--fm-font-mono);
+        font-weight: 500;
+        font-size  : 12px;
+        color      : var(--fm-ink-dim);
+    }
+
+    /* the name-provenance chip — the freshness-pill register: a compact mono word stating how
+       the rendered name is grounded (named = trail wired · declared = registry display state ·
+       id = the durable anchor itself); the long copy rides title/aria-label */
+    .fm-name-provenance {
+        flex         : none;
+        font-family  : var(--fm-font-mono);
+        font-size    : 9px;
+        line-height  : 1;
+        white-space  : nowrap;
+        padding      : 2px 6px;
+        border-radius: 999px;
+        background   : color-mix(in srgb, currentColor 12%, transparent);
+        color        : var(--fm-ink-dim);
+
+        &.is-naming-layer {
+            color: var(--fm-ink);
+        }
+    }
+
     .fm-card-engine {
         flex       : none;
         font-family: var(--fm-font-mono);
