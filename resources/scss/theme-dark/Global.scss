@@ -1,9 +1,14 @@
+@use "../motion" as *;
+
 :root .neo-theme-dark {
     --neo-background-color: #323232;
     --neo-color           : #bbb;
     --neo-disabled-opacity: 0.5;
     --neo-font-family     : "Helvetica Neue", "Helvetica", "Arial", "Lucida Grande", sans-serif;
     --neo-font-smoothing  : antialiased;
+
+    // The product motion vocabulary (see resources/scss/_motion.scss — one authority, all themes)
+    @include motion-vocabulary;
 
     p {
         color      : inherit;
