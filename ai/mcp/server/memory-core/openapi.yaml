@@ -627,6 +627,94 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /lanes/landscape:
+    get:
+      summary: Explore Lane Landscape
+      operationId: explore_lane_landscape
+      x-neo-tool-tier: read
+      x-pass-as-object: true
+      x-neo-tool-summary: Synthesize a non-authoritative "what IS the lane landscape right now" current-state Bird View.
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        The CURRENT-STATE Bird View — the third self-awareness slot beside the two historical views.
+        Answers "what does the lane landscape look like RIGHT NOW" across three dimensions: goal
+        trajectory (open epics + their open children), dependency / critical path (open items + their
+        open blockers), and authority coverage (assigned vs unassigned, each unassigned one named).
+        On demand from the Native Edge Graph; never stored, nothing written.
+
+        Carries NO window, hence no parameters: the historical tools answer "what happened in
+        [start, end)"; this answers "what IS", keyed by `capturedAt`.
+
+        The narrative is WITHHELD on a degraded census; an inference failure degrades ONLY the
+        narrative — census/coverage evidence survives with `synthesis.unavailableReason`.
+
+        Use it to orient on the CURRENT structure before choosing a lane. It describes structure only —
+        never ranks lanes or suggests owners: ranking is the Golden Path's authority.
+      tags: [Memories]
+      responses:
+        '200':
+          description: Current-state landscape envelope (non-authoritative; narrative withheld on a degraded census)
+          content:
+            application/json:
+              schema:
+                type: object
+                description: The non-authoritative current-state landscape. Nothing here is durable — it is a query-time view.
+                properties:
+                  schemaVersion:
+                    type: string
+                    description: The envelope contract version (`lane-landscape.v1`).
+                  capturedAt:
+                    type: string
+                    description: ISO 8601 stamp of the census read — the honest key for a current-state answer (there is no window).
+                  generatedAt:
+                    type: string
+                  goalTrajectory:
+                    type: array
+                    description: Open epics and their open children — the goal dimension.
+                    items:
+                      type: object
+                  dependencyPath:
+                    type: array
+                    description: Open items and the open items blocking them — the dependency / critical-path dimension.
+                    items:
+                      type: object
+                  authorityCoverage:
+                    type: object
+                    description: Assigned vs unassigned counts plus the unassigned ids named — authority coverage, never an assignment recommendation.
+                  coverage:
+                    type: object
+                    description: "Census completeness. A degraded census means the narrative is withheld rather than served partial."
+                    properties:
+                      totalOpenItems:
+                        type: integer
+                      edgeCount:
+                        type: integer
+                      degraded:
+                        type: boolean
+                  synthesis:
+                    type: object
+                    description: The cited structural narrative, or an honest absence with its reason.
+                    properties:
+                      available:
+                        type: boolean
+                      narrative:
+                        type: string
+                        nullable: true
+                        description: Null whenever the census is degraded or inference failed — never a blank string presented as a description.
+                      unavailableReason:
+                        type: string
+                        nullable: true
+                        description: "`coverage-degraded` or `synthesis-failed: <reason>`."
+                      inferenceInputIds:
+                        type: array
+                        description: The ids the prompt actually enumerated — so a caller never reads the whole census as having reached inference.
+                        items:
+                          type: string
+                  notAuthority:
+                    type: boolean
+                    description: Always true. A navigation aid, never an authority — it describes structure and never ranks or assigns.
+
   /memories/history:
     get:
       summary: Explore Memory History

@@ -22,7 +22,7 @@ import * as core      from '../../../../../../src/core/_export.mjs';
  * lazy in-memory stores), match both node vintages, stay read-only, and resolve its handle at call time.
  */
 test.describe('laneLandscapeCensusSource — the graph census reads', () => {
-    let makeLaneLandscapeCensusSource;
+    let makeLandscapeCensusSource;
 
     // A minimal prepare/all stub capturing the SQL + bound params.
     const stubDb = (rowsBySql = {}) => {
@@ -43,12 +43,12 @@ test.describe('laneLandscapeCensusSource — the graph census reads', () => {
     };
 
     test.beforeAll(async () => {
-        ({makeLaneLandscapeCensusSource} = await import('../../../../../../ai/services/graph/laneLandscapeCensusSource.mjs'));
+        ({makeLandscapeCensusSource} = await import('../../../../../../ai/services/graph/laneLandscapeCensusSource.mjs'));
     });
 
     test('reads OPEN issue nodes matching BOTH row vintages — a flat-only match would under-report the census', async () => {
         const db     = stubDb({'FROM Nodes': [{id: 'issue-1', data: '{}'}]}),
-              source = makeLaneLandscapeCensusSource({getDb: () => db}),
+              source = makeLandscapeCensusSource({getDb: () => db}),
               rows   = await source.queryOpenIssueNodes();
 
         expect(rows).toEqual([{id: 'issue-1', data: '{}'}]);
@@ -62,7 +62,7 @@ test.describe('laneLandscapeCensusSource — the graph census reads', () => {
 
     test('reads only the landscape edge types, bound as params, in ONE query (never an N+1 walk)', async () => {
         const db     = stubDb({'FROM Edges': [{source: 'issue-1', target: 'issue-2', type: 'PARENT_OF'}]}),
-              source = makeLaneLandscapeCensusSource({getDb: () => db});
+              source = makeLandscapeCensusSource({getDb: () => db});
 
         await source.queryRelationEdges();
 
@@ -73,7 +73,7 @@ test.describe('laneLandscapeCensusSource — the graph census reads', () => {
 
     test('is read-only by construction — both statements are SELECTs', async () => {
         const db     = stubDb(),
-              source = makeLaneLandscapeCensusSource({getDb: () => db});
+              source = makeLandscapeCensusSource({getDb: () => db});
 
         await source.queryOpenIssueNodes();
         await source.queryRelationEdges();
@@ -87,7 +87,7 @@ test.describe('laneLandscapeCensusSource — the graph census reads', () => {
     test('resolves the handle at CALL time — a module-load capture would read a dead db after re-open', async () => {
         let current = null;
 
-        const source = makeLaneLandscapeCensusSource({getDb: () => current});
+        const source = makeLandscapeCensusSource({getDb: () => current});
 
         // unavailable at first call: throws so buildLaneLandscape degrades honestly rather than
         // reporting an empty census as a complete landscape
@@ -99,6 +99,6 @@ test.describe('laneLandscapeCensusSource — the graph census reads', () => {
     });
 
     test('fails LOUD without a getDb resolver — an unbound source is a wiring bug', () => {
-        expect(() => makeLaneLandscapeCensusSource({})).toThrow(/injected `getDb` resolver is required/);
+        expect(() => makeLandscapeCensusSource({})).toThrow(/injected `getDb` resolver is required/);
     });
 });

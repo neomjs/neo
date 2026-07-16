@@ -14,8 +14,10 @@ import WakeSubscriptionService       from '../../../services/memory-core/WakeSub
 import TurnPresenceService           from '../../../services/memory-core/TurnPresenceService.mjs';
 import MemoryCoreRecorderService     from '../../../services/memory-core/MemoryCoreRecorderService.mjs';
 import {readDeploymentStateSnapshot} from '../../../services/memory-core/helpers/deploymentStateBridgeStore.mjs';
+import {exploreLaneLandscape}        from '../../../services/graph/exploreLaneLandscape.mjs';
 import {exploreMemoryHistory}        from '../../../services/memory-core/helpers/exploreMemoryHistory.mjs';
 import {makeChatModelGenerate}       from '../../../services/memory-core/helpers/chatModelGenerate.mjs';
+import {makeLandscapeCensusSource}   from '../../../services/graph/laneLandscapeCensusSource.mjs';
 import {synthesizeTemporalBirdView}  from '../../../services/memory-core/helpers/temporalBirdViewSynthesizer.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
@@ -34,6 +36,24 @@ const readDeploymentInspection = args => readDeploymentStateSnapshot({
 // already owned by `SessionService` instead of rebuilding provider config at the tool boundary; and
 // the `unified` roster is the union of the who-is-online buckets (every AgentIdentity sits in exactly one).
 // The real clock is injected here; the composition stays deterministic on the value it receives.
+// `explore_lane_landscape` — the CURRENT-STATE Bird View, the third self-awareness context slot beside
+// the two historical views. It carries no window: the historical tools answer "what happened in
+// [start, end)", this one answers "what IS the structure right now", so `capturedAt` is its honest key.
+// The pure composition is dependency-injected; this handler binds the impure edges at the MC server —
+// the graph census reads and the live chat model. The graph handle resolves at call time (never
+// captured here), so a store re-open cannot leave the census reading a dead database.
+const exploreLaneLandscapeOp = () => exploreLaneLandscape({
+    now : new Date(),
+    deps: {
+        ...makeLandscapeCensusSource({getDb: () => GraphService.db?.storage?.db}),
+        generate: makeChatModelGenerate({
+            // SessionService is the Memory Core server's model owner and completes startup before tools
+            // dispatch. Read the live model at call time; do not thread AiConfig leaves into a second builder.
+            buildModel: () => SessionService.model
+        })
+    }
+});
+
 const exploreMemoryHistoryOp = args => exploreMemoryHistory({
     partition  : args?.partition,
     preset     : args?.preset,
@@ -90,6 +110,7 @@ const serviceMapping = {
     query_raw_memories          : MemoryService          .queryMemories           .bind(MemoryService),
     query_recent_turns          : MemoryService          .queryRecentTurns        .bind(MemoryService),
     query_summaries             : SummaryService         .querySummaries          .bind(SummaryService),
+    explore_lane_landscape      : exploreLaneLandscapeOp,
     explore_memory_history      : exploreMemoryHistoryOp,
     explore_pull_request_history: explorePullRequestHistoryOp,
     search_nodes                : GraphService           .searchNodes             .bind(GraphService),

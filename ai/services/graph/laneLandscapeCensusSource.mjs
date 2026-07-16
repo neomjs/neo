@@ -33,9 +33,9 @@ const LANDSCAPE_EDGE_TYPES = Object.freeze(['PARENT_OF', 'BLOCKS']);
  * @returns {{queryOpenIssueNodes: Function, queryRelationEdges: Function}} The injectable census reads.
  * @throws {Error} When `getDb` is missing — an unbound source is a wiring bug, not a degradation.
  */
-export function makeLaneLandscapeCensusSource({getDb} = {}) {
+export function makeLandscapeCensusSource({getDb} = {}) {
     if (typeof getDb !== 'function') {
-        throw new Error('makeLaneLandscapeCensusSource: an injected `getDb` resolver is required')
+        throw new Error('makeLandscapeCensusSource: an injected `getDb` resolver is required')
     }
 
     /**
