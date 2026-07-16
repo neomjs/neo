@@ -14,10 +14,10 @@
  *    world through the real reconciler. Its no-live-window remainder is rendered, and no
  *    popup is auto-spawned.
  *
- * Store/pop-out beats ride surface CUES (the Demo-A reveal-cue pattern): perspectives are
- * store operations and window moves are vessel operations — neither is a dock-zone document
- * op, so they must not masquerade as descriptors. Document-shaped beats stay `op` steps with
- * expects; the runner's replay determinism covers both alike.
+ * Perspective saves/loads and reattach ride surface CUES (the Demo-A reveal-cue pattern).
+ * The actual two-window move is different: one semantic `cross-window` runner step awaits the
+ * host-owned real pointer gesture and its structured continuity receipt. Document mutations
+ * stay `op` steps with expects; every executable step remains deterministic in the replay log.
  */
 
 /**
@@ -41,8 +41,8 @@ export const initialDocument = Object.freeze({
 });
 
 /**
- * The Demo-B tour script. Perspective and window beats are cues; document mutations are op
- * steps with expects. Pauses are viewer pacing only.
+ * The Demo-B tour script. Perspective/reattach beats are cues; the cross-window move and
+ * document mutations are executable steps. Pauses are viewer pacing only.
  * @type {Object}
  */
 export const demoBTourScript = Object.freeze({
@@ -118,7 +118,14 @@ export const demoBTourScript = Object.freeze({
         steps  : [
             {type: 'pause', ms: 900, cue: {type: 'perspective-load', name: 'Review'}, caption: 'back to "Review" — room to leave from'},
             {type: 'pause', ms: 900},
-            {type: 'pause', ms: 900, cue: {type: 'popout', itemId: 'workbench'}, caption: 'pop-out(workbench): a real OS window opens on the shared heap. Watch the counter — it does not reset.'},
+            {
+                type             : 'cross-window',
+                itemId           : 'workbench',
+                sourceWorkspaceId: 'demo-b-main',
+                targetWorkspaceId: 'demo-b-popup',
+                targetNodeId     : 'popup-tabs',
+                caption          : 'drag(workbench → popup): one real pointer gesture crosses two active OS windows. The worker instance and counter never reset.'
+            },
             {type: 'pause', ms: 2000},
             {type: 'pause', ms: 600, cue: {type: 'perspective-save', name: 'Detached', scope: 'topology'}, caption: 'save("Detached"): topology capture records BOTH worker-owned workspace documents — main plus popup'},
             {type: 'pause', ms: 900, cue: {type: 'reattach', itemId: 'workbench'}, caption: 'reattach(workbench): home again. Same instance, same count — reparent, never recreate.'},

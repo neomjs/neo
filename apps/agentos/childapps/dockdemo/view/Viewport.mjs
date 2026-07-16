@@ -13,6 +13,8 @@ import DemoBWorkspace from './DemoBWorkspace.mjs';
  * - `?popout=<id>` → an EMPTY pop-out host: this window carries no workspace of its own;
  *   the opener's workspace reparents the live pane into this viewport on connect (the
  *   shared-heap contract — one App Worker, two render targets).
+ * - `?workspaceId=demo-b-popup` → an EMPTY second render target which the opener fills with
+ *   an active popup workspace projection for the cross-window drag scene.
  *
  * @class AgentOS.childapps.dockdemo.view.Viewport
  * @extends Neo.container.Viewport
@@ -47,7 +49,7 @@ class Viewport extends BaseViewport {
 
         if (me.isDestroyed) return;
 
-        if (params.get('popout')) {
+        if (params.get('popout') || params.get('workspaceId')) {
             me.addCls('agentos-dockdemo-popout-host');
             return
         }

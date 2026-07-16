@@ -162,6 +162,7 @@ test.describe('Neo.dashboard.DockProjectionReconciler', () => {
         nextModel.nodes['root-tabs'].items.push('beta');
 
         const resolverCalls = [];
+        let   headerCommits = 0;
 
         try {
             const nextConfig = DockLayoutAdapter.project(nextModel, {
@@ -176,6 +177,15 @@ test.describe('Neo.dashboard.DockProjectionReconciler', () => {
                     return placeholder
                 }
             });
+
+            const
+                bar                   = originalTab.getTabBar(),
+                originalPromiseUpdate = bar.promiseUpdate.bind(bar);
+
+            bar.promiseUpdate = (...args) => {
+                headerCommits++;
+                return originalPromiseUpdate(...args)
+            };
 
             await DockProjectionReconciler.reconcileProjection({
                 host,
@@ -201,6 +211,8 @@ test.describe('Neo.dashboard.DockProjectionReconciler', () => {
             expect(body.items[1]).toBeInstanceOf(Component);
             expect(body.items[1].html).toBe('Beta');
             expect(originalTab.getTabBar().items[1].text).toBe('Beta');
+            expect(originalTab.getTabBar().items[1].wrapperCls).toContain('neo-draggable');
+            expect(headerCommits, 'new chrome commits once through its direct toolbar owner').toBe(1);
             expect(resolverCalls).toEqual(['beta'])
         } finally {
             host.destroy()
@@ -273,6 +285,97 @@ test.describe('Neo.dashboard.DockProjectionReconciler', () => {
             expect(bar.items).toHaveLength(1);
             expect(betaPaneDestroyCount).toBe(1);
             expect(betaButtonDestroyCount).toBe(1)
+        } finally {
+            host.destroy()
+        }
+    })
+
+    test('parks an absent middle pane without shifting sibling chrome and re-adopts the same instance', async () => {
+        const model = createRootTabsModel();
+
+        model.items.beta  = {componentRef: 'beta',  kind: 'panel', title: 'Beta'};
+        model.items.gamma = {componentRef: 'gamma', kind: 'panel', title: 'Gamma'};
+        model.nodes['root-tabs'].items = ['alpha', 'beta', 'gamma'];
+
+        const
+            panes = {
+                alpha: Neo.create(Component, {header: {text: 'Alpha'}}),
+                beta : Neo.create(Component, {header: {text: 'Beta'}}),
+                gamma: Neo.create(Component, {header: {text: 'Gamma'}})
+            },
+            host = Neo.create(Container, {
+                items: [DockLayoutAdapter.project(model, {
+                    resolveComponentRef: (_componentRef, _item, itemId) => panes[itemId]
+                })]
+            }),
+            tab               = host.items[0],
+            originalButton    = tab.getTabBar().items[1],
+            originalDestroy   = panes.beta.destroy.bind(panes.beta),
+            nextModel         = structuredClone(model),
+            firstPlaceholders = new Map();
+
+        let paneDestroyCount = 0;
+
+        panes.beta.destroy = (...args) => {
+            paneDestroyCount++;
+            return originalDestroy(...args)
+        };
+        nextModel.nodes['root-tabs'].items = ['alpha', 'gamma'];
+
+        const project = (document, placeholders) => DockLayoutAdapter.project(document, {
+            resolveComponentRef(_componentRef, item, itemId) {
+                const placeholder = Neo.create(Component, {
+                    header: {text: item.title},
+                    hidden: true
+                });
+
+                placeholders.set(itemId, placeholder);
+
+                return placeholder
+            }
+        });
+
+        try {
+            await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig     : project(nextModel, firstPlaceholders),
+                placeholders   : firstPlaceholders,
+                preserveItemIds: ['beta'],
+                resolveItem    : itemId => panes[itemId]
+            });
+
+            let body = tab.getCardContainer(),
+                bar  = tab.getTabBar();
+
+            expect(body.items).toEqual([panes.alpha, panes.gamma]);
+            expect(bar.items.map(button => button.text)).toEqual(['Alpha', 'Gamma']);
+            expect(bar.sortZoneConfig.dockItemIds).toEqual(['alpha', 'gamma']);
+            expect(bar.sortZone.dockItemIds).toEqual(['alpha', 'gamma']);
+            expect(Boolean(panes.beta.parent?.items?.includes(panes.beta))).toBe(false);
+            expect(panes.beta.isDestroyed).toBeFalsy();
+            expect(originalButton.isDestroyed).toBeTruthy();
+            expect(paneDestroyCount).toBe(0);
+
+            const returnPlaceholders = new Map();
+
+            await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig  : project(model, returnPlaceholders),
+                placeholders: returnPlaceholders,
+                resolveItem : itemId => panes[itemId]
+            });
+
+            body = tab.getCardContainer();
+            bar  = tab.getTabBar();
+
+            expect(body.items).toEqual([panes.alpha, panes.beta, panes.gamma]);
+            expect(body.items[1]).toBe(panes.beta);
+            expect(bar.items.map(button => button.text)).toEqual(['Alpha', 'Beta', 'Gamma']);
+            expect(bar.items[1]).not.toBe(originalButton);
+            expect(bar.items[1].wrapperCls).toContain('neo-draggable');
+            expect(bar.sortZoneConfig.dockItemIds).toEqual(['alpha', 'beta', 'gamma']);
+            expect(bar.sortZone.dockItemIds).toEqual(['alpha', 'beta', 'gamma']);
+            expect(paneDestroyCount).toBe(0)
         } finally {
             host.destroy()
         }

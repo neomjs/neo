@@ -1,5 +1,6 @@
 import Component from '../component/Base.mjs';
 import Base      from '../core/Base.mjs';
+import NeoArray  from '../util/Array.mjs';
 
 /**
  * @summary Preserves live tab-chrome identity across dock-layout projections.
@@ -122,6 +123,8 @@ class DockProjectionReconciler extends Base {
      * @param {Neo.container.Base} options.host Dock host containing the current shell.
      * @param {*} options.nextConfig Fresh {@link Neo.dashboard.DockLayoutAdapter} projection.
      * @param {Map<String,Neo.component.Base>} options.placeholders Item placeholders created by the caller.
+     * @param {Iterable<String>} [options.preserveItemIds=[]] Owner-held panes which are absent
+     * from this projection but must survive without their obsolete tab buttons.
      * @param {Function} options.resolveItem Resolves one live pane or materializable config by dock item id.
      * @param {Function|null} [options.onProjectionStaged=null]
      * @param {Number} [options.shellIndex=0]
@@ -133,6 +136,7 @@ class DockProjectionReconciler extends Base {
         host,
         nextConfig,
         placeholders,
+        preserveItemIds=[],
         resolveItem,
         onProjectionStaged=null,
         shellIndex=0,
@@ -176,7 +180,30 @@ class DockProjectionReconciler extends Base {
         host.update();
         await host.promiseUpdate();
 
-        this.reconcileTabChrome(plans, placeholders, currentTabs, nextShell, resolveItem);
+        const materializedBars = new Set();
+
+        this.reconcileTabChrome(
+            plans,
+            placeholders,
+            currentTabs,
+            nextShell,
+            resolveItem,
+            preserveItemIds,
+            materializedBars
+        );
+
+        // Existing pane/button pairs move through the host's common-ancestor transaction below.
+        // A parked pane has no surviving button DOM to move, so its newly materialized pair needs
+        // one explicit toolbar commit while the destination shell is still staged/hidden. This is
+        // the same owner a normal non-silent toolbar insert updates; committing its parent tab can
+        // leave the toolbar's VDOM change invisible to the main-thread delta boundary. Silent
+        // insertion also bypasses the SortZone's insert listener, so restore its delegated marker
+        // before that one owner commit.
+        await Promise.all([...materializedBars].map(bar => {
+            bar.sortZone?.adjustItemCls(true);
+            bar.updateDepth = -1;
+            return bar.promiseUpdate()
+        }));
 
         // A removed logical tab can be the source of a returning pane. Hide that now-empty source in
         // the descendant commit; the ancestor/cleanup phases destroy it with its retiring shell once.
@@ -293,15 +320,27 @@ class DockProjectionReconciler extends Base {
      * @param {Map<String,Neo.tab.Container>} currentTabs
      * @param {Neo.container.Base} nextShell
      * @param {Function} resolveItem Resolves one live pane or materializable config by dock item id.
+     * @param {Iterable<String>} [preserveItemIds=[]] Owner-held panes to park instead of destroy.
+     * @param {Set<Neo.tab.header.Toolbar>} [materializedBars=new Set()] Output set for toolbars which
+     * created a fresh pane/button pair and therefore require one awaited direct-owner commit.
      * @returns {Map<String,Object>}
      * @static
      */
-    static reconcileTabChrome(plans, placeholders, currentTabs, nextShell, resolveItem) {
+    static reconcileTabChrome(
+        plans,
+        placeholders,
+        currentTabs,
+        nextShell,
+        resolveItem,
+        preserveItemIds=[],
+        materializedBars=new Set()
+    ) {
         const
             nextTabs       = this.collectProjectedTabs(nextShell),
             allTabs        = new Set([...currentTabs.values(), ...nextTabs.values()]),
             desiredItemIds = new Set([...plans.values()].flatMap(plan => plan.desiredItems)),
             liveItems      = new Map(),
+            preservedItems = new Set(preserveItemIds),
             resolvedItems  = new Map();
 
         if (typeof resolveItem !== 'function') {
@@ -367,6 +406,7 @@ class DockProjectionReconciler extends Base {
                 const
                     pane        = resolve(itemId),
                     placeholder = placeholders.get(itemId);
+                let stagedButton = null;
 
                 if (!pane) {
                     throw new Error(`Dock projection could not resolve live item "${itemId}"`)
@@ -379,16 +419,46 @@ class DockProjectionReconciler extends Base {
                         throw new Error(`Dock projection placed item "${itemId}" into the wrong tab body`)
                     }
 
+                    stagedButton = targetBar.items[placeholderIndex];
+
+                    if (!stagedButton) {
+                        throw new Error(`Dock projection could not stage tab chrome for item "${itemId}"`)
+                    }
+
                     targetBody.removeAt(placeholderIndex, true, true);
-                    targetBar.removeAt(placeholderIndex, true, true);
                     placeholders.delete(itemId)
                 }
 
                 const state = findItemState(pane);
 
                 if (!state) {
-                    resolvedItems.set(itemId, targetTab.insert(targetIndex, pane, true));
+                    const
+                        inserted     = targetBody.insert(targetIndex, pane, true),
+                        buttonConfig = targetTab.getTabButtonConfig(inserted.header, targetIndex);
+
+                    // The projected placeholder body/button are one disposable pair. Reusing only
+                    // its already-mounted button leaves that DOM lifecycle coupled to the destroyed
+                    // placeholder pane. Materialize the live pair together, then commit its toolbar
+                    // explicitly through the direct-owner transaction above. Silent insertion skips
+                    // SortZone#onItemInsert and the configured SortZone can still be awaiting its
+                    // construction microtask, so stamp the delegated drag marker into the button's
+                    // creation transaction instead of depending on a later timing-sensitive repair.
+                    if (stagedButton) {
+                        targetBar.remove(stagedButton, true, true)
+                    }
+
+                    NeoArray.add(buttonConfig.wrapperCls ||= [], 'neo-draggable');
+                    targetBar.insert(targetIndex, buttonConfig, true);
+                    materializedBars.add(targetBar);
+
+                    resolvedItems.set(itemId, inserted);
                     return
+                }
+
+                // A live source pair will move into this slot. Retire only the staged target
+                // button; its body placeholder was already removed above.
+                if (stagedButton) {
+                    targetBar.remove(stagedButton, true, true)
                 }
 
                 if (state.tab === targetTab && state.index === targetIndex) return;
@@ -400,11 +470,12 @@ class DockProjectionReconciler extends Base {
             })
         });
 
-        // Items absent from every projected tabs node are true retirements, not moves. Resolve
-        // their post-transfer positions from pane identity (the source sort arrays are intentionally
-        // not rewritten until the final exact-state pass), then remove each body/button pair in
-        // descending index order so sibling positions stay valid. Items desired anywhere in the
-        // next projection are excluded: their existing pane/button pair already moved above.
+        // Items absent from every projected tabs node are either true retirements or panes whose
+        // owner explicitly preserves them outside the current render topology. Resolve their
+        // post-transfer positions from pane identity while the body/button/item-id triple is still
+        // exact, then remove each pair in descending index order so sibling positions stay valid.
+        // Preserved panes lose only their obsolete button; ordinary retirements destroy both.
+        // Items desired anywhere in the next projection are excluded because their pair moved above.
         const retirementsByBody = new Map();
 
         [...liveItems]
@@ -424,7 +495,7 @@ class DockProjectionReconciler extends Base {
                     throw new Error(`Dock projection could not retire item "${itemId}" without its tab button`)
                 }
 
-                state.body.removeAt(state.index, true, true);
+                state.body.removeAt(state.index, !preservedItems.has(itemId), true);
                 state.bar.removeAt(state.index, true, true)
             })
         });
@@ -450,7 +521,7 @@ class DockProjectionReconciler extends Base {
             tab._activeIndex         = activeIndex;
             body.layout._activeIndex = activeIndex;
             bar.setSilent({sortZoneConfig: sortConfig});
-            bar.sortZone?.setSilent?.({
+            bar.sortZone?.set({
                 dockItemIds     : [...plan.desiredItems],
                 dockSourceNodeId: sortConfig.dockSourceNodeId,
                 dockWorkspaceId : sortConfig.dockWorkspaceId,

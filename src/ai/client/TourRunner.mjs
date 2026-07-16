@@ -2,20 +2,86 @@ import Base                                       from '../../core/Base.mjs';
 import {evaluateExpectations, validateTourScript} from './tourScript.mjs';
 
 /**
+ * @summary True only for plain JSON-object-shaped values.
+ * @param {*} value
+ * @returns {Boolean}
+ */
+function isPlainObject(value) {
+    if (value === null || typeof value !== 'object') return false;
+
+    const proto = Object.getPrototypeOf(value);
+
+    return proto === Object.prototype || proto === null
+}
+
+/**
+ * @summary Validates the settlement receipt returned by an injected cross-window host.
+ * Rejected steps may omit document/witness data; successful steps must prove both document
+ * outcomes plus the surviving component identity and target-document mount lifecycle.
+ * @param {*} result
+ * @returns {String[]} validation errors
+ */
+function validateCrossWindowResult(result) {
+    const errors = [];
+
+    if (!isPlainObject(result)) {
+        return ['cross-window executor returned a non-object receipt']
+    }
+
+    if (typeof result.applied !== 'boolean') {
+        errors.push('cross-window receipt.applied must be a Boolean')
+    }
+
+    if (!Array.isArray(result.errors) || result.errors.some(error => typeof error !== 'string')) {
+        errors.push('cross-window receipt.errors must be an array of strings')
+    }
+
+    if (result.applied === true) {
+        if (result.errors?.length) {
+            errors.push('cross-window receipt cannot be applied with non-empty errors')
+        }
+
+        if (!isPlainObject(result.sourceDocument)) {
+            errors.push('cross-window applied receipt requires a plain sourceDocument')
+        }
+
+        if (!isPlainObject(result.targetDocument)) {
+            errors.push('cross-window applied receipt requires a plain targetDocument')
+        }
+
+        if (!isPlainObject(result.witness)) {
+            errors.push('cross-window applied receipt requires witness {instanceId, mountCount}')
+        } else {
+            if (typeof result.witness.instanceId !== 'string' || result.witness.instanceId.length < 1) {
+                errors.push('cross-window witness.instanceId must be a non-empty string')
+            }
+
+            if (!Number.isInteger(result.witness.mountCount) || result.witness.mountCount < 0) {
+                errors.push('cross-window witness.mountCount must be a non-negative integer')
+            }
+        }
+    } else if (result.applied === false && result.errors?.length < 1) {
+        errors.push('cross-window rejected receipt requires at least one error')
+    }
+
+    return errors
+}
+
+/**
  * @summary Executes `neo.tour.script.v1` scripts against a live dock workspace with
  * deterministic operation ordering — the player behind demo tours, e2e replays and video takes.
  *
  * The runner is the "trinity enabler": ONE reviewed script is the demo a viewer watches, the
  * e2e scenario the replay specs execute, and the video take a recording captures.
- * It composes the app-side Neural Link dock seam ({@link Neo.ai.client.DockService}) and
- * NEVER touches the dock model directly — the same commit path an agent drives through
- * `execute_dock_operation` is the only mutation path, so a tour and a live agent are
- * indistinguishable at the document layer.
+ * It composes the app-side Neural Link dock seam ({@link Neo.ai.client.DockService}) plus an
+ * optional host-owned cross-window executor and NEVER mutates dock truth directly. Ordinary
+ * operations ride the same `execute_dock_operation` path as a live agent; cross-window steps
+ * await one real gesture and accept only its structured document + continuity receipt.
  *
- * **Determinism contract:** steps settle on the executor's returned post-operation document
- * (or explicit `topology-assert` reads) — never on wall-clock time. `pause` steps are viewer
- * PACING only: modes may scale or skip the waiting, but every step always appends the same
- * log entry, so two runs of one script — in any mode — produce identical operation logs.
+ * **Determinism contract:** steps settle on an executor-owned result (post-operation document,
+ * structured cross-window receipt, or explicit `topology-assert` read) — never on wall-clock
+ * time. `pause` steps are viewer PACING only: modes may scale or skip the waiting, but every
+ * step always appends the same log entry, so two runs in any mode produce identical logs.
  * The log records order, descriptors and assertion outcomes; deliberately no timestamps.
  *
  * **Modes** (pace differs, correctness never):
@@ -66,6 +132,13 @@ class TourRunner extends Base {
          * @member {String|null} componentId=null
          */
         componentId: null,
+        /**
+         * Optional app-side executor for semantic `cross-window` steps. The runner never
+         * resolves window ids, DOM ids or coordinates; a compatible host exposes exactly
+         * `executeCrossWindowStep(step)` and returns the structured settlement receipt.
+         * @member {Object|null} crossWindowExecutor=null
+         */
+        crossWindowExecutor: null,
         /**
          * The app-side dock seam instance ({@link Neo.ai.client.DockService} or a
          * spec fixture exposing the same `executeDockOperation` / `getDockTopology`
@@ -171,9 +244,10 @@ class TourRunner extends Base {
      */
     #preflight() {
         const
-            me            = this,
-            {dockService} = me,
-            errors        = [];
+            me                                 = this,
+            {crossWindowExecutor, dockService} = me,
+            crossWindowAvailable               = typeof crossWindowExecutor?.executeCrossWindowStep === 'function',
+            errors                             = [];
 
         if (typeof dockService?.executeDockOperation !== 'function' || typeof dockService?.getDockTopology !== 'function') {
             errors.push('dockService: required — inject Neo.ai.client.DockService (or a fixture exposing executeDockOperation + getDockTopology)')
@@ -193,7 +267,10 @@ class TourRunner extends Base {
         const operations = me.operations || dockService?.constructor?.operations || [];
 
         if (errors.length === 0) {
-            const {valid, errors: scriptErrors} = validateTourScript(me.script, {operations});
+            const {valid, errors: scriptErrors} = validateTourScript(me.script, {
+                crossWindowAvailable,
+                operations
+            });
 
             if (!valid) {
                 errors.push(...scriptErrors)
@@ -238,13 +315,15 @@ class TourRunner extends Base {
         me.#running = true;
         me.log      = [];
 
+        const log = me.log;
+
         try {
             return await me.#run()
         } catch (e) {
             if (e === Neo.isDestroyed) {
                 // destroy() rejected a pending pause via the registered-async contract —
                 // the tour ends quietly with an honest partial log
-                return {completed: false, errors: ['TourRunner destroyed mid-tour'], log: me.log}
+                return {completed: false, errors: ['TourRunner destroyed mid-tour'], log}
             }
 
             throw e
@@ -261,9 +340,9 @@ class TourRunner extends Base {
      */
     async #run() {
         const
-            me                         = this,
-            {componentId, dockService} = me,
-            {scenes}                   = me.script;
+            me                                              = this,
+            {componentId, crossWindowExecutor, dockService} = me,
+            {scenes}                                        = me.script;
 
         let sceneIndex = 0;
 
@@ -332,6 +411,49 @@ class TourRunner extends Base {
                                 `expected ${JSON.stringify(failure.expected)}, got ${JSON.stringify(failure.actual)}`
                             ))
                         }
+                    }
+                }
+
+                else if (step.type === 'cross-window') {
+                    const
+                        executorStep = JSON.parse(JSON.stringify(step)),
+                        semanticStep = {
+                            itemId           : step.itemId,
+                            sourceWorkspaceId: step.sourceWorkspaceId,
+                            targetWorkspaceId: step.targetWorkspaceId,
+                            targetNodeId     : step.targetNodeId
+                        };
+                    let result;
+
+                    try {
+                        result = await me.trap(crossWindowExecutor.executeCrossWindowStep(executorStep))
+                    } catch (e) {
+                        if (e === Neo.isDestroyed) throw e;
+
+                        return me.#abort([
+                            `${sceneId}[${stepIndex}] cross-window executor failure: ${e?.message || String(e)}`
+                        ])
+                    }
+
+                    const receiptErrors = validateCrossWindowResult(result);
+
+                    if (receiptErrors.length > 0) {
+                        return me.#abort(receiptErrors.map(error => `${sceneId}[${stepIndex}] ${error}`))
+                    }
+
+                    me.log.push({
+                        applied: result.applied,
+                        errors : [...result.errors],
+                        sceneId,
+                        step   : semanticStep,
+                        stepIndex,
+                        type   : 'cross-window'
+                    });
+
+                    if (!result.applied) {
+                        return me.#abort([
+                            `${sceneId}[${stepIndex}] cross-window step rejected by the executor: ${result.errors.join('; ')}`
+                        ])
                     }
                 }
 
