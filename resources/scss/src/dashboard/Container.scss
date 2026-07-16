@@ -9,14 +9,15 @@
     // motion-standards tier owns the semantic set — panel-move duration, settle easing). Dock
     // call sites read the dock tokens; the vocabulary governs the VALUE through the var()
     // indirection, so the standards tier landing snaps every dock motion to it in one place.
-    // The fallbacks keep the contract live until that tier ships.
-    --dock-transition-duration: var(--motion-panel, 260ms);
-    --dock-transition-easing  : var(--ease-out-soft, cubic-bezier(0, 0, 0.2, 1));
+    // The vocabulary ships in both theme Globals; the fallbacks mirror its values for
+    // hosts rendered outside a themed root.
+    --dock-transition-duration: var(--motion-panel, 280ms);
+    --dock-transition-easing  : var(--ease-out-soft, cubic-bezier(0.22, 1, 0.36, 1));
 
     // The quick tier of the same contract: micro-feedback (indicator glide, preview fill,
     // affordance hover) that must read faster than panel movement. Same governance: call sites
     // read the token, the motion-standards vocabulary owns the value through the indirection.
-    --dock-transition-duration-fast: var(--motion-quick, 120ms);
+    --dock-transition-duration-fast: var(--motion-fast, 120ms);
 }
 
 @media (prefers-reduced-motion: reduce) {
