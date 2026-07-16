@@ -1,4 +1,5 @@
-import {IDENTITIES} from '../../graph/identityRoots.mjs';
+import {IDENTITIES}                from '../../graph/identityRoots.mjs';
+import {resolveResidentFamilyById} from '../graph/agentFamilyResolution.mjs';
 
 /**
  * @summary The ONE fleet↔identity join seam (the single ratified resolver site): maps a
@@ -62,7 +63,9 @@ export function resolveIdentityDisplay(agentIdOrLogin) {
         : null;
 
     return {
-        family             : node?.properties?.family ?? null,
+        // Era-chain-first (the identity trail owns the family fact); the flat identity-level
+        // modelFamily remains the fallback for residents without a seed era (retirement-gated).
+        family             : node ? (resolveResidentFamilyById(node.id) ?? node.properties?.modelFamily ?? null) : null,
         engineTag          : null,
         participationStatus: node?.properties?.participationStatus ?? null
     }

@@ -1,5 +1,7 @@
-import {IDENTITIES} from '../../graph/identityRoots.mjs';
-import logger       from '../../mcp/server/memory-core/logger.mjs';
+import {buildHydrationIndex} from '../../graph/identityHydration.mjs';
+import {migrateResident}     from '../../graph/identityRootsMigration.mjs';
+import {IDENTITIES}          from '../../graph/identityRoots.mjs';
+import logger                from '../../mcp/server/memory-core/logger.mjs';
 
 /**
  * @module ai/services/graph/agentFamilyResolution
@@ -40,11 +42,67 @@ export function getIdentityGithubLogin(identity) {
 }
 
 /**
+ * @summary Resolves one resident's model family through the identity trail — the hydration index
+ * is the truth source; the flat registry property is the DOCUMENTED, retirement-gated fallback.
+ *
+ * Read order:
+ *  1. **Era chain** (`migrateResident` → `buildHydrationIndex` → `index.currentEra.family`): the
+ *     regenerable projection over the resident's validated era chain. No caching happens here, so
+ *     no `isIndexCurrent` gate applies — every call projects the trail fresh (a consumer that
+ *     caches the index owns that gate).
+ *  2. **Flat `properties.modelFamily` fallback**: engaged exactly for residents the migration
+ *     module refuses by design — post-epoch residents whose first era is observation-owned and
+ *     does not exist until the graph-seeding slice lands. The fallback population is the
+ *     mechanical witness of the flat-field retirement blocker: when it reaches zero, the
+ *     era-owned flat fields can leave the registry entries.
+ * @param {Object} identity AgentIdentity root entry.
+ * @returns {String|undefined} The model family, or undefined when neither source resolves.
+ */
+export function resolveResidentFamily(identity) {
+    const migrated = migrateResident(identity);
+
+    if (migrated.valid) {
+        const hydrated = buildHydrationIndex({identityNode: migrated.identity, episodes: migrated.episodes});
+
+        if (hydrated.valid) {
+            return hydrated.index.currentEra.family
+        }
+    }
+
+    return identity?.properties?.modelFamily
+}
+
+/**
+ * Registry entries keyed by canonical `@<identity>` id — the lookup seam for id-keyed family
+ * resolution ({@link resolveResidentFamilyById}).
+ * @type {Map<String,Object>}
+ */
+const IDENTITY_BY_ID = new Map(IDENTITIES.map(identity => [identity.id, identity]));
+
+/**
+ * @summary Resolves a model family by canonical identity id — era-chain-first for rostered
+ * residents ({@link resolveResidentFamily}), `undefined` for ids outside the static registry.
+ *
+ * Consumers holding a GRAPH node (mailbox alias resolution, wake routing) call this with the
+ * node id and fall back to the node's own flat property when it returns `undefined` — that
+ * fallback population is runtime-provisioned identities (auto-provisioned at request time,
+ * never in the static roster), the second retirement witness beside the post-epoch residents.
+ * @param {String} id Canonical `@<identity>` node id.
+ * @returns {String|undefined} The model family, or `undefined` when the id is not rostered.
+ */
+export function resolveResidentFamilyById(id) {
+    const identity = IDENTITY_BY_ID.get(id);
+
+    return identity ? resolveResidentFamily(identity) : undefined
+}
+
+/**
  * @summary Derives the core swarm login-to-family map from the AgentIdentity registry.
  *
  * `identityRoots.mjs` is the canonical handle indirection seam for named Neo maintainers.
  * Golden Path renders must consume that registry instead of duplicating agent handles in
- * daemon code.
+ * daemon code. Family facts read through the identity trail ({@link resolveResidentFamily});
+ * the flat property remains only as the documented post-epoch fallback until retirement.
  *
  * @returns {Object<String,String>} GitHub login to model-family map.
  */
@@ -55,11 +113,11 @@ export function getCoreSwarmAgentFamilies() {
                 identity.type === 'AgentIdentity' &&
                 identity.properties?.accountType === 'agent' &&
                 identity.properties?.githubLogin &&
-                identity.properties?.modelFamily
+                resolveResidentFamily(identity)
             )
             .map(identity => [
                 getIdentityGithubLogin(identity),
-                identity.properties.modelFamily
+                resolveResidentFamily(identity)
             ])
     )
 }

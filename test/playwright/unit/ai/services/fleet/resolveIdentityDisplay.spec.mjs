@@ -16,8 +16,9 @@ setup({
 import {test, expect}           from '@playwright/test';
 import Neo                      from '../../../../../../src/Neo.mjs';
 import * as core                from '../../../../../../src/core/_export.mjs';
-import {IDENTITIES}             from '../../../../../../ai/graph/identityRoots.mjs';
-import {resolveIdentityDisplay} from '../../../../../../ai/services/fleet/resolveIdentityDisplay.mjs';
+import {IDENTITIES}                from '../../../../../../ai/graph/identityRoots.mjs';
+import {resolveIdentityDisplay}    from '../../../../../../ai/services/fleet/resolveIdentityDisplay.mjs';
+import {resolveResidentFamilyById} from '../../../../../../ai/services/graph/agentFamilyResolution.mjs';
 
 /**
  * The ONE fleet↔identity join seam: fleet-registry agents (GitHub usernames, unprefixed) resolve
@@ -32,7 +33,9 @@ test.describe('ai/services/fleet/resolveIdentityDisplay — the fleet↔identity
         agentNodes.forEach(node => {
             const login    = node.id.replace(/^@/, ''),
                   expected = {
-                      family   : node.properties.family ?? null,
+                      // era-chain-first with the identity-level modelFamily fallback — the same
+                      // read the service performs (the flat `family` duplicate is retired)
+                      family   : resolveResidentFamilyById(node.id) ?? node.properties.modelFamily ?? null,
                       engineTag: null,
                       // flows VERBATIM from the root — the identity registry documents this field
                       // as the authoritative participation fact (benched roots resolve benched),

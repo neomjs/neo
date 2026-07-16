@@ -9,6 +9,7 @@ import logger                                                                   
 import CoalescingEngineService                                                                  from './CoalescingEngineService.mjs';
 import TurnPresenceService                                                                      from './TurnPresenceService.mjs';
 import {HEARTBEAT_PULSE_ENTITY_PREFIX, HEARTBEAT_PULSE_ENTITY_TYPE, match, matchHeartbeatPulse} from './heartbeatPulseEvaluator.mjs';
+import {resolveResidentFamilyById}                                                              from '../graph/agentFamilyResolution.mjs';
 
 /**
  * @summary Service for managing graph-resident WAKE_SUBSCRIPTION nodes and the
@@ -613,7 +614,10 @@ class WakeSubscriptionService extends Base {
                 continue;
             }
 
-            const nodeFamily = node.properties?.family || node.properties?.modelFamily || null;
+            // Era-chain-first for rostered residents (the identity trail owns the family fact);
+            // the node's flat family/modelFamily properties remain the fallback for
+            // runtime-provisioned identities that exist only in the graph (retirement-gated read).
+            const nodeFamily = resolveResidentFamilyById(node.id) ?? node.properties?.family ?? node.properties?.modelFamily ?? null;
             if (family && nodeFamily !== family) continue;
             nodes.push(node);
         }
@@ -633,7 +637,7 @@ class WakeSubscriptionService extends Base {
         const props               = node.properties || {},
               identity            = node.id,
               name                = node.name || props.displayName || node.id,
-              family              = props.family || props.modelFamily || null,
+              family              = resolveResidentFamilyById(node.id) ?? props.family ?? props.modelFamily ?? null,
               participationStatus = props.participationStatus || 'active',
               signals             = {participationStatus, activityRecency: null};
 

@@ -54,27 +54,33 @@ test.describe('identityRootsMigration — the flat registry expressed through th
         }
     });
 
-    test('the seed era carries the recorded facts VERBATIM — era-owned facts leave the identity view, sunsetTriggers move to the era layer', () => {
+    test('the seed era carries the RECORDED facts verbatim — the module-owned epoch snapshot, never the live registry', () => {
         const {residents} = migration.migrateAllResidents();
 
         for (const {identity, episodes} of residents) {
-            const seed = roots.IDENTITIES.find(entry => entry.id === identity.identityKey);
-            const era  = episodes[0];
+            const seed  = roots.IDENTITIES.find(entry => entry.id === identity.identityKey);
+            const facts = migration.REGISTRY_SEED_FACTS[identity.identityKey];
+            const era   = episodes[0];
 
-            // family lifted verbatim; the identity view carries NO era-owned fact
-            expect(era.family).toBe(seed.properties.modelFamily || seed.properties.family);
+            // era facts come from the module-owned snapshot (the recorded-fact owner since the
+            // flat-field retirement); the identity view carries NO era-owned fact
+            expect(facts).toBeTruthy();
+            expect(era.family).toBe(facts.family);
+            expect(era.tier).toBe(facts.tier);
             for (const key of schema.ERA_OWNED_FACTS) {
                 expect(identity.socialLayer[key]).toBeUndefined();
             }
 
             // sunsetTriggers live on the ERA now — succession semantics belong to the embodiment
-            if (seed.properties.sunsetTriggers !== undefined) {
-                expect(era.capabilities.sunsetTriggers).toEqual(seed.properties.sunsetTriggers);
-            }
+            expect(era.capabilities.sunsetTriggers).toEqual(facts.capabilities.sunsetTriggers);
 
-            // recorded capability facts lifted verbatim where present
-            if (seed.properties.contextWindowInput !== undefined) {
-                expect(era.capabilities.contextWindowInput).toBe(seed.properties.contextWindowInput);
+            // recorded capability facts carried verbatim from the snapshot
+            expect(era.capabilities.contextWindowInput).toBe(facts.capabilities.contextWindowInput);
+
+            // the RETIREMENT is real: the live registry entry no longer carries any of the
+            // era-owned flat fields the snapshot recorded (modelFamily stays — identity-level).
+            for (const retired of ['family', 'tier', 'contextWindowInput', 'parallelToolCalls', 'thoughtBudget', 'hosting', 'sunsetTriggers']) {
+                expect(seed.properties).not.toHaveProperty(retired);
             }
 
             // the era opens at the documented migration epoch with backfill provenance — never invented history

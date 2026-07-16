@@ -17,6 +17,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
 import {IDENTITIES}   from '../../../../../ai/graph/identityRoots.mjs';
+import * as MIGRATION from '../../../../../ai/graph/identityRootsMigration.mjs';
 
 /**
  * @summary Wake-route invariants for the same-app (Claude Desktop) AgentIdentity roots.
@@ -113,6 +114,9 @@ test.describe('ai/graph/identityRoots — Codex model lineage', () => {
     test('@neo-gpt records GPT-5.6 Sol without changing Euclid operational identity (#14901)', () => {
         const entry = findIdentity('@neo-gpt');
 
+        // Identity-level fields stay on the entry; era-owned facts (window, budget, triggers,
+        // the family duplicate) retired to the identity trail — asserted below via the
+        // migration module's epoch snapshot, the recorded-fact owner.
         expect(entry).toMatchObject({
             id         : '@neo-gpt',
             name       : 'Euclid',
@@ -121,17 +125,23 @@ test.describe('ai/graph/identityRoots — Codex model lineage', () => {
                 githubLogin        : '@neo-gpt',
                 displayName        : 'Euclid',
                 modelFamily        : 'gpt',
-                family             : 'gpt',
                 trustTier          : 'peer-trusted',
-                contextWindowInput : 353400,
-                thoughtBudget      : 'xhigh',
                 releaseDate        : '2026-07-09',
                 pricingInput       : 5,
                 pricingOutput      : 30,
                 participationStatus: 'active'
             }
         });
-        expect(entry.properties.sunsetTriggers).toEqual([
+        for (const retired of ['family', 'contextWindowInput', 'thoughtBudget', 'tier', 'hosting', 'parallelToolCalls', 'sunsetTriggers']) {
+            expect(entry.properties).not.toHaveProperty(retired);
+        }
+
+        const facts = MIGRATION.REGISTRY_SEED_FACTS['@neo-gpt'];
+
+        expect(facts.family).toBe('gpt');
+        expect(facts.capabilities.contextWindowInput).toBe(353400);
+        expect(facts.capabilities.thoughtBudget).toBe('xhigh');
+        expect(facts.capabilities.sunsetTriggers).toEqual([
             'OpenAI releases a successor Sol-tier model with material reasoning capability upgrade',
             'GPT-5.x family deprecation'
         ]);

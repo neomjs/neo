@@ -4,11 +4,13 @@
  * This shared list provides the definitive addressable identity surface for the A2A Mailbox
  * substrate.
  *
- * Capability fields (`contextWindowInput`, `hosting`, `tier`, etc.) mirror the Model-Stats
- * Framework. Source-cited values mirror `learn/agentos/ModelStats.md`; the registry is the
- * canonical authority for capability-data drift detection. `trustTier` is the content
- * provenance taxonomy used by Memory Core consumers to distinguish system, owner, peer-trusted,
- * external, and unclassified authorship at ingestion/query boundaries.
+ * Era-owned capability facts (`contextWindowInput`, `hosting`, `tier`, `thoughtBudget`,
+ * `parallelToolCalls`, `sunsetTriggers`, the `family` duplicate) are RETIRED from these entries:
+ * the epoch-pinned record lives in `identityRootsMigration.mjs` (`REGISTRY_SEED_FACTS`) and live
+ * facts come from the identity trail's era chain (`identityHydration.mjs`). Remaining
+ * source-cited fields mirror `learn/agentos/ModelStats.md` at the identity level. `trustTier` is
+ * the content provenance taxonomy used by Memory Core consumers to distinguish system, owner,
+ * peer-trusted, external, and unclassified authorship at ingestion/query boundaries.
  *
  * Identity-layer field mapping: the `id` / `githubLogin` pair is the OPERATIONAL identity
  * (auth, permissions, review history — never renamed); the top-level `name` is the SOCIAL
@@ -100,18 +102,12 @@ export const IDENTITIES = [
                     focusSeedKey: 'space'
                 }
             },
-            // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md
-            // §neo_opus — primary source: Anthropic Claude Opus 4.8 announcement/product page.
-            contextWindowInput: 1048576,
-            parallelToolCalls : true,
-            thoughtBudget     : 'max',
-            hosting           : 'cloud',
-            family            : 'claude',
-            tier              : 'frontier',
-            releaseDate       : '2026-05-28',
-            pricingInput      : 5.00,
-            pricingOutput     : 25.00,
-            sunsetTriggers    : ['Anthropic releases a successor Opus-class model with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch'],
+            // Era-owned capability facts retired to the identity trail: the epoch-pinned record
+            // lives in identityRootsMigration's REGISTRY_SEED_FACTS; live facts come from the
+            // era chain. Remaining fields mirror ModelStats.md §neo_opus (identity-level).
+            releaseDate  : '2026-05-28',
+            pricingInput : 5.00,
+            pricingOutput: 25.00,
             // Active-peer quorum substrate. Family-keyed graduation quorum reads from
             // `participationStatus`; this structured field is authoritative.
             // Heartbeat / message-recency / quota / pricing-tier / model-release announcements are
@@ -141,18 +137,12 @@ export const IDENTITIES = [
             // No subscriptionTemplate yet: generalized same-app wake addressing is deferred
             // to the same-app wake-routing discussion. Do not encode instance-specific
             // filesystem paths here.
-            // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md
-            // §neo_claude_opus, which mirrors the Claude Opus model-class row until activation.
-            contextWindowInput : 1048576,
-            parallelToolCalls  : true,
-            thoughtBudget      : 'max',
-            hosting            : 'cloud',
-            family             : 'claude',
-            tier               : 'frontier',
+            // Era-owned capability facts retired to the identity trail: the epoch-pinned record
+            // lives in identityRootsMigration's REGISTRY_SEED_FACTS; live facts come from the
+            // era chain. Remaining fields mirror ModelStats.md §neo_claude_opus (identity-level).
             releaseDate        : '2026-05-28',
             pricingInput       : 5.00,
             pricingOutput      : 25.00,
-            sunsetTriggers     : ['Anthropic releases a successor Opus-class model with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch'],
             participationStatus: 'active',
             statusReason       : null,
             authority          : null,
@@ -185,18 +175,12 @@ export const IDENTITIES = [
                     focusSeedKey: 'space'
                 }
             },
-            // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md
-            // §neo_opus_vega — primary source: Anthropic Claude Opus 4.8 announcement/product page.
-            contextWindowInput : 1048576,
-            parallelToolCalls  : true,
-            thoughtBudget      : 'max',
-            hosting            : 'cloud',
-            family             : 'claude',
-            tier               : 'frontier',
+            // Era-owned capability facts retired to the identity trail: the epoch-pinned record
+            // lives in identityRootsMigration's REGISTRY_SEED_FACTS; live facts come from the
+            // era chain. Remaining fields mirror ModelStats.md §neo_opus_vega (identity-level).
             releaseDate        : '2026-05-28',
             pricingInput       : 5.00,
             pricingOutput      : 25.00,
-            sunsetTriggers     : ['Anthropic releases a successor Opus-class model with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch'],
             participationStatus: 'active',
             statusReason       : null,
             authority          : null,
@@ -224,19 +208,13 @@ export const IDENTITIES = [
             // tabShortcut lacks, so a committed static template would be both unnecessary and a
             // cross-leak risk. (Per @tobiu, this isolated-instance setup is the fix pattern for the
             // ada/vega shared-tabShortcut cross-leak.) Wake-route arming is verified post-first-boot.
-            // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md
-            // §neo_fable — primary source: Anthropic Claude Fable 5 announcement / models overview
-            // (verified 2026-06-10: 1M context, 128K output, $10/$50, adaptive-thinking always-on).
-            contextWindowInput: 1048576,
-            parallelToolCalls : true,
-            thoughtBudget     : 'max',
-            hosting           : 'cloud',
-            family            : 'claude',
-            tier              : 'frontier',
-            releaseDate       : '2026-06-09',
-            pricingInput      : 10.00,
-            pricingOutput     : 50.00,
-            sunsetTriggers    : ['Anthropic releases a successor Fable-class model with material reasoning capability upgrade', 'Anthropic deprecates the Fable model branch'],
+            // Era-owned capability facts retired to the identity trail: the epoch-pinned record
+            // lives in identityRootsMigration's REGISTRY_SEED_FACTS; live facts come from the
+            // era chain. Remaining fields mirror ModelStats.md §neo_fable (identity-level;
+            // primary source verified 2026-06-10: 1M context, 128K output, $10/$50).
+            releaseDate  : '2026-06-09',
+            pricingInput : 10.00,
+            pricingOutput: 50.00,
             // Reactivated 2026-07-02: US export controls on Claude Fable 5 lifted 2026-06-30, model
             // available again 2026-07-01; the reactivationTrigger fired (operator-confirmed, @tobiu).
             // Status-flip — identity, handle, and Social Name persist; not a re-onboard.
@@ -264,19 +242,13 @@ export const IDENTITIES = [
             // user-data-dir IS the per-instance address. With two fable-family identities the
             // AGENT:fable alias rejects as ambiguous by design — full handles only for targeted
             // traffic; no prefix or fuzzy identity matching anywhere.
-            // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md
-            // §neo_fable_clio, which references the shared Claude Fable 5 specs in §neo_fable
-            // (same model; single source, not duplicated).
-            contextWindowInput: 1048576,
-            parallelToolCalls : true,
-            thoughtBudget     : 'max',
-            hosting           : 'cloud',
-            family            : 'claude',
-            tier              : 'frontier',
-            releaseDate       : '2026-06-09',
-            pricingInput      : 10.00,
-            pricingOutput     : 50.00,
-            sunsetTriggers    : ['Anthropic releases a successor Fable-class model with material reasoning capability upgrade', 'Anthropic deprecates the Fable model branch'],
+            // Era-owned capability facts retired to the identity trail: the epoch-pinned record
+            // lives in identityRootsMigration's REGISTRY_SEED_FACTS; live facts come from the
+            // era chain. Remaining fields mirror ModelStats.md §neo_fable_clio (identity-level;
+            // references the shared Claude Fable 5 specs in §neo_fable — single source).
+            releaseDate  : '2026-06-09',
+            pricingInput : 10.00,
+            pricingOutput: 50.00,
             // Activated 2026-06-11: the first-boot ritual completed the same day the node was
             // provisioned — identity bind under NEO_AGENT_IDENTITY=neo-fable-clio, runtime wake
             // self-registration, the bidirectional negative wake-proof against @neo-fable on real
@@ -319,19 +291,14 @@ export const IDENTITIES = [
                     tabShortcut: null
                 }
             },
-            // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md
-            // §neo_gemini_pro (Google DeepMind model card + Google Blog Feb 2026).
-            contextWindowInput : 1048576,
+            // Era-owned capability facts retired to the identity trail: the epoch-pinned record
+            // lives in identityRootsMigration's REGISTRY_SEED_FACTS; live facts come from the
+            // era chain. Remaining fields mirror ModelStats.md §neo_gemini_pro (identity-level;
+            // contextWindowOutput is outside the retired set and awaits the era-schema follow-up).
             contextWindowOutput: 65536,
-            parallelToolCalls  : true,
-            thoughtBudget      : 'high', // Gemini 3.1 Pro provider-side cap at 'high' setting; we use the cap
-            hosting            : 'cloud',
-            family             : 'gemini',
-            tier               : 'frontier',
             releaseDate        : '2026-02-19',
             // Pricing V-B-A pending — model card did not surface pricing at registry-author time.
             // See ModelStats.md §neo_gemini_pro for explicit pending-value annotation.
-            sunsetTriggers     : ['Google releases Gemini 4.x with material reasoning capability upgrade', 'Gemini 3.x branch deprecation announcement'],
             participationStatus: 'operator_benched',
             statusReason       : 'Operator-benched pending a stable Gemini Pro-class harness',
             authority          : '@tobiu',
@@ -376,22 +343,13 @@ export const IDENTITIES = [
                     focusSeedKey: 'r'
                 }
             },
-            // Capability fields mirror the Model-Stats Framework. Source: ModelStats.md §neo_gpt.
-            // OpenAI specifies a 1,050,000-token API window for GPT-5.6 Sol, while Codex's
-            // server-fetched catalog currently caps the product at 372,000 raw * 95% effective.
-            // Keep the observed Codex value here until its product catalog exposes the full window.
-            // Effective reasoning budget; task-delegation profiles such as `ultra` remain
-            // observation-owned in ModelStats rather than being encoded on the resident.
-            contextWindowInput: 353400,
-            parallelToolCalls : true,
-            thoughtBudget     : 'xhigh',
-            hosting           : 'cloud',
-            family            : 'gpt',
-            tier              : 'frontier',
-            releaseDate       : '2026-07-09',
-            pricingInput      : 5.00,
-            pricingOutput     : 30.00,
-            sunsetTriggers    : ['OpenAI releases a successor Sol-tier model with material reasoning capability upgrade', 'GPT-5.x family deprecation'],
+            // Era-owned capability facts retired to the identity trail: the epoch-pinned record
+            // (incl. the observed 353,400 Codex product-window value and its catalog-cap
+            // rationale) lives in identityRootsMigration's REGISTRY_SEED_FACTS; live facts come
+            // from the era chain. Remaining fields mirror ModelStats.md §neo_gpt (identity-level).
+            releaseDate  : '2026-07-09',
+            pricingInput : 5.00,
+            pricingOutput: 30.00,
             // Active-peer quorum substrate. `since` is null for default-active identities.
             participationStatus: 'active',
             statusReason       : null,
@@ -421,7 +379,6 @@ export const IDENTITIES = [
             // fabricate boot facts.
             // No capability fields — the observed GPT-5.6 Sol embodiment is source-cited in
             // ModelStats.md §neo_gpt_emmy, keeping engine facts off the durable resident.
-            family: 'gpt',
             // Activated 2026-07-12 after the isolated Codex first boot verified the resident and
             // engine. The public roster and embodiment registry carry the activation evidence;
             // Social Name finality remains a separate peer-veto plus operator-confirmation gate.
