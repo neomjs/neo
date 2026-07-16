@@ -576,6 +576,21 @@ class Config extends ConfigProvider {
              */
             goldenPathTopNodeRenderLimit: leaf(10, 'NEO_GOLDEN_PATH_TOP_NODE_RENDER_LIMIT', 'number'),
             /**
+             * Page size for the current-state lane-landscape census walk. The walk runs to exhaustion,
+             * so this trades request count against page size and never bounds the answer — a smaller
+             * page means more round trips, never a smaller landscape.
+             * @type {number}
+             */
+            laneLandscapeCensusPageLimit: leaf(100, 'NEO_LANE_LANDSCAPE_CENSUS_PAGE_LIMIT', 'number'),
+            /**
+             * Hard page ceiling for the lane-landscape census walk, so a runaway cursor terminates.
+             * This is a safety bound, not a coverage decision: hitting it makes the census report
+             * `degraded` with the reason rather than stopping silently and passing a partial landscape
+             * off as the whole one.
+             * @type {number}
+             */
+            laneLandscapeCensusMaxPages: leaf(50, 'NEO_LANE_LANDSCAPE_CENSUS_MAX_PAGES', 'number'),
+            /**
              * Route-attribution ledger directory — the runtime JSONL store recording which computed candidates
              * the routing contradiction guard filtered, under which arming reasons. The active
              * `goldenPathRouteAttributionLedgerDir` consumers read is a formula (below) resolving Prod/Test by
