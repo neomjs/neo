@@ -15,6 +15,23 @@
  */
 
 /**
+ * @summary Flattens a source list that arrives either as bare strings or as connection objects
+ * (`{name}` for labels, `{login}` for people), dropping entries that carry neither.
+ *
+ * Both shapes are accepted because the owning source may hand back either; nothing is invented for an
+ * entry that names nobody — an absent value stays absent rather than becoming a placeholder.
+ *
+ * @param {*} list Candidate list from the source.
+ * @param {String} key Object key carrying the name (`name` / `login`).
+ * @returns {String[]}
+ */
+function flattenSourceList(list, key) {
+    return (Array.isArray(list) ? list : [])
+        .map(entry => typeof entry === 'string' ? entry : entry?.[key])
+        .filter(Boolean)
+}
+
+/**
  * @summary Resolves an item's coarse open/closed state from either the flat or `properties` shape.
  * @param {Object} item
  * @returns {String} Upper-cased state, or empty string when absent.
@@ -141,51 +158,60 @@ export function projectLaneLandscape({items = [], edges = [], now, degraded = fa
  * source read throws, it returns an honest degraded landscape (`coverage.degraded: true`) rather than
  * a partial picture presented as complete — never a thrown pass.
  * @param {Object}   params
- * @param {Function} params.queryOpenIssueNodes `async () => nodeRows` — the open-work census read.
+ * @param {Function} params.queryOpenWorkCensus `async () => {items, manifest}` — the source-owned census
+ *   walk. Its `manifest.exhausted` is what `degraded` derives from: a census is complete only when the
+ *   source reported no next page, never because the read happened not to throw.
  * @param {Function} params.queryRelationEdges `async () => edgeRows` — the PARENT_OF/BLOCKS edge read.
  * @param {Date}     params.now Capture time (injected).
- * @returns {Promise<Object>} The frozen `notAuthority` landscape (degraded on read failure).
+ * @returns {Promise<Object>} The frozen `notAuthority` landscape (degraded on an unproven census).
  */
-export async function buildLaneLandscape({queryOpenIssueNodes, queryRelationEdges, now} = {}) {
+export async function buildLaneLandscape({queryOpenWorkCensus, queryRelationEdges, now} = {}) {
     try {
-        const [nodeRows, edgeRows] = await Promise.all([queryOpenIssueNodes(), queryRelationEdges()]);
-        const {items, edges}       = normalizeLaneLandscapeCensus({nodeRows, edgeRows});
+        const [census, edgeRows] = await Promise.all([queryOpenWorkCensus(), queryRelationEdges()]);
+        const {items, edges}     = normalizeLaneLandscapeCensus({censusItems: census?.items, edgeRows});
 
-        return projectLaneLandscape({items, edges, now})
+        // Truncation is degradation even when nothing threw: a walk the source never confirmed as
+        // exhausted describes an unknown fraction of the landscape, and saying so is the contract.
+        return projectLaneLandscape({items, edges, now, degraded: census?.manifest?.exhausted !== true})
     } catch (error) {
         return projectLaneLandscape({items: [], edges: [], now, degraded: true})
     }
 }
 
 /**
- * @summary Normalizes raw Native-Edge-Graph node + edge rows into the `{items, edges}` census
- * shape {@link projectLaneLandscape} consumes. The graph stores a node's fields either flat or under
- * a `properties` object and its payload as a JSON string; this reads both shapes and drops a row it
- * cannot parse rather than fabricating a field.
+ * @summary Normalizes the source-owned census rows + graph relation edges into the `{items, edges}`
+ * shape {@link projectLaneLandscape} consumes.
+ *
+ * The rows come from the source that OWNS the facts, so ownership is read from real assignee/author
+ * evidence: an item is unassigned only when the source says nobody owns it, never because a local
+ * store forgot to record it.
+ *
+ * Id and kind are both explicit. `kind` discriminates a first-class PR row from an issue row, and the
+ * id is namespaced (`issue-N` / `pr-N`) to match the graph's relation-edge vocabulary so edges resolve
+ * against the census. A row the source gives no identity is dropped rather than fabricated.
+ *
  * @param {Object}   params
- * @param {Object[]} [params.nodeRows=[]] Raw node rows `{id, data}` (`data` a JSON string or object).
- * @param {Object[]} [params.edgeRows=[]] Raw edge rows `{source, target, type}`.
+ * @param {Object[]} [params.censusItems=[]] Source rows `{number|id, kind, state, labels, assignees, url}`.
+ *   `labels`/`assignees` are accepted as bare strings or `{name}`/`{login}` objects; neither is invented.
+ * @param {Object[]} [params.edgeRows=[]] Raw graph edge rows `{source, target, type}`.
  * @returns {{items: Object[], edges: Object[]}}
  */
-export function normalizeLaneLandscapeCensus({nodeRows = [], edgeRows = []} = {}) {
-    const items = (Array.isArray(nodeRows) ? nodeRows : [])
+export function normalizeLaneLandscapeCensus({censusItems = [], edgeRows = []} = {}) {
+    const items = (Array.isArray(censusItems) ? censusItems : [])
         .map(row => {
-            let data = {};
-            try {
-                data = typeof row?.data === 'string' ? JSON.parse(row.data) : (row?.data ?? {})
-            } catch (error) {
-                data = {}
-            }
-
-            const props    = data?.properties ?? data ?? {};
-            const assignee = props.assignee ?? (Array.isArray(props.assignees) ? props.assignees[0] : null) ?? null;
+            const kind      = row?.kind === 'pr' ? 'pr' : 'issue',
+                  number    = row?.number ?? row?.id,
+                  labels    = flattenSourceList(row?.labels, 'name'),
+                  assignees = flattenSourceList(row?.assignees, 'login');
 
             return {
-                id      : String(row?.id ?? data?.id ?? ''),
-                state   : props.state ?? data?.state ?? null,
-                type    : props.type ?? data?.type ?? null,
-                labels  : Array.isArray(props.labels) ? props.labels : [],
-                assignee: assignee != null ? String(assignee) : null
+                id   : number != null && String(number).length > 0 ? `${kind}-${number}` : '',
+                kind,
+                state: row?.state ?? null,
+                type : kind === 'pr' ? 'PULL_REQUEST' : 'ISSUE',
+                labels,
+                assignees,
+                url  : row?.url ?? null
             }
         })
         .filter(item => item.id.length > 0);

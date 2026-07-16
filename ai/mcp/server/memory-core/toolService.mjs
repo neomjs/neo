@@ -2,6 +2,7 @@ import path                          from 'path';
 import {fileURLToPath}               from 'url';
 import AiConfig                      from '../../../config.mjs';
 import ToolService                   from '../../ToolService.mjs';
+import GraphqlService                from '../../../services/github-workflow/GraphqlService.mjs';
 import PullRequestHistoryService     from '../../../services/github-workflow/PullRequestHistoryService.mjs';
 import GraphService                  from '../../../services/memory-core/GraphService.mjs';
 import HealthService                 from '../../../services/memory-core/HealthService.mjs';
@@ -18,6 +19,7 @@ import {exploreLaneLandscape}        from '../../../services/graph/exploreLaneLa
 import {exploreMemoryHistory}        from '../../../services/memory-core/helpers/exploreMemoryHistory.mjs';
 import {makeChatModelGenerate}       from '../../../services/memory-core/helpers/chatModelGenerate.mjs';
 import {makeLandscapeCensusSource}   from '../../../services/graph/laneLandscapeCensusSource.mjs';
+import {makeOpenWorkCensusReader}    from '../../../services/github-workflow/openWorkCensusReader.mjs';
 import {synthesizeTemporalBirdView}  from '../../../services/memory-core/helpers/temporalBirdViewSynthesizer.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
@@ -45,7 +47,24 @@ const readDeploymentInspection = args => readDeploymentStateSnapshot({
 const exploreLaneLandscapeOp = () => exploreLaneLandscape({
     now : new Date(),
     deps: {
-        ...makeLandscapeCensusSource({getDb: () => GraphService.db?.storage?.db}),
+        // The census reads the source that OWNS the facts (live, cursor-walked to exhaustion); the
+        // graph handle stays only for relation edges, which is the one thing it does own. A local
+        // projection cannot answer a current-state question: both the graph and the synced corpus lag,
+        // and neither carries assignee truth.
+        ...makeLandscapeCensusSource({
+            ...makeOpenWorkCensusReader({
+                query : (queryString, variables) => GraphqlService.query(queryString, variables),
+                config: {
+                    owner       : AiConfig.owner,
+                    repo        : AiConfig.repo,
+                    maxLabels   : AiConfig.issueSync.maxLabelsPerIssue,
+                    maxAssignees: AiConfig.issueSync.maxAssigneesPerIssue
+                }
+            }),
+            getDb    : () => GraphService.db?.storage?.db,
+            pageLimit: AiConfig.laneLandscapeCensusPageLimit,
+            maxPages : AiConfig.laneLandscapeCensusMaxPages
+        }),
         generate: makeChatModelGenerate({
             // SessionService is the Memory Core server's model owner and completes startup before tools
             // dispatch. Read the live model at call time; do not thread AiConfig leaves into a second builder.

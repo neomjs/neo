@@ -28,12 +28,13 @@ test.describe('exploreLaneLandscape — the current-state Bird View composition'
 
     const now = new Date('2026-07-16T10:00:00.000Z');
 
-    // An epic with two open children, one of them blocked, one unassigned.
-    const nodeRows = [
-        {id: 'issue-100', data: {properties: {state: 'OPEN', labels: ['epic'], assignee: 'neo-opus-ada'}}},
-        {id: 'issue-101', data: {properties: {state: 'OPEN', labels: ['bug'], assignee: 'neo-opus-ada'}}},
-        {id: 'issue-102', data: {properties: {state: 'OPEN', labels: ['bug']}}},
-        {id: 'issue-103', data: {properties: {state: 'OPEN', labels: ['bug'], assignee: 'neo-gpt'}}}
+    // An epic with two open children, one of them blocked, one unassigned — in the shape the OWNING
+    // source returns (real assignee evidence; unassigned means the source said nobody owns it).
+    const censusItems = [
+        {number: 100, kind: 'issue', state: 'OPEN', labels: ['epic'], assignees: ['neo-opus-ada']},
+        {number: 101, kind: 'issue', state: 'OPEN', labels: ['bug'],  assignees: ['neo-opus-ada']},
+        {number: 102, kind: 'issue', state: 'OPEN', labels: ['bug'],  assignees: []},
+        {number: 103, kind: 'issue', state: 'OPEN', labels: ['bug'],  assignees: ['neo-gpt']}
     ];
 
     const edgeRows = [
@@ -43,7 +44,7 @@ test.describe('exploreLaneLandscape — the current-state Bird View composition'
     ];
 
     const deps = (overrides = {}) => ({
-        queryOpenIssueNodes: async () => nodeRows,
+        queryOpenWorkCensus: async () => ({items: censusItems, manifest: {exhausted: true, pages: 1, reasons: []}}),
         queryRelationEdges : async () => edgeRows,
         generate           : async () => ({content: 'issue-100 carries two open children; issue-101 is blocked by issue-103.'}),
         ...overrides
@@ -83,7 +84,7 @@ test.describe('exploreLaneLandscape — the current-state Bird View composition'
         const result = await exploreLaneLandscape({
             now,
             deps: deps({
-                queryOpenIssueNodes: async () => { throw new Error('graph unavailable') },
+                queryOpenWorkCensus: async () => { throw new Error('graph unavailable') },
                 generate           : async () => { generateCalls++; return {content: 'should never run'} }
             })
         });
@@ -125,12 +126,12 @@ test.describe('exploreLaneLandscape — the current-state Bird View composition'
         // pass, so no L3-L5 cascade is constructible here.
         const injected = Object.keys(deps());
 
-        expect(injected.sort()).toEqual(['generate', 'queryOpenIssueNodes', 'queryRelationEdges']);
+        expect(injected.sort()).toEqual(['generate', 'queryOpenWorkCensus', 'queryRelationEdges']);
     });
 
     test('fails LOUD on an unbound dep or a missing capture time — a wiring bug is not a degradation', async () => {
-        await expect(exploreLaneLandscape({now, deps: {queryOpenIssueNodes: async () => []}}))
-            .rejects.toThrow(/must supply queryOpenIssueNodes, queryRelationEdges, and generate/);
+        await expect(exploreLaneLandscape({now, deps: {queryOpenWorkCensus: async () => ({items: [], manifest: {exhausted: true}})}}))
+            .rejects.toThrow(/must supply queryOpenWorkCensus, queryRelationEdges, and generate/);
 
         await expect(exploreLaneLandscape({deps: deps()})).rejects.toThrow(/`now` capture time is required/);
     });

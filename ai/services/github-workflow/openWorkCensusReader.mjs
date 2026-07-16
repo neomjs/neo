@@ -107,9 +107,13 @@ export function makeOpenWorkCensusReader({query, config} = {}) {
             repo,
             limit,
             cursor,
-            states     : ['OPEN'],
-            maxComments: config.maxComments,
-            maxReviews : config.maxReviews
+            states: ['OPEN'],
+            // The sync query requires these fan-out bounds, but a census reads none of the comment or
+            // review bodies they gate — only identity, state, url and author. So they are minimized to
+            // keep the page cheap rather than configured: this is not a hidden default for a value the
+            // census consumes, it is a deliberate refusal to fetch payload we would discard.
+            maxComments: 1,
+            maxReviews : 1
         });
 
         const connection = data?.repository?.pullRequests;

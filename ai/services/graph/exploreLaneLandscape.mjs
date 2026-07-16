@@ -26,25 +26,26 @@ import {makeLaneLandscapeSynthesize} from './laneLandscapeSynthesis.mjs';
  * @param {Date}     params.now Capture time (injected).
  * @param {*}        [params.generatedAt] Envelope stamp; defaults to `now`.
  * @param {Object}   params.deps
- * @param {Function} params.deps.queryOpenIssueNodes `async () => nodeRows` — the open-work census read.
+ * @param {Function} params.deps.queryOpenWorkCensus `async () => {items, manifest}` — the source-owned
+ *   census walk, whose manifest proves (or refuses to claim) the census is complete.
  * @param {Function} params.deps.queryRelationEdges `async () => edgeRows` — the PARENT_OF/BLOCKS read.
  * @param {Function} params.deps.generate The LLM call — `async ({prompt}) => string | {content}`.
  * @returns {Promise<Object>} A frozen `notAuthority` landscape envelope.
  * @throws {Error} When a dep is missing — an unbound source is a wiring bug, not a runtime degradation.
  */
 export async function exploreLaneLandscape({now, generatedAt, deps} = {}) {
-    const {queryOpenIssueNodes, queryRelationEdges, generate} = deps || {};
+    const {queryOpenWorkCensus, queryRelationEdges, generate} = deps || {};
 
-    if (typeof queryOpenIssueNodes !== 'function' || typeof queryRelationEdges !== 'function' ||
+    if (typeof queryOpenWorkCensus !== 'function' || typeof queryRelationEdges !== 'function' ||
         typeof generate !== 'function') {
-        throw new Error('exploreLaneLandscape: deps must supply queryOpenIssueNodes, queryRelationEdges, and generate')
+        throw new Error('exploreLaneLandscape: deps must supply queryOpenWorkCensus, queryRelationEdges, and generate')
     }
 
     if (!(now instanceof Date) && typeof now !== 'string' && typeof now !== 'number') {
         throw new Error('exploreLaneLandscape: a `now` capture time is required for the envelope')
     }
 
-    const landscape = await buildLaneLandscape({queryOpenIssueNodes, queryRelationEdges, now}),
+    const landscape = await buildLaneLandscape({queryOpenWorkCensus, queryRelationEdges, now}),
           stamp     = generatedAt !== undefined ? generatedAt : landscape.capturedAt;
 
     let narrative         = null,

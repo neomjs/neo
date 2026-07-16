@@ -107,13 +107,13 @@ test.describe('laneLandscapeProjection — current-state lane landscape', () => 
         expect(result.coverage.totalOpenItems).toBe(0);
     });
 
-    test('normalizeLaneLandscapeCensus parses flat + properties + string-JSON rows; drops unparseable/id-less', () => {
+    test('normalizeLaneLandscapeCensus namespaces ids by kind and reads real ownership evidence', () => {
         const {items, edges} = normalizeLaneLandscapeCensus({
-            nodeRows: [
-                {id: 'issue-1', data: JSON.stringify({properties: {state: 'OPEN', assignees: ['ada'], labels: ['epic']}})},
-                {id: 'issue-2', data: {state: 'OPEN'}},   // object (not string) + flat shape
-                {id: 'issue-3', data: '{bad json'},       // unparseable payload → still an item (id kept, fields null)
-                {data: 'no id'}                            // no id → dropped
+            censusItems: [
+                {number: 1, kind: 'issue', state: 'OPEN', labels: [{name: 'epic'}], assignees: [{login: 'ada'}]},
+                {number: 2, kind: 'issue', state: 'OPEN', labels: ['bug'], assignees: ['euclid']}, // bare-string shape
+                {number: 3, kind: 'pr',    state: 'OPEN', assignees: []},                          // unowned per the source
+                {kind: 'issue', state: 'OPEN'}                                                     // no identity → dropped
             ],
             edgeRows: [
                 {source: 'issue-1', target: 'issue-2', type: 'BLOCKS'},
@@ -121,17 +121,29 @@ test.describe('laneLandscapeProjection — current-state lane landscape', () => 
             ]
         });
 
-        expect(items.map(item => item.id)).toEqual(['issue-1', 'issue-2', 'issue-3']);
-        expect(items[0]).toEqual({id: 'issue-1', state: 'OPEN', type: null, labels: ['epic'], assignee: 'ada'});
-        expect(items[1].state).toBe('OPEN');
+        // ids are namespaced so graph relation edges resolve against the census
+        expect(items.map(item => item.id)).toEqual(['issue-1', 'issue-2', 'pr-3']);
+        expect(items[0]).toEqual({
+            id       : 'issue-1',
+            kind     : 'issue',
+            state    : 'OPEN',
+            type     : 'ISSUE',
+            labels   : ['epic'],
+            assignees: ['ada'],
+            url      : null
+        });
+        // both the connection-object and bare-string shapes are accepted; neither is invented
+        expect(items[1].assignees).toEqual(['euclid']);
+        // a PR is a first-class row, and unowned means the SOURCE said so
+        expect(items[2]).toMatchObject({id: 'pr-3', kind: 'pr', type: 'PULL_REQUEST', assignees: []});
         expect(edges).toEqual([{type: 'BLOCKS', source: 'issue-1', target: 'issue-2'}]);
     });
 
     test('normalizeLaneLandscapeCensus output feeds projectLaneLandscape end-to-end', () => {
         const census = normalizeLaneLandscapeCensus({
-            nodeRows: [
-                {id: 'issue-1', data: JSON.stringify({properties: {state: 'OPEN'}})},
-                {id: 'issue-2', data: JSON.stringify({properties: {state: 'OPEN', assignees: ['euclid']}})}
+            censusItems: [
+                {number: 1, kind: 'issue', state: 'OPEN'},
+                {number: 2, kind: 'issue', state: 'OPEN', assignees: ['euclid']}
             ],
             edgeRows: [{source: 'issue-2', target: 'issue-1', type: 'BLOCKS'}]
         });
@@ -141,12 +153,15 @@ test.describe('laneLandscapeProjection — current-state lane landscape', () => 
         expect(result.dependencyPath).toEqual([{id: 'issue-1', blockedBy: ['issue-2']}]);
     });
 
-    test('buildLaneLandscape composes the injected census reads into the projection', async () => {
+    test('buildLaneLandscape composes the census walk + relations into the projection', async () => {
         const result = await buildLaneLandscape({
-            queryOpenIssueNodes: async () => [
-                {id: 'issue-1', data: JSON.stringify({properties: {state: 'OPEN'}})},
-                {id: 'issue-2', data: JSON.stringify({properties: {state: 'OPEN', assignees: ['ada']}})}
-            ],
+            queryOpenWorkCensus: async () => ({
+                items: [
+                    {number: 1, kind: 'issue', state: 'OPEN'},
+                    {number: 2, kind: 'issue', state: 'OPEN', assignees: ['ada']}
+                ],
+                manifest: {exhausted: true, pages: 1, reasons: []}
+            }),
             queryRelationEdges: async () => [{source: 'issue-2', target: 'issue-1', type: 'BLOCKS'}],
             now
         });
@@ -156,9 +171,26 @@ test.describe('laneLandscapeProjection — current-state lane landscape', () => 
         expect(result.dependencyPath).toEqual([{id: 'issue-1', blockedBy: ['issue-2']}]);
     });
 
+    test('an UNPROVEN census degrades even though nothing threw — presence is not exhaustion', async () => {
+        // The defect this contract exists to kill: a read that succeeded says nothing about whether it
+        // saw everything. Only the source reporting no next page proves that.
+        const result = await buildLaneLandscape({
+            queryOpenWorkCensus: async () => ({
+                items   : [{number: 1, kind: 'issue', state: 'OPEN'}],
+                manifest: {exhausted: false, pages: 1, reasons: ['open issues: walk stopped at the bound']}
+            }),
+            queryRelationEdges: async () => [],
+            now
+        });
+
+        expect(result.coverage.degraded).toBe(true);
+        // the partial evidence still surfaces — labelled incomplete rather than discarded
+        expect(result.coverage.totalOpenItems).toBe(1);
+    });
+
     test('buildLaneLandscape fail-closed: a source read error yields an honest degraded landscape', async () => {
         const result = await buildLaneLandscape({
-            queryOpenIssueNodes: async () => { throw new Error('graph down'); },
+            queryOpenWorkCensus: async () => { throw new Error('graphql down'); },
             queryRelationEdges : async () => [],
             now
         });
