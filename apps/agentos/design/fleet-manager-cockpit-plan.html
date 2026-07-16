@@ -58,6 +58,9 @@
     border-radius:9px;padding:11px 12px 11px 14px;overflow:hidden}
   .agent::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--fam)}
   .agent-top{display:flex;align-items:center;gap:8px}
+  .ava{width:20px;height:20px;border-radius:50%;flex:none;display:grid;place-items:center;
+    background:color-mix(in srgb,var(--fam) 28%,#0e131a);border:1px solid color-mix(in srgb,var(--fam) 45%,transparent);
+    font-family:var(--mono);font-size:9px;font-weight:700;color:var(--ink);letter-spacing:.02em}
   .dot{width:8px;height:8px;border-radius:50%;flex:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--st) 22%,transparent)}
   .agent-name{font-weight:600;font-size:14px}
   .agent-model{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);margin-left:auto}
@@ -180,7 +183,7 @@
         <div class="dots"><i></i><i></i><i></i></div>
         <span class="chrome-title"><b>Neo Fleet</b> — mission control</span>
         <span class="chrome-spacer"></span>
-        <button class="start-btn">▶ Start morning fleet</button>
+        <button class="start-btn">▶ Start fleet</button>
       </div>
       <div class="cockpit">
         <div class="fleet">
@@ -193,37 +196,37 @@
           </div>
           <div class="fleet-grid">
             <div class="agent" style="--fam:var(--f-claude);--st:var(--ok)">
-              <div class="agent-top"><i class="dot live" style="background:var(--st)"></i><span class="agent-name">Grace</span><span class="agent-model">opus-4.8</span></div>
+              <div class="agent-top"><span class="ava">Gr</span><i class="dot live" style="background:var(--st)"></i><span class="agent-name">Grace</span><span class="agent-model">opus-4.8</span></div>
               <div class="agent-state">▲ WORKING</div>
               <div class="agent-lane">planning <b>Fleet Manager</b> — epic → lanes → subs</div>
               <div class="agent-foot"><span>PR #14439 ✓</span><span class="ctrl"><i>⏸</i><i>↻</i></span></div>
             </div>
             <div class="agent" style="--fam:var(--f-gpt);--st:var(--ok)">
-              <div class="agent-top"><i class="dot live" style="background:var(--st)"></i><span class="agent-name">Euclid</span><span class="agent-model">gpt-5.5</span></div>
+              <div class="agent-top"><span class="ava">Eu</span><i class="dot live" style="background:var(--st)"></i><span class="agent-name">Euclid</span><span class="agent-model">gpt-5.5</span></div>
               <div class="agent-state">▲ WORKING</div>
               <div class="agent-lane">MX hook-substrate — <b>#14466</b> lifecycle-state</div>
               <div class="agent-foot"><span>3 open PRs</span><span class="ctrl"><i>⏸</i><i>↻</i></span></div>
             </div>
             <div class="agent" style="--fam:var(--f-claude);--st:var(--ok)">
-              <div class="agent-top"><i class="dot live" style="background:var(--st)"></i><span class="agent-name">Ada</span><span class="agent-model">opus-4.8</span></div>
+              <div class="agent-top"><span class="ava">Ad</span><i class="dot live" style="background:var(--st)"></i><span class="agent-name">Ada</span><span class="agent-model">opus-4.8</span></div>
               <div class="agent-state">▲ WORKING</div>
               <div class="agent-lane">re-decomposing <b>#13015</b> Fleet Manager</div>
               <div class="agent-foot"><span>PR #14492</span><span class="ctrl"><i>⏸</i><i>↻</i></span></div>
             </div>
             <div class="agent" style="--fam:var(--f-claude);--st:var(--limited)">
-              <div class="agent-top"><i class="dot" style="background:var(--st)"></i><span class="agent-name">Vega</span><span class="agent-model">fable-5</span></div>
+              <div class="agent-top"><span class="ava">Ve</span><i class="dot" style="background:var(--st)"></i><span class="agent-name">Vega</span><span class="agent-model">fable-5</span></div>
               <div class="agent-state">◔ RATE-LIMITED · ~8:50p</div>
               <div class="agent-lane">v13.1 release cut — <b>#14039</b></div>
               <div class="agent-foot"><span>resumes 20:50</span><span class="ctrl"><i>⏸</i><i>↻</i></span></div>
             </div>
             <div class="agent" style="--fam:var(--f-claude);--st:var(--idle)">
-              <div class="agent-top"><i class="dot" style="background:var(--st)"></i><span class="agent-name">Clio</span><span class="agent-model">fable-5</span></div>
+              <div class="agent-top"><span class="ava">Cl</span><i class="dot" style="background:var(--st)"></i><span class="agent-name">Clio</span><span class="agent-model">fable-5</span></div>
               <div class="agent-state">● IDLE · 12m</div>
               <div class="agent-lane">business-engine <b>#14442</b> — awaiting #14422</div>
               <div class="agent-foot"><span>last: 19:23</span><span class="ctrl"><i>▶</i><i>↻</i></span></div>
             </div>
             <div class="agent" style="--fam:var(--f-gemini);--st:var(--off)">
-              <div class="agent-top"><i class="dot" style="background:var(--st)"></i><span class="agent-name">Gemini</span><span class="agent-model">3.1-pro</span></div>
+              <div class="agent-top"><span class="ava">Ge</span><i class="dot" style="background:var(--st)"></i><span class="agent-name">Gemini</span><span class="agent-model">3.1-pro</span></div>
               <div class="agent-state">○ BENCHED</div>
               <div class="agent-lane faint">operator-benched</div>
               <div class="agent-foot"><span>—</span><span class="ctrl"><i>▶</i></span></div>
@@ -253,7 +256,7 @@
     <p class="caption">Static direction mock — the cockpit's default view. Click an agent → its thought-stream, lane, repo, and PRs; drag it out → its own OS window on the same heap.</p>
 
     <div class="principles">
-      <div class="pr"><h3>State reads at a glance</h3><p>Status is encoded in form, not just text — a colored pulse, a family rail, a one-line "what it's doing now." You know the fleet's health before you read a word.</p></div>
+      <div class="pr"><h3>State reads at a glance</h3><p>Status is encoded in form, not just text — an avatar (the keeper from the implemented view), a colored pulse, a family rail, a one-line "what it's doing now." You know the fleet's health before you read a word.</p></div>
       <div class="pr"><h3>Real-time is the spine</h3><p>The activity feed and every status is live — no refresh. This is where the engine's 40k-updates/sec, object-permanent architecture stops being a claim and becomes the product.</p></div>
       <div class="pr"><h3>Operable cold</h3><p>Add an agent = a name + a token. Start the fleet = one button. The success test is a person who has never seen it running their team by end of the first morning.</p></div>
     </div>
@@ -294,7 +297,7 @@
             <li><span class="s-tag">B1</span><span class="s-txt"><b>Cockpit shell + fleet grid</b> — live agent cards (status form + family rail + current-lane line); the health summary bar.</span></li>
             <li><span class="s-tag">B2</span><span class="s-txt"><b>Live activity stream</b> — A2A / PR / lane-state events, real-time, bounded. The engine's real-time story made visible.</span></li>
             <li><span class="s-tag">B3</span><span class="s-txt"><b>Agent detail + pop-out</b> — drill into one agent (thought-stream, lane, repo, PRs); drag to its own OS window.</span></li>
-            <li><span class="s-tag">B4</span><span class="s-txt"><b>Controls</b> — start / stop / restart per agent + whole-fleet; the one-click morning start.</span></li>
+            <li><span class="s-tag">B4</span><span class="s-txt"><b>Controls</b> — start / stop / restart per agent + whole-fleet; the one-click fleet start.</span></li>
           </ul>
         </div>
       </div>
