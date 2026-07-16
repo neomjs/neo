@@ -36,14 +36,39 @@ export const B3_DEFENSIVE_CHAIN = new RegExp(
 export const A5_ENV_HELPER = /\bhasEnvValue\s*\(/;
 
 /*
+ * Rule A1's FILE gate — module-level env re-derivation is an antipattern ONLY where the config
+ * SSOT is already in scope. A file importing the config singleton (import-statement token or the
+ * runtime `Neo.ai.Config` root) that re-derives values from `process.env` should read the resolved
+ * leaf instead. The gate is what keeps the C1-sanctioned shape green: a genuine non-entrypoint
+ * pure-defaults module carries env literals WITHOUT any config import — by design — and must
+ * never flag.
+ */
+export const A1_IMPORT_GATE = /^\s*import\s+[^;]*\b(?:AiConfig|Memory_Config)\b[^;]*\bfrom\b|\bNeo\.ai\.Config\b/m;
+
+/*
+ * Rule A1's LINE rule — a module-level `const|let|var` declaration whose initializer reads
+ * `process.env.` on the declaration line. Column-0 anchoring is the module-level signal in this
+ * codebase's indent style: function-local reads are indented and never match. A multi-line
+ * initializer whose env read sits on a continuation line is outside this static heuristic —
+ * the escape marker covers judgment-call residue.
+ */
+export const A1_ENV_REDERIVATION = /^(?:const|let|var)\s[^;]*=\s*[^;]*\bprocess\.env\./;
+
+/*
  * Rule-scoped grandfathering: each rule carries its OWN set of repo-relative POSIX paths, so one
  * rule's existing-surface exemption can never widen another's — A5 keeps its zero-baseline ratchet
  * even inside files grandfathered for B3. A whole-file skip would silently exempt every rule at
  * once; filtering happens per HIT instead ({@link filterAllowlistedHits}). Sets shrink as the
- * cleanup subs land. B3 census: 2026-07-16 against `dev`; A5 is empty by construction (zero live
- * occurrences — any entry appearing here is a regression, not a grandfather).
+ * cleanup subs land. B3 census: 2026-07-16 against `dev`; A1 census: same day via THIS checker's
+ * own gate (a line-grep census missed the dev fleet server's multi-line import — the masked
+ * multi-line gate is the census authority); A5 is empty by construction (zero live occurrences —
+ * any entry appearing here is a regression, not a grandfather).
  */
 export const ALLOWLIST = Object.freeze({
+    A1: new Set([
+        'ai/daemons/wake/daemon.mjs',
+        'ai/services/fleet/devFleetServer.mjs'
+    ]),
     A5: new Set(),
     B3: new Set([
         'ai/mcp/server/BaseServer.mjs',
@@ -58,17 +83,23 @@ const RULES = [
 ];
 
 /**
- * @summary Scans file content for the B3 / A5 config-read antipatterns whose root token sits in code.
+ * @summary Scans file content for the A1 / B3 / A5 config-read antipatterns whose root token sits in code.
  *
  * Reuses the sibling guard's `codeMask` so an occurrence inside a string literal (a log message, a
  * spec title quoting the pattern) or a comment never flags — only executable defensive reads do.
+ * A1 is two-signal: its line rule participates only when the FILE passes the import gate
+ * ({@link A1_IMPORT_GATE}), so the C1-sanctioned pure-defaults shape (env literals, no config
+ * import) stays green by construction.
  * @param {String} content
  * @returns {Object[]} `[{line, rule, text}]` — one entry per offending line/rule (1-based line numbers).
  */
 export function findAntipatterns(content) {
-    const lines = content.split('\n'),
-          state = {inBlock: false},
-          hits  = [];
+    const lines         = content.split('\n'),
+          state         = {inBlock: false},
+          hits          = [],
+          a1Candidates  = [],
+          codeOnlyLines = [],
+          a1Global      = new RegExp(A1_ENV_REDERIVATION.source, 'g');
 
     lines.forEach((line, index) => {
         if (line.includes(ESCAPE_MARKER)) {
@@ -76,6 +107,12 @@ export function findAntipatterns(content) {
         }
 
         const mask = codeMask(line, state);
+
+        // The gate must see CODE only — a JSDoc/comment mention of the config root (a config
+        // template documenting its realm, a migration note) must never open A1 for the file.
+        // Build the code-only projection from the same mask the line rules use: masked-out
+        // characters become spaces, so multi-line import statements still span lines intact.
+        codeOnlyLines.push(Array.from(line, (ch, i) => (mask[i] ? ch : ' ')).join(''));
 
         for (const {id, pattern} of RULES) {
             for (const match of line.matchAll(pattern)) {
@@ -87,7 +124,19 @@ export function findAntipatterns(content) {
                 }
             }
         }
+
+        for (const match of line.matchAll(a1Global)) {
+            if (mask[match.index]) {
+                a1Candidates.push({line: index + 1, rule: 'A1', text: line.trim()});
+                break
+            }
+        }
     });
+
+    // A1 is two-signal: candidates emit only when the file's CODE opens the import gate.
+    if (a1Candidates.length && A1_IMPORT_GATE.test(codeOnlyLines.join('\n'))) {
+        hits.push(...a1Candidates)
+    }
 
     return hits
 }
@@ -179,7 +228,9 @@ function main() {
             violations.forEach(v => console.error('  ' + v));
             console.error('\nB3: never `?.` on an AiConfig read — the SSOT guarantees the tree; read the leaf and let it');
             console.error('fail loud (ADR-0019 §3/§5.1). A5: never a `hasEnvValue` helper — `leaf(default, env, type)`');
-            console.error(`owns the env-check (§5.2). Genuinely unavoidable line: add "${ESCAPE_MARKER}: <reason>".`);
+            console.error('owns the env-check (§5.2). A1: with AiConfig imported, never re-derive from process.env at');
+            console.error('module level — read the resolved leaf at the use site (§5.5; pure-defaults modules WITHOUT');
+            console.error(`a config import are the sanctioned C1 shape). Genuinely unavoidable: "${ESCAPE_MARKER}: <reason>".`);
         }
         process.exit(1);
     }
