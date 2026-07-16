@@ -46,3 +46,32 @@
         }
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────────────
+// Preview-language variant «Signal glow» (the design-exploration switch; sibling of the
+// indicator/chip variant in src/dashboard/Container.scss). The accept language binds to
+// the FM signal on EVERY theme — deep-pigment teal on light skins, glow teal on dark —
+// and the accepted zone gains a condensed boundary ring plus a soft outer bloom. The
+// rejected language is deliberately untouched (rejection must stay unmistakably itself).
+// Strictly additive: without the host modifier, the family above renders unchanged.
+// ─────────────────────────────────────────────────────────────────────────────────────
+.neo-preview-lang-signal .neo-dock-preview {
+    .neo-dock-preview-edge,
+    .neo-dock-preview-tab-into {
+        &.neo-dock-preview-accepted {
+            background-color : color-mix(in srgb, var(--fm-signal, #5eead4) 18%, transparent);
+            border-color     : var(--fm-signal, #5eead4);
+            box-shadow       : inset 0 0 0 1px color-mix(in srgb, var(--fm-signal, #5eead4) 55%, transparent),
+                               0 0 14px color-mix(in srgb, var(--fm-signal, #5eead4) 25%, transparent);
+        }
+    }
+
+    .neo-dock-preview-split,
+    .neo-dock-preview-tab-before,
+    .neo-dock-preview-tab-after {
+        &.neo-dock-preview-accepted {
+            background-color : var(--fm-signal, #5eead4);
+            box-shadow       : 0 0 8px color-mix(in srgb, var(--fm-signal, #5eead4) 60%, transparent);
+        }
+    }
+}
