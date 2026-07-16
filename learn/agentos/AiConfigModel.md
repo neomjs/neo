@@ -26,7 +26,13 @@ A config's `data` is a *meta-leaf tree* — each leaf is `leaf(default, env?, ty
 
 ## Templates, overlays, and why advancement is *inheritance*
 
-Each config exists as a pair: a tracked `config.template.mjs` (the canonical defaults) and a gitignored `config.mjs` (the operator overlay). The overlay's job is to carry the operator's **deltas** — nothing more.
+Each config realm has three roles:
+
+- a tracked `configBase.mjs` owns the canonical defaults and formulas;
+- a tracked, thin `config.template.mjs` registers the canonical singleton for clean checkouts and tests;
+- a gitignored, thin `config.mjs` registers the operator singleton and carries only operator **deltas**.
+
+Both thin singletons subclass the same base. Their Tier-1 import must evaluate before the base, so the tracked entry inherits the tracked realm root while a materialized operator entry inherits the operator root.
 
 The trap — and the reason this page exists — is to treat the overlay as a **clone** of the template that must be kept in sync as the template evolves. Down that road lie source-level drift detectors (regex-parsing `.mjs` text for leaf paths) and source-level merges (splicing new leaves into the operator's file, normalizing commas and indentation). **That is the wrong layer.** A config is not text to diff and splice; it is a mergeable data tree the Provider already resolves hierarchically and merges deeply:
 
@@ -36,11 +42,13 @@ The trap — and the reason this page exists — is to treat the overlay as a **
 
 So the model that follows from the hierarchy:
 
-- An overlay **owns only the operator's overrides** and inherits everything else from its canonical parent. It cannot go "stale": a template that grows a leaf is inherited automatically, because the new leaf lives in the parent, not in a frozen copy.
+- An overlay **owns only the operator's overrides** and inherits everything else from its canonical base. It cannot go "stale": a base that grows a leaf is inherited automatically, because the new leaf lives in the parent class, not in a frozen copy.
 - "Advancing" an overlay to a newer template is therefore **not an operation at all** — there is nothing to reconcile. Operator overrides persist as the child's own data; new defaults arrive by inheritance.
 - The override channels are the **env layer** (bounded env vars) and the **overlay's own data** (operator deltas, including a JSON delta via `load()`).
 
-The one-line test: **if you are parsing or rewriting config *source* to reconcile a template and an overlay, stop.** You are re-implementing — by hand, and fragilely — a deep-merge the framework already performs on the data tree, against a clone that should never have existed.
+Legacy full-snapshot overlays are the bounded transition exception. `migrateConfigOverlay.mjs` parses their declarations only to produce a reviewed delta subclass: preview is the default, `--write` creates a colocated backup, and unattended setup never takes that write path. Once converted, there is no recurring source reconciliation.
+
+The one-line test: **if ordinary advancement parses or rewrites config *source* to reconcile a template and an overlay, stop.** You are re-implementing — by hand, and fragilely — inheritance and deep merge against a clone that should never have existed.
 
 ## Related
 
