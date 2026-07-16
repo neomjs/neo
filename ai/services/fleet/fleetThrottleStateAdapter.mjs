@@ -29,14 +29,24 @@ export const THROTTLE_SOURCE_LABEL = 'fleet:throttleState'
  * plus a capability envelope declaring whether the truth source answered.
  *
  * Capability semantics mirror the wake sibling: `wired/observed` when the injected reader answered
- * for every agent, `degraded/none` when no reader exists (the platform's current state), and
- * `degraded/partial` when the reader answered for some agents and failed for others.
+ * in-contract for every agent, `degraded/none` when no reader exists (the platform's current
+ * state), and `degraded/partial` when SOME truth flowed — a reader that threw for some agents or
+ * returned out-of-contract values degrades the capability with the causes counted, so a broken
+ * producer can never hide under `wired/observed`. Diagnostics are row-LOCAL and REDACTED before
+ * any Body projection.
+ *
+ * **Freshness bound (the reader contract):** the reader runs synchronously *within* this snapshot,
+ * so the envelope's `capturedAt` IS the observation-time bound for every row — a consumer never
+ * has to guess row staleness relative to the envelope. A future watchdog producer that samples
+ * asynchronously must either resolve within the snapshot call or report `unknown` for data it
+ * cannot vouch for at call time; pre-sampled staleness beyond that bound is the producer's residual
+ * to declare, never this adapter's to hide.
  * @param {Object} options={}
  * @param {Object[]} [options.agents] Registry roster rows; each needs an `id`.
  * @param {Function|null} [options.resolveThrottleState] `(agent) => 'none'|'overage'|'rate-limited'|'unknown'`
- *     (sync or async). Absent ⇒ every row is honestly `unknown` — the documented platform truth
- *     until a watchdog-grade producer lands and injects here.
- * @param {Date|String} [options.capturedAt] Capture timestamp.
+ *     (sync or async, resolving within the snapshot call). Absent ⇒ every row is honestly
+ *     `unknown` — the documented platform truth until a watchdog-grade producer lands.
+ * @param {Date|String} [options.capturedAt] Capture timestamp — the observation-time bound above.
  * @returns {Promise<{capability: Object, states: Object[]}>} `states` rows:
  *     `{agentId, throttle, confidence, source}` (+ `reason` when `throttle` is `unknown`).
  */
@@ -45,27 +55,39 @@ export async function readFleetThrottleStateSnapshot({
     resolveThrottleState = null,
     capturedAt = new Date()
 } = {}) {
-    let sourceOk      = Boolean(resolveThrottleState),
-        sourceFailure = resolveThrottleState ? null : 'no throttle truth source exists yet: watchdog-signals producer not landed',
-        anyFailed     = false
+    const hasReader = Boolean(resolveThrottleState),
+          states    = []
 
-    const states = []
+    let failedRows  = 0,
+        invalidRows = 0
 
     for (const agent of asArray(agents)) {
         const agentId = agent?.id
 
         if (!agentId) continue
 
-        let throttle = 'unknown',
-            reason   = sourceFailure
+        // Diagnostics are ROW-LOCAL by contract: one agent's reader failure names only its own
+        // row — sibling rows keep their own truth and their own reasons.
+        let throttle  = 'unknown',
+            rowReason = hasReader ? null : 'no throttle truth source exists yet: watchdog-signals producer not landed'
 
-        if (resolveThrottleState) {
+        if (hasReader) {
             try {
-                throttle = normalizeThrottleState(await resolveThrottleState(agent))
-                reason   = throttle === 'unknown' ? 'truth source answered unknown' : null
+                const answer = await resolveThrottleState(agent)
+
+                if (answer === 'unknown') {
+                    rowReason = 'truth source answered unknown'
+                } else if (THROTTLE_STATES.includes(answer)) {
+                    throttle = answer
+                } else {
+                    // An out-of-contract answer is an INVALID result, not a quiet unknown — it is
+                    // counted into the capability so a producer-contract violation is visible.
+                    invalidRows++
+                    rowReason = 'truth source returned an out-of-contract value'
+                }
             } catch (error) {
-                anyFailed = true
-                reason    = normalizeReason(error)
+                failedRows++
+                rowReason = redactReason(error)
             }
         }
 
@@ -77,21 +99,25 @@ export async function readFleetThrottleStateSnapshot({
         }
 
         if (throttle === 'unknown') {
-            row.reason = reason || 'throttle state unreadable'
+            row.reason = rowReason || 'throttle state unreadable'
         }
 
         states.push(row)
     }
 
-    const fullyOk = sourceOk && !anyFailed
+    const fullyOk = hasReader && failedRows === 0 && invalidRows === 0
 
     return {
         capability: {
             source    : THROTTLE_SOURCE_LABEL,
             state     : fullyOk ? 'wired' : 'degraded',
-            confidence: fullyOk ? 'observed' : (sourceOk ? 'partial' : 'none'),
+            confidence: fullyOk ? 'observed' : (hasReader ? 'partial' : 'none'),
             capturedAt: toIsoString(capturedAt),
-            reason    : fullyOk ? null : (sourceOk ? 'throttle truth source failed for some agents' : sourceFailure)
+            reason    : fullyOk ? null : [
+                hasReader ? null : 'no throttle truth source exists yet: watchdog-signals producer not landed',
+                failedRows > 0 ? `throttle reader failed for ${failedRows} agent(s)` : null,
+                invalidRows > 0 ? `throttle reader returned out-of-contract values for ${invalidRows} agent(s)` : null
+            ].filter(Boolean).join('; ') || null
         },
         states
     }
@@ -109,6 +135,24 @@ export function normalizeThrottleState(value) {
 
 function normalizeReason(error) {
     return String(error?.message || error || 'source unavailable').replace(/\s+/g, ' ').slice(0, 240)
+}
+
+/**
+ * @summary Bounds AND redacts a diagnostic before it can reach a Body-side projection: secret
+ * vocabulary and token shapes are masked, whitespace collapsed, length capped — a throwing
+ * transport's dump can never leak internals into a row reason. Kept contract-identical with the
+ * wake sibling's redaction; consolidating both into one shared helper module rides the
+ * post-merge alignment of the two producer branches.
+ * @param {*} error
+ * @returns {String|null}
+ */
+function redactReason(error) {
+    if (error == null) return null
+
+    return normalizeReason(error)
+        .replace(/\b(token|secret|password|pat|credential|privateKey|signingKey)\s*[:=]\s*[^\s,;)]+/gi, '$1=[redacted]')
+        .replace(/\bgh[pousr]_[A-Za-z0-9_]+/g, '[redacted-token]')
+        .replace(/\bglpat-[A-Za-z0-9_-]+/g, '[redacted-token]')
 }
 
 function toIsoString(value) {

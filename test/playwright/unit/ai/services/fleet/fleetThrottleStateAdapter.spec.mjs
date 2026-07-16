@@ -96,6 +96,29 @@ test.describe('fleetThrottleStateAdapter — the fleet snapshot + capability env
         expect(states[1]).toMatchObject({agentId: 'vega', throttle: 'unknown', confidence: 'none', reason: 'watchdog stream offline'})
     })
 
+    test('an out-of-contract reader value degrades the CAPABILITY — garbage cannot hide under wired/observed', async () => {
+        const {capability, states} = await readFleetThrottleStateSnapshot({
+            agents,
+            resolveThrottleState: agent => agent.id === 'grace' ? 'RATE_LIMITED' : 'none'
+        })
+
+        expect(states[0]).toMatchObject({throttle: 'unknown', confidence: 'none', reason: 'truth source returned an out-of-contract value'})
+        expect(states[1]).toMatchObject({throttle: 'none', confidence: 'observed'})
+        expect(capability).toMatchObject({state: 'degraded', confidence: 'partial'})
+        expect(capability.reason).toContain('out-of-contract values for 1 agent(s)')
+    })
+
+    test('row reasons are REDACTED before any Body projection — a transport dump cannot leak a token', async () => {
+        const {capability, states} = await readFleetThrottleStateSnapshot({
+            agents              : [{id: 'grace'}],
+            resolveThrottleState: () => { throw new Error('watchdog auth: token=glpat-SECRET-xyz rejected') }
+        })
+
+        expect(states[0].reason).not.toContain('glpat-SECRET-xyz')
+        expect(states[0].reason).toContain('[redacted')
+        expect(capability.reason).toContain('failed for 1 agent(s)')
+    })
+
     test('rows without an agent id are skipped', async () => {
         const {states} = await readFleetThrottleStateSnapshot({
             agents              : [{}, {id: 'grace'}],
