@@ -430,6 +430,33 @@ test.describe('AgentOS.view.fleet.MailboxPane — the read-only S1 mailbox tab',
         })
     });
 
+    test('the freshness chip never claims currency it cannot place in time', () => {
+        // Class audit, not a reported falsifier: every OTHER claim on this pane was fail-open at
+        // least once today (empty from a torn envelope, empty from an unavailable admission), so the
+        // chip is the last surface that renders a producer-derived assertion. It reads
+        // `capability.capturedAt`; a snapshot whose timestamp is absent or unparseable must not
+        // become "fresh" — that would be currency invented from a value nobody supplied.
+        const unplaceable = [null, undefined, '', 'not-a-date', 12345, {}];
+
+        unplaceable.forEach(capturedAt => {
+            const pane = createPane({snapshot: {
+                capability: {source: 'memory-core:mailbox', state: 'wired', confidence: 'observed', capturedAt, reason: null},
+                admission : {state: 'granted', viewerIdentity: '@tobiu', subjectAgentId: '@neo-opus-vega', checkedAt: CAPTURED_AT, reason: null},
+                page      : {limit: 50, offset: 0, count: 1},
+                rows      : [row({messageId: 'MESSAGE:a'})]
+            }});
+
+            const chip = pane.getReference('mailbox-freshness');
+
+            expect(chip.cls, `capturedAt=${JSON.stringify(capturedAt)} must not read as fresh`).not.toContain('is-fresh');
+            expect(chip.text).toContain('not observed');
+            // the ROWS still render — the producer authorized them; only the age claim is unknown
+            expect(pane.getPaneState()).toBe('rows');
+
+            pane.destroy()
+        })
+    });
+
     test('a11y: the icon-only page steps carry an accessible name AND a real disabled semantic', () => {
         const pane = createPane({snapshot: wiredSnapshot([row({messageId: 'MESSAGE:a'})], {limit: 50, offset: 0, count: 50, hasMore: true})}),
               prev = pane.getReference('mailbox-page-prev'),
