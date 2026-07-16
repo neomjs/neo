@@ -20,9 +20,10 @@ import * as core      from '../../../../../../src/core/_export.mjs'
 import {readActiveWakeSubscriptionIdentities} from '../../../../../../ai/services/fleet/readActiveWakeSubscriptionIdentities.mjs'
 
 /**
- * Models the GraphService contract this reader depends on: `db` does NOT exist until `initAsync()`
- * resolves. A reader that skips the await sees `undefined` and cannot reach either surface — which
- * is exactly the defect these specs pin.
+ * Models the `core.Base` contract this reader depends on: `db` does NOT exist until async init has
+ * settled, and `ready()` is the only sanctioned external wait — `initAsync()` is framework-triggered
+ * and running it from outside would execute it twice. The double therefore exposes `ready()` ONLY,
+ * so a reader that reaches for `initAsync()` fails loud here instead of duplicating init in prod.
  */
 function graphServiceDouble({rows = null, items = null, initError = null} = {}) {
     let db = null
@@ -31,7 +32,7 @@ function graphServiceDouble({rows = null, items = null, initError = null} = {}) 
 
     return {
         statements,
-        async initAsync() {
+        async ready() {
             if (initError) throw new Error(initError)
 
             db = {
@@ -75,6 +76,21 @@ test.describe('readActiveWakeSubscriptionIdentities — the fleet wake axis bulk
         expect(service.db).toBe(null)
 
         await expect(readActiveWakeSubscriptionIdentities({graphService: service})).resolves.toEqual(['@neo-opus-grace'])
+    })
+
+    test('waits via ready(), NEVER initAsync() — the framework already ran it; a second run duplicates init', async () => {
+        // `core.Base`: initAsync is triggered during Neo.create(). Awaiting it from a consumer runs
+        // it twice — a fatal-duplication class the guard inside GraphService would quietly absorb,
+        // which is precisely why this needs a pin rather than a passing test.
+        const service = graphServiceDouble({rows: [{agentIdentity: '@neo-opus-grace'}]})
+
+        let initAsyncCalls = 0
+
+        service.initAsync = async () => { initAsyncCalls++ }
+
+        await readActiveWakeSubscriptionIdentities({graphService: service})
+
+        expect(initAsyncCalls).toBe(0)
     })
 
     test('malformed identities are dropped, never emitted as phantom subscribers', async () => {

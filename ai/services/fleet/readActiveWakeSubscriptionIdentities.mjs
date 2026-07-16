@@ -35,18 +35,19 @@ const ACTIVE_IDENTITIES_SQL = `
 /**
  * @summary Scan the graph for ACTIVE wake subscriptions and return their holder identities.
  * @param {Object} [options]
- * @param {Object} [options.graphService] Injectable service; defaults to the memory-core
- *     `GraphService` singleton, imported lazily. Tests inject a double exposing `db.nodes.items`.
+ * @param {Object} [options.graphService] Injectable service exposing `ready()` + `db`; defaults to
+ *     the memory-core `GraphService` singleton, imported lazily.
  * @returns {Promise<String[]>} The wake identities holding an active subscription (deduplicated).
  * @throws {Error} When no read surface is reachable — the adapter maps this to honest `unknown`.
  */
 export async function readActiveWakeSubscriptionIdentities({graphService = null} = {}) {
     const service = graphService || (await import('../memory-core/GraphService.mjs')).default
 
-    // `db` is populated by `initAsync`, not by module import: reading it straight off the fresh
-    // import yields undefined. `initAsync` is idempotent and awaits any in-flight init, so this is
-    // safe for an injected double that has already booted.
-    await service.initAsync?.()
+    // `db` is populated by async init, not by module import: reading it straight off the fresh
+    // import yields undefined. `ready()` is the ONLY architecture-compliant external wait —
+    // `core.Base` triggers `initAsync()` itself during `Neo.create()`, so awaiting that method from
+    // out here would run it a second time (`src/core/Base.mjs`). Mirrors `WakeSubscriptionService`.
+    await service.ready()
 
     const sqlite = service.db?.storage?.db
 
