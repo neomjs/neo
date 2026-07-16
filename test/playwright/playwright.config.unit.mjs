@@ -1,17 +1,21 @@
 import './configTemplateResolver.mjs';
 
-import {defineConfig}  from '@playwright/test';
-import os              from 'os';
-import path            from 'path';
-import {fileURLToPath} from 'url';
+import {defineConfig}        from '@playwright/test';
+import os                    from 'os';
+import path                  from 'path';
+import {fileURLToPath}       from 'url';
+import {resolveFreePortSync} from './resolveFreePort.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 process.env.UNIT_TEST_MODE = 'true';
 
-const chromaTestHost    = process.env.NEO_CHROMA_HOST_TEST || '127.0.0.1';
-const chromaTestPort    = Number(process.env.NEO_CHROMA_PORT_TEST) || 18180;
+const chromaTestHost = process.env.NEO_CHROMA_HOST_TEST || '127.0.0.1';
+// Per-process like the data dir below — a fixed default port + reuseExistingServer:false wedges
+// concurrent runs on the shared multi-agent machine (and an orphaned chroma made the wedge sticky
+// machine-wide). Env pin still wins; see resolveFreePort.mjs for the full incident rationale.
+const chromaTestPort    = resolveFreePortSync(process.env.NEO_CHROMA_PORT_TEST);
 const chromaTestDataDir = process.env.NEO_CHROMA_DATA_DIR_TEST ||
     path.join(os.tmpdir(), `neo-chroma-unit-test-${process.pid}`);
 
