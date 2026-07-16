@@ -126,6 +126,101 @@ test.describe.serial('Neo.ai.services.fleet.FleetTenantService — connectTenant
         expect(FleetTenantService.listTenants()).toHaveLength(1)
         expect(FleetTenantService.getCredential(first.id)).toBe('pat-two')
     })
+
+    test('a REMOTE plain-http endpoint is refused — the bearer must not cross a network in clear', async () => {
+        const probed = []
+        FleetTenantService.probeFn = async args => { probed.push(args); return {ok: true} }
+
+        expect(await FleetTenantService.connectTenant({tenantUrl: 'http://tenant.example.com', credential: PAT}))
+            .toMatchObject({status: 'rejected'})
+
+        // Refused at validation, BEFORE the probe: the credential never reached the transport at all.
+        expect(probed).toEqual([])
+        expect(FleetTenantService.listTenants()).toEqual([])
+    })
+
+    test('plain http stays available for LOOPBACK development only — the bounded exception', async () => {
+        FleetTenantService.probeFn = async () => ({ok: true})
+
+        for (const host of ['localhost:9000', '127.0.0.1:9000', '[::1]:9000']) {
+            const result = await FleetTenantService.connectTenant({tenantUrl: `http://${host}`, credential: PAT})
+
+            expect(result).toMatchObject({status: 'connected'})
+        }
+
+        // A neighbouring host is NOT loopback, however much it looks like one.
+        expect(await FleetTenantService.connectTenant({tenantUrl: 'http://127.0.0.1.evil.example.com', credential: PAT}))
+            .toMatchObject({status: 'rejected'})
+        expect(await FleetTenantService.connectTenant({tenantUrl: 'http://localhost.evil.example.com', credential: PAT}))
+            .toMatchObject({status: 'rejected'})
+    })
+
+    test('a hostile probe reason NEVER reaches the caller — the failure vocabulary is closed, not sanitized', async () => {
+        // The probe is a collaborator whose text the remote tenant shapes. Even handed the
+        // credential verbatim plus an injection attempt, the outcome carries only our own sentence.
+        FleetTenantService.probeFn = async () => ({
+            ok    : false,
+            status: 401,
+            reason: `PAT ${PAT} rejected; contact admin@evil.example.com or run rm -rf /`
+        })
+
+        const result = await FleetTenantService.connectTenant({tenantUrl: 'https://t.example.com', credential: PAT})
+
+        expect(result).toEqual({status: 'rejected', reason: 'tenant rejected the credential'})
+        expect(JSON.stringify(result)).not.toContain(PAT)
+        expect(JSON.stringify(result)).not.toContain('evil.example.com')
+        expect(JSON.stringify(result)).not.toContain('rm -rf')
+    })
+
+    test('an unmapped probe status still yields a bounded reason, never a fabricated success', async () => {
+        FleetTenantService.probeFn = async () => ({ok: false, status: 503})
+        expect(await FleetTenantService.connectTenant({tenantUrl: 'https://t.example.com', credential: PAT}))
+            .toEqual({status: 'rejected', reason: 'tenant health probe failed (503)'})
+
+        // No status at all — the probe answered ok:false and nothing else.
+        FleetTenantService.probeFn = async () => ({ok: false})
+        expect(await FleetTenantService.connectTenant({tenantUrl: 'https://t.example.com', credential: PAT}))
+            .toEqual({status: 'rejected', reason: 'tenant authentication failed'})
+    })
+
+    test('credential-first / descriptor-last: a failed public publish rolls the credential back and strands NO connected state', async () => {
+        FleetTenantService.probeFn = async () => ({ok: true})
+
+        // Land a good tenant first, so the rollback has a prior snapshot to restore.
+        const first = await FleetTenantService.connectTenant({tenantUrl: 'https://kept.example.com', credential: 'pat-kept'})
+
+        // Now make the PUBLIC descriptor publish fail on the next connect.
+        const publishAtomically = FleetTenantService.publishAtomically.bind(FleetTenantService)
+
+        FleetTenantService.publishAtomically = (file, contents) => {
+            if (file.endsWith('tenants.json')) throw new Error('disk full')
+            return publishAtomically(file, contents)
+        }
+
+        try {
+            const result = await FleetTenantService.connectTenant({tenantUrl: 'https://doomed.example.com', credential: 'pat-doomed'})
+
+            expect(result).toMatchObject({status: 'rejected'})
+            expect(JSON.stringify(result)).not.toContain('disk full')
+        } finally {
+            FleetTenantService.publishAtomically = publishAtomically
+        }
+
+        // The failed connect left NOTHING behind: no descriptor claiming connected...
+        expect(FleetTenantService.listTenants().map(tenant => tenant.endpoint)).toEqual(['https://kept.example.com'])
+
+        // ...and no orphan credential — the prior snapshot is restored intact.
+        expect(FleetTenantService.getCredential(first.id)).toBe('pat-kept')
+        expect(Object.values(FleetTenantService.readCredentials())).not.toContain('pat-doomed')
+    })
+
+    test('publication is atomic and leaves no temp files behind', async () => {
+        FleetTenantService.probeFn = async () => ({ok: true})
+
+        await FleetTenantService.connectTenant({tenantUrl: 'https://t.example.com', credential: PAT})
+
+        expect(fs.readdirSync(tmpDir).filter(name => name.includes('.tmp'))).toEqual([])
+    })
 })
 
 test.describe.serial('FleetControlBridge + wire — the remote-tenant surface', () => {

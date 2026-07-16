@@ -5,6 +5,42 @@ import {fileURLToPath} from 'node:url';
 import Base            from '../../../src/core/Base.mjs';
 
 /**
+ * Hosts for which plain `http:` is accepted. Deliberately an exact set rather than a range or a
+ * pattern: this is the one exception to the TLS rule that protects the bearer, so it stays small
+ * enough to audit at a glance. A developer running a tenant on a non-loopback address uses TLS.
+ *
+ * `[::1]` keeps its brackets: these are compared against `URL#hostname`, which returns the IPv6
+ * literal bracketed. Un-bracketing it here would silently stop matching.
+ */
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+/**
+ * @summary Canonical origin+path form (no trailing slash) so one endpoint maps to one tenant id.
+ * @param {URL} url
+ * @returns {String}
+ */
+function canonicalize(url) {
+    return (url.origin + url.pathname).replace(/\/+$/, '');
+}
+
+/**
+ * @summary The CLOSED public vocabulary for a failed connect.
+ *
+ * The probe is a collaborator — an injected seam in tests, and in production a function whose
+ * `reason` is shaped by whatever the remote tenant returned. Echoing its text to the caller would
+ * hand an untrusted party a channel into a public surface. So the outcome is derived from the one
+ * field we can bound (the HTTP status) and the collaborator's prose is discarded, not sanitized:
+ * an allowlist of our own sentences cannot leak what it never carries.
+ * @param {Number} [status] The probe's HTTP status, when it reported one.
+ * @returns {String}
+ */
+function rejectionReasonFor(status) {
+    if (status === 401 || status === 403) return 'tenant rejected the credential';
+
+    return Number.isInteger(status) ? `tenant health probe failed (${status})` : 'tenant authentication failed';
+}
+
+/**
  * @class Neo.ai.services.fleet.FleetTenantService
  * @extends Neo.core.Base
  * @singleton
@@ -19,8 +55,13 @@ import Base            from '../../../src/core/Base.mjs';
  * remote transport probe, and is stored reversibly encrypted (AES-256-GCM, `0600`, the same
  * `NEO_FLEET_SECRET_KEY` / generated-keyfile discipline as the agent-PAT store) because the future
  * remote transport must present the real bearer. It is **never** returned, never included in a
- * public descriptor, and never transits the browser — every read surface serves the public
- * projection only (`{id, endpoint, status, deploymentClass, connectedAt}`).
+ * public descriptor, and never persists or returns through Body state — every read surface serves
+ * the public projection only (`{id, endpoint, status, deploymentClass, connectedAt}`).
+ *
+ * Stated precisely, because the looser claim ("never transits the browser") is false and worth not
+ * believing: the PAT necessarily ARRIVES through the allowlisted Body→Brain connect request. The
+ * boundary this class holds is one-way — inbound once, never back out, and never into anything the
+ * Body can read.
  *
  * **Fail-closed:** a malformed URL, an unreachable endpoint, or a rejected bearer never persists a
  * descriptor and never throws raw transport errors upward — the caller gets a controlled
@@ -53,10 +94,11 @@ class FleetTenantService extends Base {
      */
     dataDir = null
     /**
-     * Transport-probe seam: `({endpoint, credential}) => Promise<{ok: Boolean, status?: Number,
-     * reason?: String}>`. Defaults (via {@link getProbeFn}) to {@link probeTenantEndpoint} — an
-     * authenticated HTTPS health probe. Inject a stub in tests so no spec ever needs a live tenant
-     * or a real PAT. Plain field, mirroring `FleetLifecycleService.spawnFn`.
+     * Transport-probe seam: `({endpoint, credential}) => Promise<{ok: Boolean, status?: Number}>`.
+     * Defaults (via {@link getProbeFn}) to {@link probeTenantEndpoint} — an authenticated HTTPS
+     * health probe. Any `reason` a stub returns is IGNORED: the public failure vocabulary is
+     * derived from `status` alone ({@link rejectionReasonFor}). Inject a stub in tests so no spec
+     * ever needs a live tenant or a real PAT. Plain field, mirroring `FleetLifecycleService.spawnFn`.
      * @member {Function|null} probeFn=null
      */
     probeFn = null
@@ -69,10 +111,12 @@ class FleetTenantService extends Base {
      * one `defineAgent` enforces for agent PATs. Reconnecting an existing endpoint updates its
      * descriptor + credential in place (re-auth is the point of a reconnect).
      * @param {Object} params
-     * @param {String} params.tenantUrl  The hosted tenant's base URL (http/https).
+     * @param {String} params.tenantUrl  The hosted tenant's base URL. `https` required; plain `http`
+     *     is accepted for loopback development only (the bearer must not cross a network in clear).
      * @param {String} params.credential The tenant PAT — stored encrypted, never returned.
      * @returns {Promise<Object>} `{id, endpoint, status: 'connected', deploymentClass,
-     *     connectedAt}` on success; `{status: 'rejected', reason}` on any validation/auth failure.
+     *     connectedAt}` on success; `{status: 'rejected', reason}` — reason drawn from a closed
+     *     vocabulary — on any validation, auth, or persistence failure.
      */
     async connectTenant({tenantUrl, credential} = {}) {
         const endpoint = this.normalizeEndpoint(tenantUrl);
@@ -96,7 +140,7 @@ class FleetTenantService extends Base {
         }
 
         if (!probe?.ok) {
-            return {status: 'rejected', reason: probe?.reason || 'tenant authentication failed'};
+            return {status: 'rejected', reason: rejectionReasonFor(probe?.status)};
         }
 
         const descriptor = {
@@ -107,8 +151,27 @@ class FleetTenantService extends Base {
             connectedAt    : new Date().toISOString()
         };
 
-        this.writeDescriptor(descriptor);
+        // Two-store connect transaction, mirroring `FleetRegistryService.defineAgent`: credential
+        // FIRST, public descriptor LAST. The descriptor is the surface that claims `connected`, so
+        // publishing it before the credential it depends on is what strands a tenant that reads as
+        // live and cannot authenticate. Reversed, the worst case is an encrypted credential with no
+        // descriptor — invisible, harmless, and overwritten by the next connect.
+        const previousCredentials = this.readCredentials();
+
         this.writeCredential(descriptor.id, credential);
+
+        try {
+            this.writeDescriptor(descriptor)
+        } catch (error) {
+            // Roll the credential back to the pre-connect snapshot. A failed rollback is swallowed
+            // deliberately: the descriptor never published, so there is no false connected state to
+            // correct, and the stored credential is unreachable without one.
+            try {
+                this.writeCredentials(previousCredentials)
+            } catch (rollbackError) {}
+
+            return {status: 'rejected', reason: 'tenant connection could not be persisted'};
+        }
 
         return {...descriptor};
     }
@@ -152,11 +215,18 @@ class FleetTenantService extends Base {
             return null;
         }
 
-        if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
         // A URL-embedded secret would bypass the encrypted store — reject the shape outright.
         if (url.username || url.password) return null;
 
-        return (url.origin + url.pathname).replace(/\/+$/, '');
+        // The PAT rides to this endpoint as a bearer header (see `probeTenantEndpoint`), so the
+        // endpoint's scheme decides whether the credential crosses the wire in cleartext. TLS is
+        // required for anything remote; `http:` survives only for loopback, where there is no
+        // network hop to intercept and a developer can run a tenant without a certificate.
+        if (url.protocol === 'https:') return canonicalize(url);
+
+        if (url.protocol === 'http:' && LOOPBACK_HOSTS.has(url.hostname)) return canonicalize(url);
+
+        return null;
     }
 
     /**
@@ -175,12 +245,16 @@ class FleetTenantService extends Base {
     // ---- storage (public descriptors + encrypted credentials) ---------------
 
     /**
-     * @summary Resolve (field > env > default) the fleet data directory — the registry precedent.
+     * @summary Resolve (field > default) the fleet data directory — the registry precedent, exactly.
+     *
+     * No env layer: `FleetRegistryService.getDataDir()` resolves field-then-default, and these two
+     * services share this directory. A private env override on one side could point the tenant
+     * store at a different root than the agent store while both claim the same home.
      * @returns {String}
      * @protected
      */
     getDataDir() {
-        return this.dataDir || process.env.NEO_FLEET_DATA_DIR || path.resolve(
+        return this.dataDir || path.resolve(
             path.dirname(fileURLToPath(import.meta.url)), '../../../.neo-ai-data/fleet'
         );
     }
@@ -206,19 +280,48 @@ class FleetTenantService extends Base {
     }
 
     /**
-     * @summary Upserts one public descriptor; `0600` like every fleet store file.
+     * @summary Upserts one public descriptor, published atomically; `0600` like every fleet store file.
      * @param {Object} descriptor
      * @protected
      */
     writeDescriptor(descriptor) {
-        const dir  = this.getDataDir(),
-              file = path.join(dir, 'tenants.json'),
-              map  = this.readDescriptors();
+        const map = this.readDescriptors();
 
         map[descriptor.id] = descriptor;
 
+        this.publishAtomically(
+            path.join(this.getDataDir(), 'tenants.json'),
+            JSON.stringify(map, null, 4)
+        );
+    }
+
+    /**
+     * @summary Write-then-rename, the `FleetRegistryService.writeRegistry` precedent.
+     *
+     * `writeFileSync` onto a live path truncates before it writes: a crash mid-write leaves a
+     * half-file that the fail-closed readers here would silently parse as an EMPTY store — every
+     * tenant descriptor or credential gone, indistinguishable from a fresh install. A rename is
+     * atomic on POSIX, so a reader sees either the whole prior file or the whole new one.
+     * @param {String} file
+     * @param {String|Buffer} contents
+     * @protected
+     */
+    publishAtomically(file, contents) {
+        const dir     = path.dirname(file),
+              tmpFile = `${file}.${process.pid}.${crypto.randomUUID()}.tmp`;
+
         fs.mkdirSync(dir, {recursive: true});
-        fs.writeFileSync(file, JSON.stringify(map, null, 4), {encoding: 'utf8', mode: 0o600});
+
+        try {
+            fs.writeFileSync(tmpFile, contents, {mode: 0o600});
+            fs.renameSync(tmpFile, file)
+        } catch (error) {
+            if (fs.existsSync(tmpFile)) {
+                fs.unlinkSync(tmpFile)
+            }
+
+            throw error
+        }
     }
 
     /**
@@ -243,13 +346,27 @@ class FleetTenantService extends Base {
      * @protected
      */
     writeCredential(tenantId, credential) {
-        const dir = this.getDataDir(),
-              map = this.readCredentials();
+        const map = this.readCredentials();
 
         map[tenantId] = credential;
 
-        fs.mkdirSync(dir, {recursive: true});
-        fs.writeFileSync(path.join(dir, 'tenant-credentials.enc'), this.encrypt(JSON.stringify(map)), {mode: 0o600});
+        this.writeCredentials(map);
+    }
+
+    /**
+     * @summary Encrypt + atomically publish the WHOLE credential map — the rollback seam.
+     *
+     * Separate from {@link writeCredential} because a rollback must restore a prior snapshot
+     * wholesale, not upsert one entry: re-adding the key we just wrote is not the inverse of
+     * writing it.
+     * @param {Object} map `{tenantId: pat}`
+     * @protected
+     */
+    writeCredentials(map) {
+        this.publishAtomically(
+            path.join(this.getDataDir(), 'tenant-credentials.enc'),
+            this.encrypt(JSON.stringify(map))
+        );
     }
 
     // ---- crypto (AES-256-GCM, the FleetRegistryService discipline) ----------
@@ -324,12 +441,16 @@ class FleetTenantService extends Base {
 
 /**
  * @summary The default transport probe: an authenticated GET against the tenant endpoint's health
- * path, bearer-presented, bounded timeout. Any 2xx authenticates; 401/403 is a named auth
- * rejection; everything else is unreachable.
+ * path, bearer-presented, bounded timeout. Any 2xx authenticates; everything else does not.
+ *
+ * Reports `{ok, status}` and deliberately NO prose. The caller owns the public failure vocabulary
+ * ({@link rejectionReasonFor}) because a probe's text is shaped by the remote tenant; a `reason`
+ * field here would be an open invitation for the next author to forward it, which is the boundary
+ * this split exists to close.
  * @param {Object} options
- * @param {String} options.endpoint   Normalized tenant base URL.
+ * @param {String} options.endpoint   Normalized tenant base URL (TLS, or loopback for development).
  * @param {String} options.credential The tenant PAT (used for the probe only; never logged).
- * @returns {Promise<Object>} `{ok}` plus, when available, `status` and a bounded `reason`.
+ * @returns {Promise<Object>} `{ok, status}`.
  */
 export async function probeTenantEndpoint({endpoint, credential}) {
     const response = await fetch(`${endpoint}/health`, {
@@ -337,15 +458,7 @@ export async function probeTenantEndpoint({endpoint, credential}) {
         signal : AbortSignal.timeout(10_000)
     });
 
-    if (response.ok) return {ok: true, status: response.status};
-
-    return {
-        ok    : false,
-        status: response.status,
-        reason: response.status === 401 || response.status === 403
-            ? 'tenant rejected the credential'
-            : `tenant health probe failed (${response.status})`
-    };
+    return {ok: response.ok, status: response.status};
 }
 
 export default Neo.setupClass(FleetTenantService);
