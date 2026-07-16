@@ -15,6 +15,8 @@ setup({
 
 import { test, expect } from '@playwright/test';
 import http             from 'http';
+import net              from 'net';
+import os               from 'os';
 import Neo              from '../../../../../../../../src/Neo.mjs';
 import * as core        from '../../../../../../../../src/core/_export.mjs';
 
@@ -329,6 +331,233 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
 
         test('ignores an unparseable publicUrl without throwing', () => {
             expect(TransportService.computeAllowedHosts({publicUrl: 'not a url'})).toEqual(['localhost', '127.0.0.1', '[::1]']);
+        });
+    });
+
+    /**
+     * @summary Real-socket coverage for the loopback/origin/Host/bearer ingress contract.
+     */
+    test.describe('local-bearer ingress', () => {
+        let TransportService, McpServer, generateLocalBearerToken;
+
+        const externalIpv4 = Object.values(os.networkInterfaces())
+            .flat()
+            .find(address => address && !address.internal && (address.family === 'IPv4' || address.family === 4))
+            ?.address;
+
+        function localConfig(token, overrides = {}) {
+            return {
+                mcpHttpHost  : '127.0.0.1',
+                mcpListenHost: '127.0.0.1',
+                mcpHttpPort  : 0,
+                auth         : {
+                    mode              : 'local-bearer',
+                    localBearerToken  : token,
+                    trustProxyIdentity: false
+                },
+                ...overrides
+            }
+        }
+
+        function httpRequest({port, method='POST', headers={}, body}) {
+            return new Promise((resolve, reject) => {
+                const request = http.request({
+                    host: '127.0.0.1',
+                    port,
+                    path: '/mcp',
+                    method,
+                    headers
+                }, response => {
+                    const chunks = [];
+
+                    response.on('data', chunk => chunks.push(chunk));
+                    response.on('end', () => resolve({
+                        body   : Buffer.concat(chunks).toString('utf8'),
+                        headers: response.headers,
+                        status : response.statusCode
+                    }));
+                });
+
+                request.on('error', reject);
+                if (body !== undefined) {
+                    request.write(body)
+                }
+                request.end()
+            })
+        }
+
+        function initializeBody() {
+            return JSON.stringify({
+                jsonrpc: '2.0',
+                id     : 1,
+                method : 'initialize',
+                params : {
+                    protocolVersion: '2024-11-05',
+                    capabilities   : {},
+                    clientInfo     : {name: 'local-bearer-test', version: '1.0.0'}
+                }
+            })
+        }
+
+        async function setupLocal({token=generateLocalBearerToken(), aiConfig={}, server} = {}) {
+            const mcpServer = new McpServer({name: 'local-bearer-test', version: '1.0.0'});
+
+            await TransportService.setup({
+                server: server || {
+                    mcpServer,
+                    onSessionClosed: () => {}
+                },
+                aiConfig    : localConfig(token, aiConfig),
+                logger      : {info: () => {}, warn: () => {}, error: () => {}},
+                resourceName: 'LocalBearerTest'
+            });
+
+            return {
+                port: TransportService.httpServer.address().port,
+                token
+            }
+        }
+
+        function canConnect(host, port) {
+            return new Promise(resolve => {
+                const socket  = net.createConnection({host, port});
+                let   settled = false;
+
+                const finish = connected => {
+                    if (settled) {
+                        return
+                    }
+                    settled = true;
+                    socket.destroy();
+                    resolve(connected)
+                };
+
+                socket.setTimeout(1000);
+                socket.once('connect', () => finish(true));
+                socket.once('error',   () => finish(false));
+                socket.once('timeout', () => finish(false));
+            })
+        }
+
+        test.beforeAll(async () => {
+            TransportService        = (await import('../../../../../../../../ai/mcp/server/shared/services/TransportService.mjs')).default;
+            McpServer               = (await import('@modelcontextprotocol/sdk/server/mcp.js')).McpServer;
+            generateLocalBearerToken = (await import('../../../../../../../../ai/mcp/server/shared/helpers/localBearer.mjs')).generateLocalBearerToken;
+        });
+
+        test.beforeEach(() => {
+            // Legacy cases above call Base.destroy(), which clears instance-owned maps. Recreate
+            // this describe's isolated session state so CI's single worker does not inherit it.
+            TransportService.app        = null;
+            TransportService.httpServer = null;
+            TransportService.transports = new Map();
+            TransportService.mcpServers = new Map()
+        });
+
+        test.afterEach(async () => {
+            if (TransportService.httpServer?.listening) {
+                await new Promise((resolve, reject) => {
+                    TransportService.httpServer.close(error => error ? reject(error) : resolve())
+                })
+            }
+
+            TransportService.app        = null;
+            TransportService.httpServer = null;
+            TransportService.transports.clear();
+            TransportService.mcpServers.clear()
+        });
+
+        test('fails startup unless the actual listener bind is literal 127.0.0.1', async () => {
+            const token = generateLocalBearerToken();
+
+            await expect(TransportService.setup({
+                server      : {mcpServer: {connect: async () => {}}},
+                aiConfig    : localConfig(token, {mcpListenHost: 'localhost'}),
+                logger      : {info: () => {}},
+                resourceName: 'InvalidLocalBind'
+            })).rejects.toThrow(/literal IPv4 loopback address '127\.0\.0\.1'/);
+
+            expect(TransportService.httpServer?.listening).not.toBe(true);
+        });
+
+        test('binds the real socket to IPv4 loopback and accepts an absent-Origin valid request', async () => {
+            const {port, token} = await setupLocal();
+            const address       = TransportService.httpServer.address();
+
+            expect(address.address).toBe('127.0.0.1');
+
+            const response = await httpRequest({
+                port,
+                headers: {
+                    Accept        : 'application/json, text/event-stream',
+                    Authorization : `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: initializeBody()
+            });
+
+            expect(response.status).toBe(200);
+            expect(response.headers['mcp-session-id']).toBeTruthy();
+        });
+
+        test('rejects every present Origin before auth or MCP dispatch, including an empty value', async () => {
+            let   connectCalls = 0;
+            const token        = generateLocalBearerToken();
+            const {port}       = await setupLocal({
+                token,
+                server: {mcpServer: {connect: async () => { connectCalls++ }}}
+            });
+
+            for (const origin of ['https://browser.example', '']) {
+                const response = await httpRequest({
+                    port,
+                    method : 'GET',
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        Origin       : origin
+                    }
+                });
+
+                expect(response.status).toBe(403);
+                expect(response.body).toContain('Origin header is not allowed');
+            }
+
+            expect(connectCalls).toBe(0);
+        });
+
+        test('keeps bearer and Host validation as independent guards', async () => {
+            const {port, token} = await setupLocal({
+                server: {mcpServer: {connect: async () => {}}}
+            });
+
+            const missing = await httpRequest({port, method: 'GET'});
+            expect(missing.status).toBe(401);
+
+            const invalidBearer = await httpRequest({
+                port,
+                method : 'GET',
+                headers: {Authorization: `Bearer ${generateLocalBearerToken()}`}
+            });
+            expect(invalidBearer.status).toBe(401);
+
+            const invalidHost = await httpRequest({
+                port,
+                method : 'GET',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    Host         : 'attacker.example'
+                }
+            });
+            expect(invalidHost.status).toBe(403);
+            expect(invalidHost.body).toContain('Invalid Host');
+        });
+
+        test('is unreachable through a discovered non-loopback IPv4 interface', async () => {
+            test.skip(!externalIpv4, 'No non-loopback IPv4 interface is available in this test environment');
+
+            const {port} = await setupLocal();
+
+            expect(await canConnect(externalIpv4, port)).toBe(false);
         });
     });
 

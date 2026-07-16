@@ -36,7 +36,19 @@ jobs:
               return;
             }
 
-            console.log(`🔍 Linting review body for agent reviewer: ${reviewer} on PR #${pr.number}`);
+            // State-keyed enforcement: only gate-bearing reviews owe the template.
+            // APPROVED / CHANGES_REQUESTED flip reviewDecision and carry merge semantics; a
+            // COMMENTED review is supplementary by construction (the merge gate's own rule:
+            // a comment alone is insufficient) — same-family disclosures, corpus/fixture
+            // verifications, invited design reads. Forcing the gate template onto those either
+            // fails peers' CI on non-gating input or breeds template theater that muddies the
+            // cross-family accounting. The state field is the same SSOT the merge gate reads.
+            if ((review.state || '').toLowerCase() === 'commented') {
+              console.log(`✅ COMMENTED review by ${reviewer} — supplementary (non-gating); template enforcement is state-keyed to APPROVED/CHANGES_REQUESTED. Skipping lint.`);
+              return;
+            }
+
+            console.log(`🔍 Linting review body for agent reviewer: ${reviewer} on PR #${pr.number} (state: ${review.state})`);
 
             // ──────────────────────────────────────────────────────────────────────
             // Two-layer mechanical body-shape validation (#11495, derived from PR #11494).
@@ -224,6 +236,9 @@ jobs:
               `Do NOT compose a substitute template or hallucinate section headings. The validator`,
               `checks more structural anchors than this comment names. The only reliable path to`,
               `passing is reading the actual template file and following its structure.`,
+              ``,
+              `Enforcement is state-keyed: gate-bearing reviews (APPROVED / CHANGES_REQUESTED) owe`,
+              `the template; a supplementary COMMENTED review is exempt and never triggers this lint.`,
               ``,
               missingPremiseSnapshot.length > 0
                 ? `**Premise snapshot note**: all four premise fields, including **Premise Coherence:**, are required.`

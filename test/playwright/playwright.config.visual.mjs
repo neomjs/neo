@@ -1,10 +1,13 @@
 import './configTemplateResolver.mjs';
 
 import {defineConfig, devices} from '@playwright/test';
+import {resolveFreePortSync}   from './resolveFreePort.mjs';
 
-// Overridable so agent/dev runs can isolate from a foreign dev-server already squatting on 8080
-// (a server started from ANOTHER checkout silently serves the wrong tree to every spec).
-const PORT = process.env.NEO_E2E_PORT || 8080;
+// Per-process by default: this suite must render ITS OWN checkout (reuseExistingServer:false),
+// so a fixed default both collides with a foreign dev-server squatting on 8080 AND wedges
+// concurrent visual runs on the shared multi-agent machine (see resolveFreePort.mjs). An
+// explicit NEO_E2E_PORT pin still wins for deliberate isolation.
+const PORT = resolveFreePortSync(process.env.NEO_E2E_PORT);
 
 /**
  * The visual-regression baseline config — pixel-level goldens for the design-led surfaces,

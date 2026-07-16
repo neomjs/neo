@@ -80,6 +80,54 @@ test.describe('Tier 1 Config Immutability', () => {
         }
     });
 
+    test('mcpListenHost is opt-in and owns the listener-bind env contract', () => {
+        expect(Config.mcpListenHost).toBe(process.env.NEO_MCP_LISTEN_HOST || null);
+
+        const fresh = createIsolatedConfig();
+
+        try {
+            fresh.setEnvOverride('NEO_MCP_LISTEN_HOST', '127.0.0.1');
+            expect(fresh.mcpListenHost).toBe('127.0.0.1');
+        } finally {
+            fresh.destroy();
+        }
+    });
+
+    test('local-bearer readiness requires the declarative process-lifetime token leaf', () => {
+        const fresh = createIsolatedConfig();
+
+        try {
+            fresh.setEnvOverride('NEO_AUTH_LOCAL_BEARER_TOKEN', '');
+
+            const missing = fresh.validateRequiredEnv({
+                consumerClaim: 'readiness',
+                entrypoint   : 'neural-link-mcp',
+                mode         : 'local-bearer'
+            });
+
+            expect(missing.ok).toBe(false);
+            expect(missing.findings).toEqual([{
+                consumerClaim: 'readiness',
+                entrypoint   : 'neural-link-mcp',
+                env          : 'NEO_AUTH_LOCAL_BEARER_TOKEN',
+                leafPath     : 'auth.localBearerToken',
+                mode         : 'local-bearer',
+                reason       : 'Local-bearer readiness requires a process-lifetime possession credential.',
+                valueState   : 'absent',
+                disposition  : 'fail-closed'
+            }]);
+
+            fresh.setEnvOverride('NEO_AUTH_LOCAL_BEARER_TOKEN', 'configured-for-use-site-validation');
+            expect(fresh.validateRequiredEnv({
+                consumerClaim: 'readiness',
+                entrypoint   : 'neural-link-mcp',
+                mode         : 'local-bearer'
+            })).toEqual({findings: [], ok: true});
+        } finally {
+            fresh.destroy();
+        }
+    });
+
     test('ships a machine-neutral orchestrator dev-sync root default', async () => {
         expect(Config.orchestrator.devSyncRoots).toEqual([]);
     });

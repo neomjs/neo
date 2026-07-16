@@ -227,6 +227,15 @@ function buildZodSchemaFromNode(doc, schema, opts = {}) {
         zodSchema = z.unknown();
     }
 
+    // `z.enum()` covers string enums above. Compile boolean enums to literals so
+    // runtime validation and the machine-readable `tools/list` schema preserve
+    // the same constraint (notably exact-profile `lean: true` contracts).
+    if (schema.type === 'boolean' && Array.isArray(schema.enum) && schema.enum.length > 0) {
+        const literals = schema.enum.map(value => z.literal(value));
+
+        zodSchema = literals.length === 1 ? literals[0] : z.union(literals);
+    }
+
     if (schema.nullable) {
         zodSchema = zodSchema.nullable();
     }
@@ -251,13 +260,13 @@ function buildZodSchemaFromNode(doc, schema, opts = {}) {
  * @returns {z.ZodType|null} A Zod schema for the output, or null if no schema is defined.
  */
 function buildOutputZodSchema(doc, operation) {
-    const response    = operation.responses?.['200'] || operation.responses?.['201'] || operation.responses?.['202'];
-    const schema      = response?.content?.['application/json']?.schema;
+    const response = operation.responses?.['200'] || operation.responses?.['201'] || operation.responses?.['202'];
+    const schema   = response?.content?.['application/json']?.schema;
     // Every `z.object(...)` produced here is emitted with `.passthrough()` so the resulting
     // JSON Schema sets `additionalProperties: true`. This is the output-side counterpart to
     // the input-side strictness: server implementations drift faster than OpenAPI contracts,
     // and strict MCP clients (GitHub Copilot) reject any response with undeclared fields.
-    const outputOpts  = {lenient: true};
+    const outputOpts = {lenient: true};
 
     if (schema) {
         let resolvedSchema = schema;
