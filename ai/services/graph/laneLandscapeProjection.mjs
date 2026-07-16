@@ -57,11 +57,13 @@ function isEpic(item) {
  * @param {Object[]} [params.edges=[]] Relation edges `{type:'PARENT_OF'|'BLOCKS', source, target}`
  *   (`PARENT_OF`: source is the epic; `BLOCKS`: source blocks target).
  * @param {Date}     params.now Capture time (injected — no hidden clock).
+ * @param {Boolean}  [params.degraded=false] Marks the census incomplete (e.g. a source read failed);
+ *   surfaced honestly on `coverage.degraded` rather than presenting partial data as the whole picture.
  * @returns {Object} A frozen `notAuthority` landscape: `{capturedAt, goalTrajectory, dependencyPath,
  *   authorityCoverage, coverage, notAuthority}`.
  * @throws {TypeError} When `now` is not a valid Date/timestamp.
  */
-export function projectLaneLandscape({items = [], edges = [], now} = {}) {
+export function projectLaneLandscape({items = [], edges = [], now, degraded = false} = {}) {
     const capturedDate = now instanceof Date ? now : new Date(now);
     if (Number.isNaN(capturedDate.getTime())) {
         throw new TypeError('[laneLandscapeProjection] now must be a valid Date/timestamp (inject the clock).')
@@ -125,10 +127,34 @@ export function projectLaneLandscape({items = [], edges = [], now} = {}) {
         }),
         coverage: Object.freeze({
             totalOpenItems: openItems.length,
-            edgeCount     : relEdges.length
+            edgeCount     : relEdges.length,
+            degraded      : degraded === true
         }),
         notAuthority: true
     })
+}
+
+/**
+ * @summary Collects the live lane-landscape by running the injected census reads, normalizing them,
+ * and projecting the current state. The impure Native-Edge-Graph / GitHub-Workflow reads are passed
+ * in (bound at the MCP registration boundary), keeping this composition testable. Fail-closed: if a
+ * source read throws, it returns an honest degraded landscape (`coverage.degraded: true`) rather than
+ * a partial picture presented as complete — never a thrown pass.
+ * @param {Object}   params
+ * @param {Function} params.queryOpenIssueNodes `async () => nodeRows` — the open-work census read.
+ * @param {Function} params.queryRelationEdges `async () => edgeRows` — the PARENT_OF/BLOCKS edge read.
+ * @param {Date}     params.now Capture time (injected).
+ * @returns {Promise<Object>} The frozen `notAuthority` landscape (degraded on read failure).
+ */
+export async function buildLaneLandscape({queryOpenIssueNodes, queryRelationEdges, now} = {}) {
+    try {
+        const [nodeRows, edgeRows] = await Promise.all([queryOpenIssueNodes(), queryRelationEdges()]);
+        const {items, edges}       = normalizeLaneLandscapeCensus({nodeRows, edgeRows});
+
+        return projectLaneLandscape({items, edges, now})
+    } catch (error) {
+        return projectLaneLandscape({items: [], edges: [], now, degraded: true})
+    }
 }
 
 /**

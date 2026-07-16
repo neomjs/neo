@@ -23,7 +23,7 @@ import * as core      from '../../../../../../src/core/_export.mjs';
  * unknown handling, and the fail-loud injected clock.
  */
 test.describe('laneLandscapeProjection — current-state lane landscape', () => {
-    let projectLaneLandscape, normalizeLaneLandscapeCensus;
+    let projectLaneLandscape, normalizeLaneLandscapeCensus, buildLaneLandscape;
 
     const now = new Date('2026-07-16T09:00:00.000Z');
 
@@ -31,6 +31,7 @@ test.describe('laneLandscapeProjection — current-state lane landscape', () => 
         const mod = await import('../../../../../../ai/services/graph/laneLandscapeProjection.mjs');
         projectLaneLandscape         = mod.projectLaneLandscape;
         normalizeLaneLandscapeCensus = mod.normalizeLaneLandscapeCensus;
+        buildLaneLandscape           = mod.buildLaneLandscape;
     });
 
     test('authority coverage: open items split into assigned vs unassigned gaps', () => {
@@ -138,5 +139,33 @@ test.describe('laneLandscapeProjection — current-state lane landscape', () => 
 
         expect(result.authorityCoverage.unassignedIds).toEqual(['issue-1']);
         expect(result.dependencyPath).toEqual([{id: 'issue-1', blockedBy: ['issue-2']}]);
+    });
+
+    test('buildLaneLandscape composes the injected census reads into the projection', async () => {
+        const result = await buildLaneLandscape({
+            queryOpenIssueNodes: async () => [
+                {id: 'issue-1', data: JSON.stringify({properties: {state: 'OPEN'}})},
+                {id: 'issue-2', data: JSON.stringify({properties: {state: 'OPEN', assignees: ['ada']}})}
+            ],
+            queryRelationEdges: async () => [{source: 'issue-2', target: 'issue-1', type: 'BLOCKS'}],
+            now
+        });
+
+        expect(result.coverage).toEqual({totalOpenItems: 2, edgeCount: 1, degraded: false});
+        expect(result.authorityCoverage.unassignedIds).toEqual(['issue-1']);
+        expect(result.dependencyPath).toEqual([{id: 'issue-1', blockedBy: ['issue-2']}]);
+    });
+
+    test('buildLaneLandscape fail-closed: a source read error yields an honest degraded landscape', async () => {
+        const result = await buildLaneLandscape({
+            queryOpenIssueNodes: async () => { throw new Error('graph down'); },
+            queryRelationEdges : async () => [],
+            now
+        });
+
+        expect(result.coverage.degraded).toBe(true);
+        expect(result.coverage.totalOpenItems).toBe(0);
+        expect(result.goalTrajectory).toEqual([]);
+        expect(result.notAuthority).toBe(true);
     });
 });
