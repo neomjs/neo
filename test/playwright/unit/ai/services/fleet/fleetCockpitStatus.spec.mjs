@@ -24,6 +24,12 @@ import {
     FLEET_COCKPIT_SOURCES
 } from '../../../../../../src/ai/fleet/fleetCockpitStatus.mjs'
 
+// Brain-side producer constants, imported HERE only: the module under test is a pure Body map that
+// must never import `ai/`. The spec is the one place both sides may meet — which is what lets it
+// pin the duplicated source labels against drift.
+import {THROTTLE_SOURCE_LABEL} from '../../../../../../ai/services/fleet/fleetThrottleStateAdapter.mjs'
+import {WAKE_SOURCE_LABEL}     from '../../../../../../ai/services/fleet/fleetWakeStateAdapter.mjs'
+
 test.describe('fleetCockpitStatus - Body-side cockpit DTO contract', () => {
     test('passes identity display facts through from assembler-enriched agents — nulls when un-enriched (never guessed)', () => {
         const snapshot = createFleetCockpitStatus({
@@ -260,6 +266,45 @@ test.describe('fleetCockpitStatus - Body-side cockpit DTO contract', () => {
         })
         expect(row.sources.wake).toMatchObject({state: 'not-wired', confidence: 'none'})
         expect(snapshot.capabilities.wake).toMatchObject({state: 'not-wired'})
+    })
+
+    test('an unwired throttle producer reads unknown/none in the ROW, not-wired only in the wiring axes', () => {
+        const snapshot = createFleetCockpitStatus({agents: [{id: 'grace'}]}),
+              row      = snapshot.rows[0]
+
+        expect(row.throttle).toEqual({
+            source    : FLEET_COCKPIT_SOURCES.throttle,
+            state     : 'unknown',
+            confidence: 'none',
+            reason    : 'throttle-state producer not wired'
+        })
+        expect(row.sources.throttle).toMatchObject({state: 'not-wired', confidence: 'none'})
+        expect(snapshot.capabilities.throttle).toMatchObject({state: 'not-wired'})
+    })
+
+    test('throttle row state stays inside its closed taxonomy — absence included', () => {
+        const snapshot = createFleetCockpitStatus({
+            agents        : [{id: 'a'}, {id: 'b'}, {id: 'c'}, {id: 'd'}],
+            throttleStatus: [
+                {agentId: 'a', throttle: 'none',         confidence: 'observed'},
+                {agentId: 'b', throttle: 'overage',      confidence: 'observed'},
+                {agentId: 'c', throttle: 'rate-limited', confidence: 'observed'}
+                // 'd' has no producer row — absence must read unknown, never a fifth value.
+            ]
+        })
+
+        expect(snapshot.rows.map(row => row.throttle.state)).toEqual(['none', 'overage', 'rate-limited', 'unknown'])
+
+        for (const row of snapshot.rows) {
+            expect(['none', 'overage', 'rate-limited', 'unknown']).toContain(row.throttle.state)
+        }
+    })
+
+    test('the Body-side source labels MATCH the Brain-side producer constants — a split would silently orphan every row', () => {
+        // These are duplicated by design (this pure Body map never imports `ai/`), so matching
+        // today is not the same as pinned: the join keys rows by this exact string.
+        expect(FLEET_COCKPIT_SOURCES.wake).toBe(WAKE_SOURCE_LABEL)
+        expect(FLEET_COCKPIT_SOURCES.throttle).toBe(THROTTLE_SOURCE_LABEL)
     })
 
     test('wake row state stays inside the four-state taxonomy for every producer answer, wired or not', () => {

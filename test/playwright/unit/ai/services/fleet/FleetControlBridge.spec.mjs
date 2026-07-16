@@ -312,3 +312,86 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
         expect(FleetControlBridge.getManager()).toBe(FleetManager);
     });
 });
+
+// The REAL assembler. `fleetThrottleStatus()` returning a correct snapshot proves nothing about the
+// DTO a consumer actually reads — the roster join is the contract, so it is exercised end to end
+// here rather than through the producer verb alone.
+test.describe('Neo.ai.services.fleet.FleetControlBridge — fleetRoster joins the S2 telltale axes onto the cockpit DTO', () => {
+    const rosterManager = ({wake, throttle} = {}) => ({
+        fleetRepoStatus   : () => [],
+        fleetRuntimeStatus: () => [],
+        ...(wake     && {fleetWakeStatus    : async () => wake}),
+        ...(throttle && {fleetThrottleStatus: async () => throttle})
+    });
+
+    test.beforeEach(() => {
+        FleetControlBridge.registry         = {listAgents: () => [{id: 'alice'}, {id: 'bob'}]};
+        FleetControlBridge.identityResolver = () => ({family: null, engineTag: null});
+    });
+
+    test.afterEach(() => {
+        FleetControlBridge.registry         = null;
+        FleetControlBridge.manager          = null;
+        FleetControlBridge.identityResolver = null;
+    });
+
+    test('the throttle producer snapshot reaches the consumed DTO: per-row state + the capability envelope', async () => {
+        FleetControlBridge.manager = rosterManager({
+            throttle: {
+                capability: {source: 'fleet:throttleState', state: 'wired', confidence: 'observed'},
+                states    : [
+                    {agentId: 'alice', throttle: 'rate-limited', confidence: 'observed', source: 'fleet:throttleState'},
+                    {agentId: 'bob',   throttle: 'none',         confidence: 'observed', source: 'fleet:throttleState'}
+                ]
+            }
+        });
+
+        const dto = await FleetControlBridge.fleetRoster();
+
+        expect(dto.rows.map(row => row.throttle.state)).toEqual(['rate-limited', 'none']);
+        expect(dto.rows[0].throttle).toMatchObject({source: 'fleet:throttleState', confidence: 'observed'});
+        expect(dto.rows[0].sources.throttle).toMatchObject({state: 'wired', confidence: 'observed'});
+        expect(dto.capabilities.throttle).toMatchObject({state: 'wired', confidence: 'observed'});
+    });
+
+    test('a degraded throttle producer still reaches the DTO honestly — unknown rows carry their reason', async () => {
+        FleetControlBridge.manager = rosterManager({
+            throttle: {
+                capability: {source: 'fleet:throttleState', state: 'degraded', confidence: 'none', reason: 'no throttle truth source exists yet'},
+                states    : [{agentId: 'alice', throttle: 'unknown', confidence: 'none', source: 'fleet:throttleState', reason: 'no throttle truth source exists yet'}]
+            }
+        });
+
+        const dto = await FleetControlBridge.fleetRoster();
+
+        expect(dto.rows[0].throttle).toMatchObject({state: 'unknown', confidence: 'none', reason: 'no throttle truth source exists yet'});
+        expect(dto.capabilities.throttle).toMatchObject({state: 'degraded', confidence: 'none'});
+    });
+
+    test('a manager seam with NO throttle producer method degrades to not-wired — never a guessed none', async () => {
+        FleetControlBridge.manager = rosterManager();
+
+        const dto = await FleetControlBridge.fleetRoster();
+
+        // The observation field stays inside the closed taxonomy; the wiring fact lives in the
+        // capability + sources, exactly as the wake axis does.
+        expect(dto.rows[0].throttle).toMatchObject({state: 'unknown', confidence: 'none'});
+        expect(dto.rows[0].sources.throttle).toMatchObject({state: 'not-wired'});
+        expect(dto.capabilities.throttle).toMatchObject({state: 'not-wired'});
+    });
+
+    test('both axes join independently — a wired wake producer does not carry a missing throttle producer', async () => {
+        FleetControlBridge.manager = rosterManager({
+            wake: {
+                capability: {source: 'fleet:wakeState', state: 'wired', confidence: 'observed'},
+                states    : [{agentId: 'alice', wake: 'on', confidence: 'observed', source: 'fleet:wakeState'}]
+            }
+        });
+
+        const dto = await FleetControlBridge.fleetRoster();
+
+        expect(dto.rows[0].wake).toMatchObject({state: 'on', confidence: 'observed'});
+        expect(dto.capabilities.wake).toMatchObject({state: 'wired'});
+        expect(dto.capabilities.throttle).toMatchObject({state: 'not-wired'});
+    });
+});
