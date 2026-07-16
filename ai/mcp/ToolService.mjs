@@ -1,4 +1,4 @@
-import fs                                                 from 'fs';
+import fs        from 'fs';
 import * as yaml from 'js-yaml';
 import {buildZodSchema,
         buildOutputZodSchema,
@@ -45,6 +45,13 @@ class ToolService_tmp extends Base {
      */
     allToolsForListing = null
     /**
+     * Valid exact tool profiles compiled from the OpenAPI-root
+     * `x-neo-exact-tool-profiles` declaration.
+     * @member {Object|null} exactToolProfiles=null
+     * @protected
+     */
+    exactToolProfiles = null
+    /**
      * OpenAPI-root projection policy for harness-embedded tool surfaces.
      * @member {Object|null} harnessToolProjection=null
      * @protected
@@ -76,7 +83,7 @@ class ToolService_tmp extends Base {
     toolHandbookMapping = null
 
     /**
-     * Executes a specific tool with the given arguments.
+     * @summary Executes a specific tool with the given arguments.
      * @param {String} toolName
      * @param {Object} args
      * @returns {Promise<any>}
@@ -92,9 +99,10 @@ class ToolService_tmp extends Base {
             throw new Error(`Tool "${effectiveToolName}" not found or not implemented.`);
         }
 
-        this.assertToolProjectionAllows(effectiveToolName, options.toolProjection);
+        this.assertToolProjectionAllows(effectiveToolName, options.toolProjection, toolName);
 
-        const validatedArgs = tool.zodSchema.parse(args);
+        const projectionSchema = this.getProjectionInputZodSchema(effectiveToolName, options.toolProjection),
+              validatedArgs    = (projectionSchema || tool.zodSchema).parse(args);
 
         if (tool.passAsObject) {
             return tool.handler(validatedArgs);
@@ -105,7 +113,7 @@ class ToolService_tmp extends Base {
     }
 
     /**
-     * Initializes the internal tool mapping and the list of tools.
+     * @summary Initializes the internal tool mapping and the list of tools.
      * Designed to be called lazily.
      */
     initializeToolMapping() {
@@ -126,6 +134,7 @@ class ToolService_tmp extends Base {
         me.allToolsForListing  = [];
         me.toolHandbookMapping = {};
         me.toolProjectionTiers = {};
+        me.exactToolProfiles   = {};
 
         const openApiDocument = yaml.load(fs.readFileSync(me.openApiFilePath, 'utf8'));
         me.harnessToolProjection = openApiDocument['x-neo-harness-tool-projection'] || null;
@@ -139,8 +148,8 @@ class ToolService_tmp extends Base {
                     const inputZodSchema  = buildZodSchema(openApiDocument, operation);
                     const inputJsonSchema = toOpenApiJsonSchema(inputZodSchema);
 
-                    const outputZodSchema = buildOutputZodSchema(openApiDocument, operation);
-                    let outputJsonSchema  = null;
+                    const outputZodSchema  = buildOutputZodSchema(openApiDocument, operation);
+                    let   outputJsonSchema = null;
                     if (outputZodSchema) {
                         outputJsonSchema = toOpenApiJsonSchema(outputZodSchema);
                     }
@@ -191,6 +200,103 @@ class ToolService_tmp extends Base {
                 }
             }
         }
+
+        me.exactToolProfiles = me.buildExactToolProfiles(openApiDocument);
+    }
+
+    /**
+     * @summary Compiles valid OpenAPI-root exact profiles into list/call policy data.
+     *
+     * A malformed profile is omitted as one atomic unit, making every request for
+     * that profile fail closed. Operation ids and constrained input schemas remain
+     * owned by the OpenAPI declaration; this service stores only their compiled form.
+     *
+     * @param {Object} openApiDocument Parsed OpenAPI document.
+     * @returns {Object} Valid exact profiles keyed by server projection mode.
+     * @protected
+     */
+    buildExactToolProfiles(openApiDocument) {
+        const
+            me           = this,
+            root         = openApiDocument['x-neo-exact-tool-profiles'],
+            declarations = root?.profiles,
+            profiles     = {},
+            isRecord     = value => Boolean(value && typeof value === 'object' && !Array.isArray(value));
+
+        if (!isRecord(root) || !isRecord(declarations)) {
+            return profiles;
+        }
+
+        for (const [profileName, declaration] of Object.entries(declarations)) {
+            const toolDeclarations = declaration?.tools;
+
+            if (
+                !profileName ||
+                profileName === 'harness-embedded' ||
+                profileName.trim() !== profileName ||
+                !isRecord(declaration) ||
+                !isRecord(toolDeclarations) ||
+                Object.keys(toolDeclarations).length === 0
+            ) {
+                continue;
+            }
+
+            const tools   = {};
+            let   isValid = true;
+
+            for (const [toolName, toolDeclaration] of Object.entries(toolDeclarations)) {
+                if (!Object.hasOwn(me.toolMapping, toolName) || !isRecord(toolDeclaration)) {
+                    isValid = false;
+                    break;
+                }
+
+                let inputJsonSchema = null,
+                    inputZodSchema  = null;
+
+                if (Object.hasOwn(toolDeclaration, 'inputSchema')) {
+                    const inputSchema = toolDeclaration.inputSchema;
+
+                    if (!isRecord(inputSchema)) {
+                        isValid = false;
+                        break;
+                    }
+
+                    try {
+                        const resolvedInputSchema = inputSchema.$ref
+                            ? resolveRef(openApiDocument, inputSchema.$ref)
+                            : inputSchema;
+
+                        if (!isRecord(resolvedInputSchema) || resolvedInputSchema.type !== 'object') {
+                            isValid = false;
+                            break;
+                        }
+
+                        inputZodSchema = buildZodSchema(openApiDocument, {
+                            requestBody: {
+                                content: {
+                                    'application/json': {schema: inputSchema}
+                                }
+                            }
+                        });
+                        inputJsonSchema = toOpenApiJsonSchema(inputZodSchema);
+                    } catch {
+                        isValid = false;
+                        break;
+                    }
+                }
+
+                tools[toolName] = {inputJsonSchema, inputZodSchema};
+            }
+
+            if (isValid) {
+                profiles[profileName] = {
+                    description: declaration.description || '',
+                    tools
+                };
+            }
+        }
+
+        return profiles;
     }
 
     /**
@@ -202,7 +308,7 @@ class ToolService_tmp extends Base {
      */
     buildToolListDescription(operation, fullDescription) {
         const
-            source = operation['x-neo-tool-summary'] || operation.summary || fullDescription || '',
+            source     = operation['x-neo-tool-summary'] || operation.summary || fullDescription || '',
             singleLine = String(source).replace(/\s+/g, ' ').trim(),
             maxLength  = this.toolListDescriptionMaxLength;
 
@@ -251,9 +357,9 @@ class ToolService_tmp extends Base {
 
         if (!entry) {
             return {
-                toolId: requestedToolId,
-                found : false,
-                code  : 'TOOL_NOT_FOUND',
+                toolId : requestedToolId,
+                found  : false,
+                code   : 'TOOL_NOT_FOUND',
                 message: `Tool "${requestedToolId}" does not exist in this MCP server.`
             };
         }
@@ -315,6 +421,18 @@ class ToolService_tmp extends Base {
             return me.allToolsForListing;
         }
 
+        const exactProfile = me.exactToolProfiles?.[context.mode];
+
+        if (exactProfile) {
+            return Object.entries(exactProfile.tools).map(([toolName, profileTool]) => {
+                const tool = me.allToolsForListing.find(candidate => candidate.name === toolName);
+
+                return profileTool.inputJsonSchema
+                    ? {...tool, inputSchema: profileTool.inputJsonSchema}
+                    : tool;
+            });
+        }
+
         return me.allToolsForListing.filter(tool => me.isToolAllowedForProjection(tool.name, context));
     }
 
@@ -322,19 +440,35 @@ class ToolService_tmp extends Base {
      * @summary Throws when a tool is not visible through the supplied projection context.
      * @param {String}             toolName
      * @param {Object|String|null} toolProjection
+     * @param {String}             [requestedToolName=toolName] Original MCP tool id before alias resolution.
      */
-    assertToolProjectionAllows(toolName, toolProjection) {
+    assertToolProjectionAllows(toolName, toolProjection, requestedToolName=toolName) {
         const me      = this,
               context = me.normalizeToolProjectionContext(toolProjection);
 
-        if (!context || me.isToolAllowedForProjection(toolName, context)) {
+        if (!context || me.isToolAllowedForProjection(toolName, context, requestedToolName)) {
             return;
         }
 
-        const error = new Error(`Tool "${toolName}" is not visible in the ${context.mode || 'unknown'} projection.`);
+        const error = new Error(`Tool "${requestedToolName}" is not visible in the ${context.mode || 'unknown'} projection.`);
         error.code   = 'POLICY_REFUSED';
         error.reason = error.message;
         throw error;
+    }
+
+    /**
+     * @summary Returns the exact-profile input validator for one visible tool.
+     * @param {String}             toolName
+     * @param {Object|String|null} toolProjection
+     * @returns {Object|null}
+     * @protected
+     */
+    getProjectionInputZodSchema(toolName, toolProjection) {
+        const context = this.normalizeToolProjectionContext(toolProjection);
+
+        return context
+            ? this.exactToolProfiles?.[context.mode]?.tools?.[toolName]?.inputZodSchema || null
+            : null;
     }
 
     /**
@@ -360,20 +494,27 @@ class ToolService_tmp extends Base {
      * Unknown projection modes and missing tiers fail closed.
      * @param {String} toolName
      * @param {Object} context
+     * @param {String} [requestedToolName=toolName] Original MCP tool id before alias resolution.
      * @returns {Boolean}
      * @protected
      */
-    isToolAllowedForProjection(toolName, context) {
+    isToolAllowedForProjection(toolName, context, requestedToolName=toolName) {
         const me = this;
 
-        if (context.mode !== 'harness-embedded') {
-            return false;
+        if (context.mode === 'harness-embedded') {
+            const visibleTiers = me.harnessToolProjection?.defaultVisibleTiers || [],
+                  toolTier     = me.toolProjectionTiers?.[toolName];
+
+            return Boolean(toolTier && visibleTiers.includes(toolTier));
         }
 
-        const visibleTiers = me.harnessToolProjection?.defaultVisibleTiers || [],
-              toolTier     = me.toolProjectionTiers?.[toolName];
+        const exactProfile = me.exactToolProfiles?.[context.mode];
 
-        return Boolean(toolTier && visibleTiers.includes(toolTier));
+        return Boolean(
+            exactProfile &&
+            requestedToolName === toolName &&
+            Object.hasOwn(exactProfile.tools, toolName)
+        );
     }
 
     /**
@@ -387,7 +528,7 @@ class ToolService_tmp extends Base {
         if (!schema) return true;
 
         if (schema.type) {
-            const type = schema.type;
+            const type      = schema.type;
             const valueType = Array.isArray(value) ? 'array' : (value === null ? 'null' : typeof value);
 
             if (type === 'integer') {
