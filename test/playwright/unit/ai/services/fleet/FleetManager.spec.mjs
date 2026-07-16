@@ -185,3 +185,40 @@ test.describe('Neo.ai.services.fleet.FleetManager — Codex Desktop cleanup fail
         expect(calls).toEqual([['start', 'cli'], ['removeAgent', 'cli']]);
     });
 });
+
+test.describe('Neo.ai.services.fleet.FleetManager — fleetThrottleStatus (roster × throttle observation)', () => {
+    test.afterEach(() => {
+        FleetManager.lifecycleService     = null;
+        FleetManager.throttleStateOptions = null;
+    });
+
+    test('composes the roster with an injected throttle truth source — the watchdog flip-target', async () => {
+        FleetManager.lifecycleService     = {getRegistry: () => ({listAgents: () => [{id: 'alice'}, {id: 'bob'}]})};
+        FleetManager.throttleStateOptions = {
+            resolveThrottleState: agent => agent.id === 'alice' ? 'rate-limited' : 'none'
+        };
+
+        const {capability, states} = await FleetManager.fleetThrottleStatus();
+
+        expect(capability).toMatchObject({state: 'wired', confidence: 'observed'});
+        expect(states).toEqual([
+            {agentId: 'alice', throttle: 'rate-limited', confidence: 'observed', source: 'fleet:throttleState'},
+            {agentId: 'bob',   throttle: 'none',         confidence: 'observed', source: 'fleet:throttleState'}
+        ]);
+    });
+
+    test('with no injected options every row is honestly unknown under degraded/none — the documented platform truth', async () => {
+        FleetManager.lifecycleService = {getRegistry: () => ({listAgents: () => [{id: 'alice'}]})};
+
+        const {capability, states} = await FleetManager.fleetThrottleStatus();
+
+        expect(capability).toMatchObject({state: 'degraded', confidence: 'none'});
+        expect(states).toEqual([{
+            agentId   : 'alice',
+            throttle  : 'unknown',
+            confidence: 'none',
+            source    : 'fleet:throttleState',
+            reason    : 'no throttle truth source exists yet: watchdog-signals producer not landed'
+        }]);
+    });
+});
