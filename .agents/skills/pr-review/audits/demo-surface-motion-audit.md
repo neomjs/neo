@@ -4,9 +4,9 @@
 transitions, choreography classes, motion-token consumption, or any UI state change on
 `apps/**` showcase surfaces, `examples/dashboard/**`, or the dashboard affordance layers.
 
-**Authority:** the motion-standards ticket's ratified rule set (design-authority ratification,
-2026-07-12, including the two accepted reviewer corrections). The token vocabulary itself is
-merged substrate (`resources/scss/_motion.scss`, all themes).
+**Authority:** #14780's ratified rule set (design-authority ratification, 2026-07-12,
+including the two accepted reviewer corrections). The token vocabulary itself is merged
+substrate (`resources/scss/_motion.scss`, all themes).
 
 ## The gate (Required-Action tier)
 
@@ -25,12 +25,16 @@ merged substrate (`resources/scss/_motion.scss`, all themes).
    violation — durations/easings ride the motion vocabulary or a domain alias of it, so the
    reduced-motion collapse governs with nothing to override it.
 
-3. **Evidence expectation:** motion claims carry motion evidence — a recording, a FLIP/motion
-   witness spec, or the visual-baseline harness; static source inference does not certify
-   rendered motion.
+3. **Evidence expectation:** motion claims carry motion evidence — a recording or a
+   FLIP/motion witness spec (computed mid-transition state, `observe_motion`, or an
+   equivalent runtime probe). The visual-baseline harness certifies APPEARANCE and
+   end-states only — a static golden can never certify rendered motion, and neither can
+   source inference. Appearance evidence offered for a motion claim is itself a finding.
 
 ## Retirement trigger
 
-This audit retires when a mechanical motion lint (duration/easing-literal detection +
-hard-cut witness coverage) enforces the same gate in CI — the checklist line then moves from
-reviewer discipline to substrate, per the accretion-defense symmetry.
+This audit retires when a mechanical motion lint enforces the same three gates in CI —
+duration/easing-literal detection, hard-cut witness coverage, AND animated-property
+(layout-thrash) detection beyond the transform/opacity palette. Partial lint coverage
+retires only the covered gate's checklist line; the rest stays reviewer discipline, per
+the accretion-defense symmetry.
