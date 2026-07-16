@@ -637,20 +637,15 @@ paths:
       x-annotations:
         readOnlyHint: true
       description: |
-        The CURRENT-STATE Bird View — the third self-awareness slot beside the two historical views.
-        Answers "what does the lane landscape look like RIGHT NOW" across three dimensions: goal
-        trajectory (open epics + their open children), dependency / critical path (open items + their
-        open blockers), and authority coverage (assigned vs unassigned, each unassigned one named).
-        On demand from the Native Edge Graph; never stored, nothing written.
+        Answers "what is the lane landscape right now": open epics with their open children, open items
+        with their open blockers, and assigned vs unassigned work with each unassigned item named.
 
-        Carries NO window, hence no parameters: the historical tools answer "what happened in
-        [start, end)"; this answers "what IS", keyed by `capturedAt`.
+        Use it to orient on current structure before choosing a lane. Takes no parameters — it answers
+        "what IS", keyed by `capturedAt`; for "what happened in a time window", use the history tools.
 
-        The narrative is WITHHELD on a degraded census; an inference failure degrades ONLY the
-        narrative — census/coverage evidence survives with `synthesis.unavailableReason`.
-
-        Use it to orient on the CURRENT structure before choosing a lane. It describes structure only —
-        never ranks lanes or suggests owners: ranking is the Golden Path's authority.
+        Do NOT use it to rank lanes or choose an owner — it describes structure only. On a degraded
+        census the narrative is withheld; if inference fails the census and coverage evidence remain,
+        with `synthesis.unavailableReason` naming the cause.
       tags: [Memories]
       responses:
         '200':
