@@ -1824,6 +1824,32 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(entry.reason).toContain('benched');
         });
 
+        test('#14750 rostered residents project + filter era-chain-first: a spoofed flat family neither reports nor routes', async () => {
+            // A rostered resident's graph node carries a WRONG flat family. Both the family
+            // FILTER and the liveness PROJECTION must read through the identity trail, so the
+            // true family finds it, the spoofed family does not, and the report tells the truth.
+            seedAgent('@neo-gemini-pro', {family: 'spoofed-fam'});
+
+            const trueFamily = await WakeSubscriptionService.whoIsOnline({family: 'gemini', verbose: true, now: new Date(T0)});
+            const entry      = trueFamily.agents.find(a => a.identity === '@neo-gemini-pro');
+
+            expect(entry).toBeTruthy();
+            expect(entry.family).toBe('gemini');
+
+            const spoofFamily = await WakeSubscriptionService.whoIsOnline({family: 'spoofed-fam', verbose: true, now: new Date(T0)});
+            expect(spoofFamily.agents.find(a => a.identity === '@neo-gemini-pro')).toBeUndefined();
+        });
+
+        test('#14750 runtime-provisioned identities (unrostered) keep filtering via the flat node property — the retirement witness', async () => {
+            seedAgent('@runtime-provisioned-w', {family: 'provisioned-fam'});
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({family: 'provisioned-fam', verbose: true, now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@runtime-provisioned-w');
+
+            expect(entry).toBeTruthy();
+            expect(entry.family).toBe('provisioned-fam');
+        });
+
         test('fresh add_memory activity → online (recency-primary, verbose)', async () => {
             seedAgent('@neo-active');
             seedActivity('@neo-active', {timestamp: iso(T0ms - 2 * 60 * 1000)});
