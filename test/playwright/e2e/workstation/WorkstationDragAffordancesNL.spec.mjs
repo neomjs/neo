@@ -134,19 +134,30 @@ test.describe('Workstation drag affordances — the flagship journey (Neural Lin
         const {app, scaleBox, wsId} = await bootFlagship(page, neuralLink);
         const center                = {x: scaleBox.x + scaleBox.width / 2, y: scaleBox.y + scaleBox.height / 2};
 
+        // the gesture parks FIRST, on the default language — the switch must land mid-gesture
+        await parkAuditDrag(page, center);
+
+        const readTreatment = () => page.$eval('.neo-dock-preview-affordance.neo-dock-preview-accepted', el => {
+            const style = getComputedStyle(el);
+            return {borderColor: style.borderColor, boxShadow: style.boxShadow}
+        });
+
+        const defaultTreatment = await readTreatment();
+
+        // LIVE mid-gesture switch: the config lands in the App Worker while the drag is parked;
+        // the host's language modifier swaps and the PARKED affordance re-resolves its aliases
+        // through the cascade — no re-render, no new gesture
         await app.callMethod(wsId, 'set', [{previewLanguage: 'signal'}]);
         await expect(page.locator('.neo-preview-lang-signal')).toBeVisible();
 
-        await parkAuditDrag(page, center);
+        const signalTreatment = await readTreatment();
 
-        // the accepted zone treatment renders the SIGNAL chroma (the workstation's own
-        // projected alias — dark boot: #5eead4) — the switch and the affordances compose
-        const treatment = await page.$eval('.neo-dock-preview-affordance.neo-dock-preview-accepted', el => {
-            const style = getComputedStyle(el);
-            return {borderColor: style.borderColor}
-        });
-
-        expect(treatment.borderColor).toBe('rgb(94, 234, 212)');
+        // the accepted zone treatment now renders the SIGNAL chroma (the workstation's own
+        // projected alias — dark boot: #5eead4). The border hue is shared family accent; the
+        // language's OWN signature — the layered signal glow — is what must visibly change on
+        // the live parked affordance.
+        expect(signalTreatment.borderColor).toBe('rgb(94, 234, 212)');
+        expect(signalTreatment.boxShadow, 'the switch re-skinned the LIVE parked affordance').not.toBe(defaultTreatment.boxShadow);
 
         // cancel — this scene commits nothing
         await page.keyboard.press('Escape');

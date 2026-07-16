@@ -348,6 +348,36 @@ test.describe('Neo.dashboard.DockPreview', () => {
         test('a horizontal split-after affordance is a guide line on the right edge', () => {
             const geo = DockPreview.affordanceGeometry({group: 'split', orientation: 'horizontal', position: 'after'}, rect);
             expect(geo).toEqual({x: 204, y: 20, width: 6, height: 100})
+        });
+
+        test('sizing policy rides the options: explicit band/line values are honored + clamped', () => {
+            // a touch-density consumer widens the band
+            expect(DockPreview.affordanceGeometry({group: 'edge', edge: 'top'}, rect, {edgeBandSize: 48}))
+                .toEqual({x: 10, y: 20, width: 200, height: 48});
+            // clamping survives the override: the band never exceeds the target rect
+            expect(DockPreview.affordanceGeometry({group: 'edge', edge: 'left'}, rect, {edgeBandSize: 500}))
+                .toEqual({x: 10, y: 20, width: 200, height: 100});
+            // guide thickness follows the same policy surface
+            const geo = DockPreview.affordanceGeometry({group: 'split', orientation: 'horizontal', position: 'after'}, rect, {splitLineSize: 10});
+            expect(geo).toEqual({x: 200, y: 20, width: 10, height: 100})
+        })
+    });
+
+    test.describe('sizing policy (instance configuration)', () => {
+        test('an instance override flows into the positioned affordance geometry', () => {
+            const instance = Neo.create(DockPreview, {
+                edgeBandSize: 48,
+                id          : 'dock-preview-sizing-test'
+            });
+
+            instance.dockPreview = preview({placement: {kind: 'edge-top'}});
+
+            instance.applyTargetGeometry({x: 0, y: 0, width: 300, height: 200});
+
+            // the consumer's hardware/UI sizing is honored on the live overlay node
+            expect(instance.vdom.cn[0].style.height).toBe('48px');
+
+            instance.destroy()
         })
     });
 

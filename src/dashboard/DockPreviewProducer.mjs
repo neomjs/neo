@@ -66,7 +66,8 @@ class DockPreviewProducer extends Base {
          * nearest edge wins (`edge-*` / `split-*`); the interior maps to `tab-into`. A non-reactive
          * config — not a static field — so the edge-affordance thickness is tunable per app
          * (`Neo.overwrites`), per instance, or per subclass without forking the class. Echoes the
-         * renderer's fixed `edgeBandSize` at typical pane sizes while staying resolution-independent.
+         * renderer's `edgeBandSize` config default at typical pane sizes while staying
+         * resolution-independent.
          * @member {Number} edgeBandRatio=0.24
          */
         edgeBandRatio: 0.24,

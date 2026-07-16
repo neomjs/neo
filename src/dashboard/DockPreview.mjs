@@ -58,18 +58,6 @@ class DockPreview extends Component {
      * @static
      */
     static TAB_KINDS = dockPreviewContract.TAB_KINDS
-    /**
-     * Thickness in px of an edge-zone affordance band.
-     * @member {Number} edgeBandSize=24
-     * @static
-     */
-    static edgeBandSize = 24
-    /**
-     * Thickness in px of a split / tab guide line.
-     * @member {Number} splitLineSize=6
-     * @static
-     */
-    static splitLineSize = 6
 
     static config = {
         /**
@@ -93,7 +81,20 @@ class DockPreview extends Component {
          * @member {Object|null} dockPreview_=null
          * @reactive
          */
-        dockPreview_: null
+        dockPreview_: null,
+        /**
+         * Thickness in px of an edge-zone affordance band. The overlay clamps it to the target
+         * rect, so an oversized value degrades gracefully; consumers tune it per instance for
+         * their hardware / UI density (touch surfaces want wider bands).
+         * @member {Number} edgeBandSize=24
+         */
+        edgeBandSize: 24,
+        /**
+         * Thickness in px of a split / tab guide line. Per-instance policy, same rationale as
+         * {@link Neo.dashboard.DockPreview#edgeBandSize}.
+         * @member {Number} splitLineSize=6
+         */
+        splitLineSize: 6
     }
 
     /**
@@ -194,18 +195,22 @@ class DockPreview extends Component {
      * The rect is runtime-only input; it is never persisted.
      * @param {Object|null} affordance
      * @param {Object|null} targetRect {x, y, width, height}
+     * @param {Object} [options] sizing policy — instances pass their configs; the defaults are
+     *     this pure helper's own contract for bare static calls
+     * @param {Number} [options.edgeBandSize=24]
+     * @param {Number} [options.splitLineSize=6]
      * @returns {Object|null}
      * @static
      */
-    static affordanceGeometry(affordance, targetRect) {
+    static affordanceGeometry(affordance, targetRect, {edgeBandSize = 24, splitLineSize = 6} = {}) {
         if (!affordance || !targetRect) return null;
 
         let {height, width, x, y} = targetRect;
 
         if ([height, width, x, y].some(v => typeof v !== 'number' || Number.isNaN(v))) return null;
 
-        let band = Math.min(this.edgeBandSize, width, height),
-            line = this.splitLineSize;
+        let band = Math.min(edgeBandSize, width, height),
+            line = splitLineSize;
 
         if (affordance.group === 'edge') {
             switch (affordance.edge) {
@@ -262,7 +267,10 @@ class DockPreview extends Component {
 
         if (!affordance || !node) return;
 
-        let geo = DockPreview.affordanceGeometry(affordance, targetRect);
+        let geo = DockPreview.affordanceGeometry(affordance, targetRect, {
+            edgeBandSize : me.edgeBandSize,
+            splitLineSize: me.splitLineSize
+        });
 
         if (!geo) return;
 

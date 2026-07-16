@@ -61,6 +61,15 @@ class DockTabSortZone extends TabHeaderSortZone {
          */
         dockWorkspaceId: null,
         /**
+         * Slack in px around the source toolbar's REAL bounds inside which a release still counts
+         * as a within-toolbar gesture (the base reorder applies). A release farther out than this
+         * on any side is dock-gesture territory: the tracked reorder is voided so the cross-zone
+         * drop owns the outcome. Orientation-independent — it pads the measured toolbar rect, not
+         * an axis-derived span. Per-app / per-instance tunable like any Neo config.
+         * @member {Number} dockReleaseTolerance=32
+         */
+        dockReleaseTolerance: 32,
+        /**
          * §2.3 registry identity for the SOURCE side: {@link Neo.manager.DragCoordinator} resolves
          * remote-target candidates from the source zone's `sortGroup` + the pointer's screen-space
          * window, so a `null` group short-circuits both coordinator feeds — the dock stays fully
@@ -77,6 +86,16 @@ class DockTabSortZone extends TabHeaderSortZone {
      * @member {Boolean} remoteDropCommitted=false
      */
     remoteDropCommitted = false
+
+    /**
+     * The source toolbar's PRISTINE viewport rect, measured once per gesture at
+     * {@link #onDragStart}. The base sort mutates its own `ownerRect` down to the button span
+     * (and refreshes only x/y/width/height), so release-boundary decisions must never read it —
+     * this snapshot is the real toolbar boundary {@link #releaseVoidsReorder} decides against.
+     * @member {Object|null} dockSourceToolbarRect=null
+     * @protected
+     */
+    dockSourceToolbarRect = null
 
     /**
      * The resolved {@link Neo.manager.DragCoordinator} singleton, warmed at {@link #construct} for a
@@ -166,6 +185,36 @@ class DockTabSortZone extends TabHeaderSortZone {
             item.dockItemId              = me.dockItemIds?.[me.startIndex] ?? null;
             item.dockSourceWorkspaceId   = me.dockWorkspaceId
         }
+
+        // The real toolbar boundary, snapshotted pristine (the base's `ownerRect` gets trimmed
+        // to the button span mid-gesture — never a release-decision surface). One measure per
+        // gesture start, off the per-frame hot path; the toolbar is stationary during a drag.
+        me.dockSourceToolbarRect = await me.owner?.getDomRect() ?? null
+    }
+
+    /**
+     * The release-boundary decision {@link #processDragEnd} consumes: a release farther than
+     * {@link #dockReleaseTolerance} beyond the source toolbar's REAL bounds (any side, any
+     * orientation) is dock-gesture territory — the within-toolbar reorder the pointer's PATH
+     * recorded while crossing sibling buttons is geometrically void there. Left unvoided, the
+     * base commit re-adds the item to its source zone and silently reverts the cross-zone commit
+     * (last write wins). Near / in-toolbar releases return false — the base reorder applies.
+     * Pure over instance state (no measuring, no side effects) so witnesses can drive it with
+     * explicit rects.
+     * @param {Object} data
+     * @param {Number} data.clientX release viewport x
+     * @param {Number} data.clientY release viewport y
+     * @returns {Boolean} true = void the tracked reorder (cross-zone territory)
+     */
+    releaseVoidsReorder({clientX, clientY}) {
+        let me                     = this,
+            rect                   = me.dockSourceToolbarRect,
+            {dockReleaseTolerance} = me;
+
+        if (!rect || !Neo.isNumber(clientX) || !Neo.isNumber(clientY)) return false;
+
+        return clientX < rect.x - dockReleaseTolerance || clientX > rect.x + rect.width  + dockReleaseTolerance
+            || clientY < rect.y - dockReleaseTolerance || clientY > rect.y + rect.height + dockReleaseTolerance
     }
 
     /**
@@ -241,21 +290,7 @@ class DockTabSortZone extends TabHeaderSortZone {
             })
         }
 
-        // A release beyond the source toolbar is dock-gesture territory (the cross-zone drop
-        // below owns it): the reorder the pointer's PATH recorded while crossing sibling
-        // buttons is geometrically void — left in place, the base within-toolbar commit
-        // re-adds the item to its source zone and silently reverts the cross-zone commit
-        // (last write wins). The base trims `ownerRect` to the BUTTON SPAN and refreshes only
-        // x/y/width/height, so the check reads those — expanded by one band-height of
-        // tolerance: a sloppy release NEAR the toolbar stays a reorder; a release a zone away
-        // (always far beyond one band) suppresses. Cancels and same-band releases stay untouched.
-        let {ownerRect} = me,
-            tolerance   = ownerRect?.height || 0;
-
-        if (!data.cancelled && ownerRect && Neo.isNumber(clientX) && Neo.isNumber(clientY) && (
-            clientX < ownerRect.x - tolerance || clientX > ownerRect.x + ownerRect.width  + tolerance ||
-            clientY < ownerRect.y - tolerance || clientY > ownerRect.y + ownerRect.height + tolerance
-        )) {
+        if (!data.cancelled && me.releaseVoidsReorder(data || {})) {
             me.currentIndex = me.startIndex
         }
 

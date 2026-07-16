@@ -76,6 +76,34 @@ class DemoAWorkspace extends Container {
     }
 
     /**
+     * Beats executed in the current run — the pip strip's progress counter.
+     * @member {Number} beatCount=0
+     */
+    beatCount = 0
+
+    /**
+     * The live committed dock-zone document — the single source of truth the view projects.
+     * Mutated exclusively through {@link #applyDockZoneOperation} results.
+     * @member {Object|null} dockModel=null
+     */
+    dockModel = null
+
+    /**
+     * The app-side Neural Link dock seam this workspace registers against and the tour
+     * runner drives operations through.
+     * @member {Neo.ai.client.DockService|null} dockService=null
+     */
+    dockService = null
+
+    /**
+     * The shared drag-affordance gesture controller (owner duck-type: this workspace).
+     * Composed in {@link #construct} over the persistent overlay siblings; cleared on every
+     * re-projection and destroyed with the workspace.
+     * @member {Neo.dashboard.DockDragAffordances|null} dragAffordances=null
+     */
+    dragAffordances = null
+
+    /**
      * The in-flight deferred re-projection, tracked as an awaitable. Every committed
      * operation defers its view-sync one tick ({@link #onDockZoneDocumentChange}); any
      * consumer that must resolve PROJECTED components — the reveal cue path — awaits this
@@ -86,6 +114,12 @@ class DemoAWorkspace extends Container {
      * @protected
      */
     refreshPromise = null
+
+    /**
+     * The tour runner playing the Demo-A screenplay against this workspace.
+     * @member {Neo.ai.client.TourRunner|null} tourRunner=null
+     */
+    tourRunner = null
 
     /**
      * @param {Object} config
