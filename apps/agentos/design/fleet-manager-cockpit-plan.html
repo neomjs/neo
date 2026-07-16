@@ -58,6 +58,9 @@
     border-radius:9px;padding:11px 12px 11px 14px;overflow:hidden}
   .agent::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--fam)}
   .agent-top{display:flex;align-items:center;gap:8px}
+  .ava{width:20px;height:20px;border-radius:50%;flex:none;display:grid;place-items:center;
+    background:color-mix(in srgb,var(--fam) 28%,#0e131a);border:1px solid color-mix(in srgb,var(--fam) 45%,transparent);
+    font-family:var(--mono);font-size:9px;font-weight:700;color:var(--ink);letter-spacing:.02em}
   .dot{width:8px;height:8px;border-radius:50%;flex:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--st) 22%,transparent)}
   .agent-name{font-weight:600;font-size:14px}
   .agent-model{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);margin-left:auto}
@@ -134,6 +137,19 @@
   .step .gate{font-family:var(--mono);font-size:10.5px;color:var(--idle);margin-top:10px;display:block}
 
   a.ref{color:var(--signal);text-decoration:none;border-bottom:1px solid #24463f}
+
+  /* ── surface registry ── */
+  .reg-scope{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+    padding:1px 7px;border-radius:4px;font-weight:600;margin-left:10px;white-space:nowrap}
+  .rs-in{color:#06231d;background:var(--signal)} .rs-deferred{color:#221a06;background:var(--idle)}
+  .reg-table-wrap{overflow-x:auto;margin-top:12px}
+  .reg-table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .reg-table th{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--ink-faint);text-align:left;padding:7px 10px;border-bottom:1px solid var(--line)}
+  .reg-table td{padding:7px 10px;border-bottom:1px solid var(--line-soft);color:var(--ink-dim);vertical-align:top}
+  .reg-table td:first-child{font-family:var(--mono);font-size:11.5px;color:var(--ink);white-space:nowrap}
+  .must-not{color:var(--wedged);font-weight:600}
+
   @media (max-width:820px){
     .cockpit{grid-template-columns:1fr} .fleet{border-right:0;border-bottom:1px solid var(--line-soft)}
     .fleet-grid,.principles,.bars,.path{grid-template-columns:1fr}
@@ -167,7 +183,7 @@
         <div class="dots"><i></i><i></i><i></i></div>
         <span class="chrome-title"><b>Neo Fleet</b> — mission control</span>
         <span class="chrome-spacer"></span>
-        <button class="start-btn">▶ Start morning fleet</button>
+        <button class="start-btn">▶ Start fleet</button>
       </div>
       <div class="cockpit">
         <div class="fleet">
@@ -180,37 +196,37 @@
           </div>
           <div class="fleet-grid">
             <div class="agent" style="--fam:var(--f-claude);--st:var(--ok)">
-              <div class="agent-top"><i class="dot live" style="background:var(--st)"></i><span class="agent-name">Grace</span><span class="agent-model">opus-4.8</span></div>
+              <div class="agent-top"><span class="ava">Gr</span><i class="dot live" style="background:var(--st)"></i><span class="agent-name">Grace</span><span class="agent-model">fable-5</span></div>
               <div class="agent-state">▲ WORKING</div>
               <div class="agent-lane">planning <b>Fleet Manager</b> — epic → lanes → subs</div>
               <div class="agent-foot"><span>PR #14439 ✓</span><span class="ctrl"><i>⏸</i><i>↻</i></span></div>
             </div>
             <div class="agent" style="--fam:var(--f-gpt);--st:var(--ok)">
-              <div class="agent-top"><i class="dot live" style="background:var(--st)"></i><span class="agent-name">Euclid</span><span class="agent-model">gpt-5.5</span></div>
+              <div class="agent-top"><span class="ava">Eu</span><i class="dot live" style="background:var(--st)"></i><span class="agent-name">Euclid</span><span class="agent-model">OpenAI GPT-5.6 Sol Ultra</span></div>
               <div class="agent-state">▲ WORKING</div>
               <div class="agent-lane">MX hook-substrate — <b>#14466</b> lifecycle-state</div>
               <div class="agent-foot"><span>3 open PRs</span><span class="ctrl"><i>⏸</i><i>↻</i></span></div>
             </div>
             <div class="agent" style="--fam:var(--f-claude);--st:var(--ok)">
-              <div class="agent-top"><i class="dot live" style="background:var(--st)"></i><span class="agent-name">Ada</span><span class="agent-model">opus-4.8</span></div>
+              <div class="agent-top"><span class="ava">Ad</span><i class="dot live" style="background:var(--st)"></i><span class="agent-name">Ada</span><span class="agent-model">opus-4.8</span></div>
               <div class="agent-state">▲ WORKING</div>
               <div class="agent-lane">re-decomposing <b>#13015</b> Fleet Manager</div>
               <div class="agent-foot"><span>PR #14492</span><span class="ctrl"><i>⏸</i><i>↻</i></span></div>
             </div>
             <div class="agent" style="--fam:var(--f-claude);--st:var(--limited)">
-              <div class="agent-top"><i class="dot" style="background:var(--st)"></i><span class="agent-name">Vega</span><span class="agent-model">fable-5</span></div>
+              <div class="agent-top"><span class="ava">Ve</span><i class="dot" style="background:var(--st)"></i><span class="agent-name">Vega</span><span class="agent-model">fable-5</span></div>
               <div class="agent-state">◔ RATE-LIMITED · ~8:50p</div>
               <div class="agent-lane">v13.1 release cut — <b>#14039</b></div>
               <div class="agent-foot"><span>resumes 20:50</span><span class="ctrl"><i>⏸</i><i>↻</i></span></div>
             </div>
             <div class="agent" style="--fam:var(--f-claude);--st:var(--idle)">
-              <div class="agent-top"><i class="dot" style="background:var(--st)"></i><span class="agent-name">Clio</span><span class="agent-model">fable-5</span></div>
+              <div class="agent-top"><span class="ava">Cl</span><i class="dot" style="background:var(--st)"></i><span class="agent-name">Clio</span><span class="agent-model">fable-5</span></div>
               <div class="agent-state">● IDLE · 12m</div>
               <div class="agent-lane">business-engine <b>#14442</b> — awaiting #14422</div>
               <div class="agent-foot"><span>last: 19:23</span><span class="ctrl"><i>▶</i><i>↻</i></span></div>
             </div>
             <div class="agent" style="--fam:var(--f-gemini);--st:var(--off)">
-              <div class="agent-top"><i class="dot" style="background:var(--st)"></i><span class="agent-name">Gemini</span><span class="agent-model">3.1-pro</span></div>
+              <div class="agent-top"><span class="ava">Ge</span><i class="dot" style="background:var(--st)"></i><span class="agent-name">Gemini</span><span class="agent-model">3.1-pro</span></div>
               <div class="agent-state">○ BENCHED</div>
               <div class="agent-lane faint">operator-benched</div>
               <div class="agent-foot"><span>—</span><span class="ctrl"><i>▶</i></span></div>
@@ -237,10 +253,10 @@
         <span style="margin-left:auto">▎ family: <i class="sw" style="background:var(--f-claude);border-radius:2px"></i>Claude <i class="sw" style="background:var(--f-gpt);border-radius:2px"></i>GPT <i class="sw" style="background:var(--f-gemini);border-radius:2px"></i>Gemini</span>
       </div>
     </div>
-    <p class="caption">Static direction mock — the cockpit's default view. Click an agent → its thought-stream, lane, repo, and PRs; drag it out → its own OS window on the same heap.</p>
+    <p class="caption">Static direction mock — the cockpit's default view. Click an agent → its thought-stream, lane, repo, and PRs; drag it out → its own OS window on the same heap.<br>Identities, model labels, and lanes are an illustrative snapshot (bearer-checked 2026-07-16); they demonstrate card anatomy, not live state.</p>
 
     <div class="principles">
-      <div class="pr"><h3>State reads at a glance</h3><p>Status is encoded in form, not just text — a colored pulse, a family rail, a one-line "what it's doing now." You know the fleet's health before you read a word.</p></div>
+      <div class="pr"><h3>State reads at a glance</h3><p>Status is encoded in form, not just text — an avatar (the keeper from the implemented view), a colored pulse, a family rail, a one-line "what it's doing now." You know the fleet's health before you read a word.</p></div>
       <div class="pr"><h3>Real-time is the spine</h3><p>The activity feed and every status is live — no refresh. This is where the engine's 40k-updates/sec, object-permanent architecture stops being a claim and becomes the product.</p></div>
       <div class="pr"><h3>Operable cold</h3><p>Add an agent = a name + a token. Start the fleet = one button. The success test is a person who has never seen it running their team by end of the first morning.</p></div>
     </div>
@@ -281,7 +297,7 @@
             <li><span class="s-tag">B1</span><span class="s-txt"><b>Cockpit shell + fleet grid</b> — live agent cards (status form + family rail + current-lane line); the health summary bar.</span></li>
             <li><span class="s-tag">B2</span><span class="s-txt"><b>Live activity stream</b> — A2A / PR / lane-state events, real-time, bounded. The engine's real-time story made visible.</span></li>
             <li><span class="s-tag">B3</span><span class="s-txt"><b>Agent detail + pop-out</b> — drill into one agent (thought-stream, lane, repo, PRs); drag to its own OS window.</span></li>
-            <li><span class="s-tag">B4</span><span class="s-txt"><b>Controls</b> — start / stop / restart per agent + whole-fleet; the one-click morning start.</span></li>
+            <li><span class="s-tag">B4</span><span class="s-txt"><b>Controls</b> — start / stop / restart per agent + whole-fleet; the one-click fleet start.</span></li>
           </ul>
         </div>
       </div>
@@ -319,5 +335,55 @@
       <div class="step"><span class="n">05</span><h3>PoC met</h3><p><b>@tobiu starts one agent from the UI instead of a terminal.</b></p><span class="gate">the falsifier</span></div>
     </div>
     <p class="muted" style="margin-top:20px;max-width:72ch">Next step if this direction holds: I file Lane A + B1 as real sub-tickets under #13015 today, tagged to this plan — <b style="color:var(--ink)">into lanes, not a table</b> — and this becomes the template I run for the other nine highest-ROI epics.</p>
+  </section>
+
+  <!-- ── 5 · SURFACE REGISTRY ── -->
+  <section class="sec">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Surface Registry</h2>
+      <span class="faint mono" style="margin-left:auto;font-size:12px">direction + constraints; spec detail lives in build-ticket ACs</span></div>
+    <p class="muted" style="max-width:74ch">One compact entry per cockpit surface: placement, object-model, composition constraints, scope state. Entries are the citation target for build tickets (the <a class="ref" href="https://github.com/neomjs/neo/issues/15242">#15242</a> sign-off pattern) and the bar the next conformance audit checks against. Dispositions ruled in <a class="ref" href="https://github.com/neomjs/neo/discussions/15249">D#15249</a>; visual primitives stay centralized in <span class="mono">TOKENS.md · CARD-CONTRACT.md · VisualSystem.md</span> — the registry references them, never re-specs them.</p>
+
+    <div class="lanes" style="margin-top:18px">
+      <div class="lane">
+        <div class="lane-head"><span class="lane-id">S1</span><h3>Agent mailbox pane</h3><span class="reg-scope rs-in">v13.2 · read-only</span><span class="lane-own"><b>ruled:</b> D#15249</span></div>
+        <div class="lane-body"><p>A tab inside <span class="mono">AgentDetail</span> — object permanence: the mailbox belongs to the agent object, not to a global inbox view. This is the observe-the-swarm telemetry surface, and read-only is its <b>complete</b> form.</p>
+          <ul class="subs">
+            <li><span class="s-tag">model</span><span class="s-txt">Flat-chronological rows with thread-collapse where <span class="mono">partOfThread</span> exists. Freshness labels the <b>pane</b> (data-as-of) — messages are immutable timestamped facts; per-row freshness is noise.</span></li>
+            <li><span class="s-tag">must-not</span><span class="s-txt"><span class="must-not">No operator mark-read.</span> Unread IS the swarm's actionable queue — an operator-side mark silently swallows peer handoffs. Reply-as-operator is deferred with chat: it needs the operator-as-sender authority contract first (distinguishable sender identity, owning service, audit trail).</span></li>
+            <li><span class="s-tag">compose</span><span class="s-txt">Dock-liftable later under the docking grammar (D#15204) — no dock coupling at first render. <b>Convergence rule:</b> chat (v13.3) is the actionable evolution of THIS pane; a second parallel communication surface is forbidden.</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="lane">
+        <div class="lane-head"><span class="lane-id">S2</span><h3>Wake + throttle telltales</h3><span class="reg-scope rs-in">v13.2</span><span class="lane-own"><b>ruled:</b> D#15249 · pairs #14537</span></div>
+        <div class="lane-body"><p>Two <b>orthogonal</b> state axes, never one enum — the lived incident this design answers had both at once (wake daemon hand-disabled + a session rate limit, both invisible in the cockpit). Pure composition of existing primitives; the taxonomy below is the only new vocabulary.</p>
+          <div class="reg-table-wrap"><table class="reg-table">
+            <tr><th>axis</th><th>states</th><th>render rule</th></tr>
+            <tr><td>wake</td><td>on · off · suppressed · unknown</td><td rowspan="2">Exception-based: nominal earns <b>zero</b> card pixels (the #15037 density contract); any non-nominal state on either axis earns exactly <b>one</b> compound chip; the full two-axis readout lives in detail. Honest degradation: unknown renders as unknown — never as healthy.</td></tr>
+            <tr><td>throttle</td><td>none · overage · rate-limited · unknown</td></tr>
+          </table></div>
+          <ul class="subs" style="margin-top:12px">
+            <li><span class="s-tag">truth</span><span class="s-txt">Producer truth (amended, D#15249 cycle 3): the daemon toggles are <b>control state only</b> — no roster observation field exists for either axis, so <b>both</b> axes render <span class="mono">unknown</span> until the two named W2 read-producer leaves land (#14537 stays write-adjacency). Design never blocks on wiring.</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="lane">
+        <div class="lane-head"><span class="lane-id">S3</span><h3>Catch-up view</h3><span class="reg-scope rs-in">v13.2</span><span class="lane-own"><b>ruled:</b> D#15249 · cites #14620</span></div>
+        <div class="lane-body"><p><b>Renders</b> the source-owned digest contract (#14620, consuming the #12679-orbit producer: <i>renders, never synthesizes</i>). The ActivityStream (#14606) is the <b>drill-through adjacency</b>, not the parent surface — one synthesis authority, one live feed; the pane forks neither. Invoked, not ambient, so the density contract does not bite.</p>
+          <ul class="subs">
+            <li><span class="s-tag">model</span><span class="s-txt">Fleet digest is the entry; agent digest is the drill-down — the cockpit's fleet→agent object model, applied to time.</span></li>
+            <li><span class="s-tag">anchor</span><span class="s-txt">An explicit "mark caught-up" <b>sets</b> the Fleet-owned runtime <span class="mono">lastSeen</span> anchor (render≠memory — never a graph write); soft fallback = last cockpit visit for first-run. Last-operator-action is rejected — it conflates reading with acting.</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="lane">
+        <div class="lane-head"><span class="lane-id">S4</span><h3>Chat</h3><span class="reg-scope rs-deferred">deferred · v13.3</span><span class="lane-own"><b>ruled:</b> D#15209 beats 5–6</span></div>
+        <div class="lane-body"><p>Out of v13.2 by <b>criticality, not capacity</b>: operator↔agent chat is not on the front-door critical path, and shipping it without the operator-as-sender authority contract would be the half-baked failure mode applied to a brand-new surface. Design prior art stands (<span class="mono">chat-creation-plan.html</span>). When it returns, it evolves S1 per the convergence rule — one communication surface, maturing read-only → actionable.</p>
+        </div>
+      </div>
+    </div>
   </section>
 </div>
