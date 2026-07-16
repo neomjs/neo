@@ -355,8 +355,9 @@ test.describe('Neo.dashboard.DockPreview', () => {
             expect(DockPreview.affordanceGeometry({group: 'edge', edge: 'top'}, rect, {edgeBandSize: 48}))
                 .toEqual({x: 10, y: 20, width: 200, height: 48});
             // clamping survives the override: the band never exceeds the target rect
+            // (edge-left renders the band as WIDTH: min(500, 200, 100) = 100)
             expect(DockPreview.affordanceGeometry({group: 'edge', edge: 'left'}, rect, {edgeBandSize: 500}))
-                .toEqual({x: 10, y: 20, width: 200, height: 100});
+                .toEqual({x: 10, y: 20, width: 100, height: 100});
             // guide thickness follows the same policy surface
             const geo = DockPreview.affordanceGeometry({group: 'split', orientation: 'horizontal', position: 'after'}, rect, {splitLineSize: 10});
             expect(geo).toEqual({x: 200, y: 20, width: 10, height: 100})

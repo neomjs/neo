@@ -89,9 +89,11 @@ class DockTabSortZone extends TabHeaderSortZone {
 
     /**
      * The source toolbar's PRISTINE viewport rect, measured once per gesture at
-     * {@link #onDragStart}. The base sort mutates its own `ownerRect` down to the button span
-     * (and refreshes only x/y/width/height), so release-boundary decisions must never read it —
-     * this snapshot is the real toolbar boundary {@link #releaseVoidsReorder} decides against.
+     * {@link #onDragStart} — BEFORE the base runs: the base sort trims its in-memory `ownerRect`
+     * to the button span AND (via its inherited `expandOwnerOnDrag`) writes those trimmed
+     * dimensions onto the toolbar's live style, so neither the base rect nor any post-`super`
+     * measure is a release-decision surface. This pre-mutation snapshot is the real toolbar
+     * boundary {@link #releaseVoidsReorder} decides against.
      * @member {Object|null} dockSourceToolbarRect=null
      * @protected
      */
@@ -176,20 +178,22 @@ class DockTabSortZone extends TabHeaderSortZone {
      * @param {Object} data
      */
     async onDragStart(data) {
+        let me = this;
+
+        // The real toolbar boundary — measured BEFORE the base runs: the base drag-start (with
+        // its inherited `expandOwnerOnDrag`) WRITES the trimmed button-span dimensions onto the
+        // toolbar's live style, so any post-`super` measure reads the mutated box, not the
+        // toolbar's true extent. One pre-gesture measure, off the per-frame hot path.
+        me.dockSourceToolbarRect = await me.owner?.getDomRect() ?? null;
+
         await super.onDragStart(data);
 
-        let me   = this,
-            item = me.dragComponent;
+        let item = me.dragComponent;
 
         if (item) {
             item.dockItemId              = me.dockItemIds?.[me.startIndex] ?? null;
             item.dockSourceWorkspaceId   = me.dockWorkspaceId
         }
-
-        // The real toolbar boundary, snapshotted pristine (the base's `ownerRect` gets trimmed
-        // to the button span mid-gesture — never a release-decision surface). One measure per
-        // gesture start, off the per-frame hot path; the toolbar is stationary during a drag.
-        me.dockSourceToolbarRect = await me.owner?.getDomRect() ?? null
     }
 
     /**
