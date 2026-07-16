@@ -270,10 +270,11 @@
 // control identity for the drop affordances: signal-teal chips on deep ground with an
 // opacity-only hover-lock breath. STRICTLY ADDITIVE: without the host modifier the
 // default family above renders unchanged, and the §06 grammar/hit-testing is untouched —
-// this is skin, never behavior. Color fallbacks mirror the dark-skin token values (the
-// family's shipped pattern); durations/easings stay token-only through the dock aliases,
-// so the reduced-motion collapse governs with nothing to override it. The light skin's
-// deep-pigment `--fm-signal` keeps the identity legible on paper.
+// this is skin, never behavior. NO color fallbacks: the aliases must resolve through an
+// app's theme projection, so a missing projection drops the treatment visibly instead of
+// masking itself with an equal-valued literal (the census pins this). Durations/easings
+// stay token-only through the dock aliases, so the reduced-motion collapse governs with
+// nothing to override it. The light skin's deep pigment keeps the identity legible on paper.
 // ─────────────────────────────────────────────────────────────────────────────────────
 .neo-preview-lang-signal {
     // App-neutral by the settled domain-alias boundary: shared dashboard SCSS consumes the
@@ -282,37 +283,42 @@
     // fallback-mask on any app that doesn't load that palette.
     .neo-dashboard-dock-drop-indicator,
     .neo-dashboard-dock-drop-chip {
-        background  : var(--agent-dock-preview-signal-ground, rgba(11, 14, 19, 0.92));
-        border-color: color-mix(in srgb, var(--agent-dock-preview-signal, #5eead4) 45%, transparent);
+        background  : var(--agent-dock-preview-signal-ground);
+        border-color: color-mix(in srgb, var(--agent-dock-preview-signal) 45%, transparent);
         box-shadow  : 0 2px 10px rgb(0 0 0 / 40%);
 
         &::before {
-            border-color: var(--agent-dock-preview-signal, #5eead4);
+            border-color: var(--agent-dock-preview-signal);
         }
 
         &-active {
             // the hover-lock breath: one opacity rise on lock — replays on each re-lock
             // because the class toggles; transform/opacity discipline holds
             animation   : neo-preview-signal-lock var(--dock-transition-duration-fast) var(--dock-transition-easing);
-            background  : var(--agent-dock-preview-signal-fill, rgba(94, 234, 212, 0.18));
-            border-color: var(--agent-dock-preview-signal, #5eead4);
-            box-shadow  : 0 2px 12px color-mix(in srgb, var(--agent-dock-preview-signal, #5eead4) 30%, transparent);
+            background  : var(--agent-dock-preview-signal-fill);
+            border-color: var(--agent-dock-preview-signal);
+            box-shadow  : 0 2px 12px color-mix(in srgb, var(--agent-dock-preview-signal) 30%, transparent);
         }
     }
 
     .neo-dashboard-dock-drop-indicator-center::before {
-        border-color: var(--agent-dock-preview-signal, #5eead4);
+        border-color: var(--agent-dock-preview-signal);
     }
 }
 
 // The drag-proxy edge-light — the third surface of the Signal language. The proxy mounts at
-// document.body (DragZone's proxyParentId default), OUTSIDE any dock host, so the host-level
-// modifier cannot scope it by descent: `:has()` lifts the scope to the page — any document
-// carrying a signal-flipped host lights its proxies. One language, in-window and out; the
-// popup-vessel chrome (the multi-window arc) inherits this exact treatment.
-:root:has(.neo-preview-lang-signal) .neo-dragproxy {
-    box-shadow: 0 0 0 1px var(--agent-dock-preview-signal, #5eead4),
-                0 4px 14px color-mix(in srgb, var(--agent-dock-preview-signal, #5eead4) 35%, transparent);
+// document.body (DragZone's proxyParentId default), OUTSIDE any dock host, so descendant
+// scoping cannot reach it — the embodiment CARRIES its scope instead:
+// Neo.dashboard.DockTabSortZone#getDragProxyConfig stamps the dock-ownership marker, the
+// active theme cls (app theme files project the `--agent-dock-preview-*` aliases onto the
+// theme class, so the palette resolves ON the proxy at its body mount), and the host's
+// `neo-preview-lang-*` modifier. Generic `.neo-dragproxy` surfaces (grid/list/tree drags)
+// never match — dock-owned only. No literal fallback: an unprojected app drops the
+// treatment instead of masking it. The popup-vessel chrome (the multi-window arc)
+// inherits this exact treatment.
+.neo-dock-dragproxy.neo-preview-lang-signal {
+    box-shadow: 0 0 0 1px var(--agent-dock-preview-signal),
+                0 4px 14px color-mix(in srgb, var(--agent-dock-preview-signal) 35%, transparent);
 }
 
 @keyframes neo-preview-signal-lock {
