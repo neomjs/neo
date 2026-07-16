@@ -716,12 +716,25 @@ class GoldenPathSynthesizer extends Base {
             fs.writeFileSync(routePath, JSON.stringify(route, null, 2) + '\n', 'utf-8')
         } catch (error) {
             logger.warn(`[GoldenPathSynthesizer] Could not publish the unavailable computed-route; quarantining any prior sidecar instead: ${error.message}`);
+            this.quarantineComputedRouteSidecar(routePath)
+        }
+    }
 
-            try {
-                fs.rmSync(routePath, {force: true})
-            } catch (removeError) {
-                logger.warn(`[GoldenPathSynthesizer] Prior computed-route sidecar could not be quarantined; a stale route may remain readable: ${removeError.message}`)
-            }
+    /**
+     * @summary Removes a computed-route sidecar so a prior pass's route cannot remain executable when
+     * the current pass has none to publish.
+     *
+     * Absence is the safe state — consumers fail open to zero directives — whereas a surviving stale
+     * route silently steers work the current pass never computed.
+     *
+     * @param {String} routePath Absolute path to the sidecar.
+     * @returns {void}
+     */
+    static quarantineComputedRouteSidecar(routePath) {
+        try {
+            fs.rmSync(routePath, {force: true})
+        } catch (error) {
+            logger.warn(`[GoldenPathSynthesizer] Prior computed-route sidecar could not be quarantined; a stale route may remain readable: ${error.message}`)
         }
     }
 
@@ -1306,6 +1319,56 @@ class GoldenPathSynthesizer extends Base {
         const handoffTimestamp = now instanceof Date ? now : new Date(now);
         let   markdownAppend   = '';
 
+        // The declared-intent advisory exists only for an empty route and costs a REM read plus a
+        // bounded SQLite walk, so it is computed on that branch alone — but BEFORE the renderer runs,
+        // because the typed route (not the Markdown) is now the render input.
+        let declaredIntent = {items: [], cause: null};
+
+        if (!routeFailure && routedTopNodes.length === 0 && !focusContradiction) {
+            // Measured REM pipeline state so the fallback attributes the real cause (REM_STALLED vs
+            // FRONTIER_UNANCHORED); the async fetch lives here to keep the SQLite builder sync.
+            let remState = {};
+
+            try {
+                const {default: HealthService} = await import('../../services/memory-core/HealthService.mjs');
+                remState = await HealthService.getRemPipelineState()
+            } catch (error) {
+                logger.warn(`[GoldenPathSynthesizer] REM pipeline state unavailable for fallback cause: ${error.message}`)
+            }
+
+            declaredIntent = this.constructor.buildDeclaredIntentItems(remState)
+        }
+
+        // Typed once: the canonical pass assembles `computed-route.v1` BEFORE any renderer, and the
+        // sections below render FROM it — so the machine route and the human handoff cannot disagree.
+        // Fail-open: a contract violation (an unmaterialized config leaf, a malformed pass outcome)
+        // yields a null typed route plus a warning, and the sections render the pass data directly.
+        // Nothing can diverge from a route that was never produced, and enrichment must never cost
+        // the human handoff.
+        const scoredSourceIds = scoredNodes.map(entry => entry?.node?.id ?? entry?.id).filter(Boolean);
+        let   computedRoute   = null;
+
+        try {
+            computedRoute = buildComputedRouteFromPass({
+                routeFailure,
+                routedTopNodes,
+                focusContradiction,
+                declaredIntentItems: declaredIntent.items.map(item => ({
+                    id   : `issue-${item.id}`,
+                    title: item.title || `Open-epic tree leaf #${item.id}`
+                })),
+                scoredSourceIds,
+                now             : handoffTimestamp,
+                ttlMs           : aiConfig.goldenPathRouteTtlMs,
+                routeVersion    : ROUTE_ALGORITHM_VERSION,
+                algorithmVersion: ROUTE_ALGORITHM_VERSION,
+                renderLimit     : aiConfig.goldenPathTopNodeRenderLimit
+            })
+        } catch (routeError) {
+            computedRoute = null;
+            logger.warn(`[GoldenPathSynthesizer] Typed computed-route assembly failed (route absent this pass): ${routeError.message}`)
+        }
+
         if (routeFailure) {
             markdownAppend = this.constructor.renderComputedGoldenPathFailureSection({
                 capturedAt: handoffTimestamp,
@@ -1321,12 +1384,39 @@ class GoldenPathSynthesizer extends Base {
             markdownAppend += `Captured at: ${this.constructor.formatGoldenPathCapturedAt(handoffTimestamp)}\n\n`;
             markdownAppend += `Based on the latest Tri-Vector Synthesis and Topological Priorities, the following tasks are mathematically recommended as the next immediate focus:\n\n`;
 
-            routedTopNodes.forEach((item, index) => {
-                if (item.node && item.node.id) {
-                    GraphService.linkNodes('frontier', item.node.id, 'GUIDES', item.score);
-                    const title = item.node.properties?.title || item.node.properties?.name || item.node.name || 'Unknown Title';
-                    markdownAppend += `${index + 1}. **${item.node.id}**: Score ${item.score.toFixed(2)} (Semantic: ${item.semantic.toFixed(2)}, Structural: ${item.structural.toFixed(2)})\n   - *${title}*\n`;
-                }
+            // Render FROM the typed route: it owns the item set, order, rank and score, so this section
+            // and the machine route cannot disagree. The tri-vector breakdown is presentation detail the
+            // v1 contract deliberately does not carry, so it is looked up per id — never re-ordered here.
+            // A null typed route (assembly failed) falls back to the pass data so the handoff survives;
+            // there is no typed route to diverge from in that case.
+            const scoredById = new Map(
+                routedTopNodes.filter(entry => entry?.node?.id).map(entry => [entry.node.id, entry])
+            );
+
+            const renderedRows = computedRoute?.route?.items?.length > 0
+                ? computedRoute.route.items.map(routeItem => ({
+                      id    : routeItem.id,
+                      rank  : routeItem.rank,
+                      score : routeItem.score,
+                      title : routeItem.title,
+                      scored: scoredById.get(routeItem.id)
+                  }))
+                : routedTopNodes.filter(entry => entry?.node?.id).map((entry, index) => ({
+                      id    : entry.node.id,
+                      rank  : index + 1,
+                      score : entry.score,
+                      title : entry.node.properties?.title || entry.node.properties?.name || entry.node.name || 'Unknown Title',
+                      scored: entry
+                  }));
+
+            renderedRows.forEach(row => {
+                GraphService.linkNodes('frontier', row.id, 'GUIDES', row.scored?.score ?? row.score ?? 0);
+
+                const breakdown = row.scored
+                    ? ` (Semantic: ${row.scored.semantic.toFixed(2)}, Structural: ${row.scored.structural.toFixed(2)})`
+                    : '';
+
+                markdownAppend += `${row.rank}. **${row.id}**: Score ${(row.score ?? 0).toFixed(2)}${breakdown}\n   - *${row.title}*\n`;
             });
 
             if (focusContradiction) {
@@ -1399,16 +1489,15 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             });
             logger.info('[GoldenPathSynthesizer] Computed route contradicted Current Focus; rendered diagnostic instead of routing content work.');
         } else {
-            // Fetch measured REM pipeline state so the fallback attributes the real cause (REM_STALLED vs
-            // FRONTIER_UNANCHORED); the async fetch lives here to keep the SQLite fallback builder sync.
-            let remState = {};
-            try {
-                const {default: HealthService} = await import('../../services/memory-core/HealthService.mjs');
-                remState = await HealthService.getRemPipelineState();
-            } catch (error) {
-                logger.warn(`[GoldenPathSynthesizer] REM pipeline state unavailable for fallback cause: ${error.message}`);
-            }
-            const declaredIntentFallback = this.constructor.buildDeclaredIntentFallback(remState);
+            // The declared-intent set was computed above, before the typed assembly, so ONE bounded walk
+            // feeds both this section and the route's advisory slot — they cannot describe different
+            // leaves.
+            const declaredIntentFallback = renderDeclaredIntentFallback(
+                declaredIntent.items,
+                aiConfig.goldenPathTopNodeRenderLimit,
+                declaredIntent.cause
+            );
+
             if (declaredIntentFallback) {
                 markdownAppend = declaredIntentFallback;
                 logger.info('[GoldenPathSynthesizer] Frontier empty — rendered declared-intent fallback (unblocked open-epic tree leaves).');
@@ -1712,36 +1801,26 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
 
         logger.info(`[GoldenPathSynthesizer] Mathematical Golden Path established. Anchored ${topNodes.length} strategic nodes to frontier.`);
 
-        // Typed computed-route.v1 producer: consumers (handoff renderer, AgentOrchestrator, the
-        // projection channel) read this typed object + the JSON sidecar instead of reparsing the
-        // rendered Markdown. Declared-intent advisory items surface once the fallback renderer
-        // exposes its structured set; until then the advisory renders not-applicable.
+        // Publish the typed route assembled BEFORE the renderer above — the same object the handoff
+        // section rendered from, so the sidecar and the human artifact cannot describe different
+        // routes. Consumers (AgentOrchestrator, the projection channel) read this instead of
+        // reparsing the rendered Markdown.
         //
-        // Fail-open: this enrichment is ADDITIVE. Any failure (an unmaterialized config leaf, a
-        // malformed pass outcome, a sidecar write error) yields a null typed route plus a logged
-        // warning — never a thrown pass. The rendered Markdown handoff is the unaffected base.
-        let computedRoute = null;
+        // Every pass owns the CURRENT typed state: when this pass produced no typed route, a prior
+        // pass's sidecar must not survive as an executable route. Absence is safe (consumers fail
+        // open to zero directives); a stale route is not.
+        const routeSidecarPath = path.join(path.dirname(handoffFile), 'computed-route.json');
 
-        try {
-            const scoredSourceIds = scoredNodes.map(entry => entry?.node?.id ?? entry?.id).filter(Boolean);
-
-            computedRoute = buildComputedRouteFromPass({
-                routeFailure,
-                routedTopNodes,
-                focusContradiction,
-                declaredIntentItems: [],
-                scoredSourceIds,
-                now                : handoffTimestamp,
-                ttlMs              : aiConfig.goldenPathRouteTtlMs,
-                routeVersion       : ROUTE_ALGORITHM_VERSION,
-                algorithmVersion   : ROUTE_ALGORITHM_VERSION,
-                renderLimit        : aiConfig.goldenPathTopNodeRenderLimit
-            });
-
-            fs.writeFileSync(path.join(path.dirname(handoffFile), 'computed-route.json'), JSON.stringify(computedRoute, null, 2) + '\n', 'utf-8')
-        } catch (routeError) {
-            computedRoute = null;
-            logger.warn(`[GoldenPathSynthesizer] Typed computed-route enrichment failed (route absent this pass): ${routeError.message}`)
+        if (computedRoute) {
+            try {
+                fs.writeFileSync(routeSidecarPath, JSON.stringify(computedRoute, null, 2) + '\n', 'utf-8')
+            } catch (writeError) {
+                logger.warn(`[GoldenPathSynthesizer] Typed computed-route sidecar write failed; quarantining any prior route: ${writeError.message}`);
+                this.constructor.quarantineComputedRouteSidecar(routeSidecarPath)
+            }
+        } else {
+            logger.warn('[GoldenPathSynthesizer] No typed computed-route this pass; quarantining any prior route sidecar.');
+            this.constructor.quarantineComputedRouteSidecar(routeSidecarPath)
         }
 
         return routeFailure ? {

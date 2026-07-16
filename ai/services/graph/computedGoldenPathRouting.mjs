@@ -512,7 +512,9 @@ export function buildComputedRouteFromPass({
         const items = routedTopNodes
             .map(item => ({
                 id   : item.node?.id,
-                title: item.node?.properties?.title || item.node?.properties?.name || item.node?.name || 'Untitled',
+                // Fallback matches the handoff renderer's, which now renders FROM these items — a
+                // different placeholder here would surface as a handoff-parity diff for a title-less node.
+                title: item.node?.properties?.title || item.node?.properties?.name || item.node?.name || 'Unknown Title',
                 score: typeof item.score === 'number' ? item.score : null
             }))
             .sort((a, b) => ((b.score ?? -Infinity) - (a.score ?? -Infinity)) || String(a.id).localeCompare(String(b.id)))
