@@ -6,6 +6,7 @@ import {
     decideStopHookAction,
     detectAutonomousHandoffPrompt,
     extractAutonomousHandoffWindowMs,
+    isOperatorDialogueText,
     isOperatorInLoop,
     isSyntheticPromptingText,
     LANE_STATE_SCHEMA_HINT,
@@ -202,6 +203,85 @@ test.describe('ai/scripts/lifecycle/stopHookDecision — shared no-hold decision
         expect(decision.action).toBe('block');
         expect(decision.phrase).toBe('your move');
         expect(decision.reason).toContain('deference phrase "your move"');
+    });
+});
+
+/**
+ * Coverage for mid-chain operator visibility (the operator-prompt-blindness defect): inside a forced
+ * continuation chain, a genuine operator message that arrived mid-chain classifies as live dialogue —
+ * but ONLY under the adapter's `promptingTextHumanFiltered` attestation that harness-injected records
+ * were mechanically excluded. Without the attestation (the Codex adapter's current shape) chained turns
+ * keep the fail-closed autonomous semantics byte-for-byte. Fixture corpus: sessions `2251c81c`,
+ * `c82afc7d`, `8cf234b7` (operator messages injected mid-chain, invisible to the previous classifier).
+ */
+test.describe('ai/scripts/lifecycle/stopHookDecision — #14440 mid-chain operator visibility', () => {
+    test('isOperatorDialogueText: the shared dialogue gates (single authority for both paths)', () => {
+        expect(isOperatorDialogueText('please stop and report')).toBe(true);
+        expect(isOperatorDialogueText('')).toBe(false);
+        expect(isOperatorDialogueText('   ')).toBe(false);
+        expect(isOperatorDialogueText('[WAKE][priority:high] 2 events')).toBe(false);
+        expect(isOperatorDialogueText('  [WAKE] leading whitespace')).toBe(false);
+        expect(isOperatorDialogueText('<hook_prompt hook_run_id="stop:1">noise</hook_prompt>')).toBe(false);
+        expect(isOperatorDialogueText('<turn_aborted>interrupted</turn_aborted>')).toBe(false);
+        expect(isOperatorDialogueText('nightshift mode for the next 5h, freely choose')).toBe(false);
+        expect(isOperatorDialogueText(null)).toBe(false);
+        expect(isOperatorDialogueText(undefined)).toBe(false);
+    });
+
+    test('chained + attested + genuine operator text → live dialogue (the Defect-B AC)', () => {
+        const context = classifyPromptingContext({
+            stopHookActive            : true,
+            promptingText             : 'full stop. we need to talk about the release notes.',
+            promptingTextHumanFiltered: true
+        });
+        expect(context.operatorInLoop).toBe(true);
+        expect(context.midChainOperator).toBe(true);
+    });
+
+    test('chained + attested + [WAKE] candidate → autonomous (a newer wake out-classifies older dialogue)', () => {
+        const context = classifyPromptingContext({
+            stopHookActive            : true,
+            promptingText             : '[WAKE][priority:normal] 1 events for @neo-opus-vega',
+            promptingTextHumanFiltered: true
+        });
+        expect(context.operatorInLoop).toBe(false);
+        expect(context.midChainOperator).toBe(false);
+    });
+
+    test('chained + attested + synthetic / handoff / empty candidates all fail closed', () => {
+        for (const promptingText of [
+            '<hook_prompt hook_run_id="stop:2">reminder</hook_prompt>',
+            "nightshift mode from here on for the next 5h, you can freely choose. I merge when I get back.",
+            ''
+        ]) {
+            const context = classifyPromptingContext({stopHookActive: true, promptingText, promptingTextHumanFiltered: true});
+            expect(context.operatorInLoop).toBe(false);
+            expect(context.midChainOperator).toBe(false);
+        }
+    });
+
+    test('chained + NOT attested + genuine text → unchanged fail-closed autonomous (Codex-shape guard)', () => {
+        const context = classifyPromptingContext({
+            stopHookActive: true,
+            promptingText : 'a real human question'
+        });
+        expect(context.operatorInLoop).toBe(false);
+        expect(context.midChainOperator).toBe(false);
+        expect(isOperatorInLoop({stopHookActive: true, promptingText: 'a real human question'})).toBe(false);
+    });
+
+    test('NON-chained turn: attestation adds nothing — midChainOperator stays false on the plain dialogue path', () => {
+        const context = classifyPromptingContext({
+            stopHookActive            : false,
+            promptingText             : 'please review the PR',
+            promptingTextHumanFiltered: true
+        });
+        expect(context.operatorInLoop).toBe(true);
+        expect(context.midChainOperator).toBe(false);
+    });
+
+    test('isOperatorInLoop passes the attestation through (chained operator rescue end-to-end)', () => {
+        expect(isOperatorInLoop({stopHookActive: true, promptingText: 'please stop', promptingTextHumanFiltered: true})).toBe(true);
     });
 });
 
