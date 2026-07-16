@@ -141,10 +141,21 @@ class FleetControlBridge extends Base {
      * @param {Object} [definition.metadata]         Free-form non-secret metadata.
      * @param {String} [definition.modelProvider]    The agent's model-provider login; resolves via the AiConfig SSOT leaf when omitted.
      * @param {Object|null} [definition.mcpServers]   Complete sparse MCP overrides; omitted/null follows live defaults, exactly like configureAgent.
-     * @returns {Object} the public agent definition (no credential).
+     * @returns {Object} The public agent definition (no credential), or a controlled
+     *     `{status:'rejected', reason}` outcome for FleetRegistryService validation failures.
      */
     defineAgent(definition) {
-        return this.getRegistry().defineAgent(definition);
+        try {
+            return this.getRegistry().defineAgent(definition)
+        } catch (error) {
+            const prefix = 'FleetRegistryService.defineAgent:';
+
+            if (error?.message?.startsWith(prefix)) {
+                return {status: 'rejected', reason: error.message.slice(prefix.length).trim()}
+            }
+
+            throw error
+        }
     }
 
     /**

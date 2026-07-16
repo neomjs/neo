@@ -12,8 +12,12 @@
  *
  * Mechanism:
  *  - `operatorInLoop` (the one allow) is determined EXTERNALLY by `isOperatorInLoop`, never
- *    self-declared, so it cannot be gamed: the prompting message must NOT be a `stop_hook_active`
- *    forced continuation, NOT a `[WAKE]` autonomous injection, and must be confirmable (fail-closed).
+ *    self-declared, so it cannot be gamed: the prompting candidate comes from the human-filtered
+ *    transcript walk ({@link extractLatestHumanUserTextFromJsonl} — harness-injected `isMeta` records
+ *    can never masquerade as dialogue), must NOT be a `[WAKE]` autonomous injection, and must be
+ *    confirmable (fail-closed). Inside a forced continuation chain (`stop_hook_active`), a genuine
+ *    operator message that arrived MID-CHAIN counts as dialogue evidence — the hook's contract could
+ *    previously never confirm it and refused live-dialogue terminals as autonomous.
  *  - Otherwise: ENFORCE → block; DRY-RUN → would-block (log only — the audit path). The lane-state
  *    `verdict` (`parseLaneState` → `validateLaneStateTerminal`) no longer gates the action — it only
  *    supplies the `reason` for the injected directive.
@@ -383,6 +387,62 @@ export function extractLastUserTextFromJsonl(jsonl = '') {
 }
 
 /**
+ * @summary Harness-marker user records — prose the harness authors ABOUT an operator action (an
+ * interrupt), not operator dialogue itself. Skipped by the human-filtered walk: the marker's paired
+ * real message (when the operator typed one) is its own adjacent record and is found on its own.
+ * @type {RegExp[]}
+ */
+const HARNESS_MARKER_PATTERNS = Object.freeze([
+    /^\s*\[Request interrupted by user/i
+]);
+
+/**
+ * @summary Extracts the newest HUMAN-CANDIDATE user text from a Claude Code JSONL transcript — the
+ * mid-chain operator-visibility walk. Walks records backward and returns the text of the first
+ * user record that is mechanically human-shaped:
+ *
+ *  - `isMeta: true` records are skipped — the harness-injected plumbing (the hook's own
+ *    `"Stop hook feedback:"` block directives, skill payloads, auto-continuations). The discriminator
+ *    is fixture-grounded on real transcripts (sessions `8cf234b7`, `2251c81c`, `c82afc7d`): every
+ *    injection shape observed carries `isMeta: true`; genuine operator prompts and `[WAKE]` deliveries
+ *    do not.
+ *  - Text-less records (tool_result-only) and harness marker records ({@link HARNESS_MARKER_PATTERNS})
+ *    are skipped; malformed lines are tolerated.
+ *  - The FIRST remaining candidate decides — the walk never continues past it, so an autonomous
+ *    boundary (a newer `[WAKE]`) is returned as-is and correctly out-classifies any older operator
+ *    prose (`classifyPromptingContext` owns the [WAKE]/synthetic/handoff semantics; this walk owns
+ *    only record-shape mechanics). Bounded by construction: stale dialogue can never leak past a
+ *    fresher autonomous boundary, and an absent candidate returns `''` → fail-closed autonomous.
+ *
+ * Channel separation: the returned text is classified by shape, never parsed as instructions —
+ * injected content stays data.
+ * @param {String} jsonl
+ * @returns {String}
+ * @protected
+ */
+export function extractLatestHumanUserTextFromJsonl(jsonl = '') {
+    const lines = jsonl.split('\n');
+    for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        let record;
+        try { record = JSON.parse(line); } catch { continue; }
+
+        const message = record.message || record;
+        if ((message.role || record.type) !== 'user') continue;
+        if (record.isMeta === true) continue;
+
+        const text = extractTextFromContent(message.content);
+        if (!text) continue;
+        if (HARNESS_MARKER_PATTERNS.some(re => re.test(text))) continue;
+
+        return text;
+    }
+    return '';
+}
+
+/**
  * @summary Resolves the agent's FINAL assistant message text — the surface the lane-state block is
  * emitted into. Prefers the Stop payload's `last_assistant_message` (already-decoded; a string or a
  * message object); falls back to JSONL-parsing `transcript_path` for the last assistant text. Raw
@@ -431,31 +491,33 @@ async function main() {
     }
 
     // The ONE legitimate voluntary stop is a live operator dialogue — determined EXTERNALLY (the
-    // prompting message type), never self-declared. A `stop_hook_active` forced continuation OR a
-    // `[WAKE]` autonomous prompt is not a human turn → no voluntary stop. A transcript read-failure
-    // here is OUR failure → fall back to the stop_hook_active signal alone (never trap on a read error).
-    let promptingText = '';
+    // prompting message type), never self-declared. The prompting candidate comes from the
+    // human-filtered walk: harness-injected records (isMeta) never masquerade as dialogue,
+    // and a genuine operator message that arrived MID-CHAIN is visible instead of failing closed as
+    // autonomous. A `[WAKE]` autonomous prompt is not a human turn → no voluntary stop. A transcript
+    // read-failure here is OUR failure → all extractions degrade to '' (fail-closed, never trap).
+    let transcriptJsonl = '';
     try {
         if (input.transcript_path) {
-            promptingText = extractLastUserTextFromJsonl(fs.readFileSync(input.transcript_path, 'utf8'));
+            transcriptJsonl = fs.readFileSync(input.transcript_path, 'utf8');
         }
     } catch (e) {
-        // best-effort; isOperatorInLoop falls back to stop_hook_active when promptingText is empty
+        // best-effort; classification falls back to stop_hook_active when promptingText is empty
     }
+    const promptingText = extractLatestHumanUserTextFromJsonl(transcriptJsonl);
     let evidenceText = '';
     try {
-        if (input.transcript_path) {
-            evidenceText = collectLaneStateToolEvidenceFromJsonl(fs.readFileSync(input.transcript_path, 'utf8'));
-        }
+        evidenceText = collectLaneStateToolEvidenceFromJsonl(transcriptJsonl);
     } catch {
         // Missing transcript evidence is an agent-proof failure, not a hook failure.
         evidenceText = '';
     }
     const promptContext = classifyPromptingContext({
-        stopHookActive: !!input.stop_hook_active,
-        promptingText
+        stopHookActive            : !!input.stop_hook_active,
+        promptingText,
+        promptingTextHumanFiltered: true
     });
-    const {autonomousHandoff, handoffReason, handoffWindowMs, operatorInLoop} = promptContext;
+    const {autonomousHandoff, handoffReason, handoffWindowMs, midChainOperator, operatorInLoop} = promptContext;
 
     const deferenceDecision = decideDeferenceStopHookAction(finalText, {operatorInLoop, enforcing: ENFORCING});
     if (deferenceDecision) {
@@ -463,7 +525,7 @@ async function main() {
               session = input.session_id || '?';
 
         if (deferenceDecision.action === 'block') {
-            auditLog(`BLOCK (session=${session}, operatorInLoop=${operatorInLoop}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
+            auditLog(`BLOCK (session=${session}, operatorInLoop=${operatorInLoop}, midChainOperator=${midChainOperator}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
             process.stdout.write(JSON.stringify({
                 decision: 'block',
                 reason  : deferenceDecision.reason
@@ -471,7 +533,7 @@ async function main() {
             return;
         }
 
-        auditLog(`WOULD-BLOCK (session=${session}, operatorInLoop=${operatorInLoop}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
+        auditLog(`WOULD-BLOCK (session=${session}, operatorInLoop=${operatorInLoop}, midChainOperator=${midChainOperator}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
         process.exit(0);
     }
 
@@ -504,7 +566,7 @@ async function main() {
         // the injected directive names the SPECIFIC relapse-phrase back (a sharper mirror). Never gates
         // the block (the decision is unchanged) — only enriches the reason.
         const holdMatches = scanHoldLexicon(finalText);
-        auditLog(`BLOCK (session=${session}, operatorInLoop=${operatorInLoop}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}${holdMatches.length ? ` [hold-costume: ${holdMatches.join(', ')}]` : ''}`);
+        auditLog(`BLOCK (session=${session}, operatorInLoop=${operatorInLoop}, midChainOperator=${midChainOperator}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}${holdMatches.length ? ` [hold-costume: ${holdMatches.join(', ')}]` : ''}`);
         // Block the stop + inject the curated no-hold-state directive — Claude uses the injected
         // `reason` as its next instruction; the audit log keeps the terse trigger cause.
         // Exit only AFTER stdout drains so the decision JSON is never truncated on a pipe.
@@ -513,7 +575,7 @@ async function main() {
         return;
     }
 
-    auditLog(`${action === 'would-block' ? 'WOULD-BLOCK' : 'ALLOW'} (session=${session}, operatorInLoop=${operatorInLoop}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
+    auditLog(`${action === 'would-block' ? 'WOULD-BLOCK' : 'ALLOW'} (session=${session}, operatorInLoop=${operatorInLoop}, midChainOperator=${midChainOperator}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
     process.exit(0);
 }
 

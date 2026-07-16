@@ -1,9 +1,14 @@
+@use "../motion" as *;
+
 :root .neo-theme-cyberpunk {
     --neo-background-color: #0d1117;
     --neo-color           : #c9d1d9;
     --neo-disabled-opacity: 0.5;
     --neo-font-family     : 'Courier New', monospace;
     --neo-font-smoothing  : antialiased;
+
+    // The product motion vocabulary (see resources/scss/_motion.scss — one authority, all themes)
+    @include motion-vocabulary;
 
     // Cyberpunk Specifics
     --cyber-cyan          : #00d2ff;

@@ -1,4 +1,5 @@
 @use "../../../resources/scss/theme-neo-light/design-tokens/_all.scss";
+@use "../motion" as *;
 
 :root .neo-theme-neo-light {
     --neo-background-color: #fafafa;
@@ -6,6 +7,9 @@
     --neo-disabled-opacity: 0.5;
     --neo-font-family     : 'Source Sans 3', sans-serif;
     --neo-font-smoothing  : antialiased;
+
+    // The product motion vocabulary (see resources/scss/_motion.scss — one authority, all themes)
+    @include motion-vocabulary;
 
     h1 {
         color           : var(--sem-color-fg-neutral-contrast);

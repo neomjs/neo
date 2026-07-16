@@ -18,6 +18,11 @@ import ViewportController from './ViewportController.mjs';
  * cockpit, the default), **Accounts** (identity setup), **Chat** (prompt → live pane, the dockable
  * work-area seam). The Fleet keeper-view renders the roster as CARDS (the design SSOT), not a
  * data-grid table. Renders through `neo-theme-neo-dark` / `neo-theme-neo-light`.
+ *
+ * The Viewport is also the composition authority between two deliberately separate projections:
+ * Accounts owns `AgentDefinitions`, while FleetCockpit owns `FleetRoster`. An accepted definition
+ * event is routed here so the cockpit can re-poll its Brain-side `fleetRoster()` assembler; neither
+ * sibling reaches into or locally maps the other's store.
  */
 class Viewport extends BaseViewport {
     static config = {
@@ -101,8 +106,9 @@ class Viewport extends BaseViewport {
                             '<p class="agent-welcome-lede">Your fleet\'s state at a glance, its work streaming in real time, commanded from the cockpit — not a terminal. Select <b>Fleet</b> in the rail to enter mission control.</p>' +
                         '</div>'
             }, {
-                module: FleetCockpit,
-                header: {iconCls: 'fa-solid fa-satellite-dish', route: '/fleet', text: 'Fleet'}
+                module   : FleetCockpit,
+                header   : {iconCls: 'fa-solid fa-satellite-dish', route: '/fleet', text: 'Fleet'},
+                reference: 'fleet-cockpit'
             }, {
                 // FleetSettingsPanel is a dashboard.Panel, so its keeper-view rides a dashboard.Container
                 // to keep the detach-to-window (pop-out) host — the WindowOps E2E contract + the working
@@ -130,6 +136,7 @@ class Viewport extends BaseViewport {
                 items: [{
                     module   : Accounts,
                     flex     : 1,
+                    listeners: {agentDefinitionAccepted: 'up.onAgentDefinitionAccepted'},
                     reference: 'accounts'
                 }]
             }, {
@@ -139,6 +146,26 @@ class Viewport extends BaseViewport {
                 html  : '<div class="agent-placeholder-inner">Chat — prompt an agent → a live widget pane you can dock and pop out. The dockable QT work-area lands here next.</div>'
             }]
         }]
+    }
+
+    /**
+     * @summary Route an accepted Accounts definition across the keeper-view composition boundary:
+     * FleetCockpit re-polls the Brain's authoritative roster assembler into its own FleetRoster
+     * store. Invalid events or an absent cockpit fail closed without a sibling-store mutation.
+     * @param {Object} data
+     * @param {Object} data.agent Canonical public agent definition accepted by Accounts.
+     * @returns {Promise<Boolean>} True after the cockpit refresh settles; false when no valid route exists.
+     */
+    async onAgentDefinitionAccepted({agent}={}) {
+        const cockpit = this.getReference('fleet-cockpit');
+
+        if (!agent?.id || typeof cockpit?.loadRoster !== 'function') {
+            return false
+        }
+
+        await cockpit.loadRoster();
+
+        return true
     }
 }
 

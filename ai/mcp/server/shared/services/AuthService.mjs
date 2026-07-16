@@ -1,8 +1,9 @@
-import Base         from '../../../../../src/core/Base.mjs';
-import {createHash} from 'crypto';
+import Base                                          from '../../../../../src/core/Base.mjs';
+import {createHash}                                  from 'crypto';
+import {isLocalBearerToken, matchesLocalBearerToken} from '../helpers/localBearer.mjs';
 
 /**
- * @summary Orchestrates OIDC and OAuth 2.1 authorization for Neo.mjs MCP servers.
+ * @summary Orchestrates OIDC, GitLab-PAT, and disposable local-bearer authorization.
  *
  * This service acts as the **Authorization Anchor** for the MCP ecosystem. It implements
  * the **Discovery-First Pattern**, where it dynamically resolves security endpoints from the
@@ -47,7 +48,7 @@ class AuthService extends Base {
     }
 
     /**
-     * Setups OIDC/OAuth authorization for an Express application.
+     * @summary Sets up the configured authorization strategy for an Express application.
      * @param {Object} options
      * @param {Object} options.app The Express application instance
      * @param {Object} options.aiConfig The server configuration object
@@ -61,6 +62,12 @@ class AuthService extends Base {
 
         const {requireBearerAuth} = await import('@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js');
         const {InvalidTokenError} = await import('@modelcontextprotocol/sdk/server/auth/errors.js');
+
+        // Local-bearer mode is possession-only: no PRM, discovery, identity lookup, or provisioning.
+        if (aiConfig.auth.mode === 'local-bearer') {
+            this.setupLocalBearer({app, aiConfig, logger}, {requireBearerAuth, InvalidTokenError});
+            return
+        }
 
         // GitLab-PAT mode installs a naked-401 bearer path (no `aud`, no PRM advertisement) and
         // returns early — the OIDC discovery + introspection flow below does not apply.
@@ -206,6 +213,66 @@ class AuthService extends Base {
         app.use(authMiddleware);
 
         logger.info(`[AuthService] Authorization enabled (Issuer: ${oauthUrls.issuer})`);
+    }
+
+    /**
+     * @summary Installs the process-lifetime local-bearer middleware.
+     *
+     * The SDK middleware owns Authorization-header parsing and request `AuthInfo` propagation.
+     * This strategy adds only strict canonical-token validation and possession comparison; it
+     * deliberately installs no metadata router and never logs the configured credential.
+     * @param {Object}   options
+     * @param {Object}   options.app Express application instance
+     * @param {Object}   options.aiConfig Server configuration object
+     * @param {Object}   options.logger Logger instance
+     * @param {Object}   deps
+     * @param {Function} deps.requireBearerAuth SDK bearer-auth middleware factory
+     * @param {Function} deps.InvalidTokenError SDK error class for rejected tokens
+     * @returns {void}
+     */
+    setupLocalBearer({app, aiConfig, logger}, {requireBearerAuth, InvalidTokenError}) {
+        const verifier = this.createLocalBearerVerifier({aiConfig, InvalidTokenError});
+
+        app.use(requireBearerAuth({verifier, requiredScopes: []}));
+
+        logger.info('[AuthService] Authorization enabled (mode: local-bearer, possession-only)')
+    }
+
+    /**
+     * @summary Builds the strict verifier for one disposable local bearer credential.
+     *
+     * The configured token must be canonical unpadded base64url for exactly 32 bytes. Successful
+     * verification returns the minimum SDK `AuthInfo` shape with no `userId` or `username`: the
+     * credential proves possession, not identity. `Number.MAX_SAFE_INTEGER` is the SDK-required
+     * numeric expiry sentinel; process exit is the actual revocation boundary, so no arbitrary
+     * wall-clock TTL is invented.
+     * @param {Object}   options
+     * @param {Object}   options.aiConfig Server configuration object
+     * @param {Function} options.InvalidTokenError SDK error class for rejected tokens
+     * @returns {{verifyAccessToken: Function}}
+     */
+    createLocalBearerVerifier({aiConfig, InvalidTokenError}) {
+        const configuredToken = aiConfig.auth.localBearerToken;
+
+        if (!isLocalBearerToken(configuredToken)) {
+            throw new Error('Local-bearer mode requires a canonical 32-byte unpadded-base64url token')
+        }
+
+        return {
+            verifyAccessToken: async token => {
+                if (!matchesLocalBearerToken(token, configuredToken)) {
+                    throw new InvalidTokenError('Invalid local bearer token')
+                }
+
+                return {
+                    token,
+                    clientId : 'neo-local-bearer',
+                    scopes   : [],
+                    expiresAt: Number.MAX_SAFE_INTEGER,
+                    source   : 'local-bearer'
+                }
+            }
+        }
     }
 
     /**

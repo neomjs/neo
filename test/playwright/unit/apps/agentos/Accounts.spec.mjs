@@ -22,21 +22,77 @@ const
     viewPath   = path.join(repoRoot, 'apps/agentos/view/Accounts.mjs');
 
 test.describe('AgentOS.view.Accounts credential boundary', () => {
-    test('public definition projection strips submitted credential material', () => {
-        const values = {
+    test('accepted creation applies the canonical Brain response, emits the owner intent, and clears the PAT', async () => {
+        const
+            canonical = {
+                id            : 'resident-42',
+                githubUsername: 'canonical-login',
+                harnessType   : 'antigravity',
+                updatedAt     : '2026-07-14T00:00:00.000Z'
+            },
+            calls     = [],
+            form      = {
+                getSubmitValues: async () => ({
+                    credential    : 'ghp_should_not_escape',
+                    githubUsername: '  submitted-login  ',
+                    harnessType   : 'codex'
+                }),
+                validate: async () => true
+            },
+            stub      = {
+                clearCredentialField       : async () => calls.push(['clear']),
+                fire                       : (name, data) => calls.push(['fire', name, data]),
+                getReference               : reference => reference === 'agent-form' ? form : null,
+                submitToFleetRegistryBridge: async payload => {
+                    calls.push(['submit', payload]);
+                    return canonical
+                },
+                updateBridgeStatus         : (state, message) => calls.push(['status', state, message]),
+                upsertPublicAgentDefinition: (definition, credential) => calls.push(['upsert', definition, credential])
+            };
+
+        await Accounts.prototype.onSubmitAgentClick.call(stub);
+
+        expect(calls[0]).toEqual(['submit', {
             credential    : 'ghp_should_not_escape',
-            githubUsername: 'neo-gpt',
-            harnessType   : 'codex',
-            pat           : 'also-secret'
-        };
+            githubUsername: 'submitted-login',
+            harnessType   : 'codex'
+        }]);
+        expect(calls[1]).toEqual(['upsert', canonical, 'ghp_should_not_escape']);
+        expect(calls[2]).toEqual(['fire', 'agentDefinitionAccepted', {agent: canonical}]);
+        expect(calls[3]).toEqual(['status', 'is-live', 'Agent added. PAT was not retained in the app worker.']);
+        expect(calls[4]).toEqual(['clear'])
+    });
 
-        const publicDefinition = Accounts.prototype.createPublicAgentDefinition(values);
+    test('controlled registry rejection renders its reason without a Body mutation and still clears the PAT', async () => {
+        const
+            calls = [],
+            form  = {
+                getSubmitValues: async () => ({
+                    credential    : 'ghp_retry',
+                    githubUsername: 'duplicate',
+                    harnessType   : 'codex'
+                }),
+                validate: async () => true
+            },
+            stub  = {
+                clearCredentialField       : async () => calls.push(['clear']),
+                fire                       : () => calls.push(['unexpected-fire']),
+                getReference               : reference => reference === 'agent-form' ? form : null,
+                submitToFleetRegistryBridge: async () => ({
+                    status: 'rejected',
+                    reason: "id 'duplicate' already exists; use a scoped update operation."
+                }),
+                updateBridgeStatus         : (state, message) => calls.push(['status', state, message]),
+                upsertPublicAgentDefinition: () => calls.push(['unexpected-upsert'])
+            };
 
-        expect(publicDefinition.githubUsername).toBe('neo-gpt');
-        expect(publicDefinition.harnessType).toBe('codex');
-        expect(JSON.stringify(publicDefinition)).not.toContain('ghp_should_not_escape');
-        expect(publicDefinition.credential).toBeUndefined();
-        expect(publicDefinition.pat).toBeUndefined()
+        await Accounts.prototype.onSubmitAgentClick.call(stub);
+
+        expect(calls).toEqual([
+            ['status', 'is-error', "id 'duplicate' already exists; use a scoped update operation."],
+            ['clear']
+        ])
     });
 
     test('view source fails closed without browser persistence or credential logging', () => {
@@ -51,11 +107,12 @@ test.describe('AgentOS.view.Accounts credential boundary', () => {
     test('identity setup writes only the redacted projection to the shared roster', () => {
         const source = fs.readFileSync(viewPath, 'utf8');
 
-        // upsert goes through the provider-bound roster store with the redacted projection,
-        // never the raw form values / credential — and never a module-global singleton import.
+        // upsert goes through the provider-bound roster store with the canonical Brain response,
+        // never a request-derived projection or a module-global singleton import.
         expect(source).toContain("bind: {agentDefinitionsStore: 'stores.agentDefinitions'}");
         expect(source).toContain('store.add(definition)');
-        expect(source).toContain('createPublicAgentDefinition');
+        expect(source).toContain('this.upsertPublicAgentDefinition(outcome, payload.credential)');
+        expect(source).not.toContain('createPublicAgentDefinition');
         expect(source).not.toContain("from '../store/AgentDefinitions.mjs'");
         expect(source).not.toMatch(/store\.add\(\s*values/)
     });
@@ -164,7 +221,7 @@ test.describe('AgentOS.view.Accounts — agent-scoped configuration (multiple ag
                 removeAll() { this.items = [] }
             },
             card     = {
-                record: undefined,
+                record      : undefined,
                 refreshCount: 0,
                 refresh() { this.refreshCount++ },
                 setSaveStatus(agentId, state, reason) {
@@ -270,18 +327,40 @@ test.describe('AgentOS.view.Accounts — agent-scoped configuration (multiple ag
         store.destroy()
     });
 
-    test('adding an agent scopes the view to it (configure-next flow)', () => {
+    test('canonical add readback becomes a real model record; malformed or echoing responses fail before mutation', () => {
         const store = makeAgentStore([{id: 'a', githubUsername: 'a', harnessType: 'codex'}]);
         const stub  = makeScopedAccounts(store);
 
         stub.upsertPublicAgentDefinition = Accounts.prototype.upsertPublicAgentDefinition;
-        stub.upsertPublicAgentDefinition(Accounts.prototype.createPublicAgentDefinition({
-            githubUsername: 'neo-new',
-            harnessType   : 'antigravity'
-        }));
+        stub.upsertPublicAgentDefinition({
+            id            : 'canonical-id',
+            githubUsername: 'canonical-login',
+            harnessType   : 'antigravity',
+            updatedAt     : '2026-07-14T00:00:00.000Z'
+        }, 'ghp_must_not_escape');
 
-        expect(stub.selectedAgentId).toBe('neo-new');
+        expect(stub.selectedAgentId).toBe('canonical-id');
+        expect(stub.card.record?.githubUsername).toBe('canonical-login');
         expect(stub.card.record?.harnessType).toBe('antigravity');
+        expect(stub.card.record?.updatedAt).toBe('2026-07-14T00:00:00.000Z');
+        expect(stub.card.record?.credential).toBeUndefined();
+        expect(stub.card.record?.pat).toBeUndefined();
+
+        const count = store.count;
+
+        expect(() => stub.upsertPublicAgentDefinition({
+            id            : 'echoing-id',
+            githubUsername: 'echoing-login',
+            harnessType   : 'codex',
+            credential    : 'ghp_must_not_escape'
+        }, 'ghp_must_not_escape')).toThrow('invalid public agent definition');
+        expect(() => stub.upsertPublicAgentDefinition({
+            id            : 'missing-harness',
+            githubUsername: 'missing-harness'
+        }, 'ghp_other')).toThrow('invalid public agent definition');
+        expect(store.count).toBe(count);
+        expect(store.get('echoing-id')).toBeNull();
+        expect(store.get('missing-harness')).toBeNull();
 
         store.destroy()
     });
@@ -388,12 +467,12 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
         const saveStatuses = [],
               card         = {setSaveStatus: (...args) => saveStatuses.push(args)},
               stub         = {
-            agentDefinitionsStore         : store,
-            agentConfigRequestGenerations : new Map(),
-            agentConfigSaveStatuses       : new Map(),
-            onAgentConfigIntent           : Accounts.prototype.onAgentConfigIntent,
-            setAgentConfigSaveStatus      : Accounts.prototype.setAgentConfigSaveStatus,
-            getReference                  : ref => ref === 'agent-config-card' ? card : null
+            agentDefinitionsStore        : store,
+            agentConfigRequestGenerations: new Map(),
+            agentConfigSaveStatuses      : new Map(),
+            onAgentConfigIntent          : Accounts.prototype.onAgentConfigIntent,
+            setAgentConfigSaveStatus     : Accounts.prototype.setAgentConfigSaveStatus,
+            getReference                 : ref => ref === 'agent-config-card' ? card : null
         };
 
         // no bridge → fail closed, nothing mutates
@@ -467,7 +546,7 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
             {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
         ]});
         const saveStatuses = [];
-        const stub = {
+        const stub         = {
             agentDefinitionsStore         : store,
             agentDefinitionsLoadGeneration: 0,
             agentConfigRequestGenerations : new Map(),
@@ -494,10 +573,10 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
             {id: 'bridge-pending', githubUsername: 'bridge-pending', harnessType: 'codex'}
         ]});
         const stub = {
-            agentDefinitionsStore      : store,
+            agentDefinitionsStore         : store,
             agentDefinitionsLoadGeneration: 0,
-            syncAgentSelector          : () => {},
-            loadAgentDefinitions       : Accounts.prototype.loadAgentDefinitions
+            syncAgentSelector             : () => {},
+            loadAgentDefinitions          : Accounts.prototype.loadAgentDefinitions
         };
 
         globalThis.AgentOS = {fleet: {registryBridge: {listAgents: async () => [{

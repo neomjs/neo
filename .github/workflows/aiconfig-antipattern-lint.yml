@@ -1,0 +1,36 @@
+name: AiConfig Antipattern Lint
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'ai/**/*.mjs'
+      - 'buildScripts/util/check-aiconfig-antipatterns.mjs'
+      - 'buildScripts/util/check-aiconfig-test-mutation.mjs'
+      - '.github/workflows/aiconfig-antipattern-lint.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'ai/**/*.mjs'
+      - 'buildScripts/util/check-aiconfig-antipatterns.mjs'
+      - 'buildScripts/util/check-aiconfig-test-mutation.mjs'
+      - '.github/workflows/aiconfig-antipattern-lint.yml'
+
+concurrency:
+  group: aiconfig-antipattern-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Ban ADR-0019 B3/A5 antipatterns in ai/
+        run: node ./buildScripts/util/check-aiconfig-antipatterns.mjs
