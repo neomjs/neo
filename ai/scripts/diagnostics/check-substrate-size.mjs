@@ -32,6 +32,13 @@ const TARGET_FILES = [
  * failure output points at the authority rather than at this file. Never re-baseline it to
  * accommodate drift: that inverts the point. Raising it is a decision with a rationale, not a lint
  * edit.
+ *
+ * **`limitBytes` is EXCLUSIVE.** The graduating decision reads "the combined two-file boundary is
+ * `< 41,357 B`", and that number is the pre-existing baseline the surface had to get *below* — so
+ * landing exactly on it is the breach, not the last legal state. The largest legal sum is therefore
+ * `limitBytes - 1`, and every comparison and message below is expressed against that one relation.
+ * Reporting headroom against `limitBytes` instead would tell an author "headroom 1" at the precise
+ * size where the next byte fails.
  */
 const COMBINED_BUDGETS = [
     {
@@ -71,7 +78,7 @@ TARGET_FILES.forEach(file => {
 console.log('--------------------------------------------------------------------------------');
 
 COMBINED_BUDGETS.forEach(budget => {
-    console.log(`\n🔍 Checking combined budget "${budget.label}" against ${budget.limitBytes} bytes...`);
+    console.log(`\n🔍 Checking combined budget "${budget.label}" against < ${budget.limitBytes} bytes...`);
     console.log('--------------------------------------------------------------------------------');
 
     let combined = 0,
@@ -96,13 +103,20 @@ COMBINED_BUDGETS.forEach(budget => {
 
     if (missing) return;
 
-    const over   = combined > budget.limitBytes,
-          status = over ? '❌ EXCEEDS' : '✅ PASS';
+    // The boundary is EXCLUSIVE (`< limitBytes`), so the largest legal sum is one byte below it.
+    // Deriving that once and comparing everything against it keeps the verdict, the headroom and the
+    // overage on a single relation — the earlier shape checked `> limitBytes` while its own spec
+    // claimed the contract was `< limitBytes`, so equality passed and the green test certified the
+    // opposite boundary.
+    const maxBytes = budget.limitBytes - 1,
+          over     = combined > maxBytes,
+          status   = over ? '❌ EXCEEDS' : '✅ PASS';
 
     // Report headroom, not just pass/fail: the drift this exists to catch is gradual, so a shrinking
     // margin is the signal — by the time it flips to EXCEEDS the substrate is already broken.
+    // Headroom counts bytes an author may still ADD, which is the question they are actually asking.
     console.log(`Σ  ${'combined'.padEnd(62)} : ${combined} bytes [${status}]`);
-    console.log(`   limit ${budget.limitBytes} · ${over ? `OVER by ${combined - budget.limitBytes}` : `headroom ${budget.limitBytes - combined}`} bytes`);
+    console.log(`   limit < ${budget.limitBytes} (max ${maxBytes}) · ${over ? `OVER by ${combined - maxBytes}` : `headroom ${maxBytes - combined}`} bytes`);
 
     if (over) hasError = true
 });

@@ -62,14 +62,17 @@ test.describe('check-substrate-size.mjs — combined budgets', () => {
 
     test('the combined budget FAILS when the pair exceeds its limit — the drift that went unnoticed', () => {
         seedPerFileTargets();
-        // The historical breach, reproduced exactly: 4,506 + 36,986 = 41,492 against a 41,357 limit.
+        // The historical breach, reproduced exactly: 4,506 + 36,986 = 41,492 against a `< 41,357` gate.
         seedCombined(4506, 36986);
 
         const result = run();
 
         expect(result.status).toBe(1);
         expect(result.output).toContain('EXCEEDS');
-        expect(result.output).toContain('OVER by 135 bytes');
+        // 136, not 135: the overage is measured against the largest LEGAL sum (41,356), not against
+        // the exclusive gate number. The +135 in the ticket's story is the guide's growth
+        // (36,851 → 36,986), which is a different quantity that happens to be adjacent.
+        expect(result.output).toContain('OVER by 136 bytes');
     });
 
     test('the combined budget PASSES under its limit and reports HEADROOM, not just a verdict', () => {
@@ -81,22 +84,41 @@ test.describe('check-substrate-size.mjs — combined budgets', () => {
 
         expect(result.status).toBe(0);
         // Headroom is the point: this drift is gradual, so a shrinking margin is the signal. By the
-        // time the verdict flips, the substrate is already broken.
-        expect(result.output).toContain('headroom 2606 bytes');
+        // time the verdict flips, the substrate is already broken. It counts bytes an author may
+        // still ADD — 2,605 against the largest legal sum of 41,356, not 2,606 against the gate.
+        expect(result.output).toContain('headroom 2605 bytes');
     });
 
-    test('one byte over is a failure — the boundary is exact, not approximate', () => {
+    test('EXACTLY at the limit FAILS — the graduated boundary is `< 41,357`, so landing on it is the breach', () => {
+        // The number is the baseline the surface had to get BELOW; equality is not the last legal
+        // state, it is the state the gate was created to reject.
+        //
+        // This spec previously asserted the opposite and was green. Its own name claimed "the
+        // contract is < limit" while the assertion certified `<=` — the rule stated correctly in
+        // prose and violated in the same breath, which is worse than an untested boundary because it
+        // looks like coverage. Caught by @neo-gpt-emmy's RA-1, not by the suite.
         seedPerFileTargets();
-        seedCombined(1, 41357);
+        seedCombined(1, 41356); // = 41,357 exactly
 
         expect(run().status).toBe(1);
     });
 
-    test('exactly at the limit passes — the contract is < limit, and off-by-one here would be a silent tax', () => {
+    test('one byte UNDER the limit passes — the largest legal sum is 41,356', () => {
         seedPerFileTargets();
-        seedCombined(1, 41356);
+        seedCombined(1, 41355); // = 41,356
 
-        expect(run().status).toBe(0);
+        const result = run();
+
+        expect(result.status).toBe(0);
+        // Zero headroom, and still passing: the next byte is the breach.
+        expect(result.output).toContain('headroom 0 bytes');
+    });
+
+    test('one byte over the gate is a failure — the boundary is exact, not approximate', () => {
+        seedPerFileTargets();
+        seedCombined(1, 41357); // = 41,358
+
+        expect(run().status).toBe(1);
     });
 
     test('a MISSING budgeted file fails closed — a renamed member must not silently shrink the sum', () => {

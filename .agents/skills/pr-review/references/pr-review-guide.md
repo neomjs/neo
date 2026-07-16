@@ -183,6 +183,8 @@ At RC2 or >24KB, load the payload. On post-cutover PRs, two submitted `CHANGES_R
 
 **Payload Pointer:** `view_file` `.agents/skills/pr-review/audits/review-cost-circuit-breaker.md`
 
+**Byte gate:** this file + the payload are loaded together, so their combined size is gated. Owner: `COMBINED_BUDGETS` in `ai/scripts/diagnostics/check-substrate-size.mjs` (`npm run ai:check-substrate-size`). The number lives only there — run it before growing either file.
+
 ## 7. Depth Floor — Preventing Rubber-Stamp Approvals
 
 Structural compliance ≠ rigor — these mandates (+ the concept-graph feed) are for **concept-bearing** changes: touch an ADR/new-abstraction/consumed-contract/security/migration. A **mechanical** PR (test/config/behavior-preserving, any size) gets a premise+correctness glance → Approve.
