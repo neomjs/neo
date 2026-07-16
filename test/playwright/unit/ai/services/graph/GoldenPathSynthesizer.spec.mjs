@@ -1710,6 +1710,20 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(computedSection).toContain('> **Strategic Interpretation:**\n> stub');
         expect(computedSection).not.toContain(epicId);    // epic label still excluded from rendered recommendations
         expect(computedSection).not.toContain(notReadyId);
+
+        // Handoff-parity pin: the human section and the typed route describe the SAME route. The
+        // section renders FROM route.items, so an id-set/order divergence is structurally impossible
+        // — this pins that the two representations cannot drift apart again.
+        const typedRoute  = JSON.parse(fs.readFileSync(path.join(path.dirname(tmpHandoffFile), 'computed-route.json'), 'utf-8')),
+              renderedIds = [...computedSection.matchAll(/^\d+\. \*\*([^*]+)\*\*:/gm)].map(match => match[1]);
+
+        expect(typedRoute.route.kind).toBe('computed-ranked');
+        expect(typedRoute.route.items.map(item => item.id)).toEqual([discussionId, readyId]);
+        expect(renderedIds).toEqual(typedRoute.route.items.map(item => item.id));
+
+        // Route/advisory separation: a ranked route carries no declared-intent advisory items, so the
+        // advisory can never be mistaken for the executable slot.
+        expect(typedRoute.advisoryFallback?.items ?? []).toEqual([]);
     });
 
     test('synthesizeGoldenPath renders a contradiction diagnostic for blog routing during PRIO-zero focus (#13849)', async () => {
