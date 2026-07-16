@@ -128,11 +128,11 @@ class AgentCard extends Container {
                     handler  : 'onCardSelect',
                     reference: 'card-name'
                 }, {
-                    // the name-slot provenance chip (mono pill, freshness-chip register): `named`
-                    // when a naming-layer trail is wired on the record, `declared` while the name
-                    // is registry display state without a trail, `id` when the durable anchor
-                    // itself renders. The long copy (and the trail, once wired) rides title +
-                    // aria-label — reachable, never a silent claim (applyRecord writes it).
+                    // the name-slot provenance chip, density-calibrated: the `named` word only for
+                    // a wired naming-layer trail (the divergent state), a quiet outline glyph for
+                    // declared-proxy (today's uniform reality — long copy on title/aria), and NO
+                    // chip for the durable-id case (the name slot's mono register IS that signal).
+                    // applyRecord writes it.
                     ntype    : 'component',
                     flex     : 'none',
                     reference: 'name-provenance'
@@ -317,9 +317,12 @@ class AgentCard extends Container {
         nameButton.text = nameSlot.text;
         nameButton[nameSlot.isFallback ? 'addCls' : 'removeCls']('fm-card-name-id');
 
-        provenance.set({cls: chip.cls, text: chip.text});
-        provenance.changeVdomRootKey('title', nameSlot.provenance.label);
-        provenance.changeVdomRootKey('aria-label', nameSlot.provenance.label);
+        provenance.set({cls: chip.cls, hidden: chip.hidden, text: chip.text});
+
+        if (!chip.hidden) {
+            provenance.changeVdomRootKey('title', nameSlot.provenance.label);
+            provenance.changeVdomRootKey('aria-label', nameSlot.provenance.label)
+        }
 
         me.getReference('card-engine').text        = record.engineTag ?? '';
         me.getReference('card-lane').text          = record.laneLine ?? '';

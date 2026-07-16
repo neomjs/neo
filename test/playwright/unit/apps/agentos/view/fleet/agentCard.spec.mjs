@@ -386,8 +386,10 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         expect(name().text).toBe('Vega');
         expect(name().cls).not.toContain('fm-card-name-id');
 
-        // provenance is stated, reachable, and honest: declared display state, trail not yet wired
-        expect(provenance().text).toBe('declared');
+        // provenance is stated, reachable, and honest: declared display state, trail not yet
+        // wired — the quiet glyph on the density surface, the words on title/aria
+        expect(provenance().hidden).toBe(false);
+        expect(provenance().text).toBe('◇');
         expect(provenance().cls).toContain('is-declared-proxy');
         expect(provenance().vdom.title).toContain('declared display state');
         expect(provenance().vdom.title).toContain('vega');
@@ -408,10 +410,11 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
             name       = () => card.down({reference: 'card-name'}),
             provenance = () => card.down({reference: 'name-provenance'});
 
-        // never a blank drill target: the never-renamed anchor itself renders, register-flagged
+        // never a blank drill target: the never-renamed anchor itself renders, register-flagged —
+        // and NO chip beside it (the mono register IS the signal; a chip would state it twice)
         expect(name().text).toBe('guest-agent-7');
         expect(name().cls).toContain('fm-card-name-id');
-        expect(provenance().text).toBe('id');
+        expect(provenance().hidden).toBe(true);
         expect(provenance().cls).toContain('is-durable-id');
 
         // a later rename flips the register back — in place, same instance
@@ -421,7 +424,8 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         expect(card.id).toBe(beforeId);
         expect(name().text).toBe('Guest Seven');
         expect(name().cls).not.toContain('fm-card-name-id');
-        expect(provenance().text).toBe('declared');
+        expect(provenance().hidden).toBe(false);
+        expect(provenance().text).toBe('◇');
 
         card.destroy()
     })

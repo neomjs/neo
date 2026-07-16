@@ -60,12 +60,15 @@ test.describe('nameSlot — display state over the durable id, provenance-honest
         expect(resolveNameSlot({agentId: 'x', displayName: 'X', nameProvenance: []}).provenance.state).toBe('declared-proxy')
     });
 
-    test('the chip vocabulary is closed and maps one word per state', () => {
+    test('the chip rendering is density-calibrated: word only for the divergent state, glyph for the uniform one, nothing beside the mono id', () => {
         expect(NAME_PROVENANCE_STATES).toEqual(['naming-layer', 'declared-proxy', 'durable-id']);
 
-        expect(describeNameProvenance('naming-layer').text).toBe('named');
-        expect(describeNameProvenance('declared-proxy').text).toBe('declared');
-        expect(describeNameProvenance('durable-id').text).toBe('id');
+        // naming-layer (future, divergent across cards) earns the word
+        expect(describeNameProvenance('naming-layer')).toMatchObject({hidden: false, text: 'named'});
+        // declared-proxy (today's uniform reality) renders the quiet outline glyph
+        expect(describeNameProvenance('declared-proxy')).toMatchObject({hidden: false, text: '◇'});
+        // durable-id renders NO chip — the name slot's mono register already states it
+        expect(describeNameProvenance('durable-id').hidden).toBe(true);
 
         // every chip carries the base class + its state class (the SCSS register contract)
         NAME_PROVENANCE_STATES.forEach(state => {

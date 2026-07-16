@@ -85,18 +85,20 @@ export function resolveNameSlot(record) {
 }
 
 /**
- * @summary The compact chip word for one provenance state — the glanceable register the cockpit
- * chips share (mono pill, long copy on the title/aria): `named` (trail wired) / `declared`
- * (proxy) / `id` (durable-id fallback).
+ * @summary The compact chip rendering for one provenance state — calibrated to the density
+ * surface: a uniform signal carries no per-card information, so each state renders only what
+ * differentiates it. `naming-layer` (trail wired — the future divergent state) earns the word
+ * `named`; `declared-proxy` (today's uniform reality) renders a quiet outline glyph with the long
+ * copy on title/aria; `durable-id` renders NO chip at all — the name slot's mono-id register IS
+ * that signal, and a chip beside it would state the same fact twice.
  * @param {String} state One of {@link NAME_PROVENANCE_STATES}.
- * @returns {{cls: String[], text: String}}
+ * @returns {{cls: String[], hidden: Boolean, text: String}}
  */
 export function describeNameProvenance(state) {
-    const text = state === 'naming-layer' ? 'named' : state === 'declared-proxy' ? 'declared' : 'id';
-
     return {
-        cls : ['fm-name-provenance', `is-${state}`],
-        text
+        cls   : ['fm-name-provenance', `is-${state}`],
+        hidden: state === 'durable-id',
+        text  : state === 'naming-layer' ? 'named' : state === 'declared-proxy' ? '◇' : ''
     }
 }
 
