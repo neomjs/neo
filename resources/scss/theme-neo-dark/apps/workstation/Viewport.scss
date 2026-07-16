@@ -13,4 +13,15 @@
     --workstation-state-ok : #34d399;
     --workstation-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     --workstation-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+    // Projections into the DockPreview component-domain aliases (the settled app-neutral
+    // boundary): Workstation renders the reused preview/indicator family through ITS OWN
+    // palette — without these, the shared SCSS silently runs on fallbacks.
+    --agent-dock-preview-accept        : var(--workstation-signal);
+    --agent-dock-preview-accept-fill   : rgba(94, 234, 212, 0.20);
+    --agent-dock-preview-reject        : #f4718b;
+    --agent-dock-preview-reject-fill   : rgba(244, 113, 139, 0.16);
+    --agent-dock-preview-signal        : var(--workstation-signal);
+    --agent-dock-preview-signal-fill   : rgba(94, 234, 212, 0.18);
+    --agent-dock-preview-signal-ground : rgba(11, 14, 19, 0.92);
 }

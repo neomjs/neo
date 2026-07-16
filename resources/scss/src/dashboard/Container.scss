@@ -276,28 +276,32 @@
 // deep-pigment `--fm-signal` keeps the identity legible on paper.
 // ─────────────────────────────────────────────────────────────────────────────────────
 .neo-preview-lang-signal {
+    // App-neutral by the settled domain-alias boundary: shared dashboard SCSS consumes the
+    // DockPreview component-domain aliases ONLY — each app (agentos, workstation) projects its
+    // own palette into them in its theme files. Direct palette tokens here would silently
+    // fallback-mask on any app that doesn't load that palette.
     .neo-dashboard-dock-drop-indicator,
     .neo-dashboard-dock-drop-chip {
-        background  : color-mix(in srgb, var(--fm-ground, #0b0e13) 92%, transparent);
-        border-color: color-mix(in srgb, var(--fm-signal, #5eead4) 45%, var(--fm-line, #262f3d));
+        background  : var(--agent-dock-preview-signal-ground, rgba(11, 14, 19, 0.92));
+        border-color: color-mix(in srgb, var(--agent-dock-preview-signal, #5eead4) 45%, transparent);
         box-shadow  : 0 2px 10px rgb(0 0 0 / 40%);
 
         &::before {
-            border-color: var(--fm-signal, #5eead4);
+            border-color: var(--agent-dock-preview-signal, #5eead4);
         }
 
         &-active {
             // the hover-lock breath: one opacity rise on lock — replays on each re-lock
             // because the class toggles; transform/opacity discipline holds
             animation   : neo-preview-signal-lock var(--dock-transition-duration-fast) var(--dock-transition-easing);
-            background  : color-mix(in srgb, var(--fm-signal, #5eead4) 18%, var(--fm-ground, #0b0e13));
-            border-color: var(--fm-signal, #5eead4);
-            box-shadow  : 0 2px 12px color-mix(in srgb, var(--fm-signal, #5eead4) 30%, transparent);
+            background  : var(--agent-dock-preview-signal-fill, rgba(94, 234, 212, 0.18));
+            border-color: var(--agent-dock-preview-signal, #5eead4);
+            box-shadow  : 0 2px 12px color-mix(in srgb, var(--agent-dock-preview-signal, #5eead4) 30%, transparent);
         }
     }
 
     .neo-dashboard-dock-drop-indicator-center::before {
-        border-color: var(--fm-signal, #5eead4);
+        border-color: var(--agent-dock-preview-signal, #5eead4);
     }
 }
 

@@ -6,4 +6,10 @@
     --agent-dock-preview-accept-fill : rgba(13, 148, 136, 0.14);
     --agent-dock-preview-reject      : #be123c;
     --agent-dock-preview-reject-fill : rgba(190, 18, 60, 0.12);
+
+    // The Signal-glow candidate's language: the deep-pigment daylight signal, a paper-safe
+    // 14% flood, and a near-white chip ground (light chips float, they don't glow).
+    --agent-dock-preview-signal        : #0f766e;
+    --agent-dock-preview-signal-fill   : rgba(15, 118, 110, 0.14);
+    --agent-dock-preview-signal-ground : rgba(255, 255, 255, 0.94);
 }

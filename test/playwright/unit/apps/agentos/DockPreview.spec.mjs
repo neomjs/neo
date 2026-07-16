@@ -67,7 +67,15 @@ test.describe('AgentOS.view.DockPreview', () => {
 
             expect(light).toContain('neo-theme-neo-light');
             expect(light).toContain('--agent-dock-preview-accept');
-            expect(light).toContain('--agent-dock-preview-reject')
+            expect(light).toContain('--agent-dock-preview-reject');
+
+            // The Signal-glow candidate's language rides the SAME app-neutral alias surface:
+            // both skins must define the signal trio (chroma / flood fill / chip ground), so a
+            // consumer app can never silently fall back on one mode only.
+            ['--agent-dock-preview-signal ', '--agent-dock-preview-signal-fill', '--agent-dock-preview-signal-ground'].forEach(alias => {
+                expect(dark).toContain(alias);
+                expect(light).toContain(alias)
+            })
         })
 
         test('domain-token consumers stay on the declared DockPreview contract', () => {
