@@ -143,6 +143,16 @@ class Config extends ConfigProvider {
              */
             mcpHttpHost: leaf('localhost', 'HOST', 'string'),
             /**
+             * @summary Optional actual listener bind for the Streamable HTTP transport.
+             *
+             * When absent, the
+             * existing `app.listen(port)` behavior is preserved. Local-bearer mode requires the
+             * literal IPv4 loopback address `127.0.0.1`; advertised-host behavior remains owned by
+             * `mcpHttpHost` / `publicUrl`.
+             * @type {string|null}
+             */
+            mcpListenHost: leaf(null, 'NEO_MCP_LISTEN_HOST', 'string'),
+            /**
              * Port the MCP server's Streamable HTTP transport listens on.
              * Sub-servers will typically override this with their own defaultPort.
              * @type {number}
@@ -164,6 +174,8 @@ class Config extends ConfigProvider {
              *   bearer token, validated against `{gitlabApiBaseUrl}/api/v4/user`. No `aud` claim and
              *   no PRM advertisement (a naked `401` on failure) — the lighter path for clients that
              *   authenticate with a long-lived PAT from an env var instead of an OAuth dance.
+             * - `'local-bearer'`: a generated process-lifetime possession credential for an
+             *   explicitly loopback-bound listener. It performs no identity lookup or provisioning.
              * @type {Object}
              */
             auth: {
@@ -174,8 +186,23 @@ class Config extends ConfigProvider {
                 clientId          : leaf(null, 'NEO_OAUTH_CLIENT_ID', 'string'),
                 clientSecret      : leaf('', 'NEO_OAUTH_CLIENT_SECRET', 'string'),
                 trustProxyIdentity: leaf(false, 'NEO_AUTH_TRUST_PROXY_IDENTITY', 'boolean'),
-                // Authorization strategy selector: 'oidc' (default) | 'gitlab-pat'. See block doc above.
+                // Authorization strategy selector: 'oidc' (default) | 'gitlab-pat' | 'local-bearer'.
                 mode              : leaf('oidc', 'NEO_AUTH_MODE', 'string'),
+                /**
+                 * @summary Disposable process-lifetime possession credential for local-bearer mode.
+                 *
+                 * Generate exactly 32 random bytes as canonical unpadded base64url. Never persist
+                 * or log this value; process exit is the revocation boundary.
+                 * @type {String}
+                 */
+                localBearerToken  : leaf('', 'NEO_AUTH_LOCAL_BEARER_TOKEN', 'string', {
+                    requiredFor: [{
+                        entrypoints   : '*',
+                        modes         : ['local-bearer'],
+                        consumerClaims: ['readiness'],
+                        reason        : 'Local-bearer readiness requires a process-lifetime possession credential.'
+                    }]
+                }),
                 // GitLab API base URL used by 'gitlab-pat' mode for token validation (self-managed configurable).
                 gitlabApiBaseUrl  : leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string', {
                     requiredFor: [{
