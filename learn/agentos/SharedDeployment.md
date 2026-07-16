@@ -122,7 +122,7 @@ cap or pre-load setting so the chat and embedding model stay resident together.
 
 Shared deployments need to know **which agent originated each request** so memories, summaries, and graph edges are attributed correctly. The Memory Core supports two authentication paths:
 
-1. **OIDC (default for production deployments)** — the operator deploys an OIDC identity provider (e.g. Keycloak, GitLab) and the MC server validates each SSE request's `Authorization: Bearer <token>` against it via `AuthService.verifyAccessToken`. The verified `userId` becomes the `req.auth` block consumed by `Server.mjs#buildRequestContext`. Source provenance: `source: 'oidc'`.
+1. **OIDC (default for production deployments)** — the operator deploys an OIDC identity provider (e.g. Keycloak, GitLab) and the MC server validates each Streamable HTTP request's `Authorization: Bearer <token>` against it via `AuthService.verifyAccessToken`. The verified `userId` becomes the `req.auth` block consumed by `Server.mjs#buildRequestContext`. Source provenance: `source: 'oidc'`.
 
 2. **Proxy identity injection (for deployments fronted by an identity-aware proxy)** — when an `oauth2-proxy`-style reverse proxy already terminates OIDC and injects `X-PREFERRED-USERNAME` (or the oauth2-proxy-specific `X-Auth-Request-Preferred-Username`) into the upstream request, the MC server can read that header instead of running its own OIDC verification. Gated by `auth.trustProxyIdentity`. Source provenance: `source: 'proxy-header'`.
 
@@ -130,14 +130,14 @@ The two paths are NOT mutually exclusive — `req.auth` (OIDC) takes precedence 
 
 ### Configuration: Canonical `publicUrl` (PR #10802)
 
-When deploying behind a reverse proxy that uses a public domain (e.g., `https://mcp.neo.mjs.com`), the MCP server MUST know its public canonical URL to advertise correct Server-Sent Events (SSE) endpoints and validate OAuth audience claims.
+When deploying behind a reverse proxy that uses a public domain (e.g., `https://mcp.neo.mjs.com`), the MCP server MUST know its public canonical URL to advertise the correct protected resource and validate OAuth audience claims.
 
 ```bash
 # Set the canonical public URL for the server
 export NEO_PUBLIC_URL=https://mcp.neo.mjs.com/mc
 ```
 
-The `publicUrl` property decouples the public-facing URL from the internal `HOST` and `PORT` bindings, fixing SSE callback and OIDC redirect mismatches behind proxies.
+The `publicUrl` property decouples the public-facing URL from the internal `HOST` and `PORT` bindings, fixing advertised-resource and OIDC audience mismatches behind proxies.
 
 ### Configuration: `trustProxyIdentity` (PR #10768 / #10727)
 
@@ -252,7 +252,7 @@ The active auth path is asserted at runtime and surfaced per-request via the mem
 
 In a shared deployment, multiple agents connect and disconnect dynamically. To ensure session summaries are automatically available to the team without requiring manual API calls or external cron jobs, the Memory Core leverages a **disconnect-triggered summarization** primitive.
 
-When an MCP client (agent) disconnects from the Server-Sent Events (SSE) transport, the `TransportService` intercepts the termination and signals the Memory Core. The server immediately queues a `pending` summarization marker in its `SummarizationJobs` SQLite coordinator table. This behavior is gated by the `autoSummarize` feature flag. For local multi-harness duplication, single-writer enforcement is guaranteed by the `wake-daemon`. The daemon acts as a host-level singleton via a `PID_FILE` lock, and uses an in-process mutex to prevent summarization races across instances sharing the same Chroma collection. For remote multi-user Memory Core deployments, write visibility and isolation are maintained through request-scoped identity context.
+When an MCP client (agent) disconnects from a Streamable HTTP session, the `TransportService` intercepts the termination and signals the Memory Core. The server immediately queues a `pending` summarization marker in its `SummarizationJobs` SQLite coordinator table. This behavior is gated by the `autoSummarize` feature flag. For local multi-harness duplication, single-writer enforcement is guaranteed by the `wake-daemon`. The daemon acts as a host-level singleton via a `PID_FILE` lock, and uses an in-process mutex to prevent summarization races across instances sharing the same Chroma collection. For remote multi-user Memory Core deployments, write visibility and isolation are maintained through request-scoped identity context.
 
 This allows the heavy LLM summarization process to run asynchronously in the background. Because it relies on the unified `SummarizationJobs` table and the daemon's singleton lease, it naturally handles concurrent agent disconnects and server clustering without duplicating summaries. Team members can query the Memory Core and instantly access the completed session context once the background job finishes.
 

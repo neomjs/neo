@@ -16,7 +16,7 @@ Neo.mjs MCP servers (Knowledge Base and Memory Core) include built-in support fo
 
 ## Configuration
 
-To enable authorization on your MCP server, you must use the **SSE transport** and provide the following environment variables.
+To enable authorization on your MCP server, you must use the **Streamable HTTP transport** and provide the following environment variables.
 
 ### Environment Variables
 
@@ -56,7 +56,7 @@ The server intelligently resolves URLs:
 4. **Configure .env:**
    ```bash
    # MCP Server Config
-   NEO_TRANSPORT=sse
+   NEO_TRANSPORT=streamable-http
    MCP_HTTP_PORT=3000   # legacy alias `SSE_PORT` still works during the #10808 deprecation window
 
    # Auth Config
@@ -79,7 +79,7 @@ The server validates incoming `Authorization: Bearer <token>` headers by calling
 To prevent token passthrough attacks, the server verifies that the token's audience matches its own public URL (`HOST` + `MCP_HTTP_PORT`).
 
 ### CORS Support
-The SSE transport includes CORS middleware by default:
+The Streamable HTTP transport includes CORS middleware by default:
 - **Origin:** `*`
 - **Exposed Headers:** `Mcp-Session-Id` (required for session tracking in browser clients).
 
@@ -115,7 +115,7 @@ export default {
     // Custom Express middleware
     authMiddleware: (req, res, next) => {
         const apiKey = req.headers['x-api-key'];
-        
+
         // ALWAYS use environment variables for secrets
         if (apiKey && apiKey === process.env.MY_CUSTOM_API_KEY) {
             next();

@@ -83,6 +83,7 @@ class Config extends ConfigProvider {
                 stderrMode  : 'threshold'
             }),
             /**
+             * Server transport protocol. Supported values are exactly `stdio` and `streamable-http`.
              * @member {String} transport='stdio'
              */
             transport: leaf('stdio', 'NEO_GITLAB_WORKFLOW_TRANSPORT', 'string'),

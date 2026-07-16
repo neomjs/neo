@@ -2,7 +2,7 @@ import Base from '../../../../../src/core/Base.mjs';
 
 /**
  * Set of argument keys that an MCP tool caller MUST NOT supply — the server always derives
- * these from the active `RequestContextService` (OIDC Bearer token for SSE, stdio env-var /
+ * these from the active `RequestContextService` (OIDC Bearer token for Streamable HTTP, stdio env-var /
  * gh-CLI resolution). Client-supplied values would let a Gemini-harness
  * session forge a write attributed to `@neo-opus-ada`, etc.
  *
@@ -91,7 +91,7 @@ class AuthMiddleware extends Base {
                 throw new Error(
                     `Identity-override spoof rejected: '${key}' is a server-stamped field. ` +
                     `Remove it from tool arguments; the caller identity is derived from the ` +
-                    `active RequestContext (OIDC Bearer token for SSE, NEO_AGENT_IDENTITY or ` +
+                    `active RequestContext (OIDC Bearer token for Streamable HTTP, NEO_AGENT_IDENTITY or ` +
                     `gh-CLI resolution for stdio). See learn/agentos/tooling/MemoryCoreMcpAuth.md.`
                 );
             }

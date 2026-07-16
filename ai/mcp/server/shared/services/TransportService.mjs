@@ -2,7 +2,7 @@ import Base                  from '../../../../../src/core/Base.mjs';
 import RequestContextService from './RequestContextService.mjs';
 
 /**
- * @summary Orchestrates the SSE transport layer and session lifecycle for MCP servers.
+ * @summary Orchestrates the Streamable HTTP transport layer and session lifecycle for MCP servers.
  *
  * This service manages the **Logical Transport Layer** using Express and the Streamable HTTP
  * transport. It provides a standardized environment for secure agent communication by
@@ -121,7 +121,7 @@ class TransportService extends Base {
     }
 
     /**
-     * Setups the SSE transport for an MCP server.
+     * @summary Sets up the Streamable HTTP transport for an MCP server.
      * @param {Object} options
      * @param {Object} options.server The Neo MCP Server instance
      * @param {Object} options.aiConfig The server configuration object
@@ -265,7 +265,7 @@ class TransportService extends Base {
         const port = aiConfig.mcpHttpPort;
         await new Promise((resolve, reject) => {
             this.httpServer = app.listen(port, () => {
-                logger.info(`[${resourceName}] Server started on SSE transport (Port: ${port})`);
+                logger.info(`[${resourceName}] Server started on Streamable HTTP transport (Port: ${port})`);
                 logger.info(`[${resourceName}] Available tools loaded from OpenAPI spec`);
                 resolve();
             });

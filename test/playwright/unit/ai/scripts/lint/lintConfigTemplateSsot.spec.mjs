@@ -172,7 +172,7 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
 
     test('ignores invocation-time and function-local AiConfig reads', () => {
         const hits = detectModuleScopeAiConfigCaptures([
-            `const isRemoteIngestTransport = () => aiConfig.transport === 'sse';`,
+            `const isRemoteIngestTransport = () => aiConfig.transport === 'streamable-http';`,
             `function getSnapshotPath() {`,
             `    const snapshotPath = AiConfig.orchestrator.deploymentStateBridge.snapshotPath;`,
             `    return snapshotPath;`,

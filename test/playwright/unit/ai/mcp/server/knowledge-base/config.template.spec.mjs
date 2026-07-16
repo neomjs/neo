@@ -181,6 +181,26 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         }
     });
 
+    test('constructs the canonical server transport values from default and env input', () => {
+        const defaultKB = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+
+        try {
+            expect(defaultKB.transport).toBe('stdio');
+        } finally {
+            defaultKB.destroy();
+        }
+
+        process.env.NEO_TRANSPORT = 'streamable-http';
+
+        const remoteKB = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+
+        try {
+            expect(remoteKB.transport).toBe('streamable-http');
+        } finally {
+            remoteKB.destroy();
+        }
+    });
+
     test('invalid NEO_DEBUG values fall back to the debug-off default', () => {
         process.env.NEO_DEBUG = 'maybe';
 

@@ -61,7 +61,7 @@ RUN apk add --no-cache libstdc++ git
 COPY --from=builder /app ./
 
 ENV NODE_ENV=production
-ENV NEO_TRANSPORT=sse
+ENV NEO_TRANSPORT=streamable-http
 
 # Accept the target service as build arguments.
 # `TARGET_SERVER` selects an MCP server image ('knowledge-base' or 'memory-core').

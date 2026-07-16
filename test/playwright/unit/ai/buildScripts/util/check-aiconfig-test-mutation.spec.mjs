@@ -1,5 +1,5 @@
-import {test, expect}                                           from '@playwright/test';
-import {findDbPathMutations, ALLOWLIST, ESCAPE_MARKER}          from '../../../../../../buildScripts/util/check-aiconfig-test-mutation.mjs';
+import {test, expect}                                  from '@playwright/test';
+import {findDbPathMutations, ALLOWLIST, ESCAPE_MARKER} from '../../../../../../buildScripts/util/check-aiconfig-test-mutation.mjs';
 
 /**
  * Self-test for the Class-A DB-path AiConfig test-mutation guard: the mechanical enforcement of the
@@ -36,7 +36,7 @@ test.describe('check-aiconfig-test-mutation guard', () => {
         expect(findDbPathMutations('aiConfig[dbKey] = fakeDb;')).toEqual([]);
         expect(findDbPathMutations('aiConfig[leafName].graph = p;')).toEqual([]);
         // a Class-B leaf via bracket stays out of scope too (transport is not a DB-path leaf)
-        expect(findDbPathMutations('aiConfig["transport"] = "sse";')).toEqual([])
+        expect(findDbPathMutations('aiConfig["transport"] = "streamable-http";')).toEqual([])
     });
 
     test('does NOT flag a comparison (=== / ==)', () => {
@@ -51,7 +51,7 @@ test.describe('check-aiconfig-test-mutation guard', () => {
 
     test('does NOT flag a config-VARYING (Class B) leaf — out of scope', () => {
         expect(findDbPathMutations('aiConfig.openAiCompatible.unloadRetryCount = 3;')).toEqual([]);
-        expect(findDbPathMutations('aiConfig.transport = "sse";')).toEqual([]);
+        expect(findDbPathMutations('aiConfig.transport = "streamable-http";')).toEqual([]);
         expect(findDbPathMutations('SDK.Memory_Config.data.embeddingProvider = "openAiCompatible";')).toEqual([])
     });
 

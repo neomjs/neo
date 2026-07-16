@@ -28,9 +28,9 @@ import Base                                            from '../../../src/core/B
  *   projection context for embedded harness agents. Default `null` preserves the full
  *   developer/operator surface.
  * - `logStartupStatus(health)` — per-server startup log formatting.
- * - `buildRequestContext(reqAuth)` — SSE-only hook called by `TransportService.setup()` for per-request
+ * - `buildRequestContext(reqAuth)` — Streamable-HTTP-only hook called by `TransportService.setup()` for per-request
  *   context construction. Default returns `{}`.
- * - `onSessionClosed(sessionId, mcpServerInstance)` — SSE-only hook called by `TransportService` when
+ * - `onSessionClosed(sessionId, mcpServerInstance)` — Streamable-HTTP-only hook called by `TransportService` when
  *   a session disconnects. Default no-op.
  *
  * ## Lifecycle hooks (composable)
@@ -101,7 +101,7 @@ class BaseServer extends Base {
      */
     mcpServer = null
     /**
-     * The transport instance (StdioServerTransport for stdio mode; null for SSE mode
+     * The transport instance (StdioServerTransport for stdio mode; null for Streamable HTTP mode
      * because TransportService manages per-request transports).
      * @member {Object|null} transport=null
      * @protected
@@ -202,7 +202,7 @@ class BaseServer extends Base {
     }
 
     /**
-     * @summary Override (SSE-only): build per-request RequestContext shape from `req.auth`.
+     * @summary Override (Streamable-HTTP-only): build per-request RequestContext shape from `req.auth`.
      * Invoked by `TransportService.setup()` via duck-typed hook. Default returns `{}` for
      * single-tenant fallthrough.
      * @param {Object|undefined} reqAuth The auth context populated by `AuthService`.
@@ -213,7 +213,7 @@ class BaseServer extends Base {
     }
 
     /**
-     * @summary Override (SSE-only): hook called by `TransportService` on session disconnect.
+     * @summary Override (Streamable-HTTP-only): hook called by `TransportService` on session disconnect.
      * Default no-op.
      * @param {String} sessionId
      * @param {Object} mcpServerInstance
@@ -289,7 +289,7 @@ class BaseServer extends Base {
     /**
      * @summary Constructs an `McpServer` instance from `getServerMetadata()` and wires up
      * the standard ListTools / CallTool request handlers via `setupRequestHandlers()`.
-     * Used both at boot and per-request (SSE mode) to provision dedicated server objects
+     * Used both at boot and per-request (Streamable HTTP mode) to provision dedicated server objects
      * and avoid SDK lifecycle collisions.
      * @returns {McpServer}
      * @protected
@@ -525,16 +525,32 @@ class BaseServer extends Base {
     }
 
     /**
-     * @summary Connects the transport (stdio by default; SSE if `aiConfig.transport === 'sse'`).
-     * SSE mode delegates to the shared `TransportService` for Express + per-request session
-     * lifecycle.
+     * @summary Connects the configured server transport through an exhaustive, fail-closed selector.
+     * Configured servers accept exactly `stdio` and `streamable-http`; config-less local-only
+     * servers retain the BaseServer stdio topology. Streamable HTTP delegates to the shared
+     * `TransportService` for Express + per-request session lifecycle.
      * @returns {Promise<void>}
      * @protected
      */
     async connectTransport() {
-        const metadata = this.getServerMetadata();
+        const metadata  = this.getServerMetadata();
+        const transport = this.aiConfig === null ? 'stdio' : this.aiConfig.transport;
 
-        if (this.aiConfig?.transport === 'sse') {
+        if (transport === 'sse') {
+            throw new Error(
+                `[${metadata.name}] Server transport "sse" was renamed to "streamable-http". ` +
+                'Update the configured transport value before restarting the MCP server.'
+            );
+        }
+
+        if (transport !== 'stdio' && transport !== 'streamable-http') {
+            throw new Error(
+                `[${metadata.name}] Unsupported server transport "${transport}". ` +
+                'Expected "stdio" or "streamable-http".'
+            );
+        }
+
+        if (transport === 'streamable-http') {
             const {default: TransportService} = await import('./shared/services/TransportService.mjs');
 
             await TransportService.setup({

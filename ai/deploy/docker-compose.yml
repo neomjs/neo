@@ -48,7 +48,7 @@ services:
       args:
         TARGET_SERVER: knowledge-base
     environment:
-      - NEO_TRANSPORT=sse
+      - NEO_TRANSPORT=streamable-http
       - NEO_AUTO_SYNC=false
       - NEO_KB_AUTO_START_DATABASE=false
       - NEO_CHROMA_HOST=chroma
@@ -105,7 +105,7 @@ services:
       args:
         TARGET_SERVER: memory-core
     environment:
-      - NEO_TRANSPORT=sse
+      - NEO_TRANSPORT=streamable-http
       - NEO_MC_PRIMARY=false
       - NEO_MAILBOX_DEFAULT_REPLY_POLICY=blocked
       - NEO_AUTO_SUMMARIZE=false

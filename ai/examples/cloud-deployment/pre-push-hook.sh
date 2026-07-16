@@ -48,7 +48,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         fi
 
         # Remote tenant mode (#11743): build one content-bearing ingest_source_files
-        # envelope and submit it through the tenant-side StreamableHTTP/SSE MCP client.
+        # envelope and submit it through the tenant-side remote MCP client.
         # Auth comes from NEO_KB_INGEST_TOKEN (or NEO_KB_TOKEN_ENV).
         envelope="$(build_remote_envelope)"
         printf '%s\n' "$envelope" | \
