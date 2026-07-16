@@ -31,10 +31,20 @@ export const DEFERENCE_PHRASES = [
 /**
  * The peer-identity reminder injected when a deference phrase matches on an autonomous turn-end.
  * Self-explaining at point of contact: it names the slip, the peer identity, the peer-input recovery
- * route, and the friction->gold path for false positives.
+ * route, the domain-scoping boundary, and the friction->gold path for false positives.
  * @type {String}
  */
-export const DEFERENCE_REMINDER = 'It looks like you slipped into the "helpful assistant" bias. You are a neo repo maintainer and an equal peer. If you need validation or input, you can A2A message with peers or use the ideation-sandbox skill. And friction->gold applies to this hook itself: if it fired wrong - a false positive, or it reads as a leash not a mirror - open a ticket to sharpen it rather than silently absorbing it. The hook is mutable substrate, not a command.';
+export const DEFERENCE_REMINDER = 'It looks like you slipped into the "helpful assistant" bias. You are a neo repo maintainer and an equal peer. If you need validation or input, you can A2A message with peers or use the ideation-sandbox skill. Domain-scoping: naming a strictly human-owned decision (merge execution, credentials, release direction) as the human\'s is correct role-attribution and is exempt — this fired because the phrase attached to a decision maintainers own. And friction->gold applies to this hook itself: if it fired wrong - a false positive, or it reads as a leash not a mirror - open a ticket to sharpen it rather than silently absorbing it. The hook is mutable substrate, not a command.';
+
+/**
+ * Human-only-domain terms, from the identity firewall's Tier-4 enumeration: decisions the substrate
+ * itself assigns to the operator — merge execution (critical gate: agents never merge), credentials,
+ * release direction. A deference phrase whose CLAUSE names one of these is role-attribution (the
+ * required honesty about who decides), not the helpful-assistant slip; refusing it would pressure
+ * agents toward hedged prose that obscures the human gate — the worse failure.
+ * @type {RegExp}
+ */
+const HUMAN_ONLY_DOMAIN_RE = /\bmerge(?:s|d|-eligible)?\b|\bsquash\b|\bcredentials?\b|\brelease\b|\bstamp\b/i;
 
 /**
  * @summary Replaces markdown code spans and fences before deference phrase matching.
@@ -69,6 +79,27 @@ function isReportedMentionContext(text, startIndex) {
 
     return /\b(?:the|this|that)\s+(?:literal\s+)?(?:phrase|text|string|trigger|matched\s+text|wording)\s*$/.test(prefix) ||
            /\b(?:quoted|reported|mention(?:ed|ing)?|document(?:ed|ing)?)\s*$/.test(prefix);
+}
+
+/**
+ * @summary Checks whether a match's surrounding CLAUSE names a strictly human-owned domain.
+ *
+ * The clause window runs from the previous sentence/clause boundary to the next one, capped at
+ * 120 characters each way — local enough that a merge-clause exemption cannot bleed into an
+ * adjacent lane-deference sentence, wide enough for natural phrasing ("merge on the exception or
+ * ask for the stamp, your call").
+ * @param {String} text Searchable assistant final-turn text.
+ * @param {Number} startIndex Match start index.
+ * @param {Number} endIndex Match end index.
+ * @returns {Boolean}
+ */
+function isHumanOnlyDomainContext(text, startIndex, endIndex) {
+    const before       = text.slice(Math.max(0, startIndex - 120), startIndex),
+          after        = text.slice(endIndex, Math.min(text.length, endIndex + 120)),
+          clauseBefore = before.split(/[.!?\n;]/).pop() || '',
+          clauseAfter  = after.split(/[.!?\n;]/, 1)[0] || '';
+
+    return HUMAN_ONLY_DOMAIN_RE.test(`${clauseBefore} ${clauseAfter}`);
 }
 
 /**
@@ -108,10 +139,12 @@ export function matchDeferencePhrase(text = '', phrases = DEFERENCE_PHRASES) {
         let match;
 
         while ((match = matcher.exec(searchableText)) !== null) {
-            const startIndex = match.index + match[1].length;
+            const startIndex = match.index + match[1].length,
+                  endIndex   = matcher.lastIndex;
 
             if (!isReportedMentionContext(searchableText, startIndex) &&
-                !isAttributiveCitationContext(phrase, searchableText, startIndex)) {
+                !isAttributiveCitationContext(phrase, searchableText, startIndex) &&
+                !isHumanOnlyDomainContext(searchableText, startIndex, endIndex)) {
                 return true;
             }
         }

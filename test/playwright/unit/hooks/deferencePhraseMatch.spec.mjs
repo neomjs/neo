@@ -67,7 +67,9 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
     });
 
     test('still fires when a live use follows a carved mention of the same phrase', () => {
-        expect(matchDeferencePhrase('The phrase your call recurs. Your call on the merge?')).toBe('your call');
+        // The live-use sentence names a maintainer-owned surface (a lane) — "on the merge" would
+        // now be correct Tier-4 role-attribution under the domain-scoping exemption, not a slip.
+        expect(matchDeferencePhrase('The phrase your call recurs. Your call on the lane?')).toBe('your call');
         expect(matchDeferencePhrase('Clio owns it per your call, but honestly, your call?')).toBe('your call');
     });
 
@@ -83,6 +85,32 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
         expect(matchDeferencePhrase('')).toBeNull();
         expect(matchDeferencePhrase(null)).toBeNull();
         expect(matchDeferencePhrase(undefined)).toBeNull();
+    });
+
+    test('human-only-domain clauses are role-attribution, not deference — the merge gate stays nameable', () => {
+        // The pinned live regression fixture: a merge-eligibility terminal naming the
+        // operator's own gate must not be refused as a helpful-assistant slip.
+        expect(matchDeferencePhrase('CI is green and the review is APPROVED — merge on the exception or ask for the stamp, your call.')).toBeNull();
+        expect(matchDeferencePhrase('The release direction is yours — ship now or hold, your call.')).toBeNull();
+        expect(matchDeferencePhrase('Rotating the credentials is operator-owned, your call on timing.')).toBeNull();
+        // Comma-joined, same clause — a SEMICOLON is a clause boundary and correctly bounds the
+        // exemption (conservative: ambiguity fails toward firing).
+        expect(matchDeferencePhrase('PR #15232 is merge-eligible under the micro-change class, your move.')).toBeNull();
+    });
+
+    test('the same phrases OUTSIDE human-only-domain clauses keep firing (spec-pinned positive)', () => {
+        expect(matchDeferencePhrase('I could take the grid lane or the docs lane next — your call.')).toBe('your call');
+        expect(matchDeferencePhrase('The review disposition is up to you, your move.')).toBe('your move');
+    });
+
+    test('clause boundaries bound the exemption — a merge mention in an ADJACENT sentence does not bleed', () => {
+        expect(matchDeferencePhrase('The merge landed an hour ago. Picking the next lane is open — your call.')).toBe('your call');
+    });
+
+    test('the reminder names the domain-scoping boundary', () => {
+        expect(DEFERENCE_REMINDER).toContain('Domain-scoping');
+        expect(DEFERENCE_REMINDER).toContain('merge execution');
+        expect(DEFERENCE_REMINDER).toContain('role-attribution');
     });
 
     test('reminder is self-explaining and routes to peers / ideation rather than operator permission', () => {
