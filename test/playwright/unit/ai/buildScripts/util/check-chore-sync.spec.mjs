@@ -111,6 +111,42 @@ test.describe('check-chore-sync.mjs', () => {
         expect(result.output).toContain('resources/content/concepts/example.md');
     });
 
+    // Stages a real merge that carries a sync-pipeline commit — the exact shape of `git merge
+    // origin/dev` on a feature branch. `--no-commit` leaves MERGE_HEAD set with the merge staged,
+    // which is precisely the state the pre-commit hook runs in.
+    const startMergeCarryingSyncData = () => {
+        execSync('git checkout -b sync-pipeline-source', { cwd: tempDir, stdio: 'ignore' });
+        stageFile('resources/content/issues/1.md');
+        execSync('git commit -m "chore(data): Hourly data sync pipeline update"', { cwd: tempDir, stdio: 'ignore' });
+        execSync('git checkout dev', { cwd: tempDir, stdio: 'ignore' });
+        execSync('git merge --no-commit --no-ff sync-pipeline-source', { cwd: tempDir, stdio: 'ignore' });
+    };
+
+    test('merge: a dev-merge carrying the pipeline\'s sync files passes — a merge does not AUTHOR sync data', () => {
+        startMergeCarryingSyncData();
+
+        // The merge stages resources/content/issues/1.md, but the feature branch did not write it.
+        expect(execSync('git diff --cached --name-only', { cwd: tempDir, encoding: 'utf-8' }))
+            .toContain('resources/content/issues/1.md');
+
+        expect(runScript(tempDir).status).toBe(0);
+    });
+
+    test('merge escape is scoped to the merge: the SAME branch and files still fail on an ordinary commit', () => {
+        // Guards the protection itself. If the escape ever widens from "a merge is in progress" to
+        // "this branch touched sync files", this arm goes red — the leakage check must survive.
+        startMergeCarryingSyncData();
+        execSync('git commit --no-edit', { cwd: tempDir, stdio: 'ignore' });
+
+        // Merge finished → no MERGE_HEAD → authoring sync data here is leakage again.
+        stageFile('resources/content/issues/2.md');
+        const result = runScript(tempDir);
+
+        expect(result.status).toBe(1);
+        expect(result.output).toContain('Error: Sync-data leakage detected');
+        expect(result.output).toContain('resources/content/issues/2.md');
+    });
+
     test('script root anchoring: running from a non-repo cwd checks the owning repo', () => {
         const otherDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-sync-foreign-'));
 

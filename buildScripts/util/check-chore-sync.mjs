@@ -84,6 +84,31 @@ if (process.env.NEO_SYNC_AUTOCOMMIT === '1') {
     process.exit(0);
 }
 
+// A merge stages EVERY file it brings in, including the sync pipeline's commits already living on
+// the branch being merged. Those files are not authored here, so the check below must not read them
+// as leakage: this guard exists to stop a feature branch from AUTHORING sync data, and a merge is
+// not authoring.
+//
+// Without this escape `git merge origin/dev` is impossible on any branch older than the last
+// `chore(data)` commit (dev takes roughly two per six hours), and the only ways through are worse
+// than the block: `--no-verify` also skips the AiConfig test-mutation lint, and unstaging the files
+// makes the merge commit REVERT dev's sync data once it lands.
+//
+// Deliberately placed AFTER the NEO_SYNC_AUTOCOMMIT arm: that arm guards the pipeline's own
+// commits, which are never merges, and must keep failing on mixed content regardless.
+let isMergeInProgress = false;
+
+try {
+    execSync('git rev-parse -q --verify MERGE_HEAD', { cwd: gitRoot, stdio: 'ignore' });
+    isMergeInProgress = true;
+} catch (e) {
+    // No MERGE_HEAD — an ordinary commit, so the leakage check below applies in full.
+}
+
+if (isMergeInProgress) {
+    process.exit(0);
+}
+
 const violatingFiles = stagedFiles.filter(file =>
     isGeneratedSyncFile(file)
 );
