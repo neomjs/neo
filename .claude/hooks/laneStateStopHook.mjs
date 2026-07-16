@@ -411,10 +411,13 @@ const HARNESS_MARKER_PATTERNS = Object.freeze([
  *  - `attachment` records are classified by ENVELOPE PROVENANCE before any payload text is read:
  *    only the corpus-VALIDATED operator/wake delivery shape (`attachment.type: 'queued_command'`,
  *    `commandMode: 'prompt'`, a non-empty STRING `source_uuid`, `origin.kind === 'human'` — the
- *    queued mid-TURN operator messages that never materialize as user-role records; 47/47 in the
- *    live two-session census) yields a candidate. Prompt-bearing records missing ANY predicate leg
- *    (task notifications, unknown modes, object/whitespace `source_uuid`, missing or non-`'human'`
- *    `origin.kind`) are walk-stopping autonomous boundaries; prompt-less attachment kinds are skipped.
+ *    queued mid-TURN operator messages that never materialize as user-role records; 360/360
+ *    current-format deliveries in the full local corpus census satisfy every leg, while pre-July
+ *    envelopes lacking `origin`/`timestamp` are format history outside the live contract) yields a
+ *    candidate. Prompt-bearing records missing ANY predicate leg (task notifications, unknown
+ *    modes, object/whitespace `source_uuid`, missing or non-`'human'` `origin.kind`) and records
+ *    whose PRESENT `prompt` is non-string (malformed envelope) are walk-stopping autonomous
+ *    boundaries; prompt-less attachment kinds (absent/blank prompt) are skipped.
  *  - The FIRST remaining candidate decides — the walk never continues past it, so an autonomous
  *    boundary (a newer `[WAKE]`) is returned as-is and correctly out-classifies any older operator
  *    prose (`classifyPromptingContext` owns the [WAKE]/synthetic/handoff semantics; this walk owns
@@ -443,11 +446,13 @@ export function extractLatestHumanUserTextFromJsonl(jsonl = '') {
         // user-role records — so the walk considers them in the SAME backward pass (the
         // newest-candidate rule holds across record kinds). ENVELOPE PROVENANCE decides the
         // record KIND before any payload text is read, and the human predicate VALIDATES the
-        // observed delivery shape rather than testing field truthiness: the live corpus census
-        // (47/47 genuine prompt deliveries across two sessions) is `attachment.type:
-        // 'queued_command'` + `commandMode: 'prompt'` + a non-empty STRING `source_uuid` + `origin.
-        // kind === 'human'`; background-task events are `commandMode: 'task-notification'` with
-        // neither. Payload markers stay defense-in-depth in the shared classifier — never the
+        // observed delivery shape rather than testing field truthiness: the full local corpus
+        // census puts every current-format delivery (360/360; pre-July envelopes lack
+        // `origin`/`timestamp` and are format history outside the live contract) at
+        // `attachment.type: 'queued_command'` + `commandMode: 'prompt'` + a non-empty STRING
+        // `source_uuid` + `origin.kind === 'human'`; background-task events (118/118) are
+        // `commandMode: 'task-notification'` with neither field. Payload markers stay
+        // defense-in-depth in the shared classifier — never the
         // sender/kind identity. Prompt-less attachment kinds are not prompting records at all
         // (skip); a prompt-bearing record whose envelope misses ANY predicate leg — task
         // notifications, unknown modes, object/whitespace `source_uuid`, missing or non-`'human'`
@@ -457,7 +462,13 @@ export function extractLatestHumanUserTextFromJsonl(jsonl = '') {
             const attachment = record.attachment,
                   prompt     = attachment?.prompt;
 
-            if (typeof prompt !== 'string' || !prompt.trim()) continue;
+            // Genuinely prompt-LESS attachment kinds — no prompt field, or a blank string — are
+            // not prompting records at all: skip. A PRESENT non-string prompt (object/array/
+            // number) is a MALFORMED prompt-bearing envelope: walk-stopping autonomous boundary,
+            // never a skip (a skip would leak past it to older operator prose).
+            if (prompt == null) continue;
+            if (typeof prompt !== 'string') return '';
+            if (!prompt.trim()) continue;
 
             const isOperatorDelivery = attachment.type === 'queued_command' &&
                 attachment.commandMode === 'prompt' &&
