@@ -389,6 +389,10 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         const grid = {adapterState: 'sample', store};
 
         const cockpit = {
+            // the real accessor runs against this fake's getReference — the detail consumers
+            // route through it (docked: projected pane; detached: the owner-held handle)
+            detachedDetailPane: null,
+            getAgentDetailPane: FleetCockpit.prototype.getAgentDetailPane,
             getReference      : reference => reference === 'fleet-grid' ? grid : reference === 'agent-detail' ? detail : null,
             grid,
             id                : `fake-fleet-cockpit-${index}`,
@@ -858,6 +862,9 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
                 detailRecord: null,
                 dockModel   : {items: {detail: {autoHidden: true}}},
                 applyDockZoneOperation(op) { applied.push(op); return {document: {revealed: true}, errors: []} },
+                // the controller drill routes through the OWNER accessor (docked pane here;
+                // the vessel-held handle while detached — the pop-out suite covers that phase)
+                getAgentDetailPane() { return detail },
                 onDockZoneDocumentChange(doc) { this.committed = doc }
             },
             controller = Object.create(FleetCockpitController.prototype);
@@ -885,6 +892,7 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
                 detailRecord: null,
                 dockModel   : {items: {detail: {autoHidden: false}}},   // already revealed
                 applyDockZoneOperation(op) { applied.push(op); return {document: {}, errors: []} },
+                getAgentDetailPane() { return detail },
                 onDockZoneDocumentChange() { this.reprojected = true }
             },
             controller = Object.create(FleetCockpitController.prototype);
