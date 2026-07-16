@@ -343,13 +343,14 @@ class PullRequestSyncer extends Base {
      * chose it — a plan records intent, and intent is what goes stale.
      *
      * @param {object} metadata Sync metadata; a moved PR's `path` is updated in place when cached.
-     * @returns {Promise<{count: number, pullRequests: number[], indexed: number}>} Archived count, the
-     *     PR numbers moved, and the number of index entries realigned with them.
+     * @returns {Promise<{count: number, pullRequests: number[], indexed: number, collisions: number[]}>}
+     *     Archived count, the PR numbers moved, the number of index entries realigned with them, and
+     *     the ids left in place because an artifact already occupied their destination.
      */
     async reconcileClosedPullRequestLocations(metadata) {
         logger.info('🔄 Reconciling closed pull request locations...');
 
-        const stats = { count: 0, pullRequests: [], indexed: 0 };
+        const stats = { count: 0, pullRequests: [], indexed: 0, collisions: [] };
 
         // Buckets are derived from release history; without it the correct archive version is unknown.
         if (!ReleaseNotesSyncer.sortedReleases || ReleaseNotesSyncer.sortedReleases.length === 0) {
@@ -410,6 +411,19 @@ class PullRequestSyncer extends Base {
             // No target, already correctly located, or the correct path is still active (no archive
             // applies) → skip. Never relocate INTO active.
             if (!correctPath || pr.absPath === correctPath || correctPath.startsWith(pullsDir)) {
+                continue;
+            }
+
+            // `fs.rename` silently replaces its destination. A same-id artifact already sitting at
+            // `correctPath` means this PR owns two copies, and renaming over it would destroy one —
+            // specifically the archived one, which is the divergent evidence the duplicate repair
+            // exists to arbitrate from source. This pass runs BEFORE that repair, so an unguarded
+            // rename lets the relocate step quietly resolve a duplicate by deletion, which is the
+            // one resolution this lane refuses. Leave both; the integrity pass reports the id and
+            // `repairDuplicateArtifacts` restores it from GitHub.
+            if (existsSync(correctPath)) {
+                logger.warn(`⚠️ PR #${pr.number} already has an artifact at ${correctPath} — leaving both in place for duplicate repair rather than renaming over it.`);
+                stats.collisions.push(pr.number);
                 continue;
             }
 
@@ -769,19 +783,36 @@ class PullRequestSyncer extends Base {
 
                 const content = this.#renderPullRequestMarkdown(pr);
 
-                for (const copy of copies) {
-                    await fs.unlink(copy.absPath);
-                    stats.removed++;
-                }
-
-                // The copies are gone; drop them from the membership the plan is about to rank against.
+                // Plan against membership with the duplicates excluded — they are about to stop
+                // existing, and `#getPullRequestPath` refuses an ambiguous id by design.
                 inventory.delete(id);
 
                 const planBuckets = this.#planBuckets(metadata, [pr], inventory),
                       targetPath  = this.#getPullRequestPath(pr, planBuckets, inventory);
 
+                // DURABLE FIRST, then delete. Holding the canonical rendering in memory protects
+                // against a failed fetch and nothing else: every step between an unlink and the
+                // write can throw — planning, path resolution, mkdir, the write itself — and a crash
+                // needs no exception at all. Any of them, with the copies already gone, leaves the
+                // corpus missing the PR entirely and the failure logged as a soft skip. "Fetched"
+                // is not "durable"; only a file on disk is.
+                //
+                // Temp + atomic rename so a torn write cannot masquerade as the canonical artifact.
                 await fs.mkdir(path.dirname(targetPath), {recursive: true});
-                await fs.writeFile(targetPath, content, 'utf-8');
+
+                const tempPath = `${targetPath}.${process.pid}.tmp`;
+
+                await fs.writeFile(tempPath, content, 'utf-8');
+                await fs.rename(tempPath, targetPath);
+
+                // Only now remove the stale copies — and never the one just written, which may BE
+                // one of them when the canonical location is a copy's own address.
+                for (const copy of copies) {
+                    if (path.resolve(copy.absPath) === path.resolve(targetPath)) continue;
+
+                    await fs.unlink(copy.absPath);
+                    stats.removed++;
+                }
 
                 inventory.set(id, [{
                     absPath    : targetPath,

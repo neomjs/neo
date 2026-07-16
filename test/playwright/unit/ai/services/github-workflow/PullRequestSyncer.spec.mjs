@@ -17,6 +17,7 @@ import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../../../src/Neo.mjs';
 import * as core          from '../../../../../../src/core/_export.mjs';
 import fs                 from 'fs-extra';
+import fsPromises         from 'fs/promises';
 import matter             from 'gray-matter';
 import path               from 'path';
 import {readContentIndex} from '../../../../../../ai/services/github-workflow/shared/contentIndex.mjs';
@@ -616,7 +617,11 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
               stats    = await PullRequestSyncer.repairDuplicateArtifacts(metadata);
 
         expect(stats.repaired).toEqual([prNumber]);
-        expect(stats.removed).toBe(2);
+        // 1, not 2: `removed` counts STALE copies. The canonical write lands at the ordinal the
+        // complete ordering chooses, which here is one of the copies' own addresses — that copy is
+        // replaced in place by the atomic rename rather than deleted, so only the rival is removed.
+        // Deleting it would delete the artifact just written.
+        expect(stats.removed).toBe(1);
 
         // Exactly one artifact remains, and it is the canonical rendering — not either local copy.
         const survivors = [];
@@ -651,6 +656,66 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
 
             expect(await fs.readFile(p, 'utf8')).toBe(`divergent ${chunk}`);
         }
+    });
+
+    test('a failed WRITE leaves both copies intact — "fetched" is not "durable"', async () => {
+        // The gap the fetch-before-unlink test does not reach. Holding the rendering in memory
+        // protects against a network failure and nothing else: every step between an unlink and the
+        // write can throw, and a crash needs no exception at all. Only a file on disk is durable, so
+        // the canonical artifact is written and renamed into place BEFORE anything is removed.
+        const prNumber = 10127;
+
+        await seedDivergentPair(prNumber);
+        ReleaseNotesSyncer.sortedReleases = [{tagName: 'v13.0.0', publishedAt: '2026-06-01T00:00:00Z'}];
+        GraphqlService.query = async () => ({repository: {pullRequest: buildPullRequest(prNumber)}});
+
+        // Fail the write itself — the fetch succeeds, so the old shape would already have unlinked.
+        const originalWriteFile = fsPromises.writeFile;
+
+        fsPromises.writeFile = async () => { throw new Error('ENOSPC: no space left on device') };
+
+        let stats;
+        try {
+            stats = await PullRequestSyncer.repairDuplicateArtifacts({pulls: {}});
+        } finally {
+            fsPromises.writeFile = originalWriteFile;
+        }
+
+        expect(stats.repaired).toEqual([]);
+        expect(stats.removed).toBe(0);
+        expect(stats.failed[0].id).toBe(prNumber);
+
+        // Both copies survive: the corpus still holds the PR, divergent but present.
+        for (const chunk of ['chunk-1', 'chunk-2']) {
+            const p = path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', chunk, `pr-${prNumber}.md`);
+
+            expect(await fs.readFile(p, 'utf8'), `${chunk} must survive a failed write`).toBe(`divergent ${chunk}`);
+        }
+    });
+
+    test('the relocate pass REFUSES to rename over an existing same-id artifact — it would destroy the evidence', async () => {
+        // `fs.rename` silently replaces its destination. This pass runs BEFORE the duplicate repair,
+        // so an unguarded rename resolves a duplicate by deletion — the one resolution this lane
+        // refuses — and the copy it destroys is the archived one the repair arbitrates from.
+        const prNumber = 10128,
+              active   = path.join(aiConfig.issueSync.pullsDir, 'chunk-1', `pr-${prNumber}.md`),
+              archived = path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', 'chunk-1', `pr-${prNumber}.md`);
+
+        await fs.ensureDir(path.dirname(active));
+        await fs.writeFile(active, `---\nnumber: ${prNumber}\nstate: MERGED\nclosedAt: '2026-05-01T00:00:00Z'\n---\nactive copy`, 'utf-8');
+        await fs.ensureDir(path.dirname(archived));
+        await fs.writeFile(archived, 'archived copy — the evidence', 'utf8');
+
+        ReleaseNotesSyncer.sortedReleases = [{tagName: 'v13.0.0', publishedAt: '2026-06-01T00:00:00Z'}];
+
+        const stats = await PullRequestSyncer.reconcileClosedPullRequestLocations({pulls: {}});
+
+        expect(stats.collisions).toEqual([prNumber]);
+        expect(stats.count).toBe(0);
+
+        // BOTH survive — the duplicate is routed to the repair, not silently resolved here.
+        expect(await fs.readFile(archived, 'utf8')).toBe('archived copy — the evidence');
+        await expect(fs.pathExists(active)).resolves.toBe(true);
     });
 
     test('a PR absent from GitHub is refused, not cleaned up — the copies are the only record left', async () => {
