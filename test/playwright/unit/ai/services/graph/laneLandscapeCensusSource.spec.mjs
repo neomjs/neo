@@ -28,23 +28,22 @@ test.describe('laneLandscapeCensusSource — owning source for facts, graph for 
     // One-page fetchers whose source-reported pagination is scripted per family.
     const page = (items, {hasNextPage = false, endCursor = null} = {}) => async () => ({items, hasNextPage, endCursor});
 
-    const stubDb = rows => {
+    // Stands in for the graph service's RLS-safe enumeration, recording what the census asked it for.
+    const stubEdgeSeam = (records, {truncated = false} = {}) => {
         const calls = [];
+        const seam  = args => { calls.push(args); return {records, truncated} };
 
-        return {
-            calls,
-            prepare(sql) {
-                return {all: (...params) => { calls.push({sql, params}); return rows }}
-            }
-        }
+        seam.calls = calls;
+        return seam
     };
 
     const baseDeps = () => ({
         fetchIssuesPage      : page([]),
         fetchPullRequestsPage: page([]),
-        getDb                : () => stubDb([]),
+        listEdgeRecordsByType: stubEdgeSeam([]),
         pageLimit            : 50,
-        maxPages             : 10
+        maxPages             : 10,
+        edgeLimit            : 5000
     });
 
     test.beforeAll(async () => {
@@ -98,26 +97,39 @@ test.describe('laneLandscapeCensusSource — owning source for facts, graph for 
         expect(manifest.reasons.join(' ')).toContain('graphql down');
     });
 
-    test('relation edges come from the graph — the one thing it owns — bounded to landscape types', async () => {
-        const db     = stubDb([{source: 'issue-1', target: 'issue-2', type: 'BLOCKS'}]),
-              source = makeLandscapeCensusSource({...baseDeps(), getDb: () => db}),
-              edges  = await source.queryRelationEdges();
+    test('relation edges come from the graph RLS seam — never a raw handle — bounded to landscape types', async () => {
+        const seam   = stubEdgeSeam([{source: 'issue-1', target: 'issue-2', type: 'BLOCKS'}]),
+              source = makeLandscapeCensusSource({...baseDeps(), listEdgeRecordsByType: seam, edgeLimit: 4096}),
+              result = await source.queryRelationEdges();
 
-        expect(edges).toEqual([{source: 'issue-1', target: 'issue-2', type: 'BLOCKS'}]);
-        // a landscape is not the whole graph: only the two structural edge types are read
-        expect(db.calls[0].params).toEqual(['PARENT_OF', 'BLOCKS']);
-        expect(db.calls[0].sql).toContain('FROM Edges');
+        expect(result.edges).toEqual([{source: 'issue-1', target: 'issue-2', type: 'BLOCKS'}]);
+        expect(result.manifest.exhausted).toBe(true);
+        // a landscape is not the whole graph: only the two structural edge types are asked for
+        expect(seam.calls[0]).toEqual({types: ['PARENT_OF', 'BLOCKS'], limit: 4096});
     });
 
-    test('an unavailable graph handle fails loud on the relation read', async () => {
-        const source = makeLandscapeCensusSource({...baseDeps(), getDb: () => null});
+    test('a CLIPPED relation read refuses to claim exhaustion — a partial topology is not the structure', async () => {
+        // The item census can be provably complete while the relation read is not; a dependency path
+        // built on clipped edges is missing links it cannot name, so the read must say so.
+        const source = makeLandscapeCensusSource({
+            ...baseDeps(),
+            listEdgeRecordsByType: stubEdgeSeam([{source: 'issue-1', target: 'issue-2', type: 'BLOCKS'}], {truncated: true}),
+            edgeLimit            : 1
+        });
 
-        await expect(source.queryRelationEdges()).rejects.toThrow(/graph SQLite handle is unavailable/)
+        const {edges, manifest} = await source.queryRelationEdges();
+
+        expect(manifest.exhausted).toBe(false);
+        expect(manifest.reasons.join(' ')).toContain('1-record bound');
+        // the partial evidence survives, labelled — not discarded
+        expect(edges).toHaveLength(1);
     });
 
     test('fails LOUD on an unbound source — a wiring bug must never read as an empty landscape', () => {
-        expect(() => makeLandscapeCensusSource({...baseDeps(), fetchIssuesPage: undefined})).toThrow(/fetchIssuesPage/);
+        expect(() => makeLandscapeCensusSource({...baseDeps(), fetchIssuesPage      : undefined})).toThrow(/fetchIssuesPage/);
         expect(() => makeLandscapeCensusSource({...baseDeps(), fetchPullRequestsPage: undefined})).toThrow(/fetchPullRequestsPage/);
-        expect(() => makeLandscapeCensusSource({...baseDeps(), getDb: undefined})).toThrow(/getDb/);
+        expect(() => makeLandscapeCensusSource({...baseDeps(), listEdgeRecordsByType: undefined})).toThrow(/listEdgeRecordsByType/);
+        // an un-materialized config leaf must fail loud rather than fall back to a local bound
+        expect(() => makeLandscapeCensusSource({...baseDeps(), edgeLimit: undefined})).toThrow(/edgeLimit/);
     });
 });

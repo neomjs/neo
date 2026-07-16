@@ -168,26 +168,34 @@ export function projectLaneLandscape({items = [], edges = [], now, degraded = fa
  * @param {Function} params.queryOpenWorkCensus `async () => {items, manifest}` — the source-owned census
  *   walk. Its `manifest.exhausted` is what `degraded` derives from: a census is complete only when the
  *   source reported no next page, never because the read happened not to throw.
- * @param {Function} params.queryRelationEdges `async () => edgeRows` — the PARENT_OF/BLOCKS edge read.
+ * @param {Function} params.queryRelationEdges `async () => {edges, manifest}` — the RLS-safe
+ *   PARENT_OF/BLOCKS read, reporting its own completeness on the same terms.
  * @param {Date}     params.now Capture time (injected).
  * @returns {Promise<Object>} The frozen `notAuthority` landscape (degraded on an unproven census).
  */
 export async function buildLaneLandscape({queryOpenWorkCensus, queryRelationEdges, now} = {}) {
     try {
-        const [census, edgeRows] = await Promise.all([queryOpenWorkCensus(), queryRelationEdges()]);
-        const {items, edges}     = normalizeLaneLandscapeCensus({censusItems: census?.items, edgeRows});
+        const [census, relations] = await Promise.all([queryOpenWorkCensus(), queryRelationEdges()]);
+        const {items, edges}      = normalizeLaneLandscapeCensus({censusItems: census?.items, edgeRows: relations?.edges});
 
-        // Truncation is degradation even when nothing threw: a walk the source never confirmed as
+        // Truncation is degradation even when nothing threw: a read the source never confirmed as
         // exhausted describes an unknown fraction of the landscape, and saying so — with the reason —
-        // is the contract.
-        const exhausted = census?.manifest?.exhausted === true;
+        // is the contract. Both legs must prove themselves: a complete item census over a clipped
+        // relation set still yields a dependency path that is missing links it cannot name.
+        const censusExhausted   = census?.manifest?.exhausted === true,
+              relationExhausted = relations?.manifest?.exhausted === true,
+              exhausted         = censusExhausted && relationExhausted,
+              reasons           = [
+                  ...(censusExhausted   ? [] : (census?.manifest?.reasons    ?? ['census exhaustion was not proven'])),
+                  ...(relationExhausted ? [] : (relations?.manifest?.reasons ?? ['relation-read exhaustion was not proven']))
+              ];
 
         return projectLaneLandscape({
             items,
             edges,
             now,
             degraded       : !exhausted,
-            degradedReasons: exhausted ? [] : (census?.manifest?.reasons ?? ['census exhaustion was not proven'])
+            degradedReasons: reasons
         })
     } catch (error) {
         return projectLaneLandscape({

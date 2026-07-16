@@ -591,6 +591,14 @@ class Config extends ConfigProvider {
              */
             laneLandscapeCensusMaxPages: leaf(50, 'NEO_LANE_LANDSCAPE_CENSUS_MAX_PAGES', 'number'),
             /**
+             * Record ceiling for the lane-landscape relation-edge read. Like the page ceiling, this is a
+             * safety bound rather than a coverage decision: hitting it makes the landscape report
+             * `degraded` with the reason, because a clipped relation set yields a dependency path that is
+             * missing links it cannot name.
+             * @type {number}
+             */
+            laneLandscapeRelationEdgeLimit: leaf(5000, 'NEO_LANE_LANDSCAPE_RELATION_EDGE_LIMIT', 'number'),
+            /**
              * Route-attribution ledger directory — the runtime JSONL store recording which computed candidates
              * the routing contradiction guard filtered, under which arming reasons. The active
              * `goldenPathRouteAttributionLedgerDir` consumers read is a formula (below) resolving Prod/Test by

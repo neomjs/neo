@@ -45,7 +45,7 @@ test.describe('exploreLaneLandscape — the current-state Bird View composition'
 
     const deps = (overrides = {}) => ({
         queryOpenWorkCensus: async () => ({items: censusItems, manifest: {exhausted: true, pages: 1, reasons: []}}),
-        queryRelationEdges : async () => edgeRows,
+        queryRelationEdges : async () => ({edges: edgeRows, manifest: {exhausted: true, reasons: []}}),
         generate           : async () => ({content: 'issue-100 carries two open children; issue-101 is blocked by issue-103.'}),
         ...overrides
     });

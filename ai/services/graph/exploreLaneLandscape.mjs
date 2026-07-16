@@ -28,7 +28,8 @@ import {makeLaneLandscapeSynthesize} from './laneLandscapeSynthesis.mjs';
  * @param {Object}   params.deps
  * @param {Function} params.deps.queryOpenWorkCensus `async () => {items, manifest}` — the source-owned
  *   census walk, whose manifest proves (or refuses to claim) the census is complete.
- * @param {Function} params.deps.queryRelationEdges `async () => edgeRows` — the PARENT_OF/BLOCKS read.
+ * @param {Function} params.deps.queryRelationEdges `async () => {edges, manifest}` — the RLS-safe
+ *   PARENT_OF/BLOCKS read.
  * @param {Function} params.deps.generate The LLM call — `async ({prompt}) => string | {content}`.
  * @returns {Promise<Object>} A frozen `notAuthority` landscape envelope.
  * @throws {Error} When a dep is missing — an unbound source is a wiring bug, not a runtime degradation.

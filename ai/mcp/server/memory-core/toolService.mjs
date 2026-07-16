@@ -42,13 +42,13 @@ const readDeploymentInspection = args => readDeploymentStateSnapshot({
 // the two historical views. It carries no window: the historical tools answer "what happened in
 // [start, end)", this one answers "what IS the structure right now", so `capturedAt` is its honest key.
 // The pure composition is dependency-injected; this handler binds the impure edges at the MC server —
-// the graph census reads and the live chat model. The graph handle resolves at call time (never
-// captured here), so a store re-open cannot leave the census reading a dead database.
+// the graph census reads and the live chat model. Both reads resolve through their owning service at
+// call time (never captured here), so a store re-open cannot leave the census reading a dead database.
 const exploreLaneLandscapeOp = () => exploreLaneLandscape({
     now : new Date(),
     deps: {
-        // The census reads the source that OWNS the facts (live, cursor-walked to exhaustion); the
-        // graph handle stays only for relation edges, which is the one thing it does own. A local
+        // The census reads the source that OWNS the facts (live, cursor-walked to exhaustion); the graph
+        // supplies only relation edges, which is the one thing it does own, through its RLS seam. A local
         // projection cannot answer a current-state question: both the graph and the synced corpus lag,
         // and neither carries assignee truth.
         ...makeLandscapeCensusSource({
@@ -61,9 +61,10 @@ const exploreLaneLandscapeOp = () => exploreLaneLandscape({
                     maxAssignees: AiConfig.issueSync.maxAssigneesPerIssue
                 }
             }),
-            getDb    : () => GraphService.db?.storage?.db,
-            pageLimit: AiConfig.laneLandscapeCensusPageLimit,
-            maxPages : AiConfig.laneLandscapeCensusMaxPages
+            listEdgeRecordsByType: args => GraphService.listEdgeRecordsByType(args),
+            pageLimit            : AiConfig.laneLandscapeCensusPageLimit,
+            maxPages             : AiConfig.laneLandscapeCensusMaxPages,
+            edgeLimit            : AiConfig.laneLandscapeRelationEdgeLimit
         }),
         generate: makeChatModelGenerate({
             // SessionService is the Memory Core server's model owner and completes startup before tools

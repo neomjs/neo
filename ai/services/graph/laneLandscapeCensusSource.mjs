@@ -12,10 +12,13 @@ import {walkCensusToExhaustion} from './laneLandscapeCensusWalk.mjs';
  *   Graph AND from the synced content corpus while it was open — and neither carries assignee truth. A
  *   census over either reports the store's silence as the world's state.
  * - **The graph keeps the relations.** Parent/blocker edges are structure the graph genuinely owns, and
- *   a landscape needs them to say anything about goal trajectory or a dependency path.
+ *   a landscape needs them to say anything about goal trajectory or a dependency path. They are read
+ *   through the graph service's visibility seam, never a raw handle: an edge between two visible nodes
+ *   can itself belong to another tenant, and a landscape assembled from raw rows would disclose both the
+ *   relation and its provenance.
  *
- * So every fact the landscape asserts comes from whoever owns it, and completeness is proven by the
- * walk rather than assumed from a read that did not throw.
+ * So every fact the landscape asserts comes from whoever owns it, at the visibility the requester is
+ * entitled to, and completeness is proven by the read rather than assumed from one that did not throw.
  */
 
 /**
@@ -39,19 +42,22 @@ const LANDSCAPE_EDGE_TYPES = Object.freeze(['PARENT_OF', 'BLOCKS']);
  * @param {Function} params.fetchPullRequestsPage Same contract, for OPEN pull requests. PRs are
  *   first-class landscape members rather than edge decoration on an issue: a lane's PR is part of its
  *   current state, and an unlinked PR is still open work the landscape must not hide.
- * @param {Function} params.getDb `() => sqliteDb` — resolves the live graph handle at call time, for
- *   relations only.
+ * @param {Function} params.listEdgeRecordsByType `({types, limit}) => {records, truncated}` — the graph
+ *   service's RLS-safe edge enumeration, resolved at call time so a re-opened store is never read
+ *   through a stale capture.
  * @param {Number}   params.pageLimit Page size, injected from config — no local default.
  * @param {Number}   params.maxPages Walk bound, injected from config — no local default.
+ * @param {Number}   params.edgeLimit Relation-read bound, injected from config — no local default.
  * @returns {{queryOpenWorkCensus: Function, queryRelationEdges: Function}}
  * @throws {Error} When an injection is missing — an unbound source is a wiring bug, not a degradation.
  */
 export function makeLandscapeCensusSource({
     fetchIssuesPage,
     fetchPullRequestsPage,
-    getDb,
+    listEdgeRecordsByType,
     pageLimit,
-    maxPages
+    maxPages,
+    edgeLimit
 } = {}) {
     if (typeof fetchIssuesPage !== 'function') {
         throw new Error('makeLandscapeCensusSource: an injected `fetchIssuesPage` is required')
@@ -59,8 +65,11 @@ export function makeLandscapeCensusSource({
     if (typeof fetchPullRequestsPage !== 'function') {
         throw new Error('makeLandscapeCensusSource: an injected `fetchPullRequestsPage` is required')
     }
-    if (typeof getDb !== 'function') {
-        throw new Error('makeLandscapeCensusSource: an injected `getDb` resolver is required')
+    if (typeof listEdgeRecordsByType !== 'function') {
+        throw new Error('makeLandscapeCensusSource: an injected `listEdgeRecordsByType` seam is required')
+    }
+    if (!Number.isFinite(edgeLimit) || edgeLimit <= 0) {
+        throw new Error('makeLandscapeCensusSource: a positive `edgeLimit` is required (inject it from config)')
     }
 
     /**
@@ -97,23 +106,25 @@ export function makeLandscapeCensusSource({
     };
 
     /**
-     * @summary Reads the landscape's relation edges (parent/blocker) — the one thing the graph owns.
+     * @summary Reads the landscape's relation edges (parent/blocker) — the one thing the graph owns —
+     * through its visibility seam, and reports whether that read saw all of them.
      *
      * A single bounded read rather than a per-item N+1 walk; the projection narrows them to the census.
+     * The manifest mirrors the item census's: a clipped edge read cannot describe a complete dependency
+     * path, so it says so rather than letting a partial topology read as the whole structure.
      *
-     * @returns {Promise<Object[]>} Raw `{source, target, type}` rows.
+     * @returns {Promise<{edges: Object[], manifest: {exhausted: Boolean, reasons: String[]}}>}
      */
     const queryRelationEdges = async () => {
-        const db = getDb();
+        const {records, truncated} = await listEdgeRecordsByType({types: LANDSCAPE_EDGE_TYPES, limit: edgeLimit});
 
-        if (!db) {
-            throw new Error('lane landscape census: the graph SQLite handle is unavailable')
+        return {
+            edges   : records,
+            manifest: {
+                exhausted: truncated !== true,
+                reasons  : truncated === true ? [`landscape relations: edge read hit the ${edgeLimit}-record bound`] : []
+            }
         }
-
-        const placeholders = LANDSCAPE_EDGE_TYPES.map(() => '?').join(', ');
-
-        return db.prepare(`SELECT source, target, type FROM Edges WHERE type IN (${placeholders})`)
-            .all(...LANDSCAPE_EDGE_TYPES)
     };
 
     return {queryOpenWorkCensus, queryRelationEdges}

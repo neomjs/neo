@@ -162,7 +162,10 @@ test.describe('laneLandscapeProjection — current-state lane landscape', () => 
                 ],
                 manifest: {exhausted: true, pages: 1, reasons: []}
             }),
-            queryRelationEdges: async () => [{source: 'issue-2', target: 'issue-1', type: 'BLOCKS'}],
+            queryRelationEdges: async () => ({
+                edges   : [{source: 'issue-2', target: 'issue-1', type: 'BLOCKS'}],
+                manifest: {exhausted: true, reasons: []}
+            }),
             now
         });
 
@@ -179,7 +182,7 @@ test.describe('laneLandscapeProjection — current-state lane landscape', () => 
                 items   : [{number: 1, kind: 'issue', state: 'OPEN'}],
                 manifest: {exhausted: false, pages: 1, reasons: ['open issues: walk stopped at the bound']}
             }),
-            queryRelationEdges: async () => [],
+            queryRelationEdges: async () => ({edges: [], manifest: {exhausted: true, reasons: []}}),
             now
         });
 
@@ -190,10 +193,27 @@ test.describe('laneLandscapeProjection — current-state lane landscape', () => 
         expect(result.coverage.degradedReasons).toEqual(['open issues: walk stopped at the bound']);
     });
 
+    test('a complete item census over a CLIPPED relation read still degrades — both legs must prove themselves', async () => {
+        const result = await buildLaneLandscape({
+            queryOpenWorkCensus: async () => ({
+                items   : [{number: 1, kind: 'issue', state: 'OPEN'}],
+                manifest: {exhausted: true, pages: 1, reasons: []}
+            }),
+            queryRelationEdges: async () => ({
+                edges   : [],
+                manifest: {exhausted: false, reasons: ['landscape relations: edge read hit the 1-record bound']}
+            }),
+            now
+        });
+
+        expect(result.coverage.degraded).toBe(true);
+        expect(result.coverage.degradedReasons).toEqual(['landscape relations: edge read hit the 1-record bound']);
+    });
+
     test('buildLaneLandscape fail-closed: a source read error yields an honest degraded landscape', async () => {
         const result = await buildLaneLandscape({
             queryOpenWorkCensus: async () => { throw new Error('graphql down'); },
-            queryRelationEdges : async () => [],
+            queryRelationEdges : async () => ({edges: [], manifest: {exhausted: true, reasons: []}}),
             now
         });
 
