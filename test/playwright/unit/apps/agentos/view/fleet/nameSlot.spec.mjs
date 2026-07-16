@@ -5,10 +5,10 @@ import {describeNameProvenance, NAME_PROVENANCE_STATES, resolveNameSlot} from '.
 /**
  * Contract specs for the name-slot module — the pure render-correctness rule at name grain:
  * display name as mutable display state over the durable id, provenance stated honestly
- * (`naming-layer` trail when wired · `declared-proxy` until then · `durable-id` when the anchor
- * itself renders). Pure module — no Neo runtime needed; the Brain-side fold order it consumes is
- * pinned in the assembler's own spec (`fleetCockpitStatus.spec.mjs`), deliberately NOT
- * re-implemented here.
+ * (`declared-proxy` · `durable-id` live; `naming-layer` RESERVED until the record contract
+ * carries a trail the render can surface). Pure module — no Neo runtime needed; the Brain-side
+ * fold order it consumes is pinned in the assembler's own spec (`fleetCockpitStatus.spec.mjs`),
+ * deliberately NOT re-implemented here.
  */
 test.describe('nameSlot — display state over the durable id, provenance-honest', () => {
     test('a folded display name renders as display state, declared-proxy until a trail wires', () => {
@@ -23,14 +23,27 @@ test.describe('nameSlot — display state over the durable id, provenance-honest
         expect(slot.provenance.label).toContain('neo-fable')
     });
 
-    test('a wired nameProvenance trail sharpens to naming-layer with the trail passed through verbatim', () => {
-        const
-            trail = {sketchedBy: '@neo-opus-ada', assentAt: '2026-06-11T00:00:00Z'},
-            slot  = resolveNameSlot({agentId: 'neo-fable', displayName: 'Mnemosyne', nameProvenance: trail});
+    test('naming-layer is RESERVED: no input shape can reach it today — trail-shaped fields are ignored', () => {
+        // the live FleetAgent record contract carries no nameProvenance field, so the classifier
+        // honestly refuses the state for EVERY input shape (plain trail, Date, class instance,
+        // inherited object) — the activation leaf flips one classifier branch when the field is real
+        class FakeTrail {constructor() {this.sketchedBy = '@x'}}
 
-        expect(slot.provenance.state).toBe('naming-layer');
-        expect(slot.provenance.trail).toBe(trail);
-        expect(slot.text).toBe('Mnemosyne')
+        const shapes = [
+            {sketchedBy: '@neo-opus-ada', assentAt: '2026-06-11T00:00:00Z'},
+            new Date(),
+            new FakeTrail(),
+            Object.create({inherited: true}),
+            []
+        ];
+
+        shapes.forEach(nameProvenance => {
+            const slot = resolveNameSlot({agentId: 'neo-fable', displayName: 'Mnemosyne', nameProvenance});
+
+            expect(slot.provenance.state).toBe('declared-proxy');
+            expect(slot.text).toBe('Mnemosyne');
+            expect('trail' in slot.provenance).toBe(false)
+        })
     });
 
     test('no display name → the durable id renders in its place, flagged for the mono register', () => {
@@ -63,7 +76,8 @@ test.describe('nameSlot — display state over the durable id, provenance-honest
     test('the chip rendering is density-calibrated: word only for the divergent state, glyph for the uniform one, nothing beside the mono id', () => {
         expect(NAME_PROVENANCE_STATES).toEqual(['naming-layer', 'declared-proxy', 'durable-id']);
 
-        // naming-layer (future, divergent across cards) earns the word
+        // naming-layer (RESERVED — the activation leaf's future divergent state) already maps to
+        // the word, so activating it changes no presentation code
         expect(describeNameProvenance('naming-layer')).toMatchObject({hidden: false, text: 'named'});
         // declared-proxy (today's uniform reality) renders the quiet outline glyph
         expect(describeNameProvenance('declared-proxy')).toMatchObject({hidden: false, text: '◇'});
