@@ -263,6 +263,13 @@ class AgentDetail extends Container {
         me.timeout(me.freshnessRefreshMs).then(() => {
             if (!me.isDestroyed) {
                 me.record && me.applyPaneFreshness();
+                // the mailbox chip ages off the SAME timer. It is time-relative like every other
+                // pane, but it renders inside a child that reads the live clock only when something
+                // re-renders it — so without this nudge a `fresh` mailbox stays fresh forever while
+                // its snapshot silently rots, which is precisely the stale-claim-rendered-as-current
+                // failure the freshness vocabulary exists to prevent. One owner timer, two
+                // consumers: a second interval would age the same surface twice.
+                me.record && me.getReference('mailbox-pane')?.applySnapshot();
                 me.startFreshnessAging()
             }
         })

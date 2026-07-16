@@ -301,6 +301,33 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
         detail.destroy()
     });
 
+    test('§2.2.1 the MAILBOX chip ages off the owner clock too — a fresh mailbox cannot stay fresh forever', () => {
+        const detail  = createDetail({agentId: 'vega', state: 'ok'}),
+              mailbox = detail.down({reference: 'mailbox-pane'});
+
+        // a snapshot captured 10s before NOW, against the pane's 60s TTL → fresh
+        mailbox.set({
+            now     : NOW,
+            snapshot: {
+                capability: {source: 'memory-core:mailbox', state: 'wired', confidence: 'observed', capturedAt: '2026-07-11T23:59:50.000Z', reason: null},
+                admission : {state: 'granted', viewerIdentity: '@tobiu', subjectAgentId: '@neo-opus-vega', checkedAt: '2026-07-11T23:59:50.000Z', reason: null},
+                page      : {limit: 50, offset: 0, count: 0},
+                rows      : []
+            }
+        });
+        expect(mailbox.getReference('mailbox-freshness').cls).toContain('is-fresh');
+
+        // 5 minutes of wall clock later, SAME snapshot: the chip must decay. Production driver is
+        // the owner's startFreshnessAging loop nudging the pane; here the injected clock advances it
+        // deterministically through the same applySnapshot path.
+        mailbox.now = Date.parse('2026-07-12T00:05:00.000Z');
+
+        expect(mailbox.getReference('mailbox-freshness').cls).not.toContain('is-fresh');
+        expect(mailbox.snapshot, 'aging re-labels; it never drops the data').not.toBe(null);
+
+        detail.destroy()
+    });
+
     test('the drill READS the mirror through the Fleet seam — the pane is fed by the verb, not by injection', async () => {
         const calls = [];
 
