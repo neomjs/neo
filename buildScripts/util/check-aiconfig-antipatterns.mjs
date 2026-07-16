@@ -36,15 +36,21 @@ export const B3_DEFENSIVE_CHAIN = new RegExp(
 export const A5_ENV_HELPER = /\bhasEnvValue\s*\(/;
 
 /*
- * Files that already carry B3 reads, grandfathered while the cleanup subs migrate them to plain
- * fail-loud reads. The ratchet bites only NEW offenders; this set shrinks as the cleanup lands.
- * Paths are repo-relative POSIX. Census: 2026-07-16 against `dev`.
+ * Rule-scoped grandfathering: each rule carries its OWN set of repo-relative POSIX paths, so one
+ * rule's existing-surface exemption can never widen another's — A5 keeps its zero-baseline ratchet
+ * even inside files grandfathered for B3. A whole-file skip would silently exempt every rule at
+ * once; filtering happens per HIT instead ({@link filterAllowlistedHits}). Sets shrink as the
+ * cleanup subs land. B3 census: 2026-07-16 against `dev`; A5 is empty by construction (zero live
+ * occurrences — any entry appearing here is a regression, not a grandfather).
  */
-export const ALLOWLIST = new Set([
-    'ai/mcp/server/BaseServer.mjs',
-    'ai/mcp/server/shared/logger.mjs',
-    'ai/scripts/runners/roadmapPlanner.mjs'
-]);
+export const ALLOWLIST = Object.freeze({
+    A5: new Set(),
+    B3: new Set([
+        'ai/mcp/server/BaseServer.mjs',
+        'ai/mcp/server/shared/logger.mjs',
+        'ai/scripts/runners/roadmapPlanner.mjs'
+    ])
+});
 
 const RULES = [
     {id: 'B3', pattern: new RegExp(B3_DEFENSIVE_CHAIN.source, 'g')},
@@ -86,6 +92,20 @@ export function findAntipatterns(content) {
     return hits
 }
 
+/**
+ * @summary Drops hits whose rule grandfathers the given file — the rule/allowlist composition seam.
+ *
+ * Filtering happens per HIT, never per FILE: a file grandfathered for one rule still fails the
+ * build on any other rule's occurrence (the exact composition a whole-file skip silently breaks).
+ * @param {Object[]} hits `findAntipatterns` results for one file.
+ * @param {String} file Repo-relative POSIX path.
+ * @param {Object} [allowlist=ALLOWLIST] Rule-id → Set of grandfathered paths.
+ * @returns {Object[]}
+ */
+export function filterAllowlistedHits(hits, file, allowlist = ALLOWLIST) {
+    return hits.filter(({rule}) => !allowlist[rule]?.has(file))
+}
+
 function main() {
     let gitRoot;
     try {
@@ -98,9 +118,25 @@ function main() {
     // Minimal argv parse — no external deps, so the standalone CI workflow runs without `npm install`
     // (the dependency-free pattern the other lint workflows follow). lint-staged passes staged paths as
     // positional args; `--quiet` suppresses the per-violation listing.
-    const rawArgv   = process.argv.slice(2),
-          quiet     = rawArgv.includes('-q') || rawArgv.includes('--quiet'),
+    const rawArgv = process.argv.slice(2);
+
+    // Spec-only composition seam: `--extra-b3-allowlist <path>` grandfathers ONE extra path for B3
+    // in this invocation, so the spawned CLI regression can prove an A5 occurrence in a
+    // B3-grandfathered file still fails the build. Never used by the workflow or lint-staged; the
+    // flag pair is spliced out before positional-file resolution so its value is not scanned twice.
+    const extraFlagIndex = rawArgv.indexOf('--extra-b3-allowlist'),
+          extraB3Raw     = extraFlagIndex !== -1 ? rawArgv[extraFlagIndex + 1] : null;
+
+    if (extraFlagIndex !== -1) {
+        rawArgv.splice(extraFlagIndex, 2)
+    }
+
+    const quiet     = rawArgv.includes('-q') || rawArgv.includes('--quiet'),
           argvFiles = rawArgv.filter(arg => !arg.startsWith('-'));
+
+    const allowlist = extraB3Raw
+        ? {...ALLOWLIST, B3: new Set([...ALLOWLIST.B3, toRepoRelative(extraB3Raw, gitRoot)])}
+        : ALLOWLIST;
 
     function collectDefaultFiles() {
         const result = spawnSync('find', ['ai', '-type', 'f', '-name', '*.mjs'], {cwd: gitRoot, encoding: 'utf-8'});
@@ -125,10 +161,6 @@ function main() {
 
     const violations = [];
     for (const file of files) {
-        if (ALLOWLIST.has(file)) {
-            continue
-        }
-
         let content;
         try {
             content = readFileSync(path.resolve(gitRoot, file), 'utf-8');
@@ -137,7 +169,8 @@ function main() {
             continue
         }
 
-        findAntipatterns(content).forEach(({line, rule, text}) => violations.push(`${file}:${line}: [${rule}] ${text}`));
+        filterAllowlistedHits(findAntipatterns(content), file, allowlist)
+            .forEach(({line, rule, text}) => violations.push(`${file}:${line}: [${rule}] ${text}`));
     }
 
     if (violations.length > 0) {

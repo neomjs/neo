@@ -1,5 +1,15 @@
-import {test, expect}                               from '@playwright/test';
-import {findAntipatterns, ALLOWLIST, ESCAPE_MARKER} from '../../../../../../buildScripts/util/check-aiconfig-antipatterns.mjs';
+import {test, expect}                                                      from '@playwright/test';
+import {findAntipatterns, filterAllowlistedHits, ALLOWLIST, ESCAPE_MARKER} from '../../../../../../buildScripts/util/check-aiconfig-antipatterns.mjs';
+import {spawnSync}                                                         from 'node:child_process';
+import fs                                                                  from 'node:fs';
+import path                                                                from 'node:path';
+import process                                                             from 'node:process';
+import {fileURLToPath}                                                     from 'node:url';
+
+const
+    __dirname   = path.dirname(fileURLToPath(import.meta.url)),
+    repoRoot    = path.resolve(__dirname, '../../../../../..'),
+    checkerPath = path.join(repoRoot, 'buildScripts/util/check-aiconfig-antipatterns.mjs');
 
 /**
  * Self-test for the AiConfig antipattern guard: the mechanical enforcement of B3 (defensive
@@ -83,9 +93,71 @@ test.describe('check-aiconfig-antipatterns guard', () => {
         expect(findAntipatterns(`const soft = aiConfig?.load; // ${ESCAPE_MARKER}: boot-order probe, migrates with the loader rework`)).toEqual([])
     });
 
-    test('the grandfather allowlist carries the census-seeded offenders (the ratchet bites only new ones)', () => {
-        expect(ALLOWLIST.size).toBeGreaterThan(0);
-        expect(ALLOWLIST.has('ai/mcp/server/BaseServer.mjs')).toBe(true);
-        expect(ALLOWLIST.has('ai/scripts/runners/roadmapPlanner.mjs')).toBe(true)
+    test('the grandfather allowlist is rule-scoped: B3 carries the census, A5 stays zero-baseline', () => {
+        expect(ALLOWLIST.B3.size).toBeGreaterThan(0);
+        expect(ALLOWLIST.B3.has('ai/mcp/server/BaseServer.mjs')).toBe(true);
+        expect(ALLOWLIST.B3.has('ai/scripts/runners/roadmapPlanner.mjs')).toBe(true);
+        // A5 has zero live occurrences — an entry ever appearing here is a regression, not a grandfather
+        expect(ALLOWLIST.A5.size).toBe(0)
+    })
+});
+
+/**
+ * Coverage for the rule/allowlist composition — the seam a whole-file skip silently breaks: a file
+ * grandfathered for B3 must still fail the build on an A5 occurrence (the reviewer's live CLI
+ * falsifier on the first head). Pure-helper cases pin the per-HIT semantics; the spawned CLI case
+ * pins the end-to-end exit code through the spec-only `--extra-b3-allowlist` seam.
+ */
+test.describe('check-aiconfig-antipatterns guard — rule-scoped allowlist composition', () => {
+    const mixedContent = "const soft = aiConfig?.load;\nif (hasEnvValue('NEO_X')) { run(); }\n";
+
+    test('a B3-grandfathered file still surfaces its A5 hit (per-HIT filtering, never per-FILE)', () => {
+        const surviving = filterAllowlistedHits(findAntipatterns(mixedContent), 'ai/mcp/server/BaseServer.mjs');
+
+        expect(surviving.map(hit => hit.rule)).toEqual(['A5'])
+    });
+
+    test('an unlisted file keeps every hit; a grandfathered file drops only its own rule', () => {
+        const hits = findAntipatterns(mixedContent);
+
+        expect(filterAllowlistedHits(hits, 'ai/services/fresh/NewService.mjs').map(hit => hit.rule)).toEqual(['B3', 'A5']);
+        expect(filterAllowlistedHits(hits, 'ai/mcp/server/shared/logger.mjs').map(hit => hit.rule)).toEqual(['A5'])
+    });
+
+    test('CLI regression: an A5 occurrence in a B3-allowlisted path exits non-zero', () => {
+        const tmpFile = path.join(repoRoot, `ai/.a5-composition-regression-${process.pid}.mjs`);
+
+        try {
+            fs.writeFileSync(tmpFile, mixedContent, 'utf-8');
+
+            const result = spawnSync(process.execPath, [checkerPath, tmpFile, '--extra-b3-allowlist', tmpFile], {
+                cwd     : repoRoot,
+                encoding: 'utf-8'
+            });
+
+            expect(result.status).toBe(1);
+            expect(result.stderr).toContain('[A5]');
+            expect(result.stderr).not.toContain('[B3]')
+        } finally {
+            fs.rmSync(tmpFile, {force: true})
+        }
+    });
+
+    test('CLI counter-case: the same grandfathered file with ONLY its B3 line exits zero', () => {
+        const tmpFile = path.join(repoRoot, `ai/.b3-grandfather-regression-${process.pid}.mjs`);
+
+        try {
+            fs.writeFileSync(tmpFile, 'const soft = aiConfig?.load;\n', 'utf-8');
+
+            const result = spawnSync(process.execPath, [checkerPath, tmpFile, '--extra-b3-allowlist', tmpFile], {
+                cwd     : repoRoot,
+                encoding: 'utf-8'
+            });
+
+            expect(result.status).toBe(0);
+            expect(result.stdout).toContain('0 new violations')
+        } finally {
+            fs.rmSync(tmpFile, {force: true})
+        }
     })
 });
