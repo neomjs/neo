@@ -214,7 +214,11 @@ test.describe('Neo.ai.agent.AgentOrchestrator', () => {
               fakeAgent       = createFakeAgent(),
               healthCalls     = [],
               exitCodes       = [],
+              // Consumed in call order: the first tick is readComputedRoute's route-expiry check,
+              // then the outcome start/end. Route admission always costs one now() read — the
+              // consumer checks expiry unconditionally rather than skipping it when absent.
               times           = [
+                  '2026-06-06T08:00:00.000Z',
                   '2026-06-06T08:00:00.000Z',
                   '2026-06-06T08:00:03.000Z'
               ];
@@ -421,7 +425,10 @@ test.describe('Neo.ai.agent.AgentOrchestrator', () => {
               outcomePath     = createOutcomePath('crashed.jsonl'),
               initError       = new Error('boot failed'),
               handoffCalls    = [],
+              // Consumed in call order: the first tick is readComputedRoute's route-expiry check,
+              // then the outcome start/end.
               times           = [
+                  '2026-06-06T09:00:00.000Z',
                   '2026-06-06T09:00:00.000Z',
                   '2026-06-06T09:00:01.000Z'
               ];
