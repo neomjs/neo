@@ -5,12 +5,14 @@ on:
     branches: [dev]
     paths:
       - 'ai/**/config.template.mjs'
+      - 'ai/configBase.mjs'
       - 'ai/scripts/lint/lint-config-template-ssot.mjs'
       - '.github/workflows/config-template-ssot-lint.yml'
   push:
     branches: [dev]
     paths:
       - 'ai/**/config.template.mjs'
+      - 'ai/configBase.mjs'
       - 'ai/scripts/lint/lint-config-template-ssot.mjs'
       - '.github/workflows/config-template-ssot-lint.yml'
 

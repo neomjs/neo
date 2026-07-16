@@ -114,12 +114,12 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
     });
 
     test('AiConfig.orchestrator.mlx ships canonical MLX launch defaults', () => {
-        // The Tier-1 template (NOT the gitignored config.mjs overlay) is the stable
-        // source of truth for MLX defaults. Read it as text and assert the `data`
-        // leaf defaults: importing the template here would register Neo.ai.Config a
-        // second time alongside the config.mjs singleton daemon.mjs loads, tripping
-        // the unitTestMode namespace-collision gatekeeper.
-        const templateSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/config.template.mjs'), 'utf8');
+        // The Tier-1 root BASE (NOT the thin registration template, NOT the gitignored
+        // config.mjs overlay) is the stable source of truth for MLX defaults since the
+        // template/base split. Read it as text and assert the `data` leaf defaults:
+        // importing it here would register a second provider alongside the config.mjs
+        // singleton daemon.mjs loads, tripping the unitTestMode namespace-collision gatekeeper.
+        const templateSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/configBase.mjs'), 'utf8');
 
         expect(templateSource).toMatch(
             /mlx:\s*\{[\s\S]*?leaf\(false[\s\S]*?'mlx-community\/gemma-4-31b-it-bf16'[\s\S]*?'11435'/
@@ -195,9 +195,9 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
     });
 
     test('AiConfig.orchestrator.lms ships default-enabled LM Studio launch defaults', () => {
-        // Tier-1 template is the stable source of truth; read as text (see the MLX test
-        // for why importing the template collides with daemon.mjs's config.mjs singleton).
-        const templateSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/config.template.mjs'), 'utf8');
+        // Tier-1 root base is the stable source of truth; read as text (see the MLX test
+        // for why importing it collides with daemon.mjs's config.mjs singleton).
+        const templateSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/configBase.mjs'), 'utf8');
 
         // `lms.enabled` defaults to `true`: local Agent OS needs both chat and embedding
         // roles resident by default; the model id (`qwen3-embedding-8b`) and port (`1234`)
@@ -275,7 +275,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
     });
 
     test('AiConfig.orchestrator.ollama ships default-enabled local-dev launch gate', () => {
-        const templateSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/config.template.mjs'), 'utf8');
+        const templateSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/configBase.mjs'), 'utf8');
 
         expect(templateSource).toMatch(
             /ollama:\s*\{[\s\S]*?leaf\(true,\s*'NEO_ORCHESTRATOR_OLLAMA_ENABLED'/
