@@ -20,12 +20,20 @@
 /**
  * @summary Returns the ids the prompt actually enumerates, so a caller can report which facts reached
  * inference rather than implying the whole census did.
+ *
+ * Every id the prompt names is an id the model may legitimately cite, so the set must cover the
+ * *related* items too — an epic's open children and a blocked item's blockers are enumerated as facts,
+ * not just referenced counts. Reporting only the entry ids would under-report the evidence that reached
+ * inference, and a consumer auditing the narrative against this list would read a grounded mention of a
+ * child or blocker as ungrounded.
  * @param {Object} [landscape={}] A {@link module:ai/services/graph/laneLandscapeProjection} landscape.
  * @returns {String[]} Stable-ordered ids present in the prompt.
  */
 export function selectLandscapeSynthesisInputIds(landscape = {}) {
-    const goalIds  = (landscape?.goalTrajectory || []).map(entry => entry.id),
-          blockIds = (landscape?.dependencyPath || []).map(entry => entry.id),
+    const goal     = landscape?.goalTrajectory || [],
+          blocked  = landscape?.dependencyPath || [],
+          goalIds  = goal.flatMap(entry => [entry.id, ...(entry.openChildren || [])]),
+          blockIds = blocked.flatMap(entry => [entry.id, ...(entry.blockedBy || [])]),
           openIds  = landscape?.authorityCoverage?.unassignedIds || [];
 
     return [...new Set([...goalIds, ...blockIds, ...openIds])].filter(Boolean).sort()

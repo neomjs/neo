@@ -76,8 +76,28 @@ test.describe('laneLandscapeSynthesis — the current-state cited synthesis', ()
     });
 
     test('selectLandscapeSynthesisInputIds reports exactly the ids the prompt enumerated', () => {
-        expect(selectLandscapeSynthesisInputIds(landscape)).toEqual(['issue-100', 'issue-101', 'issue-102']);
+        // Derived from the prompt TEXT rather than hand-copied from the implementation: the two must
+        // agree, and a hand-written expectation can only ever pin whatever the code already does. An id
+        // the model was handed but the envelope omits reads as an ungrounded mention to anyone auditing
+        // the narrative against its citations.
+        const prompt      = buildLaneLandscapeSynthesisPrompt({landscape}),
+              idsInPrompt = [...new Set(prompt.match(/issue-\d+/g))].sort();
+
+        expect(selectLandscapeSynthesisInputIds(landscape)).toEqual(idsInPrompt);
+        // the blocker is enumerated as a citable fact, so it must be reported as one
+        expect(idsInPrompt).toContain('issue-103');
         expect(selectLandscapeSynthesisInputIds({})).toEqual([]);
+    });
+
+    test('related items — an epic\'s children and a blocked item\'s blockers — are reported, not just entry ids', () => {
+        const ids = selectLandscapeSynthesisInputIds({
+            goalTrajectory   : [{id: 'issue-100', openChildren: ['issue-201', 'issue-202']}],
+            dependencyPath   : [{id: 'issue-300', blockedBy: ['issue-400']}],
+            authorityCoverage: {unassignedIds: ['issue-500']}
+        });
+
+        // Reporting only [100, 300, 500] would under-report the evidence that actually reached inference.
+        expect(ids).toEqual(['issue-100', 'issue-201', 'issue-202', 'issue-300', 'issue-400', 'issue-500']);
     });
 
     test('makeLaneLandscapeSynthesize returns the narrative plus the ids that reached inference', async () => {
@@ -85,7 +105,7 @@ test.describe('laneLandscapeSynthesis — the current-state cited synthesis', ()
               result     = await synthesize({landscape});
 
         expect(result.narrative).toBe('issue-100 carries 2 open children.');
-        expect(result.inferenceInputIds).toEqual(['issue-100', 'issue-101', 'issue-102']);
+        expect(result.inferenceInputIds).toEqual(['issue-100', 'issue-101', 'issue-102', 'issue-103']);
     });
 
     test('fails LOUD on a missing generate dep or an empty narrative — a blank is not an honest absence', async () => {
