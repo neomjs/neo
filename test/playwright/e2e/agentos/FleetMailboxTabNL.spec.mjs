@@ -122,10 +122,16 @@ test.describe('AgentOS fleet cockpit — the AgentDetail Mailbox tab live (#1527
         await expect(pane.locator('.fm-mail-row').first().locator('.fm-mail-subject')).toHaveText('standalone live message');
         await expect(pane.locator('.fm-mail-thread-count')).toHaveText('+1 earlier');
         await expect(pane.locator('.fm-mailbox-page-range')).toHaveText('1–3');
-        // the window can MOVE, not just describe itself: both edges render as real controls, and a
-        // 3-of-50 page is the producer saying it ran out — so older is disabled, not hidden
-        await expect(pane.locator('.fm-mailbox-page-next')).toBeDisabled();
-        await expect(pane.locator('.fm-mailbox-page-prev')).toBeDisabled();
+        // The window can MOVE, not just describe itself: both edges render as real composed
+        // controls, and a 3-of-50 page with no `hasMore` is the producer saying it ran out — so both
+        // edges are closed, disabled rather than hidden.
+        //
+        // Asserted via `neo-disabled`, NOT Playwright's `toBeDisabled()`: Neo's `disabled` adds that
+        // class and never the native attribute, so the native matcher would fail on a control that
+        // IS disabled by the framework's own contract. The refusal itself is unit-pinned — the class
+        // is the look, the handler guard is the semantics.
+        await expect(pane.locator('.fm-mailbox-page-next')).toHaveClass(/neo-disabled/);
+        await expect(pane.locator('.fm-mailbox-page-prev')).toHaveClass(/neo-disabled/);
 
         // read-only is structural, proven live: zero DATA-ENTRY elements and no mutation verb. The
         // bar is mutation, not interactivity — the one admissible control is the thread-collapse

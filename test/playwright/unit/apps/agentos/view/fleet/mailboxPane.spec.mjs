@@ -268,7 +268,7 @@ test.describe('AgentOS.view.fleet.MailboxPane — the read-only S1 mailbox tab',
         expect(rowsCmp.vdom.cn[1].cn[0].cn[0].text).toBe('older');
 
         // the bounds now live in the range span, between their two transition controls
-        expect(pane.getReference('mailbox-page').vdom.cn.find(node => node.cls?.includes?.('fm-mailbox-page-range')).text).toBe('1–2');
+        expect(pane.getReference('mailbox-page-range').text).toBe('1–2');
         // capturedAt is 30s old vs a 60s TTL → fresh
         expect(pane.getReference('mailbox-freshness').text).toContain('updated');
 
@@ -363,27 +363,62 @@ test.describe('AgentOS.view.fleet.MailboxPane — the read-only S1 mailbox tab',
 
         pane.on('pageRequest', data => fired.push(data.offset));
 
-        const strip = () => pane.getReference('mailbox-page').vdom.cn,
-              step  = cls => strip().find(node => node.cls?.includes?.(cls));
+        const prev  = pane.getReference('mailbox-page-prev'),
+              next  = pane.getReference('mailbox-page-next'),
+              range = pane.getReference('mailbox-page-range');
+
+        // the steps are COMPOSED controls, not hand-rolled tags: `button.Base` with the shipped
+        // paging vocabulary (`fa fa-angle-*`, as toolbar.Paging uses). A raw {tag:'button'} would
+        // reproduce the outcome and skip the primitive that owns disabled/icon/focus states.
+        expect(prev.ntype).toBe('button');
+        expect(next.ntype).toBe('button');
+        expect(prev.iconCls).toBe('fa fa-angle-left');
+        expect(next.iconCls).toBe('fa fa-angle-right');
 
         // page 1 of a FULL window: newer is disabled (this IS the edge), older is offered
-        expect(step('fm-mailbox-page-prev').disabled).toBe(true);
-        expect(step('fm-mailbox-page-next').disabled).toBe(false);
-        expect(step('fm-mailbox-page-next').tag).toBe('button');
-        // the offset that reaches row 51 rides on the control that knows it
-        expect(step('fm-mailbox-page-next')['data-offset']).toBe('50');
-        expect(strip().find(node => node.cls?.includes?.('fm-mailbox-page-range')).text).toBe('1–50');
+        expect(prev.disabled).toBe(true);
+        expect(next.disabled).toBe(false);
+        expect(range.text).toBe('1–50');
 
-        // the pane REQUESTS; it never fetches
-        pane.onPageClick({path: [{data: {offset: '50'}}]});
+        // the handler is wired UP to this view (the primitive resolves the string), and the pane
+        // REQUESTS rather than fetching
+        expect(next.handler).toBe('up.onNextPageClick');
+        expect(prev.handler).toBe('up.onPrevPageClick');
+        pane.onNextPageClick();
         expect(fired).toEqual([50]);
 
         // page 2, short (the producer ran out): older disables, newer opens, range reflects the window
         pane.snapshot = wiredSnapshot([row({messageId: 'MESSAGE:b'})], {limit: 50, offset: 50, count: 10, hasMore: false});
-        expect(step('fm-mailbox-page-prev').disabled).toBe(false);
-        expect(step('fm-mailbox-page-prev')['data-offset']).toBe('0');
-        expect(step('fm-mailbox-page-next'), 'a short page is the producer saying it ran out').toMatchObject({disabled: true});
-        expect(strip().find(node => node.cls?.includes?.('fm-mailbox-page-range')).text).toBe('51–60');
+        expect(prev.disabled).toBe(false);
+        expect(next.disabled, 'a short page is the producer saying it ran out').toBe(true);
+        expect(range.text).toBe('51–60');
+
+        pane.onPrevPageClick();
+        expect(fired).toEqual([50, 0]);
+
+        pane.destroy()
+    });
+
+    test('a DISABLED step refuses the request — the primitive disables the LOOK, not the handler', () => {
+        // Neo's `disabled` adds the `neo-disabled` class; that styling carries no
+        // `pointer-events: none`, and `button.Base.onClick` invokes `handler` without consulting it.
+        // So a "disabled" step still fires on a click and on a keyboard Enter — the state is VISUAL.
+        // Trusting it would leave the range edge open to exactly the operator it looks closed to,
+        // and stepping past the last page reads an empty window at a positive offset.
+        const pane  = createPane({snapshot: wiredSnapshot([row({messageId: 'MESSAGE:a'})], {limit: 50, offset: 0, count: 50, hasMore: false})}),
+              fired = [];
+
+        pane.on('pageRequest', data => fired.push(data.offset));
+
+        // page 1 AND the last page: both edges closed
+        expect(pane.getReference('mailbox-page-prev').disabled).toBe(true);
+        expect(pane.getReference('mailbox-page-next').disabled).toBe(true);
+
+        // activating them anyway — exactly what a keyboard user reaching the styled-disabled control does
+        pane.onPrevPageClick();
+        pane.onNextPageClick();
+
+        expect(fired, 'a closed edge must refuse the request, not merely look shut').toEqual([]);
 
         pane.destroy()
     });
