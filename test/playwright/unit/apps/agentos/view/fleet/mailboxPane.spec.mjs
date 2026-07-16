@@ -259,21 +259,28 @@ test.describe('AgentOS.view.fleet.MailboxPane — the read-only S1 mailbox tab',
             ], {limit: 50, offset: 0, count: 3})
         });
 
-        // 1. the vdom tree carries no interactive verb: no buttons, no inputs, no mutation labels
+        // 1. no MUTATION verb anywhere: no data-entry element, no mutation label. The bar is
+        //    mutation, NOT interactivity — an earlier revision banned every control, which read as
+        //    stricter but forced thread collapse onto a clickable div no keyboard user could
+        //    operate. "Read-only" constrains what the operator can CHANGE, never whether they can
+        //    reach what they can see; the one display-state toggle is a native button by design.
         const forbidden = /mark.?read|archive|delete|reply|send/i;
         const walk      = node => {
             if (!node || typeof node !== 'object') return;
-            expect(['button', 'input', 'textarea', 'select', 'form', 'a']).not.toContain(node.tag);
+            expect(['input', 'textarea', 'select', 'form', 'a']).not.toContain(node.tag);
+            // the ONLY admissible control is the thread-collapse toggle — display state, not data
+            node.tag === 'button' && expect(node.cls).toContain('fm-mail-thread-toggle');
             typeof node.text === 'string' && expect(forbidden.test(node.text)).toBe(false);
             (node.cn || []).forEach(walk)
         };
         walk(pane.getReference('mailbox-rows').vdom);
         walk(pane.getReference('mailbox-state').vdom);
 
-        // 2. the single listener surface is the thread-collapse toggle — nothing else
+        // 2. the single listener surface is the thread-collapse toggle — and it is delegated to the
+        //    BUTTON, not the row: a row-wide listener is an interactive region with no tab stop
         const listeners = pane.getReference('mailbox-rows').domListeners;
         expect(listeners).toHaveLength(1);
-        expect(listeners[0].delegate).toBe('.fm-mail-thread-head');
+        expect(listeners[0].delegate).toBe('.fm-mail-thread-toggle');
 
         // 3. the pane class itself exports no mutation verb
         Object.getOwnPropertyNames(Object.getPrototypeOf(pane)).forEach(name => {
@@ -282,6 +289,47 @@ test.describe('AgentOS.view.fleet.MailboxPane — the read-only S1 mailbox tab',
 
         // 4. the tab stays countless: the title never renders a count
         expect(pane.getReference('mailbox-title').text).toBe('A2A Mailbox');
+
+        pane.destroy()
+    });
+
+    test('a11y: thread collapse is a NATIVE button that names its state — not a clickable div', () => {
+        const pane = createPane({
+            snapshot: wiredSnapshot([
+                row({messageId: 'MESSAGE:head', partOfThread: 'THREAD:z'}),
+                row({messageId: 'MESSAGE:old', partOfThread: 'THREAD:z', sentAt: '2026-07-16T11:10:00.000Z'})
+            ], {limit: 50, offset: 0, count: 2})
+        });
+
+        const findToggle = () => {
+            let found;
+            const walk = node => {
+                if (!node || typeof node !== 'object') return;
+                node.cls?.includes?.('fm-mail-thread-toggle') && (found = node);
+                (node.cn || []).forEach(walk)
+            };
+            walk(pane.getReference('mailbox-rows').vdom);
+            return found
+        };
+
+        const collapsed = findToggle();
+
+        // a native <button> owns Enter/Space and a tab stop; a div owns neither, so the toggle was
+        // mouse-only — the pane's ONLY affordance was unreachable by keyboard
+        expect(collapsed.tag).toBe('button');
+        expect(collapsed.type).toBe('button');
+        expect(collapsed['aria-expanded']).toBe('false');
+        expect(collapsed['aria-label']).toContain('Expand thread');
+
+        // toggling re-renders the button with the INVERTED state named — not a stale label
+        const head = pane.store.items.find(record => record.partOfThread === 'THREAD:z');
+        head.threadCollapsed = false;
+        pane.renderRows();
+
+        const expanded = findToggle();
+        expect(expanded.tag).toBe('button');
+        expect(expanded['aria-expanded']).toBe('true');
+        expect(expanded['aria-label']).toContain('Collapse thread');
 
         pane.destroy()
     });

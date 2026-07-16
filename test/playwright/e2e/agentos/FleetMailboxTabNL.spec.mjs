@@ -118,13 +118,24 @@ test.describe('AgentOS fleet cockpit — the AgentDetail Mailbox tab live (#1527
         await expect(pane.locator('.fm-mail-thread-count')).toHaveText('+1 earlier');
         await expect(pane.locator('.fm-mailbox-page')).toHaveText('1–3');
 
-        // read-only is structural, proven live: zero interactive verbs inside the pane
-        await expect(pane.locator('button, input, textarea, select, a')).toHaveCount(0);
+        // read-only is structural, proven live: zero DATA-ENTRY elements and no mutation verb. The
+        // bar is mutation, not interactivity — the one admissible control is the thread-collapse
+        // toggle (display state), which MUST be a real button or no keyboard user can operate it.
+        await expect(pane.locator('input, textarea, select, a')).toHaveCount(0);
+        await expect(pane.locator('button:not(.fm-mail-thread-toggle)')).toHaveCount(0);
 
-        // the REAL DOM click on the thread head — the data-thread-id → dataset → delegated-listener
-        // path end-to-end: the thread expands inline (head + member now both visible)
-        await pane.locator('.fm-mail-thread-head').click();
+        // the toggle is a native button naming its state — live, in the real DOM
+        const toggle = pane.locator('.fm-mail-thread-toggle');
+        await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+        // a REAL keyboard activation — Enter on the focused native button — drives the
+        // data-thread-id → dataset → delegated-listener path end-to-end. A div would swallow this:
+        // this is the assertion that would have caught the mouse-only affordance.
+        await toggle.focus();
+        await page.keyboard.press('Enter');
+
         await expect(pane.locator('.fm-mail-row')).toHaveCount(3, {timeout: 15000});
-        await expect(pane.locator('.fm-mail-row').nth(2).locator('.fm-mail-subject')).toHaveText('thread member live')
+        await expect(pane.locator('.fm-mail-row').nth(2).locator('.fm-mail-subject')).toHaveText('thread member live');
+        await expect(pane.locator('.fm-mail-thread-toggle')).toHaveAttribute('aria-expanded', 'true')
     })
 });

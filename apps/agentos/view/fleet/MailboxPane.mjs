@@ -125,9 +125,12 @@ class MailboxPane extends Container {
             hidden   : true,
             reference: 'mailbox-rows',
 
+            // delegated to the native toggle BUTTON, not the row: a listener on the whole row makes
+            // the row an interactive region no keyboard user can reach. The handler still resolves
+            // the thread from the row's `data-thread-id` by walking the event path.
             domListeners: [{
                 click   : 'up.onThreadHeadClick',
-                delegate: '.fm-mail-thread-head'
+                delegate: '.fm-mail-thread-toggle'
             }]
         }]
     }
@@ -380,8 +383,27 @@ class MailboxPane extends Container {
                 cls: ['fm-mail-row-main'],
                 cn : [
                     {tag: 'span', cls: ['fm-mail-subject'], text: record.subject || '(no subject)'},
-                    ...(collapsed ? [{tag: 'span', cls: ['fm-mail-thread-count'], text: `+${threadCount} earlier`}] : []),
-                    ...(expanded  ? [{tag: 'span', cls: ['fm-mail-thread-count'], text: 'collapse thread'}] : [])
+                    // The toggle is a NATIVE button, not a clickable div: it is the pane's only
+                    // affordance, and a div owns no Enter/Space and no tab stop, so thread collapse
+                    // was mouse-only. Same discipline as the card drill's native-button target —
+                    // an interactive region that is not a control is not operable. `aria-expanded`
+                    // names the state it toggles; the row keeps `fm-mail-thread-head` for styling.
+                    ...(collapsed ? [{
+                        tag            : 'button',
+                        type           : 'button',
+                        cls            : ['fm-mail-thread-count', 'fm-mail-thread-toggle'],
+                        text           : `+${threadCount} earlier`,
+                        'aria-expanded': 'false',
+                        'aria-label'   : `Expand thread — ${threadCount} earlier messages`
+                    }] : []),
+                    ...(expanded ? [{
+                        tag            : 'button',
+                        type           : 'button',
+                        cls            : ['fm-mail-thread-count', 'fm-mail-thread-toggle'],
+                        text           : 'collapse thread',
+                        'aria-expanded': 'true',
+                        'aria-label'   : 'Collapse thread'
+                    }] : [])
                 ]
             }, {
                 cls : ['fm-mail-row-meta'],
