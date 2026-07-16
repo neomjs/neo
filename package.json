@@ -40,6 +40,7 @@
         "ai:download-kb"                       : "node ./ai/scripts/maintenance/downloadKnowledgeBase.mjs",
         "ai:fleet-server"                      : "node ./ai/services/fleet/devFleetServer.mjs",
         "ai:gemini-incident-cost-ledger"       : "node ./ai/scripts/diagnostics/gemini-incident-cost-ledger.mjs",
+        "ai:genesis-probe"                     : "node ./ai/scripts/diagnostics/genesisProbe.mjs",
         "ai:graph-lifecycle-report"            : "node ./ai/scripts/maintenance/graphLifecycleReport.mjs",
         "ai:ingest-tenant"                     : "node ./ai/scripts/maintenance/ingestTenant.mjs",
         "ai:kb-push-client"                    : "node ./ai/scripts/maintenance/kbPushClient.mjs",

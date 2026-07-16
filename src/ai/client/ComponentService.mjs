@@ -411,6 +411,7 @@ class ComponentService extends Service {
     }
 
     /**
+     * @summary Serializes a component hierarchy while preserving direct parent-child structure.
      * @param {Object} data
      * @param {Neo.component.Base} data.component
      * @param {Number}             [data.currentDepth=1]
@@ -433,7 +434,7 @@ class ComponentService extends Service {
         }
 
         if (maxDepth === -1 || currentDepth < maxDepth) {
-            const children = Neo.manager.Component.getChildComponents(component);
+            const children = Neo.manager.Component.getDirectChildren(component.id);
 
             if (children && children.length > 0) {
                 result.items = children.map(child => this.serializeComponent({

@@ -62,6 +62,7 @@ const PRIORITIES = new Map([
     ['agentos/ConceptOntology'                      , 0.9],
     ['agentos/NeuralLink'                           , 1.0],
     ['agentos/tooling/NeuralLinkCapabilityMatrix'   , 0.8],
+    ['agentos/tooling/GenesisNeuralLinkProbe'       , 0.8],
     ['agentos/KnowledgeBase'                        , 1.0],
     ['agentos/MemoryCore'                           , 1.0],
     ['agentos/SelfHealing'                          , 1.0],

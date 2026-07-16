@@ -1,7 +1,49 @@
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../src/Neo.mjs';
-import * as core      from '../../../../../src/core/_export.mjs';
+import {test, expect}   from '@playwright/test';
+import Neo              from '../../../../../src/Neo.mjs';
+import * as core        from '../../../../../src/core/_export.mjs';
 import ComponentService from '../../../../../src/ai/client/ComponentService.mjs';
+
+test.describe.serial('Neo.ai.client.ComponentService.serializeComponent', () => {
+    let originalGetDirectChildren, service;
+
+    test.beforeEach(() => {
+        originalGetDirectChildren = Neo.manager.Component.getDirectChildren;
+        service                   = Neo.create(ComponentService)
+    });
+
+    test.afterEach(() => {
+        Neo.manager.Component.getDirectChildren = originalGetDirectChildren;
+        service.destroy()
+    });
+
+    test('depth 2 contains direct children once, never the flattened descendant closure', () => {
+        const
+            root         = {className: 'Root', id: 'root'},
+            child        = {className: 'Child', id: 'child'},
+            grandchild   = {className: 'Grandchild', id: 'grandchild'},
+            childrenById = new Map([
+                ['root', [child]],
+                ['child', [grandchild]]
+            ]);
+
+        Neo.manager.Component.getDirectChildren = id => childrenById.get(id) || [];
+
+        expect(service.serializeComponent({component: root, maxDepth: 2})).toEqual({
+            className: 'Root',
+            id       : 'root',
+            items    : [{className: 'Child', id: 'child'}]
+        });
+        expect(service.serializeComponent({component: root, maxDepth: 3})).toEqual({
+            className: 'Root',
+            id       : 'root',
+            items    : [{
+                className: 'Child',
+                id       : 'child',
+                items    : [{className: 'Grandchild', id: 'grandchild'}]
+            }]
+        })
+    });
+});
 
 /**
  * @summary Tests for the pure child-surface differ behind verify_component_consistency
@@ -155,8 +197,8 @@ test.describe.serial('Neo.ai.client.ComponentService.observeMotion', () => {
 
         Neo.getComponent = id => id === 'toolbar-1' ? {
             id,
-            windowId   : 'win-c',
-            getDomRect : async ids => {
+            windowId  : 'win-c',
+            getDomRect: async ids => {
                 calls.push(ids);
 
                 return {left: 1, top: 2, width: 3, height: 4}
