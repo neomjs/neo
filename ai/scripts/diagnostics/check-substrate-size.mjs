@@ -1,4 +1,4 @@
-import fs from 'fs';
+import fs   from 'fs';
 import path from 'path';
 
 /**
@@ -19,6 +19,31 @@ const TARGET_FILES = [
     '.agents/ANTIGRAVITY_RULES.md'
 ];
 
+/**
+ * Budgets over a GROUP of files rather than each file alone.
+ *
+ * A per-file limit cannot express "these two files are read together, so their SUM is the cost" —
+ * the shape a graduated merge-eligibility boundary takes. Without a group model such a boundary can
+ * only live as prose, and prose drifts silently: this budget's own surface grew past its limit by a
+ * hundred-odd bytes and sat there unnoticed, because nothing was watching. Gradual drift is exactly
+ * what a human reader cannot see and a byte count can.
+ *
+ * `limitBytes` is a graduated number owned by the decision that set it — named in `label`, so the
+ * failure output points at the authority rather than at this file. Never re-baseline it to
+ * accommodate drift: that inverts the point. Raising it is a decision with a rationale, not a lint
+ * edit.
+ */
+const COMBINED_BUDGETS = [
+    {
+        label     : 'pr-review loaded surface (#15257)',
+        limitBytes: 41357,
+        files     : [
+            '.agents/skills/pr-review/audits/review-cost-circuit-breaker.md',
+            '.agents/skills/pr-review/references/pr-review-guide.md'
+        ]
+    }
+];
+
 let hasError = false;
 
 console.log(`\n🔍 Checking Antigravity Substrate sizes against ${PER_FILE_LIMIT_BYTES} byte per-file limit...`);
@@ -32,8 +57,8 @@ TARGET_FILES.forEach(file => {
         return;
     }
 
-    const stats = fs.statSync(fullPath);
-    const size = stats.size;
+    const stats  = fs.statSync(fullPath);
+    const size   = stats.size;
     const status = size > PER_FILE_LIMIT_BYTES ? '❌ EXCEEDS' : '✅ PASS';
 
     console.log(`📄 ${file.padEnd(30)} : ${size} bytes [${status}]`);
@@ -45,13 +70,54 @@ TARGET_FILES.forEach(file => {
 
 console.log('--------------------------------------------------------------------------------');
 
+COMBINED_BUDGETS.forEach(budget => {
+    console.log(`\n🔍 Checking combined budget "${budget.label}" against ${budget.limitBytes} bytes...`);
+    console.log('--------------------------------------------------------------------------------');
+
+    let combined = 0,
+        missing  = false;
+
+    budget.files.forEach(file => {
+        const fullPath = path.join(ROOT_DIR, file);
+
+        if (!fs.existsSync(fullPath)) {
+            // Fail closed: a budget that silently drops a renamed file measures a fiction and passes.
+            console.error(`❌ Error: Budgeted file ${file} not found.`);
+            missing  = true;
+            hasError = true;
+            return;
+        }
+
+        const size = fs.statSync(fullPath).size;
+
+        combined += size;
+        console.log(`📄 ${file.padEnd(62)} : ${size} bytes`);
+    });
+
+    if (missing) return;
+
+    const over   = combined > budget.limitBytes,
+          status = over ? '❌ EXCEEDS' : '✅ PASS';
+
+    // Report headroom, not just pass/fail: the drift this exists to catch is gradual, so a shrinking
+    // margin is the signal — by the time it flips to EXCEEDS the substrate is already broken.
+    console.log(`Σ  ${'combined'.padEnd(62)} : ${combined} bytes [${status}]`);
+    console.log(`   limit ${budget.limitBytes} · ${over ? `OVER by ${combined - budget.limitBytes}` : `headroom ${budget.limitBytes - combined}`} bytes`);
+
+    if (over) hasError = true
+});
+
+console.log('--------------------------------------------------------------------------------');
+
 if (hasError) {
     console.error(`\n❌ Substrate Size Check FAILED!`);
-    console.error(`One or more files exceed the Antigravity hard limit of ${PER_FILE_LIMIT_BYTES} bytes per file.`);
-    console.error(`If this passes, the bottom of the offending file will be silently truncated and agents will lose critical memory.\n`);
-    console.error(`Please reduce the size of the tracked memory files by migrating granular instructions to .agents/skills/ Atlas files (Progressive Disclosure).`);
+    console.error(`Either a file exceeds the Antigravity hard limit of ${PER_FILE_LIMIT_BYTES} bytes, or a combined budget above is over its limit.`);
+    console.error(`Per-file breach: the bottom of the offending file is silently truncated and agents lose critical memory.`);
+    console.error(`Combined breach: the graduated budget for a jointly-loaded surface is spent — see the ticket that set it.\n`);
+    console.error(`Fix by migrating granular instructions to .agents/skills/ Atlas files (Progressive Disclosure).`);
+    console.error(`Do NOT raise a limit to make this pass: a graduated budget is a decision, not a lint setting.`);
     process.exit(1);
 }
 
-console.log(`\n✅ Substrate Size Check PASSED. All files safely under the ${PER_FILE_LIMIT_BYTES} byte limit.\n`);
+console.log(`\n✅ Substrate Size Check PASSED. Per-file under ${PER_FILE_LIMIT_BYTES} bytes; all combined budgets within limit.\n`);
 process.exit(0);
