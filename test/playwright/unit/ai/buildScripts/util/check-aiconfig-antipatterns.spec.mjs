@@ -364,5 +364,15 @@ test.describe('shared codeMask lexer matrix — transition pairs (continuation +
     test('a call/grouping paren still yields division; nested control headers resolve via the paren stack', () => {
         expect(findAntipatterns('foo(a) / b; const x = aiConfig?.load;').map(h => h.rule)).toEqual(['B3']);
         expect(findAntipatterns('if (a(b)) /re/.test(s); const y = aiConfig?.load;').map(h => h.rule)).toEqual(['B3'])
+    });
+
+    test('grammar-set completeness: throw, for-await and else-if admit a regex; plain await-paren stays division', () => {
+        expect(findAntipatterns('function f() { throw /x\\./ ; } const y = aiConfig?.load;').map(h => h.rule)).toEqual(['B3']);
+        expect(findDbPathMutations('function f() { throw /x\\./ ; } aiConfig.storagePaths = p;').length).toBe(1);
+        expect(findAntipatterns('async function g(s) { for await (const c of s) /x\\./.test(c); } const y = aiConfig?.load;').map(h => h.rule)).toEqual(['B3']);
+        // Whitespace never resets the word buffer, so multi-word headers arrive concatenated —
+        // the self-found sibling of the reviewer's for-await case.
+        expect(findAntipatterns('if (a) {} else if (b) /x\\./.test(s); const y = aiConfig?.load;').map(h => h.rule)).toEqual(['B3']);
+        expect(findAntipatterns('async function h(x) { const q = await (x) / 2; } const y = aiConfig?.load;').map(h => h.rule)).toEqual(['B3'])
     })
 });

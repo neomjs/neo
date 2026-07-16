@@ -64,14 +64,18 @@ export const ALLOWLIST = new Set([
  * The other half of the decision is the last significant code char: after an identifier char, `)`
  * or `]` a `/` is division; after operators, delimiters or nothing it opens a regex.
  */
-const REGEX_PRECEDING_KEYWORDS = /^(?:return|typeof|instanceof|case|in|of|new|delete|void|yield|await|do|else)$/;
+const REGEX_PRECEDING_KEYWORDS = /^(?:return|throw|typeof|instanceof|case|in|of|new|delete|void|yield|await|do|else)$/;
 
 /*
  * Control-statement headers whose closing `)` puts the grammar back at expression START, so a
  * following `/` opens a regex (`if (ok) /re/.test(s)`), unlike a call/grouping `)` where `/` is
- * division (`foo(a) / b`). Tracked via a paren-word stack carried in state.
+ * division (`foo(a) / b`). Tracked via a paren-word stack carried in state. Whitespace never
+ * resets the word buffer, so multi-word headers arrive CONCATENATED — `for await (` reads
+ * `forawait`, `else if (` reads `elseif` — which is what keeps plain `await (x) / y` (word
+ * `await` after an `=` reset) correctly classified as division. An identifier literally named
+ * `forawait`/`elseif` before a paren would misread — accepted, not valid style in this codebase.
  */
-const CONTROL_HEADER_KEYWORDS = /^(?:if|while|for|switch|catch|with)$/;
+const CONTROL_HEADER_KEYWORDS = /^(?:if|while|for|switch|catch|with|forawait|elseif)$/;
 
 /**
  * @summary Decides whether a `/` at the current lexer position opens a regex literal.
