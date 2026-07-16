@@ -50,7 +50,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const ROOT_DIR   = path.resolve(__dirname, '../../..');
 
-const CONFIG_TEMPLATE_BASENAME           = 'config.template.mjs';
+const CONFIG_TEMPLATE_BASENAME = 'config.template.mjs';
 // The Tier-1 root base: canonical default leaves live here since the template/base split — the
 // declarative-SSOT rules must cover it exactly like a template, or base-only leaves bypass the lint.
 const CONFIG_BASE_BASENAME               = 'configBase.mjs';
@@ -962,6 +962,12 @@ export function detectTestConfigProviderExports(
 
 /**
  * @summary Reads and caches config-template path classifications.
+ *
+ * Since the template/base split, a Tier-1 template is a subclass shell: its canonical default
+ * leaves live in the sibling `configBase.mjs`. The classification is therefore the union of both
+ * files, template-declared paths winning — a shell-only read would leave every base-declared path
+ * unclassifiable, and the fail-closed capture rule would flag legitimate subtree captures.
+ * Per-server templates have no sibling base and read exactly as before.
  * @param {String} templatePath Absolute template path.
  * @returns {{primitiveLeafPaths: Set<String>, liveProxyPaths: Set<String>}}
  */
@@ -969,10 +975,18 @@ function getConfigPathKindsForTemplate(templatePath) {
     const key = normalizeFile(templatePath);
 
     if (!CONFIG_TEMPLATE_KIND_CACHE.has(key)) {
-        CONFIG_TEMPLATE_KIND_CACHE.set(
-            key,
-            collectConfigPathKindsFromSource(fs.readFileSync(templatePath, 'utf8'))
-        );
+        const kinds    = collectConfigPathKindsFromSource(fs.readFileSync(templatePath, 'utf8')),
+              basePath = path.join(path.dirname(templatePath), CONFIG_BASE_BASENAME);
+
+        if (path.basename(templatePath) !== CONFIG_BASE_BASENAME && fs.existsSync(basePath)) {
+            const baseKinds  = collectConfigPathKindsFromSource(fs.readFileSync(basePath, 'utf8')),
+                  classified = p => kinds.primitiveLeafPaths.has(p) || kinds.liveProxyPaths.has(p);
+
+            baseKinds.primitiveLeafPaths.forEach(p => {classified(p) || kinds.primitiveLeafPaths.add(p)});
+            baseKinds.liveProxyPaths.forEach(p => {classified(p) || kinds.liveProxyPaths.add(p)});
+        }
+
+        CONFIG_TEMPLATE_KIND_CACHE.set(key, kinds);
     }
 
     return CONFIG_TEMPLATE_KIND_CACHE.get(key);
