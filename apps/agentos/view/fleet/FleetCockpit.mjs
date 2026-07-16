@@ -279,6 +279,14 @@ class FleetCockpit extends Container {
      * @protected
      */
     lastDetailVesselFailure = null
+    /**
+     * The bounded connect window (ms) this instance grants an opened vessel before the
+     * `failed-timeout` edge fires. Instance-level so witnesses can exercise the timeout path
+     * deterministically; the module default is the product truth.
+     * @member {Number} detailVesselConnectWindowMs=DETAIL_VESSEL_CONNECT_WINDOW_MS
+     * @protected
+     */
+    detailVesselConnectWindowMs = DETAIL_VESSEL_CONNECT_WINDOW_MS
 
     /**
      * @summary Seed the layout SSOT and build the toolbar + dock projection as instance items —
@@ -829,7 +837,7 @@ class FleetCockpit extends Container {
                 me.lastDetailVesselFailure = 'timeout';
                 me.reattachAgentDetail()
             }
-        }, DETAIL_VESSEL_CONNECT_WINDOW_MS);
+        }, me.detailVesselConnectWindowMs);
 
         me.syncControlBar();
 
