@@ -32,6 +32,11 @@ test.describe('AgentOS fleet cockpit — the AgentDetail Mailbox tab live (#1527
         expect(target, 'a card exposes both a record agentId and a component id').toBeTruthy();
 
         const expectedAgentId = target.properties.record.agentId;
+        // The injected snapshot must name the resident's MAILBOX identity, not the registry key —
+        // the pane refuses a snapshot admitted for anyone else, so a fixture aimed with the wrong id
+        // space renders nothing. This is the production contract, live: `githubUsername` is the
+        // identity authority the admitted subject is checked against.
+        const expectedSubject = `@${target.properties.record.githubUsername}`;
 
         // the drill target is the dedicated native Button (`fm-card-drill`), NOT the avatar: the
         // a11y refactor moved the gesture onto a real <button> that owns Enter/Space, and the avatar
@@ -67,7 +72,7 @@ test.describe('AgentOS fleet cockpit — the AgentDetail Mailbox tab live (#1527
         await app.setProperties(mounted.properties.id, {
             snapshot: {
                 capability: {source: 'memory-core:mailbox', state: 'wired', confidence: 'observed', capturedAt, reason: null},
-                admission : {state: 'granted', viewerIdentity: '@operator', subjectAgentId: expectedAgentId, checkedAt: capturedAt, reason: null},
+                admission : {state: 'granted', viewerIdentity: '@operator', subjectAgentId: expectedSubject, checkedAt: capturedAt, reason: null},
                 page      : {limit: 50, offset: 0, count: 3},
                 rows      : [{
                     messageId     : 'MESSAGE:e2e-solo',
