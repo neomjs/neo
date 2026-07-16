@@ -1,17 +1,30 @@
 import './configTemplateResolver.mjs';
 
-import {defineConfig}  from '@playwright/test';
-import os              from 'os';
-import path            from 'path';
-import {fileURLToPath} from 'url';
+import {defineConfig}                  from '@playwright/test';
+import os                              from 'os';
+import path                            from 'path';
+import {fileURLToPath}                 from 'url';
+import {deriveTestPort, probeFreePort} from './deriveTestPort.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
+const repoRoot   = path.resolve(__dirname, '../..');
 
 process.env.UNIT_TEST_MODE = 'true';
 
-const chromaTestHost    = process.env.NEO_CHROMA_HOST_TEST || '127.0.0.1';
-const chromaTestPort    = Number(process.env.NEO_CHROMA_PORT_TEST) || 18180;
+const chromaTestHost = process.env.NEO_CHROMA_HOST_TEST || '127.0.0.1';
+
+// The port isolates per CHECKOUT (worktrees included — their toplevel is their own path), exactly
+// like the data dir isolates per process below: several agent checkouts run unit suites
+// concurrently on one machine, and a fixed shared default deadlocks them behind
+// `reuseExistingServer: false` (one orphaned server wedges every run machine-wide). An explicit
+// env override always wins; otherwise derive-from-root, then probe-walk past the rare hash
+// collision or a squatted port. The banner line makes the resolved port visible in every run log.
+const chromaTestPort = Number(process.env.NEO_CHROMA_PORT_TEST)
+    || probeFreePort(deriveTestPort(repoRoot), {host: chromaTestHost});
+
+console.log(`[unit-config] test chroma port ${chromaTestPort} (checkout-derived from ${repoRoot}; override: NEO_CHROMA_PORT_TEST)`);
+
 const chromaTestDataDir = process.env.NEO_CHROMA_DATA_DIR_TEST ||
     path.join(os.tmpdir(), `neo-chroma-unit-test-${process.pid}`);
 
