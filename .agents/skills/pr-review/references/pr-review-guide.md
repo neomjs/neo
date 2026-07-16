@@ -254,6 +254,10 @@ Instance/reactive-state diffs (any dir): load `audits/core-idiom-audit.md`.
 
 Identity prose naming any agent: load `audits/identity-claim-audit.md`.
 
+### 7.5.3 Demo-Surface Motion Audit
+
+Demo/product-surface diffs touching rendered motion: load `audits/demo-surface-motion-audit.md`.
+
 ### 7.6 CI / Security Checks Audit
 
 10% AC/scope sanity layer unless CI/security reveals a defect. Green CI is eligibility evidence, not an architecture verdict.
