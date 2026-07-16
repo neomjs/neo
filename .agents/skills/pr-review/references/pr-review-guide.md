@@ -36,7 +36,7 @@ If you write a GitHub PR review, step out of Driver mode and follow this reviewe
 4. **Tech Debt Radar:** trigger `tech-debt-radar` for fundamental architecture shifts or `refactor(ai)` PRs.
 5. **Scope discipline:** polish minor misses inside the PR; ticket out-of-scope superior refactors instead of cramming them into the active close-target.
 6. **V-B-A:** falsify every factual/review claim before asserting it. Token presence is not meaning; use source reads for semantic claims.
-7. **Execution:** use `manage_pr_review` for the formal review state. If unavailable, use the legacy comment + `gh pr review` fallback; the visible GitHub `reviewDecision` must be set either way.
+7. **Execution:** `manage_pr_review` is the sole fail-closed pre-submit budget gate. Direct `gh pr review` / UI is bypass-with-telemetry: run the meter and add `[review-budget-bypass] reason: ...`; post-submit lint cannot undo it.
 8. **Structure map:** before verdict, run `npm run --silent ai:structure-map -- --files --loc` for PRs touching `ai/`, Agent OS, MCP, Memory Core, orchestration, `.agents/skills`, or placement; otherwise record N/A.
 
 ## 3. Structural Evaluation Metrics
@@ -177,9 +177,9 @@ The follow-up template is not permission to rubber-stamp. It still requires:
 
 If a commentId-scoped A2A message arrives but you lack the surrounding prior-cycle context, treat that as a cold-cache case first: load enough grounding context, then decide whether the follow-up template is still valid.
 
-### 6.3 Review-Loop Cost Circuit Breaker
+### 6.3 Budgeted Review Closure
 
-When the PR discussion thread exceeds 24KB or has received ≥ 3 formal reviews, load the Review-Loop Cost Circuit Breaker payload and run its convergence assessment: semantics-cleared → micro-delta; converging → full review; non-converging semantic churn → scope-too-big break-up via `epic-create`. Size is a cost signal, not a scope signal.
+At RC2 or >24KB, load the payload. On post-cutover PRs, two submitted `CHANGES_REQUESTED` objects across heads/authors/retractions spend the ordinary budget; managed submission refuses a third. Grandfathered PRs stay judgment-only. Continue with `COMMENTED` closure, `APPROVED`, Maintainer Polish, guarded A+FU, or validated terminal D+S; size is cost, never scope.
 
 **Payload Pointer:** `view_file` `.agents/skills/pr-review/audits/review-cost-circuit-breaker.md`
 
@@ -244,6 +244,8 @@ Future-work suggestions, non-blocking observations, and follow-up ideas are revi
 
 Exact-head required CI is routine unit/integration evidence. Do not search for or rerun "related tests" to duplicate green CI. Run and record a targeted falsifier only for a concrete behavior CI does not establish.
 
+Deployment proof gates only if it can deploy the exact unmerged head. Consumers limited to merged `dev` / `main` / release artifacts make it Post-Merge Validation; failure becomes a new ticket.
+
 Authors own existing non-CI coverage for touched surfaces. Reviewers validate receipts and challenge obvious omissions, not reconstruct dependency reach. For added/moved tests, verify the canonical directory per `.agents/skills/unit-test/references/unit-test.md`. Docs/template-only changes need no runtime evidence.
 
 ### 7.5.1 Core-Idiom Audit
@@ -280,7 +282,7 @@ Formal reviews assume green current-head CI. Verify before `manage_pr_review`; i
 | PR names an epic as close-target without flagging | §5.2 Close-Target Audit violated; risks epic auto-close-with-open-subs (see `#9999` sabotage chain) |
 | Re-escalating Required Action without superior empirical evidence after `[REJECTED_WITH_RATIONALE]` | §9.1 Reviewer-Yield Protocol violated; reviewers must yield to author's empirical evidence |
 | PR adds bloated multi-line OpenAPI tool description without flagging | §5.3 MCP-Tool-Description Budget Audit violated; bloat compounds across the tool surface and competes with agent reasoning budget at runtime |
-| Substantive review comment posted via `manage_issue_comment` without atomic `manage_pr_review` OR fallback `gh pr review` chain | Cross-family gate ungated despite the visible review prose; item 7 above violated. Prefer `manage_pr_review` atomic primitive (`#11273`); fallback to two-step only when MCP tool unavailable |
+| Substantive review comment posted without atomic `manage_pr_review` | Cross-family gate is outside the fail-closed budget despite visible review prose; item 7 above violated. Direct `gh pr review` / UI is bypass-with-telemetry only: run the meter and disclose `[review-budget-bypass] reason: ...`; it is never an equivalent fallback. |
 | PR adds env-var deprecation chain | Read `pull-request/references/env-var-rename-rule.md` |
 | Cycle-1 Request Changes with iterative Required Actions when PR premise is structurally invalid | §9.0 Cycle-1 Premise Pre-Flight violated; reviewer normalized "fix-these-N" as merge-path when Drop+Supersede framing was substrate-correct (Velocity-Preservation Bias) |
 | Approving substrate touching multi-loaded agent-memory files by FILE-COMPLETENESS dimension only without auditing RUNTIME-LOAD EFFECT | **Loading-runtime-effect substitution** — see **§7.8 Audit Spec: Loading-Runtime-Effect Substitution** for full DIMENSION-vs-ENGAGEMENT framing, PR `#11244` empirical anchor, and reviewer mechanical pre-flight. Proactive companion: `/turn-memory-pre-flight`. |
@@ -317,12 +319,18 @@ If any check surfaces a miss, flag it in Required Actions. A PR that ships a new
 
 ## 9. Strategic-Fit Step-Back
 
-After technical audits (§3-§8), decide the merge posture:
+After §3-§8, choose exactly one row:
 
-1. **Approve** — default for a working PR (no blocking defect); ship as-is, nits inline.
-2. **Request Changes** — must-fix, only for code-shape/correctness/safety; a finding → same-PR fix/comment/AC, never a follow-up ticket.
-3. **Approve+Follow-Up** — worst normal outcome (spawns the follow-up flood and negative-ROI CI/review loops). Mergeable -> Approve; defect or debt-creating quick win -> Request Changes; wrong premise -> Drop+Supersede. Reserve A+FU only for explicitly non-blocking residuals where same-PR repair would be less coherent than shipping.
-4. **Drop+Supersede** — premise is stale/wrong; recommend closure via Request Changes shape so author/human handles PR/ticket closure. Use for fundamentally wrong premise, operator-intent correction, or >5 cycles rearranging the same invalid abstraction.
+| Verdict | Contract |
+|---|---|
+| **Approve** | Merge-safe; inline nits or Maintainer Polish, no return cycle. |
+| **Request Changes** | Delivered-scope correctness, safety, or code-shape defect; budgeted in-place repair. |
+| **Approve+Follow-Up** | Scope transfer only; worst normal outcome. Requires a merge-safe head, no deferred correctness, explicit close-target AC ownership, and an independently valuable day-after-merge counterfactual. |
+| **Drop+Supersede** | Dead/stale premise at any cycle, or no merge-safe slice after RC2; terminal `CHANGES_REQUESTED`, not repair. |
+
+**RC2 `COMMENTED` closure packet:** consumer sweep; falsifier/property matrix; carried-vs-new census; truth-fold; semantic-surface freeze. Afterward only the existing RA's named capability may change; property refinements within it are allowed, new semantic surfaces are not.
+
+**D+S completeness:** source-coordinate falsifiers; salvage map; disposition-shaped successor landing pad; successor citation to the map. `Disposition`: `implementation-off` (refile implementation) | `ticket-prescription-off` (amend ticket) | `ticket-premise-dead` (close ticket). One validated terminal D+S may exceed the ordinary budget.
 
 This is architectural judgment after defects are identified; it is not another defect audit.
 
@@ -332,12 +340,7 @@ When §0 surfaces Cycle-1 structural invalidity — false premise, ungraduated s
 
 ### 9.1 Reviewer-Yield Protocol (Deadlock Prevention)
 
-When an author invokes `[REJECTED_WITH_RATIONALE]` per the Review Response Protocol (`review-response-protocol.md §4`) and provides empirical or architectural evidence defending their implementation, reviewers MUST execute a "Yield Pre-Flight" before re-escalating to `Request Changes` on the same item.
-
-**The Rule:** A reviewer cannot overrule an author's `[REJECTED_WITH_RATIONALE]` based solely on reviewer authority or abstract preference. Re-escalation requires *superior empirical evidence* (e.g., pointing out a specific failure mode the author's isolation test missed).
-If the author's rationale holds up to empirical scrutiny—even if it doesn't match the reviewer's preferred pattern—the reviewer MUST yield, mark the item resolved, and proceed to the next stage of the PR lifecycle (e.g., `Approve` or `Approve+Follow-Up`).
-
-This explicit reviewer open-mindedness mandate is symmetric to the author's mandate, closing the loop on deadlock vulnerabilities.
+After `[REJECTED_WITH_RATIONALE]` (`review-response-protocol.md §4`), re-escalate the same item only with superior empirical evidence naming a missed failure mode. Authority or preference is insufficient; if the rationale survives falsification, yield, resolve it, and continue the PR lifecycle.
 
 ## 10. A2A Comment-ID Hand-off (warm-cache review cycles)
 
@@ -353,16 +356,7 @@ Before relaying any review outcome / merge-eligibility claim / lane-state naming
 
 ## 11. Post-Review-Cycle Reviewer Pickup
 
-After a reviewer posts the substantive review, chains the formal GitHub review
-state when required, and sends the A2A commentId handoff, the reviewer MUST
-invoke the `post-review-pickup` skill before ending the turn.
-
-The reviewer-side matrix, legitimate halt states, and targeted-blocker rule live
-in `.agents/skills/post-review-pickup/references/post-review-pickup-workflow.md`.
-That payload is the Atlas entry; this section is only the map pointer that fires
-after `pr-review` completes. Author-side symmetry is mapped from
-`pull-request-workflow.md §6.3`. This is the public skill codification of the
-`feedback_peer_not_assistant_mode` lineage.
+After the review, formal GitHub state, and A2A commentId handoff, invoke `post-review-pickup` before ending the turn. Its reviewer matrix lives in `.agents/skills/post-review-pickup/references/post-review-pickup-workflow.md`; author symmetry is `pull-request-workflow.md §6.3`.
 
 ## 12. Typed Calibration Loop (the non-self-policed signal)
 

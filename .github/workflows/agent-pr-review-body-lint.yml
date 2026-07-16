@@ -1,11 +1,9 @@
 name: Agent PR Review Body Lint
 
-# Closes the `gh pr review` CLI bypass surface (#11495), companion to PR #11494's MCP
-# tool-boundary mechanical body-shape validator. Without this workflow, an agent who
-# routes around `manage_pr_review` via `gh pr review --body "..."` evades the strong
-# layer; this CI lint catches malformed reviews after submission and posts a corrective
-# comment + sets a failed status check (visibility + correction signal — NOT a merge
-# blocker, since the review is already on GitHub by the time this fires).
+# Post-submit telemetry for the `gh pr review` / UI bypass surface (#11495), companion
+# to the managed tool's pre-submit template + review-budget gates. This workflow catches
+# malformed reviews and posts a corrective signal after submission; it cannot undo a
+# third ordinary RC or otherwise reproduce the managed gate.
 
 on:
   pull_request_review:
@@ -36,16 +34,149 @@ jobs:
               return;
             }
 
-            // State-keyed enforcement: only gate-bearing reviews owe the template.
-            // APPROVED / CHANGES_REQUESTED flip reviewDecision and carry merge semantics; a
-            // COMMENTED review is supplementary by construction (the merge gate's own rule:
-            // a comment alone is insufficient) — same-family disclosures, corpus/fixture
-            // verifications, invited design reads. Forcing the gate template onto those either
-            // fails peers' CI on non-gating input or breeds template theater that muddies the
-            // cross-family accounting. The state field is the same SSOT the merge gate reads.
-            if ((review.state || '').toLowerCase() === 'commented') {
+            const reviewState = (review.state || '').toLowerCase();
+            const selectsCommentedClosure = body.includes('# Pull Request Micro-Delta Review') &&
+              /^\s*-\s*\[[xX]\]\s*\*\*COMMENTED CLOSURE\*\*/m.test(body);
+            const isCommentedClosure = reviewState === 'commented' && selectsCommentedClosure;
+            const reviewLines = body.split("\n").map(line => line.trim());
+            const dropSupersedeStatus = reviewLines.includes("**Status:** Drop+Supersede");
+            const dropSupersedeDecision = reviewLines.includes("- **Decision**: Drop+Supersede");
+            const dropSupersedeIntent = dropSupersedeStatus || dropSupersedeDecision;
+
+            if (dropSupersedeIntent) {
+              if (reviewState !== 'changes_requested') {
+                core.setFailed('A terminal Drop+Supersede verdict must use GitHub review state CHANGES_REQUESTED.');
+                return;
+              }
+
+              const dispositions = new Set([
+                'implementation-off',
+                'ticket-prescription-off',
+                'ticket-premise-dead'
+              ]);
+              const contractFields = [
+                'Source-coordinate falsifiers',
+                'Salvage map',
+                'Successor landing pad',
+                'Successor map citation'
+              ];
+              const fieldValue = label => {
+                const prefix = `- **${label}:**`;
+                const line   = body.split("\n").find(candidate => candidate.trim().startsWith(prefix));
+                return line ? line.trim().slice(prefix.length).trim() : '';
+              };
+              const missing = contractFields.filter(label => {
+                const value = fieldValue(label);
+                return !value || /^\[.*\]$/.test(value) || /^(?:todo|tbd)$/i.test(value);
+              });
+              const disposition = fieldValue('Disposition');
+
+              if (!dropSupersedeStatus || !dropSupersedeDecision) missing.unshift('Status + Decision');
+              if (!dispositions.has(disposition)) missing.unshift('Disposition');
+
+              if (missing.length > 0) {
+                core.setFailed(`Drop+Supersede body is incomplete: ${missing.join(', ')}.`);
+                return;
+              }
+            }
+
+            if (selectsCommentedClosure && reviewState !== 'commented') {
+              core.setFailed('COMMENTED CLOSURE must use GitHub review state COMMENTED; it cannot create another REQUEST_CHANGES review.');
+              return;
+            }
+
+            // Ordinary COMMENTED reviews remain supplementary and skip the heavy template.
+            // The RC2 closure packet is the exception: it carries the budget's frozen semantic
+            // contract and therefore receives the narrow Micro-Delta validation below.
+            if (reviewState === 'commented' && !isCommentedClosure) {
               console.log(`✅ COMMENTED review by ${reviewer} — supplementary (non-gating); template enforcement is state-keyed to APPROVED/CHANGES_REQUESTED. Skipping lint.`);
               return;
+            }
+
+            // The managed mutation appends durable provenance. A raw gh/UI Request Changes
+            // submission must disclose the documented bypass marker so telemetry can distinguish
+            // a deliberate bypass from an accidental missing pre-submit gate.
+            if (reviewState === 'changes_requested') {
+              const activationIssueNumber = 15257;
+              const activationBaseRefName = 'dev';
+              const activationData = await github.graphql(`
+                query ReviewBudgetActivation($owner: String!, $repo: String!, $issueNumber: Int!) {
+                  repository(owner: $owner, name: $repo) {
+                    activationIssue: issue(number: $issueNumber) {
+                      id
+                      closedByPullRequestsReferences(first: 100, includeClosedPrs: true) {
+                        totalCount
+                        nodes {
+                          number
+                          state
+                          mergedAt
+                          baseRefName
+                        }
+                        pageInfo {
+                          hasNextPage
+                        }
+                      }
+                    }
+                  }
+                }
+              `, {
+                owner      : context.repo.owner,
+                repo       : context.repo.repo,
+                issueNumber: activationIssueNumber
+              });
+              const activationIssue = activationData?.repository?.activationIssue;
+              const references      = activationIssue?.closedByPullRequestsReferences;
+              const nodes           = references?.nodes;
+
+              if (!activationIssue?.id) {
+                core.setFailed(`Cannot resolve review-budget activation issue #${activationIssueNumber}.`);
+                return;
+              }
+
+              if (!Array.isArray(nodes) || references?.pageInfo?.hasNextPage !== false ||
+                  !Number.isInteger(references?.totalCount) || references.totalCount !== nodes.length) {
+                core.setFailed(`Cannot prove the complete closing-PR history for review-budget activation issue #${activationIssueNumber}.`);
+                return;
+              }
+
+              const malformedMerged = nodes.filter(reference =>
+                reference?.state === 'MERGED' && reference?.baseRefName === activationBaseRefName &&
+                !Number.isFinite(Date.parse(reference?.mergedAt || ''))
+              );
+
+              if (malformedMerged.length > 0) {
+                core.setFailed(`Review-budget activation issue #${activationIssueNumber} has a merged ${activationBaseRefName} closer without a valid mergedAt.`);
+                return;
+              }
+
+              const activationPr = nodes
+                .filter(reference => reference?.state === 'MERGED' && reference?.baseRefName === activationBaseRefName)
+                .sort((left, right) => Date.parse(left.mergedAt) - Date.parse(right.mergedAt) || left.number - right.number)[0];
+              const activatedMs = Date.parse(activationPr?.mergedAt || '');
+              const createdMs   = Date.parse(pr.created_at || '');
+
+              if (activationPr && !Number.isFinite(createdMs)) {
+                core.setFailed(`Cannot determine the review-budget cohort for PR #${pr.number}; created_at is invalid.`);
+                return;
+              }
+
+              const postCutover = Number.isFinite(activatedMs) && Number.isFinite(createdMs) && createdMs > activatedMs;
+
+              if (postCutover) {
+                const managed = body.includes('[review-budget-managed]');
+                const override = body.includes('[review-budget-override]');
+                const bypass  = /^\[review-budget-bypass\]\s+reason:\s*\S.*$/im.test(body);
+
+                if (override && !managed) {
+                  core.setFailed('`[review-budget-override]` is valid only with managed-path provenance.');
+                  return;
+                }
+
+                if (!managed && !bypass) {
+                  core.setFailed('Post-activation agent REQUEST_CHANGES review lacks managed-path provenance or `[review-budget-bypass] reason: ...` disclosure. Use manage_pr_review or disclose the direct gh/UI bypass.');
+                  return;
+                }
+              }
             }
 
             console.log(`🔍 Linting review body for agent reviewer: ${reviewer} on PR #${pr.number} (state: ${review.state})`);
@@ -120,11 +251,18 @@ jobs:
               "*Only defects classified as `mechanical-hygiene` or `metadata-drift` are reviewed here.*",
               "### Verdict",
               "**APPROVED**",
-              "**CHANGES_REQUESTED**",
+              "**COMMENTED CLOSURE**",
               "**MAINTAINER POLISH FAST PATH APPLIED**"
             ];
 
             const MICRO_DELTA_REVIEW_BLOCKER_CLASS_PATTERN = /(?:^|[^\w-])(mechanical-hygiene|metadata-drift)(?:$|[^\w-])/i;
+            const MICRO_DELTA_CLOSURE_PACKET_FIELDS = [
+              'Consumer sweep',
+              'Falsifier/property matrix',
+              'Carried-vs-new census',
+              'Truth-fold',
+              'Semantic-surface freeze'
+            ];
 
             // Micro-Review (Cycle-1, blast-scaled) light path — KEEP IN SYNC with
             // ai/services/github-workflow/PullRequestService.mjs MICRO_REVIEW_* constants.
@@ -161,6 +299,22 @@ jobs:
                 microDeltaMisses.push("Remaining Blocker Class: mechanical-hygiene | metadata-drift");
               }
 
+              if (isCommentedClosure) {
+                if (!body.includes('### RC2 Closure Packet')) {
+                  microDeltaMisses.push('RC2 Closure Packet');
+                }
+
+                MICRO_DELTA_CLOSURE_PACKET_FIELDS.forEach(label => {
+                  const prefix = `- **${label}:**`;
+                  const line   = body.split('\n').find(candidate => candidate.trim().startsWith(prefix));
+                  const value  = line ? line.trim().slice(prefix.length).trim() : '';
+
+                  if (!value || /^\[.*\]$/.test(value) || /^(?:todo|tbd)$/i.test(value)) {
+                    microDeltaMisses.push(label);
+                  }
+                });
+              }
+
               if (microDeltaMisses.length === 0) {
                 console.log("✅ Micro-Delta body matches the documented circuit-breaker shape.");
                 return;
@@ -179,7 +333,7 @@ jobs:
                 ``,
                 `**Required action**: read \`${skillPath}\`, \`${circuitPath}\`, and \`${microDeltaPath}\` BEFORE submitting a corrective re-review.`,
                 ``,
-                `Micro-Delta reviews are only valid after the Review-Loop Cost Circuit Breaker classifies the PR as state (a): semantics cleared, with only mechanical-hygiene or metadata-drift remaining.`,
+                `Micro-Delta reviews are only valid after semantic review is complete, with only mechanical-hygiene or metadata-drift remaining.`,
                 `If a semantic or contract delta exists, use the full follow-up review template instead.`,
                 ``,
                 diagnosticAnchor

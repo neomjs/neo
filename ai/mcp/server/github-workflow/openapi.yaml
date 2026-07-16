@@ -811,13 +811,9 @@ paths:
       x-annotations:
         readOnlyHint: false
       description: |
-        Atomic create/update of a formal PR review. `create` posts body + flips reviewDecision and requires `pr_number`, `state` (APPROVED/REQUEST_CHANGES/COMMENT), and `body`; `update` requires `review_id` (PRR_*) + `body` and cannot change state. Returns reviewId, state, url, and submittedAt.
+        Create or update one formal PR review. Read `.agents/skills/pr-review/SKILL.md` and use its exact cycle template. Create requires `pr_number`, `state`, and `body`; update requires `review_id` and `body`.
 
-        State safety: `create` + `state: APPROVED` rejects when the live PR head still has outstanding `CHANGES_REQUESTED` reviews. To proceed after consciously applying the pr-review §9.1 Reviewer-Yield path, pass `acknowledgedRequestChanges` as an object mapping each outstanding RC reviewer login to either `addressed-by-<current-head-sha>` or `superior-evidence: <specific evidence>`.
-
-        Mandatory pre-step: read `.agents/skills/pr-review/SKILL.md` and use the cycle-appropriate template.
-
-        Validation: `body` must include the 7 visible metric anchors plus silent structural template anchors and preserve the selected template's canonical skeleton; failures return `PR_REVIEW_TEMPLATE_VALIDATION_FAILED` pointing at the skill/template. Do not synthesize substitute headings. The four premise-snapshot fields (`Inputs Read Before Patch`, `Expected Solution Shape`, `Patch Verdict`, `Premise Coherence`) are ALL REQUIRED; `Premise Coherence` is the value-coherence verdict (does the PR's premise cohere with the core values?) — a specific verdict OR a scoped `N/A — no value-surface` for a trivial PR.
+        APPROVED requires reviewer-keyed `acknowledgedRequestChanges` for outstanding current-head RCs. REQUEST_CHANGES is budgeted on post-cutover PRs: two submitted RCs, then COMMENT/APPROVED or one complete terminal Drop+Supersede. Incomplete history fails closed. `reviewBudgetOverrideReason` is a disclosed exceptional bypass persisted in the review body. Direct gh/UI submission is outside this pre-submit gate and only receives workflow telemetry.
       tags: [PullRequests]
       parameters:
         - name: pr_number
@@ -865,6 +861,11 @@ paths:
                     Optional reviewer-login to disposition map for consciously approving over live `CHANGES_REQUESTED` reviews after applying pr-review §9.1. Only used for `action: create` + `state: APPROVED`; dispositions must be `addressed-by-<current-head-sha>` or `superior-evidence: <specific evidence>`.
                   example:
                     neo-gpt: "addressed-by-abc1234"
+                reviewBudgetOverrideReason:
+                  type: string
+                  minLength: 1
+                  pattern: '^[^\r\n]+$'
+                  description: Single-line disclosure for an exceptional ordinary REQUEST_CHANGES after the post-cutover budget is exhausted; persisted in the review body.
       responses:
         '200':
           description: |
@@ -886,6 +887,37 @@ paths:
                     type: string
                   databaseId:
                     type: integer
+                  reviewBudget:
+                    type: object
+                    description: Present on created REQUEST_CHANGES reviews.
+                    properties:
+                      activatedAt:
+                        type: string
+                        format: date-time
+                        nullable: true
+                      activationIssueNumber:
+                        type: integer
+                        description: Stable source issue whose closing-PR relationship defines the cutover.
+                      activationPullRequestNumber:
+                        type: integer
+                        nullable: true
+                        description: Earliest merged dev closer that activates the cohort; null before activation.
+                      createdAt:
+                        type: string
+                        format: date-time
+                      applicable:
+                        type: boolean
+                      ordinaryLimit:
+                        type: integer
+                      submittedRequestChanges:
+                        type: integer
+                      priorTerminalDropSupersede:
+                        type: integer
+                      outcome:
+                        type: string
+                        enum: [pre-activation, grandfathered, within-budget, terminal-drop-supersede, disclosed-override]
+                      overrideReason:
+                        type: string
         '400':
           description: Bad Request (invalid action / missing arguments / invalid state).
           content:

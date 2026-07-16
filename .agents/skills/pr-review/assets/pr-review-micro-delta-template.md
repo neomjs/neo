@@ -1,6 +1,6 @@
 # Pull Request Micro-Delta Review
 
-> **Context:** This review is using the Micro-Delta Approval format because the Review-Loop Cost Circuit Breaker has fired and the convergence assessment is state (a): the underlying PR has previously received thorough semantic review and has reached the mechanical-hygiene or metadata-drift phase.
+> **Context:** This review uses the Micro-Delta format because prior semantic review is complete and only mechanical-hygiene or metadata-drift remains.
 
 ### State Vector
 - **Target SHA:** `[Insert precise SHA being reviewed]`
@@ -17,8 +17,17 @@
 
 ### Verdict
 - [ ] **APPROVED** (All mechanical-hygiene cleared. Merge-ready.)
-- [ ] **CHANGES_REQUESTED** (Mechanical-hygiene defects remain as listed above.)
+- [ ] **COMMENTED CLOSURE** (RC2 budget spent; record the closure packet without creating another ordinary RC.)
 - [ ] **MAINTAINER POLISH FAST PATH APPLIED** (Reviewer unilaterally patched and pushed fixes. Approved.)
 
+### RC2 Closure Packet
+*Required only when `COMMENTED CLOSURE` is selected; replace every placeholder.*
+
+- **Consumer sweep:** [consumers checked and result]
+- **Falsifier/property matrix:** [covered properties and remaining falsifier status]
+- **Carried-vs-new census:** [carried findings vs new classes]
+- **Truth-fold:** [ticket / PR / evidence authority aligned]
+- **Semantic-surface freeze:** [the existing RA's named capability; allowed property refinements]
+
 ---
-*Note: If a new semantic delta appears, this micro-delta format is invalidated and the reviewer MUST revert to the full `pr-review-followup-template.md` — or, if new distinct semantic blockers keep recurring across cycles, to the Step 2a break-up verdict.*
+*Note: If a new semantic delta appears, this format is invalid. Use the four-row §9 ladder; do not convert it into a third ordinary RC.*

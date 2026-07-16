@@ -10,6 +10,14 @@ Per §9 Strategic-Fit Step-Back:
 - **Decision**: [Approve / Approve+Follow-Up / Request Changes / Drop+Supersede]
 - **Rationale**: [Why this decision shape vs the others. Remember: Approve+Follow-Up is the worst normal outcome; debt-creating quick wins are Request Changes or Drop+Supersede, not follow-up-ticket fuel.]
 
+**Required only when Decision is Drop+Supersede:**
+
+- **Disposition:** [implementation-off | ticket-prescription-off | ticket-premise-dead]
+- **Source-coordinate falsifiers:** [exact paths/lines/anchors proving the premise failure]
+- **Salvage map:** [what is reusable, where it lands, and what is discarded]
+- **Successor landing pad:** [ticket / amended ticket / closure artifact]
+- **Successor map citation:** [successor URL or anchor that cites this salvage map]
+
 **Peer-Review Opening:** [Friendly Opening / General encouragement. e.g., "Thanks for putting this together! Great approach to solving [Problem]. I've left some review notes below. Let's get these squared away so we can merge."]
 
 **Self-Review Opening:** [Clinical assessment. e.g., "Self-review of #[Ticket]. This implementation chose [approach] over [alternative] because [rationale]. Key trade-offs and gaps noted below."]
@@ -128,6 +136,7 @@ Evidence: L<X> (<sandbox-ceiling description>) → L<Y> required (<close-target 
 - [ ] If residuals exist: close-target issue body has the residuals annotated as `[L<N>-deferred — operator handoff needed]`
 - [ ] Two-ceiling distinction: PR body distinguishes "shipped at L<X> because sandbox ceiling" from "shipped at L<X> because author didn't probe further"
 - [ ] Evidence-class collapse check: review language does NOT promote L1/L2 evidence to L3/L4 framing without explicit sandbox-ceiling caveat
+- [ ] Deployment causality: any external/runtime receipt used as a merge gate is reachable from this exact unmerged head through a verified branch-artifact route; otherwise it is Post-Merge Validation and failure creates a new ticket
 
 **Findings:** [Pass / evidence-AC mismatch flagged / N/A — close-target ACs fully covered by unit tests]
 
