@@ -63,16 +63,26 @@ export const TOUR_SCRIPT_SCHEMA = 'neo.tour.script.v1';
  * vocabulary enumerated (fail-closed contract, mirroring the dock-operation executor).
  * @type {ReadonlyArray<String>}
  */
-export const STEP_TYPES = Object.freeze(['op', 'pause', 'topology-assert']);
+export const STEP_TYPES = Object.freeze(['op', 'pause', 'topology-assert', 'cross-window']);
 
 /**
- * Step types the schema RESERVES for the perspective / cross-window tool tiers that have not
- * shipped as runner-executable steps yet. Reserved types validate as known —
+ * Step types the schema RESERVES for future tool tiers that have not shipped as
+ * runner-executable steps yet. Reserved types validate as known —
  * the error message says "reserved, not yet available" instead of "unknown" — but still
  * fail closed: a v1 runner must never silently skip a step it cannot execute.
  * @type {ReadonlyArray<String>}
  */
-export const RESERVED_STEP_TYPES = Object.freeze(['cross-window', 'perspective']);
+export const RESERVED_STEP_TYPES = Object.freeze(['perspective']);
+
+/**
+ * The exact data vocabulary of a cross-window step. Keeping this allowlist beside the
+ * schema validator mechanically prevents runtime window / DOM ids, coordinates, geometry,
+ * functions or live references from leaking into the reviewed screenplay.
+ * @type {ReadonlyArray<String>}
+ */
+export const CROSS_WINDOW_STEP_KEYS = Object.freeze([
+    'type', 'caption', 'itemId', 'sourceWorkspaceId', 'targetWorkspaceId', 'targetNodeId'
+]);
 
 /**
  * Default tolerance for number-to-number comparisons: IEEE floating-point noise scale, not a
@@ -330,6 +340,36 @@ function validateExpect(expect, path, errors, required = false) {
 }
 
 /**
+ * Validates one host-executed cross-window step. The script owns semantic identities only;
+ * the injected host resolves current windows, components, coordinates and geometry at run time.
+ * @param {Object}   step
+ * @param {String}   path
+ * @param {String[]} errors
+ */
+function validateCrossWindowStep(step, path, errors) {
+    const allowedKeys = new Set(CROSS_WINDOW_STEP_KEYS);
+
+    Object.keys(step).forEach(key => {
+        if (!allowedKeys.has(key)) {
+            errors.push(
+                `${path}.${key}: cross-window steps accept semantic ids only; ` +
+                `the allowed keys are: ${CROSS_WINDOW_STEP_KEYS.join(', ')}`
+            )
+        }
+    });
+
+    ['itemId', 'sourceWorkspaceId', 'targetWorkspaceId', 'targetNodeId'].forEach(key => {
+        if (typeof step[key] !== 'string' || step[key].length < 1) {
+            errors.push(`${path}.${key}: required non-empty semantic id string`)
+        }
+    });
+
+    if (step.sourceWorkspaceId === step.targetWorkspaceId) {
+        errors.push(`${path}: sourceWorkspaceId and targetWorkspaceId must identify different workspaces`)
+    }
+}
+
+/**
  * Fail-closed structural validation of a tour script against the v1 schema and a concrete
  * operation vocabulary (pass `DockService.operations` — the executor's exported SSOT — or a
  * fixture vocabulary in unit specs). A `{valid: true}` script is guaranteed: JSON-pure,
@@ -338,9 +378,10 @@ function validateExpect(expect, path, errors, required = false) {
  * @param {Object} script
  * @param {Object} options
  * @param {String[]} options.operations The executable dock-operation vocabulary (required for op steps)
+ * @param {Boolean}  options.crossWindowAvailable True only when a compatible host executor is injected
  * @returns {Object} `{valid, errors}` — errors are human-readable strings with script paths
  */
-export function validateTourScript(script, {operations = []} = {}) {
+export function validateTourScript(script, {crossWindowAvailable = false, operations = []} = {}) {
     const errors = [];
 
     if (!isPlainObject(script)) {
@@ -394,14 +435,22 @@ export function validateTourScript(script, {operations = []} = {}) {
 
             if (RESERVED_STEP_TYPES.includes(step.type)) {
                 errors.push(
-                    `${stepPath}.type: '${step.type}' is reserved for the perspective / cross-window ` +
-                    'tool tier and not yet available — v1 fails closed instead of skipping it'
+                    `${stepPath}.type: '${step.type}' is reserved for a future tool tier and not yet available — ` +
+                    'v1 fails closed instead of skipping it'
                 );
                 return
             }
 
             if (!STEP_TYPES.includes(step.type)) {
                 errors.push(`${stepPath}.type: unknown '${step.type}'. The v1 vocabulary is: ${STEP_TYPES.join(', ')}`);
+                return
+            }
+
+            if (step.type === 'cross-window' && !crossWindowAvailable) {
+                errors.push(
+                    `${stepPath}.type: 'cross-window' remains reserved unless a compatible ` +
+                    'crossWindowExecutor is injected — v1 fails closed instead of skipping it'
+                );
                 return
             }
 
@@ -428,6 +477,10 @@ export function validateTourScript(script, {operations = []} = {}) {
                 if (typeof step.ms !== 'number' || !Number.isFinite(step.ms) || step.ms < 0) {
                     errors.push(`${stepPath}.ms: required finite number >= 0 (viewer pacing in milliseconds)`)
                 }
+            }
+
+            if (step.type === 'cross-window') {
+                validateCrossWindowStep(step, stepPath, errors)
             }
 
             if (step.type === 'topology-assert') {

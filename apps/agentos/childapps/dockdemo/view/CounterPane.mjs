@@ -4,10 +4,10 @@ import Component from '../../../../../src/component/Base.mjs';
  * @summary The Demo-B state-continuity witness: a frame counter that lives on the INSTANCE.
  *
  * The pane increments once per second from construction and renders its count. Unlike a
- * wall-clock (which survives remounts invisibly — it re-reads world state), this counter
- * resets to zero if the component is ever destroyed and recreated: an unbroken count across
- * a perspective morph, a pop-out to an OS window, and a reattach is PROOF the instance was
- * reparented, never remade — the object-permanence story the demo exists to show.
+ * wall-clock (which re-reads world state), this instance-local value resets only if the
+ * component is destroyed and recreated. Cross-window movement does run the target document's
+ * normal mount lifecycle; the separate mount count makes that truth visible while the unbroken
+ * seconds value proves the worker-owned instance and state were never remade.
  * @class AgentOS.childapps.dockdemo.view.CounterPane
  * @extends Neo.component.Base
  */
@@ -31,6 +31,13 @@ class CounterPane extends Component {
      */
     frames = 0
     /**
+     * Number of browser-document mount events this live instance has completed. Moving into a
+     * second OS window increments this count by design; preserving the JS instance does not mean
+     * one DOM mount spans two documents.
+     * @member {Number} mountCount=0
+     */
+    mountCount = 0
+    /**
      * @member {Number|null} intervalId=null
      * @protected
      */
@@ -51,6 +58,21 @@ class CounterPane extends Component {
         }, 1000);
 
         me.renderCount()
+    }
+
+    /**
+     * Counts truthful render-target embodiments while preserving the instance-local heartbeat.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        if (value && oldValue !== undefined) {
+            this.mountCount++;
+            this.renderCount()
+        }
     }
 
     /**
@@ -77,7 +99,7 @@ class CounterPane extends Component {
         me.vdom.cn = [
             {cls: ['agentos-dockdemo-counter-label'], text: 'WORKBENCH'},
             {cls: ['agentos-dockdemo-counter-value'], text: `${me.frames}s unbroken`},
-            {cls: ['agentos-dockdemo-counter-note'],  text: 'this counter dies on remount — it has never remounted'}
+            {cls: ['agentos-dockdemo-counter-note'],  text: `${me.mountCount} render-target mount${me.mountCount === 1 ? '' : 's'} · same worker instance`}
         ];
 
         me.update()

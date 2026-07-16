@@ -18,8 +18,9 @@ import {test, expect} from '../../fixtures.mjs';
  * resolves only after the last deferred re-projection settles, so the page-survival verdict
  * covers the projection work, not just the reducer commits.
  *
- * All three executable `neo.tour.script.v1` step types are exercised (`op`, `topology-assert`,
- * `pause` — spec mode skips the pause WAIT but keeps its log entry, per pace-never-correctness).
+ * All three reducer-owned `neo.tour.script.v1` step types are exercised (`op`,
+ * `topology-assert`, `pause`). The conditionally executable `cross-window` type belongs to the
+ * two-window Demo-B journey; spec mode skips pause waits but keeps their log entries.
  *
  * Paradigm (whitebox-e2e protocol): Playwright loads the page; every assertion below is App
  * Worker truth via the Neural Link fixture — no DOM locator carries a verdict.

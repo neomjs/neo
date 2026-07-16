@@ -37,9 +37,9 @@ function doc() {
 }
 
 /**
- * @summary The canonical three-step smoke script: two real semantic operations plus a
- * topology assert and a (tiny) pause — every step type of the v1 vocabulary except the
- * reserved ones, executable against the real reducers with predictable post-state.
+ * @summary The canonical reducer smoke script: two real semantic operations plus a topology
+ * assert and a (tiny) pause. The conditionally executable cross-window type has its own host
+ * suite below; every reducer-owned type remains predictable against one document.
  * @returns {Object}
  */
 function smokeScript() {
@@ -80,6 +80,46 @@ function smokeScript() {
                 }
             ]
         }]
+    }
+}
+
+/**
+ * @summary One semantic cross-window step with no runtime window, DOM or geometry data.
+ * @returns {Object}
+ */
+function crossWindowScript() {
+    return {
+        schema: TOUR_SCRIPT_SCHEMA,
+        id    : 'unit-cross-window',
+        title : 'Unit cross-window tour',
+        scenes: [{
+            id   : 'cross',
+            title: 'Cross-window',
+            steps: [{
+                type             : 'cross-window',
+                caption          : 'move the live workbench',
+                itemId           : 'workbench',
+                sourceWorkspaceId: 'demo-b-main',
+                targetWorkspaceId: 'demo-b-popup',
+                targetNodeId     : 'popup-tabs'
+            }]
+        }]
+    }
+}
+
+/**
+ * @summary A successful host receipt. Runtime witness values are deliberately configurable
+ * so determinism tests can prove they never leak into TourRunner.log.
+ * @param {Object} options
+ * @returns {Object}
+ */
+function crossWindowReceipt({instanceId = 'neo-component-runtime-1', mountCount = 1} = {}) {
+    return {
+        applied       : true,
+        errors        : [],
+        sourceDocument: {schema: 'source.v1'},
+        targetDocument: {schema: 'target.v1'},
+        witness       : {instanceId, mountCount}
     }
 }
 
@@ -152,7 +192,7 @@ test.describe.serial('Neo.ai.client.TourRunner', () => {
             expect(errors.join('\n')).toContain(`unknown 'teleport'. The v1 vocabulary is: ${STEP_TYPES.join(', ')}`)
         });
 
-        test('reserved step types are rejected as reserved, not unknown', () => {
+        test('future reserved step types are rejected as reserved, not unknown', () => {
             RESERVED_STEP_TYPES.forEach(type => {
                 const script = smokeScript();
 
@@ -163,6 +203,41 @@ test.describe.serial('Neo.ai.client.TourRunner', () => {
                 expect(valid).toBe(false);
                 expect(errors.join('\n')).toContain(`'${type}' is reserved`)
             })
+        });
+
+        test('cross-window remains reserved without a compatible host executor', () => {
+            const {valid, errors} = validateTourScript(crossWindowScript(), {operations});
+
+            expect(valid).toBe(false);
+            expect(errors.join('\n')).toContain("'cross-window' remains reserved")
+        });
+
+        test('cross-window validates only its four semantic ids when a host is available', () => {
+            const valid = validateTourScript(crossWindowScript(), {
+                crossWindowAvailable: true,
+                operations
+            });
+
+            expect(valid).toEqual({errors: [], valid: true});
+
+            const missing = crossWindowScript();
+
+            missing.scenes[0].steps[0].itemId = '';
+
+            const sameWorkspace = crossWindowScript();
+
+            sameWorkspace.scenes[0].steps[0].targetWorkspaceId = 'demo-b-main';
+
+            const runtimeLeak = crossWindowScript();
+
+            runtimeLeak.scenes[0].steps[0].screenX = 720;
+
+            expect(validateTourScript(missing, {crossWindowAvailable: true, operations}).errors.join('\n'))
+                .toContain('itemId: required non-empty semantic id string');
+            expect(validateTourScript(sameWorkspace, {crossWindowAvailable: true, operations}).errors.join('\n'))
+                .toContain('must identify different workspaces');
+            expect(validateTourScript(runtimeLeak, {crossWindowAvailable: true, operations}).errors.join('\n'))
+                .toContain('screenX: cross-window steps accept semantic ids only')
         });
 
         test('unknown operations are rejected with the executable vocabulary enumerated', () => {
@@ -348,6 +423,23 @@ test.describe.serial('Neo.ai.client.TourRunner', () => {
             expect(result.completed).toBe(false);
             expect(result.errors.join('\n')).toContain("unknown 'teleportItem'")
         });
+
+        test('cross-window refuses an absent or incompatible executor before dispatch', async () => {
+            createRunner({script: crossWindowScript()});
+
+            let result = await runner.start();
+
+            expect(result.completed).toBe(false);
+            expect(result.errors.join('\n')).toContain("'cross-window' remains reserved");
+
+            runner.destroy();
+            createRunner({crossWindowExecutor: {}, script: crossWindowScript()});
+
+            result = await runner.start();
+
+            expect(result.completed).toBe(false);
+            expect(result.errors.join('\n')).toContain("'cross-window' remains reserved")
+        });
     });
 
     test.describe('execution against the real reducers', () => {
@@ -420,6 +512,163 @@ test.describe.serial('Neo.ai.client.TourRunner', () => {
 
             expect(result.completed).toBe(true);
             expect(events).toEqual(['wait:14', 'settled:pause:1'])
+        });
+
+        test('cross-window awaits one host dispatch before settlement and logs semantics only', async () => {
+            let release;
+            const
+                calls    = [],
+                executor = {
+                    executeCrossWindowStep(step) {
+                        calls.push(step);
+                        return new Promise(resolve => release = resolve)
+                    }
+                },
+                settled = [];
+
+            createRunner({crossWindowExecutor: executor, script: crossWindowScript()});
+            runner.on('stepSettled', data => settled.push(data));
+
+            const running = runner.start();
+
+            await Promise.resolve();
+
+            expect(calls).toHaveLength(1);
+            expect(calls[0]).toEqual(crossWindowScript().scenes[0].steps[0]);
+            expect(calls[0]).not.toBe(runner.script.scenes[0].steps[0]);
+            expect(settled).toEqual([]);
+
+            release(crossWindowReceipt());
+
+            const result = await running;
+
+            expect(result.completed).toBe(true);
+            expect(settled).toHaveLength(1);
+            expect(result.log).toEqual([{
+                applied: true,
+                errors : [],
+                sceneId: 'cross',
+                step   : {
+                    itemId           : 'workbench',
+                    sourceWorkspaceId: 'demo-b-main',
+                    targetWorkspaceId: 'demo-b-popup',
+                    targetNodeId     : 'popup-tabs'
+                },
+                stepIndex: 0,
+                type     : 'cross-window'
+            }]);
+            expect(JSON.stringify(result.log)).not.toContain('neo-component-runtime-1');
+            expect(JSON.stringify(result.log)).not.toContain('mountCount')
+        });
+
+        test('destroying the runner settles a pending cross-window host without a late step event', async () => {
+            let release;
+            const settled = [];
+
+            createRunner({
+                crossWindowExecutor: {
+                    executeCrossWindowStep: () => new Promise(resolve => release = resolve)
+                },
+                script: crossWindowScript()
+            });
+            runner.on('stepSettled', data => settled.push(data));
+
+            const running = runner.start();
+
+            await Promise.resolve();
+            runner.destroy();
+
+            expect(await running).toEqual({
+                completed: false,
+                errors   : ['TourRunner destroyed mid-tour'],
+                log      : []
+            });
+            expect(settled).toEqual([]);
+
+            release(crossWindowReceipt());
+            await Promise.resolve();
+
+            expect(settled).toEqual([])
+        });
+
+        test('cross-window rejection, throw and malformed success abort structurally without settlement', async () => {
+            const run = async executeCrossWindowStep => {
+                const settled = [];
+
+                runner?.destroy?.();
+                createRunner({crossWindowExecutor: {executeCrossWindowStep}, script: crossWindowScript()});
+                runner.on('stepSettled', data => settled.push(data));
+
+                const result = await runner.start();
+
+                expect(result.completed).toBe(false);
+                expect(settled).toEqual([]);
+
+                return result
+            };
+
+            let result = await run(async () => ({applied: false, errors: ['target refused']}));
+
+            expect(result.errors.join('\n')).toContain('target refused');
+            expect(result.log).toHaveLength(1);
+
+            result = await run(async () => { throw new Error('host vanished') });
+
+            expect(result.errors.join('\n')).toContain('cross-window executor failure: host vanished');
+            expect(result.log).toEqual([]);
+
+            result = await run(async () => ({applied: true, errors: []}));
+
+            expect(result.errors.join('\n')).toContain('requires a plain sourceDocument');
+            expect(result.errors.join('\n')).toContain('requires witness');
+            expect(result.log).toEqual([])
+        });
+
+        test('changing runtime witnesses across runs cannot change the cross-window replay log', async () => {
+            let   run      = 0;
+            const executor = {
+                executeCrossWindowStep: async () => crossWindowReceipt({
+                    instanceId: `runtime-${++run}`,
+                    mountCount: run
+                })
+            };
+
+            createRunner({crossWindowExecutor: executor, script: crossWindowScript()});
+
+            const first  = await runner.start(),
+                  second = await runner.start();
+
+            expect(first.completed && second.completed).toBe(true);
+            expect(second.log).toEqual(first.log)
+        });
+
+        test('cross-window logs are mode-identical while the host receipt settles correctness', async () => {
+            const executor = {executeCrossWindowStep: async () => crossWindowReceipt()};
+            let   results  = [];
+
+            for (const mode of ['spec', 'demo', 'record']) {
+                runner?.destroy?.();
+                createRunner({
+                    crossWindowExecutor: executor,
+                    mode,
+                    reducedMotion      : mode === 'record' ? false : null,
+                    script             : crossWindowScript()
+                });
+
+                results.push(await runner.start())
+            }
+
+            results.forEach(result => {
+                expect(result.completed).toBe(true);
+                expect(result.errors).toEqual([]);
+                expect(result.log).toHaveLength(1);
+                expect(result.log[0].type).toBe('cross-window')
+            });
+
+            const logs = results.map(result => JSON.stringify(result.log));
+
+            expect(logs[1]).toBe(logs[0]);
+            expect(logs[2]).toBe(logs[0])
         });
 
         test('log entries carry the complete cloned descriptor — the log IS the replay wire format', async () => {

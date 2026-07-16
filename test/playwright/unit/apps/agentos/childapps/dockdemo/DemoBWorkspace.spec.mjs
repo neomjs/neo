@@ -14,7 +14,7 @@ import DemoBWorkspace           from '../../../../../../../apps/agentos/childapp
 import DockProjectionReconciler from '../../../../../../../src/dashboard/DockProjectionReconciler.mjs';
 import DockZoneModel            from '../../../../../../../src/dashboard/DockZoneModel.mjs';
 
-import {initialDocument} from '../../../../../../../apps/agentos/tour/demoBPerspectives.mjs';
+import {demoBTourScript, initialDocument} from '../../../../../../../apps/agentos/tour/demoBPerspectives.mjs';
 
 /**
  * @summary Installs deterministic popup-vessel seams for the worker-side workspace specs.
@@ -23,7 +23,7 @@ import {initialDocument} from '../../../../../../../apps/agentos/tour/demoBPersp
  * @param {Object} [options={}]
  * @param {Error|null} [options.openError=null]
  * @param {Error|null} [options.closeError=null]
- * @returns {{openCount: Number, closeCount: Number, restore: Function}}
+ * @returns {{openCount: Number, closeCount: Number, closeCalls: Object[], restore: Function}}
  */
 function installWindowVessel({openError = null, closeError = null} = {}) {
     let previous = {
@@ -31,20 +31,22 @@ function installWindowVessel({openError = null, closeError = null} = {}) {
             windowClose  : Neo.Main.windowClose,
             windowOpen   : Neo.Main.windowOpen
         },
-        state = {closeCount: 0, openCount: 0};
+        state = {closeCalls: [], closeCount: 0, openCount: 0};
 
     Neo.Main.getWindowData = async () => ({screenLeft: 10, screenTop: 20});
     Neo.Main.windowOpen    = async () => {
         state.openCount++;
         if (openError) throw openError
     };
-    Neo.Main.windowClose   = async () => {
+    Neo.Main.windowClose   = async data => {
+        state.closeCalls.push(data);
         state.closeCount++;
         if (closeError) throw closeError
     };
 
     return {
         get closeCount() { return state.closeCount },
+        get closeCalls() { return state.closeCalls },
         get openCount()  { return state.openCount },
         restore() {
             Object.assign(Neo.Main, previous)
@@ -77,6 +79,21 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoBWorkspace', () => {
         expect(doc).not.toBe(initialDocument);
         expect(doc.nodes.root.zones.center).toBe('workbench-tabs');
         expect(doc.nodes['side-tabs'].items).toEqual(['inspector', 'timeline', 'console'])
+    });
+
+    test('this host conditionally activates one semantic cross-window step', () => {
+        const steps = demoBTourScript.scenes.flatMap(scene => scene.steps)
+            .filter(step => step.type === 'cross-window');
+
+        expect(workspace.tourRunner.crossWindowExecutor).toBe(workspace);
+        expect(steps).toEqual([{
+            type             : 'cross-window',
+            itemId           : 'workbench',
+            sourceWorkspaceId: 'demo-b-main',
+            targetWorkspaceId: 'demo-b-popup',
+            targetNodeId     : 'popup-tabs',
+            caption          : 'drag(workbench → popup): one real pointer gesture crosses two active OS windows. The worker instance and counter never reset.'
+        }])
     });
 
     test('capture → load round-trip through the REAL store: one committed swap, honest names', () => {
@@ -177,6 +194,165 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoBWorkspace', () => {
         const home = Object.keys(doc.nodes).find(id => doc.nodes[id].type === 'tabs' && doc.nodes[id].items.includes('workbench'));
 
         expect(home, 'the returning pane found a real tabs home').toBeTruthy()
+    });
+
+    test('reattachPane closes the stored cross-window vessel name', async () => {
+        const vessel = installWindowVessel();
+
+        try {
+            workspace.resolvePane('workbench', initialDocument.items.workbench);
+
+            const detached = DockZoneModel.transferItem(
+                workspace.dockModel,
+                DemoBWorkspace.createPopupDocument(),
+                {
+                    itemId: 'workbench', sourceWorkspaceId: 'main', targetWorkspaceId: 'popup',
+                    target: {operation: 'addTab', tabsNodeId: 'popup-tabs'}
+                }
+            );
+
+            workspace.dockModel     = detached.sourceDocument;
+            workspace.popupDocument = detached.targetDocument;
+            workspace.detachedPanes.workbench = {
+                tabsNodeId: 'workbench-tabs',
+                windowId  : 'window-popup',
+                windowName: 'demo-b-cross-window'
+            };
+
+            expect(await workspace.reattachPane('workbench')).toEqual({errors: [], reattached: true});
+            expect(vessel.closeCalls).toEqual([{
+                names   : ['demo-b-cross-window'],
+                windowId: workspace.windowId
+            }])
+        } finally {
+            vessel.restore()
+        }
+    });
+
+    test('a manual cross-window close after transfer returns the live item to main ownership', () => {
+        const pane     = workspace.resolvePane('workbench', initialDocument.items.workbench),
+              detached = DockZoneModel.transferItem(
+                  workspace.dockModel,
+                  DemoBWorkspace.createPopupDocument(),
+                  {
+                      itemId: 'workbench', sourceWorkspaceId: 'main', targetWorkspaceId: 'popup',
+                      target: {operation: 'addTab', tabsNodeId: 'popup-tabs'}
+                  }
+              );
+
+        workspace.dockModel               = detached.sourceDocument;
+        workspace.popupDocument           = detached.targetDocument;
+        workspace.crossWindowTargetWindowId = 'window-popup';
+        workspace.detachedPanes.workbench = {
+            tabsNodeId: 'workbench-tabs',
+            windowId  : 'window-popup',
+            windowName: 'demo-b-cross-window'
+        };
+
+        workspace.onWindowDisconnect({windowId: 'window-popup'});
+
+        expect(workspace.dockModel.items.workbench).toEqual(initialDocument.items.workbench);
+        expect(workspace.popupDocument.items.workbench).toBeUndefined();
+        expect(workspace.paneCache.workbench).toBe(pane);
+        expect(workspace.detachedPanes.workbench).toBeUndefined()
+    });
+
+    test('a popup close during projection settlement cannot strand committed popup ownership', async () => {
+        const
+            pane     = workspace.resolvePane('workbench', initialDocument.items.workbench),
+            detached = DockZoneModel.transferItem(
+                workspace.dockModel,
+                DemoBWorkspace.createPopupDocument(),
+                {
+                    itemId: 'workbench', sourceWorkspaceId: 'demo-b-main', targetWorkspaceId: 'demo-b-popup',
+                    target: {operation: 'addTab', tabsNodeId: 'popup-tabs'}
+                }
+            );
+
+        let releaseTargetRefresh,
+            targetRefreshEntered;
+
+        const
+            targetRefreshStarted = new Promise(resolve => targetRefreshEntered = resolve),
+            refreshCalls         = [];
+
+        workspace.crossWindowTargetWindowId = 'window-popup';
+        workspace.crossWindowGestureContext = {
+            frames      : pane.frames,
+            mountCount  : pane.mountCount,
+            pane,
+            sourceNodeId: 'workbench-tabs'
+        };
+        workspace.crossWindowStats = {localDropFires: 0, remoteDropOutFires: 1, transferCommits: 0};
+        workspace.timeout          = async () => {};
+        workspace.refreshWorkspace = async (workspaceId, document) => {
+            refreshCalls.push({document, workspaceId});
+
+            if (refreshCalls.length === 1) {
+                targetRefreshEntered();
+                await new Promise(resolve => releaseTargetRefresh = resolve)
+            }
+        };
+
+        const commit = workspace.commitCrossWindowTransfer({
+            descriptor: {
+                itemId: 'workbench',
+                target: {operation: 'addTab', tabsNodeId: 'popup-tabs'}
+            },
+            sourceDocument   : detached.sourceDocument,
+            sourceWorkspaceId: 'demo-b-main',
+            targetDocument   : detached.targetDocument,
+            targetWorkspaceId: 'demo-b-popup'
+        });
+
+        await targetRefreshStarted;
+
+        expect(workspace.detachedPanes.workbench.windowId).toBe('window-popup');
+
+        workspace.onWindowDisconnect({windowId: 'window-popup'});
+
+        expect(workspace.dockModel.items.workbench).toEqual(initialDocument.items.workbench);
+        expect(workspace.popupDocument.items.workbench).toBeUndefined();
+        expect(workspace.detachedPanes.workbench).toBeUndefined();
+
+        releaseTargetRefresh();
+        await commit;
+        await workspace.awaitProjectionIdle();
+
+        expect(refreshCalls.map(call => call.workspaceId)).toEqual(['demo-b-popup', 'demo-b-main']);
+        expect(workspace.dockModel.items.workbench).toEqual(initialDocument.items.workbench);
+        expect(workspace.popupDocument.items.workbench).toBeUndefined()
+    });
+
+    test('cross-window execution drains a cue projection before it opens the popup stage', async () => {
+        workspace.resolvePane('workbench', initialDocument.items.workbench);
+
+        let openCount = 0,
+            releaseProjection;
+
+        workspace.refreshPromise = new Promise(resolve => releaseProjection = resolve);
+        workspace.openCrossWindowStage = async () => {
+            openCount++;
+            throw new Error('stop after projection readiness gate')
+        };
+
+        const running = workspace.executeCrossWindowStep({
+            itemId           : 'workbench',
+            sourceWorkspaceId: 'demo-b-main',
+            targetWorkspaceId: 'demo-b-popup',
+            targetNodeId     : 'popup-tabs'
+        });
+
+        await Promise.resolve();
+        expect(openCount).toBe(0);
+
+        releaseProjection();
+
+        const result = await running;
+
+        expect(openCount).toBe(1);
+        expect(result.applied).toBe(false);
+        expect(result.errors).toEqual(['stop after projection readiness gate'])
     });
 
     test('topology round-trip transfers ownership, reports the missing popup slot, never spawns on restore, and preserves the pane instance', async () => {
@@ -334,6 +510,80 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoBWorkspace', () => {
         // one button, not two — the store replaced, the switcher rebuilt
         const bar = workspace.getReference('switcher-bar');
         expect(bar.items.slice(1).map(item => item.text)).toEqual(['Focus'])
+    });
+
+    test('projection coalescing keeps the latest document and preservation policy atomic', async () => {
+        const
+            topologyDocument = DockZoneModel.clone(initialDocument),
+            focusDocument    = DockZoneModel.clone(initialDocument),
+            calls            = [];
+
+        delete topologyDocument.items.workbench;
+        topologyDocument.nodes['workbench-tabs'].items = [];
+        topologyDocument.nodes['workbench-tabs'].activeItemId = null;
+
+        workspace.refreshWorkspace = async (workspaceId, document, options) => {
+            calls.push({document, options, workspaceId})
+        };
+
+        workspace.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, topologyDocument, {
+            preserveItemIds: ['workbench']
+        });
+        workspace.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, focusDocument);
+
+        await workspace.awaitProjectionIdle();
+
+        expect(calls).toHaveLength(2);
+        calls.forEach(call => {
+            expect(call.workspaceId).toBe(DemoBWorkspace.MAIN_WORKSPACE_ID);
+            expect(call.document).toBe(focusDocument);
+            expect(call.options.preserveItemIds).toEqual([])
+        })
+    });
+
+    test('a rerun drains the prior projection before resetting and starting replay', async () => {
+        let releasePrior,
+            order = [];
+
+        const mutated = workspace.applyDockZoneOperation({
+            operation  : 'splitNode', itemId: 'timeline', targetNodeId: 'workbench-tabs',
+            orientation: 'vertical', edge: 'bottom'
+        }).document;
+
+        workspace.dockModel = mutated;
+        workspace.tourRunner.log.push({type: 'prior-run'});
+        workspace.refreshPromise = new Promise(resolve => {
+            releasePrior = () => {
+                order.push('prior-settled');
+                resolve()
+            }
+        });
+        workspace.refreshWorkspace = async (workspaceId, document) => {
+            order.push(`refresh:${workspaceId}`);
+            expect(document).toBe(workspace.dockModel)
+        };
+        workspace.tourRunner.start = async () => {
+            order.push('runner-started');
+            return {completed: true, errors: [], log: []}
+        };
+
+        const rerun = workspace.startTour();
+
+        await Promise.resolve();
+
+        expect(order).toEqual([]);
+        expect(workspace.dockModel).toBe(mutated);
+
+        releasePrior();
+        await rerun;
+
+        expect(order).toEqual([
+            'prior-settled',
+            `refresh:${DemoBWorkspace.MAIN_WORKSPACE_ID}`,
+            'runner-started'
+        ]);
+        expect(workspace.dockModel).not.toBe(initialDocument);
+        expect(workspace.dockModel).toEqual(initialDocument)
     });
 
     test('destroy tears down the runner, seam, store, and every cached pane', () => {
