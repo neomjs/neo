@@ -1,6 +1,6 @@
 # ADR 0029: Harness Docking Design — Multi-Window Layout Model, Perspectives, Cross-Window Drag
 
-> Architectural Decision Record for the design tier **above** the landed `dockZone.v1` model contract: the multi-window layout model and its SharedWorker seam, named perspectives across a window topology (carried by the `dockLayout.v2` envelope per the §2.2 amendment), cross-window drag as semantic operations (`transferItem`), grouped drag (`moveNode` / `transferNode`) and tab overflow, the core-lift disposition, the container contract embedded product surfaces consume, and the auto-hide UI contract. It settles the questions the remaining docking capability leaves share and cannot answer coherently one leaf at a time. Everything is **additive on the landed `dockZone.v1` model — not a redesign**: where this record names a new schema or operation, it extends the existing family; it never alters a landed shape.
+> Architectural Decision Record for the design tier **above** the landed `dockZone.v1` model contract: the multi-window layout model and its SharedWorker seam, named perspectives across a window topology (carried by the `dockLayout.v2` envelope per the §2.2 amendment), cross-window drag as semantic operations (`transferItem`), grouped drag (`moveNode` / `transferNode`) and tab overflow, the core-lift disposition, the container contract embedded product surfaces consume, the auto-hide UI contract, and — per the §2.8 amendment (2026-07-16) — the multi-window choreography contracts: the gesture claim protocol, the gesture outcome machine, and vessel lifecycle/admission. It settles the questions the remaining docking capability leaves share and cannot answer coherently one leaf at a time. Everything is **additive on the landed `dockZone.v1` model — not a redesign**: where this record names a new schema or operation, it extends the existing family; it never alters a landed shape.
 
 | Attribute | Value |
 |---|---|
@@ -296,6 +296,52 @@ Edge association is model-derived: the rail an item collapses to is the edge zon
 | Perspective capture (§2.2) | Captures `pinned` / `autoHidden` as committed item state (landed serialization rules); reveal state is invisible to perspectives. |
 | Detached window closes (reintegration, #13028 path) | The item re-enters via its `fallbackTarget` hint; it returns with the committed `pinned` / `autoHidden` values its catalog record carries. |
 
+### §2.8 Amendment — Multi-Window Choreography Contracts (2026-07-16, #15240)
+
+> Graduated from Discussion #15204 (§6.2 family-keyed quorum, cycle-4b) into epic #15239; this amendment is the epic's first merge-ordered leaf. It fires the §1 escalation boundary **by design**: the claim protocol below *changes `DragCoordinator`'s target-resolution semantics*, so per this record's own lifecycle the change lands here first — amend, never supersede: every landed section above stays authoritative; this section OWNS the arbitration, gesture-outcome, and vessel-lifecycle semantics the multi-window choreography leaves (#15244, #15245, #15246, #15247, #15248, #15250, #15251, #15252) consume.
+
+#### §2.8.1 The gesture claim protocol (replaces first-intersecting target resolution)
+
+The landed physical resolution — `Window.getWindowAt()` / `getWindowAtExcept()` first-intersecting registered rectangle — resolves overlapping windows by **registration order**, which is nondeterministic under the popup-over-popup story. It is replaced on the dock path by a **session-scoped gesture/claim protocol**, expressed at the coordinator tier in dock-blind terms (registered zone identity, never dock semantics — the §2.3 dock-blindness invariant HOLDS):
+
+- **One gesture token per drag.** The coordinator mints it at gesture start; every claim references it; a token's claims die with its gesture (terminal or cancel).
+- **Hit-claims on stable identity.** A target zone acquires a short-lived claim keyed on its **stable workspace/zone identity** — never `windowId`, never registration/insertion order (`windowId` stays runtime-only per §2.1).
+- **Validity and expiry.** Claims carry an expiry; a stale (expired) claim is ignored.
+- **Deterministic outcomes, all three cases:** *tie* — the earliest valid claim wins; stable-identity lexicographic order is the final tiebreak; *stale* — ignored; *no claim* — **fail closed: no preview, no commit.**
+- **The falsifier (binding on the implementing leaf, #15246):** the ≥3-window OVERLAP witness — three overlapping windows, one gesture, exactly **one** preview and exactly **one** commit.
+
+#### §2.8.2 The gesture outcome machine
+
+Every cross-window gesture resolves through one finite state contract:
+
+```
+IN_SOURCE → DETACHED_MOVING → HOVERING_CLAIM → { COMMITTED_TARGET | TERMINAL_DETACHED | REJECTED | CANCELLED }
+```
+
+Four invariants, all mandatory:
+
+1. **Source cleanup and empty-vessel close occur ONLY after `COMMITTED_TARGET`.** This qualifies §2.3's source-hook table: `onRemoteDropOut(draggedItem)` is invoked **only after a committed remote drop** — the landed behavior in which `DragCoordinator.onDragEnd()` calls it unconditionally while `CrossWindowDragTarget.onRemoteDrop()` may return `null` (a no-commit drop retiring a live source gesture) is the **named forbidden defect** (#15248 enforces).
+2. **Reject / no-preview restores or resumes the source with zero model mutation.**
+3. **Model commit precedes window close.** A vessel-close failure can neither roll back the committed documents nor double-reintegrate the item (`Container.onWindowDisconnect()` must be idempotent against the committed state).
+4. **Exact-once, idempotent cleanup** across every terminal for every surface: preview, claim, candidate timer, `activeTargetZone` (the landed `unregister()` residue is in scope), registration, vessel bookkeeping.
+
+#### §2.8.3 Vessel lifecycle and admission
+
+- **The admission truth:** `windowOpen` returns a **Boolean** — a blocked popup **never throws**, so try/catch-shaped acquisition silently passes its own failure. Spike receipts (#15243) and the acquisition contract (#15245) assert it.
+- **The admission state machine binds the FULL chain** — `Boolean open → bounded connect admission → generation revalidation → disconnect correlation` — never the Boolean alone:
+  1. `windowOpen === false` ⇒ fail closed per §2.8.2 invariant 2: the gesture degrades to its documented in-window fallback; no orphan vessel state.
+  2. `windowOpen === true` opens a **bounded connect window**: the vessel must complete the embodiment handshake (the ADR 0020 connect) within it — **opened-but-never-connected admission fails closed**: the vessel is closed, the gesture degrades per invariant 2, zero model mutation.
+  3. **Generation revalidation at connect:** the connecting vessel validates against the CURRENT gesture/session generation — a vessel arriving for a stale generation (its gesture already terminal) is refused and closed; a successor gesture never adopts a predecessor's vessel.
+  4. **Disconnect correlation:** every vessel disconnect correlates to its workspace-set entry and the owning gesture's outcome state — a disconnect during `DETACHED_MOVING` / `HOVERING_CLAIM` resolves through the §2.8.2 machine (never a dangling registry entry), and the landed `Container.onWindowDisconnect` reintegration path stays idempotent against already-committed outcomes (§2.8.2 invariant 3).
+- **Close is a post-commit render-target effect** — never part of the model transaction (§2.1's worker-truth boundary): closing a vessel unbinds a render target; it does not delete worker documents.
+- **The emptied-workspace registry disposition is explicit:** whether an emptied `{workspaceId → document}` entry is retained or retired is decided and named SEPARATELY from closing its OS window (#15247 owns the decision); recovery stays semantic through `fallbackTarget` (§2.1 hints).
+
+#### §2.8.4 Constraints and merge order
+
+- **Placement hints stay additive on `dockLayout.v2`.** Any schema revision ships migration + fail-closed tests atomically (Discussion #15204's `revalidationTrigger` fires on a non-additive requirement).
+- **ADR 0034 boundary:** the Electron shell may improve vessel *materialization*; it never forks placement or arbitration semantics.
+- **Merge order:** this amendment precedes all consuming implementation — #15244 (G1 tear-out), #15246 (G3 composition/arbitration), #15247 (G4 reintegration/vessel), #15248 (teardown hygiene) cite their §2.8 subsection as upstream contract; the #15243 spike's row 6 binds to §2.8.1's identity requirements without implementing arbitration.
+
 ## 3. Rejected Options
 
 - **Qt-ADS wholesale import** — Qt-ADS is the capability bar, not the design: its single-process, single-window-tree assumptions (native floating windows, one owning widget tree) do not survive the worker-owned/multi-window reality. Rejected in favor of extending `dockZone.v1` semantics.
@@ -354,6 +400,11 @@ Per the parent epic's discipline (one Contract-Ledgered leaf per capability), im
 | Topology perspectives: the hint layer on `dockLayout.v2` + switcher + restore reconciliation | §2.2 | envelope + model-level capture/collection substrate landed; NL capture/list/restore tools are in review (#15019); the placement-hint layer + atomic multi-window restore remain |
 | Grouped drag (`moveNode`/`transferNode`) + tab overflow affordance | §2.4 | unfiled |
 | Core lift to a non-dashboard namespace | §2.5 | **gated** — fires only on the named trigger |
+| The three-OS portability spike (matrix contract) | §2.8.1 (row-6 identity binding) + §2.8.3 (admission receipts) | #15243 (epic #15239; Emmy's contracted lane) |
+| Dock tear-out + acquisition contract | §2.8.2/§2.8.3 + the §2.3 participation contract | #15244 / #15245 (epic #15239) |
+| Workspace-set composition + claim arbitration + remote preview | §2.8.1 + §2.1 workspace-set | #15246 (epic #15239) |
+| Whole-stack reintegration + vessel close policy | §2.8.2/§2.8.3 + §2.4 `transferNode` | #15247 (epic #15239) |
+| Coordinator teardown hygiene (exact-once terminals) | §2.8.2 invariant 4 | #15248 (epic #15239) |
 
 ### JSON-First Guardrail (restated, applied)
 
