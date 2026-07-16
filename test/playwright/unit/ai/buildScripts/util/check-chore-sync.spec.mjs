@@ -24,6 +24,14 @@ test.describe('check-chore-sync.mjs', () => {
         fs.mkdirSync(path.dirname(testScriptPath), {recursive: true});
         fs.copyFileSync(scriptPath, testScriptPath);
 
+        // The guard imports its merge-inheritance rule from a shared helper (also consumed by
+        // check-whitespace), so the fixture must carry it too — the script anchors to the repo that
+        // owns it, and a bare copy would fail to resolve the import rather than test the guard.
+        fs.copyFileSync(
+            path.resolve(path.dirname(scriptPath), 'mergeInheritance.mjs'),
+            path.join(tempDir, 'buildScripts/util/mergeInheritance.mjs')
+        );
+
         // Ensure we're on a non-data branch like 'dev'
         execSync('git checkout -b dev', { cwd: tempDir, stdio: 'ignore' });
     });
