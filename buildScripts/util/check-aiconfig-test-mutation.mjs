@@ -101,6 +101,54 @@ export function codeMask(line, state) {
                 i += 2;
                 continue
             }
+            // A template INTERPOLATION is executable code wearing string syntax: `${aiConfig?.x}`
+            // runs. Mask the span between `${` and its depth-matched `}` as code — with inner
+            // quote-delimited segments skipped as strings — so every rule classifying on this
+            // mask sees interpolated reads. Bounded to single-line spans: multi-line template
+            // semantics remain this mask's documented per-line approximation.
+            if (inString === '`' && ch === '$' && next === '{') {
+                let depth = 1,
+                    j     = i + 2,
+                    inner = null;
+
+                while (j < n && depth > 0) {
+                    const cj = line[j];
+
+                    if (inner) {
+                        if (cj === '\\') {
+                            j += 2;
+                            continue
+                        }
+                        if (cj === inner) {
+                            inner = null
+                        }
+                        j++;
+                        continue
+                    }
+
+                    if (cj === '"' || cj === "'" || cj === '`') {
+                        inner = cj;
+                        j++;
+                        continue
+                    }
+
+                    if (cj === '{') {
+                        depth++
+                    } else if (cj === '}') {
+                        depth--;
+                        if (depth === 0) {
+                            j++;
+                            break
+                        }
+                    }
+
+                    mask[j] = true;
+                    j++
+                }
+
+                i = j;
+                continue
+            }
             if (ch === inString) {
                 inString = null
             }

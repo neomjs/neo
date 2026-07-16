@@ -216,6 +216,16 @@ test.describe('check-aiconfig-antipatterns guard — A1 module-level env re-deri
         expect(findAntipatterns(importHeader + 'const x = compute(); /* process.env.NEO_Y */\n')).toEqual([])
     });
 
+    test('A1: an EXECUTABLE template interpolation flags — `${process.env.X}` runs; literal template text does not', () => {
+        expect(findAntipatterns(importHeader + 'const url = `http://${process.env.NEO_HOST}/api`;\n').map(h => h.rule)).toEqual(['A1']);
+        // mixed: literal env text stays masked while the interpolated read is code
+        expect(findAntipatterns(importHeader + 'const s = `process.env.LITERAL and ${process.env.NEO_REAL}`;\n').map(h => h.rule)).toEqual(['A1'])
+    });
+
+    test('B3: a defensive hop inside a template interpolation flags (interpolations are code for every rule)', () => {
+        expect(findAntipatterns('const t = `state: ${aiConfig?.load}`;\n').map(h => h.rule)).toEqual(['B3'])
+    });
+
     test('A1: an escape marker on the IMPORT/gate line exempts only that line — other declarations still flag', () => {
         const content = importHeader.trimEnd() + ` // ${ESCAPE_MARKER}: gate-line note\n` +
             "const P = process.env.NEO_P || 'x';\n";
