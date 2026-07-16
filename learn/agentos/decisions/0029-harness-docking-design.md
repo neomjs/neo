@@ -327,7 +327,12 @@ Four invariants, all mandatory:
 
 #### §2.8.3 Vessel lifecycle and admission
 
-- **The admission truth:** `windowOpen` returns a **Boolean** — a blocked popup **never throws**, so try/catch-shaped acquisition silently passes its own failure. The vessel admission state machine binds on the Boolean: `false` ⇒ fail closed per §2.8.2 invariant 2 (the gesture degrades to its documented in-window fallback; no orphan vessel state). Spike receipts (#15243) and the acquisition contract (#15245) assert it.
+- **The admission truth:** `windowOpen` returns a **Boolean** — a blocked popup **never throws**, so try/catch-shaped acquisition silently passes its own failure. Spike receipts (#15243) and the acquisition contract (#15245) assert it.
+- **The admission state machine binds the FULL chain** — `Boolean open → bounded connect admission → generation revalidation → disconnect correlation` — never the Boolean alone:
+  1. `windowOpen === false` ⇒ fail closed per §2.8.2 invariant 2: the gesture degrades to its documented in-window fallback; no orphan vessel state.
+  2. `windowOpen === true` opens a **bounded connect window**: the vessel must complete the embodiment handshake (the ADR 0020 connect) within it — **opened-but-never-connected admission fails closed**: the vessel is closed, the gesture degrades per invariant 2, zero model mutation.
+  3. **Generation revalidation at connect:** the connecting vessel validates against the CURRENT gesture/session generation — a vessel arriving for a stale generation (its gesture already terminal) is refused and closed; a successor gesture never adopts a predecessor's vessel.
+  4. **Disconnect correlation:** every vessel disconnect correlates to its workspace-set entry and the owning gesture's outcome state — a disconnect during `DETACHED_MOVING` / `HOVERING_CLAIM` resolves through the §2.8.2 machine (never a dangling registry entry), and the landed `Container.onWindowDisconnect` reintegration path stays idempotent against already-committed outcomes (§2.8.2 invariant 3).
 - **Close is a post-commit render-target effect** — never part of the model transaction (§2.1's worker-truth boundary): closing a vessel unbinds a render target; it does not delete worker documents.
 - **The emptied-workspace registry disposition is explicit:** whether an emptied `{workspaceId → document}` entry is retained or retired is decided and named SEPARATELY from closing its OS window (#15247 owns the decision); recovery stays semantic through `fallbackTarget` (§2.1 hints).
 
