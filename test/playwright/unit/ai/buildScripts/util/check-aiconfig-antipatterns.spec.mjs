@@ -323,3 +323,46 @@ test.describe('shared codeMask lexer matrix (cross-consumer: B3/A5/A1 + B4)', ()
         expect(findDbPathMutations(content).map(h => h.line)).toEqual([2])
     })
 });
+
+/**
+ * Transition-pair matrix (cycle-5): a shared lexer needs coverage where CARRIED context changes the
+ * meaning of the next character — open-state × next-line-first-token, and grammar-context × slash —
+ * not only isolated token classes. Fixtures are the verified cycle-5 falsifier pairs: a line-final
+ * backslash escapes the LINE TERMINATOR (consumes no next-line char, so a column-zero closing
+ * delimiter must be processed), and slash classification must be correct on BOTH sides of the
+ * expression boundary (a control-header `)` admits a regex; an expression-ending quote/backtick
+ * demands division). Every fixture is valid JavaScript with a REAL violation in the suffix — the
+ * false-negative direction, which is the dangerous one for an enforcement mask.
+ */
+test.describe('shared codeMask lexer matrix — transition pairs (continuation + slash grammar)', () => {
+    test('line-final backslash continues the literal and consumes NO next-line character — all consumers', () => {
+        expect(findAntipatterns('const t = `foo\\\n`; const x = aiConfig?.load;').map(h => h.rule)).toEqual(['B3']);
+        expect(findAntipatterns("const s = 'foo\\\n'; hasEnvValue('X');").map(h => h.rule)).toEqual(['A5']);
+        expect(findDbPathMutations('const t = `foo\\\n`; aiConfig.storagePaths = p;').length).toBe(1)
+    });
+
+    test('a continuation line closing mid-line keeps text as string and suffix as code', () => {
+        const hits = findAntipatterns("const s = 'aiConfig?.load\\\nstill text'; const bad = aiConfig?.load;");
+
+        expect(hits.map(h => ({rule: h.rule, line: h.line}))).toEqual([{rule: 'B3', line: 2}])
+    });
+
+    test('a regex after a control-statement header keeps its body masked and its suffix executable', () => {
+        expect(findAntipatterns('if (ok) /text/.test(s); const x = aiConfig?.load;').map(h => h.rule)).toEqual(['B3']);
+        // Pattern text is never code — even when the pattern tail is a non-identifier char (the
+        // shape whose closing slash previously opened a fake regex and swallowed the suffix).
+        expect(findAntipatterns('if (ok) /aiConfig\\?\\./.test(s); const y = aiConfig?.load;').length).toBe(1);
+        expect(findDbPathMutations("while (x) /}/.exec(s); aiConfig.storagePaths = p;").length).toBe(1)
+    });
+
+    test('a slash after an expression-ending quoted or template literal is division, not a regex opener', () => {
+        expect(findAntipatterns('const q = "x" / 2; const bad = aiConfig?.load;').map(h => h.rule)).toEqual(['B3']);
+        expect(findDbPathMutations('const q = `x` / 2; aiConfig.storagePaths = p;').length).toBe(1);
+        expect(findAntipatterns('import {AiConfig} from "./x.mjs";\nconst q = "x" / 2, DB = process.env.NEO_X;').map(h => h.rule)).toEqual(['A1'])
+    });
+
+    test('a call/grouping paren still yields division; nested control headers resolve via the paren stack', () => {
+        expect(findAntipatterns('foo(a) / b; const x = aiConfig?.load;').map(h => h.rule)).toEqual(['B3']);
+        expect(findAntipatterns('if (a(b)) /re/.test(s); const y = aiConfig?.load;').map(h => h.rule)).toEqual(['B3'])
+    })
+});

@@ -66,13 +66,23 @@ export const ALLOWLIST = new Set([
  */
 const REGEX_PRECEDING_KEYWORDS = /^(?:return|typeof|instanceof|case|in|of|new|delete|void|yield|await|do|else)$/;
 
+/*
+ * Control-statement headers whose closing `)` puts the grammar back at expression START, so a
+ * following `/` opens a regex (`if (ok) /re/.test(s)`), unlike a call/grouping `)` where `/` is
+ * division (`foo(a) / b`). Tracked via a paren-word stack carried in state.
+ */
+const CONTROL_HEADER_KEYWORDS = /^(?:if|while|for|switch|catch|with)$/;
+
 /**
  * @summary Decides whether a `/` at the current lexer position opens a regex literal.
  *
- * Standard lexer heuristic, not a parser: `state.lastCode` (last significant code char) and
- * `state.wordBuf` (trailing identifier run) approximate "are we at expression start?". Known bound:
- * a division whose left operand ends on the PREVIOUS line (ASI edge) misreads as regex — accepted,
- * documented, and unreachable in the guard's own scan set (valid committed JS, per-line reads).
+ * Standard lexer heuristic, not a parser, on three signals: `state.lastCode` (last significant
+ * code char), `state.wordBuf` (trailing identifier run — the keyword half: `return /x/`), and
+ * `state.controlParen` (whether the most recent `)` closed a control-statement header — the
+ * grammar half: `if (ok) /x/` is a regex, `foo(a) / b` is division). Expression-ending literals
+ * (closing quote/backtick, a finished regex) record the `]` proxy in `lastCode`, so a following
+ * `/` is division. Known bound, documented at the mask: a division whose left operand ends on the
+ * PREVIOUS line (ASI edge) misreads as regex.
  * @param {Object} state The carried lexer state.
  * @returns {Boolean}
  */
@@ -85,7 +95,10 @@ function regexAllowed(state) {
     if (/[A-Za-z0-9_$]/.test(last)) {
         return REGEX_PRECEDING_KEYWORDS.test(state.wordBuf)
     }
-    return !/[)\]]/.test(last)
+    if (last === ')') {
+        return state.controlParen === true
+    }
+    return last !== ']'
 }
 
 /**
@@ -152,39 +165,46 @@ function consumeRegex(line, i) {
  * and carry in `state`; a multi-line template's text lines therefore mask as string, and a
  * line-comment inside a multi-line interpolation ends at EOL while the frame survives. Quoted
  * strings auto-close at EOL (unterminated ones are syntax errors in the valid JS this guard scans)
- * unless a line-final `\` continues them (`state.pendingEscape`). Unlike a strip-to-text pass the
- * mask preserves positions, so a regex match found on the RAW line can be classified by whether its
- * root token sits in code — a string-literal *bracket key* (`['storagePaths']`, real code merely
- * containing a string) stays detectable while a pattern living entirely inside a string (a log
- * message, a `describe(...)` title, a regex body) is excluded. The structural complement of
- * `check-ticket-archaeology.mjs`'s `extractComment`.
+ * unless a line-final `\` continues them: the backslash escapes the LINE TERMINATOR — a
+ * continuation consumes NO character on the next line, so an immediate closing delimiter at
+ * column zero is processed normally (`state.stringContinues`). Expression-ending literals (a
+ * closing quote, backtick, or regex) record the `]` proxy in `lastCode`, so a following `/` is
+ * division, and a paren-word stack distinguishes a control-header `)` (regex follows: `if (ok)
+ * /re/`) from a call/grouping `)` (division follows: `foo(a) / b`). Remaining documented bound:
+ * a division whose left operand ends on the PREVIOUS line (ASI edge) misreads as regex. Unlike a
+ * strip-to-text pass the mask preserves positions, so a regex match found on the RAW line can be
+ * classified by whether its root token sits in code — a string-literal *bracket key*
+ * (`['storagePaths']`, real code merely containing a string) stays detectable while a pattern
+ * living entirely inside a string (a log message, a `describe(...)` title, a regex body) is
+ * excluded. The structural complement of `check-ticket-archaeology.mjs`'s `extractComment`.
  * @param {Object} state Mutated in place; carries all cross-line lexer state. Constructing it as
  *     `{inBlock: false}` remains sufficient — richer fields self-initialize on first use.
  * @param {Boolean} state.inBlock Inside a block comment.
  * @param {Object[]} [state.stack] Lexical frames: `{type: 'code'|'template'|'expression'}`.
  * @param {String|null} [state.stringQuote] Open quote character of a quoted string.
- * @param {Boolean} [state.pendingEscape] A line-final `\` escapes the next line's first char.
+ * @param {Boolean} [state.stringContinues] A line-final `\` inside a quoted string escaped the
+ *     line terminator — the string legally continues on the next line.
  * @param {String} [state.lastCode] Last significant code char (regex-vs-division heuristic).
  * @param {String} [state.wordBuf] Trailing identifier run (regex-after-keyword heuristic).
+ * @param {String[]} [state.parenWords] Word immediately preceding each open `(` (control-header
+ *     detection for the regex heuristic).
+ * @param {Boolean} [state.controlParen] The most recent `)` closed a control-statement header.
  * @param {String} line
  * @returns {Boolean[]} `mask[i]` is true when raw character `i` is executable code.
  */
 export function codeMask(line, state) {
-    state.stack         ??= [{type: 'code'}];
-    state.stringQuote   ??= null;
-    state.pendingEscape ??= false;
-    state.lastCode      ??= '';
-    state.wordBuf       ??= '';
+    state.stack           ??= [{type: 'code'}];
+    state.stringQuote     ??= null;
+    state.stringContinues ??= false;
+    state.lastCode        ??= '';
+    state.wordBuf         ??= '';
+    state.parenWords      ??= [];
+    state.controlParen    ??= false;
 
     const n    = line.length,
           mask = new Array(n).fill(false);
 
     let i = 0;
-
-    if (state.pendingEscape) {
-        state.pendingEscape = false;
-        i = 1
-    }
 
     while (i < n) {
         const ch   = line[i],
@@ -204,14 +224,19 @@ export function codeMask(line, state) {
 
         if (state.stringQuote) {
             if (ch === '\\') {
+                // A line-final backslash escapes the line terminator: the string CONTINUES on the
+                // next line and the continuation consumes no next-line character.
                 if (i === n - 1) {
-                    state.pendingEscape = true
+                    state.stringContinues = true
                 }
                 i += 2;
                 continue
             }
             if (ch === state.stringQuote) {
-                state.stringQuote = null
+                state.stringQuote = null;
+                // A closing quote ends an expression: a following `/` is division.
+                state.lastCode    = ']';
+                state.wordBuf     = ''
             }
             i++;
             continue
@@ -219,14 +244,15 @@ export function codeMask(line, state) {
 
         if (ctx.type === 'template') {
             if (ch === '\\') {
-                if (i === n - 1) {
-                    state.pendingEscape = true
-                }
+                // Line-final: escapes the terminator; the template frame carries anyway and the
+                // next line processes from column zero.
                 i += 2;
                 continue
             }
             if (ch === '`') {
                 state.stack.pop();
+                state.lastCode = ']';
+                state.wordBuf  = '';
                 i++;
                 continue
             }
@@ -265,9 +291,9 @@ export function codeMask(line, state) {
 
         if (ch === '/' && regexAllowed(state)) {
             i = consumeRegex(line, i);
-            // A regex literal ends an expression: a following `/` is division. `)` is the proxy
-            // for "expression just ended" in the heuristic's char alphabet.
-            state.lastCode = ')';
+            // A regex literal ends an expression: a following `/` is division. `]` is the
+            // expression-ender proxy in the heuristic's char alphabet.
+            state.lastCode = ']';
             state.wordBuf  = '';
             continue
         }
@@ -289,6 +315,17 @@ export function codeMask(line, state) {
         mask[i] = true;
 
         if (!/\s/.test(ch)) {
+            // Paren-word tracking: `(` records the word immediately preceding it; `)` decides
+            // whether it closed a control-statement header (regex may follow) or a call/grouping
+            // (division follows). Any other significant char invalidates a stale control-`)`.
+            if (ch === '(') {
+                state.parenWords.push(state.wordBuf)
+            } else if (ch === ')') {
+                state.controlParen = CONTROL_HEADER_KEYWORDS.test(state.parenWords.pop() ?? '')
+            } else {
+                state.controlParen = false
+            }
+
             state.lastCode = ch;
             state.wordBuf  = /[A-Za-z0-9_$]/.test(ch) ? state.wordBuf + ch : ''
         }
@@ -296,10 +333,12 @@ export function codeMask(line, state) {
     }
 
     // JS auto-terminates quoted strings at EOL (unterminated = syntax error upstream, CI runs a
-    // parse check) — reset instead of poisoning the next line, except across a `\` continuation.
-    if (state.stringQuote && !state.pendingEscape) {
+    // parse check) — reset instead of poisoning the next line, except across a `\` continuation
+    // (the line-terminator escape consumed above).
+    if (state.stringQuote && !state.stringContinues) {
         state.stringQuote = null
     }
+    state.stringContinues = false;
 
     return mask
 }
