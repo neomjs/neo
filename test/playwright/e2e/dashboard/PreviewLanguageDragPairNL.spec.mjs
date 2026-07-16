@@ -1,23 +1,33 @@
 import {test, expect} from '../../fixtures.mjs';
 
 /**
- * Whitebox-e2e: the SAME-REAL-DRAG evidence pair for the preview-language switch — the
- * capture a composed specimen board cannot certify. One committed pointer gesture, parked
- * deterministically over the editor zone, captured under the DEFAULT and SIGNAL languages
- * in BOTH color modes: target zone preview + §06 indicator menu + the body-mounted drag
- * proxy, all in frame.
+ * Whitebox-e2e: the SAME-SCRIPTED-DRAG evidence set for the preview-language switch — the
+ * capture a composed specimen board cannot certify. The IDENTICAL committed gesture script
+ * (same tab, same path, same park point) is REPLAYED once per scene — four separately
+ * replayed-and-cancelled drags, one per captured golden — under the DEFAULT and SIGNAL
+ * languages in BOTH color modes: target zone preview + §06 indicator menu + the
+ * body-mounted drag proxy, all in frame.
+ *
+ * Evidence honesty (the demo-surface motion audit's boundary): the four goldens are STATIC
+ * post-settle APPEARANCE evidence. Rendered motion is witnessed separately and executably:
+ * a positive `animationstart` witness proves the signal hover-lock pulse RUNS with its
+ * token duration in normal mode, and the reduced-motion counter-witness proves every
+ * animation/transition entry computes 0s under `prefers-reduced-motion: reduce`.
  *
  * Product truths proven against the running childapp:
- * 1. the language modifier is a pure skin over one identical gesture — same park point,
- *    same active candidate, different rendered language;
+ * 1. the language modifier is a pure skin over the identical scripted gesture — same park
+ *    point, same active candidate, different rendered language;
  * 2. the drag proxy carries its scope (dock marker + language + NEAREST-ancestor theme) to
  *    its `document.body` mount — the light captures render the projected daylight palette
  *    on every affordance INCLUDING the proxy (the cycle-2 falsified masking path);
- * 3. under `prefers-reduced-motion: reduce`, the signal path's motion collapses to 0s
+ * 3. the hover-lock pulse fires with the fast token's duration (positive motion witness);
+ * 4. under `prefers-reduced-motion: reduce`, the signal path's motion collapses to 0s
  *    through the token vocabulary (indicator transition AND the hover-lock breath).
  *
- * Baselines refresh ONLY via `--update-snapshots` — a refreshed golden is a reviewed
- * design decision (the PR diff is the review surface).
+ * Determinism: the demo's live seconds clock (`.agentos-dockdemo-clock-time` — a deliberate
+ * continuity witness) is MASKED in every capture, so the affordance surfaces hold a tight
+ * pixel threshold. Baselines refresh ONLY via `--update-snapshots` — a refreshed golden is
+ * a reviewed design decision (the PR diff is the review surface).
  *
  * Run: NEO_E2E_PORT=8096 npx playwright test PreviewLanguageDragPairNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
@@ -105,12 +115,28 @@ test.describe('Preview design language — the same-real-drag capture pair (Neur
         await page.waitForTimeout(400)
     }
 
-    test('one gesture, four goldens: default/signal × dark/light — plus the proxy scope truth', async ({page, neuralLink}) => {
+    test('the identical scripted gesture, replayed per scene: default/signal × dark/light + the pulse witness', async ({page, neuralLink}) => {
         const {app, editorCenter, host, workspaceBox} = await bootDemo(page, neuralLink);
-        // Live-gesture frames carry a few hundred pixels of anti-aliasing / sub-pixel wobble
-        // between runs; a language or palette regression diffs in the tens of thousands. The
-        // tolerance absorbs the noise floor without dulling the regression teeth.
-        const shot = {clip: workspaceBox, maxDiffPixels: 800};
+        // The live clock is masked (see header), so the remaining noise floor is sub-pixel
+        // anti-aliasing on live-gesture frames — a language or palette regression diffs in
+        // the tens of thousands of pixels.
+        const shot = {
+            clip         : workspaceBox,
+            mask         : [page.locator('.agentos-dockdemo-clock-time')],
+            maxDiffPixels: 150
+        };
+
+        // The positive motion witness arms BEFORE any signal gesture: the hover-lock pulse
+        // replays on every re-lock (the -active class toggles), and `animationstart` is
+        // event-truth — timing-independent, unlike sampling a 120ms animation mid-flight.
+        await page.evaluate(() => {
+            window.__pulseWitness = [];
+            document.addEventListener('animationstart', event => {
+                if (event.animationName === 'neo-preview-signal-lock') {
+                    window.__pulseWitness.push({duration: getComputedStyle(event.target).animationDuration})
+                }
+            }, true)
+        });
 
         // ── dark / DEFAULT ────────────────────────────────────────────────────────────
         await parkTheDrag(page, editorCenter);
@@ -145,6 +171,14 @@ test.describe('Preview design language — the same-real-drag capture pair (Neur
             .not.toBe('');
 
         await expect(page).toHaveScreenshot('drag-pair-signal-dark.png', shot);
+
+        // the positive motion witness: parking on the zone center hover-locked the CENTER
+        // indicator — the pulse must have RUN, at the fast token's real duration
+        const pulses = await page.evaluate(() => window.__pulseWitness);
+
+        expect(pulses.length, 'the signal hover-lock pulse fired on lock').toBeGreaterThanOrEqual(1);
+        pulses.forEach(pulse => expect(pulse.duration, 'the pulse runs at the fast token duration').toBe('0.12s'));
+
         await cancelTheDrag(page);
 
         // ── LIGHT mode: theme-swap an INNER root (the workspace); document.body keeps the
