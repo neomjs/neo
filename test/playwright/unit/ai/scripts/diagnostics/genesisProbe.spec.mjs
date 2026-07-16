@@ -17,6 +17,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import fsPromises     from 'fs/promises';
+import net            from 'net';
 import os             from 'os';
 import path           from 'path';
 import {EventEmitter} from 'events';
@@ -25,6 +26,7 @@ import {
     assertDiagnosticPathsWithinRoot,
     canonicalizeOracle,
     createBrowserLaunchOptions,
+    createCleanupDeadline,
     createDevServerArgs,
     createManifest,
     createOracleCommitment,
@@ -44,7 +46,7 @@ import {
     snapshotSqliteFamily,
     toPublicProbeError,
     waitForChildExit,
-    waitForPort,
+    waitForChildReady,
     withTimeout
 } from '../../../../../../ai/scripts/diagnostics/genesisProbe.mjs';
 
@@ -163,6 +165,7 @@ test.describe('Neo.ai.scripts.diagnostics.genesisProbe', () => {
         expect(deadlineError).toMatchObject({code: 'SESSION_LIMIT_EXCEEDED'});
         expect(() => parseArgs(['--timeout-ms', String(MAX_SESSION_MS + 1)], {}))
             .toThrow(`1000..${MAX_SESSION_MS}ms`);
+        expect(createCleanupDeadline(deadline)).toBeGreaterThan(deadline)
     });
 
     test('redacts unknown and classified failures into a closed public shape', () => {
@@ -220,6 +223,129 @@ test.describe('Neo.ai.scripts.diagnostics.genesisProbe', () => {
 
         expect(await waitForChildExit(racing, 1000)).toBe(true);
         expect(await waitForChildExit(running, 10)).toBe(false)
+    });
+
+    test('rejects an unrelated open listener until the child-private readiness marker exists', async () => {
+        const
+            root    = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'neo-genesis-readiness-test-')),
+            logPath = path.join(root, 'child.log'),
+            server  = net.createServer(),
+            child   = Object.assign(new EventEmitter(), {
+                exitCode        : null,
+                probeLaunchError: null,
+                signalCode      : null
+            });
+
+        let connections = 0;
+        server.on('connection', socket => {
+            connections++;
+            socket.destroy()
+        });
+        await new Promise((resolve, reject) => {
+            server.once('error', reject);
+            server.listen(0, '127.0.0.1', resolve)
+        });
+
+        const port = server.address().port;
+
+        try {
+            await fsPromises.writeFile(logPath, `ready on 127.0.0.1:${port + 1}`);
+            await expect(waitForChildReady({
+                child,
+                label    : 'unrelated listener',
+                logPath,
+                markers  : [`ready on 127.0.0.1:${port}`],
+                port,
+                timeoutMs: 150
+            })).rejects.toThrow('did not prove child-owned readiness');
+            expect(connections).toBe(0);
+
+            await fsPromises.writeFile(logPath, `ready on 127.0.0.1:${port}`);
+            await waitForChildReady({
+                child,
+                label    : 'marked listener',
+                logPath,
+                markers  : [`ready on 127.0.0.1:${port}`],
+                port,
+                timeoutMs: 1000
+            });
+            await expect.poll(() => connections).toBe(1)
+        } finally {
+            await new Promise(resolve => server.close(resolve));
+            await fsPromises.rm(root, {recursive: true, force: true})
+        }
+    });
+
+    test('captures asynchronous spawn failures and treats a pid-less child as stopped', async () => {
+        const
+            root    = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'neo-genesis-spawn-test-')),
+            logPath = path.join(root, 'missing.log'),
+            child   = spawnLoggedChild({
+                args   : [],
+                command: path.join(root, 'missing-command'),
+                env    : {PATH: process.env.PATH},
+                logPath,
+                name   : 'missing child'
+            });
+
+        try {
+            await expect(waitForChildReady({
+                child,
+                label    : 'missing child',
+                logPath,
+                markers  : ['never-ready'],
+                port     : await findFreePort(),
+                timeoutMs: 1000
+            })).rejects.toMatchObject({code: 'ENOENT'});
+            await expect(stopChild(child)).resolves.toMatchObject({
+                leaderExited      : true,
+                processGroupExited: process.platform !== 'win32'
+            })
+        } finally {
+            await fsPromises.rm(root, {recursive: true, force: true})
+        }
+    });
+
+    test('verifies process-group absence after a transient signal-send error', async () => {
+        test.skip(process.platform === 'win32', 'POSIX process-group proof only');
+
+        const
+            root    = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'neo-genesis-stop-test-')),
+            logPath = path.join(root, 'child.log'),
+            child   = spawnLoggedChild({
+                args: ['-e', 'setInterval(() => {}, 1000)'],
+                env : {PATH: process.env.PATH},
+                logPath,
+                name: 'transient-stop child'
+            }),
+            originalKill = process.kill;
+
+        let injected = false;
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+        process.kill = (pid, signal) => {
+            if (!injected && pid === -child.pid && signal === 'SIGTERM') {
+                injected = true;
+                originalKill(pid, signal);
+                const error = new Error('transient signal delivery race');
+                error.code  = 'EPERM';
+                throw error
+            }
+
+            return originalKill(pid, signal)
+        };
+
+        try {
+            await expect(stopChild(child, 'SIGTERM', 0)).resolves.toMatchObject({
+                leaderExited      : true,
+                processGroupExited: true
+            });
+            expect(injected).toBe(true)
+        } finally {
+            process.kill = originalKill;
+            await stopChild(child).catch(() => {});
+            await fsPromises.rm(root, {recursive: true, force: true})
+        }
     });
 
     test('records every disposable artifact and proves whole-root absence after cleanup', async () => {
@@ -328,7 +454,14 @@ test.describe('Neo.ai.scripts.diagnostics.genesisProbe', () => {
         let stopResult;
 
         try {
-            await waitForPort({child, label: 'test Neural Link Bridge', port, timeoutMs: 15000});
+            await waitForChildReady({
+                child,
+                label    : 'test Neural Link Bridge',
+                logPath,
+                markers  : [`Bridge: Listening on 127.0.0.1:${port}`],
+                port,
+                timeoutMs: 15000
+            });
             expect(await fsPromises.readFile(logPath, 'utf8')).toContain(`Listening on 127.0.0.1:${port}`)
         } finally {
             stopResult = await stopChild(child, 'SIGINT');

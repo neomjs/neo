@@ -32,6 +32,8 @@ export const GENESIS_VERSION       = '7.9.38';
 export const PROBE_PROJECTION_MODE = 'local-readonly-probe';
 export const LOOPBACK_HOST         = '127.0.0.1';
 
+const MIN_TERMINATION_VERIFY_MS = 250;
+
 const PUBLIC_FAILURES = Object.freeze({
     CHILD_TERMINATION_UNVERIFIED: 'A probe child could not be verified as stopped.',
     CLEANUP_FAILED              : 'The disposable diagnostics could not be fully erased.',
@@ -481,6 +483,17 @@ export function getPhaseTimeout({deadline, timeoutMs, now = Date.now()}) {
 }
 
 /**
+ * @summary Starts a cleanup-owned safety window independent of the active-session deadline.
+ * The work deadline reserves this window during normal execution, while an overrun still receives
+ * enough time to terminate children and erase diagnostics before the receipt reports failure.
+ * @param {Number} [now=Date.now()] Injectable current time for deterministic tests.
+ * @returns {Number} Epoch-millisecond cleanup deadline.
+ */
+export function createCleanupDeadline(now = Date.now()) {
+    return now + CLEANUP_RESERVE_MS
+}
+
+/**
  * @summary Installs idempotent process-signal routing into an AbortController.
  * @param {Object} options
  * @param {AbortController} options.controller Probe lifecycle controller.
@@ -592,17 +605,25 @@ export async function waitForPortsClosed(ports, timeoutMs) {
 }
 
 /**
- * @summary Waits until a child-owned loopback listener accepts TCP connections.
+ * @summary Waits for a child-owned private-log marker before confirming loopback reachability.
+ * A generic open port is never readiness evidence, because it could belong to an unrelated local
+ * process that must not receive the probe bearer or oracle traffic.
  * @param {Object} options
  * @param {Object} options.child
  * @param {String} options.label
+ * @param {String} options.logPath Child-private stdio log inside the disposable root.
+ * @param {String[]} options.markers Exact marker fragments emitted only after the child binds.
  * @param {Number} options.port
  * @param {Number} options.timeoutMs
  * @param {Number} [options.deadline] Global session deadline.
  * @param {AbortSignal} [options.signal] Probe interruption signal.
  * @returns {Promise<void>}
  */
-export async function waitForPort({child, deadline, label, port, signal, timeoutMs}) {
+export async function waitForChildReady({child, deadline, label, logPath, markers, port, signal, timeoutMs}) {
+    if (!logPath || !Array.isArray(markers) || markers.length === 0) {
+        throw new TypeError(`${label} readiness requires a private log path and at least one marker.`)
+    }
+
     const
         startedAt     = Date.now(),
         phaseDeadline = Math.min(startedAt + timeoutMs, deadline || Number.POSITIVE_INFINITY);
@@ -610,24 +631,35 @@ export async function waitForPort({child, deadline, label, port, signal, timeout
     while (Date.now() < phaseDeadline) {
         signal?.throwIfAborted();
 
+        if (child.probeLaunchError) {
+            throw child.probeLaunchError
+        }
         if (hasChildExited(child)) {
             throw new Error(`${label} exited before opening port ${port} (${child.exitCode ?? child.signalCode}).`)
         }
 
-        const connected = await isLoopbackPortOpen(port);
+        let logText = '';
 
-        if (connected) return;
+        try {
+            logText = await fsPromises.readFile(logPath, 'utf8')
+        } catch (error) {
+            if (error.code !== 'ENOENT') throw error
+        }
 
-        await withTimeout(
-            new Promise(resolve => setTimeout(resolve, 100)),
-            getPhaseTimeout({deadline: phaseDeadline, timeoutMs: 100}),
-            `${label} retry`,
-            signal
-        )
+        if (markers.every(marker => logText.includes(marker))) {
+            const connected = await isLoopbackPortOpen(port);
+
+            if (connected && !hasChildExited(child) && !child.probeLaunchError) return
+        }
+
+        await new Promise(resolve => setTimeout(
+            resolve,
+            Math.min(100, Math.max(1, phaseDeadline - Date.now()))
+        ))
     }
 
     if (deadline && Date.now() >= deadline) throw createProbeFailure('SESSION_LIMIT_EXCEEDED');
-    throw new Error(`${label} did not open port ${port} within ${timeoutMs}ms.`)
+    throw new Error(`${label} did not prove child-owned readiness on port ${port} within ${timeoutMs}ms.`)
 }
 
 /**
@@ -651,7 +683,12 @@ export function spawnLoggedChild({args, command = process.execPath, cwd = repoRo
         fs.closeSync(fd)
     }
 
-    child.probeName = name;
+    child.probeLaunchError = null;
+    child.probeName        = name;
+    child.once('error', error => {
+        child.probeLaunchError = error
+    });
+
     return child
 }
 
@@ -661,7 +698,9 @@ export function spawnLoggedChild({args, command = process.execPath, cwd = repoRo
  * @returns {Boolean}
  */
 export function hasChildExited(child) {
-    return child.exitCode !== null || child.signalCode !== null
+    return Boolean(child && (
+        child.probeLaunchError || child.exitCode !== null || child.signalCode !== null
+    ))
 }
 
 /**
@@ -702,6 +741,7 @@ export async function waitForChildExit(child, timeoutMs) {
  */
 export function isProcessGroupAlive(pid) {
     if (process.platform === 'win32') return null;
+    if (!Number.isInteger(pid) || pid <= 0) return false;
 
     try {
         process.kill(-pid, 0);
@@ -749,6 +789,10 @@ export async function stopChild(child, signal = 'SIGTERM', timeoutMs = 5000) {
         return {forced: false, leaderExited: true, processGroupExited: process.platform !== 'win32'}
     }
 
+    const
+        signalErrors        = [],
+        verificationTimeout = Math.max(MIN_TERMINATION_VERIFY_MS, timeoutMs);
+
     let termination = {
         leaderExited      : hasChildExited(child),
         processGroupExited: isProcessGroupAlive(child.pid) === false
@@ -758,39 +802,36 @@ export async function stopChild(child, signal = 'SIGTERM', timeoutMs = 5000) {
         return {forced: false, ...termination}
     }
 
-    try {
-        if (process.platform === 'win32') {
-            child.kill(signal)
-        } else {
-            process.kill(-child.pid, signal)
+    const sendSignal = nextSignal => {
+        try {
+            if (process.platform === 'win32') {
+                child.kill(nextSignal)
+            } else {
+                process.kill(-child.pid, nextSignal)
+            }
+        } catch (error) {
+            if (error.code !== 'ESRCH') signalErrors.push(error)
         }
-    } catch (error) {
-        if (error.code !== 'ESRCH') throw error
-    }
+    };
 
-    termination = await waitForChildTermination(child, timeoutMs);
+    sendSignal(signal);
+
+    termination = await waitForChildTermination(child, verificationTimeout);
 
     let forced = false;
 
     if (!termination.leaderExited || (process.platform !== 'win32' && !termination.processGroupExited)) {
         forced = true;
-        try {
-            if (process.platform === 'win32') {
-                child.kill('SIGKILL')
-            } else {
-                process.kill(-child.pid, 'SIGKILL')
-            }
-        } catch (error) {
-            if (error.code !== 'ESRCH') throw error
-        }
+        sendSignal('SIGKILL');
 
-        termination = await waitForChildTermination(child, timeoutMs)
+        termination = await waitForChildTermination(child, verificationTimeout)
     }
 
     if (!termination.leaderExited || (process.platform !== 'win32' && !termination.processGroupExited)) {
         throw createProbeFailure('CHILD_TERMINATION_UNVERIFIED', {
             child : child.probeName,
             forced,
+            signalErrors,
             ...termination
         })
     }
@@ -1166,42 +1207,54 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
             logPath: bridgeLog,
             name   : 'Neural Link Bridge'
         });
-        await waitForPort({
+        await waitForChildReady({
             child   : state.children.bridge,
             deadline: workDeadline,
             label   : 'Neural Link Bridge',
+            logPath : bridgeLog,
+            markers : [`Bridge: Listening on ${LOOPBACK_HOST}:${ports.bridge}`],
             port    : ports.bridge,
             signal,
             timeoutMs
         });
 
+        const devLog = path.join(state.root, 'dev-server-stdio.log');
         state.children.dev = spawnLoggedChild({
             args   : createDevServerArgs(ports.dev),
             env    : environments.devEnv,
-            logPath: path.join(state.root, 'dev-server-stdio.log'),
+            logPath: devLog,
             name   : 'Neo dev server'
         });
-        await waitForPort({
+        await waitForChildReady({
             child   : state.children.dev,
             deadline: workDeadline,
             label   : 'Neo dev server',
+            logPath : devLog,
+            markers : ['[webpack-dev-server] Loopback:', `${LOOPBACK_HOST}:${ports.dev}/`],
             port    : ports.dev,
             signal,
             timeoutMs
         });
 
+        const mcpLog = path.join(state.root, 'neural-link-mcp-stdio.log');
         state.children.mcp = spawnLoggedChild({
             args   : [path.join(repoRoot, 'ai/mcp/server/neural-link/mcp-server.mjs')],
             env    : environments.mcpEnv,
-            logPath: path.join(state.root, 'neural-link-mcp-stdio.log'),
+            logPath: mcpLog,
             name   : 'Neural Link MCP server'
         });
         delete environments.mcpEnv.NEO_AUTH_LOCAL_BEARER_TOKEN;
 
-        await waitForPort({
+        await waitForChildReady({
             child   : state.children.mcp,
             deadline: workDeadline,
             label   : 'Neural Link MCP server',
+            logPath : mcpLog,
+            markers : [
+                'Server started on Streamable HTTP transport',
+                `Port: ${ports.mcp}`,
+                `Host: ${LOOPBACK_HOST}`
+            ],
             port    : ports.mcp,
             signal,
             timeoutMs
@@ -1327,13 +1380,16 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
     } catch (error) {
         failure = error
     } finally {
-        const cleanupFailures = [];
-        const closeResource   = async (label, operation) => {
+        const
+            cleanupDeadline  = createCleanupDeadline(),
+            cleanupFailures  = [],
+            cleanupTimeoutMs = () => Math.max(1, Math.min(5000, cleanupDeadline - Date.now()));
+
+        const closeResource = async (label, operation) => {
             if (!operation) return;
 
             try {
-                const remainingMs = Math.max(1, Math.min(5000, deadline - Date.now()));
-                await withTimeout(Promise.resolve().then(operation), remainingMs, label)
+                await withTimeout(Promise.resolve().then(operation), cleanupTimeoutMs(), label)
             } catch (error) {
                 cleanupFailures.push({error, label})
             }
@@ -1357,7 +1413,7 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
                 const result = await stopChild(
                     state.children[key],
                     childSignal,
-                    Math.max(0, Math.min(5000, deadline - Date.now()))
+                    cleanupTimeoutMs()
                 );
 
                 childLeadersExited &&= result.leaderExited;
@@ -1372,7 +1428,7 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
         if (process.platform === 'win32' && !options.external && childLeadersExited) {
             listenerClosureVerified = await waitForPortsClosed(
                 Object.values(ports || {}),
-                Math.max(0, Math.min(5000, deadline - Date.now()))
+                cleanupTimeoutMs()
             );
 
             if (!listenerClosureVerified) {

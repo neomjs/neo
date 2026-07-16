@@ -116,6 +116,10 @@ The runner allocates fresh ports and emits one redacted `GENESIS_PROBE_LOCAL_REA
 emitted URL to the Genesis operator; the bearer was already transferred privately before launch.
 Complete the named Genesis server configuration with that URL and the pre-shared bearer:
 
+Each listener must first emit its exact host-and-port readiness marker into its own mode-`0600`
+stdio log inside the disposable root. Only then does the runner perform a secondary TCP reachability
+check. A generic open loopback port is never readiness evidence and can never trigger bearer use.
+
 ```json
 {
     "name": "neo-local-probe",
@@ -223,6 +227,8 @@ runner also fails if any active phase exceeds the single two-hour session deadli
 final minute for shutdown and cleanup instead of resetting a fresh timeout per phase. If a
 safety-critical stop or whole-root deletion crosses that deadline, cleanup continues rather than
 abandoning live processes or raw data, and the receipt remains a failed session-limit proof.
+Cleanup therefore owns a fresh bounded safety clock; it never inherits a zero timeout from the
+expired active-session clock.
 
 ## What cleanup proves
 
