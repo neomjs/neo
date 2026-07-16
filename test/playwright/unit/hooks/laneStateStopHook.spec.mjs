@@ -1,6 +1,7 @@
 import {test, expect}                                                                              from '@playwright/test';
 import {composeBlockDirective, composeDeferenceDirective, decideHookAction, isOperatorInLoop, parseOutcomeToVerdict,
         extractFinalAssistantText, extractLastAssistantTextFromJsonl, extractLastUserTextFromJsonl,
+        extractLatestHumanUserTextFromJsonl,
         formatLifecycleBoard, formatGoldenPathDirection, formatHoldCostumeCallout} from '../../../../.claude/hooks/laneStateStopHook.mjs';
 import {spawn} from 'node:child_process';
 import fs      from 'node:fs';
@@ -297,6 +298,71 @@ test.describe('laneStateStopHook — input resolution (assistant final text + pr
     });
 });
 
+/**
+ * Coverage for the human-filtered walk — the mid-chain operator-visibility extractor. Fixture
+ * shapes mirror REAL transcript records (sessions `8cf234b7` / `2251c81c` / `c82afc7d`): the hook's own
+ * block directives and skill payloads are `isMeta: true` user records; genuine operator prompts and
+ * `[WAKE]` deliveries are non-meta. The walk owns record-shape mechanics ONLY — [WAKE]/synthetic/handoff
+ * semantics stay in `classifyPromptingContext` (single authority, exercised via the integration pair).
+ */
+test.describe('laneStateStopHook — extractLatestHumanUserTextFromJsonl (#14440 human-filtered walk)', () => {
+    const metaFeedback = JSON.stringify({type: 'user', isMeta: true, message: {role: 'user',
+              content: 'Stop hook feedback:\nTurn-end refused — L3_No_Hold_State: there is no hold state, and you do not get to stop.'}}),
+          metaSkill     = JSON.stringify({type: 'user', isMeta: true, message: {role: 'user',
+              content: 'Base directory for this skill: /repo/.claude/skills/pull-request\n\n# Pull Request Skill'}}),
+          operatorMsg   = JSON.stringify({type: 'user', message: {role: 'user',
+              content: 'full stop. we need to talk about the release notes.'}}),
+          wakeMsg       = JSON.stringify({type: 'user', message: {role: 'user',
+              content: '[WAKE][priority:normal] 1 events for @neo-opus-vega'}}),
+          interruptMark = JSON.stringify({type: 'user', message: {role: 'user',
+              content: '[Request interrupted by user]'}}),
+          toolResult    = JSON.stringify({type: 'user', message: {role: 'user',
+              content: [{type: 'tool_result', tool_use_id: 'x', content: 'r'}]}}),
+          assistant     = JSON.stringify({type: 'assistant', message: {role: 'assistant',
+              content: [{type: 'text', text: 'working…'}]}});
+
+    test('mid-chain operator message beneath hook-feedback records is found (the 2251c81c shape)', () => {
+        const jsonl = [wakeMsg, assistant, metaFeedback, operatorMsg, metaFeedback, assistant].join('\n');
+        expect(extractLatestHumanUserTextFromJsonl(jsonl)).toBe('full stop. we need to talk about the release notes.');
+    });
+
+    test('isMeta records (hook feedback + skill payloads) can never masquerade as the prompting boundary', () => {
+        const jsonl = [operatorMsg, assistant, metaSkill, metaFeedback].join('\n');
+        expect(extractLatestHumanUserTextFromJsonl(jsonl)).toBe('full stop. we need to talk about the release notes.');
+    });
+
+    test('a NEWER [WAKE] is the decisive candidate — stale operator prose never leaks past it', () => {
+        const jsonl = [operatorMsg, assistant, metaFeedback, wakeMsg, assistant].join('\n');
+        expect(extractLatestHumanUserTextFromJsonl(jsonl)).toBe('[WAKE][priority:normal] 1 events for @neo-opus-vega');
+        // integration pair: the classifier rejects the wake candidate → chained turn stays autonomous
+        expect(isOperatorInLoop({
+            stopHookActive            : true,
+            promptingText             : extractLatestHumanUserTextFromJsonl(jsonl),
+            promptingTextHumanFiltered: true
+        })).toBe(false);
+    });
+
+    test('interrupt markers are harness prose — skipped; the adjacent real message is found', () => {
+        const jsonl = [operatorMsg, assistant, interruptMark].join('\n');
+        expect(extractLatestHumanUserTextFromJsonl(jsonl)).toBe('full stop. we need to talk about the release notes.');
+    });
+
+    test('tool_result-only + malformed lines are tolerated; no candidate → empty string (fail-closed)', () => {
+        expect(extractLatestHumanUserTextFromJsonl([toolResult, '{ not json }', assistant].join('\n'))).toBe('');
+        expect(extractLatestHumanUserTextFromJsonl('')).toBe('');
+        expect(extractLatestHumanUserTextFromJsonl([metaFeedback, metaSkill].join('\n'))).toBe('');
+    });
+
+    test('integration pair: mid-chain operator rescue end-to-end through the pure classifier', () => {
+        const jsonl = [wakeMsg, assistant, metaFeedback, operatorMsg, assistant].join('\n');
+        expect(isOperatorInLoop({
+            stopHookActive            : true,
+            promptingText             : extractLatestHumanUserTextFromJsonl(jsonl),
+            promptingTextHumanFiltered: true
+        })).toBe(true);
+    });
+});
+
 test.describe('laneStateStopHook — end-to-end (spawned hook against the real Stop payload)', () => {
     /**
      * @summary Spawns the real hook with a Stop payload + a temp audit-log dir; returns `{stdout, log}`.
@@ -307,7 +373,7 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
      * @param {{enforce: Boolean, promptingText: (String|null), stopHookActive: Boolean, toolCommand: String|null}} [opts]
      * @returns {Promise<{stdout: String, log: String}>}
      */
-    function runHook(finalText, {enforce = false, promptingText = null, stopHookActive = false, lifecycleState = null, toolCommand = null} = {}) {
+    function runHook(finalText, {enforce = false, promptingText = null, stopHookActive = false, lifecycleState = null, toolCommand = null, transcriptRecords = null} = {}) {
         return new Promise((resolve, reject) => {
             const dir            = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-hook-e2e-')),
                   transcriptPath = path.join(dir, 'transcript.jsonl'),
@@ -318,7 +384,13 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
                 fs.writeFileSync(path.join(dir, 'lifecycle-state.json'), JSON.stringify(lifecycleState), 'utf8');
             }
 
-            if (promptingText !== null) {
+            if (transcriptRecords !== null) {
+                // Chain-shape fixtures: write the given records verbatim + the final assistant text.
+                const records = transcriptRecords.map(record => JSON.stringify(record));
+                records.push(JSON.stringify({type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: finalText}]}}));
+                fs.writeFileSync(transcriptPath, records.join('\n') + '\n');
+                payload.transcript_path = transcriptPath;
+            } else if (promptingText !== null) {
                 const records = [
                     JSON.stringify({type: 'user', message: {role: 'user', content: promptingText}})
                 ];
@@ -455,10 +527,46 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
         expect(decision.reason).toContain('Unknown laneContinuation');
     });
 
-    test('stop_hook_active (forced continuation) + enforce → BLOCK (keeps refusing, no auto-allow)', async () => {
+    // BEHAVIORAL FLIP (mid-chain operator visibility): the previous expectation here was BLOCK — the
+    // literal defect (a genuine operator record inside a forced chain refused as autonomous). Under
+    // mid-chain operator visibility, a mechanically human-shaped operator record IS live dialogue.
+    test('stop_hook_active + genuine mid-chain operator record → ALLOW (#14440 Defect-B AC)', async () => {
         const {stdout, log} = await runHook(validTerminal, {enforce: true, promptingText: 'please do X', stopHookActive: true});
+        expect(log).toContain('ALLOW');
+        expect(log).toContain('midChainOperator=true');
+        expect(stdout).toBe('');
+    });
+
+    test('stop_hook_active chain WITHOUT an operator record (wake + hook-feedback plumbing) → still BLOCK', async () => {
+        const {stdout, log} = await runHook(validTerminal, {
+            enforce          : true,
+            stopHookActive   : true,
+            transcriptRecords: [
+                {type: 'user', message: {role: 'user', content: '[WAKE][priority:normal] 1 events for @neo-opus-vega'}},
+                {type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: 'driving the lane…'}]}},
+                {type: 'user', isMeta: true, message: {role: 'user', content: 'Stop hook feedback:\nTurn-end refused — L3_No_Hold_State: there is no hold state, and you do not get to stop.'}}
+            ]
+        });
         expect(log).toContain('BLOCK');
+        expect(log).toContain('midChainOperator=false');
         expect(JSON.parse(stdout).decision).toBe('block');
+    });
+
+    test('mid-chain injected operator message beneath hook feedback → ALLOW (the 2251c81c shape)', async () => {
+        const {stdout, log} = await runHook('Understood — standing by for your direction.', {
+            enforce          : true,
+            stopHookActive   : true,
+            transcriptRecords: [
+                {type: 'user', message: {role: 'user', content: '[WAKE][priority:normal] 1 events for @neo-opus-vega'}},
+                {type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: 'driving the lane…'}]}},
+                {type: 'user', isMeta: true, message: {role: 'user', content: 'Stop hook feedback:\nTurn-end refused — L3_No_Hold_State: there is no hold state, and you do not get to stop.'}},
+                {type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: 'continuing…'}]}},
+                {type: 'user', message: {role: 'user', content: 'full stop. we need to talk about the release notes.'}}
+            ]
+        });
+        expect(log).toContain('ALLOW');
+        expect(log).toContain('midChainOperator=true');
+        expect(stdout).toBe('');
     });
 
     test('ENFORCE block injects the Golden Path release-goal direction from lifecycle-state (#13751)', async () => {

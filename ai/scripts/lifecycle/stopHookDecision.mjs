@@ -89,16 +89,46 @@ export function isSyntheticPromptingText(text = '') {
 }
 
 /**
- * @summary Classifies the prompting text into operator-dialogue vs autonomous handoff.
- * @param {{stopHookActive: Boolean, promptingText: String}} signals
- * @returns {{operatorInLoop: Boolean, autonomousHandoff: Boolean, handoffReason: String|null, handoffWindowMs: Number|null}}
+ * @summary The shared operator-dialogue text gates — non-empty, not a `[WAKE]` autonomous injection,
+ * not synthetic lifecycle noise, and not an autonomous-handoff delegation. This is the single
+ * authority both the turn-prompt path and the mid-chain path classify against, so the two
+ * paths cannot drift on what counts as dialogue. Pure + total; a non-string fails closed.
+ * @param {String} text Prompting-text candidate.
+ * @returns {Boolean}
  */
-export function classifyPromptingContext({stopHookActive, promptingText = ''}) {
-    const handoff   = detectAutonomousHandoffPrompt(promptingText),
-          synthetic = isSyntheticPromptingText(promptingText);
+export function isOperatorDialogueText(text = '') {
+    return typeof text === 'string' && !!text.trim() &&
+        !/^\s*\[WAKE\]/.test(text) &&
+        !isSyntheticPromptingText(text) &&
+        !detectAutonomousHandoffPrompt(text).active;
+}
+
+/**
+ * @summary Classifies the prompting text into operator-dialogue vs autonomous handoff.
+ *
+ * Mid-chain operator visibility: inside a forced continuation chain
+ * (`stopHookActive`), a genuine operator message that arrived mid-chain is dialogue evidence per the
+ * hook's own contract — but ONLY when the adapter attests via `promptingTextHumanFiltered` that its
+ * extraction mechanically excluded harness-injected records (hook feedback, skill payloads,
+ * auto-continuations; the Claude adapter's `isMeta` discriminator). Without the attestation a chained
+ * turn fails closed as autonomous exactly as before, so adapters with cruder extraction (Codex) keep
+ * today's semantics untouched. The candidate text is classified by SHAPE only ({@link isOperatorDialogueText});
+ * its content is never parsed as instructions (L2 channel separation — injected prose stays data).
+ * @param {Object} signals
+ * @param {Boolean} signals.stopHookActive True on a forced-continuation (chained) stop event.
+ * @param {String} [signals.promptingText=''] Newest prompting-boundary candidate text.
+ * @param {Boolean} [signals.promptingTextHumanFiltered=false] Adapter attestation that `promptingText`
+ * came from a mechanically human-filtered walk (non-meta, non-marker records only). Fail-closed default.
+ * @returns {{operatorInLoop: Boolean, midChainOperator: Boolean, autonomousHandoff: Boolean, handoffReason: String|null, handoffWindowMs: Number|null}}
+ */
+export function classifyPromptingContext({stopHookActive, promptingText = '', promptingTextHumanFiltered = false}) {
+    const handoff          = detectAutonomousHandoffPrompt(promptingText),
+          dialogueText     = isOperatorDialogueText(promptingText),
+          midChainOperator = !!stopHookActive && promptingTextHumanFiltered && dialogueText;
 
     return {
-        operatorInLoop   : !stopHookActive && !!promptingText.trim() && !/^\s*\[WAKE\]/.test(promptingText) && !synthetic && !handoff.active,
+        operatorInLoop   : (!stopHookActive && dialogueText) || midChainOperator,
+        midChainOperator,
         autonomousHandoff: handoff.active,
         handoffReason    : handoff.reason,
         handoffWindowMs  : handoff.windowMs
@@ -127,13 +157,14 @@ export function parseOutcomeToVerdict({descriptor, parseError}, validate) {
 /**
  * @summary Detects whether a genuine human OPERATOR prompted this turn — the one signal that makes a
  * voluntary stop legitimate. Determined externally so it cannot be self-declared: a turn is operator
- * driven iff it is not a forced continuation, its prompting message is not an autonomous `[WAKE]`
- * injection, and a prompt is actually confirmable.
- * @param {{stopHookActive: Boolean, promptingText: String}} signals
+ * driven iff its prompting message is not an autonomous `[WAKE]` injection, a prompt is actually
+ * confirmable, and — on a forced continuation — the adapter attests the candidate came from a
+ * human-filtered walk ({@link classifyPromptingContext} mid-chain visibility).
+ * @param {{stopHookActive: Boolean, promptingText: String, promptingTextHumanFiltered: Boolean}} signals
  * @returns {Boolean}
  */
-export function isOperatorInLoop({stopHookActive, promptingText = ''}) {
-    return classifyPromptingContext({stopHookActive, promptingText}).operatorInLoop;
+export function isOperatorInLoop({stopHookActive, promptingText = '', promptingTextHumanFiltered = false}) {
+    return classifyPromptingContext({stopHookActive, promptingText, promptingTextHumanFiltered}).operatorInLoop;
 }
 
 /**
