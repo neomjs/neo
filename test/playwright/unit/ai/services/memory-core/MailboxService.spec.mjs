@@ -1275,6 +1275,31 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         });
     });
 
+    test('listMessages PROJECTS partOfThread on the summary — thread membership is readable, not only filterable', async () => {
+        GraphService.upsertNode({ id: 'thread-X', type: 'THREAD', name: 'Thread X', properties: {} });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            await MailboxService.addMessage({ to: '@bob', subject: 'threaded', body: '...', partOfThread: 'thread-X' });
+            await MailboxService.addMessage({ to: '@bob', subject: 'loose', body: '...' });
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            const {messages} = await MailboxService.listMessages({ status: 'all' });
+            const threaded   = messages.find(message => message.subject === 'threaded');
+            const loose      = messages.find(message => message.subject === 'loose');
+
+            // The PART_OF_THREAD edge was resolved for filtering but never returned, so every
+            // consumer of the summary read a thread-less mailbox. Callers group threads from
+            // this field; an unthreaded message must stay absent rather than carry a null.
+            expect(threaded.partOfThread).toBe('thread-X');
+            expect(Object.hasOwn(loose, 'partOfThread')).toBe(false);
+        });
+    });
+
     test('addMessage supports 6 new edge types and priority', async () => {
         GraphService.upsertNode({ id: 'SESSION:123', type: 'SESSION', name: 'S123', properties: {} });
         GraphService.upsertNode({ id: 'SESSION:456', type: 'SESSION', name: 'S456', properties: {} });
