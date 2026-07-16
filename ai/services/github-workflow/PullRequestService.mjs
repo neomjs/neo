@@ -9,6 +9,7 @@ import logger           from '../../mcp/server/github-workflow/logger.mjs';
 import {
     ADD_PULL_REQUEST_REVIEW,
     GET_PULL_REQUEST_ID,
+    GET_PULL_REQUEST_REVIEW,
     UPDATE_PULL_REQUEST_REVIEW
 }                                              from './queries/mutations.mjs';
 import {FETCH_PULL_REQUESTS, GET_CONVERSATION} from './queries/pullRequestQueries.mjs';
@@ -20,6 +21,29 @@ const PR_REVIEW_TEMPLATE_PATH          = '.agents/skills/pr-review/assets/pr-rev
 const PR_REVIEW_FOLLOWUP_TEMPLATE_PATH = '.agents/skills/pr-review/assets/pr-review-followup-template.md';
 const ACKNOWLEDGED_RC_ADDRESSED_PREFIX = 'addressed-by-';
 const ACKNOWLEDGED_RC_EVIDENCE_PREFIX  = 'superior-evidence:';
+const REVIEW_BUDGET_MANAGED_MARKER     = '[review-budget-managed]';
+const REVIEW_BUDGET_OVERRIDE_MARKER    = '[review-budget-override]';
+const REVIEW_BUDGET_BYPASS_PATTERN     = /^\[review-budget-bypass\]\s+reason:\s*\S.*$/im;
+const REVIEW_BUDGET_AUDIT_FIELDS       = [
+    'outcome',
+    'ordinary-limit',
+    'activation-issue',
+    'activation-pr',
+    'activated-at',
+    'reason',
+    'submitted-request-changes'
+];
+const DROP_SUPERSEDE_DISPOSITIONS = new Set([
+    'implementation-off',
+    'ticket-prescription-off',
+    'ticket-premise-dead'
+]);
+const DROP_SUPERSEDE_CONTRACT_FIELDS = [
+    'Source-coordinate falsifiers',
+    'Salvage map',
+    'Successor landing pad',
+    'Successor map citation'
+];
 
 const FULL_PR_REVIEW_TEMPLATE_SKELETON_LABELS = [
     'PR Review Summary',
@@ -281,11 +305,19 @@ const MICRO_DELTA_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
     '*Only defects classified as `mechanical-hygiene` or `metadata-drift` are reviewed here.*',
     '### Verdict',
     '**APPROVED**',
-    '**CHANGES_REQUESTED**',
+    '**COMMENTED CLOSURE**',
     '**MAINTAINER POLISH FAST PATH APPLIED**'
 ];
 
 const MICRO_DELTA_REVIEW_BLOCKER_CLASS_PATTERN = /(?:^|[^\w-])(mechanical-hygiene|metadata-drift)(?:$|[^\w-])/i;
+const MICRO_DELTA_COMMENTED_CLOSURE_PATTERN    = /^\s*-\s*\[[xX]\]\s*\*\*COMMENTED CLOSURE\*\*/m;
+const MICRO_DELTA_CLOSURE_PACKET_FIELDS        = [
+    'Consumer sweep',
+    'Falsifier/property matrix',
+    'Carried-vs-new census',
+    'Truth-fold',
+    'Semantic-surface freeze'
+];
 
 // Micro-Review (Cycle-1, blast-scaled): a MICRO / CONTAINED PR — none of the intense triggers (ADR /
 // new-subsystem / consumed-contract / security / migration) and a small diff — gets a premise+correctness
@@ -347,9 +379,9 @@ function isMicroDeltaPrReview(body) {
 /**
  * @summary Returns missing documented Micro-Delta anchors.
  *
- * Micro-Delta reviews are only valid for review-loop cost-compression state (a), where
- * semantics are already cleared and the remaining issue class is mechanical hygiene or
- * metadata drift. The blocker-class token check prevents the short format from becoming
+ * Micro-Delta reviews are only valid after semantics are cleared and the remaining issue
+ * class is mechanical hygiene or metadata drift. The blocker-class token check prevents
+ * the short format from becoming
  * a backdoor for semantic review shortcuts.
  *
  * @param {String} body The candidate Micro-Delta PR review body.
@@ -365,6 +397,22 @@ function getMicroDeltaPrReviewTemplateMisses(body) {
 
     if (!MICRO_DELTA_REVIEW_BLOCKER_CLASS_PATTERN.test(remainingBlockerLine)) {
         misses.push('Remaining Blocker Class: mechanical-hygiene | metadata-drift');
+    }
+
+    if (MICRO_DELTA_COMMENTED_CLOSURE_PATTERN.test(body)) {
+        if (!body.includes('### RC2 Closure Packet')) {
+            misses.push('RC2 Closure Packet');
+        }
+
+        MICRO_DELTA_CLOSURE_PACKET_FIELDS.forEach(label => {
+            const prefix = `- **${label}:**`;
+            const line   = body.split('\n').find(candidate => candidate.trim().startsWith(prefix));
+            const value  = line ? line.trim().slice(prefix.length).trim() : '';
+
+            if (!value || /^\[.*\]$/.test(value) || /^(?:todo|tbd)$/i.test(value)) {
+                misses.push(label);
+            }
+        });
     }
 
     return misses;
@@ -392,9 +440,8 @@ function getMicroDeltaPrReviewTemplateValidationFailure(body) {
         ``,
         `**Required action**: read \`${skillPath}\`, \`${circuitPath}\`, and \`${microDeltaPath}\` BEFORE retrying.`,
         ``,
-        `Micro-Delta reviews are only valid after the Review-Loop Cost Circuit Breaker`,
-        `classifies the PR as state (a): semantics cleared, with only mechanical-hygiene`,
-        `or metadata-drift remaining. If a semantic or contract delta exists, use the`,
+        `Micro-Delta reviews are only valid after semantic review is complete, with only`,
+        `mechanical-hygiene or metadata-drift remaining. If a semantic or contract delta exists, use the`,
         `full follow-up review template instead.`,
         ``,
         `Diagnostic hint: at least one required Micro-Delta state-vector or verdict anchor from \`${microDeltaPath}\` is missing or invalid.`
@@ -551,6 +598,91 @@ function getMicroReviewTemplateValidationFailure(body) {
 }
 
 /**
+ * @summary Reads one exact Drop+Supersede contract field from a review body.
+ * @param {String} body Review body.
+ * @param {String} label Bold field label without punctuation.
+ * @returns {String} Trimmed field value, or an empty string when absent.
+ */
+function getDropSupersedeContractField(body, label) {
+    const prefix = `- **${label}:**`;
+    const line   = body.split('\n').find(candidate => candidate.trim().startsWith(prefix));
+
+    return line ? line.trim().slice(prefix.length).trim() : ''
+}
+
+/**
+ * @summary Classifies exact Drop+Supersede intent and its structural completeness contract.
+ *
+ * This deliberately validates structure, not the truth of the cited evidence. Exact decision
+ * lines avoid treating the unfilled template's option list as a terminal verdict.
+ *
+ * @param {String} body Review body.
+ * @returns {{intent: Boolean, valid: Boolean, disposition: String, missing: String[]}}
+ */
+function classifyDropSupersedeReview(body) {
+    const lines          = body.split('\n').map(line => line.trim());
+    const statusIntent   = lines.includes('**Status:** Drop+Supersede');
+    const decisionIntent = lines.includes('- **Decision**: Drop+Supersede');
+    const intent         = statusIntent || decisionIntent;
+
+    if (!intent) {
+        return {intent: false, valid: false, disposition: '', missing: []}
+    }
+
+    const disposition = getDropSupersedeContractField(body, 'Disposition');
+    const missing     = [];
+
+    if (!statusIntent || !decisionIntent) {
+        missing.push('Status + Decision: Drop+Supersede')
+    }
+
+    if (!DROP_SUPERSEDE_DISPOSITIONS.has(disposition)) {
+        missing.push('Disposition: implementation-off | ticket-prescription-off | ticket-premise-dead')
+    }
+
+    DROP_SUPERSEDE_CONTRACT_FIELDS.forEach(label => {
+        const value = getDropSupersedeContractField(body, label);
+
+        if (!value || /^\[.*\]$/.test(value) || /^(?:todo|tbd)$/i.test(value)) {
+            missing.push(label)
+        }
+    });
+
+    if (isMicroDeltaPrReview(body)) {
+        missing.push('Drop+Supersede requires the full or follow-up review template')
+    }
+
+    return {
+        intent: true,
+        valid : missing.length === 0,
+        disposition,
+        missing
+    }
+}
+
+/**
+ * @summary Returns a structured failure when a terminal Drop+Supersede body is incomplete.
+ * @param {String} body Review body.
+ * @returns {Object|null} Validation failure or `null`.
+ */
+function getDropSupersedeValidationFailure(body) {
+    const classification = classifyDropSupersedeReview(body);
+
+    if (!classification.intent || classification.valid) return null;
+
+    return {
+        error                 : 'Drop+Supersede Contract Validation Failed',
+        message               : 'A Drop+Supersede verdict must carry the disposition, source-coordinate falsifiers, salvage map, successor landing pad, and successor map citation defined by pr-review §9.',
+        code                  : 'DROP_SUPERSEDE_CONTRACT_VALIDATION_FAILED',
+        missing_drop_supersede: classification.missing,
+        skill                 : '.agents/skills/pr-review/SKILL.md',
+        template              : isMicroDeltaPrReview(body)
+            ? '.agents/skills/pr-review/assets/pr-review-micro-delta-template.md'
+            : PR_REVIEW_FOLLOWUP_TEMPLATE_PATH
+    }
+}
+
+/**
  * @summary Returns the selected review-template validation failure, if any.
  *
  * Tier dispatch (most-specific first): an opt-in Micro-Review (Cycle-1 blast-scaled light shape) → a
@@ -564,13 +696,17 @@ function getMicroReviewTemplateValidationFailure(body) {
  * @returns {Object|null} Validation failure payload or `null` when valid.
  */
 function getPrReviewTemplateValidationFailure(body, options) {
+    let failure;
+
     if (isMicroReview(body)) {
-        return getMicroReviewTemplateValidationFailure(body);
+        failure = getMicroReviewTemplateValidationFailure(body)
+    } else {
+        failure = isMicroDeltaPrReview(body)
+            ? getMicroDeltaPrReviewTemplateValidationFailure(body)
+            : getCanonicalPrReviewTemplateValidationFailure(body, options)
     }
 
-    return isMicroDeltaPrReview(body)
-        ? getMicroDeltaPrReviewTemplateValidationFailure(body)
-        : getCanonicalPrReviewTemplateValidationFailure(body, options);
+    return failure || getDropSupersedeValidationFailure(body)
 }
 
 function isPlainObject(value) {
@@ -687,10 +823,372 @@ function getPrReviewStateValidationFailure({acknowledgedRequestChanges, pr_numbe
             missing.length ? `Missing acknowledgment(s): ${missing.map(reviewer => `@${reviewer}`).join(', ')}.` : null,
             invalid.length ? `Invalid acknowledgment disposition(s): ${invalid.map(reviewer => `@${reviewer}`).join(', ')}.` : null
         ].filter(Boolean).join(' '),
-        code: 'PR_REVIEW_STATE_VALIDATION_FAILED',
+        code                     : 'PR_REVIEW_STATE_VALIDATION_FAILED',
         headRefOid,
-        reviewDecision: pullRequest.reviewDecision,
+        reviewDecision           : pullRequest.reviewDecision,
         outstandingRequestChanges: outstanding
+    }
+}
+
+function getReviewBudgetFailure(pr_number, message, audit = {}) {
+    return {
+        error              : 'PR Review Budget Validation Failed',
+        message,
+        code               : 'PR_REVIEW_BUDGET_VALIDATION_FAILED',
+        permittedNextStates: ['APPROVED', 'COMMENT', 'validated Drop+Supersede'],
+        reviewBudget       : audit,
+        pr_number
+    }
+}
+
+/**
+ * @summary Validates and normalizes the named review-budget override disclosure.
+ * @param {*} value Candidate override reason.
+ * @returns {{provided: Boolean, valid: Boolean, reason: String}}
+ */
+function normalizeReviewBudgetOverrideReason(value) {
+    if (value === undefined) return {provided: false, valid: false, reason: ''};
+
+    const valid  = typeof value === 'string' && !/[\r\n]/.test(value) && value.trim().length > 0;
+    const reason = valid ? value.trim() : '';
+
+    return {provided: true, valid, reason}
+}
+
+/**
+ * @summary Appends the durable review-budget override audit record to the submitted review body.
+ * @param {String} body Validated review body.
+ * @param {Object} audit Review-budget audit payload.
+ * @returns {String} Review body with a machine-greppable audit block.
+ */
+function appendReviewBudgetOverrideAudit(body, audit) {
+    return [
+        body.trimEnd(),
+        '',
+        '---',
+        REVIEW_BUDGET_OVERRIDE_MARKER,
+        `- reason: ${audit.overrideReason}`,
+        `- submitted-request-changes: ${audit.submittedRequestChanges}`,
+        `- ordinary-limit: ${audit.ordinaryLimit}`,
+        `- activated-at: ${audit.activatedAt}`
+    ].join('\n')
+}
+
+/**
+ * @summary Appends durable managed-path provenance to each submitted Request Changes body.
+ * @param {String} body Validated review body.
+ * @param {Object} audit Review-budget audit payload.
+ * @returns {String} Review body with a marker that survives later GitHub dismissal.
+ */
+function appendReviewBudgetManagedAudit(body, audit) {
+    return [
+        body.trimEnd(),
+        '',
+        '---',
+        REVIEW_BUDGET_MANAGED_MARKER,
+        `- outcome: ${audit.outcome}`,
+        `- ordinary-limit: ${audit.ordinaryLimit}`,
+        `- activation-issue: ${audit.activationIssueNumber}`,
+        `- activation-pr: ${audit.activationPullRequestNumber}`,
+        `- activated-at: ${audit.activatedAt}`
+    ].join('\n')
+}
+
+/**
+ * @summary Captures the exact machine-owned review-budget suffix and rejects ambiguous duplicates.
+ * @param {String} body Review body.
+ * @returns {{auditFieldsOutsideTail: String[], managedCount: Number, overrideCount: Number, structureValid: Boolean, tail: String}}
+ */
+function getReviewBudgetAuditSnapshot(body) {
+    const lines         = body.replace(/\r\n/g, '\n').split('\n');
+    const markerIndices = marker => lines.reduce((indices, line, index) => {
+        if (line.trim() === marker) indices.push(index);
+
+        return indices
+    }, []);
+    const managedIndices  = markerIndices(REVIEW_BUDGET_MANAGED_MARKER);
+    const overrideIndices = markerIndices(REVIEW_BUDGET_OVERRIDE_MARKER);
+    const allIndices      = [...managedIndices, ...overrideIndices];
+    const markersFramed   = allIndices.every(index => index > 0 && lines[index - 1].trim() === '---');
+    const ordered         = overrideIndices.length === 0 ||
+        managedIndices.length === 1 && overrideIndices[0] < managedIndices[0];
+    const structureValid = managedIndices.length <= 1 && overrideIndices.length <= 1 &&
+        (overrideIndices.length === 0 || managedIndices.length === 1) && markersFramed && ordered;
+    const firstBlockLine = allIndices.length > 0
+        ? Math.min(...allIndices.map(index => Math.max(0, index - 1)))
+        : -1;
+    const prefixLines            = firstBlockLine >= 0 ? lines.slice(0, firstBlockLine) : lines;
+    const auditFieldsOutsideTail = allIndices.length === 0 ? [] : REVIEW_BUDGET_AUDIT_FIELDS.filter(label =>
+        prefixLines.some(line => line.trim().startsWith(`- ${label}:`))
+    );
+
+    return {
+        auditFieldsOutsideTail,
+        managedCount : managedIndices.length,
+        overrideCount: overrideIndices.length,
+        structureValid,
+        tail         : firstBlockLine >= 0 ? lines.slice(firstBlockLine).join('\n').trimEnd() : ''
+    }
+}
+
+/**
+ * @summary Recognizes a submitted Request Changes review even after GitHub dismisses it.
+ * @param {Object} review GitHub pull-request review projection.
+ * @returns {Boolean} Whether the review consumed a Request Changes slot.
+ */
+function isSubmittedRequestChangesReview(review) {
+    if (review?.state === 'CHANGES_REQUESTED') return true;
+    if (review?.state !== 'DISMISSED') return false;
+
+    const body  = review?.body || '';
+    const lines = body.split('\n').map(line => line.trim());
+
+    return body.includes(REVIEW_BUDGET_MANAGED_MARKER) ||
+        body.includes(REVIEW_BUDGET_OVERRIDE_MARKER) ||
+        REVIEW_BUDGET_BYPASS_PATTERN.test(body) ||
+        lines.includes('**Status:** Request Changes') ||
+        lines.includes('- **Decision**: Request Changes') ||
+        classifyDropSupersedeReview(body).intent
+}
+
+/**
+ * @summary Resolves the immutable review-budget cutover from an issue's earliest merged base-branch closer.
+ *
+ * Issue and pull-request numbers share one GitHub namespace, so the policy ticket cannot also
+ * be its activation PR. The issue relationship is the stable source anchor; its earliest valid
+ * merged closer remains authoritative even if the issue is later reopened.
+ *
+ * @param {Object} options Resolution inputs.
+ * @param {String} options.activationBaseRefName Required activation PR base branch.
+ * @param {Object} options.activationIssue GraphQL activation issue projection.
+ * @param {Number} options.activationIssueNumber Configured activation issue number.
+ * @param {Number} options.pr_number Reviewed PR number for failure envelopes.
+ * @returns {{activationPullRequest: Object|null, failure: Object|null}}
+ */
+function resolveReviewBudgetActivation({
+    activationBaseRefName,
+    activationIssue,
+    activationIssueNumber,
+    pr_number
+}) {
+    const audit      = {activationBaseRefName, activationIssueNumber};
+    const references = activationIssue?.closedByPullRequestsReferences;
+    const nodes      = references?.nodes;
+
+    if (!activationIssue?.id) {
+        return {
+            activationPullRequest: null,
+            failure              : getReviewBudgetFailure(
+                pr_number,
+                `Cannot resolve review-budget activation issue #${activationIssueNumber}; refusing REQUEST_CHANGES.`,
+                audit
+            )
+        }
+    }
+
+    if (!Array.isArray(nodes) || references?.pageInfo?.hasNextPage !== false ||
+        !Number.isInteger(references?.totalCount) || references.totalCount !== nodes.length) {
+        return {
+            activationPullRequest: null,
+            failure              : getReviewBudgetFailure(
+                pr_number,
+                `Cannot prove the complete closing-PR history for review-budget activation issue #${activationIssueNumber}; refusing REQUEST_CHANGES.`,
+                audit
+            )
+        }
+    }
+
+    const malformedMerged = nodes.filter(reference =>
+        reference?.state === 'MERGED' && reference?.baseRefName === activationBaseRefName &&
+        !Number.isFinite(Date.parse(reference?.mergedAt || ''))
+    );
+
+    if (malformedMerged.length > 0) {
+        return {
+            activationPullRequest: null,
+            failure              : getReviewBudgetFailure(
+                pr_number,
+                `Review-budget activation issue #${activationIssueNumber} has a merged ${activationBaseRefName} closer without a valid mergedAt; refusing REQUEST_CHANGES.`,
+                {...audit, malformedActivationPullRequests: malformedMerged.map(reference => reference?.number)}
+            )
+        }
+    }
+
+    const candidates = nodes
+        .filter(reference => reference?.state === 'MERGED' && reference?.baseRefName === activationBaseRefName)
+        .sort((left, right) => Date.parse(left.mergedAt) - Date.parse(right.mergedAt) || left.number - right.number);
+
+    return {activationPullRequest: candidates[0] || null, failure: null}
+}
+
+/**
+ * @summary Enforces the deterministic post-cutover Request Changes budget before mutation.
+ *
+ * Every submitted CHANGES_REQUESTED review counts across heads, authors, and later retractions.
+ * A structurally complete terminal Drop+Supersede is allowed once. A named override is a durable,
+ * disclosed bypass; it is never inferred from role or prose.
+ *
+ * @param {Object} options Validation inputs.
+ * @param {String} options.activatedAt Versioned cohort cutover.
+ * @param {Number} options.activationIssueNumber Source issue for the cohort cutover.
+ * @param {Number} options.activationPullRequestNumber Merged closing PR that activated the cohort.
+ * @param {String} options.body Validated review body.
+ * @param {Number} options.ordinaryLimit Ordinary Request Changes ceiling.
+ * @param {Number} options.pr_number PR number.
+ * @param {Object} options.pullRequest GraphQL PR projection.
+ * @param {String} [options.reviewBudgetOverrideReason] Named bypass reason.
+ * @returns {{failure: Object|null, body: String, audit: Object|null}}
+ */
+function validatePrReviewBudget({
+    activatedAt,
+    activationIssueNumber,
+    activationPullRequestNumber,
+    body,
+    ordinaryLimit,
+    pr_number,
+    pullRequest,
+    reviewBudgetOverrideReason
+}) {
+    const activatedMs = Date.parse(activatedAt || '');
+    const createdMs   = Date.parse(pullRequest?.createdAt || '');
+    const override    = normalizeReviewBudgetOverrideReason(reviewBudgetOverrideReason);
+    const baseAudit   = {
+        activatedAt,
+        activationIssueNumber,
+        activationPullRequestNumber,
+        createdAt: pullRequest?.createdAt,
+        ordinaryLimit
+    };
+
+    if (!Number.isFinite(activatedMs) || !Number.isInteger(ordinaryLimit) || ordinaryLimit < 1) {
+        return {
+            failure: getReviewBudgetFailure(
+                pr_number,
+                'The managed review budget is misconfigured; refusing REQUEST_CHANGES rather than silently disabling the gate.',
+                baseAudit
+            ),
+            body,
+            audit: null
+        }
+    }
+
+    if (!Number.isFinite(createdMs)) {
+        return {
+            failure: getReviewBudgetFailure(
+                pr_number,
+                `Cannot determine the review-budget cohort for PR #${pr_number}; createdAt is missing or invalid.`,
+                baseAudit
+            ),
+            body,
+            audit: null
+        }
+    }
+
+    if (createdMs <= activatedMs) {
+        const audit = {...baseAudit, applicable: false, outcome: 'grandfathered'};
+
+        return {
+            failure: override.provided
+                ? getReviewBudgetFailure(pr_number, 'reviewBudgetOverrideReason is only valid when a post-cutover PR has exhausted its ordinary RC budget.', audit)
+                : null,
+            body,
+            audit
+        }
+    }
+
+    const reviews = pullRequest?.reviews;
+
+    if (!Array.isArray(reviews?.nodes) || reviews?.pageInfo?.hasPreviousPage !== false) {
+        return {
+            failure: getReviewBudgetFailure(
+                pr_number,
+                `Cannot prove the complete submitted-review history for PR #${pr_number}; refusing REQUEST_CHANGES.`,
+                {...baseAudit, applicable: true}
+            ),
+            body,
+            audit: null
+        }
+    }
+
+    const priorRequestChanges = reviews.nodes.filter(isSubmittedRequestChangesReview);
+    const priorTerminal       = priorRequestChanges.filter(review => classifyDropSupersedeReview(review?.body || '').valid);
+    const incomingTerminal    = classifyDropSupersedeReview(body);
+    const audit               = {
+        ...baseAudit,
+        applicable                : true,
+        submittedRequestChanges   : priorRequestChanges.length,
+        priorTerminalDropSupersede: priorTerminal.length
+    };
+
+    if (override.provided && !override.valid) {
+        return {
+            failure: getReviewBudgetFailure(pr_number, 'reviewBudgetOverrideReason must be a non-empty single line.', audit),
+            body,
+            audit  : null
+        }
+    }
+
+    if (priorTerminal.length > 0) {
+        return {
+            failure: getReviewBudgetFailure(
+                pr_number,
+                `PR #${pr_number} already has a validated terminal Drop+Supersede review; another REQUEST_CHANGES review would reopen a terminal lane.`,
+                audit
+            ),
+            body,
+            audit: null
+        }
+    }
+
+    if (incomingTerminal.valid) {
+        const terminalAudit = {...audit, outcome: 'terminal-drop-supersede'};
+
+        return {
+            failure: override.provided
+                ? getReviewBudgetFailure(pr_number, 'A first validated terminal Drop+Supersede is already the budget exception; an override is unnecessary.', audit)
+                : null,
+            body : appendReviewBudgetManagedAudit(body, terminalAudit),
+            audit: terminalAudit
+        }
+    }
+
+    if (priorRequestChanges.length < ordinaryLimit) {
+        const withinBudgetAudit = {...audit, outcome: 'within-budget'};
+
+        return {
+            failure: override.provided
+                ? getReviewBudgetFailure(pr_number, 'reviewBudgetOverrideReason is only valid after the ordinary RC budget is exhausted.', audit)
+                : null,
+            body : appendReviewBudgetManagedAudit(body, withinBudgetAudit),
+            audit: withinBudgetAudit
+        }
+    }
+
+    if (override.valid) {
+        const overrideAudit = {
+            ...audit,
+            outcome       : 'disclosed-override',
+            overrideReason: override.reason
+        };
+
+        return {
+            failure: null,
+            body   : appendReviewBudgetManagedAudit(
+                appendReviewBudgetOverrideAudit(body, overrideAudit),
+                overrideAudit
+            ),
+            audit  : overrideAudit
+        }
+    }
+
+    return {
+        failure: getReviewBudgetFailure(
+            pr_number,
+            `PR #${pr_number} already has ${priorRequestChanges.length} submitted CHANGES_REQUESTED reviews; the ordinary limit is ${ordinaryLimit}. Use COMMENT for the RC2 closure packet, APPROVED when merge-safe, or one validated Drop+Supersede terminal verdict.`,
+            audit
+        ),
+        body,
+        audit: null
     }
 }
 
@@ -823,6 +1321,23 @@ class PullRequestService extends Base {
          * @protected
          */
         className: 'Neo.ai.services.github-workflow.PullRequestService',
+        /**
+         * Issue whose earliest merged closing PR activates deterministic review-budget enforcement.
+         * The relationship-derived merge receipt prevents the gate from retroactively freezing PRs
+         * opened while the activation lane itself was still under review.
+         * @member {Number} reviewBudgetActivationIssueNumber=15257
+         */
+        reviewBudgetActivationIssueNumber: 15257,
+        /**
+         * Base branch eligible to supply the activation issue's closing merge receipt.
+         * @member {String} reviewBudgetActivationBaseRefName='dev'
+         */
+        reviewBudgetActivationBaseRefName: 'dev',
+        /**
+         * Maximum ordinary submitted CHANGES_REQUESTED reviews on a post-cutover PR.
+         * @member {Number} reviewBudgetOrdinaryRcLimit=2
+         */
+        reviewBudgetOrdinaryRcLimit: 2,
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -1167,11 +1682,20 @@ class PullRequestService extends Base {
      * @param {String} options.body             The review body.
      * @param {String} [options.review_id]      The GraphQL node ID of the existing review (required for `update`; PRR_*).
      * @param {Object} [options.acknowledgedRequestChanges] Reviewer-login → disposition map required when approving over live `CHANGES_REQUESTED`.
+     * @param {String} [options.reviewBudgetOverrideReason] Single-line durable disclosure for an exceptional post-budget ordinary RC.
      * @returns {Promise<Object>} Review payload on success (`{message, reviewId, state, url, submittedAt, databaseId?}`) or structured error.
      *
      * @see Neo.ai.services.github-workflow.queries.mutations.ADD_PULL_REQUEST_REVIEW
      */
-    async managePrReview({acknowledgedRequestChanges, action, pr_number, state, body, review_id}) {
+    async managePrReview({
+        acknowledgedRequestChanges,
+        action,
+        pr_number,
+        state,
+        body,
+        review_id,
+        reviewBudgetOverrideReason
+    }) {
         if (!['create', 'update'].includes(action)) {
             return {
                 error  : 'Bad Request',
@@ -1219,13 +1743,34 @@ class PullRequestService extends Base {
                 };
             }
 
+            if (MICRO_DELTA_COMMENTED_CLOSURE_PATTERN.test(body) && event !== 'COMMENT') {
+                return {
+                    error  : 'PR Review Closure State Validation Failed',
+                    message: 'COMMENTED CLOSURE must be submitted with state COMMENT so the RC2 packet cannot create another ordinary Request Changes review.',
+                    code   : 'PR_REVIEW_CLOSURE_STATE_VALIDATION_FAILED'
+                }
+            }
+
+            const dropSupersede = classifyDropSupersedeReview(body);
+
+            if (dropSupersede.intent && event !== 'REQUEST_CHANGES') {
+                return {
+                    error  : 'Drop+Supersede State Validation Failed',
+                    message: 'A terminal Drop+Supersede verdict must use state REQUEST_CHANGES; COMMENT and APPROVED cannot carry the one terminal RC exception.',
+                    code   : 'DROP_SUPERSEDE_STATE_VALIDATION_FAILED'
+                }
+            }
+
             try {
                 const idData = await GraphqlService.query(GET_PULL_REQUEST_ID, {
-                    owner   : aiConfig.owner,
-                    repo    : aiConfig.repo,
-                    prNumber: pr_number
+                    activationIssueNumber: this.reviewBudgetActivationIssueNumber,
+                    owner                : aiConfig.owner,
+                    repo                 : aiConfig.repo,
+                    prNumber             : pr_number
                 });
-                const pullRequestId = idData?.repository?.pullRequest?.id;
+                const activationIssue = idData?.repository?.activationIssue;
+                const pullRequest     = idData?.repository?.pullRequest;
+                const pullRequestId   = pullRequest?.id;
 
                 if (!pullRequestId) {
                     return {
@@ -1235,21 +1780,71 @@ class PullRequestService extends Base {
                     };
                 }
 
+                let reviewBudgetAudit;
+                let submissionBody = body;
+
                 if (event === 'APPROVE') {
                     const stateValidationFailure = getPrReviewStateValidationFailure({
                         acknowledgedRequestChanges,
                         pr_number,
-                        pullRequest: idData?.repository?.pullRequest
+                        pullRequest
                     });
 
                     if (stateValidationFailure) {
                         return stateValidationFailure
                     }
+                } else if (event === 'REQUEST_CHANGES') {
+                    const activationResolution = resolveReviewBudgetActivation({
+                        activationBaseRefName: this.reviewBudgetActivationBaseRefName,
+                        activationIssue,
+                        activationIssueNumber: this.reviewBudgetActivationIssueNumber,
+                        pr_number
+                    });
+
+                    if (activationResolution.failure) return activationResolution.failure;
+
+                    const activationPullRequest = activationResolution.activationPullRequest;
+
+                    if (!activationPullRequest) {
+                        if (reviewBudgetOverrideReason !== undefined) {
+                            return getReviewBudgetFailure(
+                                pr_number,
+                                'reviewBudgetOverrideReason is unavailable before the activation issue has a merged closing PR.',
+                                {activationIssueNumber: this.reviewBudgetActivationIssueNumber, applicable: false}
+                            )
+                        }
+
+                        reviewBudgetAudit = {
+                            activatedAt                : null,
+                            activationIssueNumber      : this.reviewBudgetActivationIssueNumber,
+                            activationPullRequestNumber: null,
+                            applicable                 : false,
+                            outcome                    : 'pre-activation'
+                        }
+                    } else {
+                        const budgetValidation = validatePrReviewBudget({
+                            activatedAt                : activationPullRequest.mergedAt,
+                            activationIssueNumber      : this.reviewBudgetActivationIssueNumber,
+                            activationPullRequestNumber: activationPullRequest.number,
+                            body,
+                            ordinaryLimit              : this.reviewBudgetOrdinaryRcLimit,
+                            pr_number,
+                            pullRequest,
+                            reviewBudgetOverrideReason
+                        });
+
+                        if (budgetValidation.failure) {
+                            return budgetValidation.failure
+                        }
+
+                        reviewBudgetAudit = budgetValidation.audit;
+                        submissionBody    = budgetValidation.body
+                    }
                 }
 
                 const reviewData = await GraphqlService.query(ADD_PULL_REQUEST_REVIEW, {
                     pullRequestId,
-                    body,
+                    body: submissionBody,
                     event
                 });
 
@@ -1269,7 +1864,8 @@ class PullRequestService extends Base {
                     state      : review.state,
                     url        : review.url,
                     submittedAt: review.submittedAt,
-                    databaseId : review.databaseId
+                    databaseId : review.databaseId,
+                    ...(reviewBudgetAudit ? {reviewBudget: reviewBudgetAudit} : {})
                 };
             } catch (error) {
                 logger.error(`Error creating PR review on PR #${pr_number}:`, error);
@@ -1291,6 +1887,55 @@ class PullRequestService extends Base {
         }
 
         try {
+            const currentData   = await GraphqlService.query(GET_PULL_REQUEST_REVIEW, {reviewId: review_id});
+            const currentReview = currentData?.node;
+
+            if (!currentReview?.id) {
+                return {
+                    error  : 'Not Found',
+                    message: `Pull request review ${review_id} not found or returned no review node.`,
+                    code   : 'PR_REVIEW_NOT_FOUND'
+                }
+            }
+
+            const currentBody   = currentReview.body || '';
+            const currentAudit  = getReviewBudgetAuditSnapshot(currentBody);
+            const incomingAudit = getReviewBudgetAuditSnapshot(body);
+            const markerChanges = [];
+
+            if (currentAudit.managedCount !== incomingAudit.managedCount ||
+                currentAudit.managedCount > 1 || incomingAudit.managedCount > 1) {
+                markerChanges.push(REVIEW_BUDGET_MANAGED_MARKER)
+            }
+
+            if (currentAudit.overrideCount !== incomingAudit.overrideCount ||
+                currentAudit.overrideCount > 1 || incomingAudit.overrideCount > 1) {
+                markerChanges.push(REVIEW_BUDGET_OVERRIDE_MARKER)
+            }
+
+            if (!currentAudit.structureValid || !incomingAudit.structureValid) {
+                markerChanges.push('machine-owned-tail-structure')
+            }
+
+            const currentTerminal   = classifyDropSupersedeReview(currentBody).intent;
+            const incomingTerminal  = classifyDropSupersedeReview(body).intent;
+            const auditFieldChanges = [
+                ...(currentAudit.tail === incomingAudit.tail ? [] : ['machine-owned-tail']),
+                ...currentAudit.auditFieldsOutsideTail.map(label => `current-outside-tail:${label}`),
+                ...incomingAudit.auditFieldsOutsideTail.map(label => `incoming-outside-tail:${label}`)
+            ];
+
+            if (markerChanges.length > 0 || currentTerminal !== incomingTerminal || auditFieldChanges.length > 0) {
+                return {
+                    error                        : 'PR Review Budget Audit Validation Failed',
+                    message                      : 'A submitted review update cannot change review-budget provenance, audit fields, or ordinary-versus-Drop+Supersede classification.',
+                    code                         : 'PR_REVIEW_BUDGET_AUDIT_IMMUTABLE',
+                    markerChanges,
+                    auditFieldChanges,
+                    terminalClassificationChanged: currentTerminal !== incomingTerminal
+                }
+            }
+
             const updateData = await GraphqlService.query(UPDATE_PULL_REQUEST_REVIEW, {
                 pullRequestReviewId: review_id,
                 body
