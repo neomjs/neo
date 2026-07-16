@@ -134,9 +134,9 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoAWorkspace', () => {
         const indicators = workspace.getReference('drop-indicators');
         const zones      = [{nodeId: 'side-tabs', rect: {x: 400, y: 0, width: 400, height: 600}, orientation: null}];
 
-        workspace.dragGeometry = Promise.resolve({hostRect: {x: 0, y: 0, width: 800, height: 600}, root: null, zones});
+        workspace.dragAffordances.dragGeometry = Promise.resolve({hostRect: {x: 0, y: 0, width: 800, height: 600}, root: null, zones});
         indicators.hostRect    = {x: 0, y: 0, width: 800, height: 600};
-        indicators.candidateSet = workspace.dockPreviewProducer.produceCandidates({
+        indicators.candidateSet = workspace.dragAffordances.producer.produceCandidates({
             pointer: {x: 600, y: 300}, zones, itemId: 'editor', sourceNodeId: 'editor-tabs'
         });
         indicators.updatePointer({x: 600, y: 300});
@@ -147,7 +147,7 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoAWorkspace', () => {
         // the cached center candidate must NOT commit; nothing must commit
         const before = JSON.stringify(workspace.getDockZoneDocument());
 
-        await workspace.onDockCrossZoneDrop({clientX: 999, clientY: 999, itemId: 'editor', sourceNodeId: 'editor-tabs'});
+        await workspace.dragAffordances.onDrop({clientX: 999, clientY: 999, itemId: 'editor', sourceNodeId: 'editor-tabs'});
 
         expect(JSON.stringify(workspace.getDockZoneDocument())).toBe(before)
     });
@@ -156,10 +156,10 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoAWorkspace', () => {
         const indicators = workspace.getReference('drop-indicators');
         const zones      = [{nodeId: 'side-tabs', rect: {x: 400, y: 0, width: 400, height: 600}, orientation: null}];
 
-        workspace.dragGeometry = Promise.resolve({hostRect: {x: 0, y: 0, width: 800, height: 600}, root: null, zones});
+        workspace.dragAffordances.dragGeometry = Promise.resolve({hostRect: {x: 0, y: 0, width: 800, height: 600}, root: null, zones});
         indicators.hostRect    = {x: 0, y: 0, width: 800, height: 600};
         // the menu was built for `editor`…
-        indicators.candidateSet = workspace.dockPreviewProducer.produceCandidates({
+        indicators.candidateSet = workspace.dragAffordances.producer.produceCandidates({
             pointer: {x: 600, y: 300}, zones, itemId: 'editor', sourceNodeId: 'editor-tabs'
         });
 
@@ -167,7 +167,7 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoAWorkspace', () => {
 
         // …but the release reports `preview` (a stale set across sessions): the candidate is
         // ignored; the fallback excludes the source zone (side-tabs) → nothing commits
-        await workspace.onDockCrossZoneDrop({clientX: 600, clientY: 300, itemId: 'preview', sourceNodeId: 'side-tabs'});
+        await workspace.dragAffordances.onDrop({clientX: 600, clientY: 300, itemId: 'preview', sourceNodeId: 'side-tabs'});
 
         expect(JSON.stringify(workspace.getDockZoneDocument())).toBe(before)
     });
@@ -177,13 +177,13 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoAWorkspace', () => {
             indicators = workspace.getReference('drop-indicators'),
             preview    = workspace.getReference('dock-preview');
 
-        workspace.dragGeometry = Promise.resolve({hostRect: {}, zones: []});
+        workspace.dragAffordances.dragGeometry = Promise.resolve({hostRect: {}, zones: []});
         indicators.candidateSet = {candidates: []};
         preview.dockPreview     = {itemId: 'editor'};
 
-        workspace.onDockCrossZoneDragCancel({itemId: 'editor', sourceNodeId: 'editor-tabs'});
+        workspace.dragAffordances.onDragCancel({itemId: 'editor', sourceNodeId: 'editor-tabs'});
 
-        expect(workspace.dragGeometry).toBeNull();
+        expect(workspace.dragAffordances.dragGeometry).toBeNull();
         expect(indicators.candidateSet).toBeNull();
         expect(preview.dockPreview).toBeNull()
     });
@@ -192,14 +192,14 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoAWorkspace', () => {
         const indicators = workspace.getReference('drop-indicators');
         const zones      = [{nodeId: 'side-tabs', rect: {x: 400, y: 0, width: 400, height: 600}, orientation: null}];
 
-        workspace.dragGeometry = Promise.resolve({hostRect: {x: 0, y: 0, width: 800, height: 600}, root: null, zones});
+        workspace.dragAffordances.dragGeometry = Promise.resolve({hostRect: {x: 0, y: 0, width: 800, height: 600}, root: null, zones});
         indicators.hostRect    = {x: 0, y: 0, width: 800, height: 600};
-        indicators.candidateSet = workspace.dockPreviewProducer.produceCandidates({
+        indicators.candidateSet = workspace.dragAffordances.producer.produceCandidates({
             pointer: {x: 600, y: 300}, zones, itemId: 'editor', sourceNodeId: 'editor-tabs'
         });
 
         // release exactly on the CENTER indicator (zone center): tab-into side-tabs
-        await workspace.onDockCrossZoneDrop({clientX: 600, clientY: 300, itemId: 'editor', sourceNodeId: 'editor-tabs'});
+        await workspace.dragAffordances.onDrop({clientX: 600, clientY: 300, itemId: 'editor', sourceNodeId: 'editor-tabs'});
 
         const doc = workspace.getDockZoneDocument();
 
