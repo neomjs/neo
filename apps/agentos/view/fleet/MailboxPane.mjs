@@ -25,6 +25,25 @@ function isRecognizedMirrorEnvelope(snapshot) {
 }
 
 /**
+ * @summary Is this a real page window?
+ *
+ * The bounds render as fact beside the rows ("51–60"), and the steps derive their offsets from them.
+ * A `page` that is merely PRESENT — `{}` — yields `NaN–NaN` and offsets of `NaN`: a window invented
+ * out of absent numbers. Structural recognition of the producer's own shape, not a range opinion.
+ * @param {Object} page Candidate page bounds.
+ * @returns {Boolean}
+ * @private
+ */
+function isRecognizedPage(page) {
+    return Number.isSafeInteger(page.limit)
+        && Number.isSafeInteger(page.offset)
+        && Number.isSafeInteger(page.count)
+        && page.limit  > 0
+        && page.offset >= 0
+        && page.count  >= 0
+}
+
+/**
  * The AgentDetail **Mailbox tab** — the S1 view half: a read-only, viewer-admitted mirror of the
  * drilled-in resident's ACTIVE A2A inbox, rendered from one Fleet mailbox-mirror adapter snapshot.
  *
@@ -215,6 +234,13 @@ class MailboxPane extends Container {
     onConstructed(...args) {
         super.onConstructed(...args);
 
+        // Icon-only controls have no text to name them, so without this they reach AT as an unnamed
+        // button — the chevron IS the label to a sighted operator and nothing at all to anyone else.
+        // Named here rather than in the config: `button.Base` builds its own vdom, and handing it a
+        // `vdom` config would fight the primitive for ownership of the tree it renders.
+        this.getReference('mailbox-page-prev').changeVdomRootKey('aria-label', 'Newer messages');
+        this.getReference('mailbox-page-next').changeVdomRootKey('aria-label', 'Older messages');
+
         this.store = Neo.create(AgentMailboxStore);
         this.applySnapshot()
     }
@@ -303,10 +329,18 @@ class MailboxPane extends Container {
         // a silent pane. This is the one state that may speak without an admitted subject.
         if (snapshot.capability.state === 'degraded') return 'degraded';
 
-        // `rows` and `empty` are claims about THIS resident's mail. Both require a verified subject:
-        // an unattributed row list is a stranger's inbox, and an unattributed zero is "no mail for
-        // someone" rendered as "no mail for HIM".
-        if (!named)                     return 'unobserved';
+        // `rows` and `empty` are claims about THIS resident's mail, and BOTH require the producer to
+        // have actually said so. Presence of the four members is not permission to read them: a
+        // `wired` capability beside an `unavailable` admission is a read that never happened, and its
+        // zero rows are "we could not look" — rendering that as "No active messages for @x" states
+        // the outcome of a read nobody performed. Only `granted` over `wired` is a mail claim; the
+        // subject must be verified; and the page window must be real numbers, since the bounds are
+        // rendered as fact beside those rows.
+        if (!named)                                   return 'unobserved';
+        if (snapshot.capability.state !== 'wired')    return 'unobserved';
+        if (snapshot.admission.state  !== 'granted')  return 'unobserved';
+        if (!isRecognizedPage(snapshot.page))         return 'unobserved';
+
         if (snapshot.rows.length === 0) return 'empty';
 
         return 'rows'
@@ -555,13 +589,33 @@ class MailboxPane extends Container {
         me.nextPageOffset = offset + limit;
 
         me.getReference('mailbox-page-range').text = `${offset + 1}–${offset + count}`;
-        me.getReference('mailbox-page-prev').disabled = offset <= 0;
-        // The producer's own boundary fact, never inferred from `count === limit`. A full page is
-        // ambiguous — it cannot distinguish "more follows" from "that was exactly the last one" —
-        // and guessing enables Next on an exactly-full final page, whose read returns an empty
-        // window at a positive offset: the pane then renders a global "no messages" and hides the
-        // strip, trapping the operator with no way back.
-        me.getReference('mailbox-page-next').disabled = !hasMore
+
+        // The producer's own boundary fact for `next`, never inferred from `count === limit`. A full
+        // page is ambiguous — it cannot distinguish "more follows" from "that was exactly the last
+        // one" — and guessing enables Next on an exactly-full final page, whose read returns an
+        // empty window at a positive offset: the pane then renders a global "no messages" and hides
+        // the strip, trapping the operator with no way back.
+        me.applyPageStep('mailbox-page-prev', offset <= 0);
+        me.applyPageStep('mailbox-page-next', !hasMore)
+    }
+
+    /**
+     * @summary Set one step's edge state — visually AND semantically.
+     *
+     * `Neo.component.Base`'s `disabled` adds the `neo-disabled` class and nothing else: no native
+     * `disabled`, no `aria-disabled`. So a styled-shut control is still announced as enabled and
+     * still reachable — the operator who most needs the edge to be honest is the one it lies to. The
+     * class carries the look; `aria-disabled` carries the meaning; the handler guard carries the
+     * refusal. All three, because each one alone is a different half-truth.
+     * @param {String} reference The step control.
+     * @param {Boolean} closed Whether this edge is the end of the range.
+     * @protected
+     */
+    applyPageStep(reference, closed) {
+        const step = this.getReference(reference);
+
+        step.disabled = closed;
+        step.changeVdomRootKey('aria-disabled', closed ? 'true' : null)
     }
 
     /**

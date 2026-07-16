@@ -399,6 +399,62 @@ test.describe('AgentOS.view.fleet.MailboxPane — the read-only S1 mailbox tab',
         pane.destroy()
     });
 
+    test('presence is not permission: only GRANTED over WIRED with a real page window is a mail claim', () => {
+        // The reviewer's literal falsifier. Four members PRESENT is not the producer saying anything:
+        // a `wired` capability beside an `unavailable` admission is a read that never happened, and
+        // its zero rows mean "we could not look" — rendering that as "No active messages for @x"
+        // reports the outcome of a read nobody performed.
+        const notAMailClaim = [
+            // reviewer's exact shape — reached `empty` before this fix
+            {capability: {state: 'wired'}, admission: {state: 'unavailable', subjectAgentId: '@neo-opus-vega'}, page: {}, rows: []},
+            // ...and the same shape WITH rows reached `rows`
+            {capability: {state: 'wired'}, admission: {state: 'unavailable', subjectAgentId: '@neo-opus-vega'}, page: {}, rows: [row({messageId: 'MESSAGE:ghost'})]},
+            // an unknown admission state is not granted either — the closed set is the producer's
+            {capability: {state: 'wired'}, admission: {state: 'pending', subjectAgentId: '@neo-opus-vega'}, page: {limit: 50, offset: 0, count: 0}, rows: []},
+            // a not-wired capability cannot carry a mail claim, whatever admission says
+            {capability: {state: 'not-wired'}, admission: {state: 'granted', subjectAgentId: '@neo-opus-vega'}, page: {limit: 50, offset: 0, count: 0}, rows: []},
+            // a PRESENT but empty page is `NaN–NaN` bounds and NaN offsets — a window invented from
+            // absent numbers, rendered as fact beside the rows
+            {capability: {state: 'wired'}, admission: {state: 'granted', subjectAgentId: '@neo-opus-vega'}, page: {}, rows: []},
+            {capability: {state: 'wired'}, admission: {state: 'granted', subjectAgentId: '@neo-opus-vega'}, page: {limit: 'many', offset: 0, count: 0}, rows: []}
+        ];
+
+        notAMailClaim.forEach(snapshot => {
+            const pane = createPane({snapshot});
+
+            expect(pane.getPaneState(), JSON.stringify(snapshot)).toBe('unobserved');
+            expect(pane.getReference('mailbox-rows').hidden).toBe(true);
+            expect(pane.getReference('mailbox-page').hidden).toBe(true);
+
+            pane.destroy()
+        })
+    });
+
+    test('a11y: the icon-only page steps carry an accessible name AND a real disabled semantic', () => {
+        const pane = createPane({snapshot: wiredSnapshot([row({messageId: 'MESSAGE:a'})], {limit: 50, offset: 0, count: 50, hasMore: true})}),
+              prev = pane.getReference('mailbox-page-prev'),
+              next = pane.getReference('mailbox-page-next');
+
+        // a chevron IS the label to a sighted operator and nothing at all to anyone else
+        expect(prev.vdom['aria-label']).toBe('Newer messages');
+        expect(next.vdom['aria-label']).toBe('Older messages');
+
+        // `disabled` adds only the neo-disabled CLASS — no native attribute, no aria. Without an
+        // explicit aria-disabled the closed edge is announced as ENABLED: the operator who most
+        // needs the boundary to be honest is the one it lies to.
+        expect(prev.disabled).toBe(true);
+        expect(prev.vdom['aria-disabled']).toBe('true');
+        expect(next.disabled).toBe(false);
+        expect(next.vdom['aria-disabled'] ?? null, 'an open edge must not be announced as disabled').toBe(null);
+
+        // and the semantics track the bounds, not just the first render
+        pane.snapshot = wiredSnapshot([row({messageId: 'MESSAGE:b'})], {limit: 50, offset: 50, count: 10, hasMore: false});
+        expect(prev.vdom['aria-disabled'] ?? null).toBe(null);
+        expect(next.vdom['aria-disabled']).toBe('true');
+
+        pane.destroy()
+    });
+
     test('a DISABLED step refuses the request — the primitive disables the LOOK, not the handler', () => {
         // Neo's `disabled` adds the `neo-disabled` class; that styling carries no
         // `pointer-events: none`, and `button.Base.onClick` invokes `handler` without consulting it.
