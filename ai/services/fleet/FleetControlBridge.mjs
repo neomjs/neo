@@ -7,6 +7,11 @@ import {resolveIdentityDisplay} from './resolveIdentityDisplay.mjs';
 import {LAUNCHABLE_HARNESS_TYPES, getHarnessAuthMode} from './deriveHarnessLaunchSpec.mjs';
 
 import {
+    createFleetMailboxMirrorSnapshot,
+    DEFAULT_FLEET_MAILBOX_MIRROR_LIMIT
+} from './fleetMailboxMirrorAdapter.mjs';
+
+import {
     createFleetCockpitStatus,
     createNotWiredCapability,
     FLEET_COCKPIT_SOURCES
@@ -93,6 +98,18 @@ class FleetControlBridge extends Base {
      * @member {Object|null} activitySource=null
      */
     activitySource = null
+    /**
+     * Per-agent mailbox-mirror **read-observe** source — an injected collaborator exposing
+     * `readMailboxMirror({subjectAgentId, limit, offset})` that returns the S1 mirror snapshot
+     * (`{capability, admission, rows, page}`). Same DI contract as {@link #activitySource}: the
+     * wiring owns the identity binding and read permissions, so the source is what holds
+     * `resolveBoundIdentity` + the viewer-bound `listMessages` — this bridge never imports
+     * MailboxService and never authors an admission fact. Unwired → an honest source-not-wired
+     * snapshot whose admission is `unavailable`, never an empty inbox: "no mail" and "no mailbox
+     * feed" are different claims and only the producer may make the first.
+     * @member {Object|null} mailboxMirrorSource=null
+     */
+    mailboxMirrorSource = null
 
     /**
      * Identity-display resolver seam — maps a fleet agent onto its identity-root display facts
@@ -357,6 +374,33 @@ class FleetControlBridge extends Base {
                 capability: createNotWiredCapability(FLEET_COCKPIT_SOURCES.activity, 'fleet activity source not wired'),
                 events    : []
             };
+    }
+
+    /**
+     * @summary READ-OBSERVE: one agent's viewer-admitted mailbox mirror — the S1 snapshot the FM
+     * cockpit's AgentDetail mailbox tab renders. Rides the authenticated `registryBridge` as a
+     * **read** verb; it carries NO lifecycle-write authority, and structurally no mutation verb
+     * exists on this path (operator-side mark-read would mutate the agent's own turn-start signal).
+     *
+     * Admission is decided by the Memory Core primitive's own fail-closed `CAN_READ_INBOX_OF` gate,
+     * never re-implemented here or in {@link #mailboxMirrorSource} — this verb only routes. An
+     * unwired source degrades through the adapter's OWN pure half so the not-wired snapshot is
+     * shape-identical to a live one and cannot drift from it: same `{capability, admission, rows,
+     * page}` envelope, `admission.state: 'unavailable'`, zero rows. It never returns an empty inbox
+     * for a missing feed — "this agent has no mail" and "we cannot see this agent's mail" are
+     * different claims, and only the producer is entitled to the first.
+     * @param {Object} [params] `{subjectAgentId, limit, offset}` — the direct subject agent whose
+     *     ACTIVE inbox is mirrored, plus bounded pagination.
+     * @returns {Promise<Object>|Object} `{capability, admission, rows, page}` — the S1 mirror snapshot.
+     */
+    fleetMailboxMirror(params) {
+        return this.mailboxMirrorSource
+            ? this.mailboxMirrorSource.readMailboxMirror(params)
+            : createFleetMailboxMirrorSnapshot({
+                error  : 'fleet mailbox mirror source not wired',
+                page   : {limit: params?.limit ?? DEFAULT_FLEET_MAILBOX_MIRROR_LIMIT, offset: params?.offset ?? 0},
+                subject: params?.subjectAgentId ?? null
+            });
     }
 
     /**
