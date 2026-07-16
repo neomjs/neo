@@ -276,3 +276,87 @@ test.describe('computedGoldenPathRouting — the fixture-provenance guard (sourc
         expect(evaluateDiscussionLiveness({id: 'issue-1', type: 'ISSUE'}, 0)).toEqual({eligible: true, rejectionBucket: []})
     });
 });
+
+test.describe('buildComputedRouteFromPass — canonical pass outcome → typed computed-route.v1', () => {
+    let buildComputedRouteFromPass, validateComputedRouteResult;
+
+    const base = (overrides = {}) => ({
+        scoredSourceIds : ['issue-1', 'issue-2'],
+        now             : new Date('2026-07-16T06:00:00.000Z'),
+        ttlMs           : 600000,
+        routeVersion    : 'rv-1',
+        algorithmVersion: 'algo-1',
+        ...overrides
+    });
+
+    test.beforeAll(async () => {
+        const routing  = await import('../../../../../../ai/services/graph/computedGoldenPathRouting.mjs');
+        const contract = await import('../../../../../../ai/services/graph/computedRouteResult.mjs');
+        buildComputedRouteFromPass  = routing.buildComputedRouteFromPass;
+        validateComputedRouteResult = contract.validateComputedRouteResult;
+    });
+
+    test('computed-ranked branch: ranked nodes → fresh, kind computed-ranked, mapped items + identity', () => {
+        const result = buildComputedRouteFromPass(base({
+            routedTopNodes: [
+                {node: {id: 'issue-1', properties: {title: 'Top lane'}}, score: 9.1},
+                {node: {id: 'issue-2', properties: {title: 'Second'}},   score: 4.0}
+            ]
+        }));
+
+        expect(validateComputedRouteResult(result).valid).toBe(true);
+        expect(result.status).toBe('fresh');
+        expect(result.route.kind).toBe('computed-ranked');
+        expect(result.route.items.map(i => i.id)).toEqual(['issue-1', 'issue-2']);
+        expect(result.route.items[0]).toMatchObject({id: 'issue-1', title: 'Top lane', score: 9.1, rank: 1});
+        expect(result.expiresAt).toBe('2026-07-16T06:10:00.000Z');
+        expect(result.sourceManifestHash).toMatch(/^[0-9a-f]{8}$/);
+    });
+
+    test('failure branch: routeFailure → degraded/none with unverifiable freshness (never empty)', () => {
+        const result = buildComputedRouteFromPass(base({
+            routeFailure: {status: 'failed', reasonCode: 'collections-missing', error: 'x'}
+        }));
+
+        expect(validateComputedRouteResult(result).valid).toBe(true);
+        expect(result.status).toBe('degraded');
+        expect(result.route.kind).toBe('none');
+        expect(result.route.items).toHaveLength(0);
+        expect(result.freshness.status).toBe('unverifiable');
+    });
+
+    test('focus-contradiction branch: candidates existed but all blocked → degraded/none', () => {
+        const result = buildComputedRouteFromPass(base({
+            focusContradiction: {blockedIds: new Set(['issue-1']), blockedNodes: [{node: {id: 'issue-1'}}]}
+        }));
+
+        expect(validateComputedRouteResult(result).valid).toBe(true);
+        expect(result.status).toBe('degraded');
+        expect(result.route.kind).toBe('none');
+    });
+
+    test('empty branch WITH declared intent → empty route + available advisory (advisory never routes)', () => {
+        const result = buildComputedRouteFromPass(base({
+            declaredIntentItems: [{id: 'issue-9', title: 'Unblocked epic leaf'}]
+        }));
+
+        expect(validateComputedRouteResult(result).valid).toBe(true);
+        expect(result.status).toBe('empty');
+        expect(result.route.items).toHaveLength(0);
+        expect(result.advisoryFallback.status).toBe('available');
+        expect(result.advisoryFallback.items).toEqual([{id: 'issue-9', title: 'Unblocked epic leaf', citations: []}]);
+    });
+
+    test('empty branch WITHOUT declared intent → empty + not-applicable advisory', () => {
+        const result = buildComputedRouteFromPass(base());
+
+        expect(validateComputedRouteResult(result).valid).toBe(true);
+        expect(result.status).toBe('empty');
+        expect(result.advisoryFallback.status).toBe('not-applicable');
+        expect(result.advisoryFallback.items).toHaveLength(0);
+    });
+
+    test('ttlMs is required — fail-loud, no local default', () => {
+        expect(() => buildComputedRouteFromPass(base({ttlMs: undefined}))).toThrow(/ttlMs must be a finite number/);
+    });
+});

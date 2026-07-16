@@ -1,6 +1,7 @@
 import {normalizeDiscussionRoutingProjection}                    from '../github-workflow/shared/discussionRoutingDisposition.mjs';
 import {normalizeLabels}                                         from './issueFocusSections.mjs';
 import {formatGoldenPathCapturedAt as formatGoldenPathTimestamp} from './goldenPathTimestamp.mjs';
+import {buildComputedRouteResult, computeSourceManifestHash}     from './computedRouteResult.mjs';
 
 /**
  * @module ai/services/graph/computedGoldenPathRouting
@@ -437,4 +438,99 @@ export function renderComputedGoldenPathFailureSection({
         'No numbered immediate recommendation is rendered for this pass; do not claim a computed lane from stale handoff data until the next successful Golden Path run.',
         ''
     ].join('\n')
+}
+
+/**
+ * @summary Assembles the typed `computed-route.v1` result from one canonical Golden Path pass's
+ * branch outcome. This is the single place the four render branches (failure / computed-ranked /
+ * focus-contradiction / empty) map onto the typed contract, so the handoff renderer, the
+ * orchestrator, and the projection channel all consume one typed object instead of reparsing the
+ * rendered Markdown.
+ *
+ * Pure: every time / identity / config input is injected. `status` is chosen by branch and is
+ * never derived from item count — a failed or focus-blocked pass keeps its honest `degraded`
+ * status and never collapses to `empty`.
+ *
+ * @param {Object}   params
+ * @param {Object}   [params.routeFailure=null] The `{status, reasonCode, error}` failure outcome, if the pass failed.
+ * @param {Object[]} [params.routedTopNodes=[]] Ranked `{node:{id,properties}, score}` recommendations that survived routing.
+ * @param {Object}   [params.focusContradiction=null] Present when the computed route was fully blocked by live Current Focus.
+ * @param {Object[]} [params.declaredIntentItems=[]] Normalized `{id, title}` declared-intent fallback items for an empty route.
+ * @param {String[]} params.scoredSourceIds Ids of the scored candidate set — the manifest the identity hash covers.
+ * @param {Date}     params.now Pass capture time.
+ * @param {Number}   params.ttlMs Route freshness TTL in ms, injected from config (no local default).
+ * @param {String}   params.routeVersion Route-version token (route identity).
+ * @param {String}   params.algorithmVersion Scoring-algorithm version (provenance).
+ * @param {String}   [params.runId=null] Optional per-pass run id (provenance).
+ * @returns {Object} A typed `computed-route.v1` `ComputedRouteResult`.
+ * @throws {TypeError} When `ttlMs` is not a finite number.
+ */
+export function buildComputedRouteFromPass({
+    routeFailure        = null,
+    routedTopNodes      = [],
+    focusContradiction  = null,
+    declaredIntentItems = [],
+    scoredSourceIds,
+    now,
+    ttlMs,
+    routeVersion,
+    algorithmVersion,
+    runId               = null
+} = {}) {
+    if (typeof ttlMs !== 'number' || !Number.isFinite(ttlMs)) {
+        throw new TypeError('[buildComputedRouteFromPass] ttlMs must be a finite number (inject from config; no local default).')
+    }
+
+    const capturedDate = now instanceof Date ? now : new Date(now);
+    const capturedAt   = capturedDate.toISOString();
+    const expiresAt    = new Date(capturedDate.getTime() + ttlMs).toISOString();
+
+    const base = {
+        capturedAt,
+        sourceWatermark   : `${capturedAt}:${Array.isArray(scoredSourceIds) ? scoredSourceIds.length : 0}`,
+        expiresAt,
+        routeVersion,
+        sourceManifestHash: computeSourceManifestHash(scoredSourceIds),
+        provenance        : {producer: 'GoldenPathSynthesizer', runId, algorithmVersion, citations: []},
+        freshness         : {status: 'fresh', checkedAt: capturedAt, expiresAt}
+    };
+
+    if (routeFailure) {
+        return buildComputedRouteResult({
+            ...base,
+            status   : 'degraded',
+            freshness: {status: 'unverifiable', checkedAt: capturedAt, expiresAt},
+            route    : {kind: 'none', items: []}
+        })
+    }
+
+    if (Array.isArray(routedTopNodes) && routedTopNodes.length > 0) {
+        const items = routedTopNodes.map((item, index) => ({
+            id   : item.node?.id,
+            title: item.node?.properties?.title || item.node?.properties?.name || item.node?.name || 'Untitled',
+            score: typeof item.score === 'number' ? item.score : null,
+            rank : index + 1
+        }));
+
+        return buildComputedRouteResult({...base, status: 'fresh', route: {kind: 'computed-ranked', items}})
+    }
+
+    if (focusContradiction) {
+        // The computed route was fully blocked by live Current Focus — degraded, not empty:
+        // candidates existed but none is a safe immediate route this pass.
+        return buildComputedRouteResult({...base, status: 'degraded', route: {kind: 'none', items: []}})
+    }
+
+    const hasDeclaredIntent = Array.isArray(declaredIntentItems) && declaredIntentItems.length > 0;
+
+    return buildComputedRouteResult({
+        ...base,
+        status          : 'empty',
+        route           : {kind: 'none', items: []},
+        advisoryFallback: {
+            kind  : 'declared-intent',
+            status: hasDeclaredIntent ? 'available' : 'not-applicable',
+            items : hasDeclaredIntent ? declaredIntentItems.map(i => ({id: i.id, title: i.title})) : []
+        }
+    })
 }
