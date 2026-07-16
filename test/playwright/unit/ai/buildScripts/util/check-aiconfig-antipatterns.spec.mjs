@@ -209,6 +209,20 @@ test.describe('check-aiconfig-antipatterns guard — A1 module-level env re-deri
         expect(findAntipatterns(content)).toEqual([])
     });
 
+    test('A1: an env token inside a STRING on a real declaration line never flags (classify the token, not the declaration)', () => {
+        expect(findAntipatterns(importHeader + "const msg = 'reads process.env.PATH at boot';\n")).toEqual([]);
+        expect(findAntipatterns(importHeader + 'const doc = "set process.env.NEO_PORT before running";\n')).toEqual([]);
+        expect(findAntipatterns(importHeader + 'const note = `about process.env.NEO_X`;\n')).toEqual([]);
+        expect(findAntipatterns(importHeader + 'const x = compute(); /* process.env.NEO_Y */\n')).toEqual([])
+    });
+
+    test('A1: an escape marker on the IMPORT/gate line exempts only that line — other declarations still flag', () => {
+        const content = importHeader.trimEnd() + ` // ${ESCAPE_MARKER}: gate-line note\n` +
+            "const P = process.env.NEO_P || 'x';\n";
+
+        expect(findAntipatterns(content).map(h => h.rule)).toEqual(['A1'])
+    });
+
     test('A1: comment and string occurrences never flag; the escape marker is honored', () => {
         const commented = importHeader + "// const DB_PATH = process.env.NEO_DB_PATH || fallback;\n";
         const escaped   = importHeader + `const BOOT_FLAG = process.env.NEO_BOOT_FLAG; // ${ESCAPE_MARKER}: bootstrap boundary, reads before the provider exists\n`;

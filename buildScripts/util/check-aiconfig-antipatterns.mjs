@@ -102,17 +102,22 @@ export function findAntipatterns(content) {
           a1Global      = new RegExp(A1_ENV_REDERIVATION.source, 'g');
 
     lines.forEach((line, index) => {
+        // Mask + projection compute UNCONDITIONALLY — before the escape check. Skipping a line
+        // would corrupt block-comment state continuity AND remove the line from the gate
+        // projection: an escape marker on the IMPORT line would then silently exempt the whole
+        // file's A1 hits (the escape valve is line-scoped for HITS, never for composition).
+        const mask = codeMask(line, state),
+              // The gate must see CODE only — a JSDoc/comment mention of the config root (a config
+              // template documenting its realm, a migration note) must never open A1 for the file.
+              // Masked-out characters become spaces, preserving positions, so multi-line import
+              // statements still span lines intact.
+              codeOnly = Array.from(line, (ch, i) => (mask[i] ? ch : ' ')).join('');
+
+        codeOnlyLines.push(codeOnly);
+
         if (line.includes(ESCAPE_MARKER)) {
             return
         }
-
-        const mask = codeMask(line, state);
-
-        // The gate must see CODE only — a JSDoc/comment mention of the config root (a config
-        // template documenting its realm, a migration note) must never open A1 for the file.
-        // Build the code-only projection from the same mask the line rules use: masked-out
-        // characters become spaces, so multi-line import statements still span lines intact.
-        codeOnlyLines.push(Array.from(line, (ch, i) => (mask[i] ? ch : ' ')).join(''));
 
         for (const {id, pattern} of RULES) {
             for (const match of line.matchAll(pattern)) {
@@ -125,11 +130,14 @@ export function findAntipatterns(content) {
             }
         }
 
-        for (const match of line.matchAll(a1Global)) {
-            if (mask[match.index]) {
-                a1Candidates.push({line: index + 1, rule: 'A1', text: line.trim()});
-                break
-            }
+        // A1 classifies against the code-only PROJECTION, not the raw line: the declaration
+        // keyword sits at index 0 whether or not `process.env.` is real code, so a raw-line
+        // match + a mask check at the match start would false-positive on a genuine declaration
+        // whose env token lives inside a string or comment. On the projection, masked env tokens
+        // are spaces — the regex simply cannot match them.
+        for (const match of codeOnly.matchAll(a1Global)) {
+            a1Candidates.push({line: index + 1, rule: 'A1', text: line.trim()});
+            break
         }
     });
 
