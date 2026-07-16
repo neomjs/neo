@@ -305,6 +305,16 @@
     }
 }
 
+// The drag-proxy edge-light — the third surface of the Signal language. The proxy mounts at
+// document.body (DragZone's proxyParentId default), OUTSIDE any dock host, so the host-level
+// modifier cannot scope it by descent: `:has()` lifts the scope to the page — any document
+// carrying a signal-flipped host lights its proxies. One language, in-window and out; the
+// popup-vessel chrome (the multi-window arc) inherits this exact treatment.
+:root:has(.neo-preview-lang-signal) .neo-dragproxy {
+    box-shadow: 0 0 0 1px var(--agent-dock-preview-signal, #5eead4),
+                0 4px 14px color-mix(in srgb, var(--agent-dock-preview-signal, #5eead4) 35%, transparent);
+}
+
 @keyframes neo-preview-signal-lock {
     0%   { opacity: 0.55; }
     100% { opacity: 1; }
