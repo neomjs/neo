@@ -621,13 +621,13 @@ class MailboxPane extends Container {
     /**
      * @summary Request the newer page.
      *
-     * The disabled check is NOT redundant with the control's own state. `Neo.component.Base`'s
-     * `disabled` adds the `neo-disabled` CLASS — that styling carries no `pointer-events: none`, and
-     * `Neo.button.Base.onClick` invokes `handler` without consulting it. A "disabled" button
-     * therefore still fires on a click and on a keyboard Enter; the state is VISUAL, not semantic.
-     * Trusting it would leave the range edge open to exactly the operator it looks closed to — and
-     * stepping past the last page reads an empty window at a positive offset, which is the trap the
-     * `hasMore` boundary exists to prevent.
+     * The disabled check is NOT redundant with the control's own state. Global `.neo-disabled`
+     * styling blocks pointer activation, but `Neo.component.Base` emits no native `disabled`
+     * attribute and `Neo.button.Base.onClick` invokes `handler` without consulting the config.
+     * Keyboard or programmatic activation can therefore still reach the handler. Trusting CSS alone
+     * would leave the range edge open to exactly the operator it appears closed to — and stepping
+     * past the last page reads an empty window at a positive offset, which is the trap the `hasMore`
+     * boundary exists to prevent.
      * @protected
      */
     onPrevPageClick() {

@@ -483,11 +483,10 @@ test.describe('AgentOS.view.fleet.MailboxPane — the read-only S1 mailbox tab',
     });
 
     test('a DISABLED step refuses the request — the primitive disables the LOOK, not the handler', () => {
-        // Neo's `disabled` adds the `neo-disabled` class; that styling carries no
-        // `pointer-events: none`, and `button.Base.onClick` invokes `handler` without consulting it.
-        // So a "disabled" step still fires on a click and on a keyboard Enter — the state is VISUAL.
-        // Trusting it would leave the range edge open to exactly the operator it looks closed to,
-        // and stepping past the last page reads an empty window at a positive offset.
+        // Global `.neo-disabled` styling blocks pointer activation, but the config emits no native
+        // `disabled` attribute and `button.Base.onClick` never checks it. Keyboard or programmatic
+        // activation can still reach the handler, so the range owner must reject a closed edge too.
+        // Otherwise stepping past the last page reads an empty window at a positive offset.
         const pane  = createPane({snapshot: wiredSnapshot([row({messageId: 'MESSAGE:a'})], {limit: 50, offset: 0, count: 50, hasMore: false})}),
               fired = [];
 
