@@ -67,7 +67,15 @@ test.describe('AgentOS.view.DockPreview', () => {
 
             expect(light).toContain('neo-theme-neo-light');
             expect(light).toContain('--agent-dock-preview-accept');
-            expect(light).toContain('--agent-dock-preview-reject')
+            expect(light).toContain('--agent-dock-preview-reject');
+
+            // The Signal-glow candidate's language rides the SAME app-neutral alias surface:
+            // both skins must define the signal trio (chroma / flood fill / chip ground), so a
+            // consumer app can never silently fall back on one mode only.
+            ['--agent-dock-preview-signal ', '--agent-dock-preview-signal-fill', '--agent-dock-preview-signal-ground'].forEach(alias => {
+                expect(dark).toContain(alias);
+                expect(light).toContain(alias)
+            })
         })
 
         test('domain-token consumers stay on the declared DockPreview contract', () => {
@@ -91,6 +99,62 @@ test.describe('AgentOS.view.DockPreview', () => {
             expect(dark).toMatch(/--agent-dock-preview-reject\s*:\s*#f4718b;/);
             expect(light).toMatch(/--agent-dock-preview-accept\s*:\s*#0d9488;/);
             expect(light).toMatch(/--agent-dock-preview-reject\s*:\s*#be123c;/)
+        })
+
+        test('the signal language has no literal fallbacks and stays dock-owned across its shared consumers', () => {
+            const
+                containerScss = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/Container.scss'), 'utf8'),
+                previewScss   = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/apps/agentos/DockPreview.scss'), 'utf8'),
+                // strip line comments: the census asserts on SELECTORS and declarations, not prose
+                uncomment     = source => source.replace(/\/\/[^\n]*/g, ''),
+                signalStart   = containerScss.indexOf('.neo-preview-lang-signal');
+
+            expect(signalStart).toBeGreaterThan(-1);
+
+            // No-masking census: a signal alias consumed WITH a literal fallback re-creates the
+            // fallback-masking class this variant's whole review cycle exists to kill — an
+            // equal-valued literal hides a missing app projection in exactly one mode. Every
+            // shared signal consumer (the indicator/chip section + the proxy edge-light in
+            // Container.scss, the zone flood in the agentos variant) consumes the aliases bare.
+            [containerScss.slice(signalStart), previewScss].forEach(source => {
+                expect([...source.matchAll(/var\(--agent-dock-preview-signal[\w-]*\s*,/g)]).toEqual([])
+            });
+
+            // Ownership census: the proxy treatment scopes to the dock-owned embodiment marker
+            // (stamped by DockTabSortZone#getDragProxyConfig), NEVER to the generic
+            // `.neo-dragproxy` every drag system shares, and never through a page-global
+            // `:root:has()` gate — that shape escapes both the docking owner (styling grid /
+            // list / tree proxies) and the theme subtree (body-level fallback resolution).
+            const selectors = uncomment(containerScss);
+
+            expect(selectors).toContain('.neo-dock-dragproxy.neo-preview-lang-signal');
+            expect(selectors).not.toContain(':root:has(');
+            expect([...selectors.matchAll(/(?<![\w-])\.neo-dragproxy(?![\w-])/g)]).toEqual([])
+        })
+
+        test('the workstation projects every DockPreview domain alias in both modes', () => {
+            const
+                dark  = fs.readFileSync(path.join(repoRoot, 'resources/scss/theme-neo-dark/apps/workstation/Viewport.scss'), 'utf8'),
+                light = fs.readFileSync(path.join(repoRoot, 'resources/scss/theme-neo-light/apps/workstation/Viewport.scss'), 'utf8');
+
+            // The flagship consumes the shared preview family (default AND signal), so BOTH mode
+            // files must project the full seven-alias contract. With the no-fallback census above,
+            // a deleted or forgotten projection row now fails HERE instead of silently rendering
+            // another app's chroma — the exact miss the cycle-2 review falsified on the proxy.
+            [
+                '--agent-dock-preview-accept',
+                '--agent-dock-preview-accept-fill',
+                '--agent-dock-preview-reject',
+                '--agent-dock-preview-reject-fill',
+                '--agent-dock-preview-signal',
+                '--agent-dock-preview-signal-fill',
+                '--agent-dock-preview-signal-ground'
+            ].forEach(alias => {
+                const declaration = new RegExp(`${alias}\\s*:`);
+
+                expect(dark, `${alias} projected in dark`).toMatch(declaration);
+                expect(light, `${alias} projected in light`).toMatch(declaration)
+            })
         })
     });
 
