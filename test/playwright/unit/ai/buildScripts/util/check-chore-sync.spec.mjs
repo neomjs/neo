@@ -132,6 +132,57 @@ test.describe('check-chore-sync.mjs', () => {
         expect(runScript(tempDir).status).toBe(0);
     });
 
+    test('merge: a sync file HAND-EDITED during the merge is still rejected — authoring in a merge is still authoring', () => {
+        // The allowance is "inherited from MERGE_HEAD", not "a merge is in progress". Editing a sync
+        // file on top of the merge diverges the index from MERGE_HEAD, which is authoring wearing a
+        // merge's clothes — the exact hole a blanket merge-exit would leave open.
+        startMergeCarryingSyncData();
+
+        // Must write DIFFERENT content than the merge brought in: re-staging identical bytes is not
+        // an edit, and the discriminator would rightly still call it inherited.
+        fs.writeFileSync(path.join(tempDir, 'resources/content/issues/1.md'), 'hand-edited on top of the merge');
+        execSync('git add resources/content/issues/1.md', { cwd: tempDir, stdio: 'ignore' });
+
+        const result = runScript(tempDir);
+
+        expect(result.status).toBe(1);
+        expect(result.output).toContain('Error: Sync-data leakage detected');
+        expect(result.output).toContain('resources/content/issues/1.md');
+    });
+
+    test('merge: an inherited sync file passes while a hand-edited sibling in the SAME merge is rejected', () => {
+        // Proves the discriminator is per-file, not a whole-commit verdict: one merge, two sync
+        // files, only the edited one is a violation.
+        execSync('git checkout -b sync-two-files', { cwd: tempDir, stdio: 'ignore' });
+        stageFile('resources/content/issues/inherited.md');
+        stageFile('resources/content/issues/edited.md');
+        execSync('git commit -m "chore(data): Hourly data sync pipeline update"', { cwd: tempDir, stdio: 'ignore' });
+        execSync('git checkout dev', { cwd: tempDir, stdio: 'ignore' });
+        execSync('git merge --no-commit --no-ff sync-two-files', { cwd: tempDir, stdio: 'ignore' });
+
+        fs.writeFileSync(path.join(tempDir, 'resources/content/issues/edited.md'), 'hand-edited during the merge');
+        execSync('git add resources/content/issues/edited.md', { cwd: tempDir, stdio: 'ignore' });
+
+        const result = runScript(tempDir);
+
+        expect(result.status).toBe(1);
+        expect(result.output).toContain('resources/content/issues/edited.md');
+        expect(result.output).not.toContain('resources/content/issues/inherited.md');
+    });
+
+    test('merge + NEO_SYNC_AUTOCOMMIT=1: mixed content is still rejected — the env arm runs first and a merge does not soften it', () => {
+        // Ordering guard: the autocommit arm protects the pipeline's own commits, which are never
+        // merges. A merge in flight must not become a way to smuggle source into a sync commit.
+        startMergeCarryingSyncData();
+        stageFile('src/foo.js');
+
+        const result = runScript(tempDir, { NEO_SYNC_AUTOCOMMIT: '1' });
+
+        expect(result.status).toBe(1);
+        expect(result.output).toContain('Error: NEO_SYNC_AUTOCOMMIT bypass rejected.');
+        expect(result.output).toContain('src/foo.js');
+    });
+
     test('merge escape is scoped to the merge: the SAME branch and files still fail on an ordinary commit', () => {
         // Guards the protection itself. If the escape ever widens from "a merge is in progress" to
         // "this branch touched sync files", this arm goes red — the leakage check must survive.

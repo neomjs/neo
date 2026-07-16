@@ -86,31 +86,42 @@ if (process.env.NEO_SYNC_AUTOCOMMIT === '1') {
 
 // A merge stages EVERY file it brings in, including the sync pipeline's commits already living on
 // the branch being merged. Those files are not authored here, so the check below must not read them
-// as leakage: this guard exists to stop a feature branch from AUTHORING sync data, and a merge is
-// not authoring.
+// as leakage: this guard exists to stop a feature branch from AUTHORING sync data, and inheriting a
+// commit is not authoring.
 //
-// Without this escape `git merge origin/dev` is impossible on any branch older than the last
+// Without this allowance `git merge origin/dev` is impossible on any branch older than the last
 // `chore(data)` commit (dev takes roughly two per six hours), and the only ways through are worse
 // than the block: `--no-verify` also skips the AiConfig test-mutation lint, and unstaging the files
 // makes the merge commit REVERT dev's sync data once it lands.
 //
-// Deliberately placed AFTER the NEO_SYNC_AUTOCOMMIT arm: that arm guards the pipeline's own
+// The allowance is NOT "a merge is in progress, stand down" — that would wave through a sync file
+// hand-edited during a conflict resolution, which is authoring wearing a merge's clothes. A staged
+// sync file is inherited only if the index still matches what the merge brought in; anything the
+// working tree changed on top of MERGE_HEAD is authored here and stays a violation.
+//
+// Deliberately evaluated AFTER the NEO_SYNC_AUTOCOMMIT arm: that arm guards the pipeline's own
 // commits, which are never merges, and must keep failing on mixed content regardless.
-let isMergeInProgress = false;
+let inheritedFromMerge = new Set();
 
 try {
     execSync('git rev-parse -q --verify MERGE_HEAD', { cwd: gitRoot, stdio: 'ignore' });
-    isMergeInProgress = true;
-} catch (e) {
-    // No MERGE_HEAD — an ordinary commit, so the leakage check below applies in full.
-}
 
-if (isMergeInProgress) {
-    process.exit(0);
+    // Files whose staged content DIFFERS from MERGE_HEAD's — i.e. authored/edited here rather than
+    // inherited. Everything else the merge staged matches MERGE_HEAD and is therefore inherited.
+    const divergedFromMergeHead = new Set(
+        execSync('git diff --cached --name-only MERGE_HEAD', { cwd: gitRoot, encoding: 'utf-8' })
+            .trim().split('\n').filter(Boolean)
+    );
+
+    inheritedFromMerge = new Set(stagedFiles.filter(file => !divergedFromMergeHead.has(file)));
+} catch (e) {
+    // No MERGE_HEAD (or the diff failed) — an ordinary commit. `inheritedFromMerge` stays empty, so
+    // the check below applies in full. Failing closed here is deliberate: a guard that cannot prove
+    // a file was inherited must treat it as authored.
 }
 
 const violatingFiles = stagedFiles.filter(file =>
-    isGeneratedSyncFile(file)
+    isGeneratedSyncFile(file) && !inheritedFromMerge.has(file)
 );
 
 // Allow explicit override via --force-data or bypassing hooks
