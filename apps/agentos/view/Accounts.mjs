@@ -21,8 +21,11 @@ import Toolbar            from '../../../src/toolbar/Base.mjs';
  * Capability-security boundary (the load-bearing reason this is its own surface): a credential is
  * collected only long enough to submit it to the Brain-side Fleet Registry bridge. If that bridge is
  * absent, submission fails closed, the PAT field is cleared, and **nothing is stored in the browser /
- * App Worker** — only a redacted projection reaches the shared `AgentDefinitions` roster, never a
- * credential byte (mirrors `AgentOS.model.AgentDefinition`'s deliberately credential-free shape).
+ * App Worker** — only the Brain's canonical redacted response reaches the shared
+ * `AgentDefinitions` roster, never a credential byte (mirrors
+ * `AgentOS.model.AgentDefinition`'s deliberately credential-free shape). An accepted definition
+ * emits `agentDefinitionAccepted`; the Viewport composition root owns the separate Fleet-cockpit
+ * refresh, so Accounts never maps or reaches into a sibling `FleetAgent` surface.
  */
 class Accounts extends DashboardPanel {
     static config = {
@@ -270,9 +273,9 @@ class Accounts extends DashboardPanel {
      */
     async onAgentConfigIntent(intent={}) {
         const
-            me        = this,
-            agentId   = intent.id,
-            bridge    = globalThis.AgentOS?.fleet?.registryBridge,
+            me      = this,
+            agentId = intent.id,
+            bridge  = globalThis.AgentOS?.fleet?.registryBridge,
             // Neo events add transport-irrelevant envelope fields such as `source`. Reconstruct the
             // curated wire intent explicitly so no event metadata can cross the Brain allowlist.
             wireIntent = {id: agentId};
@@ -445,23 +448,6 @@ class Accounts extends DashboardPanel {
     }
 
     /**
-     * @summary Create the redacted projection that can safely render in the Body-side roster.
-     * @param {Object} values
-     * @returns {Object} Public agent definition suitable for the shared store; never includes a credential.
-     */
-    createPublicAgentDefinition(values) {
-        return {
-            id             : values.githubUsername,
-            githubUsername : values.githubUsername,
-            harnessType    : values.harnessType,
-            credentialState: 'stored-node-side',
-            lifecycleState : 'gated',
-            statusText     : 'Agent added; lifecycle controls remain gated.',
-            updatedAt      : new Date().toISOString()
-        }
-    }
-
-    /**
      * @summary Load a sample public identity without inserting credential bytes.
      * @returns {Promise<void>}
      */
@@ -481,7 +467,12 @@ class Accounts extends DashboardPanel {
     }
 
     /**
-     * @summary Validate the form, attempt the Brain-side bridge submit, then clear the PAT field.
+     * @summary Validate the form, attempt the Brain-side bridge submit, and apply only the canonical
+     * redacted response to the provider-owned AgentDefinitions store. A controlled registry-domain
+     * rejection renders its reason without mutating Body state; an unexpected or malformed response
+     * stays sanitized. After an accepted readback, `agentDefinitionAccepted` tells the Viewport
+     * composition root to refresh the separately-owned Fleet roster from its Brain assembler.
+     * The PAT field clears after every attempted bridge submit.
      * @returns {Promise<void>}
      */
     async onSubmitAgentClick() {
@@ -504,8 +495,15 @@ class Accounts extends DashboardPanel {
         };
 
         try {
-            await this.submitToFleetRegistryBridge(payload);
-            this.upsertPublicAgentDefinition(this.createPublicAgentDefinition(payload));
+            const outcome = await this.submitToFleetRegistryBridge(payload);
+
+            if (outcome?.status === 'rejected') {
+                this.updateBridgeStatus('is-error', outcome.reason || 'Agent definition was rejected. Nothing was changed.');
+                return
+            }
+
+            this.upsertPublicAgentDefinition(outcome, payload.credential);
+            this.fire('agentDefinitionAccepted', {agent: outcome});
             this.updateBridgeStatus('is-live', 'Agent added. PAT was not retained in the app worker.')
         } catch (error) {
             this.updateBridgeStatus('is-error', 'Could not add agent. Nothing was stored in browser state; PAT field was cleared.')
@@ -545,7 +543,8 @@ class Accounts extends DashboardPanel {
      * app has no Brain-side bridge object, so the view fails closed instead of inventing browser
      * persistence.
      * @param {Object} payload
-     * @returns {Promise<*>}
+     * @returns {Promise<Object>} Canonical public agent definition on acceptance, or a controlled
+     *     `{status:'rejected', reason}` domain outcome.
      */
     async submitToFleetRegistryBridge(payload) {
         const bridge = globalThis.AgentOS?.fleet?.registryBridge;
@@ -577,17 +576,36 @@ class Accounts extends DashboardPanel {
     }
 
     /**
-     * @summary Write the redacted projection into the shared roster store (the Viewport-provider-
-     * hosted `AgentDefinitions` instance this view binds), replacing any prior row for the same
-     * agent. The Fleet view's grid (bound to the same provider store) re-renders reactively — no
-     * cross-view reference is needed.
-     * @param {Object} definition
+     * @summary Validate and write the Brain's canonical redacted response into the Viewport-owned
+     * `AgentDefinitions` store. Required public identity fields and the exact submitted credential
+     * are checked before mutation; a malformed or echoing response fails closed. Existing records
+     * update in place, while a new definition becomes the selected Accounts resident. This is the
+     * configuration projection only — the separate FleetAgent roster refreshes through the
+     * Viewport-owned `agentDefinitionAccepted` composition seam.
+     * @param {Object} definition Canonical public definition returned by the Brain bridge.
+     * @param {String} submittedCredential Ephemeral PAT used only to reject an accidental echo.
      */
-    upsertPublicAgentDefinition(definition) {
-        const store = this.agentDefinitionsStore;
+    upsertPublicAgentDefinition(definition, submittedCredential) {
+        const
+            store             = this.agentDefinitionsStore,
+            hasTopLevelSecret = definition && ['authorization', 'credential', 'password', 'pat', 'token']
+                .some(key => Object.hasOwn(definition, key));
 
-        store.remove(definition.id);
-        store.add(definition);
+        let serializedDefinition;
+
+        try {
+            serializedDefinition = JSON.stringify(definition)
+        } catch (error) {/* invalid response */}
+
+        if (!store || !definition?.id || !definition.githubUsername || !definition.harnessType ||
+            !serializedDefinition || hasTopLevelSecret ||
+            (submittedCredential && serializedDefinition.includes(submittedCredential))) {
+            throw new Error('Fleet Registry returned an invalid public agent definition')
+        }
+
+        const record = store.get(definition.id);
+
+        record ? record.set(definition) : store.add(definition);
 
         // a just-added agent becomes the scoped one — the operator configures it next
         this.selectedAgentId = definition.id
