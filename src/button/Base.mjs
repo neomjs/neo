@@ -263,6 +263,19 @@ class Button extends Component {
     }
 
     /**
+     * Mirrors the framework-generic disabled state onto this Button's native control root.
+     * The parent hook retains the visual `neo-disabled` class and the DOM-event manager remains
+     * defense in depth; the native attribute owns browser focus and accessibility semantics.
+     * @param {Boolean} value    The new value of the disabled config.
+     * @param {Boolean} oldValue The old value of the disabled config.
+     * @protected
+     */
+    afterSetDisabled(value, oldValue) {
+        super.afterSetDisabled(value, oldValue);
+        this.changeVdomRootKey('disabled', value)
+    }
+
+    /**
      * Triggered after the iconCls config got changed
      * @param {String} value    The new value of the iconCls config.
      * @param {String} oldValue The old value of the iconCls config.
