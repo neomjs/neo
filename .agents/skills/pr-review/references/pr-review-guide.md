@@ -183,7 +183,7 @@ At RC2 or >24KB, load the payload. On post-cutover PRs, two submitted `CHANGES_R
 
 **Payload Pointer:** `view_file` `.agents/skills/pr-review/audits/review-cost-circuit-breaker.md`
 
-**Byte gate:** this file + the payload are loaded together, so their combined size is gated. Owner: `COMBINED_BUDGETS` in `ai/scripts/diagnostics/check-substrate-size.mjs` (`npm run ai:check-substrate-size`). The number lives only there — run it before growing either file.
+**Byte gate:** this file + the payload load together; their combined size is gated. Owner: `COMBINED_BUDGETS` in `ai/scripts/diagnostics/check-substrate-size.mjs` (`ai:check-substrate-size`) — run it before growing either.
 
 ## 7. Depth Floor — Preventing Rubber-Stamp Approvals
 
