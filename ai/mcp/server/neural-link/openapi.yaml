@@ -14,6 +14,42 @@ x-neo-harness-tool-projection:
     Write-locked tools are withheld until Topological Locking and explicit-target
     semantics exist. Admin tools stay operator-only unless a later authorization
     leaf grants them deliberately.
+x-neo-exact-tool-profiles:
+  description: >
+    Server-pinned exact profiles declare their complete operation set and any
+    narrower input schemas here. ToolService compiles this single OpenAPI authority
+    for both tools/list visibility and tools/call validation; unknown or malformed
+    profiles fail closed.
+  profiles:
+    local-readonly-probe:
+      description: >
+        Minimal loopback interoperability probe. It exposes only health, worker
+        topology, and a depth-bounded lean component tree.
+      tools:
+        healthcheck: {}
+        get_worker_topology: {}
+        get_component_tree:
+          inputSchema:
+            type: object
+            required:
+              - depth
+            properties:
+              rootId:
+                type: string
+                description: Optional root component ID. Defaults to the App's MainView if available.
+              depth:
+                type: integer
+                minimum: 1
+                maximum: 2
+                description: Bounded structural depth. 1=Self, 2=Self+Children.
+              lean:
+                type: boolean
+                enum: [true]
+                default: true
+                description: The exact probe always returns the lean structural projection.
+              sessionId:
+                type: string
+                description: The target App Worker Session ID.
 paths:
   /health:
     post:
