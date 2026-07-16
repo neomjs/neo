@@ -1,11 +1,17 @@
-import Component                                from '../../../src/component/Base.mjs';
-import Container                                from '../../../src/container/Base.mjs';
-import Feed                                     from '../store/Feed.mjs';
-import FeedPane                                 from './FeedPane.mjs';
-import Scale                                    from '../store/Scale.mjs';
-import ScalePane                                from './ScalePane.mjs';
-import DockLayoutAdapter                        from '../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockMotionSignal                         from '../../../src/dashboard/DockMotionSignal.mjs';
+import Component          from '../../../src/component/Base.mjs';
+import Container          from '../../../src/container/Base.mjs';
+import Feed               from '../store/Feed.mjs';
+import FeedPane           from './FeedPane.mjs';
+import Scale              from '../store/Scale.mjs';
+import ScalePane          from './ScalePane.mjs';
+import DockDropIndicators from '../../../src/dashboard/DockDropIndicators.mjs';
+import DockLayoutAdapter  from '../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockMotionSignal   from '../../../src/dashboard/DockMotionSignal.mjs';
+// Single-renderer reuse across the app boundary (the affordance ticket's explicit call:
+// reuse, don't fork — it consumes the --fm-* tokens this app's theme family already
+// loads). A lift to src/dashboard is the reconciler arc's future call, not this leaf's.
+import DockPreview                              from '../../agentos/view/DockPreview.mjs';
+import DockPreviewProducer                      from '../../../src/dashboard/DockPreviewProducer.mjs';
 import DockProjectionReconciler                 from '../../../src/dashboard/DockProjectionReconciler.mjs';
 import DockService                              from '../../../src/ai/client/DockService.mjs';
 import DockZoneModel                            from '../../../src/dashboard/DockZoneModel.mjs';
@@ -115,6 +121,12 @@ class Workspace extends Container {
      */
     tourRunner = null
     /**
+     * Drag-affordance candidate producer (the §06 menu's data half) — created at construct,
+     * consumed by the cross-zone gesture handlers as they land on this workspace.
+     * @member {Neo.dashboard.DockPreviewProducer|null} dockPreviewProducer=null
+     */
+    dockPreviewProducer = null
+    /**
      * @member {Object} paneCache={}
      * @protected
      */
@@ -207,11 +219,22 @@ class Workspace extends Container {
 
         me.appendFeedBatch(25);
 
+        me.dockPreviewProducer = Neo.create(DockPreviewProducer);
+
         me.add([me.createTourBar(), me.createStatusBar(), {
-            module   : Container,
-            cls      : ['workstation-dock-host', 'neo-dashboard', 'neo-dashboard-dock-query-host'],
-            flex     : 1,
-            items    : [me.projectDockModel()],
+            module: Container,
+            cls   : ['workstation-dock-host', 'neo-dashboard', 'neo-dashboard-dock-query-host'],
+            flex  : 1,
+            // The projection child is index 0 and the ONLY child the shared reconciler stages;
+            // the preview renderer + indicator menu are PERSISTENT siblings (absolute overlays
+            // via the skin) — object permanence across every re-projection, the Demo-A pattern.
+            items    : [me.projectDockModel(), {
+                module   : DockPreview,
+                reference: 'dock-preview'
+            }, {
+                module   : DockDropIndicators,
+                reference: 'drop-indicators'
+            }],
             layout   : {ntype: 'fit'},
             reference: 'dock-host'
         }]);
