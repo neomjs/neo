@@ -130,7 +130,7 @@ Author declares scope in Discussion body via `Scope: high-blast` or `Scope: low-
 | Class | Definition | Graduation gate |
 |-------|------------|-----------------|
 | **high-blast** | Substrate evolution (`.agents/skills/*`, `learn/agentos/*`), rule changes (AGENTS.md, §0 invariants), architectural primitives (new subsystems, MCP tools, cross-family protocols), cross-cutting policies | Full §6 Consensus Mandate (this section) |
-| **low-blast** | Bug fix, feature implementation, documentation, test additions | §5.1 Double Diamond (≥1 peer cycle) suffices |
+| **low-blast** | Bug fix, feature implementation, documentation, test additions | §5.1 (≥1 peer cycle) — §6 consensus only; §5.2 fires independently |
 
 ### 6.2 Signal Patterns + Quorum Rule (high-blast only)
 
