@@ -39,6 +39,8 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
     let originalSyncNotes;
     let originalSyncDiscussions;
     let originalSyncPullRequests;
+    let originalReconcileClosedPulls;
+    let originalReconcilePullIndex;
     let originalGetViewerPermission;
     let originalRebuildContentIndexesAndSeo;
     let originalExecGit;
@@ -50,8 +52,8 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
     let originalSaveMetadata;
 
     let stage2Calls = {
-        issueStates: 0,
-        discussionStates: 0,
+        issueStates        : 0,
+        discussionStates   : 0,
         pullRequestFeedback: 0
     };
 
@@ -81,6 +83,8 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         originalSyncNotes = ReleaseNotesSyncer.syncNotes;
         originalSyncDiscussions = DiscussionSyncer.syncDiscussions;
         originalSyncPullRequests = PullRequestSyncer.syncPullRequests;
+        originalReconcileClosedPulls = PullRequestSyncer.reconcileClosedPullRequestLocations;
+        originalReconcilePullIndex = PullRequestSyncer.reconcilePullRequestIndex;
         originalGetViewerPermission = RepositoryService.getViewerPermission;
         originalRebuildContentIndexesAndSeo = SyncService.rebuildContentIndexesAndSeo;
         originalExecGit = SyncService.execGit;
@@ -94,6 +98,14 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         ReleaseNotesSyncer.syncNotes = async () => ({ count: 0 });
         DiscussionSyncer.syncDiscussions = async () => ({ count: 0 });
         PullRequestSyncer.syncPullRequests = async () => ({ count: 0 });
+        // These specs exercise Stage-2 SEQUENCING, so every orchestration step is stubbed — otherwise
+        // `runFullSync` runs the real pass against the real `resources/content`, which is a tracked
+        // generated corpus. Both pull passes below were previously unstubbed and merely appeared
+        // harmless: the relocate pass bails early because `fetchAndCacheReleases` is stubbed to a
+        // no-op and it refuses to bucket without releases. That is luck, not isolation — the index
+        // reconcile needs no network and would rewrite thousands of live entries from a unit run.
+        PullRequestSyncer.reconcileClosedPullRequestLocations = async () => ({ count: 0, pullRequests: [], indexed: 0 });
+        PullRequestSyncer.reconcilePullRequestIndex = async () => ({ reindexed: 0, unchanged: 0, skippedAmbiguous: [] });
         RepositoryService.getViewerPermission = async () => ({ permission: 'READ' }); // Skip git commands
         SyncService.rebuildContentIndexesAndSeo = async () => ({});
         MetadataManager.load = async () => ({ issues: {}, releases: {}, discussions: {}, pullRequests: {} });
@@ -116,6 +128,8 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         ReleaseNotesSyncer.syncNotes = originalSyncNotes;
         DiscussionSyncer.syncDiscussions = originalSyncDiscussions;
         PullRequestSyncer.syncPullRequests = originalSyncPullRequests;
+        PullRequestSyncer.reconcileClosedPullRequestLocations = originalReconcileClosedPulls;
+        PullRequestSyncer.reconcilePullRequestIndex = originalReconcilePullIndex;
         RepositoryService.getViewerPermission = originalGetViewerPermission;
         SyncService.rebuildContentIndexesAndSeo = originalRebuildContentIndexesAndSeo;
         SyncService.execGit = originalExecGit;
@@ -184,11 +198,11 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
     });
 
     test('auto-push aborts failed rebase, resets, re-emits, and retries once (#13798)', async () => {
-        const commands = [];
-        let pullRuns = 0;
-        let saves = 0;
-        let derives = 0;
-        let rebaseAttempts = 0;
+        const commands       = [];
+        let   pullRuns       = 0;
+        let   saves          = 0;
+        let   derives        = 0;
+        let   rebaseAttempts = 0;
 
         RepositoryService.getViewerPermission = async () => ({permission: 'WRITE'});
 
@@ -262,9 +276,9 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
 
     test('auto-push recovers the checkout when delivery retries are exhausted (#13798)', async () => {
         const commands = [];
-        let pullRuns = 0;
-        let saves = 0;
-        let derives = 0;
+        let   pullRuns = 0;
+        let   saves    = 0;
+        let   derives  = 0;
 
         RepositoryService.getViewerPermission = async () => ({permission: 'WRITE'});
 
@@ -453,7 +467,7 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
 
         IssueSyncer.pullFromGitHub = async () => ({
             newMetadata: {issues: {}, pushFailures: [], lastSync: '2026-05-18T04:42:00Z'},
-            stats: {pulled: {count: 0, created: 0, updated: 0, moved: 0}, dropped: {count: 0}}
+            stats      : {pulled: {count: 0, created: 0, updated: 0, moved: 0}, dropped: {count: 0}}
         });
 
         // Syncers don't mutate metadata at all (early-exit path).

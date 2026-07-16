@@ -1,20 +1,20 @@
-import aiConfig                                                   from '../../../mcp/server/github-workflow/config.mjs';
-import Base                                                       from '../../../../src/core/Base.mjs';
-import crypto                                                     from 'crypto';
-import {existsSync}                                               from 'fs';
-import fs                                                         from 'fs/promises';
-import logger                                                     from '../../../mcp/server/github-workflow/logger.mjs';
-import matter                                                     from 'gray-matter';
-import path                                                       from 'path';
-import semver                                                     from 'semver';
-import GraphqlService                                             from '../GraphqlService.mjs';
-import ReleaseNotesSyncer                                         from './ReleaseNotesSyncer.mjs';
-import {FETCH_PULL_REQUESTS_FOR_SYNC, FETCH_SINGLE_PULL_FOR_SYNC} from '../queries/pullRequestQueries.mjs';
-import contentPath                                                from '../shared/contentPath.mjs';
-import {buildContentInventory, resolveArchivedLocation}           from '../shared/contentInventory.mjs';
-import {createContentIndexEntryFromPath, updateContentIndex}      from '../shared/contentIndex.mjs';
-import {createContentTrustSummary, projectAuthoredNodeTrust}      from '../shared/conversationTrust.mjs';
-import pruneEmptyDirs                                             from '../shared/pruneEmptyDirs.mjs';
+import aiConfig                                                                from '../../../mcp/server/github-workflow/config.mjs';
+import Base                                                                    from '../../../../src/core/Base.mjs';
+import crypto                                                                  from 'crypto';
+import {existsSync}                                                            from 'fs';
+import fs                                                                      from 'fs/promises';
+import logger                                                                  from '../../../mcp/server/github-workflow/logger.mjs';
+import matter                                                                  from 'gray-matter';
+import path                                                                    from 'path';
+import semver                                                                  from 'semver';
+import GraphqlService                                                          from '../GraphqlService.mjs';
+import ReleaseNotesSyncer                                                      from './ReleaseNotesSyncer.mjs';
+import {FETCH_PULL_REQUESTS_FOR_SYNC, FETCH_SINGLE_PULL_FOR_SYNC}              from '../queries/pullRequestQueries.mjs';
+import contentPath                                                             from '../shared/contentPath.mjs';
+import {buildContentInventory, resolveArchivedLocation}                        from '../shared/contentInventory.mjs';
+import {createContentIndexEntryFromPath, readContentIndex, updateContentIndex} from '../shared/contentIndex.mjs';
+import {createContentTrustSummary, projectAuthoredNodeTrust}                   from '../shared/conversationTrust.mjs';
+import pruneEmptyDirs                                                          from '../shared/pruneEmptyDirs.mjs';
 
 const issueSyncConfig   = aiConfig.issueSync;
 const pullRequestConfig = aiConfig.pullRequest;
@@ -706,6 +706,87 @@ class PullRequestSyncer extends Base {
         }
 
         return stats;
+    }
+
+    /**
+     * @summary Realigns `_index.json` with the pull corpus on disk. The repair half of this lane.
+     *
+     * The index is a PROJECTION of the corpus, so it can always be recomputed from it — and once a
+     * pass exists that does, drift is not a state anyone has to migrate out of. Every id owning
+     * exactly one artifact gets an entry naming that artifact's actual location.
+     *
+     * This exists because preventing new drift does not remove old drift, and nothing else would ever
+     * have: the thousands of entries already naming pre-move locations point at files that are
+     * ALREADY archived, so the relocate pass never touches them again and never re-indexes them.
+     * They are unreachable by every mechanism that was expected to heal them. A migration script
+     * would clear them once and leave the class alive; the drift was produced by the normal path, so
+     * the normal path is what has to be able to remove it. Run every sync, idempotent, cheap when
+     * clean — it upserts only entries that actually disagree with disk, so a healthy corpus writes
+     * nothing and the generated-content diff stays empty.
+     *
+     * Ambiguous ids are SKIPPED rather than indexed. An entry for one of two artifacts would name a
+     * copy and thereby bless it as canonical — the arbitrary choice this lane refuses to make on the
+     * corpus's behalf. They surface in the integrity result for repair from source.
+     *
+     * @param {Map<number, Array<object>>} [inventory] Pre-built corpus inventory; scanned when omitted.
+     * @returns {Promise<{reindexed: Number, unchanged: Number, skippedAmbiguous: Number[]}>}
+     */
+    async reconcilePullRequestIndex(inventory = null) {
+        const corpus = inventory || await buildContentInventory(issueSyncConfig, {
+            type      : 'pulls',
+            filePrefix: aiConfig.issueSync.pullFilenamePrefix || 'pr-'
+        });
+
+        const existing = new Map(
+            (await readContentIndex(issueSyncConfig))
+                .filter(entry => entry.type === 'pulls')
+                .map(entry => [Number(entry.id), entry])
+        );
+
+        const upsert           = [],
+              skippedAmbiguous = [];
+
+        let unchanged = 0;
+
+        for (const [id, copies] of corpus) {
+            if (copies.length > 1) {
+                skippedAmbiguous.push(id);
+                continue;
+            }
+
+            const entry = createContentIndexEntryFromPath({
+                issueSyncConfig,
+                type    : 'pulls',
+                id,
+                filePath: copies[0].absPath
+            });
+
+            const previous = existing.get(id);
+
+            // Compare every coordinate, not just the path: an entry can name the right file and still
+            // carry a chunkNumber that contradicts it.
+            if (previous &&
+                previous.path        === entry.path &&
+                previous.chunkNumber === entry.chunkNumber &&
+                (previous.version ?? null) === (entry.version ?? null)
+            ) {
+                unchanged++;
+                continue;
+            }
+
+            upsert.push(entry);
+        }
+
+        if (upsert.length > 0) {
+            await updateContentIndex(issueSyncConfig, {upsert});
+            logger.info(`🧭 Realigned ${upsert.length} pull index entr${upsert.length === 1 ? 'y' : 'ies'} with the corpus (${unchanged} already correct).`);
+        }
+
+        if (skippedAmbiguous.length > 0) {
+            logger.warn(`⚠️ ${skippedAmbiguous.length} pull request(s) own more than one artifact and were left unindexed: ${skippedAmbiguous.join(', ')}`);
+        }
+
+        return {reindexed: upsert.length, unchanged, skippedAmbiguous};
     }
 
     /**

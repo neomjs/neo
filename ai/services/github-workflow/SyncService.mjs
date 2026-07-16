@@ -1,15 +1,15 @@
-import aiConfig        from '../../mcp/server/github-workflow/config.mjs';
-import Base            from '../../../src/core/Base.mjs';
-import logger          from '../../mcp/server/github-workflow/logger.mjs';
-import HealthService   from './HealthService.mjs';
-import IssueSyncer     from './sync/IssueSyncer.mjs';
-import MetadataManager from './sync/MetadataManager.mjs';
+import aiConfig           from '../../mcp/server/github-workflow/config.mjs';
+import Base               from '../../../src/core/Base.mjs';
+import logger             from '../../mcp/server/github-workflow/logger.mjs';
+import HealthService      from './HealthService.mjs';
+import IssueSyncer        from './sync/IssueSyncer.mjs';
+import MetadataManager    from './sync/MetadataManager.mjs';
 import ReleaseNotesSyncer from './sync/ReleaseNotesSyncer.mjs';
-import DiscussionSyncer from './sync/DiscussionSyncer.mjs';
-import PullRequestSyncer from './sync/PullRequestSyncer.mjs';
-import RepositoryService from './RepositoryService.mjs';
-import {exec} from 'child_process';
-import {promisify} from 'util';
+import DiscussionSyncer   from './sync/DiscussionSyncer.mjs';
+import PullRequestSyncer  from './sync/PullRequestSyncer.mjs';
+import RepositoryService  from './RepositoryService.mjs';
+import {exec}             from 'child_process';
+import {promisify}        from 'util';
 
 const execAsync = promisify(exec);
 
@@ -161,6 +161,15 @@ class SyncService extends Base {
         // 7. Sync pull requests
         const pullStats2 = await PullRequestSyncer.syncPullRequests(metadata);
 
+        // 7b. Realign `_index.json` with the pull corpus now that placement is final for this run.
+        //     Preventing new drift does not remove old drift: entries that went stale when a move
+        //     did not carry its upsert name files that are ALREADY archived, so the relocate pass
+        //     never revisits them and the delta sync never fetches them — no existing mechanism
+        //     could ever have healed them. The index is a projection of the corpus, so this
+        //     recomputes it from disk. Idempotent and silent on a healthy corpus (it upserts only
+        //     entries that disagree), so the generated-content diff stays empty when nothing drifted.
+        const pullIndexStats = await PullRequestSyncer.reconcilePullRequestIndex();
+
         // 8. Self-heal push failures: If a previously failed issue was successfully pulled, remove it from the failure list
         if (newMetadata.pushFailures?.length > 0) {
             newMetadata.pushFailures = newMetadata.pushFailures.filter(failedId => !newMetadata.issues[failedId]);
@@ -197,7 +206,8 @@ class SyncService extends Base {
             pullStats,
             releaseStats,
             discussionStats,
-            pullStats2
+            pullStats2,
+            pullIndexStats
         };
     }
 
@@ -225,7 +235,7 @@ class SyncService extends Base {
         logger.info('[SyncService] Detected real content changes. Committing and pushing.');
         await this.execGit(`git add ${generatedSyncStatusPaths}`, cwd);
         const {stdout: stagedStdout} = await this.execGit('git diff --cached --name-only', cwd);
-        const nonSyncFiles = stagedStdout.trim().split('\n').filter(Boolean).filter(file =>
+        const nonSyncFiles           = stagedStdout.trim().split('\n').filter(Boolean).filter(file =>
             !isGeneratedSyncFile(file)
         );
 
@@ -275,7 +285,7 @@ class SyncService extends Base {
      */
     async autoPushGeneratedContent({rerunEmission, maxAttempts = 2}) {
         if (aiConfig.pushToRepoAfterSync) {
-            const {permission} = await RepositoryService.getViewerPermission();
+            const {permission}     = await RepositoryService.getViewerPermission();
             const writePermissions = ['ADMIN', 'MAINTAIN', 'WRITE'];
 
             if (writePermissions.includes(permission)) {
@@ -316,7 +326,7 @@ class SyncService extends Base {
      */
     async runFullSync() {
         const startTime = new Date();
-        let syncStats   = await this.emitGeneratedContentAndDerive();
+        let   syncStats = await this.emitGeneratedContentAndDerive();
 
         await this.autoPushGeneratedContent({
             rerunEmission: async () => {

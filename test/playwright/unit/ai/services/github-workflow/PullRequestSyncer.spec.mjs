@@ -593,6 +593,90 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         expect(stats.indexed).toBe(0);
     });
 
+    // --- the repair: preventing new drift does not remove old drift. Entries stranded by moves that
+    //     predate the upsert name files ALREADY archived, so no relocate pass revisits them and no
+    //     delta fetch names them — they are unreachable by every mechanism expected to heal them. ---
+
+    test('realigns a stranded index entry with the artifact on disk — the drift nothing else could heal', async () => {
+        const prNumber = 9537,
+              archived = path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', 'chunk-3', `pr-${prNumber}.md`);
+
+        await fs.ensureDir(path.dirname(archived));
+        await fs.writeFile(archived, 'archived long ago', 'utf8');
+
+        // The entry the historical move left behind: names the pre-move active path.
+        await fs.writeJson(path.join(aiConfig.issueSync.contentRoot, '_index.json'), [
+            {type: 'pulls', id: prNumber, version: null, chunkNumber: 1, path: `pulls/chunk-1/pr-${prNumber}.md`}
+        ]);
+
+        const stats = await PullRequestSyncer.reconcilePullRequestIndex();
+        const entry = (await readContentIndex(aiConfig.issueSync)).find(e => e.id === prNumber);
+
+        expect(entry.path).toBe(`archive/pulls/v13.0.0/chunk-3/pr-${prNumber}.md`);
+        expect(entry.version).toBe('v13.0.0');
+        expect(entry.chunkNumber).toBe(3);
+        expect(stats.reindexed).toBe(1);
+    });
+
+    test('is idempotent and writes nothing when the index already agrees — no churn in generated content', async () => {
+        const prNumber = 4242,
+              archived = path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', 'chunk-1', `pr-${prNumber}.md`);
+
+        await fs.ensureDir(path.dirname(archived));
+        await fs.writeFile(archived, 'x', 'utf8');
+        await fs.writeJson(path.join(aiConfig.issueSync.contentRoot, '_index.json'), [
+            {type: 'pulls', id: prNumber, version: 'v13.0.0', chunkNumber: 1, path: `archive/pulls/v13.0.0/chunk-1/pr-${prNumber}.md`}
+        ]);
+
+        const first = await PullRequestSyncer.reconcilePullRequestIndex();
+
+        expect(first.reindexed).toBe(0);
+        expect(first.unchanged).toBe(1);
+
+        // A healthy corpus must not rewrite the file — this runs every sync and the output is committed.
+        const before = await fs.readFile(path.join(aiConfig.issueSync.contentRoot, '_index.json'), 'utf8');
+        await PullRequestSyncer.reconcilePullRequestIndex();
+        expect(await fs.readFile(path.join(aiConfig.issueSync.contentRoot, '_index.json'), 'utf8')).toBe(before);
+    });
+
+    test('repairs a stale entry whose file exists but whose chunkNumber contradicts its path', async () => {
+        const prNumber = 777,
+              archived = path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', 'chunk-2', `pr-${prNumber}.md`);
+
+        await fs.ensureDir(path.dirname(archived));
+        await fs.writeFile(archived, 'x', 'utf8');
+        // Path is right, coordinates are not — invisible to any check that only resolves the path.
+        await fs.writeJson(path.join(aiConfig.issueSync.contentRoot, '_index.json'), [
+            {type: 'pulls', id: prNumber, version: 'v13.0.0', chunkNumber: 1, path: `archive/pulls/v13.0.0/chunk-2/pr-${prNumber}.md`}
+        ]);
+
+        const stats = await PullRequestSyncer.reconcilePullRequestIndex();
+
+        expect(stats.reindexed).toBe(1);
+        expect((await readContentIndex(aiConfig.issueSync)).find(e => e.id === prNumber).chunkNumber).toBe(2);
+    });
+
+    test('leaves an ambiguous id UNINDEXED rather than blessing a copy as canonical', async () => {
+        const prNumber = 10124;
+
+        for (const chunk of ['chunk-1', 'chunk-2']) {
+            const dir = path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', chunk);
+
+            await fs.ensureDir(dir);
+            await fs.writeFile(path.join(dir, `pr-${prNumber}.md`), `divergent ${chunk}`, 'utf8');
+        }
+
+        await fs.writeJson(path.join(aiConfig.issueSync.contentRoot, '_index.json'), []);
+
+        const stats = await PullRequestSyncer.reconcilePullRequestIndex();
+
+        expect(stats.skippedAmbiguous).toEqual([prNumber]);
+        expect(stats.reindexed).toBe(0);
+        // No entry: an index entry naming one of two divergent copies would make it canonical by
+        // implication, which is the arbitrary choice this lane refuses on the corpus's behalf.
+        expect((await readContentIndex(aiConfig.issueSync)).find(e => e.id === prNumber)).toBeUndefined();
+    });
+
     test('is a no-op when no releases are loaded (fail-safe)', async () => {
         const prNumber   = 44444,
               activePath = path.join(aiConfig.issueSync.pullsDir, 'chunk-1', `pr-${prNumber}.md`);
