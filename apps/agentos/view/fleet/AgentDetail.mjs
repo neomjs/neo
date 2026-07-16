@@ -1,7 +1,9 @@
 import Container                                      from '../../../../src/container/Base.mjs';
 import FamilyRail                                     from './FamilyRail.mjs';
 import Image                                          from '../../../../src/component/Image.mjs';
+import MailboxPane                                    from './MailboxPane.mjs';
 import StateDot                                       from './StateDot.mjs';
+import TabContainer                                   from '../../../../src/tab/Container.mjs';
 import {classifyPaneFreshness, describePaneFreshness} from './agentFreshness.mjs';
 import {normalizeFleetSources}                        from './sourceHealth.mjs';
 
@@ -202,13 +204,29 @@ class AgentDetail extends Container {
                 }]
             }]
         }, {
-            ntype    : 'container',
-            cls      : ['fm-detail-panes'],
-            flex     : 1,
-            hidden   : true,
-            reference: 'detail-panes',
-            layout   : {ntype: 'vbox', align: 'stretch'},
-            items    : PANES.map(paneConfig)
+            // object permanence: the mailbox belongs to the agent object, so it rides the detail
+            // as a TAB beside the status panes — the a11y region + identity header stay above
+            module     : TabContainer,
+            cls        : ['fm-detail-tabs'],
+            flex       : 1,
+            hidden     : true,
+            reference  : 'detail-tabs',
+            activeIndex: 0,
+
+            items: [{
+                ntype    : 'container',
+                cls      : ['fm-detail-panes'],
+                header   : {text: 'Status'},
+                reference: 'detail-panes',
+                layout   : {ntype: 'vbox', align: 'stretch'},
+                items    : PANES.map(paneConfig)
+            }, {
+                // the tab title stays COUNTLESS by design: an unread badge would imply
+                // operator-side read tracking that deliberately does not exist
+                module   : MailboxPane,
+                header   : {text: 'Mailbox'},
+                reference: 'mailbox-pane'
+            }]
         }]
     }
 
@@ -294,11 +312,14 @@ class AgentDetail extends Container {
             record = me.record,
             empty  = me.getReference('detail-empty'),
             header = me.getReference('detail-header'),
-            panes  = me.getReference('detail-panes');
+            tabs   = me.getReference('detail-tabs');
 
         empty.hidden  = !!record;
         header.hidden = !record;
-        panes.hidden  = !record;
+        tabs.hidden   = !record;
+
+        // the mailbox tab follows the drilled-in resident (its snapshot is wiring-injected)
+        me.getReference('mailbox-pane').record = record;
 
         if (!record) {
             return

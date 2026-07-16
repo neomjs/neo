@@ -70,12 +70,38 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
         stores.length = 0
     });
 
-    test('no record → the honest empty state; header + panes hidden until a resident is selected', () => {
+    test('no record → the honest empty state; header + tabs hidden until a resident is selected', () => {
         const detail = Neo.create(AgentDetail, {appName});
 
         expect(detail.down({reference: 'detail-empty'}).hidden).toBe(false);
         expect(detail.down({reference: 'detail-header'}).hidden).toBe(true);
-        expect(detail.down({reference: 'detail-panes'}).hidden).toBe(true);
+        // the visibility gate is the TAB container (Status + Mailbox ride inside it)
+        expect(detail.down({reference: 'detail-tabs'}).hidden).toBe(true);
+
+        detail.destroy()
+    });
+
+    test('the detail body is a tab container: Status panes + the COUNTLESS Mailbox tab; the mailbox follows the record', () => {
+        const detail = Neo.create(AgentDetail, {appName});
+        const tabs   = detail.down({reference: 'detail-tabs'});
+
+        // tab 1 = the four status panes (untouched inside), tab 2 = the mailbox pane — both
+        // reachable references inside the tab container's card structure
+        expect(detail.down({reference: 'detail-panes'})).toBeTruthy();
+        expect(detail.down({reference: 'mailbox-pane'})).toBeTruthy();
+
+        // countless by design: the tab-bar buttons carry plain 'Status' / 'Mailbox' — no badge,
+        // no count (an unread count would imply operator-side read tracking that deliberately
+        // does not exist)
+        const buttonTexts = tabs.getTabBar().items.map(button => button.text);
+        expect(buttonTexts).toEqual(['Status', 'Mailbox']);
+
+        // the mailbox pane's record follows the drill-in (its snapshot is wiring-injected)
+        detail.record = {agentId: '@neo-gpt', displayName: 'Euclid'};
+        expect(detail.down({reference: 'mailbox-pane'}).record?.agentId).toBe('@neo-gpt');
+
+        detail.record = null;
+        expect(detail.down({reference: 'mailbox-pane'}).record).toBe(null);
 
         detail.destroy()
     });
