@@ -1,10 +1,11 @@
-import path                         from 'path';
-import {fileURLToPath}              from 'url';
-import Base                         from '../../../src/core/Base.mjs';
-import FleetLifecycleService        from './FleetLifecycleService.mjs';
-import {inspectFleetRepos}          from './inspectFleetRepos.mjs';
-import {readFleetWakeStateSnapshot} from './fleetWakeStateAdapter.mjs';
-import {startAgentProvisioned}      from './startAgentProvisioned.mjs';
+import path                             from 'path';
+import {fileURLToPath}                  from 'url';
+import Base                             from '../../../src/core/Base.mjs';
+import FleetLifecycleService            from './FleetLifecycleService.mjs';
+import {inspectFleetRepos}              from './inspectFleetRepos.mjs';
+import {readFleetThrottleStateSnapshot} from './fleetThrottleStateAdapter.mjs';
+import {readFleetWakeStateSnapshot}     from './fleetWakeStateAdapter.mjs';
+import {startAgentProvisioned}          from './startAgentProvisioned.mjs';
 
 const
     __filename = fileURLToPath(import.meta.url),
@@ -86,6 +87,15 @@ class FleetManager extends Base {
      * @member {Function|null} repoStatusFn=null
      */
     repoStatusFn = null
+    /**
+     * Throttle-state observation options for {@link fleetThrottleStatus} — `{resolveThrottleState}`
+     * per the `fleetThrottleStateAdapter` contract. `null` ⇒ every row is honestly `unknown`: no
+     * trustworthy throttle truth source exists in the platform yet (the adapter documents the
+     * evaluated-and-rejected candidates); the future watchdog-signals producer injects its reader
+     * here. Plain field, mirroring the sibling seams.
+     * @member {Object|null} throttleStateOptions=null
+     */
+    throttleStateOptions = null
 
     /**
      * @summary Resolve (field > env > default) the absolute fleet-managed checkout root.
@@ -218,6 +228,27 @@ class FleetManager extends Base {
      */
     stopAgent(agentId) {
         return this.getLifecycleService().stop(agentId);
+    }
+
+    /**
+     * @summary Turnkey throttle-state observability: the per-agent throttle axis of the S2 telltale
+     * taxonomy (`none | overage | rate-limited | unknown`) across the registered roster — a fleet
+     * view beside {@link fleetRepoStatus} (repos) and {@link fleetRuntimeStatus} (processes).
+     *
+     * Delegates to `fleetThrottleStateAdapter.readFleetThrottleStateSnapshot` with the registry
+     * roster (one row per REGISTERED agent, the sibling views' one-agent-set rule) plus the injected
+     * {@link #member-throttleStateOptions}. Fail-honest: no trustworthy throttle truth source exists
+     * in the platform yet (the adapter documents the evaluated candidates), so the default is every
+     * row `unknown` under a `degraded/none` capability — "we cannot see" stays distinguishable from
+     * "nothing is throttled"; the state is never invented.
+     * @returns {Promise<{capability: Object, states: Object[]}>} Adapter snapshot: per-agent
+     * `{agentId, throttle, confidence, source}` rows (+ `reason` on `unknown`) and the capability envelope.
+     */
+    fleetThrottleStatus() {
+        return readFleetThrottleStateSnapshot({
+            agents: this.getLifecycleService().getRegistry().listAgents(),
+            ...(this.throttleStateOptions || {})
+        });
     }
 
     /**
