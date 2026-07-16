@@ -552,3 +552,89 @@ test.describe('GraphService — global system-node provisioning (write-side null
         expect(ids).not.toContain('Neo-Master-Architecture');
     });
 });
+
+/**
+ * `listEdgeRecordsByType` is the RLS-safe enumeration companion to `listNodeRecordsByType`, and the
+ * seam the current-state lane landscape reads relations through. A consumer holding the raw SQLite
+ * handle would see every tenant's edges; these pin that the seam does not, and that a bounded read
+ * reports its bound rather than passing a clipped relation set off as the whole structure.
+ */
+test.describe('GraphService.listEdgeRecordsByType — RLS-safe relation enumeration', () => {
+    let GraphService, originalDb;
+
+    // No `storage.db` handle, so the enumeration takes its in-memory branch — the cache-warmed case,
+    // where a foreign edge is present in the process-wide Store and only the predicate can exclude it.
+    const makeEdgeDb = edges => ({
+        edges  : {items: edges},
+        storage: {RequestContextService: {getAgentIdentityNodeId: () => requester.value}}
+    });
+
+    test.beforeAll(async () => {
+        GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+    });
+
+    test.beforeEach(() => {
+        originalDb      = GraphService.db;
+        requester.value = null;
+    });
+
+    test.afterEach(() => {
+        GraphService.db = originalDb;
+        requester.value = null;
+    });
+
+    test('two requesters, one cache: each sees only its own edges plus the shared ones', () => {
+        GraphService.db = makeEdgeDb([
+            edge('e1', 'issue-1', 'issue-2', 1.0, {userId: 'tenant-a'}, 'BLOCKS'),
+            edge('e2', 'issue-3', 'issue-4', 1.0, {userId: 'tenant-b'}, 'BLOCKS'),
+            edge('e3', 'issue-5', 'issue-6', 1.0, {userId: null},       'PARENT_OF')
+        ]);
+
+        requester.value = '@tenant-a';
+        const seenByA = GraphService.listEdgeRecordsByType({types: ['PARENT_OF', 'BLOCKS']}).records;
+
+        requester.value = '@tenant-b';
+        const seenByB = GraphService.listEdgeRecordsByType({types: ['PARENT_OF', 'BLOCKS']}).records;
+
+        // the same warmed Store yields a different, correctly-scoped answer per requester
+        expect(seenByA.map(e => e.source).sort()).toEqual(['issue-1', 'issue-5']);
+        expect(seenByB.map(e => e.source).sort()).toEqual(['issue-3', 'issue-5']);
+        // the decisive one: neither tenant's private relation leaks into the other's landscape
+        expect(seenByA.some(e => e.source === 'issue-3')).toBe(false);
+        expect(seenByB.some(e => e.source === 'issue-1')).toBe(false);
+    });
+
+    test('only the requested relation types come back — enumeration is not a whole-graph read', () => {
+        GraphService.db = makeEdgeDb([
+            edge('e1', 'issue-1', 'issue-2', 1.0, {userId: null}, 'BLOCKS'),
+            edge('e2', 'issue-1', 'issue-9', 1.0, {userId: null}, 'MENTIONS')
+        ]);
+
+        const {records} = GraphService.listEdgeRecordsByType({types: ['BLOCKS']});
+
+        expect(records).toEqual([{source: 'issue-1', target: 'issue-2', type: 'BLOCKS'}]);
+    });
+
+    test('a bounded read REPORTS its bound — silent truncation would fake a complete topology', () => {
+        GraphService.db = makeEdgeDb([
+            edge('e1', 'issue-1', 'issue-2', 1.0, {userId: null}, 'BLOCKS'),
+            edge('e2', 'issue-3', 'issue-4', 1.0, {userId: null}, 'BLOCKS')
+        ]);
+
+        const clipped = GraphService.listEdgeRecordsByType({types: ['BLOCKS'], limit: 1});
+        expect(clipped.records).toHaveLength(1);
+        expect(clipped.truncated).toBe(true);
+
+        const whole = GraphService.listEdgeRecordsByType({types: ['BLOCKS'], limit: 10});
+        expect(whole.records).toHaveLength(2);
+        expect(whole.truncated).toBe(false);
+    });
+
+    test('fails loud on a malformed type list; an empty list reads nothing rather than everything', () => {
+        GraphService.db = makeEdgeDb([edge('e1', 'issue-1', 'issue-2', 1.0, {userId: null}, 'BLOCKS')]);
+
+        expect(() => GraphService.listEdgeRecordsByType({types: 'BLOCKS'})).toThrow(/non-empty strings/);
+        expect(() => GraphService.listEdgeRecordsByType({types: ['']})).toThrow(/non-empty strings/);
+        expect(GraphService.listEdgeRecordsByType({types: []})).toEqual({records: [], truncated: false});
+    });
+});

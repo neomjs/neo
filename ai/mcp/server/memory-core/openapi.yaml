@@ -627,6 +627,173 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /lanes/landscape:
+    get:
+      summary: Explore Lane Landscape
+      operationId: explore_lane_landscape
+      x-neo-tool-tier: read
+      x-pass-as-object: true
+      x-neo-tool-summary: Synthesize a non-authoritative "what IS the lane landscape right now" current-state Bird View.
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Answers "what is the lane landscape right now": open epics with their open children, open items
+        with their open blockers, and assigned vs unassigned work with each unassigned item named.
+
+        Use it to orient on current structure before choosing a lane. Takes no parameters — it answers
+        "what IS", keyed by `capturedAt`; for "what happened in a time window", use the history tools.
+
+        Do NOT use it to rank lanes or choose an owner — it describes structure only. On a degraded
+        census the narrative is withheld; if inference fails the census and coverage evidence remain,
+        with `synthesis.unavailableReason` naming the cause.
+      tags: [Memories]
+      responses:
+        '200':
+          description: Current-state landscape envelope (non-authoritative; narrative withheld on a degraded census)
+          content:
+            application/json:
+              schema:
+                type: object
+                description: The non-authoritative current-state landscape. Nothing here is durable — it is a query-time view.
+                required:
+                  - schemaVersion
+                  - capturedAt
+                  - generatedAt
+                  - goalTrajectory
+                  - dependencyPath
+                  - authorityCoverage
+                  - coverage
+                  - citations
+                  - sourceManifestHash
+                  - synthesis
+                  - notAuthority
+                properties:
+                  schemaVersion:
+                    type: string
+                    description: The envelope contract version (`lane-landscape.v1`).
+                  capturedAt:
+                    type: string
+                    description: ISO 8601 stamp of the census read — the honest key for a current-state answer (there is no window).
+                  generatedAt:
+                    type: string
+                  goalTrajectory:
+                    type: array
+                    description: Open epics and their open children — the goal dimension.
+                    items:
+                      type: object
+                      required: [id, openChildCount, openChildren]
+                      properties:
+                        id:
+                          type: string
+                          description: Namespaced census id (`issue-N` / `pr-N`).
+                        openChildCount:
+                          type: integer
+                        openChildren:
+                          type: array
+                          items:
+                            type: string
+                  dependencyPath:
+                    type: array
+                    description: Open items and the open items blocking them — the dependency / critical-path dimension.
+                    items:
+                      type: object
+                      required: [id, blockedBy]
+                      properties:
+                        id:
+                          type: string
+                        blockedBy:
+                          type: array
+                          description: Only still-open blockers — a closed blocker is not a live dependency.
+                          items:
+                            type: string
+                  authorityCoverage:
+                    type: object
+                    description: Assigned vs unassigned counts plus the unassigned ids named — authority coverage, never an assignment recommendation.
+                    required: [assignedCount, unassignedCount, unassignedIds]
+                    properties:
+                      assignedCount:
+                        type: integer
+                      unassignedCount:
+                        type: integer
+                      unassignedIds:
+                        type: array
+                        description: Unassigned per the SOURCE's own assignee/author evidence — never inferred from a local store's silence.
+                        items:
+                          type: string
+                  coverage:
+                    type: object
+                    description: "Census completeness. A degraded census means the narrative is withheld rather than served partial."
+                    required: [totalOpenItems, edgeCount, degraded, degradedReasons]
+                    properties:
+                      totalOpenItems:
+                        type: integer
+                      edgeCount:
+                        type: integer
+                      degraded:
+                        type: boolean
+                        description: True unless the source itself reported no next page. A read that merely succeeded proves nothing about completeness.
+                      degradedReasons:
+                        type: array
+                        description: Why completeness could not be claimed — empty when the census is proven exhaustive. A degraded flag without its reason is only half-honest.
+                        items:
+                          type: string
+                  citations:
+                    type: array
+                    description: The record behind every landscape row, joinable to the dimensions by id.
+                    items:
+                      type: object
+                      required: [id, type, ref, inSynthesis]
+                      properties:
+                        id:
+                          type: string
+                          description: The landscape row id this citation supports (`issue-N` / `pr-N`).
+                        type:
+                          type: string
+                          description: "`issue` or `pull_request` — a PR is a first-class landscape member, not edge decoration."
+                        ref:
+                          type: string
+                          nullable: true
+                          description: Source URL, or null when the source gave none.
+                        inSynthesis:
+                          type: boolean
+                          description: Whether this record reached the narrative. The census is broader than the prompt, so a cited row is not necessarily a narrated one.
+                        drillDown:
+                          type: object
+                          description: The call that opens this record. Absent when the source gave no addressable number — an honest omission rather than a target that would 404.
+                          required: [operation, arguments]
+                          properties:
+                            operation:
+                              type: string
+                            arguments:
+                              type: object
+                              additionalProperties: true
+                  sourceManifestHash:
+                    type: string
+                    description: Change-detection fingerprint of the landscape's member set. Keys on identity, not content — an edited body does not change the structure, while a state change removes the item from the census and moves the hash.
+                  synthesis:
+                    type: object
+                    description: The cited structural narrative, or an honest absence with its reason.
+                    required: [available, narrative, unavailableReason, inferenceInputIds]
+                    properties:
+                      available:
+                        type: boolean
+                      narrative:
+                        type: string
+                        nullable: true
+                        description: Null whenever the census is degraded or inference failed — never a blank string presented as a description.
+                      unavailableReason:
+                        type: string
+                        nullable: true
+                        description: "`coverage-degraded` or `synthesis-failed: <reason>`."
+                      inferenceInputIds:
+                        type: array
+                        description: The ids the prompt actually enumerated — so a caller never reads the whole census as having reached inference.
+                        items:
+                          type: string
+                  notAuthority:
+                    type: boolean
+                    description: Always true. A navigation aid, never an authority — it describes structure and never ranks or assigns.
+
   /memories/history:
     get:
       summary: Explore Memory History
