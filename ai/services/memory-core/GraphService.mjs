@@ -824,6 +824,83 @@ class GraphService extends Base {
     }
 
     /**
+     * @summary Lists edge records of one or more relation types through the same RLS boundary as the
+     * node enumerations.
+     *
+     * The edge-side companion to {@link GraphService#listNodeRecordsByType}. A foreign edge between two
+     * otherwise-visible nodes is a distinct leak surface — it discloses both a relation and its
+     * provenance — so type-level edge discovery belongs behind the same visibility predicate rather than
+     * in a consumer's raw SQL. Filters at the SQL layer and re-checks each row at the return boundary,
+     * matching the node enumeration.
+     *
+     * Truncation is reported, never silent: a caller that bounds a read cannot honestly describe the
+     * result as the whole relation set, and a consumer that cannot see the cap would present a partial
+     * topology as complete.
+     * @param {Object} data
+     * @param {String[]} data.types Relation types to enumerate; an empty list yields no records.
+     * @param {Number} [data.limit=5000] Maximum records to return.
+     * @returns {{records: Object[], truncated: Boolean}} `{source, target, type}` records, plus whether
+     *   more matching edges existed than the bound allowed.
+     */
+    listEdgeRecordsByType({types, limit = 5000} = {}) {
+        if (!Array.isArray(types) || types.some(type => !Neo.isString(type) || type.length === 0)) {
+            throw new TypeError('GraphService.listEdgeRecordsByType: types must be an array of non-empty strings');
+        }
+
+        const
+            max       = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 5000,
+            typeSet   = new Set(types),
+            rlsUserId = resolveRlsUserId(this.db?.storage?.RequestContextService),
+            toRecord  = edge => {
+                if (!edge || !isRlsVisible(edge, rlsUserId)) {
+                    return null;
+                }
+
+                const
+                    source   = edge.isRecord ? edge.get('source') : edge.source,
+                    target   = edge.isRecord ? edge.get('target') : edge.target,
+                    edgeType = edge.isRecord ? edge.get('type')   : edge.type;
+
+                return typeSet.has(edgeType) ? {source, target, type: edgeType} : null;
+            };
+
+        if (types.length === 0) {
+            return {records: [], truncated: false};
+        }
+
+        // One row beyond the bound is read purely to detect the cap: the caller must be able to tell a
+        // complete relation set from a clipped one.
+        const probe = max + 1;
+
+        if (this.db?.storage?.db) {
+            const placeholders = types.map(() => '?').join(', ');
+
+            // Match listNodeRecordsByType's SQL-level RLS filter, then re-check visibility below.
+            const stmt = this.db.storage.db.prepare(`
+                SELECT data FROM Edges
+                WHERE type IN (${placeholders})
+                  AND (user_id = ?
+                       OR user_id = ?
+                       OR user_id IS NULL
+                       OR json_extract(data, '$.properties.sharedEntity') = 1
+                       OR json_extract(data, '$.properties.visibility') = 'team')
+                ORDER BY id
+                LIMIT ?
+            `);
+
+            const rows    = stmt.all(...types, rlsUserId, rlsUserId == null ? null : `@${rlsUserId}`, probe),
+                  records = rows.map(row => toRecord(JSON.parse(row.data))).filter(Boolean);
+
+            return {records: records.slice(0, max), truncated: rows.length > max};
+        }
+
+        const edges   = Array.isArray(this.db?.edges?.items) ? this.db.edges.items : [],
+              visible = edges.map(toRecord).filter(Boolean);
+
+        return {records: visible.slice(0, max), truncated: visible.length > max};
+    }
+
+    /**
      * @summary Per-node RLS visibility for the acting request — the GraphService-owned seam the
      * concept-walk's `rlsPredicate` consumes so a private / other-tenant intermediate is never traversed
      * THROUGH (path-level Depth-Floor; terminal-candidate authorization does NOT authorize the crossed
