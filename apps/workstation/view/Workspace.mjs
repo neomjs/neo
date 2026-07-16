@@ -90,6 +90,15 @@ class Workspace extends Container {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
+         * The preview design-language switch (the design-exploration selector): the value maps to a
+         * `neo-preview-lang-<value>` modifier cls on the dock host, so skin variants swap live — on
+         * the workspace config, from a tour script, or from the console — without touching behavior.
+         * `null` renders the default affordance family.
+         * @member {String|null} previewLanguage_=null
+         * @reactive
+         */
+        previewLanguage_: null,
+        /**
          * The one root provider owns both stores; cached panes receive these exact instances.
          * @member {Object} stateProvider
          */
@@ -216,11 +225,32 @@ class Workspace extends Container {
             reference: 'dock-host'
         }]);
 
+        // The reactive afterSet fires before the dock host exists during construction —
+        // re-apply the active language now that the host is live (both orders converge).
+        me.previewLanguage && me.afterSetPreviewLanguage(me.previewLanguage, null);
+
         me.updateStatusBar();
         me.#feedIntervalId = setInterval(
             () => me.appendFeedBatch(Workspace.FEED_BATCH_SIZE),
             Workspace.FEED_INTERVAL_MS
         )
+    }
+
+    /**
+     * Swaps the preview design-language modifier cls on the dock host. Fires before the host
+     * exists during construction — the construct-time add path re-applies the active value once
+     * the host is live, so both orders resolve to the same cls state.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetPreviewLanguage(value, oldValue) {
+        let host = this.getReference('dock-host');
+
+        if (host) {
+            oldValue && host.removeCls(`neo-preview-lang-${oldValue}`);
+            value    && host.addCls(`neo-preview-lang-${value}`)
+        }
     }
 
     /**

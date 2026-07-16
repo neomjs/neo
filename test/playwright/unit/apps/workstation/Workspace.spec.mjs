@@ -224,5 +224,34 @@ test.describe.serial('Workstation.view.Workspace', () => {
         } finally {
             workspace.destroy()
         }
+    });
+
+    test('previewLanguage maps to the dock-host modifier: initial, live swap, null reset, open values', () => {
+        const workspace = Neo.create(Workspace, {previewLanguage: 'signal'});
+
+        try {
+            const host = workspace.getReference('dock-host');
+
+            // initial value: the reactive afterSet fires before the host exists during
+            // construction — the construct-time re-apply converges both orders
+            expect(host.cls.includes('neo-preview-lang-signal')).toBe(true);
+
+            // live swap: the old modifier leaves, the new one lands — one language at a time
+            workspace.previewLanguage = 'blueprint';
+            expect(host.cls.includes('neo-preview-lang-signal')).toBe(false);
+            expect(host.cls.includes('neo-preview-lang-blueprint')).toBe(true);
+
+            // null reset: back to the default affordance family — no modifier remains
+            workspace.previewLanguage = null;
+            expect(host.cls.includes('neo-preview-lang-blueprint')).toBe(false);
+            expect(host.cls.some(cls => cls.startsWith('neo-preview-lang-'))).toBe(false);
+
+            // the selector is open by design: any candidate name maps to its modifier —
+            // unknown values are inert cls tokens, never errors (skin variants opt in via CSS)
+            workspace.previewLanguage = 'solid';
+            expect(host.cls.includes('neo-preview-lang-solid')).toBe(true)
+        } finally {
+            workspace.destroy()
+        }
     })
 });
