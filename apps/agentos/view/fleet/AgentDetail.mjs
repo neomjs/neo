@@ -240,6 +240,10 @@ class AgentDetail extends Container {
         // labeled region on drill-in, not an unnamed pane. Set on the root before applyRecord's first
         // render flush; a later re-seat (applyRecord) keeps the root, so the region survives.
         Object.assign(this.vdom, {role: 'region', 'aria-label': 'Agent detail'});
+        // the pane renders and never fetches: it fires the page intent, this view (which holds the
+        // read seam and the subject) performs the bounded re-read. Wired explicitly rather than via
+        // a string handler — this view carries no controller for one to resolve against.
+        this.getReference('mailbox-pane')?.on('pageRequest', this.onMailboxPageRequest, this);
         this.applyRecord();
         this.startFreshnessAging()
     }
@@ -285,6 +289,19 @@ class AgentDetail extends Container {
     mailboxReadGeneration = 0
 
     /**
+     * @summary Honor the pane's page request by re-reading the mirror at the requested offset.
+     *
+     * Routed through the SAME read as the drill, so a page transition inherits its generation latch
+     * and subject re-check for free: a page request answered after the operator drilled elsewhere is
+     * dropped exactly like a stale drill read, rather than paging resident A's inbox into B's pane.
+     * @param {Object} data `{offset}` from the pane's `pageRequest` event.
+     * @protected
+     */
+    onMailboxPageRequest(data) {
+        this.loadMailboxMirror({offset: data.offset})
+    }
+
+    /**
      * @summary Read THIS resident's mailbox mirror through the Fleet read seam and hand it to the pane.
      *
      * The pane renders and never fetches; this view owns the read because it owns the drill, and it
@@ -304,7 +321,7 @@ class AgentDetail extends Container {
      * @returns {Promise<void>}
      * @protected
      */
-    async loadMailboxMirror() {
+    async loadMailboxMirror({offset = 0} = {}) {
         let me      = this,
             subject = me.record?.agentId,
             bridge  = globalThis.AgentOS?.fleet?.registryBridge;
@@ -316,7 +333,7 @@ class AgentDetail extends Container {
         const generation = ++me.mailboxReadGeneration;
 
         try {
-            const snapshot = await bridge.fleetMailboxMirror({subjectAgentId: subject});
+            const snapshot = await bridge.fleetMailboxMirror({subjectAgentId: subject, offset});
 
             // a newer drill won, the subject moved, or the view is gone — drop it on the floor
             if (me.isDestroyed || generation !== me.mailboxReadGeneration || me.record?.agentId !== subject) {

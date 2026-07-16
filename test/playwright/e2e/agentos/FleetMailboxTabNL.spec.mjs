@@ -116,13 +116,19 @@ test.describe('AgentOS fleet cockpit — the AgentDetail Mailbox tab live (#1527
         await expect(pane.locator('.fm-mail-row')).toHaveCount(2, {timeout: 15000});
         await expect(pane.locator('.fm-mail-row').first().locator('.fm-mail-subject')).toHaveText('standalone live message');
         await expect(pane.locator('.fm-mail-thread-count')).toHaveText('+1 earlier');
-        await expect(pane.locator('.fm-mailbox-page')).toHaveText('1–3');
+        await expect(pane.locator('.fm-mailbox-page-range')).toHaveText('1–3');
+        // the window can MOVE, not just describe itself: both edges render as real controls, and a
+        // 3-of-50 page is the producer saying it ran out — so older is disabled, not hidden
+        await expect(pane.locator('.fm-mailbox-page-next')).toBeDisabled();
+        await expect(pane.locator('.fm-mailbox-page-prev')).toBeDisabled();
 
         // read-only is structural, proven live: zero DATA-ENTRY elements and no mutation verb. The
         // bar is mutation, not interactivity — the one admissible control is the thread-collapse
         // toggle (display state), which MUST be a real button or no keyboard user can operate it.
         await expect(pane.locator('input, textarea, select, a')).toHaveCount(0);
-        await expect(pane.locator('button:not(.fm-mail-thread-toggle)')).toHaveCount(0);
+        // the ONLY admissible controls are display-state navigation: the thread toggle and the two
+        // page steps. Anything else here would be a mutation verb the record forbids.
+        await expect(pane.locator('button:not(.fm-mail-thread-toggle):not(.fm-mailbox-page-step)')).toHaveCount(0);
 
         // the toggle is a native button naming its state — live, in the real DOM
         const toggle = pane.locator('.fm-mail-thread-toggle');

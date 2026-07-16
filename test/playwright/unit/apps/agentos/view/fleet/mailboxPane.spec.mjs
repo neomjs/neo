@@ -204,7 +204,8 @@ test.describe('AgentOS.view.fleet.MailboxPane — the read-only S1 mailbox tab',
         expect(rowsCmp.vdom.cn[0].cn[0].cn[0].text).toBe('newer');
         expect(rowsCmp.vdom.cn[1].cn[0].cn[0].text).toBe('older');
 
-        expect(pane.getReference('mailbox-page').text).toBe('1–2');
+        // the bounds now live in the range span, between their two transition controls
+        expect(pane.getReference('mailbox-page').vdom.cn.find(node => node.cls?.includes?.('fm-mailbox-page-range')).text).toBe('1–2');
         // capturedAt is 30s old vs a 60s TTL → fresh
         expect(pane.getReference('mailbox-freshness').text).toContain('updated');
 
@@ -291,6 +292,50 @@ test.describe('AgentOS.view.fleet.MailboxPane — the read-only S1 mailbox tab',
         expect(pane.getReference('mailbox-title').text).toBe('A2A Mailbox');
 
         pane.destroy()
+    });
+
+    test('pagination TRANSITIONS: row 51 is reachable — the window can move, not just describe itself', () => {
+        const pane  = createPane({snapshot: wiredSnapshot([row({messageId: 'MESSAGE:a'})], {limit: 50, offset: 0, count: 50})}),
+              fired = [];
+
+        pane.on('pageRequest', data => fired.push(data.offset));
+
+        const strip = () => pane.getReference('mailbox-page').vdom.cn,
+              step  = cls => strip().find(node => node.cls?.includes?.(cls));
+
+        // page 1 of a FULL window: newer is disabled (this IS the edge), older is offered
+        expect(step('fm-mailbox-page-prev').disabled).toBe(true);
+        expect(step('fm-mailbox-page-next').disabled).toBe(false);
+        expect(step('fm-mailbox-page-next').tag).toBe('button');
+        // the offset that reaches row 51 rides on the control that knows it
+        expect(step('fm-mailbox-page-next')['data-offset']).toBe('50');
+        expect(strip().find(node => node.cls?.includes?.('fm-mailbox-page-range')).text).toBe('1–50');
+
+        // the pane REQUESTS; it never fetches
+        pane.onPageClick({path: [{data: {offset: '50'}}]});
+        expect(fired).toEqual([50]);
+
+        // page 2, short (the producer ran out): older disables, newer opens, range reflects the window
+        pane.snapshot = wiredSnapshot([row({messageId: 'MESSAGE:b'})], {limit: 50, offset: 50, count: 10});
+        expect(step('fm-mailbox-page-prev').disabled).toBe(false);
+        expect(step('fm-mailbox-page-prev')['data-offset']).toBe('0');
+        expect(step('fm-mailbox-page-next'), 'a short page is the producer saying it ran out').toMatchObject({disabled: true});
+        expect(strip().find(node => node.cls?.includes?.('fm-mailbox-page-range')).text).toBe('51–60');
+
+        pane.destroy()
+    });
+
+    test('a denial or degrade never fakes a page window', () => {
+        const denied = createPane({snapshot: {
+            capability: {state: 'degraded', confidence: 'none', capturedAt: CAPTURED_AT, reason: 'no grant'},
+            admission : {state: 'denied', viewerIdentity: '@x', subjectAgentId: '@neo-gpt', checkedAt: CAPTURED_AT, reason: 'Unauthorized: no CAN_READ_INBOX_OF permission for @neo-gpt'},
+            rows      : [],
+            page      : {limit: 50, offset: 0, count: 0}
+        }});
+
+        // bounds + their transitions are hidden together: a window over data you cannot see is a lie
+        expect(denied.getReference('mailbox-page').hidden).toBe(true);
+        denied.destroy()
     });
 
     test('a11y: thread collapse is a NATIVE button that names its state — not a clickable div', () => {

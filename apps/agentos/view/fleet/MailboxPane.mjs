@@ -103,9 +103,19 @@ class MailboxPane extends Container {
                 reference: 'mailbox-title'
             }, {
                 ntype    : 'component',
+                // the page bounds + their transitions. Native buttons: the bounds label alone made
+                // row 51 unreachable — a window with no way to move it is a claim about the data,
+                // not access to it. The pane REQUESTS a page (it renders, never fetches); the
+                // owner re-reads the mirror at the new offset.
+                ntype    : 'component',
                 cls      : ['fm-mailbox-page'],
                 flex     : 'none',
-                reference: 'mailbox-page'
+                reference: 'mailbox-page',
+
+                domListeners: [{
+                    click   : 'up.onPageClick',
+                    delegate: '.fm-mailbox-page-step'
+                }]
             }, {
                 ntype    : 'component',
                 flex     : 'none',
@@ -241,10 +251,9 @@ class MailboxPane extends Container {
         // page bounds are shown only when rows show — a denial/degrade never fakes a window
         const page = snapshot?.page;
 
-        pageCmp.set({
-            hidden: !rows || !page,
-            text  : rows && page ? `${page.offset + 1}–${page.offset + page.count}` : ''
-        });
+        pageCmp.hidden  = !rows || !page;
+        pageCmp.vdom.cn = rows && page ? me.buildPageVdom(page) : [];
+        pageCmp.update();
 
         stateCmp.set({
             cls   : ['fm-mailbox-state', `is-${state}`],
@@ -410,6 +419,64 @@ class MailboxPane extends Container {
                 text: meta
             }]
         }
+    }
+
+    /**
+     * @summary Build the page-bounds strip: the window label between its two transitions.
+     *
+     * Both steps are native buttons — the bounds label on its own told the operator a window
+     * exists without giving them any way to move it, which is a claim about the data rather than
+     * access to it. A step is DISABLED, never hidden, when it would leave the range: a control that
+     * vanishes teaches the operator the surface is inconsistent, while a disabled one says "this
+     * edge is the end". `prev` is bounded at 0; `next` is offered only on a FULL page, because a
+     * short page is the producer telling us it ran out.
+     * @param {{limit: Number, offset: Number, count: Number}} page The snapshot's echoed bounds.
+     * @returns {Object[]} the page strip's child vdom nodes.
+     * @protected
+     */
+    buildPageVdom({limit, offset, count}) {
+        const
+            atStart = offset <= 0,
+            atEnd   = count < limit;
+
+        return [{
+            tag          : 'button',
+            type         : 'button',
+            cls          : ['fm-mailbox-page-step', 'fm-mailbox-page-prev'],
+            text         : '‹',
+            disabled     : atStart,
+            'aria-label' : 'Newer messages',
+            'data-offset': String(Math.max(0, offset - limit))
+        }, {
+            tag : 'span',
+            cls : ['fm-mailbox-page-range'],
+            text: `${offset + 1}–${offset + count}`
+        }, {
+            tag          : 'button',
+            type         : 'button',
+            cls          : ['fm-mailbox-page-step', 'fm-mailbox-page-next'],
+            text         : '›',
+            disabled     : atEnd,
+            'aria-label' : 'Older messages',
+            'data-offset': String(offset + limit)
+        }]
+    }
+
+    /**
+     * @summary Request a page — the pane renders and never fetches, so it fires the intent and the
+     * owner (which holds the read seam and the subject) performs the read.
+     *
+     * A disabled step cannot fire, so the range bound is enforced by the control's own state rather
+     * than re-derived here; the offset rides on the button that knows it.
+     * @param {Object} data Delegated click event data.
+     * @protected
+     */
+    onPageClick(data) {
+        const
+            target = data.path?.find(node => node.data?.offset !== undefined),
+            offset = Number(target?.data?.offset);
+
+        Number.isSafeInteger(offset) && offset >= 0 && this.fire('pageRequest', {offset, source: this})
     }
 
     /**
