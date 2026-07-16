@@ -103,7 +103,25 @@ export function stableStringify(value) {
  */
 export function diffLeafTrees(baseData, overlayData, prefix = '') {
     const result = {deltas: {}, drift: [], custom: [], skipped: []};
+    walkLeafTrees(baseData, overlayData, prefix, result);
+    return result;
+}
 
+/**
+ * @summary The shared-accumulator recursion behind {@link diffLeafTrees}.
+ *
+ * ONE accumulator flows through the whole walk and `setPath` (full dotted paths against the shared
+ * root) is the ONLY deltas writer, so sibling iteration order can never matter. The previous shape
+ * merged each subtree child's own accumulator upward via a shallow `Object.assign`, whose top-level
+ * key is the shared path root — at any nested level it REPLACED whatever a leaf-delta sibling (or an
+ * earlier subtree sibling) had already written under that key, silently reverting operator overrides
+ * to base defaults after `--write` (the drift-class harm this script exists to retire, inverted).
+ * @param {Object} baseData Declared base data subtree (leaf descriptors + nested subtrees).
+ * @param {Object} overlayData Declared overlay data subtree.
+ * @param {String} prefix Current key path prefix.
+ * @param {{deltas: Object, drift: String[], custom: String[], skipped: String[]}} result Shared accumulator.
+ */
+function walkLeafTrees(baseData, overlayData, prefix, result) {
     const baseKeys    = baseData    && typeof baseData    === 'object' ? Object.keys(baseData)    : [],
           overlayKeys = overlayData && typeof overlayData === 'object' ? Object.keys(overlayData) : [];
 
@@ -145,15 +163,9 @@ export function diffLeafTrees(baseData, overlayData, prefix = '') {
             continue;
         }
 
-        // Nested subtree on both sides → recurse and merge child results.
-        const child = diffLeafTrees(baseValue, overlayValue, pathKey);
-        Object.assign(result.deltas, child.deltas);
-        result.drift.push(...child.drift);
-        result.custom.push(...child.custom);
-        result.skipped.push(...child.skipped);
+        // Nested subtree on both sides → recurse into the SHARED accumulator.
+        walkLeafTrees(baseValue, overlayValue, pathKey, result);
     }
-
-    return result;
 }
 
 /**
@@ -297,7 +309,6 @@ async function main() {
             isLeafDescriptor(value) || typeof value !== 'object' || Array.isArray(value)
                 ? deltaPaths.push(pathKey)
                 : walk(value, pathKey);
-            if (isLeafDescriptor(value)) deltaPaths[deltaPaths.length - 1] = pathKey;
         }
     })(deltas, '');
     deltaPaths.length ? deltaPaths.forEach(p => console.log(`  ~ ${p}`)) : console.log('  (none)');

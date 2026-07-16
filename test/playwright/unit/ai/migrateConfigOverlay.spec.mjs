@@ -48,6 +48,40 @@ test.describe('ai/scripts/setup/migrateConfigOverlay — declaration-level diff 
         expect(result.deltas).toEqual({});
     });
 
+    test('diffLeafTrees: mixed leaf-before-subtree SIBLING deltas both survive (reviewer regression — the sibling clobber)', () => {
+        // Reviewer falsifier, verbatim shape: at a nested level, a leaf-delta sibling (`engines.debug`)
+        // iterates BEFORE a subtree-delta sibling (`engines.chroma`). The previous per-child accumulator
+        // merge (`Object.assign` on the shared `engines` root key) REPLACED the leaf's entry — an
+        // operator override silently reverted to the base default after --write. Both must survive.
+        const base = {engines: {
+                  debug : leafD(false, 'NEO_ENGINE_DEBUG', 'boolean'),
+                  chroma: {database: leafD('default_database', 'NEO_CHROMA_DATABASE', 'string')}
+              }},
+              overlay = {engines: {
+                  debug : leafD(true, 'NEO_ENGINE_DEBUG', 'boolean'),
+                  chroma: {database: leafD('operator-db', 'NEO_CHROMA_DATABASE', 'string')}
+              }},
+              result = diffLeafTrees(base, overlay);
+
+        expect(result.deltas.engines.debug.default).toBe(true);
+        expect(result.deltas.engines.chroma.database.default).toBe('operator-db');
+    });
+
+    test('diffLeafTrees: two SUBTREE siblings under one parent both survive (same clobber class)', () => {
+        const base = {orchestrator: {
+                  intervals: {poll: leafD(1000, 'NEO_POLL', 'number')},
+                  recovery : {enabled: leafD(false, 'NEO_RECOVERY', 'boolean')}
+              }},
+              overlay = {orchestrator: {
+                  intervals: {poll: leafD(250, 'NEO_POLL', 'number')},
+                  recovery : {enabled: leafD(true, 'NEO_RECOVERY', 'boolean')}
+              }},
+              result = diffLeafTrees(base, overlay);
+
+        expect(result.deltas.orchestrator.intervals.poll.default).toBe(250);
+        expect(result.deltas.orchestrator.recovery.enabled.default).toBe(true);
+    });
+
     test('diffLeafTrees: operator-custom keys carry verbatim; non-renderable diffs are skipped+reported', () => {
         const base    = {known: leafD(1), fn: {default: () => {}, env: null, type: null, metadata: null}},
               overlay = {known: leafD(1), custom: leafD('mine', 'NEO_CUSTOM', 'string'), fn: {default: () => 'changed', env: null, type: null, metadata: null}},
