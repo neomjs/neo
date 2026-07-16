@@ -389,6 +389,10 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         const grid = {adapterState: 'sample', store};
 
         const cockpit = {
+            // the real accessor runs against this fake's getReference — the detail consumers
+            // route through it (docked: projected pane; detached: the owner-held handle)
+            detachedDetailPane: null,
+            getAgentDetailPane: FleetCockpit.prototype.getAgentDetailPane,
             getReference      : reference => reference === 'fleet-grid' ? grid : reference === 'agent-detail' ? detail : null,
             grid,
             id                : `fake-fleet-cockpit-${index}`,
