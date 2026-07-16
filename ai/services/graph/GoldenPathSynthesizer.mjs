@@ -103,6 +103,13 @@ const SEMANTIC_QUERY_INITIAL_WIDTH = 20;
 const SEMANTIC_QUERY_MAX_WIDTH     = 4096;
 const SQLITE_ID_CHUNK_SIZE         = 500;
 
+/**
+ * Scoring-algorithm + route-version token stamped into every `computed-route.v1` this pass emits.
+ * Shared by the scored route and the early-exit unavailable route so both carry one identity.
+ * @type {String}
+ */
+const ROUTE_ALGORITHM_VERSION = 'golden-path.tri-vector.v1';
+
 // The embedding-dimension helpers were extracted to ./embeddingDimension.mjs (the SRP decomposition). They are
 // imported above for the internal dimension guard, and re-exported here so the public API stays stable.
 export {buildEmbeddingDimensionMismatchMessage, getEmbeddingModelName, getEmbeddingVectorLength};
@@ -652,6 +659,50 @@ class GoldenPathSynthesizer extends Base {
     }
 
     /**
+     * @summary Publishes an honest degraded `computed-route.v1` sidecar for a pass that exits before
+     * it can score any route (storage router down, collections missing, embedding unavailable or
+     * dimension-mismatched).
+     *
+     * Every pass must own the CURRENT typed state. Without this, an early exit simply returns while
+     * the PREVIOUS pass's sidecar stays on disk — unexpired, `status: 'fresh'`, and still
+     * executable — so a consumer routes work this pass never computed. Publishing a `degraded` /
+     * `kind: 'none'` outcome makes the failure legible and unroutable.
+     *
+     * Fail-safe ordering: if the honest publication cannot itself be written, the prior sidecar is
+     * REMOVED rather than left behind. Absence of a route is safe — consumers fail open to zero
+     * directives — whereas a surviving stale executable route is not.
+     *
+     * @param {Date} now Pass capture time (injected).
+     * @returns {void}
+     */
+    static publishUnavailableComputedRoute(now) {
+        const routePath = path.join(path.dirname(aiConfig.handoffFilePath), 'computed-route.json');
+
+        try {
+            const route = buildComputedRouteFromPass({
+                routeFailure    : {status: 'failed'},
+                routedTopNodes  : [],
+                scoredSourceIds : [],
+                now,
+                ttlMs           : aiConfig.goldenPathRouteTtlMs,
+                routeVersion    : ROUTE_ALGORITHM_VERSION,
+                algorithmVersion: ROUTE_ALGORITHM_VERSION
+            });
+
+            fs.mkdirSync(path.dirname(routePath), {recursive: true});
+            fs.writeFileSync(routePath, JSON.stringify(route, null, 2) + '\n', 'utf-8')
+        } catch (error) {
+            logger.warn(`[GoldenPathSynthesizer] Could not publish the unavailable computed-route; quarantining any prior sidecar instead: ${error.message}`);
+
+            try {
+                fs.rmSync(routePath, {force: true})
+            } catch (removeError) {
+                logger.warn(`[GoldenPathSynthesizer] Prior computed-route sidecar could not be quarantined; a stale route may remain readable: ${removeError.message}`)
+            }
+        }
+    }
+
+    /**
      * @summary Delegates the fail-loud Computed Golden Path section to `computedGoldenPathRouting.mjs`.
      * @param {Object} options
      * @param {Object} options.failure Failure outcome from `buildFailureOutcome()`.
@@ -864,11 +915,13 @@ class GoldenPathSynthesizer extends Base {
             summaryColl = await StorageRouter.getSummaryCollection();
         } catch (e) {
             logger.warn('[GoldenPathSynthesizer] StorageRouter unavailable. Skipping Golden Path extraction.');
+            this.constructor.publishUnavailableComputedRoute(now);
             return this.constructor.buildFailureOutcome('storage-router-unavailable', e);
         }
 
         if (!graphColl || !summaryColl) {
             logger.warn('[GoldenPathSynthesizer] Collections missing. Skipping Golden Path extraction.');
+            this.constructor.publishUnavailableComputedRoute(now);
             return this.constructor.buildFailureOutcome('collections-missing', 'graph or summary collection missing');
         }
 
@@ -890,6 +943,7 @@ class GoldenPathSynthesizer extends Base {
             frontierEmbedding = await TextEmbeddingService.embedText(frontierText, aiConfig.embeddingProvider);
         } catch (e) {
             logger.warn('[GoldenPathSynthesizer] Failed to generate Frontier Baseline Vector. Aborting Hybrid route.', e);
+            this.constructor.publishUnavailableComputedRoute(now);
             return this.constructor.buildFailureOutcome('frontier-embedding-failed', e);
         }
 
@@ -911,6 +965,7 @@ class GoldenPathSynthesizer extends Base {
             });
 
             logger.warn(message);
+            this.constructor.publishUnavailableComputedRoute(now);
             return this.constructor.buildFailureOutcome('embedding-dimension-mismatch', message);
         }
 
@@ -1645,8 +1700,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         let computedRoute = null;
 
         try {
-            const routeAlgorithmVersion = 'golden-path.tri-vector.v1';
-            const scoredSourceIds       = scoredNodes.map(entry => entry?.node?.id ?? entry?.id).filter(Boolean);
+            const scoredSourceIds = scoredNodes.map(entry => entry?.node?.id ?? entry?.id).filter(Boolean);
 
             computedRoute = buildComputedRouteFromPass({
                 routeFailure,
@@ -1656,8 +1710,8 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 scoredSourceIds,
                 now                : handoffTimestamp,
                 ttlMs              : aiConfig.goldenPathRouteTtlMs,
-                routeVersion       : routeAlgorithmVersion,
-                algorithmVersion   : routeAlgorithmVersion,
+                routeVersion       : ROUTE_ALGORITHM_VERSION,
+                algorithmVersion   : ROUTE_ALGORITHM_VERSION,
                 renderLimit        : aiConfig.goldenPathTopNodeRenderLimit
             });
 

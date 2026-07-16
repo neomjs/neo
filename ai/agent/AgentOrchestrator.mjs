@@ -84,8 +84,14 @@ class AgentOrchestrator extends Base {
     /**
      * Reads the typed computed-route.v1 sidecar and returns its executable route as directives.
      * Only `route.items` (the executable slot) becomes directives; the declared-intent advisory is
-     * context and is never routed. Fail-open: a missing, unreadable, contract-invalid, or expired
-     * sidecar yields an empty directive list — the orchestrator then exits cleanly — never a throw.
+     * context and is never routed.
+     *
+     * Every admission axis fails CLOSED to an empty directive list — the orchestrator then exits
+     * cleanly, never throwing. A route is refused when it is missing, unreadable, contract-invalid,
+     * not fresh (status/freshness), lacking a parseable capturedAt/expiresAt, expired, unattributed
+     * (no provenance.producer), or carrying a malformed item. Absence of freshness proof is never
+     * read as freshness: a route with no expiry is refused rather than bypassing the expiry gate,
+     * and a malformed item set rejects the whole route rather than executing its well-formed subset.
      * @returns {Array<{issueId: String, description: String}>}
      */
     readComputedRoute() {
@@ -110,12 +116,48 @@ class AgentOrchestrator extends Base {
             return [];
         }
 
-        if (result.expiresAt && new Date(result.expiresAt).getTime() < this.now().getTime()) {
+        // Only a FRESH route is executable. Empty/missing/stale/degraded are honest pass outcomes,
+        // never a route to run: an executable slot carried under a non-fresh status is a producer
+        // breach and must not reach the agent loop.
+        if (result.status !== 'fresh' || result.freshness?.status !== 'fresh') {
+            console.warn(`[AgentOrchestrator] computed-route.json is not fresh (status=${result.status}, freshness=${result.freshness?.status}); not routing.`);
+            return [];
+        }
+
+        // Timestamps are REQUIRED, not optional. A route with no parseable capture/expiry carries no
+        // freshness proof, so it can never be treated as current — a missing expiry fails CLOSED
+        // rather than bypassing the expiry gate.
+        const capturedAtMs = Date.parse(result.capturedAt ?? ''),
+              expiresAtMs  = Date.parse(result.expiresAt ?? '');
+
+        if (!Number.isFinite(capturedAtMs) || !Number.isFinite(expiresAtMs)) {
+            console.warn('[AgentOrchestrator] computed-route.json lacks a parseable capturedAt/expiresAt; not routing an unprovenanced route.');
+            return [];
+        }
+
+        if (expiresAtMs <= this.now().getTime()) {
             console.warn(`[AgentOrchestrator] computed-route.json expired at ${result.expiresAt}; not routing a stale route.`);
             return [];
         }
 
-        return result.route.items.map(item => ({
+        // An unattributed route is not routable: provenance must name the producing pass.
+        if (typeof result.provenance?.producer !== 'string' || result.provenance.producer.length === 0) {
+            console.warn('[AgentOrchestrator] computed-route.json carries no provenance.producer; not routing an unattributed route.');
+            return [];
+        }
+
+        // A malformed item set is a contract breach, not a partial route to run — reject the whole
+        // route rather than silently executing the well-formed subset.
+        const items     = result.route.items,
+              malformed = items.find(item => typeof item?.id !== 'string' || item.id.length === 0 ||
+                                             typeof item?.title !== 'string' || item.title.length === 0);
+
+        if (malformed) {
+            console.warn(`[AgentOrchestrator] computed-route.json contains a malformed route item (${JSON.stringify(malformed)}); not routing.`);
+            return [];
+        }
+
+        return items.map(item => ({
             issueId    : String(item.id).replace(/^issue-/, ''),
             description: item.title
         }));

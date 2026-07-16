@@ -16,16 +16,25 @@ const createOutcomePath = filename => path.join(
           fs.mkdtempSync(path.join(os.tmpdir(), 'neo-test-agent-orchestrator-')),
           filename
       ),
+      // A fixture representing a FRESH route must carry a complete freshness proof: a real future
+      // expiry, matching freshness, and named provenance. An absent expiry is a falsifier case
+      // below — never the happy-path default (a fixture without one silently blesses a bypass).
       writeComputedRoute = (items, {kind = 'computed-ranked', extra = {}} = {}) => {
-          const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-test-agent-route-'));
+          const dir        = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-test-agent-route-')),
+                capturedAt = new Date(Date.now() - 60 * 1000).toISOString(),
+                expiresAt  = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
           fs.writeFileSync(path.join(dir, 'computed-route.json'), JSON.stringify({
               schemaVersion     : 'computed-route.v1',
               status            : 'fresh',
               notAuthority      : true,
-              capturedAt        : '2026-06-06T08:00:00.000Z',
+              capturedAt,
+              expiresAt,
               routeVersion      : 'rv-test',
               sourceManifestHash: 'hash-test',
               sourceWatermark   : 'wm-test',
+              provenance        : {producer: 'GoldenPathSynthesizer', runId: null, algorithmVersion: 'v-test', citations: []},
+              freshness         : {status: 'fresh', checkedAt: capturedAt, expiresAt},
               route             : {kind, items},
               ...extra
           }), 'utf-8');
@@ -130,6 +139,69 @@ test.describe('Neo.ai.agent.AgentOrchestrator', () => {
                 }
             }
         });
+
+        const orchestrator = Neo.create(AgentOrchestrator, {handoffPath});
+
+        test.expect(orchestrator.readComputedRoute()).toEqual([]);
+    });
+
+    test('readComputedRoute REFUSES a route carrying no expiresAt — absent freshness proof is never read as freshness', () => {
+        // The exact bypass the consumer previously carried: an `expiresAt &&` guard skipped the
+        // expiry gate whenever the field was absent, so a route with no freshness proof executed.
+        // JSON.stringify drops the undefined key, reproducing a sidecar written without an expiry.
+        const handoffPath = writeComputedRoute(
+            [{id: 'issue-1', title: 'Must not route without an expiry'}],
+            {extra: {expiresAt: undefined}}
+        );
+
+        const orchestrator = Neo.create(AgentOrchestrator, {handoffPath});
+
+        test.expect(orchestrator.readComputedRoute()).toEqual([]);
+    });
+
+    test('readComputedRoute REFUSES an expired route', () => {
+        const past        = new Date(Date.now() - 60 * 1000).toISOString(),
+              handoffPath = writeComputedRoute(
+                  [{id: 'issue-1', title: 'Expired route'}],
+                  {extra: {expiresAt: past, freshness: {status: 'fresh', checkedAt: past, expiresAt: past}}}
+              );
+
+        const orchestrator = Neo.create(AgentOrchestrator, {handoffPath});
+
+        test.expect(orchestrator.readComputedRoute()).toEqual([]);
+    });
+
+    test('readComputedRoute REFUSES an executable route carried under a non-fresh status', () => {
+        // A stale/degraded/missing pass outcome must never route, even when it carries a populated
+        // executable slot — that combination is a producer breach, not a route to run.
+        const handoffPath = writeComputedRoute(
+            [{id: 'issue-1', title: 'Executable slot under a stale status'}],
+            {extra: {status: 'stale'}}
+        );
+
+        const orchestrator = Neo.create(AgentOrchestrator, {handoffPath});
+
+        test.expect(orchestrator.readComputedRoute()).toEqual([]);
+    });
+
+    test('readComputedRoute REFUSES the WHOLE route when any item is malformed', () => {
+        // Never a partial route: executing only the well-formed subset would silently drop work the
+        // producer believed it had routed.
+        const handoffPath = writeComputedRoute([
+            {id: 'issue-1', title: 'Well formed'},
+            {id: 'issue-2'}
+        ]);
+
+        const orchestrator = Neo.create(AgentOrchestrator, {handoffPath});
+
+        test.expect(orchestrator.readComputedRoute()).toEqual([]);
+    });
+
+    test('readComputedRoute REFUSES an unattributed route (no provenance.producer)', () => {
+        const handoffPath = writeComputedRoute(
+            [{id: 'issue-1', title: 'Unattributed route'}],
+            {extra: {provenance: {runId: null, algorithmVersion: 'v-test', citations: []}}}
+        );
 
         const orchestrator = Neo.create(AgentOrchestrator, {handoffPath});
 
