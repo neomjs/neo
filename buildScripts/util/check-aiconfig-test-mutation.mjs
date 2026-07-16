@@ -59,127 +59,246 @@ export const ALLOWLIST = new Set([
     'test/playwright/unit/ai/services/memory-core/WakeSubscriptionService.spec.mjs'
 ]);
 
+/*
+ * Keywords after which a `/` starts a regex literal, not division (`return /x/` vs `count / x`).
+ * The other half of the decision is the last significant code char: after an identifier char, `)`
+ * or `]` a `/` is division; after operators, delimiters or nothing it opens a regex.
+ */
+const REGEX_PRECEDING_KEYWORDS = /^(?:return|typeof|instanceof|case|in|of|new|delete|void|yield|await|do|else)$/;
+
 /**
- * @summary Builds a per-character "is this code?" mask for a line — false inside string literals and
- * comments, true in executable code.
+ * @summary Decides whether a `/` at the current lexer position opens a regex literal.
  *
- * Block-comment state is carried across lines via `state.inBlock`. Unlike a strip-to-text pass the mask
- * preserves positions, so a regex match found on the RAW line can be classified by whether its root
- * token sits in code. That is what lets a string-literal *bracket key* (`['storagePaths']` — real code
- * that merely contains a string) be detected, while a mutation pattern living entirely inside a string
- * (a log message, a `describe(...)` title) is excluded. The structural complement of
- * `check-ticket-archaeology.mjs`'s `extractComment`.
+ * Standard lexer heuristic, not a parser: `state.lastCode` (last significant code char) and
+ * `state.wordBuf` (trailing identifier run) approximate "are we at expression start?". Known bound:
+ * a division whose left operand ends on the PREVIOUS line (ASI edge) misreads as regex — accepted,
+ * documented, and unreachable in the guard's own scan set (valid committed JS, per-line reads).
+ * @param {Object} state The carried lexer state.
+ * @returns {Boolean}
+ */
+function regexAllowed(state) {
+    const last = state.lastCode;
+
+    if (!last) {
+        return true
+    }
+    if (/[A-Za-z0-9_$]/.test(last)) {
+        return REGEX_PRECEDING_KEYWORDS.test(state.wordBuf)
+    }
+    return !/[)\]]/.test(last)
+}
+
+/**
+ * @summary Consumes a regex literal starting at `line[i] === '/'`, returning the index after it.
+ *
+ * Honors `\` escapes and `[...]` character classes (where `/` is literal). Flags are consumed. A
+ * regex literal cannot span lines in JS, so an unterminated body simply ends the line's scan.
  * @param {String} line
- * @param {{inBlock: Boolean}} state Mutated in place as block comments open and close across lines.
+ * @param {Number} i Index of the opening `/`.
+ * @returns {Number} Index of the first character after the literal (or `line.length`).
+ */
+function consumeRegex(line, i) {
+    const n = line.length;
+
+    let j       = i + 1,
+        inClass = false;
+
+    while (j < n) {
+        const c = line[j];
+
+        if (c === '\\') {
+            j += 2;
+            continue
+        }
+        if (inClass) {
+            if (c === ']') {
+                inClass = false
+            }
+            j++;
+            continue
+        }
+        if (c === '[') {
+            inClass = true;
+            j++;
+            continue
+        }
+        if (c === '/') {
+            j++;
+            while (j < n && /[a-z]/i.test(line[j])) {
+                j++
+            }
+            return j
+        }
+        j++
+    }
+
+    return n
+}
+
+/**
+ * @summary Builds a per-character "is this code?" mask for a line — false inside string literals,
+ * comments, regex-literal bodies and template TEXT; true in executable code, including code inside
+ * template interpolations at any nesting depth.
+ *
+ * Implemented as a stacked lexical state machine — the same frame model as
+ * `check-block-alignment.mjs`'s `computeTemplateLiteralLineMask` (the repo precedent), adapted from
+ * per-line booleans to per-char masks, with cross-line carried state and a regex-literal state that
+ * checker does not need. Frames: the base `code` frame, a `template` frame per open backtick, an
+ * `expression` frame per open `${` (brace-depth-tracked). Comments, quoted strings and regex
+ * literals are handled ABOVE the frame dispatch, so a `}` inside any of them can never close an
+ * expression frame early, and comment/string/regex text inside an interpolation is never code.
+ *
+ * Cross-line semantics: block comments, template frames and expression frames legally span lines
+ * and carry in `state`; a multi-line template's text lines therefore mask as string, and a
+ * line-comment inside a multi-line interpolation ends at EOL while the frame survives. Quoted
+ * strings auto-close at EOL (unterminated ones are syntax errors in the valid JS this guard scans)
+ * unless a line-final `\` continues them (`state.pendingEscape`). Unlike a strip-to-text pass the
+ * mask preserves positions, so a regex match found on the RAW line can be classified by whether its
+ * root token sits in code — a string-literal *bracket key* (`['storagePaths']`, real code merely
+ * containing a string) stays detectable while a pattern living entirely inside a string (a log
+ * message, a `describe(...)` title, a regex body) is excluded. The structural complement of
+ * `check-ticket-archaeology.mjs`'s `extractComment`.
+ * @param {Object} state Mutated in place; carries all cross-line lexer state. Constructing it as
+ *     `{inBlock: false}` remains sufficient — richer fields self-initialize on first use.
+ * @param {Boolean} state.inBlock Inside a block comment.
+ * @param {Object[]} [state.stack] Lexical frames: `{type: 'code'|'template'|'expression'}`.
+ * @param {String|null} [state.stringQuote] Open quote character of a quoted string.
+ * @param {Boolean} [state.pendingEscape] A line-final `\` escapes the next line's first char.
+ * @param {String} [state.lastCode] Last significant code char (regex-vs-division heuristic).
+ * @param {String} [state.wordBuf] Trailing identifier run (regex-after-keyword heuristic).
+ * @param {String} line
  * @returns {Boolean[]} `mask[i]` is true when raw character `i` is executable code.
  */
 export function codeMask(line, state) {
+    state.stack         ??= [{type: 'code'}];
+    state.stringQuote   ??= null;
+    state.pendingEscape ??= false;
+    state.lastCode      ??= '';
+    state.wordBuf       ??= '';
+
     const n    = line.length,
           mask = new Array(n).fill(false);
 
     let i = 0;
 
-    if (state.inBlock) {
-        const end = line.indexOf('*/');
-
-        if (end === -1) {
-            return mask
-        }
-
-        i             = end + 2;
-        state.inBlock = false
+    if (state.pendingEscape) {
+        state.pendingEscape = false;
+        i = 1
     }
-
-    let inString = null;
 
     while (i < n) {
         const ch   = line[i],
-              next = line[i + 1];
+              next = line[i + 1],
+              ctx  = state.stack[state.stack.length - 1];
 
-        if (inString) {
+        if (state.inBlock) {
+            const end = line.indexOf('*/', i);
+
+            if (end === -1) {
+                return mask
+            }
+            i             = end + 2;
+            state.inBlock = false;
+            continue
+        }
+
+        if (state.stringQuote) {
             if (ch === '\\') {
+                if (i === n - 1) {
+                    state.pendingEscape = true
+                }
                 i += 2;
                 continue
             }
-            // A template INTERPOLATION is executable code wearing string syntax: `${aiConfig?.x}`
-            // runs. Mask the span between `${` and its depth-matched `}` as code — with inner
-            // quote-delimited segments skipped as strings — so every rule classifying on this
-            // mask sees interpolated reads. Bounded to single-line spans: multi-line template
-            // semantics remain this mask's documented per-line approximation.
-            if (inString === '`' && ch === '$' && next === '{') {
-                let depth = 1,
-                    j     = i + 2,
-                    inner = null;
+            if (ch === state.stringQuote) {
+                state.stringQuote = null
+            }
+            i++;
+            continue
+        }
 
-                while (j < n && depth > 0) {
-                    const cj = line[j];
-
-                    if (inner) {
-                        if (cj === '\\') {
-                            j += 2;
-                            continue
-                        }
-                        if (cj === inner) {
-                            inner = null
-                        }
-                        j++;
-                        continue
-                    }
-
-                    if (cj === '"' || cj === "'" || cj === '`') {
-                        inner = cj;
-                        j++;
-                        continue
-                    }
-
-                    if (cj === '{') {
-                        depth++
-                    } else if (cj === '}') {
-                        depth--;
-                        if (depth === 0) {
-                            j++;
-                            break
-                        }
-                    }
-
-                    mask[j] = true;
-                    j++
+        if (ctx.type === 'template') {
+            if (ch === '\\') {
+                if (i === n - 1) {
+                    state.pendingEscape = true
                 }
-
-                i = j;
+                i += 2;
                 continue
             }
-            if (ch === inString) {
-                inString = null
+            if (ch === '`') {
+                state.stack.pop();
+                i++;
+                continue
+            }
+            if (ch === '$' && next === '{') {
+                state.stack.push({type: 'expression', braceDepth: 1});
+                i += 2;
+                continue
             }
             i++;
             continue
         }
 
-        if (ch === '"' || ch === "'" || ch === '`') {
-            inString = ch;
-            i++;
-            continue
-        }
-
+        // From here down the frame is code or expression — one shared dispatch, which is exactly
+        // what makes nested templates and comments inside interpolations correct by construction.
         if (ch === '/' && next === '/') {
             break
         }
 
         if (ch === '/' && next === '*') {
-            const end = line.indexOf('*/', i + 2);
-
-            if (end === -1) {
-                state.inBlock = true;
-                break
-            }
-
-            i = end + 2;
+            state.inBlock = true;
+            i += 2;
             continue
         }
 
+        if (ch === '"' || ch === "'") {
+            state.stringQuote = ch;
+            i++;
+            continue
+        }
+
+        if (ch === '`') {
+            state.stack.push({type: 'template'});
+            i++;
+            continue
+        }
+
+        if (ch === '/' && regexAllowed(state)) {
+            i = consumeRegex(line, i);
+            // A regex literal ends an expression: a following `/` is division. `)` is the proxy
+            // for "expression just ended" in the heuristic's char alphabet.
+            state.lastCode = ')';
+            state.wordBuf  = '';
+            continue
+        }
+
+        if (ctx.type === 'expression') {
+            if (ch === '{') {
+                ctx.braceDepth++
+            } else if (ch === '}') {
+                ctx.braceDepth--;
+
+                if (ctx.braceDepth === 0) {
+                    state.stack.pop();
+                    i++;
+                    continue
+                }
+            }
+        }
+
         mask[i] = true;
+
+        if (!/\s/.test(ch)) {
+            state.lastCode = ch;
+            state.wordBuf  = /[A-Za-z0-9_$]/.test(ch) ? state.wordBuf + ch : ''
+        }
         i++
+    }
+
+    // JS auto-terminates quoted strings at EOL (unterminated = syntax error upstream, CI runs a
+    // parse check) — reset instead of poisoning the next line, except across a `\` continuation.
+    if (state.stringQuote && !state.pendingEscape) {
+        state.stringQuote = null
     }
 
     return mask
@@ -198,11 +317,15 @@ export function findDbPathMutations(content) {
           hits  = [];
 
     lines.forEach((line, index) => {
+        // Mask computes UNCONDITIONALLY — before the escape check. Skipping a marker line would
+        // corrupt the carried lexer state (block-comment flag, template/expression frames); the
+        // escape valve is line-scoped for HITS, never for lexing. Same ordering rule as the B3/A5/A1
+        // sibling checker.
+        const mask = codeMask(line, state);
+
         if (line.includes(ESCAPE_MARKER)) {
             return
         }
-
-        const mask = codeMask(line, state);
 
         for (const match of line.matchAll(DB_PATH_MUTATION_GLOBAL)) {
             // The match starts at the aiConfig / Memory_Config root; flag it only when that root is real

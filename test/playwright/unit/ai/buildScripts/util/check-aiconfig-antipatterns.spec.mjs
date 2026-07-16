@@ -1,6 +1,7 @@
 import {test, expect}                                                      from '@playwright/test';
 import {findAntipatterns, filterAllowlistedHits, ALLOWLIST, ESCAPE_MARKER} from '../../../../../../buildScripts/util/check-aiconfig-antipatterns.mjs';
 import {A1_IMPORT_GATE}                                                    from '../../../../../../buildScripts/util/check-aiconfig-antipatterns.mjs';
+import {findDbPathMutations}                                               from '../../../../../../buildScripts/util/check-aiconfig-test-mutation.mjs';
 import {spawnSync}                                                         from 'node:child_process';
 import fs                                                                  from 'node:fs';
 import path                                                                from 'node:path';
@@ -267,5 +268,58 @@ test.describe('check-aiconfig-antipatterns guard — A1 module-level env re-deri
         } finally {
             fs.rmSync(tmpFile, {force: true})
         }
+    })
+});
+
+/**
+ * Cross-consumer lexer matrix: the shared `codeMask` stacked state machine classifies for EVERY
+ * rule reading it — B3/A5/A1 here plus B4 in the sibling checker — so each lexer fix is pinned
+ * against both consumers (a fix proven on one can silently regress the other). Fixtures are the
+ * verified cycle-4 falsifier classes: comment text inside a template interpolation (false-positive
+ * class), nested executable interpolations (false-negative class), and a `}` inside comment or
+ * regex text closing the expression frame early (false-negative class), plus the regex-literal and
+ * multi-line-template semantics the state machine introduces.
+ */
+test.describe('shared codeMask lexer matrix (cross-consumer: B3/A5/A1 + B4)', () => {
+    test('comment-only text inside an interpolation never flags — block and line comments, both consumers', () => {
+        expect(findAntipatterns('const m = `${/* aiConfig?.x */ ok}`;')).toEqual([]);
+        expect(findAntipatterns('const m = `${ ok // aiConfig?.x\n}`;')).toEqual([]);
+        expect(findAntipatterns('const m = `${/* hasEnvValue("X") */ 1}`;')).toEqual([]);
+        expect(findDbPathMutations('const m = `${/* aiConfig.storagePaths = p */ ok}`;')).toEqual([])
+    });
+
+    test('nested executable interpolations flag at any depth — both consumers', () => {
+        expect(findAntipatterns('const m = `${`inner ${aiConfig?.load}`}`;').map(h => h.rule)).toEqual(['B3']);
+        expect(findAntipatterns('const m = `${`no config here`}`;')).toEqual([]);
+        expect(findDbPathMutations('const m = `${`x ${aiConfig.storagePaths = p}`}`;').length).toBe(1)
+    });
+
+    test('a `}` inside comment or regex text cannot close the expression frame early — both consumers', () => {
+        expect(findAntipatterns('const m = `${ x /* } */ + aiConfig?.load }`;').map(h => h.rule)).toEqual(['B3']);
+        expect(findAntipatterns("const m = `${ s.replace(/}/g, '') + aiConfig?.load }`;").map(h => h.rule)).toEqual(['B3']);
+        expect(findDbPathMutations("const m = `${ s.replace(/}/g,'') + (aiConfig.storagePaths = p) }`;").length).toBe(1)
+    });
+
+    test('a regex-literal BODY is pattern text, not code; division stays code', () => {
+        expect(findAntipatterns('const re = /aiConfig\\?\\./;')).toEqual([]);
+        expect(findAntipatterns('const x = a / b; const y = aiConfig?.load;').map(h => h.rule)).toEqual(['B3'])
+    });
+
+    test('multi-line template TEXT masks as string across lines (carried frames)', () => {
+        expect(findAntipatterns('const t = `\n  aiConfig?.load as prose\n`;\nconst z = 1;')).toEqual([]);
+        expect(findDbPathMutations('const t = `\n  aiConfig.storagePaths = fake\n`;')).toEqual([])
+    });
+
+    test('A1 and A5 still see executable interpolated reads (cycle-3 pins preserved)', () => {
+        const gated = "import {AiConfig} from './x.mjs';\nconst url = `${process.env.NEO_HOST}`;";
+
+        expect(findAntipatterns(gated).map(h => h.rule)).toEqual(['A1']);
+        expect(findAntipatterns('const m = `${hasEnvValue("X")}`;').map(h => h.rule)).toEqual(['A5'])
+    });
+
+    test('an escape marker on a template line skips hits without corrupting carried frames (B4 escape-order fix)', () => {
+        const content = 'const t = `${a} aiconfig-mutation-ok ${b}`;\naiConfig.storagePaths = p;';
+
+        expect(findDbPathMutations(content).map(h => h.line)).toEqual([2])
     })
 });
