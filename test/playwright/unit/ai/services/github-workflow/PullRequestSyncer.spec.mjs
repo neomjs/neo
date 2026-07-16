@@ -593,6 +593,96 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         expect(stats.indexed).toBe(0);
     });
 
+    // --- restoring divergent duplicates: both copies are real renderings of one PR and nothing on
+    //     disk says which is current, so neither is trusted and GitHub decides. ---
+
+    const seedDivergentPair = async (prNumber, version = 'v13.0.0') => {
+        for (const chunk of ['chunk-1', 'chunk-2']) {
+            const dir = path.join(aiConfig.issueSync.archiveRoot, 'pulls', version, chunk);
+
+            await fs.ensureDir(dir);
+            await fs.writeFile(path.join(dir, `pr-${prNumber}.md`), `divergent ${chunk}`, 'utf8');
+        }
+    };
+
+    test('restores a divergent pair from GitHub — one artifact survives, neither local copy decides', async () => {
+        const prNumber = 10124;
+
+        await seedDivergentPair(prNumber);
+        ReleaseNotesSyncer.sortedReleases = [{tagName: 'v13.0.0', publishedAt: '2026-06-01T00:00:00Z'}];
+        GraphqlService.query = async () => ({repository: {pullRequest: buildPullRequest(prNumber)}});
+
+        const metadata = {pulls: {}},
+              stats    = await PullRequestSyncer.repairDuplicateArtifacts(metadata);
+
+        expect(stats.repaired).toEqual([prNumber]);
+        expect(stats.removed).toBe(2);
+
+        // Exactly one artifact remains, and it is the canonical rendering — not either local copy.
+        const survivors = [];
+        for (const chunk of ['chunk-1', 'chunk-2', 'chunk-3']) {
+            const p = path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', chunk, `pr-${prNumber}.md`);
+            if (await fs.pathExists(p)) survivors.push(await fs.readFile(p, 'utf8'));
+        }
+
+        expect(survivors).toHaveLength(1);
+        expect(survivors[0]).not.toContain('divergent');
+        expect(matter(survivors[0]).data.number).toBe(prNumber);
+        expect(metadata.pulls[prNumber].path).toContain(`pr-${prNumber}.md`);
+    });
+
+    test('a failed fetch leaves BOTH copies intact — a repair that can lose data is not a repair', async () => {
+        // Fetch before unlink. The copies are the only local record, so deleting first would turn a
+        // network blip into a corpus simply missing the PR.
+        const prNumber = 10125;
+
+        await seedDivergentPair(prNumber);
+        ReleaseNotesSyncer.sortedReleases = [{tagName: 'v13.0.0', publishedAt: '2026-06-01T00:00:00Z'}];
+        GraphqlService.query = async () => { throw new Error('network down') };
+
+        const stats = await PullRequestSyncer.repairDuplicateArtifacts({pulls: {}});
+
+        expect(stats.repaired).toEqual([]);
+        expect(stats.removed).toBe(0);
+        expect(stats.failed[0].id).toBe(prNumber);
+
+        for (const chunk of ['chunk-1', 'chunk-2']) {
+            const p = path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', chunk, `pr-${prNumber}.md`);
+
+            expect(await fs.readFile(p, 'utf8')).toBe(`divergent ${chunk}`);
+        }
+    });
+
+    test('a PR absent from GitHub is refused, not cleaned up — the copies are the only record left', async () => {
+        const prNumber = 10126;
+
+        await seedDivergentPair(prNumber);
+        ReleaseNotesSyncer.sortedReleases = [{tagName: 'v13.0.0', publishedAt: '2026-06-01T00:00:00Z'}];
+        GraphqlService.query = async () => ({repository: {pullRequest: null}});
+
+        const stats = await PullRequestSyncer.repairDuplicateArtifacts({pulls: {}});
+
+        expect(stats.removed).toBe(0);
+        expect(stats.failed[0].reason).toContain('not found on GitHub');
+        await expect(fs.pathExists(path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', 'chunk-1', `pr-${prNumber}.md`))).resolves.toBe(true);
+    });
+
+    test('is a no-op on a corpus with no duplicates — and makes no network call', async () => {
+        const single = path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', 'chunk-1', 'pr-500.md');
+
+        await fs.ensureDir(path.dirname(single));
+        await fs.writeFile(single, 'fine', 'utf8');
+
+        let queried = false;
+        GraphqlService.query = async () => { queried = true; return {repository: {pullRequest: null}} };
+
+        const stats = await PullRequestSyncer.repairDuplicateArtifacts({pulls: {}});
+
+        expect(stats).toEqual({repaired: [], removed: 0, failed: []});
+        expect(queried).toBe(false);
+        expect(await fs.readFile(single, 'utf8')).toBe('fine');
+    });
+
     // --- the repair: preventing new drift does not remove old drift. Entries stranded by moves that
     //     predate the upsert name files ALREADY archived, so no relocate pass revisits them and no
     //     delta fetch names them — they are unreachable by every mechanism expected to heal them. ---

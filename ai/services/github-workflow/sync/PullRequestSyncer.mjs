@@ -10,7 +10,7 @@ import semver                                                                  f
 import GraphqlService                                                          from '../GraphqlService.mjs';
 import ReleaseNotesSyncer                                                      from './ReleaseNotesSyncer.mjs';
 import {FETCH_PULL_REQUESTS_FOR_SYNC, FETCH_SINGLE_PULL_FOR_SYNC}              from '../queries/pullRequestQueries.mjs';
-import contentPath                                                             from '../shared/contentPath.mjs';
+import contentPath, {parseContentPath}                                         from '../shared/contentPath.mjs';
 import {buildContentInventory, resolveArchivedLocation}                        from '../shared/contentInventory.mjs';
 import {createContentIndexEntryFromPath, readContentIndex, updateContentIndex} from '../shared/contentIndex.mjs';
 import {createContentTrustSummary, projectAuthoredNodeTrust}                   from '../shared/conversationTrust.mjs';
@@ -703,6 +703,122 @@ class PullRequestSyncer extends Base {
             logger.info(`✨ Synced ${stats.count} modified pull requests to disk.`);
         } else {
             logger.info(`✅ Synced 0 pull requests (all up to date).`);
+        }
+
+        return stats;
+    }
+
+    /**
+     * @summary Restores pull requests owning more than one artifact from canonical GitHub state.
+     *
+     * A divergent pair cannot be resolved locally. Both files are real renderings of one PR and
+     * nothing on disk records which is current — `reconcileActiveChunks`' keep-first dedup is safe in
+     * the active tier only because the next sync rewrites the survivor from GitHub, and applied here
+     * it would silently canonicalise whichever copy sorted first. So neither copy is trusted: GitHub
+     * is the source of truth for this corpus, and the artifact is re-derived from it.
+     *
+     * **Fetch before unlink.** The copies are the only local record of that PR, so deleting first and
+     * writing second would turn any network failure into a corpus that is simply missing the PR — a
+     * repair that can lose data on a bad connection is not a repair. Nothing is removed until the
+     * canonical rendering is in hand.
+     *
+     * Placement re-plans against a corpus with the removed copies excluded, so the artifact lands on
+     * the ordinal the complete ordering chooses rather than beside the wreckage of the old pair.
+     *
+     * @param {Object} metadata Sync metadata; refreshed for each repaired PR.
+     * @param {Object} [indexMutations=null] Optional accumulator for `_index.json` updates. When
+     *     omitted, the index realigns on the next {@link reconcilePullRequestIndex} pass.
+     * @returns {Promise<{repaired: Number[], removed: Number, failed: Array<{id: Number, reason: String}>}>}
+     */
+    async repairDuplicateArtifacts(metadata, indexMutations = null) {
+        const inventory = await buildContentInventory(issueSyncConfig, {
+            type      : 'pulls',
+            filePrefix: aiConfig.issueSync.pullFilenamePrefix || 'pr-'
+        });
+
+        const ambiguous = [...inventory.entries()].filter(([, copies]) => copies.length > 1),
+              stats     = {repaired: [], removed: 0, failed: []};
+
+        if (ambiguous.length === 0) return stats;
+
+        logger.info(`🔧 Restoring ${ambiguous.length} pull request(s) with duplicate artifacts from GitHub...`);
+
+        for (const [id, copies] of ambiguous) {
+            try {
+                const data = await GraphqlService.query(
+                    FETCH_SINGLE_PULL_FOR_SYNC,
+                    {
+                        owner      : aiConfig.owner,
+                        repo       : aiConfig.repo,
+                        prNumber   : id,
+                        maxComments: pullRequestConfig.maxCommentsPerPullRequest || 50,
+                        maxReviews : 20
+                    },
+                    true
+                );
+
+                const pr = data.repository.pullRequest;
+
+                if (!pr) {
+                    // Refuse rather than clean up: a PR absent from GitHub means the duplicate is not
+                    // the only thing we misunderstand here, and deleting both copies would destroy
+                    // the sole remaining record of it.
+                    stats.failed.push({id, reason: 'not found on GitHub — copies left untouched'});
+                    continue;
+                }
+
+                const content = this.#renderPullRequestMarkdown(pr);
+
+                for (const copy of copies) {
+                    await fs.unlink(copy.absPath);
+                    stats.removed++;
+                }
+
+                // The copies are gone; drop them from the membership the plan is about to rank against.
+                inventory.delete(id);
+
+                const planBuckets = this.#planBuckets(metadata, [pr], inventory),
+                      targetPath  = this.#getPullRequestPath(pr, planBuckets, inventory);
+
+                await fs.mkdir(path.dirname(targetPath), {recursive: true});
+                await fs.writeFile(targetPath, content, 'utf-8');
+
+                inventory.set(id, [{
+                    absPath    : targetPath,
+                    ...parseContentPath({contentRoot: issueSyncConfig.contentRoot, filePath: targetPath})
+                }]);
+
+                metadata.pulls ??= {};
+                metadata.pulls[id] = {
+                    number     : pr.number,
+                    contentHash: this.#calculateContentHash(content),
+                    state      : pr.state,
+                    updatedAt  : pr.updatedAt,
+                    closedAt   : pr.closedAt || null,
+                    mergedAt   : pr.mergedAt || null,
+                    milestone  : pr.milestone?.title || null,
+                    path       : this.#relativePath(targetPath)
+                };
+
+                if (indexMutations) {
+                    indexMutations.upsert.push(createContentIndexEntryFromPath({
+                        issueSyncConfig, type: 'pulls', id, filePath: targetPath
+                    }));
+                }
+
+                stats.repaired.push(id);
+            } catch (e) {
+                logger.error(`❌ Could not restore duplicate artifacts for PR #${id}: ${e.message}`);
+                stats.failed.push({id, reason: e.message});
+            }
+        }
+
+        await pruneEmptyDirs(path.join(issueSyncConfig.archiveRoot, 'pulls'));
+
+        logger.info(`🔧 Restored ${stats.repaired.length} pull request(s) from GitHub; removed ${stats.removed} duplicate artifact(s).`);
+
+        if (stats.failed.length > 0) {
+            logger.warn(`⚠️ ${stats.failed.length} duplicate repair(s) failed and remain divergent: ${stats.failed.map(f => `#${f.id} (${f.reason})`).join(', ')}`);
         }
 
         return stats;

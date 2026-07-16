@@ -161,6 +161,13 @@ class SyncService extends Base {
         // 7. Sync pull requests
         const pullStats2 = await PullRequestSyncer.syncPullRequests(metadata);
 
+        // 7a. Restore any pull request owning more than one artifact from canonical GitHub state.
+        //     A divergent pair cannot be resolved locally — both files are real renderings and
+        //     nothing on disk says which is current — so neither is trusted and the artifact is
+        //     re-derived from the source of truth. Runs BEFORE the index realign so the restored
+        //     placement is what gets indexed, and is a no-op on a corpus with no duplicates.
+        const pullDuplicateStats = await PullRequestSyncer.repairDuplicateArtifacts(metadata);
+
         // 7b. Realign `_index.json` with the pull corpus now that placement is final for this run.
         //     Preventing new drift does not remove old drift: entries that went stale when a move
         //     did not carry its upsert name files that are ALREADY archived, so the relocate pass
@@ -207,6 +214,7 @@ class SyncService extends Base {
             releaseStats,
             discussionStats,
             pullStats2,
+            pullDuplicateStats,
             pullIndexStats
         };
     }

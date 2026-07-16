@@ -40,6 +40,7 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
     let originalSyncDiscussions;
     let originalSyncPullRequests;
     let originalReconcileClosedPulls;
+    let originalRepairPullDuplicates;
     let originalReconcilePullIndex;
     let originalGetViewerPermission;
     let originalRebuildContentIndexesAndSeo;
@@ -84,6 +85,7 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         originalSyncDiscussions = DiscussionSyncer.syncDiscussions;
         originalSyncPullRequests = PullRequestSyncer.syncPullRequests;
         originalReconcileClosedPulls = PullRequestSyncer.reconcileClosedPullRequestLocations;
+        originalRepairPullDuplicates = PullRequestSyncer.repairDuplicateArtifacts;
         originalReconcilePullIndex = PullRequestSyncer.reconcilePullRequestIndex;
         originalGetViewerPermission = RepositoryService.getViewerPermission;
         originalRebuildContentIndexesAndSeo = SyncService.rebuildContentIndexesAndSeo;
@@ -105,6 +107,7 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         // no-op and it refuses to bucket without releases. That is luck, not isolation — the index
         // reconcile needs no network and would rewrite thousands of live entries from a unit run.
         PullRequestSyncer.reconcileClosedPullRequestLocations = async () => ({ count: 0, pullRequests: [], indexed: 0 });
+        PullRequestSyncer.repairDuplicateArtifacts = async () => ({ repaired: [], removed: 0, failed: [] });
         PullRequestSyncer.reconcilePullRequestIndex = async () => ({ reindexed: 0, unchanged: 0, skippedAmbiguous: [] });
         RepositoryService.getViewerPermission = async () => ({ permission: 'READ' }); // Skip git commands
         SyncService.rebuildContentIndexesAndSeo = async () => ({});
@@ -129,6 +132,7 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         DiscussionSyncer.syncDiscussions = originalSyncDiscussions;
         PullRequestSyncer.syncPullRequests = originalSyncPullRequests;
         PullRequestSyncer.reconcileClosedPullRequestLocations = originalReconcileClosedPulls;
+        PullRequestSyncer.repairDuplicateArtifacts = originalRepairPullDuplicates;
         PullRequestSyncer.reconcilePullRequestIndex = originalReconcilePullIndex;
         RepositoryService.getViewerPermission = originalGetViewerPermission;
         SyncService.rebuildContentIndexesAndSeo = originalRebuildContentIndexesAndSeo;
