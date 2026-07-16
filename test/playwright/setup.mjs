@@ -148,6 +148,7 @@ export function setup(options = {}) {
         insertThemeFiles: () => {},
         isSharedWorker  : false,
         on              : () => {},
+        un              : () => {},
         promiseMessage  : async (dest, msg) => {
             if (msg?.action === 'readDom') {
                 if (msg.attributes?.includes('offsetHeight')) {

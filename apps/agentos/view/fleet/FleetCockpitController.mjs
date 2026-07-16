@@ -158,7 +158,10 @@ class FleetCockpitController extends Controller {
         }
 
         cockpit.detailRecord = record;
-        me.getReference('agent-detail')?.set({record});
+        // routed through the owner accessor: a popped-out inspector lives in the vessel's view
+        // tree (outside this controller's getReference reach) and must drill exactly like a
+        // docked one
+        cockpit.getAgentDetailPane()?.set({record});
 
         if (cockpit.dockModel?.items?.detail?.autoHidden) {
             const result = cockpit.applyDockZoneOperation({operation: 'setItemAutoHidden', itemId: 'detail', autoHidden: false});
