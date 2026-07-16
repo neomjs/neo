@@ -378,9 +378,15 @@ class FleetControlBridge extends Base {
 
     /**
      * @summary READ-OBSERVE: one agent's viewer-admitted mailbox mirror — the S1 snapshot the FM
-     * cockpit's AgentDetail mailbox tab renders. Rides the authenticated `registryBridge` as a
-     * **read** verb; it carries NO lifecycle-write authority, and structurally no mutation verb
-     * exists on this path (operator-side mark-read would mutate the agent's own turn-start signal).
+     * cockpit's AgentDetail mailbox tab renders. Rides the `registryBridge` as a **read** verb; it
+     * carries NO lifecycle-write authority, and structurally no mutation verb exists on this path
+     * (operator-side mark-read would mutate the agent's own turn-start signal).
+     *
+     * **The transport is NOT authenticated, and this verb does not pretend otherwise.** The Fleet
+     * HTTP surface binds no viewer identity, so no admission can be attributed through it — which is
+     * exactly why {@link #mailboxMirrorSource} stays unwired and every call answers `unavailable`.
+     * The seam is staged and inert: real reads wait on authenticated viewer ingress + per-request
+     * identity binding on the Fleet transport. Loopback locality is not a viewer identity.
      *
      * Admission is decided by the Memory Core primitive's own fail-closed `CAN_READ_INBOX_OF` gate,
      * never re-implemented here or in {@link #mailboxMirrorSource} — this verb only routes. An

@@ -313,9 +313,14 @@ class AgentDetail extends Container {
      *
      * The pane renders and never fetches; this view owns the read because it owns the drill, and it
      * stays shell-agnostic so the popped-out inspector reads exactly like the docked one. The Body
-     * never touches MailboxService — it calls the authenticated `fleetMailboxMirror` read verb, whose
-     * source holds the identity binding, and whose admission is the Memory Core primitive's own
-     * fail-closed gate.
+     * never touches MailboxService — it calls the `fleetMailboxMirror` read verb, whose source is
+     * the thing that would hold the identity binding.
+     *
+     * **Today that source is unwired and this transport authenticates nothing**, so the read can
+     * only answer an honest `unavailable` and the pane renders `unobserved`. That is the truthful
+     * state, not a placeholder: no viewer identity crosses the Fleet boundary yet, so no admission
+     * can be attributed. The live read waits on authenticated viewer ingress + per-request identity
+     * binding; this path is the seam it will arrive through, already failing closed.
      *
      * **Race-safe by generation, not by hope.** A drill is a gesture; the read is async. Across a
      * fast A→B drill the in-flight read for A resolves AFTER B is seated, and assigning it would
