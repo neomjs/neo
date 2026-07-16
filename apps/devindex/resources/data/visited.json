@@ -11032,6 +11032,7 @@
   "repo:actions/labeler",
   "repo:actions/runner",
   "repo:actions/runner-images",
+  "repo:actions/setup-dotnet",
   "repo:actions/setup-go",
   "repo:actions/setup-java",
   "repo:actions/setup-node",
