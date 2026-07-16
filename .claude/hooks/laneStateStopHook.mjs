@@ -408,6 +408,9 @@ const HARNESS_MARKER_PATTERNS = Object.freeze([
  *    do not.
  *  - Text-less records (tool_result-only) and harness marker records ({@link HARNESS_MARKER_PATTERNS})
  *    are skipped; malformed lines are tolerated.
+ *  - `attachment` records carrying a non-empty string `attachment.prompt` (the queued mid-TURN
+ *    operator-message field — "sent while you were working" deliveries never materialize as
+ *    user-role records) are candidates in the same pass; other attachment kinds never are.
  *  - The FIRST remaining candidate decides — the walk never continues past it, so an autonomous
  *    boundary (a newer `[WAKE]`) is returned as-is and correctly out-classifies any older operator
  *    prose (`classifyPromptingContext` owns the [WAKE]/synthetic/handoff semantics; this walk owns
@@ -429,9 +432,25 @@ export function extractLatestHumanUserTextFromJsonl(jsonl = '') {
         let record;
         try { record = JSON.parse(line); } catch { continue; }
 
+        if (record.isMeta === true) continue;
+
+        // Mid-TURN operator messages ("sent while you were working") are delivered as
+        // attachment records carrying the queued text at `attachment.prompt` — never as
+        // user-role records — so the walk considers them in the SAME backward pass (the
+        // newest-candidate rule must hold across record kinds). Corpus-verified shapes on
+        // this field: [WAKE] digests and task-notification payloads (both rejected by the
+        // classifier's dialogue gates) and genuine operator prose. Attachment records
+        // without a non-empty string `attachment.prompt` (other attachment kinds) are
+        // never candidates.
+        if (record.type === 'attachment') {
+            const prompt = record.attachment?.prompt;
+            if (typeof prompt !== 'string' || !prompt.trim()) continue;
+            if (HARNESS_MARKER_PATTERNS.some(re => re.test(prompt))) continue;
+            return prompt;
+        }
+
         const message = record.message || record;
         if ((message.role || record.type) !== 'user') continue;
-        if (record.isMeta === true) continue;
 
         const text = extractTextFromContent(message.content);
         if (!text) continue;

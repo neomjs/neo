@@ -361,6 +361,52 @@ test.describe('laneStateStopHook — extractLatestHumanUserTextFromJsonl (#14440
             promptingTextHumanFiltered: true
         })).toBe(true);
     });
+
+    // ── Mid-TURN operator messages: attachment-delivered prompts (never user-role records) ──────
+    const attachmentOperator = JSON.stringify({type: 'attachment',
+              attachment: {prompt: 'why is the walk still blind here? scope-ruling attached.'}}),
+          attachmentWake     = JSON.stringify({type: 'attachment',
+              attachment: {prompt: '[WAKE][priority:normal] 1 events for @neo-opus-vega'}}),
+          attachmentTaskNote = JSON.stringify({type: 'attachment',
+              attachment: {prompt: '<task-notification>\n<task-id>b123</task-id>\n</task-notification>'}}),
+          attachmentOther    = JSON.stringify({type: 'attachment',
+              attachment: {kind: 'file', path: '/tmp/x.png'}});
+
+    test('an attachment-delivered mid-turn operator message is the decisive candidate', () => {
+        const jsonl = [wakeMsg, assistant, metaFeedback, attachmentOperator, assistant].join('\n');
+        expect(extractLatestHumanUserTextFromJsonl(jsonl)).toBe('why is the walk still blind here? scope-ruling attached.');
+        expect(isOperatorInLoop({
+            stopHookActive            : true,
+            promptingText             : extractLatestHumanUserTextFromJsonl(jsonl),
+            promptingTextHumanFiltered: true
+        })).toBe(true);
+    });
+
+    test('newest-candidate ordering holds across record kinds: a NEWER [WAKE] user record wins over an older operator attachment', () => {
+        const jsonl = [attachmentOperator, assistant, metaFeedback, wakeMsg, assistant].join('\n');
+        expect(extractLatestHumanUserTextFromJsonl(jsonl)).toBe('[WAKE][priority:normal] 1 events for @neo-opus-vega');
+        expect(isOperatorInLoop({
+            stopHookActive            : true,
+            promptingText             : extractLatestHumanUserTextFromJsonl(jsonl),
+            promptingTextHumanFiltered: true
+        })).toBe(false);
+    });
+
+    test('injected attachment shapes never rescue a chain: [WAKE] digests and task-notification payloads fail the dialogue gates', () => {
+        for (const injected of [attachmentWake, attachmentTaskNote]) {
+            const jsonl = [operatorMsg, assistant, metaFeedback, injected].join('\n');
+            expect(isOperatorInLoop({
+                stopHookActive            : true,
+                promptingText             : extractLatestHumanUserTextFromJsonl(jsonl),
+                promptingTextHumanFiltered: true
+            })).toBe(false);
+        }
+    });
+
+    test('attachment records without attachment.prompt (other kinds) are never candidates', () => {
+        const jsonl = [operatorMsg, assistant, attachmentOther].join('\n');
+        expect(extractLatestHumanUserTextFromJsonl(jsonl)).toBe('full stop. we need to talk about the release notes.');
+    });
 });
 
 test.describe('laneStateStopHook — end-to-end (spawned hook against the real Stop payload)', () => {
@@ -545,6 +591,38 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
                 {type: 'user', message: {role: 'user', content: '[WAKE][priority:normal] 1 events for @neo-opus-vega'}},
                 {type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: 'driving the lane…'}]}},
                 {type: 'user', isMeta: true, message: {role: 'user', content: 'Stop hook feedback:\nTurn-end refused — L3_No_Hold_State: there is no hold state, and you do not get to stop.'}}
+            ]
+        });
+        expect(log).toContain('BLOCK');
+        expect(log).toContain('midChainOperator=false');
+        expect(JSON.parse(stdout).decision).toBe('block');
+    });
+
+    test('mid-TURN attachment-delivered operator message → ALLOW (the queued-delivery chain shape)', async () => {
+        const {stdout, log} = await runHook('Understood — over to you.', {
+            enforce          : true,
+            stopHookActive   : true,
+            transcriptRecords: [
+                {type: 'user', message: {role: 'user', content: '[WAKE][priority:normal] 1 events for @neo-opus-vega'}},
+                {type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: 'driving the lane…'}]}},
+                {type: 'user', isMeta: true, message: {role: 'user', content: 'Stop hook feedback:\nTurn-end refused — L3_No_Hold_State: there is no hold state, and you do not get to stop.'}},
+                {type: 'queue-operation', operation: 'enqueue', timestamp: '2026-07-16T07:00:00Z'},
+                {type: 'attachment', attachment: {prompt: 'full stop — answering your fork question now, hold the lane.'}}
+            ]
+        });
+        expect(log).toContain('ALLOW');
+        expect(log).toContain('midChainOperator=true');
+        expect(stdout).toBe('');
+    });
+
+    test('injected attachment payloads (task-notification) keep a chain BLOCKED — no false-ALLOW channel', async () => {
+        const {stdout, log} = await runHook(validTerminal, {
+            enforce          : true,
+            stopHookActive   : true,
+            transcriptRecords: [
+                {type: 'user', message: {role: 'user', content: '[WAKE][priority:normal] 1 events for @neo-opus-vega'}},
+                {type: 'assistant', message: {role: 'assistant', content: [{type: 'text', text: 'driving the lane…'}]}},
+                {type: 'attachment', attachment: {prompt: '<task-notification>\n<task-id>b9</task-id>\n<status>completed</status>\n</task-notification>'}}
             ]
         });
         expect(log).toContain('BLOCK');
