@@ -1,3 +1,4 @@
+import * as acorn            from 'acorn';
 import {execSync, spawnSync} from 'node:child_process';
 import {readFileSync}        from 'node:fs';
 import path                  from 'node:path';
@@ -60,81 +61,117 @@ export const ALLOWLIST = new Set([
 ]);
 
 /**
- * @summary Builds a per-character "is this code?" mask for a line — false inside string literals and
- * comments, true in executable code.
+ * @summary Builds the whole-file per-character "is this code?" mask — false inside string literals,
+ * template quasis, regex literals and comments; true in executable code.
  *
- * Block-comment state is carried across lines via `state.inBlock`. Unlike a strip-to-text pass the mask
- * preserves positions, so a regex match found on the RAW line can be classified by whether its root
- * token sits in code. That is what lets a string-literal *bracket key* (`['storagePaths']` — real code
- * that merely contains a string) be detected, while a mutation pattern living entirely inside a string
- * (a log message, a `describe(...)` title) is excluded. The structural complement of
- * `check-ticket-archaeology.mjs`'s `extractComment`.
- * @param {String} line
- * @param {{inBlock: Boolean}} state Mutated in place as block comments open and close across lines.
- * @returns {Boolean[]} `mask[i]` is true when raw character `i` is executable code.
+ * Ground truth is `acorn`'s tokenizer, not a hand-rolled scan. Every non-code token's span is blanked
+ * and everything else stays code, so whitespace and punctuation count as code — the same convention
+ * the predecessor scanner used, which is what makes the migration provable rather than merely
+ * plausible (see the zero-delta evidence on {@link #codeMask}).
+ *
+ * A tokenizer earns its place on template literals specifically: `tt.template` covers ONLY the quasi
+ * text, so the executable interior of `${...}` — including nested interpolations — stays code by
+ * construction. `tt.regexp` covers the whole literal, so a regex containing a quote can no longer
+ * desync the remainder of its line. Both were live misclassification classes.
+ * @param {String} source
+ * @returns {Boolean[]}
  */
-export function codeMask(line, state) {
-    const n    = line.length,
-          mask = new Array(n).fill(false);
+function buildFileMask(source) {
+    const mask     = new Array(source.length).fill(true),
+          comments = [],
+          tt       = acorn.tokTypes;
 
-    let i = 0;
-
-    if (state.inBlock) {
-        const end = line.indexOf('*/');
-
-        if (end === -1) {
-            return mask
+    const blank = (start, end) => {
+        for (let i = start; i < end && i < source.length; i++) {
+            mask[i] = false
         }
+    };
 
-        i             = end + 2;
-        state.inBlock = false
+    const tokenizer = acorn.tokenizer(source, {
+        ecmaVersion: 'latest',
+        sourceType : 'module',
+        onComment  : (block, text, start, end) => comments.push([start, end])
+    });
+
+    for (const token of tokenizer) {
+        if (token.type === tt.string || token.type === tt.template || token.type === tt.regexp || token.type === tt.invalidTemplate) {
+            blank(token.start, token.end)
+        }
     }
 
-    let inString = null;
-
-    while (i < n) {
-        const ch   = line[i],
-              next = line[i + 1];
-
-        if (inString) {
-            if (ch === '\\') {
-                i += 2;
-                continue
-            }
-            if (ch === inString) {
-                inString = null
-            }
-            i++;
-            continue
-        }
-
-        if (ch === '"' || ch === "'" || ch === '`') {
-            inString = ch;
-            i++;
-            continue
-        }
-
-        if (ch === '/' && next === '/') {
-            break
-        }
-
-        if (ch === '/' && next === '*') {
-            const end = line.indexOf('*/', i + 2);
-
-            if (end === -1) {
-                state.inBlock = true;
-                break
-            }
-
-            i = end + 2;
-            continue
-        }
-
-        mask[i] = true;
-        i++
-    }
+    comments.forEach(([start, end]) => blank(start, end));
 
     return mask
+}
+
+/**
+ * @summary Cuts a whole-file mask into per-line slices. Newlines are dropped — a line's mask is
+ * line-length, matching the per-line contract {@link #codeMask} exposes.
+ * @param {String} source
+ * @param {Boolean[]} mask
+ * @returns {Boolean[][]}
+ */
+function sliceByLine(source, mask) {
+    const masks = [];
+
+    let offset = 0;
+
+    for (const text of source.split('\n')) {
+        masks.push(mask.slice(offset, offset + text.length));
+        offset += text.length + 1
+    }
+
+    return masks
+}
+
+/**
+ * @summary Builds a per-character "is this code?" mask for one line — false inside string literals,
+ * template quasis, regex literals and comments, true in executable code.
+ *
+ * The mask preserves positions, so a regex match found on the RAW line is classified by whether its
+ * root token sits in code. That is what lets a string-literal *bracket key* (`['storagePaths']` — real
+ * code that merely contains a string) be detected, while a mutation pattern living entirely inside a
+ * string (a log message, a `describe(...)` title) is excluded.
+ *
+ * **Parser-grade, and why that is not gold-plating.** The predecessor scanned character by character
+ * and carried `state.inBlock` across lines. Six review cycles enumerated eight classes of valid
+ * JavaScript it misread, each repair exposing the next — the class list is open-ended because
+ * slash/continuation grammar is a parser problem. Measured against an `acorn` oracle over 1911 files,
+ * that scanner disagreed on **418,515 characters across 1152 files** — yet on **0 of 156** real
+ * pattern-match sites, which is why this swap is behaviour-preserving on today's corpus while
+ * eliminating the classes by construction. Two reproduced live defects it could not survive:
+ * a multi-line template read as code (false POSITIVE — `inString` was function-local, so it reset at
+ * every newline), and `const re = /["']/; aiConfig.database = 1;` read as string (false NEGATIVE — the
+ * safety-critical direction, a silently missed Class-A mutation).
+ *
+ * **Why `state` carries the source.** One tokenize per file, memoized here and sliced per line, keeps
+ * the per-line contract both consumers depend on (A1 additionally reads a code-only PROJECTION of it)
+ * without re-parsing 1900 times. `inBlock` is gone: comment continuity is now a property of the parse,
+ * not a flag the caller must hand-carry — which also deletes a live defect, since a consumer that
+ * skips a line (`findDbPathMutations` returns early on {@link #ESCAPE_MARKER}) silently corrupted
+ * every line after it.
+ * @param {String} line The raw line — used only to size the fallback mask.
+ * @param {{source: String, lineMasks: Boolean[][], parseFailed: String}} state Carries the file source
+ *     and memoizes the parse across the file's lines. Mutated in place on first call.
+ * @param {Number} lineIndex 0-based index of `line` within `state.source`.
+ * @returns {Boolean[]} `mask[i]` is true when raw character `i` is executable code.
+ */
+export function codeMask(line, state, lineIndex) {
+    if (!state.lineMasks) {
+        try {
+            state.lineMasks = sliceByLine(state.source, buildFileMask(state.source))
+        } catch (error) {
+            // FAIL CLOSED. A lexically broken file (mid-edit, or a syntax this acorn cannot read) must
+            // never mask to all-string: that would silently green-light every rule for the whole file,
+            // and a safety-critical backstop reporting clean because it could not READ the code is the
+            // worst failure available to it. All-code is the conservative direction — it over-reports
+            // (a string quoting the pattern flags) rather than under-.
+            state.parseFailed = error.message;
+            state.lineMasks   = state.source.split('\n').map(text => new Array(text.length).fill(true))
+        }
+    }
+
+    return state.lineMasks[lineIndex] ?? new Array(line.length).fill(true)
 }
 
 const DB_PATH_MUTATION_GLOBAL = new RegExp(DB_PATH_MUTATION.source, 'g');
@@ -146,7 +183,7 @@ const DB_PATH_MUTATION_GLOBAL = new RegExp(DB_PATH_MUTATION.source, 'g');
  */
 export function findDbPathMutations(content) {
     const lines = content.split('\n'),
-          state = {inBlock: false},
+          state = {source: content},
           hits  = [];
 
     lines.forEach((line, index) => {
@@ -154,7 +191,7 @@ export function findDbPathMutations(content) {
             return
         }
 
-        const mask = codeMask(line, state);
+        const mask = codeMask(line, state, index);
 
         for (const match of line.matchAll(DB_PATH_MUTATION_GLOBAL)) {
             // The match starts at the aiConfig / Memory_Config root; flag it only when that root is real

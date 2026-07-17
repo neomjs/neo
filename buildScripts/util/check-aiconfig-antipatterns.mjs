@@ -95,18 +95,19 @@ const RULES = [
  */
 export function findAntipatterns(content) {
     const lines         = content.split('\n'),
-          state         = {inBlock: false},
+          state         = {source: content},
           hits          = [],
           a1Candidates  = [],
           codeOnlyLines = [],
           a1Global      = new RegExp(A1_ENV_REDERIVATION.source, 'g');
 
     lines.forEach((line, index) => {
-        // Mask + projection compute UNCONDITIONALLY — before the escape check. Skipping a line
-        // would corrupt block-comment state continuity AND remove the line from the gate
-        // projection: an escape marker on the IMPORT line would then silently exempt the whole
-        // file's A1 hits (the escape valve is line-scoped for HITS, never for composition).
-        const mask = codeMask(line, state),
+        // Mask + projection compute UNCONDITIONALLY — before the escape check. The mask no longer
+        // depends on it (`codeMask` parses the whole file, so a skipped line cannot corrupt comment
+        // continuity — that hazard is why this comment used to warn about skipping), but the gate
+        // PROJECTION still does: an escape marker on the IMPORT line would otherwise silently exempt
+        // the whole file's A1 hits (the escape valve is line-scoped for HITS, never for composition).
+        const mask = codeMask(line, state, index),
               // The gate must see CODE only — a JSDoc/comment mention of the config root (a config
               // template documenting its realm, a migration note) must never open A1 for the file.
               // Masked-out characters become spaces, preserving positions, so multi-line import
