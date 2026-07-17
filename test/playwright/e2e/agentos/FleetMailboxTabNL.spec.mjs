@@ -135,13 +135,22 @@ test.describe('AgentOS fleet cockpit — the AgentDetail Mailbox tab live (#1527
         // controls, and a 3-of-50 page with no `hasMore` is the producer saying it ran out — so both
         // edges are closed, disabled rather than hidden.
         //
-        // Asserted via `neo-disabled`: that is the class `component.Base` applies for `disabled`, so
-        // it is what this pane can rely on. NOT `toBeDisabled()` — that matcher accepts both native
-        // `disabled` and `aria-disabled`, so it would prove the announced state without pinning the
-        // cross-component class contract. The refusal itself is unit-pinned — the class is the look,
-        // the handler guard is the semantics.
+        // Both edges, asserted twice for two different contracts — neither matcher subsumes the other.
+        //
+        // `neo-disabled` is the class `component.Base` applies for `disabled`; it pins the
+        // cross-component class contract, which is what this pane may rely on. It says nothing about
+        // what a screen reader is told.
         await expect(pane.locator('.fm-mailbox-page-next')).toHaveClass(/neo-disabled/);
         await expect(pane.locator('.fm-mailbox-page-prev')).toHaveClass(/neo-disabled/);
+
+        // `toBeDisabled()` pins the ANNOUNCED state, live. Playwright honours `aria-disabled` for
+        // roles in `kAriaDisabledRoles` — `button` among them — so on a control carrying no native
+        // attribute this passes off the pane's own `aria-disabled`, and that is exactly what makes it
+        // worth asserting: it is the only proof the announcement reaches the REAL DOM. The unit spec
+        // asserts `vdom['aria-disabled']`, and a vdom assertion can pass while the attribute never
+        // flushes to a mounted node — proving the object, not the thing the operator's AT would read.
+        await expect(pane.locator('.fm-mailbox-page-next')).toBeDisabled();
+        await expect(pane.locator('.fm-mailbox-page-prev')).toBeDisabled();
 
         // read-only is structural, proven live: zero DATA-ENTRY elements and no mutation verb. The
         // bar is mutation, not interactivity — the one admissible control is the thread-collapse
