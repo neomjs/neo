@@ -87,5 +87,84 @@ test.describe('check-aiconfig-test-mutation guard', () => {
     test('the grandfather allowlist is populated (the ratchet bites only new offenders)', () => {
         expect(ALLOWLIST.size).toBeGreaterThan(0);
         expect(ALLOWLIST.has('test/playwright/unit/ai/services/memory-core/DatabaseService.backupPath.spec.mjs')).toBe(true)
+    });
+
+    /*
+     * These pin the classes the predecessor character scanner provably misread — each measured
+     * against an acorn oracle over 1911 files before the swap, not imagined. The swap itself was
+     * proven behaviour-preserving (0 verdict deltas at all 156 real pattern sites; both checkers
+     * byte-identical on the live 844 + 548 file scan), so what follows is the delta that was WORTH
+     * having: the classes that were latent, not live.
+     */
+    test('MASK: a mutation inside a MULTI-LINE template literal is string text, not code', () => {
+        // The scanner's `inString` was function-local, so it reset at every newline: line 2 of a
+        // template read as executable code and this FLAGGED — a false positive on a documented
+        // GraphQL/SQL block. `ai/services/github-workflow/queries/issueQueries.mjs` alone carries
+        // ~19,884 characters the scanner misclassified this way.
+        expect(findDbPathMutations([
+            'const doc = `',
+            '  aiConfig.storagePaths.graph = "/tmp/x"',
+            '`;'
+        ].join('\n'))).toEqual([])
+    });
+
+    test('MASK: the executable interior of a ${...} interpolation IS code', () => {
+        // The complement of the pin above, and the reason "treat templates as opaque strings" is not
+        // a fix: `${...}` executes. The quasi text around it stays string text.
+        expect(findDbPathMutations('const x = `${aiConfig.storagePaths.graph = p}`;').map(h => h.line)).toEqual([1])
+    });
+
+    test('MASK: a regex literal containing a quote no longer desyncs the rest of its line', () => {
+        // THE SAFETY-CRITICAL DIRECTION. The scanner saw the `'` inside `/["']/` as a string opener
+        // and never closed it, so everything after on that line masked as string — a real Class-A
+        // mutation went SILENTLY UNFLAGGED. A missed B4 is the orphan-bleed mechanism, which is the
+        // whole reason this guard exists. (Same-line only: the scanner's per-line reset contained
+        // the desync to its own line — which is why a two-line specimen does NOT reproduce it.)
+        expect(findDbPathMutations('const re = /["\']/; aiConfig.database = 1;').map(h => h.line)).toEqual([1]);
+        // division after a literal must not be mistaken for a regex opening and swallow the suffix
+        expect(findDbPathMutations('const half = total / 2; aiConfig.collections.memory = name;').map(h => h.line)).toEqual([1])
+    });
+
+    test('MASK: the escape marker cannot corrupt classification of the lines after it', () => {
+        // `findDbPathMutations` returns BEFORE calling the mask on an escape-marker line. With the
+        // scanner's hand-carried `inBlock`, that skip meant an escape marker on a line that OPENS a
+        // block comment left the state stale — and the commented-out mutation below FLAGGED. Using
+        // the escape valve corrupted the guard. The whole-file parse deletes the class: comment
+        // continuity is a property of the parse now, so no consumer can break it by skipping.
+        expect(findDbPathMutations([
+            `const a = 1; /* ${ESCAPE_MARKER}: legacy block below`,
+            'aiConfig.database = 1;',
+            '*/'
+        ].join('\n'))).toEqual([])
+    });
+
+    test('MASK: a regex in a for-await statement position is a REGEX, not two divisions', () => {
+        // @neo-gpt-emmy's falsifier, and it killed my headline claim. I shipped this mask on
+        // `acorn.tokenizer`, which is NOT parser-informed: with no grammar context it cannot resolve
+        // the slash ambiguity and reads `/re/` here as two division operators — so the regex's
+        // CONTENT masks as code. That is corpus class 7 (`throw` / `for await` regex-preceding
+        // contexts), one of the eight I claimed vanish "by construction". A tokenizer eliminates the
+        // classes that need lexing; only the PARSER eliminates the ones that need grammar.
+        //
+        // Verified: standalone tokenizer emits `/` `/` at 45-46, 48-49; `parse({onToken})` emits one
+        // `regexp` at 45-49. The fix is `acorn.parse`, not a bigger table.
+        expect(findDbPathMutations('async function f(){ for await (const x of y) /aiConfig.database = 1/.test(x); }')).toEqual([]);
+        // the complement: a REAL mutation after such a regex must still flag — the fix must not go blind
+        expect(findDbPathMutations('async function f(){ for await (const x of y) /re/.test(x); aiConfig.database = 1; }').map(h => h.line)).toEqual([1])
+    });
+
+    test('MASK: an unparseable file fails CLOSED — it over-reports, never silently greens', () => {
+        // The branch that matters most and is easiest to get backwards. A file that cannot be
+        // tokenized (mid-edit, or a syntax this acorn cannot read) must not mask to all-string: a
+        // guard reporting clean because it could not READ the code is the worst failure available to
+        // a safety-critical backstop. All-code is the conservative direction.
+        //
+        // The specimen must be LEXICALLY broken, not grammatically: `acorn.tokenizer` only lexes, so
+        // `const x = {{{ ;` tokenizes happily as punctuators and would exercise nothing. An
+        // unterminated string is the realistic mid-edit case that actually throws.
+        expect(findDbPathMutations([
+            'const s = "unterminated',
+            'aiConfig.database = 1;'
+        ].join('\n')).map(h => h.line)).toEqual([2])
     })
 });

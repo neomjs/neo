@@ -31,6 +31,19 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '24'
+          cache: 'npm'
+
+      # The shared `codeMask` is parser-grade (acorn) as of #15276: heuristic completeness against
+      # JavaScript slash/continuation grammar is a parser problem, and six review cycles enumerating
+      # eight misread classes proved the list is open-ended. --ignore-scripts skips the heavy
+      # prepare lifecycle (Husky + generated local configs) we don't need — only node_modules
+      # must be present.
+      #
+      # This job is never the critical path (~20s against `test.yml`'s minutes, in parallel), so the
+      # install costs no mergeable wall-clock; and `test.yml` already runs `npm ci`, so registry
+      # flakiness was priced into the merge gate long before this leg joined.
+      - name: Install dependencies (acorn — the shared codeMask tokenizer)
+        run: npm ci --ignore-scripts
 
       - name: Ban ADR-0019 B3/A5 antipatterns in ai/
         run: node ./buildScripts/util/check-aiconfig-antipatterns.mjs

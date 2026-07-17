@@ -231,13 +231,29 @@ test.describe('check-aiconfig-antipatterns guard — A1 module-level env re-deri
         expect(findAntipatterns(escaped)).toEqual([])
     });
 
-    test('A1: DOCUMENTED BOUNDARY — an env read inside a template interpolation is outside the current mask vocabulary', () => {
-        // The shared codeMask on dev classifies strings/comments only; template interpolations mask
-        // as string text, so an interpolated read is invisible to A1 by construction. This pin makes
-        // the boundary explicit: it flips to a positive when the parser-grade shared masking
-        // authority lands (the successor lane decomposed from this rule's review arc). Until then a
-        // module-level `const url = `${process.env.X}`` is the escape-marker/judgment residue class.
-        expect(findAntipatterns(importHeader + 'const url = `${process.env.NEO_HOST}`;\n')).toEqual([])
+    test('A1: an env read inside a template interpolation FLAGS — the documented boundary, flipped', () => {
+        // This pin was authored as a negative with an explicit flip condition: it would flip to a
+        // positive once the shared mask became parser-grade. That landed, so the boundary is gone
+        // rather than documented.
+        //
+        // Why it was ever invisible: A1 matches the code-only PROJECTION, and the scanner treated a
+        // whole template literal as opaque string text — so `process.env.` was replaced by spaces
+        // before the regex ever ran. It could not match what the mask had erased. The tokenizer
+        // reports `tt.template` for the QUASI text only, so the interior of `${...}` stays code by
+        // construction and the read is exactly as visible as an unwrapped one — which is the truth:
+        // `${process.env.X}` executes.
+        expect(findAntipatterns(importHeader + 'const url = `${process.env.NEO_HOST}`;\n').map(h => h.rule)).toEqual(['A1'])
+    });
+
+    test('A1: the flip does NOT come at the cost of the string/comment exemption', () => {
+        // The flip is only honest if it moved the boundary rather than the floor. A parser that
+        // called everything code would "flip" this pin too — and silently start flagging every spec
+        // title and log message that quotes the pattern. These are the same two exemptions the
+        // scanner earned, re-proven against the tokenizer: a mention is not a read.
+        expect(findAntipatterns(importHeader + 'const msg = "const x = process.env.NEO_HOST";\n')).toEqual([]);
+        expect(findAntipatterns(importHeader + '// const x = process.env.NEO_HOST\n')).toEqual([]);
+        // and the quasi TEXT of a template is still string text — only the interpolation is code
+        expect(findAntipatterns(importHeader + 'const msg = `const x = process.env.NEO_HOST`;\n')).toEqual([])
     });
 
     test('A1: rule-scoped grandfathering — the wake daemon is exempt for A1 only, and A1 stays independent of B3/A5 sets', () => {
@@ -266,5 +282,32 @@ test.describe('check-aiconfig-antipatterns guard — A1 module-level env re-deri
         } finally {
             fs.rmSync(tmpFile, {force: true})
         }
+    });
+
+    /*
+     * A1 classifies against the code-only PROJECTION, which is built by walking the line and asking
+     * the mask about each position. The mask and acorn's token offsets both count UTF-16 code UNITS;
+     * `Array.from(line, (ch, i) => mask[i])` walks code POINTS. An astral character (emoji, rare CJK)
+     * is ONE code point but TWO code units, so every lookup after it read the mask one slot early and
+     * the projection silently desynced from the truth it was projecting.
+     *
+     * These are @neo-gpt-emmy's specimens, not mine, and that distinction is the point: my own astral
+     * specimen used a STRING, where the shift landed code-on-code and the pattern survived it — it
+     * passed against the BROKEN mask too, so it discriminated nothing. Hers puts the astral char in a
+     * COMMENT immediately before real code, which is where the shift actually crosses a mask
+     * boundary. I asked for it rather than pin a witness that proves the fix exists instead of that
+     * it works.
+     */
+    const astralHeader = 'import AiConfig from "../ConfigProvider.mjs";\n';
+
+    test('A1 astral FN direction: an emoji COMMENT never hides the real env read behind it', () => {
+        expect(findAntipatterns(astralHeader + 'const DB_PATH = /*😀*/process.env.NEO_DB_PATH || fallback;\n').map(hit => hit.rule)).toEqual(['A1'])
+    });
+
+    test('A1 astral FP direction: an emoji never drags a quoted pattern into code', () => {
+        // in a string …
+        expect(findAntipatterns(astralHeader + 'const note = "😀 process.env.NEO_DB_PATH";\n')).toEqual([]);
+        // … and in a comment
+        expect(findAntipatterns(astralHeader + '/*😀 process.env.NEO_DB_PATH*/ const ok = true;\n')).toEqual([])
     })
 });
