@@ -64,6 +64,15 @@ export const LIFECYCLE_SCOPE_RESOLUTIONS = Object.freeze(new Set([
     'omitted'
 ]));
 
+/**
+ * @summary The stages whose rows are derived from a pull request, and therefore reset on head change.
+ *
+ * Named explicitly because the reset invariant only applies to them: a claimed task or a direct message
+ * has no head to move under it, so requiring one there would be noise.
+ * @type {Set<String>}
+ */
+const PR_DERIVED_STAGES = Object.freeze(new Set(['own-pr-repair', 'own-pr-reviewer-routing', 'requested-review']));
+
 const STAGE_RANK = Object.freeze(
     LIFECYCLE_STAGES.reduce((rank, stage, index) => Object.assign(rank, {[stage]: index}), {})
 );
@@ -315,10 +324,17 @@ export function validateLifecycleFrontier(frontier, {now, agentId, shapeOnly = f
     }
 
     // An expired frontier is not a frontier — it is a description of a world that has moved on.
-    if (now !== undefined && typeof frontier.expiresAt === 'string' && !Number.isNaN(Date.parse(frontier.expiresAt))) {
+    if (now !== undefined) {
         const readerNow = now instanceof Date ? now.getTime() : (typeof now === 'string' ? Date.parse(now) : now);
 
-        if (Number.isFinite(readerNow) && Date.parse(frontier.expiresAt) <= readerNow) {
+        if (!Number.isFinite(readerNow)) {
+            // An UNPARSEABLE reader clock fails the guard rather than skipping the check. Skipping was
+            // the same fail-open as before wearing a defensive coat: the caller asked for expiry
+            // validation, the guard could not perform it, and returned valid anyway — so a 2020 envelope
+            // passed because the CLOCK was malformed, not the envelope.
+            errors.push(`reader clock ${JSON.stringify(now)} is not a parseable time; expiry could not be validated`)
+        } else if (typeof frontier.expiresAt === 'string' && !Number.isNaN(Date.parse(frontier.expiresAt)) &&
+                   Date.parse(frontier.expiresAt) <= readerNow) {
             errors.push(`frontier expired at ${frontier.expiresAt}`)
         }
     }
@@ -376,6 +392,14 @@ export function validateLifecycleFrontier(frontier, {now, agentId, shapeOnly = f
 
             if (typeof item?.actionableSince !== 'string' || Number.isNaN(Date.parse(item?.actionableSince))) {
                 errors.push(`items[${index}].actionableSince must be a parseable ISO timestamp`)
+            }
+
+            // A PR-derived row MUST name its head. Every such row resets on head change, and a row with
+            // `headSha: null` cannot support that invariant: nothing downstream can tell whether its
+            // clock belongs to the code that exists now. The builder emitting null made the omission
+            // look deliberate, which is worse than absent.
+            if (PR_DERIVED_STAGES.has(item?.stage) && (typeof item?.headSha !== 'string' || item.headSha.length === 0)) {
+                errors.push(`items[${index}].headSha is required for the PR-derived stage "${item?.stage}"`)
             }
 
             // Members, not just the container: `citations: [42]` passes an is-array check and cites

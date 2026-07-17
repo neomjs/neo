@@ -44,6 +44,7 @@ test.describe('lifecycleFrontier — lifecycle-frontier.v1 contract', () => {
         state          : 'OPEN',
         source         : 'github-workflow',
         subjectId      : 'pr-15231',
+        headSha        : 'head-2',
         actionableSince: '2026-07-16T09:00:00.000Z',
         checkedAt      : '2026-07-16T10:00:00.000Z',
         citations      : ['https://github.com/neomjs/neo/pull/15231'],
@@ -151,8 +152,42 @@ test.describe('lifecycleFrontier — lifecycle-frontier.v1 contract', () => {
         const frontier = buildLifecycleFrontier(base({items: [item({headSha: '94dc70926f'})]}));
 
         expect(frontier.items[0].headSha).toBe('94dc70926f');
-        // absent head is explicit null, never undefined-shaped
-        expect(buildLifecycleFrontier(base({items: [item()]})).items[0].headSha).toBeNull();
+
+        // A non-PR stage has no head to move under it, so null there is correct rather than a gap.
+        const task = buildLifecycleFrontier(base({
+            items: [item({stage: 'claimed-a2a-task', source: 'memory-core-a2a', subjectId: 't-1', headSha: undefined})]
+        }));
+
+        expect(task.items[0].headSha).toBeNull();
+        expect(validateLifecycleFrontier(task, {shapeOnly: true}).valid).toBe(true);
+    });
+
+    test('a PR-derived row with a NULL head is rejected — it cannot support the reset invariant', () => {
+        // The reviewer's falsifier: the builder emitted `headSha: null` for a PR row and the guard
+        // passed it. Every PR-derived row resets on head change, and a row with no head cannot say
+        // whether its clock belongs to the code that exists now. The explicit null made the omission
+        // look deliberate, which is worse than absent.
+        const headless = buildLifecycleFrontier(base({items: [item({headSha: undefined})]})),
+              result   = validateLifecycleFrontier(headless, {shapeOnly: true});
+
+        expect(result.valid).toBe(false);
+        expect(result.errors.join(' ')).toContain('headSha is required for the PR-derived stage "own-pr-repair"');
+    });
+
+    test('an UNPARSEABLE reader clock fails the guard — it must not skip the check it promised', () => {
+        // The reviewer's second falsifier: a 2020-expired envelope passed with `now: 'not-a-time'`,
+        // because the guard silently skipped expiry when it could not parse the clock. The caller asked
+        // for expiry validation; the guard could not perform it and returned valid anyway.
+        const expired = buildLifecycleFrontier(base({
+            capturedAt: '2020-01-01T00:00:00.000Z',
+            expiresAt : '2020-01-01T00:05:00.000Z',
+            items     : []
+        }));
+
+        const result = validateLifecycleFrontier(expired, {now: 'not-a-time', agentId: '@neo-opus-ada'});
+
+        expect(result.valid).toBe(false);
+        expect(result.errors.join(' ')).toContain('is not a parseable time; expiry could not be validated');
     });
 
     test('validateLifecycleFrontier accepts a good envelope and NEVER throws on bad input', () => {
