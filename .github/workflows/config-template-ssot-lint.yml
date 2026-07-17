@@ -5,14 +5,28 @@ on:
     branches: [dev]
     paths:
       - 'ai/**/config.template.mjs'
-      - 'ai/configBase.mjs'
+      # `ai/**/configBase.mjs`, not `ai/configBase.mjs`: the root was the only base when this filter
+      # was written, and the template/base split puts a sibling base beside every server template. A
+      # root-only pattern would leave a leaf deleted from a per-server base triggering nothing — the
+      # guard present, correct, and never run.
+      - 'ai/**/configBase.mjs'
+      # The parity snapshot is an input to the check, so editing it must re-run the check. Otherwise a
+      # removal can be blessed by updating the record of what exists, with nothing re-reading reality.
+      - 'ai/scripts/lint/config-leaf-parity.json'
       - 'ai/scripts/lint/lint-config-template-ssot.mjs'
       - '.github/workflows/config-template-ssot-lint.yml'
   push:
     branches: [dev]
     paths:
       - 'ai/**/config.template.mjs'
-      - 'ai/configBase.mjs'
+      # `ai/**/configBase.mjs`, not `ai/configBase.mjs`: the root was the only base when this filter
+      # was written, and the template/base split puts a sibling base beside every server template. A
+      # root-only pattern would leave a leaf deleted from a per-server base triggering nothing — the
+      # guard present, correct, and never run.
+      - 'ai/**/configBase.mjs'
+      # The parity snapshot is an input to the check, so editing it must re-run the check. Otherwise a
+      # removal can be blessed by updating the record of what exists, with nothing re-reading reality.
+      - 'ai/scripts/lint/config-leaf-parity.json'
       - 'ai/scripts/lint/lint-config-template-ssot.mjs'
       - '.github/workflows/config-template-ssot-lint.yml'
 

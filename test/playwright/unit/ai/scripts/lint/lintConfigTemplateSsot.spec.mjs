@@ -7,9 +7,12 @@ import {
     AI_CONFIG_IMPLEMENTATION_BASELINE,
     AI_CONFIG_MODULE_SCOPE_BASELINE,
     BASELINE,
+    buildConfigLeafParitySnapshot,
     buildConfigPathKindsByIdentifier,
     collectConfigPathKindsFromSource,
+    collectDeclaredConfigPaths,
     detectAiConfigImplementationViolations,
+    detectConfigLeafParityViolations,
     detectInlineEnvLeaves,
     detectModuleScopeAiConfigCaptures,
     detectTestConfigOverlayImports,
@@ -564,5 +567,97 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
             expect(row.ticket).toBe('#14239');
             expect(row.reason).toContain('Frozen primitive');
         }
+    });
+
+    // ---- config leaf parity: a dropped leaf is silent at every other gate ----
+
+    test('parity: the shipped tree matches its snapshot — no false positive on what is merged', () => {
+        const parity = detectConfigLeafParityViolations();
+
+        expect(parity.missing).toEqual({});
+        expect(parity.added).toEqual({});
+        expect(parity.untracked).toEqual([]);
+        expect(parity.vanished).toEqual([])
+    });
+
+    test('parity: the snapshot covers every server template plus the Tier-1 root', () => {
+        const snapshot = buildConfigLeafParitySnapshot();
+
+        expect(Object.keys(snapshot).sort()).toEqual([
+            'ai/config.template.mjs',
+            'ai/mcp/server/github-workflow/config.template.mjs',
+            'ai/mcp/server/gitlab-workflow/config.template.mjs',
+            'ai/mcp/server/knowledge-base/config.template.mjs',
+            'ai/mcp/server/memory-core/config.template.mjs',
+            'ai/mcp/server/neural-link/config.template.mjs'
+        ]);
+
+        // a base is read THROUGH its template, never listed as a surface of its own — it declares no
+        // runtime namespace, and listing it would double-count every path it contributes
+        Object.keys(snapshot).forEach(template => expect(template).not.toContain('configBase.mjs'))
+    });
+
+    test('parity: the guarded surface is the UNION — an object-default leaf is not a primitive', () => {
+        // `leaf({...})` classifies as a live proxy rather than a primitive, so guarding only
+        // `primitiveLeafPaths` would leave 8 declarations across the servers unwatched — and they are
+        // exactly the ones a reader counting `leaf(` calls assumes are covered. github-workflow:
+        // 41 `leaf(` calls, 39 primitives, and `logger` + `discussionDenylist` sitting in the proxies.
+        const declared = collectDeclaredConfigPaths(path.resolve(process.cwd(), 'ai/mcp/server/github-workflow/config.template.mjs'));
+
+        expect(declared).toContain('logger');
+        expect(declared).toContain('issueSync.discussionDenylist');
+        // sorted + de-duplicated, so the snapshot diff is stable and reviewable
+        expect(declared).toEqual([...new Set(declared)].sort())
+    });
+
+    test('parity: a REMOVED path is named, not counted', () => {
+        const actual   = buildConfigLeafParitySnapshot(),
+              template = 'ai/mcp/server/neural-link/config.template.mjs',
+              expected = {...actual, [template]: [...actual[template], 'neural.link.ghostLeaf']};
+
+        const parity = detectConfigLeafParityViolations({expectation: expected});
+
+        // the exact path, because "17 → 16" tells nobody which leaf died
+        expect(parity.missing[template]).toEqual(['neural.link.ghostLeaf'])
+    });
+
+    test('parity: a RENAME fails — the count-only trap nets to zero and passes', () => {
+        const actual   = buildConfigLeafParitySnapshot(),
+              template = 'ai/mcp/server/neural-link/config.template.mjs',
+              renamed  = [...actual[template].slice(1), 'neural.link.renamedLeaf'],
+              parity   = detectConfigLeafParityViolations({expectation: {...actual, [template]: renamed}});
+
+        // same cardinality, different set: a count check sees nothing, which is precisely the refactor
+        // that hides a loss
+        expect(renamed.length).toBe(actual[template].length);
+        expect(parity.missing[template]).toEqual(['neural.link.renamedLeaf']);
+        expect(parity.added[template]?.length).toBe(1)
+    });
+
+    test('parity: a template absent from the snapshot is UNTRACKED, never silently adopted', () => {
+        const actual  = buildConfigLeafParitySnapshot(),
+              partial = {...actual};
+
+        delete partial['ai/mcp/server/neural-link/config.template.mjs'];
+
+        expect(detectConfigLeafParityViolations({expectation: partial}).untracked)
+            .toEqual(['ai/mcp/server/neural-link/config.template.mjs'])
+    });
+
+    test('parity: a template that VANISHED is caught — the per-template diff cannot see it', () => {
+        const expectation = {...buildConfigLeafParitySnapshot(), 'ai/mcp/server/ghost/config.template.mjs': ['ghost.leaf']};
+
+        // iterating what still exists can never notice what stopped existing
+        expect(detectConfigLeafParityViolations({expectation}).vanished)
+            .toEqual(['ai/mcp/server/ghost/config.template.mjs'])
+    });
+
+    test('CLI: --update-parity is an explicit act, and reports the surface it recorded', () => {
+        const result = spawnSync(process.execPath, [scriptPath, '--help'], {encoding: 'utf8'});
+
+        // documented on the CLI it belongs to — a flag that rewrites the record of what the repo
+        // declares must be discoverable, and must never be a --fix that runs as a side effect
+        expect(result.stdout).toContain('--update-parity');
+        expect(result.stdout).toContain('snapshot')
     });
 });
