@@ -1,15 +1,16 @@
-import aiConfig        from '../../mcp/server/github-workflow/config.mjs';
-import Base            from '../../../src/core/Base.mjs';
-import logger          from '../../mcp/server/github-workflow/logger.mjs';
-import HealthService   from './HealthService.mjs';
-import IssueSyncer     from './sync/IssueSyncer.mjs';
-import MetadataManager from './sync/MetadataManager.mjs';
-import ReleaseNotesSyncer from './sync/ReleaseNotesSyncer.mjs';
-import DiscussionSyncer from './sync/DiscussionSyncer.mjs';
-import PullRequestSyncer from './sync/PullRequestSyncer.mjs';
-import RepositoryService from './RepositoryService.mjs';
-import {exec} from 'child_process';
-import {promisify} from 'util';
+import aiConfig                from '../../mcp/server/github-workflow/config.mjs';
+import Base                    from '../../../src/core/Base.mjs';
+import logger                  from '../../mcp/server/github-workflow/logger.mjs';
+import HealthService           from './HealthService.mjs';
+import IssueSyncer             from './sync/IssueSyncer.mjs';
+import MetadataManager         from './sync/MetadataManager.mjs';
+import ReleaseNotesSyncer      from './sync/ReleaseNotesSyncer.mjs';
+import DiscussionSyncer        from './sync/DiscussionSyncer.mjs';
+import PullRequestSyncer       from './sync/PullRequestSyncer.mjs';
+import RepositoryService       from './RepositoryService.mjs';
+import {formatIntegrityReport} from './shared/contentInventory.mjs';
+import {exec}                  from 'child_process';
+import {promisify}             from 'util';
 
 const execAsync = promisify(exec);
 
@@ -161,6 +162,46 @@ class SyncService extends Base {
         // 7. Sync pull requests
         const pullStats2 = await PullRequestSyncer.syncPullRequests(metadata);
 
+        // 7a. Restore any pull request owning more than one artifact from canonical GitHub state.
+        //     A divergent pair cannot be resolved locally — both files are real renderings and
+        //     nothing on disk says which is current — so neither is trusted and the artifact is
+        //     re-derived from the source of truth. Runs BEFORE the index realign so the restored
+        //     placement is what gets indexed, and is a no-op on a corpus with no duplicates.
+        const pullDuplicateStats = await PullRequestSyncer.repairDuplicateArtifacts(metadata);
+
+        // 7b. Realign `_index.json` with the pull corpus now that placement is final for this run.
+        //     Preventing new drift does not remove old drift: entries that went stale when a move
+        //     did not carry its upsert name files that are ALREADY archived, so the relocate pass
+        //     never revisits them and the delta sync never fetches them — no existing mechanism
+        //     could ever have healed them. The index is a projection of the corpus, so this
+        //     recomputes it from disk. Idempotent and silent on a healthy corpus (it upserts only
+        //     entries that disagree), so the generated-content diff stays empty when nothing drifted.
+        const pullIndexStats = await PullRequestSyncer.reconcilePullRequestIndex();
+
+        // 7c. One terminal integrity verdict, CONSUMED. Every pass above reports its own outcome and
+        //     degrades softly on its own terms, which is exactly how a corpus reaches the commit with
+        //     each step reporting success and the whole known-broken: a repair that fails logs and
+        //     returns, an unrepaired duplicate stays unindexed, and nothing downstream asks. So the
+        //     verdict is taken AFTER placement, restoration and projection are final, and it aborts —
+        //     before the metadata save, before the derive, before the auto-push. Committing a corpus
+        //     we have already measured as broken is worse than failing the run: the run can be
+        //     retried, but a generated commit is what every consumer then reads as truth.
+        const pullIntegrity = await PullRequestSyncer.verifyCorpusIntegrity();
+
+        if (pullDuplicateStats.failed.length > 0 || !pullIntegrity.ok) {
+            logger.error(formatIntegrityReport(pullIntegrity));
+
+            throw new Error(
+                'Pull corpus integrity is not clean after repair — refusing to commit generated content. ' +
+                `stale=${pullIntegrity.staleIndexEntries.length} ` +
+                `inconsistent=${pullIntegrity.inconsistentIndexEntries.length} ` +
+                `duplicateIndexRows=${pullIntegrity.duplicateIndexEntryIds.length} ` +
+                `unindexed=${pullIntegrity.unindexedIds.length} ` +
+                `divergentDuplicates=${pullIntegrity.divergentDuplicateIds.length} ` +
+                `failedRepairs=${pullDuplicateStats.failed.length}`
+            );
+        }
+
         // 8. Self-heal push failures: If a previously failed issue was successfully pulled, remove it from the failure list
         if (newMetadata.pushFailures?.length > 0) {
             newMetadata.pushFailures = newMetadata.pushFailures.filter(failedId => !newMetadata.issues[failedId]);
@@ -197,7 +238,10 @@ class SyncService extends Base {
             pullStats,
             releaseStats,
             discussionStats,
-            pullStats2
+            pullStats2,
+            pullDuplicateStats,
+            pullIndexStats,
+            pullIntegrity
         };
     }
 
@@ -225,7 +269,7 @@ class SyncService extends Base {
         logger.info('[SyncService] Detected real content changes. Committing and pushing.');
         await this.execGit(`git add ${generatedSyncStatusPaths}`, cwd);
         const {stdout: stagedStdout} = await this.execGit('git diff --cached --name-only', cwd);
-        const nonSyncFiles = stagedStdout.trim().split('\n').filter(Boolean).filter(file =>
+        const nonSyncFiles           = stagedStdout.trim().split('\n').filter(Boolean).filter(file =>
             !isGeneratedSyncFile(file)
         );
 
@@ -275,7 +319,7 @@ class SyncService extends Base {
      */
     async autoPushGeneratedContent({rerunEmission, maxAttempts = 2}) {
         if (aiConfig.pushToRepoAfterSync) {
-            const {permission} = await RepositoryService.getViewerPermission();
+            const {permission}     = await RepositoryService.getViewerPermission();
             const writePermissions = ['ADMIN', 'MAINTAIN', 'WRITE'];
 
             if (writePermissions.includes(permission)) {
@@ -316,7 +360,7 @@ class SyncService extends Base {
      */
     async runFullSync() {
         const startTime = new Date();
-        let syncStats   = await this.emitGeneratedContentAndDerive();
+        let   syncStats = await this.emitGeneratedContentAndDerive();
 
         await this.autoPushGeneratedContent({
             rerunEmission: async () => {
