@@ -425,6 +425,51 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         expect(matter(await fs.readFile(occupied, 'utf8')).data.number).toBe(prNumber);
     });
 
+    test('an OPEN PR is ranked against the ACTIVE corpus on disk, not against the delta — RA-1 planner witness', async () => {
+        // @neo-gpt-emmy is right that the scanner coverage never proved this: `contentInventory`
+        // specs show the SCANNER finds active files, not that the PLANNER ranks against them. This
+        // asserts the rank itself, which is the thing RA-1 actually claimed.
+        //
+        // Three OPEN PRs already on disk in active, none in metadata (the partial-metadata case), and
+        // a fourth arriving. With a threshold of 2, complete active membership [100,200,300,400] puts
+        // 400 at ordinal 3 → chunk-2. A planner ranking against the delta alone sees only 400,
+        // ordinal 0 → chunk-1: confidently wrong, and silent.
+        const originalThreshold = aiConfig.issueSync.archiveChunkThreshold;
+
+        aiConfig.issueSync.archiveChunkThreshold = 2;
+
+        try {
+            const activeDir = path.join(aiConfig.issueSync.pullsDir, 'chunk-1');
+
+            await fs.ensureDir(activeDir);
+            for (const id of [100, 200, 300]) {
+                await fs.writeFile(path.join(activeDir, `pr-${id}.md`), `---\nnumber: ${id}\nstate: OPEN\n---\n`, 'utf-8');
+            }
+
+            // No releases → nothing archives; every PR resolves to the active tier.
+            ReleaseNotesSyncer.sortedReleases = [];
+
+            const arriving = buildPullRequest(400);
+
+            arriving.state    = 'OPEN';
+            arriving.mergedAt = null;
+            arriving.closedAt = null;
+
+            GraphqlService.query = async () => ({
+                repository: {pullRequests: {nodes: [arriving], pageInfo: {hasNextPage: false, endCursor: null}}}
+            });
+
+            await PullRequestSyncer.syncPullRequests({pulls: {}});
+
+            // Ordinal 3 of [100,200,300,400] at threshold 2 → chunk-2.
+            await expect(fs.pathExists(path.join(aiConfig.issueSync.pullsDir, 'chunk-2', 'pr-400.md'))).resolves.toBe(true);
+            // Not chunk-1, which is what ranking against the delta alone would have chosen.
+            await expect(fs.pathExists(path.join(activeDir, 'pr-400.md'))).resolves.toBe(false);
+        } finally {
+            aiConfig.issueSync.archiveChunkThreshold = originalThreshold;
+        }
+    });
+
     test('a new archive arrival is ranked against the bucket ON DISK, not against the delta', async () => {
         // The ordinal is defined over complete bucket membership. With a threshold of 2 and two PRs
         // already sealed in v13.0.0, a third belongs in chunk-2. A planner that sees only the delta
@@ -716,6 +761,71 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         // BOTH survive — the duplicate is routed to the repair, not silently resolved here.
         expect(await fs.readFile(archived, 'utf8')).toBe('archived copy — the evidence');
         await expect(fs.pathExists(active)).resolves.toBe(true);
+    });
+
+    test('a failed repair does not poison the SHARED inventory — the next id keeps its complete-corpus ordinal', async () => {
+        // The single-duplicate witness proves the files survive a failed write. It structurally
+        // cannot prove this: with one duplicate there is no "later repair" to be harmed. Planning on
+        // the shared map deletes the failed id from it, so every subsequent id in the pass ranks
+        // against a corpus short one PR — files intact, membership lying.
+        //
+        // The fixture has to make that lie CHANGE AN OUTCOME, or the witness proves nothing. My first
+        // draft used the default threshold and passed against the unfixed code: the missing member
+        // shifted no chunk, so the poisoning was real and invisible — a test that cannot fail for its
+        // stated reason, which is precisely the defect it was written to close.
+        //
+        // At threshold 2, one sealed member (100) plus two duplicates (200 failing, 300 following):
+        //   membership [100, 200, 300] → 300 is ordinal 2 → chunk-2   (shared map intact)
+        //   membership [100, 300]      → 300 is ordinal 1 → chunk-1   (poisoned: 200 deleted)
+        // The chunk is the discriminator.
+        const originalThreshold = aiConfig.issueSync.archiveChunkThreshold;
+
+        aiConfig.issueSync.archiveChunkThreshold = 2;
+
+        try {
+            const sealed = path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', 'chunk-1');
+
+            await fs.ensureDir(sealed);
+            await fs.writeFile(path.join(sealed, 'pr-100.md'), 'sealed single', 'utf8');
+
+            await seedDivergentPair(200);
+            await seedDivergentPair(300);
+
+            ReleaseNotesSyncer.sortedReleases = [{tagName: 'v13.0.0', publishedAt: '2026-06-01T00:00:00Z'}];
+            GraphqlService.query = async (_q, vars) => ({repository: {pullRequest: buildPullRequest(vars.prNumber)}});
+
+            const originalWriteFile = fsPromises.writeFile;
+
+            // Fail ONLY 200's write. 300 must still rank against a corpus that contains 200.
+            fsPromises.writeFile = async (p, ...rest) => {
+                if (String(p).includes('pr-200.md')) throw new Error('ENOSPC: no space left on device');
+                return originalWriteFile(p, ...rest)
+            };
+
+            let stats;
+            try {
+                stats = await PullRequestSyncer.repairDuplicateArtifacts({pulls: {}});
+            } finally {
+                fsPromises.writeFile = originalWriteFile;
+            }
+
+            expect(stats.failed.map(f => f.id)).toEqual([200]);
+            expect(stats.repaired).toEqual([300]);
+
+            // THE DISCRIMINATOR: 300 lands at the ordinal complete membership chooses. A poisoned map
+            // would have ranked it one place earlier and written chunk-1.
+            await expect(fs.pathExists(path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', 'chunk-2', 'pr-300.md'))).resolves.toBe(true);
+            await expect(fs.pathExists(path.join(sealed, 'pr-300.md'))).resolves.toBe(false);
+
+            // And 200's copies both survive — the single-duplicate contract, unchanged.
+            for (const chunk of ['chunk-1', 'chunk-2']) {
+                const p = path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', chunk, 'pr-200.md');
+
+                expect(await fs.readFile(p, 'utf8')).toBe(`divergent ${chunk}`);
+            }
+        } finally {
+            aiConfig.issueSync.archiveChunkThreshold = originalThreshold;
+        }
     });
 
     test('a PR absent from GitHub is refused, not cleaned up — the copies are the only record left', async () => {

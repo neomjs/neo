@@ -794,12 +794,22 @@ class PullRequestSyncer extends Base {
 
                 const content = this.#renderPullRequestMarkdown(pr);
 
-                // Plan against membership with the duplicates excluded — they are about to stop
+                // Plan against membership with THIS id's duplicates excluded — they are about to stop
                 // existing, and `#getPullRequestPath` refuses an ambiguous id by design.
-                inventory.delete(id);
+                //
+                // On a CLONE, because the shared inventory must only ever describe DURABLE state.
+                // Deleting from it here would mean a post-fetch failure — mkdir, write, rename, or a
+                // crash — leaves the loop holding membership that no longer matches disk: the files
+                // survive (that is what the write-failure witness proves) while the map has silently
+                // lost a member, so every LATER id in this pass plans its ordinal against a corpus
+                // short one PR. A failure must cost this id's repair and nothing else. The blast
+                // radius of a soft-failed restore is the id it failed on.
+                const planningInventory = new Map(inventory);
 
-                const planBuckets = this.#planBuckets(metadata, [pr], inventory),
-                      targetPath  = this.#getPullRequestPath(pr, planBuckets, inventory);
+                planningInventory.delete(id);
+
+                const planBuckets = this.#planBuckets(metadata, [pr], planningInventory),
+                      targetPath  = this.#getPullRequestPath(pr, planBuckets, planningInventory);
 
                 // DURABLE FIRST, then delete. Holding the canonical rendering in memory protects
                 // against a failed fetch and nothing else: every step between an unlink and the
@@ -825,6 +835,10 @@ class PullRequestSyncer extends Base {
                     stats.removed++;
                 }
 
+                // Durable now: the artifact is on disk and the rivals are gone, so the shared
+                // inventory may finally be told. Replacing the id's entry outright — the copies it
+                // listed no longer exist — makes the map match disk exactly at this point, which is
+                // the invariant every later id in the loop plans against.
                 inventory.set(id, [{
                     absPath    : targetPath,
                     ...parseContentPath({contentRoot: issueSyncConfig.contentRoot, filePath: targetPath, ...pathSegmentOptionsFor(issueSyncConfig)})
