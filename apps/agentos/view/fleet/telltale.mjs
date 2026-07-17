@@ -117,10 +117,21 @@ export function describeTelltaleReadout({throttle = null, wake = null} = {}) {
  * card-silent — for different reasons the detail keeps apart, and neither is a deviation the operator
  * can act on from a roster.
  *
+ * **Every deviation names its axis**, in a fixed wake-before-throttle order. A bare `rate-limited`
+ * saves six characters and costs the reader the question the chip exists to answer — and with two
+ * axes drawing from disjoint vocabularies, an unlabelled state is only decodable by someone who has
+ * memorised which words belong to which axis.
+ *
+ * `ariaLabel` names the deviations for a screen reader; `title` carries the FULL two-axis readout, so
+ * the hover answers what the chip had no room for without a drill-in. Both are the Contract Ledger's
+ * a11y row, and both are derived here rather than in the view: they are statements about the
+ * taxonomy, and a second renderer must not be able to word them differently.
+ *
  * @param {Object} options={}
  * @param {Object|null} [options.throttle] The record's throttle observation.
  * @param {Object|null} [options.wake] The record's wake observation.
- * @returns {{hidden: Boolean, text: String}} `hidden` when nothing is worth reporting.
+ * @returns {{ariaLabel: String|null, hidden: Boolean, text: String, title: String|null}} `hidden`
+ *     when nothing is worth reporting; `ariaLabel`/`title` are `null` exactly when hidden.
  */
 export function describeTelltale({throttle = null, wake = null} = {}) {
     const
@@ -132,11 +143,18 @@ export function describeTelltale({throttle = null, wake = null} = {}) {
         // the detail, which is the right way round for a surface whose budget is pixels.
         reportable    = [
             TELLTALE_CARD_DEVIANT.wake.includes(wakeState) ? `wake ${wakeState}` : null,
-            TELLTALE_CARD_DEVIANT.throttle.includes(throttleState) ? throttleState : null
-        ].filter(Boolean);
+            TELLTALE_CARD_DEVIANT.throttle.includes(throttleState) ? `throttle ${throttleState}` : null
+        ].filter(Boolean),
+        hidden        = reportable.length === 0;
 
     return {
-        hidden: reportable.length === 0,
-        text  : reportable.join(' · ')
+        ariaLabel: hidden ? null : `Telltale: ${reportable.join(', ')}`,
+        hidden,
+        text     : reportable.join(' · '),
+        // The full readout the chip could not fit — both axes, including the nominal and the blind
+        // ones, worded exactly as the detail words them.
+        title    : hidden ? null : describeTelltaleReadout({throttle, wake})
+            .map(({axis, reported, state}) => `${axis}: ${reported ? state : 'not reported'}`)
+            .join(' · ')
     }
 }

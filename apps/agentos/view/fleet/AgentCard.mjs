@@ -346,7 +346,17 @@ class AgentCard extends Container {
         // emits when it looked and could not see, and `null` is the absence of an observation. The
         // card never collapses the two — defaulting an absent axis to `unknown` would report
         // blindness nobody claimed, which is the inverse of the failure the taxonomy prevents.
-        me.getReference('card-telltale').set(describeTelltale({throttle: record.throttle, wake: record.wake}));
+        const telltale                         = me.getReference('card-telltale'),
+              {ariaLabel, hidden, text, title} = describeTelltale({throttle: record.throttle, wake: record.wake});
+
+        telltale.set({hidden, text});
+
+        // The chip is a glyph-dense exception marker: the text says `wake off` and the operator's
+        // next question is "and the throttle?". `title` answers it on hover without a drill-in, and
+        // `aria-label` is the only way a screen-reader user gets the chip at all. Cleared to null when
+        // hidden — a stale label on an invisible node is a claim about an agent that is now fine.
+        telltale.changeVdomRootKey('aria-label', ariaLabel);
+        telltale.changeVdomRootKey('title', title);
         me.getReference('source-roster').health    = sources.roster;
         me.getReference('source-repo-status').health = sources.repoStatus;
         me.getReference('source-runtime').health   = runtime;

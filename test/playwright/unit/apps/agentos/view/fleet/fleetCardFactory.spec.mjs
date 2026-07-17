@@ -91,6 +91,34 @@ test.describe('fleetCardFactory — cockpit DTO → dock card descriptors (#1479
         expect(card.metadata.githubUsername).toBeNull()
     })
 
+    test('both telltale axes survive the restoration blueprint — a restored card cannot disagree with a live one', () => {
+        // The dock-restore path is the card's OTHER ingress. Dropping the axes here does not make a
+        // restored card render `unknown` — it makes it render NOTHING, because an absent axis is
+        // absence by contract. So the restored card reads as nominal while the live card beside it
+        // chips `wake off`, for the same agent, from the same DTO. The Store-backed cockpit path
+        // already passes both through; this one silently did not.
+        const wake     = {source: 'fleet:wakeState', state: 'off', confidence: 'observed'},
+              throttle = {source: 'fleet:throttleState', state: 'unknown', confidence: 'none', reason: 'no reader'},
+              data     = toAgentCardDescriptor({id: 'vega', throttle, wake}).blueprint.record
+
+        // the WHOLE observation travels — `confidence`/`reason` are the producer's evidence it looked
+        expect(data.wake).toEqual(wake)
+        expect(data.throttle).toEqual(throttle)
+
+        // and it stays serializable — the blueprint crosses a JSON boundary
+        expect(JSON.parse(JSON.stringify(data)).wake).toEqual(wake)
+    })
+
+    test('an axis the DTO never carried restores as null — absence, never a manufactured unknown', () => {
+        const data = toAgentCardDescriptor({id: 'ghost'}).blueprint.record
+
+        // null, not undefined: `undefined` vanishes through JSON and the distinction the taxonomy is
+        // built on (nobody looked vs looked-and-blind) would be decided by serialization
+        expect(data.wake).toBeNull()
+        expect(data.throttle).toBeNull()
+        expect(Object.hasOwn(JSON.parse(JSON.stringify(data)), 'wake')).toBe(true)
+    })
+
     test('maps the session state through only when runtime source truth is usable', () => {
         const sources   = {runtime: {source: 'fleet:runtimeStatus', state: 'wired', confidence: 'observed'}}
         const lifecycle = {source: 'fleet:runtimeStatus', state: 'running', confidence: 'observed'}

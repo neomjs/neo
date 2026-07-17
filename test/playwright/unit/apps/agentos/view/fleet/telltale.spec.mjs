@@ -23,7 +23,7 @@ import {describeTelltale, describeTelltaleReadout, TELLTALE_CARD_DEVIANT, TELLTA
 test.describe('AgentOS.view.fleet.telltale — two orthogonal axes, one compound chip', () => {
     test('nominal on both axes earns ZERO card pixels', () => {
         expect(describeTelltale({wake: {state: 'on'}, throttle: {state: 'none'}}))
-            .toEqual({hidden: true, text: ''})
+            .toEqual({ariaLabel: null, hidden: true, text: '', title: null})
     });
 
     test('the nominal vocabulary is the producers\', not this module\'s invention', () => {
@@ -42,10 +42,10 @@ test.describe('AgentOS.view.fleet.telltale — two orthogonal axes, one compound
         // Measured against the default adapter: 3 agents, 3 `unknown`s, 3 chips. "The producers
         // landed" was true and did not imply the producers can see.
         expect(describeTelltale({wake: {state: 'unknown'}, throttle: {state: 'none'}}))
-            .toEqual({hidden: true, text: ''});
+            .toEqual({ariaLabel: null, hidden: true, text: '', title: null});
 
         expect(describeTelltale({wake: {state: 'on'}, throttle: {state: 'unknown'}}))
-            .toEqual({hidden: true, text: ''});
+            .toEqual({ariaLabel: null, hidden: true, text: '', title: null});
 
         // …and the fact still reaches the operator, unhidden, where there is room for it
         expect(describeTelltaleReadout({wake: {state: 'on'}, throttle: {state: 'unknown', reason: 'no reader'}}))
@@ -60,30 +60,45 @@ test.describe('AgentOS.view.fleet.telltale — two orthogonal axes, one compound
         expect(TELLTALE_CARD_DEVIANT).toEqual({throttle: ['overage', 'rate-limited'], wake: ['off', 'suppressed']});
 
         // an out-of-contract answer earns no card pixels — but is still stated verbatim in the detail
-        expect(describeTelltale({wake: {state: 'wat'}, throttle: {state: 'none'}})).toEqual({hidden: true, text: ''});
+        expect(describeTelltale({wake: {state: 'wat'}, throttle: {state: 'none'}})).toEqual({ariaLabel: null, hidden: true, text: '', title: null});
         expect(describeTelltaleReadout({wake: {state: 'wat'}, throttle: null})[0].state).toBe('wat')
     });
 
     test('`null` is the ABSENCE of an observation — no chip, and no manufactured unknown', () => {
         // The row carried no axis. Defaulting to 'unknown' here would report blindness the producer
         // never claimed — an invented observation, which is the inverse defect of hiding a real one.
-        expect(describeTelltale({wake: null, throttle: null})).toEqual({hidden: true, text: ''});
-        expect(describeTelltale({})).toEqual({hidden: true, text: ''});
-        expect(describeTelltale()).toEqual({hidden: true, text: ''})
+        expect(describeTelltale({wake: null, throttle: null})).toEqual({ariaLabel: null, hidden: true, text: '', title: null});
+        expect(describeTelltale({})).toEqual({ariaLabel: null, hidden: true, text: '', title: null});
+        expect(describeTelltale()).toEqual({ariaLabel: null, hidden: true, text: '', title: null})
     });
 
     test('a null axis alongside a non-nominal one reports ONLY what was observed', () => {
         // The un-stamped axis contributes nothing — it is not 'unknown', it is absent.
         expect(describeTelltale({wake: {state: 'suppressed'}, throttle: null}))
-            .toEqual({hidden: false, text: 'wake suppressed'})
+            .toEqual({
+                ariaLabel: 'Telltale: wake suppressed',
+                hidden   : false,
+                text     : 'wake suppressed',
+                // the title states BOTH axes — including the one that reported nothing, which is a
+                // different fact from a nominal one and must not read as "throttle is fine"
+                title    : 'wake: suppressed · throttle: not reported'
+            })
     });
 
     test('BOTH axes non-nominal → exactly ONE compound chip — the incident this answers', () => {
         // The lived failure: wake daemon hand-disabled AND a session rate limit, at once, both
         // invisible. Two simultaneous exceptions must not cost two chips, and a single enum could
         // only ever have reported one of them.
+        // BOTH deviations name their axis. The first cut emitted a bare `rate-limited`: six characters
+        // saved, and the reader left to know which of two disjoint vocabularies the word came from —
+        // on the one surface that exists to be read at a glance.
         expect(describeTelltale({wake: {state: 'off'}, throttle: {state: 'rate-limited'}}))
-            .toEqual({hidden: false, text: 'wake off · rate-limited'})
+            .toEqual({
+                ariaLabel: 'Telltale: wake off, throttle rate-limited',
+                hidden   : false,
+                text     : 'wake off · throttle rate-limited',
+                title    : 'wake: off · throttle: rate-limited'
+            })
     });
 
     test('the full predicate matrix: every ACTIONABLE deviation chips, and every unactionable state does not', () => {
@@ -112,7 +127,7 @@ test.describe('AgentOS.view.fleet.telltale — two orthogonal axes, one compound
         // the detail readout; a chip that changed with confidence would make two different producers'
         // 'unknown' render differently for no operator-visible reason.
         expect(describeTelltale({wake: {state: 'on', confidence: 'none', reason: 'noisy'}}))
-            .toEqual({hidden: true, text: ''})
+            .toEqual({ariaLabel: null, hidden: true, text: '', title: null})
     })
 
     test('the DETAIL readout states BOTH axes — the opposite of the card, deliberately', () => {
@@ -146,9 +161,16 @@ test.describe('AgentOS.view.fleet.telltale — two orthogonal axes, one compound
 
         expect(throttle.reason).toBe('session cap reached 01:12Z');
 
-        // the chip carries the state only
-        expect(describeTelltale({throttle: {state: 'rate-limited', reason: 'session cap reached 01:12Z'}}).text)
-            .toBe('rate-limited')
+        // the chip carries the AXIS + state, and nothing the producer wrote
+        const chip = describeTelltale({throttle: {state: 'rate-limited', reason: 'session cap reached 01:12Z'}});
+
+        expect(chip.text).toBe('throttle rate-limited');
+
+        // the reason reaches NEITHER the chip text, its label, nor its hover: it is the producer's
+        // prose, it is unbounded, and on the card there is no room and no need for it
+        expect(chip.text).not.toContain('session cap');
+        expect(chip.ariaLabel).not.toContain('session cap');
+        expect(chip.title).not.toContain('session cap')
     });
 
     test('an observed `unknown` is reported and NOT nominal — blindness is not health', () => {
