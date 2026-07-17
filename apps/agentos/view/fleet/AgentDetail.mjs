@@ -1,7 +1,9 @@
 import Container                                      from '../../../../src/container/Base.mjs';
 import FamilyRail                                     from './FamilyRail.mjs';
 import Image                                          from '../../../../src/component/Image.mjs';
+import MailboxPane                                    from './MailboxPane.mjs';
 import StateDot                                       from './StateDot.mjs';
+import TabContainer                                   from '../../../../src/tab/Container.mjs';
 import {classifyPaneFreshness, describePaneFreshness} from './agentFreshness.mjs';
 import {normalizeFleetSources}                        from './sourceHealth.mjs';
 
@@ -202,13 +204,29 @@ class AgentDetail extends Container {
                 }]
             }]
         }, {
-            ntype    : 'container',
-            cls      : ['fm-detail-panes'],
-            flex     : 1,
-            hidden   : true,
-            reference: 'detail-panes',
-            layout   : {ntype: 'vbox', align: 'stretch'},
-            items    : PANES.map(paneConfig)
+            // object permanence: the mailbox belongs to the agent object, so it rides the detail
+            // as a TAB beside the status panes — the a11y region + identity header stay above
+            module     : TabContainer,
+            cls        : ['fm-detail-tabs'],
+            flex       : 1,
+            hidden     : true,
+            reference  : 'detail-tabs',
+            activeIndex: 0,
+
+            items: [{
+                ntype    : 'container',
+                cls      : ['fm-detail-panes'],
+                header   : {text: 'Status'},
+                reference: 'detail-panes',
+                layout   : {ntype: 'vbox', align: 'stretch'},
+                items    : PANES.map(paneConfig)
+            }, {
+                // the tab title stays COUNTLESS by design: an unread badge would imply
+                // operator-side read tracking that deliberately does not exist
+                module   : MailboxPane,
+                header   : {text: 'Mailbox'},
+                reference: 'mailbox-pane'
+            }]
         }]
     }
 
@@ -222,6 +240,10 @@ class AgentDetail extends Container {
         // labeled region on drill-in, not an unnamed pane. Set on the root before applyRecord's first
         // render flush; a later re-seat (applyRecord) keeps the root, so the region survives.
         Object.assign(this.vdom, {role: 'region', 'aria-label': 'Agent detail'});
+        // the pane renders and never fetches: it fires the page intent, this view (which holds the
+        // read seam and the subject) performs the bounded re-read. Wired explicitly rather than via
+        // a string handler — this view carries no controller for one to resolve against.
+        this.getReference('mailbox-pane')?.on('pageRequest', this.onMailboxPageRequest, this);
         this.applyRecord();
         this.startFreshnessAging()
     }
@@ -241,6 +263,13 @@ class AgentDetail extends Container {
         me.timeout(me.freshnessRefreshMs).then(() => {
             if (!me.isDestroyed) {
                 me.record && me.applyPaneFreshness();
+                // the mailbox chip ages off the SAME timer. It is time-relative like every other
+                // pane, but it renders inside a child that reads the live clock only when something
+                // re-renders it — so without this nudge a `fresh` mailbox stays fresh forever while
+                // its snapshot silently rots, which is precisely the stale-claim-rendered-as-current
+                // failure the freshness vocabulary exists to prevent. One owner timer, two
+                // consumers: a second interval would age the same surface twice.
+                me.record && me.getReference('mailbox-pane')?.applySnapshot();
                 me.startFreshnessAging()
             }
         })
@@ -255,6 +284,90 @@ class AgentDetail extends Container {
      */
     afterSetRecord(value, oldValue) {
         this.isConstructed && this.applyRecord()
+    }
+
+    /**
+     * Monotonic read generation for {@link #loadMailboxMirror}. A drill is a user gesture and the
+     * mirror read is async, so two reads can be in flight across a fast A→B→A drill; only the
+     * newest may land.
+     * @member {Number} mailboxReadGeneration=0
+     * @protected
+     */
+    mailboxReadGeneration = 0
+
+    /**
+     * @summary Honor the pane's page request by re-reading the mirror at the requested offset.
+     *
+     * Routed through the SAME read as the drill, so a page transition inherits its generation latch
+     * and subject re-check for free: a page request answered after the operator drilled elsewhere is
+     * dropped exactly like a stale drill read, rather than paging resident A's inbox into B's pane.
+     * @param {Object} data `{offset}` from the pane's `pageRequest` event.
+     * @protected
+     */
+    onMailboxPageRequest(data) {
+        this.loadMailboxMirror({offset: data.offset})
+    }
+
+    /**
+     * @summary Read THIS resident's mailbox mirror through the Fleet read seam and hand it to the pane.
+     *
+     * The pane renders and never fetches; this view owns the read because it owns the drill, and it
+     * stays shell-agnostic so the popped-out inspector reads exactly like the docked one. The Body
+     * never touches MailboxService — it calls the `fleetMailboxMirror` read verb, whose source is
+     * the thing that would hold the identity binding.
+     *
+     * **Today that source is unwired and this transport authenticates nothing**, so the read can
+     * only answer an honest `unavailable` and the pane renders `unobserved`. That is the truthful
+     * state, not a placeholder: no viewer identity crosses the Fleet boundary yet, so no admission
+     * can be attributed. The live read waits on authenticated viewer ingress + per-request identity
+     * binding; this path is the seam it will arrive through, already failing closed.
+     *
+     * **Race-safe by generation, not by hope.** A drill is a gesture; the read is async. Across a
+     * fast A→B drill the in-flight read for A resolves AFTER B is seated, and assigning it would
+     * render A's inbox under B's name — the exact defect the possession guard exists to prevent,
+     * re-entering through the back door. The generation latch AND the re-checked subject both have
+     * to hold before a snapshot lands.
+     *
+     * Fail-closed: an absent verb or a throw leaves the pane `unobserved` — it never fabricates a
+     * snapshot, and never renders "no mail" for a read that did not happen.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async loadMailboxMirror({offset = 0} = {}) {
+        let me       = this,
+            username = me.record?.githubUsername,
+            bridge   = globalThis.AgentOS?.fleet?.registryBridge;
+
+        // The read asks for the resident's MAILBOX identity, never the Fleet registry key: a mailbox
+        // subject is an AgentIdentity node id (`@neo-opus-vega`) while `agentId` is a registry key
+        // (`vega`), so passing the key would request a subject that does not exist — and any answer
+        // to it would be about someone else. A resident with no identity authority is honestly
+        // unreadable: no read is issued at all, rather than one aimed at a guess.
+        const subject = typeof username === 'string' && username.trim()
+            ? (username.trim().startsWith('@') ? username.trim() : `@${username.trim()}`)
+            : null;
+
+        if (!subject || typeof bridge?.fleetMailboxMirror !== 'function') {
+            return
+        }
+
+        const generation = ++me.mailboxReadGeneration;
+
+        try {
+            const snapshot = await bridge.fleetMailboxMirror({subjectAgentId: subject, offset});
+
+            // A newer drill won, the subject moved, or the view is gone — drop it on the floor.
+            // The re-check compares the SAME field the read was aimed with (`githubUsername`), not
+            // the registry key: comparing across the two id spaces would never match and would
+            // silently discard every snapshot.
+            if (me.isDestroyed || generation !== me.mailboxReadGeneration || me.record?.githubUsername !== username) {
+                return
+            }
+
+            me.getReference('mailbox-pane').snapshot = snapshot
+        } catch (error) {
+            // fail-closed: the pane stays honestly unobserved rather than inventing a snapshot
+        }
     }
 
     /**
@@ -294,11 +407,27 @@ class AgentDetail extends Container {
             record = me.record,
             empty  = me.getReference('detail-empty'),
             header = me.getReference('detail-header'),
-            panes  = me.getReference('detail-panes');
+            tabs   = me.getReference('detail-tabs');
 
         empty.hidden  = !!record;
         header.hidden = !record;
-        panes.hidden  = !record;
+        tabs.hidden   = !record;
+
+        // The mailbox tab follows the drilled-in resident. A snapshot is one SUBJECT's mail, so it
+        // cannot survive a re-seat onto a different resident: retaining it renders resident A's
+        // inbox under resident B's name — mail attributed to an agent who never received it. The
+        // pane drops to its honest `unobserved` state until THIS subject's snapshot arrives.
+        // A same-subject re-seat (a roster refresh restamping the record) keeps it.
+        const
+            mailbox   = me.getReference('mailbox-pane'),
+            sameAgent = mailbox.record?.agentId && mailbox.record.agentId === record?.agentId;
+
+        mailbox.set({
+            record,
+            ...(sameAgent ? {} : {snapshot: null})
+        });
+
+        sameAgent || me.loadMailboxMirror();
 
         if (!record) {
             return

@@ -1,0 +1,177 @@
+import {test, expect} from '../../fixtures.mjs';
+
+/**
+ * @summary The AgentDetail **Mailbox tab** proven LIVE: the drill reveals the inspector,
+ * the REAL DOM click on the countless "Mailbox" tab button activates the pane, and the pane renders
+ * the honest `unobserved` state (no live wiring injects adapter snapshots yet — the truthful
+ * today-state, never fabricated rows). Then a live adapter-shaped snapshot is injected through the
+ * possession seam (`setProperties` on the mounted pane — exactly the wiring's contract) and the
+ * whole render chain is exercised over the real DOM: rows appear newest-first, the collapsed
+ * thread head carries its `+N earlier` chip, and a REAL click on the thread head expands the
+ * thread inline — proving the `data-thread-id` → DOM dataset → delegated-listener path end-to-end.
+ *
+ * Read-only discipline (the record's MUST-NOT) is asserted live: no button/input renders anywhere
+ * inside the pane, and the tab button text is exactly "Mailbox" — countless by design.
+ *
+ * @see apps/agentos/view/fleet/MailboxPane.mjs
+ * @see apps/agentos/view/fleet/AgentDetail.mjs
+ * @see test/playwright/e2e/agentos/FleetCockpitDrillNL.spec.mjs (the drill pattern this extends)
+ */
+test.describe('AgentOS fleet cockpit — the AgentDetail Mailbox tab live (#15270)', () => {
+    test.setTimeout(90000);
+
+    test('drill → Mailbox tab: honest unwired state; injected snapshot renders rows; the thread head toggles on a real DOM click', async ({page, neuralLink}) => {
+        await page.goto('/apps/agentos/index.html');
+        await expect(page.locator('.fm-fleet-cockpit')).toBeVisible({timeout: 60000});
+        await expect(page.locator('.fm-agent-card').first()).toBeVisible({timeout: 30000});
+
+        const app    = await neuralLink.connectToApp('AgentOS'),
+              cards  = await app.queryComponent({className: 'AgentOS.view.fleet.AgentCard'}, ['record', 'id']),
+              target = cards.find(entry => entry?.properties?.record?.agentId && entry?.properties?.id);
+
+        expect(target, 'a card exposes both a record agentId and a component id').toBeTruthy();
+
+        const expectedAgentId = target.properties.record.agentId;
+        // The injected snapshot must name the resident's MAILBOX identity, not the registry key —
+        // the pane refuses a snapshot admitted for anyone else, so a fixture aimed with the wrong id
+        // space renders nothing. This is the production contract, live: `githubUsername` is the
+        // identity authority the admitted subject is checked against.
+        const expectedSubject = `@${target.properties.record.githubUsername}`;
+
+        // the drill target is the dedicated native Button (`fm-card-drill`), NOT the avatar: the
+        // a11y refactor moved the gesture onto a real <button> that owns Enter/Space, and the avatar
+        // is a handler-less Image, so clicking it is a silent no-op.
+        await page.locator(`[id="${target.properties.id}"] .fm-card-drill`).click();
+
+        const detail = page.locator('.fm-agent-detail');
+        await expect(detail).toBeVisible({timeout: 15000});
+
+        // the tab bar renders the COUNTLESS Mailbox tab — exactly "Mailbox", no badge, no count
+        // (an unread count would imply operator-side read tracking that deliberately does not exist)
+        const mailboxTab = detail.locator('.neo-tab-header-button', {hasText: 'Mailbox'})
+            .or(detail.locator('.neo-tab-button', {hasText: 'Mailbox'}));
+        await expect(mailboxTab.first()).toBeVisible({timeout: 15000});
+
+        // the REAL DOM click activates the pane
+        await mailboxTab.first().click();
+
+        const pane = detail.locator('.fm-mailbox-pane');
+        await expect(pane).toBeVisible({timeout: 15000});
+
+        // the honest today-state: no wiring injects snapshots yet → unobserved, said plainly
+        await expect(pane.locator('.fm-mailbox-state')).toHaveText(/Mailbox feed not wired/);
+
+        // Possession: the pane follows the drilled resident; the snapshot is honestly null.
+        //
+        // The wait is load-bearing, not padding. The drill ISSUES an async mirror read, so asserting
+        // `snapshot === null` the instant after the click would pass before that read could ever have
+        // landed — green for the wrong reason, and blind to a snapshot arriving a tick later. A
+        // negative assertion has to outlive the thing it proves absent. (No fleet server runs in this
+        // suite, so the read fails closed and nothing is assigned; the wait is what makes that a
+        // finding rather than a coincidence.)
+        await page.waitForTimeout(500);
+
+        const [mounted] = await app.queryComponent({className: 'AgentOS.view.fleet.MailboxPane'}, ['record', 'snapshot', 'id']);
+        expect(mounted?.properties?.record?.agentId, 'the pane record follows the drill').toBe(expectedAgentId);
+        expect(mounted?.properties?.snapshot ?? null, 'a fail-closed read assigns NOTHING — never a fabricated snapshot').toBe(null);
+
+        // inject a live adapter-shaped snapshot through the possession seam — the wiring's contract
+        const capturedAt = new Date().toISOString();
+
+        await app.setProperties(mounted.properties.id, {
+            snapshot: {
+                capability: {source: 'memory-core:mailbox', state: 'wired', confidence: 'observed', capturedAt, reason: null},
+                admission : {state: 'granted', viewerIdentity: '@operator', subjectAgentId: expectedSubject, checkedAt: capturedAt, reason: null},
+                page      : {limit: 50, offset: 0, count: 3},
+                rows      : [{
+                    messageId     : 'MESSAGE:e2e-solo',
+                    subject       : 'standalone live message',
+                    from          : '@neo-gpt',
+                    recipientClass: 'agent',
+                    priority      : 'high',
+                    status        : 'unread',
+                    taskState     : null,
+                    partOfThread  : null,
+                    relatedTickets: [],
+                    wakeSuppressed: false,
+                    sentAt        : '2026-07-16T12:02:00.000Z',
+                    readAt        : null
+                }, {
+                    messageId     : 'MESSAGE:e2e-thread-new',
+                    subject       : 'thread head live',
+                    from          : '@neo-gpt-emmy',
+                    recipientClass: 'agent',
+                    priority      : 'normal',
+                    status        : 'read',
+                    taskState     : null,
+                    partOfThread  : 'THREAD:e2e',
+                    relatedTickets: [],
+                    wakeSuppressed: false,
+                    sentAt        : '2026-07-16T12:01:00.000Z',
+                    readAt        : '2026-07-16T12:05:00.000Z'
+                }, {
+                    messageId     : 'MESSAGE:e2e-thread-old',
+                    subject       : 'thread member live',
+                    from          : '@neo-gpt-emmy',
+                    recipientClass: 'agent',
+                    priority      : 'normal',
+                    status        : 'read',
+                    taskState     : null,
+                    partOfThread  : 'THREAD:e2e',
+                    relatedTickets: [],
+                    wakeSuppressed: false,
+                    sentAt        : '2026-07-16T12:00:00.000Z',
+                    readAt        : '2026-07-16T12:05:00.000Z'
+                }]
+            }
+        });
+
+        // rows render in the REAL DOM: the standalone + ONE collapsed thread head, newest first
+        await expect(pane.locator('.fm-mail-row')).toHaveCount(2, {timeout: 15000});
+        await expect(pane.locator('.fm-mail-row').first().locator('.fm-mail-subject')).toHaveText('standalone live message');
+        await expect(pane.locator('.fm-mail-thread-count')).toHaveText('+1 earlier');
+        await expect(pane.locator('.fm-mailbox-page-range')).toHaveText('1–3');
+        // The window can MOVE, not just describe itself: both edges render as real composed
+        // controls, and a 3-of-50 page with no `hasMore` is the producer saying it ran out — so both
+        // edges are closed, disabled rather than hidden.
+        //
+        // Both edges, asserted twice for two different contracts — neither matcher subsumes the other.
+        //
+        // `neo-disabled` is the class `component.Base` applies for `disabled`; it pins the
+        // cross-component class contract, which is what this pane may rely on. It says nothing about
+        // what a screen reader is told.
+        await expect(pane.locator('.fm-mailbox-page-next')).toHaveClass(/neo-disabled/);
+        await expect(pane.locator('.fm-mailbox-page-prev')).toHaveClass(/neo-disabled/);
+
+        // `toBeDisabled()` pins the ANNOUNCED state, live. Playwright honours `aria-disabled` for
+        // roles in `kAriaDisabledRoles` — `button` among them — so on a control carrying no native
+        // attribute this passes off the pane's own `aria-disabled`, and that is exactly what makes it
+        // worth asserting: it is the only proof the announcement reaches the REAL DOM. The unit spec
+        // asserts `vdom['aria-disabled']`, and a vdom assertion can pass while the attribute never
+        // flushes to a mounted node — proving the object, not the thing the operator's AT would read.
+        await expect(pane.locator('.fm-mailbox-page-next')).toBeDisabled();
+        await expect(pane.locator('.fm-mailbox-page-prev')).toBeDisabled();
+
+        // read-only is structural, proven live: zero DATA-ENTRY elements and no mutation verb. The
+        // bar is mutation, not interactivity — the one admissible control is the thread-collapse
+        // toggle (display state), which MUST be a real button or no keyboard user can operate it.
+        await expect(pane.locator('input, textarea, select, a')).toHaveCount(0);
+        // the ONLY admissible controls are display-state navigation: the thread toggle and the two
+        // page steps. Anything else here would be a mutation verb the record forbids.
+        await expect(pane.locator('button:not(.fm-mail-thread-toggle):not(.fm-mailbox-page-step)')).toHaveCount(0);
+
+        // the toggle is a native button naming its state — live, in the real DOM
+        const toggle = pane.locator('.fm-mail-thread-toggle');
+        await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+        // a REAL keyboard activation — Enter on the focused native button — drives the
+        // data-thread-id → dataset → delegated-listener path end-to-end. A div would swallow this:
+        // this is the assertion that would have caught the mouse-only affordance.
+        await toggle.focus();
+        await page.keyboard.press('Enter');
+
+        await expect(pane.locator('.fm-mail-row')).toHaveCount(3, {timeout: 15000});
+        await expect(pane.locator('.fm-mail-row').nth(2).locator('.fm-mail-subject')).toHaveText('thread member live');
+        await expect(pane.locator('.fm-mail-thread-toggle')).toHaveAttribute('aria-expanded', 'true')
+    })
+});

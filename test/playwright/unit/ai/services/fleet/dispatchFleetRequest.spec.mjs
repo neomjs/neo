@@ -111,16 +111,20 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
         expect(res.ok).toBe(false);
     });
 
-    test('the wire allowlist is exactly the pane operations (+ the read-observe getBootIdentity / fleetActivity / fleetRoster) — no resolver seams', () => {
+    test('the wire allowlist is exactly the pane operations (+ the read-observe getBootIdentity / fleetActivity / fleetRoster / fleetMailboxMirror) — no resolver seams', () => {
         expect([...FLEET_WIRE_METHODS].sort()).toEqual(
             // fleet-agent operations (incl. the configureAgent scoped-config patch — never identity,
             // never credential) + the read-observe verbs (boot-identity fact + activity snapshot +
-            // assembled roster DTO — advisory reads, no lifecycle-write)
-            ['configureAgent', 'connectTenant', 'defineAgent', 'fleetActivity', 'fleetRoster', 'fleetRuntimeStatus', 'fleetStatus', 'getAgent', 'getBootIdentity', 'listAgents', 'listTenants', 'removeAgent', 'restartAgent', 'setAvatar', 'setRepo', 'startAgent', 'stopAgent'].sort()
+            // assembled roster DTO + one agent's mailbox mirror — advisory reads, no lifecycle-write)
+            ['configureAgent', 'connectTenant', 'defineAgent', 'fleetActivity', 'fleetMailboxMirror', 'fleetRoster', 'fleetRuntimeStatus', 'fleetStatus', 'getAgent', 'getBootIdentity', 'listAgents', 'listTenants', 'removeAgent', 'restartAgent', 'setAvatar', 'setRepo', 'startAgent', 'stopAgent'].sort()
         );
         expect(FLEET_WIRE_METHODS).toContain('getBootIdentity');   // the read-observe verbs ride the wire; the lifecycle-write restart actuator does NOT (R3)
         expect(FLEET_WIRE_METHODS).toContain('fleetActivity');
         expect(FLEET_WIRE_METHODS).toContain('fleetRoster');
+        // a Node-side read verb the browser cannot NAME is not a seam: the omission fails closed and
+        // SILENT (the pane's `typeof bridge.x !== 'function'` guard returns early), which reads
+        // exactly like a wired-but-empty mailbox — the honest-looking failure this list prevents
+        expect(FLEET_WIRE_METHODS).toContain('fleetMailboxMirror');
         expect(FLEET_WIRE_METHODS).not.toContain('getManager');
         expect(FLEET_WIRE_METHODS).not.toContain('getRegistry');
         expect(FLEET_WIRE_METHODS).not.toContain('getIdentityResolver');

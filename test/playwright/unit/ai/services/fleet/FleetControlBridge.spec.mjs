@@ -165,6 +165,45 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
         expect(result.capability).toMatchObject({state: 'not-wired', confidence: 'none', reason: 'fleet activity source not wired'});
     });
 
+    // ---- read-observe: the per-agent mailbox mirror (S1; advisory read verb, no mutation path) ----
+
+    test('fleetMailboxMirror routes to the injected source — the bridge never authors an admission fact', async () => {
+        const snapshot = {
+            capability: {source: 'memory-core:mailbox', state: 'wired', confidence: 'observed', capturedAt: '2026-07-16T12:00:00.000Z', reason: null},
+            admission : {state: 'granted', viewerIdentity: '@tobiu', subjectAgentId: '@neo-opus-vega', checkedAt: '2026-07-16T12:00:00.000Z', reason: null},
+            rows      : [],
+            page      : {limit: 50, offset: 0, count: 0}
+        };
+        FleetControlBridge.mailboxMirrorSource = {readMailboxMirror: async params => { calls.push(['readMailboxMirror', params]); return snapshot; }};
+
+        const result = await FleetControlBridge.fleetMailboxMirror({subjectAgentId: '@neo-opus-vega', limit: 25, offset: 0});
+
+        expect(result).toEqual(snapshot);
+        // subject + bounds forwarded verbatim: the source owns the identity binding, not this verb
+        expect(calls).toEqual([['readMailboxMirror', {subjectAgentId: '@neo-opus-vega', limit: 25, offset: 0}]]);
+
+        FleetControlBridge.mailboxMirrorSource = null
+    });
+
+    test('fleetMailboxMirror unwired degrades through the ADAPTER shape — never an empty inbox for a missing feed', () => {
+        FleetControlBridge.mailboxMirrorSource = null;
+
+        const result = FleetControlBridge.fleetMailboxMirror({subjectAgentId: '@neo-opus-vega'});
+
+        // "no mail" and "no mailbox feed" are different claims — only the producer may make the first
+        expect(result.admission.state).toBe('unavailable');
+        expect(result.admission.state).not.toBe('granted');
+        expect(result.capability.state).toBe('degraded');
+        expect(result.capability.reason).toContain('not wired');
+        expect(result.rows).toEqual([]);
+        expect(result.page.count).toBe(0);
+
+        // shape-identical to a live snapshot: the consuming pane cannot tell the envelopes apart by
+        // shape, only by state — an unwired verb that returned a DIFFERENT shape would make the
+        // pane's fail-closed envelope guard read it as unrecognized rather than honestly unavailable
+        expect(Object.keys(result).sort()).toEqual(['admission', 'capability', 'page', 'rows'])
+    });
+
     // ---- delegation: the lifecycle (start / stop / restart / remove / status) half ----
 
     test('startAgent delegates to the manager and resolves its lifecycle status', async () => {
