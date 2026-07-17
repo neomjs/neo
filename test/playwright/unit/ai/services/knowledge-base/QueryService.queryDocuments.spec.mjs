@@ -14,6 +14,8 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
+import fs             from 'fs-extra';
+import path           from 'path';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
@@ -24,27 +26,33 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
     let QueryService;
     let TextEmbeddingService;
     let originalBuildCodeTermRescueIndex;
+    let originalCollectFiles;
     let originalEmbedText;
+    let originalFindFilesByBasename;
     let originalGetKnowledgeBaseCollection;
-    let originalGetLexicalRescueCandidates;
+    let originalPathExists;
 
     test.beforeAll(async () => {
         ChromaManager        = (await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
         QueryService         = (await import('../../../../../../ai/services/knowledge-base/QueryService.mjs')).default;
         TextEmbeddingService = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
 
-        originalBuildCodeTermRescueIndex  = QueryService.buildCodeTermRescueIndex;
+        originalBuildCodeTermRescueIndex   = QueryService.buildCodeTermRescueIndex;
+        originalCollectFiles              = QueryService.collectFiles;
         originalEmbedText                  = TextEmbeddingService.embedText;
+        originalFindFilesByBasename        = QueryService.findFilesByBasename;
         originalGetKnowledgeBaseCollection = ChromaManager.getKnowledgeBaseCollection;
-        originalGetLexicalRescueCandidates = QueryService.getLexicalRescueCandidates;
+        originalPathExists                 = fs.pathExists;
     });
 
     test.afterEach(() => {
         QueryService.buildCodeTermRescueIndex    = originalBuildCodeTermRescueIndex;
-        QueryService.getLexicalRescueCandidates = originalGetLexicalRescueCandidates;
+        QueryService.collectFiles              = originalCollectFiles;
+        QueryService.findFilesByBasename       = originalFindFilesByBasename;
         QueryService.clearCodeTermRescueIndex();
         TextEmbeddingService.embedText           = originalEmbedText;
         ChromaManager.getKnowledgeBaseCollection = originalGetKnowledgeBaseCollection;
+        fs.pathExists                            = originalPathExists;
     });
 
     function installQueryStub(metadatasOrFactory, capture) {
@@ -384,35 +392,53 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
                 name            : 'The Knowledge Base Server',
                 inheritanceChain: '[]'
             }],
-            query = 'GraphService exact anchor rescue';
+            query          = 'ai/services/graph GraphService.mjs',
+            graphRoot      = path.resolve('ai/services/graph'),
+            anchorSource   = 'ai/services/memory-core/GraphService.mjs',
+            anchorAbsolute = path.resolve(anchorSource);
 
         installQueryStub(semanticMisses, capture);
 
         for (const sameDirCount of [3, 80]) {
             const
-                sameDirCorpus = Array.from({length: sameDirCount}, (_, index) => ({
-                    source : `ai/services/graph/SyntheticGraph${index}.mjs`,
-                    type   : 'ai-infrastructure',
-                    name   : `SyntheticGraph${index}.mjs`,
-                    reasons: ['path-dir:ai/services/graph'],
-                    score  : 1
-                })),
-                exactAnchor = {
-                    source : 'ai/services/memory-core/GraphService.mjs',
-                    type   : 'ai-infrastructure',
-                    name   : 'GraphService.mjs',
-                    reasons: ['filename:GraphService.mjs', 'code-term'],
-                    score  : 2
-                },
-                rescueCorpus = [...sameDirCorpus, exactAnchor];
+                sameDirFiles = Array.from(
+                    {length: sameDirCount},
+                    (_, index) => path.resolve(`ai/services/graph/SyntheticGraph${index}.mjs`)
+                ),
+                syntheticPaths = new Set(sameDirFiles);
 
-            QueryService.getLexicalRescueCandidates = async () => rescueCorpus;
+            let collectLimit;
+
+            fs.pathExists = async candidate => syntheticPaths.has(path.resolve(candidate)) || originalPathExists(candidate);
+            QueryService.collectFiles = async (root, {limit} = {}) => {
+                expect(path.resolve(root)).toBe(graphRoot);
+                collectLimit = limit;
+
+                return sameDirFiles.slice(0, limit)
+            };
+            QueryService.findFilesByBasename = async (root, fileName, {limit} = {}) => {
+                expect(path.resolve(root)).toBe(path.resolve('.'));
+                expect(fileName).toBe('GraphService.mjs');
+
+                return [anchorAbsolute].slice(0, limit)
+            };
 
             const
+                queryLower   = query.toLowerCase(),
+                queryWords   = QueryService.getQueryWords(queryLower),
+                rescueCorpus = await QueryService.getLexicalRescueCandidates({
+                    query,
+                    queryLower,
+                    queryWords,
+                    type: 'all'
+                }),
+                sameDirCorpus  = rescueCorpus.filter(candidate => candidate.source.startsWith('ai/services/graph/')),
+                exactAnchor    = rescueCorpus.find(candidate => candidate.source === anchorSource),
                 sourceMetadata = {},
-                sourceScores   = {},
-                queryLower     = query.toLowerCase(),
-                queryWords     = QueryService.getQueryWords(queryLower);
+                sourceScores   = {};
+
+            expect(sameDirCorpus).toHaveLength(Math.min(sameDirCount, collectLimit));
+            expect(exactAnchor.reasons).toContain('filename:GraphService.mjs');
 
             await QueryService.addLexicalRescueScores({
                 query,
@@ -423,9 +449,9 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
                 type: 'all'
             });
 
-            // The exact cross-dir anchor has two independent rescue reasons, so its pre-cap score
-            // must outrank a path-only same-dir candidate. This is the semantic assertion; no result
-            // budget or physical directory count participates.
+            // The exact filename rescue must outrank a path-only same-dir candidate before the final
+            // cap. This is the semantic assertion; no result budget or physical directory count
+            // participates.
             expect(sourceScores[exactAnchor.source])
                 .toBeGreaterThan(sourceScores[sameDirCorpus.at(-1).source]);
 
@@ -441,9 +467,9 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
                 sources      = result.results.map(item => item.source),
                 anchorResult = result.results.find(item => item.source === exactAnchor.source);
 
-            expect(sources).toContain(exactAnchor.source);
+            expect(sources).toContain(anchorSource);
             expect(sources.filter(source => source.startsWith('ai/services/graph/')))
-                .toHaveLength(sameDirCount);
+                .toHaveLength(sameDirCorpus.length);
             expect(anchorResult.metadata.lexicalRescueReasons)
                 .toContain('filename:GraphService.mjs')
         }
