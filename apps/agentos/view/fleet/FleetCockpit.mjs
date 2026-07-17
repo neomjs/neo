@@ -246,12 +246,31 @@ class FleetCockpit extends Container {
      */
     gridDegradedReason = null
     /**
+     * Monotonic read counter for the ROSTER surface — the async-ingress fence.
+     *
+     * {@link #startLiveness} re-drives both seams on a cadence, so two reads of the SAME surface can
+     * be in flight at once and complete in any order. Without a fence the LOSER writes last: a slow
+     * poll that failed lands after a fast one that succeeded, and the surface regresses `live` →
+     * `stale` on strictly older news. Every read captures its generation and drops itself if a newer
+     * read started meanwhile — the same latch {@link AgentOS.view.fleet.AgentDetail} uses for the
+     * mailbox mirror, which this owner needed and did not have.
+     * @member {Number} gridReadGeneration=0
+     * @protected
+     */
+    gridReadGeneration = 0
+    /**
      * The retained safe reason for the ACTIVITY surface's current degrade. See
      * {@link #gridDegradedReason} for why these are per-surface rather than one shared field.
      * @member {String|null} streamDegradedReason=null
      * @protected
      */
     streamDegradedReason = null
+    /**
+     * Monotonic read counter for the ACTIVITY surface. See {@link #gridReadGeneration}.
+     * @member {Number} streamReadGeneration=0
+     * @protected
+     */
+    streamReadGeneration = 0
     /**
      * The last authoritative (bridge-sourced) roster snapshot, kept so a slower store load — the
      * JSON sample seed racing {@link #loadRoster} — can never overwrite live truth
@@ -1233,8 +1252,21 @@ class FleetCockpit extends Container {
             return
         }
 
+        // captured BEFORE the await: this read's claim to write. A newer read bumps the counter, so
+        // a slower older one returns to find its generation stale and drops itself.
+        const generation = ++me.streamReadGeneration;
+
         try {
             const {capability, events} = await bridge.fleetActivity() ?? {};
+
+            // The fence. Older news must never overwrite newer: an interval re-poll means two reads
+            // of THIS surface can be in flight at once, and without this the LOSER writes last —
+            // a slow failed poll landing after a fast successful one regresses live → stale on
+            // strictly staler information. `isDestroyed` is the same question at the other end: a
+            // read that outlives its owner has no surface left to speak for.
+            if (generation !== me.streamReadGeneration || me.isDestroyed) {
+                return
+            }
 
             if (capability?.state === 'wired') {
                 me.streamAdapterState = 'live';
@@ -1258,10 +1290,19 @@ class FleetCockpit extends Container {
             // we learned nothing, so the banner falls back to its generic copy rather than inventing
             // a cause. That is the genuine cold case.
         } catch (error) {
-            // fail-closed: the last-known feed STAYS rather than blanking it — only the state advances
-            me.degradeWiredSurface('stream', error, stream)
+            // fenced too, and this is the branch that actually bit: a slow FAILURE landing after a
+            // fast success would regress live → stale on older news. The catch is not exempt from
+            // ordering just because it is the sad path.
+            if (generation === me.streamReadGeneration && !me.isDestroyed) {
+                // fail-closed: the last-known feed STAYS rather than blanking it — only the state advances
+                me.degradeWiredSurface('stream', error, stream)
+            }
         } finally {
-            me.syncSpineBanner()
+            // a superseded or post-destroy read renders nothing: syncing here would let a dropped
+            // read still repaint the banner from state it was not allowed to write
+            if (generation === me.streamReadGeneration && !me.isDestroyed) {
+                me.syncSpineBanner()
+            }
         }
     }
 
@@ -1294,8 +1335,17 @@ class FleetCockpit extends Container {
             return
         }
 
+        // captured BEFORE the await — see {@link #gridReadGeneration}
+        const generation = ++me.gridReadGeneration;
+
         try {
             const {rows} = await bridge.fleetRoster() ?? {};
+
+            // the fence: a newer read started while this one was in flight, or the owner is gone.
+            // Either way this answer is no longer this surface's truth to write.
+            if (generation !== me.gridReadGeneration || me.isDestroyed) {
+                return
+            }
 
             if (!Array.isArray(rows)) {
                 return // malformed answer → keep the last-known roster
@@ -1320,13 +1370,18 @@ class FleetCockpit extends Container {
             grid.adapterState   = 'live';
             me.clearDegradedReason('grid')
         } catch (error) {
-            // fail-closed: the last-known roster STAYS rather than blanking the fleet — only the
-            // state advances. A wired surface that stops answering is degraded, not cold: it is
-            // showing last-known LIVE rows, so claiming 'sample' would tell the operator they are
-            // looking at fixture data. Pre-wired failures keep the honest 'sample' seed.
-            me.degradeWiredSurface('grid', error, grid)
+            // fenced: a slow failure must not overwrite a newer success (see the stream twin)
+            if (generation === me.gridReadGeneration && !me.isDestroyed) {
+                // fail-closed: the last-known roster STAYS rather than blanking the fleet — only the
+                // state advances. A wired surface that stops answering is degraded, not cold: it is
+                // showing last-known LIVE rows, so claiming 'sample' would tell the operator they are
+                // looking at fixture data. Pre-wired failures keep the honest 'sample' seed.
+                me.degradeWiredSurface('grid', error, grid)
+            }
         } finally {
-            me.syncSpineBanner()
+            if (generation === me.gridReadGeneration && !me.isDestroyed) {
+                me.syncSpineBanner()
+            }
         }
     }
 

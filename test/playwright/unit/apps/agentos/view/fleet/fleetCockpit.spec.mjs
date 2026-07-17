@@ -79,6 +79,7 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
                   getReference        : reference => reference === 'activity-stream' ? stream : null,
                   streamAdapterState  : 'sample',
                   streamDegradedReason: null,
+                  streamReadGeneration: 0,
                   syncSpineBanner     : FleetCockpit.prototype.syncSpineBanner
               };
 
@@ -212,6 +213,10 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         // mirrors the class field default — the loss edge reads it to keep a never-wired surface
         // on its honest sample seed instead of claiming last-known data
         gridAdapterState,
+        // …and the async-ingress fence reads this one. Omitting it is not a benign gap: `++undefined`
+        // is NaN, `NaN !== NaN`, so the read's generation never matches the owner's and EVERY read
+        // drops itself — silently, with a green suite full of unwritten state.
+        gridReadGeneration: 0,
         mapRosterRow      : FleetCockpit.prototype.mapRosterRow,
         reconcileRoster   : FleetCockpit.prototype.reconcileRoster,
         reconcileSelection: FleetCockpit.prototype.reconcileSelection,
@@ -458,6 +463,9 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             grid,
             // mirrors the class field defaults the loss edge reads
             gridAdapterState  : 'sample',
+            // …and the async-ingress fence: omit it and `++undefined` is NaN, so the read's own
+            // generation never equals the owner's and EVERY read silently drops itself
+            gridReadGeneration: 0,
             id                : `fake-fleet-cockpit-${index}`,
             lastLiveRows      : null,
             mapRosterRow      : FleetCockpit.prototype.mapRosterRow,
@@ -1002,11 +1010,15 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
 
         // a REAL store the REAL loadRoster reconciles into — the record is the card's data surface
         const store   = Neo.create(Store, {keyProperty: 'agentId', model: FleetAgent});
+        // `gridReadGeneration` mirrors the class default because the async-ingress fence reads it: a
+        // fake omitting it makes `++undefined` NaN, so the read's generation never matches the
+        // owner's and EVERY read silently drops itself — a green suite over state nobody wrote.
         const cockpit = {
             clearDegradedReason: FleetCockpit.prototype.clearDegradedReason,
             degradeWiredSurface: FleetCockpit.prototype.degradeWiredSurface,
             getReference       : reference => reference === 'fleet-grid' ? {adapterState: 'sample', store} : null,
             gridAdapterState   : 'sample',
+            gridReadGeneration : 0,
             mapRosterRow       : FleetCockpit.prototype.mapRosterRow,
             reconcileRoster    : FleetCockpit.prototype.reconcileRoster,
             reconcileSelection : FleetCockpit.prototype.reconcileSelection,
@@ -1125,6 +1137,7 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
             loadActivity        : FleetCockpit.prototype.loadActivity,
             streamAdapterState  : 'live',
             streamDegradedReason: null,
+            streamReadGeneration: 0,
             streamEvents        : [],
             syncSpineBanner     : FleetCockpit.prototype.syncSpineBanner
         }
@@ -1255,6 +1268,59 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
 
         expect(text).toContain('fleet activity source not wired');
         expect(text, 'the lie the retained reason exists to prevent').not.toContain('Fleet server offline')
+    });
+
+    test('an OLDER failed completion never overwrites a NEWER success — @neo-gpt\'s second probe', async () => {
+        // The interval re-drives both seams, so two reads of the SAME surface are in flight at once
+        // and complete in any order. Without a fence the LOSER writes last: a slow failure landing
+        // after a fast success regresses live → stale on strictly older news, and the banner names a
+        // degrade that already recovered. The catch is not exempt from ordering just because it is
+        // the sad path — that is the branch this pins.
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        let releaseSlow;
+        const slow = new Promise((resolve, reject) => { releaseSlow = () => reject(new Error('stale transport lost')) });
+
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetActivity: () => slow}};
+        const slowRead = host.loadActivity();       // read 1 — in flight, will FAIL
+
+        // read 2 starts and wins outright while read 1 is still hanging
+        globalThis.AgentOS.fleet.registryBridge.fleetActivity = async () => ({capability: {state: 'wired'}, events: []});
+        await host.loadActivity();
+
+        expect(host.streamAdapterState).toBe('live');
+
+        releaseSlow();                              // read 1 finally fails, LATE
+        await slowRead;
+
+        expect(host.streamAdapterState, 'older news must not unseat newer truth').toBe('live');
+        expect(host.streamDegradedReason ?? null, 'a superseded read may not name a degrade').toBe(null);
+        expect(banner.calls.at(-1).hidden, 'nor repaint the banner it was not allowed to write').toBe(true);
+
+        delete globalThis.AgentOS.fleet
+    });
+
+    test('a read completing after destroy mutates NOTHING — no post-destroy writes', async () => {
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        let releaseSlow;
+        const slow = new Promise(resolve => { releaseSlow = () => resolve({capability: {state: 'degraded', reason: 'late'}, events: []}) });
+
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetActivity: () => slow}};
+        const inFlight = host.loadActivity();
+
+        host.isDestroyed = true;                    // the owner goes away mid-read
+        releaseSlow();
+        await inFlight;
+
+        // a timer that outlives its owner is a liar with no one left to correct it — and so is a read
+        expect(host.streamAdapterState).toBe('live');
+        expect(host.streamDegradedReason ?? null).toBe(null);
+        expect(banner.calls, 'a dead surface renders nothing').toHaveLength(0);
+
+        delete globalThis.AgentOS.fleet
     });
 
     test('hostile markup in a reason renders INERT — the sink is text, never html', async () => {
