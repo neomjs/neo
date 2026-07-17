@@ -74,8 +74,45 @@ function normalizeBound(requested, fallback) {
     // default; a USABLE but unbounded one is clamped. `Number.isInteger(1e9) && 1e9 > 0` is true, so
     // checking only well-formedness let the exact read this guard exists to stop walk through the
     // front door — the reason string was already capped in this same file, and the count was not.
-    return Number.isInteger(value) && value > 0 ? Math.min(value, FLEET_ACTIVITY_BOUND_MAX) : Math.min(fallback, FLEET_ACTIVITY_BOUND_MAX)
+    //
+    // `fallback` is validated at construction rather than clamped here: `Math.min(-1, MAX)` is `-1`
+    // and `Math.min(NaN, MAX)` is `NaN`, so clamping a configured bound obeys a misconfiguration as
+    // readily as it obeyed a hostile one. A bad config is a defect to surface, not a value to repair.
+    return Number.isInteger(value) && value > 0 ? Math.min(value, FLEET_ACTIVITY_BOUND_MAX) : fallback
 }
+
+/**
+ * @summary Caps operator-facing text at `max`, marking the elision.
+ *
+ * @param {String} raw
+ * @param {Number} max
+ * @returns {String}
+ * @private
+ */
+function capText(raw, max) {
+    return raw.length > max ? `${raw.slice(0, max - 1)}…` : raw
+}
+
+/**
+ * @summary Credential shapes an adapter error can carry into an operator-facing string.
+ *
+ * The JSDoc below already named tokens as the threat while the code only collapsed whitespace and
+ * truncated, so `Authorization: Bearer <token>` reached the cockpit intact and survived the cap. The
+ * value is replaced rather than the whole message dropped: an operator still needs to know WHICH call
+ * failed, and a reason of `[redacted]` debugs nothing.
+ * @private
+ */
+const CREDENTIAL_PATTERNS = [
+    // The scheme must be consumed WITH the token. `[:=]\s*\S+` took only `Bearer` and left the
+    // credential one space away — and worse, it destroyed the `Bearer` marker the next pattern
+    // matches on, so the first redaction blinded the second. An earlier guard can hide the surface a
+    // later guard exists to find.
+    /\b(?:proxy-)?authorization\s*[:=]\s*(?:(?:bearer|basic|digest|token)\s+)?[^\s,;]+/gi,
+    /\b(?:bearer|basic)\s+[\w\-._~+/]+=*/gi,
+    /\b(?:api[-_]?key|access[-_]?token|refresh[-_]?token|client[-_]?secret|secret|password|passwd|pwd|token)\s*[:=]\s*\S+/gi,
+    /\bgh[pousr]_[A-Za-z0-9]{16,}\b/g,
+    /\b(?:x-)?(?:api-)?key\s*[:=]\s*\S+/gi
+];
 
 /**
  * @summary Renders a failure into a reason safe to hand a cockpit.
@@ -85,14 +122,21 @@ function normalizeBound(requested, fallback) {
  * one: an error's `message` has no length contract. Capped and stripped of newlines so one failure
  * cannot flood or restructure the pane it lands in.
  *
+ * Redaction runs BEFORE the cap. Capping first is not merely insufficient — it is dangerous: it can
+ * sever a token and leave the prefix that still authenticates, while reporting the string as handled.
+ *
  * @param {*} failure Error or string.
  * @returns {String}
  * @private
  */
 function redactReason(failure) {
-    const raw = `${failure?.message ?? failure ?? 'unknown failure'}`.replace(/\s+/g, ' ').trim();
+    let raw = `${failure?.message ?? failure ?? 'unknown failure'}`.replace(/\s+/g, ' ').trim();
 
-    return raw.length > FLEET_ACTIVITY_REASON_MAX ? `${raw.slice(0, FLEET_ACTIVITY_REASON_MAX - 1)}…` : raw
+    CREDENTIAL_PATTERNS.forEach(pattern => {
+        raw = raw.replace(pattern, match => `${match.split(/[:=\s]/)[0]}: [redacted]`)
+    });
+
+    return capText(raw, FLEET_ACTIVITY_REASON_MAX)
 }
 
 /**
@@ -115,8 +159,12 @@ function redactReason(failure) {
  * @private
  */
 async function readSlot(read, slot, params, capturedAt) {
+    // `slot` is carried as a FIELD, not baked into the reason text. The first cut prefixed the reason
+    // with `${slot}: ` and omitted the field the healthy return below sets — so `composeCapability`
+    // read `capability.slot` as undefined and attributed a named failure to `unknown slot`, on top of
+    // the prefix it adds itself. The two return paths of one function disagreed about the contract.
     const degraded = reason => ({
-        capability: {source: FLEET_COCKPIT_SOURCES.activity, state: 'degraded', confidence: 'none', capturedAt, reason: `${slot}: ${reason}`},
+        capability: {source: FLEET_COCKPIT_SOURCES.activity, state: 'degraded', confidence: 'none', capturedAt, slot, reason: redactReason(reason)},
         events    : []
     });
 
@@ -125,7 +173,7 @@ async function readSlot(read, slot, params, capturedAt) {
     try {
         snapshot = await read(params)
     } catch (error) {
-        return degraded(redactReason(error))
+        return degraded(error)
     }
 
     if (!snapshot?.capability) {
@@ -188,9 +236,17 @@ function composeCapability(capabilities, capturedAt) {
     // adapter's claim about itself. A contributor that mislabels its source would otherwise send the
     // operator to a healthy adapter, and the one surface that exists to be trusted when things break
     // must not be forgeable by the thing that broke.
-    const reason = blind
-        .map(capability => `${capability?.slot ?? 'unknown slot'}: ${redactReason(capability?.reason ?? capability?.state ?? 'unavailable')}`)
-        .join('; ');
+    //
+    // The COMPOSITE is what an operator reads, so the composite is what must be capped. Capping each
+    // part and then joining them bounds nothing: two blind slots at 200 each, plus prefixes and the
+    // separator, reached ~430 through a guard whose whole purpose was that one failure cannot flood
+    // the pane. A bound on the inputs is not a bound on the result.
+    const reason = capText(
+        blind
+            .map(capability => `${capability?.slot ?? 'unknown slot'}: ${redactReason(capability?.reason ?? capability?.state ?? 'unavailable')}`)
+            .join('; '),
+        FLEET_ACTIVITY_REASON_MAX
+    );
 
     return {
         source    : FLEET_COCKPIT_SOURCES.activity,
@@ -222,6 +278,15 @@ function composeCapability(capabilities, capturedAt) {
 export function createFleetActivityReadSource({readA2ASnapshot, readPrLaneSnapshot, limit = DEFAULT_FLEET_ACTIVITY_EVENT_LIMIT} = {}) {
     if (typeof readA2ASnapshot !== 'function' || typeof readPrLaneSnapshot !== 'function') {
         throw new TypeError('[fleetActivityComposer] readA2ASnapshot and readPrLaneSnapshot must be injected')
+    }
+
+    // The configured bound is validated where the readers are, and for the same reason: a wrong one is
+    // a defect to surface, not a value to repair. `normalizeBound` guarded the CALLER's limit and then
+    // handed a misconfigured `-1` straight to the adapters as the fallback for every refused request —
+    // the guard against an unbounded read, unbounding the read itself. Failing at construction refuses
+    // it once, loudly, instead of silently on every subsequent call.
+    if (!Number.isInteger(limit) || limit < 1 || limit > FLEET_ACTIVITY_BOUND_MAX) {
+        throw new TypeError(`[fleetActivityComposer] limit must be an integer between 1 and ${FLEET_ACTIVITY_BOUND_MAX}; received ${limit}`)
     }
 
     const slots = [

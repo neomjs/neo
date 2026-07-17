@@ -190,6 +190,69 @@ test.describe('fleetActivityComposer — composing two truths means composing tw
         expect(capability.reason).not.toContain('\n')
     });
 
+    test('a reason carries NO credential — @neo-gpt\'s exact-blob probe: the secret survived the cap', async () => {
+        // The cap was never a redactor. This module's own JSDoc named "tokens" as the threat while the
+        // code only collapsed whitespace and truncated, so a Bearer token rode a 214-char reason into
+        // an operator-facing pane intact. Capping BEFORE redacting is worse than not capping: it can
+        // sever a token and leave the prefix that still authenticates, and report it as handled.
+        const source = createFleetActivityReadSource({
+            readA2ASnapshot   : async () => { throw new Error('GET /api failed: Authorization: Bearer super-secret-token-value abc') },
+            readPrLaneSnapshot: wired([])
+        });
+
+        const {capability} = await source.readActivitySnapshot();
+
+        expect(capability.reason).not.toContain('super-secret-token-value');
+        expect(capability.reason).toContain('[redacted]');
+        // the operator still learns WHICH call failed — a reason of pure `[redacted]` debugs nothing
+        expect(capability.reason).toContain('a2a')
+    });
+
+    test('a LOCALLY-created degraded capability is attributed to its slot, not to "unknown slot"', async () => {
+        // The existing slot witness only covered a capability the adapter RETURNED. The degraded one
+        // this module builds itself omitted the `slot` field the healthy path sets, so composeCapability
+        // read undefined and printed `unknown slot: a2a: …` — the attribution lost, and the prefix
+        // doubled. Two return paths of one function disagreeing about their own contract.
+        const source = createFleetActivityReadSource({
+            readA2ASnapshot   : async () => ({events: []}),   // no capability: has not reported sight
+            readPrLaneSnapshot: wired([])
+        });
+
+        const {capability} = await source.readActivitySnapshot();
+
+        expect(capability.reason).not.toContain('unknown slot');
+        expect(capability.reason).toContain('a2a: returned no capability')
+    });
+
+    test('the COMPOSITE reason is capped — bounding the parts does not bound the join', async () => {
+        // Two blind slots at the per-reason cap, plus prefixes and the separator, reached ~430 chars
+        // through a guard whose stated purpose was that one failure cannot flood the pane. The operator
+        // reads the composite, so the composite is the thing that must be bounded.
+        const source = createFleetActivityReadSource({
+            readA2ASnapshot   : async () => { throw new Error('a'.repeat(5000)) },
+            readPrLaneSnapshot: async () => { throw new Error('b'.repeat(5000)) }
+        });
+
+        const {capability} = await source.readActivitySnapshot();
+
+        expect(capability.state).toBe('not-wired');
+        expect(capability.reason.length).toBeLessThanOrEqual(200)
+    });
+
+    test('a misconfigured fallback fails LOUD — the guard against an unbounded read must not unbound it', async () => {
+        // normalizeBound guarded the CALLER's limit and then handed `Math.min(-1, MAX)` === -1 to every
+        // adapter as the fallback for each refused request. The clamp obeyed a misconfiguration exactly
+        // as readily as it had obeyed a hostile caller. Refused once at construction, where the missing
+        // readers are already refused, rather than silently on every later call.
+        for (const bad of [-1, 0, NaN, 1e9, 'many', null]) {
+            expect(() => createFleetActivityReadSource({
+                readA2ASnapshot   : wired([]),
+                readPrLaneSnapshot: wired([]),
+                limit             : bad
+            }), `configured limit ${String(bad)} must be refused at construction`).toThrow(TypeError)
+        }
+    });
+
     test('an unusable bound falls back to the default — a caller cannot unbound the read', async () => {
         // `params.limit ?? limit` obeyed -1, NaN and 0. The bound reaches the adapters verbatim, so a
         // bad one is a caller-controlled unbounded read, not a display quirk.
