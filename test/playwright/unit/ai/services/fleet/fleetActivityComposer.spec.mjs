@@ -73,7 +73,8 @@ test.describe('fleetActivityComposer — composing two truths means composing tw
 
         expect(capability.state).toBe('degraded');
         expect(capability.confidence).toBe('none');
-        expect(capability.reason).toContain('fleet:pr-lane');
+        // attributed by the composer-owned SLOT, not the adapter's self-reported source
+        expect(capability.reason).toContain('pr-lane');
         expect(capability.reason).toContain('github unreachable')
     });
 
@@ -86,10 +87,10 @@ test.describe('fleetActivityComposer — composing two truths means composing tw
         const {capability} = await source.readActivitySnapshot();
 
         expect(capability.state).toBe('not-wired');
-        // BOTH are named: an operator debugging a dead feed must not fix one adapter and wonder why
-        // nothing changed.
-        expect(capability.reason).toContain('fleet:a2a');
-        expect(capability.reason).toContain('fleet:pr-lane')
+        // BOTH slots are named: an operator debugging a dead feed must not fix one adapter and wonder
+        // why nothing changed.
+        expect(capability.reason).toContain('a2a');
+        expect(capability.reason).toContain('pr-lane')
     });
 
     test('a wired composite with NO events says so — "nothing happened" is not "we could not look"', async () => {
@@ -141,6 +142,81 @@ test.describe('fleetActivityComposer — composing two truths means composing tw
         // bounding only the merge would let each adapter read unboundedly and throw the surplus away
         expect(seen).toEqual([['a2a', 3], ['pr', 3]]);
         expect(events).toHaveLength(3)
+    });
+
+    test('a SYNCHRONOUS throw is contained — Promise.resolve(read()) never sees it', async () => {
+        // @neo-gpt-emmy's RA-2. `Promise.resolve(read(params))` evaluates the call BEFORE the wrapper
+        // exists, so a sync throw escapes the .catch and takes the whole snapshot down. An async stub
+        // cannot surface it — which is why the original "throwing adapter" test passed over this.
+        // A real adapter validating its arguments throws exactly this way.
+        const source = createFleetActivityReadSource({
+            readA2ASnapshot   : () => { throw new Error('sync validation failure') },
+            readPrLaneSnapshot: wired([{occurredAt: '2026-07-16T12:00:00.000Z', id: 'pr-1'}])
+        });
+
+        const {capability, events} = await source.readActivitySnapshot();
+
+        expect(capability.state).toBe('degraded');
+        expect(capability.reason).toContain('sync validation failure');
+        expect(events.map(event => event.id)).toEqual(['pr-1'])
+    });
+
+    test('failure attribution is by SLOT, not by the adapter\'s self-report', async () => {
+        // A broken contributor claiming another's source would send the operator to a healthy adapter.
+        // The reason line is the one surface that exists to be trusted when things break; it must not
+        // be forgeable by the thing that broke.
+        const source = createFleetActivityReadSource({
+            readA2ASnapshot   : async () => ({capability: {source: 'fleet:pr-lane', state: 'degraded', confidence: 'none', reason: 'mislabelled'}, events: []}),
+            readPrLaneSnapshot: wired([])
+        });
+
+        const {capability} = await source.readActivitySnapshot();
+
+        // the A2A slot failed, and the reason says so despite the adapter naming pr-lane
+        expect(capability.reason).toContain('a2a');
+        expect(capability.reason).not.toMatch(/^pr-lane/)
+    });
+
+    test('a failure reason is capped and single-line — it is rendered to an operator', async () => {
+        const source = createFleetActivityReadSource({
+            readA2ASnapshot   : async () => { throw new Error('x'.repeat(5000) + '\nsecond line') },
+            readPrLaneSnapshot: wired([])
+        });
+
+        const {capability} = await source.readActivitySnapshot();
+
+        // unbounded: an Error message has no length contract, and this travels into the projection
+        expect(capability.reason.length).toBeLessThan(300);
+        expect(capability.reason).not.toContain('\n')
+    });
+
+    test('an unusable bound falls back to the default — a caller cannot unbound the read', async () => {
+        // `params.limit ?? limit` obeyed -1, NaN and 0. The bound reaches the adapters verbatim, so a
+        // bad one is a caller-controlled unbounded read, not a display quirk.
+        for (const bad of [-1, 0, NaN, 'many', null]) {
+            const seen   = [];
+            const source = createFleetActivityReadSource({
+                readA2ASnapshot   : async params => { seen.push(params.limit); return {capability: {source: 'a', state: 'wired'}, events: []} },
+                readPrLaneSnapshot: async params => { seen.push(params.limit); return {capability: {source: 'b', state: 'wired'}, events: []} },
+                limit             : 50
+            });
+
+            await source.readActivitySnapshot({limit: bad});
+            expect(seen, `limit ${String(bad)} must not reach the adapters`).toEqual([50, 50])
+        }
+    });
+
+    test('a contributor returning NO capability has not reported sight', async () => {
+        // Inventing a capability for a malformed answer is the exact failure this module prevents.
+        const source = createFleetActivityReadSource({
+            readA2ASnapshot   : async () => undefined,
+            readPrLaneSnapshot: wired([])
+        });
+
+        const {capability} = await source.readActivitySnapshot();
+
+        expect(capability.state).toBe('degraded');
+        expect(capability.reason).toContain('a2a')
     });
 
     test('fails LOUD on a missing reader — a one-legged composite is not the fleet\'s activity', () => {
