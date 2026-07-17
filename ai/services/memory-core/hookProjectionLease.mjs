@@ -56,6 +56,26 @@ export const PROJECTION_CHANNEL_SLOTS = Object.freeze({
 });
 
 /**
+ * @summary The schemaVersion each channel MUST carry to be admitted.
+ *
+ * A channel and its schema are ONE fact, not two: `computed-route` means `computed-route.v1` and nothing
+ * else. Requiring merely that SOME nonempty schemaVersion be present proved only that an envelope was
+ * typed, never that it was typed correctly for the slot it was landing in — so a `computed-route`
+ * submission carrying a `lifecycle-frontier.v1` payload advanced, and the store held a row whose slot and
+ * contents disagreed. A reader binds to the slot, discovers the mismatch at render time, and is the party
+ * least able to do anything about it.
+ *
+ * A channel absent from this registry has no pinned contract, and submissions to it are rejected rather
+ * than waved through: admitting a payload no reader can bind to is the failure this registry exists to
+ * prevent, and an unknown channel is precisely that case.
+ * @type {Object}
+ */
+export const PROJECTION_CHANNEL_SCHEMAS = Object.freeze({
+    'lifecycle-frontier': 'lifecycle-frontier.v1',
+    'computed-route'    : 'computed-route.v1'
+});
+
+/**
  * @summary The slot for context-view references, which are a LIST rather than one channel.
  * @type {String}
  */

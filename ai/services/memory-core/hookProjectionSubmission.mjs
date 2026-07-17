@@ -22,11 +22,13 @@
  * not a degradation, it is a silent wrong answer.
  */
 
+import {PROJECTION_CHANNEL_SCHEMAS} from './hookProjectionLease.mjs';
+
 /**
  * @typedef {Object} SubmissionResult
  * @property {Boolean} accepted Whether the submission advanced the channel.
  * @property {String} outcome One of `advanced`, `replayed`, `regressed-watermark`, `source-conflict`,
- *   `target-not-admitted`, `foreign-producer`.
+ *   `target-not-admitted`, `foreign-producer`, `unknown-channel`, `schema-mismatch`.
  * @property {String} [reason] Human-readable detail when the submission did not advance.
  */
 
@@ -136,6 +138,27 @@ export function submitProjectionChannel({
 
     if (!mayProduceChannel({targetId, channel})) {
         return {accepted: false, outcome: 'foreign-producer', reason: `this producer may not write channel ${channel}`}
+    }
+
+    // Identity says a producer may write this channel; it says nothing about what it wrote. The schema
+    // binding is checked after identity so an unauthorized producer is still reported as foreign rather
+    // than as a schema problem — the coarser violation is the true one.
+    if (!Object.hasOwn(PROJECTION_CHANNEL_SCHEMAS, channel)) {
+        return {
+            accepted: false,
+            outcome : 'unknown-channel',
+            reason  : `channel ${channel} has no pinned schema contract`
+        }
+    }
+
+    const expectedSchema = PROJECTION_CHANNEL_SCHEMAS[channel];
+
+    if (envelope.schemaVersion !== expectedSchema) {
+        return {
+            accepted: false,
+            outcome : 'schema-mismatch',
+            reason  : `channel ${channel} requires ${expectedSchema}; envelope carries ${envelope.schemaVersion}`
+        }
     }
 
     const payload = JSON.stringify(envelope);

@@ -155,4 +155,44 @@ test.describe('hookProjectionSubmission — one producer, one channel, monotonic
         expect(() => submit({isTargetAdmitted: undefined})).toThrow(/isTargetAdmitted and mayProduceChannel/);
         expect(() => submit({envelope: undefined})).toThrow(/envelope must be a plain object/);
     });
+
+    test('a FOREIGN schema is refused — a typed envelope in the wrong channel is not a typed channel', () => {
+        // Requiring only a nonempty schemaVersion admitted this: a well-formed lifecycle envelope landing
+        // in the route slot. Both halves are individually valid, which is exactly why the store cannot be
+        // the party that notices — the disagreement is between them.
+        const mismatched = submit({
+            channel : 'computed-route',
+            envelope: {schemaVersion: 'lifecycle-frontier.v1', items: [], notAuthority: true}
+        });
+
+        expect(mismatched.accepted).toBe(false);
+        expect(mismatched.outcome).toBe('schema-mismatch');
+        expect(mismatched.reason).toMatch(/requires computed-route\.v1/);
+
+        expect(db.prepare(`
+            SELECT 1 FROM HookProjectionChannels WHERE target_id = ? AND channel = ?
+        `).get(targetId, 'computed-route')).toBeUndefined();
+    });
+
+    test('the CORRECT schema for that same channel still advances — the gate binds, it does not blanket-refuse', () => {
+        // Without this, a check that rejected every computed-route submission would pass the test above
+        // and prove nothing.
+        const matched = submit({
+            channel : 'computed-route',
+            envelope: {schemaVersion: 'computed-route.v1', route: [], notAuthority: true}
+        });
+
+        expect(matched).toEqual({accepted: true, outcome: 'advanced'});
+    });
+
+    test('a channel with no pinned contract is refused rather than waved through', () => {
+        // An unknown channel is the unbindable-payload case this registry exists to prevent, so it cannot
+        // be the one case that passes.
+        const unknown = submit({channel: 'context-view:recent-turns'});
+
+        expect(unknown.accepted).toBe(false);
+        expect(unknown.outcome).toBe('unknown-channel');
+
+        expect(db.prepare(`SELECT COUNT(*) AS n FROM HookProjectionChannels`).get().n).toBe(0);
+    });
 });
