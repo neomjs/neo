@@ -414,6 +414,8 @@
         "healthcheck.chromaProbeTimeoutMs",
         "healthcheck.embeddingWriteCanaryTimeoutMs",
         "healthcheck.remAxisTimeoutMs",
+        "hookProjectionLeaseTtlMs",
+        "hookProjectionRoot",
         "laneLandscapeCensusMaxPages",
         "laneLandscapeCensusPageLimit",
         "laneLandscapeRelationEdgeLimit",
