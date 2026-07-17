@@ -88,7 +88,7 @@ export function resolveWindowLifecycle(startedAt, windowMs, observedEndMs) {
     }
 
     return {
-        interrupted: observedEndMs < requestedEndMs,
+        interrupted : observedEndMs < requestedEndMs,
         observedEndMs,
         windowBounds: {endMs: requestedEndMs, startMs: startedAt}
     }
@@ -305,8 +305,16 @@ async function main() {
     console.log(`[serving-cost-meter] ${report.metricBags.length} schema-valid metric bags emitted (ingestion is the tenant path's job).`)
 }
 
-// commander parses only when executed directly — importing the pure helpers above never runs a sample
-import.meta.url === `file://${process.argv[1]}` && main().catch(error => {
-    console.error(`[serving-cost-meter] ${error.message}`);
-    process.exit(1)
-});
+// commander parses only when executed directly — importing the pure helpers above never runs a sample.
+// The test is hoisted to a const rather than opening the statement: CodeQL's extractor cannot parse a
+// statement-initial `import.meta` (it is ambiguous with an import declaration until the `.`), and a
+// parse failure drops the WHOLE file from analysis — 312 unscanned lines reported as one warning on a
+// settings page, while the PR check still says `pass`. Node parses either form; only one gets scanned.
+const isDirectRun = import.meta.url === `file://${process.argv[1]}`;
+
+if (isDirectRun) {
+    main().catch(error => {
+        console.error(`[serving-cost-meter] ${error.message}`);
+        process.exit(1)
+    });
+}
