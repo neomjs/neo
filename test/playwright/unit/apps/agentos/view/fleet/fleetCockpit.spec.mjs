@@ -1047,7 +1047,7 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
 
 /**
  * The slot-sync consumer witness: `syncSpineBanner` against a REAL recording banner slot — the
- * derivation lands on the component (cls hook + hidden + html) and a missing slot stays a guarded
+ * derivation lands on the component (cls hook + hidden + text) and a missing slot stays a guarded
  * no-op. This suite also carries the liveness owner's transition matrix, because the transition is
  * only real if it reaches the slot: a state that moves without the banner moving is the same silent
  * failure as never moving at all.
@@ -1079,12 +1079,12 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
 
         expect(banner.calls).toHaveLength(1);
 
-        const {cls, hidden, html} = banner.calls[0];
+        const {cls, hidden, text} = banner.calls[0];
 
         expect(cls).toEqual(['fm-spine-banner', 'fm-spine-banner-cold']);
         expect(hidden).toBe(false);
-        expect(html).toContain('Fleet server offline');
-        expect(html).toContain('npm run ai:fleet-server')
+        expect(text).toContain('Fleet server offline');
+        expect(text).toContain('npm run ai:fleet-server')
     });
 
     test('a degraded owner writes the degraded hook + last-known copy', () => {
@@ -1092,11 +1092,11 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
 
         makeHost('live', 'stale', banner).syncSpineBanner();
 
-        const {cls, hidden, html} = banner.calls[0];
+        const {cls, hidden, text} = banner.calls[0];
 
         expect(cls).toEqual(['fm-spine-banner', 'fm-spine-banner-degraded']);
         expect(hidden).toBe(false);
-        expect(html).toContain('last-known')
+        expect(text).toContain('last-known')
     });
 
     test('a fully live owner hides the REAL slot with empty copy — zero nominal pixels', () => {
@@ -1104,7 +1104,7 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
 
         makeHost('live', 'live', banner).syncSpineBanner();
 
-        expect(banner.calls[0]).toEqual({cls: ['fm-spine-banner', 'fm-spine-banner-live'], hidden: true, html: ''})
+        expect(banner.calls[0]).toEqual({cls: ['fm-spine-banner', 'fm-spine-banner-live'], hidden: true, text: ''})
     });
 
     /**
@@ -1153,8 +1153,8 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
         expect(banner.calls[0].hidden).toBe(false);
         expect(banner.calls[0].cls).toContain('fm-spine-banner-degraded');
         // the retained reason is NAMED, not generic copy
-        expect(banner.calls[0].html).toContain('transport lost');
-        expect(banner.calls[0].html).toContain('last-known')
+        expect(banner.calls[0].text).toContain('transport lost');
+        expect(banner.calls[0].text).toContain('last-known')
     });
 
     test('recovery: a later successful poll returns live, clears the reason, and re-hides the slot', async () => {
@@ -1185,7 +1185,7 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
         expect(host.streamAdapterState).toBe('live');
         expect(host.degradedReason).toBe('roster bridge unreachable');
         expect(banner.calls.at(-1).hidden).toBe(false);
-        expect(banner.calls.at(-1).html).toContain('roster bridge unreachable')
+        expect(banner.calls.at(-1).text).toContain('roster bridge unreachable')
     });
 
     test('a never-wired surface stays cold-honest: a pre-live throw never claims last-known data', async () => {
@@ -1209,11 +1209,36 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
 
         expect(host.degradedReason).not.toContain('super-secret');
         expect(host.degradedReason).toContain('502 from bridge');
-        expect(banner.calls[0].html).not.toContain('super-secret');
+        expect(banner.calls[0].text).not.toContain('super-secret');
 
         const long = makeLivenessHost(makeBanner());
         await withBridge(async () => { throw new Error('x'.repeat(400)) }, long);
         expect(long.degradedReason.length).toBeLessThanOrEqual(120)
+    });
+
+    test('hostile markup in a reason renders INERT — the sink is text, never html', async () => {
+        // The reason is a RETAINED TRANSPORT STRING: it arrives over the fleet wire from the
+        // adapter, so it is attacker-adjacent input, not our copy. `syncSpineBanner` used to write
+        // it with `html:` — an innerHTML sink — which would execute markup a reason carried.
+        //
+        // `toSafeDegradedReason` does NOT save you here and that is the trap worth pinning: it
+        // redacts SECRETS (bearer tokens, credentials). It is a redactor, not a markup escaper, and
+        // mistaking one for the other is how a reason becomes a script tag. The fix is the sink, not
+        // more regex: `text` routes to `textContent` — data, never code.
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner),
+              markup = '<img src=x onerror="alert(1)">';
+
+        await withBridge(async () => { throw new Error(`transport lost ${markup}`) }, host);
+
+        const call = banner.calls.at(-1);
+
+        // the sink itself is the assertion: an `html` key here is the defect, whatever it contains
+        expect(call.html, 'the banner must never write an innerHTML sink').toBeUndefined();
+        expect(call.text).toContain('transport lost');
+        // the reason is relayed VERBATIM as text — not stripped. Escaping is the sink's job, and
+        // stripping would quietly corrupt a legitimate reason that happens to contain a bracket.
+        expect(call.text).toContain(markup)
     });
 
     test('a missing slot is a guarded no-op — never a throw', () => {

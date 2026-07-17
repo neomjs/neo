@@ -1434,10 +1434,17 @@ class FleetCockpit extends Container {
                 streamAdapterState: me.streamAdapterState
             });
 
+            // `text`, never `html`. The line now interpolates a RETAINED TRANSPORT STRING — the
+            // adapter's own `capability.reason`, which arrives over the fleet wire — and `html`
+            // is an innerHTML sink, so hostile markup in a reason would execute. `toSafeDegradedReason`
+            // redacts SECRETS; it was never a markup escaper, and treating a redactor as a sanitiser
+            // is how a reason becomes a script tag. `text` routes to `textContent`: data, not code,
+            // which is the boundary the whole VDom pipeline is built on. The banner renders one
+            // sentence and needs no markup, so `html` bought nothing and risked everything.
             banner.set({
                 cls : ['fm-spine-banner', `fm-spine-banner-${kind}`],
                 hidden,
-                html: text
+                text
             })
         }
     }
