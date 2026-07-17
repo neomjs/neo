@@ -192,6 +192,12 @@ jobs:
         if: ${{ matrix.run == 'true' }}
         run: npm run bundle-parse5
 
+      # The components suite launches real Chromium against the dev server; unit and
+      # integration run browserless, so browser provisioning stays scoped to this suite.
+      - name: Install Playwright Chromium
+        if: ${{ matrix.run == 'true' && matrix.suite == 'components' }}
+        run: npx playwright install --with-deps chromium
+
       - name: Skip ${{ matrix.suite }} tests
         if: ${{ matrix.run != 'true' }}
         run: |
