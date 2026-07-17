@@ -170,9 +170,17 @@ export function originDevRosterHasResident({residentId, repoRoot = REPO_ROOT, ex
  * @param {Function} [options.fetchImpl=globalThis.fetch] Injectable Fetch implementation.
  * @returns {Object} Async Fleet wire methods.
  */
-export function createOnboardingFleetBridge({url = 'http://127.0.0.1:8083/fleet', fetchImpl = globalThis.fetch} = {}) {
+export function createOnboardingFleetBridge({url = 'http://127.0.0.1:8083/fleet', bearerToken = process.env.NEO_FLEET_BEARER ?? null, fetchImpl = globalThis.fetch} = {}) {
     if (typeof fetchImpl !== 'function') {
         throw new Error('createOnboardingFleetBridge: fetchImpl must be a function.');
+    }
+
+    // The Fleet ingress is authenticated: onboarding drives lifecycle + credential verbs, so an
+    // unauthenticated CLI bridge would only ever collect 401s. The bearer arrives through the
+    // launch contract's in-memory channel (the same NEO_FLEET_BEARER the owner process was pinned
+    // with) — never a URL, never a file. Fail closed with the remedy, not on the first request.
+    if (!bearerToken) {
+        throw new Error(`onboardPeer: the Fleet owner at ${url} requires the process bearer — export NEO_FLEET_BEARER (the value the owner was started with) and re-run`);
     }
 
     const send = async request => {
@@ -181,7 +189,7 @@ export function createOnboardingFleetBridge({url = 'http://127.0.0.1:8083/fleet'
         try {
             response = await fetchImpl(url, {
                 method : 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {'Content-Type': 'application/json', Authorization: `Bearer ${bearerToken}`},
                 body   : JSON.stringify(request)
             });
         } catch (error) {
