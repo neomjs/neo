@@ -26,8 +26,9 @@ import FleetManager                           from './FleetManager.mjs';
 import {startFleetBridgeServer}               from './fleetBridgeServer.mjs';
 import {readActiveWakeSubscriptionIdentities} from './readActiveWakeSubscriptionIdentities.mjs';
 import {wireBootIdentityReadSource}           from './wireBootIdentityReadSource.mjs';
+import {wireFleetActivityReadSource}          from './wireFleetActivityReadSource.mjs';
 import path                                   from 'node:path';
-import {pathToFileURL}                        from 'node:url';
+import {fileURLToPath, pathToFileURL}         from 'node:url';
 
 const port = Number(process.env.NEO_FLEET_PORT) || 8083;
 
@@ -51,6 +52,23 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         pidFilePath                     : path.join(memoryCoreConfig.wakeDaemon.dataDir, 'wake-daemon.pid'),
         listActiveSubscriptionIdentities: readActiveWakeSubscriptionIdentities
     };
+
+    // Wire the composed activitySource onto FleetControlBridge. The memory-core mailbox + graph
+    // singletons are imported lazily at this boot use site (mirroring readActiveWakeSubscriptionIdentities's
+    // lazy GraphService) and INJECTED — the composer's slot readers never import a singleton, so the
+    // mailbox identity/permission binding stays here. issuesDir is the synced content tree; readPrs is
+    // omitted in v1 (no synced-`pulls` reader yet — the feed carries issues + lane-claims + stall), which
+    // is honest-empty, not a stub. Fail-soft: an unavailable singleton leaves activitySource unwired.
+    Promise.all([
+        import('../memory-core/MailboxService.mjs'),
+        import('../memory-core/GraphService.mjs')
+    ]).then(([{default: MailboxService}, {default: GraphService}]) => {
+        wireFleetActivityReadSource({
+            issuesDir   : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../resources/content/issues'),
+            listMessages: MailboxService.listMessages.bind(MailboxService),
+            graphService: GraphService
+        })
+    }).catch(error => console.warn('[fleet] activity source not wired:', error?.message ?? error));
 
     startFleetBridgeServer({port})
         .then(server => {
