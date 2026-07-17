@@ -207,6 +207,77 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
         expect(calls).toEqual(afterFirst)
     });
 
+    test('an ASYNC target resolving null does NOT retire — a Promise is truthy, so testing it IS the defect', async () => {
+        // @neo-gpt's RA-1. `onDragEnd` is synchronous; `draggable/dashboard/SortZone.onRemoteDrop` is
+        // async. `if (operation)` on a Promise is `if (true)` — so the outcome-aware gate read EVERY
+        // async target as committed and retired the source anyway. The fix's own shape hid the fix's
+        // own defect, and my sync-only stub could not see it.
+        const
+            source = createSourceZone(),
+            target = {
+                sortGroup: 'dock',
+                windowId : 2,
+                onRemoteDrop(draggedItem) {
+                    calls.push(['onRemoteDrop', draggedItem.id]);
+                    return Promise.resolve(null)
+                }
+            };
+
+        DragCoordinator.activeTargetZone = target;
+        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        // let the resolution settle — the retirement decision is deferred, not skipped
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(calls).toEqual([['onRemoteDrop', 'tab-1']]);
+        expect(DragCoordinator.activeTargetZone).toBeNull()
+    });
+
+    test('an ASYNC target resolving an operation DOES retire — deferred, not dropped', async () => {
+        // The control: without this, "never retire on a thenable" would satisfy the test above and
+        // silently break every async commit.
+        const
+            source = createSourceZone(),
+            target = {
+                sortGroup: 'dock',
+                windowId : 2,
+                onRemoteDrop(draggedItem) {
+                    calls.push(['onRemoteDrop', draggedItem.id]);
+                    return Promise.resolve({type: 'insertItem'})
+                }
+            };
+
+        DragCoordinator.activeTargetZone = target;
+        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(calls).toEqual([
+            ['onRemoteDrop',    'tab-1'],
+            ['onRemoteDropOut', 'tab-1']
+        ])
+    });
+
+    test('a SYNC commit still retires on the SAME call stack — the source reads the flag synchronously', () => {
+        // The deadline that forbids simply making onDragEnd async: DockTabSortZone's processDragEnd
+        // reads `remoteDropCommitted` in its own synchronous continuation, so an awaited retirement
+        // would arm the flag AFTER the decision it exists to inform. Sync targets must not be deferred.
+        const
+            source = createSourceZone(),
+            target = createTargetZone({type: 'transferItem'});
+
+        DragCoordinator.activeTargetZone = target;
+        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        // asserted with NO await: retirement already happened by the time onDragEnd returned
+        expect(calls).toEqual([
+            ['onRemoteDrop',    'tab-1'],
+            ['onRemoteDropOut', 'tab-1']
+        ])
+    });
+
     test('the NATIVE-titlebar path obeys the same rule — the defect had a twin behind a different door', async () => {
         // @neo-gpt-emmy's delta: the pointer fix left `commitNativeWindowDrop` discarding
         // `await onRemoteDrop(...)` and retiring the source anyway. Same defect class, different

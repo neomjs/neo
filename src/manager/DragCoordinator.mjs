@@ -408,7 +408,7 @@ class DragCoordinator extends Manager {
             // gesture that already failed. The error is not swallowed: cleanup is exact-once on every
             // terminal, including the ones that raise.
             try {
-                let operation = me.activeTargetZone.onRemoteDrop(data.draggedItem);
+                let result = me.activeTargetZone.onRemoteDrop(data.draggedItem);
 
                 // Source retirement follows the OUTCOME, not the attempt. Retiring unconditionally
                 // armed the source's `remoteDropCommitted`, whose whole meaning is "a remote target
@@ -417,7 +417,24 @@ class DragCoordinator extends Manager {
                 // already let go, so the item stranded with no owner. Leaving the flag unarmed lets the
                 // source's ordinary in-window path run and restore it: the restore is the pre-existing
                 // default, not a new capability — it was simply unreachable behind a false signal.
-                if (operation) {
+                //
+                // Targets answer synchronously OR asynchronously, and the two cannot share a branch: a
+                // Promise is ALWAYS truthy, so testing the returned value directly reads every async
+                // target as committed — the identical defect wearing the fix's own shape.
+                //
+                // The split is not symmetry for its own sake; each side has a different truth deadline.
+                // A SYNC target must retire on this call stack, because the source reads
+                // `remoteDropCommitted` synchronously in its own drag-end continuation — deferring
+                // would arm the flag after the decision it exists to inform. An ASYNC target's outcome
+                // is not knowable this tick at all, so retirement waits for the resolution; that is
+                // sound only because an async target's source cleanup carries no same-call reader.
+                if (typeof result?.then === 'function') {
+                    result.then(operation => {
+                        if (operation) {
+                            data.sourceSortZone.onRemoteDropOut(data.draggedItem)
+                        }
+                    })
+                } else if (result) {
                     data.sourceSortZone.onRemoteDropOut(data.draggedItem)
                 }
             } finally {
