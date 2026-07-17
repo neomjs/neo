@@ -62,7 +62,8 @@ test.describe('hookProjection — the lease and the transport, actually composed
             openSync     : () => 1,
             fsyncSync    : () => {},
             closeSync    : () => {},
-            unlinkSync   : path => written.delete(path)
+            unlinkSync   : path => written.delete(path),
+            readdirSync  : () => [...written.keys()].filter(k => k.endsWith('.tmp')).map(k => k.split('/').pop())
         }
     };
 
@@ -150,6 +151,39 @@ test.describe('hookProjection — the lease and the transport, actually composed
         // making the whole conflict mechanism inert.
         expect(payload.degradedChannels).toEqual(['lifecycle-frontier']);
         expect(payload.channels[0].conflictReason).toContain('two payloads claim watermark');
+    });
+
+    test('ONE unreadable channel does not deny the others — damage is isolated to its own row', () => {
+        const
+            fs            = makeFs(),
+            {writeAtomic} = makeAtomicProjectionTransport({fs, runtimeRoot: root, uniqueSuffix: () => 't1'});
+
+        submit('computed-route', 'w-1', {schemaVersion: 'computed-route.v1', notAuthority: true});
+        submit('lifecycle-frontier', 'w-2', {schemaVersion: 'lifecycle-frontier.v1', items: [], notAuthority: true});
+
+        // A torn row, as a crash or a partial write would leave it.
+        db.prepare(`UPDATE HookProjectionChannels SET envelope_json = '{"schemaVersion":' WHERE target_id = ? AND channel = ?`)
+            .run(targetId, 'lifecycle-frontier');
+
+        const lease  = acquireProjectionLease({db, targetId, instanceDigest: 'i1', now: t0, leaseTtlMs: ttl, mintToken, hashToken}),
+              result = publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, hashToken, writeAtomic});
+
+        // A bare JSON.parse in a map let one corrupt envelope abort the whole publication — denying the
+        // reader a perfectly good computed-route because a DIFFERENT channel was damaged.
+        expect(result.published).toBe(true);
+
+        const payload = JSON.parse(fs.written.get(`${root}/${targetId}/current.json`));
+
+        expect(payload.channels.find(channel => channel.channel === 'computed-route').envelope)
+            .toEqual({schemaVersion: 'computed-route.v1', notAuthority: true});
+
+        // the damaged one is listed as degraded and names why — "this is broken" is a different fact
+        // from "this does not exist", and only the first tells the reader to wait rather than act
+        const torn = payload.channels.find(channel => channel.channel === 'lifecycle-frontier');
+
+        expect(torn.envelope).toBeNull();
+        expect(torn.conflictReason).toContain('unreadable envelope');
+        expect(payload.degradedChannels).toEqual(['lifecycle-frontier']);
     });
 
     test('a refused publication reaches the transport not at all — no file, no temp debris', () => {

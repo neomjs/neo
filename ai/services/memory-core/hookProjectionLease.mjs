@@ -222,14 +222,36 @@ export function publishProjection({db, targetId, token, epoch, clock, hashToken,
         // A contested channel must publish AS contested. The conflict is recorded on the row precisely
         // so it survives to the reader; reading the row and dropping the column would make the whole
         // conflict mechanism inert — the reader would see a clean channel over a disputed watermark.
-        const channels = rows.map(row => ({
-            channel        : row.channel,
-            sourceWatermark: row.source_watermark,
-            envelope       : JSON.parse(row.envelope_json),
-            capturedAt     : row.captured_at,
-            expiresAt      : row.expires_at,
-            conflictReason : row.conflict_reason ?? null
-        }));
+        //
+        // One unreadable row must not take the others with it. A bare `JSON.parse` in a map let a single
+        // corrupt envelope abort the whole publication, so a torn `lifecycle-frontier` row would also
+        // deny the reader a perfectly good `computed-route` — punishing every channel for one channel's
+        // damage. Each row is isolated: unreadable ones degrade themselves and name why.
+        const channels = rows.map(row => {
+            try {
+                return {
+                    channel        : row.channel,
+                    sourceWatermark: row.source_watermark,
+                    envelope       : JSON.parse(row.envelope_json),
+                    capturedAt     : row.captured_at,
+                    expiresAt      : row.expires_at,
+                    conflictReason : row.conflict_reason ?? null
+                }
+            } catch (error) {
+                // The envelope is withheld rather than guessed: a channel whose payload cannot be read
+                // has no content to offer, and `null` is the honest answer. The reader sees it listed as
+                // degraded instead of silently absent, which is the difference between "this is broken"
+                // and "this does not exist".
+                return {
+                    channel        : row.channel,
+                    sourceWatermark: row.source_watermark,
+                    envelope       : null,
+                    capturedAt     : row.captured_at,
+                    expiresAt      : row.expires_at,
+                    conflictReason : `unreadable envelope: ${error instanceof Error ? error.message : String(error)}`
+                }
+            }
+        });
 
         // The bounded lease, enforced at the LAST possible instant. Parsing and reading the rows took
         // time; a render that crossed its TTL must abort rather than publish, because Wave 1 has no

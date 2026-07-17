@@ -40,7 +40,7 @@ export function makeAtomicProjectionTransport({fs, runtimeRoot, uniqueSuffix} = 
     // implemented mkdir/write/rename published successfully with no flush — and a test double lacking
     // it silently blessed that downgrade rather than failing. If a caller cannot flush, it cannot
     // publish; a complete-looking file with a torn body is the one outcome a reader cannot detect.
-    for (const method of ['mkdirSync', 'writeFileSync', 'renameSync', 'openSync', 'fsyncSync', 'closeSync', 'unlinkSync']) {
+    for (const method of ['mkdirSync', 'writeFileSync', 'renameSync', 'openSync', 'fsyncSync', 'closeSync', 'unlinkSync', 'readdirSync']) {
         if (typeof fs?.[method] !== 'function') {
             throw new TypeError(`[hookProjectionTransport] the injected fs must implement ${method} — durability is not optional`)
         }
@@ -123,5 +123,40 @@ export function makeAtomicProjectionTransport({fs, runtimeRoot, uniqueSuffix} = 
         }
     };
 
-    return {writeAtomic, resolveTargetPath}
+    /**
+     * @summary Removes temp siblings a previous holder left behind.
+     *
+     * A holder that crashed mid-write never reached its own cleanup, so its temp sibling survives under
+     * a root the reader also scans. One is harmless; unbounded accumulation across every crash is not,
+     * and nothing else will ever remove them — the crashed process is gone, and the next holder is the
+     * only party that knows the target is now unowned.
+     *
+     * Best-effort by design: a sweep failure must not deny a publication. Orphans are litter, and
+     * refusing to publish because litter could not be removed would let a cleanup problem masquerade as
+     * an availability one.
+     *
+     * @param {String} targetId Server-derived target id.
+     * @returns {{swept: String[]}} The temp siblings removed.
+     */
+    const sweepOrphans = targetId => {
+        const {dir} = resolveTargetPath(targetId),
+              swept = [];
+
+        try {
+            for (const entry of fs.readdirSync(dir)) {
+                if (entry.startsWith('current.json.') && entry.endsWith('.tmp')) {
+                    try {
+                        fs.unlinkSync(`${dir}/${entry}`);
+                        swept.push(entry)
+                    } catch {}
+                }
+            }
+        } catch {
+            // No directory yet, or an unreadable one: nothing to sweep, and nothing worth failing over.
+        }
+
+        return {swept}
+    };
+
+    return {writeAtomic, resolveTargetPath, sweepOrphans}
 }

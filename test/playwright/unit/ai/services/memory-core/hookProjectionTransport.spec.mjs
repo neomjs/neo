@@ -40,6 +40,7 @@ test.describe('hookProjectionTransport — derived path, atomic publication', ()
                 fsyncSync    : handle => calls.push(['fsync', handle]),
                 closeSync    : handle => calls.push(['close', handle]),
                 unlinkSync   : path => calls.push(['unlink', path]),
+                readdirSync  : () => calls.push(['readdir']) || [],
                 ...overrides
             };
 
@@ -143,6 +144,43 @@ test.describe('hookProjectionTransport — derived path, atomic publication', ()
         const temps = fs.calls.filter(call => call[0] === 'write').map(call => call[1]);
 
         expect(new Set(temps).size).toBe(2);
+    });
+
+    test('sweepOrphans removes a crashed holder\'s temp siblings and nothing else', () => {
+        const entries = ['current.json', 'current.json.t7.tmp', 'current.json.t8.tmp', 'notes.txt'],
+              removed = [];
+
+        const fs = makeFs({
+            readdirSync: () => entries,
+            unlinkSync : path => removed.push(path)
+        });
+
+        const {sweepOrphans} = transport(fs),
+              {swept}        = sweepOrphans('abc123');
+
+        // A crashed holder never reached its own cleanup, and nothing else will ever remove its litter:
+        // the process is gone, and the next holder is the only party that knows the target is unowned.
+        expect(swept).toEqual(['current.json.t7.tmp', 'current.json.t8.tmp']);
+        // the published file and unrelated entries are untouched — a sweep that ate current.json would
+        // turn litter-collection into an outage
+        expect(removed).toEqual(['/runtime/mc/abc123/current.json.t7.tmp', '/runtime/mc/abc123/current.json.t8.tmp']);
+    });
+
+    test('a sweep failure is survivable — litter must never deny a publication', () => {
+        const fs = makeFs({
+            readdirSync: () => { throw new Error('EACCES') }
+        });
+
+        // Refusing to publish because cleanup failed would let a litter problem masquerade as an
+        // availability one.
+        expect(transport(fs).sweepOrphans('abc123')).toEqual({swept: []});
+
+        const unlinkBlocked = makeFs({
+            readdirSync: () => ['current.json.t1.tmp'],
+            unlinkSync : () => { throw new Error('EPERM') }
+        });
+
+        expect(transport(unlinkBlocked).sweepOrphans('abc123')).toEqual({swept: []});
     });
 
     test('fails LOUD on an unbound root or fs — never a guessed path', () => {
