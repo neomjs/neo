@@ -291,6 +291,65 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
         detail.destroy()
     });
 
+    test('a hostile producer reason reaches the readout as TEXT, never as markup (@neo-gpt\'s exact probe)', () => {
+        // The describer was never wrong: it returns the producer's reason as DATA, exactly as asked.
+        // The view then interpolated that data into an `html` string, and Neo routes `html` to
+        // innerHTML — so a remote adapter's sentence about its own failure became executable in the
+        // cockpit. telltale.spec.mjs cannot see this: it asks what the describer RETURNS, and the
+        // defect lives in what the view DOES with it. That gap is why the probe belongs here.
+        //
+        // The reason is the one string on this surface nobody in this repo writes.
+        const hostile = '<img src=x onerror=globalThis.PWNED=1>',
+              detail  = createDetail({
+                  agentId : 'vega',
+                  state   : 'ok',
+                  wake    : {state: 'on'},
+                  throttle: {source: 'fleet:throttle', state: 'unknown', confidence: 'none', reason: hostile}
+              });
+
+        const telltale = detail.down({reference: 'detail-telltale'});
+
+        // the sink itself: ANY html on this node re-opens the hole regardless of today's content
+        expect(telltale.html).toBeFalsy();
+
+        const nodes = telltale.vdom.cn ?? [],
+              texts = nodes.map(node => node.text ?? '');
+
+        // carried, inert, and still READABLE — an operator needs the producer's evidence, so escaping
+        // it out of existence would be its own defect
+        expect(texts.some(text => text.includes(hostile))).toBe(true);
+
+        // …and nowhere as markup, on any node
+        nodes.forEach(node => {
+            expect(node.html).toBeFalsy();
+            (node.cls ?? []).forEach(cls => expect(cls).not.toContain('<'))
+        });
+
+        expect(globalThis.PWNED).toBeUndefined();
+
+        delete globalThis.PWNED;
+        detail.destroy()
+    });
+
+    test('an honest reason still renders alongside both axes — the guard must not eat the evidence', () => {
+        const detail = createDetail({
+            agentId : 'vega',
+            state   : 'ok',
+            wake    : {state: 'on'},
+            throttle: {source: 'fleet:throttle', state: 'unknown', confidence: 'none', reason: 'no throttle reader injected'}
+        });
+
+        const texts = (detail.down({reference: 'detail-telltale'}).vdom.cn ?? []).map(node => node.text ?? '');
+
+        // both axes always, and the reason with them: the detail is the opposite of the card's
+        // exception-based chip
+        expect(texts.some(text => text.includes('no throttle reader injected'))).toBe(true);
+        expect(texts.some(text => text.includes('throttle: unknown'))).toBe(true);
+        expect(texts.some(text => text.includes('wake: on'))).toBe(true);
+
+        detail.destroy()
+    });
+
     test('§2.2.1 wall-clock aging: a later `now` re-classifies fresh → lost in place (time-reactive, not just re-seat)', () => {
         const detail = createDetail({agentId: 'vega', state: 'ok'}, {
             paneLedgers: {lane: {observedAt: '2026-07-11T23:59:50.000Z', freshnessTtl: 30_000}} // 10s before NOW → fresh

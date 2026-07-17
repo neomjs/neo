@@ -478,20 +478,31 @@ class AgentDetail extends Container {
         // rather than borrowing 'unknown' — which would claim someone looked.
         const readout = describeTelltaleReadout({throttle: record.throttle, wake: record.wake});
 
-        me.getReference('detail-telltale').set({
-            html: readout.map(({axis, reason, reported, state}) => {
-                if (!reported) {
-                    return `<span class="fm-detail-telltale-axis fm-detail-telltale-unreported">${axis}: not reported</span>`
-                }
+        // Built as VDOM nodes carrying `text`, never an `html` string. `reason` is the PRODUCER's
+        // sentence — it crosses a process boundary before it reaches here — and Neo routes `html` to
+        // innerHTML (src/vdom/Helper.mjs), so interpolating it made a remote adapter's error message
+        // executable in the cockpit. A `text` node is inert by construction, which is the only version
+        // of this that cannot be got wrong again later: escaping is a thing you must remember, and a
+        // text node is a thing you cannot forget.
+        const telltale = me.getReference('detail-telltale');
 
-                // the reason is the producer's evidence for what it could not see; the card has no
-                // room for it, which is what makes a degraded chip a prompt to drill in rather than
-                // a dead end
-                const detail = reason ? ` <span class="fm-detail-telltale-reason">— ${reason}</span>` : '';
+        telltale.vdom.cn = readout.flatMap(({axis, reason, reported, state}) => {
+            if (!reported) {
+                return [{tag: 'span', cls: ['fm-detail-telltale-axis', 'fm-detail-telltale-unreported'], text: `${axis}: not reported`}]
+            }
 
-                return `<span class="fm-detail-telltale-axis fm-detail-telltale-${state}">${axis}: ${state}</span>${detail}`
-            }).join('')
+            const nodes = [{tag: 'span', cls: ['fm-detail-telltale-axis', `fm-detail-telltale-${state}`], text: `${axis}: ${state}`}];
+
+            // the reason is the producer's evidence for what it could not see; the card has no room
+            // for it, which is what makes a degraded chip a prompt to drill in rather than a dead end
+            if (reason) {
+                nodes.push({tag: 'span', cls: ['fm-detail-telltale-reason'], text: `— ${reason}`})
+            }
+
+            return nodes
         });
+
+        telltale.update();
 
         me.getReference('detail-avatar').set({
             alt: record.displayName ?? agentId,
