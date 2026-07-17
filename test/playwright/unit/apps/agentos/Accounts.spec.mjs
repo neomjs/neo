@@ -104,6 +104,137 @@ test.describe('AgentOS.view.Accounts credential boundary', () => {
         expect(source).not.toMatch(/console\.(log|warn|error)/)
     });
 
+    /**
+     * The behavioural half, and the load-bearing one. The source check above proves the STRING
+     * `localStorage` is absent from ONE FILE — a different claim from "no credential reaches browser
+     * storage", and the two come apart the instant any credential handling moves into a sibling
+     * module. Verified, not asserted: with a `rememberCredential()` helper extracted next to the view
+     * and persisting the PAT, the source check above still passed and the suite stayed at its exact
+     * 22/22 baseline. A guard aimed at a filename stops guarding the moment the code leaves the file,
+     * and says nothing while it happens. This one records real writes, so it follows the credential
+     * into whatever module holds it.
+     *
+     * Storage and console are ONE boundary, not two. The source check's sibling line makes the same
+     * mistake about `console.*` that its storage line makes about `localStorage`: a `console.log(pat)`
+     * inside that same extracted helper leaks the credential to logs by the identical mechanism, and
+     * the same refactor blinds both guards in a single commit. Covering the storage half alone would
+     * have named the defect and then reproduced it one line down. Credit: @neo-opus-grace spotted the
+     * twin on review.
+     *
+     * Three things here are load-bearing, and the first draft of this test got all three wrong —
+     * @neo-gpt falsified each against the real head:
+     *
+     * 1. It drives the REAL `submitToFleetRegistryBridge` / `upsertPublicAgentDefinition` through an
+     *    injected bridge and a real store. Stubbing those seams deletes the path the credential
+     *    actually crosses: a helper extracted INSIDE the real submit method persisted the PAT while
+     *    all 23 specs stayed green. A witness that replaces the subject of its own claim proves
+     *    nothing about it.
+     * 2. The recorder is a Proxy, not a plain object. `storage[key] = value` is a real persistent
+     *    write in Chromium and calls no method, so a method-only recorder watches it in silence.
+     * 3. Teardown deletes an ABSENT global rather than restoring `undefined` (the hosted runner has
+     *    no `sessionStorage`), and unwinds LIFO so a throw mid-install still restores what was set.
+     *
+     * The positive control is not decoration: a run that submits NOTHING also writes and logs
+     * nothing, so without proof the accepted-add path actually executed through those real seams,
+     * both empty sets are vacuous.
+     */
+    test('no credential byte reaches browser storage OR the console on an accepted add — real seams, behavioural', async () => {
+        const
+            AgentDefinition = (await import('../../../../../apps/agentos/model/AgentDefinition.mjs')).default,
+            Store           = (await import('../../../../../src/data/Store.mjs')).default,
+            canonical       = {
+                id            : 'resident-42',
+                githubUsername: 'canonical-login',
+                harnessType   : 'antigravity'
+            },
+            pat        = 'ghp_should_not_escape',
+            writes     = [],
+            logged     = [],
+            statuses   = [],
+            store      = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: []}),
+            form       = {
+                getSubmitValues: async () => ({credential: pat, githubUsername: 'submitted-login', harnessType: 'codex'}),
+                validate       : async () => true
+            },
+            stub       = {
+                agentDefinitionsStore: store,
+                clearCredentialField : async () => {},
+                fire                 : () => {},
+                getReference         : reference => reference === 'agent-form' ? form : null,
+                updateBridgeStatus   : (state, message) => statuses.push([state, message]),
+                // the REAL credential-bearing seams. Stubbing `submitToFleetRegistryBridge` would
+                // delete the very path the credential crosses, and a helper extracted INSIDE it would
+                // leak while every assertion here stayed green — the claim would be about a boundary
+                // the test had removed.
+                submitToFleetRegistryBridge: Accounts.prototype.submitToFleetRegistryBridge,
+                upsertPublicAgentDefinition: Accounts.prototype.upsertPublicAgentDefinition
+            },
+            // Proxy-backed, not a plain object: `storage[key] = value` is a REAL persistent write in
+            // Chromium and reaches no method, so a method-only recorder watches it happen in silence.
+            // The trap covers the mutation surface; reads stay inert.
+            recorder   = kind => new Proxy({
+                clear     : ()     => writes.push([kind, 'clear']),
+                getItem   : ()     => null,
+                key       : ()     => null,
+                length    : 0,
+                removeItem: key    => writes.push([kind, 'removeItem', key]),
+                setItem   : (k, v) => writes.push([kind, 'setItem', k, v])
+            }, {
+                defineProperty(target, key, descriptor) {
+                    writes.push([kind, 'defineProperty', key, descriptor?.value]);
+                    return true
+                },
+                set(target, key, value) {
+                    writes.push([kind, 'set', key, value]);
+                    return true
+                }
+            }),
+            kinds      = ['localStorage', 'sessionStorage'],
+            levels     = ['debug', 'error', 'info', 'log', 'warn'],
+            realOS     = globalThis.AgentOS,
+            // LIFO teardown. Each entry is pushed BEFORE its mutation, so a throw part-way through
+            // install still unwinds everything already installed.
+            undo       = [];
+
+        // the injected bridge the REAL submit seam reads off globalThis
+        globalThis.AgentOS = {...realOS, fleet: {registryBridge: {defineAgent: async () => canonical}}};
+
+        try {
+            kinds.forEach(kind => {
+                const original = Object.getOwnPropertyDescriptor(globalThis, kind);
+
+                // an ABSENT global must be deleted, not restored: the hosted runner has no
+                // `sessionStorage`, and defineProperty(…, undefined) throws on the way out
+                undo.push(() => original ? Object.defineProperty(globalThis, kind, original) : delete globalThis[kind]);
+                Object.defineProperty(globalThis, kind, {configurable: true, value: recorder(kind)})
+            });
+
+            levels.forEach(level => {
+                const original = console[level];
+
+                undo.push(() => {console[level] = original});
+                console[level] = (...args) => logged.push([level, ...args])
+            });
+
+            await Accounts.prototype.onSubmitAgentClick.call(stub)
+        } finally {
+            undo.reverse().forEach(fn => fn());
+            globalThis.AgentOS = realOS
+        }
+
+        // the positive control: the REAL seams ran to an accepted add, so empty sets mean something
+        expect(statuses, 'the accepted-add path must have run through the REAL seams — otherwise both leak checks are vacuous')
+            .toEqual([['is-live', 'Agent added. PAT was not retained in the app worker.']]);
+        expect(store.get('resident-42')?.githubUsername, 'the real store must hold the canonical record').toBe('canonical-login');
+        expect(store.get('resident-42')?.credential, 'and no credential byte in it').toBeUndefined();
+
+        expect(writes, 'no credential byte may reach browser storage, from ANY module on this path').toEqual([]);
+        expect(logged, 'no credential byte may reach the console, from ANY module on this path').toEqual([]);
+        expect(JSON.stringify([writes, logged])).not.toContain(pat);
+
+        store.destroy()
+    });
+
     test('identity setup writes only the redacted projection to the shared roster', () => {
         const source = fs.readFileSync(viewPath, 'utf8');
 
