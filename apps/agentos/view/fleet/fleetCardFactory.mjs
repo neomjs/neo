@@ -62,7 +62,14 @@ export function toAgentCardDescriptor(row = {}) {
                 laneLine     : row.laneLine ?? null,
                 openLaneCount: row.openLaneCount ?? null,
                 sources      : sessionHealth.sources,
-                state        : sessionHealth.state
+                state        : sessionHealth.state,
+                // Both telltale axes travel as the WHOLE observation, exactly as the Store-backed
+                // cockpit path passes them. Dropping them here does not make a restored card render
+                // "unknown" — it makes it render NOTHING, because an absent axis is absence, so the
+                // restored card reads as nominal while the live card beside it chips `wake off`. The
+                // two ingress paths must not disagree about the same agent.
+                throttle: row.throttle ?? null,
+                wake    : row.wake ?? null
             }
         },
         policy  : {...AGENT_CARD_POLICY},

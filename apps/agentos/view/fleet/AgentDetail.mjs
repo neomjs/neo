@@ -4,6 +4,7 @@ import Image                                          from '../../../../src/comp
 import MailboxPane                                    from './MailboxPane.mjs';
 import StateDot                                       from './StateDot.mjs';
 import TabContainer                                   from '../../../../src/tab/Container.mjs';
+import {describeTelltaleReadout}                      from './telltale.mjs';
 import {classifyPaneFreshness, describePaneFreshness} from './agentFreshness.mjs';
 import {normalizeFleetSources}                        from './sourceHealth.mjs';
 
@@ -201,6 +202,16 @@ class AgentDetail extends Container {
                     ntype    : 'component',
                     cls      : ['fm-detail-participation'],
                     reference: 'detail-participation'
+                }, {
+                    // The FULL two-axis telltale readout. The card is exception-based — nominal earns
+                    // zero pixels there, because 20 cards cannot spend a line each on "fine". This is
+                    // ONE resident, so both axes state themselves unconditionally: an operator who
+                    // drilled in cannot otherwise tell "wake is on" from "nobody looked at wake".
+                    // Lives in the identity block rather than a fifth pane — the four SSOT panes are
+                    // content surfaces with freshness TTLs, and this is resident state.
+                    ntype    : 'component',
+                    cls      : ['fm-detail-telltale'],
+                    reference: 'detail-telltale'
                 }]
             }]
         }, {
@@ -459,6 +470,39 @@ class AgentDetail extends Container {
             hidden: participation === null,
             text  : participation === null ? '' : participation.replace(/_/g, ' ')
         });
+
+        // The full two-axis readout: BOTH axes, always — the opposite of the card's exception-based
+        // chip, and deliberately so. Three renderings for three different facts: a nominal axis says
+        // so (an operator who drilled in needs "wake: on" confirmed, not omitted), an observed
+        // `unknown` carries the producer's reason, and an axis nobody reported says "not reported"
+        // rather than borrowing 'unknown' — which would claim someone looked.
+        const readout = describeTelltaleReadout({throttle: record.throttle, wake: record.wake});
+
+        // Built as VDOM nodes carrying `text`, never an `html` string. `reason` is the PRODUCER's
+        // sentence — it crosses a process boundary before it reaches here — and Neo routes `html` to
+        // innerHTML (src/vdom/Helper.mjs), so interpolating it made a remote adapter's error message
+        // executable in the cockpit. A `text` node is inert by construction, which is the only version
+        // of this that cannot be got wrong again later: escaping is a thing you must remember, and a
+        // text node is a thing you cannot forget.
+        const telltale = me.getReference('detail-telltale');
+
+        telltale.vdom.cn = readout.flatMap(({axis, reason, reported, state}) => {
+            if (!reported) {
+                return [{tag: 'span', cls: ['fm-detail-telltale-axis', 'fm-detail-telltale-unreported'], text: `${axis}: not reported`}]
+            }
+
+            const nodes = [{tag: 'span', cls: ['fm-detail-telltale-axis', `fm-detail-telltale-${state}`], text: `${axis}: ${state}`}];
+
+            // the reason is the producer's evidence for what it could not see; the card has no room
+            // for it, which is what makes a degraded chip a prompt to drill in rather than a dead end
+            if (reason) {
+                nodes.push({tag: 'span', cls: ['fm-detail-telltale-reason'], text: `— ${reason}`})
+            }
+
+            return nodes
+        });
+
+        telltale.update();
 
         me.getReference('detail-avatar').set({
             alt: record.displayName ?? agentId,
