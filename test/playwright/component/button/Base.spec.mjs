@@ -218,4 +218,55 @@ test.describe('Neo.button.Base', () => {
         await expect(nativeButtons.nth(0)).toBeEnabled();
         await expect(nativeButtons.nth(1)).toBeEnabled();
     });
+
+    test('disabled paint is class-owned — the native attribute contributes no UA styling', async ({page}) => {
+        const result = await page.evaluate((config) => {
+            return Neo.worker.App.createNeoInstance(config);
+        }, {
+            importPath: '../button/Base.mjs',
+            ntype     : 'button',
+            parentId  : 'component-test-viewport',
+            disabled  : true,
+            text      : 'Painted action'
+        });
+
+        if (!result.success) {
+            throw new Error(`Component creation failed: ${result.error.message}`);
+        }
+
+        buttonId = result.id;
+
+        const button = page.locator(`#${buttonId}`);
+
+        await expect(button).toBeDisabled();
+        await expect(button).toHaveClass(/neo-disabled/);
+
+        // Projecting the native attribute activates the UA `button:disabled` cascade, which had been
+        // dormant for as long as `.neo-disabled` was the only disabled authority. Same node, attribute
+        // on vs off, class constant: any inequality is user-agent paint leaking past the class.
+        const {withAttribute, classOnly} = await button.evaluate(node => {
+            const probe = () => {
+                const style = getComputedStyle(node);
+
+                return {
+                    backgroundColor: style.backgroundColor,
+                    borderTopColor : style.borderTopColor,
+                    color          : style.color,
+                    opacity        : style.opacity
+                }
+            };
+
+            const withAttribute = probe();
+
+            node.removeAttribute('disabled');
+
+            const classOnly = probe();
+
+            node.setAttribute('disabled', '');
+
+            return {withAttribute, classOnly}
+        });
+
+        expect(withAttribute).toEqual(classOnly);
+    });
 });

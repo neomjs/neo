@@ -264,9 +264,13 @@ class Button extends Component {
 
     /**
      * Mirrors the framework-generic disabled state onto an effective native button root.
-     * The parent hook retains the visual `neo-disabled` class and the DOM-event manager remains
-     * defense in depth. URL and non-editing route configs turn the root into an anchor, where the
-     * native `disabled` attribute has no semantics and must not be projected.
+     * The parent hook keeps toggling the `neo-disabled` class, which remains the sole styling
+     * authority: projecting the attribute activates the UA `button:disabled` cascade, so
+     * `button/Base.scss` pins the one axis the class does not declare (`color`), and the
+     * render-equivalence component spec witnesses that the attribute contributes no paint.
+     * The DOM-event manager remains defense in depth. URL and non-editing route configs turn the
+     * root into an anchor, where the native `disabled` attribute has no semantics and must not
+     * be projected.
      * @param {Boolean} value    The new value of the disabled config.
      * @param {Boolean} oldValue The old value of the disabled config.
      * @protected
