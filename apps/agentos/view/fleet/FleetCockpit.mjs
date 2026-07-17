@@ -1232,8 +1232,17 @@ class FleetCockpit extends Container {
                 stream.adapterState   = 'stale';
                 // the adapter's OWN reason outranks a guess — it saw the failure, we only saw the answer
                 me.degradedReason = toSafeDegradedReason(capability.reason)
+            } else if (capability) {
+                // The producer ANSWERED and said it is not wired (`not-wired`). The seed stays — the
+                // stream really is showing sample events, so its own state is honestly 'sample' — but
+                // an answer is not silence, and the difference is the whole point: a reachable server
+                // whose activity source is unconfigured is NOT an unreachable server. Retaining the
+                // reason is what lets the banner say which one it is instead of guessing the loudest.
+                me.degradedReason = toSafeDegradedReason(capability.reason)
             }
-            // not-wired / absent bridge → keep the honestly-labelled 'sample' seed
+            // NO capability at all (a torn/absent answer) → keep the 'sample' seed AND no reason:
+            // we learned nothing, so the banner falls back to its generic copy rather than inventing
+            // a cause. That is the genuine cold case.
         } catch (error) {
             // fail-closed: the last-known feed STAYS rather than blanking it — only the state advances
             me.degradeWiredSurface('stream', error, stream)

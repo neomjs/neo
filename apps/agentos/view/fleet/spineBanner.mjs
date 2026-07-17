@@ -25,10 +25,20 @@ export function deriveSpineBanner({gridAdapterState, streamAdapterState, degrade
     const states = [gridAdapterState, streamAdapterState];
 
     if (states.includes('sample')) {
+        const reason = typeof degradedReason === 'string' && degradedReason.trim();
+
         return {
             hidden: false,
             kind  : 'cold',
-            text  : 'Fleet server offline — showing sample data · start it: npm run ai:fleet-server'
+            // Same discipline the `stale` line follows, and for the same reason: name the retained
+            // cause when the owner HAS one, guess only when it does not. A reachable server whose
+            // source is unconfigured answers `not-wired` — the seed stays, so the data really is
+            // sample, but "start the server" would be advice to restart a process that just replied.
+            // The generic copy is the fallback for silence, which is the only state that actually
+            // implies an offline server.
+            text: reason
+                ? `Fleet data unavailable — showing sample data · ${reason}`
+                : 'Fleet server offline — showing sample data · start it: npm run ai:fleet-server'
         }
     }
 
