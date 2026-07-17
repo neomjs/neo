@@ -1301,6 +1301,36 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
         delete globalThis.AgentOS.fleet
     });
 
+    test('an OLDER SUCCESS never unseats a NEWER loss — the inverse he also named', async () => {
+        // His case 1, and the one my first fence witness missed: I pinned "older FAILURE after newer
+        // success" and stopped, because that was the direction that felt dangerous. The fence is
+        // symmetric and the ordering rule has no favourite outcome — a stale SUCCESS overwriting a
+        // fresh loss is the same defect wearing good news, and it is arguably worse: it paints the
+        // spine live while the transport is down.
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        let releaseSlow;
+        const slow = new Promise(resolve => { releaseSlow = () => resolve({capability: {state: 'wired'}, events: []}) });
+
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetActivity: () => slow}};
+        const slowRead = host.loadActivity();       // read 1 — in flight, will SUCCEED
+
+        // read 2 starts and loses the transport while read 1 still hangs
+        globalThis.AgentOS.fleet.registryBridge.fleetActivity = async () => { throw new Error('transport lost') };
+        await host.loadActivity();
+
+        expect(host.streamAdapterState).toBe('stale');
+
+        releaseSlow();                              // read 1 finally succeeds, LATE
+        await slowRead;
+
+        expect(host.streamAdapterState, 'stale good news must not claim the spine is live').toBe('stale');
+        expect(host.streamDegradedReason).toBe('transport lost');
+
+        delete globalThis.AgentOS.fleet
+    });
+
     test('a read completing after destroy mutates NOTHING — no post-destroy writes', async () => {
         const banner = makeBanner(),
               host   = makeLivenessHost(banner);
@@ -1380,13 +1410,18 @@ test.describe('Fleet cockpit — the liveness owner lifecycle (start/stop, #1529
         const cleared = [];
         let   nextId  = 0;
 
+        // `loadActivity` / `loadRoster` return PROMISES because the real ones are `async` and
+        // `startLiveness` chains `.finally()` to release the overlap latch — a void fake would throw
+        // on the first tick. The `*ReadInFlight` pair mirrors the class defaults the latch reads.
         return {
             cleared,
             polls               : 0,
+            gridReadInFlight    : false,
             livenessPollInterval: 50,
             livenessTimerId     : null,
-            loadActivity() { this.polls++ },
-            loadRoster()   { this.polls++ },
+            streamReadInFlight  : false,
+            loadActivity() { this.polls++; return Promise.resolve() },
+            loadRoster()   { this.polls++; return Promise.resolve() },
             startLiveness: FleetCockpit.prototype.startLiveness,
             stopLiveness : FleetCockpit.prototype.stopLiveness,
             // counting stand-ins: the real ones are globals, and the assertion is about balance
@@ -1410,6 +1445,50 @@ test.describe('Fleet cockpit — the liveness owner lifecycle (start/stop, #1529
 
             // a stacked timer would double the poll rate against the bridge for the same cockpit
             expect(host.livenessTimerId).toBe(first)
+        } finally {
+            globalThis.setInterval = original
+        }
+    });
+
+    test('a tick NEVER launches a read while that surface still has one in flight', async () => {
+        // @neo-gpt's fourth finding, and the one the generation fence does NOT reach: the fence makes
+        // a late read HARMLESS, not ABSENT. A transport slower than the 15s cadence would have every
+        // tick launch another pair regardless of the unresolved prior one — unbounded in-flight reads
+        // against a bridge already failing to answer, which is exactly when piling on is worst.
+        // Skipping a tick costs nothing: the next reads the same live truth, only later.
+        const host     = makeTimerHost(),
+              original = globalThis.setInterval;
+
+        let tick, releaseActivity;
+
+        host.loadActivity = function() {
+            this.polls++;
+            return new Promise(resolve => { releaseActivity = resolve })   // hangs past the next tick
+        };
+        globalThis.setInterval = fn => { tick = fn; return 1 };
+
+        try {
+            // the latch releases in a `.finally()`, i.e. on a MICROTASK — so a tick must be given a
+            // drain before the next, exactly as the real 15s cadence does. My first version fired
+            // both ticks synchronously and saw the ROSTER suppressed too: correct behaviour (its
+            // latch had not released yet) against a specimen that modelled no time passing at all.
+            const drain = async () => { await Promise.resolve(); await Promise.resolve() };
+
+            host.startLiveness();
+
+            tick();                                   // tick 1 launches both; activity hangs
+            expect(host.polls).toBe(2);
+            await drain();                            // roster resolved; its latch releases
+
+            tick();                                   // tick 2 — activity is STILL unresolved
+            expect(host.polls, 'a second activity read must not stack on an unresolved one').toBe(3); // roster only
+            await drain();
+
+            releaseActivity();
+            await drain();                            // activity finally settles; its latch releases
+
+            tick();                                   // tick 3 — the surface is free again
+            expect(host.polls, 'suppression must not be permanent — it is a skip, not a stop').toBe(5)
         } finally {
             globalThis.setInterval = original
         }

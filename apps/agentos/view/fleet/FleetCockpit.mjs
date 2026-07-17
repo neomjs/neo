@@ -259,6 +259,18 @@ class FleetCockpit extends Container {
      */
     gridReadGeneration = 0
     /**
+     * Overlap suppression for the ROSTER surface — true while a liveness-driven read is unresolved.
+     *
+     * The generation fence keeps a late read from WRITING; this keeps it from being LAUNCHED. Without
+     * it, a transport slower than the cadence collects a new in-flight read every tick, forever,
+     * against a bridge that is already struggling — the "hung accumulation" half of the ingress
+     * contract. Only {@link #startLiveness} honours it: a direct call (boot, an explicit refresh) is
+     * an operator-meant read and is never suppressed.
+     * @member {Boolean} gridReadInFlight=false
+     * @protected
+     */
+    gridReadInFlight = false
+    /**
      * The retained safe reason for the ACTIVITY surface's current degrade. See
      * {@link #gridDegradedReason} for why these are per-surface rather than one shared field.
      * @member {String|null} streamDegradedReason=null
@@ -271,6 +283,12 @@ class FleetCockpit extends Container {
      * @protected
      */
     streamReadGeneration = 0
+    /**
+     * Overlap suppression for the ACTIVITY surface. See {@link #gridReadInFlight}.
+     * @member {Boolean} streamReadInFlight=false
+     * @protected
+     */
+    streamReadInFlight = false
     /**
      * The last authoritative (bridge-sourced) roster snapshot, kept so a slower store load — the
      * JSON sample seed racing {@link #loadRoster} — can never overwrite live truth
@@ -1409,9 +1427,21 @@ class FleetCockpit extends Container {
 
         if (me.livenessTimerId !== null) return;
 
+        // Per-surface overlap suppression, NOT just the generation fence. The fence makes a late read
+        // HARMLESS; it does not make it ABSENT. A transport slower than the cadence would have each
+        // tick launch another pair regardless of the unresolved prior one — unbounded in-flight reads
+        // against a bridge already failing to answer, which is precisely when piling on is worst.
+        // Skipping a tick loses nothing: the next one reads the same live truth, only later.
         me.livenessTimerId = setInterval(() => {
-            me.loadActivity();
-            me.loadRoster()
+            if (!me.streamReadInFlight) {
+                me.streamReadInFlight = true;
+                me.loadActivity().finally(() => { me.streamReadInFlight = false })
+            }
+
+            if (!me.gridReadInFlight) {
+                me.gridReadInFlight = true;
+                me.loadRoster().finally(() => { me.gridReadInFlight = false })
+            }
         }, me.livenessPollInterval)
     }
 
