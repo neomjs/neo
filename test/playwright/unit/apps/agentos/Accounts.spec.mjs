@@ -114,10 +114,17 @@ test.describe('AgentOS.view.Accounts credential boundary', () => {
      * and says nothing while it happens. This one records real writes, so it follows the credential
      * into whatever module holds it.
      *
-     * The `upsert` assertion is not decoration: a run that submits NOTHING also writes nothing, so
-     * without proof the accepted-add path actually executed, `writes` being empty is a vacuous pass.
+     * Storage and console are ONE boundary, not two. The source check's sibling line makes the same
+     * mistake about `console.*` that its storage line makes about `localStorage`: a `console.log(pat)`
+     * inside that same extracted helper leaks the credential to logs by the identical mechanism, and
+     * the same refactor blinds both guards in a single commit. Covering the storage half alone would
+     * have named the defect and then reproduced it one line down. Credit: @neo-opus-grace spotted the
+     * twin on review.
+     *
+     * The `upsert` assertion is not decoration: a run that submits NOTHING also writes and logs
+     * nothing, so without proof the accepted-add path actually executed, both empty sets are vacuous.
      */
-    test('no credential byte reaches browser storage on an accepted add — behavioural, survives extraction', async () => {
+    test('no credential byte reaches browser storage OR the console on an accepted add — behavioural, survives extraction', async () => {
         const
             canonical = {
                 id            : 'resident-42',
@@ -126,6 +133,7 @@ test.describe('AgentOS.view.Accounts credential boundary', () => {
             },
             calls     = [],
             writes    = [],
+            logged    = [],
             pat       = 'ghp_should_not_escape',
             form      = {
                 getSubmitValues: async () => ({credential: pat, githubUsername: 'submitted-login', harnessType: 'codex'}),
@@ -149,25 +157,34 @@ test.describe('AgentOS.view.Accounts credential boundary', () => {
                 setItem   : (k, v) => writes.push([kind, 'setItem', k, v])
             }),
             kinds     = ['localStorage', 'sessionStorage'],
-            originals = {};
+            levels    = ['debug', 'error', 'info', 'log', 'warn'],
+            originals = {},
+            realLevel = {};
 
         kinds.forEach(kind => {
             originals[kind] = Object.getOwnPropertyDescriptor(globalThis, kind);
             Object.defineProperty(globalThis, kind, {configurable: true, value: recorder(kind)})
         });
 
+        levels.forEach(level => {
+            realLevel[level] = console[level];
+            console[level]   = (...args) => logged.push([level, ...args])
+        });
+
         try {
             await Accounts.prototype.onSubmitAgentClick.call(stub)
         } finally {
-            kinds.forEach(kind => Object.defineProperty(globalThis, kind, originals[kind]))
+            kinds .forEach(kind  => Object.defineProperty(globalThis, kind, originals[kind]));
+            levels.forEach(level => {console[level] = realLevel[level]})
         }
 
-        // the positive control: the add REALLY completed, so an empty `writes` means something
-        expect(calls, 'the accepted-add path must have run — otherwise the leak check is vacuous')
+        // the positive control: the add REALLY completed, so an empty `writes`/`logged` means something
+        expect(calls, 'the accepted-add path must have run — otherwise both leak checks are vacuous')
             .toEqual([['upsert'], ['status', 'is-live', 'Agent added. PAT was not retained in the app worker.']]);
 
         expect(writes, 'no credential byte may reach browser storage, from ANY module on this path').toEqual([]);
-        expect(JSON.stringify(writes)).not.toContain(pat)
+        expect(logged, 'no credential byte may reach the console, from ANY module on this path').toEqual([]);
+        expect(JSON.stringify([writes, logged])).not.toContain(pat)
     });
 
     test('identity setup writes only the redacted projection to the shared roster', () => {
