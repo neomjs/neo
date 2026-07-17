@@ -263,6 +263,25 @@ class Button extends Component {
     }
 
     /**
+     * Mirrors the framework-generic disabled state onto an effective native button root.
+     * The parent hook keeps toggling the `neo-disabled` class, which remains the sole styling
+     * authority: projecting the attribute activates the UA `button:disabled` cascade, so
+     * `button/Base.scss` pins the one axis the class does not declare (`color`), and the
+     * render-equivalence component spec witnesses that the attribute contributes no paint.
+     * The DOM-event manager remains defense in depth. URL and non-editing route configs turn the
+     * root into an anchor, where the native `disabled` attribute has no semantics and must not
+     * be projected.
+     * @param {Boolean} value    The new value of the disabled config.
+     * @param {Boolean} oldValue The old value of the disabled config.
+     * @protected
+     */
+    afterSetDisabled(value, oldValue) {
+        super.afterSetDisabled(value, oldValue);
+        this.syncNativeDisabledState();
+        this.update()
+    }
+
+    /**
      * Triggered after the iconCls config got changed
      * @param {String} value    The new value of the iconCls config.
      * @param {String} oldValue The old value of the iconCls config.
@@ -644,7 +663,28 @@ class Button extends Component {
     }
 
     /**
-     * Updates the VDOM tag of the button (e.g., switching between 'button' and 'a' tags) based on the current configuration.
+     * @summary Reconciles the native disabled attribute with the Button's effective root tag.
+     *
+     * Button roots are polymorphic: URL and non-editing route configs render anchors, while the
+     * default shape renders a native button. Only the latter understands the `disabled` attribute.
+     *
+     * @protected
+     */
+    syncNativeDisabledState() {
+        let vdomRoot = this.getVdomRoot();
+
+        if (vdomRoot.tag === 'button' && this.disabled) {
+            vdomRoot.disabled = true
+        } else {
+            delete vdomRoot.disabled
+        }
+    }
+
+    /**
+     * @summary Updates the effective root tag and reconciles tag-owned native attributes.
+     *
+     * Switches between `button` and `a` based on URL/non-editing-route configuration. Since the
+     * root is polymorphic, native disabled semantics are reconciled in the same transition owner.
      */
     updateTag() {
         let me                      = this,
@@ -664,6 +704,7 @@ class Button extends Component {
             vdomRoot.tag = 'button'
         }
 
+        me.syncNativeDisabledState();
         me.update()
     }
 }
