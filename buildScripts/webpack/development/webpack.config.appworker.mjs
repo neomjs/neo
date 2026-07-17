@@ -72,7 +72,13 @@ export default env => {
 
         content = requireJson(inputPath);
 
-        content.appPath = content.appPath.replace(regexTopLevel, '');
+        // Strip `../` segments to a fixpoint: a single global pass can re-form `../` from
+        // overlapping input (e.g. `....//` → `../`), so loop until the path stops changing.
+        let previousAppPath;
+        do {
+            previousAppPath = content.appPath;
+            content.appPath = content.appPath.replace(regexTopLevel, '');
+        } while (content.appPath !== previousAppPath);
 
         Object.assign(content, {
             basePath,
