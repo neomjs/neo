@@ -64,7 +64,7 @@ export function normalizeLifecycleClocks(pr) {
 
     // Only evidence attached to the CURRENT head can date the current head.
     const currentHeadReviews = (pr?.reviews || []).filter(review => review.commitSha === head),
-          currentHeadChecks  = (pr?.checks  || []).filter(check  => check.headSha === head || check.headSha === undefined);
+          currentHeadChecks  = currentHeadChecksOf(pr);
 
     const clean    = stamps => stamps.filter(stamp => typeof stamp === 'string' && stamp.length > 0).sort(),
           earliest = stamps => clean(stamps)[0] ?? null,
@@ -86,22 +86,39 @@ export function normalizeLifecycleClocks(pr) {
         ...currentHeadReviews.filter(review => review.state === 'CHANGES_REQUESTED').map(review => review.submittedAt),
         ...currentHeadChecks.filter(check => check.required === true && check.conclusion === 'FAILURE').map(check => check.completedAt),
         // A conflict carries no evidence timestamp of its own; the source states when it observed one.
-        pr?.mergeableSince
+        // Gated on an ACTIVE conflict: a stale `mergeableSince` from a conflict that has since been
+        // resolved is not evidence of anything, and letting it into the earliest() dated an unrelated
+        // repair from a problem that no longer exists.
+        pr?.mergeable === false ? pr?.mergeableSince : null
     ]));
 
     // REVIEWABLE — LATEST, and only once ALL required checks have passed. "When did this head become
     // reviewable?" is when the LAST required check went green. At the earliest one it was not reviewable
     // at all, so dating it there claims a readiness that did not exist.
-    const requiredChecks  = currentHeadChecks.filter(check => check.required === true),
-          allPassed       = requiredChecks.length > 0 && requiredChecks.every(check => check.conclusion === 'SUCCESS'),
-          reviewableSince = allPassed ? clampToHead(latest(requiredChecks.map(check => check.completedAt))) : null;
+    //
+    // A repo requiring NO checks is reviewable from the moment the head exists — the ADR admits "all
+    // pass OR none exist", and treating zero-required as undatable threw on a perfectly ordinary repo.
+    //
+    // A source-owned transition timestamp WINS when present. Check facts are evergreen: once green at
+    // 10:30 they stay green, so they cannot express a same-head loss and re-entry (reviewable at 10:30,
+    // a request arrives at 11:00 and removes the row, the request is withdrawn at 12:00 and it re-enters
+    // — which is 12:00, not 10:30). Only the source can date a transition it observed; deriving one from
+    // an evergreen fact would invent it.
+    const requiredChecks = currentHeadChecks.filter(check => check.required === true),
+          allPassed      = requiredChecks.every(check => check.conclusion === 'SUCCESS'),
+          derivedGreen   = requiredChecks.length === 0 ? headCommittedAt : latest(requiredChecks.map(check => check.completedAt));
 
-    // REQUESTED — LATER of the request and the head. A request that predates a push is not a request to
-    // review THIS code; the obligation restarts when the head moves under it. `clampToHead` IS that
-    // later(), since the head is the floor.
-    const requestedSince = clampToHead(earliest((pr?.reviewRequests || []).map(request =>
-        typeof request === 'object' ? request.requestedAt : null
-    )));
+    const reviewableSince = allPassed
+        ? clampToHead(sourceTransition(pr, 'reviewerRoutingSince') ?? derivedGreen)
+        : null;
+
+    // REQUESTED — LATER of the request and the head, PER TARGET. Taking the earliest across all agents
+    // dated a peer's 11:00 request from someone else's 09:00 one: each reviewer's obligation begins when
+    // THEY were asked, so one shared clock is not a rounding error, it is the wrong reviewer's fact.
+    // The per-target map is resolved by the predicate that knows which agent is consuming.
+    const requestedByTarget = Object.fromEntries((pr?.reviewRequests || [])
+        .map(request => typeof request === 'object' ? [request.login, clampToHead(request.requestedAt ?? null)] : [request, null])
+        .filter(([login]) => typeof login === 'string' && login.length > 0));
 
     return {
         ...pr,
@@ -109,9 +126,63 @@ export function normalizeLifecycleClocks(pr) {
         repairActionableSinceHeadSha: repairSince === null ? null : head,
         reviewableSince,
         reviewableSinceHeadSha      : reviewableSince === null ? null : head,
-        reviewRequestedSince        : requestedSince,
-        reviewRequestedSinceHeadSha : requestedSince === null ? null : head
+        reviewRequestedByTarget     : requestedByTarget,
+        reviewRequestedSinceHeadSha : head
     }
+}
+
+/**
+ * @summary Reads a source-owned transition timestamp, but only when the source proves it belongs to the
+ * CURRENT head.
+ *
+ * A transition is something only the source can witness: a snapshot of evergreen facts cannot say when
+ * a state was LOST and re-entered, because the facts read identically before and after. Where the source
+ * records that transition it is authoritative over anything derived; where it does not, the derivation
+ * stands and the same-head re-entry case remains the source's to close.
+ *
+ * @param {Object} pr Normalized PR record.
+ * @param {String} field The transition field.
+ * @returns {String|null}
+ */
+function sourceTransition(pr, field) {
+    const stamp = pr?.[field];
+
+    if (typeof stamp !== 'string' || stamp.length === 0) {
+        return null
+    }
+
+    // An unprovenanced or stale transition is not usable: it would carry a previous head's history into
+    // this one under current-head provenance.
+    return pr?.[`${field}HeadSha`] === pr?.headSha ? stamp : null
+}
+
+/**
+ * @summary Resolves the review-request clock for ONE consuming target.
+ *
+ * Each reviewer's obligation begins when THEY were asked. A single shared clock dated every reviewer
+ * from whoever was asked first, so a peer added at 11:00 inherited someone else's 09:00 — not a
+ * rounding error but the wrong reviewer's fact, and the age is what a peer sorts by.
+ *
+ * @param {Object} pr Normalized PR record carrying `reviewRequestedByTarget`.
+ * @param {String} agentId The consuming agent.
+ * @returns {String} The clock, proven current-head.
+ * @throws {TypeError} When the source dated no request for this target.
+ */
+export function resolveTargetRequestClock(pr, agentId) {
+    const stamp = pr?.reviewRequestedByTarget?.[agentId];
+
+    if (typeof stamp !== 'string' || stamp.length === 0) {
+        throw new TypeError(
+            `[lifecycleAdmission] no dated review request for ${agentId} on PR ${pr?.id} — ` +
+            'the source must state when each reviewer was asked; a row without its clock cannot be ordered'
+        )
+    }
+
+    if (pr?.reviewRequestedSinceHeadSha !== pr?.headSha) {
+        throw new TypeError(`[lifecycleAdmission] the review-request clock for PR ${pr?.id} does not belong to the current head`)
+    }
+
+    return stamp
 }
 
 /**
@@ -178,8 +249,15 @@ export function hasCurrentHeadClosingReview(pr) {
  * @param {Object} pr Normalized PR record `{checks: [{name, required, conclusion}]}`.
  * @returns {Boolean}
  */
+export function currentHeadChecksOf(pr) {
+    // A check names the head it ran against. One that names an OLDER head describes code that no longer
+    // exists, so it can neither block nor clear the current head. `undefined` is treated as current only
+    // because some sources omit it on a single-head snapshot; a NAMED older head is always excluded.
+    return (pr?.checks || []).filter(check => check.headSha === undefined || check.headSha === pr?.headSha)
+}
+
 export function hasFailedRequiredCheck(pr) {
-    return (pr?.checks || []).some(check => check.required === true && check.conclusion === 'FAILURE')
+    return currentHeadChecksOf(pr).some(check => check.required === true && check.conclusion === 'FAILURE')
 }
 
 /**
@@ -188,7 +266,7 @@ export function hasFailedRequiredCheck(pr) {
  * @returns {Boolean}
  */
 export function allRequiredChecksPass(pr) {
-    const required = (pr?.checks || []).filter(check => check.required === true);
+    const required = currentHeadChecksOf(pr).filter(check => check.required === true);
 
     return required.length === 0 || required.every(check => check.conclusion === 'SUCCESS')
 }
@@ -315,7 +393,7 @@ export function admitRequestedReview({pr, agentId} = {}) {
         source         : 'github-workflow',
         subjectId      : pr.id,
         headSha        : pr.headSha,
-        actionableSince: resolveHeadScopedClock(pr, 'reviewRequestedSince'),
+        actionableSince: resolveTargetRequestClock(pr, agentId),
         checkedAt      : pr.checkedAt,
         citations      : [pr.url].filter(Boolean)
     }
