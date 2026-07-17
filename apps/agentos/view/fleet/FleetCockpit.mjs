@@ -1343,8 +1343,14 @@ class FleetCockpit extends Container {
         try {
             me.streamReadInFlight++;
 
+            // `Promise.resolve().then(() => …)` — NOT `Promise.resolve(bridge.fleetActivity())`.
+            // The argument form evaluates the CALL first, so a SYNCHRONOUS throw lands in this
+            // method's catch before `boundedRead` ever attaches its settle hook, and the counter
+            // never comes back. Two sync throws consume the cap and suppress this surface forever —
+            // the leak, rebuilt inside the fix for the leak. Invoking INSIDE the chain turns a sync
+            // throw into a rejection of the tracked promise, so the reject path owns the release.
             const {capability, events} = await boundedRead(
-                Promise.resolve(bridge.fleetActivity()),
+                Promise.resolve().then(() => bridge.fleetActivity()),
                 me.livenessReadTimeout,
                 () => { me.streamReadInFlight-- }
             ) ?? {};
@@ -1432,8 +1438,10 @@ class FleetCockpit extends Container {
         try {
             me.gridReadInFlight++;
 
+            // invoked INSIDE the chain so a synchronous throw rejects the tracked promise rather
+            // than escaping before the settle hook attaches — see the activity twin
             const {rows} = await boundedRead(
-                Promise.resolve(bridge.fleetRoster()),
+                Promise.resolve().then(() => bridge.fleetRoster()),
                 me.livenessReadTimeout,
                 () => { me.gridReadInFlight-- }
             ) ?? {};

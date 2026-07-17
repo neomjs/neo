@@ -1284,6 +1284,7 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
 
         (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetActivity: () => slow}};
         const slowRead = host.loadActivity();       // read 1 — in flight, will FAIL
+        await new Promise(resolve => setTimeout(resolve, 0));   // read 1 must reach the old method first
 
         // read 2 starts and wins outright while read 1 is still hanging
         globalThis.AgentOS.fleet.registryBridge.fleetActivity = async () => ({capability: {state: 'wired'}, events: []});
@@ -1315,6 +1316,9 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
 
         (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetActivity: () => slow}};
         const slowRead = host.loadActivity();       // read 1 — in flight, will SUCCEED
+        // the bridge is invoked a microtask in, so read 1 must actually REACH it before the swap —
+        // otherwise read 1 silently picks up read 2's method and the test proves nothing
+        await new Promise(resolve => setTimeout(resolve, 0));
 
         // read 2 starts and loses the transport while read 1 still hangs
         globalThis.AgentOS.fleet.registryBridge.fleetActivity = async () => { throw new Error('transport lost') };
@@ -1352,6 +1356,7 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
 
         (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetActivity: () => slow}};
         const slowRead = host.loadActivity();       // read 1 — in flight while the bridge exists
+        await new Promise(resolve => setTimeout(resolve, 0));   // read 1 must reach the bridge first
 
         delete globalThis.AgentOS.fleet;            // the bridge disappears
         await host.loadActivity();                  // read 2 — early-returns on absence, but CLAIMS a generation
@@ -1482,6 +1487,60 @@ test.describe('Fleet cockpit — the liveness owner lifecycle (start/stop, #1529
         }
     });
 
+    test('a SYNCHRONOUS bridge throw releases the wire slot — @neo-gpt\'s sync-throw falsifier', async () => {
+        // The leak I built inside the fix for the leak. `Promise.resolve(bridge.fleetActivity())`
+        // evaluates the CALL first, so a synchronous throw reaches loadActivity's catch before
+        // `boundedRead` attaches its settle hook — the counter goes up and never comes down. Two
+        // throws consume the cap and this surface never probes again.
+        //
+        // His numbers at 2313675141: wireReads 2 (expected 3), streamReadInFlight 2 (expected 0).
+        // The repair invokes INSIDE the chain, so a sync throw rejects the tracked promise and the
+        // reject path owns the release.
+        const stream = {adapterState: 'live', set() {}},
+              host   = {
+                  ...makeTimerHost(),
+                  clearDegradedReason : FleetCockpit.prototype.clearDegradedReason,
+                  degradeWiredSurface : FleetCockpit.prototype.degradeWiredSurface,
+                  getReference        : reference => reference === 'activity-stream' ? stream : null,
+                  maxReadsInFlight    : 2,
+                  streamAdapterState  : 'live',
+                  streamDegradedReason: null,
+                  streamReadGeneration: 0,
+                  streamReadInFlight  : 0,
+                  syncSpineBanner     : FleetCockpit.prototype.syncSpineBanner
+              };
+
+        let tick, wireReads = 0;
+
+        host.livenessReadTimeout = 5;
+        host.loadActivity        = FleetCockpit.prototype.loadActivity;
+        host.loadRoster          = () => Promise.resolve();
+
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetActivity() {
+            wireReads++;
+            throw new Error('sync boom')            // SYNCHRONOUS, never a rejected promise
+        }}};
+
+        const originalSetInterval = globalThis.setInterval;
+        globalThis.setInterval = fn => { tick = fn; return 1 };
+
+        try {
+            host.startLiveness();
+
+            for (let i = 0; i < 3; i++) {
+                tick();
+                await new Promise(resolve => setTimeout(resolve, 10))
+            }
+
+            expect(host.streamReadInFlight, 'a sync throw must not strand its slot').toBe(0);
+            expect(wireReads, 'and the surface must keep probing, not seize after two throws').toBe(3);
+            expect(host.streamAdapterState, 'the throw still degrades honestly').toBe('stale')
+        } finally {
+            globalThis.setInterval = originalSetInterval;
+            delete globalThis.AgentOS.fleet
+        }
+    });
+
     test('five ticks against a hung WIRE launch a BOUNDED number of reads — @neo-gpt\'s 5-tick falsifier', async () => {
         // His probe, and it falsified a claim I had made to him in writing: I said max-in-flight was
         // "1 per surface by construction". It was 1 per WRAPPER. `boundedRead`'s race settles its own
@@ -1561,7 +1620,7 @@ test.describe('Fleet cockpit — the liveness owner lifecycle (start/stop, #1529
                   streamAdapterState  : 'live',
                   streamDegradedReason: null,
                   streamReadGeneration: 0,
-                  streamReadInFlight  : false,
+                  streamReadInFlight  : 0,
                   syncSpineBanner     : FleetCockpit.prototype.syncSpineBanner
               };
 
@@ -1584,16 +1643,22 @@ test.describe('Fleet cockpit — the liveness owner lifecycle (start/stop, #1529
             host.startLiveness();
 
             tick();                                            // read 1 — hangs forever
+            // the bridge is now invoked INSIDE the promise chain (so a sync throw rejects rather
+            // than escaping), which means the call lands a microtask after the tick. Asserting
+            // synchronously here read 0 and blamed the code for my own timing assumption.
+            await new Promise(resolve => setTimeout(resolve, 0));
             expect(calls).toBe(1);
 
             await new Promise(resolve => setTimeout(resolve, 40));   // outlive the bounded window
 
             tick();                                            // the transport recovered; this MUST probe
+            await new Promise(resolve => setTimeout(resolve, 0));   // the bridge call is a microtask in
             expect(calls, 'a hung read must not suppress the probe that would notice recovery').toBe(2);
 
             await new Promise(resolve => setTimeout(resolve, 40));
 
             tick();
+            await new Promise(resolve => setTimeout(resolve, 0));
             expect(calls, 'and liveness must keep running, not limp once').toBe(3)
         } finally {
             globalThis.setInterval = originalSetInterval;
