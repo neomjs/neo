@@ -26,8 +26,10 @@ import path            from 'path';
 test.describe.configure({mode: 'serial'});
 
 test.describe('initServerConfigs — template drift detection (#10815)', () => {
-    let initConfigs, projectSourceShape, projectShape, detectDrift, materializeServerConfigTemplate, listServersWithTemplates, hasConfigTemplate,
-        collectStaleOverlayFindings, formatStaleOverlayDriftItems;
+    let initConfigs, projectSourceShape, projectShape, projectConfigDefaultsShape, detectDrift,
+        detectServerOverlayDrift, materializeServerConfigTemplate, listServersWithTemplates,
+        hasConfigTemplate, collectStaleOverlayFindings, formatStaleOverlayDriftItems,
+        createConfigInitializationOutcome;
     let workRoot;
 
     function recordingLogger() {
@@ -42,7 +44,7 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         }
     }
 
-    function buildServerSandbox({sandboxName, templateContents, configContents}) {
+    function buildServerSandbox({sandboxName, templateContents, baseContents, configContents}) {
         const root = path.join(workRoot, sandboxName);
         fs.mkdirSync(root, {recursive: true});
 
@@ -51,6 +53,9 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
 
         if (templateContents !== undefined) {
             fs.writeFileSync(path.join(serverDir, 'config.template.mjs'), templateContents);
+        }
+        if (baseContents !== undefined) {
+            fs.writeFileSync(path.join(serverDir, 'configBase.mjs'), baseContents);
         }
         if (configContents !== undefined) {
             fs.writeFileSync(path.join(serverDir, 'config.mjs'), configContents);
@@ -64,12 +69,15 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
             initConfigs,
             projectSourceShape,
             projectShape,
+            projectConfigDefaultsShape,
             detectDrift,
+            detectServerOverlayDrift,
             materializeServerConfigTemplate,
             listServersWithTemplates,
             hasConfigTemplate,
             collectStaleOverlayFindings,
-            formatStaleOverlayDriftItems
+            formatStaleOverlayDriftItems,
+            createConfigInitializationOutcome
         } = await import('../../../../../../ai/scripts/setup/initServerConfigs.mjs'));
 
         workRoot = path.resolve(process.cwd(), 'tmp', `init-server-configs-${process.pid}-${Date.now()}`);
@@ -274,14 +282,15 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         expect(logger.entries.warn.some(l => l.includes("Stale config.mjs for 'memory-core'"))).toBe(true);
         expect(logger.entries.warn.some(l => l.includes('+ import: ../shared/helpers/deploymentConfig.mjs'))).toBe(true);
         expect(logger.entries.warn.some(l => l.includes('+ import: ../../../../src/util/Env.mjs:parseUrl'))).toBe(true);
-        expect(logger.entries.warn.some(l => l.includes('npm run prepare -- --migrate-config'))).toBe(true);
+        expect(logger.entries.warn.some(l => l.includes('Preview the declaration-level conversion'))).toBe(true);
+        expect(logger.entries.warn.some(l => l.includes('--migrate-config') && l.includes('fail-closed'))).toBe(true);
 
         // Did NOT overwrite
         const onDisk = fs.readFileSync(path.join(root, 'memory-core', 'config.mjs'), 'utf-8');
         expect(onDisk).toBe(configSrc);
     });
 
-    test('AC3: drifting config.mjs with --migrate-config flag overwrites from template', async () => {
+    test('AC3: broad drift under --migrate-config writes nothing and returns operator-conversion-required', async () => {
         const templateSrc = `import path from 'path';\nimport {resolveChromaHost} from './deploy.mjs';\nexport default {x: 1};\n`;
         const configSrc   = `import path from 'path';\nexport default {x: 1};\n`;
 
@@ -299,13 +308,17 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         });
 
         const action = result.processed.find(p => p.serverName === 'memory-core');
-        expect(action.action).toBe('migrate');
+        expect(action.action).toBe('migration-required');
+        expect(action.migration).toBe('operator-conversion-required');
         expect(action.drift.hasDrift).toBe(true);
+        expect(action.command).toContain('--config-root');
+        expect(action.writeCommand).toContain('--write');
+        expect(result.migrationRequired).toEqual([action]);
 
-        // Was overwritten
+        // The operator overlay is the data at risk: unattended setup must not replace one byte.
         const onDisk = fs.readFileSync(path.join(root, 'memory-core', 'config.mjs'), 'utf-8');
-        expect(onDisk).toBe(templateSrc);
-        expect(logger.entries.log.some(l => l.includes('Migrating stale config'))).toBe(true);
+        expect(onDisk).toBe(configSrc);
+        expect(logger.entries.warn.some(l => l.includes('Refusing unattended rewrite'))).toBe(true);
     });
 
     test('AC4: current config.mjs (no drift) is silent — no log/warn output', async () => {
@@ -851,7 +864,7 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         expect(fs.readFileSync(path.join(root, 'memory-core', 'config.mjs'), 'utf-8')).toBe(configSrc);
     });
 
-    test('env-leaf drift forces a full migrate (NOT the materialize-only fast path)', async () => {
+    test('env-leaf drift returns migration-required and preserves the snapshot (NOT the import-only fast path)', async () => {
         // A config that BOTH still imports the Tier-1 TEMPLATE (materialization drift) AND lacks a
         // new env leaf must take the full template refresh — the import-only fast path would leave
         // the new leaf behind.
@@ -875,15 +888,15 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         const result = await initConfigs({argv: ['node', 'initServerConfigs.mjs', '--migrate-config'], logger, serversRoot: root});
 
         const action = result.processed.find(p => p.serverName === 'memory-core');
-        expect(action.action).toBe('migrate');
-        expect(action.migration).toBeUndefined();   // NOT 'materialize-import-only'
+        expect(action.action).toBe('migration-required');
+        expect(action.migration).toBe('operator-conversion-required');
 
         const onDisk = fs.readFileSync(path.join(root, 'memory-core', 'config.mjs'), 'utf-8');
-        expect(onDisk).toBe(materializeServerConfigTemplate(templateSrc));
-        expect(onDisk).toContain('NEO_AUTH_MODE');
+        expect(onDisk).toBe(configSrc);
+        expect(onDisk).not.toContain('NEO_AUTH_MODE');
     });
 
-    test('requiredness metadata drift forces a full migrate (NOT the materialize-only fast path)', async () => {
+    test('requiredness metadata drift returns migration-required and preserves the snapshot', async () => {
         const templateSrc = [
             `import AiConfig from '../../../config.template.mjs';`,
             `export default {auth: {gitlabApiBaseUrl: leaf('https://gitlab.com', 'NEO_AUTH_GITLAB_API_BASE_URL', 'string', {requiredFor: [{modes: ['gitlab-pat']}]})}};`,
@@ -904,12 +917,218 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         const result = await initConfigs({argv: ['node', 'initServerConfigs.mjs', '--migrate-config'], logger, serversRoot: root});
 
         const action = result.processed.find(p => p.serverName === 'memory-core');
-        expect(action.action).toBe('migrate');
-        expect(action.migration).toBeUndefined();
+        expect(action.action).toBe('migration-required');
+        expect(action.migration).toBe('operator-conversion-required');
 
         const onDisk = fs.readFileSync(path.join(root, 'memory-core', 'config.mjs'), 'utf-8');
-        expect(onDisk).toBe(materializeServerConfigTemplate(templateSrc));
-        expect(onDisk).toContain('requiredFor');
+        expect(onDisk).toBe(configSrc);
+        expect(onDisk).not.toContain('requiredFor');
+    });
+
+    test('every discovered production server ships an adjacent base plus a Tier-1-first thin template', () => {
+        const realServersRoot = path.resolve(process.cwd(), 'ai', 'mcp', 'server');
+        const discovered      = listServersWithTemplates(realServersRoot);
+
+        expect(discovered).toEqual([
+            'github-workflow',
+            'gitlab-workflow',
+            'knowledge-base',
+            'memory-core',
+            'neural-link'
+        ]);
+
+        for (const serverName of discovered) {
+            const serverRoot  = path.join(realServersRoot, serverName);
+            const templateSrc = fs.readFileSync(path.join(serverRoot, 'config.template.mjs'), 'utf-8');
+            const baseSrc     = fs.readFileSync(path.join(serverRoot, 'configBase.mjs'), 'utf-8');
+            const imports     = templateSrc.match(/^import .*$/gm) || [];
+
+            expect(imports[0]).toContain("../../../config.template.mjs");
+            expect(templateSrc).toContain('extends ConfigBase');
+            expect(templateSrc).not.toContain('leaf(');
+            expect(baseSrc).toContain('class ConfigBase extends ConfigProvider');
+            expect(baseSrc).not.toContain('createConfigProxy(Neo.setupClass(ConfigBase))');
+        }
+    });
+
+    test('Memory Core defaults own the exact three regression leaves; a thin subclass inherits them without drift', async () => {
+        const
+            serverRoot            = path.resolve(process.cwd(), 'ai', 'mcp', 'server', 'memory-core'),
+            templateSrc           = fs.readFileSync(path.join(serverRoot, 'config.template.mjs'), 'utf-8'),
+            defaultsShape         = await projectConfigDefaultsShape(serverRoot, {materialize: materializeServerConfigTemplate}),
+            activeSrc             = materializeServerConfigTemplate(templateSrc),
+            {drift, overlayShape} = detectServerOverlayDrift(activeSrc, defaultsShape, templateSrc);
+
+        expect(defaultsShape.envVars).toEqual(expect.arrayContaining([
+            'NEO_LANE_LANDSCAPE_CENSUS_PAGE_LIMIT',
+            'NEO_LANE_LANDSCAPE_CENSUS_MAX_PAGES',
+            'NEO_LANE_LANDSCAPE_RELATION_EDGE_LIMIT'
+        ]));
+        expect(projectSourceShape(templateSrc).envVars).toEqual([]);
+        expect(overlayShape).toBe('subclass');
+        expect(drift.hasDrift).toBe(false);
+    });
+
+    test('server snapshot overlays receive full base drift while subclass overlays inherit the base', () => {
+        const baseSrc = [
+            `class ConfigBase extends ConfigProvider {`,
+            `    static config = {data: {`,
+            `        existing: leaf(true, 'NEO_EXISTING', 'boolean'),`,
+            `        added   : leaf(5, 'NEO_ADDED', 'number')`,
+            `    }}`,
+            `}`,
+            `export default Neo.setupClass(ConfigBase);`,
+            ``
+        ].join('\n');
+        const templateSrc = [
+            `import '../../../config.template.mjs';`,
+            `import ConfigBase from './configBase.mjs';`,
+            `import {createConfigProxy} from '../../../ConfigProvider.mjs';`,
+            `class Config extends ConfigBase {`,
+            `    static config = {className: 'Neo.ai.mcp.server.memory-core.Config', singleton: true}`,
+            `}`,
+            `export default createConfigProxy(Neo.setupClass(Config));`,
+            ``
+        ].join('\n');
+        const snapshotSrc = [
+            `import '../../../config.mjs';`,
+            `class Config extends ConfigProvider {`,
+            `    static config = {data: {existing: leaf(true, 'NEO_EXISTING', 'boolean')}}`,
+            `}`,
+            `export default Neo.setupClass(Config);`,
+            ``
+        ].join('\n');
+        const defaultsShape = projectSourceShape(baseSrc);
+        const snapshot      = detectServerOverlayDrift(snapshotSrc, defaultsShape, templateSrc);
+        const subclass      = detectServerOverlayDrift(materializeServerConfigTemplate(templateSrc), defaultsShape, templateSrc);
+
+        expect(snapshot.overlayShape).toBe('snapshot');
+        expect(snapshot.drift.missingEnvVars).toEqual(['NEO_ADDED']);
+        expect(snapshot.drift.hasDrift).toBe(true);
+        expect(subclass.overlayShape).toBe('subclass');
+        expect(subclass.drift.hasDrift).toBe(false);
+    });
+
+    test('a non-zero per-server delta subclass is current and --migrate-config never routes it back to conversion', async () => {
+        const baseSrc = [
+            `class ConfigBase extends ConfigProvider {`,
+            `    static config = {data: {`,
+            `        existing: leaf(true, 'NEO_EXISTING', 'boolean'),`,
+            `        added   : leaf(5, 'NEO_ADDED', 'number')`,
+            `    }}`,
+            `}`,
+            `export default Neo.setupClass(ConfigBase);`,
+            ``
+        ].join('\n');
+        const templateSrc = [
+            `import '../../../config.template.mjs';`,
+            `import ConfigBase from './configBase.mjs';`,
+            `import {createConfigProxy} from '../../../ConfigProvider.mjs';`,
+            `class Config extends ConfigBase {`,
+            `    static config = {className: 'Neo.ai.mcp.server.memory-core.Config', singleton: true}`,
+            `}`,
+            `export default createConfigProxy(Neo.setupClass(Config));`,
+            ``
+        ].join('\n');
+        const deltaSrc = [
+            `import '../../../config.mjs';`,
+            `import ConfigBase from './configBase.mjs';`,
+            `import {createConfigProxy, leaf} from '../../../ConfigProvider.mjs';`,
+            `class Config extends ConfigBase {`,
+            `    static config = {`,
+            `        className: 'Neo.ai.mcp.server.memory-core.Config',`,
+            `        singleton: true,`,
+            `        data: {existing: leaf(false, 'NEO_EXISTING', 'boolean')}`,
+            `    }`,
+            `}`,
+            `export default createConfigProxy(Neo.setupClass(Config));`,
+            ``
+        ].join('\n');
+        const root = buildServerSandbox({
+            sandboxName     : 'current-nonzero-delta',
+            templateContents: templateSrc,
+            baseContents    : baseSrc,
+            configContents  : deltaSrc
+        });
+        const logger = recordingLogger();
+        const result = await initConfigs({
+            argv       : ['node', 'initServerConfigs.mjs', '--migrate-config'],
+            logger,
+            serversRoot: root
+        });
+
+        expect(result.processed).toEqual([
+            {serverName: 'memory-core', action: 'silent', overlayShape: 'subclass'}
+        ]);
+        expect(result.migrationRequired).toEqual([]);
+        expect(fs.readFileSync(path.join(root, 'memory-core', 'config.mjs'), 'utf-8')).toBe(deltaSrc);
+        expect(logger.entries.warn).toEqual([]);
+    });
+
+    test('a drift-free legacy snapshot still becomes migration-required on the explicit transition path', async () => {
+        const baseSrc = [
+            `class ConfigBase extends ConfigProvider {`,
+            `    static config = {data: {existing: leaf(true, 'NEO_EXISTING', 'boolean')}}`,
+            `}`,
+            `export default Neo.setupClass(ConfigBase);`,
+            ``
+        ].join('\n');
+        const templateSrc = [
+            `import '../../../config.template.mjs';`,
+            `import ConfigBase from './configBase.mjs';`,
+            `import {createConfigProxy} from '../../../ConfigProvider.mjs';`,
+            `class Config extends ConfigBase {`,
+            `    static config = {className: 'Neo.ai.mcp.server.memory-core.Config', singleton: true}`,
+            `}`,
+            `export default createConfigProxy(Neo.setupClass(Config));`,
+            ``
+        ].join('\n');
+        const snapshotSrc = [
+            `import '../../../config.mjs';`,
+            `import ConfigProvider, {createConfigProxy, leaf} from '../../../ConfigProvider.mjs';`,
+            `class Config extends ConfigProvider {`,
+            `    static config = {`,
+            `        className: 'Neo.ai.mcp.server.memory-core.Config',`,
+            `        singleton: true,`,
+            `        data: {existing: leaf(true, 'NEO_EXISTING', 'boolean')}`,
+            `    }`,
+            `}`,
+            `export default createConfigProxy(Neo.setupClass(Config));`,
+            ``
+        ].join('\n');
+        const root = buildServerSandbox({
+            sandboxName     : 'drift-free-legacy-transition',
+            templateContents: templateSrc,
+            baseContents    : baseSrc,
+            configContents  : snapshotSrc
+        });
+        const logger = recordingLogger();
+        const result = await initConfigs({
+            argv       : ['node', 'initServerConfigs.mjs', '--migrate-config'],
+            logger,
+            serversRoot: root
+        });
+
+        expect(result.processed[0]).toMatchObject({
+            serverName  : 'memory-core',
+            action      : 'migration-required',
+            migration   : 'operator-conversion-required',
+            overlayShape: 'snapshot'
+        });
+        expect(result.migrationRequired).toHaveLength(1);
+        expect(fs.readFileSync(path.join(root, 'memory-core', 'config.mjs'), 'utf-8')).toBe(snapshotSrc);
+    });
+
+    test('child-process outcome exposes the stable typed code and affected server list', () => {
+        expect(createConfigInitializationOutcome([])).toEqual({status: 'completed'});
+        expect(createConfigInitializationOutcome([
+            {serverName: 'memory-core'},
+            {serverName: 'knowledge-base'}
+        ])).toEqual({
+            status    : 'migration-required',
+            reasonCode: 'per-server-overlay-migration-required',
+            servers   : ['memory-core', 'knowledge-base']
+        });
     });
 
     test.describe('listServersWithTemplates / hasConfigTemplate (shared enumeration)', () => {

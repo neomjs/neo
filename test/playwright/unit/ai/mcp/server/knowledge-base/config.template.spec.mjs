@@ -36,12 +36,10 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
             delete Neo.classHierarchyMap['Neo.ai.mcp.server.knowledge-base.Config'];
         }
 
-        config = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
-
         // Deterministic realm root: KB now inherits backupPath / auth.* /
-        // dummyEmbeddingFunction from Tier-1 via the getParent() chain. The template import registers
-        // Neo.ai.Config only on first module-eval, so install a fresh Tier-1 root to keep inheritance
-        // deterministic across reused Playwright workers.
+        // dummyEmbeddingFunction from Tier-1 via the getParent() chain. A reused Playwright worker
+        // may have the Tier-1 module cached after the registry entry was cleared, so install the
+        // fresh root BEFORE the child base evaluates and snapshots its Tier-1-derived defaults.
         tier1Template         = (await import('../../../../../../../ai/config.template.mjs')).default;
         tier1TemplateData     = tier1Template._data;
         tier1TemplateFormulas = tier1Template._formulas;
@@ -52,6 +50,7 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         });
         Neo.ai.Config = tier1Root;
         tier1Config   = createConfigProxy(tier1Root);
+        config        = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
     });
 
     test.afterAll(() => {

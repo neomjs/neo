@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
  * @module ai/scripts/setup/migrateConfigOverlay
- * @summary Converts a snapshot-style Tier-1 operator overlay (`ai/config.mjs` as a full template
- * copy) into the subclass+delta shape (`class Config extends ConfigBase` carrying ONLY the leaves
- * that differ from the base defaults).
+ * @summary Converts a snapshot-style operator overlay (`config.mjs` as a full template copy) into
+ * the subclass+delta shape (`class Config extends ConfigBase` carrying ONLY the leaves that differ
+ * from the base defaults). Supports both the Tier-1 root and explicit per-server config roots.
  *
  * Why: a snapshot overlay opts out of `Neo.setupClass`'s hierarchical merge — every leaf added to
  * the base after the copy is invisible to it until hand-merged (the overlay-drift class). The
@@ -21,12 +21,12 @@
  *    non-JSON defaults) are reported and left to inherit; operator-custom leaves absent from the
  *    base are carried into the delta verbatim.
  *
- * Scope: the ROOT overlay pair (`ai/configBase.mjs` ← `ai/config.mjs`) only. Per-server overlays
- * keep the snapshot shape until their templates gain the same base split.
+ * Scope: the ROOT overlay pair (`ai/configBase.mjs` ← `ai/config.mjs`) by default, or one
+ * explicit per-server pair via `--config-root <server-dir>`.
  */
-import fs              from 'fs';
-import path            from 'path';
-import {fileURLToPath} from 'url';
+import fs                             from 'fs';
+import path                           from 'path';
+import {fileURLToPath, pathToFileURL} from 'url';
 
 const __dirname  = path.dirname(fileURLToPath(import.meta.url));
 const neoRootDir = path.resolve(__dirname, '../../../');
@@ -99,12 +99,30 @@ export function stableStringify(value) {
  * @param {Object} baseData Declared base data subtree (leaf descriptors + nested subtrees).
  * @param {Object} overlayData Declared overlay data subtree.
  * @param {String} [prefix=''] Current key path prefix.
- * @returns {{deltas: Object, drift: String[], custom: String[], skipped: String[]}}
+ * @returns {{deltas: Object, drift: String[], custom: String[], skipped: String[], blockedCustom: String[]}}
  */
 export function diffLeafTrees(baseData, overlayData, prefix = '') {
-    const result = {deltas: {}, drift: [], custom: [], skipped: []};
+    const result = {deltas: {}, drift: [], custom: [], skipped: [], blockedCustom: []};
     walkLeafTrees(baseData, overlayData, prefix, result);
     return result;
+}
+
+/**
+ * @summary Reports operator formula declarations that cannot be represented in the generated
+ * data-only subclass. Equal inherited formulas need no output; custom or changed formulas must be
+ * visible to the operator instead of disappearing silently.
+ * @param {Object} [baseFormulas]
+ * @param {Object} [overlayFormulas]
+ * @returns {String[]}
+ */
+export function collectNonRenderableFormulaDifferences(baseFormulas = {}, overlayFormulas = {}) {
+    const base    = baseFormulas ?? {},
+          overlay = overlayFormulas ?? {};
+
+    return Object.entries(overlay)
+        .filter(([key, value]) => !(key in base) || String(base[key]) !== String(value))
+        .map(([key]) => `formulas.${key}`)
+        .sort()
 }
 
 /**
@@ -119,7 +137,7 @@ export function diffLeafTrees(baseData, overlayData, prefix = '') {
  * @param {Object} baseData Declared base data subtree (leaf descriptors + nested subtrees).
  * @param {Object} overlayData Declared overlay data subtree.
  * @param {String} prefix Current key path prefix.
- * @param {{deltas: Object, drift: String[], custom: String[], skipped: String[]}} result Shared accumulator.
+ * @param {{deltas: Object, drift: String[], custom: String[], skipped: String[], blockedCustom: String[]}} result Shared accumulator.
  */
 function walkLeafTrees(baseData, overlayData, prefix, result) {
     const baseKeys    = baseData    && typeof baseData    === 'object' ? Object.keys(baseData)    : [],
@@ -148,6 +166,7 @@ function walkLeafTrees(baseData, overlayData, prefix, result) {
             const rendered = stableStringify(isLeafDescriptor(overlayValue) ? projectLeaf(overlayValue).projection : overlayValue);
             if (rendered === undefined) {
                 result.skipped.push(pathKey);
+                result.blockedCustom.push(pathKey);
             } else {
                 result.custom.push(pathKey);
                 setPath(result.deltas, pathKey, overlayValue);
@@ -222,39 +241,63 @@ export function renderValue(value, indent = '            ') {
 }
 
 /**
- * @summary Renders the complete subclass+delta overlay module source from a delta tree.
- * @param {Object} deltas Nested delta tree (leaf descriptors at the changed paths).
+ * @summary Quotes a generated JavaScript string with single quotes while escaping path/class-name
+ * content that would otherwise terminate the literal.
+ * @param {String} value
  * @returns {String}
  */
-export function renderOverlayModule(deltas) {
-    const hasDeltas = Object.keys(deltas).length > 0;
-    const dataBlock = hasDeltas
+function quoteSingle(value) {
+    return `'${String(value).replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'`;
+}
+
+/**
+ * @summary Renders the complete subclass+delta overlay module source from a delta tree.
+ * @param {Object} deltas Nested delta tree (leaf descriptors at the changed paths).
+ * @param {Object} [options]
+ * @param {String} [options.baseClassName='Neo.ai.ConfigBase'] Registry name of the defaults class.
+ * @param {String} [options.baseImport='./configBase.mjs'] Overlay-relative defaults import.
+ * @param {String} [options.className='Neo.ai.Config'] Registry name retained from the snapshot.
+ * @param {String} [options.configProviderImport='./ConfigProvider.mjs'] Overlay-relative provider import.
+ * @param {String|null} [options.parentConfigImport=null] Parent-realm import that must run before the base.
+ * @returns {String}
+ */
+export function renderOverlayModule(deltas, {
+    baseClassName        = 'Neo.ai.ConfigBase',
+    baseImport           = './configBase.mjs',
+    className            = 'Neo.ai.Config',
+    configProviderImport = './ConfigProvider.mjs',
+    parentConfigImport   = null
+} = {}) {
+    const hasDeltas = Object.keys(deltas).length > 0,
+          imports   = `${parentConfigImport ? `import ${quoteSingle(parentConfigImport)};\n` : ''}import ConfigBase                from ${quoteSingle(baseImport)};
+import {createConfigProxy, leaf} from ${quoteSingle(configProviderImport)};`;
+
+    const renderedDataBlock = hasDeltas
         ? `,\n        /**\n         * Delta-only operator overrides — every other leaf inherits from ConfigBase.\n         * @member {Object} data\n         */\n        data: ${renderValue(deltas, '        ')}`
         : '';
 
-    return `import ConfigBase                from './configBase.mjs';
-import {createConfigProxy, leaf} from './ConfigProvider.mjs';
+    return `${imports}
 
 /**
- * Operator overlay — the delta-only singleton subclass of {@link Neo.ai.ConfigBase}.
+ * Operator overlay — the delta-only singleton subclass of {@link ${baseClassName}}.
  * Generated by ai/scripts/setup/migrateConfigOverlay.mjs; edit deltas freely, they deep-merge
  * over the base defaults and every base leaf you do not name is inherited by construction.
- * @class Neo.ai.Config
- * @extends Neo.ai.ConfigBase
+ * @class ${className}
+ * @extends ${baseClassName}
  * @singleton
  */
 class Config extends ConfigBase {
     static config = {
         /**
-         * @member {String} className='Neo.ai.Config'
+         * @member {String} className=${quoteSingle(className)}
          * @protected
          */
-        className: 'Neo.ai.Config',
+        className: ${quoteSingle(className)},
         /**
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true${dataBlock}
+        singleton: true${renderedDataBlock}
     }
 }
 
@@ -274,50 +317,182 @@ export function detectOverlayShape(source) {
 }
 
 /**
- * @summary CLI entry — resolves the root overlay pair, diffs declarations, prints the report +
- * generated source, and writes only under `--write` (with a `.pre-migration.bak` beside the old file).
- * @returns {Promise<void>}
- * @protected
+ * @summary Reads the registered config class name from a snapshot declaration.
+ * @param {String} source
+ * @returns {String|null}
  */
-async function main() {
-    // --ai-root <dir>: operate on a Tier-1 root other than the repo's `ai/` — the seam that lets
-    // `initTier1Config` drive the SAME conversion in its child-process cascade AND lets specs pin
-    // the cascade against disposable fixture roots. The Neo bootstrap always comes from THIS repo.
-    const rootFlagAt = process.argv.indexOf('--ai-root'),
-          aiRoot     = rootFlagAt !== -1 && process.argv[rootFlagAt + 1]
-              ? path.resolve(process.argv[rootFlagAt + 1])
-              : path.join(neoRootDir, 'ai'),
-          write       = process.argv.includes('--write'),
-          overlayPath = path.join(aiRoot, 'config.mjs');
+export function extractConfigClassName(source) {
+    return source.match(/\bclassName\s*:\s*['"]([^'"]+)['"]/)?.[1] ?? null;
+}
+
+/**
+ * @summary Reads the ConfigProvider module specifier so a generated server overlay preserves its
+ * root-relative import rather than inheriting the Tier-1 renderer's path.
+ * @param {String} source
+ * @returns {String|null}
+ */
+export function extractConfigProviderImport(source) {
+    return source.match(/\bimport\s+ConfigProvider(?:\s*,\s*\{[^}]*\})?\s+from\s+['"]([^'"]+)['"]/)?.[1] ?? null;
+}
+
+/**
+ * @summary Reads a server snapshot's Tier-1 config import, accepting both side-effect and bound
+ * import forms. The generated overlay retains it before ConfigBase so the operator Tier-1 root is
+ * registered before base defaults that derive from the winning realm evaluate.
+ * @param {String} source
+ * @returns {String|null}
+ */
+export function extractParentConfigImport(source) {
+    for (const match of source.matchAll(/^\s*import\s+(?:[^'"\n]+\s+from\s+)?['"]([^'"]*\/config\.mjs)['"]\s*;?\s*$/gm)) {
+        return match[1];
+    }
+    return null;
+}
+
+/**
+ * @summary Replaces an overlay atomically after writing the generated source to a same-directory
+ * temporary sibling. A write or rename failure leaves the live overlay byte-identical; the backup
+ * always contains the pre-migration snapshot.
+ * @param {Object} options
+ * @param {String} options.overlayPath
+ * @param {String} options.generated
+ * @param {Object} [options.fileSystem=fs] Injectable filesystem for failure witnesses.
+ * @returns {{backupPath: String}}
+ */
+export function writeMigratedOverlay({overlayPath, generated, fileSystem = fs}) {
+    const
+        backupPath = `${overlayPath}.pre-migration.bak`,
+        tempPath   = `${overlayPath}.migration-${process.pid}-${Date.now()}.tmp`;
+
+    try {
+        fileSystem.writeFileSync(tempPath, generated, {encoding: 'utf8', flag: 'wx'});
+        fileSystem.copyFileSync(overlayPath, backupPath);
+        fileSystem.renameSync(tempPath, overlayPath);
+    } catch (error) {
+        try {
+            fileSystem.rmSync(tempPath, {force: true});
+        } catch {
+            // Preserve the original failure. A cleanup error must never disguise why migration stopped.
+        }
+        throw error
+    }
+
+    return {backupPath}
+}
+
+/**
+ * @summary Converts one explicit overlay/base pair. Preview is the default; write mode first backs
+ * up the snapshot. Server mode preserves the snapshot's namespace and import topology, while
+ * Tier-1 mode retains the historical output contract.
+ * @param {Object} [options]
+ * @param {String} [options.configRoot] Directory containing `config.mjs` + `configBase.mjs`.
+ * @param {'tier1'|'server'} [options.kind='tier1'] Overlay realm shape.
+ * @param {Object} [options.logger=console] Logger exposing `log()`.
+ * @param {Boolean} [options.write=false] Apply the conversion instead of previewing it.
+ * @returns {Promise<Object>} Action receipt plus generated/diff metadata where applicable.
+ */
+export async function migrateConfigOverlay({
+    configRoot = path.join(neoRootDir, 'ai'),
+    kind       = 'tier1',
+    logger     = console,
+    write      = false
+} = {}) {
+    if (!['tier1', 'server'].includes(kind)) {
+        throw new Error(`unsupported config overlay kind: ${kind}`);
+    }
+
+    const root        = path.resolve(configRoot),
+          overlayPath = path.join(root, 'config.mjs'),
+          basePath    = path.join(root, 'configBase.mjs'),
+          label       = kind === 'tier1' ? 'ai/config.mjs' : `${path.basename(root)}/config.mjs`;
 
     if (!fs.existsSync(overlayPath)) {
-        console.log('[migrate-config-overlay] no ai/config.mjs overlay exists — nothing to migrate (fresh bootstraps already get the subclass shape from the template copy).');
-        return;
+        logger.log(`[migrate-config-overlay] no ${label} overlay exists — nothing to migrate (fresh bootstraps already get the subclass shape from the template copy).`);
+        return {action: 'missing', overlayPath};
     }
 
     const overlaySource = fs.readFileSync(overlayPath, 'utf8');
 
     if (detectOverlayShape(overlaySource) === 'subclass') {
-        console.log('[migrate-config-overlay] ai/config.mjs is already in the subclass+delta shape — no-op.');
-        return;
+        logger.log(`[migrate-config-overlay] ${label} is already in the subclass+delta shape — no-op.`);
+        return {action: 'noop', overlayPath};
     }
 
-    // Import order matters: the Neo bootstrap chain first, then the base, then the snapshot
-    // overlay (which registers the `Neo.ai.Config` singleton in THIS process — harmless here).
-    const Neo = (await import(path.join(neoRootDir, 'src/Neo.mjs'))).default;
-    await import(path.join(neoRootDir, 'src/core/_export.mjs'));
+    if (!fs.existsSync(basePath)) {
+        throw new Error(`missing defaults class: ${basePath}`);
+    }
 
-    const ConfigBase = (await import(path.join(aiRoot, 'configBase.mjs'))).default;
-    await import(overlayPath);
+    const className = extractConfigClassName(overlaySource);
+    if (!className) {
+        throw new Error(`cannot determine className from snapshot: ${overlayPath}`);
+    }
+
+    let parentConfigImport = null,
+        renderOptions      = {};
+
+    if (kind === 'tier1') {
+        if (className !== 'Neo.ai.Config') {
+            throw new Error(`unexpected Tier-1 className ${className}; expected Neo.ai.Config`);
+        }
+    } else {
+        const configProviderImport = extractConfigProviderImport(overlaySource);
+        parentConfigImport = extractParentConfigImport(overlaySource);
+
+        if (!className.endsWith('.Config')) {
+            throw new Error(`server className must end in .Config: ${className}`);
+        }
+        if (!configProviderImport) {
+            throw new Error(`cannot determine ConfigProvider import from snapshot: ${overlayPath}`);
+        }
+        if (!parentConfigImport) {
+            throw new Error(`cannot determine parent config import from snapshot: ${overlayPath}`);
+        }
+
+        renderOptions = {
+            baseClassName: className.replace(/\.Config$/, '.ConfigBase'),
+            className,
+            configProviderImport,
+            parentConfigImport
+        };
+    }
+
+    // Import order matters: the Neo bootstrap chain first, then (for servers) the parent realm,
+    // then the base, then the snapshot overlay that registers the class being projected.
+    const Neo = (await import(pathToFileURL(path.join(neoRootDir, 'src/Neo.mjs')).href)).default;
+    await import(pathToFileURL(path.join(neoRootDir, 'src/core/_export.mjs')).href);
+
+    if (parentConfigImport) {
+        // Register the operator's Tier-1 realm before ConfigBase evaluates defaults that derive
+        // from that winning root. `Neo.setupClass` is first-registration-wins, so reversing these
+        // imports would silently select the wrong realm during declaration comparison.
+        await import(new URL(parentConfigImport, pathToFileURL(overlayPath)).href);
+    }
+
+    const ConfigBase = (await import(pathToFileURL(basePath).href)).default;
+    await import(pathToFileURL(overlayPath).href);
 
     // Reach the snapshot's class via the registry singleton — NOT via the config proxy's
     // `constructor` (the proxy binds function values, and a bound function drops statics).
-    const overlayClass                     = Neo.ns('Neo.ai.Config').constructor,
-          {deltas, drift, custom, skipped} = diffLeafTrees(ConfigBase.config.data, overlayClass.config.data);
+    const overlayInstance = Neo.ns(className);
+    if (!overlayInstance) {
+        throw new Error(`snapshot did not register ${className}`);
+    }
 
-    console.log('[migrate-config-overlay] drift report (base leaves the snapshot never saw — inherited after migration):');
-    drift.length   ? drift.forEach(p => console.log(`  + ${p}`))     : console.log('  (none)');
-    console.log('[migrate-config-overlay] operator deltas carried into the subclass overlay:');
+    const
+        overlayClass = overlayInstance.constructor,
+        leafDiff     = diffLeafTrees(ConfigBase.config.data, overlayClass.config.data),
+        deltas       = leafDiff.deltas,
+        drift        = leafDiff.drift,
+        custom       = leafDiff.custom,
+        skipped      = [
+            ...leafDiff.skipped,
+            ...collectNonRenderableFormulaDifferences(ConfigBase.config.formulas, overlayClass.config.formulas)
+        ].sort(),
+        blockedCustom = leafDiff.blockedCustom;
+
+    logger.log('[migrate-config-overlay] drift report (base leaves the snapshot never saw — inherited after migration):');
+    drift.length   ? drift.forEach(p => logger.log(`  + ${p}`))     : logger.log('  (none)');
+    logger.log('[migrate-config-overlay] operator deltas carried into the subclass overlay:');
     const deltaPaths = [];
     (function walk(node, prefix) {
         for (const [key, value] of Object.entries(node)) {
@@ -327,26 +502,66 @@ async function main() {
                 : walk(value, pathKey);
         }
     })(deltas, '');
-    deltaPaths.length ? deltaPaths.forEach(p => console.log(`  ~ ${p}`)) : console.log('  (none)');
-    custom.length  && console.log(`[migrate-config-overlay] operator-custom leaves carried verbatim:\n${custom.map(p => `  * ${p}`).join('\n')}`);
-    skipped.length && console.log(`[migrate-config-overlay] NON-RENDERABLE differing leaves (left to inherit — review manually):\n${skipped.map(p => `  ! ${p}`).join('\n')}`);
+    deltaPaths.length ? deltaPaths.forEach(p => logger.log(`  ~ ${p}`)) : logger.log('  (none)');
+    custom.length  && logger.log(`[migrate-config-overlay] operator-custom leaves carried verbatim:\n${custom.map(p => `  * ${p}`).join('\n')}`);
+    skipped.length && logger.log(`[migrate-config-overlay] NON-RENDERABLE differing leaves (left to inherit — review manually):\n${skipped.map(p => `  ! ${p}`).join('\n')}`);
+    blockedCustom.length && logger.log(`[migrate-config-overlay] NON-RENDERABLE OPERATOR-CUSTOM leaves block --write:\n${blockedCustom.map(p => `  x ${p}`).join('\n')}`);
 
-    const generated = renderOverlayModule(deltas);
+    const generated = renderOverlayModule(deltas, renderOptions);
 
     if (!write) {
-        console.log('\n[migrate-config-overlay] PREVIEW (re-run with --write to apply):\n');
-        console.log(generated);
-        return;
+        logger.log('\n[migrate-config-overlay] PREVIEW (re-run with --write to apply):\n');
+        logger.log(generated);
+        return {action: 'preview', generated, overlayPath, deltas, drift, custom, skipped, blockedCustom};
     }
 
-    const backupPath = `${overlayPath}.pre-migration.bak`;
-    fs.copyFileSync(overlayPath, backupPath);
-    fs.writeFileSync(overlayPath, generated, 'utf8');
-    console.log(`\n[migrate-config-overlay] written: ${overlayPath} (backup: ${backupPath})`);
+    if (blockedCustom.length > 0) {
+        throw new Error(`refusing --write: non-renderable operator-custom leaves require manual preservation (${blockedCustom.join(', ')})`)
+    }
+
+    const {backupPath} = writeMigratedOverlay({overlayPath, generated});
+    logger.log(`\n[migrate-config-overlay] written: ${overlayPath} (backup: ${backupPath})`);
+
+    return {action: 'write', generated, overlayPath, backupPath, deltas, drift, custom, skipped, blockedCustom};
+}
+
+/**
+ * @summary CLI entry — resolves the root overlay pair, diffs declarations, prints the report +
+ * generated source, and writes only under `--write` (with a `.pre-migration.bak` beside the old file).
+ * @returns {Promise<void>}
+ * @protected
+ */
+async function main() {
+    // --ai-root <dir>: operate on a Tier-1 root other than the repo's `ai/` — the seam that lets
+    // `initTier1Config` drive the SAME conversion in its child-process cascade AND lets specs pin
+    // the cascade against disposable fixture roots. The Neo bootstrap always comes from THIS repo.
+    const aiRootAt     = process.argv.indexOf('--ai-root'),
+          configRootAt = process.argv.indexOf('--config-root');
+
+    const readRootFlag = (flagAt, flagName) => {
+        if (flagAt === -1) return null;
+        const value = process.argv[flagAt + 1];
+        if (!value || value.startsWith('--')) throw new Error(`${flagName} requires a directory`);
+        return value;
+    };
+
+    const aiRootValue     = readRootFlag(aiRootAt, '--ai-root'),
+          aiRoot          = aiRootValue ? path.resolve(aiRootValue) : path.join(neoRootDir, 'ai'),
+          configRootValue = readRootFlag(configRootAt, '--config-root'),
+          kind            = configRootValue ? 'server' : 'tier1',
+          configRoot      = configRootValue
+              ? (path.isAbsolute(configRootValue) ? configRootValue : path.resolve(aiRoot, configRootValue))
+              : aiRoot;
+
+    await migrateConfigOverlay({
+        configRoot,
+        kind,
+        write: process.argv.includes('--write')
+    });
 }
 
 // Process-entry only: never run on import, so unit tests can import the pure helpers.
-if (process.argv[1] && import.meta.url === new URL(`file://${path.resolve(process.argv[1])}`).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
     main().catch(error => {
         console.error('[migrate-config-overlay] failed:', error.message);
         process.exit(1);

@@ -425,7 +425,7 @@ class PrimaryRepoSyncService extends Base {
         try {
             const oldHead = this.resolveOptionalHead(root, execFileSyncFn);
             this.git(['pull', '--ff-only', REMOTE_NAME, DEV_BRANCH], root, execFileSyncFn);
-            const newHead = this.resolveOptionalHead(root, execFileSyncFn);
+            const newHead        = this.resolveOptionalHead(root, execFileSyncFn);
             const kbSyncDecision = this.resolveKbSyncDecision({root, oldHead, newHead, execFileSyncFn});
             if (kbSyncDecision.configMigrateRequired) {
                 this.runConfigMigrate(root, execFileSyncFn, {taskStateService, healthService});
@@ -503,7 +503,7 @@ class PrimaryRepoSyncService extends Base {
         const oldHead = this.resolveOptionalHead(root, execFileSyncFn);
         this.git(['checkout', '--', META_SYNC_PATH], root, execFileSyncFn);
         this.git(['pull', '--ff-only', REMOTE_NAME, DEV_BRANCH], root, execFileSyncFn);
-        const newHead = this.resolveOptionalHead(root, execFileSyncFn);
+        const newHead        = this.resolveOptionalHead(root, execFileSyncFn);
         const kbSyncDecision = this.resolveKbSyncDecision({root, oldHead, newHead, execFileSyncFn});
         if (kbSyncDecision.configMigrateRequired) {
             this.runConfigMigrate(root, execFileSyncFn, {taskStateService, healthService});
@@ -651,9 +651,11 @@ class PrimaryRepoSyncService extends Base {
      * actually read — so a config-template change in the pulled range leaves every daemon
      * (orchestrator, wake-daemon, DreamService, KB pipeline) running current code against
      * stale config until this migrate runs. The bare script is warn-only; the
-     * `--migrate-config` flag is what actually rewrites the overlay (gitignored; safe — never
-     * touches tracked files). The script resolves its repo from its own `__dirname`, so the
-     * script PATH under `root` selects the checkout to reconcile.
+     * `--migrate-config` flag applies only the initializer's bounded migration contract. When a
+     * per-server overlay needs declaration-level conversion, the child exits with a typed
+     * `migration-required` outcome instead of rewriting operator data. This service never invokes
+     * the converter or passes its `--write` flag. The script resolves its repo from its own
+     * `__dirname`, so the script PATH under `root` selects the checkout to reconcile.
      *
      * Annotated as a first-class `configMigrate` task lifecycle event (same pattern as
      * {@link runKbSync}) so the cascade is observable in `TaskStateService` +
@@ -703,12 +705,21 @@ class PrimaryRepoSyncService extends Base {
         } catch (e) {
             // Isolation: a stale overlay must not abort the successful pull, the KB cascade,
             // or the parent task. Record + surface; never rethrow (contrast runKbSync).
+            const outcome           = this.parseCascadeOutcome(e.stdout),
+                  migrationRequired = outcome?.status === 'migration-required' &&
+                    outcome.reasonCode === 'per-server-overlay-migration-required' &&
+                    Array.isArray(outcome.servers) &&
+                    outcome.servers.every(serverName => typeof serverName === 'string')
+                      ? {reasonCode: outcome.reasonCode, servers: outcome.servers}
+                      : {};
+
             taskStateService?.markFailed?.('configMigrate', e.status || 1);
             healthService?.recordTaskOutcome?.('configMigrate', 'failed', {
                 reason,
                 parent  : parentTaskName,
                 error   : e.message,
-                failedAt: new Date().toISOString()
+                failedAt: new Date().toISOString(),
+                ...migrationRequired
             });
         }
     }
