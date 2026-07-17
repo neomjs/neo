@@ -20,6 +20,8 @@
  * rendered as `none`.
  */
 
+import {redactCredentials} from './redactCredentials.mjs'
+
 export const THROTTLE_STATES = Object.freeze(['none', 'overage', 'rate-limited', 'unknown'])
 
 export const THROTTLE_SOURCE_LABEL = 'fleet:throttleState'
@@ -138,21 +140,24 @@ function normalizeReason(error) {
 }
 
 /**
- * @summary Bounds AND redacts a diagnostic before it can reach a Body-side projection: secret
- * vocabulary and token shapes are masked, whitespace collapsed, length capped — a throwing
- * transport's dump can never leak internals into a row reason. Kept contract-identical with the
- * wake sibling's redaction; consolidating both into one shared helper module rides the
- * post-merge alignment of the two producer branches.
+ * @summary Bounds AND redacts a diagnostic before it can reach a Body-side projection: whitespace
+ * collapsed and length capped here, credentials masked by the shared authority — a throwing
+ * transport's dump can never leak internals into a row reason.
+ *
+ * The masking used to live inline, and this JSDoc used to promise that consolidating it into a
+ * shared module "rides the post-merge alignment of the two producer branches". It didn't: the
+ * private copy shipped, four siblings grew their own, and none of the five learned `github_pat_`
+ * when that family arrived — every one leaked a fine-grained PAT verbatim into an operator-visible
+ * reason. Bounding stays local because each adapter's caps differ; masking is the shared contract
+ * because a per-adapter copy is exactly how the gap survived.
+ *
  * @param {*} error
  * @returns {String|null}
  */
 function redactReason(error) {
     if (error == null) return null
 
-    return normalizeReason(error)
-        .replace(/\b(token|secret|password|pat|credential|privateKey|signingKey)\s*[:=]\s*[^\s,;)]+/gi, '$1=[redacted]')
-        .replace(/\bgh[pousr]_[A-Za-z0-9_]+/g, '[redacted-token]')
-        .replace(/\bglpat-[A-Za-z0-9_-]+/g, '[redacted-token]')
+    return redactCredentials(normalizeReason(error))
 }
 
 function toIsoString(value) {

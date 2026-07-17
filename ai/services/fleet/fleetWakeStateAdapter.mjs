@@ -1,4 +1,5 @@
 import {spawnSync} from 'node:child_process'
+import {redactCredentials} from './redactCredentials.mjs'
 import fs          from 'node:fs'
 
 /**
@@ -313,10 +314,7 @@ function normalizeReason(error) {
 function redactReason(error) {
     if (error == null) return null
 
-    return normalizeReason(error)
-        .replace(/\b(token|secret|password|pat|credential|privateKey|signingKey)\s*[:=]\s*[^\s,;)]+/gi, '$1=[redacted]')
-        .replace(/\bgh[pousr]_[A-Za-z0-9_]+/g, '[redacted-token]')
-        .replace(/\bglpat-[A-Za-z0-9_-]+/g, '[redacted-token]')
+    return redactCredentials(normalizeReason(error))
 }
 
 function toIsoString(value) {
