@@ -54,6 +54,7 @@ const CONFIG_TEMPLATE_BASENAME = 'config.template.mjs';
 // The Tier-1 root base: canonical default leaves live here since the template/base split — the
 // declarative-SSOT rules must cover it exactly like a template, or base-only leaves bypass the lint.
 const CONFIG_BASE_BASENAME               = 'configBase.mjs';
+const CONFIG_LEAF_PARITY_REL             = 'ai/scripts/lint/config-leaf-parity.json';
 const CONFIG_OVERLAY_BASENAME            = 'config.mjs';
 const SCAN_ROOT_REL                      = 'ai';
 const TEST_SCAN_ROOT_REL                 = 'test';
@@ -993,6 +994,132 @@ function getConfigPathKindsForTemplate(templatePath) {
 }
 
 /**
+ * @summary The DECLARED config-path surface of one template — the union of its own declarations and
+ * its sibling `configBase.mjs`, if one exists.
+ *
+ * The union, not the leaf set. `leaf({...})` — a leaf whose default is an object literal — classifies
+ * as a live proxy rather than a primitive, so `logger` and `discussionDenylist` sit in `liveProxyPaths`
+ * while being every bit as removable as their primitive siblings. Guarding only `primitiveLeafPaths`
+ * would leave 8 declarations across the servers unwatched, and they are exactly the ones a reader
+ * counting `leaf(` calls would expect to be covered.
+ *
+ * Reading the sibling base is what keeps this correct across the template/base split: whichever file a
+ * declaration lives in, it is the same runtime surface, and a guard that watched only one file would
+ * report a clean set for a leaf that merely moved out of view.
+ *
+ * @param {String} templatePath Absolute path to a `config.template.mjs`.
+ * @returns {String[]} Sorted, de-duplicated declared paths.
+ */
+export function collectDeclaredConfigPaths(templatePath) {
+    const union    = new Set(),
+          basePath = path.join(path.dirname(templatePath), CONFIG_BASE_BASENAME);
+
+    for (const file of [basePath, templatePath]) {
+        if (!fs.existsSync(file)) continue;
+
+        const kinds = collectConfigPathKindsFromSource(fs.readFileSync(file, 'utf8'));
+
+        kinds.primitiveLeafPaths.forEach(configPath => union.add(configPath));
+        kinds.liveProxyPaths.forEach(configPath => union.add(configPath))
+    }
+
+    return [...union].sort()
+}
+
+/**
+ * @summary Builds the declared-path surface for every config template in the repo.
+ * @param {Object} options={}
+ * @param {String} [options.rootDir] Repo root.
+ * @returns {Object} Repo-relative template path → sorted declared paths.
+ */
+export function buildConfigLeafParitySnapshot({rootDir = ROOT_DIR} = {}) {
+    const out = {};
+
+    for (const file of walkConfigTemplates(path.join(rootDir, SCAN_ROOT_REL))) {
+        // The base is read THROUGH its template, never as a surface of its own: it declares no runtime
+        // namespace, and listing it separately would double-count every path it contributes.
+        if (path.basename(file) !== CONFIG_TEMPLATE_BASENAME) continue;
+
+        out[normalizeFile(path.relative(rootDir, file))] = collectDeclaredConfigPaths(file)
+    }
+
+    return out
+}
+
+/**
+ * @summary Compares the live declared-path surface against the committed expectation.
+ *
+ * A dropped config leaf is silent at every gate and loud only at runtime, in a peer's process, as
+ * `undefined` — so the expectation exists to make removal a REVIEWABLE act rather than an invisible
+ * one. A deliberate removal updates the snapshot in the same commit; that diff is the review surface.
+ *
+ * Named paths, never counts. `106 → 105` tells nobody which leaf died, and a rename (one removed, one
+ * added) nets to zero — which is precisely the refactor that would hide the loss.
+ *
+ * @param {Object} options={}
+ * @param {String} [options.rootDir] Repo root.
+ * @param {Object} [options.expectation] The committed snapshot; read from disk when omitted.
+ * @returns {{added: Object, missing: Object, untracked: String[], vanished: String[]}}
+ */
+export function detectConfigLeafParityViolations({rootDir = ROOT_DIR, expectation} = {}) {
+    const snapshotPath = path.join(rootDir, CONFIG_LEAF_PARITY_REL),
+          expected     = expectation ?? (fs.existsSync(snapshotPath) ? JSON.parse(fs.readFileSync(snapshotPath, 'utf8')) : {}),
+          actual       = buildConfigLeafParitySnapshot({rootDir}),
+          result       = {added: {}, missing: {}, untracked: [], vanished: []};
+
+    for (const [template, paths] of Object.entries(actual)) {
+        if (!Object.hasOwn(expected, template)) {
+            // A NEW template is not silently adopted: its whole surface would otherwise enter the
+            // repo unreviewed, and the snapshot would bless it on first write.
+            result.untracked.push(template);
+            continue
+        }
+
+        const before  = new Set(expected[template]),
+              after   = new Set(paths),
+              missing = [...before].filter(configPath => !after.has(configPath)),
+              added   = [...after].filter(configPath => !before.has(configPath));
+
+        if (missing.length) result.missing[template] = missing.sort();
+        if (added.length)   result.added[template]   = added.sort()
+    }
+
+    // A template that disappeared entirely — the failure the per-template diff cannot see, because it
+    // iterates what still exists.
+    result.vanished = Object.keys(expected).filter(template => !Object.hasOwn(actual, template)).sort();
+
+    return result
+}
+
+/**
+ * @summary Prints a config-leaf-parity failure as the exact paths that changed.
+ * @param {Object} parity The {@link detectConfigLeafParityViolations} result.
+ * @returns {void}
+ */
+function reportConfigLeafParity(parity) {
+    console.error('[lint-config-template-ssot] config leaf parity FAILED');
+
+    for (const [template, paths] of Object.entries(parity.missing)) {
+        console.error(`  ${template}: ${paths.length} declared path(s) GONE`);
+        paths.forEach(configPath => console.error(`    - ${configPath}`))
+    }
+
+    for (const [template, paths] of Object.entries(parity.added)) {
+        console.error(`  ${template}: ${paths.length} declared path(s) ADDED`);
+        paths.forEach(configPath => console.error(`    + ${configPath}`))
+    }
+
+    parity.untracked.forEach(template => console.error(`  ${template}: template is not in the parity snapshot`));
+    parity.vanished.forEach(template => console.error(`  ${template}: template in the snapshot no longer exists`));
+
+    console.error('');
+    console.error('A config path reads `undefined` at runtime, in a peer\'s process, when it silently leaves');
+    console.error('this surface — no other gate can see it. If the change is deliberate, record it:');
+    console.error(`    node ${SELF_REL_FILE} --update-parity`);
+    console.error('and commit the snapshot in the SAME commit, so the removal is reviewable.')
+}
+
+/**
  * @summary Maps imported config identifiers in one implementation file to config path kinds.
  * @param {Object} options
  * @param {String} [options.rootDir] Repo root.
@@ -1402,15 +1529,23 @@ export function runLint(options = {}) {
               baseline: moduleScopeBaseline
           }),
           testConfigResult = lintTestConfigAuthority({rootDir, files: testConfigFiles}),
+          parityResult     = detectConfigLeafParityViolations({rootDir}),
           {violations, newViolations, staleBaseline} = result,
           hasImplementationFailures = implementationResult.newViolations.length > 0 ||
               implementationResult.staleBaseline.length > 0,
           hasModuleScopeFailures = moduleScopeResult.newViolations.length > 0 ||
               moduleScopeResult.staleBaseline.length > 0,
-          hasTestConfigFailures = testConfigResult.violations.length > 0;
+          hasTestConfigFailures = testConfigResult.violations.length > 0,
+          hasParityFailures = Object.keys(parityResult.missing).length > 0 ||
+              Object.keys(parityResult.added).length > 0 ||
+              parityResult.untracked.length > 0 || parityResult.vanished.length > 0;
+
+    if (hasParityFailures) {
+        reportConfigLeafParity(parityResult)
+    }
 
     if (newViolations.length === 0 && staleBaseline.length === 0 && !hasImplementationFailures &&
-        !hasModuleScopeFailures && !hasTestConfigFailures
+        !hasModuleScopeFailures && !hasTestConfigFailures && !hasParityFailures
     ) {
         console.log(`[lint-config-template-ssot] OK - ${violations.length} inline-env leaf default(s), ${implementationResult.violations.length} AiConfig implementation SSOT hit(s), ${moduleScopeResult.violations.length} module-scope AiConfig capture(s), ${testConfigResult.violations.length} test config-authority violation(s), all baselined or target-zero.`);
         return {
@@ -1515,7 +1650,23 @@ function main() {
         console.log('(outside the BASELINE), when a BASELINE row no longer matches a violation,');
         console.log('when ai/ implementation code adds mechanical ADR-19 AiConfig SSOT violations,');
         console.log('when ai/ implementation code adds module-scope AiConfig leaf captures,');
-        console.log('or when test code imports an ignored overlay / exports a config-template-derived authority.');
+        console.log('when test code imports an ignored overlay / exports a config-template-derived authority,');
+        console.log('or when a declared config path leaves a template surface without updating the snapshot.');
+        console.log('');
+        console.log('  --update-parity   rewrite the config-leaf-parity snapshot from the live templates');
+        process.exit(0);
+    }
+
+    if (arg === '--update-parity') {
+        // Deliberately NOT a --fix: this rewrites the record of what the repo declares, so it must be
+        // an explicit act whose diff a reviewer reads. A flag that silently reconciled on every lint
+        // run would turn the guard into a rubber stamp for the exact removal it exists to catch.
+        const snapshot = buildConfigLeafParitySnapshot(),
+              total    = Object.values(snapshot).reduce((sum, paths) => sum + paths.length, 0);
+
+        fs.writeFileSync(path.join(ROOT_DIR, CONFIG_LEAF_PARITY_REL), `${JSON.stringify(snapshot, null, 4)}\n`);
+        console.log(`[lint-config-template-ssot] parity snapshot updated: ${Object.keys(snapshot).length} template(s), ${total} declared path(s).`);
+        console.log('Commit it in the SAME commit as the change it records.');
         process.exit(0);
     }
 
