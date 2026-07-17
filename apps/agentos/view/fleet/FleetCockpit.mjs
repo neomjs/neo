@@ -21,6 +21,91 @@ import {previewToOperation}     from '../../../../src/dashboard/dockPreviewContr
 import '../../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the dock projection emits for tab zones
 
 /**
+ * The liveness re-poll cadence (ms). Slow enough that the cockpit is not a load generator against
+ * the fleet bridge, fast enough that a transport death is named while the operator is still looking
+ * at the surface that died.
+ * @type {Number}
+ */
+const LIVENESS_POLL_INTERVAL = 15000;
+
+/**
+ * The bounded window (ms) a single liveness read gets before it is treated as a degrade.
+ *
+ * Deliberately shorter than {@link LIVENESS_POLL_INTERVAL}: the window must close before the next
+ * tick, or a hung read would still be holding its surface's slot when the cadence comes round.
+ * @type {Number}
+ */
+const LIVENESS_READ_TIMEOUT = 10000;
+
+/**
+ * Longest safe reason rendered on the spine banner — a transport error can carry an entire response
+ * body, and this line is one row of shell chrome, not a log viewer.
+ * @type {Number}
+ */
+const MAX_DEGRADED_REASON_LENGTH = 120;
+
+/**
+ * @summary Reduces an untrusted transport failure to one safe, operator-readable clause.
+ *
+ * A transport error is peer/network-authored text this shell republishes into operator-visible
+ * chrome, so it is redacted and bounded before it can ever render: credential-bearing forms are the
+ * realistic payload of a failing authenticated request (a bearer header or PAT echoed back in an
+ * error body), and the scheme rule must precede the `key: value` rule or `Authorization: Bearer x`
+ * matches `authorization`, stops at the space, and republishes the secret intact.
+ * @param {*} error Untrusted failure — an Error, a string reason, or anything else.
+ * @returns {String|null} A safe single-line clause, or `null` when the cause is unknowable (the
+ *     banner then renders its generic copy rather than inventing a cause).
+ * @private
+ */
+function toSafeDegradedReason(error) {
+    const raw = typeof error === 'string' ? error : error?.message;
+
+    if (typeof raw !== 'string' || !raw.trim()) return null;
+
+    const safe = raw
+        .replace(/\b(?:authorization\s*[:=]\s*)?bearer\s+[^\s,;)]+/gi, 'authorization=[redacted]')
+        .replace(/\b(authorization|token|secret|password|pat|credential)\s*[:=]\s*[^\s,;)]+/gi, '$1=[redacted]')
+        .replace(/\bgh[pousr]_[A-Za-z0-9_]+/g, '[redacted-token]')
+        .replace(/\bglpat-[A-Za-z0-9_-]+/g, '[redacted-token]')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    return safe ? safe.slice(0, MAX_DEGRADED_REASON_LENGTH) : null
+}
+
+/**
+ * @summary Bounds one liveness read: it may fail, it may never hang.
+ *
+ * A hung read is not a slow read — it is a read that never answers, and an unbounded one poisons
+ * every mechanism built on top of it. The in-flight latch releases in a `.finally()`, so a promise
+ * that never settles holds its surface's slot **forever**: every later tick is suppressed, the
+ * surface stays last-known-live, and the liveness owner silently stops being live — the original
+ * defect, rebuilt from the other side. Bounding the read is what makes the latch safe to hold.
+ *
+ * The loser of the race is not aborted (the wire has no abort seam yet). It does not need to be:
+ * the generation fence already makes a late arrival unable to write. This only guarantees the
+ * SLOT comes back.
+ * @param {Promise} read
+ * @param {Number} timeout ms
+ * @returns {Promise} settles with the read, or rejects with a timeout error inside `timeout` ms
+ * @private
+ */
+function boundedRead(read, timeout, onWireSettled) {
+    let timerId;
+
+    // the WIRE's own settle — independent of who wins the race. The accumulation bound counts this,
+    // because a timed-out wrapper does not free the socket the read is still holding.
+    read.then(onWireSettled, onWireSettled);
+
+    return Promise.race([
+        read.finally(() => clearTimeout(timerId)),
+        new Promise((resolve, reject) => {
+            timerId = setTimeout(() => reject(new Error(`fleet read exceeded ${timeout}ms`)), timeout)
+        })
+    ])
+}
+
+/**
  * Recent fleet activity for the fixture-fed stream — the live A2A / PR / lane adapters
  * are the sibling leaves; this seeds the §01 activity zone with representative events (newest last;
  * ActivityStream reverses to newest-first).
@@ -187,6 +272,80 @@ class FleetCockpit extends Container {
      */
     gridAdapterState = 'sample'
     /**
+     * The retained safe reason for the ROSTER surface's current degrade — the honest "why" the spine
+     * banner names instead of generic copy. `null` = this surface is either fine, or degraded for a
+     * cause the owner never learned (the banner then falls back to generic copy rather than
+     * inventing one).
+     *
+     * PER-SURFACE, not shared, and that is the whole point. One `degradedReason` for two
+     * independently-answering surfaces cannot know whose cause it holds: a healthy roster completing
+     * after a not-wired activity would clear the ACTIVITY's reason and drop the banner back to
+     * "Fleet server offline" — the exact lie the retained reason exists to prevent. Splitting the
+     * field makes that unrepresentable instead of merely guarded.
+     * @member {String|null} gridDegradedReason=null
+     * @protected
+     */
+    gridDegradedReason = null
+    /**
+     * Monotonic read counter for the ROSTER surface — the async-ingress fence.
+     *
+     * {@link #startLiveness} re-drives both seams on a cadence, so two reads of the SAME surface can
+     * be in flight at once and complete in any order. Without a fence the LOSER writes last: a slow
+     * poll that failed lands after a fast one that succeeded, and the surface regresses `live` →
+     * `stale` on strictly older news. Every read captures its generation and drops itself if a newer
+     * read started meanwhile — the same latch {@link AgentOS.view.fleet.AgentDetail} uses for the
+     * mailbox mirror, which this owner needed and did not have.
+     * @member {Number} gridReadGeneration=0
+     * @protected
+     */
+    gridReadGeneration = 0
+    /**
+     * Count of UNDERLYING roster reads still unresolved on the wire — the accumulation bound.
+     *
+     * Counts the WIRE, not the wrapper, and that distinction is the whole fix. `boundedRead` settles
+     * its own promise on timeout, so releasing the slot there bounded nothing: the underlying read
+     * kept hanging while every tick launched another. Five ticks, five hung reads, zero settled.
+     * Decremented only when the real read settles, so the cap counts what is actually outstanding.
+     *
+     * Capped at {@link #maxReadsInFlight} rather than one, because with no abort seam on the wire a
+     * single slot cannot both bound accumulation AND survive a permanent hang — one hung read would
+     * hold the only slot forever and liveness would stop. A cap above one keeps a recovery probe
+     * alive through N-1 hangs while proving the cap never grows.
+     *
+     * Only {@link #startLiveness} honours it: a direct call (boot, an explicit refresh) is
+     * operator-meant and never suppressed.
+     * @member {Number} gridReadInFlight=0
+     * @protected
+     */
+    gridReadInFlight = 0
+    /**
+     * The retained safe reason for the ACTIVITY surface's current degrade. See
+     * {@link #gridDegradedReason} for why these are per-surface rather than one shared field.
+     * @member {String|null} streamDegradedReason=null
+     * @protected
+     */
+    streamDegradedReason = null
+    /**
+     * Monotonic read counter for the ACTIVITY surface. See {@link #gridReadGeneration}.
+     * @member {Number} streamReadGeneration=0
+     * @protected
+     */
+    streamReadGeneration = 0
+    /**
+     * Count of UNDERLYING activity reads still unresolved on the wire. See {@link #gridReadInFlight}.
+     * @member {Number} streamReadInFlight=0
+     * @protected
+     */
+    streamReadInFlight = 0
+    /**
+     * The cap on concurrent UNDERLYING reads per surface. Above one so a permanently hung read cannot
+     * consume the last slot and stop liveness; small so a hung wire cannot accumulate. Injectable so
+     * witnesses pin it instead of inferring it.
+     * @member {Number} maxReadsInFlight=2
+     * @protected
+     */
+    maxReadsInFlight = 2
+    /**
      * The last authoritative (bridge-sourced) roster snapshot, kept so a slower store load — the
      * JSON sample seed racing {@link #loadRoster} — can never overwrite live truth
      * (see {@link #onRosterStoreLoad}).
@@ -194,6 +353,31 @@ class FleetCockpit extends Container {
      * @protected
      */
     lastLiveRows = null
+    /**
+     * The liveness re-poll cadence (ms). Injectable so specs pin a deterministic cadence instead of
+     * sleeping on the production one.
+     * @member {Number} livenessPollInterval=LIVENESS_POLL_INTERVAL
+     * @protected
+     */
+    livenessPollInterval = LIVENESS_POLL_INTERVAL
+    /**
+     * The bounded window (ms) ONE liveness read gets before it is treated as a degrade. Boundedness
+     * is the contract — a read may fail, it may never hang — the same shape and the same reason as
+     * {@link #detailVesselConnectWindowMs}. Injectable so specs pin a short window instead of
+     * sleeping on the production one.
+     * @member {Number} livenessReadTimeout=LIVENESS_READ_TIMEOUT
+     * @protected
+     */
+    livenessReadTimeout = LIVENESS_READ_TIMEOUT
+    /**
+     * The liveness re-poll timer id, owned for exact-once teardown. `null` = not running — the
+     * cockpit is pre-start or destroyed. It dies with {@link #destroy}; it deliberately SURVIVES
+     * pop-out and reattach, because those reparent the AgentDetail and leave this cockpit alive as
+     * its holder — a timer stopped there would strand the surface it still speaks for.
+     * @member {Number|null} livenessTimerId=null
+     * @protected
+     */
+    livenessTimerId = null
     /**
      * Re-entrancy latch for {@link #onRosterStoreLoad}: the store fires `load` for its own
      * mutations (mutate → onCollectionMutate → load), so the guard's reconciliation adds/removals
@@ -353,7 +537,8 @@ class FleetCockpit extends Container {
         me.getReference('fleet-grid')?.store?.on({load: me.onRosterStoreLoad, recordChange: me.onDetailRecordChange, scope: me});
 
         me.loadActivity();
-        me.loadRoster()
+        me.loadRoster();
+        me.startLiveness()
     }
 
     /**
@@ -1098,6 +1283,7 @@ class FleetCockpit extends Container {
     destroy(...args) {
         let me = this;
 
+        me.stopLiveness();
         me.getReference('fleet-grid')?.store?.un({load: me.onRosterStoreLoad, recordChange: me.onDetailRecordChange, scope: me});
 
         Neo.currentWorker.un({
@@ -1143,6 +1329,11 @@ class FleetCockpit extends Container {
             stream = me.getReference('activity-stream'),
             bridge = globalThis.AgentOS?.fleet?.registryBridge;
 
+        // BEFORE the early return, not after. Absence is newer knowledge, and an older pending read
+        // must not outlive it: without the bump, a tick that finds the bridge gone returns silently
+        // and an in-flight read from when it was present still lands and writes.
+        const generation = ++me.streamReadGeneration;
+
         if (!stream || typeof bridge?.fleetActivity !== 'function') {
             // no bridge/verb IS the cold truth — the spine banner must say so
             me.syncSpineBanner();
@@ -1150,21 +1341,64 @@ class FleetCockpit extends Container {
         }
 
         try {
-            const {capability, events} = await bridge.fleetActivity() ?? {};
+            me.streamReadInFlight++;
+
+            // `Promise.resolve().then(() => …)` — NOT `Promise.resolve(bridge.fleetActivity())`.
+            // The argument form evaluates the CALL first, so a SYNCHRONOUS throw lands in this
+            // method's catch before `boundedRead` ever attaches its settle hook, and the counter
+            // never comes back. Two sync throws consume the cap and suppress this surface forever —
+            // the leak, rebuilt inside the fix for the leak. Invoking INSIDE the chain turns a sync
+            // throw into a rejection of the tracked promise, so the reject path owns the release.
+            const {capability, events} = await boundedRead(
+                Promise.resolve().then(() => bridge.fleetActivity()),
+                me.livenessReadTimeout,
+                () => { me.streamReadInFlight-- }
+            ) ?? {};
+
+            // The fence. Older news must never overwrite newer: an interval re-poll means two reads
+            // of THIS surface can be in flight at once, and without this the LOSER writes last —
+            // a slow failed poll landing after a fast successful one regresses live → stale on
+            // strictly staler information. `isDestroyed` is the same question at the other end: a
+            // read that outlives its owner has no surface left to speak for.
+            if (generation !== me.streamReadGeneration || me.isDestroyed) {
+                return
+            }
 
             if (capability?.state === 'wired') {
                 me.streamAdapterState = 'live';
                 me.streamEvents       = Array.isArray(events) ? events.slice().reverse() : [];
-                stream.set({adapterState: me.streamAdapterState, events: me.streamEvents})
+                stream.set({adapterState: me.streamAdapterState, events: me.streamEvents});
+                me.clearDegradedReason('stream')
             } else if (capability?.state === 'degraded') {
                 me.streamAdapterState = 'stale';
-                stream.adapterState   = 'stale'
+                stream.adapterState   = 'stale';
+                // the adapter's OWN reason outranks a guess — it saw the failure, we only saw the answer
+                me.streamDegradedReason = toSafeDegradedReason(capability.reason)
+            } else if (capability) {
+                // The producer ANSWERED and said it is not wired (`not-wired`). The seed stays — the
+                // stream really is showing sample events, so its own state is honestly 'sample' — but
+                // an answer is not silence, and the difference is the whole point: a reachable server
+                // whose activity source is unconfigured is NOT an unreachable server. Retaining the
+                // reason is what lets the banner say which one it is instead of guessing the loudest.
+                me.streamDegradedReason = toSafeDegradedReason(capability.reason)
             }
-            // not-wired / absent bridge → keep the honestly-labelled 'sample' seed
+            // NO capability at all (a torn/absent answer) → keep the 'sample' seed AND no reason:
+            // we learned nothing, so the banner falls back to its generic copy rather than inventing
+            // a cause. That is the genuine cold case.
         } catch (error) {
-            // fail-closed: the sample seed stays rather than blanking the feed
+            // fenced too, and this is the branch that actually bit: a slow FAILURE landing after a
+            // fast success would regress live → stale on older news. The catch is not exempt from
+            // ordering just because it is the sad path.
+            if (generation === me.streamReadGeneration && !me.isDestroyed) {
+                // fail-closed: the last-known feed STAYS rather than blanking it — only the state advances
+                me.degradeWiredSurface('stream', error, stream)
+            }
         } finally {
-            me.syncSpineBanner()
+            // a superseded or post-destroy read renders nothing: syncing here would let a dropped
+            // read still repaint the banner from state it was not allowed to write
+            if (generation === me.streamReadGeneration && !me.isDestroyed) {
+                me.syncSpineBanner()
+            }
         }
     }
 
@@ -1191,6 +1425,10 @@ class FleetCockpit extends Container {
             grid   = me.getReference('fleet-grid'),
             bridge = globalThis.AgentOS?.fleet?.registryBridge;
 
+        // BEFORE the early return — absence is newer knowledge and must invalidate an older pending
+        // read. See {@link #gridReadGeneration}.
+        const generation = ++me.gridReadGeneration;
+
         if (!grid?.store || typeof bridge?.fleetRoster !== 'function') {
             // no bridge/verb IS the cold truth — the spine banner must say so
             me.syncSpineBanner();
@@ -1198,7 +1436,21 @@ class FleetCockpit extends Container {
         }
 
         try {
-            const {rows} = await bridge.fleetRoster() ?? {};
+            me.gridReadInFlight++;
+
+            // invoked INSIDE the chain so a synchronous throw rejects the tracked promise rather
+            // than escaping before the settle hook attaches — see the activity twin
+            const {rows} = await boundedRead(
+                Promise.resolve().then(() => bridge.fleetRoster()),
+                me.livenessReadTimeout,
+                () => { me.gridReadInFlight-- }
+            ) ?? {};
+
+            // the fence: a newer read started while this one was in flight, or the owner is gone.
+            // Either way this answer is no longer this surface's truth to write.
+            if (generation !== me.gridReadGeneration || me.isDestroyed) {
+                return
+            }
 
             if (!Array.isArray(rows)) {
                 return // malformed answer → keep the last-known roster
@@ -1220,12 +1472,122 @@ class FleetCockpit extends Container {
             }
 
             me.gridAdapterState = 'live';
-            grid.adapterState   = 'live'
+            grid.adapterState   = 'live';
+            me.clearDegradedReason('grid')
         } catch (error) {
-            // fail-closed: the last-known roster stays rather than blanking the fleet
+            // fenced: a slow failure must not overwrite a newer success (see the stream twin)
+            if (generation === me.gridReadGeneration && !me.isDestroyed) {
+                // fail-closed: the last-known roster STAYS rather than blanking the fleet — only the
+                // state advances. A wired surface that stops answering is degraded, not cold: it is
+                // showing last-known LIVE rows, so claiming 'sample' would tell the operator they are
+                // looking at fixture data. Pre-wired failures keep the honest 'sample' seed.
+                me.degradeWiredSurface('grid', error, grid)
+            }
         } finally {
-            me.syncSpineBanner()
+            if (generation === me.gridReadGeneration && !me.isDestroyed) {
+                me.syncSpineBanner()
+            }
         }
+    }
+
+    /**
+     * @summary Starts the ongoing liveness owner — the mechanism that makes `live` mean live.
+     *
+     * Without it the cockpit polls once at construction (plus after settled lifecycle intents) and
+     * every failure exit fail-closed PRESERVES the last-known state, so once a surface reaches
+     * `live` a mid-session transport death never advances it: `live` silently decays into "was live
+     * once", which is the dishonest state this owner exists to kill.
+     *
+     * **Mechanism (Tier-2 decision, recorded here):** an interval re-poll of the EXISTING read verbs,
+     * not a separate ping. The contract requires the routing matrices in {@link #loadRoster} /
+     * {@link #loadActivity} to remain the state-writing seams — a ping would need its own
+     * failure→state mapping, i.e. a second writer that can disagree with the first. Re-driving the
+     * real verbs keeps exactly one truth path and inherits their fail-closed data semantics for
+     * free; the cost is a full roster payload per cadence, which {@link #reconcileRoster} already
+     * absorbs idempotently. Revisit if the payload cost ever outgrows the honesty it buys.
+     *
+     * Idempotent: a second call never stacks a timer.
+     * @protected
+     */
+    startLiveness() {
+        let me = this;
+
+        if (me.livenessTimerId !== null) return;
+
+        // Per-surface overlap suppression, NOT just the generation fence. The fence makes a late read
+        // HARMLESS; it does not make it ABSENT. A transport slower than the cadence would have each
+        // tick launch another pair regardless of the unresolved prior one — unbounded in-flight reads
+        // against a bridge already failing to answer, which is precisely when piling on is worst.
+        // Skipping a tick loses nothing: the next one reads the same live truth, only later.
+        me.livenessTimerId = setInterval(() => {
+            if (me.streamReadInFlight < me.maxReadsInFlight) me.loadActivity();
+            if (me.gridReadInFlight   < me.maxReadsInFlight) me.loadRoster()
+        }, me.livenessPollInterval)
+    }
+
+    /**
+     * @summary Stops the liveness owner — exact-once, and safe to call on a never-started cockpit.
+     *
+     * Bound to {@link #destroy} so the timer cannot outlive the surface it speaks for: a leaked
+     * interval would keep re-polling the bridge on behalf of a destroyed cockpit and write states
+     * onto detached children — a timer that outlives its owner is a liar with no one left to
+     * correct it.
+     *
+     * NOT because of pop-out: {@link #popOutAgentDetail} reparents the AgentDetail into a vessel
+     * and this cockpit stays alive as its holder — reparent-never-recreate, which is the whole
+     * point of that path. The destroy that matters is the ordinary one (the shell tearing this view
+     * down), and it is the only one this needs to survive.
+     * @protected
+     */
+    stopLiveness() {
+        let me = this;
+
+        if (me.livenessTimerId !== null) {
+            clearInterval(me.livenessTimerId);
+            me.livenessTimerId = null
+        }
+    }
+
+    /**
+     * @summary Advances ONE wired surface to the degraded truth and retains the safe reason.
+     *
+     * The state-writing seams stay {@link #loadRoster} / {@link #loadActivity}; this is their shared
+     * loss edge, not a second writer. A surface that never reached `live` is left on its honest
+     * `sample` seed — advancing it to `stale` would claim last-known data that never existed.
+     * @param {String} surface `'grid'|'stream'`.
+     * @param {*} error The transport failure (untrusted — never rendered raw).
+     * @param {Neo.component.Base|null} [consumer] The held child whose badge mirrors the owner state.
+     * @protected
+     */
+    degradeWiredSurface(surface, error, consumer = null) {
+        let me     = this,
+            field  = surface === 'grid' ? 'gridAdapterState' : 'streamAdapterState',
+            reason = surface === 'grid' ? 'gridDegradedReason' : 'streamDegradedReason';
+
+        // never-wired stays cold-honest: 'sample' already says "this is fixture data"
+        if (me[field] === 'sample') return;
+
+        me[field]  = 'stale';
+        // this surface's cause, on this surface's field — never a shared slot a sibling can clear
+        me[reason] = toSafeDegradedReason(error);
+
+        if (consumer) consumer.adapterState = 'stale'
+    }
+
+    /**
+     * @summary Clears ONE surface's retained degrade reason, once THAT surface answers cleanly.
+     *
+     * Scoped to the caller's own surface, because a reason is a fact about the surface that produced
+     * it and no other surface has standing to retract it. The shared-field version read both states
+     * and cleared when neither was `stale` — which meant a healthy roster erased a not-wired
+     * ACTIVITY's cause (the activity is `sample`, not `stale`, so the guard never saw it) and the
+     * banner regressed to "Fleet server offline" while the server was answering. The guard was not
+     * too weak; the field was shared, and no guard on a shared field can tell whose cause it holds.
+     * @param {String} surface `'grid'` | `'stream'` — the caller's own surface.
+     * @protected
+     */
+    clearDegradedReason(surface) {
+        this[surface === 'grid' ? 'gridDegradedReason' : 'streamDegradedReason'] = null
     }
 
     /**
@@ -1234,11 +1596,10 @@ class FleetCockpit extends Container {
      * spine renders nothing. Render-only over existing truth: the routing matrices in
      * {@link #loadRoster} / {@link #loadActivity} stay the sole state writers, and every one
      * of their exits (including the no-bridge guards — absence IS the cold truth) CALLS this.
-     * A call is not a truth transition: the loads run at construction plus after successful
-     * lifecycle intents, and their failure exits fail-closed PRESERVE last-known states — so
-     * once live, a mid-session transport loss does not advance the owner truth this renders.
-     * The ongoing liveness owner (loss/recovery transitions with a retained reason) is a
-     * dedicated follow-up mechanism, not this consumer.
+     * A call is not a truth transition: {@link #startLiveness} re-drives those same seams on a
+     * cadence, their loss edge ({@link #degradeWiredSurface}) advances a wired surface to `stale`
+     * with a retained safe reason, and recovery clears it — so the truth this renders now tracks
+     * the transport instead of freezing at the first `live`.
      * @protected
      */
     syncSpineBanner() {
@@ -1246,15 +1607,24 @@ class FleetCockpit extends Container {
             banner = me.getReference('fleet-spine-banner');
 
         if (banner) {
+            // each state travels WITH its own cause: the derivation reports the reason of the
+            // surface that decided the verdict, and no sibling can supply or silence it
             let {hidden, kind, text} = deriveSpineBanner({
-                gridAdapterState  : me.gridAdapterState,
-                streamAdapterState: me.streamAdapterState
+                grid  : {state: me.gridAdapterState,   reason: me.gridDegradedReason},
+                stream: {state: me.streamAdapterState, reason: me.streamDegradedReason}
             });
 
+            // `text`, never `html`. The line now interpolates a RETAINED TRANSPORT STRING — the
+            // adapter's own `capability.reason`, which arrives over the fleet wire — and `html`
+            // is an innerHTML sink, so hostile markup in a reason would execute. `toSafeDegradedReason`
+            // redacts SECRETS; it was never a markup escaper, and treating a redactor as a sanitiser
+            // is how a reason becomes a script tag. `text` routes to `textContent`: data, not code,
+            // which is the boundary the whole VDom pipeline is built on. The banner renders one
+            // sentence and needs no markup, so `html` bought nothing and risked everything.
             banner.set({
                 cls : ['fm-spine-banner', `fm-spine-banner-${kind}`],
                 hidden,
-                html: text
+                text
             })
         }
     }

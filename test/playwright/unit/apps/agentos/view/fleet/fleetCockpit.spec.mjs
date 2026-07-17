@@ -55,22 +55,37 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
 
     /**
      * @param {Object|null} bridge The stubbed `registryBridge` (or null for "no bridge").
-     * @returns {Promise<Object>} the spy stream after loadActivity routed to it.
+     * @returns {Promise<{stream: Object, cockpit: Object}>} the spy stream AND the owner, after
+     *     `loadActivity` routed to them.
+     *
+     * The owner is returned, not just the stream, because the routing decision has TWO outputs: what
+     * the stream is told, and what the OWNER retains (`streamAdapterState`, `degradedReason` — the
+     * banner's inputs). Handing back only the stream made the owner's half untestable, which is
+     * exactly how the not-wired branch shipped without a witness.
      */
     const routeLoadActivity = async bridge => {
         bridge ? ((globalThis.AgentOS ??= {}).fleet = {registryBridge: bridge}) : clearBridge();
 
         const stream = makeStream(),
               // the real banner sync runs against this fake: its getReference returns null for
-              // the banner slot, so the guard no-ops — production code, no stub drift
+              // the banner slot, so the guard no-ops — production code, no stub drift. The loss
+              // edge + recovery clear are wired from the prototype for the same reason, and
+              // `streamAdapterState` mirrors the class field default because the never-wired
+              // guard reads it: a fake missing it would let a pre-wired throw claim last-known
+              // data that never existed.
               cockpit = {
-                  getReference   : reference => reference === 'activity-stream' ? stream : null,
-                  syncSpineBanner: FleetCockpit.prototype.syncSpineBanner
+                  clearDegradedReason : FleetCockpit.prototype.clearDegradedReason,
+                  degradeWiredSurface : FleetCockpit.prototype.degradeWiredSurface,
+                  getReference        : reference => reference === 'activity-stream' ? stream : null,
+                  streamAdapterState  : 'sample',
+                  streamDegradedReason: null,
+                  streamReadGeneration: 0,
+                  syncSpineBanner     : FleetCockpit.prototype.syncSpineBanner
               };
 
         await FleetCockpit.prototype.loadActivity.call(cockpit);
 
-        return stream
+        return {stream, cockpit}
     };
 
     test.beforeAll(async () => {
@@ -80,30 +95,60 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
     test.afterEach(() => clearBridge());
 
     test('no bridge → keeps the honestly-labelled sample seed (fail-closed, no crash)', async () => {
-        expect((await routeLoadActivity(null)).adapterState).toBe('sample')
+        const {stream, cockpit} = await routeLoadActivity(null);
+
+        expect(stream.adapterState).toBe('sample');
+        // SILENCE: the owner learned nothing, so it retains no cause. This is what lets the banner
+        // fall back to "server offline" honestly — it is the only state that implies one.
+        expect(cockpit.streamDegradedReason ?? null).toBe(null)
     });
 
     test('a bridge without fleetActivity → keeps the sample seed', async () => {
-        expect((await routeLoadActivity({})).adapterState).toBe('sample')
+        const {stream, cockpit} = await routeLoadActivity({});
+
+        expect(stream.adapterState).toBe('sample');
+        expect(cockpit.streamDegradedReason ?? null).toBe(null)
     });
 
-    test('not-wired capability → keeps the sample seed', async () => {
-        const stream = await routeLoadActivity({fleetActivity: async () => ({capability: {state: 'not-wired'}, events: []})});
-        expect(stream.adapterState).toBe('sample')
+    test('not-wired capability → keeps the sample seed AND retains the producer’s reason', async () => {
+        // The producer ANSWERED. The seed stays — the stream really is showing sample events, so its
+        // own state is honestly 'sample' — but an answer is not silence, and the retained reason is
+        // the ONLY thing that separates "we never reached the server" from "it answered: my source
+        // is unconfigured". Without it the banner told the operator to start a running server.
+        //
+        // This is the verbatim string the live devFleetServer returns, not one I invented to agree
+        // with myself: `{state:'not-wired', reason:'fleet activity source not wired'}`.
+        const {stream, cockpit} = await routeLoadActivity({fleetActivity: async () => ({
+            capability: {state: 'not-wired', reason: 'fleet activity source not wired'},
+            events    : []
+        })});
+
+        expect(stream.adapterState).toBe('sample');
+        expect(cockpit.streamAdapterState).toBe('sample');
+        expect(cockpit.streamDegradedReason).toBe('fleet activity source not wired')
+    });
+
+    test('not-wired WITHOUT a reason retains none — the producer said nothing to relay', async () => {
+        // The guard against over-correcting: a bare not-wired teaches the owner no cause, so it must
+        // not manufacture one. Falls back to the generic offline copy, which is correct here.
+        const {cockpit} = await routeLoadActivity({fleetActivity: async () => ({capability: {state: 'not-wired'}, events: []})});
+
+        expect(cockpit.streamDegradedReason ?? null).toBe(null)
     });
 
     test('degraded capability → the stale banner', async () => {
-        const stream = await routeLoadActivity({fleetActivity: async () => ({capability: {state: 'degraded'}, events: []})});
+        const {stream} = await routeLoadActivity({fleetActivity: async () => ({capability: {state: 'degraded'}, events: []})});
+
         expect(stream.adapterState).toBe('stale')
     });
 
     test('a thrown source → fail-closed, keeps the sample seed (never blanks or falsely goes live)', async () => {
-        const stream = await routeLoadActivity({fleetActivity: async () => { throw new Error('bridge boom') }});
+        const {stream} = await routeLoadActivity({fleetActivity: async () => { throw new Error('bridge boom') }});
         expect(stream.adapterState).toBe('sample')
     });
 
     test('wired + events → live, reversing the newest-first feed to chronological for the stream', async () => {
-        const stream = await routeLoadActivity({fleetActivity: async () => ({
+        const {stream} = await routeLoadActivity({fleetActivity: async () => ({
             capability: {state: 'wired'},
             events    : [ // newest-first, as the adapter sorts
                 {type: 'a2a-activity', occurredAt: '2026-07-04T12:00:00.000Z', payload: {subject: 'newest'}},
@@ -115,9 +160,12 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
     });
 
     test('wired + empty → live (streaming but quiet), never the sample — a wired source is live', async () => {
-        const stream = await routeLoadActivity({fleetActivity: async () => ({capability: {state: 'wired'}, events: []})});
+        const {stream, cockpit} = await routeLoadActivity({fleetActivity: async () => ({capability: {state: 'wired'}, events: []})});
+
         expect(stream.adapterState).toBe('live');
-        expect(stream.events).toEqual([])
+        expect(stream.events).toEqual([]);
+        // recovery clears the retained cause — a stale reason on a live feed would outlive its truth
+        expect(cockpit.streamDegradedReason ?? null).toBe(null)
     });
 });
 
@@ -158,14 +206,23 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         return {adapterState: 'sample', store}
     };
 
-    const makeCockpit = (grid, rosterWired = false) => ({
-        getReference      : reference => reference === 'fleet-grid' ? grid : null,
+    const makeCockpit = (grid, rosterWired = false, gridAdapterState = 'sample') => ({
+        clearDegradedReason: FleetCockpit.prototype.clearDegradedReason,
+        degradeWiredSurface: FleetCockpit.prototype.degradeWiredSurface,
+        getReference       : reference => reference === 'fleet-grid' ? grid : null,
+        // mirrors the class field default — the loss edge reads it to keep a never-wired surface
+        // on its honest sample seed instead of claiming last-known data
+        gridAdapterState,
+        // …and the async-ingress fence reads this one. Omitting it is not a benign gap: `++undefined`
+        // is NaN, `NaN !== NaN`, so the read's generation never matches the owner's and EVERY read
+        // drops itself — silently, with a green suite full of unwritten state.
+        gridReadGeneration: 0,
         mapRosterRow      : FleetCockpit.prototype.mapRosterRow,
         reconcileRoster   : FleetCockpit.prototype.reconcileRoster,
         reconcileSelection: FleetCockpit.prototype.reconcileSelection,
         rosterWired,
         // the real banner sync: null getReference for the slot → guarded no-op, no stub drift
-        syncSpineBanner   : FleetCockpit.prototype.syncSpineBanner
+        syncSpineBanner    : FleetCockpit.prototype.syncSpineBanner
     });
 
     const routeLoadRoster = async (bridge, {known, items, rosterWired} = {}) => {
@@ -404,10 +461,17 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         const cockpit = {
             // the real accessor runs against this fake's getReference — the detail consumers
             // route through it (docked: projected pane; detached: the owner-held handle)
-            detachedDetailPane: null,
-            getAgentDetailPane: FleetCockpit.prototype.getAgentDetailPane,
-            getReference      : reference => reference === 'fleet-grid' ? grid : reference === 'agent-detail' ? detail : null,
+            detachedDetailPane : null,
+            getAgentDetailPane : FleetCockpit.prototype.getAgentDetailPane,
+            clearDegradedReason: FleetCockpit.prototype.clearDegradedReason,
+            degradeWiredSurface: FleetCockpit.prototype.degradeWiredSurface,
+            getReference       : reference => reference === 'fleet-grid' ? grid : reference === 'agent-detail' ? detail : null,
             grid,
+            // mirrors the class field defaults the loss edge reads
+            gridAdapterState  : 'sample',
+            // …and the async-ingress fence: omit it and `++undefined` is NaN, so the read's own
+            // generation never equals the owner's and EVERY read silently drops itself
+            gridReadGeneration: 0,
             id                : `fake-fleet-cockpit-${index}`,
             lastLiveRows      : null,
             mapRosterRow      : FleetCockpit.prototype.mapRosterRow,
@@ -417,7 +481,7 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             reconcilingRoster : false,
             rosterWired       : false,
             // the real banner sync: null getReference for the slot → guarded no-op, no stub drift
-            syncSpineBanner   : FleetCockpit.prototype.syncSpineBanner
+            syncSpineBanner    : FleetCockpit.prototype.syncSpineBanner
         };
 
         store.on({load: cockpit.onRosterStoreLoad, scope: cockpit});
@@ -952,15 +1016,22 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
 
         // a REAL store the REAL loadRoster reconciles into — the record is the card's data surface
         const store   = Neo.create(Store, {keyProperty: 'agentId', model: FleetAgent});
+        // `gridReadGeneration` mirrors the class default because the async-ingress fence reads it: a
+        // fake omitting it makes `++undefined` NaN, so the read's generation never matches the
+        // owner's and EVERY read silently drops itself — a green suite over state nobody wrote.
         const cockpit = {
-            getReference      : reference => reference === 'fleet-grid' ? {adapterState: 'sample', store} : null,
-            mapRosterRow      : FleetCockpit.prototype.mapRosterRow,
-            reconcileRoster   : FleetCockpit.prototype.reconcileRoster,
-            reconcileSelection: FleetCockpit.prototype.reconcileSelection,
-            loadRoster        : FleetCockpit.prototype.loadRoster,
-            rosterWired       : false,
+            clearDegradedReason: FleetCockpit.prototype.clearDegradedReason,
+            degradeWiredSurface: FleetCockpit.prototype.degradeWiredSurface,
+            getReference       : reference => reference === 'fleet-grid' ? {adapterState: 'sample', store} : null,
+            gridAdapterState   : 'sample',
+            gridReadGeneration : 0,
+            mapRosterRow       : FleetCockpit.prototype.mapRosterRow,
+            reconcileRoster    : FleetCockpit.prototype.reconcileRoster,
+            reconcileSelection : FleetCockpit.prototype.reconcileSelection,
+            loadRoster         : FleetCockpit.prototype.loadRoster,
+            rosterWired        : false,
             // the real banner sync: null getReference for the slot → guarded no-op, no stub drift
-            syncSpineBanner   : FleetCockpit.prototype.syncSpineBanner
+            syncSpineBanner    : FleetCockpit.prototype.syncSpineBanner
         };
 
         // boot: the real loadRoster reads the bridge — the agent is stopped, so the record resolves to 'off'
@@ -995,10 +1066,10 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
 
 /**
  * The slot-sync consumer witness: `syncSpineBanner` against a REAL recording banner slot — the
- * derivation lands on the component (cls hook + hidden + html), a missing slot stays a guarded
- * no-op, and the owner-truth immobility boundary is pinned as a spec: once live, a failure exit
- * PRESERVES live and the slot stays hidden (the loss/recovery transition belongs to the
- * dedicated liveness owner, not this consumer).
+ * derivation lands on the component (cls hook + hidden + text) and a missing slot stays a guarded
+ * no-op. This suite also carries the liveness owner's transition matrix, because the transition is
+ * only real if it reaches the slot: a state that moves without the banner moving is the same silent
+ * failure as never moving at all.
  */
 test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', () => {
     let FleetCockpit;
@@ -1027,12 +1098,12 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
 
         expect(banner.calls).toHaveLength(1);
 
-        const {cls, hidden, html} = banner.calls[0];
+        const {cls, hidden, text} = banner.calls[0];
 
         expect(cls).toEqual(['fm-spine-banner', 'fm-spine-banner-cold']);
         expect(hidden).toBe(false);
-        expect(html).toContain('Fleet server offline');
-        expect(html).toContain('npm run ai:fleet-server')
+        expect(text).toContain('Fleet server offline');
+        expect(text).toContain('npm run ai:fleet-server')
     });
 
     test('a degraded owner writes the degraded hook + last-known copy', () => {
@@ -1040,11 +1111,11 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
 
         makeHost('live', 'stale', banner).syncSpineBanner();
 
-        const {cls, hidden, html} = banner.calls[0];
+        const {cls, hidden, text} = banner.calls[0];
 
         expect(cls).toEqual(['fm-spine-banner', 'fm-spine-banner-degraded']);
         expect(hidden).toBe(false);
-        expect(html).toContain('last-known')
+        expect(text).toContain('last-known')
     });
 
     test('a fully live owner hides the REAL slot with empty copy — zero nominal pixels', () => {
@@ -1052,39 +1123,650 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
 
         makeHost('live', 'live', banner).syncSpineBanner();
 
-        expect(banner.calls[0]).toEqual({cls: ['fm-spine-banner', 'fm-spine-banner-live'], hidden: true, html: ''})
+        expect(banner.calls[0]).toEqual({cls: ['fm-spine-banner', 'fm-spine-banner-live'], hidden: true, text: ''})
     });
 
-    test('owner-truth immobility: once live, a thrown load PRESERVES live and the slot stays hidden', async () => {
-        // the boundary this leaf does NOT cross, pinned as a spec: the loads fail-closed PRESERVE
-        // owner states, so a post-live transport loss never advances the truth this consumer
-        // renders — the loss/recovery transition is the dedicated liveness owner's contract
-        const banner = makeBanner(),
-              stream = {adapterState: 'live', set() {}},
-              host   = {
-                  getReference: reference =>
-                      reference === 'fleet-spine-banner' ? banner :
-                      reference === 'activity-stream'    ? stream : null,
-                  gridAdapterState  : 'live',
-                  streamAdapterState: 'live',
-                  loadActivity      : FleetCockpit.prototype.loadActivity,
-                  syncSpineBanner   : FleetCockpit.prototype.syncSpineBanner
-              };
+    /**
+     * @summary Builds a live host driving the REAL loadActivity through the REAL loss edge.
+     */
+    const makeLivenessHost = banner => {
+        const stream = {adapterState: 'live', set() {}};
 
-        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetActivity: async () => { throw new Error('transport lost') }}};
+        return {
+            clearDegradedReason: FleetCockpit.prototype.clearDegradedReason,
+            degradeWiredSurface: FleetCockpit.prototype.degradeWiredSurface,
+            getReference       : reference =>
+                reference === 'fleet-spine-banner' ? banner :
+                reference === 'activity-stream'    ? stream : null,
+            gridAdapterState    : 'live',
+            gridDegradedReason  : null,
+            loadActivity        : FleetCockpit.prototype.loadActivity,
+            streamAdapterState  : 'live',
+            streamDegradedReason: null,
+            streamReadGeneration: 0,
+            streamEvents        : [],
+            syncSpineBanner     : FleetCockpit.prototype.syncSpineBanner
+        }
+    };
+
+    const withBridge = async (fleetActivity, host) => {
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetActivity}};
 
         try {
             await host.loadActivity()
         } finally {
             delete globalThis.AgentOS?.fleet
         }
+    };
+
+    test('owner-truth MOBILITY: once live, a thrown load advances to stale and the slot NAMES the loss', async () => {
+        // This inverts the immobility pin that previously stood here. That spec recorded the gap on
+        // purpose — "the loss/recovery transition is the dedicated liveness owner's contract" — and
+        // this leaf IS that owner, so the pin is discharged, not broken. `live` must stop meaning
+        // "was live once": a transport death the operator can't see is the dishonest state.
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        await withBridge(async () => { throw new Error('transport lost') }, host);
+
+        expect(host.streamAdapterState).toBe('stale');
+        expect(host.streamDegradedReason).toBe('transport lost');
+        expect(banner.calls[0].hidden).toBe(false);
+        expect(banner.calls[0].cls).toContain('fm-spine-banner-degraded');
+        // the retained reason is NAMED, not generic copy
+        expect(banner.calls[0].text).toContain('transport lost');
+        expect(banner.calls[0].text).toContain('last-known')
+    });
+
+    test('recovery: a later successful poll returns live, clears the reason, and re-hides the slot', async () => {
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        await withBridge(async () => { throw new Error('transport lost') }, host);
+        expect(host.streamAdapterState).toBe('stale');
+
+        await withBridge(async () => ({capability: {state: 'wired'}, events: []}), host);
 
         expect(host.streamAdapterState).toBe('live');
-        expect(banner.calls).toHaveLength(1);
-        expect(banner.calls[0].hidden).toBe(true)
+        expect(host.streamDegradedReason, 'a stale cause must never outlive the degrade it explained').toBe(null);
+        expect(banner.calls.at(-1).hidden).toBe(true)
+    });
+
+    test('the retained reason survives while the OTHER surface is still degraded', async () => {
+        // clearing on the first recovery would strand the banner on generic copy while a real,
+        // named degrade is still live on the sibling surface
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        host.gridAdapterState = 'stale';
+        host.gridDegradedReason = 'roster bridge unreachable';
+
+        await withBridge(async () => ({capability: {state: 'wired'}, events: []}), host);
+
+        expect(host.streamAdapterState).toBe('live');
+        expect(host.gridDegradedReason).toBe('roster bridge unreachable');
+        expect(banner.calls.at(-1).hidden).toBe(false);
+        expect(banner.calls.at(-1).text).toContain('roster bridge unreachable')
+    });
+
+    test('a never-wired surface stays cold-honest: a pre-live throw never claims last-known data', async () => {
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        host.streamAdapterState = 'sample';
+
+        await withBridge(async () => { throw new Error('transport lost') }, host);
+
+        // 'stale' would tell the operator we are showing last-known data that never existed
+        expect(host.streamAdapterState).toBe('sample');
+        expect(host.streamDegradedReason).toBe(null)
+    });
+
+    test('the degraded reason is redacted + bounded before it reaches operator-visible chrome', async () => {
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        await withBridge(async () => { throw new Error('502 from bridge (Authorization: Bearer super-secret)') }, host);
+
+        expect(host.streamDegradedReason).not.toContain('super-secret');
+        expect(host.streamDegradedReason).toContain('502 from bridge');
+        expect(banner.calls[0].text).not.toContain('super-secret');
+
+        const long = makeLivenessHost(makeBanner());
+        await withBridge(async () => { throw new Error('x'.repeat(400)) }, long);
+        expect(long.streamDegradedReason.length).toBeLessThanOrEqual(120)
+    });
+
+    test('a healthy SIBLING never erases this surface\'s retained reason — @neo-gpt\'s red proof', async () => {
+        // His exact falsifier, and it defeated the cold-line fix completely. One shared
+        // `degradedReason` for two independently-answering surfaces cannot know whose cause it holds:
+        //
+        //   1. loadActivity resolves first: {state:'not-wired', reason:'…'} → reason retained
+        //   2. the healthy roster resolves {rows:[]} → clearDegradedReason() ran, saw grid=live and
+        //      stream=SAMPLE (not stale, so the guard never noticed it), and erased the activity's
+        //      cause → banner regressed to "Fleet server offline" while the server was answering.
+        //
+        // The guard was not too weak — the FIELD was shared, and no guard on a shared field can tell
+        // whose cause it holds. Per-surface ownership makes the race unrepresentable rather than
+        // guarded, which is why this is a field split and not another condition.
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        // the stream sits on its SEED, which is the real state when a not-wired answer arrives — the
+        // not-wired branch deliberately leaves the state alone (the feed really is showing sample
+        // events), so a host starting at 'live' would stay 'live' and never reach the cold line at
+        // all. My first version of this witness did exactly that and passed for the wrong reason.
+        host.streamAdapterState = 'sample';
+
+        // 1. the activity surface answers not-wired and retains its own cause
+        await withBridge(async () => ({capability: {state: 'not-wired', reason: 'fleet activity source not wired'}, events: []}), host);
+
+        expect(host.streamDegradedReason).toBe('fleet activity source not wired');
+
+        // 2. the roster surface recovers cleanly — it may only clear ITS OWN reason
+        host.clearDegradedReason('grid');
+        host.gridAdapterState = 'live';
+        host.syncSpineBanner();
+
+        expect(host.streamDegradedReason, 'a sibling has no standing to retract this cause').toBe('fleet activity source not wired');
+
+        const text = banner.calls.at(-1).text;
+
+        expect(text).toContain('fleet activity source not wired');
+        expect(text, 'the lie the retained reason exists to prevent').not.toContain('Fleet server offline')
+    });
+
+    test('an OLDER failed completion never overwrites a NEWER success — @neo-gpt\'s second probe', async () => {
+        // The interval re-drives both seams, so two reads of the SAME surface are in flight at once
+        // and complete in any order. Without a fence the LOSER writes last: a slow failure landing
+        // after a fast success regresses live → stale on strictly older news, and the banner names a
+        // degrade that already recovered. The catch is not exempt from ordering just because it is
+        // the sad path — that is the branch this pins.
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        let releaseSlow;
+        const slow = new Promise((resolve, reject) => { releaseSlow = () => reject(new Error('stale transport lost')) });
+
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetActivity: () => slow}};
+        const slowRead = host.loadActivity();       // read 1 — in flight, will FAIL
+        await new Promise(resolve => setTimeout(resolve, 0));   // read 1 must reach the old method first
+
+        // read 2 starts and wins outright while read 1 is still hanging
+        globalThis.AgentOS.fleet.registryBridge.fleetActivity = async () => ({capability: {state: 'wired'}, events: []});
+        await host.loadActivity();
+
+        expect(host.streamAdapterState).toBe('live');
+
+        releaseSlow();                              // read 1 finally fails, LATE
+        await slowRead;
+
+        expect(host.streamAdapterState, 'older news must not unseat newer truth').toBe('live');
+        expect(host.streamDegradedReason ?? null, 'a superseded read may not name a degrade').toBe(null);
+        expect(banner.calls.at(-1).hidden, 'nor repaint the banner it was not allowed to write').toBe(true);
+
+        delete globalThis.AgentOS.fleet
+    });
+
+    test('an OLDER SUCCESS never unseats a NEWER loss — the inverse he also named', async () => {
+        // His case 1, and the one my first fence witness missed: I pinned "older FAILURE after newer
+        // success" and stopped, because that was the direction that felt dangerous. The fence is
+        // symmetric and the ordering rule has no favourite outcome — a stale SUCCESS overwriting a
+        // fresh loss is the same defect wearing good news, and it is arguably worse: it paints the
+        // spine live while the transport is down.
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        let releaseSlow;
+        const slow = new Promise(resolve => { releaseSlow = () => resolve({capability: {state: 'wired'}, events: []}) });
+
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetActivity: () => slow}};
+        const slowRead = host.loadActivity();       // read 1 — in flight, will SUCCEED
+        // the bridge is invoked a microtask in, so read 1 must actually REACH it before the swap —
+        // otherwise read 1 silently picks up read 2's method and the test proves nothing
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        // read 2 starts and loses the transport while read 1 still hangs
+        globalThis.AgentOS.fleet.registryBridge.fleetActivity = async () => { throw new Error('transport lost') };
+        await host.loadActivity();
+
+        expect(host.streamAdapterState).toBe('stale');
+
+        releaseSlow();                              // read 1 finally succeeds, LATE
+        await slowRead;
+
+        expect(host.streamAdapterState, 'stale good news must not claim the spine is live').toBe('stale');
+        expect(host.streamDegradedReason).toBe('transport lost');
+
+        delete globalThis.AgentOS.fleet
+    });
+
+    test('a newer ABSENCE invalidates an older pending success — @neo-gpt\'s early-return clause', async () => {
+        // His second clause. The generation bump used to sit AFTER the no-bridge guard, so a tick
+        // that found the bridge gone returned silently without claiming a generation — and an
+        // in-flight read from when the bridge was still there came back and wrote. Absence is newer
+        // knowledge; an early return is still a read attempt and must invalidate its predecessor.
+        //
+        // The guard order was the bug, not the guard: I had put the cheap check first out of habit,
+        // which is exactly where it costs the most.
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        // seeded to the SEED so the dropped write is observable: the host defaults to 'live', where
+        // "must not become live" cannot discriminate — it was never anything else. Read 1 would set
+        // live; the fence must leave this at 'sample'.
+        host.streamAdapterState = 'sample';
+
+        let releaseSlow;
+        const slow = new Promise(resolve => { releaseSlow = () => resolve({capability: {state: 'wired'}, events: []}) });
+
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetActivity: () => slow}};
+        const slowRead = host.loadActivity();       // read 1 — in flight while the bridge exists
+        await new Promise(resolve => setTimeout(resolve, 0));   // read 1 must reach the bridge first
+
+        delete globalThis.AgentOS.fleet;            // the bridge disappears
+        await host.loadActivity();                  // read 2 — early-returns on absence, but CLAIMS a generation
+
+        releaseSlow();                              // read 1 lands, LATE, with news from a vanished bridge
+        await slowRead;
+
+        expect(host.streamAdapterState, 'a read from a bridge that no longer exists must not claim live').toBe('sample')
+    });
+
+    test('a read completing after destroy mutates NOTHING — no post-destroy writes', async () => {
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        let releaseSlow;
+        const slow = new Promise(resolve => { releaseSlow = () => resolve({capability: {state: 'degraded', reason: 'late'}, events: []}) });
+
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetActivity: () => slow}};
+        const inFlight = host.loadActivity();
+
+        host.isDestroyed = true;                    // the owner goes away mid-read
+        releaseSlow();
+        await inFlight;
+
+        // a timer that outlives its owner is a liar with no one left to correct it — and so is a read
+        expect(host.streamAdapterState).toBe('live');
+        expect(host.streamDegradedReason ?? null).toBe(null);
+        expect(banner.calls, 'a dead surface renders nothing').toHaveLength(0);
+
+        delete globalThis.AgentOS.fleet
+    });
+
+    test('hostile markup in a reason renders INERT — the sink is text, never html', async () => {
+        // The reason is a RETAINED TRANSPORT STRING: it arrives over the fleet wire from the
+        // adapter, so it is attacker-adjacent input, not our copy. `syncSpineBanner` used to write
+        // it with `html:` — an innerHTML sink — which would execute markup a reason carried.
+        //
+        // `toSafeDegradedReason` does NOT save you here and that is the trap worth pinning: it
+        // redacts SECRETS (bearer tokens, credentials). It is a redactor, not a markup escaper, and
+        // mistaking one for the other is how a reason becomes a script tag. The fix is the sink, not
+        // more regex: `text` routes to `textContent` — data, never code.
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner),
+              markup = '<img src=x onerror="alert(1)">';
+
+        await withBridge(async () => { throw new Error(`transport lost ${markup}`) }, host);
+
+        const call = banner.calls.at(-1);
+
+        // the sink itself is the assertion: an `html` key here is the defect, whatever it contains
+        expect(call.html, 'the banner must never write an innerHTML sink').toBeUndefined();
+        expect(call.text).toContain('transport lost');
+        // the reason is relayed VERBATIM as text — not stripped. Escaping is the sink's job, and
+        // stripping would quietly corrupt a legitimate reason that happens to contain a bracket.
+        expect(call.text).toContain(markup)
     });
 
     test('a missing slot is a guarded no-op — never a throw', () => {
         expect(() => makeHost('sample', 'sample', null).syncSpineBanner()).not.toThrow()
+    })
+});
+
+/**
+ * The liveness owner's LIFECYCLE witness. A transition matrix proves the owner tells the truth while
+ * it runs; this proves it stops running. A leaked interval would keep re-polling the bridge on behalf
+ * of a destroyed cockpit and write states onto detached children — a timer that outlives its owner is
+ * a liar with no one left to correct it.
+ *
+ * The destroy that matters is the ordinary one, the shell tearing this view down. NOT pop-out: that
+ * path reparents the AgentDetail into a vessel and leaves the cockpit alive as its holder
+ * (reparent-never-recreate), so the timer must SURVIVE it — stopping there would strand the surface
+ * it still speaks for. Start-idempotence is the guard for that direction: a reattach that re-ran
+ * start on a live cockpit would silently double the poll rate against the bridge.
+ */
+test.describe('Fleet cockpit — the liveness owner lifecycle (start/stop, #15293)', () => {
+    let FleetCockpit;
+
+    test.beforeAll(async () => {
+        FleetCockpit = (await import('../../../../../../../apps/agentos/view/fleet/FleetCockpit.mjs')).default
+    });
+
+    /**
+     * @summary A host wired to the REAL start/stop with counting timer primitives — the leak is
+     * observable as a set/clear imbalance, not inferred from reading the source.
+     */
+    const makeTimerHost = () => {
+        const cleared = [];
+        let   nextId  = 0;
+
+        // `loadActivity` / `loadRoster` return PROMISES because the real ones are `async` and
+        // `startLiveness` chains `.finally()` to release the overlap latch — a void fake would throw
+        // on the first tick. The `*ReadInFlight` pair mirrors the class defaults the latch reads.
+        return {
+            cleared,
+            polls               : 0,
+            gridReadInFlight    : 0,
+            livenessPollInterval: 50,
+            livenessTimerId     : null,
+            maxReadsInFlight    : 2,
+            streamReadInFlight  : 0,
+            loadActivity() { this.polls++; return Promise.resolve() },
+            loadRoster()   { this.polls++; return Promise.resolve() },
+            startLiveness: FleetCockpit.prototype.startLiveness,
+            stopLiveness : FleetCockpit.prototype.stopLiveness,
+            // counting stand-ins: the real ones are globals, and the assertion is about balance
+            _setInterval  : () => ++nextId,
+            _clearInterval: id => cleared.push(id)
+        }
+    };
+
+    test('start is idempotent: a second call never stacks a second timer', () => {
+        const host     = makeTimerHost(),
+              original = globalThis.setInterval;
+
+        globalThis.setInterval = host._setInterval;
+
+        try {
+            host.startLiveness();
+            const first = host.livenessTimerId;
+
+            host.startLiveness();
+            host.startLiveness();
+
+            // a stacked timer would double the poll rate against the bridge for the same cockpit
+            expect(host.livenessTimerId).toBe(first)
+        } finally {
+            globalThis.setInterval = original
+        }
+    });
+
+    test('a SYNCHRONOUS bridge throw releases the wire slot — @neo-gpt\'s sync-throw falsifier', async () => {
+        // The leak I built inside the fix for the leak. `Promise.resolve(bridge.fleetActivity())`
+        // evaluates the CALL first, so a synchronous throw reaches loadActivity's catch before
+        // `boundedRead` attaches its settle hook — the counter goes up and never comes down. Two
+        // throws consume the cap and this surface never probes again.
+        //
+        // His numbers at 2313675141: wireReads 2 (expected 3), streamReadInFlight 2 (expected 0).
+        // The repair invokes INSIDE the chain, so a sync throw rejects the tracked promise and the
+        // reject path owns the release.
+        const stream = {adapterState: 'live', set() {}},
+              host   = {
+                  ...makeTimerHost(),
+                  clearDegradedReason : FleetCockpit.prototype.clearDegradedReason,
+                  degradeWiredSurface : FleetCockpit.prototype.degradeWiredSurface,
+                  getReference        : reference => reference === 'activity-stream' ? stream : null,
+                  maxReadsInFlight    : 2,
+                  streamAdapterState  : 'live',
+                  streamDegradedReason: null,
+                  streamReadGeneration: 0,
+                  streamReadInFlight  : 0,
+                  syncSpineBanner     : FleetCockpit.prototype.syncSpineBanner
+              };
+
+        let tick, wireReads = 0;
+
+        host.livenessReadTimeout = 5;
+        host.loadActivity        = FleetCockpit.prototype.loadActivity;
+        host.loadRoster          = () => Promise.resolve();
+
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetActivity() {
+            wireReads++;
+            throw new Error('sync boom')            // SYNCHRONOUS, never a rejected promise
+        }}};
+
+        const originalSetInterval = globalThis.setInterval;
+        globalThis.setInterval = fn => { tick = fn; return 1 };
+
+        try {
+            host.startLiveness();
+
+            for (let i = 0; i < 3; i++) {
+                tick();
+                await new Promise(resolve => setTimeout(resolve, 10))
+            }
+
+            expect(host.streamReadInFlight, 'a sync throw must not strand its slot').toBe(0);
+            expect(wireReads, 'and the surface must keep probing, not seize after two throws').toBe(3);
+            expect(host.streamAdapterState, 'the throw still degrades honestly').toBe('stale')
+        } finally {
+            globalThis.setInterval = originalSetInterval;
+            delete globalThis.AgentOS.fleet
+        }
+    });
+
+    test('five ticks against a hung WIRE launch a BOUNDED number of reads — @neo-gpt\'s 5-tick falsifier', async () => {
+        // His probe, and it falsified a claim I had made to him in writing: I said max-in-flight was
+        // "1 per surface by construction". It was 1 per WRAPPER. `boundedRead`'s race settles its own
+        // promise on timeout, so the slot freed while the underlying read kept hanging — 5 ticks, 5
+        // hung reads, 0 settled. I closed the freeze and re-opened the accumulation, then asserted
+        // the opposite.
+        //
+        // The count now tracks the WIRE (`onWireSettled`), so a timed-out wrapper does not pretend
+        // the socket came back. Capped above 1 because with no abort seam a single slot cannot both
+        // bound accumulation AND survive a permanent hang: one hang would hold the only slot forever.
+        const stream = {adapterState: 'live', set() {}},
+              host   = {
+                  ...makeTimerHost(),
+                  clearDegradedReason : FleetCockpit.prototype.clearDegradedReason,
+                  degradeWiredSurface : FleetCockpit.prototype.degradeWiredSurface,
+                  getReference        : reference => reference === 'activity-stream' ? stream : null,
+                  maxReadsInFlight    : 2,
+                  streamAdapterState  : 'live',
+                  streamDegradedReason: null,
+                  streamReadGeneration: 0,
+                  streamReadInFlight  : 0,
+                  syncSpineBanner     : FleetCockpit.prototype.syncSpineBanner
+              };
+
+        let tick, wireReads = 0;   // 5-tick
+
+        host.livenessReadTimeout = 5;
+        host.loadActivity        = FleetCockpit.prototype.loadActivity;
+        host.loadRoster          = () => Promise.resolve();
+
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetActivity: () => {
+            wireReads++;
+            return new Promise(() => {})            // EVERY read hangs forever — nothing settles
+        }}};
+
+        const originalSetInterval = globalThis.setInterval;
+        globalThis.setInterval = fn => { tick = fn; return 1 };
+
+        try {
+            host.startLiveness();
+
+            for (let i = 0; i < 5; i++) {
+                tick();
+                await new Promise(resolve => setTimeout(resolve, 15))   // outlive the bounded window
+            }
+
+            // the wrapper timing out must NOT be mistaken for the wire returning
+            expect(wireReads, 'five ticks against a hung wire must not launch five reads').toBeLessThanOrEqual(host.maxReadsInFlight);
+            expect(host.streamReadInFlight, 'the cap must never grow').toBeLessThanOrEqual(host.maxReadsInFlight);
+            // and the surface still told the truth while the wire hung
+            expect(host.streamAdapterState).toBe('stale')
+        } finally {
+            globalThis.setInterval = originalSetInterval;
+            delete globalThis.AgentOS.fleet
+        }
+    });
+
+    test('a read that NEVER settles must not freeze the surface — @neo-gpt\'s latch falsifier', async () => {
+        // I fixed unbounded accumulation and introduced permanent freeze. His words, and they're
+        // exact: "the surface can stay last-known live forever, which recreates the original defect."
+        //
+        // The latch releases in a `.finally()`. A promise that never settles never runs it, so the
+        // slot is held FOREVER and every later tick is suppressed — including the one that would
+        // have noticed the transport recovering. A liveness owner that stops polling is the precise
+        // thing this ticket exists to prevent, rebuilt from the other side by its own guard.
+        //
+        // The bound is what makes the latch safe to hold: a read may fail, it may never hang — the
+        // same contract `detailVesselConnectWindowMs` already states for the vessel admission.
+        // drives the REAL loadActivity against a REAL hanging bridge — the fake read of an earlier
+        // draft would have replaced the very `boundedRead` under test with a stub of my own optimism
+        const stream = {adapterState: 'live', set() {}},
+              host   = {
+                  ...makeTimerHost(),
+                  clearDegradedReason : FleetCockpit.prototype.clearDegradedReason,
+                  degradeWiredSurface : FleetCockpit.prototype.degradeWiredSurface,
+                  getReference        : reference => reference === 'activity-stream' ? stream : null,
+                  streamAdapterState  : 'live',
+                  streamDegradedReason: null,
+                  streamReadGeneration: 0,
+                  streamReadInFlight  : 0,
+                  syncSpineBanner     : FleetCockpit.prototype.syncSpineBanner
+              };
+
+        let tick, calls = 0;
+
+        host.livenessReadTimeout = 5;                 // short window; the spec pins it, never sleeps on prod
+        host.loadActivity        = FleetCockpit.prototype.loadActivity;
+        host.loadRoster          = () => Promise.resolve();
+
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetActivity: () => {
+            calls++;
+            // read 1 hangs FOREVER; later reads answer at once — the recovery this must find
+            return calls === 1 ? new Promise(() => {}) : Promise.resolve({capability: {state: 'wired'}, events: []})
+        }}};
+
+        const originalSetInterval = globalThis.setInterval;
+        globalThis.setInterval = fn => { tick = fn; return 1 };
+
+        try {
+            host.startLiveness();
+
+            tick();                                            // read 1 — hangs forever
+            // the bridge is now invoked INSIDE the promise chain (so a sync throw rejects rather
+            // than escaping), which means the call lands a microtask after the tick. Asserting
+            // synchronously here read 0 and blamed the code for my own timing assumption.
+            await new Promise(resolve => setTimeout(resolve, 0));
+            expect(calls).toBe(1);
+
+            await new Promise(resolve => setTimeout(resolve, 40));   // outlive the bounded window
+
+            tick();                                            // the transport recovered; this MUST probe
+            await new Promise(resolve => setTimeout(resolve, 0));   // the bridge call is a microtask in
+            expect(calls, 'a hung read must not suppress the probe that would notice recovery').toBe(2);
+
+            await new Promise(resolve => setTimeout(resolve, 40));
+
+            tick();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            expect(calls, 'and liveness must keep running, not limp once').toBe(3)
+        } finally {
+            globalThis.setInterval = originalSetInterval;
+            delete globalThis.AgentOS.fleet
+        }
+    });
+
+    test('a tick never launches past the cap for that surface (pinned at 1 here)', async () => {
+        // @neo-gpt's fourth finding, and the one the generation fence does NOT reach: the fence makes
+        // a late read HARMLESS, not ABSENT. A transport slower than the 15s cadence would have every
+        // tick launch another pair regardless of the unresolved prior one — unbounded in-flight reads
+        // against a bridge already failing to answer, which is exactly when piling on is worst.
+        // Skipping a tick costs nothing: the next reads the same live truth, only later.
+        const host     = makeTimerHost(),
+              original = globalThis.setInterval;
+
+        let tick, releaseActivity;
+
+        // pinned at 1 so the cap's edge is the assertion. Production runs 2 — a single slot cannot
+        // both bound accumulation and survive a permanent hang, which is the whole reason the cap
+        // exists rather than a boolean. The RULE is the cap; this pins its boundary at its tightest.
+        host.maxReadsInFlight = 1;
+        host.loadActivity     = function() {
+            this.polls++;
+            this.streamReadInFlight++;                                     // the launcher counts the WIRE
+            return new Promise(resolve => { releaseActivity = () => { this.streamReadInFlight--; resolve() } })
+        };
+        globalThis.setInterval = fn => { tick = fn; return 1 };
+
+        try {
+            // the latch releases in a `.finally()`, i.e. on a MICROTASK — so a tick must be given a
+            // drain before the next, exactly as the real 15s cadence does. My first version fired
+            // both ticks synchronously and saw the ROSTER suppressed too: correct behaviour (its
+            // latch had not released yet) against a specimen that modelled no time passing at all.
+            const drain = async () => { await Promise.resolve(); await Promise.resolve() };
+
+            host.startLiveness();
+
+            tick();                                   // tick 1 launches both; activity hangs
+            expect(host.polls).toBe(2);
+            await drain();                            // roster resolved; its latch releases
+
+            tick();                                   // tick 2 — activity is STILL unresolved
+            expect(host.polls, 'a second activity read must not stack on an unresolved one').toBe(3); // roster only
+            await drain();
+
+            releaseActivity();
+            await drain();                            // activity finally settles; its latch releases
+
+            tick();                                   // tick 3 — the surface is free again
+            expect(host.polls, 'suppression must not be permanent — it is a skip, not a stop').toBe(5)
+        } finally {
+            globalThis.setInterval = original
+        }
+    });
+
+    test('stop clears the timer exactly once and is safe on a never-started cockpit', () => {
+        const host          = makeTimerHost(),
+              originalSet   = globalThis.setInterval,
+              originalClear = globalThis.clearInterval;
+
+        globalThis.setInterval   = host._setInterval;
+        globalThis.clearInterval = host._clearInterval;
+
+        try {
+            // never started → nothing to clear, and no throw
+            expect(() => host.stopLiveness()).not.toThrow();
+            expect(host.cleared).toHaveLength(0);
+
+            host.startLiveness();
+            const id = host.livenessTimerId;
+
+            host.stopLiveness();
+            expect(host.cleared).toEqual([id]);
+            expect(host.livenessTimerId, 'a stale id would make a later stop clear a stranger timer').toBe(null);
+
+            // exact-once: a second stop is a no-op, never a double-clear
+            host.stopLiveness();
+            expect(host.cleared).toEqual([id]);
+
+            // and the cockpit can start again cleanly after a stop (the reattach path)
+            host.startLiveness();
+            expect(host.livenessTimerId).not.toBe(null)
+        } finally {
+            globalThis.setInterval   = originalSet;
+            globalThis.clearInterval = originalClear
+        }
+    });
+
+    test('the owner actually re-drives the real seams on the cadence', async () => {
+        const host = makeTimerHost();
+
+        host.livenessPollInterval = 10;
+        host.startLiveness();
+
+        try {
+            await new Promise(resolve => setTimeout(resolve, 45));
+
+            // both seams, every tick: re-driving the real verbs IS the mechanism
+            expect(host.polls, 'the owner must poll, not just hold a timer id').toBeGreaterThanOrEqual(4)
+        } finally {
+            host.stopLiveness()
+        }
     })
 });
