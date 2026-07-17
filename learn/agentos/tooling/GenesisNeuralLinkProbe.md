@@ -252,11 +252,13 @@ The final receipt must not contain:
 - raw SQLite rows or logs;
 - unrevealed oracle material.
 
-Failures use a closed public `{code, message}` allowlist. Raw tool payloads and topology rows remain
-only inside the disposable root, normally in its isolated SQLite telemetry. Private parent-process
-exception detail and absolute temporary paths additionally go into a mode-`0600`
-`private-failure.json`; any bearer material captured by either private diagnostic surface remains
-inside that root until verified cleanup removes it.
+Failures use a closed public `{code, message}` allowlist. `UNEXPECTED_FAILURE` adds one `phase` from
+a fixed runner vocabulary (for example, `child-readiness` or `app-readiness`) so a cleaned-up failure
+still names the bounded gate that ran. Arbitrary labels and exception text collapse to
+`unclassified`. Raw tool payloads and topology rows remain only inside the disposable root, normally
+in its isolated SQLite telemetry. Private parent-process exception detail and absolute temporary
+paths additionally go into a mode-`0600` `private-failure.json`; any bearer material captured by
+either private diagnostic surface remains inside that root until verified cleanup removes it.
 
 After reveal, the canonical oracle and salt are public verification material and may remain. Raw
 diagnostics may not.
@@ -282,6 +284,7 @@ after-manifest rootPresent=false:
 termination verified=true (POSIX external proof):
 runtime diagnostic paths isolated=true:
 overall success/failure:
+unexpected-failure phase (when applicable):
 ```
 
 Any missing line makes the receipt incomplete. A failed run is still valuable when it honestly

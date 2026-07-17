@@ -48,6 +48,34 @@ const PUBLIC_FAILURES = Object.freeze({
     UNEXPECTED_FAILURE          : 'The probe failed without a public-safe classification.'
 });
 
+const UNEXPECTED_FAILURE_PHASES = Object.freeze([
+    'unclassified',
+    'bootstrap',
+    'isolation-setup',
+    'child-readiness',
+    'browser-import',
+    'browser-launch',
+    'browser-context',
+    'app-navigation',
+    'app-readiness',
+    'mcp-connect',
+    'mcp-profile',
+    'topology',
+    'tool-journey',
+    'oracle',
+    'version-anchors'
+]);
+
+/**
+ * @summary Reduces internal execution context to the fixed public phase vocabulary. Unknown or
+ * attacker-controlled values collapse to `unclassified` rather than crossing the receipt boundary.
+ * @param {*} phase Internal runner phase.
+ * @returns {String}
+ */
+function normalizeUnexpectedFailurePhase(phase) {
+    return UNEXPECTED_FAILURE_PHASES.includes(phase) ? phase : 'unclassified'
+}
+
 const SAFE_ENV_KEYS = new Set([
     'CI',
     'COLORTERM',
@@ -401,13 +429,21 @@ export async function resolvePorts(options) {
  * @summary Creates a classified probe error whose public message comes from a closed allowlist.
  * @param {String} code Public failure code.
  * @param {*} [cause] Private in-process cause.
+ * @param {String} [phase] Fixed runner phase for an unexpected failure.
  * @returns {Error}
  */
-export function createProbeFailure(code, cause) {
+export function createProbeFailure(code, cause, phase) {
     const resolvedCode = Object.hasOwn(PUBLIC_FAILURES, code) ? code : 'UNEXPECTED_FAILURE';
     const error        = new Error(PUBLIC_FAILURES[resolvedCode]);
 
     error.code = resolvedCode;
+
+    if (resolvedCode === 'UNEXPECTED_FAILURE') {
+        Object.defineProperty(error, 'phase', {
+            configurable: true,
+            value       : normalizeUnexpectedFailurePhase(phase)
+        })
+    }
 
     if (cause !== undefined) {
         Object.defineProperty(error, 'cause', {
@@ -422,12 +458,18 @@ export function createProbeFailure(code, cause) {
 /**
  * @summary Redacts any internal failure into the closed public receipt shape.
  * @param {*} error Internal error.
- * @returns {{code:String, message:String}}
+ * @returns {{code:String, message:String, phase: (String|undefined)}}
  */
 export function toPublicProbeError(error) {
-    const code = Object.hasOwn(PUBLIC_FAILURES, error?.code) ? error.code : 'UNEXPECTED_FAILURE';
+    const
+        code        = Object.hasOwn(PUBLIC_FAILURES, error?.code) ? error.code : 'UNEXPECTED_FAILURE',
+        publicError = {code, message: PUBLIC_FAILURES[code]};
 
-    return {code, message: PUBLIC_FAILURES[code]}
+    if (code === 'UNEXPECTED_FAILURE') {
+        publicError.phase = normalizeUnexpectedFailurePhase(error?.phase)
+    }
+
+    return publicError
 }
 
 /**
@@ -1095,6 +1137,8 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
             transport: null
         };
 
+    let activePhase = 'bootstrap';
+
     const runPhase = (operation, label, requestedTimeoutMs = timeoutMs) => withTimeout(
         Promise.resolve().then(operation),
         getPhaseTimeout({deadline: workDeadline, timeoutMs: requestedTimeoutMs}),
@@ -1128,6 +1172,8 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
         await runPhase(() => import('../../../src/Neo.mjs'), 'Neo bootstrap');
         await runPhase(() => import('../../../src/core/_export.mjs'), 'Neo core bootstrap');
 
+        activePhase = 'isolation-setup';
+
         state.root = await runPhase(
             () => fsPromises.mkdtemp(path.join(os.tmpdir(), 'neo-genesis-probe-')),
             'Disposable-root creation'
@@ -1146,6 +1192,8 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
         }
 
         ({databasePath, logPath} = environments);
+
+        activePhase = 'child-readiness';
 
         const bridgeLog = path.join(state.root, 'neural-link-bridge-stdio.log');
         state.children.bridge = spawnLoggedChild({
@@ -1177,15 +1225,14 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
             name   : 'Neo dev server'
         });
         await waitForChildReady({
-            child        : state.children.dev,
-            deadline     : workDeadline,
-            label        : 'Neo dev server',
-            logPath      : devLog,
-            markers      : ['[webpack-dev-server] Loopback:', `${LOOPBACK_HOST}:${ports.dev}/`],
-            port         : ports.dev,
+            child   : state.children.dev,
+            deadline: workDeadline,
+            label   : 'Neo dev server',
+            logPath : devLog,
+            markers : ['[webpack-dev-server] Loopback:', `${LOOPBACK_HOST}:${ports.dev}/`],
+            port    : ports.dev,
             signal,
-            timeoutMs,
-            uniqueMarkers: [environments.diagnosticAttestations.mcp.marker]
+            timeoutMs
         });
 
         const mcpLog = path.join(state.root, 'neural-link-mcp-stdio.log');
@@ -1208,11 +1255,14 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
                 `Port: ${ports.mcp}`,
                 `Host: ${LOOPBACK_HOST}`
             ],
-            port    : ports.mcp,
+            port         : ports.mcp,
             signal,
-            timeoutMs
+            timeoutMs,
+            uniqueMarkers: [environments.diagnosticAttestations.mcp.marker]
         });
         diagnosticPathsIsolated = true;
+
+        activePhase = 'browser-import';
 
         const {chromium}    = await runPhase(() => import('playwright'), 'Playwright bootstrap');
         const launchOptions = createBrowserLaunchOptions({
@@ -1221,7 +1271,10 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
             headed        : options.headed
         });
 
+        activePhase = 'browser-launch';
         state.browser = await runPhase(() => chromium.launch(launchOptions), 'Browser launch');
+
+        activePhase = 'browser-context';
         state.context = await runPhase(() => state.browser.newContext(), 'Browser context creation');
         const page = await runPhase(() => state.context.newPage(), 'Browser page creation');
 
@@ -1238,6 +1291,7 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
             })
         }), 'BigData config route');
 
+        activePhase = 'app-navigation';
         await runPhase(() => page.goto(
             `http://${LOOPBACK_HOST}:${ports.dev}/examples/grid/bigData/index.html`,
             {
@@ -1245,6 +1299,8 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
                 timeout  : getPhaseTimeout({deadline: workDeadline, timeoutMs})
             }
         ), 'BigData navigation');
+
+        activePhase = 'app-readiness';
         await runPhase(() => page.waitForSelector('.neo-grid-container', {
             state  : 'visible',
             timeout: getPhaseTimeout({deadline: workDeadline, timeoutMs})
@@ -1259,8 +1315,10 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
         environments.clientHeaders = null;
         state.client = new Client({name: 'neo-genesis-reference-probe', version: '1.0.0'}, {capabilities: {}});
 
+        activePhase = 'mcp-connect';
         await runPhase(() => state.client.connect(state.transport), 'MCP connect');
 
+        activePhase = 'mcp-profile';
         const listedTools = (await runPhase(() => state.client.listTools(), 'MCP tools/list')).tools.map(tool => tool.name);
 
         if (JSON.stringify(listedTools) !== JSON.stringify(EXACT_TOOL_NAMES)) {
@@ -1273,9 +1331,10 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
         ));
 
         if (health.status !== 'healthy') {
-            throw createProbeFailure('UNEXPECTED_FAILURE', {healthStatus: health.status})
+            throw createProbeFailure('UNEXPECTED_FAILURE', {healthStatus: health.status}, activePhase)
         }
 
+        activePhase = 'topology';
         const topology = await waitForBigDataTopology({
             client  : state.client,
             deadline: workDeadline,
@@ -1288,6 +1347,7 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
             throw createProbeFailure('TOPOLOGY_MISMATCH', {reason: 'missing-session-id'})
         }
 
+        activePhase = 'tool-journey';
         const treeResult = readToolJson(await runPhase(
             () => state.client.callTool({
                 name     : 'get_component_tree',
@@ -1296,6 +1356,7 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
             'get_component_tree'
         ));
 
+        activePhase = 'oracle';
         ({oracle, canonicalJson} = canonicalizeOracle(treeResult.tree));
         saltHex   = crypto.randomBytes(32).toString('hex');
         commitment = createOracleCommitment({canonicalJson, saltHex});
@@ -1332,7 +1393,8 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
             emitEvent('GENESIS_ORACLE_REVEAL', {canonicalJson, saltHex})
         }
     } catch (error) {
-        failure = error
+        failure = Object.hasOwn(PUBLIC_FAILURES, error?.code) ? error :
+            createProbeFailure('UNEXPECTED_FAILURE', error, activePhase)
     } finally {
         const
             cleanupDeadline  = createCleanupDeadline(),
@@ -1498,7 +1560,7 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
     } catch (error) {
         failure ||= Date.now() >= deadline ?
             createProbeFailure('SESSION_LIMIT_EXCEEDED', error) :
-            createProbeFailure('UNEXPECTED_FAILURE', error)
+            createProbeFailure('UNEXPECTED_FAILURE', error, 'version-anchors')
     }
 
     if (Date.now() >= deadline) {
@@ -1536,7 +1598,7 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
 
     if (failure) {
         const publicFailure = toPublicProbeError(failure);
-        throw createProbeFailure(publicFailure.code, failure)
+        throw createProbeFailure(publicFailure.code, failure, publicFailure.phase)
     }
     return receipt
 }

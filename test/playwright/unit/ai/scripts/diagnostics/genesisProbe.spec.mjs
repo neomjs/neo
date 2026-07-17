@@ -179,20 +179,36 @@ test.describe('Neo.ai.scripts.diagnostics.genesisProbe', () => {
         expect(createCleanupDeadline(deadline)).toBeGreaterThan(deadline)
     });
 
-    test('redacts unknown and classified failures into a closed public shape', () => {
+    test('redacts failures into the closed public shape and fixed unexpected phase vocabulary', () => {
         const hostile = new Error(
             'Authorization: Bearer super-secret; topology={"private":true}; /tmp/neo-genesis-probe-secret'
         );
-        const publicUnknown = toPublicProbeError(hostile);
-        const publicKnown   = toPublicProbeError(createProbeFailure('TOPOLOGY_MISMATCH', hostile));
+        const
+            publicUnknown = toPublicProbeError(hostile),
+            publicPhased  = toPublicProbeError(createProbeFailure(
+                'UNEXPECTED_FAILURE',
+                hostile,
+                'child-readiness'
+            )),
+            publicForged  = toPublicProbeError(createProbeFailure(
+                'UNEXPECTED_FAILURE',
+                hostile,
+                '/tmp/private-phase'
+            )),
+            publicKnown   = toPublicProbeError(createProbeFailure('TOPOLOGY_MISMATCH', hostile));
 
         expect(publicUnknown).toEqual({
             code   : 'UNEXPECTED_FAILURE',
-            message: 'The probe failed without a public-safe classification.'
+            message: 'The probe failed without a public-safe classification.',
+            phase  : 'unclassified'
         });
+        expect(publicPhased.phase).toBe('child-readiness');
+        expect(publicForged.phase).toBe('unclassified');
         expect(JSON.stringify(publicUnknown)).not.toContain('super-secret');
         expect(JSON.stringify(publicUnknown)).not.toContain('Authorization');
         expect(JSON.stringify(publicUnknown)).not.toContain('/tmp/');
+        expect(JSON.stringify(publicPhased)).not.toContain('super-secret');
+        expect(JSON.stringify(publicForged)).not.toContain('private-phase');
         expect(publicKnown).toEqual({
             code   : 'TOPOLOGY_MISMATCH',
             message: 'Exactly one intended BigData App Worker was not available.'
