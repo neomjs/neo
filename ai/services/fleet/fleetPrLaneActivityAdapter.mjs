@@ -7,6 +7,7 @@ import {
     getPrDeferDisposition,
     getPrHumanGateState
 } from '../graph/issueFocusSections.mjs'
+import {redactCredentials} from './redactCredentials.mjs'
 
 /**
  * @module ai/services/fleet/fleetPrLaneActivityAdapter
@@ -95,8 +96,8 @@ export function createPrActivityEvents(prs = [], {capturedAt = new Date()} = {})
     return asArray(prs)
         .filter(Boolean)
         .map(pr => {
-            const number = getNumber(pr.number),
-                  author = getLogin(pr.author),
+            const number         = getNumber(pr.number),
+                  author         = getLogin(pr.author),
                   relatedTickets = extractRefs(`${pr.title || ''} ${pr.body || ''}`)
 
             const humanGateState = getPrHumanGateState(pr)
@@ -227,10 +228,10 @@ function createActivityCapability({capturedAt, confidence, reason = null, state}
 }
 
 function normalizeIssue(issue, capturedAt) {
-    const meta = issue.meta || issue,
-          number = getNumber(issue.number || meta.number || meta.id),
-          title = issue.title || meta.title || null,
-          content = issue.content || issue.body || '',
+    const meta     = issue.meta || issue,
+          number   = getNumber(issue.number || meta.number || meta.id),
+          title    = issue.title || meta.title || null,
+          content  = issue.content || issue.body || '',
           comments = normalizeComments(issue, content)
 
     return {
@@ -325,9 +326,7 @@ function normalizeError(error) {
 }
 
 function redactSecretText(text) {
-    return text
-        .replace(/\b(token|secret|password|pat|credential|privateKey|signingKey)\s*[:=]\s*[^\s,;)]+/gi, '$1=[redacted]')
-        .replace(/\bgh[pousr]_[A-Za-z0-9_]+/g, '[redacted-token]')
+    return redactCredentials(text)
 }
 
 function toIsoString(value, fallback = new Date()) {
