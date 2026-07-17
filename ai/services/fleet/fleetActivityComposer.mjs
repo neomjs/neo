@@ -1,4 +1,5 @@
 import {DEFAULT_FLEET_ACTIVITY_EVENT_LIMIT} from './fleetPrLaneActivityAdapter.mjs';
+import {redactCredentials}                  from './redactCredentials.mjs';
 import {FLEET_COCKPIT_SOURCES}              from '../../../src/ai/fleet/fleetCockpitStatus.mjs';
 
 /**
@@ -94,54 +95,6 @@ function capText(raw, max) {
 }
 
 /**
- * @summary Credential shapes an adapter error can carry into an operator-facing string, each paired
- * with an EXPLICIT replacement.
- *
- * The pairing is the contract, and deriving the replacement from the match instead is what made the
- * first cut worse than no redaction at all: `` `${match.split(/[:=\s]/)[0]}: [redacted]` `` assumed
- * every match was `key: value`. **A bare token has no delimiter, so the whole secret became the
- * "label"** and was printed next to the word `[redacted]` — the string reported itself handled while
- * carrying the credential. A replacement may echo a KEY (an explicit `$1` capture of the key alone)
- * or be a literal; it may never be computed from the matched text.
- *
- * The families are the same-subsystem set the Fleet wake/throttle/mailbox adapters already redact,
- * plus fine-grained `github_pat_`, which `gh[pousr]_` cannot match (`[pousr]` fails on `i`) — so that
- * family currently reaches a Body-facing surface through those siblings too.
- *
- * The value is replaced rather than the message dropped: an operator still needs to know WHICH call
- * failed, and a reason of `[redacted]` debugs nothing.
- * @private
- */
-const CREDENTIAL_PATTERNS = [
-    // The scheme is consumed WITH the token: `[:=]\s*\S+` took only `Bearer` and left the credential
-    // one space away — and destroyed the `Bearer` marker the next pattern matches on, so the first
-    // redaction blinded the second. An earlier guard can hide the surface a later guard exists to find.
-    // The scheme is a GENERIC WORD, never an enumerated list, and the credentials run to the END of
-    // the value rather than to the first delimiter.
-    //
-    // Both halves were learned the hard way, in this order. First `[:=]\s*\S+` took only `Bearer` and
-    // left the credential one space away. Then an allow-list of four schemes published `NTLM`,
-    // `Negotiate`, `Hawk` and `AWS4-HMAC-SHA256` the same way — @neo-opus-grace's line, against a patch
-    // I had just prescribed to her: **an allow-list of four degrades on the fifth.** A list is complete
-    // the day it is written and publishes a credential for the first scheme nobody taught it.
-    // Separately, RFC 7235 allows a token68 (`Bearer abc…`) OR a comma-separated auth-param list, and
-    // Digest uses the list — so stopping at the first comma redacted `username` and published
-    // `response`, which IS the credential.
-    //
-    // The trade-off is deliberate and bounded: after `authorization`, an unknown trailing token is
-    // indistinguishable from a credential, so it is consumed. A word of lost context is cheap; a
-    // published credential is not. The bound is that this fires only after an auth key — the spec's
-    // control proves an ordinary diagnostic survives untouched.
-    [/\b((?:proxy-)?authorization)\s*[:=]\s*(?:[\w-]+\s+)?[^\s,;)]+(?:\s*,\s*[\w-]+\s*=\s*(?:"[^"]*"|[^\s,;)]+))*/gi, '$1: [redacted]'],
-    [/\b(bearer|basic)\s+[\w\-._~+/]+=*/gi,                                                    '$1 [redacted]'],
-    [/\b(api[-_]?key|access[-_]?token|refresh[-_]?token|client[-_]?secret|secret|password|passwd|pwd|pat|credential|privateKey|signingKey|token)\s*[:=]\s*[^\s,;)]+/gi, '$1=[redacted]'],
-    // Bare tokens: no key, no delimiter — the match IS the secret, so the whole match goes.
-    [/\bgithub_pat_[A-Za-z0-9_]+/g, '[redacted-token]'],
-    [/\bgh[pousr]_[A-Za-z0-9_]+/g,  '[redacted-token]'],
-    [/\bglpat-[A-Za-z0-9_-]+/g,     '[redacted-token]']
-];
-
-/**
  * @summary Renders a failure into a reason safe to hand a cockpit.
  *
  * Adapter errors carry filesystem paths, tokens and query fragments. A capability reason is rendered
@@ -149,21 +102,20 @@ const CREDENTIAL_PATTERNS = [
  * one: an error's `message` has no length contract. Capped and stripped of newlines so one failure
  * cannot flood or restructure the pane it lands in.
  *
- * Redaction runs BEFORE the cap. Capping first is not merely insufficient — it is dangerous: it can
- * sever a token and leave the prefix that still authenticates, while reporting the string as handled.
+ * Redaction is delegated to `redactCredentials`, the single Fleet redaction authority — a private
+ * table here would be the sixth copy of a contract that already drifted across five adapters, which
+ * is the exact defect that module exists to end. Redaction still runs BEFORE the cap: capping first
+ * is not merely insufficient — it is dangerous, severing a token and leaving the prefix that still
+ * authenticates while reporting the string as handled.
  *
  * @param {*} failure Error or string.
  * @returns {String}
  * @private
  */
 function redactReason(failure) {
-    let raw = `${failure?.message ?? failure ?? 'unknown failure'}`.replace(/\s+/g, ' ').trim();
+    const raw = `${failure?.message ?? failure ?? 'unknown failure'}`.replace(/\s+/g, ' ').trim();
 
-    CREDENTIAL_PATTERNS.forEach(([pattern, replacement]) => {
-        raw = raw.replace(pattern, replacement)
-    });
-
-    return capText(raw, FLEET_ACTIVITY_REASON_MAX)
+    return capText(redactCredentials(raw), FLEET_ACTIVITY_REASON_MAX)
 }
 
 /**
