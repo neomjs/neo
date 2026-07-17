@@ -226,6 +226,52 @@ export const GITIGNORED_FILES_TO_LINK = [
 export const DEFAULT_CLAUDE_WORKTREES_ROOT = path.join('.claude', 'worktrees');
 
 /**
+ * @summary Reports whether a freshly bootstrapped worktree would author commits as the operator.
+ *
+ * A worktree that sets no local `user.email` resolves git's global one — the operator's. Every commit
+ * it produces is then attributed to the human, and nothing says so: `git log --oneline` omits the
+ * author, the commit succeeds, and the PR renders normally. One agent shift reached 38 such commits
+ * across 7 branches before a peer noticed while reading a PR's commit metadata.
+ *
+ * This CANNOT set the right identity, and deliberately does not try: the bootstrap creates the
+ * worktree before any agent occupies it, so it does not know whose it is, and guessing would write a
+ * confident wrong attribution in place of an obvious missing one. What it can do is refuse to let the
+ * leak stay silent, at the one moment someone is watching the output.
+ *
+ * The pre-push guard (`check-commit-authorship`) is the mechanical backstop; this is the early
+ * warning, and neither replaces the other — the warning is skippable, and the backstop fires only
+ * after the work is already committed.
+ *
+ * @param {Object} options
+ * @param {String} options.projectRoot The bootstrapped worktree.
+ * @param {Function} [options.readConfig] `(args) => String` — injected for tests; reads a git config value.
+ * @returns {Promise<{inherited: Boolean, local: String, global: String}>}
+ */
+export async function inspectGitIdentity({projectRoot, readConfig}) {
+    const read = readConfig || (async args => {
+        try {
+            const {stdout} = await execFileAsync('git', args, {cwd: projectRoot});
+            return stdout.trim()
+        } catch {
+            return ''
+        }
+    });
+
+    const
+        globalEmail = (await read(['config', '--global', 'user.email'])).toLowerCase(),
+        localEmail  = (await read(['config', '--local', 'user.email'])).toLowerCase(),
+        effective   = (await read(['config', 'user.email'])).toLowerCase();
+
+    return {
+        // The leak is precisely "no local identity, so the global one answers". A worktree that set
+        // its own identity is fine even if it happens to equal the global one — that was a choice.
+        inherited: Boolean(globalEmail) && !localEmail && effective === globalEmail,
+        local    : localEmail,
+        global   : globalEmail
+    }
+}
+
+/**
  * @summary Resolves the canonical "main checkout" path for a given project root.
  *
  * Two resolution paths, in priority order:
@@ -1276,6 +1322,20 @@ if (isMain) {
         // Default behavior: run build-all after config/data linking
         const buildResult = await runBuildAll({projectRoot});
         console.log(`✓ Build: ${buildResult}`);
+
+        // Said LAST, deliberately: this is the one line the reader must still have on screen, and a
+        // warning buried above a build log is a warning nobody reads.
+        const identity = await inspectGitIdentity({projectRoot});
+
+        if (identity.inherited) {
+            console.log(`\n\x1b[31m⚠ Git identity: this worktree has none, so commits will be authored as ${identity.global} — the operator.\x1b[0m`);
+            console.log(`  Squash-merge preserves the author, so that credits them on dev for work they did not do.`);
+            console.log(`  Set yours before committing:\n`);
+            console.log(`    git config user.name  "<Your Name>"`);
+            console.log(`    git config user.email "<you>@neomjs.com"\n`);
+        } else if (identity.local) {
+            console.log(`✓ Git identity: ${identity.local}`);
+        }
     } catch (e) {
         console.error('Bootstrap failed:', e.message);
         process.exit(1);
