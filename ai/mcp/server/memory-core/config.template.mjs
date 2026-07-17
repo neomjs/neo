@@ -537,6 +537,22 @@ class Config extends ConfigProvider {
              */
             goldenPathSilentThreadThresholdMs: leaf(14 * DAY_MS, 'NEO_GOLDEN_PATH_SILENT_THREAD_THRESHOLD_MS', 'number'),
             /**
+             * How long one hook-projection publication may hold its target. Wave 1 is a bounded
+             * single-publication lease with NO renewal: a render that cannot finish inside this window
+             * aborts rather than extending it, so this ceiling is also the worst-case wait before a
+             * crashed holder's target frees itself. Raising it slows takeover; lowering it aborts slow
+             * renders. Adding renewal instead is a decision-record revalidation, not a config change.
+             * @type {number}
+             */
+            hookProjectionLeaseTtlMs: leaf(15_000, 'NEO_HOOK_PROJECTION_LEASE_TTL_MS', 'number'),
+            /**
+             * Memory-Core-owned root for published hook projections. The writer derives every output
+             * path beneath it from the server-derived target id; a producer submits an envelope for an
+             * admitted target and never supplies a filesystem path.
+             * @type {string}
+             */
+            hookProjectionRoot: leaf(path.resolve(cwd, '.neo-ai-data/hook-projections'), 'NEO_HOOK_PROJECTION_ROOT', 'string'),
+            /**
              * Minimum `daysIdle * max(structuralWeight, 1)` score required for Silent Threads.
              * @type {number}
              */
