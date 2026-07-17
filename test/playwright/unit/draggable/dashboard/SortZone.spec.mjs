@@ -64,7 +64,18 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
             DragCoordinator.nativeWindowDropDwellMs  = 450;
             DragCoordinator.nativeWindowDropSettleMs = 250;
             DragCoordinator.sortZones = new Map();
-            delete DragCoordinator.onWindowPositionChange
+            DragCoordinator.activeTargetZone = null;
+
+            // `beforeEach` stubs five methods as OWN properties on the shared singleton; only
+            // `onWindowPositionChange` was ever given back. The other four outlived this file and
+            // silently no-opped every later spec in the worker that touched the coordinator — a stub
+            // that survives its suite is indistinguishable from the method simply not working.
+            // Deleting the own property re-exposes the prototype implementation.
+            delete DragCoordinator.onWindowPositionChange;
+            delete DragCoordinator.onDragMove;
+            delete DragCoordinator.onDragEnd;
+            delete DragCoordinator.register;
+            delete DragCoordinator.unregister
         }
         if (Neo.manager?.Window) {
             Neo.manager.Window.items = [];

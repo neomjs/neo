@@ -393,11 +393,21 @@ class DragCoordinator extends Manager {
         let me = this;
 
         if (me.activeTargetZone) {
-            // Drop on target
-            me.activeTargetZone.onRemoteDrop(data.draggedItem);
+            // The TARGET decides whether the gesture committed: onRemoteDrop() returns the committed
+            // operation, or null when there was no preview, no operation, or the commit declined.
+            // Engagement is not commitment, so its answer cannot be discarded.
+            let operation = me.activeTargetZone.onRemoteDrop(data.draggedItem);
 
-            // Notify source to finalize cleanup
-            data.sourceSortZone.onRemoteDropOut(data.draggedItem);
+            // Source retirement follows the OUTCOME, not the attempt. Retiring unconditionally armed
+            // the source's `remoteDropCommitted`, whose whole meaning is "a remote target committed
+            // this transfer" — and which suppresses the source's in-window drop path on that belief.
+            // On a null commit the target never took the item while the source had already let go, so
+            // the item stranded with no owner. Leaving the flag unarmed lets the source's ordinary
+            // in-window path run and restore it: the restore is the pre-existing default, not a new
+            // capability — it was simply unreachable behind the false commit signal.
+            if (operation) {
+                data.sourceSortZone.onRemoteDropOut(data.draggedItem)
+            }
 
             me.activeTargetZone = null
         } else if (data.sourceSortZone.isWindowDragging) {
@@ -435,6 +445,14 @@ class DragCoordinator extends Manager {
             if (group.size === 0) {
                 me.sortZones.delete(sortGroup)
             }
+        }
+
+        // A departing zone must not stay installed as the live target. Dropping it from the registry
+        // while leaving it here kept a zone whose vessel is gone reachable as `activeTargetZone`, so
+        // the next release would commit into a departed window — and re-registering the same identity
+        // would inherit that residue instead of starting clean.
+        if (me.activeTargetZone === sortZone) {
+            me.activeTargetZone = null
         }
 
         for (const [windowId, candidate] of me.nativeWindowDropCandidates.entries()) {
