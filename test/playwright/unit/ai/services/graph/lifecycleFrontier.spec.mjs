@@ -162,13 +162,46 @@ test.describe('lifecycleFrontier — lifecycle-frontier.v1 contract', () => {
         expect(validateLifecycleFrontier(task, {shapeOnly: true}).valid).toBe(true);
     });
 
-    test('a PR-derived row with a NULL head is rejected — it cannot support the reset invariant', () => {
-        // The reviewer's falsifier: the builder emitted `headSha: null` for a PR row and the guard
-        // passed it. Every PR-derived row resets on head change, and a row with no head cannot say
-        // whether its clock belongs to the code that exists now. The explicit null made the omission
-        // look deliberate, which is worse than absent.
-        const headless = buildLifecycleFrontier(base({items: [item({headSha: undefined})]})),
-              result   = validateLifecycleFrontier(headless, {shapeOnly: true});
+    test('the PRODUCER refuses to mint a headless PR row — a malformed frontier is a producer bug', () => {
+        // Closing this at the consumer alone left the producer happily minting rows that cannot support
+        // the head-change reset: the guard would catch them, but only AFTER a malformed frontier
+        // existed and only for readers that ran the guard. Normalizing the omission to `null` dressed
+        // it up as a decision.
+        expect(() => buildLifecycleFrontier(base({items: [item({headSha: undefined})]})))
+            .toThrow(/items\[0\]\.headSha \(PR-derived stage "own-pr-repair" resets on head change\)/);
+
+        expect(() => buildLifecycleFrontier(base({items: [item({headSha: ''})]})))
+            .toThrow(/items\[0\]\.headSha/);
+    });
+
+    test('the CONSUMER independently rejects a torn PR row the producer never made', () => {
+        // Defence in depth, and not redundant: the guard's whole job is envelopes this producer did not
+        // build — a legacy writer, a torn file, another version. So the torn row is hand-built here
+        // rather than minted, which is exactly how it would arrive.
+        const torn = {
+            schemaVersion  : 'lifecycle-frontier.v1',
+            status         : 'fresh',
+            capturedAt     : '2026-07-16T12:00:00.000Z',
+            sourceWatermark: 'w-1',
+            expiresAt      : '2026-07-16T12:05:00.000Z',
+            scope          : {resolution: 'agent-instance', agentId: '@neo-opus-ada'},
+            coverage       : {sources: ['pull-requests'], degradedSources: []},
+            items          : [{
+                id             : 'pr-1',
+                stage          : 'own-pr-repair',
+                kind           : 'changes-requested',
+                state          : 'OPEN',
+                source         : 'github-workflow',
+                subjectId      : 'pr-15231',
+                headSha        : null,
+                actionableSince: '2026-07-16T09:00:00.000Z',
+                checkedAt      : '2026-07-16T10:00:00.000Z',
+                citations      : []
+            }],
+            notAuthority: true
+        };
+
+        const result = validateLifecycleFrontier(torn, {shapeOnly: true});
 
         expect(result.valid).toBe(false);
         expect(result.errors.join(' ')).toContain('headSha is required for the PR-derived stage "own-pr-repair"');

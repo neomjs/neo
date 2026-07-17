@@ -119,6 +119,15 @@ function normalizeFrontierItem(item, index) {
     assertNonEmptyString(item.subjectId,       `items[${index}].subjectId`);
     assertNonEmptyString(item.actionableSince, `items[${index}].actionableSince`);
 
+    // A PR-derived row without its head is a PRODUCER bug, so it fails loud here rather than being
+    // normalized to null and handed on. Closing this at the consumer alone left the producer happily
+    // minting rows that could not support the head-change reset — the guard would catch them, but only
+    // after a malformed frontier already existed and only for readers that ran the guard. `null` here
+    // dressed an omission up as a decision.
+    if (PR_DERIVED_STAGES.has(item.stage)) {
+        assertNonEmptyString(item.headSha, `items[${index}].headSha (PR-derived stage "${item.stage}" resets on head change)`)
+    }
+
     return Object.freeze({
         id             : item.id,
         stage          : item.stage,
