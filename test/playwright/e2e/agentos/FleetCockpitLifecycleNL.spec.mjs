@@ -4,6 +4,7 @@ import {
     NeuralLink_InstanceService
 } from '../../../../ai/services.mjs';
 import {FLEET_WIRE_METHODS} from '../../../../src/ai/fleet/fleetWireMethods.mjs';
+import {authenticatedFleetOptions, wireAuthenticatedFleetBridge} from './authenticatedFleetHarness.mjs';
 
 const TEST_AGENT_ID = 'nl-proof-agent';
 
@@ -18,8 +19,7 @@ const TEST_AGENT_ID = 'nl-proof-agent';
 async function startRecordingFleetBridge({rejectStart = false} = {}) {
     const {startFleetBridgeServer} = await import('../../../../ai/services/fleet/fleetBridgeServer.mjs'),
           requests                 = [],
-          server                   = await startFleetBridgeServer({
-              port    : 0,
+          options                  = authenticatedFleetOptions({
               dispatch: async request => {
                   requests.push(request);
 
@@ -45,10 +45,13 @@ async function startRecordingFleetBridge({rejectStart = false} = {}) {
               }
           });
 
+    const server = await startFleetBridgeServer(options);
+
     return {
         requests,
-        endpoint: `http://127.0.0.1:${server.address().port}/fleet`,
-        close   : () => new Promise(resolve => server.close(resolve))
+        bearerToken: options.bearerToken,
+        endpoint   : `http://127.0.0.1:${server.address().port}/fleet`,
+        close      : () => new Promise(resolve => server.close(resolve))
     }
 }
 
@@ -136,6 +139,11 @@ test.describe('AgentOS Fleet cockpit lifecycle controls (Neural Link)', () => {
 
         try {
             await page.goto(`/apps/agentos/index.html?${new URLSearchParams({fleetUrl: fleet.endpoint})}`);
+            await expect(page.locator('.agent-shell')).toBeVisible({timeout: 60000});
+
+            // fail-closed boot -> bearer through the worker-realm product injector
+            await wireAuthenticatedFleetBridge({app: await neuralLink.connectToApp('AgentOS'), fleetUrl: fleet.endpoint, bearerToken: fleet.bearerToken});
+
             // the FleetSettingsPanel lifecycle surface is the 'Control' keeper-view in the shell rail
             await page.locator('.agent-shell').getByText('Control', {exact: true}).click();
             await expect(page.locator('.agent-panel-settings')).toBeVisible({timeout: 30000});
@@ -192,6 +200,11 @@ test.describe('AgentOS Fleet cockpit lifecycle controls (Neural Link)', () => {
 
         try {
             await page.goto(`/apps/agentos/index.html?${new URLSearchParams({fleetUrl: fleet.endpoint})}`);
+            await expect(page.locator('.agent-shell')).toBeVisible({timeout: 60000});
+
+            // fail-closed boot -> bearer through the worker-realm product injector
+            await wireAuthenticatedFleetBridge({app: await neuralLink.connectToApp('AgentOS'), fleetUrl: fleet.endpoint, bearerToken: fleet.bearerToken});
+
             // the FleetSettingsPanel lifecycle surface is the 'Control' keeper-view in the shell rail
             await page.locator('.agent-shell').getByText('Control', {exact: true}).click();
             await expect(page.locator('.agent-panel-settings')).toBeVisible({timeout: 30000});

@@ -1,5 +1,6 @@
 import {test, expect}           from '../../fixtures.mjs';
 import {NeuralLink_DataService} from '../../../../ai/services.mjs';
+import {authenticatedFleetOptions, reloadRoster, wireAuthenticatedFleetBridge} from './authenticatedFleetHarness.mjs';
 
 const KEYBOARD_SOURCES = {
     roster    : {source: 'fleet:listAgents',    state: 'wired', confidence: 'observed'},
@@ -43,7 +44,7 @@ async function startRejectingFleetBridge() {
     let rosterRows = KEYBOARD_ROSTER_ROWS;
 
     const
-        server                   = await startFleetBridgeServer({
+        options                  = authenticatedFleetOptions({
             port    : 8083,
             dispatch: async request => {
                 requests.push(request);
@@ -70,8 +71,12 @@ async function startRejectingFleetBridge() {
             }
         });
 
+    const server = await startFleetBridgeServer(options);
+
     return {
         requests,
+        bearerToken  : options.bearerToken,
+        endpoint     : `http://127.0.0.1:${server.address().port}/fleet`,
         close        : () => new Promise(resolve => server.close(resolve)),
         setRosterRows: rows => rosterRows = rows
     }
@@ -112,12 +117,20 @@ test.describe('AgentOS fleet grid — keyboard a11y (native list/listitem + dril
         await page.goto('/apps/agentos/index.html');
         await expect(page.locator('.agent-shell')).toBeVisible({timeout: 60000});
         await expect(page.locator('.fm-fleet-grid')).toBeVisible({timeout: 30000});
+
+        // fail-closed boot -> bearer through the worker-realm product injector -> sanctioned re-poll;
+        // only then can the roster claim replace the sample seed.
+        const app = await neuralLink.connectToApp('AgentOS');
+
+        await wireAuthenticatedFleetBridge({app, fleetUrl: fleet.endpoint, bearerToken: fleet.bearerToken});
+        await reloadRoster(app);
+
         // The production fleetRoster read path, backed by the test-owned loopback, must replace the
         // sample roster with the three deterministic residents before any keyboard claim.
         await expect(page.locator('.fm-fleet-title')).toHaveText('Fleet · 3 agents', {timeout: 30000});
 
         const
-            app       = await neuralLink.connectToApp('AgentOS'),
+
             sessionId = app.sessionId,
             [grid]    = await app.queryComponent({className: 'AgentOS.view.fleet.FleetGrid'}, ['id']),
             [cockpit] = await app.queryComponent({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']);

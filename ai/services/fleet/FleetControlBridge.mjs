@@ -104,7 +104,9 @@ class FleetControlBridge extends Base {
      * (`{capability, admission, rows, page}`). Same DI contract as {@link #activitySource}: the
      * wiring owns the identity binding and read permissions, so the source is what holds
      * `resolveBoundIdentity` + the viewer-bound `listMessages` — this bridge never imports
-     * MailboxService and never authors an admission fact. Unwired → an honest source-not-wired
+     * MailboxService and never authors an admission fact. Production wiring lives in the launch
+     * entry (`devFleetServer`), resolving the bound viewer from the request context the
+     * authenticated ingress stamped — per request, never cached. Unwired → an honest source-not-wired
      * snapshot whose admission is `unavailable`, never an empty inbox: "no mail" and "no mailbox
      * feed" are different claims and only the producer may make the first.
      * @member {Object|null} mailboxMirrorSource=null
@@ -382,11 +384,12 @@ class FleetControlBridge extends Base {
      * carries NO lifecycle-write authority, and structurally no mutation verb exists on this path
      * (operator-side mark-read would mutate the agent's own turn-start signal).
      *
-     * **The transport is NOT authenticated, and this verb does not pretend otherwise.** The Fleet
-     * HTTP surface binds no viewer identity, so no admission can be attributed through it — which is
-     * exactly why {@link #mailboxMirrorSource} stays unwired and every call answers `unavailable`.
-     * The seam is staged and inert: real reads wait on authenticated viewer ingress + per-request
-     * identity binding on the Fleet transport. Loopback locality is not a viewer identity.
+     * **The read executes under the transport-stamped viewer, never a caller claim.** The Fleet
+     * ingress admits requests behind Host/Origin/bearer gates and stamps the server-resolved viewer
+     * into the request context; the launch entry wires {@link #mailboxMirrorSource} to resolve the
+     * bound identity from that context PER REQUEST. Loopback locality is not a viewer identity —
+     * which is why an unwired source (an entry that has not composed the launch contract) still
+     * answers an honest `unavailable` rather than pretending admission.
      *
      * Admission is decided by the Memory Core primitive's own fail-closed `CAN_READ_INBOX_OF` gate,
      * never re-implemented here or in {@link #mailboxMirrorSource} — this verb only routes. An

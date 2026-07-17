@@ -10,8 +10,19 @@ import Neo             from '../../../../../src/Neo.mjs';
 import * as core       from '../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../src/manager/Instance.mjs';
 
+import http from 'node:http';
+
 import {COCKPIT_OPEN_TARGET, FLEET_PROBE_METHOD, planCockpitBoot, probeFleetEndpoint} from '../../../../../buildScripts/devCockpit.mjs';
 import {startFleetBridgeServer}                                                       from '../../../../../ai/services/fleet/fleetBridgeServer.mjs';
+import {generateLocalBearerToken}                                                     from '../../../../../ai/mcp/server/shared/helpers/localBearer.mjs';
+
+const authenticatedOptions = overrides => ({
+    port         : 0,
+    bearerToken  : generateLocalBearerToken(),
+    viewerContext: {userId: 'cockpit-witness', username: 'Cockpit Witness', agentIdentityNodeId: '@cockpit-witness'},
+    runInContext : (context, fn) => fn(),
+    ...overrides
+});
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../..');
 
@@ -65,9 +76,9 @@ test.describe('buildScripts/devCockpit — the live-by-default boot plan', () =>
     });
 
     test('probeFleetEndpoint: a REAL fleet server confirms identity; a bare listener is incompatible; a closed port is free', async () => {
-        // (a) the REAL transport with the REAL dispatch chain (the wire allowlist): the probe
-        // method is not on the allowlist, so the deterministic rejection envelope IS the identity
-        const realFleet = await startFleetBridgeServer({port: 0});
+        // (a) the REAL authenticated transport: the unauthenticated probe hits the ingress guard's
+        // fail-closed 401 envelope BEFORE any body parsing — that refusal IS the identity now
+        const realFleet = await startFleetBridgeServer(authenticatedOptions());
         const realPort  = realFleet.address().port;
 
         const probe = await probeFleetEndpoint(realPort);
@@ -77,17 +88,22 @@ test.describe('buildScripts/devCockpit — the live-by-default boot plan', () =>
         await new Promise(resolve => realFleet.close(resolve));
 
         // (b) an HTTP-ish occupant that answers with a NON-fleet envelope must read incompatible —
-        // an injected always-ok dispatch proves the probe checks the ENVELOPE, not just HTTP-ness
-        let   dispatched = 0;
-        const foreign    = await startFleetBridgeServer({
-            port    : 0,
-            dispatch: async () => { dispatched++; return {ok: true}; }
+        // a plain always-ok listener proves the probe checks the ENVELOPE (and the 401 fingerprint),
+        // not just HTTP-ness. (A fleet server can no longer produce this shape: its guard 401s every
+        // unauthenticated request before dispatch — which is exactly the point of the boundary.)
+        let   answered = 0;
+        const foreign  = http.createServer((req, res) => {
+            answered++;
+            res.writeHead(200, {'Content-Type': 'application/json'});
+            res.end(JSON.stringify({ok: true}))
         });
+
+        await new Promise(resolve => foreign.listen(0, '127.0.0.1', resolve));
         const foreignPort = foreign.address().port;
 
         const foreignProbe = await probeFleetEndpoint(foreignPort);
         expect(foreignProbe.status).toBe('incompatible');
-        expect(dispatched).toBe(1);
+        expect(answered).toBe(1);
 
         await new Promise(resolve => foreign.close(resolve));
 
@@ -127,7 +143,16 @@ test.describe('buildScripts/devCockpit — the live-by-default boot plan', () =>
             cwd: repoRoot,
             env: {
                 ...process.env,
-                NEO_COCKPIT_WEBPACK_CMD: JSON.stringify([process.execPath, '-e', 'setInterval(() => {}, 1000)'])
+                NEO_COCKPIT_WEBPACK_CMD: JSON.stringify([process.execPath, '-e', 'setInterval(() => {}, 1000)']),
+                // The fixture transport proves the LAUNCH CONTRACT: it constructs the real
+                // authenticated server from the NEO_FLEET_BEARER the launcher hands down via env —
+                // startFleetBridgeServer REFUSES to construct without it, so 'fleet' reaching the
+                // probe means the bearer hand-down happened. No graph needed (stub viewer).
+                NEO_COCKPIT_FLEET_CMD: JSON.stringify([process.execPath, '--input-type=module', '-e',
+                    // absolute specifiers (CWD-independent) + the Neo namespace bootstrap the fleet
+                    // module chain requires at load — the same entry-point invariant devFleetServer keeps
+                    `const root = ${JSON.stringify(repoRoot)}; await import(root + '/src/Neo.mjs'); await import(root + '/src/core/_export.mjs'); await import(root + '/src/manager/Instance.mjs'); const {startFleetBridgeServer} = await import(root + '/ai/services/fleet/fleetBridgeServer.mjs'); const server = await startFleetBridgeServer({port: 8083, bearerToken: process.env.NEO_FLEET_BEARER, viewerContext: {userId: 'cockpit-fixture', username: 'Cockpit Fixture', agentIdentityNodeId: '@cockpit-fixture'}, runInContext: (context, fn) => fn()}); ['SIGTERM', 'SIGINT'].forEach(signal => process.on(signal, () => server.close(() => process.exit(0))))`
+                ])
             },
             stdio: ['ignore', 'pipe', 'pipe']
         });
