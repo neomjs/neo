@@ -55,7 +55,7 @@ test.describe('ai/services/graph/agentFamilyResolution — hydration-index famil
 
         // Pin today's exact fallback population so silent growth (or the retirement moment)
         // surfaces as a conscious spec update, never an invisible behavior change.
-        expect(postEpoch.map(identity => identity.id)).toEqual(['@neo-gpt-emmy']);
+        expect(postEpoch.map(identity => identity.id)).toEqual(['@neo-gpt-emmy', '@neo-kimi-phoebe']);
     });
 
     test('every current index-path resolution agrees with the flat property it will replace', () => {
