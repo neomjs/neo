@@ -279,14 +279,17 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         });
 
         expect(mapped).toEqual({
-            agentId      : 'neo-gpt',
-            authMode     : null,   // tri-state launch facts: absent on the row → honest null, never guessed
-            avatarUrl    : 'https://github.com/neo-gpt.png?size=80',
-            displayName  : 'Neo GPT',
-            engineTag    : 'GPT-5.6 Sol',
-            family       : 'gpt',
-            launchable   : null,
-            openLaneCount: null,   // roster-DTO-owned tri-state: un-stamped → honest null (no badge)
+            agentId    : 'neo-gpt',
+            authMode   : null,   // tri-state launch facts: absent on the row → honest null, never guessed
+            avatarUrl  : 'https://github.com/neo-gpt.png?size=80',
+            displayName: 'Neo GPT',
+            engineTag  : 'GPT-5.6 Sol',
+            family     : 'gpt',
+            // the mailbox identity authority: absent on this row → honest null (unverifiable), never
+            // silently substituted with the registry key, which is a different id space entirely
+            githubUsername: null,
+            launchable    : null,
+            openLaneCount : null,   // roster-DTO-owned tri-state: un-stamped → honest null (no badge)
             // the authoritative participation fact: absent on the row → honest null, never guessed
             participationStatus: null,
             sources            : liveSources(),
@@ -366,12 +369,15 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
 
         // known resident → runtime status reconciled onto ITS record (the store re-renders just that card)
         expect(writes).toEqual([{
-            agentId            : 'vega',
-            authMode           : null,
-            avatarUrl          : null,
-            displayName        : null,
-            engineTag          : null,
-            family             : 'claude',
+            agentId    : 'vega',
+            authMode   : null,
+            avatarUrl  : null,
+            displayName: null,
+            engineTag  : null,
+            family     : 'claude',
+            // the mailbox identity authority rides the reconcile like every other DTO fact —
+            // absent on this row → honest null (unverifiable), never the registry key substituted
+            githubUsername     : null,
             launchable         : null,
             openLaneCount      : null,
             participationStatus: null,

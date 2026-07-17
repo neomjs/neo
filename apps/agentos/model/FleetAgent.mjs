@@ -37,6 +37,13 @@ class FleetAgent extends Model {
             name: 'avatarUrl',
             type: 'String'
         }, {
+            // The resident's mailbox identity authority (the GitHub username the AgentIdentity node
+            // id derives from). Distinct from `agentId`, which is the Fleet registry key: a mailbox
+            // subject is `@neo-opus-vega` while the registry key may be `vega`, and for custom /
+            // multi-instance residents they need not correspond. Typeless so `null` survives — a
+            // resident with no identity authority is honestly unverifiable, never implicitly matched.
+            name: 'githubUsername'
+        }, {
             // {action, kind, reason} of the last reject / unauthorized / timeout, written by the
             // C2 adapter; null when no terminal reason is showing
             name        : 'controlReason',

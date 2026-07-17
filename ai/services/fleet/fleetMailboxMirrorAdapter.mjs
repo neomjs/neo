@@ -131,17 +131,27 @@ export async function readFleetMailboxMirror({
 
     try {
         // Deliberately NO `includeArchived` key: the service default (active inbox) always governs.
+        //
+        // The read probes ONE row past the page. The producer returns a slice with no total, so
+        // `count === limit` is ambiguous — it means "a full page" and cannot distinguish "more
+        // follows" from "that was exactly the last one". A consumer forced to guess enables Next on
+        // every full page and strands the operator on an empty window at a positive offset. One
+        // extra row answers it honestly without a count query; the snapshot still returns at most
+        // `limit`.
         const result = await readMessages({
             box   : 'inbox',
             status: 'all',
             to    : subject,
-            limit : page.limit,
+            limit : page.limit + 1,
             offset: page.offset
         })
 
+        const probed = asArray(result?.messages)
+
         return createFleetMailboxMirrorSnapshot({
             capturedAt,
-            messages: result?.messages || [],
+            hasMore : probed.length > page.limit,
+            messages: probed.slice(0, page.limit),
             page,
             subject,
             viewer
@@ -175,6 +185,7 @@ export function createFleetMailboxMirrorSnapshot({
     messages = [],
     error = null,
     capturedAt = new Date(),
+    hasMore = false,
     page = {limit: DEFAULT_FLEET_MAILBOX_MIRROR_LIMIT, offset: 0},
     viewer = null,
     subject = null
@@ -201,7 +212,7 @@ export function createFleetMailboxMirrorSnapshot({
                 viewer
             }),
             rows: Object.freeze([]),
-            page: Object.freeze({...page, count: 0})
+            page: Object.freeze({...page, count: 0, hasMore: false})
         })
     }
 
@@ -220,7 +231,7 @@ export function createFleetMailboxMirrorSnapshot({
             viewer
         }),
         rows,
-        page: Object.freeze({...page, count: rows.length})
+        page: Object.freeze({...page, count: rows.length, hasMore: Boolean(hasMore)})
     })
 }
 

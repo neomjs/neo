@@ -40,7 +40,14 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
     // a real store-backed record — the production shape (an AgentOS.store.FleetRoster row). The store
     // mirrors FleetRoster's keyProperty (the collection default 'id' would shadow the model's).
     const makeRecord = data => {
-        const row   = {...data, sources: data.sources === undefined ? observedSources : data.sources},
+        const row = {
+                  // mirrors production: the roster DTO carries the mailbox identity authority beside
+                  // the registry key. A fixture without it is a resident the mailbox cannot verify —
+                  // valid, but not the default case, so tests opt INTO that by passing null.
+                  githubUsername: data.githubUsername === undefined ? `neo-${data.agentId}` : data.githubUsername,
+                  ...data,
+                  sources: data.sources === undefined ? observedSources : data.sources
+              },
               store = Neo.create(Store, {keyProperty: 'agentId', model: FleetAgent, data: [row]});
 
         stores.push(store);
@@ -49,6 +56,26 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
     };
 
     const createDetail = (data, config = {}) => Neo.create(AgentDetail, {appName, now: NOW, record: makeRecord(data), ...config});
+
+    // an adapter-shaped mirror snapshot (the `fleetMailboxMirror` verb's envelope)
+    const mirrorSnapshot = (subjectAgentId, rows = []) => ({
+        capability: {source: 'memory-core:mailbox', state: 'wired', confidence: 'observed', capturedAt: '2026-07-12T00:00:00.000Z', reason: null},
+        admission : {state: 'granted', viewerIdentity: '@tobiu', subjectAgentId, checkedAt: '2026-07-12T00:00:00.000Z', reason: null},
+        page      : {limit: 50, offset: 0, count: rows.length},
+        rows      : rows.map(row => ({
+            from          : '@neo-gpt',
+            recipientClass: 'agent',
+            priority      : 'normal',
+            status        : 'unread',
+            taskState     : null,
+            partOfThread  : null,
+            relatedTickets: [],
+            wakeSuppressed: false,
+            sentAt        : '2026-07-12T00:00:00.000Z',
+            readAt        : null,
+            ...row
+        }))
+    });
 
     // the cockpit routes the store's recordChange to the view; standalone units drive the same seam.
     const applySet = (detail, values) => {
@@ -70,12 +97,38 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
         stores.length = 0
     });
 
-    test('no record → the honest empty state; header + panes hidden until a resident is selected', () => {
+    test('no record → the honest empty state; header + tabs hidden until a resident is selected', () => {
         const detail = Neo.create(AgentDetail, {appName});
 
         expect(detail.down({reference: 'detail-empty'}).hidden).toBe(false);
         expect(detail.down({reference: 'detail-header'}).hidden).toBe(true);
-        expect(detail.down({reference: 'detail-panes'}).hidden).toBe(true);
+        // the visibility gate is the TAB container (Status + Mailbox ride inside it)
+        expect(detail.down({reference: 'detail-tabs'}).hidden).toBe(true);
+
+        detail.destroy()
+    });
+
+    test('the detail body is a tab container: Status panes + the COUNTLESS Mailbox tab; the mailbox follows the record', () => {
+        const detail = Neo.create(AgentDetail, {appName});
+        const tabs   = detail.down({reference: 'detail-tabs'});
+
+        // tab 1 = the four status panes (untouched inside), tab 2 = the mailbox pane — both
+        // reachable references inside the tab container's card structure
+        expect(detail.down({reference: 'detail-panes'})).toBeTruthy();
+        expect(detail.down({reference: 'mailbox-pane'})).toBeTruthy();
+
+        // countless by design: the tab-bar buttons carry plain 'Status' / 'Mailbox' — no badge,
+        // no count (an unread count would imply operator-side read tracking that deliberately
+        // does not exist)
+        const buttonTexts = tabs.getTabBar().items.map(button => button.text);
+        expect(buttonTexts).toEqual(['Status', 'Mailbox']);
+
+        // the mailbox pane's record follows the drill-in (its snapshot is wiring-injected)
+        detail.record = {agentId: '@neo-gpt', displayName: 'Euclid'};
+        expect(detail.down({reference: 'mailbox-pane'}).record?.agentId).toBe('@neo-gpt');
+
+        detail.record = null;
+        expect(detail.down({reference: 'mailbox-pane'}).record).toBe(null);
 
         detail.destroy()
     });
@@ -251,6 +304,168 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
         detail.now = Date.parse('2026-07-12T00:05:00.000Z');
         expect(detail.id).toBe(beforeId);
         expect(chip(detail, 'lane').cls).toContain('is-lost');
+
+        detail.destroy()
+    });
+
+    test('§2.2.1 the MAILBOX chip ages off the owner clock too — a fresh mailbox cannot stay fresh forever', () => {
+        const detail  = createDetail({agentId: 'vega', state: 'ok'}),
+              mailbox = detail.down({reference: 'mailbox-pane'});
+
+        // a snapshot captured 10s before NOW, against the pane's 60s TTL → fresh
+        mailbox.set({
+            now     : NOW,
+            snapshot: {
+                capability: {source: 'memory-core:mailbox', state: 'wired', confidence: 'observed', capturedAt: '2026-07-11T23:59:50.000Z', reason: null},
+                admission : {state: 'granted', viewerIdentity: '@tobiu', subjectAgentId: '@neo-vega', checkedAt: '2026-07-11T23:59:50.000Z', reason: null},
+                page      : {limit: 50, offset: 0, count: 0},
+                rows      : []
+            }
+        });
+        expect(mailbox.getReference('mailbox-freshness').cls).toContain('is-fresh');
+
+        // 5 minutes of wall clock later, SAME snapshot: the chip must decay. Production driver is
+        // the owner's startFreshnessAging loop nudging the pane; here the injected clock advances it
+        // deterministically through the same applySnapshot path.
+        mailbox.now = Date.parse('2026-07-12T00:05:00.000Z');
+
+        expect(mailbox.getReference('mailbox-freshness').cls).not.toContain('is-fresh');
+        expect(mailbox.snapshot, 'aging re-labels; it never drops the data').not.toBe(null);
+
+        detail.destroy()
+    });
+
+    test('the drill READS the mirror through the Fleet seam — the pane is fed by the verb, not by injection', async () => {
+        const calls = [];
+
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {
+            fleetMailboxMirror: async params => {
+                calls.push(params);
+                return mirrorSnapshot('@neo-vega', [{messageId: 'MESSAGE:real', subject: 'from the verb'}])
+            }
+        }};
+
+        try {
+            const detail  = createDetail({agentId: 'vega', state: 'ok'}),
+                  mailbox = detail.down({reference: 'mailbox-pane'});
+
+            await detail.loadMailboxMirror();
+
+            // the drill itself issues the read — no injection, no manual kick required
+            expect(calls.length).toBeGreaterThan(0);
+            // Every read is scoped to THIS subject's MAILBOX identity — a mirror read for anyone
+            // else is a leak. Note it asks for `@neo-vega`, not the registry key `vega`: the two are
+            // different id spaces, and asking with the key would request a subject that does not exist.
+            expect(calls.every(params => params.subjectAgentId === '@neo-vega')).toBe(true);
+            expect(mailbox.getPaneState()).toBe('rows');
+            expect(mailbox.snapshot.rows[0].subject).toBe('from the verb');
+
+            detail.destroy()
+        } finally {
+            delete globalThis.AgentOS?.fleet
+        }
+    });
+
+    test('race: a stale in-flight read for A can never land on B', async () => {
+        let releaseVega;
+
+        const vegaRead = new Promise(resolve => { releaseVega = resolve });
+
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {
+            fleetMailboxMirror: async ({subjectAgentId}) =>
+                subjectAgentId === 'vega' ? vegaRead : mirrorSnapshot('@neo-ada', [{messageId: 'MESSAGE:ada', subject: 'ada mail'}])
+        }};
+
+        try {
+            const detail  = createDetail({agentId: 'vega', state: 'ok'}),
+                  mailbox = detail.down({reference: 'mailbox-pane'});
+
+            const pending = detail.loadMailboxMirror();          // vega's read hangs
+
+            detail.record = makeRecord({agentId: 'ada', state: 'ok'});   // drill B while A is in flight
+            await detail.loadMailboxMirror();                     // ada's read lands first
+
+            releaseVega(mirrorSnapshot('@neo-vega', [{messageId: 'MESSAGE:vega', subject: 'VEGA PRIVATE MAIL'}]));
+            await pending;                                        // vega's stale read resolves LAST
+
+            // the newest drill wins: vega's late answer must be dropped on the floor, not rendered
+            expect(mailbox.record.agentId).toBe('ada');
+            expect(JSON.stringify(mailbox.snapshot)).not.toContain('VEGA PRIVATE MAIL');
+            expect(mailbox.snapshot.rows[0].subject).toBe('ada mail');
+
+            detail.destroy()
+        } finally {
+            delete globalThis.AgentOS?.fleet
+        }
+    });
+
+    test('the read fails closed: an absent verb or a throw leaves the pane honestly unobserved', async () => {
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {}};   // bridge without the verb
+
+        try {
+            const detail  = createDetail({agentId: 'vega', state: 'ok'}),
+                  mailbox = detail.down({reference: 'mailbox-pane'});
+
+            await detail.loadMailboxMirror();
+            expect(mailbox.snapshot).toBe(null);
+            expect(mailbox.getPaneState()).toBe('unobserved');
+
+            globalThis.AgentOS.fleet.registryBridge = {fleetMailboxMirror: async () => { throw new Error('bridge boom') }};
+            await detail.loadMailboxMirror();
+
+            // never a fabricated snapshot, and never "no mail" for a read that did not happen
+            expect(mailbox.snapshot).toBe(null);
+            expect(mailbox.getPaneState()).toBe('unobserved');
+
+            detail.destroy()
+        } finally {
+            delete globalThis.AgentOS?.fleet
+        }
+    });
+
+    test('subject possession: a re-seat onto a DIFFERENT resident drops the previous subject mail', () => {
+        const detail  = createDetail({agentId: 'vega', state: 'ok'}),
+              mailbox = detail.down({reference: 'mailbox-pane'});
+
+        // the wiring has supplied vega's inbox
+        mailbox.snapshot = {
+            capability: {source: 'memory-core:mailbox', state: 'wired', confidence: 'observed', capturedAt: '2026-07-12T00:00:00.000Z', reason: null},
+            admission : {state: 'granted', viewerIdentity: '@tobiu', subjectAgentId: '@neo-vega', checkedAt: '2026-07-12T00:00:00.000Z', reason: null},
+            page      : {limit: 50, offset: 0, count: 1},
+            rows      : [{messageId: 'MESSAGE:vega-only', subject: 'vega private mail', from: '@neo-gpt', recipientClass: 'agent', priority: 'high', status: 'unread', taskState: null, partOfThread: null, relatedTickets: [], wakeSuppressed: false, sentAt: '2026-07-12T00:00:00.000Z', readAt: null}]
+        };
+        expect(mailbox.getPaneState()).toBe('rows');
+
+        // drill a DIFFERENT resident: vega's mail must not render under ada's name
+        detail.record = makeRecord({agentId: 'ada', state: 'ok'});
+
+        expect(mailbox.record.agentId).toBe('ada');
+        expect(mailbox.snapshot, "a subject's mail cannot survive onto another subject").toBe(null);
+        expect(mailbox.getPaneState()).toBe('unobserved');
+
+        detail.destroy()
+    });
+
+    test('subject possession: a SAME-subject re-seat (roster refresh) keeps the snapshot', () => {
+        const detail   = createDetail({agentId: 'vega', state: 'ok'}),
+              mailbox  = detail.down({reference: 'mailbox-pane'}),
+              snapshot = {
+                  capability: {source: 'memory-core:mailbox', state: 'wired', confidence: 'observed', capturedAt: '2026-07-12T00:00:00.000Z', reason: null},
+                  admission : {state: 'granted', viewerIdentity: '@tobiu', subjectAgentId: '@neo-vega', checkedAt: '2026-07-12T00:00:00.000Z', reason: null},
+                  page      : {limit: 50, offset: 0, count: 0},
+                  rows      : []
+              };
+
+        mailbox.snapshot = snapshot;
+
+        // a roster refresh restamps the SAME resident — dropping the inbox here would blank a
+        // correct pane on every poll
+        applySet(detail, {state: 'starting'});
+
+        // deep-equal, not identity: the reactive config layer may hand back an equal object, and
+        // the contract is that the subject's mail SURVIVES a same-subject re-seat
+        expect(mailbox.snapshot).toEqual(snapshot);
+        expect(mailbox.getPaneState()).toBe('empty');
 
         detail.destroy()
     });
