@@ -116,14 +116,23 @@ const CREDENTIAL_PATTERNS = [
     // The scheme is consumed WITH the token: `[:=]\s*\S+` took only `Bearer` and left the credential
     // one space away — and destroyed the `Bearer` marker the next pattern matches on, so the first
     // redaction blinded the second. An earlier guard can hide the surface a later guard exists to find.
-    // The credentials run to the END of the header value, not to the first delimiter. RFC 7235 allows
-    // either a single token68 (`Bearer abc…`) or a comma-separated auth-param list, and Digest uses
-    // the list: `username="u", realm="r", nonce="abc", response="<hash>"`. Stopping at the first comma
-    // redacted `username` and published `response` — which IS the credential — with `[redacted]`
-    // printed next to it. Found by running the matrix I had just used to find the same class in a
-    // peer's copy; the single-token case was the one I tested, so the single-token case was the one
-    // that worked.
-    [/\b((?:proxy-)?authorization)\s*[:=]\s*(?:(?:bearer|basic|digest|token)\s+)?[^\s,;)]+(?:\s*,\s*[\w-]+\s*=\s*(?:"[^"]*"|[^\s,;)]+))*/gi, '$1: [redacted]'],
+    // The scheme is a GENERIC WORD, never an enumerated list, and the credentials run to the END of
+    // the value rather than to the first delimiter.
+    //
+    // Both halves were learned the hard way, in this order. First `[:=]\s*\S+` took only `Bearer` and
+    // left the credential one space away. Then an allow-list of four schemes published `NTLM`,
+    // `Negotiate`, `Hawk` and `AWS4-HMAC-SHA256` the same way — @neo-opus-grace's line, against a patch
+    // I had just prescribed to her: **an allow-list of four degrades on the fifth.** A list is complete
+    // the day it is written and publishes a credential for the first scheme nobody taught it.
+    // Separately, RFC 7235 allows a token68 (`Bearer abc…`) OR a comma-separated auth-param list, and
+    // Digest uses the list — so stopping at the first comma redacted `username` and published
+    // `response`, which IS the credential.
+    //
+    // The trade-off is deliberate and bounded: after `authorization`, an unknown trailing token is
+    // indistinguishable from a credential, so it is consumed. A word of lost context is cheap; a
+    // published credential is not. The bound is that this fires only after an auth key — the spec's
+    // control proves an ordinary diagnostic survives untouched.
+    [/\b((?:proxy-)?authorization)\s*[:=]\s*(?:[\w-]+\s+)?[^\s,;)]+(?:\s*,\s*[\w-]+\s*=\s*(?:"[^"]*"|[^\s,;)]+))*/gi, '$1: [redacted]'],
     [/\b(bearer|basic)\s+[\w\-._~+/]+=*/gi,                                                    '$1 [redacted]'],
     [/\b(api[-_]?key|access[-_]?token|refresh[-_]?token|client[-_]?secret|secret|password|passwd|pwd|pat|credential|privateKey|signingKey|token)\s*[:=]\s*[^\s,;)]+/gi, '$1=[redacted]'],
     // Bare tokens: no key, no delimiter — the match IS the secret, so the whole match goes.

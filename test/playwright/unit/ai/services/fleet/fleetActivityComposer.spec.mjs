@@ -217,7 +217,14 @@ test.describe('fleetActivityComposer — composing two truths means composing tw
             // stopping at the first comma redacted `username` and published `response`, which IS the
             // credential, with `[redacted]` printed beside it. The single-token case was the one I
             // tested, so the single-token case was the one that worked.
-            ['digest auth-param list', 'GET failed: Authorization: Digest username="u", realm="r", nonce="abc", response="deadbeefcafe1234"', 'deadbeefcafe1234']
+            ['digest auth-param list', 'GET failed: Authorization: Digest username="u", realm="r", nonce="abc", response="deadbeefcafe1234"', 'deadbeefcafe1234'],
+            // @neo-opus-grace's line, against a patch I had just prescribed to her: an allow-list of
+            // four degrades on the FIFTH. These four are the schemes nobody taught the list — none of
+            // them appears anywhere in the module, which is the point of the rows.
+            ['ntlm',      'GET failed: Authorization: NTLM TlRMTVNTUAABAAAAB4IIogAAAAA=',                                'TlRMTVNTUAABAAAAB4IIogAAAAA='],
+            ['negotiate', 'GET failed: Authorization: Negotiate YIIZkAYGKwYBBQUCoIIZ',                                   'YIIZkAYGKwYBBQUCoIIZ'],
+            ['hawk',      'GET failed: Authorization: Hawk id="dh37", mac="6R4rV5iE+NPoym"',                             '6R4rV5iE+NPoym'],
+            ['aws sigv4', 'GET failed: Authorization: AWS4-HMAC-SHA256 Credential=AKIAIOSFODNN7/20260717, Signature=deadbeef', 'deadbeef']
         ];
 
         for (const [label, message, secret] of secrets) {
@@ -232,6 +239,29 @@ test.describe('fleetActivityComposer — composing two truths means composing tw
             expect(capability.reason, `${label}: a redaction marker must remain`).toMatch(/\[redacted(-token)?]/);
             // the operator still learns WHICH slot failed — a reason of pure [redacted] debugs nothing
             expect(capability.reason, `${label}: attribution must survive`).toContain('a2a')
+        }
+    });
+
+    test('the redactor does not eat the diagnostic — an absence assertion alone cannot see over-redaction', async () => {
+        // @neo-opus-grace's control, and the necessary other half of the matrix above: a redactor that
+        // consumed the rest of every line would pass EVERY "secret is absent" row while destroying the
+        // reason this module exists to carry. Redacting the auth header deliberately over-consumes an
+        // unknown trailing token — a word of lost context is cheap, a published credential is not — so
+        // the bound has to be witnessed, not assumed.
+        const honest = [
+            ['keyed secret mid-sentence', 'auth failed: token=sk-live-1, retry after 30s', 'retry after 30s'],
+            ['no credential at all',      'ECONNREFUSED contacting api.github.com:443',    'ECONNREFUSED contacting api.github.com:443']
+        ];
+
+        for (const [label, message, mustSurvive] of honest) {
+            const source = createFleetActivityReadSource({
+                readA2ASnapshot   : async () => { throw new Error(message) },
+                readPrLaneSnapshot: wired([])
+            });
+
+            const {capability} = await source.readActivitySnapshot();
+
+            expect(capability.reason, `${label}: the operator's evidence must survive`).toContain(mustSurvive)
         }
     });
 
