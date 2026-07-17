@@ -95,23 +95,38 @@ const RULES = [
  */
 export function findAntipatterns(content) {
     const lines         = content.split('\n'),
-          state         = {inBlock: false},
+          state         = {source: content},
           hits          = [],
           a1Candidates  = [],
           codeOnlyLines = [],
           a1Global      = new RegExp(A1_ENV_REDERIVATION.source, 'g');
 
     lines.forEach((line, index) => {
-        // Mask + projection compute UNCONDITIONALLY — before the escape check. Skipping a line
-        // would corrupt block-comment state continuity AND remove the line from the gate
-        // projection: an escape marker on the IMPORT line would then silently exempt the whole
-        // file's A1 hits (the escape valve is line-scoped for HITS, never for composition).
-        const mask = codeMask(line, state),
+        // Mask + projection compute UNCONDITIONALLY — before the escape check. The mask no longer
+        // depends on it (`codeMask` parses the whole file, so a skipped line cannot corrupt comment
+        // continuity — that hazard is why this comment used to warn about skipping), but the gate
+        // PROJECTION still does: an escape marker on the IMPORT line would otherwise silently exempt
+        // the whole file's A1 hits (the escape valve is line-scoped for HITS, never for composition).
+        const mask = codeMask(line, state, index),
               // The gate must see CODE only — a JSDoc/comment mention of the config root (a config
               // template documenting its realm, a migration note) must never open A1 for the file.
               // Masked-out characters become spaces, preserving positions, so multi-line import
               // statements still span lines intact.
-              codeOnly = Array.from(line, (ch, i) => (mask[i] ? ch : ' ')).join('');
+              //
+              // Indexed by CODE UNIT, not code point. `Array.from(line, (ch, i) => mask[i])` walks
+              // code POINTS — an astral char (emoji, rare CJK) is one element there but TWO units in
+              // `line.length`, which is what acorn's offsets and this mask both count. One astral
+              // char anywhere on the line shifted every later lookup by one and silently desynced the
+              // projection from the mask — flagging code as string, or worse, string as code.
+              codeOnly = (() => {
+                  let projected = '';
+
+                  for (let i = 0; i < line.length; i++) {
+                      projected += mask[i] ? line[i] : ' '
+                  }
+
+                  return projected
+              })();
 
         codeOnlyLines.push(codeOnly);
 
@@ -172,9 +187,13 @@ function main() {
         process.exit(1);
     }
 
-    // Minimal argv parse — no external deps, so the standalone CI workflow runs without `npm install`
-    // (the dependency-free pattern the other lint workflows follow). lint-staged passes staged paths as
-    // positional args; `--quiet` suppresses the per-violation listing.
+    // Minimal argv parse, hand-rolled because it is five lines and a CLI dependency would cost more
+    // than it saves — NOT because this workflow avoids `npm install`. It no longer does: the shared
+    // `codeMask` is parser-grade, so the workflow installs, like `jsdoc-type-lint`,
+    // `ticket-archaeology-lint`, `tree-json-lint` and `config-template-ssot-lint` already did.
+    // (The claim previously stated here — that the other lint workflows are dependency-free — was
+    // false when written; those four run `npm ci` today.)
+    // lint-staged passes staged paths as positional args; `--quiet` suppresses the per-violation listing.
     const rawArgv = process.argv.slice(2);
 
     // Spec-only composition seam: `--extra-b3-allowlist <path>` grandfathers ONE extra path for B3
