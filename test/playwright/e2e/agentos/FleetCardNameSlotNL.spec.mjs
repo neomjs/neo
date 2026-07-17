@@ -29,10 +29,11 @@ test.describe('AgentOS Fleet card — name slot on live roster data (Neural Link
             harnessType   : 'codex'
         });
 
-        const server = await startFleetBridgeServer();
+        const server   = await startFleetBridgeServer({port: 0}),
+              fleetUrl = `http://127.0.0.1:${server.address().port}/fleet`;
 
         try {
-            await page.goto('/apps/agentos/index.html');
+            await page.goto(`/apps/agentos/index.html?${new URLSearchParams({fleetUrl})}`);
             await expect(page.locator('.agent-shell')).toBeVisible({timeout: 60000});
 
             // the authoritative roster replaces the sample seed: exactly the seeded resident renders

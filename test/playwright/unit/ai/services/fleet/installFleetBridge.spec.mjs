@@ -23,12 +23,13 @@ import {FLEET_WIRE_METHODS} from '../../../../../../src/ai/fleet/fleetWireMethod
 // Tests inject a `target` object (instead of the real globalThis) + a stub `fetchImpl`, so the global
 // slot + the fetch round-trip are asserted without touching the runtime global or the network.
 
-const okFetch = () => async () => ({json: async () => ({ok: true, result: null})});
+const fleetUrl = 'http://127.0.0.1:8083/fleet',
+      okFetch  = () => async () => ({json: async () => ({ok: true, result: null})});
 
 test.describe('installFleetBridge — App-Worker wiring of the dev-server app<->fleet HTTP transport', () => {
     test('publishes AgentOS.fleet.registryBridge with exactly the wire operations', () => {
         const target = {};
-        const bridge = installFleetBridge({fetchImpl: okFetch(), target});
+        const bridge = installFleetBridge({url: fleetUrl, fetchImpl: okFetch(), target});
 
         expect(target.AgentOS.fleet.registryBridge).toBe(bridge);
         expect(Object.keys(bridge).sort()).toEqual([...FLEET_WIRE_METHODS].sort())
@@ -39,12 +40,12 @@ test.describe('installFleetBridge — App-Worker wiring of the dev-server app<->
         const fetchImpl = async (url, init) => { calls.push({url, init}); return {json: async () => ({ok: true, result: {id: 'alice'}})} };
         const target    = {};
 
-        installFleetBridge({url: 'http://x/fleet', fetchImpl, target});
+        installFleetBridge({url: 'http://localhost:9191/fleet', fetchImpl, target});
         const res = await target.AgentOS.fleet.registryBridge.defineAgent({githubUsername: 'alice', harnessType: 'codex'});
 
         expect(res).toEqual({id: 'alice'});
         expect(calls).toHaveLength(1);
-        expect(calls[0].url).toBe('http://x/fleet');
+        expect(calls[0].url).toBe('http://localhost:9191/fleet');
         expect(calls[0].init.method).toBe('POST');
         expect(JSON.parse(calls[0].init.body)).toEqual({method: 'defineAgent', params: {githubUsername: 'alice', harnessType: 'codex'}})
     });
@@ -52,7 +53,7 @@ test.describe('installFleetBridge — App-Worker wiring of the dev-server app<->
     test('is additive — preserves an existing AgentOS.neuralLink slot', () => {
         const target = {AgentOS: {neuralLink: {connectionBridge: {}}}};
 
-        installFleetBridge({fetchImpl: okFetch(), target});
+        installFleetBridge({url: fleetUrl, fetchImpl: okFetch(), target});
         expect(target.AgentOS.neuralLink.connectionBridge).toBeDefined();
         expect(target.AgentOS.fleet.registryBridge).toBeDefined()
     });
@@ -60,8 +61,18 @@ test.describe('installFleetBridge — App-Worker wiring of the dev-server app<->
     test('is idempotent — a second install re-publishes without throwing', () => {
         const target = {};
 
-        installFleetBridge({fetchImpl: okFetch(), target});
-        const second = installFleetBridge({fetchImpl: okFetch(), target});
+        installFleetBridge({url: fleetUrl, fetchImpl: okFetch(), target});
+        const second = installFleetBridge({url: fleetUrl, fetchImpl: okFetch(), target});
         expect(target.AgentOS.fleet.registryBridge).toBe(second)
+    });
+
+    test('fails loud before publishing when the fleet endpoint is missing or invalid', () => {
+        const install = url => () => installFleetBridge({url, fetchImpl: okFetch(), target: {}});
+
+        expect(install()).toThrow('installFleetBridge requires an absolute loopback HTTP(S) fleet URL');
+        expect(install('')).toThrow('installFleetBridge requires an absolute loopback HTTP(S) fleet URL');
+        expect(install('not-a-url')).toThrow('installFleetBridge requires an absolute loopback HTTP(S) fleet URL');
+        expect(install('file:///tmp/fleet')).toThrow('installFleetBridge requires an absolute loopback HTTP(S) fleet URL');
+        expect(install('https://example.com/fleet')).toThrow('installFleetBridge requires an absolute loopback HTTP(S) fleet URL')
     });
 });
