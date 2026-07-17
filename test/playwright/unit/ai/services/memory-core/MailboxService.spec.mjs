@@ -870,6 +870,71 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         }
     });
 
+    test('#15322 a broadcast recipient whose OWN delivery edge is damaged is repaired, not denied because peers survive', async () => {
+        // Two recipients registered BEFORE the broadcast, so the send-time audience snapshot includes
+        // both and each gets a per-recipient DELIVERED_TO edge.
+        GraphService.upsertNode({id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {accountType: 'agent'}});
+        GraphService.upsertNode({id: '@dana',    type: 'AgentIdentity', name: 'Dana',    properties: {accountType: 'agent'}});
+
+        const {messageId} = await RequestContextService.run({agentIdentityNodeId: '@alice'}, () =>
+            MailboxService.addMessage({to: 'AGENT:*', subject: 'broadcast to the herd', body: 'delivery edges per recipient'})
+        );
+
+        // Damage ONLY @charlie's DELIVERED_TO edge — storage AND cache, so `getAdjacentNodes` cannot
+        // lazily heal it before the mark resolves. autoSave stays on (the damage must echo to storage);
+        // this is the read-path repair lane's storage-damage instrument, narrowed to a single recipient.
+        const charlieEdges = GraphService.db.edges.items.filter(edge =>
+            edge.source === messageId && edge.type === 'DELIVERED_TO' && /charlie/i.test(String(edge.target))
+        );
+        // Control 1: the damage target exists. A scenario that damages nothing proves nothing.
+        expect(charlieEdges.length, 'charlie must have a delivery edge to damage').toBe(1);
+        GraphService.db.edges.remove(charlieEdges);
+        GraphService.db.vicinityLoadedNodes.clear();
+        GraphService.db.lastAccessMap.clear();
+
+        // Control 2: a PEER's edge survives. That surviving edge is exactly what makes
+        // `hasBroadcastDeliveryEdges` true and drives the false denial — without it, the branch that
+        // throws would never be reached and the test would pass for the wrong reason.
+        const survivingPeer = GraphService.db.edges.items.filter(edge =>
+            edge.source === messageId && edge.type === 'DELIVERED_TO' && /dana/i.test(String(edge.target))
+        );
+        expect(survivingPeer.length, "dana's edge must survive — the false-denial precondition").toBe(1);
+
+        // The defect: @charlie is a legitimate audience member, but her edge is missing from the
+        // projection while @dana's survives, and the cheap projection check has no DELIVERED_TO term,
+        // so no repair fires. markRead then throws `Unauthorized`. A mark must never deny authorization
+        // from a projection it has not reconciled against durable WAL truth.
+        const result = await RequestContextService.run({agentIdentityNodeId: '@charlie'}, () =>
+            MailboxService.markRead({messageId})
+        );
+
+        expect(result).toMatchObject({messageId, status: 'read'});
+        expect(result.readAt).toBeTruthy();
+
+        // The mark must land on the RESTORED per-recipient edge, not the shared MESSAGE node — writing
+        // the latter is the cross-recipient read-state collapse this lane also exists to prevent.
+        const restored = GraphService.db.edges.items.find(edge =>
+            edge.source === messageId && edge.type === 'DELIVERED_TO' && /charlie/i.test(String(edge.target))
+        );
+        expect(restored, 'charlie edge rebuilt from the WAL').toBeTruthy();
+        expect(restored.properties?.readAt, 'mark landed on the restored per-recipient carrier').toBeTruthy();
+    });
+
+    test('#15322 a broadcast non-recipient registered AFTER send still fails closed — repair rebuilds only the snapshot', async () => {
+        const {messageId} = await RequestContextService.run({agentIdentityNodeId: '@alice'}, () =>
+            MailboxService.addMessage({to: 'AGENT:*', subject: 'send-time audience only', body: 'no retroactive membership'})
+        );
+
+        // Registered AFTER the broadcast, so never in the WAL audience snapshot: repair must NOT invent
+        // a delivery edge, and the denial must stand — the fix reconciles against truth, it does not
+        // authorize everyone who asks.
+        GraphService.upsertNode({id: '@late', type: 'AgentIdentity', name: 'Late', properties: {accountType: 'agent'}});
+
+        await expect(RequestContextService.run({agentIdentityNodeId: '@late'}, () =>
+            MailboxService.markRead({messageId})
+        )).rejects.toThrow(/Unauthorized: you are not the recipient/);
+    });
+
     test('#15027 persisted family aliases stay fail-closed instead of changing meaning with the roster', async () => {
         await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
             await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
