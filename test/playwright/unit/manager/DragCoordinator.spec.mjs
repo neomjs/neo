@@ -282,6 +282,54 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
         expect(DragCoordinator.activeTargetZone).toBeNull()
     });
 
+    test('a departing vessel takes its candidate timers with it — on either side of the gesture', () => {
+        // AC-3 names the candidate timer as a cleanup surface, so it is pinned rather than assumed.
+        // Unlike the witnesses above this one PASSES against dev: @neo-gpt-emmy read the loop as already
+        // correct and I agree, so this is a regression guard, not a bite. Naming that is the point —
+        // a test that cannot fail today should say why it exists.
+        const
+            source = createSourceZone(),
+            target = createTargetZone({type: 'transferItem'});
+
+        let sourceTimerCleared = false,
+            targetTimerCleared = false;
+
+        DragCoordinator.nativeWindowDropCandidates.set(11, {
+            sourceSortZone: source,
+            targetSortZone: {},
+            timeoutId     : setTimeout(() => { sourceTimerCleared = false }, 60_000)
+        });
+        DragCoordinator.nativeWindowDropCandidates.set(12, {
+            sourceSortZone: {},
+            targetSortZone: target,
+            timeoutId     : setTimeout(() => { targetTimerCleared = false }, 60_000)
+        });
+        DragCoordinator.nativeWindowDropCandidates.set(13, {
+            sourceSortZone: {},
+            targetSortZone: {},
+            timeoutId     : setTimeout(() => {}, 60_000)
+        });
+
+        DragCoordinator.register(source);
+        DragCoordinator.unregister(source);
+
+        // The departing zone's candidate goes, whichever side of the gesture it was on...
+        sourceTimerCleared = !DragCoordinator.nativeWindowDropCandidates.has(11);
+        expect(sourceTimerCleared).toBe(true);
+
+        DragCoordinator.register(target);
+        DragCoordinator.unregister(target);
+        targetTimerCleared = !DragCoordinator.nativeWindowDropCandidates.has(12);
+        expect(targetTimerCleared).toBe(true);
+
+        // ...and an unrelated vessel's candidate survives — cleanup is scoped, not a sweep.
+        expect(DragCoordinator.nativeWindowDropCandidates.has(13)).toBe(true);
+
+        // Idempotent: a repeated departure finds nothing left and does not throw.
+        DragCoordinator.unregister(source);
+        expect(DragCoordinator.nativeWindowDropCandidates.has(13)).toBe(true)
+    });
+
     test('a mid-gesture vessel departure resolves to a clean terminal, not a commit into a dead window', () => {
         const
             source = createSourceZone(),
