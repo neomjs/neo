@@ -257,7 +257,9 @@ class FleetCockpit extends Container {
     livenessPollInterval = LIVENESS_POLL_INTERVAL
     /**
      * The liveness re-poll timer id, owned for exact-once teardown. `null` = not running — the
-     * cockpit is pre-start or destroyed. Never leaks across destroy / pop-out / reattach.
+     * cockpit is pre-start or destroyed. It dies with {@link #destroy}; it deliberately SURVIVES
+     * pop-out and reattach, because those reparent the AgentDetail and leave this cockpit alive as
+     * its holder — a timer stopped there would strand the surface it still speaks for.
      * @member {Number|null} livenessTimerId=null
      * @protected
      */
@@ -1350,8 +1352,14 @@ class FleetCockpit extends Container {
      * @summary Stops the liveness owner — exact-once, and safe to call on a never-started cockpit.
      *
      * Bound to {@link #destroy} so the timer cannot outlive the surface it speaks for: a leaked
-     * interval would keep re-polling the bridge for a destroyed cockpit and write states onto
-     * detached children (the pop-out / reattach path destroys and re-creates this view).
+     * interval would keep re-polling the bridge on behalf of a destroyed cockpit and write states
+     * onto detached children — a timer that outlives its owner is a liar with no one left to
+     * correct it.
+     *
+     * NOT because of pop-out: {@link #popOutAgentDetail} reparents the AgentDetail into a vessel
+     * and this cockpit stays alive as its holder — reparent-never-recreate, which is the whole
+     * point of that path. The destroy that matters is the ordinary one (the shell tearing this view
+     * down), and it is the only one this needs to survive.
      * @protected
      */
     stopLiveness() {

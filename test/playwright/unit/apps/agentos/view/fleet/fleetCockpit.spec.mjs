@@ -1223,10 +1223,15 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
 
 /**
  * The liveness owner's LIFECYCLE witness. A transition matrix proves the owner tells the truth while
- * it runs; this proves it stops running. The pop-out / reattach path destroys and re-creates the
- * cockpit, so a leaked interval would keep re-polling the bridge on behalf of a destroyed surface
- * and write states onto detached children — a timer that outlives its owner is a liar with no one
- * left to correct it.
+ * it runs; this proves it stops running. A leaked interval would keep re-polling the bridge on behalf
+ * of a destroyed cockpit and write states onto detached children — a timer that outlives its owner is
+ * a liar with no one left to correct it.
+ *
+ * The destroy that matters is the ordinary one, the shell tearing this view down. NOT pop-out: that
+ * path reparents the AgentDetail into a vessel and leaves the cockpit alive as its holder
+ * (reparent-never-recreate), so the timer must SURVIVE it — stopping there would strand the surface
+ * it still speaks for. Start-idempotence is the guard for that direction: a reattach that re-ran
+ * start on a live cockpit would silently double the poll rate against the bridge.
  */
 test.describe('Fleet cockpit — the liveness owner lifecycle (start/stop, #15293)', () => {
     let FleetCockpit;
