@@ -87,17 +87,22 @@ function buildFileMask(source) {
         }
     };
 
-    const tokenizer = acorn.tokenizer(source, {
+    // `acorn.parse` with `onToken` — NOT `acorn.tokenizer`. A standalone tokenizer is not
+    // parser-informed, so it cannot resolve the slash ambiguity from grammar context: it reads the
+    // regex in `for await (const x of y) /re/.test(x)` as TWO division operators, which is precisely
+    // the class this upgrade exists to eliminate. The parser knows a statement can begin there and
+    // emits one `regexp` token. The token streams are otherwise identical — they differ only on the
+    // cases that need context, which is to say all the hard ones.
+    acorn.parse(source, {
         ecmaVersion: 'latest',
         sourceType : 'module',
-        onComment  : (block, text, start, end) => comments.push([start, end])
-    });
-
-    for (const token of tokenizer) {
-        if (token.type === tt.string || token.type === tt.template || token.type === tt.regexp || token.type === tt.invalidTemplate) {
-            blank(token.start, token.end)
+        onComment  : (block, text, start, end) => comments.push([start, end]),
+        onToken    : token => {
+            if (token.type === tt.string || token.type === tt.template || token.type === tt.regexp || token.type === tt.invalidTemplate) {
+                blank(token.start, token.end)
+            }
         }
-    }
+    });
 
     comments.forEach(([start, end]) => blank(start, end));
 

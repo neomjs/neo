@@ -112,7 +112,21 @@ export function findAntipatterns(content) {
               // template documenting its realm, a migration note) must never open A1 for the file.
               // Masked-out characters become spaces, preserving positions, so multi-line import
               // statements still span lines intact.
-              codeOnly = Array.from(line, (ch, i) => (mask[i] ? ch : ' ')).join('');
+              //
+              // Indexed by CODE UNIT, not code point. `Array.from(line, (ch, i) => mask[i])` walks
+              // code POINTS — an astral char (emoji, rare CJK) is one element there but TWO units in
+              // `line.length`, which is what acorn's offsets and this mask both count. One astral
+              // char anywhere on the line shifted every later lookup by one and silently desynced the
+              // projection from the mask — flagging code as string, or worse, string as code.
+              codeOnly = (() => {
+                  let projected = '';
+
+                  for (let i = 0; i < line.length; i++) {
+                      projected += mask[i] ? line[i] : ' '
+                  }
+
+                  return projected
+              })();
 
         codeOnlyLines.push(codeOnly);
 

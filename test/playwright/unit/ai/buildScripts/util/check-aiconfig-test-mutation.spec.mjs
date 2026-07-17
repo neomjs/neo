@@ -138,6 +138,21 @@ test.describe('check-aiconfig-test-mutation guard', () => {
         ].join('\n'))).toEqual([])
     });
 
+    test('MASK: a regex in a for-await statement position is a REGEX, not two divisions', () => {
+        // @neo-gpt-emmy's falsifier, and it killed my headline claim. I shipped this mask on
+        // `acorn.tokenizer`, which is NOT parser-informed: with no grammar context it cannot resolve
+        // the slash ambiguity and reads `/re/` here as two division operators — so the regex's
+        // CONTENT masks as code. That is corpus class 7 (`throw` / `for await` regex-preceding
+        // contexts), one of the eight I claimed vanish "by construction". A tokenizer eliminates the
+        // classes that need lexing; only the PARSER eliminates the ones that need grammar.
+        //
+        // Verified: standalone tokenizer emits `/` `/` at 45-46, 48-49; `parse({onToken})` emits one
+        // `regexp` at 45-49. The fix is `acorn.parse`, not a bigger table.
+        expect(findDbPathMutations('async function f(){ for await (const x of y) /aiConfig.database = 1/.test(x); }')).toEqual([]);
+        // the complement: a REAL mutation after such a regex must still flag — the fix must not go blind
+        expect(findDbPathMutations('async function f(){ for await (const x of y) /re/.test(x); aiConfig.database = 1; }').map(h => h.line)).toEqual([1])
+    });
+
     test('MASK: an unparseable file fails CLOSED — it over-reports, never silently greens', () => {
         // The branch that matters most and is easiest to get backwards. A file that cannot be
         // tokenized (mid-edit, or a syntax this acorn cannot read) must not mask to all-string: a
