@@ -92,4 +92,25 @@ test.describe('GitHub Workflow MCP Server Tool Registration', () => {
         expect(assignees.description).toContain('@me');
         expect(assignees.example).toContain('@me');
     });
+
+    test('list_issues declares the cursor input its endCursor tells callers to use', () => {
+        const filePath = path.resolve(__dirname, '../../../../../../../ai/mcp/server/github-workflow/openapi.yaml');
+
+        const fileContent = fs.readFileSync(filePath, 'utf8'),
+              doc         = yaml.load(fileContent),
+              operation   = doc.paths['/issues'].get,
+              paramNames  = operation.parameters.map(parameter => parameter.name),
+              response    = doc.components.schemas.IssueListResponse.properties;
+
+        expect(operation.operationId).toBe('list_issues');
+
+        // The response advertised `endCursor` as the way to continue while the tool surface declared no
+        // cursor input. `x-pass-as-object` hands the handler a zod-VALIDATED object built from these
+        // parameters, and zod strips unknown keys — so a caller passing the advertised cursor was not
+        // told it was undeclared, it silently re-read page one. An undeclared continuation is worse than
+        // an absent one: the response documents a capability the surface removes without saying so.
+        expect(response.endCursor).toBeDefined();
+        expect(paramNames).toContain('cursor');
+        expect(operation.parameters.find(parameter => parameter.name === 'cursor').schema.type).toBe('string');
+    });
 });

@@ -1266,18 +1266,26 @@ class IssueService extends Base {
     }
 
     /**
-     * Lists issues from the repository using the GraphQL API.
-     * Supports basic pagination and state filtering. Label and assignee
-     * filters are applied client-side to keep the GraphQL query simple and
-     * compatible with the existing sync query.
-     * @param {object}          options                The options object
-     * @param {number}          [options.limit=30]     The maximum number of issues to return
-     * @param {string}          [options.state='open'] Filter issues by state (open, closed)
-     * @param {string[]|string} [options.labels]       Comma separated list of labels to filter by
+     * @summary Lists issues from live GitHub via the GraphQL API.
+     *
+     * `assignee` and `state` filter SERVER-side, so `limit` bounds the matches returned rather than the
+     * rows searched. `labels` cannot: GitHub's `IssueFilters.labels` is OR, not ALL, so pushing it
+     * server-side would silently widen this surface's documented ALL-label contract into ANY-label and
+     * return more issues than the caller asked for.
+     *
+     * That split is what `totalCount` reports around. It is a fact about the SERVER-filtered
+     * connection, so with a client-side label filter active it counts a broader query than the caller
+     * asked and is reported as `null` — an admitted unknown rather than a plausible wrong number the
+     * caller has no way to detect. `truncated` stays meaningful in both modes.
+     *
+     * @param {object}          options                     The options object
+     * @param {number}          [options.limit=30]          The maximum number of issues to return
+     * @param {string}          [options.state='open']      Filter issues by state (open, closed)
+     * @param {string[]|string} [options.labels]            Labels to filter by; an issue must carry ALL of them. Applied to this page's rows, so `totalCount` is null when set
      * @param {string}          [options.assignee]          Filter issues by a single assignee login
      * @param {'full'|'summary'|'title'|'title_only'} [options.projection='full'] Response shape projection
-     * @param {string}          [options.cursor]            Cursor for pagination
-     * @returns {Promise<object>}
+     * @param {string}          [options.cursor]            Cursor for pagination; pass a prior `endCursor`
+     * @returns {Promise<object>} `{count, totalCount, truncated, endCursor, issues}`
      */
     async listIssues({limit=30, state='open', labels=null, assignee=null, projection='full', cursor=null} = {}) {
         const normalizedProjection = this.normalizeIssueListProjection(projection);
@@ -1293,36 +1301,50 @@ class IssueService extends Base {
         // normalize state to uppercase array (GraphQL expects IssueState enum values)
         const states = state ? (Array.isArray(state) ? state.map(s => s.toUpperCase()) : [state.toUpperCase()]) : undefined;
 
+        // `assignee` is filtered SERVER-side. Filtering it client-side searched only the page this call
+        // happened to fetch: `limit` bounded the ROWS READ, not the MATCHES RETURNED, so an assignee
+        // query was answered from the 30 most-recently-updated issues and silently dropped the rest.
+        // Ownership truth is what lane-claims and intake assignee checks stand on, so a filter that
+        // quietly searches one page is a collision generator. `null` is a no-op, never a zero-filter.
+        //
+        // `labels` stays CLIENT-side, and that is a deliberate correctness choice rather than an
+        // oversight. GitHub's `IssueFilters.labels` is OR, not ALL — measured live against this repo:
+        // ["ai"] → 198, ["architecture"] → 111, ["ai","architecture"] → 201. A combined count that
+        // EXCEEDS both operands is a union. Moving this filter server-side would silently widen the
+        // documented ALL-label contract into ANY-label and return more issues than the caller asked
+        // for, which is a worse failure than a bounded answer. The `.every()` below is the ALL the
+        // surface promises.
+        const labelList = labels
+            ? (Array.isArray(labels) ? labels : String(labels).split(',').map(part => part.trim())).filter(Boolean)
+            : null;
+
         const variables = {
-            owner           : aiConfig.owner,
-            repo            : aiConfig.repo,
+            owner       : aiConfig.owner,
+            repo        : aiConfig.repo,
             limit,
             cursor,
             states,
-            maxLabels       : aiConfig.issueSync.maxLabelsPerIssue,
-            maxAssignees    : aiConfig.issueSync.maxAssigneesPerIssue
+            assignee,
+            maxLabels   : aiConfig.issueSync.maxLabelsPerIssue,
+            maxAssignees: aiConfig.issueSync.maxAssigneesPerIssue
         };
 
         try {
             const data = await GraphqlService.query(FETCH_ISSUES_LIST, variables);
             let issues = data.repository.issues.nodes || [];
 
-            // client-side label filtering if requested
-            if (labels) {
-                const labelList = Array.isArray(labels) ? labels : String(labels).split(',').map(s => s.trim()).filter(Boolean);
+            // ALL-label semantics, applied to the rows this page returned. See `variables` above for
+            // why this cannot move server-side without turning ALL into ANY.
+            if (labelList?.length) {
                 issues = issues.filter(issue => {
-                    const issueLabels = (issue.labels && issue.labels.nodes || []).map(l => l.name);
-                    return labelList.every(l => issueLabels.includes(l));
+                    const issueLabels = (issue.labels?.nodes || []).map(label => label.name);
+                    return labelList.every(name => issueLabels.includes(name))
                 });
             }
 
-            // client-side assignee filtering if requested
-            if (assignee) {
-                issues = issues.filter(issue => {
-                    const assignees = (issue.assignees && issue.assignees.nodes || []).map(a => a.login);
-                    return assignees.includes(assignee);
-                });
-            }
+            // NOTE: assignee is filtered server-side (see `variables.assignee`). The client-side pass
+            // that used to live here is gone: it could only ever see the rows this page happened to
+            // fetch, so it under-reported ownership without saying so.
 
             // Transform in-place to match OpenAPI schema
             for (const issue of issues) {
@@ -1331,8 +1353,28 @@ class IssueService extends Base {
             }
             issues = issues.map(issue => this.projectListedIssue(issue, normalizedProjection));
 
+            const
+                connection  = data.repository.issues,
+                totalCount  = connection.totalCount,
+                hasNextPage = connection.pageInfo?.hasNextPage === true;
+
+            // `count` is what this page returned; `totalCount` is what MATCHES. A bounded answer that
+            // cannot say it was bounded is how this surface misled in the first place — a caller reading
+            // `count: 1` had no way to learn there were 9. `hasNextPage` was already selected here and
+            // then discarded, so the truncation was knowable and simply never reported.
+            //
+            // `totalCount` is a fact about the SERVER-filtered connection. With a client-side label
+            // filter active it counts a broader query than the caller asked, so reporting the number
+            // would answer a question nobody posed — and nothing in the response could reveal the
+            // substitution. Null means "not knowable here", which is the truth; a plausible wrong
+            // number is worse than an admitted unknown. `truncated` stays reportable either way: more
+            // server-filtered pages genuinely may hold more label matches, so a bounded answer still
+            // says it is bounded.
             return {
-                count: issues.length,
+                count     : issues.length,
+                totalCount: labelList?.length ? null : totalCount,
+                truncated : hasNextPage,
+                endCursor : hasNextPage ? connection.pageInfo.endCursor : null,
                 issues
             };
         } catch (error) {
