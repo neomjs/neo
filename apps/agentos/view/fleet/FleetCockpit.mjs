@@ -1673,7 +1673,14 @@ class FleetCockpit extends Container {
             // write; null stays eligible (open-set honesty for forks/custom residents)
             participationStatus: row.participationStatus ?? null,
             sources            : sessionHealth.sources,
-            state              : sessionHealth.state
+            state              : sessionHealth.state,
+            // The S2 telltale axes, passed through whole rather than re-derived: the assembler
+            // already stamps `{source, state, confidence, reason?}` per axis, and `unknown` there is
+            // a PRODUCED fact (null resolver, unreadable source, unwired producer). Re-deriving it
+            // here would make "we looked and cannot see" indistinguishable from "we never asked" —
+            // the DTO's own discipline, the same reason `openLaneCount` is a passthrough.
+            throttle: row.throttle ?? null,
+            wake    : row.wake ?? null
         }
     }
 

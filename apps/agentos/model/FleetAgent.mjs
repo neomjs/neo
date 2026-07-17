@@ -67,6 +67,22 @@ class FleetAgent extends Model {
             name: 'laneLine',
             type: 'String'
         }, {
+            // The S2 wake telltale axis: the roster row's `{source, state, confidence, reason?}`
+            // observation, where `state` is `on | off | suppressed | unknown`. Typeless so the
+            // assembler's own shape survives untouched — the view must never re-derive this axis,
+            // because `unknown` is a fact the PRODUCER emits (null resolver, unreadable source, or
+            // an unwired producer) and a view that computed its own `unknown` could not tell "we
+            // looked and cannot see" from "we never asked". null = the row carried no wake object.
+            name        : 'wake',
+            defaultValue: null
+        }, {
+            // The S2 throttle telltale axis, same contract as `wake`: `none | overage |
+            // rate-limited | unknown`. Orthogonal to wake and never collapsed into one enum — the
+            // incident this answers had both at once (wake hand-disabled AND a session rate limit),
+            // and a single enum can only report one of them.
+            name        : 'throttle',
+            defaultValue: null
+        }, {
             // the launch seam's derived launchability truth (a launch template exists for the
             // family), stamped Brain-side on the roster row; tri-state — true / false / null
             // (not read back yet) — so the field carries no type coercion

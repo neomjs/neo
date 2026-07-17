@@ -272,3 +272,44 @@
         }
     }
 }
+
+.fm-agent-detail {
+    // The FULL two-axis readout — both axes always, unlike the card's exception chip.
+    .fm-detail-telltale {
+        display  : flex;
+        flex-wrap: wrap;
+        gap      : 6px 10px;
+        font-family: var(--fm-font-mono);
+        font-size  : 11px;
+        line-height: 1.4;
+    }
+
+    .fm-detail-telltale-axis {
+        color: var(--fm-ink-dim);
+    }
+
+    // A deviating axis earns the state color; nominal stays dim, because in the detail "wake: on" is
+    // information the operator asked for, not an alert.
+    .fm-detail-telltale-off,
+    .fm-detail-telltale-suppressed,
+    .fm-detail-telltale-overage,
+    .fm-detail-telltale-rate-limited {
+        color: var(--fm-state-limited);
+    }
+
+    // "we looked and could not see" reads as absent-information, never as an alert and never as health
+    .fm-detail-telltale-unknown {
+        color: var(--fm-ink-faint);
+    }
+
+    // "nobody reported this axis" — the faintest thing on the surface: it is the absence of an
+    // observation, which is less than an unknown one.
+    .fm-detail-telltale-unreported {
+        color     : var(--fm-ink-faint);
+        font-style: italic;
+    }
+
+    .fm-detail-telltale-reason {
+        color: var(--fm-ink-faint);
+    }
+}

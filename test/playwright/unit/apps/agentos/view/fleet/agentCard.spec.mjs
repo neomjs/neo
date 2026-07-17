@@ -87,6 +87,52 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         card.destroy()
     });
 
+    test('the chip names every deviating axis and carries the ledger\'s a11y pair — asserted on the RENDERED node', () => {
+        const card = createCard({
+            agentId : 'vega',
+            state   : 'ok',
+            wake    : {source: 'fleet:wakeState', state: 'off', confidence: 'observed'},
+            throttle: {source: 'fleet:throttleState', state: 'rate-limited', confidence: 'observed'}
+        });
+
+        const chip = card.down({reference: 'card-telltale'});
+
+        // ONE chip for two simultaneous exceptions — the incident this answers had both at once, and
+        // the density contract buys pixels with exceptions, so two must not cost two chips
+        expect(chip.hidden).toBe(false);
+        // every deviation names its AXIS: a bare `rate-limited` saves six characters and costs the
+        // reader the question the chip exists to answer. Deterministic wake-before-throttle.
+        expect(chip.text).toBe('wake off · throttle rate-limited');
+
+        // a screen-reader user gets the chip ONLY through aria-label; the hover answers the axis the
+        // chip had no room for, without a drill-in
+        expect(chip.vdom['aria-label']).toBe('Telltale: wake off, throttle rate-limited');
+        expect(chip.vdom.title).toBe('wake: off · throttle: rate-limited');
+
+        card.destroy()
+    });
+
+    test('a recovered agent clears the chip AND its labels — no stale claim on an invisible node', () => {
+        const card = createCard({
+            agentId: 'vega', state: 'ok',
+            wake   : {source: 'fleet:wakeState', state: 'off', confidence: 'observed'}
+        });
+
+        expect(card.down({reference: 'card-telltale'}).hidden).toBe(false);
+
+        applySet(card, {wake: {source: 'fleet:wakeState', state: 'on', confidence: 'observed'}});
+
+        const chip = card.down({reference: 'card-telltale'});
+
+        // hiding the node is not enough: a stale aria-label survives on a hidden element and is still
+        // read out, so the screen reader would report a wake failure on an agent that is now fine
+        expect(chip.hidden).toBe(true);
+        expect(chip.vdom['aria-label']).toBeFalsy();
+        expect(chip.vdom.title).toBeFalsy();
+
+        card.destroy()
+    });
+
     test('source markers update in place; absent runtime fails the state dot closed and never pulses', () => {
         const card     = createCard({agentId: 'vega', state: 'ok'}),
               beforeId = card.id,

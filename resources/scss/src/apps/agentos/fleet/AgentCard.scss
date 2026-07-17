@@ -114,6 +114,23 @@
 
     /* the open-lane count badge — the honest total the single lane line cannot carry; only
        rendered on a reported count, so an unknown never poses as zero */
+    // The S2 telltale chip. Exception-based: hidden while nominal, so any pixels here mean a
+    // deviation on at least one axis. Colored with --fm-state-limited because BOTH themes already
+    // define it and the design mock uses it for rate-limited — inventing a token would mean styling
+    // one theme and guessing the other.
+    .fm-card-telltale {
+        flex         : none;
+        font-family  : var(--fm-font-mono);
+        font-size    : 10px;
+        line-height  : 1;
+        color        : var(--fm-state-limited);
+        background   : color-mix(in srgb, var(--fm-state-limited) 12%, transparent);
+        border       : 1px solid color-mix(in srgb, var(--fm-state-limited) 30%, transparent);
+        border-radius: 999px;
+        padding      : 2px 7px;
+        white-space  : nowrap;
+    }
+
     .fm-card-lane-count {
         flex         : none;
         font-family  : var(--fm-font-mono);
