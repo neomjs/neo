@@ -210,7 +210,14 @@ test.describe('fleetActivityComposer — composing two truths means composing tw
             ['bare classic PAT', 'push rejected for ghp_AAAABBBBCCCCDDDDEEEEFFFFGGGG1234',             'ghp_AAAABBBBCCCCDDDDEEEEFFFFGGGG1234'],
             ['bare fine PAT',    'push rejected for github_pat_11ABCDE0Y0abcdefgh_XYZ123',              'github_pat_11ABCDE0Y0abcdefgh_XYZ123'],
             ['bare GitLab PAT',  'clone failed for glpat-AAAABBBBCCCC-1234',                            'glpat-AAAABBBBCCCC-1234'],
-            ['keyed secret',     'auth failed: token=s3cr3t-value-here, retrying',                      's3cr3t-value-here']
+            ['keyed secret',     'auth failed: token=s3cr3t-value-here, retrying',                      's3cr3t-value-here'],
+            ['basic header',     'GET /api failed: Authorization: Basic dXNlcjpwYXNzd29yZA== next',     'dXNlcjpwYXNzd29yZA=='],
+            // The credentials run to the END of the header value, not to the first delimiter. RFC 7235
+            // allows a token68 OR a comma-separated auth-param list, and Digest uses the list — so
+            // stopping at the first comma redacted `username` and published `response`, which IS the
+            // credential, with `[redacted]` printed beside it. The single-token case was the one I
+            // tested, so the single-token case was the one that worked.
+            ['digest auth-param list', 'GET failed: Authorization: Digest username="u", realm="r", nonce="abc", response="deadbeefcafe1234"', 'deadbeefcafe1234']
         ];
 
         for (const [label, message, secret] of secrets) {
