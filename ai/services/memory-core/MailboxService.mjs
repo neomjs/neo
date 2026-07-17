@@ -2161,6 +2161,32 @@ class MailboxService extends Base {
             return { messageId, readAt, status: 'read' };
         }
 
+        // A broadcast recipient with no visible delivery edge is the one state where the projection is
+        // least likely to be telling the truth. The cheap check above (`getCachedMessageProjectionIssues`)
+        // has no DELIVERED_TO term, so a damaged per-recipient edge never triggered a repair — and
+        // denying here purely because OTHER recipients' edges survive would refuse a legitimate audience
+        // member: their own missing edge plus a peer's surviving edge reads as "not a recipient", and the
+        // healthier everyone else's edges are, the more confidently the real recipient is turned away.
+        // Never deny authorization from a projection not reconciled against durable truth. This repair
+        // is scoped to the single message (`ids`), pays no WAL read on the happy path above, and uses
+        // the WAL-backed, DELIVERED_TO-aware projection check: a recipient in the send-time audience
+        // snapshot gets their edge rebuilt from the WAL; one who never was (registered after send) gets
+        // nothing, and the denial below then correctly stands on WAL truth rather than cache staleness.
+        if (isBroadcastRecipient) {
+            await this.repairMessageGraphIntegrity({ids: [messageId], limit: 1});
+            db.getAdjacentNodes(messageId, 'both');
+
+            const repairedEdge = getBroadcastDeliveryEdge(messageId, me);
+
+            if (repairedEdge) {
+                const readAt = new Date().toISOString();
+
+                await setDeliveryEdgeReadAt(repairedEdge, readAt);
+
+                return { messageId, readAt, status: 'read' };
+            }
+        }
+
         if (isBroadcastRecipient && hasBroadcastDeliveryEdges(messageId)) {
             throw new Error(`Unauthorized: you are not the recipient of message ${messageId}`);
         }
