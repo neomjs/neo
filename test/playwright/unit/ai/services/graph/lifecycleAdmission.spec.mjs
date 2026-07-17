@@ -74,7 +74,7 @@ test.describe('lifecycleAdmission — the five stages and their exclusions', () 
 
     test('EXCLUSION — pending/running CI is a wait, not a repair', () => {
         // "CI is running" must never manufacture a row; only a FAILED required check is actionable.
-        const pending = ownPr({checks: [{name: 'unit', required: true, conclusion: null}]});
+        const pending = ownPr({checks: [{name: 'unit', required: true, conclusion: null, headSha: HEAD}]});
 
         expect(admitOwnPrRepair({pr: pending, agentId: ME})).toBeNull();
         // ...and it is not reviewable either: required checks have not passed yet
@@ -374,6 +374,32 @@ test.describe('lifecycleAdmission — the five stages and their exclusions', () 
 
         expect(admitOwnPrRepair({pr: mixed, agentId: ME})).toBeNull();
         expect(admitOwnPrReviewerRouting({pr: mixed, agentId: ME}).kind).toBe('needs-reviewer');
+    });
+
+    test('an UNPROVENANCED check is not assumed current — scope must be provable', () => {
+        // The reviewer's falsifier: an unprovenanced FAILED required check plus a current-head SUCCESS
+        // yielded failed-required-check and suppressed reviewer routing — blocking a head the check may
+        // never have run against. "The source did not say" is not proof of anything, and treating a
+        // missing headSha as current was a guess wearing a convenience's clothes.
+        const unprovenanced = ownPr({
+            checks: [
+                {name: 'unit', required: true, conclusion: 'FAILURE'},
+                {name: 'unit', required: true, conclusion: 'SUCCESS', headSha: HEAD, completedAt: '2026-07-16T09:30:00.000Z'}
+            ]
+        });
+
+        expect(admitOwnPrRepair({pr: unprovenanced, agentId: ME})).toBeNull();
+        expect(admitOwnPrReviewerRouting({pr: unprovenanced, agentId: ME}).kind).toBe('needs-reviewer');
+
+        // A source that cannot stamp each check may ATTEST its snapshot is current-head-only. Same fact,
+        // asserted by the party that can actually know it, and visible in the record rather than assumed
+        // in the filter.
+        const attested = ownPr({
+            checksAreCurrentHeadSnapshot: true,
+            checks                      : [{name: 'unit', required: true, conclusion: 'FAILURE', completedAt: '2026-07-16T09:10:00.000Z'}]
+        });
+
+        expect(admitOwnPrRepair({pr: attested, agentId: ME}).kind).toBe('failed-required-check');
     });
 
     test('a RESOLVED conflict does not date a repair — mergeableSince is gated on an active one', () => {

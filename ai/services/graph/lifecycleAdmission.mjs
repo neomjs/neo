@@ -251,9 +251,21 @@ export function hasCurrentHeadClosingReview(pr) {
  */
 export function currentHeadChecksOf(pr) {
     // A check names the head it ran against. One that names an OLDER head describes code that no longer
-    // exists, so it can neither block nor clear the current head. `undefined` is treated as current only
-    // because some sources omit it on a single-head snapshot; a NAMED older head is always excluded.
-    return (pr?.checks || []).filter(check => check.headSha === undefined || check.headSha === pr?.headSha)
+    // exists, so it can neither block nor clear the current head.
+    //
+    // An UNPROVENANCED check is excluded, not assumed current. Treating a missing `headSha` as current
+    // was a guess wearing a convenience's clothes: an unprovenanced FAILED required check then blocked
+    // repair and suppressed reviewer routing on a head it may never have run against. Scope has to be
+    // provable, and "the source did not say" is not proof of anything.
+    //
+    // A source that genuinely cannot stamp each check may attest that its snapshot contains ONLY
+    // current-head rows. That is the same fact, but asserted by the party that can actually know it,
+    // and it appears in the record rather than in this function's assumptions.
+    const attestedCurrentSnapshot = pr?.checksAreCurrentHeadSnapshot === true;
+
+    return (pr?.checks || []).filter(check =>
+        check.headSha === pr?.headSha || (attestedCurrentSnapshot && check.headSha === undefined)
+    )
 }
 
 export function hasFailedRequiredCheck(pr) {
