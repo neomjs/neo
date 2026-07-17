@@ -91,7 +91,7 @@ test.describe('Neo.ai.services.github-workflow.IssueService — listIssues proje
         });
     });
 
-    test('summary projection omits body — the projection shapes whatever the server matched', async () => {
+    test('summary projection omits body after label and assignee filters', async () => {
         installIssueListStub();
 
         const result = await IssueService.listIssues({
@@ -100,10 +100,7 @@ test.describe('Neo.ai.services.github-workflow.IssueService — listIssues proje
             projection: 'summary'
         });
 
-        // Both stub rows are returned: the stub IS the server here, and the server decides the match set.
-        // This previously expected 1, which only held because a client-side label pass re-filtered the
-        // server's answer — the very pass whose removal makes the completeness fields honest.
-        expect(result.count).toBe(2);
+        expect(result.count).toBe(1);
         expect(result.issues[0]).toEqual({
             number   : 12706,
             title    : 'Add lean projection to GitHub Workflow issue lists',
@@ -160,29 +157,37 @@ test.describe('Neo.ai.services.github-workflow.IssueService — listIssues proje
         // READ, not the MATCHES RETURNED, so an assignee query answered from the 30 most-recently-updated
         // issues and silently dropped the rest — 1 of 9 against live GitHub.
         expect(capture.variables.assignee).toBe('neo-fable');
-        expect(capture.query).toContain('filterBy: {assignee: $assignee, labels: $labels}');
+        expect(capture.query).toContain('filterBy: {assignee: $assignee}');
     });
 
-    test('an unfiltered list passes assignee AND labels through as null — a no-op, never a zero-filter', async () => {
+    test('an unfiltered list passes assignee through as null — a no-op, never a zero-filter', async () => {
         const capture = {};
         installIssueListStub(capture);
 
         const result = await IssueService.listIssues({limit: 10, state: 'open'});
 
-        // Verified against live GitHub: filterBy:{assignee: null} returns every open issue. `labels` must
-        // be null rather than `[]` for the same reason — an empty label list filters everything OUT.
+        // Verified against live GitHub: filterBy:{assignee: null} returns every open issue.
         expect(capture.variables.assignee).toBeNull();
-        expect(capture.variables.labels).toBeNull();
         expect(result.count).toBe(2);
     });
 
-    test('the label filter is applied SERVER-side too — a comma string becomes a filter list', async () => {
+    test('labels are NOT delegated to GitHub — its label filter is ANY-of, and this surface promises ALL-of', async () => {
         const capture = {};
         installIssueListStub(capture);
 
-        await IssueService.listIssues({limit: 30, state: 'open', labels: 'ai, model-experience'});
+        const result = await IssueService.listIssues({limit: 30, state: 'open', labels: 'ai, model-experience'});
 
-        expect(capture.variables.labels).toEqual(['ai', 'model-experience']);
+        // Measured live against neomjs/neo open issues: filterBy:{labels:['ai']} -> 198,
+        // ['architecture'] -> 111, ['ai','architecture'] -> 201. A combined count EXCEEDING both
+        // operands is a union, so GitHub's filter is OR. Sending labels there would quietly widen
+        // ALL-of into ANY-of and return MORE issues than asked — a caller reading a longer list has
+        // no signal that the predicate changed under them.
+        expect(capture.variables.labels).toBeUndefined();
+        expect(capture.query).not.toContain('$labels');
+
+        // Only the stub row carrying BOTH labels survives; the ci-only row does not.
+        expect(result.count).toBe(1);
+        expect(result.issues[0].number).toBe(12706);
     });
 
     test('the server\'s matches are returned verbatim — no client-side pass may drop one', async () => {
@@ -224,6 +229,7 @@ test.describe('Neo.ai.services.github-workflow.IssueService — listIssues proje
         // convinced a booting session it had no carried assignments. `hasNextPage` was already selected
         // and thrown away, so the truncation was knowable and simply never reported.
         expect(result.count).toBe(1);
+        // No client-side filter is active, so this number does describe the caller's query.
         expect(result.totalCount).toBe(9);
         expect(result.truncated).toBe(true);
         expect(result.endCursor).toBe('cursor-abc');
@@ -239,12 +245,14 @@ test.describe('Neo.ai.services.github-workflow.IssueService — listIssues proje
         expect(result.endCursor).toBeNull();
     });
 
-    test('a combined assignee+label answer reports completeness for THAT query, not a broader one', async () => {
-        // The defect this witnesses: `totalCount` and `truncated` are facts about the FILTERED connection.
-        // With labels re-filtered client-side, they described the assignee-only query while `count`
-        // described the label-filtered rows — so the response reported the match count of a query the
-        // caller never made, and carried nothing that could reveal the substitution. Both filters now
-        // reach the server, so every number below describes one connection.
+    test('a combined assignee+label answer admits it cannot count — a wrong number beats no number only for the liar', async () => {
+        // The defect this witnesses: `totalCount` is a fact about the SERVER-filtered connection. With
+        // labels filtered client-side it counts the assignee-only query while `count` counts the
+        // label-filtered rows, so the response reported the match count of a query the caller never
+        // made and carried nothing that could reveal the substitution. GitHub's label filter is OR, so
+        // the fix cannot be to delegate the filter; it is to stop reporting a number that answers a
+        // different question. `truncated` survives because it stays true: more server-filtered pages
+        // genuinely may hold more label matches.
         const capture = {};
         GraphqlService.query = async (query, variables) => {
             capture.variables = variables;
@@ -278,11 +286,10 @@ test.describe('Neo.ai.services.github-workflow.IssueService — listIssues proje
         });
 
         expect(capture.variables.assignee).toBe('neo-fable');
-        expect(capture.variables.labels).toEqual(['ai', 'model-experience']);
 
-        // 1 of 3 matches for assignee AND labels — not 1 of "3 assigned issues, some unlabelled".
         expect(result.count).toBe(1);
-        expect(result.totalCount).toBe(3);
+        // NOT 3. That 3 counts assigned issues regardless of label — a different question.
+        expect(result.totalCount).toBeNull();
         expect(result.truncated).toBe(true);
         expect(result.endCursor).toBe('cursor-combined');
     });

@@ -1058,7 +1058,7 @@ paths:
       x-annotations:
         readOnlyHint: true
       description: |
-        Retrieves a list of issues from **live GitHub** (GraphQL), not from a local cache or snapshot. Supports filters such as `limit`, `state`, `labels`, and `assignee`, all applied server-side.
+        Retrieves a list of issues from **live GitHub** (GraphQL), not from a local cache or snapshot. `state` and `assignee` filter server-side; `labels` filters this page's rows (GitHub's own label filter is ANY-of, so ALL-of cannot be delegated).
 
         **When to Use:**
         - To find open work items or review recent closed issues.
@@ -1090,7 +1090,7 @@ paths:
         - name: labels
           in: query
           required: false
-          description: Comma separated list of labels to filter by (an issue must carry ALL of them). Applied server-side, so `limit` bounds the MATCHES returned rather than the rows searched.
+          description: Comma separated list of labels to filter by; an issue must carry ALL of them. Applied to the rows this page returned, because GitHub's own label filter is ANY-of rather than ALL-of. `totalCount` is therefore null when this is set — use `truncated` to tell whether the answer is bounded.
           schema:
             type: string
         - name: assignee
@@ -2350,7 +2350,8 @@ components:
           description: How many issues THIS page returned. Compare with `totalCount` before treating it as the whole answer.
         totalCount:
           type: integer
-          description: How many issues match the filters in total. `count < totalCount` means the answer is bounded, not complete.
+          nullable: true
+          description: How many issues match the SERVER-side filters (state, assignee) in total. `count < totalCount` means the answer is bounded, not complete. Null when a `labels` filter is set, because the server's count then describes a broader query than you asked — an admitted unknown rather than a wrong number you cannot detect.
         truncated:
           type: boolean
           description: True when more matches exist beyond this page. A bounded answer that cannot say it was bounded is indistinguishable from a complete one.
