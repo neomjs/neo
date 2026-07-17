@@ -9,6 +9,10 @@ import Server, {resolveToolProjectionMode} from './Server.mjs';
 import {sanitizeInput}                     from '../../../../buildScripts/util/sanitizer.mjs';
 import {fileURLToPath}                     from 'node:url';
 import {assertConfigFresh}                 from '../../../scripts/setup/initServerConfigs.mjs';
+import {
+    GENESIS_DIAGNOSTIC_ATTESTATION_ENV,
+    GENESIS_DIAGNOSTIC_PATH_MISMATCH
+} from './diagnosticPathAttestation.mjs';
 
 const program = new Command();
 
@@ -36,11 +40,16 @@ try {
     await assertConfigFresh({requiredFindings: findings, serverPath: fileURLToPath(new URL('.', import.meta.url))});
 
     await Neo.create(Server, {
-        configFile        : options.config,
-        bridgeCwd         : options.cwd,
-        toolProjectionMode: resolveToolProjectionMode(options.toolProjectionMode)
+        configFile               : options.config,
+        bridgeCwd                : options.cwd,
+        diagnosticPathAttestation: process.env[GENESIS_DIAGNOSTIC_ATTESTATION_ENV],
+        toolProjectionMode       : resolveToolProjectionMode(options.toolProjectionMode)
     }).ready();
 } catch (error) {
-    logger.fatalStartup('Fatal error during server initialization:', error);
+    if (error.code === GENESIS_DIAGNOSTIC_PATH_MISMATCH) {
+        process.stderr.write(`Fatal error during server initialization: ${error.code}\n`)
+    } else {
+        logger.fatalStartup('Fatal error during server initialization:', error)
+    }
     process.exit(1);
 }

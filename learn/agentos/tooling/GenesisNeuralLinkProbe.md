@@ -80,11 +80,11 @@ oracle immediately, and cleans up automatically. A successful `GENESIS_PROBE_REC
 
 - `status: "success"`;
 - all three aggregate telemetry rows successful;
-- `configuredInsideDisposableRoot: true`;
+- `diagnosticPathsIsolated: true`, backed by child-computed commitments over the resolved writable
+  sinks selected by the disposable launcher;
 - a recursive `beforeManifest` containing the database and log artifacts;
 - `afterManifest.rootPresent: false`;
-- `terminationVerified: true` on POSIX;
-- `defaultPathsUntouched: true`.
+- `terminationVerified: true` on POSIX.
 
 On Windows, rehearsal can verify direct-child exit plus closure of all three known listener ports,
 but Node does not provide a Job Object or an equivalent proof that every descendant is gone. Its
@@ -252,11 +252,13 @@ The final receipt must not contain:
 - raw SQLite rows or logs;
 - unrevealed oracle material.
 
-Failures use a closed public `{code, message}` allowlist. Raw tool payloads and topology rows remain
-only inside the disposable root, normally in its isolated SQLite telemetry. Private parent-process
-exception detail and absolute temporary paths additionally go into a mode-`0600`
-`private-failure.json`; any bearer material captured by either private diagnostic surface remains
-inside that root until verified cleanup removes it.
+Failures use a closed public `{code, message}` allowlist. `UNEXPECTED_FAILURE` adds one `phase` from
+a fixed runner vocabulary (for example, `child-readiness` or `app-readiness`) so a cleaned-up failure
+still names the bounded gate that ran. Arbitrary labels and exception text collapse to
+`unclassified`. Raw tool payloads and topology rows remain only inside the disposable root, normally
+in its isolated SQLite telemetry. Private parent-process exception detail and absolute temporary
+paths additionally go into a mode-`0600` `private-failure.json`; any bearer material captured by
+either private diagnostic surface remains inside that root until verified cleanup removes it.
 
 After reveal, the canonical oracle and salt are public verification material and may remain. Raw
 diagnostics may not.
@@ -280,8 +282,9 @@ aggregate tool/status/duration counts:
 recursive before-manifest:
 after-manifest rootPresent=false:
 termination verified=true (POSIX external proof):
-default live database/log paths untouched=true:
+runtime diagnostic paths isolated=true:
 overall success/failure:
+unexpected-failure phase (when applicable):
 ```
 
 Any missing line makes the receipt incomplete. A failed run is still valuable when it honestly
@@ -296,8 +299,9 @@ names the failed gate and proves cleanup; it must not be rewritten as success af
   non-empty token without publishing the token.
 - **Hash mismatch:** preserve the frozen deliverable, compare UTF-8 bytes/property order/newline,
   record failure, then clean up after review.
-- **Default path changed:** treat the isolation proof as failed. Identify concurrent writers or a
-  missing environment override before another run.
+- **Diagnostic path attestation mismatch:** treat the isolation proof as failed. Inspect the private
+  child configuration for a missing or overridden sink before another run. Activity from unrelated
+  writers on default paths is outside this child-scoped proof and must not invalidate it.
 - **Root remains after cleanup:** do not delete individual filenames and call it complete. Find the
   open handle or permission failure, remove the whole root, and record the correction cycle.
 - **Interrupted run:** require the structured `PROBE_INTERRUPTED` receipt plus the same verified
