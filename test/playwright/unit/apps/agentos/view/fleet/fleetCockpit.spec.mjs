@@ -1331,6 +1331,37 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
         delete globalThis.AgentOS.fleet
     });
 
+    test('a newer ABSENCE invalidates an older pending success — @neo-gpt\'s early-return clause', async () => {
+        // His second clause. The generation bump used to sit AFTER the no-bridge guard, so a tick
+        // that found the bridge gone returned silently without claiming a generation — and an
+        // in-flight read from when the bridge was still there came back and wrote. Absence is newer
+        // knowledge; an early return is still a read attempt and must invalidate its predecessor.
+        //
+        // The guard order was the bug, not the guard: I had put the cheap check first out of habit,
+        // which is exactly where it costs the most.
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        // seeded to the SEED so the dropped write is observable: the host defaults to 'live', where
+        // "must not become live" cannot discriminate — it was never anything else. Read 1 would set
+        // live; the fence must leave this at 'sample'.
+        host.streamAdapterState = 'sample';
+
+        let releaseSlow;
+        const slow = new Promise(resolve => { releaseSlow = () => resolve({capability: {state: 'wired'}, events: []}) });
+
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetActivity: () => slow}};
+        const slowRead = host.loadActivity();       // read 1 — in flight while the bridge exists
+
+        delete globalThis.AgentOS.fleet;            // the bridge disappears
+        await host.loadActivity();                  // read 2 — early-returns on absence, but CLAIMS a generation
+
+        releaseSlow();                              // read 1 lands, LATE, with news from a vanished bridge
+        await slowRead;
+
+        expect(host.streamAdapterState, 'a read from a bridge that no longer exists must not claim live').toBe('sample')
+    });
+
     test('a read completing after destroy mutates NOTHING — no post-destroy writes', async () => {
         const banner = makeBanner(),
               host   = makeLivenessHost(banner);
@@ -1416,10 +1447,11 @@ test.describe('Fleet cockpit — the liveness owner lifecycle (start/stop, #1529
         return {
             cleared,
             polls               : 0,
-            gridReadInFlight    : false,
+            gridReadInFlight    : 0,
             livenessPollInterval: 50,
             livenessTimerId     : null,
-            streamReadInFlight  : false,
+            maxReadsInFlight    : 2,
+            streamReadInFlight  : 0,
             loadActivity() { this.polls++; return Promise.resolve() },
             loadRoster()   { this.polls++; return Promise.resolve() },
             startLiveness: FleetCockpit.prototype.startLiveness,
@@ -1447,6 +1479,63 @@ test.describe('Fleet cockpit — the liveness owner lifecycle (start/stop, #1529
             expect(host.livenessTimerId).toBe(first)
         } finally {
             globalThis.setInterval = original
+        }
+    });
+
+    test('five ticks against a hung WIRE launch a BOUNDED number of reads — @neo-gpt\'s 5-tick falsifier', async () => {
+        // His probe, and it falsified a claim I had made to him in writing: I said max-in-flight was
+        // "1 per surface by construction". It was 1 per WRAPPER. `boundedRead`'s race settles its own
+        // promise on timeout, so the slot freed while the underlying read kept hanging — 5 ticks, 5
+        // hung reads, 0 settled. I closed the freeze and re-opened the accumulation, then asserted
+        // the opposite.
+        //
+        // The count now tracks the WIRE (`onWireSettled`), so a timed-out wrapper does not pretend
+        // the socket came back. Capped above 1 because with no abort seam a single slot cannot both
+        // bound accumulation AND survive a permanent hang: one hang would hold the only slot forever.
+        const stream = {adapterState: 'live', set() {}},
+              host   = {
+                  ...makeTimerHost(),
+                  clearDegradedReason : FleetCockpit.prototype.clearDegradedReason,
+                  degradeWiredSurface : FleetCockpit.prototype.degradeWiredSurface,
+                  getReference        : reference => reference === 'activity-stream' ? stream : null,
+                  maxReadsInFlight    : 2,
+                  streamAdapterState  : 'live',
+                  streamDegradedReason: null,
+                  streamReadGeneration: 0,
+                  streamReadInFlight  : 0,
+                  syncSpineBanner     : FleetCockpit.prototype.syncSpineBanner
+              };
+
+        let tick, wireReads = 0;   // 5-tick
+
+        host.livenessReadTimeout = 5;
+        host.loadActivity        = FleetCockpit.prototype.loadActivity;
+        host.loadRoster          = () => Promise.resolve();
+
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetActivity: () => {
+            wireReads++;
+            return new Promise(() => {})            // EVERY read hangs forever — nothing settles
+        }}};
+
+        const originalSetInterval = globalThis.setInterval;
+        globalThis.setInterval = fn => { tick = fn; return 1 };
+
+        try {
+            host.startLiveness();
+
+            for (let i = 0; i < 5; i++) {
+                tick();
+                await new Promise(resolve => setTimeout(resolve, 15))   // outlive the bounded window
+            }
+
+            // the wrapper timing out must NOT be mistaken for the wire returning
+            expect(wireReads, 'five ticks against a hung wire must not launch five reads').toBeLessThanOrEqual(host.maxReadsInFlight);
+            expect(host.streamReadInFlight, 'the cap must never grow').toBeLessThanOrEqual(host.maxReadsInFlight);
+            // and the surface still told the truth while the wire hung
+            expect(host.streamAdapterState).toBe('stale')
+        } finally {
+            globalThis.setInterval = originalSetInterval;
+            delete globalThis.AgentOS.fleet
         }
     });
 
@@ -1512,7 +1601,7 @@ test.describe('Fleet cockpit — the liveness owner lifecycle (start/stop, #1529
         }
     });
 
-    test('a tick NEVER launches a read while that surface still has one in flight', async () => {
+    test('a tick never launches past the cap for that surface (pinned at 1 here)', async () => {
         // @neo-gpt's fourth finding, and the one the generation fence does NOT reach: the fence makes
         // a late read HARMLESS, not ABSENT. A transport slower than the 15s cadence would have every
         // tick launch another pair regardless of the unresolved prior one — unbounded in-flight reads
@@ -1523,9 +1612,14 @@ test.describe('Fleet cockpit — the liveness owner lifecycle (start/stop, #1529
 
         let tick, releaseActivity;
 
-        host.loadActivity = function() {
+        // pinned at 1 so the cap's edge is the assertion. Production runs 2 — a single slot cannot
+        // both bound accumulation and survive a permanent hang, which is the whole reason the cap
+        // exists rather than a boolean. The RULE is the cap; this pins its boundary at its tightest.
+        host.maxReadsInFlight = 1;
+        host.loadActivity     = function() {
             this.polls++;
-            return new Promise(resolve => { releaseActivity = resolve })   // hangs past the next tick
+            this.streamReadInFlight++;                                     // the launcher counts the WIRE
+            return new Promise(resolve => { releaseActivity = () => { this.streamReadInFlight--; resolve() } })
         };
         globalThis.setInterval = fn => { tick = fn; return 1 };
 

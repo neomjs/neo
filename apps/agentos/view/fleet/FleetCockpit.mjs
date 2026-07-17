@@ -90,8 +90,12 @@ function toSafeDegradedReason(error) {
  * @returns {Promise} settles with the read, or rejects with a timeout error inside `timeout` ms
  * @private
  */
-function boundedRead(read, timeout) {
+function boundedRead(read, timeout, onWireSettled) {
     let timerId;
+
+    // the WIRE's own settle — independent of who wins the race. The accumulation bound counts this,
+    // because a timed-out wrapper does not free the socket the read is still holding.
+    read.then(onWireSettled, onWireSettled);
 
     return Promise.race([
         read.finally(() => clearTimeout(timerId)),
@@ -296,17 +300,24 @@ class FleetCockpit extends Container {
      */
     gridReadGeneration = 0
     /**
-     * Overlap suppression for the ROSTER surface — true while a liveness-driven read is unresolved.
+     * Count of UNDERLYING roster reads still unresolved on the wire — the accumulation bound.
      *
-     * The generation fence keeps a late read from WRITING; this keeps it from being LAUNCHED. Without
-     * it, a transport slower than the cadence collects a new in-flight read every tick, forever,
-     * against a bridge that is already struggling — the "hung accumulation" half of the ingress
-     * contract. Only {@link #startLiveness} honours it: a direct call (boot, an explicit refresh) is
-     * an operator-meant read and is never suppressed.
-     * @member {Boolean} gridReadInFlight=false
+     * Counts the WIRE, not the wrapper, and that distinction is the whole fix. `boundedRead` settles
+     * its own promise on timeout, so releasing the slot there bounded nothing: the underlying read
+     * kept hanging while every tick launched another. Five ticks, five hung reads, zero settled.
+     * Decremented only when the real read settles, so the cap counts what is actually outstanding.
+     *
+     * Capped at {@link #maxReadsInFlight} rather than one, because with no abort seam on the wire a
+     * single slot cannot both bound accumulation AND survive a permanent hang — one hung read would
+     * hold the only slot forever and liveness would stop. A cap above one keeps a recovery probe
+     * alive through N-1 hangs while proving the cap never grows.
+     *
+     * Only {@link #startLiveness} honours it: a direct call (boot, an explicit refresh) is
+     * operator-meant and never suppressed.
+     * @member {Number} gridReadInFlight=0
      * @protected
      */
-    gridReadInFlight = false
+    gridReadInFlight = 0
     /**
      * The retained safe reason for the ACTIVITY surface's current degrade. See
      * {@link #gridDegradedReason} for why these are per-surface rather than one shared field.
@@ -321,11 +332,19 @@ class FleetCockpit extends Container {
      */
     streamReadGeneration = 0
     /**
-     * Overlap suppression for the ACTIVITY surface. See {@link #gridReadInFlight}.
-     * @member {Boolean} streamReadInFlight=false
+     * Count of UNDERLYING activity reads still unresolved on the wire. See {@link #gridReadInFlight}.
+     * @member {Number} streamReadInFlight=0
      * @protected
      */
-    streamReadInFlight = false
+    streamReadInFlight = 0
+    /**
+     * The cap on concurrent UNDERLYING reads per surface. Above one so a permanently hung read cannot
+     * consume the last slot and stop liveness; small so a hung wire cannot accumulate. Injectable so
+     * witnesses pin it instead of inferring it.
+     * @member {Number} maxReadsInFlight=2
+     * @protected
+     */
+    maxReadsInFlight = 2
     /**
      * The last authoritative (bridge-sourced) roster snapshot, kept so a slower store load — the
      * JSON sample seed racing {@link #loadRoster} — can never overwrite live truth
@@ -1310,18 +1329,25 @@ class FleetCockpit extends Container {
             stream = me.getReference('activity-stream'),
             bridge = globalThis.AgentOS?.fleet?.registryBridge;
 
+        // BEFORE the early return, not after. Absence is newer knowledge, and an older pending read
+        // must not outlive it: without the bump, a tick that finds the bridge gone returns silently
+        // and an in-flight read from when it was present still lands and writes.
+        const generation = ++me.streamReadGeneration;
+
         if (!stream || typeof bridge?.fleetActivity !== 'function') {
             // no bridge/verb IS the cold truth — the spine banner must say so
             me.syncSpineBanner();
             return
         }
 
-        // captured BEFORE the await: this read's claim to write. A newer read bumps the counter, so
-        // a slower older one returns to find its generation stale and drops itself.
-        const generation = ++me.streamReadGeneration;
-
         try {
-            const {capability, events} = await boundedRead(Promise.resolve(bridge.fleetActivity()), me.livenessReadTimeout) ?? {};
+            me.streamReadInFlight++;
+
+            const {capability, events} = await boundedRead(
+                Promise.resolve(bridge.fleetActivity()),
+                me.livenessReadTimeout,
+                () => { me.streamReadInFlight-- }
+            ) ?? {};
 
             // The fence. Older news must never overwrite newer: an interval re-poll means two reads
             // of THIS surface can be in flight at once, and without this the LOSER writes last —
@@ -1393,17 +1419,24 @@ class FleetCockpit extends Container {
             grid   = me.getReference('fleet-grid'),
             bridge = globalThis.AgentOS?.fleet?.registryBridge;
 
+        // BEFORE the early return — absence is newer knowledge and must invalidate an older pending
+        // read. See {@link #gridReadGeneration}.
+        const generation = ++me.gridReadGeneration;
+
         if (!grid?.store || typeof bridge?.fleetRoster !== 'function') {
             // no bridge/verb IS the cold truth — the spine banner must say so
             me.syncSpineBanner();
             return
         }
 
-        // captured BEFORE the await — see {@link #gridReadGeneration}
-        const generation = ++me.gridReadGeneration;
-
         try {
-            const {rows} = await boundedRead(Promise.resolve(bridge.fleetRoster()), me.livenessReadTimeout) ?? {};
+            me.gridReadInFlight++;
+
+            const {rows} = await boundedRead(
+                Promise.resolve(bridge.fleetRoster()),
+                me.livenessReadTimeout,
+                () => { me.gridReadInFlight-- }
+            ) ?? {};
 
             // the fence: a newer read started while this one was in flight, or the owner is gone.
             // Either way this answer is no longer this surface's truth to write.
@@ -1479,15 +1512,8 @@ class FleetCockpit extends Container {
         // against a bridge already failing to answer, which is precisely when piling on is worst.
         // Skipping a tick loses nothing: the next one reads the same live truth, only later.
         me.livenessTimerId = setInterval(() => {
-            if (!me.streamReadInFlight) {
-                me.streamReadInFlight = true;
-                me.loadActivity().finally(() => { me.streamReadInFlight = false })
-            }
-
-            if (!me.gridReadInFlight) {
-                me.gridReadInFlight = true;
-                me.loadRoster().finally(() => { me.gridReadInFlight = false })
-            }
+            if (me.streamReadInFlight < me.maxReadsInFlight) me.loadActivity();
+            if (me.gridReadInFlight   < me.maxReadsInFlight) me.loadRoster()
         }, me.livenessPollInterval)
     }
 
