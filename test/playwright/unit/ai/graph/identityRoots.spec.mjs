@@ -232,17 +232,18 @@ test.describe('ai/graph/identityRoots — identity anti-lock-in', () => {
 
     test('every root has an immutable creation timestamp instead of import-time now()', () => {
         expect(Object.fromEntries(IDENTITIES.map(entry => [entry.id, entry.properties.createdAt]))).toEqual({
-            '@system'        : '2026-05-27T12:33:17.000Z',
-            '@neo-opus-ada'  : '2026-04-23T13:03:46.000Z',
-            '@neo-opus-grace': '2026-06-02T21:35:48.405Z',
-            '@neo-opus-vega' : '2026-06-04T16:25:47.000Z',
-            '@neo-fable'     : '2026-06-10T12:32:43.000Z',
-            '@neo-fable-clio': '2026-06-11T20:36:16.000Z',
-            '@neo-gemini-pro': '2026-04-23T13:03:46.000Z',
-            '@tobiu'         : '2026-04-23T13:03:46.000Z',
-            '@neo-gpt'       : '2026-04-28T20:50:04.000Z',
-            '@neo-gpt-emmy'  : '2026-07-11T17:42:14.374Z',
-            'AGENT:*'        : '2026-04-23T13:03:46.000Z'
+            '@system'         : '2026-05-27T12:33:17.000Z',
+            '@neo-opus-ada'   : '2026-04-23T13:03:46.000Z',
+            '@neo-opus-grace' : '2026-06-02T21:35:48.405Z',
+            '@neo-opus-vega'  : '2026-06-04T16:25:47.000Z',
+            '@neo-fable'      : '2026-06-10T12:32:43.000Z',
+            '@neo-fable-clio' : '2026-06-11T20:36:16.000Z',
+            '@neo-gemini-pro' : '2026-04-23T13:03:46.000Z',
+            '@tobiu'          : '2026-04-23T13:03:46.000Z',
+            '@neo-gpt'        : '2026-04-28T20:50:04.000Z',
+            '@neo-gpt-emmy'   : '2026-07-11T17:42:14.374Z',
+            '@neo-kimi-phoebe': '2026-07-18T00:00:00.000Z',
+            'AGENT:*'         : '2026-04-23T13:03:46.000Z'
         });
     });
 
