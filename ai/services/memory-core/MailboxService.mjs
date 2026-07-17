@@ -1045,6 +1045,7 @@ function hasBroadcastDeliveryEdges(messageId) {
     return getBroadcastDeliveryEdges(messageId).length > 0;
 }
 
+
 function getReadAtForMessage(messageNode, deliveryEdge=null) {
     if (deliveryEdge) {
         return getRecordProperties(deliveryEdge).readAt || null;
@@ -2113,6 +2114,20 @@ class MailboxService extends Base {
         // Trigger syncCache + lazy-reload vicinity. Ensures the SENT_TO edge
         // iteration sees peer-process writes. See listMessages for the full rationale.
         db.getAdjacentNodes(messageId, 'both');
+
+        // The read path repairs a degraded projection before serving; this path did not, so a mark
+        // resolved and authorized from a cache the reader had already healed past. That divergence is
+        // the defect: `get_message` served messages whose node or SENT_TO edge was absent here, while
+        // the same ids threw `Message not found` or `Unauthorized` from the mark in the same minute. A
+        // mark is a WRITE — resolving it from a staler source than the read that displayed the message
+        // is the worst way round, and it made unread counts inflate for every peer.
+        //
+        // Repair is surgical (`onlyIssues`) and falls back to storage truth per flagged piece, so
+        // triggering it here cannot resurrect the WAL's send-time `readAt: null` over a committed read.
+        if (getCachedMessageProjectionIssues(messageId).length > 0) {
+            await this.repairMessageGraphIntegrity({ids: [messageId], limit: 1});
+            db.getAdjacentNodes(messageId, 'both');
+        }
 
         const messageNode = db.nodes.get(messageId);
         if (!messageNode || messageNode.label !== 'MESSAGE') {
