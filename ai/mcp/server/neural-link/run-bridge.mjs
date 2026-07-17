@@ -7,6 +7,10 @@ import logger              from './logger.mjs';
 import {sanitizeInput}     from '../../../../buildScripts/util/sanitizer.mjs';
 import {fileURLToPath}     from 'node:url';
 import {assertConfigFresh} from '../../../scripts/setup/initServerConfigs.mjs';
+import {
+    GENESIS_DIAGNOSTIC_ATTESTATION_ENV,
+    attestDiagnosticPaths
+} from './diagnosticPathAttestation.mjs';
 
 const program = new Command();
 
@@ -33,6 +37,16 @@ if (options.debug) {
 
         if (options.config) {
             await aiConfig.load(options.config);
+        }
+
+        const diagnosticMarker = attestDiagnosticPaths({
+            expectedCommitment: process.env[GENESIS_DIAGNOSTIC_ATTESTATION_ENV],
+            role              : 'bridge',
+            sinks             : {logs: aiConfig.logPath}
+        });
+
+        if (diagnosticMarker) {
+            process.stderr.write(`${diagnosticMarker}\n`)
         }
 
         logger.info('Starting Neural Link Bridge...');

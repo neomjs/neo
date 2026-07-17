@@ -43,12 +43,17 @@ import {
     readToolJson,
     spawnLoggedChild,
     stopChild,
-    snapshotSqliteFamily,
     toPublicProbeError,
     waitForChildExit,
     waitForChildReady,
     withTimeout
 } from '../../../../../../ai/scripts/diagnostics/genesisProbe.mjs';
+import {
+    GENESIS_DIAGNOSTIC_ATTESTATION_ENV,
+    GENESIS_DIAGNOSTIC_PATH_MISMATCH,
+    attestDiagnosticPaths,
+    createDiagnosticPathAttestation
+} from '../../../../../../ai/mcp/server/neural-link/diagnosticPathAttestation.mjs';
 
 test.describe('Neo.ai.scripts.diagnostics.genesisProbe', () => {
     test('canonicalizes the blind oracle and reproduces the fixed commitment bytes', () => {
@@ -114,6 +119,12 @@ test.describe('Neo.ai.scripts.diagnostics.genesisProbe', () => {
         expect(envs.mcpEnv.NEO_MEMORY_DB_PATH).toBe(path.join(root, 'memory-core.sqlite'));
         expect(envs.mcpEnv.NEO_NL_LOG_PATH).toBe(root);
         expect(envs.mcpEnv.NEO_NL_TOOL_PROJECTION_MODE).toBe('local-readonly-probe');
+        expect(envs.bridgeEnv[GENESIS_DIAGNOSTIC_ATTESTATION_ENV])
+            .toBe(envs.diagnosticAttestations.bridge.commitment);
+        expect(envs.mcpEnv[GENESIS_DIAGNOSTIC_ATTESTATION_ENV])
+            .toBe(envs.diagnosticAttestations.mcp.commitment);
+        expect(envs.diagnosticAttestations.bridge.marker).not.toContain(root);
+        expect(envs.diagnosticAttestations.mcp.marker).not.toContain(root);
     });
 
     test('launches the browser with the same least-authority environment boundary', () => {
@@ -168,20 +179,36 @@ test.describe('Neo.ai.scripts.diagnostics.genesisProbe', () => {
         expect(createCleanupDeadline(deadline)).toBeGreaterThan(deadline)
     });
 
-    test('redacts unknown and classified failures into a closed public shape', () => {
+    test('redacts failures into the closed public shape and fixed unexpected phase vocabulary', () => {
         const hostile = new Error(
             'Authorization: Bearer super-secret; topology={"private":true}; /tmp/neo-genesis-probe-secret'
         );
-        const publicUnknown = toPublicProbeError(hostile);
-        const publicKnown   = toPublicProbeError(createProbeFailure('TOPOLOGY_MISMATCH', hostile));
+        const
+            publicUnknown = toPublicProbeError(hostile),
+            publicPhased  = toPublicProbeError(createProbeFailure(
+                'UNEXPECTED_FAILURE',
+                hostile,
+                'child-readiness'
+            )),
+            publicForged  = toPublicProbeError(createProbeFailure(
+                'UNEXPECTED_FAILURE',
+                hostile,
+                '/tmp/private-phase'
+            )),
+            publicKnown   = toPublicProbeError(createProbeFailure('TOPOLOGY_MISMATCH', hostile));
 
         expect(publicUnknown).toEqual({
             code   : 'UNEXPECTED_FAILURE',
-            message: 'The probe failed without a public-safe classification.'
+            message: 'The probe failed without a public-safe classification.',
+            phase  : 'unclassified'
         });
+        expect(publicPhased.phase).toBe('child-readiness');
+        expect(publicForged.phase).toBe('unclassified');
         expect(JSON.stringify(publicUnknown)).not.toContain('super-secret');
         expect(JSON.stringify(publicUnknown)).not.toContain('Authorization');
         expect(JSON.stringify(publicUnknown)).not.toContain('/tmp/');
+        expect(JSON.stringify(publicPhased)).not.toContain('super-secret');
+        expect(JSON.stringify(publicForged)).not.toContain('private-phase');
         expect(publicKnown).toEqual({
             code   : 'TOPOLOGY_MISMATCH',
             message: 'Exactly one intended BigData App Worker was not available.'
@@ -260,14 +287,28 @@ test.describe('Neo.ai.scripts.diagnostics.genesisProbe', () => {
             })).rejects.toThrow('did not prove child-owned readiness');
             expect(connections).toBe(0);
 
-            await fsPromises.writeFile(logPath, `ready on 127.0.0.1:${port}`);
+            const marker = `ready on 127.0.0.1:${port}`;
+
+            await fsPromises.writeFile(logPath, `${marker}\n${marker}`);
+            await expect(waitForChildReady({
+                child,
+                label        : 'duplicate marker listener',
+                logPath,
+                markers      : [marker],
+                port,
+                timeoutMs    : 1000,
+                uniqueMarkers: [marker]
+            })).rejects.toThrow('duplicate child-private readiness evidence');
+
+            await fsPromises.writeFile(logPath, marker);
             await waitForChildReady({
                 child,
-                label    : 'marked listener',
+                label        : 'marked listener',
                 logPath,
-                markers  : [`ready on 127.0.0.1:${port}`],
+                markers      : [marker],
                 port,
-                timeoutMs: 1000
+                timeoutMs    : 1000,
+                uniqueMarkers: [marker]
             });
             await expect.poll(() => connections).toBe(1)
         } finally {
@@ -371,29 +412,86 @@ test.describe('Neo.ai.scripts.diagnostics.genesisProbe', () => {
         expect(await createManifest(root)).toEqual({rootPresent: false, entries: []})
     });
 
-    test('detects default SQLite WAL changes even when the main database stays untouched', async () => {
+    test('keeps child-scoped isolation evidence stable while unrelated writers mutate other paths', async () => {
         const
-            root         = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'neo-genesis-sqlite-family-test-')),
-            databasePath = path.join(root, 'memory-core.sqlite'),
-            walPath      = `${databasePath}-wal`;
+            probeRoot     = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'neo-genesis-attestation-test-')),
+            unrelatedRoot = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'neo-unrelated-writer-test-')),
+            sinks         = {
+                database: path.join(probeRoot, 'memory-core.sqlite'),
+                logs    : probeRoot
+            },
+            expected      = createDiagnosticPathAttestation({role: 'mcp', sinks}),
+            unrelatedWal  = path.join(unrelatedRoot, 'memory-core.sqlite-wal');
 
         try {
-            await fsPromises.writeFile(databasePath, 'main-database');
-            await fsPromises.writeFile(walPath, 'wal-before');
+            const unrelatedLog = path.join(unrelatedRoot, 'neural-link.log');
 
-            const before = await snapshotSqliteFamily(databasePath);
+            await fsPromises.writeFile(unrelatedWal, 'before');
+            await fsPromises.writeFile(unrelatedLog, 'before');
 
-            await fsPromises.appendFile(walPath, '-changed');
+            const ambientBefore = await createManifest(unrelatedRoot);
 
-            const after = await snapshotSqliteFamily(databasePath);
+            const before = attestDiagnosticPaths({
+                expectedCommitment: expected.commitment,
+                role              : 'mcp',
+                sinks
+            });
 
-            expect(after.database).toEqual(before.database);
-            expect(after.wal).not.toEqual(before.wal);
-            expect(after.shm).toEqual({exists: false});
-            expect(JSON.stringify(after)).not.toBe(JSON.stringify(before))
+            await fsPromises.appendFile(unrelatedWal, '-concurrent-change');
+            await fsPromises.appendFile(unrelatedLog, '-concurrent-change');
+
+            const ambientAfter = await createManifest(unrelatedRoot);
+
+            expect(attestDiagnosticPaths({
+                expectedCommitment: expected.commitment,
+                role              : 'mcp',
+                sinks
+            })).toBe(before);
+            expect(ambientAfter).not.toEqual(ambientBefore);
+            expect(before).toBe(expected.marker);
+            expect(before).not.toContain(probeRoot);
+            expect(before).not.toContain(unrelatedRoot)
         } finally {
-            await fsPromises.rm(root, {recursive: true, force: true})
+            await Promise.all([
+                fsPromises.rm(probeRoot, {recursive: true, force: true}),
+                fsPromises.rm(unrelatedRoot, {recursive: true, force: true})
+            ])
         }
+    });
+
+    test('fails path-attestation mismatches without exposing paths or commitments', () => {
+        const
+            expectedPath = path.join(os.tmpdir(), 'expected-private-root'),
+            actualPath   = path.join(os.tmpdir(), 'unexpected-private-root'),
+            expected     = createDiagnosticPathAttestation({
+                role : 'mcp',
+                sinks: {database: path.join(expectedPath, 'memory-core.sqlite'), logs: expectedPath}
+            });
+
+        let error;
+
+        try {
+            attestDiagnosticPaths({
+                expectedCommitment: expected.commitment,
+                role              : 'mcp',
+                sinks             : {database: path.join(actualPath, 'memory-core.sqlite'), logs: actualPath}
+            })
+        } catch (caught) {
+            error = caught
+        }
+
+        expect(error?.code).toBe(GENESIS_DIAGNOSTIC_PATH_MISMATCH);
+        expect(error?.message).not.toContain(expectedPath);
+        expect(error?.message).not.toContain(actualPath);
+        expect(error?.message).not.toContain(expected.commitment);
+        expect(() => createDiagnosticPathAttestation({
+            role : 'mcp',
+            sinks: {logs: expectedPath}
+        })).toThrow('complete writable-sink role set');
+        expect(() => createDiagnosticPathAttestation({
+            role : 'mcp',
+            sinks: {database: expectedPath, logs: expectedPath, extra: expectedPath}
+        })).toThrow('complete writable-sink role set')
     });
 
     test('deletes an authorized root even when aggregate telemetry evidence is unreadable', async () => {
@@ -408,7 +506,6 @@ test.describe('Neo.ai.scripts.diagnostics.genesisProbe', () => {
 
         const result = await finalizeDisposableRoot({
             databasePath,
-            defaultPaths      : null,
             deletionAuthorized: true,
             root
         });
