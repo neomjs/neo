@@ -9,17 +9,27 @@
  * Three values, three different facts, and the whole contract is keeping them apart:
  *
  * - **nominal** (`wake: on` · `throttle: none`) earns ZERO card pixels — the density contract's rule.
- * - **`unknown` is an OBSERVATION, not a default**: the producer looked and could not see. It is
- *   non-nominal and earns a chip, because "we cannot see this agent's wake state" is a fact the
- *   operator must be told, and rendering it as healthy is the failure mode the whole taxonomy exists
- *   to prevent.
+ * - **`unknown` is an OBSERVATION, not a default**: the producer looked and could not see. It is a
+ *   fact the operator must be told and is rendered verbatim — **in the DETAIL**. It is card-SILENT.
  * - **`null` is the absence of an observation** — the roster row carried no axis at all. Not a state,
- *   nothing to report, no chip. Same tri-state honesty as `openLaneCount`: un-stamped renders nothing
- *   rather than a fabricated zero.
+ *   nothing to report. Same tri-state honesty as `openLaneCount`: un-stamped renders nothing rather
+ *   than a fabricated zero.
  *
  * The distinction between the last two is the reason this module exists rather than a `?? 'unknown'`
  * at the call site: defaulting an absent axis to `unknown` would manufacture an observation nobody
- * made, and the card would report blindness the producer never claimed.
+ * made, and the detail would report blindness the producer never claimed.
+ *
+ * **Why `unknown` is card-silent:** a chip on `unknown` inverts the very density contract the chip
+ * exists to serve. The throttle adapter ships a CONTRACT and a SEAM — it documents that no trustworthy
+ * throttle truth source exists in the platform yet — so with no reader injected it honestly answers
+ * `unknown` for EVERY row. Measured against the default adapter across three agents: three `unknown`s,
+ * three chips, permanently. **A producer having landed is not the same as a producer being able to
+ * see.** The honest-unknown rule is satisfied by the detail readout, which states every axis
+ * unconditionally and has room for the producer's reason.
+ *
+ * The card therefore chips on an explicitly ENUMERATED deviation ({@link TELLTALE_CARD_DEVIANT}), not
+ * on "not nominal". The difference is the whole point: "not nominal" silently promotes every future
+ * state — and every state a producer cannot resolve — into a fleet-wide chip.
  */
 
 /**
@@ -29,6 +39,20 @@
 export const TELLTALE_NOMINAL = Object.freeze({
     throttle: 'none',
     wake    : 'on'
+});
+
+/**
+ * @summary The states that earn card pixels — an OBSERVED deviation the operator can act on.
+ *
+ * Enumerated rather than derived as "everything but nominal", because the two are only equivalent in
+ * a world where every axis has a working truth source. `unknown` is a real observation and belongs in
+ * the detail; on the card it would mean every agent chips until a throttle producer can see, which is
+ * the density inversion the exception-based rule exists to prevent.
+ * @type {Object}
+ */
+export const TELLTALE_CARD_DEVIANT = Object.freeze({
+    throttle: Object.freeze(['overage', 'rate-limited']),
+    wake    : Object.freeze(['off', 'suppressed'])
 });
 
 /**
@@ -85,9 +109,13 @@ export function describeTelltaleReadout({throttle = null, wake = null} = {}) {
 /**
  * @summary Describes the compound telltale chip for one record's two axes.
  *
- * Exactly ONE chip regardless of how many axes are non-nominal — the card's density contract buys
- * pixels with exceptions, so two exceptions must not cost two chips. The full two-axis readout
- * belongs in the detail view, where there is room to say more than a chip can.
+ * Exactly ONE chip regardless of how many axes deviate — the card's density contract buys pixels with
+ * exceptions, so two exceptions must not cost two chips. The full two-axis readout belongs in the
+ * detail view, where there is room to say more than a chip can.
+ *
+ * Chips on an ENUMERATED deviation only ({@link TELLTALE_CARD_DEVIANT}). `unknown` and `null` are both
+ * card-silent — for different reasons the detail keeps apart, and neither is a deviation the operator
+ * can act on from a roster.
  *
  * @param {Object} options={}
  * @param {Object|null} [options.throttle] The record's throttle observation.
@@ -98,12 +126,13 @@ export function describeTelltale({throttle = null, wake = null} = {}) {
     const
         wakeState     = observedState(wake),
         throttleState = observedState(throttle),
-        // An axis is reportable only when it was OBSERVED and the observation is not nominal. The two
-        // guards are separate on purpose: `null` short-circuits because there is no observation to
-        // judge, while a present-but-nominal state is judged and found unremarkable.
+        // Membership, not negation. `state !== NOMINAL` reads as the same rule and is not: it chips on
+        // `unknown`, on any out-of-contract producer value, and on every state added later — each of
+        // which lands on every card at once. An enumerated set fails silent on the card and loud in
+        // the detail, which is the right way round for a surface whose budget is pixels.
         reportable    = [
-            wakeState !== null && wakeState !== TELLTALE_NOMINAL.wake ? `wake ${wakeState}` : null,
-            throttleState !== null && throttleState !== TELLTALE_NOMINAL.throttle ? throttleState : null
+            TELLTALE_CARD_DEVIANT.wake.includes(wakeState) ? `wake ${wakeState}` : null,
+            TELLTALE_CARD_DEVIANT.throttle.includes(throttleState) ? throttleState : null
         ].filter(Boolean);
 
     return {

@@ -10,7 +10,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 
-import {describeTelltale, describeTelltaleReadout, TELLTALE_NOMINAL} from '../../../../../../../apps/agentos/view/fleet/telltale.mjs';
+import {describeTelltale, describeTelltaleReadout, TELLTALE_CARD_DEVIANT, TELLTALE_NOMINAL} from '../../../../../../../apps/agentos/view/fleet/telltale.mjs';
 
 /**
  * @summary The S2 telltale contract.
@@ -32,14 +32,36 @@ test.describe('AgentOS.view.fleet.telltale — two orthogonal axes, one compound
         expect(TELLTALE_NOMINAL).toEqual({throttle: 'none', wake: 'on'})
     });
 
-    test('`unknown` is an OBSERVATION and earns a chip — never rendered as healthy', () => {
-        // The producer looked and could not see. That is a fact, and hiding it is the exact failure
-        // the taxonomy exists to prevent.
+    test('`unknown` is card-SILENT and detail-visible — the ledger\'s density resolution', () => {
+        // The producer looked and could not see. That is a fact the operator must be told — in the
+        // DETAIL. On the card it is silent, and this is the one rule that looks like a regression and
+        // is not: the throttle adapter ships a contract and a SEAM, with no truth source in the
+        // platform yet, so it honestly answers `unknown` for EVERY row. Chipping on it means every
+        // card chips forever, which inverts the density contract the chip exists to serve.
+        //
+        // Measured against the default adapter: 3 agents, 3 `unknown`s, 3 chips. "The producers
+        // landed" was true and did not imply the producers can see.
         expect(describeTelltale({wake: {state: 'unknown'}, throttle: {state: 'none'}}))
-            .toEqual({hidden: false, text: 'wake unknown'});
+            .toEqual({hidden: true, text: ''});
 
         expect(describeTelltale({wake: {state: 'on'}, throttle: {state: 'unknown'}}))
-            .toEqual({hidden: false, text: 'unknown'})
+            .toEqual({hidden: true, text: ''});
+
+        // …and the fact still reaches the operator, unhidden, where there is room for it
+        expect(describeTelltaleReadout({wake: {state: 'on'}, throttle: {state: 'unknown', reason: 'no reader'}}))
+            .toContainEqual({axis: 'throttle', state: 'unknown', nominal: false, reported: true, reason: 'no reader'})
+    });
+
+    test('the card chips on an ENUMERATED deviation, never on "not nominal"', () => {
+        // The two read identically today and diverge on every state added later: negation promotes any
+        // new or out-of-contract producer value straight onto every card at once, which is precisely
+        // how `unknown` got there. Silent on the card, loud in the detail, is the right way round for
+        // a surface whose budget is pixels.
+        expect(TELLTALE_CARD_DEVIANT).toEqual({throttle: ['overage', 'rate-limited'], wake: ['off', 'suppressed']});
+
+        // an out-of-contract answer earns no card pixels — but is still stated verbatim in the detail
+        expect(describeTelltale({wake: {state: 'wat'}, throttle: {state: 'none'}})).toEqual({hidden: true, text: ''});
+        expect(describeTelltaleReadout({wake: {state: 'wat'}, throttle: null})[0].state).toBe('wat')
     });
 
     test('`null` is the ABSENCE of an observation — no chip, and no manufactured unknown', () => {
@@ -64,14 +86,24 @@ test.describe('AgentOS.view.fleet.telltale — two orthogonal axes, one compound
             .toEqual({hidden: false, text: 'wake off · rate-limited'})
     });
 
-    test('every non-nominal state in each axis vocabulary is reportable', () => {
-        // A closed vocabulary is only honest if none of its members can go silently missing.
-        ['off', 'suppressed', 'unknown'].forEach(state => {
-            expect(describeTelltale({wake: {state}}).hidden, `wake ${state} must report`).toBe(false)
+    test('the full predicate matrix: every ACTIONABLE deviation chips, and every unactionable state does not', () => {
+        // A closed vocabulary is only honest if none of its ACTIONABLE members can go silently missing —
+        // and if the unactionable ones cannot silently flood. Both halves are asserted here, because
+        // the first half alone is what put `unknown` on every card in the fleet.
+        ['off', 'suppressed'].forEach(state => {
+            expect(describeTelltale({wake: {state}}).hidden, `wake ${state} must chip`).toBe(false)
         });
 
-        ['overage', 'rate-limited', 'unknown'].forEach(state => {
-            expect(describeTelltale({throttle: {state}}).hidden, `throttle ${state} must report`).toBe(false)
+        ['overage', 'rate-limited'].forEach(state => {
+            expect(describeTelltale({throttle: {state}}).hidden, `throttle ${state} must chip`).toBe(false)
+        });
+
+        // the other half of the matrix: nominal, blind and absent all cost zero pixels, for three
+        // different reasons the detail keeps apart
+        [{wake: {state: 'on'}}, {wake: {state: 'unknown'}}, {wake: null},
+         {throttle: {state: 'none'}}, {throttle: {state: 'unknown'}}, {throttle: null}
+        ].forEach(record => {
+            expect(describeTelltale(record).hidden, `${JSON.stringify(record)} must cost zero card pixels`).toBe(true)
         })
     });
 
