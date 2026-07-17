@@ -154,6 +154,41 @@ test.describe('hookProjectionWriter — the one place the primitives meet the wo
         expect(wr.publish({tuple, consumerBinding: binding}).published).toBe(true);
     });
 
+    test('a LOSING contender deletes nothing — the sweep is a right the token confers', async () => {
+        // The reviewer's release blocker: sweeping BEFORE acquisition let a loser delete the live
+        // holder's in-flight temp sibling between its write, flush and rename — one publisher
+        // corrupting another's mutation window, which is exactly what the fence exists to stop.
+        const deleted = [],
+              fs      = makeFs();
+
+        fs.readdirSync = () => ['current.json.orphan.tmp'];
+        fs.unlinkSync  = path => deleted.push(path);
+
+        const wr = writer({fs});
+
+        wr.ensureSchema();
+
+        // A live holder occupies the target: acquire without publishing, so the lease stays held.
+        const {acquireProjectionLease} = await import('../../../../../../ai/services/memory-core/hookProjectionLease.mjs');
+
+        acquireProjectionLease({
+            db,
+            targetId      : deriveTargetId(tuple),
+            instanceDigest: 'the-holder',
+            now,
+            leaseTtlMs    : config.hookProjectionLeaseTtlMs,
+            mintToken     : () => 'holder-token',
+            hashToken     : raw => `h-${raw}`
+        });
+
+        // The contender loses — and must not have touched the holder's litter on its way out.
+        const loser = wr.publish({tuple, consumerBinding: binding});
+
+        expect(loser.published).toBe(false);
+        expect(loser.reason).toBe('held');
+        expect(deleted).toEqual([]);
+    });
+
     test('an unavailable store fails CLOSED — a missing store is not an empty projection', () => {
         const wr = makeHookProjectionWriter({getDb: () => null, config, fs: makeFs(), clock: () => now});
 
