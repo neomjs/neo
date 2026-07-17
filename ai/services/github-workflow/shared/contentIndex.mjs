@@ -1,15 +1,15 @@
-import fs   from 'fs-extra';
-import path from 'path';
-import {chunkNumberFor, DEFAULT_ITEMS_PER_CHUNK, validateSegment} from './contentPath.mjs';
+import fs                                                                                                  from 'fs-extra';
+import path                                                                                                from 'path';
+import {chunkNumberFor, DEFAULT_ITEMS_PER_CHUNK, parseContentPath, pathSegmentOptionsFor, validateSegment} from './contentPath.mjs';
 
 export const CONTENT_INDEX_FILENAME = '_index.json';
 
 /**
  * @summary Resolves the root directory that owns `resources/content/_index.json`.
  *
- * ADR 0004 makes the index a sibling of the active type directories and the archive root.
- * The GitHub workflow config currently exposes per-type paths, so this helper derives the
- * common root from `issuesDir` without adding another config surface.
+ * The index is a sibling of the active type directories and the archive root. The GitHub workflow
+ * config currently exposes per-type paths, so this helper derives the common root from `issuesDir`
+ * without adding another config surface.
  *
  * @param {Object} issueSyncConfig GitHub workflow `issueSync` config block
  * @returns {String}
@@ -80,8 +80,9 @@ export async function writeContentIndex(issueSyncConfig = {}, entries = []) {
 /**
  * @summary Applies upsert/remove mutations to the content index in one read/write pass.
  *
- * Syncers call this after determining their final target paths. Entries are keyed by
- * `{type, id}` because ADR 0004 permits exactly one current lookup target for each GitHub item.
+ * Syncers call this after determining their final target paths. Entries are keyed by `{type, id}`
+ * because each GitHub item has exactly one current lookup target — an upsert for an id therefore
+ * replaces its predecessor rather than accumulating a second entry.
  *
  * @param {Object} issueSyncConfig GitHub workflow `issueSync` config block
  * @param {Object} mutations
@@ -139,7 +140,7 @@ export function createContentIndexEntry(config = {}) {
         itemsPerChunk = DEFAULT_ITEMS_PER_CHUNK
     } = config;
 
-    const contentRoot = contentRootFor(issueSyncConfig);
+    const contentRoot  = contentRootFor(issueSyncConfig);
     const relativePath = path.relative(contentRoot, filePath);
 
     return normalizeContentIndexEntry({
@@ -153,6 +154,54 @@ export function createContentIndexEntry(config = {}) {
 }
 
 /**
+ * @summary Creates a normalized index entry describing where a file ACTUALLY is.
+ *
+ * The sibling of {@link createContentIndexEntry}, and the safer of the two. That one takes an
+ * `itemIndex` and derives the chunk from it, so the entry records the ordinal a planner *chose*.
+ * When a later pass relocates the file, the entry keeps naming the old location and the lookup rots
+ * — the mechanism behind thousands of index entries pointing at paths that no longer exist. This one
+ * reads the coordinates back out of the written path, so the entry cannot disagree with the
+ * filesystem it was derived from.
+ *
+ * Use this at every site that has already decided the final path — moves especially. Prefer
+ * {@link createContentIndexEntry} only where the ordinal is the thing being computed and the write
+ * follows from it.
+ *
+ * Throws on a path that is not chunked content: a caller reaching here has just written or renamed a
+ * file, so an unparseable path means the write went somewhere unintended. Returning null would let
+ * the move stand with no index entry at all, which is the very drift being repaired.
+ *
+ * @param {Object} config
+ * @param {Object} config.issueSyncConfig GitHub workflow `issueSync` config block
+ * @param {'issues'|'pulls'|'discussions'|'release-notes'} config.type Content type
+ * @param {Number|String} config.id GitHub ID or semver identifier
+ * @param {String} config.filePath Absolute path the file now occupies
+ * @returns {Object}
+ * @throws {TypeError} When `filePath` is not a chunked content path under the content root
+ */
+export function createContentIndexEntryFromPath(config = {}) {
+    const {issueSyncConfig, type, id, filePath} = config,
+          contentRoot                           = contentRootFor(issueSyncConfig),
+          parsed                                = parseContentPath({contentRoot, filePath, ...pathSegmentOptionsFor(issueSyncConfig)});
+
+    if (!parsed) {
+        throw new TypeError(`filePath is not a chunked content path under the content root: ${filePath}`);
+    }
+
+    const entry = {
+        type,
+        id,
+        version    : parsed.version,
+        chunkNumber: parsed.chunkNumber,
+        path       : path.relative(path.resolve(contentRoot), path.resolve(contentRoot, filePath))
+    };
+
+    if (parsed.bucket) entry.bucket = parsed.bucket;
+
+    return normalizeContentIndexEntry(entry);
+}
+
+/**
  * @summary Resolves an indexed path and rejects entries that escape the content root.
  * @param {Object} issueSyncConfig GitHub workflow `issueSync` config block
  * @param {Object} entry Content index entry
@@ -161,9 +210,9 @@ export function createContentIndexEntry(config = {}) {
 export function resolveIndexedPath(issueSyncConfig = {}, entry = {}) {
     validateSegment(entry.path, 'path', {allowPath: true});
 
-    const contentRoot = path.resolve(contentRootFor(issueSyncConfig));
+    const contentRoot  = path.resolve(contentRootFor(issueSyncConfig));
     const absolutePath = path.resolve(contentRoot, entry.path);
-    const relative = path.relative(contentRoot, absolutePath);
+    const relative     = path.relative(contentRoot, absolutePath);
 
     if (relative.startsWith('..') || path.isAbsolute(relative)) {
         throw new TypeError('indexed path must stay within the content root');
@@ -217,8 +266,8 @@ function sortContentIndex(entries = []) {
             const typeCompare = a.type.localeCompare(b.type);
             if (typeCompare) return typeCompare;
 
-            const aId = Number(a.id);
-            const bId = Number(b.id);
+            const aId       = Number(a.id);
+            const bId       = Number(b.id);
             const idCompare = Number.isFinite(aId) && Number.isFinite(bId)
                 ? aId - bId
                 : `${a.id}`.localeCompare(`${b.id}`);

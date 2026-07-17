@@ -19,7 +19,7 @@ import {splitPullRequestArchiveMarkdown} from './pullRequestArchiveElementSplitt
  * @singleton
  */
 const loadIndexMap = async (neoRootDir, type) => {
-    const map = new Map();
+    const map       = new Map();
     const typeIndex = path.resolve(neoRootDir, `resources/content/${type}/_index.json`);
     const rootIndex = path.resolve(neoRootDir, 'resources/content/_index.json');
 
@@ -69,6 +69,18 @@ class PullRequestSource extends Base {
         const indexMap    = await loadIndexMap(aiConfig.neoRootDir, 'pulls');
         const contentRoot = path.resolve(aiConfig.neoRootDir, 'resources/content');
 
+        // Extraction walks FILES, but a chunk's name is keyed by PR IDENTITY (`pr-<id>#<element>`).
+        // Two artifacts for one id therefore emit two chunks under the SAME logical name with
+        // DIFFERENT content and different `source` paths — so they land as distinct rows, and a
+        // retrieval returns both. A maintainer then reads one PR's two divergent renderings as two
+        // corroborating pieces of evidence. That is the failure this corpus's integrity work exists
+        // to prevent, arriving through the consumer rather than the writer.
+        //
+        // Ids are normalised to strings because they arrive typed two ways: `Number` from the index
+        // map, `String` from the filename fallback. Comparing them raw makes `10124 !== '10124'` and
+        // the check silently never fires — a guard that cannot see the thing it guards against.
+        const seenIds = new Map();
+
         for (const targetPath of targetPaths) {
             if (await fs.pathExists(targetPath)) {
                 const pullFiles = await fs.readdir(targetPath, { recursive: true });
@@ -87,6 +99,24 @@ class PullRequestSource extends Base {
                         const content = await fs.readFile(filePath, 'utf-8');
                         // Relative path keeps the distributed Chroma zip portable.
                         const source = path.relative(aiConfig.neoRootDir, filePath);
+                        const idKey  = String(id);
+
+                        // Fail closed. Skipping the second copy would be a silent choice of which
+                        // rendering is canonical — made by directory-walk order, which is not a
+                        // judgement anything here is entitled to make. Emitting both is worse: the
+                        // Knowledge Base would then answer questions about this PR with two
+                        // divergent texts and no way to tell a reader that one is stale. Refusing
+                        // costs an ingestion run; the alternatives cost the retrieval substrate's
+                        // trustworthiness, which is the only thing it has.
+                        if (seenIds.has(idKey)) {
+                            throw new Error(
+                                `PullRequestSource: pull request ${idKey} has more than one local artifact ` +
+                                `(${seenIds.get(idKey)} and ${source}) — refusing to embed duplicate evidence ` +
+                                `under one logical name. Repair the corpus first.`
+                            );
+                        }
+
+                        seenIds.set(idKey, source);
                         // Per-element chunks (body + each review/comment) keep a multi-round PR
                         // under the embedding cap; a no-discussion PR yields one body chunk whose
                         // content equals the whole file.
@@ -94,9 +124,9 @@ class PullRequestSource extends Base {
 
                         for (const element of elements) {
                             const suffix = element.kind === 'body' ? 'body' : `${element.kind}-${element.ordinal}`;
-                            const chunk = {
-                                type: 'pull',
-                                kind: 'pull',
+                            const chunk  = {
+                                type   : 'pull',
+                                kind   : 'pull',
                                 name   : `pr-${id}#${suffix}`,
                                 content: element.content,
                                 source

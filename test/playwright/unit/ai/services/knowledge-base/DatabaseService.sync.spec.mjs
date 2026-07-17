@@ -19,11 +19,26 @@ test.describe('Neo.ai.services.knowledge-base.DatabaseService sync', () => {
     });
 
     test('createKnowledgeBase() emits type: adr chunks', async () => {
-        const originalDataPath = aiConfig.dataPath;
-        const testDataPath     = path.join(aiConfig.neoRootDir, 'dist', 'test-ai-knowledge-base.jsonl');
+        const originalDataPath    = aiConfig.dataPath;
+        const originalPullSources = aiConfig.sourcePaths.PullRequestSource;
+        const testDataPath        = path.join(aiConfig.neoRootDir, 'dist', 'test-ai-knowledge-base.jsonl');
 
         try {
             aiConfig.dataPath = testDataPath;
+
+            // This spec's subject is ADR emission, but `createKnowledgeBase()` runs EVERY source over
+            // the live repo — so the assertion silently depended on the tracked pull corpus being
+            // duplicate-free. It is not: that corpus carries divergent duplicates today, and
+            // `PullRequestSource` now refuses them rather than embedding one PR's two renderings as
+            // distinct evidence. Correct refusal, wrong test to fail: an ADR assertion should not be
+            // coupled to the health of a different source's corpus.
+            //
+            // The coupling cannot be resolved by repairing the corpus first — `sync_all` is
+            // dev-branch-gated, so the repair only runs post-merge, on dev. Waiting for a clean corpus
+            // to land the code that cleans it is circular. So the pull source is scoped out HERE,
+            // leaving the fail-closed consumer fully intact: `PullRequestSource.spec.mjs` covers the
+            // refusal directly, and this spec goes back to testing what its name says.
+            aiConfig.sourcePaths.PullRequestSource = [];
 
             // Generate the knowledge base
             const result = await DatabaseService.createKnowledgeBase();
@@ -43,7 +58,9 @@ test.describe('Neo.ai.services.knowledge-base.DatabaseService sync', () => {
 
             expect(adrChunks.length).toBeGreaterThan(0);
         } finally {
-            aiConfig.dataPath = originalDataPath;
+            aiConfig.dataPath                      = originalDataPath;
+            aiConfig.sourcePaths.PullRequestSource = originalPullSources;
+
             if (fs.existsSync(testDataPath)) {
                 await fs.unlink(testDataPath);
             }

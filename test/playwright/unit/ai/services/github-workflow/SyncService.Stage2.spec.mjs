@@ -39,6 +39,10 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
     let originalSyncNotes;
     let originalSyncDiscussions;
     let originalSyncPullRequests;
+    let originalReconcileClosedPulls;
+    let originalRepairPullDuplicates;
+    let originalReconcilePullIndex;
+    let originalVerifyPullIntegrity;
     let originalGetViewerPermission;
     let originalRebuildContentIndexesAndSeo;
     let originalExecGit;
@@ -50,8 +54,8 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
     let originalSaveMetadata;
 
     let stage2Calls = {
-        issueStates: 0,
-        discussionStates: 0,
+        issueStates        : 0,
+        discussionStates   : 0,
         pullRequestFeedback: 0
     };
 
@@ -81,6 +85,10 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         originalSyncNotes = ReleaseNotesSyncer.syncNotes;
         originalSyncDiscussions = DiscussionSyncer.syncDiscussions;
         originalSyncPullRequests = PullRequestSyncer.syncPullRequests;
+        originalReconcileClosedPulls = PullRequestSyncer.reconcileClosedPullRequestLocations;
+        originalRepairPullDuplicates = PullRequestSyncer.repairDuplicateArtifacts;
+        originalReconcilePullIndex = PullRequestSyncer.reconcilePullRequestIndex;
+        originalVerifyPullIntegrity = PullRequestSyncer.verifyCorpusIntegrity;
         originalGetViewerPermission = RepositoryService.getViewerPermission;
         originalRebuildContentIndexesAndSeo = SyncService.rebuildContentIndexesAndSeo;
         originalExecGit = SyncService.execGit;
@@ -94,6 +102,16 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         ReleaseNotesSyncer.syncNotes = async () => ({ count: 0 });
         DiscussionSyncer.syncDiscussions = async () => ({ count: 0 });
         PullRequestSyncer.syncPullRequests = async () => ({ count: 0 });
+        // These specs exercise Stage-2 SEQUENCING, so every orchestration step is stubbed — otherwise
+        // `runFullSync` runs the real pass against the real `resources/content`, which is a tracked
+        // generated corpus. Both pull passes below were previously unstubbed and merely appeared
+        // harmless: the relocate pass bails early because `fetchAndCacheReleases` is stubbed to a
+        // no-op and it refuses to bucket without releases. That is luck, not isolation — the index
+        // reconcile needs no network and would rewrite thousands of live entries from a unit run.
+        PullRequestSyncer.reconcileClosedPullRequestLocations = async () => ({ count: 0, pullRequests: [], indexed: 0 });
+        PullRequestSyncer.repairDuplicateArtifacts = async () => ({ repaired: [], removed: 0, failed: [] });
+        PullRequestSyncer.reconcilePullRequestIndex = async () => ({ reindexed: 0, unchanged: 0, removed: 0, skippedAmbiguous: [] });
+        PullRequestSyncer.verifyCorpusIntegrity = async () => ({ ok: true, staleIndexEntries: [], inconsistentIndexEntries: [], duplicateIndexEntryIds: [], unindexedIds: [], identicalDuplicateIds: [], divergentDuplicateIds: [] });
         RepositoryService.getViewerPermission = async () => ({ permission: 'READ' }); // Skip git commands
         SyncService.rebuildContentIndexesAndSeo = async () => ({});
         MetadataManager.load = async () => ({ issues: {}, releases: {}, discussions: {}, pullRequests: {} });
@@ -116,6 +134,10 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         ReleaseNotesSyncer.syncNotes = originalSyncNotes;
         DiscussionSyncer.syncDiscussions = originalSyncDiscussions;
         PullRequestSyncer.syncPullRequests = originalSyncPullRequests;
+        PullRequestSyncer.reconcileClosedPullRequestLocations = originalReconcileClosedPulls;
+        PullRequestSyncer.repairDuplicateArtifacts = originalRepairPullDuplicates;
+        PullRequestSyncer.reconcilePullRequestIndex = originalReconcilePullIndex;
+        PullRequestSyncer.verifyCorpusIntegrity = originalVerifyPullIntegrity;
         RepositoryService.getViewerPermission = originalGetViewerPermission;
         SyncService.rebuildContentIndexesAndSeo = originalRebuildContentIndexesAndSeo;
         SyncService.execGit = originalExecGit;
@@ -125,6 +147,55 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         IssueIngestor.ingestIssueStates = originalIngestIssueStates;
         IssueIngestor.ingestDiscussionStates = originalIngestDiscussionStates;
         IssueIngestor.ingestPullRequestFeedback = originalIngestPullRequestFeedback;
+    });
+
+    test('an unclean pull-corpus verdict ABORTS before metadata save, derive, and auto-push', async () => {
+        // Every pass reports its own outcome and degrades softly on its own terms, which is exactly
+        // how a corpus reaches the commit with each step reporting success and the whole known-broken.
+        // The verdict is only worth taking if something consumes it: a generated commit is what every
+        // consumer then reads as truth, and unlike a failed run it cannot be retried away.
+        const order = [];
+
+        MetadataManager.save = async () => { order.push('metadata-save') };
+        SyncService.rebuildContentIndexesAndSeo = async () => { order.push('derive') };
+        RepositoryService.getViewerPermission = async () => { order.push('permission-check'); return {permission: 'READ'} };
+
+        PullRequestSyncer.verifyCorpusIntegrity = async () => ({
+            ok                      : false,
+            staleIndexEntries       : [{id: 9537}],
+            inconsistentIndexEntries: [],
+            duplicateIndexEntryIds  : [],
+            unindexedIds            : [],
+            identicalDuplicateIds   : [],
+            divergentDuplicateIds   : [10124]
+        });
+
+        await expect(SyncService.runFullSync()).rejects.toThrow(/integrity is not clean/);
+
+        // None of the three ran: the corpus is never committed in a state we already measured as broken.
+        expect(order).toEqual([]);
+    });
+
+    test('a FAILED duplicate repair aborts too, even when the verdict is otherwise clean', async () => {
+        // The repair reports its failures rather than throwing, so a soft-failed restoration would
+        // otherwise sail past a verdict that cannot see it.
+        const order = [];
+
+        MetadataManager.save = async () => { order.push('metadata-save') };
+        PullRequestSyncer.repairDuplicateArtifacts = async () => ({
+            repaired: [], removed: 0, failed: [{id: 10124, reason: 'network down'}]
+        });
+
+        await expect(SyncService.runFullSync()).rejects.toThrow(/integrity is not clean/);
+        expect(order).toEqual([]);
+    });
+
+    test('a clean verdict lets the run proceed — the gate can PASS', async () => {
+        // Otherwise the two aborts above prove only that runFullSync can throw.
+        const result = await SyncService.runFullSync();
+
+        expect(result.success).toBe(true);
+        expect(result.syncStats ?? result).toBeTruthy();
     });
 
     test('runFullSync executes Stage 2 ingestion by dynamically invoking IssueIngestor', async () => {
@@ -184,11 +255,11 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
     });
 
     test('auto-push aborts failed rebase, resets, re-emits, and retries once (#13798)', async () => {
-        const commands = [];
-        let pullRuns = 0;
-        let saves = 0;
-        let derives = 0;
-        let rebaseAttempts = 0;
+        const commands       = [];
+        let   pullRuns       = 0;
+        let   saves          = 0;
+        let   derives        = 0;
+        let   rebaseAttempts = 0;
 
         RepositoryService.getViewerPermission = async () => ({permission: 'WRITE'});
 
@@ -262,9 +333,9 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
 
     test('auto-push recovers the checkout when delivery retries are exhausted (#13798)', async () => {
         const commands = [];
-        let pullRuns = 0;
-        let saves = 0;
-        let derives = 0;
+        let   pullRuns = 0;
+        let   saves    = 0;
+        let   derives  = 0;
 
         RepositoryService.getViewerPermission = async () => ({permission: 'WRITE'});
 
@@ -453,7 +524,7 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
 
         IssueSyncer.pullFromGitHub = async () => ({
             newMetadata: {issues: {}, pushFailures: [], lastSync: '2026-05-18T04:42:00Z'},
-            stats: {pulled: {count: 0, created: 0, updated: 0, moved: 0}, dropped: {count: 0}}
+            stats      : {pulled: {count: 0, created: 0, updated: 0, moved: 0}, dropped: {count: 0}}
         });
 
         // Syncers don't mutate metadata at all (early-exit path).
