@@ -104,6 +104,72 @@ test.describe('AgentOS.view.Accounts credential boundary', () => {
         expect(source).not.toMatch(/console\.(log|warn|error)/)
     });
 
+    /**
+     * The behavioural half, and the load-bearing one. The source check above proves the STRING
+     * `localStorage` is absent from ONE FILE — a different claim from "no credential reaches browser
+     * storage", and the two come apart the instant any credential handling moves into a sibling
+     * module. Verified, not asserted: with a `rememberCredential()` helper extracted next to the view
+     * and persisting the PAT, the source check above still passed and the suite stayed at its exact
+     * 22/22 baseline. A guard aimed at a filename stops guarding the moment the code leaves the file,
+     * and says nothing while it happens. This one records real writes, so it follows the credential
+     * into whatever module holds it.
+     *
+     * The `upsert` assertion is not decoration: a run that submits NOTHING also writes nothing, so
+     * without proof the accepted-add path actually executed, `writes` being empty is a vacuous pass.
+     */
+    test('no credential byte reaches browser storage on an accepted add — behavioural, survives extraction', async () => {
+        const
+            canonical = {
+                id            : 'resident-42',
+                githubUsername: 'canonical-login',
+                harnessType   : 'antigravity'
+            },
+            calls     = [],
+            writes    = [],
+            pat       = 'ghp_should_not_escape',
+            form      = {
+                getSubmitValues: async () => ({credential: pat, githubUsername: 'submitted-login', harnessType: 'codex'}),
+                validate       : async () => true
+            },
+            stub      = {
+                clearCredentialField       : async () => {},
+                fire                       : () => {},
+                getReference               : reference => reference === 'agent-form' ? form : null,
+                submitToFleetRegistryBridge: async () => canonical,
+                updateBridgeStatus         : (state, message) => calls.push(['status', state, message]),
+                upsertPublicAgentDefinition: () => calls.push(['upsert'])
+            },
+            // every mutating Storage member records instead of persisting; reads stay inert
+            recorder  = kind => ({
+                clear     : ()     => writes.push([kind, 'clear']),
+                getItem   : ()     => null,
+                key       : ()     => null,
+                length    : 0,
+                removeItem: key    => writes.push([kind, 'removeItem', key]),
+                setItem   : (k, v) => writes.push([kind, 'setItem', k, v])
+            }),
+            kinds     = ['localStorage', 'sessionStorage'],
+            originals = {};
+
+        kinds.forEach(kind => {
+            originals[kind] = Object.getOwnPropertyDescriptor(globalThis, kind);
+            Object.defineProperty(globalThis, kind, {configurable: true, value: recorder(kind)})
+        });
+
+        try {
+            await Accounts.prototype.onSubmitAgentClick.call(stub)
+        } finally {
+            kinds.forEach(kind => Object.defineProperty(globalThis, kind, originals[kind]))
+        }
+
+        // the positive control: the add REALLY completed, so an empty `writes` means something
+        expect(calls, 'the accepted-add path must have run — otherwise the leak check is vacuous')
+            .toEqual([['upsert'], ['status', 'is-live', 'Agent added. PAT was not retained in the app worker.']]);
+
+        expect(writes, 'no credential byte may reach browser storage, from ANY module on this path').toEqual([]);
+        expect(JSON.stringify(writes)).not.toContain(pat)
+    });
+
     test('identity setup writes only the redacted projection to the shared roster', () => {
         const source = fs.readFileSync(viewPath, 'utf8');
 
