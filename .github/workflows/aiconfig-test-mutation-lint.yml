@@ -35,7 +35,8 @@ jobs:
       # safety-critical class, and the scanner it replaces had a reproduced false NEGATIVE — a
       # same-line regex containing a quote desynced the scan and hid a real Class-A mutation. A
       # missed one of those is the orphan-bleed mechanism, so the mask's fidelity is the guard.
-      # --ignore-scripts skips the heavy postinstall we don't need.
+      # --ignore-scripts skips the heavy prepare lifecycle (Husky + generated local configs)
+      # we don't need.
       - name: Install dependencies (acorn — the shared codeMask tokenizer)
         run: npm ci --ignore-scripts
 
