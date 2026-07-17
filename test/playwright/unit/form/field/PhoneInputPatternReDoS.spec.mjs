@@ -39,12 +39,17 @@ test.describe('Neo.form.field.Phone inputPattern — ReDoS-safe', () => {
         const re = inputPattern();
 
         // Trailing `/` is a valid digit-class char (`030/12345678`); a mid-string `(` after the first
-        // run is not (the open paren is only valid at the very start) — both hold identically pre/post-fix.
+        // run is not (the open paren is only valid at the very start). The close-paren may only follow a
+        // PURE-DIGIT run (`(123)456` accepts; `12/34)56` rejects) — the original language distinguishes
+        // where `)` attaches, so a `/` before `)` must reject. An exhaustive ≤7-char audit over the
+        // pattern alphabet (5,380,840 strings) pins this pattern to 0 divergences from the original.
         for (const value of ['1234567890', '+49 30 1234567', '030/12345678', '(123)456-789', '12-34-56', '123/456/789', '+1', '0', '12/']) {
             expect(re.test(value), `should accept ${JSON.stringify(value)}`).toBe(true);
         }
 
-        for (const value of ['', 'abc', '12--34', '12  34', '-12', '/12', '+1 (123) 456-789', '+12a', '()12']) {
+        // The final four are the `)`-after-slash divergence class an exhaustive audit surfaced (old rejects,
+        // a merged-run rewrite would wrongly accept) — pinned so the boundary can never silently widen again.
+        for (const value of ['', 'abc', '12--34', '12  34', '-12', '/12', '+1 (123) 456-789', '+12a', '()12', '12/34)56', '0/)', '(030/1234)567', '12/34)']) {
             expect(re.test(value), `should reject ${JSON.stringify(value)}`).toBe(false);
         }
     });
