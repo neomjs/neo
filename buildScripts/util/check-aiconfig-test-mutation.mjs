@@ -226,9 +226,12 @@ function main() {
         process.exit(1);
     }
 
-    // Minimal argv parse — no external deps, so the standalone CI workflow runs without `npm install`
-    // (the dependency-free pattern the other lint workflows follow). lint-staged passes staged paths as
-    // positional args; `--quiet` suppresses the per-violation listing.
+    // Minimal argv parse, hand-rolled because it is five lines and a CLI dependency would cost more
+    // than it saves — NOT because this workflow avoids `npm install`. It no longer does: `codeMask`
+    // imports acorn, so the workflow installs, like `jsdoc-type-lint`, `ticket-archaeology-lint`,
+    // `tree-json-lint` and `config-template-ssot-lint` already did. (The claim previously stated
+    // here — that the other lint workflows are dependency-free — was false when written.)
+    // lint-staged passes staged paths as positional args; `--quiet` suppresses the per-violation listing.
     const rawArgv   = process.argv.slice(2),
           quiet     = rawArgv.includes('-q') || rawArgv.includes('--quiet'),
           argvFiles = rawArgv.filter(arg => !arg.startsWith('-'));
