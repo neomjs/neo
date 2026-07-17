@@ -383,17 +383,23 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
             inheritanceChain: '[]'
         }], capture);
 
+        // The query path-matches the whole `ai/services/graph` dir, so the lexical rescue boosts every file in it;
+        // the final list is score-sorted then capped at `limit` (QueryService L235). The semantic top-k is stubbed
+        // above (the "miss" the rescue is proving it recovers from), so `limit` only sizes the final rescued set: it
+        // must exceed the rescued dir plus the cross-dir anchors asserted below, or a boundary anchor is evicted and
+        // this fails for whoever adds the next graph file. Derive the dir size instead of hardcoding a budget — a
+        // literal is calibrated against one moment's file count and decays silently from there. The headroom counts
+        // rows this test itself enumerates (three asserted anchors + two stubbed hits + spare), so unlike the dir
+        // size it changes only when someone edits this test.
+        const
+            crossDirAnchorHeadroom = 8,
+            graphDirFileCount      = (await fs.readdir(path.resolve('ai/services/graph')))
+                .filter(name => name.endsWith('.mjs')).length;
+
         const result = await QueryService.queryDocuments({
-            query: 'Neo graph database HybridRAG mutate_frontier Dream Pipeline Gemma4 31B graph processing ai/services/graph sandman_handoff.md',
-            type : 'all',
-            // The query path-matches the whole `ai/services/graph` dir, so the lexical rescue boosts every file in
-            // it; the final list is score-sorted then capped at `limit` (QueryService L235). The semantic top-k is
-            // stubbed above (the "miss" the rescue is proving it recovers from), so `limit` only sizes the final
-            // rescued set — it must exceed the graph dir size + the cross-dir anchors (e.g. memory-core
-            // GraphService.mjs), else simply adding a graph file evicts a boundary anchor. The graph dir has grown
-            // to 23 `.mjs` files; with the rescue now collecting the full dir (QueryService inner limit), the
-            // final cap must exceed the full rescued set (dir + cross-dir anchors), so this stresses at 40.
-            limit          : 40,
+            query          : 'Neo graph database HybridRAG mutate_frontier Dream Pipeline Gemma4 31B graph processing ai/services/graph sandman_handoff.md',
+            type           : 'all',
+            limit          : graphDirFileCount + crossDirAnchorHeadroom,
             includeMetadata: true
         });
         const sources = result.results.map(item => item.source);
