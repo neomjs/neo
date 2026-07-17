@@ -55,6 +55,13 @@ const
 const LANE_CLAIM_SUBJECT = /^\s*\[lane-claim\]/i;
 
 /**
+ * The principal classes an AgentIdentity node may carry in `properties.accountType`. Anything
+ * outside this set — including an absent field — resolves to `'unclassified'`, never inferred.
+ * `'human'` is the operator-steering class: its messages default to durable-quiet delivery.
+ */
+const KNOWN_PRINCIPAL_CLASSES = new Set(['agent', 'human', 'system']);
+
+/**
  * @summary Extracts a GitHub pull request number from a ticket-style related id.
  * @param {String} ticket Related ticket id such as `#<number>`.
  * @returns {Number|null}
@@ -294,6 +301,26 @@ function setRecordProperties(record, properties) {
 }
 
 /**
+ * @summary Resolves the sender's server-stamped principal class from the identity graph node —
+ * the write-time authority for the `senderPrincipalClass` stamp and the operator-steering
+ * delivery-class derivation. Reads `properties.accountType` off the sender's AgentIdentity node
+ * (hydrating the vicinity first so a fresh process sees peer-seeded identities); an unknown or
+ * absent class resolves to `'unclassified'` — the class is never caller-supplied and never
+ * inferred from message content, so it cannot be forged through the compose path.
+ * @param {Object} db The graph database (GraphService.requireDb result).
+ * @param {String} sentBy Canonical `@`-form sender identity node id.
+ * @returns {String} One of `'agent' | 'human' | 'system' | 'unclassified'`.
+ * @private
+ */
+function resolveSenderPrincipalClass(db, sentBy) {
+    db.getAdjacentNodes(sentBy, 'outbound');
+
+    const accountType = db.nodes.get(sentBy)?.properties?.accountType;
+
+    return KNOWN_PRINCIPAL_CLASSES.has(accountType) ? accountType : 'unclassified'
+}
+
+/**
  * @summary True for intentionally mailbox-only wake suppression cases whose recipients should
  * pick the message up through `list_messages`, not through an interrupt wake.
  * @param {Object} args
@@ -329,11 +356,14 @@ function isAllowedWakeSuppression({subject = '', taggedConcepts = [], to}) {
  * @param {String} args.priority
  * @param {String[]} args.taggedConcepts
  * @param {Object} [args.task]
+ * @param {String} [args.senderPrincipalClass='unclassified'] Server-stamped sender class; the
+ *   `'human'` (operator-steering) class may always suppress — durable-quiet IS its default mode,
+ *   per the operator's own datum that a late wake is noise, not steering.
  * @returns {String|null}
  * @private
  */
-function getWakeSuppressionRisk({wakeSuppressed, to, subject = '', priority = 'normal', taggedConcepts = [], task}) {
-    if (!wakeSuppressed || isAllowedWakeSuppression({subject, taggedConcepts, to})) {
+function getWakeSuppressionRisk({wakeSuppressed, to, subject = '', priority = 'normal', taggedConcepts = [], task, senderPrincipalClass = 'unclassified'}) {
+    if (!wakeSuppressed || senderPrincipalClass === 'human' || isAllowedWakeSuppression({subject, taggedConcepts, to})) {
         return null;
     }
 
@@ -1195,13 +1225,18 @@ class MailboxService extends Base {
      * @param {String[]} [args.relatedSessions] Array of session IDs related to this message
      * @param {String[]} [args.relatedTickets] Array of ticket IDs referenced
      * @param {String} [args.inReplyTo] Message ID this replies to
-     * @param {String} [args.priority='normal'] Message priority ('low', 'normal', or 'high')
+     * @param {String} [args.priority] Message priority ('low', 'normal', or 'high'). Defaults per
+     *   sender principal class: `'high'` for the `'human'` (operator-steering) class — turn-start
+     *   drain-ordering metadata — `'normal'` otherwise.
      * @param {String} [args.partOfThread] Thread ID
      * @param {String[]} [args.taggedConcepts] Array of concept IDs tagged
-     * @param {Boolean} [args.wakeSuppressed=false] Persist the message without emitting `SENT_TO_ME`
+     * @param {Boolean} [args.wakeSuppressed] Persist the message without emitting `SENT_TO_ME`
      *   wake events. Intended for mailbox-only handovers such as session-sunset self-DMs that must be
      *   consumed by the next boot, not injected back into the active sender harness. Known-actionable
-     *   direct lifecycle messages reject wake suppression before persistence.
+     *   direct lifecycle messages reject wake suppression before persistence. Defaults per sender
+     *   principal class: the `'human'` (operator-steering) class defaults to `true` — durable-quiet
+     *   delivery, the sender electing a wake per message by passing `false` — every other class
+     *   defaults to `false` (wake) exactly as before.
      * @param {Object} [args.task] Optional A2A Task envelope payload. Caller fields are cloned, then
      *   the server overwrites `task.assignee`: a direct AgentIdentity recipient is bound immediately;
      *   a broadcast remains `null` until an eligible recipient wins the atomic claim. The top-level
@@ -1211,7 +1246,7 @@ class MailboxService extends Base {
      *   {@link https://a2a-protocol.org/latest/specification/} for the canonical Task envelope.
      * @returns {Promise<Object>}
      */
-    async addMessage({ to, subject, body, originSessionId, relatedSessions = [], relatedTickets = [], inReplyTo, priority = 'normal', partOfThread, taggedConcepts = [], wakeSuppressed = false, task }) {
+    async addMessage({ to, subject, body, originSessionId, relatedSessions = [], relatedTickets = [], inReplyTo, priority = null, partOfThread, taggedConcepts = [], wakeSuppressed = null, task }) {
         const db             = GraphService.requireDb('MailboxService.addMessage');
         const preNormalizeTo = to; // diagnostic payload captures caller-supplied target
         const boundSender    = RequestContextService.getAgentIdentityNodeId();
@@ -1222,6 +1257,16 @@ class MailboxService extends Base {
         // Canonical normalized isolation key for the user_id column. These message nodes/edges are
         // sharedEntity (RLS-moot), but keep the column single-form; `from: sentBy` stays the @-form label.
         const senderUserId = normalizeUserId(sentBy);
+
+        // The server-stamped principal class — resolved from the sender's identity node, never from
+        // caller input, so the operator-steering delivery class cannot be forged through compose.
+        // 'human' inverts the delivery defaults: durable-quiet (wake is the sender's per-message
+        // election, never the default) and priority-high as turn-start drain-ordering metadata.
+        const senderPrincipalClass = resolveSenderPrincipalClass(db, sentBy),
+              operatorSteering     = senderPrincipalClass === 'human';
+
+        priority       = priority       ?? (operatorSteering ? 'high' : 'normal');
+        wakeSuppressed = wakeSuppressed ?? operatorSteering;
 
         // Canonicalize addressing to match the seeded AgentIdentity graph-node IDs. Upstream tool-
         // schema wording exposes the `'AGENT:@login'` prefixed form; the seed uses bare `@login`.
@@ -1324,7 +1369,7 @@ class MailboxService extends Base {
 
         taggedConcepts = canonicalizeTaggedConceptIds(taggedConcepts);
 
-        const wakeSuppressionRisk = getWakeSuppressionRisk({wakeSuppressed, to, subject, priority, taggedConcepts, task});
+        const wakeSuppressionRisk = getWakeSuppressionRisk({wakeSuppressed, to, subject, priority, taggedConcepts, task, senderPrincipalClass});
 
         if (wakeSuppressionRisk) {
             throw new Error(`Cannot suppress wake for ${wakeSuppressionRisk}. Omit wakeSuppressed or set it to false; mailbox-only suppression is reserved for awareness/FYI, session-sunset handover, lead-role baton, and audit-alert messages.`);
@@ -1340,11 +1385,15 @@ class MailboxService extends Base {
         // See https://a2a-protocol.org/latest/specification/ for the canonical envelope shape.
         const messageProperties = {
             subject,
-            bodyText      : body,
+            bodyText: body,
             priority,
-            sentAt        : timestamp,
-            readAt        : null,
-            from          : sentBy,
+            sentAt  : timestamp,
+            readAt  : null,
+            from    : sentBy,
+            // Write-time stamp (rides the WAL + graph projection): the read path projects THIS
+            // field or 'unclassified' — it never re-resolves the sender, so pre-stamp legacy rows
+            // stay honestly unclassified and a later node edit cannot rewrite message provenance.
+            senderPrincipalClass,
             to,
             inReplyTo     : inReplyTo || null,
             partOfThread  : partOfThread || null,
@@ -1872,7 +1921,9 @@ class MailboxService extends Base {
                         sentAt   : messageNode.properties.sentAt,
                         readAt,
                         from     : sentByNodeId,
-                        to       : sentToNodeId
+                        // The write-time stamp, or the honest absent-marker — never inferred at read.
+                        senderPrincipalClass: messageNode.properties.senderPrincipalClass ?? 'unclassified',
+                        to                  : sentToNodeId
                     };
                     if (messageNode.properties.task !== undefined) summary.task = messageNode.properties.task;
                     if (messageNode.properties.wakeSuppressed) summary.wakeSuppressed = true;
@@ -1982,7 +2033,9 @@ class MailboxService extends Base {
             sentAt            : messageNode.properties.sentAt,
             readAt            : getReadAtForMessage(messageNode, deliveryEdge),
             from              : sentBy,
-            to                : sentTo
+            // Same stamp-or-unclassified contract as the listMessages rows — one read-path rule.
+            senderPrincipalClass: messageNode.properties.senderPrincipalClass ?? 'unclassified',
+            to                  : sentTo
         };
         if (messageNode.properties.task !== undefined) result.task = messageNode.properties.task;
         if (messageNode.properties.wakeSuppressed) result.wakeSuppressed = true;
