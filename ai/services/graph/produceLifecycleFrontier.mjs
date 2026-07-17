@@ -30,12 +30,24 @@ import {collectLifecycleItems}  from './lifecycleAdmission.mjs';
 export const LIFECYCLE_SOURCES = Object.freeze(['pull-requests', 'tasks', 'messages']);
 
 /**
- * @summary Runs one injected source read, converting a failure into a named degradation rather than a
- * thrown pass.
+ * @summary The only bindings that may carry a lifecycle overlay. Everything else — absent, inferred,
+ * conflicted, or simply unrecognized — is unattested and reads nothing.
+ * @type {Set<String>}
+ */
+const ATTESTED_RESOLUTIONS = Object.freeze(new Set(['agent-instance', 'agent']));
+
+/**
+ * @summary Runs one injected source read, converting a failure OR an unusable answer into a named
+ * degradation rather than a thrown pass or a false emptiness.
  *
  * A source read is impure and may fail for reasons that say nothing about the agent's obligations (a
  * rate limit, a cold service). Losing the other sources to it would turn a partial outage into a false
  * "nothing awaits you", so the failure is contained and named here.
+ *
+ * A source that returns something other than a list of rows is degraded, NOT empty. Coercing a
+ * malformed answer to `[]` would launder "I could not read this" into "there is nothing here" — the one
+ * wrong answer this surface can give, and the exact defect the module contract forbids. An unusable
+ * answer is an unknown, and only the source's own shape can distinguish it from a real absence.
  *
  * @param {String} name The source name recorded in coverage.
  * @param {Function} read `async () => rows`.
@@ -45,7 +57,16 @@ async function readSource(name, read) {
     try {
         const rows = await read();
 
-        return {name, rows: Array.isArray(rows) ? rows : [], degraded: false, reason: null}
+        if (!Array.isArray(rows)) {
+            return {
+                name,
+                rows    : [],
+                degraded: true,
+                reason  : `${name}: source returned ${rows === null ? 'null' : typeof rows}, not a row list`
+            }
+        }
+
+        return {name, rows, degraded: false, reason: null}
     } catch (error) {
         return {
             name,
@@ -90,18 +111,25 @@ export async function produceLifecycleFrontier({scope, sources, now, ttlMs, omit
     const capturedAt = capturedDate.toISOString(),
           expiresAt  = new Date(capturedDate.getTime() + ttlMs).toISOString();
 
-    // Never-foreign: an unattested binding short-circuits BEFORE any read. Filtering foreign rows after
-    // the fact would mean the obligations were already in memory, one bug away from being rendered.
-    if (scope?.resolution === 'omitted') {
+    // Never-foreign: anything that is not a POSITIVELY attested binding short-circuits before any read.
+    //
+    // The gate is an allow-list, not a check for one known-bad value. Testing `resolution === 'omitted'`
+    // would let every other non-attested category — inferred, conflicted, absent, or a value this
+    // version does not recognize — reach the source reads and be rejected only downstream, after
+    // foreign-capable obligations were already in memory. Rejecting late is not never-foreign; it is
+    // filtering, which is precisely what this contract forbids.
+    const attested = ATTESTED_RESOLUTIONS.has(scope?.resolution) && typeof scope?.agentId === 'string' && scope.agentId.length > 0;
+
+    if (!attested) {
         return buildLifecycleFrontier({
-            scope,
+            scope          : {...scope, resolution: 'omitted'},
             status         : 'missing',
             capturedAt,
             sourceWatermark: capturedAt,
             expiresAt,
             coverage       : {sources: [], degradedSources: []},
             items          : [],
-            omittedReason  : omittedReason || 'unattested-binding'
+            omittedReason  : omittedReason || `unattested-binding: ${scope?.resolution ?? 'absent'}`
         })
     }
 

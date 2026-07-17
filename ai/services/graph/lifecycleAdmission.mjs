@@ -22,6 +22,43 @@
  */
 
 /**
+ * @summary Returns a PR-derived clock only when the source proves it belongs to the CURRENT head.
+ *
+ * Every PR-derived row resets on head change. A stateless predicate cannot *perform* that reset — it
+ * has no memory of the previous head — so it can only *verify* it, and only if the source states which
+ * head the clock was started for. Without that provenance the predicate would copy a clock from three
+ * pushes ago and present it as the current head's, which is a confidently wrong timestamp: a peer reads
+ * "blocked for 6 hours" about code that has existed for 30 seconds.
+ *
+ * A missing or stale-provenance clock is a SOURCE CONTRACT violation, not a non-admission: the row is
+ * genuinely actionable, so silently dropping it would hide an obligation, and admitting it with an
+ * unprovable clock would fabricate one. Failing loud surfaces the wiring gap instead of choosing
+ * between two wrong answers.
+ *
+ * @param {Object} pr Normalized PR record.
+ * @param {String} field The clock field (`repairActionableSince` / `reviewableSince` / `reviewRequestedSince`).
+ * @returns {String} The clock, proven current-head.
+ * @throws {TypeError} When the clock is absent, or was measured against a different head.
+ */
+export function resolveHeadScopedClock(pr, field) {
+    const clock        = pr?.[field],
+          clockHeadSha = pr?.[`${field}HeadSha`];
+
+    if (typeof clock !== 'string' || clock.length === 0) {
+        throw new TypeError(`[lifecycleAdmission] ${field} is required on PR ${pr?.id} — a row without its clock cannot be ordered`)
+    }
+
+    if (clockHeadSha !== pr?.headSha) {
+        throw new TypeError(
+            `[lifecycleAdmission] ${field} on PR ${pr?.id} was measured at head ${clockHeadSha ?? 'unknown'} but the current head is ${pr?.headSha}; ` +
+            'the source must reset PR-derived clocks on head change and state the head each clock belongs to'
+        )
+    }
+
+    return clock
+}
+
+/**
  * @summary True when a review decision closes the CURRENT head.
  *
  * A review is only closing if it reviewed the head that exists now: a verdict attached to an older
@@ -64,13 +101,37 @@ export function allRequiredChecksPass(pr) {
 }
 
 /**
+ * @summary Resolves why an own PR needs repair, or `null` when it does not.
+ *
+ * Extracted so stage 1 and stage 2 read the SAME predicate rather than two hand-kept-in-sync
+ * conditions. Mutual exclusion asserted in prose is not mutual exclusion: a merge-conflicted PR with
+ * green required checks satisfied "needs repair" AND "cleanly reviewable" simultaneously, because each
+ * stage tested a different subset of the blockers.
+ *
+ * @param {Object} pr Normalized own-PR record.
+ * @returns {String|null} `changes-requested` | `failed-required-check` | `merge-conflict` | null.
+ */
+export function resolveRepairReason(pr) {
+    const changesRequested = (pr?.reviews || []).some(review =>
+        review.state === 'CHANGES_REQUESTED' && review.commitSha === pr.headSha
+    );
+
+    if (changesRequested)         return 'changes-requested';
+    if (hasFailedRequiredCheck(pr)) return 'failed-required-check';
+    if (pr?.mergeable === false)  return 'merge-conflict';
+
+    return null
+}
+
+/**
  * @summary Stage 1 — own-PR repair: the current head carries `CHANGES_REQUESTED`, a failed required
  * check, or a merge conflict.
  *
  * This outranks every other stage because it blocks a lane the agent already owns.
  *
  * `repairActionableSince` belongs to the CURRENT head: the clock starts when THIS head first satisfied
- * a repair predicate, not from whatever the PR looked like three pushes ago.
+ * a repair predicate, not from whatever the PR looked like three pushes ago — see
+ * {@link resolveHeadScopedClock}, which verifies that rather than assuming it.
  *
  * @param {Object} params
  * @param {Object} params.pr Normalized own-PR record.
@@ -80,15 +141,9 @@ export function allRequiredChecksPass(pr) {
 export function admitOwnPrRepair({pr, agentId} = {}) {
     if (!pr || pr.authorId !== agentId || pr.state !== 'OPEN' || pr.isDraft) return null;
 
-    const changesRequested = (pr.reviews || []).some(review =>
-              review.state === 'CHANGES_REQUESTED' && review.commitSha === pr.headSha
-          ),
-          failedCi   = hasFailedRequiredCheck(pr),
-          unmergeable = pr.mergeable === false;
+    const reason = resolveRepairReason(pr);
 
-    if (!changesRequested && !failedCi && !unmergeable) return null;
-
-    const reason = changesRequested ? 'changes-requested' : (failedCi ? 'failed-required-check' : 'merge-conflict');
+    if (!reason) return null;
 
     return {
         id             : `own-pr-repair:${pr.id}`,
@@ -98,7 +153,7 @@ export function admitOwnPrRepair({pr, agentId} = {}) {
         source         : 'github-workflow',
         subjectId      : pr.id,
         headSha        : pr.headSha,
-        actionableSince: pr.repairActionableSince,
+        actionableSince: resolveHeadScopedClock(pr, 'repairActionableSince'),
         checkedAt      : pr.checkedAt,
         citations      : [pr.url].filter(Boolean)
     }
@@ -120,6 +175,10 @@ export function admitOwnPrRepair({pr, agentId} = {}) {
  */
 export function admitOwnPrReviewerRouting({pr, agentId} = {}) {
     if (!pr || pr.authorId !== agentId || pr.state !== 'OPEN' || pr.isDraft) return null;
+    // The exclusion is structural, not documented: anything stage 1 admits is a lane the agent must
+    // repair, and a PR needing repair is not awaiting a reviewer. Testing only the checks would let a
+    // merge-conflicted PR with green checks enter BOTH stages.
+    if (resolveRepairReason(pr))                                             return null;
     if (!allRequiredChecksPass(pr))                                          return null;
     if ((pr.reviewRequests || []).length > 0)                                return null;
     if (hasCurrentHeadClosingReview(pr))                                     return null;
@@ -132,7 +191,7 @@ export function admitOwnPrReviewerRouting({pr, agentId} = {}) {
         source         : 'github-workflow',
         subjectId      : pr.id,
         headSha        : pr.headSha,
-        actionableSince: pr.reviewableSince,
+        actionableSince: resolveHeadScopedClock(pr, 'reviewableSince'),
         checkedAt      : pr.checkedAt,
         citations      : [pr.url].filter(Boolean)
     }
@@ -147,17 +206,13 @@ export function admitOwnPrReviewerRouting({pr, agentId} = {}) {
  * @returns {Object|null}
  */
 export function admitRequestedReview({pr, agentId} = {}) {
-    if (!pr || pr.state !== 'OPEN' || pr.isDraft)                       return null;
-    if (!(pr.reviewRequests || []).includes(agentId))                   return null;
-    // A verdict this agent already gave on the CURRENT head discharges the request; an older-head
-    // verdict does not, because the code changed underneath it.
-    const closedByMe = (pr.reviews || []).some(review =>
-        review.authorId === agentId &&
-        (review.state === 'APPROVED' || review.state === 'CHANGES_REQUESTED') &&
-        review.commitSha === pr.headSha
-    );
-
-    if (closedByMe) return null;
+    if (!pr || pr.state !== 'OPEN' || pr.isDraft)     return null;
+    if (!(pr.reviewRequests || []).includes(agentId)) return null;
+    // Closure is defined by the HEAD, not by the author of the verdict: a decision on the current head
+    // closes it, and a decision on an older head cannot, because the code changed underneath. Adding an
+    // author-is-me restriction here invented a rule the contract does not have — it kept a request live
+    // after a peer had already closed the current head, manufacturing an obligation.
+    if (hasCurrentHeadClosingReview(pr))              return null;
 
     return {
         id             : `requested-review:${pr.id}`,
@@ -167,7 +222,7 @@ export function admitRequestedReview({pr, agentId} = {}) {
         source         : 'github-workflow',
         subjectId      : pr.id,
         headSha        : pr.headSha,
-        actionableSince: pr.reviewRequestedSince,
+        actionableSince: resolveHeadScopedClock(pr, 'reviewRequestedSince'),
         checkedAt      : pr.checkedAt,
         citations      : [pr.url].filter(Boolean)
     }
@@ -217,14 +272,20 @@ export function admitClaimedTask({task, agentId, actionableStates = ACTIONABLE_T
  * `to === agentId` excludes broadcasts structurally: a broadcast is awareness, and treating it as an
  * obligation would make every peer's announcement someone else's todo.
  *
+ * Removal is not only reading. An archived message has been dispositioned, and a retracted one was
+ * withdrawn by its sender — both are unread forever, so keying admission on `readAt` alone would pin
+ * them to the frontier permanently. A row that cannot be cleared teaches the reader to ignore the
+ * surface, which costs more than the row was ever worth.
+ *
  * @param {Object} params
- * @param {Object} params.message Normalized message `{messageId, to, readAt, sentAt}`.
+ * @param {Object} params.message Normalized message `{messageId, to, readAt, archivedAt, retractedAt, sentAt}`.
  * @param {String} params.agentId The consuming agent.
  * @returns {Object|null}
  */
 export function admitDirectMessage({message, agentId} = {}) {
-    if (!message || message.to !== agentId) return null;
-    if (message.readAt)                     return null;
+    if (!message || message.to !== agentId)       return null;
+    if (message.readAt)                           return null;
+    if (message.archivedAt || message.retractedAt) return null;
 
     return {
         id             : `direct-message:${message.messageId}`,

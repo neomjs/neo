@@ -229,6 +229,13 @@ export function buildLifecycleFrontier({
 /**
  * @summary Consumer-side guard: validates a frontier WITHOUT throwing, so a reader degrades to bare
  * policy rather than crashing on a torn or legacy envelope.
+ *
+ * Validates the WHOLE contract, not the fields that happen to be interesting. A guard that passes a
+ * structurally incomplete envelope is worse than no guard: the reader believes it validated, then acts
+ * on a frontier with no capture time (it cannot tell stale from current), no expiry (it cannot tell
+ * expired from live), or no scope (it cannot tell whose obligations these are). Each omission converts
+ * a detectable tear into a confident wrong answer — so every field the producer emits is required here.
+ *
  * @param {*} frontier The object to validate (may be anything).
  * @returns {{valid: Boolean, errors: String[]}}
  */
@@ -246,6 +253,37 @@ export function validateLifecycleFrontier(frontier) {
     }
     if (frontier.notAuthority !== true) {
         errors.push('notAuthority must be true')
+    }
+
+    // Without these a reader cannot distinguish stale from current, or expired from live — the two
+    // judgements a perishable answer exists to support.
+    for (const field of ['capturedAt', 'sourceWatermark', 'expiresAt']) {
+        if (typeof frontier[field] !== 'string' || frontier[field].length === 0) {
+            errors.push(`${field} is required`)
+        }
+    }
+
+    // Without a resolved scope a reader cannot tell whose obligations it is holding, which is the one
+    // question never-foreign exists to answer.
+    if (!frontier.scope || typeof frontier.scope !== 'object' || Array.isArray(frontier.scope)) {
+        errors.push('scope is required')
+    } else if (!LIFECYCLE_SCOPE_RESOLUTIONS.has(frontier.scope.resolution)) {
+        errors.push(`scope.resolution must be one of ${[...LIFECYCLE_SCOPE_RESOLUTIONS].join(', ')}`)
+    } else if (frontier.scope.resolution !== 'omitted' &&
+               (typeof frontier.scope.agentId !== 'string' || frontier.scope.agentId.length === 0)) {
+        errors.push('an attested scope must carry a non-empty agentId')
+    }
+
+    // Without coverage a degraded read is indistinguishable from a complete one.
+    if (!frontier.coverage || typeof frontier.coverage !== 'object' || Array.isArray(frontier.coverage)) {
+        errors.push('coverage is required')
+    } else {
+        if (!Array.isArray(frontier.coverage.sources)) {
+            errors.push('coverage.sources must be an array')
+        }
+        if (!Array.isArray(frontier.coverage.degradedSources)) {
+            errors.push('coverage.degradedSources must be an array')
+        }
     }
 
     const items = Array.isArray(frontier.items) ? frontier.items : null;

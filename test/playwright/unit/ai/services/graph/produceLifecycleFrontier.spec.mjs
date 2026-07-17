@@ -33,17 +33,18 @@ test.describe('produceLifecycleFrontier — injected source reads into one hones
 
     // A PR whose CURRENT head carries CHANGES_REQUESTED — stage 1, own-PR repair.
     const repairPr = {
-        id                   : 'pr-15264',
-        authorId             : agent,
-        state                : 'OPEN',
-        isDraft              : false,
-        headSha              : 'abc123',
-        mergeable            : true,
-        reviews              : [{state: 'CHANGES_REQUESTED', commitSha: 'abc123'}],
-        checks               : [{name: 'unit', required: true, conclusion: 'SUCCESS'}],
-        repairActionableSince: '2026-07-16T11:00:00.000Z',
-        checkedAt            : '2026-07-16T12:00:00.000Z',
-        url                  : 'https://github.com/neomjs/neo/pull/15264'
+        id                          : 'pr-15264',
+        authorId                    : agent,
+        state                       : 'OPEN',
+        isDraft                     : false,
+        headSha                     : 'abc123',
+        mergeable                   : true,
+        reviews                     : [{state: 'CHANGES_REQUESTED', commitSha: 'abc123'}],
+        checks                      : [{name: 'unit', required: true, conclusion: 'SUCCESS'}],
+        repairActionableSince       : '2026-07-16T11:00:00.000Z',
+        repairActionableSinceHeadSha: 'abc123',
+        checkedAt                   : '2026-07-16T12:00:00.000Z',
+        url                         : 'https://github.com/neomjs/neo/pull/15264'
     };
 
     const sources = (overrides = {}) => ({
@@ -143,6 +144,64 @@ test.describe('produceLifecycleFrontier — injected source reads into one hones
         expect(frontier.status).toBe('empty');
         expect(frontier.items).toEqual([]);
         expect(frontier.coverage.degradedSources).toEqual([]);
+    });
+
+    test('a MALFORMED source answer degrades — it is never laundered into healthy emptiness', async () => {
+        // The reviewer's falsifier: readPullRequests() -> {} previously became rows:[], degraded:false,
+        // status:'empty' — the exact false "nothing awaits you" this module says can never happen.
+        // Coercing an unusable answer to [] turns "I could not read this" into "there is nothing here".
+        for (const bad of [{}, null, 'rows', 42]) {
+            const frontier = await produceLifecycleFrontier({
+                scope  : attested,
+                sources: sources({readPullRequests: async () => bad}),
+                now,
+                ttlMs
+            });
+
+            expect(frontier.status).toBe('degraded');
+            expect(frontier.status).not.toBe('empty');
+            expect(frontier.coverage.degradedSources.join(' ')).toContain('not a row list');
+            expect(frontier.items).toEqual([]);
+        }
+    });
+
+    test('EVERY non-attested resolution reads nothing — the gate is an allow-list, not one bad value', async () => {
+        // The reviewer's falsifier: resolution 'inferred' ran all three reads before the envelope
+        // rejected it. Rejecting after the read is filtering, not never-foreign — the foreign-capable
+        // obligations were already in memory, one bug away from being rendered.
+        for (const resolution of ['inferred', 'conflicted', 'agent-instance-ish', undefined, null]) {
+            let reads = 0;
+
+            const frontier = await produceLifecycleFrontier({
+                scope  : {agentId: agent, harnessInstance: 'h', resolution},
+                sources: {
+                    readPullRequests: async () => { reads++; return [repairPr] },
+                    readTasks       : async () => { reads++; return [] },
+                    readMessages    : async () => { reads++; return [] }
+                },
+                now,
+                ttlMs
+            });
+
+            expect(reads).toBe(0);
+            expect(frontier.status).toBe('missing');
+            expect(frontier.items).toEqual([]);
+            expect(frontier.scope.resolution).toBe('omitted');
+        }
+    });
+
+    test('an attested resolution with NO agentId is unattested — a category alone is not an identity', async () => {
+        let reads = 0;
+
+        const frontier = await produceLifecycleFrontier({
+            scope  : {agentId: '', harnessInstance: 'h', resolution: 'agent-instance'},
+            sources: sources({readPullRequests: async () => { reads++; return [repairPr] }}),
+            now,
+            ttlMs
+        });
+
+        expect(reads).toBe(0);
+        expect(frontier.status).toBe('missing');
     });
 
     test('fails LOUD on an unbound source or a missing clock — a wiring bug is not a degradation', async () => {

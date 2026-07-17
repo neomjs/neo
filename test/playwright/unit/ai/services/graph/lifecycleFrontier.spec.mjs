@@ -173,4 +173,57 @@ test.describe('lifecycleFrontier — lifecycle-frontier.v1 contract', () => {
             'own-pr-repair', 'own-pr-reviewer-routing', 'requested-review', 'claimed-a2a-task', 'direct-message'
         ]);
     });
+
+    test('a STRUCTURALLY INCOMPLETE envelope is rejected — a guard that passes one is worse than none', () => {
+        // The reviewer's falsifier: this shape previously returned valid:true. A reader would then act
+        // on a frontier with no capture time (stale vs current is undecidable), no expiry (expired vs
+        // live is undecidable), and no scope (whose obligations are these?) — each omission converting
+        // a DETECTABLE tear into a confident wrong answer.
+        const {valid, errors} = validateLifecycleFrontier({
+            schemaVersion: 'lifecycle-frontier.v1',
+            status       : 'empty',
+            notAuthority : true,
+            items        : []
+        });
+
+        expect(valid).toBe(false);
+        expect(errors.join(' ')).toContain('capturedAt is required');
+        expect(errors.join(' ')).toContain('sourceWatermark is required');
+        expect(errors.join(' ')).toContain('expiresAt is required');
+        expect(errors.join(' ')).toContain('scope is required');
+        expect(errors.join(' ')).toContain('coverage is required');
+    });
+
+    test('the guard rejects a foreign-capable scope and a missing coverage shape, still without throwing', () => {
+        const attestedNoId = validateLifecycleFrontier({
+            schemaVersion  : 'lifecycle-frontier.v1',
+            status         : 'fresh',
+            capturedAt     : '2026-07-16T12:00:00.000Z',
+            sourceWatermark: '2026-07-16T12:00:00.000Z',
+            expiresAt      : '2026-07-16T12:05:00.000Z',
+            scope          : {resolution: 'agent-instance', agentId: null},
+            coverage       : {sources: [], degradedSources: []},
+            items          : [],
+            notAuthority   : true
+        });
+
+        // an attested category with no identity cannot be checked against the reader — reject it
+        expect(attestedNoId.valid).toBe(false);
+        expect(attestedNoId.errors.join(' ')).toContain('attested scope must carry a non-empty agentId');
+
+        const badCoverage = validateLifecycleFrontier({
+            schemaVersion  : 'lifecycle-frontier.v1',
+            status         : 'degraded',
+            capturedAt     : '2026-07-16T12:00:00.000Z',
+            sourceWatermark: '2026-07-16T12:00:00.000Z',
+            expiresAt      : '2026-07-16T12:05:00.000Z',
+            scope          : {resolution: 'omitted', agentId: null},
+            coverage       : {sources: 'all'},
+            items          : [],
+            notAuthority   : true
+        });
+
+        expect(badCoverage.valid).toBe(false);
+        expect(badCoverage.errors.join(' ')).toContain('coverage.sources must be an array');
+    });
 });
