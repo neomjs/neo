@@ -106,7 +106,10 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
         expect(takeover.epoch).toBe(2);
     });
 
-    test('THE FENCING PROPERTY: a stale holder cannot publish after takeover', () => {
+    // NOTE: this asserts EPOCH REJECTION only — one :memory: connection cannot contend with itself,
+    // and the takeover happens before the stale call. The serialization property it was once named for
+    // is proven under a real two-connection race in hookProjectionFence.spec.mjs.
+    test('a stale holder is refused at revalidation after takeover (epoch rejection)', () => {
         const first = acquireProjectionLease({db, targetId, instanceDigest: 'inst-1', now: t0, leaseTtlMs: ttl, mintToken, hashToken});
         seedChannel('computed-route', 'w-1');
 
@@ -121,8 +124,8 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
             writeAtomic: () => { writes++ }
         });
 
-        // The decisive assertion: the stale holder's write NEVER HAPPENS. An epoch carried in the
-        // payload would have let this write land and merely look wrong to a reader afterwards.
+        // The stale holder's write never happens. This is necessary but NOT the fence: an
+        // implementation that revalidated first and renamed afterwards would also pass here.
         expect(writes).toBe(0);
         expect(stale.published).toBe(false);
         expect(stale.reason).toBe('superseded-epoch');
