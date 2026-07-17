@@ -1,5 +1,5 @@
 import { test, expect }  from '@playwright/test';
-import { execSync }      from 'node:child_process';
+import { execFileSync }  from 'node:child_process';
 import path              from 'node:path';
 import fs                from 'node:fs';
 import os                from 'node:os';
@@ -52,9 +52,13 @@ test.describe('check-substrate-size.mjs — combined budgets', () => {
         writeFile('.agents/skills/pr-review/references/pr-review-guide.md', guideBytes);
     };
 
+    // `execFileSync` with an argv array, never `execSync` with an interpolated string: `scriptPath`
+    // is derived from `import.meta.url`, so a repo checked out under a path containing a space or a
+    // shell metacharacter would have the command re-split by the shell. `process.execPath` also pins
+    // the child to the same Node binary running this suite rather than whichever `node` is on PATH.
     const run = () => {
         try {
-            return { status: 0, output: execSync(`node ${scriptPath}`, { cwd: tempDir, encoding: 'utf-8', stdio: 'pipe' }) };
+            return { status: 0, output: execFileSync(process.execPath, [scriptPath], { cwd: tempDir, encoding: 'utf-8', stdio: 'pipe' }) };
         } catch (error) {
             return { status: error.status, output: (error.stdout || '') + (error.stderr || '') };
         }
