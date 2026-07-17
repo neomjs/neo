@@ -136,10 +136,10 @@ test.describe('AgentOS fleet cockpit — the AgentDetail Mailbox tab live (#1527
         // edges are closed, disabled rather than hidden.
         //
         // Asserted via `neo-disabled`: that is the class `component.Base` applies for `disabled`, so
-        // it is what this pane can rely on. NOT `toBeDisabled()` — that matcher asserts a native
-        // `disabled` attribute, which is the Button layer's contract to emit and pin, not this
-        // pane's to depend on. The refusal itself is unit-pinned — the class is the look, the
-        // handler guard is the semantics.
+        // it is what this pane can rely on. NOT `toBeDisabled()` — that matcher accepts both native
+        // `disabled` and `aria-disabled`, so it would prove the announced state without pinning the
+        // cross-component class contract. The refusal itself is unit-pinned — the class is the look,
+        // the handler guard is the semantics.
         await expect(pane.locator('.fm-mailbox-page-next')).toHaveClass(/neo-disabled/);
         await expect(pane.locator('.fm-mailbox-page-prev')).toHaveClass(/neo-disabled/);
 
