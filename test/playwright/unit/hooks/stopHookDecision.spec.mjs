@@ -4,7 +4,9 @@ import {
     classifyPromptingContext,
     decideDeferenceStopHookAction,
     decideStopHookAction,
+    DEFAULT_MIN_COMPLIANT_DRIVES,
     detectAutonomousHandoffPrompt,
+    evaluateCleanTerminalAcceptance,
     extractAutonomousHandoffWindowMs,
     isOperatorDialogueText,
     isOperatorInLoop,
@@ -331,5 +333,117 @@ test.describe('ai/scripts/lifecycle/stopHookDecision — scanHoldLexicon (hold-c
         expect(scanHoldLexicon(null)).toEqual([]);
         expect(scanHoldLexicon(undefined)).toEqual([]);
         expect(scanHoldLexicon(42)).toEqual([]);
+    });
+});
+
+/**
+ * The clean-terminal acceptance seam — the ONE audited autonomous stop. Full condition matrix at
+ * the pure layer (the adapter e2e covers composition): validity, gate hand-off, self-identity
+ * fail-closed, the drive-ratchet, and the operator-turn waiver. The no-hold principle stays the
+ * default: every rejection reason names what to do instead of stopping.
+ */
+test.describe('stopHookDecision — evaluateCleanTerminalAcceptance (the audited autonomous stop)', () => {
+    const nonSelfGate = {ref: '#15274', checkedAt: '2026-07-16T18:00:00Z', nextActor: '@neo-gpt-emmy'},
+          selfGate    = {ref: 'PR #15288', checkedAt: '2026-07-16T18:00:00Z', nextActor: '@neo-fable'},
+          base        = {
+              verdictValid   : true,
+              namedGates     : [nonSelfGate],
+              selfIdentity   : '@neo-fable',
+              compliantDrives: 2
+          };
+
+    test('the accepting shape: valid + ≥1 gate, all non-self + ratchet met + identity known → [clean-terminal]', () => {
+        const result = evaluateCleanTerminalAcceptance(base);
+        expect(result.accept).toBe(true);
+        expect(result.reason).toContain('[clean-terminal]');
+        expect(result.reason).toContain('non-self actors');
+        expect(result.reason).toContain('2 compliant drives');
+
+        // The real harness wiring provides the BARE handle (`NEO_AGENT_IDENTITY=neo-fable`); the
+        // canonical `@`-form gate actor must still read as non-self-vs-self correctly either way.
+        expect(evaluateCleanTerminalAcceptance({...base, selfIdentity: 'neo-fable'}).accept).toBe(true);
+    });
+
+    test('an invalid verdict never accepts — acceptance sits ON TOP of the validator, not beside it', () => {
+        const result = evaluateCleanTerminalAcceptance({...base, verdictValid: false});
+        expect(result.accept).toBe(false);
+        expect(result.reason).toContain('valid lane-state terminal');
+    });
+
+    test('no named gates → no acceptance (nothing handed off is not a clean terminal)', () => {
+        expect(evaluateCleanTerminalAcceptance({...base, namedGates: []}).accept).toBe(false);
+        expect(evaluateCleanTerminalAcceptance({...base, namedGates: 'nope'}).accept).toBe(false);
+    });
+
+    test('a gate without nextActor, or awaiting the agent itself, defeats acceptance (case-insensitive)', () => {
+        expect(evaluateCleanTerminalAcceptance({...base, namedGates: [{ref: '#1', checkedAt: 'now'}]}).accept).toBe(false);
+        expect(evaluateCleanTerminalAcceptance({...base, namedGates: [nonSelfGate, selfGate]}).accept).toBe(false);
+        expect(evaluateCleanTerminalAcceptance({...base, namedGates: [{...selfGate, nextActor: '@NEO-FABLE'}]}).accept).toBe(false);
+        expect(evaluateCleanTerminalAcceptance({...base, namedGates: [{...nonSelfGate, nextActor: '   '}]}).accept).toBe(false);
+        // Cross-form self-detection: a bare `NEO_AGENT_IDENTITY` self vs a canonical `@`-form gate
+        // actor (and the inverse) — without `@`-prefix normalization on BOTH sides, a self-awaiting
+        // gate written in the other form passed as non-self and minted an unearned acceptance.
+        expect(evaluateCleanTerminalAcceptance({...base, selfIdentity: 'neo-fable', namedGates: [selfGate]}).accept).toBe(false);
+        expect(evaluateCleanTerminalAcceptance({...base, namedGates: [{...selfGate, nextActor: 'neo-fable'}]}).accept).toBe(false);
+    });
+
+    test('unknown self-identity fails CLOSED — the edge is opt-in per harness wiring', () => {
+        expect(evaluateCleanTerminalAcceptance({...base, selfIdentity: ''}).accept).toBe(false);
+        expect(evaluateCleanTerminalAcceptance({...base, selfIdentity: undefined}).accept).toBe(false);
+    });
+
+    test('the drive-ratchet: below DEFAULT_MIN_COMPLIANT_DRIVES refuses with the count named', () => {
+        expect(DEFAULT_MIN_COMPLIANT_DRIVES).toBe(2);
+
+        const zero = evaluateCleanTerminalAcceptance({...base, compliantDrives: 0}),
+              one  = evaluateCleanTerminalAcceptance({...base, compliantDrives: 1});
+
+        expect(zero.accept).toBe(false);
+        expect(zero.reason).toContain('0/2 compliant refused drives');
+        expect(one.accept).toBe(false);
+        expect(one.reason).toContain('drive a lane first');
+        // the threshold is tunable at the seam
+        expect(evaluateCleanTerminalAcceptance({...base, compliantDrives: 1, minCompliantDrives: 1}).accept).toBe(true);
+    });
+
+    test('the operator-turn waiver: a live operator turn is turn-taking, not a dodge — ratchet waived', () => {
+        const result = evaluateCleanTerminalAcceptance({...base, compliantDrives: 0, operatorTurnNext: true});
+        expect(result.accept).toBe(true);
+        expect(result.reason).toContain('operator turn next (ratchet waived)');
+        // the waiver does NOT bypass the gate conditions:
+        expect(evaluateCleanTerminalAcceptance({...base, namedGates: [selfGate], compliantDrives: 0, operatorTurnNext: true}).accept).toBe(false);
+    });
+
+    test('decideStopHookAction: an accepted clean terminal ALLOWS with its audit line — even enforcing', () => {
+        const accepted = {accept: true, reason: '[clean-terminal] valid terminal accepted — audited'};
+
+        expect(decideStopHookAction({valid: true, reason: 'ok'}, {enforcing: true, cleanTerminal: accepted}))
+            .toEqual({action: 'allow', reason: accepted.reason});
+        expect(decideStopHookAction({valid: true, reason: 'ok'}, {enforcing: false, cleanTerminal: accepted}).action)
+            .toBe('allow');
+    });
+
+    test('decideStopHookAction: a rejected/absent evaluation changes nothing — block/would-block as before', () => {
+        const rejected = {accept: false, reason: 'drive-ratchet not met'};
+
+        expect(decideStopHookAction({valid: true, reason: 'ok'}, {enforcing: true, cleanTerminal: rejected}).action).toBe('block');
+        expect(decideStopHookAction({valid: true, reason: 'ok'}, {enforcing: true, cleanTerminal: null}).action).toBe('block');
+        // a malformed acceptance object (truthy accept that is not === true) stays a block: fail-closed
+        expect(decideStopHookAction({valid: true, reason: 'ok'}, {enforcing: true, cleanTerminal: {accept: 'yes'}}).action).toBe('block');
+    });
+
+    test('decideStopHookAction: operator dialogue still wins with its own reason (precedence unchanged)', () => {
+        const accepted = {accept: true, reason: '[clean-terminal] x'},
+              result   = decideStopHookAction({valid: true, reason: 'ok'}, {enforcing: true, operatorInLoop: true, cleanTerminal: accepted});
+
+        expect(result.action).toBe('allow');
+        expect(result.reason).toContain('live operator dialogue');
+    });
+
+    test('LANE_STATE_SCHEMA_HINT documents nextActor + the audited acceptance without minting a self-license', () => {
+        expect(LANE_STATE_SCHEMA_HINT).toContain('nextActor');
+        expect(LANE_STATE_SCHEMA_HINT).toContain('[clean-terminal]');
+        expect(LANE_STATE_SCHEMA_HINT).toContain('never self-declarable');
+        expect(LANE_STATE_SCHEMA_HINT).toContain('not a stop-license');
     });
 });

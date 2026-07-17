@@ -17,8 +17,8 @@ export const LANE_STATE_SCHEMA_HINT = `Machine lane-state block to emit with you
 \`\`\`lane-state
 {"wakeDisposition":"awareness","laneContinuation":"next-lane","namedGates":[],"awaitingOwnPrOnly":false}
 \`\`\`
-Validator gotchas: if an own PR is only awaiting merge/review/CI, use laneContinuation "next-lane"; "active-lane" + awaitingOwnPrOnly:true is invalid. Every namedGates[] entry needs a same-turn checkedAt; PR-shaped gates also need same-turn fetch evidence in the tool history; mergeClaim must use field "mergedAt".
-Consumption honesty: namedGates[] is audit/coordination payload (peer-visible gate state; the audit ledger). In autonomous mode it explains the block reason; it is not a stop-license.`;
+Validator gotchas: if an own PR is only awaiting merge/review/CI, use laneContinuation "next-lane"; "active-lane" + awaitingOwnPrOnly:true is invalid. Every namedGates[] entry needs a same-turn checkedAt; PR-shaped gates also need same-turn fetch evidence in the tool history; mergeClaim must use field "mergedAt". Each entry SHOULD carry nextActor ("@peer"|"operator"|"ci") — the non-self party the gate awaits.
+Consumption honesty: namedGates[] is audit/coordination payload (peer-visible gate state; the audit ledger). In autonomous mode it explains the block reason; it is not a stop-license. The hook MAY accept a clean terminal (all gates non-self + the session drive-ratchet met) with a [clean-terminal] audit line — that acceptance is the hook's external call, never self-declarable.`;
 
 /**
  * @summary Compact cross-harness turn-end options hint for Stop-hook injections.
@@ -172,25 +172,119 @@ export function isOperatorInLoop({stopHookActive, promptingText = '', promptingT
 }
 
 /**
+ * The default clean-terminal drive-ratchet: how many compliant refused terminals (each one a real
+ * drive the hook already blocked) must precede an acceptance in the same session chain. 2 keeps
+ * single-fire discipline intact — the first and second valid terminals still refuse and force
+ * drives; the third valid terminal on a fully handed-off board may be accepted. The observed value
+ * inversion (drives 2–4 produced real PRs; 5–9 produced bookkeeping) sits exactly past this point.
+ * @type {Number}
+ */
+export const DEFAULT_MIN_COMPLIANT_DRIVES = 2;
+
+/**
+ * @summary Evaluates the clean-terminal acceptance condition — the ONE edge where an autonomous
+ * chain may end: a valid terminal on a genuinely handed-off board, after the no-hold principle was
+ * demonstrably honored. ALL of:
+ *
+ *  1. the terminal verdict is valid (parse + evidence rules already passed);
+ *  2. at least one named gate exists, and EVERY gate carries a `nextActor` that is a non-empty
+ *     string different from the agent's own identity — a board with no named gates, or any gate
+ *     waiting on the agent itself, is not handed off;
+ *  3. the session drive-ratchet: ≥ `minCompliantDrives` compliant refused terminals already
+ *     occurred in this chain (externally counted — the hook's own audit trail, never self-declared),
+ *     OR `operatorTurnNext` waives the ratchet (a live operator turn is turn-taking, not a dodge);
+ *  4. `selfIdentity` is known — an adapter that cannot name the agent fails CLOSED (no acceptance),
+ *     so the whole edge is opt-in per harness wiring.
+ *
+ * The no-hold PRINCIPLE is untouched: a first valid terminal still refuses (ratchet), unnamed
+ * gates still fail the validator upstream, hold-costume prose still trips its own tripwire. This
+ * targets exactly the infinite re-fire on genuinely-dispatched boards. Pure + total.
+ * @param {Object} input
+ * @param {Boolean} [input.verdictValid=false] The upstream terminal verdict (validity, not a re-check).
+ * @param {Object[]} [input.namedGates=[]] The descriptor's gates: `[{ref, checkedAt, nextActor?, ...}]`.
+ * @param {String} [input.selfIdentity=''] The agent's own handle (e.g. `@neo-fable`); adapter-supplied.
+ * @param {Number} [input.compliantDrives=0] Externally-counted compliant refused terminals this session.
+ * @param {Number} [input.minCompliantDrives=DEFAULT_MIN_COMPLIANT_DRIVES] The ratchet threshold.
+ * @param {Boolean} [input.operatorTurnNext=false] Adapter-computed operator-turn evidence (never descriptor-declared).
+ * @returns {{accept: Boolean, reason: String}} On accept, `reason` is the `[clean-terminal]` audit line.
+ */
+export function evaluateCleanTerminalAcceptance({
+    verdictValid       = false,
+    namedGates         = [],
+    selfIdentity       = '',
+    compliantDrives    = 0,
+    minCompliantDrives = DEFAULT_MIN_COMPLIANT_DRIVES,
+    operatorTurnNext   = false
+} = {}) {
+    if (!verdictValid) {
+        return {accept: false, reason: 'terminal verdict not valid — acceptance requires a valid lane-state terminal'};
+    }
+
+    // Identity comparison is canonical-form-agnostic: gates carry `@`-prefixed canonical actors
+    // (`@neo-fable`) while `NEO_AGENT_IDENTITY` wiring provides the bare handle (`neo-fable`) —
+    // without stripping the prefix on BOTH sides, a self-awaiting gate in canonical form would
+    // pass as non-self and mint an unearned acceptance.
+    const self = typeof selfIdentity === 'string' ? selfIdentity.trim().toLowerCase().replace(/^@/, '') : '';
+    if (!self) {
+        return {accept: false, reason: 'agent identity unknown (no selfIdentity wired) — clean-terminal acceptance is fail-closed'};
+    }
+
+    const gates = Array.isArray(namedGates) ? namedGates : [];
+    if (!gates.length) {
+        return {accept: false, reason: 'no named gates — a board with nothing handed off is not a clean terminal'};
+    }
+
+    for (const gate of gates) {
+        const actor = typeof gate?.nextActor === 'string' ? gate.nextActor.trim().toLowerCase().replace(/^@/, '') : '';
+        if (!actor) {
+            return {accept: false, reason: `named gate ${gate?.ref ?? '(unnamed)'} carries no nextActor — every gate must name the non-self party it awaits`};
+        }
+        if (actor === self) {
+            return {accept: false, reason: `named gate ${gate?.ref ?? '(unnamed)'} awaits the agent itself (${gate.nextActor}) — the board is not handed off`};
+        }
+    }
+
+    if (!operatorTurnNext && compliantDrives < minCompliantDrives) {
+        return {accept: false, reason: `drive-ratchet not met: ${compliantDrives}/${minCompliantDrives} compliant refused drives this session — drive a lane first`};
+    }
+
+    return {
+        accept: true,
+        reason: `[clean-terminal] valid terminal accepted — ${gates.length} gate(s) all awaiting non-self actors, ` +
+            (operatorTurnNext ? 'operator turn next (ratchet waived)' : `${compliantDrives} compliant drives this session`) +
+            '; the boundary is audited, not silent'
+    };
+}
+
+/**
  * @summary Shared no-hold Stop-hook decision. The one voluntary allow is live operator dialogue;
- * every other turn-end is blocked when the harness has a proven block/inject contract, or would-block
- * when dry-run / fail-open transport semantics apply. The `verdict` reason is evidence, not a gate.
+ * the one AUTONOMOUS allow is an adapter-evaluated clean terminal ({@link evaluateCleanTerminalAcceptance}
+ * — valid terminal, fully handed-off gates, drive-ratchet met); every other turn-end is blocked when
+ * the harness has a proven block/inject contract, or would-block when dry-run / fail-open transport
+ * semantics apply. The `verdict` reason is evidence, not a gate.
  * @param {{valid: Boolean, reason: String}} verdict
  * @param {Object} [options]
  * @param {Boolean} [options.enforcing=false]
  * @param {Boolean} [options.operatorInLoop=false]
  * @param {Boolean} [options.blockInjectionSupported=true]
  * @param {String} [options.blockUnsupportedReason='']
+ * @param {{accept: Boolean, reason: String}|null} [options.cleanTerminal=null] The adapter-evaluated
+ * clean-terminal acceptance; only `accept === true` changes the action (an allow with its audit line).
  * @returns {{action: ('allow'|'block'|'would-block'), reason: String}}
  */
 export function decideStopHookAction(verdict, {
     enforcing               = false,
     operatorInLoop          = false,
     blockInjectionSupported = true,
-    blockUnsupportedReason  = ''
+    blockUnsupportedReason  = '',
+    cleanTerminal           = null
 } = {}) {
     if (operatorInLoop) {
         return {action: 'allow', reason: 'live operator dialogue — yielding for the human turn'};
+    }
+
+    if (cleanTerminal?.accept === true) {
+        return {action: 'allow', reason: cleanTerminal.reason};
     }
 
     if (enforcing && blockInjectionSupported) {
