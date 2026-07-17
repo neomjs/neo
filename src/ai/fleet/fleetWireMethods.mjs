@@ -17,14 +17,14 @@
  * R3 read-observe ÷ lifecycle-write seam keeps the daemon-core restart actuator physically OFF this
  * client wire — only advisory reads ride it.
  *
- * `fleetMailboxMirror` carries no mutation verb and its snapshot is body-free. It is a **staged,
- * inert** seam: this transport authenticates nothing and binds no viewer identity, so no admission
- * can be attributed through it — its source is deliberately unwired and every call answers an honest
- * `unavailable`. Admission is the Memory Core primitive's to decide, and it is not being asked yet;
- * the live read waits on authenticated viewer ingress + per-request identity binding. Being on this
- * list is what makes the seam REAL rather than a Node-side method the browser can never name — an
- * allowlist omission fails closed and SILENT, which reads exactly like a wired-but-empty mailbox
- * from the pane's side.
+ * `fleetMailboxMirror` carries no mutation verb and its snapshot is body-free. The transport it
+ * rides is authenticated (Host/Origin/process-bearer gates) and every admitted request executes
+ * under a SERVER-stamped viewer identity — the launch entry wires the source to resolve the bound
+ * viewer from the request context per read, and admission stays the Memory Core primitive's own
+ * fail-closed decision. An entry that has not composed the launch contract leaves the source
+ * unwired, and every call answers an honest `unavailable`. Being on this list is what makes the
+ * seam REAL rather than a Node-side method the browser can never name — an allowlist omission
+ * fails closed and SILENT, which reads exactly like a wired-but-empty mailbox from the pane's side.
  *
  * **Dependency-free by design** — imported by both a Node module and an App-Worker (browser) module,
  * so it MUST NOT pull in the Node-only FleetControlBridge / crypto / fs chain.
