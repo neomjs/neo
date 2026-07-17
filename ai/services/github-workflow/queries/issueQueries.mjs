@@ -317,6 +317,7 @@ export const FETCH_ISSUES_LIST = `
     $cursor: String
     $states: [IssueState!]
     $assignee: String
+    $labels: [String!]
     $maxLabels: Int!
     $maxAssignees: Int!
   ) {
@@ -325,7 +326,7 @@ export const FETCH_ISSUES_LIST = `
         first: $limit
         after: $cursor
         states: $states
-        filterBy: {assignee: $assignee}
+        filterBy: {assignee: $assignee, labels: $labels}
         orderBy: {field: UPDATED_AT, direction: DESC}
       ) {
         totalCount

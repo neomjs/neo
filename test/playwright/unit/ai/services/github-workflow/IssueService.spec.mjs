@@ -91,7 +91,7 @@ test.describe('Neo.ai.services.github-workflow.IssueService — listIssues proje
         });
     });
 
-    test('summary projection omits body after label and assignee filters', async () => {
+    test('summary projection omits body — the projection shapes whatever the server matched', async () => {
         installIssueListStub();
 
         const result = await IssueService.listIssues({
@@ -100,7 +100,10 @@ test.describe('Neo.ai.services.github-workflow.IssueService — listIssues proje
             projection: 'summary'
         });
 
-        expect(result.count).toBe(1);
+        // Both stub rows are returned: the stub IS the server here, and the server decides the match set.
+        // This previously expected 1, which only held because a client-side label pass re-filtered the
+        // server's answer — the very pass whose removal makes the completeness fields honest.
+        expect(result.count).toBe(2);
         expect(result.issues[0]).toEqual({
             number   : 12706,
             title    : 'Add lean projection to GitHub Workflow issue lists',
@@ -157,18 +160,29 @@ test.describe('Neo.ai.services.github-workflow.IssueService — listIssues proje
         // READ, not the MATCHES RETURNED, so an assignee query answered from the 30 most-recently-updated
         // issues and silently dropped the rest — 1 of 9 against live GitHub.
         expect(capture.variables.assignee).toBe('neo-fable');
-        expect(capture.query).toContain('filterBy: {assignee: $assignee}');
+        expect(capture.query).toContain('filterBy: {assignee: $assignee, labels: $labels}');
     });
 
-    test('an unfiltered list passes assignee through as null — a no-op, never a zero-filter', async () => {
+    test('an unfiltered list passes assignee AND labels through as null — a no-op, never a zero-filter', async () => {
         const capture = {};
         installIssueListStub(capture);
 
         const result = await IssueService.listIssues({limit: 10, state: 'open'});
 
-        // Verified against live GitHub: filterBy:{assignee: null} returns every open issue.
+        // Verified against live GitHub: filterBy:{assignee: null} returns every open issue. `labels` must
+        // be null rather than `[]` for the same reason — an empty label list filters everything OUT.
         expect(capture.variables.assignee).toBeNull();
+        expect(capture.variables.labels).toBeNull();
         expect(result.count).toBe(2);
+    });
+
+    test('the label filter is applied SERVER-side too — a comma string becomes a filter list', async () => {
+        const capture = {};
+        installIssueListStub(capture);
+
+        await IssueService.listIssues({limit: 30, state: 'open', labels: 'ai, model-experience'});
+
+        expect(capture.variables.labels).toEqual(['ai', 'model-experience']);
     });
 
     test('the server\'s matches are returned verbatim — no client-side pass may drop one', async () => {
@@ -223,6 +237,65 @@ test.describe('Neo.ai.services.github-workflow.IssueService — listIssues proje
 
         expect(result.truncated).toBe(false);
         expect(result.endCursor).toBeNull();
+    });
+
+    test('a combined assignee+label answer reports completeness for THAT query, not a broader one', async () => {
+        // The defect this witnesses: `totalCount` and `truncated` are facts about the FILTERED connection.
+        // With labels re-filtered client-side, they described the assignee-only query while `count`
+        // described the label-filtered rows — so the response reported the match count of a query the
+        // caller never made, and carried nothing that could reveal the substitution. Both filters now
+        // reach the server, so every number below describes one connection.
+        const capture = {};
+        GraphqlService.query = async (query, variables) => {
+            capture.variables = variables;
+
+            return {
+                repository: {
+                    issues: {
+                        totalCount: 3,
+                        pageInfo  : {hasNextPage: true, endCursor: 'cursor-combined'},
+                        nodes     : [{
+                            number   : 15220,
+                            title    : 'one match of three',
+                            state    : 'OPEN',
+                            createdAt: '2026-07-16T00:00:00Z',
+                            updatedAt: '2026-07-16T00:00:00Z',
+                            url      : 'https://github.com/neomjs/neo/issues/15220',
+                            author   : {login: 'neo-fable'},
+                            labels   : {nodes: [{name: 'ai'}, {name: 'model-experience'}]},
+                            assignees: {nodes: [{login: 'neo-fable'}]}
+                        }]
+                    }
+                }
+            }
+        };
+
+        const result = await IssueService.listIssues({
+            limit   : 1,
+            state   : 'open',
+            assignee: 'neo-fable',
+            labels  : 'ai,model-experience'
+        });
+
+        expect(capture.variables.assignee).toBe('neo-fable');
+        expect(capture.variables.labels).toEqual(['ai', 'model-experience']);
+
+        // 1 of 3 matches for assignee AND labels — not 1 of "3 assigned issues, some unlabelled".
+        expect(result.count).toBe(1);
+        expect(result.totalCount).toBe(3);
+        expect(result.truncated).toBe(true);
+        expect(result.endCursor).toBe('cursor-combined');
+    });
+
+    test('the advertised continuation works — a returned endCursor is accepted back as cursor', async () => {
+        // The response promised `endCursor` was "the cursor for the next page" while the tool surface
+        // declared no cursor input, so an MCP caller could read the continuation and had nowhere to put it.
+        const capture = {};
+        installIssueListStub(capture);
+
+        await IssueService.listIssues({limit: 10, state: 'open', cursor: 'cursor-combined'});
+
+        expect(capture.variables.cursor).toBe('cursor-combined');
     });
 });
 
