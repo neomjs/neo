@@ -40,6 +40,9 @@ test.describe('hookProjection — the lease and the transport, actually composed
           ttl      = 60_000,
           t0       = 1_800_000_000_000;
 
+    // What a reader validates itself against before acting on the projection.
+    const binding = {agentId: '@neo-opus-ada', harnessType: 'claude-code', instanceKeyDigest: 'inst-1'};
+
     const hashToken = raw => `h-${[...String(raw)].reduce((acc, char) => (acc * 31 + char.charCodeAt(0)) >>> 0, 7).toString(16)}`;
 
     let minted = 0;
@@ -112,7 +115,7 @@ test.describe('hookProjection — the lease and the transport, actually composed
         submit('lifecycle-frontier', 'w-2', {schemaVersion: 'lifecycle-frontier.v1', items: [], notAuthority: true});
 
         const lease  = acquireProjectionLease({db, targetId, instanceDigest: 'i1', now: t0, leaseTtlMs: ttl, mintToken, hashToken}),
-              result = publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, hashToken, writeAtomic});
+              result = publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, consumerBinding: binding, hashToken, writeAtomic});
 
         expect(result.published).toBe(true);
 
@@ -124,13 +127,23 @@ test.describe('hookProjection — the lease and the transport, actually composed
 
         // A reader binds to the contract version and needs epoch/time/watermarks to judge what it holds.
         expect(payload.schemaVersion).toBe(PROJECTION_SCHEMA_VERSION);
-        expect(payload.targetId).toBe(targetId);
-        expect(payload.fencingEpoch).toBe(lease.epoch);
-        expect(payload.publishedAt).toBe(t0 + 1);
+        // publication is NESTED per ADR §2.7 — the flat shape my earlier tests blessed was not the contract
+        expect(payload.publication).toEqual({
+            targetId,
+            fencingEpoch      : lease.epoch,
+            generatedAt       : t0 + 1,
+            producerWatermarks: {'computed-route': 'w-1', 'lifecycle-frontier': 'w-2'}
+        });
+        expect(payload.consumerBinding).toEqual(binding);
         expect(payload.notAuthority).toBe(true);
-        expect(payload.sourceWatermarks).toEqual({'computed-route': 'w-1', 'lifecycle-frontier': 'w-2'});
-        expect(payload.degradedChannels).toEqual([]);
-        expect(payload.channels.map(channel => channel.channel)).toEqual(['computed-route', 'lifecycle-frontier']);
+
+        // FIXED SLOTS, not a list: a lifecycle update cannot erase the route and vice versa
+        expect(payload.lifecycleActions.status).toBe('fresh');
+        expect(payload.lifecycleActions.envelope).toEqual({schemaVersion: 'lifecycle-frontier.v1', items: [], notAuthority: true});
+        expect(payload.computedRoute.status).toBe('fresh');
+        expect(payload.computedRoute.envelope).toEqual({schemaVersion: 'computed-route.v1', notAuthority: true});
+        expect(payload.contextViews).toEqual([]);
+        expect(payload.coverage.degradedSources).toEqual([]);
     });
 
     test('a CONTESTED channel publishes as contested — the conflict survives to the reader', () => {
@@ -143,14 +156,15 @@ test.describe('hookProjection — the lease and the transport, actually composed
         submit('lifecycle-frontier', 'w-1', {schemaVersion: 'lifecycle-frontier.v1', items: [{id: 'x'}], notAuthority: true});
 
         const lease = acquireProjectionLease({db, targetId, instanceDigest: 'i1', now: t0, leaseTtlMs: ttl, mintToken, hashToken});
-        publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, hashToken, writeAtomic});
+        publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, consumerBinding: binding, hashToken, writeAtomic});
 
         const payload = JSON.parse(fs.written.get(`${root}/${targetId}/current.json`));
 
         // Reading the row and dropping the conflict column would render a disputed watermark as clean —
         // making the whole conflict mechanism inert.
-        expect(payload.degradedChannels).toEqual(['lifecycle-frontier']);
-        expect(payload.channels[0].conflictReason).toContain('two payloads claim watermark');
+        expect(payload.coverage.degradedSources).toEqual(['lifecycle-frontier']);
+        expect(payload.lifecycleActions.status).toBe('degraded');
+        expect(payload.lifecycleActions.degradedReason).toContain('two payloads claim watermark');
     });
 
     test('ONE unreadable channel does not deny the others — damage is isolated to its own row', () => {
@@ -166,7 +180,7 @@ test.describe('hookProjection — the lease and the transport, actually composed
             .run(targetId, 'lifecycle-frontier');
 
         const lease  = acquireProjectionLease({db, targetId, instanceDigest: 'i1', now: t0, leaseTtlMs: ttl, mintToken, hashToken}),
-              result = publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, hashToken, writeAtomic});
+              result = publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, consumerBinding: binding, hashToken, writeAtomic});
 
         // A bare JSON.parse in a map let one corrupt envelope abort the whole publication — denying the
         // reader a perfectly good computed-route because a DIFFERENT channel was damaged.
@@ -174,16 +188,15 @@ test.describe('hookProjection — the lease and the transport, actually composed
 
         const payload = JSON.parse(fs.written.get(`${root}/${targetId}/current.json`));
 
-        expect(payload.channels.find(channel => channel.channel === 'computed-route').envelope)
-            .toEqual({schemaVersion: 'computed-route.v1', notAuthority: true});
+        expect(payload.computedRoute.envelope).toEqual({schemaVersion: 'computed-route.v1', notAuthority: true});
+        expect(payload.computedRoute.status).toBe('fresh');
 
         // the damaged one is listed as degraded and names why — "this is broken" is a different fact
         // from "this does not exist", and only the first tells the reader to wait rather than act
-        const torn = payload.channels.find(channel => channel.channel === 'lifecycle-frontier');
-
-        expect(torn.envelope).toBeNull();
-        expect(torn.conflictReason).toContain('unreadable envelope');
-        expect(payload.degradedChannels).toEqual(['lifecycle-frontier']);
+        expect(payload.lifecycleActions.envelope).toBeNull();
+        expect(payload.lifecycleActions.status).toBe('degraded');
+        expect(payload.lifecycleActions.degradedReason).toContain('unreadable envelope');
+        expect(payload.coverage.degradedSources).toEqual(['lifecycle-frontier']);
     });
 
     test('a refused publication reaches the transport not at all — no file, no temp debris', () => {
@@ -198,7 +211,7 @@ test.describe('hookProjection — the lease and the transport, actually composed
         // takeover after expiry
         acquireProjectionLease({db, targetId, instanceDigest: 'i2', now: t0 + ttl + 1, leaseTtlMs: ttl, mintToken, hashToken});
 
-        const stale = publishProjection({db, targetId, token: first.token, epoch: first.epoch, clock: () => t0 + ttl + 2, hashToken, writeAtomic});
+        const stale = publishProjection({db, targetId, token: first.token, epoch: first.epoch, clock: () => t0 + ttl + 2, consumerBinding: binding, hashToken, writeAtomic});
 
         expect(stale.published).toBe(false);
         expect(stale.reason).toBe('superseded-epoch');

@@ -84,7 +84,7 @@ test.describe('hookProjectionTransport — derived path, atomic publication', ()
     test('flush precedes rename, and the temp sibling is unique and same-directory', () => {
         const fs = makeFs();
 
-        transport(fs).writeAtomic({targetId: 'abc123', channels: [{channel: 'computed-route'}]});
+        transport(fs).writeAtomic({targetId: 'abc123', envelope: {schemaVersion: 'live-lane-awareness-projection.v1'}});
 
         const ops = fs.calls.map(call => call[0]);
 
@@ -104,20 +104,26 @@ test.describe('hookProjectionTransport — derived path, atomic publication', ()
     test('the payload is written whole, before any rename makes it visible', () => {
         const fs = makeFs();
 
-        transport(fs).writeAtomic({
-            targetId: 'abc123',
-            channels: [{channel: 'lifecycle-frontier', envelope: {items: []}}]
-        });
+        // The transport writes the writer's envelope VERBATIM. Reshaping it here would make the
+        // transport a second, silent author of a contract it does not own.
+        const envelope = {
+            schemaVersion   : 'live-lane-awareness-projection.v1',
+            publication     : {targetId: 'abc123', fencingEpoch: 3, generatedAt: 1, producerWatermarks: {}},
+            lifecycleActions: {status: 'fresh', envelope: {items: []}},
+            notAuthority    : true
+        };
+
+        transport(fs).writeAtomic({targetId: 'abc123', envelope});
 
         const body = JSON.parse(fs.calls.find(call => call[0] === 'write')[2]);
 
-        expect(body).toEqual({channels: [{channel: 'lifecycle-frontier', envelope: {items: []}}]});
+        expect(body).toEqual(envelope);
     });
 
     test('a failed write cleans up its temp sibling and re-throws the ORIGINAL failure', () => {
         const fs = makeFs({writeFileSync: () => { throw new Error('ENOSPC') }});
 
-        expect(() => transport(fs).writeAtomic({targetId: 'abc123', channels: []})).toThrow(/ENOSPC/);
+        expect(() => transport(fs).writeAtomic({targetId: 'abc123', envelope: {}})).toThrow(/ENOSPC/);
 
         // the reader also scans this root, so a failed attempt must not leave debris behind
         expect(fs.calls.some(call => call[0] === 'unlink')).toBe(true);
@@ -131,15 +137,15 @@ test.describe('hookProjectionTransport — derived path, atomic publication', ()
         });
 
         // The caller needs the cause, not the janitor's complaint.
-        expect(() => transport(fs).writeAtomic({targetId: 'abc123', channels: []})).toThrow(/ENOSPC/);
+        expect(() => transport(fs).writeAtomic({targetId: 'abc123', envelope: {}})).toThrow(/ENOSPC/);
     });
 
     test('retries never collide — each attempt gets its own temp sibling', () => {
         const fs = makeFs(),
               tp = transport(fs);
 
-        tp.writeAtomic({targetId: 'abc123', channels: []});
-        tp.writeAtomic({targetId: 'abc123', channels: []});
+        tp.writeAtomic({targetId: 'abc123', envelope: {}});
+        tp.writeAtomic({targetId: 'abc123', envelope: {}});
 
         const temps = fs.calls.filter(call => call[0] === 'write').map(call => call[1]);
 

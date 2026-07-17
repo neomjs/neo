@@ -85,7 +85,7 @@ test.describe('hookProjectionLease — the fence, under a real two-connection ra
         let rivalOutcome = 'never-attempted';
 
         const result = publishProjection({
-            db: holder, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, hashToken,
+            db: holder, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, consumerBinding: {agentId: '@me'}, hashToken,
             // This runs INSIDE the serialized transaction, at exactly the instant the resource is being
             // mutated — the window a successor would have to win for the fence to be fake.
             writeAtomic: () => {
@@ -109,13 +109,14 @@ test.describe('hookProjectionLease — the fence, under a real two-connection ra
         const lease = acquireProjectionLease({db: holder, targetId, instanceDigest: 'i1', now: t0, leaseTtlMs: ttl, mintToken, hashToken});
 
         publishProjection({
-            db         : holder,
+            db             : holder,
             targetId,
-            token      : lease.token,
-            epoch      : lease.epoch,
-            clock      : () => t0 + 1,
+            token          : lease.token,
+            epoch          : lease.epoch,
+            clock          : () => t0 + 1,
+            consumerBinding: {agentId: '@me'},
             hashToken,
-            writeAtomic: () => {}
+            writeAtomic    : () => {}
         });
 
         // Proves the block above was the transaction and not a permanently wedged store — without this,
@@ -136,13 +137,14 @@ test.describe('hookProjectionLease — the fence, under a real two-connection ra
         let writes = 0;
 
         const stale = publishProjection({
-            db         : holder,
+            db             : holder,
             targetId,
-            token      : first.token,
-            epoch      : first.epoch,
-            clock      : () => t0 + ttl + 2,
+            token          : first.token,
+            epoch          : first.epoch,
+            clock          : () => t0 + ttl + 2,
+            consumerBinding: {agentId: '@me'},
             hashToken,
-            writeAtomic: () => { writes++ }
+            writeAtomic    : () => { writes++ }
         });
 
         // the two halves of the fence: blocked while open (above), rejected when superseded (here)

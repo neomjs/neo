@@ -83,21 +83,19 @@ export function makeAtomicProjectionTransport({fs, runtimeRoot, uniqueSuffix} = 
      *
      * @param {Object}   payload
      * @param {String}   payload.targetId Server-derived target id.
-     * @param {Object}   payload.publication The publication envelope (contract version, target, epoch,
-     *   publish time, per-channel watermarks, degraded channels, `notAuthority`).
-     * @param {Object[]} payload.channels The composed channel rows.
+     * @param {Object}   payload.envelope The canonical `live-lane-awareness-projection.v1` envelope.
      * @returns {{file: String}}
      */
-    const writeAtomic = ({targetId, publication, channels} = {}) => {
+    const writeAtomic = ({targetId, envelope} = {}) => {
         const {dir, file} = resolveTargetPath(targetId),
               temp        = `${file}.${uniqueSuffix()}.tmp`;
 
         fs.mkdirSync(dir, {recursive: true});
 
         try {
-            // The envelope, not a bare channel list: a reader binds to the contract version and needs
-            // the epoch, publish time, and watermarks to judge what it is holding.
-            fs.writeFileSync(temp, JSON.stringify({...publication, channels}), 'utf8');
+            // The canonical envelope, verbatim. The transport does not reshape it: the writer owns the
+            // contract, and a transport that rebuilt the payload would be a second, silent author of it.
+            fs.writeFileSync(temp, JSON.stringify(envelope), 'utf8');
 
             // Durability before visibility, unconditionally. A rename that beats its own data to disk
             // publishes a complete-LOOKING file with a torn body after a crash.

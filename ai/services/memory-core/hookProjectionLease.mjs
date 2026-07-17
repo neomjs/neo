@@ -42,6 +42,110 @@ export const LEASE_STATES = Object.freeze({
 export const PROJECTION_SCHEMA_VERSION = 'live-lane-awareness-projection.v1';
 
 /**
+ * @summary The FIXED channel slots a projection carries, and the envelope key each lands in.
+ *
+ * Fixed, not free-form, and that is the whole design: the writer selects the newest accepted envelope
+ * per slot and never read-modify-writes the file, so a lifecycle update cannot erase the current route
+ * and a route update cannot erase lifecycle. A flat channel list made every publication a whole-file
+ * replacement — one producer's silence would have deleted another producer's channel.
+ * @type {Object}
+ */
+export const PROJECTION_CHANNEL_SLOTS = Object.freeze({
+    'lifecycle-frontier': 'lifecycleActions',
+    'computed-route'    : 'computedRoute'
+});
+
+/**
+ * @summary The slot for context-view references, which are a LIST rather than one channel.
+ * @type {String}
+ */
+export const CONTEXT_VIEW_CHANNEL_PREFIX = 'context-view:';
+
+/**
+ * @summary Projects one stored channel row into its independent per-channel state.
+ *
+ * Every channel keeps its OWN status, watermark, captured time, expiry and citations. Collapsing them
+ * into one envelope-level status would let a fresh route inherit a degraded lifecycle's reputation, or
+ * worse, hide it.
+ *
+ * @param {Object} row Stored channel row.
+ * @returns {Object} `{status, sourceWatermark, capturedAt, expiresAt, envelope, citations, degradedReason}`.
+ */
+function projectChannel(row) {
+    let envelope = null,
+        status   = 'fresh',
+        reason   = row.conflict_reason ?? null;
+
+    try {
+        envelope = JSON.parse(row.envelope_json)
+    } catch (error) {
+        // Unreadable is DEGRADED, never missing: "this is broken" tells a reader to wait, "this does not
+        // exist" tells it to act. One torn row must not take its siblings with it, either.
+        status = 'degraded';
+        reason = `unreadable envelope: ${error instanceof Error ? error.message : String(error)}`
+    }
+
+    if (status === 'fresh' && reason) {
+        status = 'degraded'
+    }
+
+    return {
+        status,
+        sourceWatermark: row.source_watermark,
+        capturedAt     : row.captured_at,
+        expiresAt      : row.expires_at,
+        envelope,
+        citations      : [],
+        degradedReason : reason
+    }
+}
+
+/**
+ * @summary Assembles the canonical `live-lane-awareness-projection.v1` envelope from the stored rows.
+ *
+ * Slot-shaped rather than list-shaped: a slot with no accepted channel is honestly `missing` rather
+ * than absent, because a reader cannot distinguish "this producer never published" from "this key is
+ * not part of the contract" when the key simply is not there.
+ *
+ * @param {Object}   params
+ * @param {String}   params.targetId Server-derived target id.
+ * @param {Number}   params.fencingEpoch The holder's epoch.
+ * @param {Number}   params.generatedAt Broker clock at the mutation boundary.
+ * @param {Object}   params.consumerBinding The attested binding a reader validates itself against.
+ * @param {Object[]} params.rows Stored channel rows for this target.
+ * @returns {Object} The canonical envelope.
+ */
+export function buildProjectionEnvelope({targetId, fencingEpoch, generatedAt, consumerBinding, rows}) {
+    const channels           = new Map(rows.map(row => [row.channel, projectChannel(row)])),
+          producerWatermarks = Object.fromEntries(rows.map(row => [row.channel, row.source_watermark])),
+          missing            = () => ({status: 'missing', envelope: null, degradedReason: 'no accepted channel'});
+
+    const contextViews = [...channels.entries()]
+        .filter(([channel]) => channel.startsWith(CONTEXT_VIEW_CHANNEL_PREFIX))
+        .map(([channel, projected]) => ({channel, ...projected}));
+
+    const degradedSources = [...channels.entries()]
+        .filter(([, projected]) => projected.status === 'degraded')
+        .map(([channel]) => channel);
+
+    return {
+        schemaVersion: PROJECTION_SCHEMA_VERSION,
+        publication  : {
+            targetId,
+            fencingEpoch: Number(fencingEpoch),
+            generatedAt,
+            producerWatermarks
+        },
+        consumerBinding,
+        lifecycleActions: channels.get('lifecycle-frontier') ?? missing(),
+        computedRoute   : channels.get('computed-route')     ?? missing(),
+        contextViews,
+        coverage        : {sources: [...channels.keys()], degradedSources},
+        notAuthority    : true
+    }
+}
+
+/**
  * @typedef {Object} LeaseAcquisition
  * @property {Boolean} acquired Whether this caller now holds the target.
  * @property {String} [token] The raw holder token — returned once, never persisted.
@@ -189,10 +293,11 @@ export function acquireProjectionLease({db, targetId, instanceDigest, now, lease
  *   A captured number cannot express a bounded lease: time passes during parsing and I/O, so a write
  *   that stalls across the TTL would still publish while reporting success.
  * @param {Function} params.hashToken `rawToken => hash`.
- * @param {Function} params.writeAtomic `({targetId, publication, channels}) => void` — the atomic transport.
+ * @param {Object}   params.consumerBinding The attested binding a reader validates itself against.
+ * @param {Function} params.writeAtomic `({targetId, envelope}) => void` — the atomic transport.
  * @returns {PublishResult}
  */
-export function publishProjection({db, targetId, token, epoch, clock, hashToken, writeAtomic} = {}) {
+export function publishProjection({db, targetId, token, epoch, clock, consumerBinding, hashToken, writeAtomic} = {}) {
     if (!db) throw new TypeError('[hookProjectionLease] an open db handle is required');
     if (typeof writeAtomic !== 'function') throw new TypeError('[hookProjectionLease] writeAtomic must be injected');
     if (typeof clock !== 'function') {
@@ -219,40 +324,6 @@ export function publishProjection({db, targetId, token, epoch, clock, hashToken,
             FROM HookProjectionChannels WHERE target_id = ? ORDER BY channel
         `).all(targetId);
 
-        // A contested channel must publish AS contested. The conflict is recorded on the row precisely
-        // so it survives to the reader; reading the row and dropping the column would make the whole
-        // conflict mechanism inert — the reader would see a clean channel over a disputed watermark.
-        //
-        // One unreadable row must not take the others with it. A bare `JSON.parse` in a map let a single
-        // corrupt envelope abort the whole publication, so a torn `lifecycle-frontier` row would also
-        // deny the reader a perfectly good `computed-route` — punishing every channel for one channel's
-        // damage. Each row is isolated: unreadable ones degrade themselves and name why.
-        const channels = rows.map(row => {
-            try {
-                return {
-                    channel        : row.channel,
-                    sourceWatermark: row.source_watermark,
-                    envelope       : JSON.parse(row.envelope_json),
-                    capturedAt     : row.captured_at,
-                    expiresAt      : row.expires_at,
-                    conflictReason : row.conflict_reason ?? null
-                }
-            } catch (error) {
-                // The envelope is withheld rather than guessed: a channel whose payload cannot be read
-                // has no content to offer, and `null` is the honest answer. The reader sees it listed as
-                // degraded instead of silently absent, which is the difference between "this is broken"
-                // and "this does not exist".
-                return {
-                    channel        : row.channel,
-                    sourceWatermark: row.source_watermark,
-                    envelope       : null,
-                    capturedAt     : row.captured_at,
-                    expiresAt      : row.expires_at,
-                    conflictReason : `unreadable envelope: ${error instanceof Error ? error.message : String(error)}`
-                }
-            }
-        });
-
         // The bounded lease, enforced at the LAST possible instant. Parsing and reading the rows took
         // time; a render that crossed its TTL must abort rather than publish, because Wave 1 has no
         // renewal and the target is about to become someone else's. Checking only the entry timestamp
@@ -263,12 +334,16 @@ export function publishProjection({db, targetId, token, epoch, clock, hashToken,
             return {published: false, reason: 'lease-expired-at-write'}
         }
 
-        // Inside the transaction on purpose: the rename must not be reachable once a successor could
-        // have committed. This is the fencing property — the epoch in the payload only describes it.
-        //
-        // `targetId` is passed because the transport derives the output path from it. Omitting it left
-        // the two halves structurally unable to compose while both suites stayed green on their own
-        // stubs.
+        // The canonical envelope is assembled from the stored rows — the writer never
+        // read-modify-writes the file, so one producer's publication cannot erase another's channel.
+        const envelope = buildProjectionEnvelope({
+            targetId,
+            fencingEpoch: epoch,
+            generatedAt : atMutation,
+            consumerBinding,
+            rows
+        });
+
         // Wave 1 is a SINGLE publication, so the lease must not outlive it on either path. Leaving it
         // held after success parks the target until expiry for no reason; leaving it held after a disk
         // failure parks it while the holder has already given up. Both are token+epoch conditional, so
@@ -280,19 +355,7 @@ export function publishProjection({db, targetId, token, epoch, clock, hashToken,
         `).run(targetId, epoch, hashToken(token));
 
         try {
-            writeAtomic({
-                targetId,
-                publication: {
-                    schemaVersion   : PROJECTION_SCHEMA_VERSION,
-                    targetId,
-                    fencingEpoch    : Number(epoch),
-                    publishedAt     : atMutation,
-                    sourceWatermarks: Object.fromEntries(channels.map(channel => [channel.channel, channel.sourceWatermark])),
-                    degradedChannels: channels.filter(channel => channel.conflictReason).map(channel => channel.channel),
-                    notAuthority    : true
-                },
-                channels
-            })
+            writeAtomic({targetId, envelope})
         } catch (error) {
             // Release and RETURN — never release and throw. The transaction rolls back on a thrown
             // error, which would undo the release along with it and park the target until expiry: the
@@ -308,7 +371,7 @@ export function publishProjection({db, targetId, token, epoch, clock, hashToken,
 
         releaseOwn();
 
-        return {published: true, channels: channels.length}
+        return {published: true, channels: rows.length}
     });
 
     return publish.immediate()

@@ -120,7 +120,8 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
         let writes = 0;
 
         const stale = publishProjection({
-            db, targetId, token: first.token, epoch: first.epoch, clock: () => t0 + ttl + 2, hashToken,
+            db, targetId, token: first.token, epoch: first.epoch, clock: () => t0 + ttl + 2, consumerBinding: {agentId: '@me'},
+            hashToken,
             writeAtomic: () => { writes++ }
         });
 
@@ -132,7 +133,8 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
 
         // and the legitimate successor still publishes
         const fresh = publishProjection({
-            db, targetId, token: second.token, epoch: second.epoch, clock: () => t0 + ttl + 2, hashToken,
+            db, targetId, token: second.token, epoch: second.epoch, clock: () => t0 + ttl + 2, consumerBinding: {agentId: '@me'},
+            hashToken,
             writeAtomic: () => { writes++ }
         });
         expect(fresh.published).toBe(true);
@@ -146,11 +148,11 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
 
         const writeAtomic = () => { writes++ };
 
-        const expired = publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + ttl + 1, hashToken, writeAtomic});
+        const expired = publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + ttl + 1, consumerBinding: {agentId: '@me'}, hashToken, writeAtomic});
         expect(expired.published).toBe(false);
         expect(expired.reason).toBe('lease-expired');
 
-        const foreign = publishProjection({db, targetId, token: 'token-not-mine', epoch: lease.epoch, clock: () => t0 + 1, hashToken, writeAtomic});
+        const foreign = publishProjection({db, targetId, token: 'token-not-mine', epoch: lease.epoch, clock: () => t0 + 1, consumerBinding: {agentId: '@me'}, hashToken, writeAtomic});
         expect(foreign.published).toBe(false);
         expect(foreign.reason).toBe('foreign-token');
 
@@ -166,7 +168,8 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
         let payload = null;
 
         const result = publishProjection({
-            db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, hashToken,
+            db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, consumerBinding: {agentId: '@me'},
+            hashToken,
             writeAtomic: written => { payload = written }
         });
 
@@ -175,11 +178,16 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
         // the transport derives its path from targetId, so publish MUST pass it — omitting it left the
         // two halves unable to compose while both suites stayed green on their own stubs
         expect(payload.targetId).toBe(targetId);
-        expect(payload.publication.schemaVersion).toBe('live-lane-awareness-projection.v1');
-        expect(payload.publication.fencingEpoch).toBe(lease.epoch);
-        expect(payload.channels.map(c => c.channel)).toEqual(['computed-route', 'lifecycle-frontier']);
-        expect(payload.channels[0].envelope).toEqual({schemaVersion: 'computed-route.v1', notAuthority: true});
-        expect(payload.channels[1].sourceWatermark).toBe('w-2');
+
+        // The canonical envelope, not a reshaped one: the writer owns the contract, and a transport
+        // that rebuilt the payload would be a second, silent author of it.
+        expect(payload.envelope.schemaVersion).toBe('live-lane-awareness-projection.v1');
+        expect(payload.envelope.publication.fencingEpoch).toBe(lease.epoch);
+        expect(payload.envelope.publication.producerWatermarks).toEqual({'computed-route': 'w-1', 'lifecycle-frontier': 'w-2'});
+        expect(payload.envelope.consumerBinding).toEqual({agentId: '@me'});
+        // fixed slots — one producer's publication cannot erase another's channel
+        expect(payload.envelope.computedRoute.envelope).toEqual({schemaVersion: 'computed-route.v1', notAuthority: true});
+        expect(payload.envelope.lifecycleActions.sourceWatermark).toBe('w-2');
     });
 
     test('release is conditional on token AND epoch — a stale holder cannot release its successor', () => {
@@ -207,7 +215,7 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
             call   = 0;
 
         const result = publishProjection({
-            db, targetId, token: lease.token, epoch: lease.epoch, hashToken,
+            db, targetId, token: lease.token, epoch: lease.epoch, consumerBinding: {agentId: '@me'}, hashToken,
             // fresh at entry, expired by the mutation boundary — the exact stall
             clock      : () => (++call === 1 ? t0 + 1 : t0 + ttl + 1),
             writeAtomic: () => { writes++ }
@@ -222,7 +230,7 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
         const held = () => db.prepare('SELECT state FROM HookProjectionLeases WHERE target_id = ?').get(targetId).state;
 
         const ok = acquireProjectionLease({db, targetId, instanceDigest: 'i1', now: t0, leaseTtlMs: ttl, mintToken, hashToken});
-        publishProjection({db, targetId, token: ok.token, epoch: ok.epoch, clock: () => t0 + 1, hashToken, writeAtomic: () => {}});
+        publishProjection({db, targetId, token: ok.token, epoch: ok.epoch, clock: () => t0 + 1, consumerBinding: {agentId: '@me'}, hashToken, writeAtomic: () => {}});
 
         // success must not hold the target until expiry for no reason
         expect(held()).toBe('released');
@@ -230,7 +238,8 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
         const doomed = acquireProjectionLease({db, targetId, instanceDigest: 'i2', now: t0 + 10, leaseTtlMs: ttl, mintToken, hashToken});
 
         const failed = publishProjection({
-            db, targetId, token: doomed.token, epoch: doomed.epoch, clock: () => t0 + 11, hashToken,
+            db, targetId, token: doomed.token, epoch: doomed.epoch, clock: () => t0 + 11, consumerBinding: {agentId: '@me'},
+            hashToken,
             writeAtomic: () => { throw new Error('ENOSPC') }
         });
 
