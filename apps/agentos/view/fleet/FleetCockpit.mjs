@@ -29,6 +29,15 @@ import '../../../../src/tab/Container.mjs'; // registers the `tab-container` nty
 const LIVENESS_POLL_INTERVAL = 15000;
 
 /**
+ * The bounded window (ms) a single liveness read gets before it is treated as a degrade.
+ *
+ * Deliberately shorter than {@link LIVENESS_POLL_INTERVAL}: the window must close before the next
+ * tick, or a hung read would still be holding its surface's slot when the cadence comes round.
+ * @type {Number}
+ */
+const LIVENESS_READ_TIMEOUT = 10000;
+
+/**
  * Longest safe reason rendered on the spine banner — a transport error can carry an entire response
  * body, and this line is one row of shell chrome, not a log viewer.
  * @type {Number}
@@ -62,6 +71,34 @@ function toSafeDegradedReason(error) {
         .trim();
 
     return safe ? safe.slice(0, MAX_DEGRADED_REASON_LENGTH) : null
+}
+
+/**
+ * @summary Bounds one liveness read: it may fail, it may never hang.
+ *
+ * A hung read is not a slow read — it is a read that never answers, and an unbounded one poisons
+ * every mechanism built on top of it. The in-flight latch releases in a `.finally()`, so a promise
+ * that never settles holds its surface's slot **forever**: every later tick is suppressed, the
+ * surface stays last-known-live, and the liveness owner silently stops being live — the original
+ * defect, rebuilt from the other side. Bounding the read is what makes the latch safe to hold.
+ *
+ * The loser of the race is not aborted (the wire has no abort seam yet). It does not need to be:
+ * the generation fence already makes a late arrival unable to write. This only guarantees the
+ * SLOT comes back.
+ * @param {Promise} read
+ * @param {Number} timeout ms
+ * @returns {Promise} settles with the read, or rejects with a timeout error inside `timeout` ms
+ * @private
+ */
+function boundedRead(read, timeout) {
+    let timerId;
+
+    return Promise.race([
+        read.finally(() => clearTimeout(timerId)),
+        new Promise((resolve, reject) => {
+            timerId = setTimeout(() => reject(new Error(`fleet read exceeded ${timeout}ms`)), timeout)
+        })
+    ])
 }
 
 /**
@@ -304,6 +341,15 @@ class FleetCockpit extends Container {
      * @protected
      */
     livenessPollInterval = LIVENESS_POLL_INTERVAL
+    /**
+     * The bounded window (ms) ONE liveness read gets before it is treated as a degrade. Boundedness
+     * is the contract — a read may fail, it may never hang — the same shape and the same reason as
+     * {@link #detailVesselConnectWindowMs}. Injectable so specs pin a short window instead of
+     * sleeping on the production one.
+     * @member {Number} livenessReadTimeout=LIVENESS_READ_TIMEOUT
+     * @protected
+     */
+    livenessReadTimeout = LIVENESS_READ_TIMEOUT
     /**
      * The liveness re-poll timer id, owned for exact-once teardown. `null` = not running — the
      * cockpit is pre-start or destroyed. It dies with {@link #destroy}; it deliberately SURVIVES
@@ -1275,7 +1321,7 @@ class FleetCockpit extends Container {
         const generation = ++me.streamReadGeneration;
 
         try {
-            const {capability, events} = await bridge.fleetActivity() ?? {};
+            const {capability, events} = await boundedRead(Promise.resolve(bridge.fleetActivity()), me.livenessReadTimeout) ?? {};
 
             // The fence. Older news must never overwrite newer: an interval re-poll means two reads
             // of THIS surface can be in flight at once, and without this the LOSER writes last —
@@ -1357,7 +1403,7 @@ class FleetCockpit extends Container {
         const generation = ++me.gridReadGeneration;
 
         try {
-            const {rows} = await bridge.fleetRoster() ?? {};
+            const {rows} = await boundedRead(Promise.resolve(bridge.fleetRoster()), me.livenessReadTimeout) ?? {};
 
             // the fence: a newer read started while this one was in flight, or the owner is gone.
             // Either way this answer is no longer this surface's truth to write.

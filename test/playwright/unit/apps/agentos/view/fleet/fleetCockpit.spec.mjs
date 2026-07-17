@@ -1450,6 +1450,68 @@ test.describe('Fleet cockpit — the liveness owner lifecycle (start/stop, #1529
         }
     });
 
+    test('a read that NEVER settles must not freeze the surface — @neo-gpt\'s latch falsifier', async () => {
+        // I fixed unbounded accumulation and introduced permanent freeze. His words, and they're
+        // exact: "the surface can stay last-known live forever, which recreates the original defect."
+        //
+        // The latch releases in a `.finally()`. A promise that never settles never runs it, so the
+        // slot is held FOREVER and every later tick is suppressed — including the one that would
+        // have noticed the transport recovering. A liveness owner that stops polling is the precise
+        // thing this ticket exists to prevent, rebuilt from the other side by its own guard.
+        //
+        // The bound is what makes the latch safe to hold: a read may fail, it may never hang — the
+        // same contract `detailVesselConnectWindowMs` already states for the vessel admission.
+        // drives the REAL loadActivity against a REAL hanging bridge — the fake read of an earlier
+        // draft would have replaced the very `boundedRead` under test with a stub of my own optimism
+        const stream = {adapterState: 'live', set() {}},
+              host   = {
+                  ...makeTimerHost(),
+                  clearDegradedReason : FleetCockpit.prototype.clearDegradedReason,
+                  degradeWiredSurface : FleetCockpit.prototype.degradeWiredSurface,
+                  getReference        : reference => reference === 'activity-stream' ? stream : null,
+                  streamAdapterState  : 'live',
+                  streamDegradedReason: null,
+                  streamReadGeneration: 0,
+                  streamReadInFlight  : false,
+                  syncSpineBanner     : FleetCockpit.prototype.syncSpineBanner
+              };
+
+        let tick, calls = 0;
+
+        host.livenessReadTimeout = 5;                 // short window; the spec pins it, never sleeps on prod
+        host.loadActivity        = FleetCockpit.prototype.loadActivity;
+        host.loadRoster          = () => Promise.resolve();
+
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetActivity: () => {
+            calls++;
+            // read 1 hangs FOREVER; later reads answer at once — the recovery this must find
+            return calls === 1 ? new Promise(() => {}) : Promise.resolve({capability: {state: 'wired'}, events: []})
+        }}};
+
+        const originalSetInterval = globalThis.setInterval;
+        globalThis.setInterval = fn => { tick = fn; return 1 };
+
+        try {
+            host.startLiveness();
+
+            tick();                                            // read 1 — hangs forever
+            expect(calls).toBe(1);
+
+            await new Promise(resolve => setTimeout(resolve, 40));   // outlive the bounded window
+
+            tick();                                            // the transport recovered; this MUST probe
+            expect(calls, 'a hung read must not suppress the probe that would notice recovery').toBe(2);
+
+            await new Promise(resolve => setTimeout(resolve, 40));
+
+            tick();
+            expect(calls, 'and liveness must keep running, not limp once').toBe(3)
+        } finally {
+            globalThis.setInterval = originalSetInterval;
+            delete globalThis.AgentOS.fleet
+        }
+    });
+
     test('a tick NEVER launches a read while that surface still has one in flight', async () => {
         // @neo-gpt's fourth finding, and the one the generation fence does NOT reach: the fence makes
         // a late read HARMLESS, not ABSENT. A transport slower than the 15s cadence would have every
