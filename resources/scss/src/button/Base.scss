@@ -354,6 +354,15 @@
         cursor          : default;
         opacity         : var(--button-opacity-disabled);
 
+        // Projecting the native disabled attribute (src/button/Base.mjs) activates the UA
+        // button:disabled cascade, dormant for as long as this class was the only disabled
+        // authority. The class stays the sole visual owner: pin the one axis this block does
+        // not declare (measured leak: Chromium paints the element color as disabled GrayText).
+        // Witnessed by the render-equivalence assertion in the button component spec.
+        &:disabled {
+            color: inherit;
+        }
+
         .neo-button-glyph {
             color: var(--button-glyph-color-disabled);
         }
