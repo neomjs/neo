@@ -146,6 +146,29 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         GraphService.db.lastAccessMap.clear();
     }
 
+    /**
+     * Damages one edge type of a message's GRAPH PROJECTION — cache and storage both — while leaving
+     * the message WAL record intact. That is the state the repair path exists for: the WAL holds the
+     * truth, the projection has lost a piece, and `repairMessageGraphIntegrity` rebuilds the piece
+     * from the WAL.
+     *
+     * Evicting from cache alone proves nothing: `getAdjacentNodes` lazily reloads the vicinity from
+     * storage, so the mark heals before it resolves and a cache-only test passes against the very
+     * defect it claims to pin. autoSave stays ON here deliberately — the remove must echo through
+     * onEdgesMutate into storage.removeEdges, which is precisely what the cache-only helper suspends.
+     */
+    function damageEdgeProjection(messageId, type) {
+        const edges = GraphService.db.edges.items.filter(candidate =>
+            candidate.source === messageId && candidate.type === type
+        );
+
+        GraphService.db.edges.remove(edges);
+        GraphService.db.vicinityLoadedNodes.clear();
+        GraphService.db.lastAccessMap.clear();
+
+        return edges.length
+    }
+
     test('addMessage enforces identity and routes correctly', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
@@ -800,6 +823,30 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 
         const node = GraphService.db.nodes.get(msgId);
         expect(node.properties.readAt).toBeTruthy();
+    });
+
+    test('#15253 a mark resolves through the same repair the read path uses — a cold cache is not a missing message', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+        });
+
+        const {messageId} = await RequestContextService.run({agentIdentityNodeId: '@alice'}, () =>
+            MailboxService.addMessage({to: '@bob', subject: 'peer-process write', body: 'served but unmarkable'})
+        );
+
+        // The SENT_TO edge is what authorizes the mark, and it is the piece the read path repairs
+        // from the WAL before serving.
+        expect(damageEdgeProjection(messageId, 'SENT_TO')).toBeGreaterThan(0);
+
+
+        // The mark is probed WITHOUT a preceding read. A read first would repair the projection and
+        // hand the mark a healed graph — the test would then pass against the defect it claims to
+        // pin, which is exactly what the first draft of this spec did.
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            const result = await MailboxService.markRead({messageId});
+            expect(result).toMatchObject({messageId, status: 'read'});
+            expect(result.readAt).toBeTruthy();
+        });
     });
 
     test('#15027 markRead canonicalizes both bound identity and drifted direct SENT_TO targets', async () => {
