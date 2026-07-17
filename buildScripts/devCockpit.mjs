@@ -16,11 +16,19 @@
  * silently-broken session. (`devFleetServer` keeps honoring the env var for standalone use.)
  *
  * Fleet identity, not "some TCP listener": before reusing a busy port, the launcher PROBES the
- * fleet protocol — `POST /fleet {method:'__cockpit_probe__'}` answers with the wire allowlist's
- * deterministic rejection envelope on a REAL fleet server (side-effect-free by construction: an
- * unlisted method never reaches the control bridge). A listener that answers anything else is an
- * INCOMPATIBLE occupant and the launcher refuses with a named reason — never a silent second
- * server, never a false reuse.
+ * fleet protocol — an UNAUTHENTICATED `POST /fleet {method:'__cockpit_probe__'}`. On the
+ * authenticated transport the ingress guard answers 401 with its exact fail-closed envelope
+ * (`{ok:false, error:'fleet: bearer required'}`) BEFORE reading a body byte — deterministic,
+ * side-effect-free, and unforgeable-by-accident, so the refusal itself is the identity signature.
+ * (The legacy allowlist-rejection signature is still recognized for pre-boundary servers.) A
+ * listener that answers anything else is an INCOMPATIBLE occupant and the launcher refuses with a
+ * named reason — never a silent second server, never a false reuse.
+ *
+ * The launch contract (bearer half): this launcher IS the cockpit launch path — it generates the
+ * one process-lifetime bearer in its own memory and hands it to the fleet child via env
+ * (`NEO_FLEET_BEARER`, the in-memory channel), never via URL, log, or file. The browser side then
+ * receives it through the worker-realm injector (`ViewportController.wireFleetBridge`) — the
+ * Neural Link / Electron seam — so no secret ever persists anywhere restartable.
  *
  * Signals: SIGINT/SIGTERM forward to every child this launcher spawned; a webpack exit tears the
  * session down; a fleet-server exit logs loudly while the cockpit degrades to its honest
@@ -77,6 +85,12 @@ export function probeFleetEndpoint(port, timeoutMs = 1500) {
                   res.on('end', () => {
                       try {
                           const envelope = JSON.parse(data);
+                          // The authenticated boundary's own fail-closed refusal IS the identity:
+                          // 401 + the exact ingress envelope, emitted before any body parsing.
+                          if (res.statusCode === 401 && envelope && envelope.ok === false && envelope.error === 'fleet: bearer required') {
+                              return resolve({status: 'fleet', detail: 'wire-protocol identity confirmed (authenticated ingress refusal)'});
+                          }
+                          // Legacy pre-boundary signature: the allowlist rejection naming the probe method.
                           if (envelope && envelope.ok === false &&
                               typeof envelope.error === 'string' && envelope.error.includes(FLEET_PROBE_METHOD)) {
                               return resolve({status: 'fleet', detail: 'wire-protocol identity confirmed'});
@@ -184,8 +198,26 @@ async function main() {
     }
 
     if (plan.spawnFleet) {
-        const fleet = spawn(process.execPath, ['ai/services/fleet/devFleetServer.mjs'], {
-            env  : process.env,
+        // The launch contract: ONE process-lifetime bearer, generated here in launcher memory and
+        // handed to the fleet child via env — the in-memory channel. Never logged, never a file.
+        // An operator-pinned NEO_FLEET_BEARER wins (the child refuses a malformed pin itself).
+        const {generateLocalBearerToken} = await import('../ai/mcp/server/shared/helpers/localBearer.mjs'),
+              fleetBearer                = process.env.NEO_FLEET_BEARER || generateLocalBearerToken();
+
+        // Injectable fleet-cmd seam (mirrors NEO_COCKPIT_WEBPACK_CMD): the composed-boot witness
+        // substitutes a fixture transport; the production default stays the real devFleetServer.
+        let fleetCmd = [process.execPath, 'ai/services/fleet/devFleetServer.mjs'];
+        try {
+            const override = process.env.NEO_COCKPIT_FLEET_CMD && JSON.parse(process.env.NEO_COCKPIT_FLEET_CMD);
+            if (Array.isArray(override) && override.length && override.every(part => typeof part === 'string')) {
+                fleetCmd = override;
+            }
+        } catch {
+            // a malformed override is ignored — the production default stands
+        }
+
+        const fleet = spawn(fleetCmd[0], fleetCmd.slice(1), {
+            env  : {...process.env, NEO_FLEET_BEARER: fleetBearer},
             stdio: 'inherit'
         });
 

@@ -1,18 +1,19 @@
-import {test, expect}           from '@playwright/test';
-import {execFile, spawnSync}    from 'node:child_process';
-import {EventEmitter}           from 'node:events';
-import fs                       from 'node:fs';
-import os                       from 'node:os';
-import path                     from 'node:path';
-import {promisify}              from 'node:util';
-import Neo                      from '../../../../../../src/Neo.mjs';
-import * as core                from '../../../../../../src/core/_export.mjs';
-import FleetControlBridge       from '../../../../../../ai/services/fleet/FleetControlBridge.mjs';
-import FleetLifecycleService    from '../../../../../../ai/services/fleet/FleetLifecycleService.mjs';
-import FleetManager             from '../../../../../../ai/services/fleet/FleetManager.mjs';
-import FleetRegistryService     from '../../../../../../ai/services/fleet/FleetRegistryService.mjs';
-import {deriveAgentRepoPath}    from '../../../../../../ai/services/fleet/deriveAgentRepoPath.mjs';
-import {startFleetBridgeServer} from '../../../../../../ai/services/fleet/fleetBridgeServer.mjs';
+import {test, expect}             from '@playwright/test';
+import {execFile, spawnSync}      from 'node:child_process';
+import {EventEmitter}             from 'node:events';
+import fs                         from 'node:fs';
+import os                         from 'node:os';
+import path                       from 'node:path';
+import {promisify}                from 'node:util';
+import Neo                        from '../../../../../../src/Neo.mjs';
+import * as core                  from '../../../../../../src/core/_export.mjs';
+import FleetControlBridge         from '../../../../../../ai/services/fleet/FleetControlBridge.mjs';
+import FleetLifecycleService      from '../../../../../../ai/services/fleet/FleetLifecycleService.mjs';
+import FleetManager               from '../../../../../../ai/services/fleet/FleetManager.mjs';
+import FleetRegistryService       from '../../../../../../ai/services/fleet/FleetRegistryService.mjs';
+import {deriveAgentRepoPath}      from '../../../../../../ai/services/fleet/deriveAgentRepoPath.mjs';
+import {startFleetBridgeServer}   from '../../../../../../ai/services/fleet/fleetBridgeServer.mjs';
+import {generateLocalBearerToken} from '../../../../../../ai/mcp/server/shared/helpers/localBearer.mjs';
 import {
     CURATED_HARNESS_TYPES,
     buildLoginCommand,
@@ -448,7 +449,13 @@ test.describe('onboardPeer — long-lived Fleet owner transport', () => {
         FleetControlBridge.registry      = FleetRegistryService;
         FleetControlBridge.manager       = FleetManager;
 
-        const server    = await startFleetBridgeServer({port: 0}),
+        const bearerToken = generateLocalBearerToken(),
+              server      = await startFleetBridgeServer({
+                  port         : 0,
+                  bearerToken,
+                  viewerContext: {userId: 'onboard-owner', username: 'Onboard Owner', agentIdentityNodeId: '@onboard-owner'},
+                  runInContext : (context, fn) => fn()
+              }),
               url       = `http://127.0.0.1:${server.address().port}/fleet`,
               moduleUrl = new URL('../../../../../../ai/scripts/fleet/onboardPeer.mjs', import.meta.url).href;
 
@@ -460,7 +467,7 @@ test.describe('onboardPeer — long-lived Fleet owner transport', () => {
                 await bridge.setRepo({id:'neo-gpt-2', cloneUrl:'https://github.com/x/y.git', repoSlug:'x/y'});
                 console.log(JSON.stringify(await bridge.startAgent('neo-gpt-2')));
             `;
-            const firstRun   = await execFileAsync(process.execPath, ['--input-type=module', '-e', firstCode], {encoding: 'utf8', timeout: 30_000}),
+            const firstRun   = await execFileAsync(process.execPath, ['--input-type=module', '-e', firstCode], {encoding: 'utf8', timeout: 30_000, env: {...process.env, NEO_FLEET_BEARER: bearerToken}}),
                   firstStart = JSON.parse(firstRun.stdout);
 
             const relativeHome = path.relative(instanceRoot, firstStart.instanceHome);
@@ -481,7 +488,7 @@ test.describe('onboardPeer — long-lived Fleet owner transport', () => {
                     start: await bridge.startAgent('neo-gpt-2')
                 }));
             `;
-            const secondRun  = await execFileAsync(process.execPath, ['--input-type=module', '-e', secondCode], {encoding: 'utf8', timeout: 30_000}),
+            const secondRun  = await execFileAsync(process.execPath, ['--input-type=module', '-e', secondCode], {encoding: 'utf8', timeout: 30_000, env: {...process.env, NEO_FLEET_BEARER: bearerToken}}),
                   secondView = JSON.parse(secondRun.stdout);
 
             expect(secondView.agent).toMatchObject({metadata: {repo: REPO_OPTIONS}});
@@ -512,10 +519,23 @@ test.describe('onboardPeer — long-lived Fleet owner transport', () => {
 
     test('an unreachable long-lived owner fails closed with the operator recovery command', async () => {
         const bridge = createOnboardingFleetBridge({
-            fetchImpl: async () => { throw new Error('ECONNREFUSED') }
+            bearerToken: generateLocalBearerToken(),
+            fetchImpl  : async () => { throw new Error('ECONNREFUSED') }
         });
 
         await expect(bridge.getAgent('neo-gpt-2')).rejects.toThrow(/npm run ai:fleet-server/);
+    });
+
+    test('a missing process bearer fails closed at construction with the launch-contract remedy', () => {
+        const priorBearer = process.env.NEO_FLEET_BEARER;
+        delete process.env.NEO_FLEET_BEARER;
+
+        try {
+            expect(() => createOnboardingFleetBridge({fetchImpl: async () => ({ok: true, json: async () => ({})})}))
+                .toThrow(/NEO_FLEET_BEARER/)
+        } finally {
+            priorBearer !== undefined && (process.env.NEO_FLEET_BEARER = priorBearer)
+        }
     });
 });
 
