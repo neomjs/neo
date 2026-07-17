@@ -55,7 +55,13 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
 
     /**
      * @param {Object|null} bridge The stubbed `registryBridge` (or null for "no bridge").
-     * @returns {Promise<Object>} the spy stream after loadActivity routed to it.
+     * @returns {Promise<{stream: Object, cockpit: Object}>} the spy stream AND the owner, after
+     *     `loadActivity` routed to them.
+     *
+     * The owner is returned, not just the stream, because the routing decision has TWO outputs: what
+     * the stream is told, and what the OWNER retains (`streamAdapterState`, `degradedReason` — the
+     * banner's inputs). Handing back only the stream made the owner's half untestable, which is
+     * exactly how the not-wired branch shipped without a witness.
      */
     const routeLoadActivity = async bridge => {
         bridge ? ((globalThis.AgentOS ??= {}).fleet = {registryBridge: bridge}) : clearBridge();
@@ -77,7 +83,7 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
 
         await FleetCockpit.prototype.loadActivity.call(cockpit);
 
-        return stream
+        return {stream, cockpit}
     };
 
     test.beforeAll(async () => {
@@ -87,30 +93,60 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
     test.afterEach(() => clearBridge());
 
     test('no bridge → keeps the honestly-labelled sample seed (fail-closed, no crash)', async () => {
-        expect((await routeLoadActivity(null)).adapterState).toBe('sample')
+        const {stream, cockpit} = await routeLoadActivity(null);
+
+        expect(stream.adapterState).toBe('sample');
+        // SILENCE: the owner learned nothing, so it retains no cause. This is what lets the banner
+        // fall back to "server offline" honestly — it is the only state that implies one.
+        expect(cockpit.degradedReason ?? null).toBe(null)
     });
 
     test('a bridge without fleetActivity → keeps the sample seed', async () => {
-        expect((await routeLoadActivity({})).adapterState).toBe('sample')
+        const {stream, cockpit} = await routeLoadActivity({});
+
+        expect(stream.adapterState).toBe('sample');
+        expect(cockpit.degradedReason ?? null).toBe(null)
     });
 
-    test('not-wired capability → keeps the sample seed', async () => {
-        const stream = await routeLoadActivity({fleetActivity: async () => ({capability: {state: 'not-wired'}, events: []})});
-        expect(stream.adapterState).toBe('sample')
+    test('not-wired capability → keeps the sample seed AND retains the producer’s reason', async () => {
+        // The producer ANSWERED. The seed stays — the stream really is showing sample events, so its
+        // own state is honestly 'sample' — but an answer is not silence, and the retained reason is
+        // the ONLY thing that separates "we never reached the server" from "it answered: my source
+        // is unconfigured". Without it the banner told the operator to start a running server.
+        //
+        // This is the verbatim string the live devFleetServer returns, not one I invented to agree
+        // with myself: `{state:'not-wired', reason:'fleet activity source not wired'}`.
+        const {stream, cockpit} = await routeLoadActivity({fleetActivity: async () => ({
+            capability: {state: 'not-wired', reason: 'fleet activity source not wired'},
+            events    : []
+        })});
+
+        expect(stream.adapterState).toBe('sample');
+        expect(cockpit.streamAdapterState).toBe('sample');
+        expect(cockpit.degradedReason).toBe('fleet activity source not wired')
+    });
+
+    test('not-wired WITHOUT a reason retains none — the producer said nothing to relay', async () => {
+        // The guard against over-correcting: a bare not-wired teaches the owner no cause, so it must
+        // not manufacture one. Falls back to the generic offline copy, which is correct here.
+        const {cockpit} = await routeLoadActivity({fleetActivity: async () => ({capability: {state: 'not-wired'}, events: []})});
+
+        expect(cockpit.degradedReason ?? null).toBe(null)
     });
 
     test('degraded capability → the stale banner', async () => {
-        const stream = await routeLoadActivity({fleetActivity: async () => ({capability: {state: 'degraded'}, events: []})});
+        const {stream} = await routeLoadActivity({fleetActivity: async () => ({capability: {state: 'degraded'}, events: []})});
+
         expect(stream.adapterState).toBe('stale')
     });
 
     test('a thrown source → fail-closed, keeps the sample seed (never blanks or falsely goes live)', async () => {
-        const stream = await routeLoadActivity({fleetActivity: async () => { throw new Error('bridge boom') }});
+        const {stream} = await routeLoadActivity({fleetActivity: async () => { throw new Error('bridge boom') }});
         expect(stream.adapterState).toBe('sample')
     });
 
     test('wired + events → live, reversing the newest-first feed to chronological for the stream', async () => {
-        const stream = await routeLoadActivity({fleetActivity: async () => ({
+        const {stream} = await routeLoadActivity({fleetActivity: async () => ({
             capability: {state: 'wired'},
             events    : [ // newest-first, as the adapter sorts
                 {type: 'a2a-activity', occurredAt: '2026-07-04T12:00:00.000Z', payload: {subject: 'newest'}},
@@ -122,9 +158,12 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
     });
 
     test('wired + empty → live (streaming but quiet), never the sample — a wired source is live', async () => {
-        const stream = await routeLoadActivity({fleetActivity: async () => ({capability: {state: 'wired'}, events: []})});
+        const {stream, cockpit} = await routeLoadActivity({fleetActivity: async () => ({capability: {state: 'wired'}, events: []})});
+
         expect(stream.adapterState).toBe('live');
-        expect(stream.events).toEqual([])
+        expect(stream.events).toEqual([]);
+        // recovery clears the retained cause — a stale reason on a live feed would outlive its truth
+        expect(cockpit.degradedReason ?? null).toBe(null)
     });
 });
 
