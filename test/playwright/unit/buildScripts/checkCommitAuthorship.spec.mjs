@@ -150,3 +150,65 @@ test.describe('check-commit-authorship — the operator must not author from an 
         expect(result.stderr).not.toContain('feat: first')
     })
 });
+
+/**
+ * @summary The bootstrap's early warning — the other half of the same defect.
+ *
+ * The guard above fires at push, after the work is committed. This fires at worktree creation, when
+ * someone is actually reading the output. Neither replaces the other: the warning is skippable, and
+ * the backstop only speaks once 38 commits already exist.
+ */
+test.describe('bootstrapWorktree — inspectGitIdentity', () => {
+    let inspectGitIdentity;
+
+    test.beforeAll(async () => {
+        inspectGitIdentity = (await import('../../../../ai/scripts/migrations/bootstrapWorktree.mjs')).inspectGitIdentity
+    });
+
+    /** @param {Object} values `{global, local, effective}` git config answers. */
+    const readConfig = values => async args => {
+        if (args.includes('--global')) return values.global ?? '';
+        if (args.includes('--local'))  return values.local  ?? '';
+        return values.effective ?? '';
+    };
+
+    test('no local identity + the global one answering = the leak, reported', async () => {
+        const result = await inspectGitIdentity({
+            projectRoot: '/tmp',
+            readConfig : readConfig({global: 'operator@example.com', local: '', effective: 'operator@example.com'})
+        });
+
+        expect(result.inherited).toBe(true);
+        expect(result.global).toBe('operator@example.com')
+    });
+
+    test('a worktree with its OWN identity is silent', async () => {
+        const result = await inspectGitIdentity({
+            projectRoot: '/tmp',
+            readConfig : readConfig({global: 'operator@example.com', local: 'ada@neomjs.com', effective: 'ada@neomjs.com'})
+        });
+
+        expect(result.inherited).toBe(false);
+        expect(result.local).toBe('ada@neomjs.com')
+    });
+
+    test('a local identity that EQUALS the global one is a choice, not a leak', async () => {
+        // The operator bootstrapping a worktree for himself set it deliberately. The defect is the
+        // ABSENCE of a local identity, not the value — flagging this would train people to ignore it.
+        const result = await inspectGitIdentity({
+            projectRoot: '/tmp',
+            readConfig : readConfig({global: 'operator@example.com', local: 'operator@example.com', effective: 'operator@example.com'})
+        });
+
+        expect(result.inherited).toBe(false)
+    });
+
+    test('no global identity at all → nothing to leak, nothing to say', async () => {
+        const result = await inspectGitIdentity({
+            projectRoot: '/tmp',
+            readConfig : readConfig({global: '', local: '', effective: ''})
+        });
+
+        expect(result.inherited).toBe(false)
+    })
+});
