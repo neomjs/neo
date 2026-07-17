@@ -74,11 +74,12 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
               // guard reads it: a fake missing it would let a pre-wired throw claim last-known
               // data that never existed.
               cockpit = {
-                  clearDegradedReason: FleetCockpit.prototype.clearDegradedReason,
-                  degradeWiredSurface: FleetCockpit.prototype.degradeWiredSurface,
-                  getReference       : reference => reference === 'activity-stream' ? stream : null,
-                  streamAdapterState : 'sample',
-                  syncSpineBanner    : FleetCockpit.prototype.syncSpineBanner
+                  clearDegradedReason : FleetCockpit.prototype.clearDegradedReason,
+                  degradeWiredSurface : FleetCockpit.prototype.degradeWiredSurface,
+                  getReference        : reference => reference === 'activity-stream' ? stream : null,
+                  streamAdapterState  : 'sample',
+                  streamDegradedReason: null,
+                  syncSpineBanner     : FleetCockpit.prototype.syncSpineBanner
               };
 
         await FleetCockpit.prototype.loadActivity.call(cockpit);
@@ -98,14 +99,14 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
         expect(stream.adapterState).toBe('sample');
         // SILENCE: the owner learned nothing, so it retains no cause. This is what lets the banner
         // fall back to "server offline" honestly — it is the only state that implies one.
-        expect(cockpit.degradedReason ?? null).toBe(null)
+        expect(cockpit.streamDegradedReason ?? null).toBe(null)
     });
 
     test('a bridge without fleetActivity → keeps the sample seed', async () => {
         const {stream, cockpit} = await routeLoadActivity({});
 
         expect(stream.adapterState).toBe('sample');
-        expect(cockpit.degradedReason ?? null).toBe(null)
+        expect(cockpit.streamDegradedReason ?? null).toBe(null)
     });
 
     test('not-wired capability → keeps the sample seed AND retains the producer’s reason', async () => {
@@ -123,7 +124,7 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
 
         expect(stream.adapterState).toBe('sample');
         expect(cockpit.streamAdapterState).toBe('sample');
-        expect(cockpit.degradedReason).toBe('fleet activity source not wired')
+        expect(cockpit.streamDegradedReason).toBe('fleet activity source not wired')
     });
 
     test('not-wired WITHOUT a reason retains none — the producer said nothing to relay', async () => {
@@ -131,7 +132,7 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
         // not manufacture one. Falls back to the generic offline copy, which is correct here.
         const {cockpit} = await routeLoadActivity({fleetActivity: async () => ({capability: {state: 'not-wired'}, events: []})});
 
-        expect(cockpit.degradedReason ?? null).toBe(null)
+        expect(cockpit.streamDegradedReason ?? null).toBe(null)
     });
 
     test('degraded capability → the stale banner', async () => {
@@ -163,7 +164,7 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
         expect(stream.adapterState).toBe('live');
         expect(stream.events).toEqual([]);
         // recovery clears the retained cause — a stale reason on a live feed would outlive its truth
-        expect(cockpit.degradedReason ?? null).toBe(null)
+        expect(cockpit.streamDegradedReason ?? null).toBe(null)
     });
 });
 
@@ -1116,15 +1117,16 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
         return {
             clearDegradedReason: FleetCockpit.prototype.clearDegradedReason,
             degradeWiredSurface: FleetCockpit.prototype.degradeWiredSurface,
-            degradedReason     : null,
             getReference       : reference =>
                 reference === 'fleet-spine-banner' ? banner :
                 reference === 'activity-stream'    ? stream : null,
-            gridAdapterState  : 'live',
-            loadActivity      : FleetCockpit.prototype.loadActivity,
-            streamAdapterState: 'live',
-            streamEvents      : [],
-            syncSpineBanner   : FleetCockpit.prototype.syncSpineBanner
+            gridAdapterState    : 'live',
+            gridDegradedReason  : null,
+            loadActivity        : FleetCockpit.prototype.loadActivity,
+            streamAdapterState  : 'live',
+            streamDegradedReason: null,
+            streamEvents        : [],
+            syncSpineBanner     : FleetCockpit.prototype.syncSpineBanner
         }
     };
 
@@ -1149,7 +1151,7 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
         await withBridge(async () => { throw new Error('transport lost') }, host);
 
         expect(host.streamAdapterState).toBe('stale');
-        expect(host.degradedReason).toBe('transport lost');
+        expect(host.streamDegradedReason).toBe('transport lost');
         expect(banner.calls[0].hidden).toBe(false);
         expect(banner.calls[0].cls).toContain('fm-spine-banner-degraded');
         // the retained reason is NAMED, not generic copy
@@ -1167,7 +1169,7 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
         await withBridge(async () => ({capability: {state: 'wired'}, events: []}), host);
 
         expect(host.streamAdapterState).toBe('live');
-        expect(host.degradedReason, 'a stale cause must never outlive the degrade it explained').toBe(null);
+        expect(host.streamDegradedReason, 'a stale cause must never outlive the degrade it explained').toBe(null);
         expect(banner.calls.at(-1).hidden).toBe(true)
     });
 
@@ -1178,12 +1180,12 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
               host   = makeLivenessHost(banner);
 
         host.gridAdapterState = 'stale';
-        host.degradedReason   = 'roster bridge unreachable';
+        host.gridDegradedReason = 'roster bridge unreachable';
 
         await withBridge(async () => ({capability: {state: 'wired'}, events: []}), host);
 
         expect(host.streamAdapterState).toBe('live');
-        expect(host.degradedReason).toBe('roster bridge unreachable');
+        expect(host.gridDegradedReason).toBe('roster bridge unreachable');
         expect(banner.calls.at(-1).hidden).toBe(false);
         expect(banner.calls.at(-1).text).toContain('roster bridge unreachable')
     });
@@ -1198,7 +1200,7 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
 
         // 'stale' would tell the operator we are showing last-known data that never existed
         expect(host.streamAdapterState).toBe('sample');
-        expect(host.degradedReason).toBe(null)
+        expect(host.streamDegradedReason).toBe(null)
     });
 
     test('the degraded reason is redacted + bounded before it reaches operator-visible chrome', async () => {
@@ -1207,13 +1209,52 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
 
         await withBridge(async () => { throw new Error('502 from bridge (Authorization: Bearer super-secret)') }, host);
 
-        expect(host.degradedReason).not.toContain('super-secret');
-        expect(host.degradedReason).toContain('502 from bridge');
+        expect(host.streamDegradedReason).not.toContain('super-secret');
+        expect(host.streamDegradedReason).toContain('502 from bridge');
         expect(banner.calls[0].text).not.toContain('super-secret');
 
         const long = makeLivenessHost(makeBanner());
         await withBridge(async () => { throw new Error('x'.repeat(400)) }, long);
-        expect(long.degradedReason.length).toBeLessThanOrEqual(120)
+        expect(long.streamDegradedReason.length).toBeLessThanOrEqual(120)
+    });
+
+    test('a healthy SIBLING never erases this surface\'s retained reason — @neo-gpt\'s red proof', async () => {
+        // His exact falsifier, and it defeated the cold-line fix completely. One shared
+        // `degradedReason` for two independently-answering surfaces cannot know whose cause it holds:
+        //
+        //   1. loadActivity resolves first: {state:'not-wired', reason:'…'} → reason retained
+        //   2. the healthy roster resolves {rows:[]} → clearDegradedReason() ran, saw grid=live and
+        //      stream=SAMPLE (not stale, so the guard never noticed it), and erased the activity's
+        //      cause → banner regressed to "Fleet server offline" while the server was answering.
+        //
+        // The guard was not too weak — the FIELD was shared, and no guard on a shared field can tell
+        // whose cause it holds. Per-surface ownership makes the race unrepresentable rather than
+        // guarded, which is why this is a field split and not another condition.
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        // the stream sits on its SEED, which is the real state when a not-wired answer arrives — the
+        // not-wired branch deliberately leaves the state alone (the feed really is showing sample
+        // events), so a host starting at 'live' would stay 'live' and never reach the cold line at
+        // all. My first version of this witness did exactly that and passed for the wrong reason.
+        host.streamAdapterState = 'sample';
+
+        // 1. the activity surface answers not-wired and retains its own cause
+        await withBridge(async () => ({capability: {state: 'not-wired', reason: 'fleet activity source not wired'}, events: []}), host);
+
+        expect(host.streamDegradedReason).toBe('fleet activity source not wired');
+
+        // 2. the roster surface recovers cleanly — it may only clear ITS OWN reason
+        host.clearDegradedReason('grid');
+        host.gridAdapterState = 'live';
+        host.syncSpineBanner();
+
+        expect(host.streamDegradedReason, 'a sibling has no standing to retract this cause').toBe('fleet activity source not wired');
+
+        const text = banner.calls.at(-1).text;
+
+        expect(text).toContain('fleet activity source not wired');
+        expect(text, 'the lie the retained reason exists to prevent').not.toContain('Fleet server offline')
     });
 
     test('hostile markup in a reason renders INERT — the sink is text, never html', async () => {

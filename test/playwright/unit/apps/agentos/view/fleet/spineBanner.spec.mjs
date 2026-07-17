@@ -16,7 +16,7 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
     test('the full 3×3 matrix: cold beats degraded beats live; only live+live hides', () => {
         for (const gridAdapterState of STATES) {
             for (const streamAdapterState of STATES) {
-                const result   = deriveSpineBanner({gridAdapterState, streamAdapterState}),
+                const result   = deriveSpineBanner({grid: {state: gridAdapterState}, stream: {state: streamAdapterState}}),
                       anyCold  = gridAdapterState === 'sample' || streamAdapterState === 'sample',
                       anyStale = gridAdapterState === 'stale'  || streamAdapterState === 'stale',
                       expected = anyCold ? 'cold' : anyStale ? 'degraded' : 'live';
@@ -28,7 +28,7 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
     });
 
     test('cold with NO retained reason names the cause AND a remedy that EXISTS at this head', () => {
-        const {text} = deriveSpineBanner({gridAdapterState: 'sample', streamAdapterState: 'live'});
+        const {text} = deriveSpineBanner({grid: {state: 'sample'}, stream: {state: 'live'}});
 
         expect(text).toContain('Fleet server offline');
         expect(text).toContain('sample data');
@@ -44,10 +44,11 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
         // the operator to start a process that had just answered. One token was carrying two facts:
         // "we never reached it" and "it answered: my source is unconfigured". The retained reason is
         // what separates them, so the line names what the producer actually said.
+        // the cause travels WITH the surface that produced it: the roster is healthy and has nothing
+        // to say about the activity feed's silence
         const {text, kind} = deriveSpineBanner({
-            gridAdapterState  : 'live',
-            streamAdapterState: 'sample',
-            degradedReason    : 'fleet activity source not wired'
+            grid  : {state: 'live'},
+            stream: {state: 'sample', reason: 'fleet activity source not wired'}
         });
 
         expect(kind).toBe('cold');
@@ -62,21 +63,21 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
         // is no reason to name and the generic remedy is the honest guess. An empty-ish reason must
         // not sneak through as a "cause" either.
         ['', '   ', null, undefined].forEach(degradedReason => {
-            const {text} = deriveSpineBanner({gridAdapterState: 'sample', streamAdapterState: 'live', degradedReason});
+            const {text} = deriveSpineBanner({grid: {state: 'sample', reason: degradedReason}, stream: {state: 'live'}});
 
             expect(text, JSON.stringify(degradedReason)).toContain('Fleet server offline')
         })
     });
 
     test('degraded names the honest data state', () => {
-        const {text} = deriveSpineBanner({gridAdapterState: 'live', streamAdapterState: 'stale'});
+        const {text} = deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'stale'}});
 
         expect(text).toContain('degraded');
         expect(text).toContain('last-known')
     });
 
     test('a fully live spine renders NOTHING — zero nominal pixels', () => {
-        const result = deriveSpineBanner({gridAdapterState: 'live', streamAdapterState: 'live'});
+        const result = deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'live'}});
 
         expect(result).toEqual({hidden: true, kind: 'live', text: ''})
     })

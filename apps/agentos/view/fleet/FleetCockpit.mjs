@@ -231,15 +231,27 @@ class FleetCockpit extends Container {
      */
     gridAdapterState = 'sample'
     /**
-     * The liveness owner's retained safe reason for the CURRENT degrade — the honest "why" the spine
-     * banner names instead of generic copy. Written only on a wired→degraded transition, cleared on
-     * recovery, so a stale cause can never outlive the degrade it explained. `null` = either live, or
-     * degraded for a cause the owner never learned (the banner then falls back to generic copy rather
-     * than inventing one).
-     * @member {String|null} degradedReason=null
+     * The retained safe reason for the ROSTER surface's current degrade — the honest "why" the spine
+     * banner names instead of generic copy. `null` = this surface is either fine, or degraded for a
+     * cause the owner never learned (the banner then falls back to generic copy rather than
+     * inventing one).
+     *
+     * PER-SURFACE, not shared, and that is the whole point. One `degradedReason` for two
+     * independently-answering surfaces cannot know whose cause it holds: a healthy roster completing
+     * after a not-wired activity would clear the ACTIVITY's reason and drop the banner back to
+     * "Fleet server offline" — the exact lie the retained reason exists to prevent. Splitting the
+     * field makes that unrepresentable instead of merely guarded.
+     * @member {String|null} gridDegradedReason=null
      * @protected
      */
-    degradedReason = null
+    gridDegradedReason = null
+    /**
+     * The retained safe reason for the ACTIVITY surface's current degrade. See
+     * {@link #gridDegradedReason} for why these are per-surface rather than one shared field.
+     * @member {String|null} streamDegradedReason=null
+     * @protected
+     */
+    streamDegradedReason = null
     /**
      * The last authoritative (bridge-sourced) roster snapshot, kept so a slower store load — the
      * JSON sample seed racing {@link #loadRoster} — can never overwrite live truth
@@ -1228,19 +1240,19 @@ class FleetCockpit extends Container {
                 me.streamAdapterState = 'live';
                 me.streamEvents       = Array.isArray(events) ? events.slice().reverse() : [];
                 stream.set({adapterState: me.streamAdapterState, events: me.streamEvents});
-                me.clearDegradedReason()
+                me.clearDegradedReason('stream')
             } else if (capability?.state === 'degraded') {
                 me.streamAdapterState = 'stale';
                 stream.adapterState   = 'stale';
                 // the adapter's OWN reason outranks a guess — it saw the failure, we only saw the answer
-                me.degradedReason = toSafeDegradedReason(capability.reason)
+                me.streamDegradedReason = toSafeDegradedReason(capability.reason)
             } else if (capability) {
                 // The producer ANSWERED and said it is not wired (`not-wired`). The seed stays — the
                 // stream really is showing sample events, so its own state is honestly 'sample' — but
                 // an answer is not silence, and the difference is the whole point: a reachable server
                 // whose activity source is unconfigured is NOT an unreachable server. Retaining the
                 // reason is what lets the banner say which one it is instead of guessing the loudest.
-                me.degradedReason = toSafeDegradedReason(capability.reason)
+                me.streamDegradedReason = toSafeDegradedReason(capability.reason)
             }
             // NO capability at all (a torn/absent answer) → keep the 'sample' seed AND no reason:
             // we learned nothing, so the banner falls back to its generic copy rather than inventing
@@ -1306,7 +1318,7 @@ class FleetCockpit extends Container {
 
             me.gridAdapterState = 'live';
             grid.adapterState   = 'live';
-            me.clearDegradedReason()
+            me.clearDegradedReason('grid')
         } catch (error) {
             // fail-closed: the last-known roster STAYS rather than blanking the fleet — only the
             // state advances. A wired surface that stops answering is degraded, not cold: it is
@@ -1383,32 +1395,34 @@ class FleetCockpit extends Container {
      * @protected
      */
     degradeWiredSurface(surface, error, consumer = null) {
-        let me    = this,
-            field = surface === 'grid' ? 'gridAdapterState' : 'streamAdapterState';
+        let me     = this,
+            field  = surface === 'grid' ? 'gridAdapterState' : 'streamAdapterState',
+            reason = surface === 'grid' ? 'gridDegradedReason' : 'streamDegradedReason';
 
         // never-wired stays cold-honest: 'sample' already says "this is fixture data"
         if (me[field] === 'sample') return;
 
-        me[field]         = 'stale';
-        me.degradedReason = toSafeDegradedReason(error);
+        me[field]  = 'stale';
+        // this surface's cause, on this surface's field — never a shared slot a sibling can clear
+        me[reason] = toSafeDegradedReason(error);
 
         if (consumer) consumer.adapterState = 'stale'
     }
 
     /**
-     * @summary Clears the retained degrade reason once a surface answers again.
+     * @summary Clears ONE surface's retained degrade reason, once THAT surface answers cleanly.
      *
-     * Only the fully-recovered spine drops the reason: while the OTHER surface is still degraded the
-     * cause remains true and must keep rendering. Clearing on the first recovery would strand the
-     * banner on generic copy while a real, named degrade is still live.
+     * Scoped to the caller's own surface, because a reason is a fact about the surface that produced
+     * it and no other surface has standing to retract it. The shared-field version read both states
+     * and cleared when neither was `stale` — which meant a healthy roster erased a not-wired
+     * ACTIVITY's cause (the activity is `sample`, not `stale`, so the guard never saw it) and the
+     * banner regressed to "Fleet server offline" while the server was answering. The guard was not
+     * too weak; the field was shared, and no guard on a shared field can tell whose cause it holds.
+     * @param {String} surface `'grid'` | `'stream'` — the caller's own surface.
      * @protected
      */
-    clearDegradedReason() {
-        let me = this;
-
-        if (me.gridAdapterState !== 'stale' && me.streamAdapterState !== 'stale') {
-            me.degradedReason = null
-        }
+    clearDegradedReason(surface) {
+        this[surface === 'grid' ? 'gridDegradedReason' : 'streamDegradedReason'] = null
     }
 
     /**
@@ -1428,10 +1442,11 @@ class FleetCockpit extends Container {
             banner = me.getReference('fleet-spine-banner');
 
         if (banner) {
+            // each state travels WITH its own cause: the derivation reports the reason of the
+            // surface that decided the verdict, and no sibling can supply or silence it
             let {hidden, kind, text} = deriveSpineBanner({
-                degradedReason    : me.degradedReason,
-                gridAdapterState  : me.gridAdapterState,
-                streamAdapterState: me.streamAdapterState
+                grid  : {state: me.gridAdapterState,   reason: me.gridDegradedReason},
+                stream: {state: me.streamAdapterState, reason: me.streamDegradedReason}
             });
 
             // `text`, never `html`. The line now interpolates a RETAINED TRANSPORT STRING — the
