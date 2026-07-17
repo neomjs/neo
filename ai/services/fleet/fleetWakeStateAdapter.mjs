@@ -1,6 +1,6 @@
-import {spawnSync} from 'node:child_process'
+import {spawnSync}         from 'node:child_process'
 import {redactCredentials} from './redactCredentials.mjs'
-import fs          from 'node:fs'
+import fs                  from 'node:fs'
 
 /**
  * @module ai/services/fleet/fleetWakeStateAdapter

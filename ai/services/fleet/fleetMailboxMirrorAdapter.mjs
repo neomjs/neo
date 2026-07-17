@@ -1,5 +1,6 @@
 import {FLEET_COCKPIT_SOURCES}        from '../../../src/ai/fleet/fleetCockpitStatus.mjs'
 import {normalizeAgentIdentityNodeId} from '../../graph/normalizeAgentIdentityNodeId.mjs'
+import {redactCredentials}            from './redactCredentials.mjs'
 
 /**
  * @module ai/services/fleet/fleetMailboxMirrorAdapter
@@ -379,11 +380,7 @@ function normalizeError(error) {
  * @private
  */
 function redactSecretText(text) {
-    return text
-        .replace(/\b(?:authorization\s*[:=]\s*)?bearer\s+[^\s,;)]+/gi, 'authorization=[redacted]')
-        .replace(/\b(authorization|token|secret|password|pat|credential|privateKey|signingKey)\s*[:=]\s*[^\s,;)]+/gi, '$1=[redacted]')
-        .replace(/\bgh[pousr]_[A-Za-z0-9_]+/g, '[redacted-token]')
-        .replace(/\bglpat-[A-Za-z0-9_-]+/g, '[redacted-token]')
+    return redactCredentials(text)
 }
 
 function toIsoString(value, fallback = new Date()) {
