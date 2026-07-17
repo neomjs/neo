@@ -206,6 +206,52 @@ test.describe('fleetActivityComposer — composing two truths means composing tw
         }
     });
 
+    test('an UNBOUNDED bound is clamped — the default is not a maximum', async () => {
+        // @neo-opus-vega's falsifier. The first cut refused -1/0/NaN/'many' and obeyed 1e9 — so it
+        // guarded the malformed class and left the one this guard's own JSDoc names: `params` arrives
+        // over the wire, so the ceiling was caller-chosen against a producer that fans out to every
+        // adapter. The reason string was capped in this same file; the count was not.
+        for (const huge of [1e9, Number.MAX_SAFE_INTEGER, 201]) {
+            const seen   = [];
+            const source = createFleetActivityReadSource({
+                readA2ASnapshot   : async params => { seen.push(params.limit); return {capability: {source: 'a', state: 'wired'}, events: []} },
+                readPrLaneSnapshot: async params => { seen.push(params.limit); return {capability: {source: 'b', state: 'wired'}, events: []} },
+                limit             : 25
+            });
+
+            await source.readActivitySnapshot({limit: huge});
+            expect(seen, `limit ${huge} must be clamped, not obeyed`).toEqual([200, 200])
+        }
+    });
+
+    test('the clamp caps the RESULT too — a slot cannot answer past the ceiling', async () => {
+        // Vega's own observation about boundEvents, pinned: bounding only the REQUEST trusts the
+        // adapters to honour it. A slot returning more than asked must not blow the cap.
+        const flood = async () => ({
+            capability: {source: 'a', state: 'wired', confidence: 'observed'},
+            events    : Array.from({length: 500}, (_, index) => ({occurredAt: `2026-07-16T${String(index % 24).padStart(2, '0')}:00:00.000Z`, id: `e-${index}`}))
+        });
+        const source = createFleetActivityReadSource({readA2ASnapshot: flood, readPrLaneSnapshot: flood, limit: 25});
+
+        const {events} = await source.readActivitySnapshot({limit: 1e9});
+
+        expect(events.length).toBe(200)
+    });
+
+    test('an honest bound below the ceiling is untouched', async () => {
+        // Without this, "clamp everything to 200" would satisfy the tests above and silently ignore
+        // every caller's actual request.
+        const seen   = [];
+        const source = createFleetActivityReadSource({
+            readA2ASnapshot   : async params => { seen.push(params.limit); return {capability: {source: 'a', state: 'wired'}, events: []} },
+            readPrLaneSnapshot: async params => { seen.push(params.limit); return {capability: {source: 'b', state: 'wired'}, events: []} },
+            limit             : 25
+        });
+
+        await source.readActivitySnapshot({limit: 7});
+        expect(seen).toEqual([7, 7])
+    });
+
     test('a contributor returning NO capability has not reported sight', async () => {
         // Inventing a capability for a malformed answer is the exact failure this module prevents.
         const source = createFleetActivityReadSource({

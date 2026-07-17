@@ -41,6 +41,21 @@ export const FLEET_ACTIVITY_SLOTS = Object.freeze({
 export const FLEET_ACTIVITY_REASON_MAX = 200;
 
 /**
+ * @summary The hard ceiling on events a caller may request — a MAXIMUM, not a default.
+ *
+ * `DEFAULT_FLEET_ACTIVITY_EVENT_LIMIT` is what a caller gets when it asks for nothing; this is what
+ * it gets when it asks for everything. Without the distinction, refusing `-1` and `NaN` while
+ * obeying `1e9` guards the malformed case and leaves the one that matters: `params` arrives over the
+ * wire from the App Worker, so the ceiling was caller-chosen against a producer that fans out to
+ * every adapter.
+ *
+ * 4× the default: generous enough that no honest caller meets it, bounded enough that a dishonest
+ * one cannot turn one request into an unbounded read of the mailbox and GitHub at once.
+ * @type {Number}
+ */
+export const FLEET_ACTIVITY_BOUND_MAX = 200;
+
+/**
  * @summary Resolves the event bound, refusing values that would silently unbound the read.
  *
  * `params.limit ?? limit` accepted `-1`, `NaN`, `0` and `'50'` — a caller-supplied bound reaches the
@@ -55,7 +70,11 @@ export const FLEET_ACTIVITY_REASON_MAX = 200;
 function normalizeBound(requested, fallback) {
     const value = Number(requested);
 
-    return Number.isInteger(value) && value > 0 ? value : fallback
+    // Two different refusals, and the first cut only had one. An unusable bound falls back to the
+    // default; a USABLE but unbounded one is clamped. `Number.isInteger(1e9) && 1e9 > 0` is true, so
+    // checking only well-formedness let the exact read this guard exists to stop walk through the
+    // front door — the reason string was already capped in this same file, and the count was not.
+    return Number.isInteger(value) && value > 0 ? Math.min(value, FLEET_ACTIVITY_BOUND_MAX) : Math.min(fallback, FLEET_ACTIVITY_BOUND_MAX)
 }
 
 /**
