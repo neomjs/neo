@@ -1,8 +1,9 @@
 import {test, expect}                                                                              from '@playwright/test';
-import {composeBlockDirective, composeDeferenceDirective, decideHookAction, isOperatorInLoop, parseOutcomeToVerdict,
+import {composeBlockDirective, composeDeferenceDirective, countSessionCompliantRefusals, decideHookAction,
+        isOperatorInLoop, parseOutcomeToVerdict,
         extractFinalAssistantText, extractLastAssistantTextFromJsonl, extractLastUserTextFromJsonl,
         extractLatestHumanUserTextFromJsonl,
-        formatLifecycleBoard, formatGoldenPathDirection, formatHoldCostumeCallout} from '../../../../.claude/hooks/laneStateStopHook.mjs';
+        formatCapacityAdvisory, formatLifecycleBoard, formatGoldenPathDirection, formatHoldCostumeCallout} from '../../../../.claude/hooks/laneStateStopHook.mjs';
 import {spawn} from 'node:child_process';
 import fs      from 'node:fs';
 import os      from 'node:os';
@@ -525,15 +526,21 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
      * @param {{enforce: Boolean, promptingText: (String|null), stopHookActive: Boolean, toolCommand: String|null}} [opts]
      * @returns {Promise<{stdout: String, log: String}>}
      */
-    function runHook(finalText, {enforce = false, promptingText = null, stopHookActive = false, lifecycleState = null, toolCommand = null, transcriptRecords = null} = {}) {
+    function runHook(finalText, {enforce = false, promptingText = null, stopHookActive = false, lifecycleState = null, toolCommand = null, transcriptRecords = null, preseedLog = null, extraEnv = null} = {}) {
         return new Promise((resolve, reject) => {
             const dir            = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-hook-e2e-')),
                   transcriptPath = path.join(dir, 'transcript.jsonl'),
-                  env            = {...process.env, NEO_AI_DAEMON_DIR: dir},
+                  env            = {...process.env, NEO_AI_DAEMON_DIR: dir, ...(extraEnv || {})},
                   payload        = {stop_hook_active: stopHookActive, session_id: 'e2e'};
 
             if (lifecycleState !== null) {
                 fs.writeFileSync(path.join(dir, 'lifecycle-state.json'), JSON.stringify(lifecycleState), 'utf8');
+            }
+
+            if (preseedLog !== null) {
+                // The drive-ratchet source: pre-seed the hook's OWN audit log (prior-session-turn
+                // BLOCK lines) so acceptance reads hook-written history, exactly as in production.
+                fs.writeFileSync(path.join(dir, 'lane-state-stop-hook.log'), preseedLog.join('\n') + '\n', 'utf8');
             }
 
             if (transcriptRecords !== null) {
@@ -841,5 +848,149 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
         const decision = JSON.parse(stdout);
         expect(decision.decision).toBe('block');
         expect(decision.reason).not.toContain('Release-goal direction');
+    });
+
+    // ── the clean-terminal acceptance edge — the ONE audited autonomous stop ────────────────────
+
+    // A fully handed-off valid terminal: next-lane, one issue-shaped gate with a same-turn checkedAt
+    // and a NON-SELF nextActor (issue-shaped refs need no PR fetch evidence, keeping the fixture pure).
+    const handedOffTerminal = `Both PRs at responded-head.\n\n${block(
+        '{"laneContinuation":"next-lane","awaitingOwnPrOnly":false,"namedGates":[' +
+        '{"ref":"#15274","checkedAt":"2026-07-16T18:00:00Z","nextActor":"@neo-gpt-emmy"}]}'
+    )}`;
+
+    // Two prior compliant refused drives — the hook's own audit-log lines, exactly as production writes them.
+    const twoCompliantRefusals = [
+        '[2026-07-16T17:00:00.000Z] BLOCK (session=e2e, operatorInLoop=false, midChainOperator=false, autonomousHandoff=false, handoffReason=none, handoffWindowMs=none): valid lane-state terminal',
+        '[2026-07-16T17:20:00.000Z] BLOCK (session=e2e, operatorInLoop=false, midChainOperator=false, autonomousHandoff=false, handoffReason=none, handoffWindowMs=none): valid lane-state terminal'
+    ];
+
+    test('clean terminal: valid + non-self gates + ratchet met + identity wired → audited ALLOW, never silent', async () => {
+        const {stdout, log} = await runHook(handedOffTerminal, {
+            enforce      : true,
+            extraEnv     : {NEO_AGENT_IDENTITY: '@neo-fable'},
+            preseedLog   : twoCompliantRefusals,
+            promptingText: '[WAKE] 1 event'
+        });
+
+        expect(log).toContain('CLEAN-TERMINAL ALLOW');
+        expect(log).toContain('2 compliant drives');
+
+        // the peer-visible boundary: a systemMessage, NOT a block decision
+        const emission = JSON.parse(stdout);
+        expect(emission.decision).toBeUndefined();
+        expect(emission.systemMessage).toContain('[clean-terminal]');
+        expect(emission.systemMessage).toContain('non-self actors');
+    });
+
+    test('the ratchet holds: only ONE prior compliant drive → still BLOCK (first/second valid terminals refuse)', async () => {
+        const {stdout, log} = await runHook(handedOffTerminal, {
+            enforce      : true,
+            extraEnv     : {NEO_AGENT_IDENTITY: '@neo-fable'},
+            preseedLog   : [twoCompliantRefusals[0]],
+            promptingText: '[WAKE] 1 event'
+        });
+
+        expect(log).toContain('BLOCK');
+        expect(JSON.parse(stdout).decision).toBe('block');
+    });
+
+    test('a self-awaiting gate defeats acceptance — the board is not handed off', async () => {
+        const selfGate = `Done.\n\n${block(
+            '{"laneContinuation":"next-lane","awaitingOwnPrOnly":false,"namedGates":[' +
+            '{"ref":"#15274","checkedAt":"2026-07-16T18:00:00Z","nextActor":"@neo-fable"}]}'
+        )}`;
+
+        const {stdout} = await runHook(selfGate, {
+            enforce      : true,
+            extraEnv     : {NEO_AGENT_IDENTITY: '@neo-fable'},
+            preseedLog   : twoCompliantRefusals,
+            promptingText: '[WAKE] 1 event'
+        });
+
+        expect(JSON.parse(stdout).decision).toBe('block');
+    });
+
+    test('no NEO_AGENT_IDENTITY wiring → the edge is inert (fail-closed): BLOCK exactly as before', async () => {
+        const {stdout} = await runHook(handedOffTerminal, {
+            enforce   : true,
+            // Explicitly CLEARED, not ambiently absent: real agent boxes export NEO_AGENT_IDENTITY,
+            // so relying on the parent env lacking it makes this test box-dependent.
+            extraEnv     : {NEO_AGENT_IDENTITY: ''},
+            preseedLog   : twoCompliantRefusals,
+            promptingText: '[WAKE] 1 event'
+        });
+
+        expect(JSON.parse(stdout).decision).toBe('block');
+    });
+
+    test('WOULD-BLOCK and deference audit lines never feed the ratchet — only compliant BLOCK refusals count', async () => {
+        const {stdout} = await runHook(handedOffTerminal, {
+            enforce   : true,
+            extraEnv  : {NEO_AGENT_IDENTITY: '@neo-fable'},
+            preseedLog: [
+                // dry-run previews (no chain formed) + a deference block + an invalid-terminal block:
+                // none of these are compliant refused drives.
+                '[2026-07-16T17:00:00.000Z] WOULD-BLOCK (session=e2e, operatorInLoop=false, midChainOperator=false, autonomousHandoff=false, handoffReason=none, handoffWindowMs=none): valid lane-state terminal',
+                '[2026-07-16T17:05:00.000Z] BLOCK (session=e2e, operatorInLoop=false, midChainOperator=false, autonomousHandoff=false, handoffReason=none, handoffWindowMs=none): deference phrase "your call" at turn-terminal',
+                '[2026-07-16T17:10:00.000Z] BLOCK (session=e2e, operatorInLoop=false, midChainOperator=false, autonomousHandoff=false, handoffReason=none, handoffWindowMs=none): no lane-state block emitted at turn-terminal',
+                // a DIFFERENT session's compliant refusal must not leak in either:
+                '[2026-07-16T17:15:00.000Z] BLOCK (session=other, operatorInLoop=false, midChainOperator=false, autonomousHandoff=false, handoffReason=none, handoffWindowMs=none): valid lane-state terminal'
+            ],
+            promptingText: '[WAKE] 1 event'
+        });
+
+        expect(JSON.parse(stdout).decision).toBe('block');
+    });
+
+    test('capacity advisory: past the own-open-PR threshold the block directive weights review seats first', async () => {
+        const {stdout} = await runHook(block('{"laneContinuation":"verified-no-lane"}'), {
+            enforce      : true,
+            promptingText: '[WAKE] 1 event',
+            // freshness is contract: an unproven-fresh lifecycle-state serves NOTHING — the
+            // capacity advisory included — so the fixture must carry a live generatedAt.
+            lifecycleState: {generatedAt: new Date().toISOString(), openPRs: [{number: 1, state: 'OPEN'}, {number: 2, state: 'OPEN'}, {number: 3, state: 'OPEN'}]}
+        });
+
+        const decision = JSON.parse(stdout);
+        expect(decision.decision).toBe('block');
+        expect(decision.reason).toContain('Capacity: 3 own PRs already open');
+        expect(decision.reason).toContain('review seat');
+    });
+});
+
+/**
+ * Unit layer for the clean-terminal support functions — the ratchet counter guards and the
+ * capacity-advisory formatter matrix (the e2e layer above covers their composed behavior).
+ */
+test.describe('laneStateStopHook — clean-terminal support units', () => {
+    test('countSessionCompliantRefusals: empty / unknown session ids fail closed to 0', () => {
+        expect(countSessionCompliantRefusals('')).toBe(0);
+        expect(countSessionCompliantRefusals('?')).toBe(0);
+        expect(countSessionCompliantRefusals(undefined)).toBe(0);
+        // an id that cannot exist in any real log → 0 (missing log/lines fail closed, never throw)
+        expect(countSessionCompliantRefusals(`spec-never-${Date.now()}`)).toBe(0);
+    });
+
+    test('formatCapacityAdvisory: below threshold / malformed shapes → "" (fail-open, total)', () => {
+        expect(formatCapacityAdvisory(null)).toBe('');
+        expect(formatCapacityAdvisory('garbage')).toBe('');
+        expect(formatCapacityAdvisory({})).toBe('');
+        expect(formatCapacityAdvisory({openPRs: 'not-an-array'})).toBe('');
+        expect(formatCapacityAdvisory({openPRs: [null, {}, {number: 1}]})).toBe('');          // 1 valid < 3
+        expect(formatCapacityAdvisory({openPRs: [{number: 1}, {number: 2}]})).toBe('');       // 2 < 3
+        expect(() => formatCapacityAdvisory({openPRs: [null]})).not.toThrow();
+    });
+
+    test('formatCapacityAdvisory: at/past threshold → the review-seats-first line; threshold is tunable', () => {
+        const line = formatCapacityAdvisory({openPRs: [{number: 1}, {number: 2}, {number: 3}]});
+        expect(line).toContain('Capacity: 3 own PRs already open');
+        expect(line).toContain('review seat');
+        expect(line).toContain('CHANGES_REQUESTED');
+
+        // tunable threshold: 2 open PRs trip a threshold of 2
+        expect(formatCapacityAdvisory({openPRs: [{number: 1}, {number: 2}]}, {threshold: 2})).toContain('Capacity: 2 own PRs');
+        // malformed entries are excluded from the count (only 2 valid of 4 → below default threshold)
+        expect(formatCapacityAdvisory({openPRs: [null, {}, {number: 1}, {number: 2}]})).toBe('');
     });
 });

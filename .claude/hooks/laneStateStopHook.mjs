@@ -1,14 +1,21 @@
 #!/usr/bin/env node
 /**
  * @module .claude/hooks/laneStateStopHook
- * @summary Claude Code `Stop` hook — REFUSES every turn-end except a live operator dialogue.
+ * @summary Claude Code `Stop` hook — REFUSES every turn-end except a live operator dialogue or an
+ * audited CLEAN TERMINAL (valid terminal + fully handed-off gates + the session drive-ratchet).
  * DRY-RUN (log-only) by default; ENFORCE via `NEO_LANE_STATE_ENFORCE=1`.
  *
  * Fires at every agent turn-end (the `Stop` event). The decision rule: there is NO valid voluntary
  * stop except a **live operator dialogue** — a turn that directly replied to a genuine human-operator
- * message, where the human takes the next turn (turn-taking, not idling). A "valid" fenced ```lane-state
- * block is a RECORD (the directive's context + the external substance record), NOT a license to stop:
- * declaring a lane and halting is the announce-without-execute idle-out the hook exists to prevent.
+ * message, where the human takes the next turn (turn-taking, not idling) — or the ONE autonomous
+ * edge, a **clean terminal**: a valid lane-state terminal whose named gates ALL await non-self actors,
+ * after ≥2 compliant refused drives already proved the no-hold principle was honored this session
+ * (the drive count is read from the hook's OWN audit log, the self identity from `NEO_AGENT_IDENTITY`
+ * harness wiring — absent wiring keeps the edge inert, fail-closed). Acceptance is audited
+ * (`[clean-terminal]` line + a transcript systemMessage), never silent. Outside that edge a "valid"
+ * fenced ```lane-state block is a RECORD (the directive's context + the external substance record),
+ * NOT a license to stop: declaring a lane and halting is the announce-without-execute idle-out the
+ * hook exists to prevent.
  *
  * Mechanism:
  *  - `operatorInLoop` (the one allow) is determined EXTERNALLY by `isOperatorInLoop`, never
@@ -51,6 +58,7 @@ import {buildDeferenceStopHookDirective,
         classifyPromptingContext,
         decideDeferenceStopHookAction,
         decideStopHookAction,
+        evaluateCleanTerminalAcceptance,
         isOperatorInLoop,
         LANE_STATE_SCHEMA_HINT,
         parseOutcomeToVerdict,
@@ -101,27 +109,57 @@ function auditLog(line) {
 
 /**
  * @summary Pure decision — maps a terminal `verdict` + the mode (`enforcing`) + whether a live human
- * operator prompted this turn (`operatorInLoop`) to the Stop-hook action. The heart of the idle-out
- * mechanism; exported + unit-tested.
+ * operator prompted this turn (`operatorInLoop`) + the adapter-evaluated clean-terminal acceptance
+ * to the Stop-hook action. The heart of the idle-out mechanism; exported + unit-tested.
  *
  * The ONE legitimate voluntary stop is a **live operator dialogue** — this turn directly replied to a
  * genuine human-operator message, so the human takes the next turn (turn-taking, not idling). That is
  * `operatorInLoop`, and it ALWAYS allows. `operatorInLoop` is determined EXTERNALLY (the prompting
  * message type — see the entry `main`), never self-declared, so it cannot be gamed.
  *
- * Every OTHER turn-end is an idle-out. A "valid" lane-state terminal is a declaration, not a license
- * to stop (the announce-without-execute loophole the prior `verdict.valid → allow` branch left open).
- * ENFORCE refuses it (block); DRY-RUN previews it (would-block, the false-positive audit path). The
- * `verdict` no longer gates the action — it only supplies the `reason` for the injected directive and
- * the external substance record. The only autonomous stop is a hard external limit (Claude Code's
+ * The ONE legitimate AUTONOMOUS stop is a **clean terminal** — a valid lane-state terminal on a fully
+ * handed-off board (every named gate awaiting a non-self actor) after the session drive-ratchet proved
+ * the no-hold principle was honored (`evaluateCleanTerminalAcceptance`; the drive count comes from the
+ * hook's OWN audit trail, never the agent's claim). Acceptance emits a `[clean-terminal]` audit line —
+ * the boundary is observable, not silent. Everything else is unchanged: a first valid terminal still
+ * refuses (ratchet), ENFORCE blocks, DRY-RUN previews (would-block), and the `verdict` supplies the
+ * directive `reason`. The remaining autonomous stops are hard external limits (Claude Code's
  * consecutive-block force-override, context-sunset, or an operator halt).
  * @param {{valid: Boolean, reason: String}} verdict
  * @param {Boolean} enforcing
  * @param {Boolean} [operatorInLoop=false] True iff a genuine human-operator message prompted this turn.
+ * @param {{accept: Boolean, reason: String}|null} [cleanTerminal=null] Adapter-evaluated acceptance.
  * @returns {{action: ('allow'|'block'|'would-block'), reason: String}}
  */
-export function decideHookAction(verdict, enforcing, operatorInLoop = false) {
-    return decideStopHookAction(verdict, {enforcing, operatorInLoop, blockInjectionSupported: true});
+export function decideHookAction(verdict, enforcing, operatorInLoop = false, cleanTerminal = null) {
+    return decideStopHookAction(verdict, {enforcing, operatorInLoop, blockInjectionSupported: true, cleanTerminal});
+}
+
+/**
+ * @summary Counts this session's COMPLIANT REFUSED terminals from the hook's own append-only audit
+ * log — the external drive-ratchet source for {@link evaluateCleanTerminalAcceptance}. Every
+ * `BLOCK … : valid lane-state terminal` line is one turn where the agent emitted a fully valid
+ * terminal and the hook refused it anyway (so a real drive followed); the count is therefore
+ * hook-written evidence the agent cannot self-declare. Deference blocks and invalid-terminal blocks
+ * do not count. WOULD-BLOCK (dry-run) lines do not count — no chain formed. Fail-CLOSED: a missing /
+ * unreadable log or an unknown session returns 0, so a broken audit trail can never mint a
+ * stop-license. Exported + unit-tested.
+ * @param {String} sessionId The Stop payload's `session_id`.
+ * @returns {Number}
+ */
+export function countSessionCompliantRefusals(sessionId) {
+    if (!sessionId || sessionId === '?') return 0;
+
+    try {
+        // `] BLOCK (session=` excludes WOULD-BLOCK lines (they read `] WOULD-BLOCK (session=`);
+        // the trailing comma pins the exact session id (no prefix collisions between ids).
+        const needle = `] BLOCK (session=${sessionId},`;
+
+        return fs.readFileSync(LOG_FILE, 'utf8').split('\n')
+            .filter(line => line.includes(needle) && line.includes(': valid lane-state terminal')).length;
+    } catch {
+        return 0;
+    }
 }
 
 // The curated no-hold-state directive injected on a block. References the always-loaded
@@ -285,23 +323,59 @@ export function formatGoldenPathDirection(state) {
 }
 
 /**
+ * @summary Formats the capacity-aware advisory weighting — when the agent's own open-PR count crosses
+ * the review-capacity threshold, the refuse-directive weights REVIEW seats above new-artifact
+ * production (review-cost marginal-value economics applied at the turn boundary: every own open PR
+ * consumes a peer review seat, so more refused terminals converted into NEW artifacts grow queue
+ * depth, not throughput). Advisory only — it reorders emphasis, never auto-reprioritizes. The richer
+ * open-PRs-per-active-REVIEWER ratio needs reviewer-liveness data the lifecycle-state producer does
+ * not write yet; own-open-PRs is the v1 proxy carried by the existing file. Fail-open + total (any
+ * malformed shape → `''`); exported + unit-tested.
+ * @param {Object|null} state `{openPRs, ...}` from {@link readLifecycleState}.
+ * @param {Object} [options]
+ * @param {Number} [options.threshold=3] Own-open-PR count at which review seats outrank new artifacts.
+ * @returns {String}
+ */
+export function formatCapacityAdvisory(state, {threshold = 3} = {}) {
+    try {
+        if (!state || typeof state !== 'object') return '';
+
+        const prs  = Array.isArray(state.openPRs) ? state.openPRs : [],
+              open = prs.filter(pr => pr && typeof pr === 'object' &&
+                  (typeof pr.number === 'number' || typeof pr.number === 'string'));
+
+        if (open.length < threshold) return '';
+
+        return `\nCapacity: ${open.length} own PRs already open — each one consumes a peer review seat. ` +
+            `Weight REVIEW work above new artifacts now: clear CHANGES_REQUESTED on your own PRs or take a ` +
+            `peer's review seat before opening another artifact lane (review-cost economics, marginal-value discipline).`;
+    } catch {
+        // Belt-and-suspenders: any unforeseen shape degrades to the bare reminder, never throws.
+        return '';
+    }
+}
+
+/**
  * @summary Composes the directive injected on a block — the curated `IDLE_REMINDER` (lifecycle +
- * teeth-test) + the Computed Golden Path release-goal direction (the release-goal anchor) + the agent's
+ * teeth-test) + the Computed Golden Path release-goal direction (the release-goal anchor) + the
+ * capacity advisory (review seats outrank new artifacts past the own-open-PR threshold) + the agent's
  * live lane-state board + the always-present mirror-pointer (discoverability) + the self-improvability
  * clause (the floor is mutable substrate) + the trigger `cause`. Reminder is WHAT-to-do, the direction
- * is WHICH-lane-serves-the-release-goal, the board is WHAT'S-actionable-now, the mirror-pointer is
- * WHY-this-is-not-a-leash, the clause is HOW-to-fix-it-when-wrong, the cause is WHY-blocked. Fail-open
- * on the direction + board (missing/bad file → bare reminder). ONE best-effort file read shared by both
- * formatters; exported + unit-tested.
+ * is WHICH-lane-serves-the-release-goal, capacity is WHICH-KIND-of-lane-first, the board is
+ * WHAT'S-actionable-now, the mirror-pointer is WHY-this-is-not-a-leash, the clause is
+ * HOW-to-fix-it-when-wrong, the cause is WHY-blocked. Fail-open on the direction + capacity + board
+ * (missing/bad file → bare reminder). ONE best-effort file read shared by all three formatters;
+ * exported + unit-tested.
  * @param {String} cause The terminal-evidence violation that triggered the block (the verdict reason).
  * @returns {String}
  */
 export function composeBlockDirective(cause, holdMatches = []) {
     const state     = readLifecycleState(),
           direction = formatGoldenPathDirection(state),
+          capacity  = formatCapacityAdvisory(state),
           board     = formatLifecycleBoard(state),
           costume   = formatHoldCostumeCallout(holdMatches);
-    return `${IDLE_REMINDER}${direction}${board}${costume}\n\n${MIRROR_POINTER}\n\n${SELF_IMPROVABILITY_CLAUSE}\n\n(Stop-hook trigger: ${cause})`;
+    return `${IDLE_REMINDER}${direction}${capacity}${board}${costume}\n\n${MIRROR_POINTER}\n\n${SELF_IMPROVABILITY_CLAUSE}\n\n(Stop-hook trigger: ${cause})`;
 }
 
 /**
@@ -629,8 +703,35 @@ async function main() {
         process.exit(0);
     }
 
-    const session          = input.session_id || '?',
-          {action, reason} = decideHookAction(verdict, ENFORCING, operatorInLoop);
+    const session = input.session_id || '?';
+
+    // The clean-terminal edge (the ONE autonomous stop): evaluated ONLY on a valid terminal outside
+    // operator dialogue. Inputs are external by construction — the drive count comes from the hook's
+    // own audit log ({@link countSessionCompliantRefusals}), the self identity from harness wiring
+    // (`NEO_AGENT_IDENTITY`; absent → fail-closed, the edge stays inert), the operator-turn waiver from
+    // the SAME human-filtered classification the allow path uses. The descriptor contributes only its
+    // gates' nextActor declarations, and gaming those is bounded: acceptance still requires the
+    // ratchet's hook-written drives, and the boundary emits an audited, peer-visible line.
+    let cleanTerminal = null;
+    if (verdict.valid && !operatorInLoop) {
+        cleanTerminal = evaluateCleanTerminalAcceptance({
+            verdictValid    : true,
+            namedGates      : Array.isArray(descriptor?.namedGates) ? descriptor.namedGates : [],
+            selfIdentity    : process.env.NEO_AGENT_IDENTITY || '',
+            compliantDrives : countSessionCompliantRefusals(session),
+            operatorTurnNext: midChainOperator
+        });
+    }
+
+    const {action, reason} = decideHookAction(verdict, ENFORCING, operatorInLoop, cleanTerminal);
+
+    if (action === 'allow' && cleanTerminal?.accept === true) {
+        // The audited boundary: the acceptance is observable (log + a best-effort systemMessage into
+        // the transcript), never a silent stop. Exit only after stdout drains.
+        auditLog(`CLEAN-TERMINAL ALLOW (session=${session}, midChainOperator=${midChainOperator}): ${reason}`);
+        process.stdout.write(JSON.stringify({systemMessage: reason}), () => process.exit(0));
+        return;
+    }
 
     if (action === 'block') {
         // Costume-tripwire: scan the agent's OWN turn-final text for the sophisticated-hold lexicon so
