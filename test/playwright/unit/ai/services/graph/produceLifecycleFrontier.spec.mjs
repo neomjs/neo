@@ -39,12 +39,12 @@ test.describe('produceLifecycleFrontier — injected source reads into one hones
         isDraft                     : false,
         headSha                     : 'abc123',
         mergeable                   : true,
-        reviews                     : [{state: 'CHANGES_REQUESTED', commitSha: 'abc123'}],
-        checks                      : [{name: 'unit', required: true, conclusion: 'SUCCESS'}],
-        repairActionableSince       : '2026-07-16T11:00:00.000Z',
-        repairActionableSinceHeadSha: 'abc123',
-        checkedAt                   : '2026-07-16T12:00:00.000Z',
-        url                         : 'https://github.com/neomjs/neo/pull/15264'
+        // Source-shaped: the review names the commit it reviewed AND when it was submitted. The clock
+        // owner derives repairActionableSince from exactly this, so no caller supplies it.
+        reviews  : [{state: 'CHANGES_REQUESTED', commitSha: 'abc123', submittedAt: '2026-07-16T11:00:00.000Z'}],
+        checks   : [{name: 'unit', required: true, conclusion: 'SUCCESS', headSha: 'abc123', completedAt: '2026-07-16T10:30:00.000Z'}],
+        checkedAt: '2026-07-16T12:00:00.000Z',
+        url      : 'https://github.com/neomjs/neo/pull/15264'
     };
 
     const sources = (overrides = {}) => ({

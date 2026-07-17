@@ -24,41 +24,41 @@ import * as core      from '../../../../../../src/core/_export.mjs';
  */
 test.describe('lifecycleAdmission — the five stages and their exclusions', () => {
     let admitOwnPrRepair, admitOwnPrReviewerRouting, admitRequestedReview, admitClaimedTask,
-        admitDirectMessage, collectLifecycleItems, hasCurrentHeadClosingReview;
+        admitDirectMessage, collectLifecycleItems, hasCurrentHeadClosingReview, normalizeClocks;
 
     const ME   = '@neo-opus-ada',
           PEER = '@neo-gpt',
           HEAD = 'head-2',
           OLD  = 'head-1';
 
-    const ownPr = (overrides = {}) => ({
-        id                   : 'pr-15231',
-        authorId             : ME,
-        state                : 'OPEN',
-        isDraft              : false,
-        headSha              : HEAD,
-        mergeable            : true,
-        checks               : [{name: 'unit', required: true, conclusion: 'SUCCESS'}],
-        reviews              : [],
-        reviewRequests       : [],
-        url                  : 'https://github.com/neomjs/neo/pull/15231',
-        repairActionableSince: '2026-07-16T09:00:00.000Z',
-        reviewableSince      : '2026-07-16T09:30:00.000Z',
-        reviewRequestedSince : '2026-07-16T09:45:00.000Z',
-        // Clock provenance: the source states which head each clock was started for, so the stateless
-        // predicate can VERIFY the head-change reset instead of assuming it.
-        repairActionableSinceHeadSha: HEAD,
-        reviewableSinceHeadSha      : HEAD,
-        reviewRequestedSinceHeadSha : HEAD,
-        checkedAt                   : '2026-07-16T10:00:00.000Z',
+    // SOURCE-shaped, not clock-shaped: reviews name the commit they reviewed and when, checks name their
+    // head and completion. The clock owner derives every `*Since` from exactly these, so a fixture that
+    // hand-supplied clocks would be testing a contract nothing produces.
+    const sourcePr = (overrides = {}) => ({
+        id            : 'pr-15231',
+        authorId      : ME,
+        state         : 'OPEN',
+        isDraft       : false,
+        headSha       : HEAD,
+        mergeable     : true,
+        checks        : [{name: 'unit', required: true, conclusion: 'SUCCESS', headSha: HEAD, completedAt: '2026-07-16T09:30:00.000Z'}],
+        reviews       : [],
+        reviewRequests: [],
+        url           : 'https://github.com/neomjs/neo/pull/15231',
+        mergeableSince: '2026-07-16T09:00:00.000Z',
+        checkedAt     : '2026-07-16T10:00:00.000Z',
         ...overrides
     });
+
+    // What the collector hands the predicates.
+    const ownPr = (overrides = {}) => normalizeClocks(sourcePr(overrides));
 
     test.beforeAll(async () => {
         ({
             admitOwnPrRepair, admitOwnPrReviewerRouting, admitRequestedReview, admitClaimedTask,
             admitDirectMessage, collectLifecycleItems, hasCurrentHeadClosingReview
         } = await import('../../../../../../ai/services/graph/lifecycleAdmission.mjs'));
+        ({normalizeLifecycleClocks: normalizeClocks} = await import('../../../../../../ai/services/graph/lifecycleAdmission.mjs'));
     });
 
     test('stage 1 admits a current-head CHANGES_REQUESTED, a failed REQUIRED check, and a merge conflict', () => {
@@ -224,25 +224,85 @@ test.describe('lifecycleAdmission — the five stages and their exclusions', () 
         expect(admitRequestedReview({pr: stale, agentId: ME}).stage).toBe('requested-review');
     });
 
-    test('a clock measured at an OLDER head fails LOUD — a stateless predicate cannot fake a reset', () => {
-        // Every PR-derived row resets on head change. A predicate with no memory of the previous head
-        // can only VERIFY that, and only if the source says which head the clock belongs to. Copying it
-        // blind reports "blocked for 6 hours" about code that has existed for 30 seconds.
-        const staleClock = ownPr({
-            reviews                     : [{state: 'CHANGES_REQUESTED', commitSha: HEAD}],
-            repairActionableSinceHeadSha: OLD
+    test('a clock whose provenance names a DIFFERENT head fails loud — the guard behind the derivation', () => {
+        // Defence in depth. The clock owner derives provenance by construction, so this cannot arise
+        // from `normalizeLifecycleClocks` — only from a caller that pre-normalized with its own logic.
+        // A clock from three pushes ago reports "blocked for 6 hours" about 30-second-old code, so the
+        // predicate refuses the record rather than trusting it.
+        const withCurrentHeadReview = sourcePr({
+            reviews: [{state: 'CHANGES_REQUESTED', commitSha: HEAD, submittedAt: '2026-07-16T09:00:00.000Z'}]
         });
 
-        expect(() => admitOwnPrRepair({pr: staleClock, agentId: ME}))
-            .toThrow(/was measured at head head-1 but the current head is head-2/);
+        expect(() => admitOwnPrRepair({
+            pr: {
+                ...withCurrentHeadReview,
+                repairActionableSince       : '2026-07-16T09:00:00.000Z',
+                repairActionableSinceHeadSha: OLD
+            },
+            agentId: ME
+        })).toThrow(/was measured at head head-1 but the current head is head-2/);
 
         // an absent clock is equally a source-contract violation, not a silent drop
-        const noClock = ownPr({
-            reviews              : [{state: 'CHANGES_REQUESTED', commitSha: HEAD}],
-            repairActionableSince: undefined
+        expect(() => admitOwnPrRepair({
+            pr     : {...withCurrentHeadReview, repairActionableSince: undefined, repairActionableSinceHeadSha: HEAD},
+            agentId: ME
+        })).toThrow(/repairActionableSince is required/);
+    });
+
+    test('the SAME subject moving head A → clear → head B carries no clock across the transition', async () => {
+        const {normalizeLifecycleClocks} = await import('../../../../../../ai/services/graph/lifecycleAdmission.mjs');
+
+        // Head A: a CHANGES_REQUESTED review dates this head from its own submittedAt.
+        const atHeadA = normalizeLifecycleClocks({
+            id     : 'pr-1',
+            headSha: OLD,
+            reviews: [{state: 'CHANGES_REQUESTED', commitSha: OLD, submittedAt: '2026-07-16T09:00:00.000Z'}],
+            checks : []
         });
 
-        expect(() => admitOwnPrRepair({pr: noClock, agentId: ME})).toThrow(/repairActionableSince is required/);
+        expect(atHeadA.repairActionableSince).toBe('2026-07-16T09:00:00.000Z');
+        expect(atHeadA.repairActionableSinceHeadSha).toBe(OLD);
+
+        // The author pushes. The A-attached review is no longer current-head evidence, so the clock
+        // does not merely reset — it ceases to exist, because it was never stored.
+        const atHeadB = normalizeLifecycleClocks({...atHeadA, headSha: HEAD});
+
+        expect(atHeadB.repairActionableSince).toBeNull();
+        expect(atHeadB.repairActionableSinceHeadSha).toBeNull();
+        // A's clock cannot survive into B even though the caller passed A's normalized record forward
+        expect(atHeadB.repairActionableSince).not.toBe('2026-07-16T09:00:00.000Z');
+
+        // Re-entry on head B derives a FRESH clock from B's own evidence.
+        const reentered = normalizeLifecycleClocks({
+            ...atHeadB,
+            reviews: [{state: 'CHANGES_REQUESTED', commitSha: HEAD, submittedAt: '2026-07-16T11:00:00.000Z'}]
+        });
+
+        expect(reentered.repairActionableSince).toBe('2026-07-16T11:00:00.000Z');
+        expect(reentered.repairActionableSinceHeadSha).toBe(HEAD);
+    });
+
+    test('the clock owner runs inside collectLifecycleItems — a raw source row needs no caller clock', () => {
+        // The provenance contract is worthless if nothing produces it. Raw rows carry only source facts.
+        const items = collectLifecycleItems({
+            agentId: ME,
+            prs    : [{
+                id       : 'pr-raw',
+                authorId : ME,
+                state    : 'OPEN',
+                isDraft  : false,
+                headSha  : HEAD,
+                mergeable: true,
+                reviews  : [{state: 'CHANGES_REQUESTED', commitSha: HEAD, submittedAt: '2026-07-16T08:00:00.000Z'}],
+                checks   : [{name: 'unit', required: true, conclusion: 'SUCCESS', headSha: HEAD, completedAt: '2026-07-16T07:00:00.000Z'}],
+                url      : 'https://github.com/neomjs/neo/pull/1'
+            }]
+        });
+
+        expect(items).toHaveLength(1);
+        expect(items[0].stage).toBe('own-pr-repair');
+        // derived from the review that dates THIS head, not supplied by the caller
+        expect(items[0].actionableSince).toBe('2026-07-16T08:00:00.000Z');
     });
 
     test('archived and retracted direct messages are removed — unread is not the only clearing', () => {
@@ -252,6 +312,14 @@ test.describe('lifecycleAdmission — the five stages and their exclusions', () 
 
         expect(admitDirectMessage({message: base, agentId: ME}).stage).toBe('direct-message');
         expect(admitDirectMessage({message: {...base, archivedAt: '2026-07-16T09:30:00.000Z'}, agentId: ME})).toBeNull();
+
+        // The LIVE shape: MailboxService emits `retracted: true` (a boolean) and blanks the body to a
+        // placeholder. The previous check tested an invented `retractedAt` timestamp, so it never fired
+        // on a real row — the exclusion existed only in the spec's imagination.
+        expect(admitDirectMessage({message: {...base, retracted: true}, agentId: ME})).toBeNull();
+        // a compatibility shape a caller may still pass
         expect(admitDirectMessage({message: {...base, retractedAt: '2026-07-16T09:30:00.000Z'}, agentId: ME})).toBeNull();
+        // and `retracted: false` is not a retraction
+        expect(admitDirectMessage({message: {...base, retracted: false}, agentId: ME}).stage).toBe('direct-message');
     });
 });

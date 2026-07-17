@@ -35,12 +35,16 @@ test.describe('lifecycleFrontier — lifecycle-frontier.v1 contract', () => {
         ...overrides
     });
 
+    // The FULL row a predicate actually emits — a partial fixture would let the guard's item-shape
+    // checks pass vacuously.
     const item = (overrides = {}) => ({
         id             : 'pr-1',
         stage          : 'own-pr-repair',
+        kind           : 'changes-requested',
         source         : 'github-workflow',
         subjectId      : 'pr-15231',
         actionableSince: '2026-07-16T09:00:00.000Z',
+        citations      : ['https://github.com/neomjs/neo/pull/15231'],
         ...overrides
     });
 
@@ -187,9 +191,9 @@ test.describe('lifecycleFrontier — lifecycle-frontier.v1 contract', () => {
         });
 
         expect(valid).toBe(false);
-        expect(errors.join(' ')).toContain('capturedAt is required');
+        expect(errors.join(' ')).toContain('capturedAt must be a parseable ISO timestamp');
         expect(errors.join(' ')).toContain('sourceWatermark is required');
-        expect(errors.join(' ')).toContain('expiresAt is required');
+        expect(errors.join(' ')).toContain('expiresAt must be a parseable ISO timestamp');
         expect(errors.join(' ')).toContain('scope is required');
         expect(errors.join(' ')).toContain('coverage is required');
     });

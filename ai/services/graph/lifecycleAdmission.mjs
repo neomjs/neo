@@ -22,6 +22,70 @@
  */
 
 /**
+ * @summary Derives a PR's lifecycle clocks from CURRENT-HEAD evidence, so the head-change reset is
+ * structural rather than promised.
+ *
+ * This is the clock owner. The earlier shape demanded that some upstream remember when each head became
+ * actionable and reset it on every push — a contract nothing implemented, and a stateful one at that.
+ * It is unnecessary: the source already carries the timestamps. A `CHANGES_REQUESTED` review names the
+ * commit it reviewed and when it was submitted; a failed check names its completion. So the clock for
+ * head X is simply *the earliest current-head evidence*, and its provenance is X **by construction**.
+ *
+ * The reset then costs nothing. When the head moves to Y, every X-attached review and check stops being
+ * current-head evidence, so the clock re-derives from Y's own facts or the row leaves the frontier
+ * entirely. A's clock cannot survive into B because it was never stored — only computed.
+ *
+ * Clears and re-entries follow for free: a predicate that stops holding drops the row, and satisfying it
+ * again derives a fresh clock from the evidence that satisfied it.
+ *
+ * @param {Object} pr Raw source PR `{headSha, reviews, checks, reviewRequests, mergeableSince?}`.
+ * @returns {Object} The PR with `repairActionableSince` / `reviewableSince` / `reviewRequestedSince`
+ *   and their `*HeadSha` provenance derived from current-head facts.
+ */
+export function normalizeLifecycleClocks(pr) {
+    const head = pr?.headSha;
+
+    // Only evidence attached to the CURRENT head can date the current head.
+    const currentHeadReviews = (pr?.reviews || []).filter(review => review.commitSha === head),
+          currentHeadChecks  = (pr?.checks  || []).filter(check  => check.headSha === head || check.headSha === undefined);
+
+    const earliest = stamps => {
+        const valid = stamps.filter(stamp => typeof stamp === 'string' && stamp.length > 0).sort();
+        return valid.length > 0 ? valid[0] : null
+    };
+
+    const repairSince = earliest([
+        ...currentHeadReviews.filter(review => review.state === 'CHANGES_REQUESTED').map(review => review.submittedAt),
+        ...currentHeadChecks.filter(check => check.required === true && check.conclusion === 'FAILURE').map(check => check.completedAt),
+        // A conflict has no source timestamp of its own; the source states when it observed one.
+        pr?.mergeableSince
+    ]);
+
+    // Where the source carries no per-fact timestamp, the observation time is the honest floor: this
+    // head WAS seen in this state at `checkedAt`. That understates age rather than inventing it, and it
+    // still resets on head change because the provenance below is the current head. It is a floor, not
+    // a claim about when the state began.
+    const observed = typeof pr?.checkedAt === 'string' ? pr.checkedAt : null;
+
+    const reviewableSince = earliest(currentHeadChecks.filter(check => check.required === true).map(check => check.completedAt)) ??
+                            pr?.headCommittedAt ?? observed;
+
+    const requestedSince = earliest((pr?.reviewRequests || []).map(request =>
+        typeof request === 'object' ? request.requestedAt : null
+    )) ?? ((pr?.reviewRequests || []).length > 0 ? observed : null);
+
+    return {
+        ...pr,
+        repairActionableSince       : repairSince,
+        repairActionableSinceHeadSha: repairSince === null ? null : head,
+        reviewableSince,
+        reviewableSinceHeadSha      : reviewableSince === null ? null : head,
+        reviewRequestedSince        : requestedSince,
+        reviewRequestedSinceHeadSha : requestedSince === null ? null : head
+    }
+}
+
+/**
  * @summary Returns a PR-derived clock only when the source proves it belongs to the CURRENT head.
  *
  * Every PR-derived row resets on head change. A stateless predicate cannot *perform* that reset — it
@@ -278,14 +342,19 @@ export function admitClaimedTask({task, agentId, actionableStates = ACTIONABLE_T
  * surface, which costs more than the row was ever worth.
  *
  * @param {Object} params
- * @param {Object} params.message Normalized message `{messageId, to, readAt, archivedAt, retractedAt, sentAt}`.
+ * @param {Object} params.message Normalized message `{messageId, to, readAt, archivedAt, retracted, sentAt}`.
+ *   `retracted` is a BOOLEAN — the shape `MailboxService` actually emits. An invented `retractedAt`
+ *   timestamp never fires on a real row, so the exclusion silently did nothing.
  * @param {String} params.agentId The consuming agent.
  * @returns {Object|null}
  */
 export function admitDirectMessage({message, agentId} = {}) {
-    if (!message || message.to !== agentId)       return null;
-    if (message.readAt)                           return null;
-    if (message.archivedAt || message.retractedAt) return null;
+    if (!message || message.to !== agentId) return null;
+    if (message.readAt)                     return null;
+    // `retracted: true` is the live shape (MailboxService sender-side retraction, which also blanks the
+    // body to a placeholder — admitting it would point a peer at nothing). `retractedAt` is tolerated
+    // only so a caller already passing a timestamp is not silently ignored.
+    if (message.archivedAt || message.retracted === true || message.retractedAt) return null;
 
     return {
         id             : `direct-message:${message.messageId}`,
@@ -320,7 +389,11 @@ export function admitDirectMessage({message, agentId} = {}) {
 export function collectLifecycleItems({agentId, prs = [], tasks = [], messages = []} = {}) {
     const items = [];
 
-    for (const pr of prs) {
+    for (const raw of prs) {
+        // The clock owner runs HERE, at the normalization boundary, so every predicate downstream reads
+        // clocks derived from the current head rather than whatever a caller happened to pass.
+        const pr = normalizeLifecycleClocks(raw);
+
         const repair  = admitOwnPrRepair({pr, agentId}),
               routing = admitOwnPrReviewerRouting({pr, agentId}),
               review  = admitRequestedReview({pr, agentId});

@@ -236,10 +236,18 @@ export function buildLifecycleFrontier({
  * expired from live), or no scope (it cannot tell whose obligations these are). Each omission converts
  * a detectable tear into a confident wrong answer — so every field the producer emits is required here.
  *
+ * Freshness and reader binding are only checkable with the reader's own facts, so `now` and `agentId`
+ * are optional inputs rather than assumed: a guard that silently skips them looks like it validated
+ * expiry when it never could. Supplied, they make "is this expired?" and "is this even mine?"
+ * executable — the second being the whole point of never-foreign at the consuming end.
+ *
  * @param {*} frontier The object to validate (may be anything).
+ * @param {Object} [reader] The consuming reader's facts.
+ * @param {Date|Number|String} [reader.now] Reader clock — enables the expiry check.
+ * @param {String} [reader.agentId] Consuming agent — enables the reader-binding check.
  * @returns {{valid: Boolean, errors: String[]}}
  */
-export function validateLifecycleFrontier(frontier) {
+export function validateLifecycleFrontier(frontier, {now, agentId} = {}) {
     const errors = [];
 
     if (!frontier || typeof frontier !== 'object' || Array.isArray(frontier)) {
@@ -256,11 +264,16 @@ export function validateLifecycleFrontier(frontier) {
     }
 
     // Without these a reader cannot distinguish stale from current, or expired from live — the two
-    // judgements a perishable answer exists to support.
-    for (const field of ['capturedAt', 'sourceWatermark', 'expiresAt']) {
-        if (typeof frontier[field] !== 'string' || frontier[field].length === 0) {
-            errors.push(`${field} is required`)
+    // judgements a perishable answer exists to support. A present-but-unparseable stamp is worse than
+    // an absent one: it looks like a judgement the reader can make and is not.
+    for (const field of ['capturedAt', 'expiresAt']) {
+        if (typeof frontier[field] !== 'string' || Number.isNaN(Date.parse(frontier[field]))) {
+            errors.push(`${field} must be a parseable ISO timestamp`)
         }
+    }
+
+    if (typeof frontier.sourceWatermark !== 'string' || frontier.sourceWatermark.length === 0) {
+        errors.push('sourceWatermark is required')
     }
 
     // Without a resolved scope a reader cannot tell whose obligations it is holding, which is the one
@@ -272,17 +285,48 @@ export function validateLifecycleFrontier(frontier) {
     } else if (frontier.scope.resolution !== 'omitted' &&
                (typeof frontier.scope.agentId !== 'string' || frontier.scope.agentId.length === 0)) {
         errors.push('an attested scope must carry a non-empty agentId')
+    } else if (agentId && frontier.scope.resolution !== 'omitted' && frontier.scope.agentId !== agentId) {
+        // Never-foreign at the CONSUMING end. The producer refuses to build a foreign overlay; this is
+        // the reader refusing to act on one it was handed anyway.
+        errors.push(`frontier is scoped to ${frontier.scope.agentId}, not the consuming agent ${agentId}`)
+    }
+
+    // An expired frontier is not a frontier — it is a description of a world that has moved on.
+    if (now !== undefined && typeof frontier.expiresAt === 'string' && !Number.isNaN(Date.parse(frontier.expiresAt))) {
+        const readerNow = now instanceof Date ? now.getTime() : (typeof now === 'string' ? Date.parse(now) : now);
+
+        if (Number.isFinite(readerNow) && Date.parse(frontier.expiresAt) <= readerNow) {
+            errors.push(`frontier expired at ${frontier.expiresAt}`)
+        }
     }
 
     // Without coverage a degraded read is indistinguishable from a complete one.
     if (!frontier.coverage || typeof frontier.coverage !== 'object' || Array.isArray(frontier.coverage)) {
         errors.push('coverage is required')
     } else {
-        if (!Array.isArray(frontier.coverage.sources)) {
-            errors.push('coverage.sources must be an array')
+        for (const field of ['sources', 'degradedSources']) {
+            const list = frontier.coverage[field];
+
+            if (!Array.isArray(list)) {
+                errors.push(`coverage.${field} must be an array`)
+            } else if (list.some(entry => typeof entry !== 'string')) {
+                // A numeric member passes an is-array check and names no source — the list exists to be
+                // read, not counted.
+                errors.push(`coverage.${field} must contain only strings`)
+            }
         }
-        if (!Array.isArray(frontier.coverage.degradedSources)) {
-            errors.push('coverage.degradedSources must be an array')
+
+        // Coherence: status and coverage must tell the same story, or the reader believes whichever it
+        // happens to look at.
+        if (Array.isArray(frontier.coverage.degradedSources)) {
+            const degraded = frontier.coverage.degradedSources.length > 0;
+
+            if (degraded && frontier.status !== 'degraded') {
+                errors.push(`status is "${frontier.status}" while coverage names degraded sources`)
+            }
+            if (!degraded && frontier.status === 'degraded') {
+                errors.push('status is "degraded" while coverage names no degraded source')
+            }
         }
     }
 
@@ -298,10 +342,36 @@ export function validateLifecycleFrontier(frontier) {
             if (!STAGE_RANK.hasOwnProperty(item?.stage)) {
                 errors.push(`items[${index}].stage is not a known lifecycle stage`)
             }
-            if (typeof item?.actionableSince !== 'string' || item.actionableSince.length === 0) {
-                errors.push(`items[${index}].actionableSince is required`)
+
+            // The FULL shape, not the two fields that happen to be interesting. A partial row reads as a
+            // real obligation while naming nothing a peer can act on or trace.
+            for (const field of ['id', 'kind', 'source', 'subjectId']) {
+                if (typeof item?.[field] !== 'string' || item[field].length === 0) {
+                    errors.push(`items[${index}].${field} is required`)
+                }
             }
-        })
+
+            if (typeof item?.actionableSince !== 'string' || Number.isNaN(Date.parse(item?.actionableSince))) {
+                errors.push(`items[${index}].actionableSince must be a parseable ISO timestamp`)
+            }
+
+            if (!Array.isArray(item?.citations)) {
+                errors.push(`items[${index}].citations must be an array`)
+            }
+        });
+
+        // Order is part of the contract, so a reader can trust position instead of re-sorting. An
+        // out-of-order envelope means the producer's ordering was bypassed — the reader cannot tell
+        // whether the rest of the contract held either.
+        const ordered = [...items].sort((a, b) =>
+            (STAGE_RANK[a?.stage] - STAGE_RANK[b?.stage]) ||
+            (Date.parse(a?.actionableSince) - Date.parse(b?.actionableSince)) ||
+            String(a?.id).localeCompare(String(b?.id))
+        );
+
+        if (items.some((item, index) => item !== ordered[index])) {
+            errors.push('items are not in contract order (stage, then actionableSince oldest-first, then id)')
+        }
     }
 
     return {valid: errors.length === 0, errors}
