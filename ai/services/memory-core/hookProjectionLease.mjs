@@ -185,17 +185,26 @@ export function acquireProjectionLease({db, targetId, instanceDigest, now, lease
  * @param {String}   params.targetId Server-derived target id.
  * @param {String}   params.token The holder's raw token.
  * @param {Number}   params.epoch The epoch handed out at acquisition.
- * @param {Number}   params.now Epoch ms (injected).
+ * @param {Function} params.clock `() => epochMs` — the broker clock, READ at the mutation boundary.
+ *   A captured number cannot express a bounded lease: time passes during parsing and I/O, so a write
+ *   that stalls across the TTL would still publish while reporting success.
  * @param {Function} params.hashToken `rawToken => hash`.
- * @param {Function} params.writeAtomic `({channels}) => void` — the atomic transport.
+ * @param {Function} params.writeAtomic `({targetId, publication, channels}) => void` — the atomic transport.
  * @returns {PublishResult}
  */
-export function publishProjection({db, targetId, token, epoch, now, hashToken, writeAtomic} = {}) {
+export function publishProjection({db, targetId, token, epoch, clock, hashToken, writeAtomic} = {}) {
     if (!db) throw new TypeError('[hookProjectionLease] an open db handle is required');
     if (typeof writeAtomic !== 'function') throw new TypeError('[hookProjectionLease] writeAtomic must be injected');
-    if (!Number.isFinite(now)) throw new TypeError('[hookProjectionLease] now (epoch ms) must be injected');
+    if (typeof clock !== 'function') {
+        throw new TypeError('[hookProjectionLease] a clock function is required — a captured timestamp cannot bound a lease')
+    }
 
     const publish = db.transaction(() => {
+        const now = clock();
+
+        if (!Number.isFinite(now)) {
+            throw new TypeError('[hookProjectionLease] clock() must return epoch ms')
+        }
         const row = db.prepare('SELECT fencing_epoch, holder_token_hash, expires_at, state FROM HookProjectionLeases WHERE target_id = ?').get(targetId);
 
         // Fail-closed, and each reason is distinct because they are distinct facts: a superseded holder
@@ -222,25 +231,60 @@ export function publishProjection({db, targetId, token, epoch, now, hashToken, w
             conflictReason : row.conflict_reason ?? null
         }));
 
+        // The bounded lease, enforced at the LAST possible instant. Parsing and reading the rows took
+        // time; a render that crossed its TTL must abort rather than publish, because Wave 1 has no
+        // renewal and the target is about to become someone else's. Checking only the entry timestamp
+        // let a stalled write publish while reporting success.
+        const atMutation = clock();
+
+        if (!Number.isFinite(atMutation) || Number(row.expires_at) <= atMutation) {
+            return {published: false, reason: 'lease-expired-at-write'}
+        }
+
         // Inside the transaction on purpose: the rename must not be reachable once a successor could
         // have committed. This is the fencing property — the epoch in the payload only describes it.
         //
         // `targetId` is passed because the transport derives the output path from it. Omitting it left
         // the two halves structurally unable to compose while both suites stayed green on their own
         // stubs.
-        writeAtomic({
-            targetId,
-            publication: {
-                schemaVersion   : PROJECTION_SCHEMA_VERSION,
+        // Wave 1 is a SINGLE publication, so the lease must not outlive it on either path. Leaving it
+        // held after success parks the target until expiry for no reason; leaving it held after a disk
+        // failure parks it while the holder has already given up. Both are token+epoch conditional, so
+        // this can only ever free the holder's own lease.
+        const releaseOwn = () => db.prepare(`
+            UPDATE HookProjectionLeases
+            SET state = 'released', holder_token_hash = NULL, expires_at = 0
+            WHERE target_id = ? AND fencing_epoch = ? AND holder_token_hash = ?
+        `).run(targetId, epoch, hashToken(token));
+
+        try {
+            writeAtomic({
                 targetId,
-                fencingEpoch    : Number(epoch),
-                publishedAt     : now,
-                sourceWatermarks: Object.fromEntries(channels.map(channel => [channel.channel, channel.sourceWatermark])),
-                degradedChannels: channels.filter(channel => channel.conflictReason).map(channel => channel.channel),
-                notAuthority    : true
-            },
-            channels
-        });
+                publication: {
+                    schemaVersion   : PROJECTION_SCHEMA_VERSION,
+                    targetId,
+                    fencingEpoch    : Number(epoch),
+                    publishedAt     : atMutation,
+                    sourceWatermarks: Object.fromEntries(channels.map(channel => [channel.channel, channel.sourceWatermark])),
+                    degradedChannels: channels.filter(channel => channel.conflictReason).map(channel => channel.channel),
+                    notAuthority    : true
+                },
+                channels
+            })
+        } catch (error) {
+            // Release and RETURN — never release and throw. The transaction rolls back on a thrown
+            // error, which would undo the release along with it and park the target until expiry: the
+            // exact defect this path exists to fix. The transport has already removed its own temp
+            // sibling and no rename occurred, so returning commits nothing but the release.
+            //
+            // The cause travels in `reason` rather than as an exception, because a disk failure still
+            // has to leave the store in a state the next holder can use.
+            releaseOwn();
+
+            return {published: false, reason: `write-failed: ${error instanceof Error ? error.message : String(error)}`}
+        }
+
+        releaseOwn();
 
         return {published: true, channels: channels.length}
     });

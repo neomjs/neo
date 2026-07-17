@@ -36,8 +36,14 @@
  * @throws {TypeError} When an injection is missing — a wiring bug must not degrade to a guessed path.
  */
 export function makeAtomicProjectionTransport({fs, runtimeRoot, uniqueSuffix} = {}) {
-    if (!fs || typeof fs.writeFileSync !== 'function' || typeof fs.renameSync !== 'function') {
-        throw new TypeError('[hookProjectionTransport] an fs with writeFileSync and renameSync must be injected')
+    // Durability is required, not best-effort. Treating fsync as optional meant an fs that merely
+    // implemented mkdir/write/rename published successfully with no flush — and a test double lacking
+    // it silently blessed that downgrade rather than failing. If a caller cannot flush, it cannot
+    // publish; a complete-looking file with a torn body is the one outcome a reader cannot detect.
+    for (const method of ['mkdirSync', 'writeFileSync', 'renameSync', 'openSync', 'fsyncSync', 'closeSync', 'unlinkSync']) {
+        if (typeof fs?.[method] !== 'function') {
+            throw new TypeError(`[hookProjectionTransport] the injected fs must implement ${method} — durability is not optional`)
+        }
     }
     if (typeof runtimeRoot !== 'string' || !runtimeRoot.length) {
         throw new TypeError('[hookProjectionTransport] runtimeRoot is required from config — this primitive has no default')
@@ -93,16 +99,14 @@ export function makeAtomicProjectionTransport({fs, runtimeRoot, uniqueSuffix} = 
             // the epoch, publish time, and watermarks to judge what it is holding.
             fs.writeFileSync(temp, JSON.stringify({...publication, channels}), 'utf8');
 
-            // Durability before visibility. Skipped only if the injected fs cannot fsync — a test double
-            // has nothing to flush, and requiring it would force every caller to fake a kernel.
-            if (typeof fs.openSync === 'function' && typeof fs.fsyncSync === 'function') {
-                const handle = fs.openSync(temp, 'r');
+            // Durability before visibility, unconditionally. A rename that beats its own data to disk
+            // publishes a complete-LOOKING file with a torn body after a crash.
+            const handle = fs.openSync(temp, 'r');
 
-                try {
-                    fs.fsyncSync(handle)
-                } finally {
-                    fs.closeSync?.(handle)
-                }
+            try {
+                fs.fsyncSync(handle)
+            } finally {
+                fs.closeSync(handle)
             }
 
             fs.renameSync(temp, file);

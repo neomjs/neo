@@ -85,7 +85,7 @@ test.describe('hookProjectionLease — the fence, under a real two-connection ra
         let rivalOutcome = 'never-attempted';
 
         const result = publishProjection({
-            db: holder, targetId, token: lease.token, epoch: lease.epoch, now: t0 + 1, hashToken,
+            db: holder, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, hashToken,
             // This runs INSIDE the serialized transaction, at exactly the instant the resource is being
             // mutated — the window a successor would have to win for the fence to be fake.
             writeAtomic: () => {
@@ -113,7 +113,7 @@ test.describe('hookProjectionLease — the fence, under a real two-connection ra
             targetId,
             token      : lease.token,
             epoch      : lease.epoch,
-            now        : t0 + 1,
+            clock      : () => t0 + 1,
             hashToken,
             writeAtomic: () => {}
         });
@@ -140,7 +140,7 @@ test.describe('hookProjectionLease — the fence, under a real two-connection ra
             targetId,
             token      : first.token,
             epoch      : first.epoch,
-            now        : t0 + ttl + 2,
+            clock      : () => t0 + ttl + 2,
             hashToken,
             writeAtomic: () => { writes++ }
         });

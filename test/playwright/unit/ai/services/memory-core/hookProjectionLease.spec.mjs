@@ -120,7 +120,7 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
         let writes = 0;
 
         const stale = publishProjection({
-            db, targetId, token: first.token, epoch: first.epoch, now: t0 + ttl + 2, hashToken,
+            db, targetId, token: first.token, epoch: first.epoch, clock: () => t0 + ttl + 2, hashToken,
             writeAtomic: () => { writes++ }
         });
 
@@ -132,7 +132,7 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
 
         // and the legitimate successor still publishes
         const fresh = publishProjection({
-            db, targetId, token: second.token, epoch: second.epoch, now: t0 + ttl + 2, hashToken,
+            db, targetId, token: second.token, epoch: second.epoch, clock: () => t0 + ttl + 2, hashToken,
             writeAtomic: () => { writes++ }
         });
         expect(fresh.published).toBe(true);
@@ -146,11 +146,11 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
 
         const writeAtomic = () => { writes++ };
 
-        const expired = publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, now: t0 + ttl + 1, hashToken, writeAtomic});
+        const expired = publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + ttl + 1, hashToken, writeAtomic});
         expect(expired.published).toBe(false);
         expect(expired.reason).toBe('lease-expired');
 
-        const foreign = publishProjection({db, targetId, token: 'token-not-mine', epoch: lease.epoch, now: t0 + 1, hashToken, writeAtomic});
+        const foreign = publishProjection({db, targetId, token: 'token-not-mine', epoch: lease.epoch, clock: () => t0 + 1, hashToken, writeAtomic});
         expect(foreign.published).toBe(false);
         expect(foreign.reason).toBe('foreign-token');
 
@@ -166,7 +166,7 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
         let payload = null;
 
         const result = publishProjection({
-            db, targetId, token: lease.token, epoch: lease.epoch, now: t0 + 1, hashToken,
+            db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, hashToken,
             writeAtomic: written => { payload = written }
         });
 
@@ -195,6 +195,51 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
         expect(db.prepare('SELECT state FROM HookProjectionLeases WHERE target_id = ?').get(targetId).state).toBe('held');
 
         expect(releaseProjectionLease({db, targetId, token: second.token, epoch: second.epoch, hashToken}).released).toBe(true);
+    });
+
+    test('time crossing the TTL DURING the write aborts — a bounded lease has no renewal', () => {
+        // The reviewer's falsifier: expiry was checked against a captured number at entry, so a render
+        // that stalled across its TTL still published and reported success. Wave 1 aborts instead —
+        // adding renewal is an ADR revalidation, not a convenience.
+        const lease = acquireProjectionLease({db, targetId, instanceDigest: 'i1', now: t0, leaseTtlMs: ttl, mintToken, hashToken});
+
+        let writes = 0,
+            call   = 0;
+
+        const result = publishProjection({
+            db, targetId, token: lease.token, epoch: lease.epoch, hashToken,
+            // fresh at entry, expired by the mutation boundary — the exact stall
+            clock      : () => (++call === 1 ? t0 + 1 : t0 + ttl + 1),
+            writeAtomic: () => { writes++ }
+        });
+
+        expect(result.published).toBe(false);
+        expect(result.reason).toBe('lease-expired-at-write');
+        expect(writes).toBe(0);
+    });
+
+    test('the lease is released on BOTH paths — a single publication never parks the target', () => {
+        const held = () => db.prepare('SELECT state FROM HookProjectionLeases WHERE target_id = ?').get(targetId).state;
+
+        const ok = acquireProjectionLease({db, targetId, instanceDigest: 'i1', now: t0, leaseTtlMs: ttl, mintToken, hashToken});
+        publishProjection({db, targetId, token: ok.token, epoch: ok.epoch, clock: () => t0 + 1, hashToken, writeAtomic: () => {}});
+
+        // success must not hold the target until expiry for no reason
+        expect(held()).toBe('released');
+
+        const doomed = acquireProjectionLease({db, targetId, instanceDigest: 'i2', now: t0 + 10, leaseTtlMs: ttl, mintToken, hashToken});
+
+        const failed = publishProjection({
+            db, targetId, token: doomed.token, epoch: doomed.epoch, clock: () => t0 + 11, hashToken,
+            writeAtomic: () => { throw new Error('ENOSPC') }
+        });
+
+        // The cause travels in `reason`, not as an exception: releasing and THROWING would roll the
+        // transaction back and undo the release with it, parking the target until expiry.
+        expect(failed.published).toBe(false);
+        expect(failed.reason).toContain('write-failed: ENOSPC');
+        // a holder that has already given up must not park the target either
+        expect(held()).toBe('released');
     });
 
     test('a released target is immediately re-acquirable, with the epoch still moving forward', () => {

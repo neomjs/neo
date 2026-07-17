@@ -149,7 +149,17 @@ test.describe('hookProjectionTransport — derived path, atomic publication', ()
         expect(() => makeAtomicProjectionTransport({fs: makeFs(), runtimeRoot: undefined, uniqueSuffix: () => 'x'}))
             .toThrow(/runtimeRoot is required from config/);
         expect(() => makeAtomicProjectionTransport({fs: undefined, runtimeRoot, uniqueSuffix: () => 'x'}))
-            .toThrow(/fs with writeFileSync and renameSync/);
+            .toThrow(/must implement mkdirSync/);
+
+        // Durability is NOT optional: an fs that can write and rename but cannot flush would publish a
+        // complete-LOOKING file with a torn body after a crash. Treating fsync as best-effort meant a
+        // test double could silently bless that downgrade — so the contract refuses the fs instead.
+        const noFlush = {
+            mkdirSync: () => {}, writeFileSync: () => {}, renameSync: () => {}, unlinkSync: () => {}
+        };
+
+        expect(() => makeAtomicProjectionTransport({fs: noFlush, runtimeRoot, uniqueSuffix: () => 'x'}))
+            .toThrow(/must implement openSync — durability is not optional/);
         expect(() => makeAtomicProjectionTransport({fs: makeFs(), runtimeRoot, uniqueSuffix: undefined}))
             .toThrow(/uniqueSuffix source must be injected/);
     });

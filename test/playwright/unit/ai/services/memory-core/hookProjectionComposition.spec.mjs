@@ -47,6 +47,10 @@ test.describe('hookProjection — the lease and the transport, actually composed
     const mintToken = () => `token-${++minted}`;
 
     // An fs double that keeps what was written, so the composed payload can be read back.
+    //
+    // It honours the FULL transport contract including the flush methods. The first version omitted
+    // them, and because durability was optional it silently blessed a no-flush downgrade the real fs
+    // would never take — a double that under-implements a contract quietly weakens it.
     const makeFs = () => {
         const written = new Map();
 
@@ -55,6 +59,9 @@ test.describe('hookProjection — the lease and the transport, actually composed
             mkdirSync    : () => {},
             writeFileSync: (path, body) => written.set(path, body),
             renameSync   : (from, to) => { written.set(to, written.get(from)); written.delete(from) },
+            openSync     : () => 1,
+            fsyncSync    : () => {},
+            closeSync    : () => {},
             unlinkSync   : path => written.delete(path)
         }
     };
@@ -104,7 +111,7 @@ test.describe('hookProjection — the lease and the transport, actually composed
         submit('lifecycle-frontier', 'w-2', {schemaVersion: 'lifecycle-frontier.v1', items: [], notAuthority: true});
 
         const lease  = acquireProjectionLease({db, targetId, instanceDigest: 'i1', now: t0, leaseTtlMs: ttl, mintToken, hashToken}),
-              result = publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, now: t0 + 1, hashToken, writeAtomic});
+              result = publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, hashToken, writeAtomic});
 
         expect(result.published).toBe(true);
 
@@ -135,7 +142,7 @@ test.describe('hookProjection — the lease and the transport, actually composed
         submit('lifecycle-frontier', 'w-1', {schemaVersion: 'lifecycle-frontier.v1', items: [{id: 'x'}], notAuthority: true});
 
         const lease = acquireProjectionLease({db, targetId, instanceDigest: 'i1', now: t0, leaseTtlMs: ttl, mintToken, hashToken});
-        publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, now: t0 + 1, hashToken, writeAtomic});
+        publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, hashToken, writeAtomic});
 
         const payload = JSON.parse(fs.written.get(`${root}/${targetId}/current.json`));
 
@@ -157,7 +164,7 @@ test.describe('hookProjection — the lease and the transport, actually composed
         // takeover after expiry
         acquireProjectionLease({db, targetId, instanceDigest: 'i2', now: t0 + ttl + 1, leaseTtlMs: ttl, mintToken, hashToken});
 
-        const stale = publishProjection({db, targetId, token: first.token, epoch: first.epoch, now: t0 + ttl + 2, hashToken, writeAtomic});
+        const stale = publishProjection({db, targetId, token: first.token, epoch: first.epoch, clock: () => t0 + ttl + 2, hashToken, writeAtomic});
 
         expect(stale.published).toBe(false);
         expect(stale.reason).toBe('superseded-epoch');
