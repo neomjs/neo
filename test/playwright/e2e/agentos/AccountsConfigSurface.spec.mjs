@@ -42,10 +42,10 @@ test.describe('AgentOS Accounts — agent-scoped configuration surface', () => {
         let server;
 
         try {
-            // Fixed product port by design. EADDRINUSE is a hard red: never reuse a foreign server
-            // and accidentally test another checkout's tree.
-            server = await startFleetBridgeServer({port: 8083});
-            await page.goto('/apps/agentos/index.html');
+            server = await startFleetBridgeServer({port: 0});
+            const fleetUrl = `http://127.0.0.1:${server.address().port}/fleet`;
+
+            await page.goto(`/apps/agentos/index.html?${new URLSearchParams({fleetUrl})}`);
 
             await expect(page.locator('.agent-shell')).toBeVisible({timeout: 60000});
 

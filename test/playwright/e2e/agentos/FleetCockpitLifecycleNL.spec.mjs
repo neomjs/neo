@@ -13,13 +13,13 @@ const TEST_AGENT_ID = 'nl-proof-agent';
  * server only replaces the Brain-side transport target for deterministic e2e assertions.
  * @param {Object} [options]
  * @param {Boolean} [options.rejectStart=false]
- * @returns {Promise<{close: Function, requests: Object[]}>}
+ * @returns {Promise<{close: Function, endpoint: String, requests: Object[]}>}
  */
 async function startRecordingFleetBridge({rejectStart = false} = {}) {
     const {startFleetBridgeServer} = await import('../../../../ai/services/fleet/fleetBridgeServer.mjs'),
           requests                 = [],
           server                   = await startFleetBridgeServer({
-              port    : 8083,
+              port    : 0,
               dispatch: async request => {
                   requests.push(request);
 
@@ -47,7 +47,8 @@ async function startRecordingFleetBridge({rejectStart = false} = {}) {
 
     return {
         requests,
-        close: () => new Promise(resolve => server.close(resolve))
+        endpoint: `http://127.0.0.1:${server.address().port}/fleet`,
+        close   : () => new Promise(resolve => server.close(resolve))
     }
 }
 
@@ -134,7 +135,7 @@ test.describe('AgentOS Fleet cockpit lifecycle controls (Neural Link)', () => {
         const fleet = await startRecordingFleetBridge();
 
         try {
-            await page.goto('/apps/agentos/index.html');
+            await page.goto(`/apps/agentos/index.html?${new URLSearchParams({fleetUrl: fleet.endpoint})}`);
             // the FleetSettingsPanel lifecycle surface is the 'Control' keeper-view in the shell rail
             await page.locator('.agent-shell').getByText('Control', {exact: true}).click();
             await expect(page.locator('.agent-panel-settings')).toBeVisible({timeout: 30000});
@@ -190,7 +191,7 @@ test.describe('AgentOS Fleet cockpit lifecycle controls (Neural Link)', () => {
         const fleet = await startRecordingFleetBridge({rejectStart: true});
 
         try {
-            await page.goto('/apps/agentos/index.html');
+            await page.goto(`/apps/agentos/index.html?${new URLSearchParams({fleetUrl: fleet.endpoint})}`);
             // the FleetSettingsPanel lifecycle surface is the 'Control' keeper-view in the shell rail
             await page.locator('.agent-shell').getByText('Control', {exact: true}).click();
             await expect(page.locator('.agent-panel-settings')).toBeVisible({timeout: 30000});
