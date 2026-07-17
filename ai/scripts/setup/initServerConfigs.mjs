@@ -16,10 +16,9 @@ import {fileURLToPath} from 'url';
  * 2. **Drift detection:** when `config.mjs` already exists, compare its
  *    structural shape (top-level imports + named exports) against the template.
  *    Mismatched items emit a stderr warning listing what's new in the template.
- *    Operator can refresh the gitignored file by re-running with
- *    `npm run prepare -- --migrate-config`. Pure Tier-1 import materialization
- *    drift is patched in place; broader structural drift still overwrites from
- *    the active template shape.
+ *    Pure Tier-1 import materialization drift can be patched in place. Broader per-server drift
+ *    is fail-closed: setup emits a typed operator-conversion requirement and never rewrites the
+ *    gitignored overlay unattended.
  *
  * The Tier-1 pair is the canonical operator overlay for deployment-wide defaults
  * (cookbook §7). Runtime code MUST import from `ai/config.mjs`, never from
@@ -463,19 +462,24 @@ export async function projectShape(filePath) {
 }
 
 /**
- * @summary Projects the Tier-1 DEFAULTS surface — `ai/configBase.mjs` since the template/base
- * split (the thin `config.template.mjs` carries only the subclass registration shell), falling back
- * to the template itself on pre-split trees. Every Tier-1 freshness comparison measures overlays
- * against THIS surface; comparing a legacy snapshot against the thin template would read the whole
- * defaults tree as removed, and comparing against template+base union would demand the template's
- * own registration imports of a snapshot that never needs them.
- * @param {String} aiRoot Tier-1 root directory.
+ * @summary Projects one config root's DEFAULTS surface — adjacent `configBase.mjs` after the
+ * base/thin-child split, or the full template on a pre-split tree. Optional materialization keeps
+ * legacy per-server template imports comparable with runtime overlays.
+ * @param {String} configRoot Directory containing the config pair/base.
+ * @param {Object} [options]
+ * @param {Function} [options.materialize] Source transform applied before projection.
  * @returns {Promise<{imports: String[], exports: String[], envVars: String[], leafDefaults: Object[], requiredLeaves: String[]}>}
  */
-export async function projectTier1DefaultsShape(aiRoot) {
-    const basePath = path.join(aiRoot, 'configBase.mjs');
+export async function projectConfigDefaultsShape(configRoot, {materialize = source => source} = {}) {
+    const basePath   = path.join(configRoot, 'configBase.mjs');
+    const sourcePath = fs.existsSync(basePath) ? basePath : path.join(configRoot, 'config.template.mjs');
+    const source     = await fs.readFile(sourcePath, 'utf-8');
 
-    return projectShape(fs.existsSync(basePath) ? basePath : path.join(aiRoot, 'config.template.mjs'))
+    return projectSourceShape(materialize(source))
+}
+
+export async function projectTier1DefaultsShape(aiRoot) {
+    return projectConfigDefaultsShape(aiRoot)
 }
 
 /**
@@ -490,12 +494,71 @@ export async function projectTier1DefaultsShape(aiRoot) {
  * @param {Object} defaultsShape Projected Tier-1 defaults surface ({@link projectTier1DefaultsShape}).
  * @returns {{drift: Object, overlayShape: ('subclass'|'snapshot')}}
  */
-export function detectTier1OverlayDrift(activeSrc, defaultsShape) {
+export function detectConfigOverlayDrift(activeSrc, defaultsShape) {
     const activeShape = projectSourceShape(activeSrc);
 
     return isSubclassOverlaySource(activeSrc)
         ? {drift: detectSubclassOverlayResidualDrift(defaultsShape, activeShape), overlayShape: 'subclass'}
         : {drift: detectDrift(defaultsShape, activeShape), overlayShape: 'snapshot'}
+}
+
+export function detectTier1OverlayDrift(activeSrc, defaultsShape) {
+    return detectConfigOverlayDrift(activeSrc, defaultsShape)
+}
+
+/**
+ * @summary Routes a per-server overlay through defaults-tree drift plus the runtime registration
+ * shell. Snapshot overlays receive full base drift; subclass overlays inherit base leaves and own
+ * their explicit leaves as operator deltas, so only missing thin-shell imports/exports count.
+ * The legacy import-only materialization path remains separately identifiable and safe to patch.
+ * @param {String} activeSrc Active per-server overlay source.
+ * @param {Object} defaultsShape Projected adjacent `configBase.mjs` (or legacy template fallback).
+ * @param {String} templateSrc Tracked thin registration template source.
+ * @returns {{drift: Object, overlayShape: ('subclass'|'snapshot'), materializedActiveSrc: String}}
+ */
+export function detectServerOverlayDrift(activeSrc, defaultsShape, templateSrc) {
+    const
+        activeShape           = projectSourceShape(activeSrc),
+        materializedActiveSrc = materializeServerConfigTemplate(activeSrc),
+        overlayShape          = isSubclassOverlaySource(activeSrc) ? 'subclass' : 'snapshot',
+        baseDrift             = overlayShape === 'subclass'
+            ? {
+                missingImports       : [],
+                missingExports       : [],
+                missingEnvVars       : [],
+                missingRequiredLeaves: [],
+                changedLeafDefaults  : [],
+                hasDrift             : false
+            }
+            : detectDrift(defaultsShape, activeShape),
+        missingImports = new Set(baseDrift.missingImports),
+        missingExports = new Set(baseDrift.missingExports);
+
+    if (overlayShape === 'subclass') {
+        const shellDrift = detectDrift(
+            projectSourceShape(materializeServerConfigTemplate(templateSrc)),
+            activeShape
+        );
+
+        shellDrift.missingImports.forEach(item => missingImports.add(item));
+        shellDrift.missingExports.forEach(item => missingExports.add(item));
+    } else if (materializedActiveSrc !== activeSrc) {
+        const importDrift = detectDrift(projectSourceShape(materializedActiveSrc), activeShape);
+
+        importDrift.missingImports.forEach(item => missingImports.add(item));
+    }
+
+    const drift = {
+        ...baseDrift,
+        missingImports: [...missingImports].sort(),
+        missingExports: [...missingExports].sort()
+    };
+
+    drift.hasDrift = drift.missingImports.length + drift.missingExports.length +
+        drift.missingEnvVars.length + drift.missingRequiredLeaves.length +
+        drift.changedLeafDefaults.length > 0;
+
+    return {drift, overlayShape, materializedActiveSrc}
 }
 
 /**
@@ -658,29 +721,6 @@ function detectSubclassOverlayResidualDrift(templateShape, configShape) {
 export function collectStaleOverlayFindings({aiRoot = aiDir, serversRoot = serversDir} = {}) {
     const findings = [];
 
-    const collectPair = ({activePath, label, materializeTemplate = source => source, templatePath}) => {
-        if (!fs.existsSync(templatePath) || !fs.existsSync(activePath)) {
-            return
-        }
-
-        const
-            templateSrc   = materializeTemplate(fs.readFileSync(templatePath, 'utf-8')),
-            activeSrc     = fs.readFileSync(activePath, 'utf-8'),
-            templateShape = projectSourceShape(templateSrc),
-            activeShape   = projectSourceShape(activeSrc),
-            drift         = isSubclassOverlaySource(activeSrc)
-                ? detectSubclassOverlayResidualDrift(templateShape, activeShape)
-                : detectDrift(templateShape, activeShape);
-
-        if (drift.hasDrift) {
-            findings.push({
-                label,
-                drift,
-                items: formatStaleOverlayDriftItems(drift)
-            })
-        }
-    };
-
     // Tier-1 pair: measure against the DEFAULTS surface (configBase.mjs since the split), routed
     // per overlay shape — not against the thin registration template.
     const tier1Active = path.join(aiRoot, 'config.mjs');
@@ -706,18 +746,30 @@ export function collectStaleOverlayFindings({aiRoot = aiDir, serversRoot = serve
     }
 
     for (const serverName of fs.readdirSync(serversRoot).sort()) {
-        const serverPath = path.join(serversRoot, serverName);
+        const
+            serverPath   = path.join(serversRoot, serverName),
+            templatePath = path.join(serverPath, 'config.template.mjs'),
+            activePath   = path.join(serverPath, 'config.mjs');
 
-        if (!fs.statSync(serverPath).isDirectory()) {
+        if (!fs.statSync(serverPath).isDirectory() || !fs.existsSync(templatePath) || !fs.existsSync(activePath)) {
             continue
         }
 
-        collectPair({
-            activePath         : path.join(serverPath, 'config.mjs'),
-            label              : `${serverName}/config.mjs`,
-            materializeTemplate: materializeServerConfigTemplate,
-            templatePath       : path.join(serverPath, 'config.template.mjs')
-        })
+        const
+            basePath      = path.join(serverPath, 'configBase.mjs'),
+            templateSrc   = fs.readFileSync(templatePath, 'utf-8'),
+            defaultsSrc   = fs.readFileSync(fs.existsSync(basePath) ? basePath : templatePath, 'utf-8'),
+            defaultsShape = projectSourceShape(materializeServerConfigTemplate(defaultsSrc)),
+            activeSrc     = fs.readFileSync(activePath, 'utf-8'),
+            {drift}       = detectServerOverlayDrift(activeSrc, defaultsShape, templateSrc);
+
+        if (drift.hasDrift) {
+            findings.push({
+                label: `${serverName}/config.mjs`,
+                drift,
+                items: formatStaleOverlayDriftItems(drift)
+            })
+        }
     }
 
     return findings
@@ -729,43 +781,55 @@ export function collectStaleOverlayFindings({aiRoot = aiDir, serversRoot = serve
  *
  *   1. Template absent — skip (log warning).
  *   2. Config missing — clone materialized template (preserves legacy first-run behavior).
- *   3. Config present + drift detected — warn-only (default) OR migrate when
- *      invoked with `--migrate-config`. Pure Tier-1 import materialization
- *      patches the existing file in place; broader drift overwrites from the
- *      materialized template.
+ *   3. Config present + drift detected — warn-only (default). With `--migrate-config`, pure
+ *      Tier-1 import materialization patches the existing file in place; broader drift writes
+ *      nothing and returns a typed operator-conversion requirement.
  *
  * @param {Object}   [options]
  * @param {String[]} [options.argv=process.argv]   Argv source; injectable for tests.
+ * @param {String}   [options.aiRoot] Tier-1 root passed to the declaration-level converter.
  * @param {Object}   [options.logger=console]      Log sink; injectable for tests.
  * @param {String}   [options.serversRoot=serversDir]  Override for tests.
- * @returns {Promise<{processed: Array<{serverName: String, action: String, drift: Object, migration: String}>}>} Per-server results; `action` is one of `clone` / `silent` / `warn` / `migrate` / `skip-no-template`; `drift` / `migration` present per action.
+ * @returns {Promise<{processed: Object[], migrationRequired: Object[]}>} Per-server results plus
+ * typed fail-closed migration requirements.
  */
-export async function initConfigs({argv = process.argv, logger = console, serversRoot = serversDir} = {}) {
+export async function initConfigs({
+    serversRoot = serversDir,
+    aiRoot = path.resolve(serversRoot, '..', '..'),
+    argv = process.argv,
+    logger = console
+} = {}) {
     logger.log('[Neo AI] Checking MCP Server configurations...');
 
     if (!fs.existsSync(serversRoot)) {
         logger.warn('[Neo AI] MCP Server directory not found, skipping config initialization.');
-        return {processed: []}
+        return {processed: [], migrationRequired: []}
     }
 
-    const migrate   = argv.includes(MIGRATE_FLAG);
-    const servers   = await fs.readdir(serversRoot);
-    const processed = [];
+    const
+        migrate           = argv.includes(MIGRATE_FLAG),
+        servers           = (await fs.readdir(serversRoot)).sort(),
+        processed         = [],
+        migrationRequired = [];
 
     for (const serverName of servers) {
         const serverPath = path.join(serversRoot, serverName);
         const stat       = await fs.stat(serverPath);
         if (!stat.isDirectory()) continue;
 
-        const templatePath = path.join(serverPath, 'config.template.mjs');
-        const activePath   = path.join(serverPath, 'config.mjs');
+        const
+            templatePath = path.join(serverPath, 'config.template.mjs'),
+            basePath     = path.join(serverPath, 'configBase.mjs'),
+            activePath   = path.join(serverPath, 'config.mjs');
 
         if (!hasConfigTemplate(serverPath)) {
             processed.push({serverName, action: 'skip-no-template'});
             continue;
         }
 
-        const activeTemplateSrc = materializeServerConfigTemplate(await fs.readFile(templatePath, 'utf-8'));
+        const
+            templateSrc       = await fs.readFile(templatePath, 'utf-8'),
+            activeTemplateSrc = materializeServerConfigTemplate(templateSrc);
 
         if (!fs.existsSync(activePath)) {
             logger.log(`[Neo AI] Config missing for MCP server '${serverName}'. Cloning from template...`);
@@ -774,30 +838,46 @@ export async function initConfigs({argv = process.argv, logger = console, server
             continue;
         }
 
-        const activeSrc = await fs.readFile(activePath, 'utf-8');
-        const drift     = detectDrift(
-            projectSourceShape(activeTemplateSrc),
-            projectSourceShape(activeSrc)
-        );
+        const
+            activeSrc                                    = await fs.readFile(activePath, 'utf-8'),
+            defaultsSrc                                  = await fs.readFile(fs.existsSync(basePath) ? basePath : templatePath, 'utf-8'),
+            defaultsShape                                = projectSourceShape(materializeServerConfigTemplate(defaultsSrc)),
+            {drift, overlayShape, materializedActiveSrc} = detectServerOverlayDrift(activeSrc, defaultsShape, templateSrc);
 
-        if (!drift.hasDrift) {
-            processed.push({serverName, action: 'silent'});
+        // The split itself is a one-time transition. An explicit migrate run must surface every
+        // legacy snapshot for reviewed conversion even when it happens to match today's base; leaving
+        // it silent only postpones the same frozen-copy failure until the next added leaf.
+        if (!drift.hasDrift && !(migrate && overlayShape === 'snapshot')) {
+            processed.push({serverName, action: 'silent', overlayShape});
             continue;
         }
 
         if (migrate) {
-            const materializedActiveSrc = materializeServerConfigTemplate(activeSrc);
-
             if (isOnlyServerMaterializationDrift(drift) && materializedActiveSrc !== activeSrc) {
                 logger.log(`[Neo AI] Materializing stale Tier-1 import for '${serverName}' (${MIGRATE_FLAG} set, preserving operator edits)...`);
                 await fs.writeFile(activePath, materializedActiveSrc, 'utf-8');
-                processed.push({serverName, action: 'migrate', migration: 'materialize-import-only', drift});
+                processed.push({serverName, action: 'migrate', migration: 'materialize-import-only', drift, overlayShape});
                 continue;
             }
 
-            logger.log(`[Neo AI] Migrating stale config for '${serverName}' (drift detected, ${MIGRATE_FLAG} set)...`);
-            await fs.writeFile(activePath, activeTemplateSrc, 'utf-8');
-            processed.push({serverName, action: 'migrate', drift});
+            const
+                cliPath        = fileURLToPath(new URL('./migrateConfigOverlay.mjs', import.meta.url)),
+                command        = `node ${JSON.stringify(cliPath)} --ai-root ${JSON.stringify(aiRoot)} --config-root ${JSON.stringify(serverPath)}`,
+                migrationEntry = {
+                    serverName,
+                    action      : 'migration-required',
+                    migration   : 'operator-conversion-required',
+                    drift,
+                    overlayShape,
+                    command,
+                    writeCommand: `${command} --write`
+                };
+
+            logger.warn(`[Neo AI] Refusing unattended rewrite for '${serverName}' — operator conversion required; config.mjs was left untouched.`);
+            logger.warn(`  Preview: ${migrationEntry.command}`);
+            logger.warn(`  Apply after review (creates a colocated backup): ${migrationEntry.writeCommand}`);
+            processed.push(migrationEntry);
+            migrationRequired.push(migrationEntry);
         } else {
             logger.warn(`[Neo AI] Stale config.mjs for '${serverName}' — template has evolved:`);
             drift.missingImports.forEach(i => logger.warn(`  + import: ${i}`));
@@ -805,12 +885,16 @@ export async function initConfigs({argv = process.argv, logger = console, server
             drift.missingEnvVars.forEach(e => logger.warn(`  + env: ${e}`));
             drift.missingRequiredLeaves.forEach(e => logger.warn(`  + required-leaf: ${e}`));
             drift.changedLeafDefaults.forEach(leaf => logger.warn(`  + leaf-default: ${formatChangedLeafDefault(leaf)}`));
-            logger.warn(`  Run \`npm run prepare -- ${MIGRATE_FLAG}\` to refresh (gitignored; safe).`);
-            processed.push({serverName, action: 'warn', drift});
+            const
+                cliPath = fileURLToPath(new URL('./migrateConfigOverlay.mjs', import.meta.url)),
+                command = `node ${JSON.stringify(cliPath)} --ai-root ${JSON.stringify(aiRoot)} --config-root ${JSON.stringify(serverPath)}`;
+            logger.warn(`  Preview the declaration-level conversion: ${command}`);
+            logger.warn(`  \`${MIGRATE_FLAG}\` is fail-closed for this drift; only an explicit reviewed \`--write\` may replace the overlay.`);
+            processed.push({serverName, action: 'warn', drift, overlayShape, command});
         }
     }
 
-    return {processed}
+    return {processed, migrationRequired}
 }
 
 /**
@@ -823,8 +907,8 @@ export async function initConfigs({argv = process.argv, logger = console, server
  *
  *   1. Template absent — skip (log warning).
  *   2. Config missing — clone template.
- *   3. Config present + drift detected — warn-only (default) OR overwrite
- *      from template when invoked with `--migrate-config`.
+ *   3. Config present + drift detected — warn-only (default) OR declaration-level
+ *      snapshot conversion when invoked with `--migrate-config`.
  *
  * @param {Object} [options]
  * @param {String[]} [options.argv=process.argv]   Argv source; injectable for tests.
@@ -895,7 +979,7 @@ export async function initTier1Config({argv = process.argv, logger = console, ai
     drift.missingEnvVars.forEach(e => logger.warn(`  + env: ${e}`));
     drift.missingRequiredLeaves.forEach(e => logger.warn(`  + required-leaf: ${e}`));
     drift.changedLeafDefaults.forEach(leaf => logger.warn(`  + leaf-default: ${formatChangedLeafDefault(leaf)}`));
-    logger.warn(`  Run \`npm run prepare -- ${MIGRATE_FLAG}\` to refresh (gitignored; safe).`);
+    logger.warn(`  Preview the declaration-level conversion with \`node ai/scripts/setup/migrateConfigOverlay.mjs\`; \`${MIGRATE_FLAG}\` never rewrites subclass overlays.`);
 
     return {action: 'warn', drift}
 }
@@ -910,7 +994,7 @@ export async function initTier1Config({argv = process.argv, logger = console, ai
  *
  * Pairs with {@link initConfigs} / {@link initTier1Config}: those WARN at `npm prepare`; this is the
  * last-line boot guard for the `git-pull-without-prepare` window, so a stale overlay names its missing
- * leaves + the `--migrate-config` fix instead of crashing every consumer cryptically.
+ * leaves plus the shape-correct preview-first remediation instead of crashing cryptically.
  *
  * @param {Object}   [options]
  * @param {Object[]} [options.requiredFindings=[]] Required-env findings the ENTRYPOINT already computed by
@@ -938,7 +1022,7 @@ export async function assertConfigFresh({
 } = {}) {
     const stale = [];
 
-    const record = (label, drift) => {
+    const record = (label, drift, remediation) => {
         const crashCausing = [
             ...drift.missingImports,
             ...drift.missingExports,
@@ -947,9 +1031,9 @@ export async function assertConfigFresh({
         ];
 
         if (crashCausing.length > 0) {
-            stale.push({label, missing: crashCausing});
+            stale.push({label, missing: crashCausing, remediation});
         } else if (drift.hasDrift) {
-            logger.warn(`[Neo AI] ${label}: benign config drift (changed default only) — run \`npm run prepare -- ${MIGRATE_FLAG}\` to refresh (non-fatal).`);
+            logger.warn(`[Neo AI] ${label}: benign config drift (changed default only) — ${remediation} (non-fatal).`);
         }
     };
 
@@ -964,7 +1048,7 @@ export async function assertConfigFresh({
             await projectTier1DefaultsShape(aiRoot)
         );
 
-        record('Tier-1 ai/config.mjs', drift);
+        record('Tier-1 ai/config.mjs', drift, `run \`npm run prepare -- ${MIGRATE_FLAG}\` to declaration-convert the legacy overlay`);
     }
 
     if (!useConfigTemplates && serverPath) {
@@ -972,21 +1056,30 @@ export async function assertConfigFresh({
         const serverActive   = path.join(serverPath, 'config.mjs');
 
         if (fs.existsSync(serverTemplate) && fs.existsSync(serverActive)) {
-            // Materialize the template's Tier-1 import before the compare so the template-vs-overlay
-            // import path is not itself flagged as drift (matches the initConfigs per-server path).
-            const templateShape = projectSourceShape(materializeServerConfigTemplate(await fs.readFile(serverTemplate, 'utf-8'))),
-                  activeShape   = projectSourceShape(await fs.readFile(serverActive, 'utf-8'));
+            const
+                templateSrc   = await fs.readFile(serverTemplate, 'utf-8'),
+                basePath      = path.join(serverPath, 'configBase.mjs'),
+                defaultsSrc   = await fs.readFile(fs.existsSync(basePath) ? basePath : serverTemplate, 'utf-8'),
+                defaultsShape = projectSourceShape(materializeServerConfigTemplate(defaultsSrc)),
+                activeSrc     = await fs.readFile(serverActive, 'utf-8'),
+                {drift}       = detectServerOverlayDrift(activeSrc, defaultsShape, templateSrc),
+                cliPath       = fileURLToPath(new URL('./migrateConfigOverlay.mjs', import.meta.url)),
+                command       = `preview with \`node ${JSON.stringify(cliPath)} --ai-root ${JSON.stringify(aiRoot)} --config-root ${JSON.stringify(serverPath)}\``;
 
-            record(`${path.basename(serverPath)}/config.mjs`, detectDrift(templateShape, activeShape));
+            record(`${path.basename(serverPath)}/config.mjs`, drift, command);
         }
     }
 
     if (stale.length > 0) {
-        const detail = stale.map(item => `  - ${item.label}: missing ${item.missing.join(', ')}`).join('\n');
+        const detail      = stale.map(item => `  - ${item.label}: missing ${item.missing.join(', ')}`).join('\n');
+        const remediation = [...new Set(stale.map(item => item.remediation))]
+            .map(item => `  - ${item}`)
+            .join('\n');
 
         throw new Error(
             `[Neo AI] Stale config overlay — a materialized config.mjs is missing template-owned config shape:\n${detail}\n` +
-            `This can crash at runtime or skip readiness requiredness. Refresh: \`npm run prepare -- ${MIGRATE_FLAG}\` (gitignored; safe), then restart.`
+            `This can crash at runtime or skip readiness requiredness. Safe recovery is preview-first:\n${remediation}\n` +
+            `Broad per-server \`${MIGRATE_FLAG}\` is fail-closed; review the declaration-level delta before \`--write\`, then restart.`
         );
     }
 
@@ -1079,11 +1172,42 @@ export async function initClaudeSettings({claudeDir = path.join(cwd, '.claude'),
     return {action: 'wired'};
 }
 
+/**
+ * @typedef {Object} ConfigInitializationOutcome
+ * @property {String} status Stable child-process outcome.
+ * @property {String} [reasonCode] Machine-readable failure class.
+ * @property {String[]} [servers] Servers requiring reviewed conversion.
+ */
+
+/**
+ * @summary Builds the last-line child-process outcome consumed by the unattended sync cascade.
+ * The migration-required envelope is deliberately small and stable: service telemetry needs the
+ * typed code and affected servers, while per-server preview/write commands stay in human logs.
+ * @param {Object[]} [migrationRequired=[]] Per-server entries returned by {@link initConfigs}.
+ * @returns {ConfigInitializationOutcome}
+ */
+export function createConfigInitializationOutcome(migrationRequired = []) {
+    return migrationRequired.length > 0
+        ? {
+            status    : 'migration-required',
+            reasonCode: 'per-server-overlay-migration-required',
+            servers   : migrationRequired.map(item => item.serverName)
+        }
+        : {status: 'completed'}
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
     (async () => {
         await initTier1Config();
-        await initConfigs();
+        const {migrationRequired} = await initConfigs();
         await initClaudeSettings();
+
+        const outcome = createConfigInitializationOutcome(migrationRequired);
+
+        console.log(JSON.stringify(outcome));
+        if (outcome.status === 'migration-required') {
+            process.exitCode = 2;
+        }
     })().catch(err => {
         console.error('[Neo AI] Failed to initialize configs:', err);
         process.exit(1);

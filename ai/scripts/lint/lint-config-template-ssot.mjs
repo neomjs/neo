@@ -968,7 +968,8 @@ export function detectTestConfigProviderExports(
  * leaves live in the sibling `configBase.mjs`. The classification is therefore the union of both
  * files, template-declared paths winning — a shell-only read would leave every base-declared path
  * unclassifiable, and the fail-closed capture rule would flag legitimate subtree captures.
- * Per-server templates have no sibling base and read exactly as before.
+ * The same union applies to every per-server thin template with an adjacent base. Legacy full
+ * templates still have no sibling base and therefore read exactly as before during transition.
  * @param {String} templatePath Absolute template path.
  * @returns {{primitiveLeafPaths: Set<String>, liveProxyPaths: Set<String>}}
  */

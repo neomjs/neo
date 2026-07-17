@@ -553,19 +553,19 @@ test.describe('Tier 1 Config Immutability', () => {
     });
 
     test('keeps config ledgers inside config classes', async () => {
-        const templateUrls = [
+        const configSourceUrls = [
             // The Tier-1 ledger lives in the extendable BASE since the template/base split;
             // the thin template subclass is shape-asserted separately below.
             '../../../../ai/configBase.mjs',
-            '../../../../ai/mcp/server/github-workflow/config.template.mjs',
-            '../../../../ai/mcp/server/gitlab-workflow/config.template.mjs',
-            '../../../../ai/mcp/server/knowledge-base/config.template.mjs',
-            '../../../../ai/mcp/server/memory-core/config.template.mjs',
-            '../../../../ai/mcp/server/neural-link/config.template.mjs'
+            '../../../../ai/mcp/server/github-workflow/configBase.mjs',
+            '../../../../ai/mcp/server/gitlab-workflow/configBase.mjs',
+            '../../../../ai/mcp/server/knowledge-base/configBase.mjs',
+            '../../../../ai/mcp/server/memory-core/configBase.mjs',
+            '../../../../ai/mcp/server/neural-link/configBase.mjs'
         ];
 
-        for (const templateUrl of templateUrls) {
-            const source = await fs.readFile(new URL(templateUrl, import.meta.url), 'utf8');
+        for (const configSourceUrl of configSourceUrls) {
+            const source = await fs.readFile(new URL(configSourceUrl, import.meta.url), 'utf8');
 
             // The ledger lives inside the config class as a single `static config` block
             // whose `data` config holds the `{env?, default, parse?}` leaves — never as a
@@ -586,19 +586,19 @@ test.describe('Tier 1 Config Immutability', () => {
     });
 
     test('exposes MCP file-log retention leaves in file-sink server templates', async () => {
-        const templates = [{
-            envPrefix  : 'NEO_KB_LOG_RETENTION',
-            templateUrl: '../../../../ai/mcp/server/knowledge-base/config.template.mjs'
+        const configSources = [{
+            envPrefix: 'NEO_KB_LOG_RETENTION',
+            sourceUrl: '../../../../ai/mcp/server/knowledge-base/configBase.mjs'
         }, {
-            envPrefix  : 'NEO_MEMORY_LOG_RETENTION',
-            templateUrl: '../../../../ai/mcp/server/memory-core/config.template.mjs'
+            envPrefix: 'NEO_MEMORY_LOG_RETENTION',
+            sourceUrl: '../../../../ai/mcp/server/memory-core/configBase.mjs'
         }, {
-            envPrefix  : 'NEO_NL_LOG_RETENTION',
-            templateUrl: '../../../../ai/mcp/server/neural-link/config.template.mjs'
+            envPrefix: 'NEO_NL_LOG_RETENTION',
+            sourceUrl: '../../../../ai/mcp/server/neural-link/configBase.mjs'
         }];
 
-        for (const {envPrefix, templateUrl} of templates) {
-            const source = await fs.readFile(new URL(templateUrl, import.meta.url), 'utf8');
+        for (const {envPrefix, sourceUrl} of configSources) {
+            const source = await fs.readFile(new URL(sourceUrl, import.meta.url), 'utf8');
 
             expect(source).toContain('loggerRetention');
             expect(source).toContain(`${envPrefix}_ENABLED`);

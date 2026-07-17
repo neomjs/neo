@@ -801,7 +801,7 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
 
     test('records skipped outcomes without marking no-op checks successful', () => {
         const taskStateService = createTaskStateService();
-        const outcomes = [];
+        const outcomes         = [];
 
         const result = PrimaryRepoSyncService.runTask({
             reason       : 'periodic-sweep:600000',
@@ -881,7 +881,7 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
                 sequence.push(`state-failed:${taskName}:${code}`);
             }
         };
-        const outcomes = [];
+        const outcomes      = [];
         const healthService = {
             recordTaskOutcome(taskName, status, details) {
                 outcomes.push({taskName, status, details});
@@ -976,8 +976,8 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
         };
         // `npm run` prepends a banner; the outcome JSON is the last line — the scan must still find it.
         const execFileSyncFn = createExecStub([{
-            cmd : process.platform === 'win32' ? 'npm.cmd' : 'npm',
-            args: ['run', 'ai:sync-kb'],
+            cmd   : process.platform === 'win32' ? 'npm.cmd' : 'npm',
+            args  : ['run', 'ai:sync-kb'],
             output: `\n> neo@10.0.0 ai:sync-kb\n> node syncKnowledgeBase.mjs\n\n${JSON.stringify({deferred: true, reason: 'heavy-maintenance-lease-held'})}\n`
         }]);
 
@@ -1022,7 +1022,7 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
             }
         };
         const execFileSyncFn = (cmd, args, options) => {
-            const e   = new Error('npm ai:sync-kb failed: ENOENT');
+            const e = new Error('npm ai:sync-kb failed: ENOENT');
             e.status  = 127;
             throw e;
         };
@@ -1235,7 +1235,7 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
             }
         };
         const execFileSyncFn = () => {
-            const e  = new Error('initServerConfigs failed: drift overwrite error');
+            const e = new Error('initServerConfigs failed: drift overwrite error');
             e.status = 1;
             throw e;
         };
@@ -1254,6 +1254,58 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
             details : expect.objectContaining({
                 parent: 'primary-dev-sync',
                 error : 'initServerConfigs failed: drift overwrite error'
+            })
+        });
+    });
+
+    test('runConfigMigrate records a typed per-server migration requirement without invoking converter write (#15294)', () => {
+        const taskStateService = createTaskStateService();
+        const outcomes         = [];
+        const healthService    = {
+            recordTaskOutcome(taskName, status, details) {
+                outcomes.push({taskName, status, details});
+            }
+        };
+        const calls          = [];
+        const execFileSyncFn = (cmd, args, options) => {
+            calls.push({cmd, args, options});
+
+            const error = new Error('initServerConfigs requires an operator migration');
+            error.status = 2;
+            error.stdout = [
+                '[Neo AI] Checking MCP Server configurations...',
+                JSON.stringify({
+                    status    : 'migration-required',
+                    reasonCode: 'per-server-overlay-migration-required',
+                    servers   : ['knowledge-base', 'memory-core']
+                }),
+                ''
+            ].join('\n');
+
+            throw error;
+        };
+
+        expect(() => {
+            PrimaryRepoSyncService.runConfigMigrate('/primary/neo', execFileSyncFn, {taskStateService, healthService});
+        }).not.toThrow();
+
+        expect(calls).toHaveLength(1);
+        expect(calls[0]).toMatchObject({
+            cmd : process.execPath,
+            args: ['/primary/neo/ai/scripts/setup/initServerConfigs.mjs', '--migrate-config']
+        });
+        expect(calls[0].args).not.toContain('--write');
+        expect(taskStateService.events).toEqual([
+            ['started', 'configMigrate', 'cascaded-from-primary-dev-sync'],
+            ['failed', 'configMigrate', 2]
+        ]);
+        expect(outcomes[1]).toMatchObject({
+            taskName: 'configMigrate',
+            status  : 'failed',
+            details : expect.objectContaining({
+                parent    : 'primary-dev-sync',
+                reasonCode: 'per-server-overlay-migration-required',
+                servers   : ['knowledge-base', 'memory-core']
             })
         });
     });
