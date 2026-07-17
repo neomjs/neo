@@ -99,8 +99,33 @@ export function submitProjectionChannel({
     if (typeof isTargetAdmitted !== 'function' || typeof mayProduceChannel !== 'function') {
         throw new TypeError('[hookProjectionSubmission] isTargetAdmitted and mayProduceChannel must be injected')
     }
-    if (!envelope || typeof envelope !== 'object') {
-        throw new TypeError('[hookProjectionSubmission] an envelope object is required')
+    // `typeof envelope === 'object'` alone admitted an array and any exotic object. A channel envelope
+    // is a typed record with a schemaVersion; accepting anything object-shaped meant the store held
+    // payloads no reader could bind to, discovered only at render time by the party least able to fix it.
+    if (!envelope || typeof envelope !== 'object' || Array.isArray(envelope)) {
+        throw new TypeError('[hookProjectionSubmission] an envelope must be a plain object')
+    }
+
+    if (typeof envelope.schemaVersion !== 'string' || envelope.schemaVersion.length === 0) {
+        throw new TypeError('[hookProjectionSubmission] an envelope must carry a schemaVersion — a reader binds to it')
+    }
+
+    // Capture/expiry were stored as opaque strings and never parsed, so an unparseable or inverted
+    // window entered the store and only failed later, at a reader. A channel that expires before it was
+    // captured was never valid for an instant.
+    const captured = Date.parse(capturedAt),
+          expires  = Date.parse(expiresAt);
+
+    if (!Number.isFinite(captured)) {
+        throw new TypeError(`[hookProjectionSubmission] capturedAt must be a parseable timestamp; got ${JSON.stringify(capturedAt)}`)
+    }
+
+    if (!Number.isFinite(expires)) {
+        throw new TypeError(`[hookProjectionSubmission] expiresAt must be a parseable timestamp; got ${JSON.stringify(expiresAt)}`)
+    }
+
+    if (expires <= captured) {
+        throw new TypeError(`[hookProjectionSubmission] expiresAt ${expiresAt} is not after capturedAt ${capturedAt}`)
     }
 
     // Admission and identity are decided OUTSIDE this primitive and enforced here: the store never

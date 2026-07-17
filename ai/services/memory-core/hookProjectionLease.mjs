@@ -71,7 +71,7 @@ export const CONTEXT_VIEW_CHANNEL_PREFIX = 'context-view:';
  * @param {Object} row Stored channel row.
  * @returns {Object} `{status, sourceWatermark, capturedAt, expiresAt, envelope, citations, degradedReason}`.
  */
-function projectChannel(row) {
+function projectChannel(row, generatedAt) {
     let envelope = null,
         status   = 'fresh',
         reason   = row.conflict_reason ?? null;
@@ -87,6 +87,17 @@ function projectChannel(row) {
 
     if (status === 'fresh' && reason) {
         status = 'degraded'
+    }
+
+    // Expiry was STORED and never enforced: every parseable row published as `fresh`, so a channel
+    // whose producer stopped hours ago still read as current. A projection carries an expiry precisely
+    // because its content perishes; recording that and then ignoring it is worse than not recording it,
+    // since the reader trusts a field the writer never honoured.
+    const expiresAt = Date.parse(row.expires_at);
+
+    if (status === 'fresh' && Number.isFinite(expiresAt) && Number.isFinite(generatedAt) && expiresAt <= generatedAt) {
+        status = 'stale';
+        reason = `channel expired at ${row.expires_at}`
     }
 
     return {
@@ -116,7 +127,7 @@ function projectChannel(row) {
  * @returns {Object} The canonical envelope.
  */
 export function buildProjectionEnvelope({targetId, fencingEpoch, generatedAt, consumerBinding, rows}) {
-    const channels           = new Map(rows.map(row => [row.channel, projectChannel(row)])),
+    const channels           = new Map(rows.map(row => [row.channel, projectChannel(row, generatedAt)])),
           producerWatermarks = Object.fromEntries(rows.map(row => [row.channel, row.source_watermark])),
           missing            = () => ({status: 'missing', envelope: null, degradedReason: 'no accepted channel'});
 
@@ -124,8 +135,10 @@ export function buildProjectionEnvelope({targetId, fencingEpoch, generatedAt, co
         .filter(([channel]) => channel.startsWith(CONTEXT_VIEW_CHANNEL_PREFIX))
         .map(([channel, projected]) => ({channel, ...projected}));
 
+    // Stale counts as degraded coverage: a reader scanning `degradedSources` to decide what it can act
+    // on must not have to also cross-check every channel's status by hand.
     const degradedSources = [...channels.entries()]
-        .filter(([, projected]) => projected.status === 'degraded')
+        .filter(([, projected]) => projected.status === 'degraded' || projected.status === 'stale')
         .map(([channel]) => channel);
 
     return {
@@ -355,7 +368,21 @@ export function publishProjection({db, targetId, token, epoch, clock, consumerBi
         `).run(targetId, epoch, hashToken(token));
 
         try {
-            writeAtomic({targetId, envelope})
+            writeAtomic({
+                targetId,
+                envelope,
+                // Re-read the clock at the rename. The sample above proved the lease was live before the
+                // I/O; only this proves it is live at the mutation. Throwing here aborts before the
+                // rename and routes into the release-and-report path below, so a target is never left
+                // held by a writer that ran out of window.
+                assertDeadline: () => {
+                    const atRename = clock();
+
+                    if (!Number.isFinite(atRename) || Number(row.expires_at) <= atRename) {
+                        throw new Error(`lease expired mid-write (deadline ${row.expires_at})`)
+                    }
+                }
+            })
         } catch (error) {
             // Release and RETURN — never release and throw. The transaction rolls back on a thrown
             // error, which would undo the release along with it and park the target until expiry: the

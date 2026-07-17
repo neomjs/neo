@@ -153,6 +153,6 @@ test.describe('hookProjectionSubmission — one producer, one channel, monotonic
     test('fails LOUD on a missing watermark or an unbound gate — a wiring bug is not a rejection', () => {
         expect(() => submit({sourceWatermark: undefined})).toThrow(/sourceWatermark is required/);
         expect(() => submit({isTargetAdmitted: undefined})).toThrow(/isTargetAdmitted and mayProduceChannel/);
-        expect(() => submit({envelope: undefined})).toThrow(/envelope object is required/);
+        expect(() => submit({envelope: undefined})).toThrow(/envelope must be a plain object/);
     });
 });

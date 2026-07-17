@@ -86,7 +86,7 @@ export function makeAtomicProjectionTransport({fs, runtimeRoot, uniqueSuffix} = 
      * @param {Object}   payload.envelope The canonical `live-lane-awareness-projection.v1` envelope.
      * @returns {{file: String}}
      */
-    const writeAtomic = ({targetId, envelope} = {}) => {
+    const writeAtomic = ({targetId, envelope, assertDeadline} = {}) => {
         const {dir, file} = resolveTargetPath(targetId),
               temp        = `${file}.${uniqueSuffix()}.tmp`;
 
@@ -106,6 +106,13 @@ export function makeAtomicProjectionTransport({fs, runtimeRoot, uniqueSuffix} = 
             } finally {
                 fs.closeSync(handle)
             }
+
+            // The deadline is asserted HERE, after the flush and immediately before the rename, because
+            // the rename IS the mutation. Checking it earlier only proved the lease was live before the
+            // I/O — and the I/O is the part that takes time. A write that crossed its no-renewal TTL
+            // during write+fsync would still have published, which is the bound not holding at the one
+            // instant it exists to hold.
+            assertDeadline?.();
 
             fs.renameSync(temp, file);
 

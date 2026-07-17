@@ -70,15 +70,17 @@ test.describe('hookProjection — the lease and the transport, actually composed
         }
     };
 
+    const iso = ms => new Date(ms).toISOString();
+
     const submit = (channel, watermark, envelope) => submitProjectionChannel({
         db,
         targetId,
         channel,
         envelope,
         sourceWatermark  : watermark,
-        capturedAt       : '2026-07-16T12:00:00.000Z',
-        expiresAt        : '2026-07-16T12:05:00.000Z',
-        now              : '2026-07-16T12:00:00.000Z',
+        capturedAt       : iso(t0),
+        expiresAt        : iso(t0 + ttl),
+        now              : iso(t0),
         isTargetAdmitted : () => true,
         mayProduceChannel: () => true
     });
@@ -197,6 +199,41 @@ test.describe('hookProjection — the lease and the transport, actually composed
         expect(payload.lifecycleActions.status).toBe('degraded');
         expect(payload.lifecycleActions.degradedReason).toContain('unreadable envelope');
         expect(payload.coverage.degradedSources).toEqual(['lifecycle-frontier']);
+    });
+
+    test('an EXPIRED channel publishes as stale, not fresh — a stored expiry must be honoured', () => {
+        const
+            fs            = makeFs(),
+            {writeAtomic} = makeAtomicProjectionTransport({fs, runtimeRoot: root, uniqueSuffix: () => 't1'});
+
+        // A producer that stopped an hour ago: its window closed before the publication.
+        submitProjectionChannel({
+            db,
+            targetId,
+            channel          : 'lifecycle-frontier',
+            envelope         : {schemaVersion: 'lifecycle-frontier.v1', items: [], notAuthority: true},
+            sourceWatermark  : 'w-old',
+            capturedAt       : iso(t0 - 7_200_000),
+            expiresAt        : iso(t0 - 3_600_000),
+            now              : iso(t0 - 7_200_000),
+            isTargetAdmitted : () => true,
+            mayProduceChannel: () => true
+        });
+
+        submit('computed-route', 'w-1', {schemaVersion: 'computed-route.v1', notAuthority: true});
+
+        const lease = acquireProjectionLease({db, targetId, instanceDigest: 'i1', now: t0, leaseTtlMs: ttl, mintToken, hashToken});
+        publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, consumerBinding: binding, hashToken, writeAtomic});
+
+        const payload = JSON.parse(fs.written.get(`${root}/${targetId}/current.json`));
+
+        // Recording an expiry and then ignoring it is worse than not recording one: the reader trusts a
+        // field the writer never honoured, and acts on a channel whose producer stopped hours ago.
+        expect(payload.lifecycleActions.status).toBe('stale');
+        expect(payload.lifecycleActions.degradedReason).toContain('expired at');
+        expect(payload.coverage.degradedSources).toEqual(['lifecycle-frontier']);
+        // ...and the still-live channel is untouched by its neighbour's staleness
+        expect(payload.computedRoute.status).toBe('fresh');
     });
 
     test('a refused publication reaches the transport not at all — no file, no temp debris', () => {

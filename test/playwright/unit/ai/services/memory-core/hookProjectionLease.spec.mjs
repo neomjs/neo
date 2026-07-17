@@ -226,6 +226,34 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
         expect(writes).toBe(0);
     });
 
+    test('time crossing the TTL DURING the I/O aborts at the rename — the deadline holds where it matters', () => {
+        // The reviewer's carried finding: the clock was sampled BEFORE writeAtomic, so it only proved
+        // the lease was live before the I/O — and the I/O is the part that takes time. write+fsync can
+        // cross a no-renewal TTL, and the rename would still land. The rename IS the mutation, so the
+        // deadline is asserted there.
+        const lease = acquireProjectionLease({db, targetId, instanceDigest: 'i1', now: t0, leaseTtlMs: ttl, mintToken, hashToken});
+        seedChannel('computed-route', 'w-1');
+
+        let call    = 0,
+            renamed = false;
+
+        const result = publishProjection({
+            db, targetId, token: lease.token, epoch: lease.epoch, consumerBinding: {agentId: '@me'}, hashToken,
+            // live at entry and at the pre-I/O check; expired by the time the flush completes
+            clock      : () => (++call <= 2 ? t0 + 1 : t0 + ttl + 1),
+            writeAtomic: ({assertDeadline}) => {
+                assertDeadline();
+                renamed = true
+            }
+        });
+
+        expect(renamed).toBe(false);
+        expect(result.published).toBe(false);
+        expect(result.reason).toContain('lease expired mid-write');
+        // the aborted holder frees the target rather than parking it
+        expect(db.prepare('SELECT state FROM HookProjectionLeases WHERE target_id = ?').get(targetId).state).toBe('released');
+    });
+
     test('the lease is released on BOTH paths — a single publication never parks the target', () => {
         const held = () => db.prepare('SELECT state FROM HookProjectionLeases WHERE target_id = ?').get(targetId).state;
 
