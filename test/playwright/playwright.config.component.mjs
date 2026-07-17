@@ -16,7 +16,11 @@ export default defineConfig({
     },
 
     webServer: {
-        command            : 'npm run server-start',
+        // --no-open: CI runners are headless; webpack's browser-open attempt is noise there
+        // and pointless locally under a test runner. Port/reuse semantics stay untouched:
+        // a fixed port + reuseExistingServer can still silently reuse a server from another
+        // checkout locally — that trap is a separate concern from CI enablement.
+        command            : 'npm run server-start -- --no-open',
         url                : 'http://localhost:8080',
         reuseExistingServer: !process.env.CI
     },
