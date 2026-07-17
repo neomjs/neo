@@ -167,4 +167,71 @@ test.describe('fleet transport — full-chain integration (real server + real re
         expect(envelope.ok).toBe(false);
         expect(envelope.error).toContain('not on the control surface')
     });
+
+    test('the mailbox-admission chain: HTTP -> stamped context -> real adapter reads UNDER the transport viewer; a smuggled viewer is refused through the wire', async () => {
+        const url = `http://127.0.0.1:${server.address().port}/fleet`;
+
+        // The REAL adapter with an injected listMessages recorder: the one seam MailboxService's
+        // own unit battery does not cover is whether the TRANSPORT's stamped identity is what the
+        // adapter's resolveBoundIdentity reads at the moment of the read — capture it in-flight.
+        const
+            {readFleetMailboxMirror}         = await import('../../../../../../ai/services/fleet/fleetMailboxMirrorAdapter.mjs'),
+            {default: FleetControlBridge}    = await import('../../../../../../ai/services/fleet/FleetControlBridge.mjs'),
+            {default: RequestContextService} = await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs'),
+            identitiesSeenByRead             = [];
+
+        const priorSource = FleetControlBridge.mailboxMirrorSource;
+
+        FleetControlBridge.mailboxMirrorSource = {
+            readMailboxMirror: params => readFleetMailboxMirror({
+                listMessages: async () => {
+                    identitiesSeenByRead.push(RequestContextService.getAgentIdentityNodeId());
+                    return {messages: []}
+                },
+                resolveBoundIdentity: () => RequestContextService.getAgentIdentityNodeId(),
+                ...params
+            })
+        };
+
+        try {
+            const admitted = await fetch(url, {
+                method : 'POST',
+                headers: {'Content-Type': 'application/json', Authorization: `Bearer ${bearerToken}`},
+                body   : JSON.stringify({method: 'fleetMailboxMirror', params: {subjectAgentId: '@integration-viewer'}})
+            });
+            const {ok, result} = await admitted.json();
+
+            expect(ok).toBe(true);
+            // the read executed INSIDE the stamped context — the transport's viewer, not a caller claim
+            expect(identitiesSeenByRead).toEqual(['@integration-viewer']);
+            // and the snapshot attributes admission to that same transport-stamped viewer
+            expect(result.admission.viewerIdentity).toBe('@integration-viewer');
+
+            // The spoof, through the FULL wire: a caller-asserted viewerIdentity that mismatches the
+            // bound identity is refused by the adapter's own verification — the assertion can never
+            // override the binding.
+            const spoofed = await fetch(url, {
+                method : 'POST',
+                headers: {'Content-Type': 'application/json', Authorization: `Bearer ${bearerToken}`},
+                body   : JSON.stringify({method: 'fleetMailboxMirror', params: {subjectAgentId: '@integration-viewer', viewerIdentity: '@evil'}})
+            });
+            const spoofEnvelope = await spoofed.json();
+
+            expect(spoofEnvelope.ok).toBe(true);
+            expect(spoofEnvelope.result.admission.state).not.toBe('admitted');
+            expect(identitiesSeenByRead, 'the spoofed request must never reach the read').toHaveLength(1);
+
+            // Unauthenticated: the chain is unreachable — the recorder count proves zero side effects.
+            const denied = await fetch(url, {
+                method : 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body   : JSON.stringify({method: 'fleetMailboxMirror', params: {subjectAgentId: '@integration-viewer'}})
+            });
+
+            expect(denied.status).toBe(401);
+            expect(identitiesSeenByRead).toHaveLength(1)
+        } finally {
+            FleetControlBridge.mailboxMirrorSource = priorSource
+        }
+    });
 });
