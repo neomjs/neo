@@ -64,7 +64,18 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
             DragCoordinator.nativeWindowDropDwellMs  = 450;
             DragCoordinator.nativeWindowDropSettleMs = 250;
             DragCoordinator.sortZones = new Map();
-            delete DragCoordinator.onWindowPositionChange
+            DragCoordinator.activeTargetZone = null;
+
+            // `beforeEach` stubs five methods as OWN properties on the shared singleton; only
+            // `onWindowPositionChange` was ever given back. The other four outlived this file and
+            // silently no-opped every later spec in the worker that touched the coordinator — a stub
+            // that survives its suite is indistinguishable from the method simply not working.
+            // Deleting the own property re-exposes the prototype implementation.
+            delete DragCoordinator.onWindowPositionChange;
+            delete DragCoordinator.onDragMove;
+            delete DragCoordinator.onDragEnd;
+            delete DragCoordinator.register;
+            delete DragCoordinator.unregister
         }
         if (Neo.manager?.Window) {
             Neo.manager.Window.items = [];
@@ -76,22 +87,22 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
 
     test('Validates Directional Logic with Colliding Thresholds (0.8 / 0.6)', async () => {
         const mockOwner = {
-            id: 'mockOwner',
+            id   : 'mockOwner',
             items: [{
-                id: 'item1',
-                vdom: {cls: ['neo-draggable']},
+                id          : 'item1',
+                vdom        : {cls: ['neo-draggable']},
                 wrapperStyle: {}
             }],
-            vdom: {},
+            vdom           : {},
             addDomListeners: () => {},
-            getDomRect: () => Promise.resolve([{x:0, y:0, width:100, height:100}]),
-            on: () => {}
+            getDomRect     : () => Promise.resolve([{x:0, y:0, width:100, height:100}]),
+            on             : () => {}
         };
 
         sortZone = Neo.create(DashboardSortZone, {
-            owner: mockOwner,
-            detachThreshold  : 0.8,
-            reattachThreshold: 0.6,
+            owner             : mockOwner,
+            detachThreshold   : 0.8,
+            reattachThreshold : 0.6,
             enableProxyToPopup: true
         });
 
@@ -110,7 +121,7 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
                 proxyRect,
                 screenX: x,
                 screenY: y,
-                path: []
+                path   : []
             });
         };
 
@@ -421,9 +432,9 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
                     draggedItem: item,
                     widgetName : 'item1'
                 } : null,
-                onRemoteDropOut   : draggedItem => calls.push({draggedItem, type: 'dropOut'}),
-                sortGroup         : 'dashboards',
-                suspendWindowDrag : widgetName => {
+                onRemoteDropOut  : draggedItem => calls.push({draggedItem, type: 'dropOut'}),
+                sortGroup        : 'dashboards',
+                suspendWindowDrag: widgetName => {
                     calls.push({type: 'suspend', widgetName});
                     return Promise.resolve()
                 },
@@ -435,9 +446,13 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
                     calls.push({data, type: 'move'});
                     return Promise.resolve()
                 },
+                // Resolves to a real operation because this stub stands in for a target that COMMITS —
+                // `CrossWindowDragTarget.onRemoteDrop` returns the committed operation, or null when it
+                // declines, and source retirement is gated on that answer. Resolving to `undefined`
+                // described a target that took the item without saying so, which no real target does.
                 onRemoteDrop: draggedItem => {
                     calls.push({draggedItem, type: 'drop'});
-                    return Promise.resolve()
+                    return Promise.resolve({type: 'transferItem'})
                 },
                 sortGroup: 'dashboards',
                 windowId : 'target-window'

@@ -94,10 +94,10 @@ class DashboardSortZone extends SortZone {
             me.adjustProxyRectToParent?.(rect, me.ownerRect);
 
             console.log('applyAbsolutePositioning', {
-                height  : `${rect.height}px`,
-                left    : `${rect.left}px`,
-                top     : `${rect.top}px`,
-                width   : `${rect.width}px`
+                height: `${rect.height}px`,
+                left  : `${rect.left}px`,
+                top   : `${rect.top}px`,
+                width : `${rect.width}px`
             });
 
             item.wrapperStyle = Object.assign(itemStyle, {
@@ -375,28 +375,41 @@ class DashboardSortZone extends SortZone {
     }
 
     /**
+     * @summary Takes the item into this zone, and REPORTS whether it did.
+     *
+     * The return value is the commit decision the coordinator gates source retirement on: the
+     * committed operation, or `null` when this zone did not take the item. Both paths previously
+     * returned `undefined`, so committing and declining were indistinguishable to the caller — and a
+     * caller cannot honour an outcome the target refuses to state.
+     *
      * @param {Neo.component.Base} draggedItem
+     * @returns {Promise<Object|null>} The committed operation, or `null` when nothing was taken.
      */
     async onRemoteDrop(draggedItem) {
         let me    = this,
             index = me.currentIndex;
 
-        // Ensure we are in remote drag mode
-        if (me.isRemoteDragging) {
-            // Cleanup placeholder but keep layout ready
-            await me.onDragEnd({});
-
-            // Remove from old parent (if not already detached)
-            const parentId = draggedItem.parentId;
-            if (parentId && parentId !== 'document.body') {
-                Neo.getComponent(parentId)?.remove(draggedItem, false)
-            }
-
-            // Insert into new owner
-            me.owner.insert(index, draggedItem);
-
-            me.isRemoteDragging = false
+        // Not in remote drag mode: this zone takes nothing, and says so. Silence here is what let the
+        // coordinator retire a source into a target that never accepted the item.
+        if (!me.isRemoteDragging) {
+            return null
         }
+
+        // Cleanup placeholder but keep layout ready
+        await me.onDragEnd({});
+
+        // Remove from old parent (if not already detached)
+        const parentId = draggedItem.parentId;
+        if (parentId && parentId !== 'document.body') {
+            Neo.getComponent(parentId)?.remove(draggedItem, false)
+        }
+
+        // Insert into new owner
+        me.owner.insert(index, draggedItem);
+
+        me.isRemoteDragging = false;
+
+        return {index, ownerId: me.owner.id, type: 'insertItem'}
     }
 
     /**
@@ -488,10 +501,10 @@ class DashboardSortZone extends SortZone {
 
         itemRects.forEach(rect => {
             console.log('itemRect', {
-                height  : `${rect.height}px`,
-                left    : `${rect.left}px`,
-                top     : `${rect.top}px`,
-                width   : `${rect.width}px`
+                height: `${rect.height}px`,
+                left  : `${rect.left}px`,
+                top   : `${rect.top}px`,
+                width : `${rect.width}px`
             });
         });
 
@@ -632,7 +645,7 @@ class DashboardSortZone extends SortZone {
      * @param {Object} data - The drag move event data.
      */
     startWindowDrag(data) {
-        let me = this,
+        let me                                    = this,
             {popupHeight, popupWidth, windowName} = data;
 
         // Keep the proxy active to capture mouse events, but make it invisible
