@@ -147,6 +147,45 @@ test.describe('Neo.button.Base', () => {
         await expect(button).toBeFocused();
     });
 
+    test('should remove native disabled when a Button root becomes an anchor', async ({page}) => {
+        const result = await page.evaluate((config) => {
+            return Neo.worker.App.createNeoInstance(config);
+        }, {
+            importPath: '../button/Base.mjs',
+            ntype     : 'button',
+            parentId  : 'component-test-viewport',
+            disabled  : true,
+            text      : 'External link',
+            url       : 'https://example.com'
+        });
+
+        if (!result.success) {
+            throw new Error(`Component creation failed: ${result.error.message}`);
+        }
+
+        buttonId = result.id;
+
+        const control = page.locator(`#${buttonId}`);
+
+        await expect(control).toHaveClass(/neo-disabled/);
+        expect(await control.evaluate(node => node.tagName)).toBe('A');
+        expect(await control.getAttribute('disabled')).toBeNull();
+
+        await page.evaluate((id) => {
+            return Neo.worker.App.setConfigs({id, url: null});
+        }, buttonId);
+
+        await expect.poll(() => control.evaluate(node => node.tagName)).toBe('BUTTON');
+        await expect(control).toBeDisabled();
+
+        await page.evaluate((id) => {
+            return Neo.worker.App.setConfigs({id, url: 'https://example.com/again'});
+        }, buttonId);
+
+        await expect.poll(() => control.evaluate(node => node.tagName)).toBe('A');
+        expect(await control.getAttribute('disabled')).toBeNull();
+    });
+
     test('should apply native disabled semantics to both SplitButton controls', async ({page}) => {
         const result = await page.evaluate((config) => {
             return Neo.worker.App.createNeoInstance(config);

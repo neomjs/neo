@@ -127,8 +127,8 @@ class DeltaUpdates extends Base {
     /**
      * Changes the tag name (nodeName) of an existing HTMLElement in the DOM.
      * This operation is performed by creating a new HTML element with the desired `nodeName`,
-     * meticulously copying all attributes and the `innerHTML` from the original `node` to the new one,
-     * and then seamlessly replacing the original `node` with the newly created element within its parent.
+     * preserving attributes, live control properties, and child-node identity from the original `node`,
+     * and then replacing the original `node` with the newly created element within its parent.
      *
      * @param {HTMLElement} node     The existing DOM HTMLElement whose tag name needs to be changed.
      * @param {String}      nodeName The new tag name (e.g., 'div', 'span', 'p') for the element.
@@ -154,8 +154,10 @@ class DeltaUpdates extends Base {
                 clone.value = node.value
             }
 
-            if (node.checked !== undefined && node.checked !== clone.checked) {
-                clone.checked = node.checked
+            for (const key of voidAttributes) {
+                if (node[key] !== undefined && node[key] !== clone[key]) {
+                    clone[key] = node[key]
+                }
             }
 
             if (node.selectedIndex !== undefined && node.selectedIndex !== clone.selectedIndex) {

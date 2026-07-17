@@ -163,6 +163,49 @@ test.describe('Neo.button.Base VDOM (Node.js)', () => {
         button.destroy();
     });
 
+    test('should keep native disabled aligned with button-to-anchor transitions', async () => {
+        const urlButton = Neo.create(Button, {
+            appName,
+            disabled: true,
+            text    : 'External link',
+            url     : 'https://example.com'
+        });
+        let {vnode} = await urlButton.initVnode();
+
+        urlButton.mounted = true;
+
+        expect(vnode.nodeName).toBe('a');
+        expect(vnode.attributes.disabled).toBeUndefined();
+        expect(vnode.className).toContain('neo-disabled');
+
+        ({vnode} = await urlButton.set({url: null}));
+
+        expect(vnode.nodeName).toBe('button');
+        expect(vnode.attributes.disabled).toBe('true');
+
+        ({vnode} = await urlButton.set({url: 'https://example.com/again'}));
+
+        expect(vnode.nodeName).toBe('a');
+        expect(vnode.attributes.disabled).toBeUndefined();
+
+        const routeButton = Neo.create(Button, {
+            appName,
+            disabled : true,
+            editRoute: false,
+            route    : 'details',
+            text     : 'Internal link'
+        });
+        const routeVnode = (await routeButton.initVnode()).vnode;
+
+        expect(routeVnode.nodeName).toBe('a');
+        expect(routeVnode.attributes.href).toBe('#details');
+        expect(routeVnode.attributes.disabled).toBeUndefined();
+        expect(routeVnode.className).toContain('neo-disabled');
+
+        routeButton.destroy();
+        urlButton.destroy();
+    });
+
     test('Prototype VDOM mutation check', async () => {
         // Manually clean prototype to verify the fix or demonstrate the bug
         // Note: We need to access the prototype from the class constructor
