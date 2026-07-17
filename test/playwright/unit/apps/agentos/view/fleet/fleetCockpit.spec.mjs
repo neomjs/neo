@@ -293,11 +293,39 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             // the authoritative participation fact: absent on the row → honest null, never guessed
             participationStatus: null,
             sources            : liveSources(),
-            state              : 'ok'
+            state              : 'ok',
+            // the S2 telltale axes: absent on this row → honest null, never a synthesized 'unknown'.
+            // The view must not manufacture the taxonomy's unknown — that value means the PRODUCER
+            // looked and could not see, which is a different fact from "this row carried no axis".
+            throttle: null,
+            wake    : null
         });
 
         // laneLine is OMITTED, never nulled — a roster merge must not wipe what the activity producer writes
         expect(Object.hasOwn(mapped, 'laneLine')).toBe(false)
+    });
+
+    test('mapRosterRow passes the S2 axes through WHOLE — the view never re-derives a produced fact', () => {
+        const
+            wake     = {source: 'fleet:wakeState', state: 'suppressed', confidence: 'observed'},
+            throttle = {source: 'fleet:throttleState', state: 'rate-limited', confidence: 'observed', reason: 'session cap'},
+            mapped   = FleetCockpit.prototype.mapRosterRow({
+                id       : 'neo-gpt',
+                lifecycle: {source: 'fleet:runtimeStatus', state: 'running', confidence: 'observed'},
+                sources  : liveSources(),
+                throttle,
+                wake
+            });
+
+        // Whole objects, not re-derived states: `confidence` and `reason` are the producer's evidence
+        // that it actually looked, and a view that rebuilt {state} alone would strip exactly the
+        // fields that distinguish an observed fact from a guess.
+        expect(mapped.wake).toEqual(wake);
+        expect(mapped.throttle).toEqual(throttle);
+
+        // The incident this answers had BOTH at once — orthogonal axes, never collapsed to one enum.
+        expect(mapped.wake.state).toBe('suppressed');
+        expect(mapped.throttle.state).toBe('rate-limited')
     });
 
     test('mapRosterRow state vocabulary — running is healthy only behind wired runtime provenance', () => {
@@ -382,7 +410,9 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             openLaneCount      : null,
             participationStatus: null,
             sources            : liveSources(),
-            state              : 'ok'
+            state              : 'ok',
+            throttle           : null,
+            wake               : null
         }]);
 
         // a resident ABSENT from the authoritative snapshot is removed — define → remove → no ghost card
