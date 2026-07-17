@@ -45,6 +45,31 @@ class GitHub extends Base {
          */
         restUrl: 'https://api.github.com',
         /**
+         * Maximum retry attempts for transient REST transport failures.
+         * @member {Number} restMaxRetryAttempts=3
+         */
+        restMaxRetryAttempts: 3,
+        /**
+         * Initial REST retry delay in milliseconds.
+         * @member {Number} restRetryBaseDelayMs=1000
+         */
+        restRetryBaseDelayMs: 1000,
+        /**
+         * Maximum exponential REST retry delay in milliseconds.
+         * @member {Number} restRetryMaxDelayMs=10000
+         */
+        restRetryMaxDelayMs: 10000,
+        /**
+         * Jitter ratio applied to exponential REST retry delays.
+         * @member {Number} restRetryJitterRatio=0.2
+         */
+        restRetryJitterRatio: 0.2,
+        /**
+         * HTTP statuses that represent transient REST edge or proxy failures.
+         * @member {Number[]} restRetryableHttpStatuses=[429,502,503,504]
+         */
+        restRetryableHttpStatuses: [429, 502, 503, 504],
+        /**
          * Current Rate Limit Status
          * @member {Object} rateLimit
          */
@@ -86,6 +111,130 @@ class GitHub extends Base {
             console.error('[GitHub] Failed to get auth token from environment or `gh` CLI.');
             throw new Error('Authentication failed. Please set GH_TOKEN/GITHUB_TOKEN or run `gh auth login`.');
         }
+    }
+
+    /**
+     * @summary Calculates the delay for a transient REST retry.
+     * @param {Number}        attempt       The 1-based retry attempt.
+     * @param {Response|null} [response=null] The failed response, when available.
+     * @returns {Number} Delay in milliseconds.
+     * @private
+     */
+    #getRestRetryDelay(attempt, response=null) {
+        const retryAfter = response?.headers?.get?.('retry-after');
+
+        if (retryAfter) {
+            const seconds = Number(retryAfter);
+
+            if (Number.isFinite(seconds)) {
+                return Math.max(0, seconds * 1000);
+            }
+
+            const retryAt = Date.parse(retryAfter);
+
+            if (Number.isFinite(retryAt)) {
+                return Math.max(0, retryAt - Date.now());
+            }
+        }
+
+        const baseDelay = Math.min(
+            this.restRetryMaxDelayMs,
+            this.restRetryBaseDelayMs * 2 ** (attempt - 1)
+        );
+        const jitter = baseDelay * this.restRetryJitterRatio * Math.random();
+
+        return Math.min(this.restRetryMaxDelayMs, Math.round(baseDelay + jitter));
+    }
+
+    /**
+     * @summary Determines whether a REST fetch failure is likely transient.
+     * @param {*} error The thrown fetch error.
+     * @returns {Boolean}
+     * @private
+     */
+    #isRestRetryableNetworkError(error) {
+        const message = [
+            error?.message,
+            error?.cause?.message,
+            error?.cause?.code,
+            error?.code,
+            String(error)
+        ].filter(Boolean).join(' ').toLowerCase();
+
+        return [
+            'fetch failed',
+            'network',
+            'terminated',
+            'timeout',
+            'econnreset',
+            'etimedout',
+            'enotfound',
+            'eai_again',
+            'socket hang up'
+        ].some(pattern => message.includes(pattern));
+    }
+
+    /**
+     * @summary Determines whether a REST response status is configured as transient.
+     * @param {Number} status The HTTP response status.
+     * @returns {Boolean}
+     * @private
+     */
+    #isRestRetryableHttpStatus(status) {
+        return this.restRetryableHttpStatuses.includes(status);
+    }
+
+    /**
+     * @summary Releases a failed REST response body before opening the next connection.
+     * @param {Response} response The response whose body will no longer be consumed.
+     * @returns {Promise<void>}
+     * @private
+     */
+    async #releaseRestResponseBody(response) {
+        const body = response?.body;
+
+        if (!body || body.locked) {
+            return;
+        }
+
+        try {
+            await body.cancel();
+        } catch {
+            // The original request failure remains authoritative when body cleanup also fails.
+        }
+    }
+
+    /**
+     * @summary Waits for a bounded REST retry delay.
+     * @param {Number} delay Delay in milliseconds.
+     * @returns {Promise<void>}
+     * @private
+     */
+    async #sleep(delay) {
+        if (delay <= 0) {
+            return;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, delay));
+    }
+
+    /**
+     * @summary Logs and waits before retrying a transient REST failure.
+     * @param {String}        prefix          Request-specific log prefix.
+     * @param {String}        reason          Safe retry reason for logs.
+     * @param {Number}        attempt         The 1-based retry attempt.
+     * @param {Response|null} [response=null] The failed response, when available.
+     * @returns {Promise<void>}
+     * @private
+     */
+    async #waitForRestRetry(prefix, reason, attempt, response=null) {
+        const delay = this.#getRestRetryDelay(attempt, response);
+
+        console.warn(
+            `${prefix} ${reason}; retrying in ${delay}ms ` +
+            `(attempt ${attempt}/${this.restMaxRetryAttempts})`
+        );
+        await this.#sleep(delay);
     }
 
     /**
@@ -150,12 +299,12 @@ class GitHub extends Base {
      * @returns {Promise<Object>} The `data` property of the response.
      */
     async query(query, variables = {}, retries = 3, logContext = '') {
-        const token = await this.#getAuthToken();
+        const token  = await this.#getAuthToken();
         const prefix = logContext ? `[GitHub] [${logContext}]` : '[GitHub]';
 
         try {
             const response = await fetch(this.graphqlUrl, {
-                method: 'POST',
+                method : 'POST',
                 headers: {
                     'Content-Type' : 'application/json',
                     'Authorization': `bearer ${token}`,
@@ -256,30 +405,76 @@ class GitHub extends Base {
      * @returns {Promise<Object>} JSON response
      */
     async rest(endpoint, logContext = '') {
-        const token = await this.#getAuthToken();
-        const url = `${this.restUrl}/${endpoint.startsWith('/') ? endpoint.slice(1) : endpoint}`;
+        const token  = await this.#getAuthToken();
+        const url    = `${this.restUrl}/${endpoint.startsWith('/') ? endpoint.slice(1) : endpoint}`;
         const prefix = logContext ? `[GitHub] [${logContext}]` : '[GitHub]';
 
         try {
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Accept'       : 'application/vnd.github.v3+json',
-                    'Authorization': `bearer ${token}`,
-                    'User-Agent'   : 'Neo.mjs-DevIndex/1.0'
+            for (let attempt = 0; attempt <= this.restMaxRetryAttempts; attempt++) {
+                let response;
+
+                try {
+                    response = await fetch(url, {
+                        method : 'GET',
+                        headers: {
+                            'Accept'       : 'application/vnd.github.v3+json',
+                            'Authorization': `bearer ${token}`,
+                            'User-Agent'   : 'Neo.mjs-DevIndex/1.0'
+                        }
+                    });
+                } catch (error) {
+                    if (attempt < this.restMaxRetryAttempts && this.#isRestRetryableNetworkError(error)) {
+                        await this.#waitForRestRetry(
+                            prefix,
+                            `Transient REST transport failure (${error.message})`,
+                            attempt + 1
+                        );
+                        continue;
+                    }
+
+                    throw error;
                 }
-            });
 
-            this.#updateRateLimit(response);
+                this.#updateRateLimit(response);
 
-            if (!response.ok) {
+                if (response.ok) {
+                    try {
+                        return await response.json();
+                    } catch (error) {
+                        if (attempt < this.restMaxRetryAttempts && this.#isRestRetryableNetworkError(error)) {
+                            await this.#releaseRestResponseBody(response);
+                            await this.#waitForRestRetry(
+                                prefix,
+                                `Transient REST response-body failure (${error.message})`,
+                                attempt + 1
+                            );
+                            continue;
+                        }
+
+                        throw error;
+                    }
+                }
+
+                const error = new Error(`REST Error: ${response.status} ${response.statusText}`);
+
+                await this.#releaseRestResponseBody(response);
+
                 if (response.status === 403) {
                     this.rateLimit.core.remaining = 0;
+                    throw error;
                 }
-                throw new Error(`REST Error: ${response.status} ${response.statusText}`);
-            }
 
-            return await response.json();
+                if (response.status === 404) {
+                    throw error;
+                }
+
+                if (attempt < this.restMaxRetryAttempts && this.#isRestRetryableHttpStatus(response.status)) {
+                    await this.#waitForRestRetry(prefix, error.message, attempt + 1, response);
+                    continue;
+                }
+
+                throw error;
+            }
         } catch (error) {
             console.error(`${prefix} REST Request Failed (${endpoint}):`, error.message);
             throw error;
@@ -297,7 +492,7 @@ class GitHub extends Base {
         // We use 'node' interface which is polymorphic.
         // If the ID belongs to a User, it will return the User object.
         const query = `
-            query { 
+            query {
                 node(id: "${nodeId}") {
                     ... on User {
                         login
