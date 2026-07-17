@@ -1,6 +1,7 @@
-import {execSync} from 'node:child_process';
-import path       from 'node:path';
-import process    from 'node:process';
+import {execSync}     from 'node:child_process';
+import {readFileSync} from 'node:fs';
+import path           from 'node:path';
+import process        from 'node:process';
 
 /**
  * Pre-push authorship check. ticket-ref-ok: implementing ticket #15337
@@ -32,9 +33,47 @@ import process    from 'node:process';
  */
 
 const
-    range   = 'origin/dev..HEAD',
-    exec    = command => execSync(command, {encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore']}).trim(),
-    tryExec = command => { try { return exec(command) } catch { return '' } };
+    ZERO_SHA = '0'.repeat(40),
+    exec     = command => execSync(command, {encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore']}).trim(),
+    tryExec  = command => { try { return exec(command) } catch { return '' } };
+
+/**
+ * @summary The commits this push will actually send, read from git's own ref tuples.
+ *
+ * git hands a pre-push hook `<localRef> <localSha> <remoteRef> <remoteSha>` per ref on stdin. Reading
+ * it is the difference between guarding the push and guarding a guess about it: the first cut
+ * hard-coded `origin/dev..HEAD`, so `git push origin agent/dirty:refs/heads/agent/dirty` was measured
+ * against a clean HEAD and exited green while shipping an operator-authored commit on the sibling ref.
+ * A bypass in a guard whose whole purpose is being un-bypassable.
+ *
+ * `remoteSha` is the exact boundary git will apply, so `remoteSha..localSha` is the true new-commit
+ * set. A NEW remote branch reports the zero-sha, where the honest fallback is `origin/dev..localSha`:
+ * everything the branch adds to the trunk. A DELETION reports a zero localSha and sends no commits.
+ *
+ * @param {String} stdin The raw hook payload.
+ * @returns {String[]} Rev-list ranges to scan.
+ * @private
+ */
+function pendingRanges(stdin) {
+    const rows = stdin.split('\n').map(line => line.trim()).filter(Boolean);
+
+    if (rows.length === 0) {
+        // Invoked outside the hook (a manual run, or a git that sent nothing): fall back to the
+        // branch's own range rather than silently scanning nothing. A guard that no-ops when it
+        // cannot see its input is the same failure it exists to prevent.
+        return ['origin/dev..HEAD']
+    }
+
+    return rows.map(row => {
+        const [, localSha, , remoteSha] = row.split(/\s+/);
+
+        if (!localSha || localSha === ZERO_SHA) {
+            return null // a deletion sends no commits
+        }
+
+        return !remoteSha || remoteSha === ZERO_SHA ? `origin/dev..${localSha}` : `${remoteSha}..${localSha}`
+    }).filter(Boolean)
+}
 
 /**
  * @summary Whether this working tree is a LINKED worktree rather than the main checkout.
@@ -66,21 +105,30 @@ function operatorEmail() {
 }
 
 /**
- * @summary Commits in the push range authored with the given email.
+ * @summary Commits across every pending range authored with the given email.
  * @param {String} email Lower-cased author email to match.
- * @returns {String[]} `"<sha> <subject>"` rows.
+ * @param {String[]} ranges Rev-list ranges derived from the push's own ref tuples.
+ * @returns {String[]} Deduped `"<sha> <subject>"` rows.
  */
-function commitsAuthoredBy(email) {
-    const log = tryExec(`git log ${range} --format=%H%x09%ae%x09%s`);
+function commitsAuthoredBy(email, ranges) {
+    const seen = new Map();
 
-    if (!log) {
-        return []
-    }
+    ranges.forEach(range => {
+        const log = tryExec(`git log ${range} --format=%H%x09%ae%x09%s`);
 
-    return log.split('\n')
-        .map(line => line.split('\t'))
-        .filter(([, authorEmail]) => (authorEmail || '').toLowerCase() === email)
-        .map(([sha, , subject]) => `  ${sha.slice(0, 10)}  ${subject}`)
+        if (!log) {
+            return
+        }
+
+        log.split('\n').map(line => line.split('\t')).forEach(([sha, authorEmail, subject]) => {
+            // Deduped by sha: one commit reachable from two pushed refs is one offender, not two.
+            if ((authorEmail || '').toLowerCase() === email && sha) {
+                seen.set(sha, `  ${sha.slice(0, 10)}  ${subject}`)
+            }
+        })
+    });
+
+    return [...seen.values()]
 }
 
 const operator = operatorEmail();
@@ -90,7 +138,17 @@ if (!operator || !isLinkedWorktree()) {
     process.exit(0)
 }
 
-const offenders = commitsAuthoredBy(operator);
+// stdin is the hook's payload; readFileSync(0) is the only way to take it synchronously, and a
+// missing/closed stdin must degrade to the branch range rather than to an empty scan.
+let payload = '';
+
+try {
+    payload = readFileSync(0, 'utf8')
+} catch {
+    payload = ''
+}
+
+const offenders = commitsAuthoredBy(operator, pendingRanges(payload));
 
 if (offenders.length === 0) {
     process.exit(0)

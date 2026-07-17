@@ -30,14 +30,14 @@ test.describe('check-commit-authorship — the operator must not author from an 
      * @param {String} globalEmail The operator identity the guard should treat as the leak source.
      * @returns {{status: Number, stderr: String}}
      */
-    function runGuard(cwd, globalEmail) {
+    function runGuard(cwd, globalEmail, stdin = '') {
         // HOME is redirected so the guard reads THIS as `git config --global user.email` rather than
         // the real developer's — the global config is an input to the rule, so the test owns it.
         const home = path.join(tmpRoot, 'home');
         fs.outputFileSync(path.join(home, '.gitconfig'), `[user]\n\temail = ${globalEmail}\n\tname = Operator\n`);
 
         try {
-            execFileSync('node', [guardPath], {cwd, encoding: 'utf8', env: {...process.env, HOME: home}, stdio: ['pipe', 'pipe', 'pipe']});
+            execFileSync('node', [guardPath], {cwd, encoding: 'utf8', env: {...process.env, HOME: home}, input: stdin, stdio: ['pipe', 'pipe', 'pipe']});
             return {status: 0, stderr: ''}
         } catch (error) {
             return {status: error.status, stderr: `${error.stderr || ''}`}
@@ -124,6 +124,47 @@ test.describe('check-commit-authorship — the operator must not author from an 
         const result = runGuard(tree, 'operator@example.com');
 
         expect(result.status).toBe(0)
+    });
+
+    test('a SIBLING-ref push cannot smuggle an operator commit past a clean HEAD', () => {
+        // @neo-gpt's RA-1. The guard hard-coded `origin/dev..HEAD`, so pushing an explicit sibling ref
+        // was measured against whatever HEAD happened to be — clean — and exited green while shipping
+        // the operator-authored commit. A bypass in a guard whose whole purpose is being unbypassable.
+        const
+            main = createMainCheckout(),
+            tree = path.join(tmpRoot, 'wt');
+
+        git(main, ['worktree', 'add', '-b', 'agent/dirty', tree, 'dev', '--quiet']);
+        fs.outputFileSync(path.join(tree, 'work.txt'), 'agent work\n');
+        git(tree, ['add', '.']);
+        git(tree, ['-c', 'user.email=operator@example.com', '-c', 'user.name=Operator',
+            'commit', '-m', 'feat: smuggled on a sibling ref', '--quiet', '--no-verify']);
+
+        const dirtySha = git(tree, ['rev-parse', 'agent/dirty']).trim();
+
+        // HEAD moves to a CLEAN branch — exactly the state the old range measured
+        git(tree, ['checkout', '-b', 'agent/clean', 'dev', '--quiet']);
+
+        // git's real pre-push payload: <localRef> <localSha> <remoteRef> <remoteSha>; zero-sha = new branch
+        const payload = `refs/heads/agent/dirty ${dirtySha} refs/heads/agent/dirty ${'0'.repeat(40)}\n`;
+
+        const result = runGuard(tree, 'operator@example.com', payload);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('feat: smuggled on a sibling ref')
+    });
+
+    test('a ref DELETION sends no commits — the guard stays silent', () => {
+        const
+            main = createMainCheckout(),
+            tree = path.join(tmpRoot, 'wt');
+
+        git(main, ['worktree', 'add', '-b', 'agent/lane', tree, 'dev', '--quiet']);
+
+        // a delete pushes a zero localSha; scanning it would be scanning nothing, loudly
+        const payload = `(delete) ${'0'.repeat(40)} refs/heads/agent/lane ${'0'.repeat(40)}\n`;
+
+        expect(runGuard(tree, 'operator@example.com', payload).status).toBe(0)
     });
 
     test('catches an operator commit buried among correctly-authored ones', () => {
