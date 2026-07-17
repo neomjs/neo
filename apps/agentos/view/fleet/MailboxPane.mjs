@@ -610,9 +610,9 @@ class MailboxPane extends Container {
      *
      * Each covers exactly its own half-truth and no more. `aria-disabled` **announces** — it does not
      * remove the control from the tab order, so a keyboard user still lands on a closed edge and is
-     * told, correctly, that it is closed. Whether a control ALSO emits a native `disabled` — which
-     * would take it out of the tab order — is that control's own contract to state, not this pane's
-     * to assume on its behalf.
+     * told, correctly, that it is closed. Whether a control ALSO emits a native `disabled`, and what
+     * that even does — a `<button>` root leaves the tab order, an anchor root ignores the attribute
+     * entirely — is that control's own contract to state, not this pane's to assume on its behalf.
      * @param {String} reference The step control.
      * @param {Boolean} closed Whether this edge is the end of the range.
      * @protected
