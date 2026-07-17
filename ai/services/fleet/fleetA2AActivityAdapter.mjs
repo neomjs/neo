@@ -2,6 +2,7 @@ import {
     createFleetCockpitEvent,
     FLEET_COCKPIT_SOURCES
 } from '../../../src/ai/fleet/fleetCockpitStatus.mjs'
+import {redactCredentials} from './redactCredentials.mjs'
 
 /**
  * @module ai/services/fleet/fleetA2AActivityAdapter
@@ -157,17 +158,17 @@ export function createA2AMessageActivityEvents(messages = [], {capturedAt = new 
             confidence: 'observed',
             occurredAt: message.occurredAt,
             payload   : {
-                kind              : message.isLaneClaim ? 'a2a-lane-claim' : 'a2a-message',
-                messageId         : message.messageId,
-                subject           : message.subject,
-                from              : message.from,
-                priority          : message.priority,
-                recipientClass    : message.recipientClass,
-                relatedTickets    : message.relatedTickets,
+                kind               : message.isLaneClaim ? 'a2a-lane-claim' : 'a2a-message',
+                messageId          : message.messageId,
+                subject            : message.subject,
+                from               : message.from,
+                priority           : message.priority,
+                recipientClass     : message.recipientClass,
+                relatedTickets     : message.relatedTickets,
                 relatedPullRequests: message.relatedPullRequests,
-                status            : message.status,
-                taskState         : message.taskState,
-                wakeSuppressed    : message.wakeSuppressed
+                status             : message.status,
+                taskState          : message.taskState,
+                wakeSuppressed     : message.wakeSuppressed
             }
         }))
 }
@@ -176,18 +177,18 @@ function normalizeA2AMessage(message, capturedAt) {
     const subject = normalizeSubject(message.subject)
 
     return {
-        messageId         : typeof message.messageId === 'string' ? message.messageId : null,
+        messageId          : typeof message.messageId === 'string' ? message.messageId : null,
         subject,
-        from              : normalizeAgentId(message.from),
-        priority          : message.priority || null,
-        recipientClass    : getRecipientClass(message.to),
-        relatedTickets    : normalizeRelatedTickets(message.relatedTickets),
+        from               : normalizeAgentId(message.from),
+        priority           : message.priority || null,
+        recipientClass     : getRecipientClass(message.to),
+        relatedTickets     : normalizeRelatedTickets(message.relatedTickets),
         relatedPullRequests: normalizeRelatedPullRequests(message.relatedPullRequests),
-        status            : getMessageStatus(message),
-        taskState         : message.task?.state || null,
-        wakeSuppressed    : Boolean(message.wakeSuppressed),
-        occurredAt        : toIsoString(message.sentAt || message.createdAt, capturedAt),
-        isLaneClaim       : LANE_CLAIM_SUBJECT.test(subject || '')
+        status             : getMessageStatus(message),
+        taskState          : message.task?.state || null,
+        wakeSuppressed     : Boolean(message.wakeSuppressed),
+        occurredAt         : toIsoString(message.sentAt || message.createdAt, capturedAt),
+        isLaneClaim        : LANE_CLAIM_SUBJECT.test(subject || '')
     }
 }
 
@@ -266,9 +267,7 @@ function normalizeError(error) {
 }
 
 function redactSecretText(text) {
-    return text
-        .replace(/\b(token|secret|password|pat|credential|privateKey|signingKey)\s*[:=]\s*[^\s,;)]+/gi, '$1=[redacted]')
-        .replace(/\bgh[pousr]_[A-Za-z0-9_]+/g, '[redacted-token]')
+    return redactCredentials(text)
 }
 
 function toIsoString(value, fallback = new Date()) {
