@@ -36,8 +36,8 @@ The service tracks rate limits across multiple "buckets" (`core`, `search`, `gra
 
 For GraphQL, it also hooks into the `rateLimit` object returned within the JSON body, which provides the most accurate reflection of the complex query costs.
 
-### Graceful Degradation & Backoff
-If a request fails with a `5xx` (Server Error) or `403` (Forbidden), the service automatically initiates an exponential backoff retry loop.
+### GraphQL Backoff
+GraphQL requests retain their existing bounded retry policy for server failures and `403` responses. A `403` with quota remaining is treated as secondary abuse detection and receives a longer cooldown; a depleted quota remains visible through the tracked `graphql` bucket.
 
 ```javascript
 if ((response.status >= 500 || response.status === 403) && retries > 0) {
@@ -55,7 +55,20 @@ if ((response.status >= 500 || response.status === 403) && retries > 0) {
 }
 ```
 
-This logic specifically distinguishes between running out of quota (a hard stop) and triggering GitHub's secondary abuse detection (which requires a temporary pause to cool down).
+This path is GraphQL-specific. Its caller-supplied retry budget and secondary-abuse handling should not be confused with the independently configurable REST policy.
+
+### REST Backoff
+REST requests retry only bounded transport failures. The default retryable statuses are `429`, `502`, `503`, and `504`; recognized fetch/network failures such as connection resets and timeouts use the same attempt budget. Operators can override the policy through the service's Neo configs:
+
+- `restMaxRetryAttempts`
+- `restRetryBaseDelayMs`
+- `restRetryMaxDelayMs`
+- `restRetryJitterRatio`
+- `restRetryableHttpStatuses`
+
+When GitHub supplies `Retry-After`, the service honors either its numeric-seconds or HTTP-date form. Otherwise it uses capped exponential delay plus jitter. Every HTTP response updates the relevant `x-ratelimit-*` bucket before the service decides whether to retry.
+
+The fail-closed boundary remains explicit: `403` marks the core quota as depleted and fails immediately, while `404` and other non-transient client errors are not retried. An exhausted transient HTTP response preserves the `REST Error: <status> <statusText>` contract; an exhausted network failure rethrows its original error object. Successful response bodies are part of the transport boundary, so a terminated body stream can retry, but malformed JSON remains a fail-fast parse error.
 
 ---
 
@@ -69,13 +82,11 @@ To prevent data loss and ensure continuity, the `GitHub` service provides specif
 GitHub assigns every user an immutable integer `databaseId`. If a username lookup fails, the DevIndex pipeline can call this method using the stored `databaseId` to fetch the new, updated username.
 
 ```javascript
-const query = `
-    query { 
-        user(databaseId: ${dbId}) {
-            login
-        } 
-    }`;
+const account = await GitHub.rest(`user/${dbId}`, `DB_ID:${dbId}`);
+const login   = account?.login ?? null;
 ```
+
+Database-ID resolution is REST-owned because GitHub exposes the immutable integer lookup at `/user/{account_id}`. A `404` means the account cannot be resolved and becomes `null` at the resolver boundary; exhausted transient transport failures continue to throw so the Cleanup pipeline cannot misclassify an upstream outage as account deletion.
 
 ### `getLoginById(nodeId)`
 Similarly, GitHub uses global Base64 `nodeId`s. This method uses the polymorphic `node` interface to resolve a Node ID back to a User or Organization login.
