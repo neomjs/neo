@@ -188,22 +188,22 @@ export function makeHookProjectionWriter({getDb, config, fs, clock = () => Date.
             return {published: false, reason: lease.state, retryAfterMs: lease.retryAfterMs, targetId}
         }
 
-        // Sweep ONLY after winning the lease. Sweeping first let a LOSING contender delete the live
-        // holder's in-flight `current.json.*.tmp` between its write, flush and rename — one publisher
-        // corrupting another's mutation window, which is precisely the fence's whole purpose. Cleanup is
-        // a right the token confers, not a courtesy anyone may perform: only the holder knows the
-        // target is unowned, because only the holder owns it.
-        transport.sweepOrphans(targetId);
-
+        // Sweeping is INJECTED, not performed here. Doing it at this call site gated it on
+        // `lease.acquired` — a past-tense fact. A holder that acquired at epoch 1 and then stalled past
+        // its TTL still passes this line, so it would sweep away epoch 2's live temp sibling and only
+        // afterwards be told it was superseded, while epoch 2's rename failed ENOENT. The loser cannot
+        // be allowed to damage the winner on its way out, so the sweep now runs inside
+        // publishProjection's serialized transaction, past token+epoch+expiry revalidation.
         const result = publishProjection({
             db,
             targetId,
-            token      : lease.token,
-            epoch      : lease.epoch,
+            token       : lease.token,
+            epoch       : lease.epoch,
             clock,
             consumerBinding,
             hashToken,
-            writeAtomic: transport.writeAtomic
+            writeAtomic : transport.writeAtomic,
+            sweepOrphans: transport.sweepOrphans
         });
 
         return {...result, targetId, epoch: lease.epoch}

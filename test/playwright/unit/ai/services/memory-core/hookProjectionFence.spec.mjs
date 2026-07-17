@@ -95,7 +95,8 @@ test.describe('hookProjectionLease — the fence, under a real two-connection ra
                 } catch (error) {
                     rivalOutcome = error.code || error.message
                 }
-            }
+            },
+            sweepOrphans: () => {}
         });
 
         expect(result.published).toBe(true);
@@ -116,7 +117,8 @@ test.describe('hookProjectionLease — the fence, under a real two-connection ra
             clock          : () => t0 + 1,
             consumerBinding: {agentId: '@me'},
             hashToken,
-            writeAtomic    : () => {}
+            writeAtomic    : () => {},
+            sweepOrphans   : () => {}
         });
 
         // Proves the block above was the transaction and not a permanently wedged store — without this,
@@ -144,7 +146,8 @@ test.describe('hookProjectionLease — the fence, under a real two-connection ra
             clock          : () => t0 + ttl + 2,
             consumerBinding: {agentId: '@me'},
             hashToken,
-            writeAtomic    : () => { writes++ }
+            writeAtomic    : () => { writes++ },
+            sweepOrphans   : () => {}
         });
 
         // the two halves of the fence: blocked while open (above), rejected when superseded (here)

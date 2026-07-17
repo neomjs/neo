@@ -189,6 +189,60 @@ test.describe('hookProjectionWriter — the one place the primitives meet the wo
         expect(deleted).toEqual([]);
     });
 
+    test('a REJECTED publish never sweeps — the loser cannot delete the winner\'s temp on its way out', () => {
+        // @neo-gpt's exact-head sequence: epoch-1 expires, epoch-2 creates current.json.b.tmp, and the
+        // stale epoch-1 holder resumes — sweeping away epoch-2's live temp before the store gets a
+        // chance to tell it that it was superseded. Epoch-1 then reports superseded-epoch while
+        // epoch-2's rename dies ENOENT: the rejected caller loses nothing and the valid one loses
+        // everything.
+        //
+        // Gating the sweep on `lease.acquired` did not close this. `acquired` is PAST TENSE — it says
+        // a lease was won once, not that it is still held. Only the store, inside the serialized
+        // transaction, knows the present tense.
+        const swept = [],
+              fs    = makeFs();
+
+        // Two orphan temps are visible, so a sweep would be observable rather than vacuously empty.
+        fs.readdirSync = () => ['current.json.a.tmp', 'current.json.b.tmp'];
+        fs.unlinkSync  = path => swept.push(path);
+
+        const wr = writer({fs});
+
+        wr.ensureSchema();
+        wr.submitChannel({
+            tuple,
+            channel          : 'lifecycle-frontier',
+            envelope         : {schemaVersion: 'lifecycle-frontier.v1', items: [], notAuthority: true},
+            sourceWatermark  : 'w-1',
+            capturedAt       : '2026-07-16T12:00:00.000Z',
+            expiresAt        : '2026-07-16T12:05:00.000Z',
+            isTargetAdmitted : () => true,
+            mayProduceChannel: () => true
+        });
+
+        // The lease is won, then time crosses the TTL before the publish revalidates — the stalled
+        // holder of the sequence above, expressed through the clock the writer already injects. The
+        // first read is the acquisition (`now: clock()`); every later read is publishProjection
+        // revalidating inside its transaction. No new seam is invented to stage this.
+        let reads = 0;
+
+        const stalled = makeHookProjectionWriter({
+            getDb: () => db,
+            config,
+            fs,
+            clock: () => (++reads === 1 ? now : now + config.hookProjectionLeaseTtlMs + 1)
+        });
+
+        const result = stalled.publish({tuple, consumerBinding: binding});
+
+        expect(result.published).toBe(false);
+        expect(result.reason).toBe('lease-expired');
+
+        // The decisive assertion. Sweeping from the call site ran here on the strength of a lease this
+        // caller no longer holds; from inside the transaction it is unreachable past the rejection.
+        expect(swept).toEqual([]);
+    });
+
     test('an unavailable store fails CLOSED — a missing store is not an empty projection', () => {
         const wr = makeHookProjectionWriter({getDb: () => null, config, fs: makeFs(), clock: () => now});
 

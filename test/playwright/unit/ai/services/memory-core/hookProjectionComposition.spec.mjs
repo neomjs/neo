@@ -117,7 +117,7 @@ test.describe('hookProjection — the lease and the transport, actually composed
         submit('lifecycle-frontier', 'w-2', {schemaVersion: 'lifecycle-frontier.v1', items: [], notAuthority: true});
 
         const lease  = acquireProjectionLease({db, targetId, instanceDigest: 'i1', now: t0, leaseTtlMs: ttl, mintToken, hashToken}),
-              result = publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, consumerBinding: binding, hashToken, writeAtomic});
+              result = publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, consumerBinding: binding, hashToken, writeAtomic, sweepOrphans: () => {}});
 
         expect(result.published).toBe(true);
 
@@ -158,7 +158,7 @@ test.describe('hookProjection — the lease and the transport, actually composed
         submit('lifecycle-frontier', 'w-1', {schemaVersion: 'lifecycle-frontier.v1', items: [{id: 'x'}], notAuthority: true});
 
         const lease = acquireProjectionLease({db, targetId, instanceDigest: 'i1', now: t0, leaseTtlMs: ttl, mintToken, hashToken});
-        publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, consumerBinding: binding, hashToken, writeAtomic});
+        publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, consumerBinding: binding, hashToken, writeAtomic, sweepOrphans: () => {}});
 
         const payload = JSON.parse(fs.written.get(`${root}/${targetId}/current.json`));
 
@@ -182,7 +182,7 @@ test.describe('hookProjection — the lease and the transport, actually composed
             .run(targetId, 'lifecycle-frontier');
 
         const lease  = acquireProjectionLease({db, targetId, instanceDigest: 'i1', now: t0, leaseTtlMs: ttl, mintToken, hashToken}),
-              result = publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, consumerBinding: binding, hashToken, writeAtomic});
+              result = publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, consumerBinding: binding, hashToken, writeAtomic, sweepOrphans: () => {}});
 
         // A bare JSON.parse in a map let one corrupt envelope abort the whole publication — denying the
         // reader a perfectly good computed-route because a DIFFERENT channel was damaged.
@@ -223,7 +223,7 @@ test.describe('hookProjection — the lease and the transport, actually composed
         submit('computed-route', 'w-1', {schemaVersion: 'computed-route.v1', notAuthority: true});
 
         const lease = acquireProjectionLease({db, targetId, instanceDigest: 'i1', now: t0, leaseTtlMs: ttl, mintToken, hashToken});
-        publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, consumerBinding: binding, hashToken, writeAtomic});
+        publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, consumerBinding: binding, hashToken, writeAtomic, sweepOrphans: () => {}});
 
         const payload = JSON.parse(fs.written.get(`${root}/${targetId}/current.json`));
 
@@ -248,7 +248,7 @@ test.describe('hookProjection — the lease and the transport, actually composed
         // takeover after expiry
         acquireProjectionLease({db, targetId, instanceDigest: 'i2', now: t0 + ttl + 1, leaseTtlMs: ttl, mintToken, hashToken});
 
-        const stale = publishProjection({db, targetId, token: first.token, epoch: first.epoch, clock: () => t0 + ttl + 2, consumerBinding: binding, hashToken, writeAtomic});
+        const stale = publishProjection({db, targetId, token: first.token, epoch: first.epoch, clock: () => t0 + ttl + 2, consumerBinding: binding, hashToken, writeAtomic, sweepOrphans: () => {}});
 
         expect(stale.published).toBe(false);
         expect(stale.reason).toBe('superseded-epoch');

@@ -122,7 +122,8 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
         const stale = publishProjection({
             db, targetId, token: first.token, epoch: first.epoch, clock: () => t0 + ttl + 2, consumerBinding: {agentId: '@me'},
             hashToken,
-            writeAtomic: () => { writes++ }
+            writeAtomic : () => { writes++ },
+            sweepOrphans: () => {}
         });
 
         // The stale holder's write never happens. This is necessary but NOT the fence: an
@@ -135,7 +136,8 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
         const fresh = publishProjection({
             db, targetId, token: second.token, epoch: second.epoch, clock: () => t0 + ttl + 2, consumerBinding: {agentId: '@me'},
             hashToken,
-            writeAtomic: () => { writes++ }
+            writeAtomic : () => { writes++ },
+            sweepOrphans: () => {}
         });
         expect(fresh.published).toBe(true);
         expect(writes).toBe(1);
@@ -148,11 +150,11 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
 
         const writeAtomic = () => { writes++ };
 
-        const expired = publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + ttl + 1, consumerBinding: {agentId: '@me'}, hashToken, writeAtomic});
+        const expired = publishProjection({db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + ttl + 1, consumerBinding: {agentId: '@me'}, hashToken, writeAtomic, sweepOrphans: () => {}});
         expect(expired.published).toBe(false);
         expect(expired.reason).toBe('lease-expired');
 
-        const foreign = publishProjection({db, targetId, token: 'token-not-mine', epoch: lease.epoch, clock: () => t0 + 1, consumerBinding: {agentId: '@me'}, hashToken, writeAtomic});
+        const foreign = publishProjection({db, targetId, token: 'token-not-mine', epoch: lease.epoch, clock: () => t0 + 1, consumerBinding: {agentId: '@me'}, hashToken, writeAtomic, sweepOrphans: () => {}});
         expect(foreign.published).toBe(false);
         expect(foreign.reason).toBe('foreign-token');
 
@@ -170,7 +172,8 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
         const result = publishProjection({
             db, targetId, token: lease.token, epoch: lease.epoch, clock: () => t0 + 1, consumerBinding: {agentId: '@me'},
             hashToken,
-            writeAtomic: written => { payload = written }
+            writeAtomic : written => { payload = written },
+            sweepOrphans: () => {}
         });
 
         expect(result.published).toBe(true);
@@ -217,8 +220,9 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
         const result = publishProjection({
             db, targetId, token: lease.token, epoch: lease.epoch, consumerBinding: {agentId: '@me'}, hashToken,
             // fresh at entry, expired by the mutation boundary — the exact stall
-            clock      : () => (++call === 1 ? t0 + 1 : t0 + ttl + 1),
-            writeAtomic: () => { writes++ }
+            clock       : () => (++call === 1 ? t0 + 1 : t0 + ttl + 1),
+            writeAtomic : () => { writes++ },
+            sweepOrphans: () => {}
         });
 
         expect(result.published).toBe(false);
@@ -244,7 +248,8 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
             writeAtomic: ({assertDeadline}) => {
                 assertDeadline();
                 renamed = true
-            }
+            },
+            sweepOrphans: () => {}
         });
 
         expect(renamed).toBe(false);
@@ -258,7 +263,7 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
         const held = () => db.prepare('SELECT state FROM HookProjectionLeases WHERE target_id = ?').get(targetId).state;
 
         const ok = acquireProjectionLease({db, targetId, instanceDigest: 'i1', now: t0, leaseTtlMs: ttl, mintToken, hashToken});
-        publishProjection({db, targetId, token: ok.token, epoch: ok.epoch, clock: () => t0 + 1, consumerBinding: {agentId: '@me'}, hashToken, writeAtomic: () => {}});
+        publishProjection({db, targetId, token: ok.token, epoch: ok.epoch, clock: () => t0 + 1, consumerBinding: {agentId: '@me'}, hashToken, writeAtomic: () => {}, sweepOrphans: () => {}});
 
         // success must not hold the target until expiry for no reason
         expect(held()).toBe('released');
@@ -268,7 +273,8 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
         const failed = publishProjection({
             db, targetId, token: doomed.token, epoch: doomed.epoch, clock: () => t0 + 11, consumerBinding: {agentId: '@me'},
             hashToken,
-            writeAtomic: () => { throw new Error('ENOSPC') }
+            writeAtomic : () => { throw new Error('ENOSPC') },
+            sweepOrphans: () => {}
         });
 
         // The cause travels in `reason`, not as an exception: releasing and THROWING would roll the

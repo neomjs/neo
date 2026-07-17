@@ -328,11 +328,20 @@ export function acquireProjectionLease({db, targetId, instanceDigest, now, lease
  * @param {Function} params.hashToken `rawToken => hash`.
  * @param {Object}   params.consumerBinding The attested binding a reader validates itself against.
  * @param {Function} params.writeAtomic `({targetId, envelope}) => void` — the atomic transport.
+ * @param {Function} params.sweepOrphans `targetId => void` — removes abandoned temp siblings. Injected
+ *   and called INSIDE this transaction, after revalidation and before the write: sweeping is a
+ *   destructive act on a shared directory, so only the holder the store still recognizes may do it.
+ *   A sweep gated on "I acquired a lease once" is gated on a past-tense fact — an expired epoch-1
+ *   holder resuming mid-call would delete epoch-2's live temp, then be told it was superseded, while
+ *   epoch-2's rename failed ENOENT. The loser must not be able to damage the winner on its way out.
  * @returns {PublishResult}
  */
-export function publishProjection({db, targetId, token, epoch, clock, consumerBinding, hashToken, writeAtomic} = {}) {
+export function publishProjection({db, targetId, token, epoch, clock, consumerBinding, hashToken, writeAtomic, sweepOrphans} = {}) {
     if (!db) throw new TypeError('[hookProjectionLease] an open db handle is required');
     if (typeof writeAtomic !== 'function') throw new TypeError('[hookProjectionLease] writeAtomic must be injected');
+    if (typeof sweepOrphans !== 'function') {
+        throw new TypeError('[hookProjectionLease] sweepOrphans must be injected — an unswept publish leaks temp siblings')
+    }
     if (typeof clock !== 'function') {
         throw new TypeError('[hookProjectionLease] a clock function is required — a captured timestamp cannot bound a lease')
     }
@@ -351,6 +360,13 @@ export function publishProjection({db, targetId, token, epoch, clock, consumerBi
         if (Number(row.fencing_epoch) !== Number(epoch)) return {published: false, reason: 'superseded-epoch'};
         if (row.holder_token_hash !== hashToken(token)) return {published: false, reason: 'foreign-token'};
         if (Number(row.expires_at) <= now)             return {published: false, reason: 'lease-expired'};
+
+        // Only a holder the store STILL recognizes may sweep — hence here, past the four checks above
+        // and inside the serialized transaction, rather than at the call site on the strength of an
+        // earlier acquisition. The four rejections are the whole point: each one returns before this
+        // line, so a superseded, foreign or expired caller can no longer delete a live successor's
+        // temp sibling on its way to being told no.
+        sweepOrphans(targetId);
 
         const rows = db.prepare(`
             SELECT channel, source_watermark, envelope_json, captured_at, expires_at, conflict_reason
