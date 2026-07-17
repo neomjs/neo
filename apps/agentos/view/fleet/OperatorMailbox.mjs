@@ -1,0 +1,155 @@
+import Container           from '../../../../src/container/Base.mjs';
+import MailboxPane         from './MailboxPane.mjs';
+import OperatorComposeForm from './OperatorComposeForm.mjs';
+
+/**
+ * The FM cockpit's **operator mailbox** — the operator's own inbox over the compose surface: the
+ * read half the operator asked to steer THROUGH, plus the write half that replaces prompt-only
+ * steering.
+ *
+ * @summary Composes the shipped {@link AgentOS.view.fleet.MailboxPane} (pointed at the operator's
+ * own identity) above {@link AgentOS.view.fleet.OperatorComposeForm}, and RELAYS both surfaces'
+ * intents up to the cockpit — it performs no transport itself.
+ *
+ * **Why a relay, not a doer.** Both children fire intents the OWNER services against the
+ * authenticated seam: the inbox pane fires `pageRequest` (the cockpit re-reads the operator mirror
+ * at the new offset — exactly AgentDetail's read-seam split), and the compose form fires `compose`
+ * (the cockpit maps it onto the compose verb). This surface holds neither the read seam nor the
+ * verb, so it forwards both — keeping identity a transport fact end-to-end, never authored here.
+ *
+ * **Capability today = the shipped read-only pane.** The pane is read-only by its own MUST-NOT
+ * (operator mark-read would mutate an agent's turn-start signal). The operator's OWN inbox is the
+ * one place mark-read is legitimate (own-inbox capability) — but that affordance is keyed by the
+ * server-stamped viewer↔target relation the projection delivers, so it lands with that half, not
+ * here. Until then the operator inbox reads honestly (the pane's four states), and compose is live
+ * once the compose verb + the ingress floor are wired: this surface is complete and inert-safe in
+ * the interim, never a fake-capable one.
+ *
+ * The container owns no `state.Provider` (the cockpit scopes it) — `record` / `snapshot` /
+ * `recipientOptions` are injected by the cockpit from state it already holds, and passed straight
+ * through to the children, so this surface never reaches for a service.
+ *
+ * @class AgentOS.view.fleet.OperatorMailbox
+ * @extends Neo.container.Base
+ */
+class OperatorMailbox extends Container {
+    static config = {
+        /**
+         * @member {String} className='AgentOS.view.fleet.OperatorMailbox'
+         * @protected
+         */
+        className: 'AgentOS.view.fleet.OperatorMailbox',
+        /**
+         * @member {String} ntype='fm-operator-mailbox'
+         * @protected
+         */
+        ntype: 'fm-operator-mailbox',
+        /**
+         * @member {String[]} baseCls=['fm-operator-mailbox']
+         */
+        baseCls: ['fm-operator-mailbox'],
+        /**
+         * The operator identity record (only `githubUsername` is read — the pane's subject-match
+         * authority); injected by the cockpit. `null` = the inbox's honest unwired state.
+         * @member {Object|null} record_=null
+         * @reactive
+         */
+        record_: null,
+        /**
+         * One Fleet mailbox-mirror snapshot for the OPERATOR's own inbox (server-read via the
+         * authenticated viewer identity); `null` = `unobserved`. Passed straight to the inbox pane.
+         * @member {Object|null} snapshot_=null
+         * @reactive
+         */
+        snapshot_: null,
+        /**
+         * Recipient picker options (`{id, name}`), injected by the cockpit from its live roster and
+         * passed straight to the compose form.
+         * @member {Object[]} recipientOptions_=[]
+         * @reactive
+         */
+        recipientOptions_: [],
+        /**
+         * @member {Object} layout={ntype:'vbox',align:'stretch'}
+         * @reactive
+         */
+        layout: {ntype: 'vbox', align: 'stretch'},
+        /**
+         * @member {Object[]} items
+         */
+        items: [{
+            module   : MailboxPane,
+            flex     : 1,
+            header   : {text: 'Your inbox'},
+            reference: 'operator-inbox-pane'
+        }, {
+            module   : OperatorComposeForm,
+            flex     : 'none',
+            reference: 'operator-compose-form'
+        }]
+    }
+
+    /**
+     * @summary Wire the two child intents up to the owner: the inbox's paged re-read and the
+     * compose submit. Wired explicitly (not via a string handler) — like AgentDetail, this surface
+     * carries no controller for one to resolve against.
+     * @param {...*} args
+     */
+    onConstructed(...args) {
+        super.onConstructed(...args);
+
+        this.getReference('operator-inbox-pane')?.on('pageRequest', this.onInboxPageRequest, this);
+        this.getReference('operator-compose-form')?.on('compose', this.onCompose, this)
+    }
+
+    /**
+     * Triggered after the operator record changed — the inbox pane's subject follows it.
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetRecord(value, oldValue) {
+        this.isConstructed && (this.getReference('operator-inbox-pane').record = value)
+    }
+
+    /**
+     * Triggered after the operator inbox snapshot changed — passed straight to the pane.
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetSnapshot(value, oldValue) {
+        this.isConstructed && (this.getReference('operator-inbox-pane').snapshot = value)
+    }
+
+    /**
+     * Triggered after the recipient options changed — passed straight to the compose form.
+     * @param {Object[]} value
+     * @param {Object[]} oldValue
+     * @protected
+     */
+    afterSetRecipientOptions(value, oldValue) {
+        this.isConstructed && (this.getReference('operator-compose-form').recipientOptions = value)
+    }
+
+    /**
+     * @summary Relay the inbox's page intent to the owner — the cockpit holds the read seam and
+     * re-reads the operator mirror at the requested offset.
+     * @param {Object} data The pane's `pageRequest` payload (`{offset, source}`).
+     * @protected
+     */
+    onInboxPageRequest(data) {
+        this.fire('inboxPageRequest', {...data, source: this})
+    }
+
+    /**
+     * @summary Relay the compose intent to the owner — the cockpit maps it onto the compose verb.
+     * @param {Object} data The form's `compose` payload (`{message, source}`).
+     * @protected
+     */
+    onCompose(data) {
+        this.fire('compose', {message: data.message, source: this})
+    }
+}
+
+export default Neo.setupClass(OperatorMailbox);

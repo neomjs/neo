@@ -13,6 +13,7 @@ import DockZoneModel            from '../../../../src/dashboard/DockZoneModel.mj
 import FleetCockpitController   from './FleetCockpitController.mjs';
 import FleetGrid                from './FleetGrid.mjs';
 import FleetRoster              from '../../store/FleetRoster.mjs';
+import OperatorMailbox          from './OperatorMailbox.mjs';
 import StateProvider            from '../../../../src/state/Provider.mjs';
 import cockpitDockDocument      from './cockpitDockDocument.mjs';
 import cockpitPresetCollection  from './cockpitPresets.mjs';
@@ -879,6 +880,16 @@ class FleetCockpit extends Container {
                     cls      : [marker],
                     listeners: {agentDefinitionAccepted: 'up.onAgentDefinitionAccepted'},
                     reference: 'add-agent-form'
+                };
+            case 'operator-mailbox':
+                // the operator's own inbox + compose surface. record / snapshot / recipientOptions
+                // are fed by the controller from state it already holds; the live inbox read and the
+                // compose verb are wired to the authenticated ingress + Brain seam as those land —
+                // until then the pane reads its honest unwired state and compose is inert-safe.
+                return {
+                    module   : OperatorMailbox,
+                    cls      : [marker],
+                    reference: 'operator-mailbox'
                 };
             default:
                 // perspectives arrives with its own leaf — an honest labelled placeholder, never a

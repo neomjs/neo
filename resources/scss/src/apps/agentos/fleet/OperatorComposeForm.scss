@@ -1,0 +1,44 @@
+/* AgentOS.view.fleet.OperatorComposeForm — the operator write surface (#15377, D#15372 slice).
+   Layout + the actions rail only; every color reads from the --fm-* token layer (no hardcoded
+   colors, no CSS-in-JS — the fields inherit the theme's form-field styling). Sibling of
+   AgentDetail.scss (the read-half mailbox pane); same token vocabulary so the cockpit speaks one
+   language across read and write. */
+.fm-operator-compose-form {
+    gap    : 10px;
+    padding: 12px;
+
+    /* stacked field labels (labelPosition: top) get an even rhythm and a quiet label */
+    .neo-form-field {
+        gap: 4px;
+
+        .neo-form-field-label {
+            color      : var(--fm-ink-dim);
+            font-size  : 12px;
+            font-weight: 600;
+        }
+    }
+
+    /* the message body wants room; the mono face matches the mailbox rows it will be read beside */
+    .fm-operator-compose-body {
+        textarea {
+            font-family: var(--fm-font-mono);
+            line-height: 1.45;
+        }
+    }
+
+    /* the send rail sits under a soft divider, its control pushed to the trailing edge by the spacer */
+    .fm-operator-compose-actions {
+        gap          : 8px;
+        margin-top   : 4px;
+        padding-top  : 10px;
+        border-top   : 1px solid var(--fm-line-soft);
+
+        .neo-button {
+            /* the send affordance carries the signal accent — the one emphasized action on the form */
+            .neo-button-glyph,
+            .neo-button-text {
+                color: var(--fm-signal);
+            }
+        }
+    }
+}
