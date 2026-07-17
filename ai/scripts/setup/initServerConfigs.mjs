@@ -394,7 +394,12 @@ export function projectSourceShape(rawSrc) {
     const src     = stripSourceComments(rawSrc),
           imports = [];
 
-    for (const match of src.matchAll(/^import\s+([\s\S]*?)\s+from\s+['"]([^'"]+)['"]/gm)) {
+    // `[^;]*?` (not `[\s\S]*?`): a line-spanning body would bridge a bare side-effect import
+    // (`import '...';` — no `from`) into the NEXT import's `from`, swallowing that import's default
+    // binding, so a config that leads with the bare Tier-1 import falsely reads as missing the
+    // following default. Import bodies never contain `;` before `from` (multiline named imports
+    // included), so stopping at `;` keeps each statement's shape intact.
+    for (const match of src.matchAll(/^import\s+([^;]*?)\s+from\s+['"]([^'"]+)['"]/gm)) {
         const body   = match[1];
         const source = match[2];
 

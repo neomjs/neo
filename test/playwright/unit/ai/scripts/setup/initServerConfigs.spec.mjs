@@ -610,6 +610,18 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         expect(detectDrift(templateShape, configShape).missingImports).toContain('../../../config.mjs');
     });
 
+    test('a bare side-effect import does NOT swallow the following import default (#15387)', () => {
+        // Regression: the extractor's line-spanning body bridged the bare `import '../../../config.mjs';`
+        // (no `from`) into the NEXT import's `from`, dropping that import's `:default`. Real server
+        // config.mjs begins with the bare Tier-1 import immediately above `import os from 'os'`, so
+        // `os:default` was falsely reported missing → assertConfigFresh crashed every harness at boot.
+        const shape = projectSourceShape(`import '../../../config.mjs';\nimport os from 'os';\nimport path from 'path';\nexport default {};\n`);
+
+        expect(shape.imports).toContain('../../../config.mjs'); // the bare participation import is still tracked
+        expect(shape.imports).toContain('os:default');          // ...without eating the next import's default binding
+        expect(shape.imports).toContain('path:default');
+    });
+
     test('detectDrift reports same-env leaf default changes (#12767)', () => {
         const templateShape = projectSourceShape([
             `export default {`,
