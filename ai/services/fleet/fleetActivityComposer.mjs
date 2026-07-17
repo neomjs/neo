@@ -94,24 +94,35 @@ function capText(raw, max) {
 }
 
 /**
- * @summary Credential shapes an adapter error can carry into an operator-facing string.
+ * @summary Credential shapes an adapter error can carry into an operator-facing string, each paired
+ * with an EXPLICIT replacement.
  *
- * The JSDoc below already named tokens as the threat while the code only collapsed whitespace and
- * truncated, so `Authorization: Bearer <token>` reached the cockpit intact and survived the cap. The
- * value is replaced rather than the whole message dropped: an operator still needs to know WHICH call
+ * The pairing is the contract, and deriving the replacement from the match instead is what made the
+ * first cut worse than no redaction at all: `` `${match.split(/[:=\s]/)[0]}: [redacted]` `` assumed
+ * every match was `key: value`. **A bare token has no delimiter, so the whole secret became the
+ * "label"** and was printed next to the word `[redacted]` — the string reported itself handled while
+ * carrying the credential. A replacement may echo a KEY (an explicit `$1` capture of the key alone)
+ * or be a literal; it may never be computed from the matched text.
+ *
+ * The families are the same-subsystem set the Fleet wake/throttle/mailbox adapters already redact,
+ * plus fine-grained `github_pat_`, which `gh[pousr]_` cannot match (`[pousr]` fails on `i`) — so that
+ * family currently reaches a Body-facing surface through those siblings too.
+ *
+ * The value is replaced rather than the message dropped: an operator still needs to know WHICH call
  * failed, and a reason of `[redacted]` debugs nothing.
  * @private
  */
 const CREDENTIAL_PATTERNS = [
-    // The scheme must be consumed WITH the token. `[:=]\s*\S+` took only `Bearer` and left the
-    // credential one space away — and worse, it destroyed the `Bearer` marker the next pattern
-    // matches on, so the first redaction blinded the second. An earlier guard can hide the surface a
-    // later guard exists to find.
-    /\b(?:proxy-)?authorization\s*[:=]\s*(?:(?:bearer|basic|digest|token)\s+)?[^\s,;]+/gi,
-    /\b(?:bearer|basic)\s+[\w\-._~+/]+=*/gi,
-    /\b(?:api[-_]?key|access[-_]?token|refresh[-_]?token|client[-_]?secret|secret|password|passwd|pwd|token)\s*[:=]\s*\S+/gi,
-    /\bgh[pousr]_[A-Za-z0-9]{16,}\b/g,
-    /\b(?:x-)?(?:api-)?key\s*[:=]\s*\S+/gi
+    // The scheme is consumed WITH the token: `[:=]\s*\S+` took only `Bearer` and left the credential
+    // one space away — and destroyed the `Bearer` marker the next pattern matches on, so the first
+    // redaction blinded the second. An earlier guard can hide the surface a later guard exists to find.
+    [/\b((?:proxy-)?authorization)\s*[:=]\s*(?:(?:bearer|basic|digest|token)\s+)?[^\s,;)]+/gi, '$1: [redacted]'],
+    [/\b(bearer|basic)\s+[\w\-._~+/]+=*/gi,                                                    '$1 [redacted]'],
+    [/\b(api[-_]?key|access[-_]?token|refresh[-_]?token|client[-_]?secret|secret|password|passwd|pwd|pat|credential|privateKey|signingKey|token)\s*[:=]\s*[^\s,;)]+/gi, '$1=[redacted]'],
+    // Bare tokens: no key, no delimiter — the match IS the secret, so the whole match goes.
+    [/\bgithub_pat_[A-Za-z0-9_]+/g, '[redacted-token]'],
+    [/\bgh[pousr]_[A-Za-z0-9_]+/g,  '[redacted-token]'],
+    [/\bglpat-[A-Za-z0-9_-]+/g,     '[redacted-token]']
 ];
 
 /**
@@ -132,8 +143,8 @@ const CREDENTIAL_PATTERNS = [
 function redactReason(failure) {
     let raw = `${failure?.message ?? failure ?? 'unknown failure'}`.replace(/\s+/g, ' ').trim();
 
-    CREDENTIAL_PATTERNS.forEach(pattern => {
-        raw = raw.replace(pattern, match => `${match.split(/[:=\s]/)[0]}: [redacted]`)
+    CREDENTIAL_PATTERNS.forEach(([pattern, replacement]) => {
+        raw = raw.replace(pattern, replacement)
     });
 
     return capText(raw, FLEET_ACTIVITY_REASON_MAX)

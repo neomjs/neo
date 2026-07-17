@@ -190,22 +190,42 @@ test.describe('fleetActivityComposer — composing two truths means composing tw
         expect(capability.reason).not.toContain('\n')
     });
 
-    test('a reason carries NO credential — @neo-gpt\'s exact-blob probe: the secret survived the cap', async () => {
-        // The cap was never a redactor. This module's own JSDoc named "tokens" as the threat while the
-        // code only collapsed whitespace and truncated, so a Bearer token rode a 214-char reason into
-        // an operator-facing pane intact. Capping BEFORE redacting is worse than not capping: it can
-        // sever a token and leave the prefix that still authenticates, and report it as handled.
-        const source = createFleetActivityReadSource({
-            readA2ASnapshot   : async () => { throw new Error('GET /api failed: Authorization: Bearer super-secret-token-value abc') },
-            readPrLaneSnapshot: wired([])
-        });
+    test('NO credential family reaches the composed reason — the whole matrix, not one branch', async () => {
+        // @neo-gpt's controlled production probe of the first fix, which I had shipped as "credential
+        // redaction" on the strength of a single Bearer witness:
+        //
+        //   ghp_A…        leaked=true  redacted=true    ← the deceptive row
+        //   github_pat_A… leaked=true  redacted=false
+        //   glpat-A…      leaked=true  redacted=false
+        //   Bearer …      leaked=false redacted=true    ← the only branch I tested
+        //
+        // The first row is the whole lesson: the replacement was DERIVED from the match
+        // (`match.split(/[:=\s]/)[0]`), which assumes every match is `key: value`. A bare token has no
+        // delimiter, so the entire secret became the "label" and was printed beside the word
+        // [redacted]. It reported itself handled while carrying the credential — which is why
+        // `toContain('[redacted]')` was green on a leak, and why every row below asserts ABSENCE of
+        // the secret first and the marker second.
+        const secrets = [
+            ['bearer header',    'GET /api failed: Authorization: Bearer super-secret-token-value abc', 'super-secret-token-value'],
+            ['bare classic PAT', 'push rejected for ghp_AAAABBBBCCCCDDDDEEEEFFFFGGGG1234',             'ghp_AAAABBBBCCCCDDDDEEEEFFFFGGGG1234'],
+            ['bare fine PAT',    'push rejected for github_pat_11ABCDE0Y0abcdefgh_XYZ123',              'github_pat_11ABCDE0Y0abcdefgh_XYZ123'],
+            ['bare GitLab PAT',  'clone failed for glpat-AAAABBBBCCCC-1234',                            'glpat-AAAABBBBCCCC-1234'],
+            ['keyed secret',     'auth failed: token=s3cr3t-value-here, retrying',                      's3cr3t-value-here']
+        ];
 
-        const {capability} = await source.readActivitySnapshot();
+        for (const [label, message, secret] of secrets) {
+            const source = createFleetActivityReadSource({
+                readA2ASnapshot   : async () => { throw new Error(message) },
+                readPrLaneSnapshot: wired([])
+            });
 
-        expect(capability.reason).not.toContain('super-secret-token-value');
-        expect(capability.reason).toContain('[redacted]');
-        // the operator still learns WHICH call failed — a reason of pure `[redacted]` debugs nothing
-        expect(capability.reason).toContain('a2a')
+            const {capability} = await source.readActivitySnapshot();
+
+            expect(capability.reason, `${label}: the secret must not survive`).not.toContain(secret);
+            expect(capability.reason, `${label}: a redaction marker must remain`).toMatch(/\[redacted(-token)?]/);
+            // the operator still learns WHICH slot failed — a reason of pure [redacted] debugs nothing
+            expect(capability.reason, `${label}: attribution must survive`).toContain('a2a')
+        }
     });
 
     test('a LOCALLY-created degraded capability is attributed to its slot, not to "unknown slot"', async () => {
