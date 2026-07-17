@@ -59,7 +59,10 @@ export function makeAtomicProjectionTransport({fs, runtimeRoot, uniqueSuffix} = 
             throw new TypeError(`[hookProjectionTransport] targetId must be an opaque server-derived token; got ${JSON.stringify(targetId)}`)
         }
 
-        const dir = `${runtimeRoot}/hook-projections/${targetId}`;
+        // The injected root IS the projection root. Appending a `hook-projections` segment here
+        // duplicated the one the config leaf already carries, writing to `<root>/hook-projections/...`
+        // under a root that already ended in it — a path no reader would look at.
+        const dir = `${runtimeRoot}/${targetId}`;
 
         return {dir, file: `${dir}/current.json`}
     };
@@ -74,17 +77,21 @@ export function makeAtomicProjectionTransport({fs, runtimeRoot, uniqueSuffix} = 
      *
      * @param {Object}   payload
      * @param {String}   payload.targetId Server-derived target id.
+     * @param {Object}   payload.publication The publication envelope (contract version, target, epoch,
+     *   publish time, per-channel watermarks, degraded channels, `notAuthority`).
      * @param {Object[]} payload.channels The composed channel rows.
      * @returns {{file: String}}
      */
-    const writeAtomic = ({targetId, channels} = {}) => {
+    const writeAtomic = ({targetId, publication, channels} = {}) => {
         const {dir, file} = resolveTargetPath(targetId),
               temp        = `${file}.${uniqueSuffix()}.tmp`;
 
         fs.mkdirSync(dir, {recursive: true});
 
         try {
-            fs.writeFileSync(temp, JSON.stringify({channels}), 'utf8');
+            // The envelope, not a bare channel list: a reader binds to the contract version and needs
+            // the epoch, publish time, and watermarks to judge what it is holding.
+            fs.writeFileSync(temp, JSON.stringify({...publication, channels}), 'utf8');
 
             // Durability before visibility. Skipped only if the injected fs cannot fsync — a test double
             // has nothing to flush, and requiring it would force every caller to fake a kernel.

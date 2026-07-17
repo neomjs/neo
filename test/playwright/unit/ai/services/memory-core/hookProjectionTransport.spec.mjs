@@ -65,8 +65,8 @@ test.describe('hookProjectionTransport — derived path, atomic publication', ()
         const {resolveTargetPath} = transport(makeFs());
 
         expect(resolveTargetPath('abc123')).toEqual({
-            dir : '/runtime/mc/hook-projections/abc123',
-            file: '/runtime/mc/hook-projections/abc123/current.json'
+            dir : '/runtime/mc/abc123',
+            file: '/runtime/mc/abc123/current.json'
         });
     });
 
@@ -95,9 +95,9 @@ test.describe('hookProjectionTransport — derived path, atomic publication', ()
               rename = fs.calls.find(call => call[0] === 'rename');
 
         // same directory ⇒ the rename is same-filesystem, hence atomic
-        expect(write[1]).toBe('/runtime/mc/hook-projections/abc123/current.json.t1.tmp');
+        expect(write[1]).toBe('/runtime/mc/abc123/current.json.t1.tmp');
         expect(rename[1]).toBe(write[1]);
-        expect(rename[2]).toBe('/runtime/mc/hook-projections/abc123/current.json');
+        expect(rename[2]).toBe('/runtime/mc/abc123/current.json');
     });
 
     test('the payload is written whole, before any rename makes it visible', () => {

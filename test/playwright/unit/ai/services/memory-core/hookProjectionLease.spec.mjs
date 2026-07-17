@@ -169,6 +169,11 @@ test.describe('hookProjectionLease — the fenced single-writer gate', () => {
 
         expect(result.published).toBe(true);
         expect(result.channels).toBe(2);
+        // the transport derives its path from targetId, so publish MUST pass it — omitting it left the
+        // two halves unable to compose while both suites stayed green on their own stubs
+        expect(payload.targetId).toBe(targetId);
+        expect(payload.publication.schemaVersion).toBe('live-lane-awareness-projection.v1');
+        expect(payload.publication.fencingEpoch).toBe(lease.epoch);
         expect(payload.channels.map(c => c.channel)).toEqual(['computed-route', 'lifecycle-frontier']);
         expect(payload.channels[0].envelope).toEqual({schemaVersion: 'computed-route.v1', notAuthority: true});
         expect(payload.channels[1].sourceWatermark).toBe('w-2');

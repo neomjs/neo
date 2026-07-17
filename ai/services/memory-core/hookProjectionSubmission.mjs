@@ -31,12 +31,17 @@
  */
 
 /**
- * @summary Adds the conflict column the shown ADR schema does not carry.
+ * @summary Brings an EXISTING store's channel table up to the current shape.
+ *
+ * `conflict_reason` is part of the table definition in {@link createHookProjectionTables}; this is the
+ * idempotent migration for stores created before it existed. Keeping the column out of the DDL and
+ * only in a migration was the original mistake: publish read a column its own schema did not define,
+ * so the two halves disagreed about the table.
  *
  * A source conflict has to survive to the reader, and the channel row is the only thing the writer
  * reads at publish time — so a conflict that lived only in a return value would vanish the moment the
  * producer moved on, and the next publication would render the contested channel as though it were
- * clean. Additive and idempotent, so it is safe over an existing store.
+ * clean.
  *
  * @param {Object} db An open better-sqlite3 handle.
  * @returns {void}

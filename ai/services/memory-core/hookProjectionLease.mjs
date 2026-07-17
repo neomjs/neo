@@ -36,6 +36,12 @@ export const LEASE_STATES = Object.freeze({
 });
 
 /**
+ * @summary The published projection's contract version — what a reader binds to.
+ * @type {String}
+ */
+export const PROJECTION_SCHEMA_VERSION = 'live-lane-awareness-projection.v1';
+
+/**
  * @typedef {Object} LeaseAcquisition
  * @property {Boolean} acquired Whether this caller now holds the target.
  * @property {String} [token] The raw holder token — returned once, never persisted.
@@ -78,6 +84,7 @@ export function createHookProjectionTables(db) {
             captured_at TEXT NOT NULL,
             expires_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
+            conflict_reason TEXT,
             PRIMARY KEY (target_id, channel)
         );
     `);
@@ -198,21 +205,41 @@ export function publishProjection({db, targetId, token, epoch, now, hashToken, w
         if (row.holder_token_hash !== hashToken(token)) return {published: false, reason: 'foreign-token'};
         if (Number(row.expires_at) <= now)             return {published: false, reason: 'lease-expired'};
 
-        const channels = db.prepare(`
-            SELECT channel, source_watermark, envelope_json, captured_at, expires_at
+        const rows = db.prepare(`
+            SELECT channel, source_watermark, envelope_json, captured_at, expires_at, conflict_reason
             FROM HookProjectionChannels WHERE target_id = ? ORDER BY channel
         `).all(targetId);
 
+        // A contested channel must publish AS contested. The conflict is recorded on the row precisely
+        // so it survives to the reader; reading the row and dropping the column would make the whole
+        // conflict mechanism inert — the reader would see a clean channel over a disputed watermark.
+        const channels = rows.map(row => ({
+            channel        : row.channel,
+            sourceWatermark: row.source_watermark,
+            envelope       : JSON.parse(row.envelope_json),
+            capturedAt     : row.captured_at,
+            expiresAt      : row.expires_at,
+            conflictReason : row.conflict_reason ?? null
+        }));
+
         // Inside the transaction on purpose: the rename must not be reachable once a successor could
         // have committed. This is the fencing property — the epoch in the payload only describes it.
+        //
+        // `targetId` is passed because the transport derives the output path from it. Omitting it left
+        // the two halves structurally unable to compose while both suites stayed green on their own
+        // stubs.
         writeAtomic({
-            channels: channels.map(channel => ({
-                channel        : channel.channel,
-                sourceWatermark: channel.source_watermark,
-                envelope       : JSON.parse(channel.envelope_json),
-                capturedAt     : channel.captured_at,
-                expiresAt      : channel.expires_at
-            }))
+            targetId,
+            publication: {
+                schemaVersion   : PROJECTION_SCHEMA_VERSION,
+                targetId,
+                fencingEpoch    : Number(epoch),
+                publishedAt     : now,
+                sourceWatermarks: Object.fromEntries(channels.map(channel => [channel.channel, channel.sourceWatermark])),
+                degradedChannels: channels.filter(channel => channel.conflictReason).map(channel => channel.channel),
+                notAuthority    : true
+            },
+            channels
         });
 
         return {published: true, channels: channels.length}
