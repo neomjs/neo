@@ -1556,6 +1556,106 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         )).toHaveLength(0);
     });
 
+    test('#15376 a human-class sender defaults durable-quiet + priority-high; an explicit false elects the wake', async () => {
+        GraphService.upsertNode({id: '@operator', type: 'AgentIdentity', name: 'Operator', properties: {accountType: 'human'}});
+
+        let quietId, wakeId;
+        await RequestContextService.run({ agentIdentityNodeId: '@operator' }, async () => {
+            // No wakeSuppressed and no priority supplied → the operator-steering class defaults:
+            // durable-quiet (a late wake is noise, not steering) + priority-high drain metadata.
+            const quiet = await MailboxService.addMessage({
+                to     : 'AGENT:*',
+                subject: 'weekend focus: the FM ladder',
+                body   : 'steering payload'
+            });
+            quietId = quiet.messageId;
+
+            // Wake is the sender's PER-MESSAGE election: explicit false wakes like peer traffic.
+            const wake = await MailboxService.addMessage({
+                to            : 'AGENT:*',
+                subject       : 'act now: rebase onto healed dev',
+                body          : 'steering payload',
+                wakeSuppressed: false
+            });
+            wakeId = wake.messageId;
+        });
+
+        const quietNode = GraphService.db.nodes.get(quietId);
+        expect(quietNode.properties.wakeSuppressed).toBe(true);
+        expect(quietNode.properties.priority).toBe('high');
+        expect(quietNode.properties.senderPrincipalClass).toBe('human');
+
+        const wakeNode = GraphService.db.nodes.get(wakeId);
+        expect(wakeNode.properties.wakeSuppressed).toBe(false);
+        expect(wakeNode.properties.priority).toBe('high');
+        expect(wakeNode.properties.senderPrincipalClass).toBe('human');
+    });
+
+    test('#15376 operator-steering suppression is always safe — the shapes agents are rejected for are the human-class default mode', async () => {
+        GraphService.upsertNode({id: '@operator', type: 'AgentIdentity', name: 'Operator', properties: {accountType: 'human'}});
+
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@operator', scope: 'CAN_REPLY_TO' });
+        });
+
+        // The exact shape the agent-sender reject test above refuses (high-priority direct,
+        // suppressed) is legitimate quiet steering when the server-stamped class is human.
+        await RequestContextService.run({ agentIdentityNodeId: '@operator' }, async () => {
+            const direct = await MailboxService.addMessage({
+                to            : '@bob',
+                subject       : 'urgent direct escalation',
+                body          : 'quiet steering to one peer',
+                priority      : 'high',
+                wakeSuppressed: true
+            });
+            expect(direct.messageId).toBeTruthy();
+
+            const stored = GraphService.db.nodes.get(direct.messageId);
+            expect(stored.properties.wakeSuppressed).toBe(true);
+            expect(stored.properties.senderPrincipalClass).toBe('human');
+        });
+    });
+
+    test('#15376 rows carry the write-time senderPrincipalClass stamp; absent stamps read unclassified — never inferred', async () => {
+        GraphService.upsertNode({id: '@operator',   type: 'AgentIdentity', name: 'Operator',  properties: {accountType: 'human'}});
+        GraphService.upsertNode({id: '@agentclass', type: 'AgentIdentity', name: 'Agent',     properties: {accountType: 'agent'}});
+        GraphService.upsertNode({id: '@classless',  type: 'AgentIdentity', name: 'Classless', properties: {}});
+
+        let operatorMsg, agentMsg, classlessMsg;
+        await RequestContextService.run({ agentIdentityNodeId: '@operator' }, async () => {
+            operatorMsg = (await MailboxService.addMessage({to: 'AGENT:*', subject: 'stamped human', body: 'x'})).messageId;
+        });
+        await RequestContextService.run({ agentIdentityNodeId: '@agentclass' }, async () => {
+            agentMsg = (await MailboxService.addMessage({to: 'AGENT:*', subject: 'stamped agent', body: 'x'})).messageId;
+        });
+        await RequestContextService.run({ agentIdentityNodeId: '@classless' }, async () => {
+            classlessMsg = (await MailboxService.addMessage({to: 'AGENT:*', subject: 'stamped unclassified', body: 'x'})).messageId;
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            const {messages} = await MailboxService.listMessages({status: 'all'});
+            const row        = id => messages.find(message => message.messageId === id);
+
+            expect(row(operatorMsg).senderPrincipalClass).toBe('human');
+            expect(row(agentMsg).senderPrincipalClass).toBe('agent');
+            // An absent/unknown accountType stamps 'unclassified' at write — the read path never
+            // re-resolves the sender node, so provenance cannot be rewritten after the fact.
+            expect(row(classlessMsg).senderPrincipalClass).toBe('unclassified');
+
+            const single = await MailboxService.getMessage({messageId: operatorMsg});
+            expect(single.senderPrincipalClass).toBe('human');
+        });
+
+        // The true LEGACY shape: a pre-stamp MESSAGE node with no senderPrincipalClass property at
+        // all. Strip the stamp in place and re-read — the projection's fallback must report the
+        // honest absent-marker rather than inferring a class.
+        delete GraphService.db.nodes.get(classlessMsg).properties.senderPrincipalClass;
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            const {messages} = await MailboxService.listMessages({status: 'all'});
+            expect(messages.find(message => message.messageId === classlessMsg).senderPrincipalClass).toBe('unclassified');
+        });
+    });
+
     test('addMessage still allows wakeSuppressed non-claim FYI/progress broadcasts (the scoping that avoids the blanket-ban trap)', async () => {
         let msgId;
 
