@@ -48,7 +48,7 @@ export function redactCredentials(text) {
         .replace(/\b(?:bearer|basic|digest)\s+[^\s,;)]+/gi, 'authorization=[redacted]')
         // Keyed secrets — the UNION of every copy's key set, including the composer's
         // (`fleetActivityComposer`, see the ledger note below).
-        .replace(/\b(api[-_]?key|access[-_]?token|refresh[-_]?token|client[-_]?secret|authorization|token|secret|password|pat|credential|privateKey|signingKey)\s*[:=]\s*[^\s,;)]+/gi, '$1=[redacted]')
+        .replace(/\b(api[-_]?key|access[-_]?token|refresh[-_]?token|client[-_]?secret|authorization|token|secret|password|passwd|pwd|pat|credential|privateKey|signingKey)\s*[:=]\s*[^\s,;)]+/gi, '$1=[redacted]')
         // Fine-grained GitHub PAT. `\bgh[pousr]_` cannot reach it: the character class fails on the
         // `i` of `github`, so this family passed through all five predecessors untouched.
         .replace(/\bgithub_pat_[A-Za-z0-9_]+/g, '[redacted-token]')
@@ -85,5 +85,8 @@ export const CREDENTIAL_FAMILIES = Object.freeze([
     {name: 'api-key',                 sample: 'x-api-key: sk-live-abcdef123456',                     secret: 'sk-live-abcdef123456'},
     {name: 'access-token',            sample: 'access_token: at-live-zzz111',                        secret: 'at-live-zzz111'},
     {name: 'refresh-token',           sample: 'refresh-token=rt-live-www333',                        secret: 'rt-live-www333'},
-    {name: 'client-secret',           sample: 'client_secret: cs-live-qqq222',                       secret: 'cs-live-qqq222'}
+    {name: 'client-secret',           sample: 'client_secret: cs-live-qqq222',                       secret: 'cs-live-qqq222'},
+    {name: 'password',                sample: 'password=pw-live-zzz000',                             secret: 'pw-live-zzz000'},
+    {name: 'passwd',                  sample: 'passwd=pw-live-aaa111',                               secret: 'pw-live-aaa111'},
+    {name: 'pwd',                     sample: 'pwd: pw-live-bbb222',                                 secret: 'pw-live-bbb222'}
 ])
