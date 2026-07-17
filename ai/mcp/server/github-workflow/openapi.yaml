@@ -1058,13 +1058,16 @@ paths:
       x-annotations:
         readOnlyHint: true
       description: |
-        Retrieves a list of issues from the repository. Supports basic filters such as `limit`, `state`, `labels`, and `assignee`.
+        Retrieves a list of issues from **live GitHub** (GraphQL), not from a local cache or snapshot. `state` and `assignee` filter server-side; `labels` filters this page's rows (GitHub's own label filter is ANY-of, so ALL-of cannot be delegated).
 
         **When to Use:**
         - To find open work items or review recent closed issues.
+        - For freshness-critical checks — assignment, ownership, and open/closed state are read live, so this reflects what GitHub holds right now.
         - Use `projection: 'title'` for title-first backlog scans where issue bodies would waste context.
         - Use the default `projection: 'full'` when you need issue bodies in the list response.
         - To look up issue numbers for use in other tools.
+
+        **Completeness:** `limit` bounds the matches RETURNED, not the rows searched. Check `truncated` before treating a result as complete, and pass the returned `endCursor` back as `cursor` to continue.
       tags: [Issues]
       parameters:
         - name: limit
@@ -1087,13 +1090,13 @@ paths:
         - name: labels
           in: query
           required: false
-          description: Comma separated list of labels to filter by (all labels must be present on the issue).
+          description: Comma separated list of labels to filter by; an issue must carry ALL of them. Applied to the rows this page returned, because GitHub's own label filter is ANY-of rather than ALL-of. `totalCount` is therefore null when this is set — use `truncated` to tell whether the answer is bounded.
           schema:
             type: string
         - name: assignee
           in: query
           required: false
-          description: Filter issues by a single assignee login.
+          description: Filter issues by a single assignee login. Applied server-side, so `limit` bounds the MATCHES returned rather than the rows searched — check `truncated` before treating the result as this agent's complete ownership.
           schema:
             type: string
         - name: projection
@@ -1104,6 +1107,12 @@ paths:
             type: string
             enum: [full, summary, title, title_only]
             default: full
+        - name: cursor
+          in: query
+          required: false
+          description: Cursor for pagination. Pass the `endCursor` returned by a prior call to continue past a `truncated` result; omit for the first page.
+          schema:
+            type: string
       responses:
         '200':
           description: A list of issues.
@@ -2338,6 +2347,18 @@ components:
       properties:
         count:
           type: integer
+          description: How many issues THIS page returned. Compare with `totalCount` before treating it as the whole answer.
+        totalCount:
+          type: integer
+          nullable: true
+          description: How many issues match the SERVER-side filters (state, assignee) in total. `count < totalCount` means the answer is bounded, not complete. Null when a `labels` filter is set, because the server's count then describes a broader query than you asked — an admitted unknown rather than a wrong number you cannot detect.
+        truncated:
+          type: boolean
+          description: True when more matches exist beyond this page. A bounded answer that cannot say it was bounded is indistinguishable from a complete one.
+        endCursor:
+          type: string
+          nullable: true
+          description: Cursor for the next page when `truncated` is true; null otherwise.
         issues:
           type: array
           items:

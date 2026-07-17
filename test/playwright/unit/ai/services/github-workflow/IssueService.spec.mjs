@@ -146,6 +146,164 @@ test.describe('Neo.ai.services.github-workflow.IssueService — listIssues proje
             error: 'Bad Request'
         });
     });
+
+    test('the assignee filter is applied SERVER-side — limit bounds matches, not rows searched', async () => {
+        const capture = {};
+        installIssueListStub(capture);
+
+        await IssueService.listIssues({limit: 30, state: 'open', assignee: 'neo-fable'});
+
+        // Filtering client-side searched only the page it happened to fetch: `limit` bounded the ROWS
+        // READ, not the MATCHES RETURNED, so an assignee query answered from the 30 most-recently-updated
+        // issues and silently dropped the rest — 1 of 9 against live GitHub.
+        expect(capture.variables.assignee).toBe('neo-fable');
+        expect(capture.query).toContain('filterBy: {assignee: $assignee}');
+    });
+
+    test('an unfiltered list passes assignee through as null — a no-op, never a zero-filter', async () => {
+        const capture = {};
+        installIssueListStub(capture);
+
+        const result = await IssueService.listIssues({limit: 10, state: 'open'});
+
+        // Verified against live GitHub: filterBy:{assignee: null} returns every open issue.
+        expect(capture.variables.assignee).toBeNull();
+        expect(result.count).toBe(2);
+    });
+
+    test('labels are NOT delegated to GitHub — its label filter is ANY-of, and this surface promises ALL-of', async () => {
+        const capture = {};
+        installIssueListStub(capture);
+
+        const result = await IssueService.listIssues({limit: 30, state: 'open', labels: 'ai, model-experience'});
+
+        // Measured live against neomjs/neo open issues: filterBy:{labels:['ai']} -> 198,
+        // ['architecture'] -> 111, ['ai','architecture'] -> 201. A combined count EXCEEDING both
+        // operands is a union, so GitHub's filter is OR. Sending labels there would quietly widen
+        // ALL-of into ANY-of and return MORE issues than asked — a caller reading a longer list has
+        // no signal that the predicate changed under them.
+        expect(capture.variables.labels).toBeUndefined();
+        expect(capture.query).not.toContain('$labels');
+
+        // Only the stub row carrying BOTH labels survives; the ci-only row does not.
+        expect(result.count).toBe(1);
+        expect(result.issues[0].number).toBe(12706);
+    });
+
+    test('the server\'s matches are returned verbatim — no client-side pass may drop one', async () => {
+        // The stub returns one row assigned to neo-gpt and one assigned to nobody. A surviving
+        // client-side filter would drop the unassigned row; the server already decided the match set.
+        const capture = {};
+        installIssueListStub(capture);
+
+        const result = await IssueService.listIssues({limit: 10, state: 'open', assignee: 'neo-gpt'});
+
+        expect(result.count).toBe(2);
+        expect(result.issues.map(issue => issue.number)).toEqual([12706, 12705]);
+    });
+
+    test('a bounded answer SAYS it is bounded — count vs totalCount vs truncated', async () => {
+        GraphqlService.query = async () => ({
+            repository: {
+                issues: {
+                    totalCount: 9,
+                    pageInfo  : {hasNextPage: true, endCursor: 'cursor-abc'},
+                    nodes     : [{
+                        number   : 1,
+                        title    : 'one',
+                        state    : 'OPEN',
+                        createdAt: '2026-07-16T00:00:00Z',
+                        updatedAt: '2026-07-16T00:00:00Z',
+                        url      : 'https://github.com/neomjs/neo/issues/1',
+                        author   : {login: 'neo-fable'},
+                        labels   : {nodes: []},
+                        assignees: {nodes: [{login: 'neo-fable'}]}
+                    }]
+                }
+            }
+        });
+
+        const result = await IssueService.listIssues({limit: 1, state: 'open', assignee: 'neo-fable'});
+
+        // A caller reading `count: 1` had no way to learn there were 9 — which is how this surface
+        // convinced a booting session it had no carried assignments. `hasNextPage` was already selected
+        // and thrown away, so the truncation was knowable and simply never reported.
+        expect(result.count).toBe(1);
+        // No client-side filter is active, so this number does describe the caller's query.
+        expect(result.totalCount).toBe(9);
+        expect(result.truncated).toBe(true);
+        expect(result.endCursor).toBe('cursor-abc');
+    });
+
+    test('a COMPLETE answer says so — truncated false, no cursor', async () => {
+        const capture = {};
+        installIssueListStub(capture);
+
+        const result = await IssueService.listIssues({limit: 10, state: 'open'});
+
+        expect(result.truncated).toBe(false);
+        expect(result.endCursor).toBeNull();
+    });
+
+    test('a combined assignee+label answer admits it cannot count — a wrong number beats no number only for the liar', async () => {
+        // The defect this witnesses: `totalCount` is a fact about the SERVER-filtered connection. With
+        // labels filtered client-side it counts the assignee-only query while `count` counts the
+        // label-filtered rows, so the response reported the match count of a query the caller never
+        // made and carried nothing that could reveal the substitution. GitHub's label filter is OR, so
+        // the fix cannot be to delegate the filter; it is to stop reporting a number that answers a
+        // different question. `truncated` survives because it stays true: more server-filtered pages
+        // genuinely may hold more label matches.
+        const capture = {};
+        GraphqlService.query = async (query, variables) => {
+            capture.variables = variables;
+
+            return {
+                repository: {
+                    issues: {
+                        totalCount: 3,
+                        pageInfo  : {hasNextPage: true, endCursor: 'cursor-combined'},
+                        nodes     : [{
+                            number   : 15220,
+                            title    : 'one match of three',
+                            state    : 'OPEN',
+                            createdAt: '2026-07-16T00:00:00Z',
+                            updatedAt: '2026-07-16T00:00:00Z',
+                            url      : 'https://github.com/neomjs/neo/issues/15220',
+                            author   : {login: 'neo-fable'},
+                            labels   : {nodes: [{name: 'ai'}, {name: 'model-experience'}]},
+                            assignees: {nodes: [{login: 'neo-fable'}]}
+                        }]
+                    }
+                }
+            }
+        };
+
+        const result = await IssueService.listIssues({
+            limit   : 1,
+            state   : 'open',
+            assignee: 'neo-fable',
+            labels  : 'ai,model-experience'
+        });
+
+        expect(capture.variables.assignee).toBe('neo-fable');
+
+        expect(result.count).toBe(1);
+        // NOT 3. That 3 counts assigned issues regardless of label — a different question.
+        expect(result.totalCount).toBeNull();
+        expect(result.truncated).toBe(true);
+        expect(result.endCursor).toBe('cursor-combined');
+    });
+
+    test('the advertised continuation works — a returned endCursor is accepted back as cursor', async () => {
+        // The response promised `endCursor` was "the cursor for the next page" while the tool surface
+        // declared no cursor input, so an MCP caller could read the continuation and had nowhere to put it.
+        const capture = {};
+        installIssueListStub(capture);
+
+        await IssueService.listIssues({limit: 10, state: 'open', cursor: 'cursor-combined'});
+
+        expect(capture.variables.cursor).toBe('cursor-combined');
+    });
 });
 
 /**

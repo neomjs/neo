@@ -316,6 +316,7 @@ export const FETCH_ISSUES_LIST = `
     $limit: Int!
     $cursor: String
     $states: [IssueState!]
+    $assignee: String
     $maxLabels: Int!
     $maxAssignees: Int!
   ) {
@@ -324,8 +325,10 @@ export const FETCH_ISSUES_LIST = `
         first: $limit
         after: $cursor
         states: $states
+        filterBy: {assignee: $assignee}
         orderBy: {field: UPDATED_AT, direction: DESC}
       ) {
+        totalCount
         pageInfo {
           hasNextPage
           endCursor
