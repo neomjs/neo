@@ -1,4 +1,5 @@
-import Controller from '../../../src/controller/Component.mjs';
+import Controller           from '../../../src/controller/Component.mjs';
+import {installFleetBridge} from '../../../src/ai/fleet/installFleetBridge.mjs';
 
 /**
  * @class AgentOS.view.ViewportController
@@ -32,6 +33,29 @@ class ViewportController extends Controller {
                 me.setTheme('neo-theme-neo-dark', false)
             }
         })
+    }
+
+    /**
+     * @summary The ONE product-shaped Fleet-bridge injector — (re)wires the authenticated
+     * app↔fleet transport in the App-Worker realm, where the bridge actually lives.
+     *
+     * Why this exists: the process bearer is an in-memory hand-off and the bearer slot the boot
+     * path reads lives in the App Worker's global — a realm no page-side init script can reach.
+     * So the Option-B delivery story is boot-fail-closed, then inject THROUGH the worker: the
+     * Neural Link (dev browser), the Electron main process (product), and the e2e fixture (tests)
+     * all call exactly this method, and `installFleetBridge` being idempotent makes the re-wire
+     * safe at any time. The bearer arrives as an argument and is handed straight through — never
+     * stored on the controller, never logged, never readable back off this surface.
+     *
+     * @param {Object} config `{url, bearerToken}` — the loopback fleet endpoint + process bearer;
+     *     `installFleetBridge` enforces the URL policy and refuses credential-shaped query params.
+     * @returns {Boolean} true once the authenticated bridge is (re)published — the bridge object
+     *     itself deliberately does not cross this seam (Neural Link callers get a serializable ack,
+     *     not a live handle carrying the credentialed `send`).
+     */
+    wireFleetBridge(config) {
+        installFleetBridge(config);
+        return true
     }
 
     /**
