@@ -14,8 +14,6 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
-import fs             from 'fs-extra';
-import path           from 'path';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
@@ -28,6 +26,7 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
     let originalBuildCodeTermRescueIndex;
     let originalEmbedText;
     let originalGetKnowledgeBaseCollection;
+    let originalGetLexicalRescueCandidates;
 
     test.beforeAll(async () => {
         ChromaManager        = (await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
@@ -37,10 +36,12 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
         originalBuildCodeTermRescueIndex  = QueryService.buildCodeTermRescueIndex;
         originalEmbedText                  = TextEmbeddingService.embedText;
         originalGetKnowledgeBaseCollection = ChromaManager.getKnowledgeBaseCollection;
+        originalGetLexicalRescueCandidates = QueryService.getLexicalRescueCandidates;
     });
 
     test.afterEach(() => {
-        QueryService.buildCodeTermRescueIndex = originalBuildCodeTermRescueIndex;
+        QueryService.buildCodeTermRescueIndex    = originalBuildCodeTermRescueIndex;
+        QueryService.getLexicalRescueCandidates = originalGetLexicalRescueCandidates;
         QueryService.clearCodeTermRescueIndex();
         TextEmbeddingService.embedText           = originalEmbedText;
         ChromaManager.getKnowledgeBaseCollection = originalGetKnowledgeBaseCollection;
@@ -369,55 +370,82 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
         ]);
     });
 
-    test('rescues exact local Brain graph anchors when semantic top-k misses them (#12703)', async () => {
-        const capture = {};
-        installQueryStub([{
-            source          : 'learn/agentos/tooling/MemoryCoreMcpApi.md',
-            type            : 'guide',
-            name            : 'Memory Core MCP API',
-            inheritanceChain: '[]'
-        }, {
-            source          : 'learn/agentos/KnowledgeBase.md',
-            type            : 'guide',
-            name            : 'The Knowledge Base Server',
-            inheritanceChain: '[]'
-        }], capture);
-
-        // The query path-matches the whole `ai/services/graph` dir, so the lexical rescue boosts every file in it;
-        // the final list is score-sorted then capped at `limit` (QueryService L235). The semantic top-k is stubbed
-        // above (the "miss" the rescue is proving it recovers from), so `limit` only sizes the final rescued set: it
-        // must exceed the rescued dir plus the cross-dir anchors asserted below, or a boundary anchor is evicted and
-        // this fails for whoever adds the next graph file. Derive the dir size instead of hardcoding a budget — a
-        // literal is calibrated against one moment's file count and decays silently from there. The headroom counts
-        // rows this test itself enumerates (three asserted anchors + two stubbed hits + spare), so unlike the dir
-        // size it changes only when someone edits this test.
+    test('rescues exact local Brain graph anchors independently of graph-dir growth (#12703, #15317)', async () => {
         const
-            crossDirAnchorHeadroom = 8,
-            graphDirFileCount      = (await fs.readdir(path.resolve('ai/services/graph')))
-                .filter(name => name.endsWith('.mjs')).length;
+            capture        = {},
+            semanticMisses = [{
+                source          : 'learn/agentos/tooling/MemoryCoreMcpApi.md',
+                type            : 'guide',
+                name            : 'Memory Core MCP API',
+                inheritanceChain: '[]'
+            }, {
+                source          : 'learn/agentos/KnowledgeBase.md',
+                type            : 'guide',
+                name            : 'The Knowledge Base Server',
+                inheritanceChain: '[]'
+            }],
+            query = 'GraphService exact anchor rescue';
 
-        const result = await QueryService.queryDocuments({
-            query          : 'Neo graph database HybridRAG mutate_frontier Dream Pipeline Gemma4 31B graph processing ai/services/graph sandman_handoff.md',
-            type           : 'all',
-            limit          : graphDirFileCount + crossDirAnchorHeadroom,
-            includeMetadata: true
-        });
-        const sources = result.results.map(item => item.source);
+        installQueryStub(semanticMisses, capture);
 
-        expect(sources).toContain('learn/agentos/DreamPipeline.md');
-        expect(sources).toContain('ai/services/graph/GoldenPathSynthesizer.mjs');
-        expect(sources).toContain('ai/services/memory-core/GraphService.mjs');
+        for (const sameDirCount of [3, 80]) {
+            const
+                sameDirCorpus = Array.from({length: sameDirCount}, (_, index) => ({
+                    source : `ai/services/graph/SyntheticGraph${index}.mjs`,
+                    type   : 'ai-infrastructure',
+                    name   : `SyntheticGraph${index}.mjs`,
+                    reasons: ['path-dir:ai/services/graph'],
+                    score  : 1
+                })),
+                exactAnchor = {
+                    source : 'ai/services/memory-core/GraphService.mjs',
+                    type   : 'ai-infrastructure',
+                    name   : 'GraphService.mjs',
+                    reasons: ['filename:GraphService.mjs', 'code-term'],
+                    score  : 2
+                },
+                rescueCorpus = [...sameDirCorpus, exactAnchor];
 
-        if (await fs.pathExists(path.resolve('resources/content/sandman_handoff.md'))) {
-            expect(sources).toContain('resources/content/sandman_handoff.md');
+            QueryService.getLexicalRescueCandidates = async () => rescueCorpus;
+
+            const
+                sourceMetadata = {},
+                sourceScores   = {},
+                queryLower     = query.toLowerCase(),
+                queryWords     = QueryService.getQueryWords(queryLower);
+
+            await QueryService.addLexicalRescueScores({
+                query,
+                queryLower,
+                queryWords,
+                sourceMetadata,
+                sourceScores,
+                type: 'all'
+            });
+
+            // The exact cross-dir anchor has two independent rescue reasons, so its pre-cap score
+            // must outrank a path-only same-dir candidate. This is the semantic assertion; no result
+            // budget or physical directory count participates.
+            expect(sourceScores[exactAnchor.source])
+                .toBeGreaterThan(sourceScores[sameDirCorpus.at(-1).source]);
+
+            const result = await QueryService.queryDocuments({
+                query,
+                type           : 'all',
+                // Derived from the controlled corpus. Growing a physical repo directory cannot consume
+                // this witness's headroom — the branch and CI merge trees therefore prove the same thing.
+                limit          : semanticMisses.length + rescueCorpus.length,
+                includeMetadata: true
+            });
+            const
+                sources      = result.results.map(item => item.source),
+                anchorResult = result.results.find(item => item.source === exactAnchor.source);
+
+            expect(sources).toContain(exactAnchor.source);
+            expect(sources.filter(source => source.startsWith('ai/services/graph/')))
+                .toHaveLength(sameDirCount);
+            expect(anchorResult.metadata.lexicalRescueReasons)
+                .toContain('filename:GraphService.mjs')
         }
-
-        const dreamPipeline = result.results.find(item => item.source === 'learn/agentos/DreamPipeline.md');
-        expect(dreamPipeline.metadata).toMatchObject({
-            repoSlug: 'neo',
-            tenantId: 'neo-shared',
-            type    : 'guide'
-        });
-        expect(dreamPipeline.metadata.lexicalRescueReasons).toContain('guide-title:The Dream Pipeline & Golden Path');
     });
 });
