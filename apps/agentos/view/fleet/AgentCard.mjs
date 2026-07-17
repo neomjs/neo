@@ -8,6 +8,7 @@ import StateDot                from './StateDot.mjs';
 import {normalizeFleetSources} from './sourceHealth.mjs';
 
 import {describeNameProvenance, resolveNameSlot} from './nameSlot.mjs';
+import {describeTelltale}                        from './telltale.mjs';
 
 /**
  * The resident card: the cockpit's atom. Composes the class-based fleet primitives (FamilyRail +
@@ -162,6 +163,15 @@ class AgentCard extends Container {
                     flex     : 'none',
                     hidden   : true,
                     reference: 'card-lane-count'
+                }, {
+                    // The S2 telltale: ONE compound chip for both axes, hidden while nominal. The
+                    // density contract buys card pixels with exceptions, so two simultaneous
+                    // exceptions must not cost two chips — the full two-axis readout lives in detail.
+                    ntype    : 'component',
+                    cls      : ['fm-card-telltale'],
+                    flex     : 'none',
+                    hidden   : true,
+                    reference: 'card-telltale'
                 }]
             }, {
                 ntype    : 'container',
@@ -331,6 +341,12 @@ class AgentCard extends Container {
             hidden: laneCount === null,
             text  : laneCount === null ? '' : `${laneCount} ${laneCount === 1 ? 'lane' : 'lanes'}`
         });
+
+        // The record's axes are passed WHOLE to the describer: `unknown` is a state the producer
+        // emits when it looked and could not see, and `null` is the absence of an observation. The
+        // card never collapses the two — defaulting an absent axis to `unknown` would report
+        // blindness nobody claimed, which is the inverse of the failure the taxonomy prevents.
+        me.getReference('card-telltale').set(describeTelltale({throttle: record.throttle, wake: record.wake}));
         me.getReference('source-roster').health    = sources.roster;
         me.getReference('source-repo-status').health = sources.repoStatus;
         me.getReference('source-runtime').health   = runtime;
