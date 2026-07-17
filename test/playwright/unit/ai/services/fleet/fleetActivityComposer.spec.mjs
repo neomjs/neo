@@ -152,3 +152,71 @@ test.describe('fleetActivityComposer — composing two truths means composing tw
             .toThrow(/must be injected/)
     })
 });
+
+/**
+ * @summary The composition, with NO double between the halves.
+ *
+ * Two suites can both be green over code that cannot run: when each stubs the other, both agree with
+ * a contract neither honours, and the mismatch surfaces only in production. The suite above has that
+ * hole by construction — it proves the composer against one reading of the bridge's contract.
+ *
+ * This binds the REAL `FleetControlBridge` to the REAL composer. If the producer does not satisfy the
+ * consumer, this is the only test here that can say so.
+ */
+test.describe('fleetActivityComposer ↔ FleetControlBridge — the real consumer calls the real producer', () => {
+    let FleetControlBridge, createFleetActivityReadSource;
+
+    test.beforeAll(async () => {
+        FleetControlBridge           = (await import('../../../../../../ai/services/fleet/FleetControlBridge.mjs')).default;
+        createFleetActivityReadSource = (await import('../../../../../../ai/services/fleet/fleetActivityComposer.mjs')).createFleetActivityReadSource
+    });
+
+    test.afterEach(() => { FleetControlBridge.activitySource = null });
+
+    test('the bridge accepts the composer as its activitySource and gets a composed snapshot back', async () => {
+        const seen = [];
+
+        FleetControlBridge.activitySource = createFleetActivityReadSource({
+            readA2ASnapshot: async params => {
+                seen.push(['a2a', params.limit]);
+                return {
+                    capability: {source: 'fleet:a2a', state: 'wired', confidence: 'observed'},
+                    events    : [{occurredAt: '2026-07-16T11:00:00.000Z', id: 'a2a-1'}]
+                }
+            },
+            readPrLaneSnapshot: async params => {
+                seen.push(['pr-lane', params.limit]);
+                return {
+                    capability: {source: 'fleet:pr-lane', state: 'wired', confidence: 'observed'},
+                    events    : [{occurredAt: '2026-07-16T12:00:00.000Z', id: 'pr-1'}]
+                }
+            }
+        });
+
+        // the bridge's own verb, not a direct call to the source
+        const result = await FleetControlBridge.fleetActivity({limit: 25});
+
+        // The bridge forwards its bounds verbatim (FleetControlBridge.mjs:355) — so the caller's limit
+        // must reach BOTH adapters through the composer, not stop at it.
+        expect(seen).toEqual([['a2a', 25], ['pr-lane', 25]]);
+
+        expect(result.capability.state).toBe('wired');
+        expect(result.capability.source).toBe('fleet:activity-adapters');
+        expect(result.events.map(event => event.id)).toEqual(['pr-1', 'a2a-1'])
+    });
+
+    test('a blind half reaches the bridge as degraded — the honest state survives the seam', async () => {
+        FleetControlBridge.activitySource = createFleetActivityReadSource({
+            readA2ASnapshot   : async () => ({capability: {source: 'fleet:a2a', state: 'wired', confidence: 'observed'}, events: []}),
+            readPrLaneSnapshot: async () => ({capability: {source: 'fleet:pr-lane', state: 'degraded', confidence: 'none', reason: 'github unreachable'}, events: []})
+        });
+
+        const result = await FleetControlBridge.fleetActivity();
+
+        // The events are empty either way; only the capability distinguishes a quiet fleet from a
+        // half-blind one — and it has to survive the bridge to be worth anything.
+        expect(result.events).toEqual([]);
+        expect(result.capability.state).toBe('degraded');
+        expect(result.capability.reason).toContain('github unreachable')
+    })
+});
