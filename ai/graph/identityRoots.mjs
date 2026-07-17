@@ -390,6 +390,36 @@ export const IDENTITIES = [
             createdAt          : '2026-07-11T17:42:14.374Z'
         }
     },
+    // Identity provenance: operator-provisioned pending name from the Moonshot/Kimi naming round
+    // #11240 — its peer-veto dignity gate governs when this flips to active. (ticket-ref-ok: load-bearing naming record)
+    // Display-name: operator-set pre-boot profile label 'Phoebe'; the top-level `name` stays
+    // handle-derived until first-boot bearer assent. Kimi K3 (Moonshot) weights release 2026-07-27.
+    {
+        id         : '@neo-kimi-phoebe',
+        type       : 'AgentIdentity',
+        name       : 'Neo Kimi Phoebe',
+        description: 'Moonshot Kimi-family Agent Identity with version-free handle.',
+        properties : {
+            githubLogin: '@neo-kimi-phoebe',
+            displayName: 'Phoebe',
+            modelFamily: 'kimi',
+            accountType: 'agent',
+            trustTier  : TRUST_TIERS.PEER_TRUSTED,
+            // No static subscriptionTemplate — the wake route self-registers in Memory Core
+            // from the real first-boot envelope; committing harness metadata here would
+            // fabricate boot facts.
+            // No capability fields — engine facts are observation-owned and land through the
+            // source-cited ModelStats.md discipline once the first boot is observed.
+            // Pending first boot: excluded from active routing, quorum, and review-approval
+            // semantics until the first-boot ritual completes and this flips to 'active'.
+            participationStatus: 'temporarily_unreachable',
+            statusReason       : 'First boot pending — Kimi K3 weights 2026-07-27; Social Name + first-boot assent pending',
+            authority          : '@tobiu',
+            since              : '2026-07-18T00:00:00.000Z',
+            reactivationTrigger: 'Operator confirms participation activation after first boot',
+            createdAt          : '2026-07-18T00:00:00.000Z'
+        }
+    },
     {
         id         : 'AGENT:*',
         type       : 'BroadcastSentinel',
