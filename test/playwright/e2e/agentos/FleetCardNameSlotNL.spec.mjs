@@ -1,6 +1,7 @@
 import {test, expect}           from '../../fixtures.mjs';
 import FleetRegistryService     from '../../../../ai/services/fleet/FleetRegistryService.mjs';
 import {startFleetBridgeServer} from '../../../../ai/services/fleet/fleetBridgeServer.mjs';
+import {authenticatedFleetOptions, reloadRoster, wireAuthenticatedFleetBridge} from './authenticatedFleetHarness.mjs';
 import fs                       from 'fs';
 import os                       from 'os';
 import path                     from 'path';
@@ -29,12 +30,20 @@ test.describe('AgentOS Fleet card — name slot on live roster data (Neural Link
             harnessType   : 'codex'
         });
 
-        const server   = await startFleetBridgeServer({port: 0}),
+        const options  = authenticatedFleetOptions(),
+              server   = await startFleetBridgeServer(options),
               fleetUrl = `http://127.0.0.1:${server.address().port}/fleet`;
 
         try {
             await page.goto(`/apps/agentos/index.html?${new URLSearchParams({fleetUrl})}`);
             await expect(page.locator('.agent-shell')).toBeVisible({timeout: 60000});
+
+            // Boot installs the FAIL-CLOSED bridge; the bearer arrives through the worker-realm
+            // product injector, then the sanctioned re-poll reads the roster against the live wire.
+            const app = await neuralLink.connectToApp('AgentOS');
+
+            await wireAuthenticatedFleetBridge({app, fleetUrl, bearerToken: options.bearerToken});
+            await reloadRoster(app);
 
             // the authoritative roster replaces the sample seed: exactly the seeded resident renders
             const card = page.locator('.fm-agent-card');
@@ -51,7 +60,6 @@ test.describe('AgentOS Fleet card — name slot on live roster data (Neural Link
             // engine truth through the Neural Link: the record carries the durable id and the
             // folded display name — the same durable resident the DOM renders
             const
-                app   = await neuralLink.connectToApp('AgentOS'),
                 cards = await app.queryComponent({className: 'AgentOS.view.fleet.AgentCard'}, ['record']),
                 row   = (Array.isArray(cards) ? cards : [cards]).find(candidate => candidate?.properties?.record?.agentId === agentId);
 

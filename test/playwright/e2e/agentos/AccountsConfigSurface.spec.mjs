@@ -1,11 +1,12 @@
-import {test, expect}           from '../../fixtures.mjs';
-import {NeuralLink_DataService} from '../../../../ai/services.mjs';
-import FleetRegistryService     from '../../../../ai/services/fleet/FleetRegistryService.mjs';
-import {startFleetBridgeServer} from '../../../../ai/services/fleet/fleetBridgeServer.mjs';
-import {listHarnessTypes}       from '../../../../apps/agentos/config/harnessTypes.mjs';
-import fs                       from 'fs';
-import os                       from 'os';
-import path                     from 'path';
+import {test, expect}                                            from '../../fixtures.mjs';
+import {NeuralLink_DataService}                                  from '../../../../ai/services.mjs';
+import FleetRegistryService                                      from '../../../../ai/services/fleet/FleetRegistryService.mjs';
+import {startFleetBridgeServer}                                  from '../../../../ai/services/fleet/fleetBridgeServer.mjs';
+import {authenticatedFleetOptions, wireAuthenticatedFleetBridge} from './authenticatedFleetHarness.mjs';
+import {listHarnessTypes}                                        from '../../../../apps/agentos/config/harnessTypes.mjs';
+import fs                                                        from 'fs';
+import os                                                        from 'os';
+import path                                                      from 'path';
 
 /**
  * @summary Verifies the agent-scoped Accounts configuration surface mounts end-to-end: the
@@ -42,15 +43,28 @@ test.describe('AgentOS Accounts — agent-scoped configuration surface', () => {
         let server;
 
         try {
-            server = await startFleetBridgeServer({port: 0});
+            const options = authenticatedFleetOptions();
+
+            server = await startFleetBridgeServer(options);
             const fleetUrl = `http://127.0.0.1:${server.address().port}/fleet`;
 
             await page.goto(`/apps/agentos/index.html?${new URLSearchParams({fleetUrl})}`);
 
             await expect(page.locator('.agent-shell')).toBeVisible({timeout: 60000});
 
+            // Boot installs the FAIL-CLOSED bridge; inject the bearer through the worker-realm
+            // product injector BEFORE the Accounts pane mounts, so its cold-hydrate reads live.
+            await wireAuthenticatedFleetBridge({app: await neuralLink.connectToApp('AgentOS'), fleetUrl, bearerToken: options.bearerToken});
+
             await page.locator('.agent-shell').getByText('Accounts', {exact: true}).click();
             await expect(page.locator('.agent-panel-accounts')).toBeVisible({timeout: 30000});
+
+            // The pane constructed at shell boot, so its cold-hydrate raced the fail-closed bridge;
+            // re-run the idempotent hydrate now that the injector flipped the bridge live.
+            const appHandle  = await neuralLink.connectToApp('AgentOS');
+            const [accounts] = await appHandle.queryComponent({className: 'AgentOS.view.Accounts'}, ['id']);
+
+            await appHandle.callMethod(accounts.properties.id, 'loadAgentDefinitions');
 
             // The provider store cold-hydrates from the REAL Brain registry; the bridge-pending seed
             // is gone before an existing agent can be edited.
@@ -152,7 +166,20 @@ test.describe('AgentOS Accounts — agent-scoped configuration surface', () => {
             // A fresh page/store hydration must re-read the canonical sparse result, not the
             // request or the seed. This also proves persisted state survived the first app session.
             await page.reload();
+            await expect(page.locator('.agent-shell')).toBeVisible({timeout: 60000});
+
+            // a reload births a fresh App Worker: the in-memory bearer is gone BY CONSTRUCTION,
+            // so the injector + idempotent hydrate run again against the new realm.
+            const appReloaded = await neuralLink.connectToApp('AgentOS');
+
+            await wireAuthenticatedFleetBridge({app: appReloaded, fleetUrl, bearerToken: options.bearerToken});
+
             await page.locator('.agent-shell').getByText('Accounts', {exact: true}).click();
+            await expect(page.locator('.agent-panel-accounts')).toBeVisible({timeout: 30000});
+
+            const [accountsReloaded] = await appReloaded.queryComponent({className: 'AgentOS.view.Accounts'}, ['id']);
+
+            await appReloaded.callMethod(accountsReloaded.properties.id, 'loadAgentDefinitions');
             await expect(page.locator('.agent-selector-button').filter({hasText: agentId})).toHaveCount(1);
             await expect(page.locator('.agent-selector-button').filter({hasText: createdAgentId})).toHaveCount(1);
             await expect(page.locator('.agent-config-toggle').filter({hasText: 'Memory Core'})).toHaveClass(/is-disabled/);
