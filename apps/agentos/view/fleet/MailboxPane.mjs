@@ -602,11 +602,16 @@ class MailboxPane extends Container {
     /**
      * @summary Set one step's edge state — visually AND semantically.
      *
-     * `Neo.component.Base`'s `disabled` adds the `neo-disabled` class and nothing else: no native
-     * `disabled`, no `aria-disabled`. So a styled-shut control is still announced as enabled and
-     * still reachable — the operator who most needs the edge to be honest is the one it lies to. The
-     * class carries the look; `aria-disabled` carries the meaning; the handler guard carries the
-     * refusal. All three, because each one alone is a different half-truth.
+     * `Neo.component.Base`'s `disabled` adds the `neo-disabled` class and no `aria-disabled`, so on
+     * the class alone a styled-shut control is announced as ENABLED — the operator who most needs the
+     * edge to be honest is the one it lies to. The class carries the look; `aria-disabled` carries the
+     * meaning; the handler guard carries the refusal. All three, because each one alone is a different
+     * half-truth.
+     *
+     * Stated at the component layer deliberately: whether a given control ALSO projects a native
+     * `disabled` attribute is that control's own contract, not this pane's to assume. When the Button
+     * layer projects one, `aria-disabled` here becomes redundant rather than wrong — a native
+     * `disabled` already carries the announcement — and this method is where that cleanup lands.
      * @param {String} reference The step control.
      * @param {Boolean} closed Whether this edge is the end of the range.
      * @protected

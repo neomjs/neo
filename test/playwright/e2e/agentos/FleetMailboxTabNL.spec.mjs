@@ -135,10 +135,12 @@ test.describe('AgentOS fleet cockpit — the AgentDetail Mailbox tab live (#1527
         // controls, and a 3-of-50 page with no `hasMore` is the producer saying it ran out — so both
         // edges are closed, disabled rather than hidden.
         //
-        // Asserted via `neo-disabled`, NOT Playwright's `toBeDisabled()`: Neo's `disabled` adds that
-        // class and never the native attribute, so the native matcher would fail on a control that
-        // IS disabled by the framework's own contract. The refusal itself is unit-pinned — the class
-        // is the look, the handler guard is the semantics.
+        // Asserted via `neo-disabled` — the class IS the framework's disabled contract, applied by
+        // `component.Base` for every component, so this holds regardless of whether a control also
+        // projects a native `disabled` attribute (buttons are gaining one separately). Deliberately
+        // not `toBeDisabled()`: that would assert the native projection, which is the Button layer's
+        // contract to make and pin, not this pane's to depend on. The refusal itself is unit-pinned
+        // — the class is the look, the handler guard is the semantics.
         await expect(pane.locator('.fm-mailbox-page-next')).toHaveClass(/neo-disabled/);
         await expect(pane.locator('.fm-mailbox-page-prev')).toHaveClass(/neo-disabled/);
 
