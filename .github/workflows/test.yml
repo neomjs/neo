@@ -18,6 +18,7 @@ jobs:
     outputs:
       run_integration: ${{ steps.scope.outputs.run_integration }}
       run_unit: ${{ steps.scope.outputs.run_unit }}
+      run_components: ${{ steps.scope.outputs.run_components }}
       skip_reason: ${{ steps.scope.outputs.skip_reason }}
 
     steps:
@@ -67,6 +68,7 @@ jobs:
               core.info('Changed files are unavailable; running full test suites.');
               core.setOutput('run_integration', 'true');
               core.setOutput('run_unit', 'true');
+              core.setOutput('run_components', 'true');
               core.setOutput('skip_reason', 'changed files unavailable');
               return;
             }
@@ -104,15 +106,33 @@ jobs:
               file === 'package-lock.json' ||
               file === '.github/workflows/test.yml';
 
+            // Whitelist: the components suite mounts real components in a browser against
+            // the webpack dev server — engine (src/), live-compiled theme SCSS, the component
+            // specs + their harness apps, the config chain, dep manifests, or this workflow.
+            // Same completeness rule as integration: a missed path silently skips the suite
+            // (#15368 — this suite ran in NO workflow at all until it was wired here).
+            const isComponentsRelevantPath = file =>
+              file.startsWith('src/') ||
+              file.startsWith('resources/scss/') ||
+              file.startsWith('test/playwright/component/') ||
+              file === 'test/playwright/configTemplateResolver.mjs' ||
+              file === 'test/playwright/playwright.config.component.mjs' ||
+              file === 'package.json' ||
+              file === 'package-lock.json' ||
+              file === '.github/workflows/test.yml';
+
             const runIntegration = normalizedFiles.some(isIntegrationRelevantPath);
             const runUnit        = normalizedFiles.some(file => !isDocsOnlyPath(file) || requiresUnitForContent(file));
+            const runComponents  = normalizedFiles.some(isComponentsRelevantPath);
 
             core.info(`Changed files: ${normalizedFiles.join(', ')}`);
             core.info(`run_integration=${runIntegration}`);
             core.info(`run_unit=${runUnit}`);
+            core.info(`run_components=${runComponents}`);
 
             core.setOutput('run_integration', String(runIntegration));
             core.setOutput('run_unit', String(runUnit));
+            core.setOutput('run_components', String(runComponents));
             core.setOutput(
               'skip_reason',
               'change does not touch relevant paths for this suite (docs/content/config or unrelated test suite)'
@@ -129,15 +149,25 @@ jobs:
         # Bucket G (#10924) substrate fixes landed via #10940 (TestLifecycleHelper
         # primitive + daemon-spec migration) + open trackers for residual flakes
         # (#10941/#10936/#10937/#10946 — all unit-skip-guarded via NEO_TEST_SKIP_CI).
-        suite: [integration-unified, unit]
+        #
+        # Per-suite run flag resolves the classifier output once (#15368) — every
+        # step below gates on `matrix.run` instead of re-enumerating suite×flag
+        # boolean pairs, which stopped scaling at the third suite.
+        include:
+          - suite: integration-unified
+            run: ${{ needs.changes.outputs.run_integration }}
+          - suite: unit
+            run: ${{ needs.changes.outputs.run_unit }}
+          - suite: components
+            run: ${{ needs.changes.outputs.run_components }}
 
     steps:
       - name: Checkout repository
-        if: ${{ (matrix.suite == 'integration-unified' && needs.changes.outputs.run_integration == 'true') || (matrix.suite == 'unit' && needs.changes.outputs.run_unit == 'true') }}
+        if: ${{ matrix.run == 'true' }}
         uses: actions/checkout@v6
 
       - name: Setup Node.js
-        if: ${{ (matrix.suite == 'integration-unified' && needs.changes.outputs.run_integration == 'true') || (matrix.suite == 'unit' && needs.changes.outputs.run_unit == 'true') }}
+        if: ${{ matrix.run == 'true' }}
         uses: actions/setup-node@v6
         with:
           node-version: '24'
@@ -145,29 +175,36 @@ jobs:
 
       # Pre-create .neo-ai-data so the `prepare` lifecycle's downloadKnowledgeBase
       # short-circuits via its existing-dir guard. Integration tests use a tmpfs
-      # Chroma per `ai/deploy/docker-compose.test.yml`; unit tests are mocked.
-      # Neither suite needs the canonical KB artifact in CI.
+      # Chroma per `ai/deploy/docker-compose.test.yml`; unit tests are mocked; the
+      # components suite runs browser-against-dev-server. No suite needs the
+      # canonical KB artifact in CI.
       - name: Skip Knowledge Base download in prepare lifecycle
-        if: ${{ (matrix.suite == 'integration-unified' && needs.changes.outputs.run_integration == 'true') || (matrix.suite == 'unit' && needs.changes.outputs.run_unit == 'true') }}
+        if: ${{ matrix.run == 'true' }}
         run: mkdir -p .neo-ai-data
 
       - name: Install dependencies
-        if: ${{ (matrix.suite == 'integration-unified' && needs.changes.outputs.run_integration == 'true') || (matrix.suite == 'unit' && needs.changes.outputs.run_unit == 'true') }}
+        if: ${{ matrix.run == 'true' }}
         run: npm ci
 
       # Required for the unit-test runner per bootstrapWorktree.mjs precedent.
-      # Harmless for the integration suite.
+      # Harmless for the other suites.
       - name: Bundle parse5
-        if: ${{ (matrix.suite == 'integration-unified' && needs.changes.outputs.run_integration == 'true') || (matrix.suite == 'unit' && needs.changes.outputs.run_unit == 'true') }}
+        if: ${{ matrix.run == 'true' }}
         run: npm run bundle-parse5
 
+      # The components suite launches real Chromium against the dev server; unit and
+      # integration run browserless, so browser provisioning stays scoped to this suite.
+      - name: Install Playwright Chromium
+        if: ${{ matrix.run == 'true' && matrix.suite == 'components' }}
+        run: npx playwright install --with-deps chromium
+
       - name: Skip ${{ matrix.suite }} tests
-        if: ${{ (matrix.suite == 'integration-unified' && needs.changes.outputs.run_integration != 'true') || (matrix.suite == 'unit' && needs.changes.outputs.run_unit != 'true') }}
+        if: ${{ matrix.run != 'true' }}
         run: |
           echo "${{ matrix.suite }} skipped: ${{ needs.changes.outputs.skip_reason }}"
 
       - name: Run ${{ matrix.suite }} tests
-        if: ${{ (matrix.suite == 'integration-unified' && needs.changes.outputs.run_integration == 'true') || (matrix.suite == 'unit' && needs.changes.outputs.run_unit == 'true') }}
+        if: ${{ matrix.run == 'true' }}
         run: npm run test-${{ matrix.suite }}
         env:
           NEO_INTEGRATION_STACK_TIMEOUT_MS: '240000'
