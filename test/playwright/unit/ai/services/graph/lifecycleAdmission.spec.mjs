@@ -35,18 +35,19 @@ test.describe('lifecycleAdmission — the five stages and their exclusions', () 
     // head and completion. The clock owner derives every `*Since` from exactly these, so a fixture that
     // hand-supplied clocks would be testing a contract nothing produces.
     const sourcePr = (overrides = {}) => ({
-        id            : 'pr-15231',
-        authorId      : ME,
-        state         : 'OPEN',
-        isDraft       : false,
-        headSha       : HEAD,
-        mergeable     : true,
-        checks        : [{name: 'unit', required: true, conclusion: 'SUCCESS', headSha: HEAD, completedAt: '2026-07-16T09:30:00.000Z'}],
-        reviews       : [],
-        reviewRequests: [],
-        url           : 'https://github.com/neomjs/neo/pull/15231',
-        mergeableSince: '2026-07-16T09:00:00.000Z',
-        checkedAt     : '2026-07-16T10:00:00.000Z',
+        id             : 'pr-15231',
+        authorId       : ME,
+        state          : 'OPEN',
+        isDraft        : false,
+        headSha        : HEAD,
+        headCommittedAt: '2026-07-16T08:00:00.000Z',
+        mergeable      : true,
+        checks         : [{name: 'unit', required: true, conclusion: 'SUCCESS', headSha: HEAD, completedAt: '2026-07-16T09:30:00.000Z'}],
+        reviews        : [],
+        reviewRequests : [],
+        url            : 'https://github.com/neomjs/neo/pull/15231',
+        mergeableSince : '2026-07-16T09:00:00.000Z',
+        checkedAt      : '2026-07-16T10:00:00.000Z',
         ...overrides
     });
 
@@ -64,7 +65,7 @@ test.describe('lifecycleAdmission — the five stages and their exclusions', () 
     test('stage 1 admits a current-head CHANGES_REQUESTED, a failed REQUIRED check, and a merge conflict', () => {
         expect(admitOwnPrRepair({pr: ownPr({reviews: [{state: 'CHANGES_REQUESTED', commitSha: HEAD}]}), agentId: ME}).kind)
             .toBe('changes-requested');
-        expect(admitOwnPrRepair({pr: ownPr({checks: [{name: 'unit', required: true, conclusion: 'FAILURE'}]}), agentId: ME}).kind)
+        expect(admitOwnPrRepair({pr: ownPr({checks: [{name: 'unit', required: true, conclusion: 'FAILURE', headSha: HEAD, completedAt: '2026-07-16T09:10:00.000Z'}]}), agentId: ME}).kind)
             .toBe('failed-required-check');
         expect(admitOwnPrRepair({pr: ownPr({mergeable: false}), agentId: ME}).kind).toBe('merge-conflict');
         // a clean head is not a repair
@@ -83,8 +84,8 @@ test.describe('lifecycleAdmission — the five stages and their exclusions', () 
     test('EXCLUSION — an OPTIONAL check failing is not a repair trigger', () => {
         // otherwise every advisory linter invents an obligation
         const optionalFail = ownPr({checks: [
-            {name: 'unit',    required: true,  conclusion: 'SUCCESS'},
-            {name: 'advisory', required: false, conclusion: 'FAILURE'}
+            {name: 'unit',     required: true,  conclusion: 'SUCCESS', headSha: HEAD, completedAt: '2026-07-16T09:30:00.000Z'},
+            {name: 'advisory', required: false, conclusion: 'FAILURE', headSha: HEAD, completedAt: '2026-07-16T09:40:00.000Z'}
         ]});
 
         expect(admitOwnPrRepair({pr: optionalFail, agentId: ME})).toBeNull();
@@ -105,7 +106,7 @@ test.describe('lifecycleAdmission — the five stages and their exclusions', () 
 
         expect(admitOwnPrRepair({pr: draft, agentId: ME})).toBeNull();
         expect(admitOwnPrReviewerRouting({pr: draft, agentId: ME})).toBeNull();
-        expect(admitRequestedReview({pr: {...draft, reviewRequests: [ME]}, agentId: ME})).toBeNull();
+        expect(admitRequestedReview({pr: {...draft, reviewRequests: [{login: ME, requestedAt: '2026-07-16T09:45:00.000Z'}]}, agentId: ME})).toBeNull();
     });
 
     test('an OLD-head verdict does not close the current head — the code changed underneath it', () => {
@@ -119,12 +120,12 @@ test.describe('lifecycleAdmission — the five stages and their exclusions', () 
     });
 
     test('stage 2 excludes a PR that already has an outstanding review request — someone has it', () => {
-        expect(admitOwnPrReviewerRouting({pr: ownPr({reviewRequests: [PEER]}), agentId: ME})).toBeNull();
+        expect(admitOwnPrReviewerRouting({pr: ownPr({reviewRequests: [{login: PEER, requestedAt: '2026-07-16T09:45:00.000Z'}]}), agentId: ME})).toBeNull();
         expect(admitOwnPrReviewerRouting({pr: ownPr(), agentId: ME}).kind).toBe('needs-reviewer');
     });
 
     test('stage 3 admits a live request to me and discharges on ANY current-head verdict', () => {
-        const requested = ownPr({authorId: PEER, reviewRequests: [ME]});
+        const requested = ownPr({authorId: PEER, reviewRequests: [{login: ME, requestedAt: '2026-07-16T09:45:00.000Z'}]});
 
         expect(admitRequestedReview({pr: requested, agentId: ME}).stage).toBe('requested-review');
         // my verdict on the CURRENT head discharges it
@@ -179,7 +180,7 @@ test.describe('lifecycleAdmission — the five stages and their exclusions', () 
             agentId: ME,
             prs    : [
                 ownPr({id: 'pr-a', reviews: [{state: 'CHANGES_REQUESTED', commitSha: HEAD}]}),
-                ownPr({id: 'pr-b', authorId: PEER, reviewRequests: [ME]})
+                ownPr({id: 'pr-b', authorId: PEER, reviewRequests: [{login: ME, requestedAt: '2026-07-16T09:45:00.000Z'}]})
             ],
             tasks   : [{id: 't-1', ownerId: ME, state: 'InputRequired', actionableSince: '2026-07-16T09:00:00.000Z'}],
             messages: [{messageId: 'm-1', to: ME, readAt: null, sentAt: '2026-07-16T09:00:00.000Z'}]
@@ -208,7 +209,7 @@ test.describe('lifecycleAdmission — the five stages and their exclusions', () 
         // live after the current head was already closed, manufacturing an obligation.
         const pr = ownPr({
             authorId      : PEER,
-            reviewRequests: [ME],
+            reviewRequests: [{login: ME, requestedAt: '2026-07-16T09:45:00.000Z'}],
             reviews       : [{state: 'APPROVED', authorId: PEER, commitSha: HEAD}]
         });
 
@@ -217,7 +218,7 @@ test.describe('lifecycleAdmission — the five stages and their exclusions', () 
         // ...but an OLDER-head verdict cannot close the current head — the code changed underneath it.
         const stale = ownPr({
             authorId      : PEER,
-            reviewRequests: [ME],
+            reviewRequests: [{login: ME, requestedAt: '2026-07-16T09:45:00.000Z'}],
             reviews       : [{state: 'APPROVED', authorId: PEER, commitSha: OLD}]
         });
 
@@ -280,6 +281,82 @@ test.describe('lifecycleAdmission — the five stages and their exclusions', () 
 
         expect(reentered.repairActionableSince).toBe('2026-07-16T11:00:00.000Z');
         expect(reentered.repairActionableSinceHeadSha).toBe(HEAD);
+    });
+
+    test('each clock has its OWN algebra — min for repair, max-when-all-pass for reviewable', () => {
+        // One reducer for three questions was wrong three different ways. These are the reviewer's exact
+        // literals.
+
+        // REVIEWABLE: required checks at 10:05 and 10:30 → the head became reviewable at 10:30, when the
+        // LAST one went green. At 10:05 it was not reviewable at all.
+        const twoChecks = normalizeClocks({
+            headSha        : HEAD,
+            headCommittedAt: '2026-07-16T10:00:00.000Z',
+            checks         : [
+                {name: 'a', required: true, conclusion: 'SUCCESS', headSha: HEAD, completedAt: '2026-07-16T10:05:00.000Z'},
+                {name: 'b', required: true, conclusion: 'SUCCESS', headSha: HEAD, completedAt: '2026-07-16T10:30:00.000Z'}
+            ]
+        });
+
+        expect(twoChecks.reviewableSince).toBe('2026-07-16T10:30:00.000Z');
+
+        // ...and until ALL pass there is no reviewable clock at all
+        const oneStillRunning = normalizeClocks({
+            headSha        : HEAD,
+            headCommittedAt: '2026-07-16T10:00:00.000Z',
+            checks         : [
+                {name: 'a', required: true, conclusion: 'SUCCESS', headSha: HEAD, completedAt: '2026-07-16T10:05:00.000Z'},
+                {name: 'b', required: true, conclusion: null,      headSha: HEAD}
+            ]
+        });
+
+        expect(oneStillRunning.reviewableSince).toBeNull();
+
+        // REPAIR: earliest blocking evidence — the first thing that broke this head dates it.
+        const twoBlockers = normalizeClocks({
+            headSha        : HEAD,
+            headCommittedAt: '2026-07-16T10:00:00.000Z',
+            reviews        : [{state: 'CHANGES_REQUESTED', commitSha: HEAD, submittedAt: '2026-07-16T10:40:00.000Z'}],
+            checks         : [{name: 'a', required: true, conclusion: 'FAILURE', headSha: HEAD, completedAt: '2026-07-16T10:20:00.000Z'}]
+        });
+
+        expect(twoBlockers.repairActionableSince).toBe('2026-07-16T10:20:00.000Z');
+    });
+
+    test('a clock can never predate its own head — later(evidence, head), not the evidence alone', () => {
+        // REQUESTED: a request at 09:00 followed by a push at 10:00 is not a request to review THIS
+        // code. The obligation restarts with the head.
+        const requestedBeforePush = normalizeClocks({
+            headSha        : HEAD,
+            headCommittedAt: '2026-07-16T10:00:00.000Z',
+            reviewRequests : [{login: ME, requestedAt: '2026-07-16T09:00:00.000Z'}],
+            checks         : []
+        });
+
+        expect(requestedBeforePush.reviewRequestedSince).toBe('2026-07-16T10:00:00.000Z');
+        expect(requestedBeforePush.reviewRequestedSinceHeadSha).toBe(HEAD);
+
+        // CONFLICT: a conflict observed at 09:00 cannot describe a head committed at 10:00. Keeping
+        // 09:00 while stamping current-head provenance claimed a duration this head never had.
+        const conflictBeforePush = normalizeClocks({
+            headSha        : HEAD,
+            headCommittedAt: '2026-07-16T10:00:00.000Z',
+            mergeableSince : '2026-07-16T09:00:00.000Z',
+            reviews        : [],
+            checks         : []
+        });
+
+        expect(conflictBeforePush.repairActionableSince).toBe('2026-07-16T10:00:00.000Z');
+
+        // a request AFTER the push keeps its own timestamp — the clamp is a floor, not an override
+        const requestedAfterPush = normalizeClocks({
+            headSha        : HEAD,
+            headCommittedAt: '2026-07-16T10:00:00.000Z',
+            reviewRequests : [{login: ME, requestedAt: '2026-07-16T11:00:00.000Z'}],
+            checks         : []
+        });
+
+        expect(requestedAfterPush.reviewRequestedSince).toBe('2026-07-16T11:00:00.000Z');
     });
 
     test('the clock owner runs inside collectLifecycleItems — a raw source row needs no caller clock', () => {

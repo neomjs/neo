@@ -241,14 +241,29 @@ export function buildLifecycleFrontier({
  * expiry when it never could. Supplied, they make "is this expired?" and "is this even mine?"
  * executable — the second being the whole point of never-foreign at the consuming end.
  *
+ * Freshness and reader binding need the reader's own facts, so they are REQUIRED by default. Making
+ * them optional was itself a fail-open: called bare, the guard returned `valid: true` for an expired
+ * envelope scoped to another agent — the two failures it exists to catch — while looking like it had
+ * validated them. A caller that genuinely only wants structure must now say so, so that choice appears
+ * at the call site instead of hiding in an omitted argument.
+ *
  * @param {*} frontier The object to validate (may be anything).
  * @param {Object} [reader] The consuming reader's facts.
- * @param {Date|Number|String} [reader.now] Reader clock — enables the expiry check.
- * @param {String} [reader.agentId] Consuming agent — enables the reader-binding check.
+ * @param {Date|Number|String} [reader.now] Reader clock — required unless `shapeOnly`.
+ * @param {String} [reader.agentId] Consuming agent — required unless `shapeOnly`.
+ * @param {Boolean} [reader.shapeOnly=false] Explicitly validate STRUCTURE ONLY, accepting that expiry
+ *   and reader binding go unchecked.
  * @returns {{valid: Boolean, errors: String[]}}
  */
-export function validateLifecycleFrontier(frontier, {now, agentId} = {}) {
+export function validateLifecycleFrontier(frontier, {now, agentId, shapeOnly = false} = {}) {
     const errors = [];
+
+    if (!shapeOnly && (now === undefined || typeof agentId !== 'string' || agentId.length === 0)) {
+        return {
+            valid : false,
+            errors: ['reader validation requires now + agentId; pass {shapeOnly: true} to check structure only']
+        }
+    }
 
     if (!frontier || typeof frontier !== 'object' || Array.isArray(frontier)) {
         return {valid: false, errors: ['frontier is not a plain object']}
@@ -274,6 +289,14 @@ export function validateLifecycleFrontier(frontier, {now, agentId} = {}) {
 
     if (typeof frontier.sourceWatermark !== 'string' || frontier.sourceWatermark.length === 0) {
         errors.push('sourceWatermark is required')
+    }
+
+    // An envelope that expires before it was captured was never valid for a single instant. Both stamps
+    // parsing individually says nothing about whether they describe a coherent window.
+    if (typeof frontier.capturedAt === 'string' && typeof frontier.expiresAt === 'string' &&
+        !Number.isNaN(Date.parse(frontier.capturedAt)) && !Number.isNaN(Date.parse(frontier.expiresAt)) &&
+        Date.parse(frontier.expiresAt) <= Date.parse(frontier.capturedAt)) {
+        errors.push(`expiresAt ${frontier.expiresAt} is not after capturedAt ${frontier.capturedAt}`)
     }
 
     // Without a resolved scope a reader cannot tell whose obligations it is holding, which is the one
@@ -343,9 +366,9 @@ export function validateLifecycleFrontier(frontier, {now, agentId} = {}) {
                 errors.push(`items[${index}].stage is not a known lifecycle stage`)
             }
 
-            // The FULL shape, not the two fields that happen to be interesting. A partial row reads as a
-            // real obligation while naming nothing a peer can act on or trace.
-            for (const field of ['id', 'kind', 'source', 'subjectId']) {
+            // EVERY field the producer emits, not the ones that happen to be interesting. A partial row
+            // reads as a real obligation while naming nothing a peer can act on or trace.
+            for (const field of ['id', 'kind', 'state', 'source', 'subjectId', 'checkedAt']) {
                 if (typeof item?.[field] !== 'string' || item[field].length === 0) {
                     errors.push(`items[${index}].${field} is required`)
                 }
@@ -355,8 +378,12 @@ export function validateLifecycleFrontier(frontier, {now, agentId} = {}) {
                 errors.push(`items[${index}].actionableSince must be a parseable ISO timestamp`)
             }
 
+            // Members, not just the container: `citations: [42]` passes an is-array check and cites
+            // nothing a reader can follow.
             if (!Array.isArray(item?.citations)) {
                 errors.push(`items[${index}].citations must be an array`)
+            } else if (item.citations.some(citation => typeof citation !== 'string')) {
+                errors.push(`items[${index}].citations must contain only strings`)
             }
         });
 

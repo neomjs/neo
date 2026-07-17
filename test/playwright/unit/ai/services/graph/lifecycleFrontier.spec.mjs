@@ -41,9 +41,11 @@ test.describe('lifecycleFrontier — lifecycle-frontier.v1 contract', () => {
         id             : 'pr-1',
         stage          : 'own-pr-repair',
         kind           : 'changes-requested',
+        state          : 'OPEN',
         source         : 'github-workflow',
         subjectId      : 'pr-15231',
         actionableSince: '2026-07-16T09:00:00.000Z',
+        checkedAt      : '2026-07-16T10:00:00.000Z',
         citations      : ['https://github.com/neomjs/neo/pull/15231'],
         ...overrides
     });
@@ -155,10 +157,10 @@ test.describe('lifecycleFrontier — lifecycle-frontier.v1 contract', () => {
 
     test('validateLifecycleFrontier accepts a good envelope and NEVER throws on bad input', () => {
         const good = buildLifecycleFrontier(base({items: [item()]}));
-        expect(validateLifecycleFrontier(good)).toEqual({valid: true, errors: []});
+        expect(validateLifecycleFrontier(good, {shapeOnly: true})).toEqual({valid: true, errors: []});
 
-        expect(validateLifecycleFrontier(null).valid).toBe(false);
-        expect(validateLifecycleFrontier({schemaVersion: 'legacy'}).valid).toBe(false);
+        expect(validateLifecycleFrontier(null, {shapeOnly: true}).valid).toBe(false);
+        expect(validateLifecycleFrontier({schemaVersion: 'legacy'}, {shapeOnly: true}).valid).toBe(false);
 
         const foreign = validateLifecycleFrontier({
             schemaVersion: 'lifecycle-frontier.v1',
@@ -166,7 +168,7 @@ test.describe('lifecycleFrontier — lifecycle-frontier.v1 contract', () => {
             notAuthority : true,
             scope        : {resolution: 'omitted'},
             items        : [{stage: 'own-pr-repair', actionableSince: '2026-07-16T09:00:00.000Z'}]
-        });
+        }, {shapeOnly: true});
 
         expect(foreign.valid).toBe(false);
         expect(foreign.errors.some(error => /omitted scope must carry zero items/.test(error))).toBe(true);
@@ -176,6 +178,83 @@ test.describe('lifecycleFrontier — lifecycle-frontier.v1 contract', () => {
         expect(LIFECYCLE_STAGES).toEqual([
             'own-pr-repair', 'own-pr-reviewer-routing', 'requested-review', 'claimed-a2a-task', 'direct-message'
         ]);
+    });
+
+    test('called BARE, the guard refuses rather than silently skipping expiry and reader binding', () => {
+        // The reviewer's falsifier: without reader args, an EXPIRED envelope scoped to ANOTHER agent
+        // returned valid:true — the two failures the guard exists to catch. Optional reader facts were
+        // themselves a fail-open, so the shape-only choice must now be made at the call site.
+        const expiredForeign = {
+            schemaVersion  : 'lifecycle-frontier.v1',
+            status         : 'empty',
+            capturedAt     : '2020-01-01T00:00:00.000Z',
+            sourceWatermark: 'w',
+            expiresAt      : '2020-01-01T00:05:00.000Z',
+            scope          : {resolution: 'agent-instance', agentId: '@some-other-peer'},
+            coverage       : {sources: [], degradedSources: []},
+            items          : [],
+            notAuthority   : true
+        };
+
+        expect(validateLifecycleFrontier(expiredForeign).valid).toBe(false);
+        expect(validateLifecycleFrontier(expiredForeign).errors.join(' ')).toContain('requires now + agentId');
+
+        // With the reader's facts, BOTH failures are named rather than skipped.
+        const checked = validateLifecycleFrontier(expiredForeign, {now: '2026-07-16T12:00:00.000Z', agentId: '@neo-opus-ada'});
+
+        expect(checked.valid).toBe(false);
+        expect(checked.errors.join(' ')).toContain('expired at');
+        expect(checked.errors.join(' ')).toContain('not the consuming agent');
+
+        // shape-only is legitimate — but it must be SAID, so the unchecked expiry is visible in the code
+        expect(validateLifecycleFrontier(expiredForeign, {shapeOnly: true}).valid).toBe(true);
+    });
+
+    test('an envelope that expires before it was captured was never valid for an instant', () => {
+        const inverted = validateLifecycleFrontier({
+            schemaVersion  : 'lifecycle-frontier.v1',
+            status         : 'empty',
+            capturedAt     : '2026-07-16T12:00:00.000Z',
+            sourceWatermark: 'w',
+            expiresAt      : '2026-07-16T11:00:00.000Z',
+            scope          : {resolution: 'omitted', agentId: null},
+            coverage       : {sources: [], degradedSources: []},
+            items          : [],
+            notAuthority   : true
+        }, {shapeOnly: true});
+
+        // Both stamps parse individually; that says nothing about whether they describe a real window.
+        expect(inverted.valid).toBe(false);
+        expect(inverted.errors.join(' ')).toContain('is not after capturedAt');
+    });
+
+    test('EVERY emitted item field is validated, members included — not the interesting ones', () => {
+        const bad = validateLifecycleFrontier({
+            schemaVersion  : 'lifecycle-frontier.v1',
+            status         : 'fresh',
+            capturedAt     : '2026-07-16T12:00:00.000Z',
+            sourceWatermark: 'w',
+            expiresAt      : '2026-07-16T12:05:00.000Z',
+            scope          : {resolution: 'agent-instance', agentId: '@neo-opus-ada'},
+            coverage       : {sources: ['pull-requests'], degradedSources: []},
+            // missing state, missing checkedAt, and citations that cite nothing followable
+            items          : [{
+                id             : 'pr-1',
+                stage          : 'own-pr-repair',
+                kind           : 'changes-requested',
+                source         : 'github-workflow',
+                subjectId      : 'pr-1',
+                actionableSince: '2026-07-16T09:00:00.000Z',
+                citations      : [42]
+            }],
+            notAuthority: true
+        }, {shapeOnly: true});
+
+        expect(bad.valid).toBe(false);
+        expect(bad.errors.join(' ')).toContain('items[0].state is required');
+        expect(bad.errors.join(' ')).toContain('items[0].checkedAt is required');
+        // `citations: [42]` passes an is-array check and cites nothing a reader can follow
+        expect(bad.errors.join(' ')).toContain('items[0].citations must contain only strings');
     });
 
     test('a STRUCTURALLY INCOMPLETE envelope is rejected — a guard that passes one is worse than none', () => {
@@ -188,7 +267,7 @@ test.describe('lifecycleFrontier — lifecycle-frontier.v1 contract', () => {
             status       : 'empty',
             notAuthority : true,
             items        : []
-        });
+        }, {shapeOnly: true});
 
         expect(valid).toBe(false);
         expect(errors.join(' ')).toContain('capturedAt must be a parseable ISO timestamp');
@@ -209,7 +288,7 @@ test.describe('lifecycleFrontier — lifecycle-frontier.v1 contract', () => {
             coverage       : {sources: [], degradedSources: []},
             items          : [],
             notAuthority   : true
-        });
+        }, {shapeOnly: true});
 
         // an attested category with no identity cannot be checked against the reader — reject it
         expect(attestedNoId.valid).toBe(false);
@@ -225,7 +304,7 @@ test.describe('lifecycleFrontier — lifecycle-frontier.v1 contract', () => {
             coverage       : {sources: 'all'},
             items          : [],
             notAuthority   : true
-        });
+        }, {shapeOnly: true});
 
         expect(badCoverage.valid).toBe(false);
         expect(badCoverage.errors.join(' ')).toContain('coverage.sources must be an array');

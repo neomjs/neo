@@ -22,6 +22,23 @@
  */
 
 /**
+ * @summary The logins a PR's review requests name, tolerating both source shapes.
+ *
+ * A request arrives either as a bare login or as `{login, requestedAt}`. Only the second can be dated,
+ * so the richer shape is what a datable frontier needs — but the identity question is the same either
+ * way, and reading it in one place keeps the two from drifting.
+ *
+ * @param {Object} pr Normalized PR record.
+ * @param {String} agentId
+ * @returns {Boolean}
+ */
+function requestsInclude(pr, agentId) {
+    return (pr?.reviewRequests || []).some(request =>
+        (typeof request === 'string' ? request : request?.login) === agentId
+    )
+}
+
+/**
  * @summary Derives a PR's lifecycle clocks from CURRENT-HEAD evidence, so the head-change reset is
  * structural rather than promised.
  *
@@ -49,30 +66,42 @@ export function normalizeLifecycleClocks(pr) {
     const currentHeadReviews = (pr?.reviews || []).filter(review => review.commitSha === head),
           currentHeadChecks  = (pr?.checks  || []).filter(check  => check.headSha === head || check.headSha === undefined);
 
-    const earliest = stamps => {
-        const valid = stamps.filter(stamp => typeof stamp === 'string' && stamp.length > 0).sort();
-        return valid.length > 0 ? valid[0] : null
-    };
+    const clean    = stamps => stamps.filter(stamp => typeof stamp === 'string' && stamp.length > 0).sort(),
+          earliest = stamps => clean(stamps)[0] ?? null,
+          latest   = stamps => clean(stamps).at(-1) ?? null;
 
-    const repairSince = earliest([
+    // Each stage's clock is a DIFFERENT algebra, because each answers a different question. One reducer
+    // for all three was wrong in three distinct ways.
+    const headCommittedAt = typeof pr?.headCommittedAt === 'string' ? pr.headCommittedAt : null;
+
+    // A current-head clock can never predate the head itself: the state being dated belongs to code
+    // that did not exist earlier. A conflict timestamp carried over from a previous head, stamped with
+    // current-head provenance, claimed a duration this head never had.
+    const clampToHead = stamp =>
+        stamp !== null && headCommittedAt !== null && stamp < headCommittedAt ? headCommittedAt : stamp;
+
+    // REPAIR — EARLIEST. "When did this head first need repair?" The first blocking evidence is the
+    // answer; later evidence is more of the same obligation.
+    const repairSince = clampToHead(earliest([
         ...currentHeadReviews.filter(review => review.state === 'CHANGES_REQUESTED').map(review => review.submittedAt),
         ...currentHeadChecks.filter(check => check.required === true && check.conclusion === 'FAILURE').map(check => check.completedAt),
-        // A conflict has no source timestamp of its own; the source states when it observed one.
+        // A conflict carries no evidence timestamp of its own; the source states when it observed one.
         pr?.mergeableSince
-    ]);
+    ]));
 
-    // Where the source carries no per-fact timestamp, the observation time is the honest floor: this
-    // head WAS seen in this state at `checkedAt`. That understates age rather than inventing it, and it
-    // still resets on head change because the provenance below is the current head. It is a floor, not
-    // a claim about when the state began.
-    const observed = typeof pr?.checkedAt === 'string' ? pr.checkedAt : null;
+    // REVIEWABLE — LATEST, and only once ALL required checks have passed. "When did this head become
+    // reviewable?" is when the LAST required check went green. At the earliest one it was not reviewable
+    // at all, so dating it there claims a readiness that did not exist.
+    const requiredChecks  = currentHeadChecks.filter(check => check.required === true),
+          allPassed       = requiredChecks.length > 0 && requiredChecks.every(check => check.conclusion === 'SUCCESS'),
+          reviewableSince = allPassed ? clampToHead(latest(requiredChecks.map(check => check.completedAt))) : null;
 
-    const reviewableSince = earliest(currentHeadChecks.filter(check => check.required === true).map(check => check.completedAt)) ??
-                            pr?.headCommittedAt ?? observed;
-
-    const requestedSince = earliest((pr?.reviewRequests || []).map(request =>
+    // REQUESTED — LATER of the request and the head. A request that predates a push is not a request to
+    // review THIS code; the obligation restarts when the head moves under it. `clampToHead` IS that
+    // later(), since the head is the floor.
+    const requestedSince = clampToHead(earliest((pr?.reviewRequests || []).map(request =>
         typeof request === 'object' ? request.requestedAt : null
-    )) ?? ((pr?.reviewRequests || []).length > 0 ? observed : null);
+    )));
 
     return {
         ...pr,
@@ -270,8 +299,8 @@ export function admitOwnPrReviewerRouting({pr, agentId} = {}) {
  * @returns {Object|null}
  */
 export function admitRequestedReview({pr, agentId} = {}) {
-    if (!pr || pr.state !== 'OPEN' || pr.isDraft)     return null;
-    if (!(pr.reviewRequests || []).includes(agentId)) return null;
+    if (!pr || pr.state !== 'OPEN' || pr.isDraft) return null;
+    if (!requestsInclude(pr, agentId))            return null;
     // Closure is defined by the HEAD, not by the author of the verdict: a decision on the current head
     // closes it, and a decision on an older head cannot, because the code changed underneath. Adding an
     // author-is-me restriction here invented a rule the contract does not have — it kept a request live
