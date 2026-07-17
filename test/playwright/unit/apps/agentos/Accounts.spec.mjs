@@ -121,70 +121,118 @@ test.describe('AgentOS.view.Accounts credential boundary', () => {
      * have named the defect and then reproduced it one line down. Credit: @neo-opus-grace spotted the
      * twin on review.
      *
-     * The `upsert` assertion is not decoration: a run that submits NOTHING also writes and logs
-     * nothing, so without proof the accepted-add path actually executed, both empty sets are vacuous.
+     * Three things here are load-bearing, and the first draft of this test got all three wrong —
+     * @neo-gpt falsified each against the real head:
+     *
+     * 1. It drives the REAL `submitToFleetRegistryBridge` / `upsertPublicAgentDefinition` through an
+     *    injected bridge and a real store. Stubbing those seams deletes the path the credential
+     *    actually crosses: a helper extracted INSIDE the real submit method persisted the PAT while
+     *    all 23 specs stayed green. A witness that replaces the subject of its own claim proves
+     *    nothing about it.
+     * 2. The recorder is a Proxy, not a plain object. `storage[key] = value` is a real persistent
+     *    write in Chromium and calls no method, so a method-only recorder watches it in silence.
+     * 3. Teardown deletes an ABSENT global rather than restoring `undefined` (the hosted runner has
+     *    no `sessionStorage`), and unwinds LIFO so a throw mid-install still restores what was set.
+     *
+     * The positive control is not decoration: a run that submits NOTHING also writes and logs
+     * nothing, so without proof the accepted-add path actually executed through those real seams,
+     * both empty sets are vacuous.
      */
-    test('no credential byte reaches browser storage OR the console on an accepted add — behavioural, survives extraction', async () => {
+    test('no credential byte reaches browser storage OR the console on an accepted add — real seams, behavioural', async () => {
         const
-            canonical = {
+            AgentDefinition = (await import('../../../../../apps/agentos/model/AgentDefinition.mjs')).default,
+            Store           = (await import('../../../../../src/data/Store.mjs')).default,
+            canonical       = {
                 id            : 'resident-42',
                 githubUsername: 'canonical-login',
                 harnessType   : 'antigravity'
             },
-            calls     = [],
-            writes    = [],
-            logged    = [],
-            pat       = 'ghp_should_not_escape',
-            form      = {
+            pat        = 'ghp_should_not_escape',
+            writes     = [],
+            logged     = [],
+            statuses   = [],
+            store      = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: []}),
+            form       = {
                 getSubmitValues: async () => ({credential: pat, githubUsername: 'submitted-login', harnessType: 'codex'}),
                 validate       : async () => true
             },
-            stub      = {
-                clearCredentialField       : async () => {},
-                fire                       : () => {},
-                getReference               : reference => reference === 'agent-form' ? form : null,
-                submitToFleetRegistryBridge: async () => canonical,
-                updateBridgeStatus         : (state, message) => calls.push(['status', state, message]),
-                upsertPublicAgentDefinition: () => calls.push(['upsert'])
+            stub       = {
+                agentDefinitionsStore: store,
+                clearCredentialField : async () => {},
+                fire                 : () => {},
+                getReference         : reference => reference === 'agent-form' ? form : null,
+                updateBridgeStatus   : (state, message) => statuses.push([state, message]),
+                // the REAL credential-bearing seams. Stubbing `submitToFleetRegistryBridge` would
+                // delete the very path the credential crosses, and a helper extracted INSIDE it would
+                // leak while every assertion here stayed green — the claim would be about a boundary
+                // the test had removed.
+                submitToFleetRegistryBridge: Accounts.prototype.submitToFleetRegistryBridge,
+                upsertPublicAgentDefinition: Accounts.prototype.upsertPublicAgentDefinition
             },
-            // every mutating Storage member records instead of persisting; reads stay inert
-            recorder  = kind => ({
+            // Proxy-backed, not a plain object: `storage[key] = value` is a REAL persistent write in
+            // Chromium and reaches no method, so a method-only recorder watches it happen in silence.
+            // The trap covers the mutation surface; reads stay inert.
+            recorder   = kind => new Proxy({
                 clear     : ()     => writes.push([kind, 'clear']),
                 getItem   : ()     => null,
                 key       : ()     => null,
                 length    : 0,
                 removeItem: key    => writes.push([kind, 'removeItem', key]),
                 setItem   : (k, v) => writes.push([kind, 'setItem', k, v])
+            }, {
+                defineProperty(target, key, descriptor) {
+                    writes.push([kind, 'defineProperty', key, descriptor?.value]);
+                    return true
+                },
+                set(target, key, value) {
+                    writes.push([kind, 'set', key, value]);
+                    return true
+                }
             }),
-            kinds     = ['localStorage', 'sessionStorage'],
-            levels    = ['debug', 'error', 'info', 'log', 'warn'],
-            originals = {},
-            realLevel = {};
+            kinds      = ['localStorage', 'sessionStorage'],
+            levels     = ['debug', 'error', 'info', 'log', 'warn'],
+            realOS     = globalThis.AgentOS,
+            // LIFO teardown. Each entry is pushed BEFORE its mutation, so a throw part-way through
+            // install still unwinds everything already installed.
+            undo       = [];
 
-        kinds.forEach(kind => {
-            originals[kind] = Object.getOwnPropertyDescriptor(globalThis, kind);
-            Object.defineProperty(globalThis, kind, {configurable: true, value: recorder(kind)})
-        });
-
-        levels.forEach(level => {
-            realLevel[level] = console[level];
-            console[level]   = (...args) => logged.push([level, ...args])
-        });
+        // the injected bridge the REAL submit seam reads off globalThis
+        globalThis.AgentOS = {...realOS, fleet: {registryBridge: {defineAgent: async () => canonical}}};
 
         try {
+            kinds.forEach(kind => {
+                const original = Object.getOwnPropertyDescriptor(globalThis, kind);
+
+                // an ABSENT global must be deleted, not restored: the hosted runner has no
+                // `sessionStorage`, and defineProperty(…, undefined) throws on the way out
+                undo.push(() => original ? Object.defineProperty(globalThis, kind, original) : delete globalThis[kind]);
+                Object.defineProperty(globalThis, kind, {configurable: true, value: recorder(kind)})
+            });
+
+            levels.forEach(level => {
+                const original = console[level];
+
+                undo.push(() => {console[level] = original});
+                console[level] = (...args) => logged.push([level, ...args])
+            });
+
             await Accounts.prototype.onSubmitAgentClick.call(stub)
         } finally {
-            kinds .forEach(kind  => Object.defineProperty(globalThis, kind, originals[kind]));
-            levels.forEach(level => {console[level] = realLevel[level]})
+            undo.reverse().forEach(fn => fn());
+            globalThis.AgentOS = realOS
         }
 
-        // the positive control: the add REALLY completed, so an empty `writes`/`logged` means something
-        expect(calls, 'the accepted-add path must have run — otherwise both leak checks are vacuous')
-            .toEqual([['upsert'], ['status', 'is-live', 'Agent added. PAT was not retained in the app worker.']]);
+        // the positive control: the REAL seams ran to an accepted add, so empty sets mean something
+        expect(statuses, 'the accepted-add path must have run through the REAL seams — otherwise both leak checks are vacuous')
+            .toEqual([['is-live', 'Agent added. PAT was not retained in the app worker.']]);
+        expect(store.get('resident-42')?.githubUsername, 'the real store must hold the canonical record').toBe('canonical-login');
+        expect(store.get('resident-42')?.credential, 'and no credential byte in it').toBeUndefined();
 
         expect(writes, 'no credential byte may reach browser storage, from ANY module on this path').toEqual([]);
         expect(logged, 'no credential byte may reach the console, from ANY module on this path').toEqual([]);
-        expect(JSON.stringify([writes, logged])).not.toContain(pat)
+        expect(JSON.stringify([writes, logged])).not.toContain(pat);
+
+        store.destroy()
     });
 
     test('identity setup writes only the redacted projection to the shared roster', () => {
