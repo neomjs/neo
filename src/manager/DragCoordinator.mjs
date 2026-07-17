@@ -115,8 +115,15 @@ class DragCoordinator extends Manager {
             proxyRect
         });
 
-        await targetSortZone.onRemoteDrop(draggedItem);
-        sourceSortZone.onRemoteDropOut(draggedItem);
+        // The native-titlebar path answers the same question as the pointer path, so it obeys the same
+        // rule: the target's return IS the commit decision, and a null means it declined. Retiring the
+        // source anyway arms `remoteDropCommitted` and suppresses the source's own restore, leaving the
+        // item with no owner — identical to the pointer defect, reached through a different door.
+        const operation = await targetSortZone.onRemoteDrop(draggedItem);
+
+        if (operation) {
+            sourceSortZone.onRemoteDropOut(draggedItem)
+        }
 
         if (me.activeTargetZone === targetSortZone) {
             me.activeTargetZone = null
@@ -176,11 +183,11 @@ class DragCoordinator extends Manager {
      * @returns {Object|null}
      */
     getNativeWindowDropCandidate(data, sourceDrag) {
-        let me             = this,
+        let me               = this,
             {sourceSortZone} = sourceDrag,
-            popupWindow    = Window.get(data.windowId),
-            popupRect      = popupWindow?.innerRect,
-            {sortGroup}    = sourceSortZone,
+            popupWindow      = Window.get(data.windowId),
+            popupRect        = popupWindow?.innerRect,
+            {sortGroup}      = sourceSortZone,
             targetWindowId, targetSortZone, targetWindow, localX, localY, width, height;
 
         if (!popupRect || !sortGroup) {
@@ -252,19 +259,19 @@ class DragCoordinator extends Manager {
      * @param {Neo.draggable.container.SortZone} data.sourceSortZone
      */
     onDragMove(data) {
-        let me             = this,
+        let me                                                                           = this,
             {draggedItem, offsetX, offsetY, proxyRect, screenX, screenY, sourceSortZone} = data,
-            {sortGroup}    = sourceSortZone,
-            targetWindowId = Window.getWindowAt(screenX, screenY),
+            {sortGroup}                                                                  = sourceSortZone,
+            targetWindowId                                                               = Window.getWindowAt(screenX, screenY),
             targetSortZone;
 
         if (targetWindowId && targetWindowId !== sourceSortZone.windowId) {
             targetSortZone = me.sortZones.get(sortGroup)?.get(targetWindowId);
 
             if (targetSortZone) {
-                let targetWindow = Window.get(targetWindowId),
-                    localX       = screenX - targetWindow.innerRect.x,
-                    localY       = screenY - targetWindow.innerRect.y,
+                let targetWindow    = Window.get(targetWindowId),
+                    localX          = screenX - targetWindow.innerRect.x,
+                    localY          = screenY - targetWindow.innerRect.y,
                     targetProxyRect = new Rectangle(
                         localX - offsetX,
                         localY - offsetY,
@@ -396,20 +403,26 @@ class DragCoordinator extends Manager {
             // The TARGET decides whether the gesture committed: onRemoteDrop() returns the committed
             // operation, or null when there was no preview, no operation, or the commit declined.
             // Engagement is not commitment, so its answer cannot be discarded.
-            let operation = me.activeTargetZone.onRemoteDrop(data.draggedItem);
+            // `finally`, because a throwing commit is the REJECTED terminal — and a terminal that
+            // leaves `activeTargetZone` populated hands the next release a commit destination from a
+            // gesture that already failed. The error is not swallowed: cleanup is exact-once on every
+            // terminal, including the ones that raise.
+            try {
+                let operation = me.activeTargetZone.onRemoteDrop(data.draggedItem);
 
-            // Source retirement follows the OUTCOME, not the attempt. Retiring unconditionally armed
-            // the source's `remoteDropCommitted`, whose whole meaning is "a remote target committed
-            // this transfer" — and which suppresses the source's in-window drop path on that belief.
-            // On a null commit the target never took the item while the source had already let go, so
-            // the item stranded with no owner. Leaving the flag unarmed lets the source's ordinary
-            // in-window path run and restore it: the restore is the pre-existing default, not a new
-            // capability — it was simply unreachable behind the false commit signal.
-            if (operation) {
-                data.sourceSortZone.onRemoteDropOut(data.draggedItem)
+                // Source retirement follows the OUTCOME, not the attempt. Retiring unconditionally
+                // armed the source's `remoteDropCommitted`, whose whole meaning is "a remote target
+                // committed this transfer" — and which suppresses the source's in-window drop path on
+                // that belief. On a null commit the target never took the item while the source had
+                // already let go, so the item stranded with no owner. Leaving the flag unarmed lets the
+                // source's ordinary in-window path run and restore it: the restore is the pre-existing
+                // default, not a new capability — it was simply unreachable behind a false signal.
+                if (operation) {
+                    data.sourceSortZone.onRemoteDropOut(data.draggedItem)
+                }
+            } finally {
+                me.activeTargetZone = null
             }
-
-            me.activeTargetZone = null
         } else if (data.sourceSortZone.isWindowDragging) {
             data.sourceSortZone.onTerminalWindowDrop?.(data.draggedItem)
         }
@@ -451,7 +464,13 @@ class DragCoordinator extends Manager {
         // while leaving it here kept a zone whose vessel is gone reachable as `activeTargetZone`, so
         // the next release would commit into a departed window — and re-registering the same identity
         // would inherit that residue instead of starting clean.
+        //
+        // The hover is ended BEFORE the pointer is dropped: nulling alone orphans whatever the target
+        // is rendering, because `onRemoteDragLeave` is the only thing that clears its preview and the
+        // owner's. Losing the reference first makes that unreachable — the zone keeps painting a hover
+        // for a gesture that no longer exists.
         if (me.activeTargetZone === sortZone) {
+            me.activeTargetZone.onRemoteDragLeave?.();
             me.activeTargetZone = null
         }
 

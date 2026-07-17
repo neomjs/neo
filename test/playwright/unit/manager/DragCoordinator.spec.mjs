@@ -207,6 +207,81 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
         expect(calls).toEqual(afterFirst)
     });
 
+    test('the NATIVE-titlebar path obeys the same rule — the defect had a twin behind a different door', async () => {
+        // @neo-gpt-emmy's delta: the pointer fix left `commitNativeWindowDrop` discarding
+        // `await onRemoteDrop(...)` and retiring the source anyway. Same defect class, different
+        // entry point — fixing the instance the ticket named is not fixing the class.
+        const
+            draggedItem = {id: 'tab-1'},
+            target      = {
+                ...createTargetZone(null),
+                acceptsRemoteDrag: () => true,
+                onRemoteDragMove : async () => {}
+            },
+            source      = {
+                ...createSourceZone(),
+                getNativeWindowDrag: () => ({draggedItem}),
+                suspendWindowDrag  : async () => {}
+            };
+
+        // `commitNativeWindowDrop(windowId, candidate)` is POSITIONAL and guards on the candidate being
+        // the registered one. A single-object call returns at the first guard and reaches nothing — the
+        // first draft of this test did exactly that and passed against the defect it names.
+        const candidate = {
+            draggedItem, sourceSortZone: source, targetSortZone: target,
+            localX: 0, localY: 0, offsetX: 0, offsetY: 0, proxyRect: {}, widgetName: 'w'
+        };
+
+        DragCoordinator.nativeWindowDropCandidates.set(7, candidate);
+
+        await DragCoordinator.commitNativeWindowDrop(7, candidate);
+
+        // The target declined, so the source keeps the item — exactly as on the pointer path.
+        expect(calls).toEqual([['onRemoteDrop', 'tab-1']]);
+        expect(calls.some(([name]) => name === 'onRemoteDropOut')).toBe(false)
+    });
+
+    test('a THROWING commit still clears the engagement — a REJECTED terminal cannot park the target', () => {
+        const
+            source = createSourceZone(),
+            target = {
+                sortGroup: 'dock',
+                windowId : 2,
+                onRemoteDrop() { throw new Error('commit exploded') }
+            };
+
+        DragCoordinator.activeTargetZone = target;
+
+        // The error propagates — cleanup must not swallow it, or a failing commit reads as a success.
+        expect(() => DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source}))
+            .toThrow(/commit exploded/);
+
+        // ...and the terminal is still exact-once: leaving the target installed would hand the NEXT
+        // release a commit destination belonging to a gesture that already failed.
+        expect(DragCoordinator.activeTargetZone).toBeNull();
+        expect(calls.some(([name]) => name === 'onRemoteDropOut')).toBe(false)
+    });
+
+    test('unregister ends the hover before dropping the pointer — a nulled target cannot clear its own preview', () => {
+        let left = 0;
+
+        const target = {
+            sortGroup: 'dock',
+            windowId : 2,
+            onRemoteDragLeave() { left++ }
+        };
+
+        DragCoordinator.register(target);
+        DragCoordinator.activeTargetZone = target;
+
+        DragCoordinator.unregister(target);
+
+        // Nulling alone orphans the target's preview and its owner's: onRemoteDragLeave is the only
+        // path that clears them, and losing the reference first makes it unreachable forever.
+        expect(left).toBe(1);
+        expect(DragCoordinator.activeTargetZone).toBeNull()
+    });
+
     test('a mid-gesture vessel departure resolves to a clean terminal, not a commit into a dead window', () => {
         const
             source = createSourceZone(),
