@@ -466,9 +466,10 @@ test.describe('AgentOS.view.fleet.MailboxPane — the read-only S1 mailbox tab',
         expect(prev.vdom['aria-label']).toBe('Newer messages');
         expect(next.vdom['aria-label']).toBe('Older messages');
 
-        // `disabled` adds only the neo-disabled CLASS — no native attribute, no aria. Without an
-        // explicit aria-disabled the closed edge is announced as ENABLED: the operator who most
-        // needs the boundary to be honest is the one it lies to.
+        // `component.Base.disabled` guarantees the neo-disabled CLASS and no aria-disabled. Without
+        // the explicit ARIA state the closed edge is announced as ENABLED: the operator who most
+        // needs the boundary to be honest is the one it lies to. Any native `disabled` projection
+        // belongs to the Button layer and is deliberately not assumed here.
         expect(prev.disabled).toBe(true);
         expect(prev.vdom['aria-disabled']).toBe('true');
         expect(next.disabled).toBe(false);
@@ -490,8 +491,9 @@ test.describe('AgentOS.view.fleet.MailboxPane — the read-only S1 mailbox tab',
         // `button.Base.onClick` never consults the config. So what is pinned here is the guard
         // against programmatic entry — NOT a claim that a real click or keypress reaches the
         // handler. Unguarded, stepping past the last page reads an empty window at a positive
-        // offset. The AT half of the residual (still announced enabled, still focusable) is
-        // `aria-disabled`'s job and is pinned separately.
+        // offset. `aria-disabled` owns the announcement only; it does not remove focus or suppress
+        // activation. The routed gates plus this direct-entry guard own refusal here, while any
+        // native focus/activation behavior remains the Button layer's contract.
         const pane  = createPane({snapshot: wiredSnapshot([row({messageId: 'MESSAGE:a'})], {limit: 50, offset: 0, count: 50, hasMore: false})}),
               fired = [];
 
