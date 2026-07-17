@@ -282,5 +282,32 @@ test.describe('check-aiconfig-antipatterns guard — A1 module-level env re-deri
         } finally {
             fs.rmSync(tmpFile, {force: true})
         }
+    });
+
+    /*
+     * A1 classifies against the code-only PROJECTION, which is built by walking the line and asking
+     * the mask about each position. The mask and acorn's token offsets both count UTF-16 code UNITS;
+     * `Array.from(line, (ch, i) => mask[i])` walks code POINTS. An astral character (emoji, rare CJK)
+     * is ONE code point but TWO code units, so every lookup after it read the mask one slot early and
+     * the projection silently desynced from the truth it was projecting.
+     *
+     * These are @neo-gpt-emmy's specimens, not mine, and that distinction is the point: my own astral
+     * specimen used a STRING, where the shift landed code-on-code and the pattern survived it — it
+     * passed against the BROKEN mask too, so it discriminated nothing. Hers puts the astral char in a
+     * COMMENT immediately before real code, which is where the shift actually crosses a mask
+     * boundary. I asked for it rather than pin a witness that proves the fix exists instead of that
+     * it works.
+     */
+    const astralHeader = 'import AiConfig from "../ConfigProvider.mjs";\n';
+
+    test('A1 astral FN direction: an emoji COMMENT never hides the real env read behind it', () => {
+        expect(findAntipatterns(astralHeader + 'const DB_PATH = /*😀*/process.env.NEO_DB_PATH || fallback;\n').map(hit => hit.rule)).toEqual(['A1'])
+    });
+
+    test('A1 astral FP direction: an emoji never drags a quoted pattern into code', () => {
+        // in a string …
+        expect(findAntipatterns(astralHeader + 'const note = "😀 process.env.NEO_DB_PATH";\n')).toEqual([]);
+        // … and in a comment
+        expect(findAntipatterns(astralHeader + '/*😀 process.env.NEO_DB_PATH*/ const ok = true;\n')).toEqual([])
     })
 });
