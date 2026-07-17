@@ -12,6 +12,10 @@ import readline                          from 'readline/promises';
 import {createRequire}                   from 'module';
 import {fileURLToPath, pathToFileURL}    from 'url';
 import {createLocalBearerLaunchContract} from '../../mcp/server/shared/helpers/localBearer.mjs';
+import {
+    GENESIS_DIAGNOSTIC_ATTESTATION_ENV,
+    createDiagnosticPathAttestation
+} from '../../mcp/server/neural-link/diagnosticPathAttestation.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -183,14 +187,24 @@ export function createBrowserLaunchOptions({
  * @param {String} [options.bearerToken] Optional external-mode token.
  * @param {{dev:Number, bridge:Number, mcp:Number}} options.ports
  * @param {String} options.root Disposable diagnostic root.
- * @returns {{databasePath:String, logPath:String, clientHeaders:Object, devEnv:Object, bridgeEnv:Object, mcpEnv:Object}}
+ * @returns {{databasePath:String, logPath:String, clientHeaders:Object, devEnv:Object, bridgeEnv:Object, mcpEnv:Object, diagnosticAttestations:Object}}
  */
 export function createProbeEnvironments({baseEnv = process.env, bearerToken, ports, root}) {
     const
-        launchContract = createLocalBearerLaunchContract(bearerToken),
-        safeEnv        = createSafeBaseEnv(baseEnv),
-        databasePath   = path.join(root, 'memory-core.sqlite'),
-        logPath        = root,
+        launchContract         = createLocalBearerLaunchContract(bearerToken),
+        safeEnv                = createSafeBaseEnv(baseEnv),
+        databasePath           = path.join(root, 'memory-core.sqlite'),
+        logPath                = root,
+        diagnosticAttestations = {
+            bridge: createDiagnosticPathAttestation({
+                role : 'bridge',
+                sinks: {logs: logPath}
+            }),
+            mcp: createDiagnosticPathAttestation({
+                role : 'mcp',
+                sinks: {database: databasePath, logs: logPath}
+            })
+        },
         commonEnv      = {
             ...safeEnv,
             FORCE_COLOR              : '0',
@@ -204,20 +218,22 @@ export function createProbeEnvironments({baseEnv = process.env, bearerToken, por
         },
         bridgeEnv = {
             ...commonEnv,
-            NEO_NL_LOG_PATH: logPath,
-            NEO_NL_PORT    : String(ports.bridge)
+            [GENESIS_DIAGNOSTIC_ATTESTATION_ENV]: diagnosticAttestations.bridge.commitment,
+            NEO_NL_LOG_PATH                     : logPath,
+            NEO_NL_PORT                         : String(ports.bridge)
         },
         mcpEnv = {
             ...commonEnv,
             ...launchContract.serverEnv,
-            HOST                       : LOOPBACK_HOST,
-            MCP_HTTP_PORT              : String(ports.mcp),
-            NEO_MEMORY_DB_PATH         : databasePath,
-            NEO_NL_AUTO_CONNECT        : 'true',
-            NEO_NL_LOG_PATH            : logPath,
-            NEO_NL_PORT                : String(ports.bridge),
-            NEO_NL_TOOL_PROJECTION_MODE: PROBE_PROJECTION_MODE,
-            NEO_TRANSPORT              : 'streamable-http'
+            [GENESIS_DIAGNOSTIC_ATTESTATION_ENV]: diagnosticAttestations.mcp.commitment,
+            HOST                                : LOOPBACK_HOST,
+            MCP_HTTP_PORT                       : String(ports.mcp),
+            NEO_MEMORY_DB_PATH                  : databasePath,
+            NEO_NL_AUTO_CONNECT                 : 'true',
+            NEO_NL_LOG_PATH                     : logPath,
+            NEO_NL_PORT                         : String(ports.bridge),
+            NEO_NL_TOOL_PROJECTION_MODE         : PROBE_PROJECTION_MODE,
+            NEO_TRANSPORT                       : 'streamable-http'
         };
 
     assertDiagnosticPathsWithinRoot({databasePath, logPath, root});
@@ -226,6 +242,7 @@ export function createProbeEnvironments({baseEnv = process.env, bearerToken, por
         databasePath,
         logPath,
         clientHeaders: launchContract.clientHeaders,
+        diagnosticAttestations,
         devEnv,
         bridgeEnv,
         mcpEnv
@@ -343,57 +360,6 @@ export async function createManifest(root) {
     await walk(root);
 
     return {rootPresent: true, entries}
-}
-
-/**
- * @summary Captures a metadata-only path snapshot for the default-path non-touch guard.
- * @param {String} targetPath
- * @returns {Promise<Object>}
- */
-export async function snapshotPath(targetPath) {
-    try {
-        const stat = await fsPromises.lstat(targetPath);
-
-        if (!stat.isDirectory()) {
-            return {
-                exists : true,
-                type   : stat.isFile() ? 'file' : stat.isSymbolicLink() ? 'symlink' : 'other',
-                bytes  : stat.size,
-                mtimeMs: stat.mtimeMs
-            }
-        }
-
-        const manifest = await createManifest(targetPath);
-
-        return {
-            exists : true,
-            type   : 'directory',
-            entries: manifest.entries,
-            mtimeMs: stat.mtimeMs
-        }
-    } catch (error) {
-        if (error.code === 'ENOENT') {
-            return {exists: false}
-        }
-        throw error
-    }
-}
-
-/**
- * @summary Captures the complete SQLite file family for the default-path non-touch guard. WAL
- * mode can mutate the `-wal` or `-shm` sidecar while the main database file stays byte-identical,
- * so all three paths are one proof surface.
- * @param {String} databasePath Main SQLite database path.
- * @returns {Promise<Object>} Metadata snapshots for the main, WAL, and SHM files.
- */
-export async function snapshotSqliteFamily(databasePath) {
-    const [database, wal, shm] = await Promise.all([
-        snapshotPath(databasePath),
-        snapshotPath(`${databasePath}-wal`),
-        snapshotPath(`${databasePath}-shm`)
-    ]);
-
-    return {database, wal, shm}
 }
 
 /**
@@ -613,14 +579,26 @@ export async function waitForPortsClosed(ports, timeoutMs) {
  * @param {String} options.label
  * @param {String} options.logPath Child-private stdio log inside the disposable root.
  * @param {String[]} options.markers Exact marker fragments emitted only after the child binds.
+ * @param {String[]} [options.uniqueMarkers=[]] Marker fragments that must occur exactly once.
  * @param {Number} options.port
  * @param {Number} options.timeoutMs
  * @param {Number} [options.deadline] Global session deadline.
  * @param {AbortSignal} [options.signal] Probe interruption signal.
  * @returns {Promise<void>}
  */
-export async function waitForChildReady({child, deadline, label, logPath, markers, port, signal, timeoutMs}) {
-    if (!logPath || !Array.isArray(markers) || markers.length === 0) {
+export async function waitForChildReady({
+    child,
+    deadline,
+    label,
+    logPath,
+    markers,
+    port,
+    signal,
+    timeoutMs,
+    uniqueMarkers = []
+}) {
+    if (!logPath || !Array.isArray(markers) || markers.length === 0 ||
+        !Array.isArray(uniqueMarkers) || uniqueMarkers.some(marker => !markers.includes(marker))) {
         throw new TypeError(`${label} readiness requires a private log path and at least one marker.`)
     }
 
@@ -644,6 +622,10 @@ export async function waitForChildReady({child, deadline, label, logPath, marker
             logText = await fsPromises.readFile(logPath, 'utf8')
         } catch (error) {
             if (error.code !== 'ENOENT') throw error
+        }
+
+        if (uniqueMarkers.some(marker => logText.indexOf(marker) !== logText.lastIndexOf(marker))) {
+            throw new Error(`${label} emitted duplicate child-private readiness evidence.`)
         }
 
         if (markers.every(marker => logText.includes(marker))) {
@@ -938,21 +920,18 @@ export async function readAggregateTelemetry(databasePath) {
  * must fail the receipt without becoming a veto that leaves raw diagnostics behind.
  * @param {Object} options
  * @param {String|null} options.databasePath Isolated SQLite path.
- * @param {Object|null} options.defaultPaths Default live database/log paths.
  * @param {Boolean} options.deletionAuthorized Whether process shutdown proof permits deletion.
  * @param {String} options.root Disposable diagnostic root.
- * @returns {Promise<Object>} Aggregate evidence, manifests, default snapshot, and private failures.
+ * @returns {Promise<Object>} Aggregate evidence, manifests, and private failures.
  */
 export async function finalizeDisposableRoot({
     databasePath,
-    defaultPaths,
     deletionAuthorized,
     root
 }) {
     let
         afterManifest  = {rootPresent: null, entries: []},
         beforeManifest = {rootPresent: null, entries: []},
-        defaultAfter   = null,
         telemetry      = [];
 
     const failures = [];
@@ -978,17 +957,6 @@ export async function finalizeDisposableRoot({
         value => { beforeManifest = value }
     );
 
-    if (defaultPaths) {
-        await capture(
-            'Default-path after snapshot',
-            async () => ({
-                database: await snapshotSqliteFamily(defaultPaths.database),
-                logs    : await snapshotPath(defaultPaths.logs)
-            }),
-            value => { defaultAfter = value }
-        )
-    }
-
     if (deletionAuthorized) {
         await capture(
             'Disposable-root deletion',
@@ -1003,7 +971,7 @@ export async function finalizeDisposableRoot({
         value => { afterManifest = value }
     );
 
-    return {afterManifest, beforeManifest, defaultAfter, failures, telemetry}
+    return {afterManifest, beforeManifest, failures, telemetry}
 }
 
 /**
@@ -1138,10 +1106,7 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
         canonicalJson,
         commitment,
         databasePath,
-        defaultAfter,
-        defaultBefore,
-        defaultPaths,
-        diagnosticsConfigured = false,
+        diagnosticPathsIsolated = false,
         failure,
         logPath,
         oracle,
@@ -1163,23 +1128,6 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
         await runPhase(() => import('../../../src/Neo.mjs'), 'Neo bootstrap');
         await runPhase(() => import('../../../src/core/_export.mjs'), 'Neo core bootstrap');
 
-        const aiConfig = (await runPhase(
-            () => import('../../mcp/server/neural-link/config.mjs'),
-            'Neural Link config bootstrap'
-        )).default;
-
-        defaultPaths = {
-            database: aiConfig.memoryCoreDbPath,
-            logs    : aiConfig.logPath
-        };
-        defaultBefore = {
-            database: await runPhase(
-                () => snapshotSqliteFamily(defaultPaths.database),
-                'Default SQLite-family snapshot'
-            ),
-            logs    : await runPhase(() => snapshotPath(defaultPaths.logs), 'Default log snapshot')
-        };
-
         state.root = await runPhase(
             () => fsPromises.mkdtemp(path.join(os.tmpdir(), 'neo-genesis-probe-')),
             'Disposable-root creation'
@@ -1198,7 +1146,6 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
         }
 
         ({databasePath, logPath} = environments);
-        diagnosticsConfigured = true;
 
         const bridgeLog = path.join(state.root, 'neural-link-bridge-stdio.log');
         state.children.bridge = spawnLoggedChild({
@@ -1212,10 +1159,14 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
             deadline: workDeadline,
             label   : 'Neural Link Bridge',
             logPath : bridgeLog,
-            markers : [`Bridge: Listening on ${LOOPBACK_HOST}:${ports.bridge}`],
-            port    : ports.bridge,
+            markers : [
+                environments.diagnosticAttestations.bridge.marker,
+                `Bridge: Listening on ${LOOPBACK_HOST}:${ports.bridge}`
+            ],
+            port         : ports.bridge,
             signal,
-            timeoutMs
+            timeoutMs,
+            uniqueMarkers: [environments.diagnosticAttestations.bridge.marker]
         });
 
         const devLog = path.join(state.root, 'dev-server-stdio.log');
@@ -1226,14 +1177,15 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
             name   : 'Neo dev server'
         });
         await waitForChildReady({
-            child   : state.children.dev,
-            deadline: workDeadline,
-            label   : 'Neo dev server',
-            logPath : devLog,
-            markers : ['[webpack-dev-server] Loopback:', `${LOOPBACK_HOST}:${ports.dev}/`],
-            port    : ports.dev,
+            child        : state.children.dev,
+            deadline     : workDeadline,
+            label        : 'Neo dev server',
+            logPath      : devLog,
+            markers      : ['[webpack-dev-server] Loopback:', `${LOOPBACK_HOST}:${ports.dev}/`],
+            port         : ports.dev,
             signal,
-            timeoutMs
+            timeoutMs,
+            uniqueMarkers: [environments.diagnosticAttestations.mcp.marker]
         });
 
         const mcpLog = path.join(state.root, 'neural-link-mcp-stdio.log');
@@ -1251,6 +1203,7 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
             label   : 'Neural Link MCP server',
             logPath : mcpLog,
             markers : [
+                environments.diagnosticAttestations.mcp.marker,
                 'Server started on Streamable HTTP transport',
                 `Port: ${ports.mcp}`,
                 `Host: ${LOOPBACK_HOST}`
@@ -1259,6 +1212,7 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
             signal,
             timeoutMs
         });
+        diagnosticPathsIsolated = true;
 
         const {chromium}    = await runPhase(() => import('playwright'), 'Playwright bootstrap');
         const launchOptions = createBrowserLaunchOptions({
@@ -1507,12 +1461,11 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
     if (state.root) {
         const finalization = await finalizeDisposableRoot({
             databasePath,
-            defaultPaths,
             deletionAuthorized: state.cleanupDeletionAuthorized,
             root              : state.root
         });
 
-        ({afterManifest, beforeManifest, defaultAfter, telemetry} = finalization);
+        ({afterManifest, beforeManifest, telemetry} = finalization);
 
         if (finalization.failures.length) {
             failure = createProbeFailure(
@@ -1522,9 +1475,6 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
         }
     }
 
-    const defaultPathsUntouched = defaultBefore && defaultAfter ?
-        JSON.stringify(defaultBefore) === JSON.stringify(defaultAfter) : null;
-
     if (afterManifest.rootPresent) {
         failure ||= createProbeFailure(
             terminationVerified ? 'CLEANUP_FAILED' : 'CHILD_TERMINATION_UNVERIFIED'
@@ -1533,10 +1483,6 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
     if (process.platform === 'win32' && !terminationVerified) {
         failure ||= createProbeFailure('CHILD_TERMINATION_UNVERIFIED')
     }
-    if (defaultPathsUntouched === false) {
-        failure ||= new Error('A default live diagnostic path changed during the isolated probe window.')
-    }
-
     let versions = {
         genesis: {version: GENESIS_VERSION, commit: GENESIS_COMMIT},
         neo    : {version: null, commit: null}
@@ -1576,10 +1522,9 @@ export async function runProbe(options, baseEnv = process.env, {signal} = {}) {
         } : null,
         telemetry,
         diagnostics  : {
-            configuredInsideDisposableRoot: diagnosticsConfigured,
+            diagnosticPathsIsolated,
             beforeManifest,
             afterManifest,
-            defaultPathsUntouched,
             listenerClosureVerified,
             terminationVerified
         },

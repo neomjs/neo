@@ -1,9 +1,10 @@
-import BaseServer            from '../BaseServer.mjs';
-import aiConfig              from './config.mjs';
-import logger                from './logger.mjs';
-import ConnectionService     from '../../../services/neural-link/ConnectionService.mjs';
-import HealthService         from '../../../services/neural-link/HealthService.mjs';
-import {listTools, callTool} from './toolService.mjs';
+import BaseServer              from '../BaseServer.mjs';
+import aiConfig                from './config.mjs';
+import logger                  from './logger.mjs';
+import ConnectionService       from '../../../services/neural-link/ConnectionService.mjs';
+import HealthService           from '../../../services/neural-link/HealthService.mjs';
+import {listTools, callTool}   from './toolService.mjs';
+import {attestDiagnosticPaths} from './diagnosticPathAttestation.mjs';
 
 let _turnId = 0;
 
@@ -54,6 +55,13 @@ class Server extends BaseServer {
      * @member {String|null} bridgeCwd=null
      */
     bridgeCwd = null
+
+    /**
+     * @summary Expected commitment for the Genesis probe's resolved writable sinks. Normal launches leave
+     * this unset; the MCP entrypoint injects it only for an isolated diagnostic child.
+     * @member {String|null} diagnosticPathAttestation=null
+     */
+    diagnosticPathAttestation = null
 
     /**
      * @summary MCP server identity for `createMcpServer()`.
@@ -140,16 +148,30 @@ class Server extends BaseServer {
      *
      * Sequence:
      * 1. Load custom config
-     * 2. Construct mcpServer + wire request handlers
-     * 3. Connect stdio transport (early — handshake-tolerance for Bridge-down scenarios)
-     * 4. Await ConnectionService.ready (non-fatal: logged but doesn't throw, so the server
+     * 2. Attest resolved diagnostic paths when the Genesis launcher supplied a commitment
+     * 3. Construct mcpServer + wire request handlers
+     * 4. Connect stdio transport (early — handshake-tolerance for Bridge-down scenarios)
+     * 5. Await ConnectionService.ready (non-fatal: logged but doesn't throw, so the server
      *    stays alive to report health errors via the MCP healthcheck tool)
-     * 5. Healthcheck + startup-status log
+     * 6. Healthcheck + startup-status log
      *
      * @returns {Promise<void>}
      */
     async boot() {
         await this.loadCustomConfig();
+
+        const diagnosticMarker = attestDiagnosticPaths({
+            expectedCommitment: this.diagnosticPathAttestation,
+            role              : 'mcp',
+            sinks             : {
+                database: this.aiConfig.memoryCoreDbPath,
+                logs    : this.aiConfig.logPath
+            }
+        });
+
+        if (diagnosticMarker) {
+            process.stderr.write(`${diagnosticMarker}\n`)
+        }
 
         this.mcpServer = this.createMcpServer();
 
