@@ -11,8 +11,7 @@ const cwd                   = process.cwd(),
       buildTarget           = requireJson(path.resolve(neoPath, 'buildScripts/webpack/development/buildTarget.json')),
       filenameConfig        = requireJson(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
       plugins               = [],
-      regexIndexNodeModules = /node_modules/g,
-      regexTopLevel         = /\.\.\//g;
+      regexIndexNodeModules = /node_modules/g;
 
 let examplesPath;
 
@@ -72,11 +71,9 @@ export default env => {
 
         content = requireJson(inputPath);
 
-        // A single global pass can re-form `../` from overlapping input (e.g. `....//` → `../`),
-        // so strip until none remains — the loop guard names the pattern so completeness is provable.
-        while (content.appPath.includes('../')) {
-            content.appPath = content.appPath.replace(regexTopLevel, '');
-        }
+        // Strip parent-dir (`..`) path segments — complete by construction (no substring-replace
+        // can re-form a segment) and identical to the old `../`-strip for every real appPath.
+        content.appPath = content.appPath.split('/').filter(segment => segment !== '..').join('/');
 
         Object.assign(content, {
             basePath,
