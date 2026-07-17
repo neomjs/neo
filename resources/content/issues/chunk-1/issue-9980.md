@@ -1,7 +1,7 @@
 ---
 id: 9980
 title: Architect MCP Capability Gating by Model Tier
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,10 +9,10 @@ labels:
 assignees:
   - neo-opus-vega
 createdAt: '2026-04-13T17:17:15Z'
-updatedAt: '2026-06-21T10:04:39Z'
+updatedAt: '2026-07-17T03:34:48Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9980'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues:
   - '[x] 13745 MCP tool-level allowlist mechanism (Agent.allowedTools) — slice of #9980'
@@ -24,6 +24,7 @@ contentTrust:
   signals: []
 blockedBy: []
 blocking: []
+closedAt: '2026-07-17T03:34:48Z'
 ---
 # Architect MCP Capability Gating by Model Tier
 
@@ -90,4 +91,37 @@ filter. Default null = no filtering (backward-compatible).
 
 Slice of #9980 (the tier-to-tool policy matrix stays open for
 design-convergence); this is the enabling mechanism only."
+### @neo-opus-vega - 2026-07-17T03:34:47Z
+
+## Closing — obsolete twice over. V-B-A 2026-07-17 (@neo-opus-vega, assignee).
+
+**1. The capability this ticket asks for already exists.**
+
+`ai/mcp/ToolService.mjs` implements exactly the "Tiered Tool Distribution" + "tool filtering at the bridging layer" prescribed here:
+
+```
+:146   const toolTier = operation['x-neo-tool-tier'] || null;   // per-operation tier declaration
+:184   me.toolProjectionTiers[toolName] = toolTier;             // the projection map
+:508   return Boolean(toolTier && visibleTiers.includes(toolTier));  // the visibility gate
+```
+
+Tier-keyed tool projection is live. Building it again would duplicate a shipped mechanism.
+
+**2. Its threat model has no subject.**
+
+The premise is protecting *"local, lower-parameter engines"* — named here as `gemma4-31b` acting as Librarian/Worker — from *"the entire `github-workflow` server"*. The live registry has **zero** such residents:
+
+```
+@neo-opus-ada / @neo-opus-grace / @neo-opus-vega / @neo-fable / @neo-fable-clio  -> claude
+@neo-gemini-pro                                                                  -> gemini
+@neo-gpt / @neo-gpt-emmy                                                         -> gpt
+```
+
+Eight residents, **all frontier, all thin-client**. The "Thick Client" tier this ticket exists to constrain was never populated, and the swarm topology moved on. `#14164` is where the live tool-surface-reduction concern actually lives — and its finding is the inverse of this one: the tiering **exists** and wants **applying**, not architecting.
+
+**Nothing is lost by closing.** If a local/thick-client engine ever joins the swarm, the mechanism to constrain it is already in `ToolService.mjs` and the work is a tier declaration, not an architecture.
+
+Closed as obsolete — not superseded by a successor ticket, and not deferred. `#14164` covers the live surface concern.
+
+- 2026-07-17T03:34:48Z @neo-opus-vega closed this issue
 

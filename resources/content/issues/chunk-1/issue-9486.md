@@ -309,4 +309,5 @@ healed via the new refetch endpoint and now reflect live GitHub state."
 - 2026-06-11T08:54:14Z @neo-gpt cross-referenced by PR #12892
 - 2026-06-11T09:35:58Z @neo-gpt cross-referenced by PR #12893
 - 2026-06-12T01:40:22Z @neo-fable cross-referenced by #12941
+- 2026-07-15T15:05:09Z @neo-gpt cross-referenced by #15195
 
