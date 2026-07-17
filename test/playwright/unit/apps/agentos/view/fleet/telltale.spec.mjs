@@ -10,7 +10,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 
-import {describeTelltale, TELLTALE_NOMINAL} from '../../../../../../../apps/agentos/view/fleet/telltale.mjs';
+import {describeTelltale, describeTelltaleReadout, TELLTALE_NOMINAL} from '../../../../../../../apps/agentos/view/fleet/telltale.mjs';
 
 /**
  * @summary The S2 telltale contract.
@@ -81,5 +81,58 @@ test.describe('AgentOS.view.fleet.telltale — two orthogonal axes, one compound
         // 'unknown' render differently for no operator-visible reason.
         expect(describeTelltale({wake: {state: 'on', confidence: 'none', reason: 'noisy'}}))
             .toEqual({hidden: true, text: ''})
+    })
+
+    test('the DETAIL readout states BOTH axes — the opposite of the card, deliberately', () => {
+        // The card is exception-based: 20 cards cannot spend a line each on "fine". The detail shows
+        // ONE resident, so omitting a nominal axis leaves the operator unable to tell "wake is on"
+        // from "nobody looked at wake". Same data, opposite rule.
+        const readout = describeTelltaleReadout({wake: {state: 'on'}, throttle: {state: 'none'}});
+
+        expect(readout.map(row => [row.axis, row.state, row.nominal]))
+            .toEqual([['wake', 'on', true], ['throttle', 'none', true]]);
+
+        // and the card says nothing at all for that same record
+        expect(describeTelltale({wake: {state: 'on'}, throttle: {state: 'none'}}).hidden).toBe(true)
+    });
+
+    test('`reported: false` is not a state — an unobserved axis never borrows `unknown`', () => {
+        // 'unknown' means the producer LOOKED and could not see. An absent axis means nobody looked.
+        // Collapsing them makes the detail claim an observation that was never made.
+        const [wake] = describeTelltaleReadout({wake: null, throttle: {state: 'none'}});
+
+        expect(wake.reported).toBe(false);
+        expect(wake.state).toBeNull();
+        expect(wake.nominal).toBe(false)
+    });
+
+    test('the producer\'s reason travels to the detail — the chip has no room for it', () => {
+        // This is what makes a degraded chip a prompt to drill in rather than a dead end.
+        const [, throttle] = describeTelltaleReadout({
+            throttle: {state: 'rate-limited', reason: 'session cap reached 01:12Z'}
+        });
+
+        expect(throttle.reason).toBe('session cap reached 01:12Z');
+
+        // the chip carries the state only
+        expect(describeTelltale({throttle: {state: 'rate-limited', reason: 'session cap reached 01:12Z'}}).text)
+            .toBe('rate-limited')
+    });
+
+    test('an observed `unknown` is reported and NOT nominal — blindness is not health', () => {
+        const [wake] = describeTelltaleReadout({wake: {state: 'unknown', reason: 'daemon pid-file unreadable'}});
+
+        expect(wake.reported).toBe(true);
+        expect(wake.nominal).toBe(false);
+        expect(wake.reason).toBe('daemon pid-file unreadable')
+    });
+
+    test('the readout is ALWAYS both axes, wake first — a stable shape the view can render blind', () => {
+        [{}, {wake: {state: 'off'}}, {throttle: {state: 'overage'}}, {wake: {state: 'on'}, throttle: {state: 'none'}}]
+            .forEach(input => {
+                const readout = describeTelltaleReadout(input);
+                expect(readout).toHaveLength(2);
+                expect(readout.map(row => row.axis)).toEqual(['wake', 'throttle'])
+            })
     })
 });

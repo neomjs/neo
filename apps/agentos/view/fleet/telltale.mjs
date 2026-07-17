@@ -44,6 +44,45 @@ function observedState(axis) {
 }
 
 /**
+ * @summary Describes the FULL two-axis readout for the detail view.
+ *
+ * The card and the detail answer different questions, which is why this is not the chip with more
+ * words. The card is **exception-based** — nominal earns zero pixels, because a roster of 20 cards
+ * cannot spend one line each on "fine". The detail is showing ONE resident, so it states both axes
+ * unconditionally: an operator who drilled in is asking "what is this agent's wake and throttle
+ * state", and answering only the broken half leaves them unable to tell "wake is on" from "nobody
+ * looked at wake".
+ *
+ * `reason` travels here and nowhere else. It is the producer's evidence — why it could not see — and
+ * the chip has no room for it, so a degraded axis on the card is a prompt to drill in rather than a
+ * dead end.
+ *
+ * @param {Object} options={}
+ * @param {Object|null} [options.throttle] The record's throttle observation.
+ * @param {Object|null} [options.wake] The record's wake observation.
+ * @returns {Object[]} `[{axis, state, nominal, reported, reason}]` — always both axes, wake first.
+ */
+export function describeTelltaleReadout({throttle = null, wake = null} = {}) {
+    return [
+        ['wake', wake, TELLTALE_NOMINAL.wake],
+        ['throttle', throttle, TELLTALE_NOMINAL.throttle]
+    ].map(([axis, observation, nominalState]) => {
+        const state = observedState(observation);
+
+        return {
+            axis,
+            // `reported: false` is NOT a state — it says no observation exists for this axis, which
+            // is why the view must render it as its own thing rather than borrowing 'unknown'. The
+            // producer's 'unknown' means it looked; this means nobody did.
+            reported: state !== null,
+            state,
+            nominal : state !== null && state === nominalState,
+            reason  : observation?.reason ?? null
+        }
+    })
+}
+
+/**
  * @summary Describes the compound telltale chip for one record's two axes.
  *
  * Exactly ONE chip regardless of how many axes are non-nominal — the card's density contract buys

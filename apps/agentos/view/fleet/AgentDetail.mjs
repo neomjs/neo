@@ -4,6 +4,7 @@ import Image                                          from '../../../../src/comp
 import MailboxPane                                    from './MailboxPane.mjs';
 import StateDot                                       from './StateDot.mjs';
 import TabContainer                                   from '../../../../src/tab/Container.mjs';
+import {describeTelltaleReadout}                      from './telltale.mjs';
 import {classifyPaneFreshness, describePaneFreshness} from './agentFreshness.mjs';
 import {normalizeFleetSources}                        from './sourceHealth.mjs';
 
@@ -201,6 +202,16 @@ class AgentDetail extends Container {
                     ntype    : 'component',
                     cls      : ['fm-detail-participation'],
                     reference: 'detail-participation'
+                }, {
+                    // The FULL two-axis telltale readout. The card is exception-based — nominal earns
+                    // zero pixels there, because 20 cards cannot spend a line each on "fine". This is
+                    // ONE resident, so both axes state themselves unconditionally: an operator who
+                    // drilled in cannot otherwise tell "wake is on" from "nobody looked at wake".
+                    // Lives in the identity block rather than a fifth pane — the four SSOT panes are
+                    // content surfaces with freshness TTLs, and this is resident state.
+                    ntype    : 'component',
+                    cls      : ['fm-detail-telltale'],
+                    reference: 'detail-telltale'
                 }]
             }]
         }, {
@@ -458,6 +469,28 @@ class AgentDetail extends Container {
         me.getReference('detail-participation').set({
             hidden: participation === null,
             text  : participation === null ? '' : participation.replace(/_/g, ' ')
+        });
+
+        // The full two-axis readout: BOTH axes, always — the opposite of the card's exception-based
+        // chip, and deliberately so. Three renderings for three different facts: a nominal axis says
+        // so (an operator who drilled in needs "wake: on" confirmed, not omitted), an observed
+        // `unknown` carries the producer's reason, and an axis nobody reported says "not reported"
+        // rather than borrowing 'unknown' — which would claim someone looked.
+        const readout = describeTelltaleReadout({throttle: record.throttle, wake: record.wake});
+
+        me.getReference('detail-telltale').set({
+            html: readout.map(({axis, reason, reported, state}) => {
+                if (!reported) {
+                    return `<span class="fm-detail-telltale-axis fm-detail-telltale-unreported">${axis}: not reported</span>`
+                }
+
+                // the reason is the producer's evidence for what it could not see; the card has no
+                // room for it, which is what makes a degraded chip a prompt to drill in rather than
+                // a dead end
+                const detail = reason ? ` <span class="fm-detail-telltale-reason">— ${reason}</span>` : '';
+
+                return `<span class="fm-detail-telltale-axis fm-detail-telltale-${state}">${axis}: ${state}</span>${detail}`
+            }).join('')
         });
 
         me.getReference('detail-avatar').set({
