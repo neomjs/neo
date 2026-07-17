@@ -1093,7 +1093,7 @@ paths:
         - name: assignee
           in: query
           required: false
-          description: Filter issues by a single assignee login.
+          description: Filter issues by a single assignee login. Applied server-side, so `limit` bounds the MATCHES returned rather than the rows searched — check `truncated` before treating the result as this agent's complete ownership.
           schema:
             type: string
         - name: projection
@@ -2338,6 +2338,17 @@ components:
       properties:
         count:
           type: integer
+          description: How many issues THIS page returned. Compare with `totalCount` before treating it as the whole answer.
+        totalCount:
+          type: integer
+          description: How many issues match the filters in total. `count < totalCount` means the answer is bounded, not complete.
+        truncated:
+          type: boolean
+          description: True when more matches exist beyond this page. A bounded answer that cannot say it was bounded is indistinguishable from a complete one.
+        endCursor:
+          type: string
+          nullable: true
+          description: Cursor for the next page when `truncated` is true; null otherwise.
         issues:
           type: array
           items:

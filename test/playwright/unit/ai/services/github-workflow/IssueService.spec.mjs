@@ -146,6 +146,84 @@ test.describe('Neo.ai.services.github-workflow.IssueService — listIssues proje
             error: 'Bad Request'
         });
     });
+
+    test('the assignee filter is applied SERVER-side — limit bounds matches, not rows searched', async () => {
+        const capture = {};
+        installIssueListStub(capture);
+
+        await IssueService.listIssues({limit: 30, state: 'open', assignee: 'neo-fable'});
+
+        // Filtering client-side searched only the page it happened to fetch: `limit` bounded the ROWS
+        // READ, not the MATCHES RETURNED, so an assignee query answered from the 30 most-recently-updated
+        // issues and silently dropped the rest — 1 of 9 against live GitHub.
+        expect(capture.variables.assignee).toBe('neo-fable');
+        expect(capture.query).toContain('filterBy: {assignee: $assignee}');
+    });
+
+    test('an unfiltered list passes assignee through as null — a no-op, never a zero-filter', async () => {
+        const capture = {};
+        installIssueListStub(capture);
+
+        const result = await IssueService.listIssues({limit: 10, state: 'open'});
+
+        // Verified against live GitHub: filterBy:{assignee: null} returns every open issue.
+        expect(capture.variables.assignee).toBeNull();
+        expect(result.count).toBe(2);
+    });
+
+    test('the server\'s matches are returned verbatim — no client-side pass may drop one', async () => {
+        // The stub returns one row assigned to neo-gpt and one assigned to nobody. A surviving
+        // client-side filter would drop the unassigned row; the server already decided the match set.
+        const capture = {};
+        installIssueListStub(capture);
+
+        const result = await IssueService.listIssues({limit: 10, state: 'open', assignee: 'neo-gpt'});
+
+        expect(result.count).toBe(2);
+        expect(result.issues.map(issue => issue.number)).toEqual([12706, 12705]);
+    });
+
+    test('a bounded answer SAYS it is bounded — count vs totalCount vs truncated', async () => {
+        GraphqlService.query = async () => ({
+            repository: {
+                issues: {
+                    totalCount: 9,
+                    pageInfo  : {hasNextPage: true, endCursor: 'cursor-abc'},
+                    nodes     : [{
+                        number   : 1,
+                        title    : 'one',
+                        state    : 'OPEN',
+                        createdAt: '2026-07-16T00:00:00Z',
+                        updatedAt: '2026-07-16T00:00:00Z',
+                        url      : 'https://github.com/neomjs/neo/issues/1',
+                        author   : {login: 'neo-fable'},
+                        labels   : {nodes: []},
+                        assignees: {nodes: [{login: 'neo-fable'}]}
+                    }]
+                }
+            }
+        });
+
+        const result = await IssueService.listIssues({limit: 1, state: 'open', assignee: 'neo-fable'});
+
+        // A caller reading `count: 1` had no way to learn there were 9 — which is how this surface
+        // convinced a booting session it had no carried assignments. `hasNextPage` was already selected
+        // and thrown away, so the truncation was knowable and simply never reported.
+        expect(result.count).toBe(1);
+        expect(result.totalCount).toBe(9);
+        expect(result.truncated).toBe(true);
+        expect(result.endCursor).toBe('cursor-abc');
+    });
+
+    test('a COMPLETE answer says so — truncated false, no cursor', async () => {
+        const capture = {};
+        installIssueListStub(capture);
+
+        const result = await IssueService.listIssues({limit: 10, state: 'open'});
+
+        expect(result.truncated).toBe(false);
+        expect(result.endCursor).toBeNull();
+    });
 });
 
 /**

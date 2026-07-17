@@ -1293,12 +1293,18 @@ class IssueService extends Base {
         // normalize state to uppercase array (GraphQL expects IssueState enum values)
         const states = state ? (Array.isArray(state) ? state.map(s => s.toUpperCase()) : [state.toUpperCase()]) : undefined;
 
+        // `assignee` is filtered SERVER-side. Filtering it client-side searched only the page this call
+        // happened to fetch: `limit` bounded the ROWS READ, not the MATCHES RETURNED, so an assignee
+        // query was answered from the 30 most-recently-updated issues and silently dropped the rest.
+        // Ownership truth is what lane-claims and intake assignee checks stand on, so a filter that
+        // quietly searches one page is a collision generator. `null` is a no-op, never a zero-filter.
         const variables = {
             owner           : aiConfig.owner,
             repo            : aiConfig.repo,
             limit,
             cursor,
             states,
+            assignee,
             maxLabels       : aiConfig.issueSync.maxLabelsPerIssue,
             maxAssignees    : aiConfig.issueSync.maxAssigneesPerIssue
         };
@@ -1316,13 +1322,9 @@ class IssueService extends Base {
                 });
             }
 
-            // client-side assignee filtering if requested
-            if (assignee) {
-                issues = issues.filter(issue => {
-                    const assignees = (issue.assignees && issue.assignees.nodes || []).map(a => a.login);
-                    return assignees.includes(assignee);
-                });
-            }
+            // NOTE: assignee is filtered server-side (see `variables.assignee`). The client-side pass
+            // that used to live here is gone: it could only ever see the rows this page happened to
+            // fetch, so it under-reported ownership without saying so.
 
             // Transform in-place to match OpenAPI schema
             for (const issue of issues) {
@@ -1331,8 +1333,20 @@ class IssueService extends Base {
             }
             issues = issues.map(issue => this.projectListedIssue(issue, normalizedProjection));
 
+            const
+                connection  = data.repository.issues,
+                totalCount  = connection.totalCount,
+                hasNextPage = connection.pageInfo?.hasNextPage === true;
+
+            // `count` is what this page returned; `totalCount` is what MATCHES. A bounded answer that
+            // cannot say it was bounded is how this surface misled in the first place — a caller reading
+            // `count: 1` had no way to learn there were 9. `hasNextPage` was already selected here and
+            // then discarded, so the truncation was knowable and simply never reported.
             return {
-                count: issues.length,
+                count    : issues.length,
+                totalCount,
+                truncated: hasNextPage,
+                endCursor: hasNextPage ? connection.pageInfo.endCursor : null,
                 issues
             };
         } catch (error) {
