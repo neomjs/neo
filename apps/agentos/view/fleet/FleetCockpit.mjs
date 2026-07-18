@@ -676,12 +676,9 @@ class FleetCockpit extends Container {
             return {completed: false, cueErrors: [], errors: ['agent-detail is detached — reattach before a take'], log: []}
         }
 
-        // REPLAY contract: every take starts from the screenplay's own opening stage. Without
-        // this reset a second run replays against the previous run's committed document and the
-        // reducer mints differently-numbered nodes than the script's expects pin.
-        me.resetTourStage();
-        await me.refreshPromise;
-
+        // SINGLE-FLIGHT: ownership is claimed SYNCHRONOUSLY — `tourRunner` is set before any
+        // await, so a concurrent second call refuses at the guard above instead of slipping
+        // through the pre-start refresh window and double-creating runners.
         me.cuePromise  = Promise.resolve();
         me.cueReceipts = [];
         me.cueErrors   = [];
@@ -701,6 +698,13 @@ class FleetCockpit extends Container {
         });
 
         try {
+            // REPLAY contract: every take starts from the screenplay's own opening stage
+            // (without the reset, a second run replays against the previous run's committed
+            // document and the reducer mints differently-numbered nodes than the script's
+            // expects pin). Inside the try: a reset/refresh failure still releases ownership.
+            me.resetTourStage();
+            await me.refreshPromise;
+
             const result = await me.tourRunner.start();
 
             // the runner never awaits host cues (its documented contract) — the tour's OWN

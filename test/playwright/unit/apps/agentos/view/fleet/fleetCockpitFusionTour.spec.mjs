@@ -165,6 +165,38 @@ test.describe('Fleet cockpit — fusion tour hosting seam', () => {
         expect(result.errors[0]).toContain('reattach before a take')
     });
 
+    test('single-flight under CONCURRENCY: ownership is claimed before any await, so a second call refuses while the first is parked in the refresh window', async () => {
+        // hold the pre-start refresh window OPEN — the exact window the falsifier exploited:
+        // before the fix, runner ownership was established only after this await, so a
+        // concurrent second call passed the guard and double-created runners
+        let releaseRefresh;
+
+        const host = {
+            id            : 'concurrency-stage',
+            dockService   : null,
+            detachedDetail: null,
+            tourRunner    : null,
+            refreshPromise: new Promise(resolve => releaseRefresh = resolve),
+            resetTourStage: () => {},
+            onTourBeat    : () => {},
+            onTourComplete: () => {},
+            setTourCaption: () => {}
+        };
+
+        const first  = proto.playFusionTour.call(host).catch(error => ({completed: false, errors: [String(error)], crashed: true})),
+              second = await proto.playFusionTour.call(host);
+
+        // the SECOND call refuses at the guard — ownership was already claimed synchronously
+        expect(second.completed).toBe(false);
+        expect(second.errors[0]).toContain('already running');
+
+        releaseRefresh();
+        await first;
+
+        // ownership fully released after the take settles (however it settled on the bare host)
+        expect(host.tourRunner).toBeNull()
+    });
+
     test('resetTourStage commits a fresh opening document through the standard commit loop — the replay seam', () => {
         const commits = [];
         const host    = {onDockZoneDocumentChange: document => commits.push(document)};
