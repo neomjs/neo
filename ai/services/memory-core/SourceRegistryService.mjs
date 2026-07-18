@@ -156,7 +156,7 @@ class SourceRegistryService extends Base {
      * @returns {String|null}
      */
     resolveTenantId() {
-        return RequestContextService.getUserId?.() || this.localSubjectId || null
+        return RequestContextService.getUserId() || this.localSubjectId || null
     }
 
     /**
@@ -177,7 +177,7 @@ class SourceRegistryService extends Base {
         if (!localSubjectId) {
             // A hosted subject is authenticated but not a source admin; distinguish it from the
             // no-authority case so callers can surface the right operator-facing message.
-            throw new Error(RequestContextService.getUserId?.()
+            throw new Error(RequestContextService.getUserId()
                 ? 'SOURCE_REGISTRATION_AUTHORITY_UNAVAILABLE'
                 : 'SOURCE_REGISTRATION_NO_TENANT')
         }
@@ -189,9 +189,10 @@ class SourceRegistryService extends Base {
      * @summary Registers (or idempotently returns) a neutral source identity in the REQUESTED state.
      *
      * Idempotent on the tenant-private provider identity `(host, resourceKind, providerResourceId)`:
-     * a repeat call returns the existing `sourceInstanceId` and updates only the mutable
-     * `display_locator` (rename), so identity survives rename and grant rotation (AC1). No secret is
-     * stored — `grantRef` is a non-secret binding; `credentialRef` never enters this table (AC5).
+     * a repeat call returns the existing `sourceInstanceId` and refreshes the two mutable bindings —
+     * `display_locator` (rename) and `grant_ref` (grant rotation) — so durable identity survives both
+     * (AC1). No secret is stored: `grantRef` is a non-secret binding and `credentialRef` never enters
+     * this table (AC5).
      * @param {Object}  data
      * @param {String}  data.provider
      * @param {String}  data.canonicalProviderHost
