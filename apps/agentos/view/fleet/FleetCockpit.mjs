@@ -1167,6 +1167,33 @@ class FleetCockpit extends Container {
     }
 
     /**
+     * The owner-destroy exit for every live tear-out record: closes each admitted vessel
+     * (fire-and-forget — the disconnect listener is already detached by the destroy path, so no
+     * re-entry) and settles every owner-held pane exactly once with the same detach + destroy
+     * disposition the vessel-death path uses. Cockpit teardown must not leave an OS vessel open
+     * or a live pane orphaned under a popup view tree the worker never destroys.
+     * @protected
+     */
+    retireTearOutState() {
+        let me = this;
+
+        for (const {windowName} of Object.values(me.tearOutPanes || {})) {
+            windowName && Neo.Main.windowClose({names: [windowName], windowId: me.windowId}).catch(() => {})
+        }
+
+        for (const pane of Object.values(me.tearOutPaneHandles || {})) {
+            if (pane && !pane.isDestroyed) {
+                pane.parent?.remove(pane, false);
+                pane.destroy()
+            }
+        }
+
+        me.tearOutPanes       = {};
+        me.tearOutConnects    = {};
+        me.tearOutPaneHandles = {}
+    }
+
+    /**
      * Captures the live projected pane at the detached terminal — synchronously, BEFORE the
      * commit's re-projection can destroy it — parking it via the reconciler's `preserveItemIds`
      * until the vessel adopts it. A miss is fail-safe: admission already verified resolvability,
@@ -1541,12 +1568,23 @@ class FleetCockpit extends Container {
             return
         }
 
-        // Tear-out vessel death: the popup's view-tree teardown destroyed the mounted pane, so
-        // the handle is released too — the catalog entry stays the model truth, and a later
-        // re-tree re-materializes the pane from owner-held state. Post-adoption reintegration
-        // (bringing the item HOME on vessel close) is the G4 vessel-lifecycle leaf's scope.
+        // Tear-out vessel death: a window disconnect is a render-target signal ONLY — the worker
+        // fires `disconnect` without destroying the popup application or its view tree, so the
+        // reparented pane SURVIVES under the dead vessel's mainView. Ownership is therefore
+        // settled explicitly before the handle is retired: detach + destroy, which keeps the
+        // catalog entry the single model truth and lets a later re-tree materialize exactly ONE
+        // successor from owner-held state (a retained hidden instance would duplicate it).
+        // Post-adoption reintegration (bringing the item HOME on vessel close) is the G4
+        // vessel-lifecycle leaf's scope.
         for (const [itemId, entry] of Object.entries(me.tearOutPanes || {})) {
             if (entry.windowId === data.windowId) {
+                let pane = me.tearOutPaneHandles?.[itemId];
+
+                if (pane && !pane.isDestroyed) {
+                    pane.parent?.remove(pane, false);
+                    pane.destroy()
+                }
+
                 delete me.tearOutPanes[itemId];
                 delete me.tearOutConnects?.[itemId];
                 delete me.tearOutPaneHandles?.[itemId];
@@ -1611,7 +1649,8 @@ class FleetCockpit extends Container {
      * producer; the provider tears the owned store itself down. A still-detached inspector is
      * OWNED state outside any projection: bump the generation (in-flight admission continuations
      * go inert), clear the connect timer, close its vessel (fire-and-forget — the guard in
-     * {@link #onWindowDisconnect} keeps a late event inert) and destroy the instance.
+     * {@link #onWindowDisconnect} keeps a late event inert) and destroy the instance. Live
+     * tear-out vessels and their owner-held panes retire through {@link #retireTearOutState}.
      * @param {...*} args
      */
     destroy(...args) {
@@ -1636,6 +1675,8 @@ class FleetCockpit extends Container {
 
         me.detachedDetailPane?.destroy();
         me.detachedDetailPane = null;
+
+        me.retireTearOutState();
 
         me.dockPreviewProducer?.destroy();
         me.dockPreviewProducer = null;
