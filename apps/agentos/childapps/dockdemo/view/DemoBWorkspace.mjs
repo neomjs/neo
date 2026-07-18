@@ -255,6 +255,16 @@ class DemoBWorkspace extends Container {
      */
     tearOutConnects = {}
     /**
+     * Exact-position return truth: `tearOutPlacements[itemId] = {tabsNodeId, index}`, captured
+     * at the detach terminal BEFORE the commit removes the item from the tree (`addTab` appends
+     * by default, so this pair is the only way home). Consumed exact-once by
+     * {@link #reintegrateTearOutItem} on vessel death; a refused detach commit deletes its own
+     * capture, so no stale placement outlives a gesture that never committed.
+     * @member {Object} tearOutPlacements={}
+     * @protected
+     */
+    tearOutPlacements = {}
+    /**
      * Plain structured result of the most recent topology reconciliation. This is rendered
      * into the workspace so remainder semantics are visible rather than buried in logs.
      * @member {Object|null} restoreReport=null
@@ -319,7 +329,7 @@ class DemoBWorkspace extends Container {
         // cancelled tear-out is zero-mutation by GUARD. Post-commit adoption uses its own
         // bookkeeping (`tearOutPanes` / `tearOutConnects`).
         me.tearOutHandlers = createDockTearOutHandlers({
-            applyOperation  : descriptor => me.applyWorkspaceOperation(DemoBWorkspace.MAIN_WORKSPACE_ID, descriptor),
+            applyOperation  : descriptor => me.applyTearOutOperation(descriptor),
             closeVessel     : vessel => me.closeTearOutVessel(vessel),
             onDocumentChange: (document, operation) => {
                 me.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, document);
@@ -2163,16 +2173,82 @@ class DemoBWorkspace extends Container {
             }
         }
 
-        // Tear-out vessel death: post-adoption reintegration is the vessel-lifecycle leaf's
-        // scope — here the bookkeeping simply retires (the catalog entry stays the model truth).
-        // A pre-terminal disconnect has no entry in either map and needs nothing.
+        // Tear-out vessel death: the item comes HOME. Model commit precedes every render
+        // effect, the reintegration is exact-once and idempotent against an already-re-treed
+        // item, and the bookkeeping retires with the vessel. A pre-terminal disconnect has no
+        // entry in either map and needs nothing.
         for (const [itemId, entry] of Object.entries(me.tearOutPanes)) {
             if (entry.windowId === data.windowId) {
                 delete me.tearOutPanes[itemId];
                 delete me.tearOutConnects[itemId];
+                me.reintegrateTearOutItem(itemId);
                 break
             }
         }
+    }
+
+    /**
+     * @summary The tear-out commit seam with exact-position capture riding it: the
+     * `{tabsNodeId, index}` pair is readable only BEFORE a detach commit removes the item from
+     * the tree, and a refused commit deletes its own capture — no stale placement outlives a
+     * gesture that never committed. Every non-detach descriptor passes through untouched.
+     * @param {Object} descriptor
+     * @returns {{document:Object, errors:String[]}|null}
+     * @protected
+     */
+    applyTearOutOperation(descriptor) {
+        let me       = this,
+            isDetach = descriptor?.operation === 'detachItem',
+            captured = isDetach ? DockZoneModel.captureItemPlacement(me.dockModel, descriptor.itemId) : null,
+            result;
+
+        captured && (me.tearOutPlacements[descriptor.itemId] = captured);
+
+        result = me.applyWorkspaceOperation(DemoBWorkspace.MAIN_WORKSPACE_ID, descriptor);
+
+        isDetach && result?.errors?.length && delete me.tearOutPlacements[descriptor.itemId];
+
+        return result
+    }
+
+    /**
+     * @summary Brings a torn-out item HOME on vessel death — the exact-position return of the
+     * vessel close policy (harness docking design record §2.8; the disposition this host's
+     * pre-vessel-lifecycle comment deferred).
+     *
+     * The stored `{tabsNodeId, index}` pair (captured at the detach terminal) is the placement
+     * truth; recovery is SEMANTIC, never geometric: a stored home node that left the tree falls
+     * back to the first surviving tabs node (append), mirroring the click path's
+     * `reattachPane` fallback. Exact-once and idempotent: an item some other flow already
+     * re-treed is left where it is, and the placement record is consumed regardless — a second
+     * vessel death for the same item finds nothing to do. An item whose document no longer
+     * catalogs it, or a document with no surviving tabs node, stays catalog-only/absent — the
+     * honest terminal, with zero mutation.
+     * @param {String} itemId
+     * @protected
+     */
+    reintegrateTearOutItem(itemId) {
+        let me         = this,
+            placement  = me.tearOutPlacements[itemId],
+            doc        = me.dockModel,
+            storedHome = placement && doc.nodes?.[placement.tabsNodeId]?.type === 'tabs' ? placement.tabsNodeId : null,
+            fallback   = storedHome || Object.entries(doc.nodes || {}).find(([, node]) => node.type === 'tabs')?.[0],
+            result;
+
+        delete me.tearOutPlacements[itemId];
+
+        if (!doc.items?.[itemId] || !fallback || DockZoneModel.findContainingTabsId(doc, itemId)) {
+            return
+        }
+
+        result = me.applyWorkspaceOperation(DemoBWorkspace.MAIN_WORKSPACE_ID, {
+            operation : 'addTab',
+            itemId,
+            tabsNodeId: fallback,
+            ...(storedHome ? {index: placement.index} : {})
+        });
+
+        result?.errors?.length === 0 && me.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, result.document)
     }
 
     /**
