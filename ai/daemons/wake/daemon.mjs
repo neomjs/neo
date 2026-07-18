@@ -1024,9 +1024,18 @@ async function deliverViaCodexAppServer(subscription, digest, evidenceLabel = ''
  * basic-auth credentials the seat was spawned with (`OPENCODE_SERVER_USERNAME` /
  * `OPENCODE_SERVER_PASSWORD`). Default location `~/.local/share/opencode/wake-envelope.json`
  * (mode 0600), overridable via `harnessTargetMetadata.envelopePath`. The daemon re-reads the
- * envelope on every delivery, so port/session rotation needs no graph write. The reference
- * writer is `ai/services/fleet/opencodeWakeEnvelopePlugin.mjs` (plant into the seat's global
- * OpenCode plugins directory).
+ * envelope on every delivery, so port/session rotation needs no graph write.
+ *
+ * **Two producers, one contract** — the envelope shape above is the canonical node:
+ * 1. the boot hook emitted by the seat-config generator
+ *    (`ai/services/fleet/generateOpenCodeSeatConfig.mjs`) — run by the seat's supervisor once
+ *    the bound port is known; the reliable writer on OpenCode desktop, whose plugin loader
+ *    can silently fail its dependency install. Anti-retarget is structural: only the
+ *    supervisor, never a child session, runs the hook.
+ * 2. `ai/services/fleet/opencodeWakeEnvelopePlugin.mjs` — the event-driven writer for
+ *    TUI/CLI sessions where it loads (its child-session retarget guard stays authoritative
+ *    there). Both producers write the IDENTICAL shape for the same session, so
+ *    last-writer-wins is a no-op; a third producer must update this contract, never drift it.
  *
  * Probe evidence (2026-07-18, seat `@neo-kimi-phoebe`, OpenCode desktop 1.18.3): embedded
  * server on a random localhost port, basic auth accepted from the seat's spawn env, and a

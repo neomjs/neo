@@ -67,6 +67,24 @@ test.describe('generateOpenCodeSeatConfig (OpenCode seat scaffold emission)', ()
         expect(() => generateOpenCodeSeatConfig({...PARAMS, servers: []})).toThrow(/'servers' must be a non-empty array/);
     });
 
+    test('island guard: a trailing-slash canonicalRoot is accepted (valid input must not mis-reject)', () => {
+        const
+            {files} = generateOpenCodeSeatConfig({...PARAMS, canonicalRoot: '/canonical/'}),
+            config  = parseJsonc(files[0].content);
+
+        expect(config.mcp['neo-mjs-memory-core'].command[2]).toBe('/canonical/ai/mcp/server/memory-core/mcp-server.mjs');
+    });
+
+    test('seatHome: explicit param wins; default derives from memoryDir parent', () => {
+        const
+            explicit = parseJsonc(generateOpenCodeSeatConfig({...PARAMS, seatHome: '/fleet/seat-alpha'}).files[0].content),
+            derived  = parseJsonc(generateOpenCodeSeatConfig(PARAMS).files[0].content);
+
+        expect(explicit.permission.external_directory).toHaveProperty('/fleet/seat-alpha/**', 'allow');
+        expect(explicit.permission.external_directory).not.toHaveProperty('/seat/**');
+        expect(derived.permission.external_directory).toHaveProperty('/seat/**', 'allow');
+    });
+
     test('named throws: every required param is validated by name', () => {
         for (const key of ['canonicalRoot', 'seatEnvFile', 'workspaceRoot', 'memoryDir', 'nodeBinary']) {
             const params = {...PARAMS};
