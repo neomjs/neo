@@ -4,6 +4,8 @@ import fs              from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import path            from 'node:path';
 
+import {newestMtime} from '../buildScripts/util/developmentThemeAssets.mjs';
+
 const
     harnessDir = path.dirname(fileURLToPath(import.meta.url)),
     repoRoot   = path.resolve(harnessDir, '..'),
@@ -50,33 +52,6 @@ function buildTheme(theme) {
             code === 0 ? resolve() : reject(new Error(`Theme build failed for ${theme} with exit code ${code}`))
         })
     })
-}
-
-/**
- * @summary Newest file mtime (ms) under a directory tree, filtered by extension. Used to compare
- * SCSS sources against built CSS: existence alone cannot see a stale build.
- * @param {String} dir Absolute directory.
- * @param {String} extension E.g. `.scss`.
- * @returns {Number} Epoch ms of the newest matching file; 0 when none exist.
- */
-function newestMtime(dir, extension) {
-    let newest = 0;
-
-    if (!fs.existsSync(dir)) {
-        return newest
-    }
-
-    for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
-        const fullPath = path.join(dir, entry.name);
-
-        if (entry.isDirectory()) {
-            newest = Math.max(newest, newestMtime(fullPath, extension))
-        } else if (entry.name.endsWith(extension)) {
-            newest = Math.max(newest, fs.statSync(fullPath).mtimeMs)
-        }
-    }
-
-    return newest
 }
 
 /**

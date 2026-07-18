@@ -1,37 +1,9 @@
-import {readdirSync, statSync} from 'fs';
-import path                    from 'path';
-import {fileURLToPath}         from 'url';
+import path            from 'path';
+import {fileURLToPath} from 'url';
+
+import {newestMtime} from '../../../buildScripts/util/developmentThemeAssets.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../');
-
-/**
- * Returns the newest mtime (ms) of any file matching the extension under a directory tree.
- * @param {String} dir absolute directory
- * @param {String} ext file extension including the dot
- * @returns {Number} newest mtime in ms, or 0 when the tree is empty/absent
- */
-function newestMtime(dir, ext) {
-    let newest = 0;
-
-    let entries;
-    try {
-        entries = readdirSync(dir, {withFileTypes: true})
-    } catch (e) {
-        return 0
-    }
-
-    for (const entry of entries) {
-        const full = path.join(dir, entry.name);
-
-        if (entry.isDirectory()) {
-            newest = Math.max(newest, newestMtime(full, ext))
-        } else if (entry.name.endsWith(ext)) {
-            newest = Math.max(newest, statSync(full).mtimeMs)
-        }
-    }
-
-    return newest
-}
 
 /**
  * The rebuild-before-baseline invariant, enforced mechanically: the dist theme CSS is a

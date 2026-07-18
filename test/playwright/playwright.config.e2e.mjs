@@ -18,6 +18,7 @@ export default defineConfig({
     fullyParallel: false, // Maintain serial execution for benchmarks
     workers      : 1,     // Maintain serial execution for benchmarks
     timeout      : 90000, // E2E tests (like DevIndex) are heavy rendering apps
+    globalSetup  : './e2e/globalSetup.mjs',
 
     reporter: [
         ['list'],
@@ -32,7 +33,7 @@ export default defineConfig({
     },
 
     webServer: {
-        command            : `npm run server-start -- --port ${PORT} --no-open`,
+        command            : `node ./e2e/globalSetup.mjs && npm run server-start -- --port ${PORT} --no-open`,
         url                : `http://localhost:${PORT}`,
         // NEVER reuse: an already-listening server from a foreign clone satisfies the readiness URL
         // and silently serves the wrong tree to every spec (false reds AND, worse, false greens).
