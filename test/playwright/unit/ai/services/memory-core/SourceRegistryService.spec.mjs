@@ -16,13 +16,17 @@ setup({
 import {test, expect}        from '@playwright/test';
 import Neo                   from '../../../../../../src/Neo.mjs';
 import * as core             from '../../../../../../src/core/_export.mjs';
+import crypto                from 'crypto';
 import fs                    from 'fs';
 import path                  from 'path';
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
 
 /**
  * @summary Security matrix for the tenant-scoped community source registry.
- * Every case maps to a stated AC; the cross-tenant and epoch cases are the load-bearing ones.
+ *
+ * Two properties carry the weight: source-admin authority is a deployment property (never a caller
+ * or session property), and every lifecycle transition is a compare-and-swap against the control
+ * generation the caller observed, so a superseded writer cannot resurrect revoked state.
  */
 test.describe('Neo.ai.services.memory-core.SourceRegistryService', () => {
     const sample = {
@@ -35,7 +39,33 @@ test.describe('Neo.ai.services.memory-core.SourceRegistryService', () => {
 
     let SourceRegistryService, originalEnv, testDbPath;
 
-    const asTenant = (userId, fn) => RequestContextService.run({userId}, fn);
+    const
+        asTenant = (userId, fn) => RequestContextService.run({userId}, fn),
+
+        /**
+         * Seeds a row for an arbitrary tenant directly, bypassing authority — a fixture for the
+         * read-isolation case, which must be provable independently of who may mutate.
+         */
+        seed = tenantId => {
+            const id  = crypto.randomUUID(),
+                  now = Date.now();
+
+            SourceRegistryService.db.prepare(
+                `INSERT INTO mc_source_registration (
+                    source_instance_id, tenant_id, provider, canonical_provider_host, resource_kind,
+                    provider_resource_id, display_locator, grant_ref, provider_capabilities,
+                    registration_epoch, lifecycle_state, created_at, updated_at
+                 ) VALUES (?, ?, 'github', 'github.com', 'repository', 'neomjs/neo', 'neomjs/neo', null, null, 1, 'REQUESTED', ?, ?)`
+            ).run(id, tenantId, now, now);
+
+            return id
+        },
+
+        /** Registers under an explicit local-single-user deployment. */
+        registerLocally = (subject, data = sample) => {
+            SourceRegistryService.localSubjectId = subject;
+            return SourceRegistryService.register(data)
+        };
 
     test.beforeAll(async () => {
         originalEnv = {
@@ -66,86 +96,139 @@ test.describe('Neo.ai.services.memory-core.SourceRegistryService', () => {
 
     test.beforeEach(() => {
         SourceRegistryService.db.exec('DELETE FROM mc_source_registration;');
+        // Fail-closed default: this process is NOT an explicit local-single-user deployment.
+        SourceRegistryService.localSubjectId = null;
     });
 
-    test('AC4 — a tenant cannot read or transition another tenant\'s registration', async () => {
-        const reg = await asTenant('u-alice', () => SourceRegistryService.register(sample));
-        expect(reg.tenantId).toBe('u-alice');
+    // ---------------------------------------------------------------- authority (AC6/AC7)
 
-        const bobView = await asTenant('u-bob', () => SourceRegistryService.getRegistration(reg.sourceInstanceId));
-        expect(bobView, 'bob cannot read alice\'s row').toBeNull();
-
-        await asTenant('u-bob', () => {
-            expect(() => SourceRegistryService.transitionLifecycle(reg.sourceInstanceId, 'PROVISIONED'))
-                .toThrow('SOURCE_REGISTRATION_NOT_FOUND');
+    test('an ordinary authenticated hosted subject is not a source admin', async () => {
+        await asTenant('u-alice', () => {
+            expect(() => SourceRegistryService.register(sample)).toThrow('SOURCE_REGISTRATION_AUTHORITY_UNAVAILABLE');
         });
 
-        const aliceView = await asTenant('u-alice', () => SourceRegistryService.getRegistration(reg.sourceInstanceId));
-        expect(aliceView.sourceInstanceId, 'alice still sees her own row').toBe(reg.sourceInstanceId);
+        expect(SourceRegistryService.db.prepare('SELECT count(*) AS c FROM mc_source_registration').get().c).toBe(0);
     });
 
-    test('AC1 — rename + grant rotation preserve sourceInstanceId', async () => {
-        const a = await asTenant('u-alice', () => SourceRegistryService.register({...sample, grantRef: 'grant-1'}));
-        const b = await asTenant('u-alice', () => SourceRegistryService.register({...sample, displayLocator: 'neomjs/neo-renamed', grantRef: 'grant-2'}));
+    test('a caller cannot spoof local authority — authority is deployment-bound, not request-bound', async () => {
+        // The old caller-supplied opt-in shape is inert: extra keys confer nothing.
+        await asTenant('u-mallory', () => {
+            expect(() => SourceRegistryService.register({...sample, allowLocalBootstrap: true, localSubjectId: 'u-mallory'}))
+                .toThrow('SOURCE_REGISTRATION_AUTHORITY_UNAVAILABLE');
+        });
+
+        // And with no request context at all, it still refuses without an injected deployment subject.
+        expect(() => SourceRegistryService.register({...sample, allowLocalBootstrap: true, localSubjectId: 'nobody'}))
+            .toThrow('SOURCE_REGISTRATION_NO_TENANT');
+
+        expect(SourceRegistryService.db.prepare('SELECT count(*) AS c FROM mc_source_registration').get().c).toBe(0);
+    });
+
+    test('an explicit local-single-user deployment registers under its injected subject', () => {
+        const reg = registerLocally('local-subject');
+
+        expect(reg.tenantId).toBe('local-subject');
+        expect(reg.lifecycleState).toBe('REQUESTED');
+        expect(reg.registrationEpoch).toBe(1);
+    });
+
+    // ---------------------------------------------------------------- isolation (AC4)
+
+    test('a tenant cannot read another tenant\'s registration', async () => {
+        const aliceRow = seed('u-alice');
+
+        expect(await asTenant('u-bob', () => SourceRegistryService.getRegistration(aliceRow)), 'bob cannot read alice\'s row').toBeNull();
+        expect((await asTenant('u-alice', () => SourceRegistryService.getRegistration(aliceRow))).sourceInstanceId).toBe(aliceRow);
+    });
+
+    // ---------------------------------------------------------------- identity (AC1) + secrets (AC5)
+
+    test('rename + grant rotation preserve sourceInstanceId', () => {
+        const a = registerLocally('local-subject', {...sample, grantRef: 'grant-1'}),
+              b = registerLocally('local-subject', {...sample, displayLocator: 'neomjs/neo-renamed', grantRef: 'grant-2'});
 
         expect(b.sourceInstanceId, 'rename does not fork identity').toBe(a.sourceInstanceId);
         expect(b.displayLocator).toBe('neomjs/neo-renamed');
-        expect(b.grantRef, 'grant rotation updates the non-secret binding').toBe('grant-2');
+        expect(b.grantRef).toBe('grant-2');
     });
 
-    test('AC2 — an invalid lifecycle transition is rejected', async () => {
-        const reg = await asTenant('u-alice', () => SourceRegistryService.register(sample));
-        expect(reg.lifecycleState).toBe('REQUESTED');
-
-        await asTenant('u-alice', () => {
-            expect(() => SourceRegistryService.transitionLifecycle(reg.sourceInstanceId, 'ACTIVE'))
-                .toThrow('SOURCE_REGISTRATION_INVALID_TRANSITION');
-        });
-    });
-
-    test('AC2/AC3/AC8 — epoch fences stale + revoked admission', async () => {
-        const reg = await asTenant('u-alice', () => SourceRegistryService.register(sample));
-        expect(reg.registrationEpoch).toBe(1);
-
-        const provisioned = await asTenant('u-alice', () => SourceRegistryService.transitionLifecycle(reg.sourceInstanceId, 'PROVISIONED'));
-        expect(provisioned.registrationEpoch, 'provisioning bumps the epoch').toBe(2);
-
-        await asTenant('u-alice', () => SourceRegistryService.transitionLifecycle(reg.sourceInstanceId, 'ACTIVE'));
-
-        await asTenant('u-alice', () => {
-            expect(SourceRegistryService.canAdmit(reg.sourceInstanceId, 2), 'current epoch admits').toBe(true);
-            expect(SourceRegistryService.canAdmit(reg.sourceInstanceId, 1), 'stale epoch is fenced').toBe(false);
-        });
-
-        await asTenant('u-alice', () => SourceRegistryService.transitionLifecycle(reg.sourceInstanceId, 'REVOKED'));
-        await asTenant('u-alice', () => {
-            expect(SourceRegistryService.canAdmit(reg.sourceInstanceId, 2), 'revoked cannot admit').toBe(false);
-        });
-
-        const reprovisioned = await asTenant('u-alice', () => SourceRegistryService.transitionLifecycle(reg.sourceInstanceId, 'PROVISIONED'));
-        expect(reprovisioned.registrationEpoch, 'reprovision bumps epoch again, fencing the old connector').toBe(3);
-    });
-
-    test('AC5 — no secret column and no credentialRef in the neutral shape', async () => {
-        const reg  = await asTenant('u-alice', () => SourceRegistryService.register({...sample, grantRef: 'grant-x'}));
-        const cols = SourceRegistryService.db.prepare('PRAGMA table_info(mc_source_registration)').all().map(c => c.name);
+    test('no secret column and no credentialRef in the neutral shape', () => {
+        const reg  = registerLocally('local-subject', {...sample, grantRef: 'grant-x'}),
+              cols = SourceRegistryService.db.prepare('PRAGMA table_info(mc_source_registration)').all().map(c => c.name);
 
         expect(reg).not.toHaveProperty('credentialRef');
         expect(cols).not.toContain('credential_ref');
-        expect(cols, 'grant_ref (non-secret) is retained').toContain('grant_ref');
+        expect(cols).toContain('grant_ref');
     });
 
-    test('AC6/AC7 — fail closed without a tenant; explicit local bootstrap opts in; hosted tenant wins', async () => {
-        // No request context + no explicit local subject -> fail closed.
-        expect(() => SourceRegistryService.register(sample)).toThrow('SOURCE_REGISTRATION_NO_TENANT');
+    // ---------------------------------------------------------------- lifecycle + fencing (AC2/AC3/AC8)
 
-        // Explicit local-single-user bootstrap.
-        const local = SourceRegistryService.register(sample, {allowLocalBootstrap: true, localSubjectId: 'local-subject'});
-        expect(local.tenantId).toBe('local-subject');
+    test('a transition without a control generation is refused', () => {
+        const reg = registerLocally('local-subject');
 
-        // A hosted tenant context is never overridden by an allowLocalBootstrap flag.
-        const hosted = await asTenant('u-alice', () =>
-            SourceRegistryService.register({...sample, providerResourceId: 'neomjs/other'}, {allowLocalBootstrap: true, localSubjectId: 'local-subject'}));
-        expect(hosted.tenantId, 'the real server tenant wins over a local-bootstrap request').toBe('u-alice');
+        expect(() => SourceRegistryService.transitionLifecycle(reg.sourceInstanceId, 'PROVISIONED'))
+            .toThrow('SOURCE_REGISTRATION_CONTROL_GENERATION_REQUIRED');
+    });
+
+    test('an invalid lifecycle transition is rejected', () => {
+        const reg = registerLocally('local-subject');
+
+        expect(() => SourceRegistryService.transitionLifecycle(reg.sourceInstanceId, 'ACTIVE', {expectedState: 'REQUESTED', expectedEpoch: 1}))
+            .toThrow('SOURCE_REGISTRATION_INVALID_TRANSITION');
+    });
+
+    test('epoch fences stale and revoked admission', () => {
+        const reg = registerLocally('local-subject'),
+              id  = reg.sourceInstanceId;
+
+        const provisioned = SourceRegistryService.transitionLifecycle(id, 'PROVISIONED', {expectedState: 'REQUESTED', expectedEpoch: 1});
+        expect(provisioned.registrationEpoch, 'provisioning advances the epoch').toBe(2);
+
+        SourceRegistryService.transitionLifecycle(id, 'ACTIVE', {expectedState: 'PROVISIONED', expectedEpoch: 2});
+
+        expect(SourceRegistryService.canAdmit(id, 2), 'current epoch admits').toBe(true);
+        expect(SourceRegistryService.canAdmit(id, 1), 'stale epoch is fenced').toBe(false);
+
+        SourceRegistryService.transitionLifecycle(id, 'REVOKED', {expectedState: 'ACTIVE', expectedEpoch: 2});
+        expect(SourceRegistryService.canAdmit(id, 2), 'revoked cannot admit').toBe(false);
+    });
+
+    test('revoke wins over a stale activate — the superseded writer cannot resurrect ACTIVE', () => {
+        const id = registerLocally('local-subject').sourceInstanceId;
+
+        SourceRegistryService.transitionLifecycle(id, 'PROVISIONED', {expectedState: 'REQUESTED', expectedEpoch: 1});
+
+        // Writer A observed PROVISIONED@2 and intends to activate.
+        const staleGeneration = {expectedState: 'PROVISIONED', expectedEpoch: 2};
+
+        // An intervening revoke lands first.
+        SourceRegistryService.transitionLifecycle(id, 'REVOKED', {expectedState: 'PROVISIONED', expectedEpoch: 2});
+
+        // Writer A now finishes against its superseded generation.
+        expect(() => SourceRegistryService.transitionLifecycle(id, 'ACTIVE', staleGeneration))
+            .toThrow('SOURCE_REGISTRATION_STALE_CONTROL');
+
+        expect(SourceRegistryService.getRegistration(id).lifecycleState, 'the revocation survives').toBe('REVOKED');
+    });
+
+    test('a pre-revoke retry cannot reprovision or reactivate across the fence', () => {
+        const id = registerLocally('local-subject').sourceInstanceId;
+
+        SourceRegistryService.transitionLifecycle(id, 'PROVISIONED', {expectedState: 'REQUESTED', expectedEpoch: 1});
+        SourceRegistryService.transitionLifecycle(id, 'ACTIVE',      {expectedState: 'PROVISIONED', expectedEpoch: 2});
+        SourceRegistryService.transitionLifecycle(id, 'REVOKED',     {expectedState: 'ACTIVE', expectedEpoch: 2});
+
+        // A retry replaying pre-revoke authority is refused.
+        expect(() => SourceRegistryService.transitionLifecycle(id, 'REVOKED', {expectedState: 'ACTIVE', expectedEpoch: 2}))
+            .toThrow('SOURCE_REGISTRATION_STALE_CONTROL');
+
+        // A legitimate reprovision advances the epoch, invalidating every older generation.
+        const reprovisioned = SourceRegistryService.transitionLifecycle(id, 'PROVISIONED', {expectedState: 'REVOKED', expectedEpoch: 2});
+        expect(reprovisioned.registrationEpoch).toBe(3);
+
+        // The pre-revoke generation still cannot activate after the fence advanced.
+        expect(() => SourceRegistryService.transitionLifecycle(id, 'ACTIVE', {expectedState: 'PROVISIONED', expectedEpoch: 2}))
+            .toThrow('SOURCE_REGISTRATION_STALE_CONTROL');
+        expect(SourceRegistryService.canAdmit(id, 2), 'the old epoch never admits again').toBe(false);
     });
 });

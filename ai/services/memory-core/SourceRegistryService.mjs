@@ -61,7 +61,18 @@ class SourceRegistryService extends Base {
          * @summary SQLite connection to the Memory Core database (dedicated table, not the graph).
          * @protected
          */
-        db: null
+        db: null,
+        /**
+         * @member {String|null} localSubjectId=null
+         * @summary The subject an explicit local-single-user deployment equates with its tenant.
+         *
+         * Bound ONCE at the trusted server/deployment boundary (startup injection) — never supplied
+         * by a caller, and never defaulted. `null` means this process is not an explicit
+         * local-single-user deployment, so no caller holds source-admin authority and control-plane
+         * mutation fails closed. Hosted operator-authorized provisioning is a separate, deferred
+         * authority; an ordinary authenticated hosted subject is NOT a source admin.
+         */
+        localSubjectId: null
     }
 
     /**
@@ -133,28 +144,45 @@ class SourceRegistryService extends Base {
     }
 
     /**
-     * @summary Resolves the server-authoritative tenant key. NEVER caller-supplied.
+     * @summary Resolves the READ-scope tenant key. NEVER caller-supplied.
      *
      * The isolation key is the request-context `userId` (bound at the auth boundary via
-     * `RequestContextService.run`, per its contract `getUserId()` is the tenant-isolation key). In an
-     * explicit local-single-user bootstrap the caller opts in with `allowLocalBootstrap` AND the
-     * request context still resolves no hosted tenant; only then does the local subject stand in.
-     * Hosted or ambiguous contexts with no resolved tenant return `null`, so callers fail closed.
-     * @param {Object}  [options]
-     * @param {Boolean} [options.allowLocalBootstrap=false] Opt into the explicit local-single-user path.
-     * @param {String}  [options.localSubjectId] The explicit local subject to equate with the tenant.
+     * `RequestContextService.run`; per its contract `getUserId()` is the tenant-isolation key). With
+     * no request context, an explicit local-single-user deployment reads as its injected subject.
+     * Anything else resolves `null`, so reads fail closed rather than spanning tenants.
+     *
+     * Read scope is deliberately wider than mutation authority: any authenticated subject may read
+     * its own registrations, but reading is not source-admin authority — see {@link #resolveAdminTenantId}.
      * @returns {String|null}
      */
-    resolveTenantId({allowLocalBootstrap = false, localSubjectId} = {}) {
-        const tenantId = RequestContextService.getUserId?.();
+    resolveTenantId() {
+        return RequestContextService.getUserId?.() || this.localSubjectId || null
+    }
 
-        if (tenantId) return tenantId;
+    /**
+     * @summary Resolves the tenant key for a CONTROL-PLANE mutation, or throws.
+     *
+     * Source-admin authority is a deployment property, not a session property. Only an explicit
+     * local-single-user deployment — whose subject the server injected at startup — may register or
+     * transition sources today. An ordinary authenticated hosted subject is NOT a source admin: that
+     * authority belongs to an operator-authorized hosted provisioning path which does not exist yet,
+     * so this fails closed with a stable, distinguishable error instead of silently self-serving.
+     * @returns {String} The server-owned tenant key for the mutation.
+     * @throws {Error} `SOURCE_REGISTRATION_AUTHORITY_UNAVAILABLE` for a hosted subject (deferred authority).
+     * @throws {Error} `SOURCE_REGISTRATION_NO_TENANT` when no deployment authority resolves at all.
+     */
+    resolveAdminTenantId() {
+        const {localSubjectId} = this;
 
-        if (allowLocalBootstrap && localSubjectId) {
-            return localSubjectId;
+        if (!localSubjectId) {
+            // A hosted subject is authenticated but not a source admin; distinguish it from the
+            // no-authority case so callers can surface the right operator-facing message.
+            throw new Error(RequestContextService.getUserId?.()
+                ? 'SOURCE_REGISTRATION_AUTHORITY_UNAVAILABLE'
+                : 'SOURCE_REGISTRATION_NO_TENANT')
         }
 
-        return null;
+        return localSubjectId
     }
 
     /**
@@ -172,18 +200,12 @@ class SourceRegistryService extends Base {
      * @param {String}  [data.displayLocator]
      * @param {String}  [data.grantRef]
      * @param {Object}  [data.providerCapabilities]
-     * @param {Object}  [context]
-     * @param {Boolean} [context.allowLocalBootstrap=false]
-     * @param {String}  [context.localSubjectId]
      * @returns {Object} The stored registration row (camelCase).
-     * @throws {Error} `SOURCE_REGISTRATION_NO_TENANT` when no server tenant resolves (fail closed).
+     * @throws {Error} `SOURCE_REGISTRATION_AUTHORITY_UNAVAILABLE` | `SOURCE_REGISTRATION_NO_TENANT` —
+     * registration is a control-plane mutation, so it requires deployment-bound source-admin authority.
      */
-    register(data, context = {}) {
-        const tenantId = this.resolveTenantId(context);
-
-        if (!tenantId) {
-            throw new Error('SOURCE_REGISTRATION_NO_TENANT');
-        }
+    register(data) {
+        const tenantId = this.resolveAdminTenantId();
 
         const
             {provider, canonicalProviderHost, resourceKind, providerResourceId, displayLocator = null, grantRef = null, providerCapabilities = null} = data,
@@ -199,7 +221,7 @@ class SourceRegistryService extends Base {
                  WHERE tenant_id = ? AND source_instance_id = ?`
             ).run(displayLocator, grantRef, now, tenantId, existing.source_instance_id);
 
-            return this.getRegistration(existing.source_instance_id, context);
+            return this.getRegistration(existing.source_instance_id);
         }
 
         const sourceInstanceId = crypto.randomUUID();
@@ -217,18 +239,17 @@ class SourceRegistryService extends Base {
             now, now
         );
 
-        return this.getRegistration(sourceInstanceId, context);
+        return this.getRegistration(sourceInstanceId);
     }
 
     /**
-     * Loads one registration, always scoped by the resolved server tenant + the source id, so a
+     * Loads one registration, always scoped by the resolved read tenant + the source id, so a
      * caller can never read another tenant's row (AC4). Returns `null` when absent for this tenant.
      * @param {String} sourceInstanceId
-     * @param {Object} [context]
      * @returns {Object|null}
      */
-    getRegistration(sourceInstanceId, context = {}) {
-        const tenantId = this.resolveTenantId(context);
+    getRegistration(sourceInstanceId) {
+        const tenantId = this.resolveTenantId();
 
         if (!tenantId) return null;
 
@@ -240,47 +261,49 @@ class SourceRegistryService extends Base {
     }
 
     /**
-     * @summary Advances a registration's lifecycle through a validated transition, epoch-fenced.
+     * @summary Advances a registration's lifecycle as one compare-and-swap against the control
+     * generation the caller observed — the stale-writer fence.
      *
-     * Rejects any transition not permitted by {@link LIFECYCLE_TRANSITIONS} (AC2). Entering
-     * `PROVISIONED` mints a strictly higher `registration_epoch`, fencing any connector still holding
-     * the prior epoch (AC2/AC8). All work is scoped by `(tenant_id, source_instance_id)`.
+     * A read-then-write transition is not a fence: between the read and the write another actor can
+     * revoke, and an unconditional UPDATE would silently resurrect the superseded state. So the
+     * caller must present the `(expectedState, expectedEpoch)` it observed, and that generation joins
+     * tenant + source in the UPDATE predicate, making the whole transition a single atomic statement.
+     * A superseded writer matches zero rows and fails with `SOURCE_REGISTRATION_STALE_CONTROL` instead
+     * of overwriting newer truth. Entering `PROVISIONED` mints a strictly higher epoch, so a retry
+     * holding pre-revoke authority can never traverse `REVOKED -> PROVISIONED -> ACTIVE` (AC2/AC8).
      * @param {String} sourceInstanceId
      * @param {String} toState One of REQUESTED|PROVISIONED|ACTIVE|REVOKED.
-     * @param {Object} [context]
+     * @param {Object} generation The control generation the caller observed.
+     * @param {String} generation.expectedState
+     * @param {Number} generation.expectedEpoch
      * @returns {Object} The updated registration row.
-     * @throws {Error} `SOURCE_REGISTRATION_NO_TENANT` | `SOURCE_REGISTRATION_NOT_FOUND` | `SOURCE_REGISTRATION_INVALID_TRANSITION`.
+     * @throws {Error} `SOURCE_REGISTRATION_AUTHORITY_UNAVAILABLE` | `SOURCE_REGISTRATION_NO_TENANT` |
+     * `SOURCE_REGISTRATION_CONTROL_GENERATION_REQUIRED` | `SOURCE_REGISTRATION_INVALID_TRANSITION` |
+     * `SOURCE_REGISTRATION_STALE_CONTROL`.
      */
-    transitionLifecycle(sourceInstanceId, toState, context = {}) {
-        const tenantId = this.resolveTenantId(context);
+    transitionLifecycle(sourceInstanceId, toState, {expectedState, expectedEpoch} = {}) {
+        const tenantId = this.resolveAdminTenantId();
 
-        if (!tenantId) {
-            throw new Error('SOURCE_REGISTRATION_NO_TENANT');
+        if (!expectedState || !Number.isInteger(expectedEpoch)) {
+            throw new Error('SOURCE_REGISTRATION_CONTROL_GENERATION_REQUIRED');
         }
 
-        const current = this.db.prepare(
-            `SELECT lifecycle_state, registration_epoch FROM mc_source_registration
-             WHERE tenant_id = ? AND source_instance_id = ?`
-        ).get(tenantId, sourceInstanceId);
-
-        if (!current) {
-            throw new Error('SOURCE_REGISTRATION_NOT_FOUND');
-        }
-
-        if (!LIFECYCLE_TRANSITIONS[current.lifecycle_state]?.includes(toState)) {
+        if (!LIFECYCLE_TRANSITIONS[expectedState]?.includes(toState)) {
             throw new Error('SOURCE_REGISTRATION_INVALID_TRANSITION');
         }
 
-        const nextEpoch = EPOCH_ADVANCING_STATES.has(toState)
-            ? current.registration_epoch + 1
-            : current.registration_epoch;
+        const
+            nextEpoch = EPOCH_ADVANCING_STATES.has(toState) ? expectedEpoch + 1 : expectedEpoch,
+            result    = this.db.prepare(
+                `UPDATE mc_source_registration SET lifecycle_state = ?, registration_epoch = ?, updated_at = ?
+                 WHERE tenant_id = ? AND source_instance_id = ? AND lifecycle_state = ? AND registration_epoch = ?`
+            ).run(toState, nextEpoch, Date.now(), tenantId, sourceInstanceId, expectedState, expectedEpoch);
 
-        this.db.prepare(
-            `UPDATE mc_source_registration SET lifecycle_state = ?, registration_epoch = ?, updated_at = ?
-             WHERE tenant_id = ? AND source_instance_id = ?`
-        ).run(toState, nextEpoch, Date.now(), tenantId, sourceInstanceId);
+        if (result.changes === 0) {
+            throw new Error('SOURCE_REGISTRATION_STALE_CONTROL');
+        }
 
-        return this.getRegistration(sourceInstanceId, context);
+        return this.getRegistration(sourceInstanceId);
     }
 
     /**
@@ -288,11 +311,10 @@ class SourceRegistryService extends Base {
      * current server-owned state (AC3/AC8). A stale or revoked epoch can never admit.
      * @param {String} sourceInstanceId
      * @param {Number} submittedEpoch
-     * @param {Object} [context]
      * @returns {Boolean}
      */
-    canAdmit(sourceInstanceId, submittedEpoch, context = {}) {
-        const registration = this.getRegistration(sourceInstanceId, context);
+    canAdmit(sourceInstanceId, submittedEpoch) {
+        const registration = this.getRegistration(sourceInstanceId);
 
         return !!registration
             && registration.lifecycleState   === 'ACTIVE'
