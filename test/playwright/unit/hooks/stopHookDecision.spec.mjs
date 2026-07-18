@@ -128,13 +128,53 @@ test.describe('ai/scripts/lifecycle/stopHookDecision — shared no-hold decision
         expect(extractAutonomousHandoffWindowMs('please pick a lane')).toBe(null);
     });
 
-    // ── decideStopHookAction: operatorInLoop is the only allow; block-support gates block vs would-block ──
+    // ── decideStopHookAction: dialogue allow + active-lane refusal + transport behavior ─────────
     const verdict = {valid: false, reason: 'no lane-state block emitted at turn-terminal'};
 
     test('decideStopHookAction: a live operator dialogue is the only voluntary allow', () => {
         const decision = decideStopHookAction(verdict, {enforcing: true, operatorInLoop: true, blockInjectionSupported: true});
         expect(decision.action).toBe('allow');
         expect(decision.reason).toContain('live operator dialogue');
+    });
+
+    test('decideStopHookAction: active-lane + operator dialogue refuses in enforce and dry-run', () => {
+        const options = {operatorInLoop: true, laneContinuation: 'active-lane', blockInjectionSupported: true};
+
+        expect(decideStopHookAction(verdict, {...options, enforcing: true})).toMatchObject({
+            action: 'block'
+        });
+        expect(decideStopHookAction(verdict, {...options, enforcing: false})).toMatchObject({
+            action: 'would-block'
+        });
+
+        const reason = decideStopHookAction(verdict, {...options, enforcing: true}).reason;
+        expect(reason).toContain('[active-lane-in-dialogue]');
+        expect(reason).toContain('Answer-plus-drive, not answer-plus-stop');
+        expect(reason).toContain('`next-lane` with gates naming non-self actors');
+
+        expect(decideStopHookAction(verdict, {
+            ...options,
+            enforcing    : true,
+            cleanTerminal: {accept: true, reason: '[clean-terminal] impossible dialogue input'}
+        }).action).toBe('block');
+    });
+
+    test('decideStopHookAction: dialogue fail-open is exact — absent, malformed, and other continuations allow', () => {
+        for (const laneContinuation of [null, undefined, '', 'next-lane', 'blocker-routed', 'ACTIVE-LANE', {value: 'active-lane'}]) {
+            expect(decideStopHookAction(verdict, {enforcing: true, operatorInLoop: true, laneContinuation}).action)
+                .toBe('allow');
+        }
+    });
+
+    test('decideStopHookAction: autonomous behavior is byte-identical when laneContinuation is threaded', () => {
+        const without = decideStopHookAction(verdict, {enforcing: true, operatorInLoop: false}),
+              withOne = decideStopHookAction(verdict, {
+                  enforcing       : true,
+                  operatorInLoop  : false,
+                  laneContinuation: 'active-lane'
+              });
+
+        expect(withOne).toEqual(without);
     });
 
     test('decideStopHookAction: enforce + block-supported (Claude) → block, carrying the verdict reason', () => {
