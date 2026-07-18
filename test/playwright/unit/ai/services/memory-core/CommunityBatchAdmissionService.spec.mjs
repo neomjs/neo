@@ -40,10 +40,18 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
             displayLocator       : 'neomjs/neo'
         },
 
+        ATTENTION_POLICY = {
+            responseBearingKinds   : ['issue.opened', 'issue.comment', 'pull.opened', 'discussion.created'],
+            rosteredActorIds       : ['neo-opus-ada', 'neo-gpt'],
+            botActorIds            : ['dependabot'],
+            recordedBotDispositions: {}
+        },
+
         occurrence = (id, over = {}) => ({
             providerEntityId: id,
             occurrenceKind  : 'issue.opened',
             occurredAt      : '2026-07-18T10:00:00Z',
+            actorId         : 'external-human',
             ...over
         }),
 
@@ -104,8 +112,10 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
 
     test.beforeEach(() => {
         AdmissionService.db.exec('DELETE FROM mc_community_batch_receipt;');
+        AdmissionService.db.exec('DELETE FROM mc_community_occurrence; DELETE FROM mc_community_checkpoint;');
         SourceRegistryService.db.exec('DELETE FROM mc_source_registration;');
         SourceRegistryService.localSubjectId = SUBJECT;
+        AdmissionService.attentionPolicy     = ATTENTION_POLICY;
     });
 
     test('a valid batch on an ACTIVE source at the current epoch is admitted with a receipt', () => {
@@ -325,5 +335,75 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
         AdmissionService.advanceCheckpoint(id, 'issues', {toBasis: 'c9', receiptId: receipt.receiptId});
 
         expect(AdmissionService.getCheckpoint(id, 'pulls'), 'a sibling partition is independently unset').toBeNull();
+    });
+
+    // ---------------------------------------------------------------- attention eligibility
+
+    test('popularity telemetry cannot be admitted at all', () => {
+        const id = activeSource();
+
+        ['repository.starred', 'repository.forked', 'repository.watched'].forEach((kind, i) => {
+            const result = AdmissionService.admitBatch(batch(id, {
+                batchId    : `pop-${i}`,
+                occurrences: [occurrence('e1', {occurrenceKind: kind})]
+            }));
+
+            expect(result.status).toBe('conflict');
+            expect(result.errors).toContain('OCCURRENCE_0_POPULARITY_TELEMETRY_OUT_OF_SCOPE');
+        });
+
+        expect(AdmissionService.listOccurrences(id), 'no popularity row ever becomes durable history').toHaveLength(0);
+    });
+
+    test('an external response-bearing occurrence is attention-eligible', () => {
+        const id = activeSource();
+
+        AdmissionService.admitBatch(batch(id, {occurrences: [occurrence('e1')]}));
+
+        const [row] = AdmissionService.listOccurrences(id);
+        expect(row.attentionDisposition).toBe('eligible');
+        expect(row.attentionReason).toBe('external-response-bearing');
+    });
+
+    test('a rostered actor updates an item WITHOUT minting new attention', () => {
+        const id = activeSource();
+
+        AdmissionService.admitBatch(batch(id, {occurrences: [
+            occurrence('e1', {actorId: 'external-human'}),
+            occurrence('e1', {actorId: 'neo-opus-ada', occurrenceKind: 'issue.comment'})
+        ]}));
+
+        const rows = AdmissionService.listOccurrences(id, {providerEntityId: 'e1'});
+
+        expect(rows, 'the rostered occurrence is still durable history').toHaveLength(2);
+        expect(rows.filter(r => r.attentionDisposition === 'eligible')).toHaveLength(1);
+        expect(rows.find(r => r.actorId === 'neo-opus-ada').attentionReason).toBe('rostered-actor');
+    });
+
+    test('an unrecorded external bot is UNDETERMINED, never inferred either way', () => {
+        const id = activeSource();
+
+        AdmissionService.admitBatch(batch(id, {occurrences: [occurrence('e1', {actorId: 'dependabot'})]}));
+
+        const [row] = AdmissionService.listOccurrences(id);
+        expect(row.attentionDisposition).toBe('undetermined');
+        expect(row.attentionReason).toBe('bot-disposition-not-recorded');
+    });
+
+    test('a non-response-bearing kind is ineligible', () => {
+        const id = activeSource();
+
+        AdmissionService.admitBatch(batch(id, {occurrences: [occurrence('e1', {occurrenceKind: 'issue.labeled'})]}));
+
+        expect(AdmissionService.listOccurrences(id)[0].attentionReason).toBe('not-response-bearing');
+    });
+
+    test('admission fails loud without an injected attention policy — never dispositionless history', () => {
+        const id = activeSource();
+
+        AdmissionService.attentionPolicy = null;
+
+        expect(() => AdmissionService.admitBatch(batch(id))).toThrow('ATTENTION_POLICY_NOT_CONFIGURED');
+        expect(AdmissionService.listOccurrences(id)).toHaveLength(0);
     });
 });

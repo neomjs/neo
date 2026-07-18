@@ -22,6 +22,14 @@ const
     /** Absence is never inferred — it is one of three explicitly-evidenced dispositions. */
     ABSENCE_DISPOSITIONS     = new Set(['deleted', 'inaccessible', 'unknown']),
     /**
+     * Popularity telemetry sits OUTSIDE the community-event source families. It is refused at the
+     * boundary rather than admitted-then-filtered, because an admitted row is durable history that
+     * later surfaces (counts, Bird View, wake, claim) would have to keep re-excluding forever.
+     */
+    POPULARITY_KINDS         = new Set([
+        'repository.forked', 'repository.starred', 'repository.unstarred', 'repository.watched', 'repository.unwatched'
+    ]),
+    /**
      * Server-owned policy output. Attention eligibility is a zero-authority judgement made by a
      * server-side classifier and written in the same admission transaction — it is NOT connector
      * payload. Two consequences, both enforced here: a connector may not self-assert it (validation
@@ -174,6 +182,10 @@ export function validateBatch(batch) {
 
             if (occurrence.absence !== undefined && !ABSENCE_DISPOSITIONS.has(occurrence.absence)) {
                 errors.push(`OCCURRENCE_${index}_ABSENCE_DISPOSITION_INVALID`)
+            }
+
+            if (POPULARITY_KINDS.has(occurrence.occurrenceKind)) {
+                errors.push(`OCCURRENCE_${index}_POPULARITY_TELEMETRY_OUT_OF_SCOPE`)
             }
         })
     }

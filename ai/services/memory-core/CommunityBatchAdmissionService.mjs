@@ -6,6 +6,7 @@ import config                                from '../../mcp/server/memory-core/
 import logger                                from '../../mcp/server/memory-core/logger.mjs';
 import SourceRegistryService                 from './SourceRegistryService.mjs';
 import {canonicalBatchDigest, validateBatch} from './communityBatchContract.mjs';
+import {classifyAttention}                   from './communityAttentionClassifier.mjs';
 
 /**
  * @summary Admission outcomes. These are RESULTS, not exceptions, because all three are ordinary
@@ -68,7 +69,17 @@ class CommunityBatchAdmissionService extends Base {
          * @summary SQLite connection to the Memory Core database (dedicated tables, not the graph).
          * @protected
          */
-        db: null
+        db: null,
+        /**
+         * @member {Object|null} attentionPolicy=null
+         * @summary The injected attention-classification policy — response-bearing kinds, rostered
+         * actors, known bots, and any recorded bot dispositions.
+         *
+         * Required, never defaulted: an accepted row must carry an evidence-backed disposition, so
+         * admitting without a policy would either fabricate one or write dispositionless history.
+         * Both are worse than refusing, hence the loud failure in {@link #admitBatch}.
+         */
+        attentionPolicy: null
     }
 
     /**
@@ -141,12 +152,17 @@ class CommunityBatchAdmissionService extends Base {
                 provider_entity_id TEXT    NOT NULL,
                 occurrence_kind    TEXT    NOT NULL,
                 occurred_at        TEXT    NOT NULL,
-                revision_of        TEXT,
-                absence            TEXT,
-                receipt_id         TEXT    NOT NULL,
-                admitted_sequence  INTEGER NOT NULL,
-                admitted_at        INTEGER NOT NULL
+                revision_of          TEXT,
+                absence              TEXT,
+                actor_id             TEXT,
+                attention_disposition TEXT NOT NULL,
+                attention_reason      TEXT NOT NULL,
+                receipt_id           TEXT    NOT NULL,
+                admitted_sequence    INTEGER NOT NULL,
+                admitted_at          INTEGER NOT NULL
             );
+            CREATE INDEX IF NOT EXISTS idx_mc_community_occurrence_attention
+                ON mc_community_occurrence(tenant_id, attention_disposition);
             CREATE INDEX IF NOT EXISTS idx_mc_community_occurrence_entity
                 ON mc_community_occurrence(tenant_id, source_instance_id, provider_entity_id);
             CREATE INDEX IF NOT EXISTS idx_mc_community_occurrence_receipt
@@ -182,6 +198,11 @@ class CommunityBatchAdmissionService extends Base {
 
         if (!tenantId) {
             throw new Error('BATCH_ADMISSION_NO_TENANT');
+        }
+
+        // Fail loud rather than admit history without an evidence-backed disposition.
+        if (!this.attentionPolicy) {
+            throw new Error('ATTENTION_POLICY_NOT_CONFIGURED');
         }
 
         const {valid, errors} = validateBatch(batch);
@@ -233,18 +254,25 @@ class CommunityBatchAdmissionService extends Base {
             const insertOccurrence = this.db.prepare(
                 `INSERT INTO mc_community_occurrence (
                     occurrence_id, tenant_id, source_instance_id, provider_entity_id, occurrence_kind,
-                    occurred_at, revision_of, absence, receipt_id, admitted_sequence, admitted_at
-                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                    occurred_at, revision_of, absence, actor_id, attention_disposition,
+                    attention_reason, receipt_id, admitted_sequence, admitted_at
+                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
             );
 
             occurrences.forEach(occurrence => {
                 // occurrence_id is OURS — deliberately distinct from the provider entity id, the
                 // delivering batch/receipt, and the admitted sequence, so no consumer can conflate
                 // "which thing happened", "how it reached us", and "in what order we accepted it".
+                // Classification happens INSIDE the admission transaction, so an accepted row can
+                // never exist without its evidence-backed disposition. Its output is server policy
+                // and stays out of the digest, so revising policy cannot look like corruption.
+                const {disposition, reason} = classifyAttention(occurrence, this.attentionPolicy);
+
                 insertOccurrence.run(
                     crypto.randomUUID(), tenantId, sourceInstanceId, occurrence.providerEntityId,
                     occurrence.occurrenceKind, occurrence.occurredAt, occurrence.revisionOf || null,
-                    occurrence.absence || null, receiptId, nextSequence, now
+                    occurrence.absence || null, occurrence.actorId || null, disposition, reason,
+                    receiptId, nextSequence, now
                 )
             });
 
@@ -399,17 +427,20 @@ class CommunityBatchAdmissionService extends Base {
               ).all(tenantId, sourceInstanceId);
 
         return rows.map(row => ({
-            occurrenceId    : row.occurrence_id,
-            tenantId        : row.tenant_id,
-            sourceInstanceId: row.source_instance_id,
-            providerEntityId: row.provider_entity_id,
-            occurrenceKind  : row.occurrence_kind,
-            occurredAt      : row.occurred_at,
-            revisionOf      : row.revision_of,
-            absence         : row.absence,
-            receiptId       : row.receipt_id,
-            admittedSequence: row.admitted_sequence,
-            admittedAt      : row.admitted_at
+            occurrenceId        : row.occurrence_id,
+            tenantId            : row.tenant_id,
+            sourceInstanceId    : row.source_instance_id,
+            providerEntityId    : row.provider_entity_id,
+            occurrenceKind      : row.occurrence_kind,
+            occurredAt          : row.occurred_at,
+            revisionOf          : row.revision_of,
+            absence             : row.absence,
+            actorId             : row.actor_id,
+            attentionDisposition: row.attention_disposition,
+            attentionReason     : row.attention_reason,
+            receiptId           : row.receipt_id,
+            admittedSequence    : row.admitted_sequence,
+            admittedAt          : row.admitted_at
         }))
     }
 
