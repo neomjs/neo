@@ -274,14 +274,25 @@ class DockLayoutAdapter extends Base {
             // supplies a sortGroup makes every projected tab sort zone a coordinator-registered
             // drag SOURCE (the workspace id rides the drag payload for the receiving window's
             // `transferItem` resolution). Absent = fully in-window, the unchanged default.
-            crossWindowSortGroup     : options.crossWindowSortGroup ?? null,
-            defaultRevealFraction    : Number.isFinite(options.defaultRevealFraction) ? options.defaultRevealFraction : null,
-            dockZoneDocument         : options.dockZoneDocument || model,
+            crossWindowSortGroup : options.crossWindowSortGroup ?? null,
+            defaultRevealFraction: Number.isFinite(options.defaultRevealFraction) ? options.defaultRevealFraction : null,
+            dockZoneDocument     : options.dockZoneDocument || model,
+            // Tear-out (docking design record §2.8, additive + opt-in): a composition that enables
+            // it makes every projected tab sort zone fire the inherited window-boundary hysteresis,
+            // re-fired as dock gesture events (exit / entry / terminal / cancel) on the projected
+            // tab.Container. The HOST owns vessel acquisition + the `detachItem` commit at the
+            // terminal; the projection only threads the opt-in + the closure seams. Absent = fully
+            // in-window, the unchanged default.
+            enableDockTearOut        : options.enableDockTearOut === true,
             items                    : model.items || {},
             nodes                    : model.nodes,
             onDockCrossZoneDragCancel: options.onDockCrossZoneDragCancel,
             onDockCrossZoneDragMove  : options.onDockCrossZoneDragMove,
             onDockCrossZoneDrop      : options.onDockCrossZoneDrop,
+            onDockTearOutCancel      : options.onDockTearOutCancel,
+            onDockTearOutEntry       : options.onDockTearOutEntry,
+            onDockTearOutExit        : options.onDockTearOutExit,
+            onDockTearOutTerminal    : options.onDockTearOutTerminal,
             onDockZoneDocumentChange : options.onDockZoneDocumentChange,
             resolveComponentRef      : options.resolveComponentRef || (() => null),
             resolveRevealComponentRef: options.resolveRevealComponentRef
@@ -715,7 +726,12 @@ class DockLayoutAdapter extends Base {
                     // §2.3 source identity (opt-in): the coordinator gates registration on
                     // sortGroup, so a null group keeps this zone in-window exactly as before.
                     dockWorkspaceId: context.workspaceId,
-                    sortGroup      : context.crossWindowSortGroup
+                    // Tear-out opt-in (§2.8): arms the INHERITED window-boundary hysteresis on
+                    // this zone's drags. Only the serializable flag rides here — the gesture
+                    // handlers live on the tab.Container listeners block below, the clone-safe
+                    // closure home this projection already uses for its cross-zone events.
+                    enableProxyToPopup: context.enableDockTearOut === true,
+                    sortGroup         : context.crossWindowSortGroup
                 }
             },
             items    : projectedItems,
@@ -731,6 +747,15 @@ class DockLayoutAdapter extends Base {
                 // closure holds `context` (captured here, not serialized), so the reducer survives config
                 // cloning and needs no component-tree walk. The reducer hit-tests the target zone + commits.
                 dockCrossZoneDrop: data => context.onDockCrossZoneDrop?.(data),
+                // Tear-out gesture seams (§2.8): the zone re-fires the inherited boundary events here.
+                // Cancel retires the host's vessel with zero model mutation; entry is a resumed
+                // in-window gesture (vessel closes, no outcome); exit is where the host acquires its
+                // vessel per the admission contract (Boolean `windowOpen`, fail-closed) and engages
+                // `startWindowDrag`; terminal is the ONE seam a host may commit `detachItem` on.
+                dockTearOutCancel  : data => context.onDockTearOutCancel?.(data),
+                dockTearOutEntry   : data => context.onDockTearOutEntry?.(data),
+                dockTearOutExit    : data => context.onDockTearOutExit?.(data),
+                dockTearOutTerminal: data => context.onDockTearOutTerminal?.(data),
                 // Within-container reorder rides the container's own `moveTo` event.
                 moveTo: data => {
                     let itemId = items[data.fromIndex],

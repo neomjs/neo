@@ -14,8 +14,18 @@ import TabHeaderSortZone from '../draggable/tab/header/toolbar/SortZone.mjs';
  *
  * It reuses the existing drag lifecycle end-to-end: the base SortZone owns the proxy, the sort math, and
  * the drag data ({@link Neo.draggable.container.SortZone#onDragMove} threads `clientX`/`clientY`); this
- * class only reads the outcome and forwards it. No popup / window-detach path is involved
- * (`enableProxyToPopup` stays at its `false` default).
+ * class only reads the outcome and forwards it.
+ *
+ * **Tear-out (dock semantics over the landed boundary grammar).** With {@link #enableProxyToPopup}
+ * enabled by the composition, the INHERITED window-boundary hysteresis (direction-aware
+ * intersection-ratio detection in the base container SortZone) fires its boundary events during a
+ * tab drag. This class re-fires them as dock gesture events on the owner tab.Container —
+ * `dockTearOutExit` / `dockTearOutEntry` — plus the two gesture terminals the dock model cares
+ * about: `dockTearOutTerminal` (released while detached — the ONLY signal a host may commit a
+ * `detachItem` on) and `dockTearOutCancel` (cancelled while detached — the host closes its vessel
+ * with ZERO model mutation). The zone itself never opens windows and never mutates documents: the
+ * host owns vessel acquisition + the model commit, and the commit happens at the terminal, never at
+ * the boundary — a gesture that re-enters or cancels leaves the committed document untouched.
  *
  * **Cross-WINDOW participation (the harness docking design record, §2.3 source side).** The base tab-header
  * chain carries NO `Neo.manager.DragCoordinator` delegation (that lives only in the dashboard sort
@@ -122,7 +132,100 @@ class DockTabSortZone extends TabHeaderSortZone {
      */
     construct(config) {
         super.construct(config);
-        this.sortGroup && this.resolveDragCoordinator()
+
+        let me = this;
+
+        me.sortGroup && me.resolveDragCoordinator();
+
+        // Tear-out re-fire seam: the inherited boundary hysteresis fires these on the ZONE; the
+        // adapter's closure-captured handlers live on the tab.Container listeners block (the
+        // clone-safe home its cross-zone events already use), so the zone re-fires there. Wired
+        // unconditionally — without `enableProxyToPopup` the base never fires either event, so
+        // an in-window dock pays nothing.
+        me.on({
+            dragBoundaryEntry: me.onDockBoundaryEntry,
+            dragBoundaryExit : me.onDockBoundaryExit,
+            scope            : me
+        })
+    }
+
+    /**
+     * Re-fires the inherited `dragBoundaryEntry` (the drag re-entered the source window past the
+     * reattach threshold — the base already restored the in-window proxy state) as
+     * `dockTearOutEntry` on the owner tab.Container. The host's handler closes its vessel and
+     * clears transient tear-out state — with ZERO model mutation: re-entry is a resumed in-window
+     * gesture, not an outcome.
+     * @param {Object} data
+     */
+    onDockBoundaryEntry(data) {
+        let me     = this,
+            itemId = me.dockItemIds?.[me.startIndex];
+
+        me.owner?.up?.()?.fire('dockTearOutEntry', {
+            ...data, itemId, sortZone: me, sourceNodeId: me.dockSourceNodeId
+        })
+    }
+
+    /**
+     * Re-fires the inherited `dragBoundaryExit` (the drag left the source window past the detach
+     * threshold) as `dockTearOutExit` on the owner tab.Container. The host's handler owns what
+     * happens next — vessel acquisition per the admission contract (`windowOpen` returns a
+     * Boolean; `false` degrades the gesture to its in-window fallback) and, on success, engaging
+     * {@link #startWindowDrag}. No model mutation happens here or in the host's exit handler: the
+     * detach commits only at {@link #processDragEnd}'s `dockTearOutTerminal`.
+     * @param {Object} data
+     */
+    onDockBoundaryExit(data) {
+        let me     = this,
+            itemId = me.dockItemIds?.[me.startIndex];
+
+        me.owner?.up?.()?.fire('dockTearOutExit', {
+            ...data, itemId, sortZone: me, sourceNodeId: me.dockSourceNodeId
+        })
+    }
+
+    /**
+     * Resumes the in-window embodiment after a detached phase ends without an outcome — the
+     * symmetric close of {@link #startWindowDrag}: the proxy becomes visible again and the base
+     * reorder un-parks. Two callers, both host-choreographed: a boundary re-entry (the gesture
+     * continues in-window) and a FAILED vessel admission (the base arms `isWindowDragging` BEFORE
+     * firing the exit event, so a blocked popup must actively restore the in-window gesture or the
+     * zone stays parked with a dead detached state).
+     */
+    endWindowDrag() {
+        let me = this;
+
+        me.dragProxy && (me.dragProxy.style = {opacity: 1});
+        me.isWindowDragging = false
+    }
+
+    /**
+     * Engages the OS-window pointer-follow embodiment after the host acquired a vessel for a
+     * tear-out: the in-window proxy stays alive to capture pointer events but turns invisible,
+     * {@link Neo.draggable.container.SortZone#isWindowDragging} arms (which parks the base
+     * reorder commit), and the DragDrop main-thread addon takes over moving the popup window with
+     * the pointer. The dock-tier mirror of the dashboard SortZone's method — implemented here per
+     * the docking design record's contract-not-class constraint (dock surfaces do not inherit the
+     * dashboard sort zone). No dashboard layout re-flow: a tab strip's geometry is owned by the
+     * committed model projection, which this gesture has not touched.
+     * @param {Object} data
+     * @param {Number} data.popupHeight
+     * @param {Number} data.popupWidth
+     * @param {String} data.windowName
+     */
+    startWindowDrag(data) {
+        let me                                    = this,
+            {popupHeight, popupWidth, windowName} = data;
+
+        me.dragProxy && (me.dragProxy.style = {opacity: 0});
+        me.isWindowDragging = true;
+
+        Neo.main.addon.DragDrop.startWindowDrag({
+            popupHeight,
+            popupName: windowName,
+            popupWidth,
+            windowId : me.windowId
+        })
     }
 
     /**
@@ -235,8 +338,9 @@ class DockTabSortZone extends TabHeaderSortZone {
 
     /**
      * §2.3 mandatory source hook: a remote target engaged — the source's drag embodiment yields
-     * while the target window hosts the hover. The dock's embodiment is the in-window drag proxy
-     * (no popup path, `enableProxyToPopup` false), so suspension is hiding it.
+     * while the target window hosts the hover. On the coordinator path the dock's embodiment is
+     * the in-window drag proxy, so suspension is hiding it. (The tear-out popup embodiment closes
+     * through its own gesture terminals, never through this remote-target hook.)
      * @param {String} widgetName
      */
     suspendWindowDrag(widgetName) {
@@ -271,6 +375,11 @@ class DockTabSortZone extends TabHeaderSortZone {
      * exactly one drag-end: the item already transferred out of this document, so the in-window
      * cross-zone commit path must not fire a second, now-invalid operation. Base cleanup still runs.
      *
+     * A drag released while DETACHED ({@link Neo.draggable.container.SortZone#isWindowDragging})
+     * fires `dockTearOutTerminal` instead of the in-window drop — the one signal a host may commit
+     * a `detachItem` on; a cancel while detached fires `dockTearOutCancel` first (vessel cleanup,
+     * zero model mutation), then the regular cancel event.
+     *
      * Cross-window gestures close through {@link Neo.manager.DragCoordinator#onDragEnd} FIRST: a
      * release over an engaged remote target commits there, and the coordinator arms
      * {@link #remoteDropCommitted} via {@link #onRemoteDropOut} on this same call stack — so the
@@ -300,9 +409,23 @@ class DockTabSortZone extends TabHeaderSortZone {
 
         if (data.cancelled) {
             me.remoteDropCommitted = false;
+
+            // A cancel while detached also retires the tear-out: the host's handler closes its
+            // vessel — the committed document was never touched (zero-mutation invariant), so
+            // there is nothing to roll back.
+            if (me.isWindowDragging && itemId) {
+                tabContainer?.fire('dockTearOutCancel', {itemId, sortZone: me, sourceNodeId: me.dockSourceNodeId})
+            }
+
             itemId && tabContainer?.fire('dockCrossZoneDragCancel', {itemId, sourceNodeId: me.dockSourceNodeId})
         } else if (me.remoteDropCommitted) {
             me.remoteDropCommitted = false
+        } else if (me.isWindowDragging) {
+            // Released while detached — THE terminal a dock host may commit a `detachItem` on
+            // (model commit precedes any window close per the choreography contract). The zone
+            // itself never mutates documents; deterministic outcome order is cancel → remote
+            // transfer → tear-out terminal → in-window cross-zone drop.
+            itemId && tabContainer?.fire('dockTearOutTerminal', {itemId, sortZone: me, sourceNodeId: me.dockSourceNodeId})
         } else if (itemId && tabContainer && Neo.isNumber(clientX) && Neo.isNumber(clientY)) {
             tabContainer.fire('dockCrossZoneDrop', {clientX, clientY, itemId, sourceNodeId: me.dockSourceNodeId})
         }

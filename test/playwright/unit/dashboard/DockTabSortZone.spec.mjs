@@ -196,5 +196,138 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
             expect(decide(H_RECT, {clientX: undefined, clientY: 400})).toBe(false);
             expect(decide(H_RECT, {})).toBe(false)
         })
+    });
+
+    test.describe('tear-out gesture terminals — the choreography outcome routing', () => {
+        // Prototype-driven like every pin above: the drag-end decision chain is the unit; the
+        // base lifecycle is stubbed to nothing so only the dock routing under test runs.
+        const zoneFor = (fired, overrides = {}) => ({
+            dockItemIds        : ['audit', 'graph', 'inbox'],
+            dockSourceNodeId   : 'tabs-main',
+            dragComponent      : null,
+            isWindowDragging   : false,
+            owner              : {up: () => ({fire: (name, data) => fired.push([name, data])})},
+            releaseVoidsReorder: () => false,
+            remoteDropCommitted: false,
+            sortGroup          : null,
+            startIndex         : 1,
+            ...overrides
+        });
+
+        const runDragEnd = async (zone, data) => {
+            const original = TabHeaderSortZone.prototype.processDragEnd;
+
+            TabHeaderSortZone.prototype.processDragEnd = async function() {};
+
+            try {
+                await DockTabSortZone.prototype.processDragEnd.call(zone, data)
+            } finally {
+                TabHeaderSortZone.prototype.processDragEnd = original
+            }
+        };
+
+        test('released while DETACHED fires the terminal — the one detachItem seam — never the in-window drop', async () => {
+            const fired = [];
+            const zone  = zoneFor(fired, {isWindowDragging: true});
+
+            await runDragEnd(zone, {cancelled: false, clientX: 5000, clientY: 400});
+
+            expect(fired.map(([name]) => name)).toEqual(['dockTearOutTerminal']);
+            expect(fired[0][1]).toEqual({itemId: 'graph', sortZone: zone, sourceNodeId: 'tabs-main'})
+        });
+
+        test('cancelled while DETACHED retires the vessel FIRST, then the regular cancel — zero commit events', async () => {
+            const fired = [];
+            const zone  = zoneFor(fired, {isWindowDragging: true});
+
+            await runDragEnd(zone, {cancelled: true});
+
+            // order matters: vessel cleanup precedes the generic cancel affordance reset
+            expect(fired.map(([name]) => name)).toEqual(['dockTearOutCancel', 'dockCrossZoneDragCancel']);
+            // neither terminal nor drop — the zero-model-mutation invariant has no commit seam to reach
+            expect(fired.some(([name]) => name === 'dockTearOutTerminal')).toBe(false);
+            expect(fired.some(([name]) => name === 'dockCrossZoneDrop')).toBe(false)
+        });
+
+        test('an in-window release still routes the cross-zone drop exactly as before (regression pin)', async () => {
+            const fired = [];
+            const zone  = zoneFor(fired);
+
+            await runDragEnd(zone, {cancelled: false, clientX: 300, clientY: 400});
+
+            expect(fired.map(([name]) => name)).toEqual(['dockCrossZoneDrop']);
+            expect(fired[0][1]).toEqual({clientX: 300, clientY: 400, itemId: 'graph', sourceNodeId: 'tabs-main'})
+        });
+
+        test('a committed remote transfer outranks the tear-out terminal — deterministic outcome order, no double commit', async () => {
+            const fired = [];
+            const zone  = zoneFor(fired, {isWindowDragging: true, remoteDropCommitted: true});
+
+            await runDragEnd(zone, {cancelled: false, clientX: 5000, clientY: 400});
+
+            expect(fired, 'the item already left this document — every local commit seam stays silent').toEqual([]);
+            expect(zone.remoteDropCommitted, 'the one-shot flag is consumed').toBe(false)
+        });
+
+        test('the boundary events re-fire on the tab.Container with the dock identity attached', () => {
+            const fired = [];
+            const zone  = zoneFor(fired);
+            const data  = {intersectionRatio: 0.42, proxyRect: {x: 1, y: 2}};
+
+            DockTabSortZone.prototype.onDockBoundaryExit.call(zone, data);
+            DockTabSortZone.prototype.onDockBoundaryEntry.call(zone, data);
+
+            expect(fired.map(([name]) => name)).toEqual(['dockTearOutExit', 'dockTearOutEntry']);
+
+            for (const [, payload] of fired) {
+                expect(payload.itemId).toBe('graph');
+                expect(payload.sourceNodeId).toBe('tabs-main');
+                expect(payload.sortZone).toBe(zone);
+                expect(payload.intersectionRatio).toBe(0.42) // the base payload rides along
+            }
+        });
+
+        test('startWindowDrag arms the detached embodiment: proxy invisible-but-alive, base reorder parked, addon engaged', () => {
+            const addonCalls  = [];
+            const proxyStyles = [];
+            const zone        = {
+                dragProxy       : {set style(value) { proxyStyles.push(value) }},
+                isWindowDragging: false,
+                windowId        : 7
+            };
+
+            const hadDragDrop = Object.hasOwn(Neo.main.addon, 'DragDrop'),
+                  original    = Neo.main.addon.DragDrop;
+
+            Neo.main.addon.DragDrop = {startWindowDrag: data => addonCalls.push(data)};
+
+            try {
+                DockTabSortZone.prototype.startWindowDrag.call(zone, {
+                    popupHeight: 480, popupWidth: 640, windowName: 'graph'
+                });
+            } finally {
+                if (hadDragDrop) { Neo.main.addon.DragDrop = original } else { delete Neo.main.addon.DragDrop }
+            }
+
+            expect(proxyStyles).toEqual([{opacity: 0}]);   // invisible, never destroyed — it still captures pointer events
+            expect(zone.isWindowDragging).toBe(true);      // parks the base reorder commit for this gesture
+            expect(addonCalls).toEqual([{popupHeight: 480, popupName: 'graph', popupWidth: 640, windowId: 7}])
+        });
+
+        test('endWindowDrag is the symmetric close: proxy visible, base reorder un-parked — the failed-admission degrade path', () => {
+            const proxyStyles = [];
+            const zone        = {
+                dragProxy       : {set style(value) { proxyStyles.push(value) }},
+                isWindowDragging: true
+            };
+
+            DockTabSortZone.prototype.endWindowDrag.call(zone);
+
+            expect(proxyStyles).toEqual([{opacity: 1}]);
+            expect(zone.isWindowDragging).toBe(false);
+
+            // proxy-less call (torn down mid-gesture) stays safe — the flag still resets
+            DockTabSortZone.prototype.endWindowDrag.call({dragProxy: null, isWindowDragging: true})
+        })
     })
 });
