@@ -174,10 +174,7 @@ class HealthBar extends Container {
      * @protected
      */
     updateAnimateCls() {
-        const cls = (this.cls || []).filter(c => c !== 'fm-animate-counts');
-
-        this.animateCounts && cls.push('fm-animate-counts');
-        this.cls = cls
+        this.toggleCls('fm-animate-counts', this.animateCounts)
     }
 
     /**

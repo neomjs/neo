@@ -81,6 +81,36 @@ test.describe('Fleet cockpit StateDot — session-state token mapping + reduced-
         dot.destroy()
     });
 
+    test('StateDot live enforces one class membership without disturbing caller or base classes (#15201)', async () => {
+        const
+            dot      = Neo.create(StateDot, {appName, state: 'ok', live: false}),
+            observed = [];
+
+        await dot.initVnode();
+        dot.addCls('caller-authored');
+
+        const cleanup = dot.observeConfig(dot, 'cls', cls => observed.push([...cls]));
+
+        dot.live = true;
+        dot.live = true;
+
+        expect(observed).toHaveLength(1);
+        expect(observed[0]).toContain('fm-state-dot');
+        expect(observed[0]).toContain('caller-authored');
+        expect(observed[0].filter(cls => cls === 'fm-live')).toHaveLength(1);
+
+        dot.live = false;
+        dot.live = false;
+
+        expect(observed).toHaveLength(2);
+        expect(observed[1]).toContain('fm-state-dot');
+        expect(observed[1]).toContain('caller-authored');
+        expect(observed[1]).not.toContain('fm-live');
+
+        cleanup();
+        dot.destroy()
+    });
+
     test('StateDot binds the transitional starting/stopping classes in place (#14978)', async () => {
         const dot = Neo.create(StateDot, {appName, state: 'starting'});
         await dot.initVnode();

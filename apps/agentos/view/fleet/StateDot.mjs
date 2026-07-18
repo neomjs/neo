@@ -114,9 +114,7 @@ class StateDot extends Component {
      * @protected
      */
     afterSetLive(value, oldValue) {
-        let cls = this.cls;
-        NeoArray[value ? 'add' : 'remove'](cls, 'fm-live');
-        this.cls = cls
+        this.toggleCls('fm-live', value)
     }
 }
 
