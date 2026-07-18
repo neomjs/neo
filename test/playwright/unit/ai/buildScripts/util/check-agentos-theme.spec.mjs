@@ -108,4 +108,36 @@ test.describe('check-agentos-theme.mjs', () => {
         expect(bad.some(m => m.startsWith('[token-only]'))).toBe(true);
         expect(ok.some(m => m.startsWith('[token-only]'))).toBe(false);
     });
+
+    // check 4 — text-safe ink. `--fm-ink-faint` is below the 4.5:1 text floor on every surface in both
+    // skins, so it may fill surfaces/borders but never text. A prose "no live consumer" note did not hold
+    // the line (four text sites re-adopted it after an earlier cleanup), hence the mechanical rule.
+    const FAINT_DARK  = ':root .x {\n    --fm-ink       : #d6dce6;\n    --fm-ink-faint : #5a6575;\n    --fm-font-mono : mono;\n}\n';
+    const FAINT_LIGHT = ':root .x {\n    --fm-ink       : #1f2733;\n    --fm-ink-faint : #8494a7;\n    --fm-font-mono : mono;\n}\n';
+
+    test('--fm-ink-faint filling text fails text-contrast', () => {
+        const failures = run({dark: FAINT_DARK, light: FAINT_LIGHT, views: {'a.scss': '.a { color: var(--fm-ink-faint); }\n'}});
+
+        expect(failures.some(m => m.startsWith('[text-contrast]') && m.includes('--fm-ink-faint'))).toBe(true);
+    });
+
+    test('--fm-ink-faint as a NON-text value stays legal — it survives as the non-text floor', () => {
+        const failures = run({
+            dark : FAINT_DARK,
+            light: FAINT_LIGHT,
+            views: {'a.scss': '.a { background: var(--fm-ink-faint); border-color: var(--fm-ink-faint); color: var(--fm-ink); }\n'}
+        });
+
+        expect(failures.some(m => m.startsWith('[text-contrast]'))).toBe(false);
+    });
+
+    test('the inline multi-declaration form is caught (the shape that regressed)', () => {
+        const failures = run({
+            dark : FAINT_DARK,
+            light: FAINT_LIGHT,
+            views: {'a.scss': '.a {\n    &.is-pending { color: var(--fm-ink-faint); font-style: italic; }\n}\n'}
+        });
+
+        expect(failures.some(m => m.startsWith('[text-contrast]'))).toBe(true);
+    });
 });
