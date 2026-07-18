@@ -493,14 +493,15 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * @summary The keyboard transfer commit — composes the OWNED primitives directly:
-     * `DockZoneModel.transferItem` (the commit-or-neither document pair), the workspace-set's
-     * both-or-neither adoption, vessel bookkeeping (published synchronously BEFORE projection,
-     * the same discipline the pointer path documents), then the target-first reconcile (adopt
-     * the pane across the window boundary before the source shell can classify the now-absent
-     * item as a retirement). The pointer path's `commitCrossWindowTransfer` wrapper is NOT
-     * reused: its context/generation predicates and continuity-proof machinery belong to the
-     * continuous gesture.
+     * @summary The keyboard transfer commit — `DockZoneModel.transferItem` produces the
+     * commit-or-neither document pair, then the shared two-phase core lands it:
+     * {@link #adoptCommittedTransferPair} (both-or-neither adoption, first exit on refusal) and
+     * {@link #reconcileTransferPair} (target-first, unguarded — a discrete command has no
+     * mid-flight supersession to fence). The pointer path's `commitCrossWindowTransfer` wrapper
+     * is deliberately NOT reused: its context/generation predicates and continuity-proof
+     * machinery belong to the continuous gesture. Deliberately NO `detachedPanes` bookkeeping
+     * here — that classification belongs to the pointer pop-out flow, and close-race policy for
+     * transferred items is the whole-stack return leaf's contract, which binds to the same core.
      * @param {Object} data
      * @param {String} data.itemId
      * @param {Object} data.target `{workspaceId, tabsId}` — the committed cycle candidate.
@@ -517,43 +518,28 @@ class DemoBWorkspace extends Container {
             return {errors: [`unknown item "${itemId}"`]}
         }
 
-        let sourceBefore = me.workspaceSet.getDocument(sourceWorkspaceId),
-            sourceTabsId = DockZoneModel.findContainingTabsId(sourceBefore, itemId),
-
-            {sourceDocument, targetDocument, errors} = DockZoneModel.transferItem(
-                sourceBefore,
-                me.workspaceSet.getDocument(target.workspaceId),
-                {
-                    itemId,
-                    sourceWorkspaceId,
-                    targetWorkspaceId: target.workspaceId,
-                    target           : {operation: 'addTab', tabsNodeId: target.tabsId}
-                }
-            );
+        let {sourceDocument, targetDocument, errors} = DockZoneModel.transferItem(
+            me.workspaceSet.getDocument(sourceWorkspaceId),
+            me.workspaceSet.getDocument(target.workspaceId),
+            {
+                itemId,
+                sourceWorkspaceId,
+                targetWorkspaceId: target.workspaceId,
+                target           : {operation: 'addTab', tabsNodeId: target.tabsId}
+            }
+        );
 
         if (errors.length) {
             return {errors}
         }
 
-        if (!me.workspaceSet.adoptTransfer({sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId: target.workspaceId})) {
+        let pair = {sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId: target.workspaceId};
+
+        if (!me.adoptCommittedTransferPair(pair)) {
             return {errors: ['workspace-set adoption refused the pair']}
         }
 
-        // vessel bookkeeping rides the commit synchronously: an item entering the popup must be
-        // classified re-attachable before a physical close can race the projection; an item
-        // returning home retires its entry
-        if (target.workspaceId === DemoBWorkspace.POPUP_WORKSPACE_ID) {
-            me.detachedPanes[itemId] = {
-                tabsNodeId: sourceTabsId,
-                windowId  : me.crossWindowHosts.get(DemoBWorkspace.POPUP_WORKSPACE_ID)?.windowId,
-                windowName: 'demo-b-cross-window'
-            }
-        } else if (sourceWorkspaceId === DemoBWorkspace.POPUP_WORKSPACE_ID) {
-            delete me.detachedPanes[itemId]
-        }
-
-        await me.refreshWorkspace(target.workspaceId, targetDocument);
-        await me.refreshWorkspace(sourceWorkspaceId, sourceDocument);
+        await me.reconcileTransferPair(pair);
 
         return {errors: []}
     }
@@ -1141,6 +1127,57 @@ class DemoBWorkspace extends Container {
     }
 
     /**
+     * @summary The SYNCHRONOUS half of the operation-agnostic transfer-commit core: the stats
+     * increment plus the workspace-set's both-or-neither adoption of a committed document PAIR —
+     * whatever executor produced it (`transferItem` today; the whole-stack return's
+     * `transferNode` pair binds here next). A refused adoption is the core's first exit: the
+     * vessel bookkeeping any caller performs after this must never diverge from document truth.
+     * @param {Object} pair
+     * @param {Object} pair.sourceDocument
+     * @param {String} pair.sourceWorkspaceId
+     * @param {Object} pair.targetDocument
+     * @param {String} pair.targetWorkspaceId
+     * @returns {Boolean} false when the workspace-set refused the pair.
+     * @protected
+     */
+    adoptCommittedTransferPair({sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId}) {
+        this.crossWindowStats.transferCommits++;
+
+        return this.workspaceSet.adoptTransfer({sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId})
+    }
+
+    /**
+     * @summary The reconcile half of the transfer-commit core. Target-first is load-bearing: it
+     * adopts the cached pane across the window boundary before the source shell can classify the
+     * now-absent item as a retirement. The `guard` seam is checked before each projection so a
+     * caller with supersession semantics (the pointer gesture's ownership fences) keeps them
+     * without the core knowing gesture state; guard-stopped reconciles are the CALLER's outcome
+     * to interpret.
+     * @param {Object} pair
+     * @param {Object} pair.sourceDocument
+     * @param {String} pair.sourceWorkspaceId
+     * @param {Object} pair.targetDocument
+     * @param {String} pair.targetWorkspaceId
+     * @param {Object} [options]
+     * @param {Function} [options.guard] `() => Boolean` — false stops before the next projection.
+     * @returns {Promise<Boolean>} true when both projections ran.
+     * @protected
+     */
+    async reconcileTransferPair({sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId}, {guard = () => true} = {}) {
+        let me = this;
+
+        if (!guard()) return false;
+
+        await me.refreshWorkspace(targetWorkspaceId, targetDocument);
+
+        if (!guard()) return false;
+
+        await me.refreshWorkspace(sourceWorkspaceId, sourceDocument);
+
+        return true
+    }
+
+    /**
      * Publishes the atomic transfer pair, then reconciles target before source. Target-first is
      * load-bearing: it adopts the cached pane across the window boundary before the source shell
      * can classify the now-absent item as a retirement.
@@ -1170,12 +1207,9 @@ class DemoBWorkspace extends Container {
                 && me.crossWindowTargetWindowId === targetWindowId
                 && (!isPopupDetach || me.detachedPanes[itemId]?.windowId === targetWindowId);
 
-        me.crossWindowStats.transferCommits++;
-
-        // Both-or-neither adoption through the workspace-set: a pair that cannot land on both
-        // registered owners lands on neither, and the vessel bookkeeping below must not diverge
-        // from document truth — so a refused adoption ends the commit here.
-        if (!me.workspaceSet.adoptTransfer({sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId})) {
+        // Both-or-neither adoption through the shared core — a refused pair ends the commit here,
+        // so the gesture bookkeeping below never diverges from document truth.
+        if (!me.adoptCommittedTransferPair({sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId})) {
             return
         }
 
@@ -1208,15 +1242,16 @@ class DemoBWorkspace extends Container {
                 };
 
                 try {
-                    await me.refreshWorkspace(targetWorkspaceId, targetDocument)
+                    if (!await me.reconcileTransferPair(
+                        {sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId},
+                        {guard: ownsTransfer}
+                    )) {
+                        return
+                    }
                 } catch (error) {
                     if (!ownsTransfer()) return;
                     throw error
                 }
-
-                if (!ownsTransfer()) return;
-
-                await me.refreshWorkspace(sourceWorkspaceId, sourceDocument);
 
                 if (!ownsTransfer()) return;
 
