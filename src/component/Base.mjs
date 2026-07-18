@@ -361,6 +361,26 @@ class Component extends Abstract {
     }
 
     /**
+     * Toggles a config-derived class and records it as derived, so that reapplying an authored-only
+     * `cls` value does not strip it while its owning config is unchanged. Owning `afterSet` hooks
+     * (`disabled`, `theme`, `ui`, and subclass state classes) route their class mutation through here.
+     * @param {String}  name The config-derived class to add or remove.
+     * @param {Boolean} add  Truthy adds the class, falsy removes it.
+     * @protected
+     */
+    applyDerivedCls(name, add) {
+        let me  = this,
+            cls = me.cls;
+
+        me.derivedCls || (me.derivedCls = []);
+
+        NeoArray.toggle(me.derivedCls, name, !!add);
+        NeoArray.toggle(cls, name, !!add);
+
+        me.cls = cls
+    }
+
+    /**
      * Either a string like 'color: red; background-color: blue;'
      * or an object containing style attributes
      * @param {String|Object} value
@@ -413,11 +433,18 @@ class Component extends Abstract {
 
         if (vdom !== vdomRoot) {
             // we are using a wrapper node
-            vdomRoot.cls = [...value]
+            cls = [...value];
+            // Preserve config-derived classes (owned by afterSet hooks, tracked in derivedCls) so that
+            // reapplying an authored-only cls does not strip a class whose owning config is unchanged.
+            me.derivedCls?.length && (cls = NeoArray.union(cls, me.derivedCls));
+            vdomRoot.cls = cls
         } else {
             // we need to merge changes
             cls = NeoArray.union(me.wrapperCls, value);
             NeoArray.remove(cls, NeoArray.difference(oldValue, value));
+            // Preserve config-derived classes (owned by afterSet hooks, tracked in derivedCls) so that
+            // reapplying an authored-only cls does not strip a class whose owning config is unchanged.
+            me.derivedCls?.length && (cls = NeoArray.union(cls, me.derivedCls));
             vdom.cls = cls
         }
 
@@ -431,10 +458,7 @@ class Component extends Abstract {
      * @protected
      */
     afterSetDisabled(value, oldValue) {
-        let cls = this.cls;
-
-        NeoArray[value ? 'add' : 'remove'](cls, 'neo-disabled');
-        this.cls = cls
+        this.applyDerivedCls('neo-disabled', value)
     }
 
 
@@ -741,23 +765,15 @@ class Component extends Abstract {
      */
     afterSetTheme(value, oldValue) {
         if (value || oldValue !== undefined) {
-            let me          = this,
-                {cls}       = me,
-                needsUpdate = false;
+            let me = this;
 
-            if (oldValue && cls.includes(oldValue)) {
-                NeoArray.remove(cls, oldValue);
-                needsUpdate = true
+            if (oldValue && me.cls.includes(oldValue)) {
+                me.applyDerivedCls(oldValue, false)
             }
 
             // We do not need to add a DOM based CSS selector, in case the theme is already inherited
-            if (value !== me.parent?.theme) {
-                value && NeoArray.add(cls, value);
-                needsUpdate = true
-            }
-
-            if (needsUpdate) {
-                me.cls = cls
+            if (value && value !== me.parent?.theme) {
+                me.applyDerivedCls(value, true)
             }
         }
     }
@@ -800,18 +816,13 @@ class Component extends Abstract {
      * @param {String|null} oldValue
      */
     afterSetUi(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
+        let me = this;
 
-        if (oldValue) {
-            NeoArray.remove(cls, `neo-${me.ntype}-${oldValue}`)
-        }
+        oldValue && me.applyDerivedCls(`neo-${me.ntype}-${oldValue}`, false);
 
         if (value && value !== '') {
-            NeoArray.add(cls, `neo-${me.ntype}-${value}`)
+            me.applyDerivedCls(`neo-${me.ntype}-${value}`, true)
         }
-
-        me.cls = cls
     }
 
     /**
