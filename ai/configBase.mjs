@@ -936,6 +936,56 @@ class ConfigBase extends ConfigProvider {
                     allIdleIdentities: leaf(null, 'NEO_SWARM_IDENTITIES', 'csv')
                 },
                 /**
+                 * Event-wake dispatch policy — how the wake daemon batches EVENT wakes (message /
+                 * task / permission) into digests. Distinct from `swarmHeartbeat` above (the
+                 * idle-watchdog lane): these knobs shape per-event delivery rate, not idle nudges.
+                 * @type {Object}
+                 */
+                wakeDispatch: {
+                    /**
+                     * Default coalescing window (seconds) for event wakes: after an event queues,
+                     * the daemon waits this long for FURTHER events before flushing one digest —
+                     * and the window is ROLLING (each new arrival extends the wait; the hard
+                     * 300s flush cap in `ai/daemons/wake/coalescePolicy.mjs` bounds total
+                     * latency). Sized for the swarm's real INTER-turn cadence — lifecycle
+                     * messages land minutes apart, and every wake costs a full harness turn, so
+                     * waking per-message is the dominant token waste (the prior 30s fixed
+                     * window produced exactly that). Per-subscription override stays
+                     * `harnessTargetMetadata.coalesceWindow` (same clamp; `0` = explicit
+                     * immediate dispatch). Bound to the `NEO_WAKE_COALESCE_WINDOW_SECONDS`
+                     * env name (NEO_ prefix convention).
+                     * @type {Number}
+                     */
+                    coalesceWindowSeconds: leaf(150, 'NEO_WAKE_COALESCE_WINDOW_SECONDS', 'number'),
+                    /**
+                     * Post-flush refractory (seconds): after a CONFIRMED delivery, the next digest
+                     * for the same subscription is held to at least this distance — the
+                     * anti-chatter floor that stops wake-per-message at just-outside-window
+                     * spacing. A mechanism parameter more than an operator knob: change with
+                     * care, the witnesses drive short spans through it. Bound to the
+                     * `NEO_WAKE_FLUSH_REFRACTORY_SECONDS` env name.
+                     * @type {Number}
+                     */
+                    flushRefractorySeconds: leaf(120, 'NEO_WAKE_FLUSH_REFRACTORY_SECONDS', 'number'),
+                    /**
+                     * Hard digest-latency cap (seconds) measured from a queue's FIRST event:
+                     * rolling extension and the refractory both yield to it. The long-standing
+                     * "max 5 minutes" §6.4.1 design ceiling, now a declared leaf. Bound to the
+                     * `NEO_WAKE_FLUSH_HARD_CAP_SECONDS` env name.
+                     * @type {Number}
+                     */
+                    flushHardCapSeconds: leaf(300, 'NEO_WAKE_FLUSH_HARD_CAP_SECONDS', 'number'),
+                    /**
+                     * Delivery-attempt bound (seconds): one adapter attempt may hold the
+                     * per-subscription delivery owner at most this long — a hung transport
+                     * times out as a FAILED attempt (retry path), so an unresponsive adapter
+                     * can never starve the queue behind the in-flight reservation and defeat
+                     * the hard cap. Bound to the `NEO_WAKE_ATTEMPT_TIMEOUT_SECONDS` env name.
+                     * @type {Number}
+                     */
+                    attemptTimeoutSeconds: leaf(30, 'NEO_WAKE_ATTEMPT_TIMEOUT_SECONDS', 'number')
+                },
+                /**
                  * Local-only maintenance lane switches. Cloud deployments can disable these
                  * without changing remote graph-backed A2A / Memory Core behavior.
                  * `null` means "use the deployment profile default" (`local` enables,
