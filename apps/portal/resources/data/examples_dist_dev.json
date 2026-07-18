@@ -1,4 +1,11 @@
 [{
+    "id"          : 27,
+    "environments": ["Desktop"],
+    "image"       : "devmode/workstation.png",
+    "name"        : "Workstation",
+    "sourceUrl"   : "apps/workstation",
+    "url"         : "dist/development/apps/workstation/index.html"
+}, {
     "id"          : 26,
     "environments": ["Desktop", "Mobile"],
     "image"       : "devmode/DevIndex.png",
