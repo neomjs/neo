@@ -58,7 +58,7 @@
         background   : var(--fm-line);
         border-radius: 3px;
         height    : 5px;
-        transition: background .25s ease;
+        transition: background var(--motion-base) var(--ease-out-soft);
         width     : 14px;
     }
 
