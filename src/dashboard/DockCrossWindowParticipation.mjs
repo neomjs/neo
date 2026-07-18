@@ -35,7 +35,9 @@ import DockZoneModel         from './DockZoneModel.mjs';
  *
  * The cross-window drag payload contract (stamped by {@link Neo.dashboard.DockTabSortZone} at
  * drag start): `draggedItem.dockItemId` names the dock catalog item, and
- * `draggedItem.dockSourceWorkspaceId` names the workspace document it departs. The local/foreign
+ * `draggedItem.dockSourceWorkspaceId` names the workspace document it departs. A whole-stack
+ * source additionally stamps `draggedItem.dockGroupNodeId`; only the source document's
+ * model-resolved stack root is eligible for the `transferNode` path. The local/foreign
  * discriminator keys on the LATTER's identity with this workspace — item-id presence in the
  * target catalog is never ownership evidence (a foreign item with a colliding id must reach the
  * executor's fail-closed collision rejection, not commit the local record) — and a payload
@@ -70,7 +72,9 @@ class DockCrossWindowParticipation extends Base {
          * Owner seam: publishes an atomically-transferred document PAIR through the workspace
          * set's change-notification path. Receives
          * `{sourceWorkspaceId, sourceDocument, targetWorkspaceId, targetDocument, descriptor}`
-         * where both documents are the executor's unchanged, finite committed results.
+         * where both documents are the executor's unchanged, finite committed results. Returns a
+         * truthy acknowledgement only after the pair was synchronously accepted; a refusal keeps
+         * the coordinator's source-retirement path closed.
          * @member {Function|null} commitTransfer=null
          */
         commitTransfer: null,
@@ -165,7 +169,9 @@ class DockCrossWindowParticipation extends Base {
      * @summary The discriminated commit — the one decision this class adds. A payload whose
      * `dockSourceWorkspaceId` IS this workspace commits through the landed single-document seam;
      * any other source workspace composes ONE `transferItem` descriptor (the converted operation
-     * nested as its `target`) and publishes the landed atomic two-document transfer verbatim.
+     * nested as its `target`) and publishes the landed atomic two-document transfer verbatim. A
+     * payload carrying `dockGroupNodeId` instead admits only an exact `transferNode` descriptor for
+     * the source document's resolved stack root; a mismatch fails closed before the executor.
      * Discrimination is workspace IDENTITY, never item-id presence in the target catalog — an id
      * collision across workspaces rides the executor's fail-closed rejection. Every unprovable
      * input — missing payload identity, unresolvable source document, executor errors — fails
@@ -174,17 +180,57 @@ class DockCrossWindowParticipation extends Base {
      * @param {Object} operation The converted `addTab`/`splitNode` descriptor from the target's
      *     preview→operation pipeline.
      * @param {Object} draggedItem The coordinator's drag payload — carries `dockItemId` +
-     *     `dockSourceWorkspaceId` per the class-summary payload contract.
+     *     `dockSourceWorkspaceId` and optional `dockGroupNodeId` per the class-summary payload contract.
      * @returns {Object|null} the owner commit result, or null when nothing committed.
      */
     commitDrop(operation, draggedItem) {
         let me                = this,
+            groupNodeId       = draggedItem?.dockGroupNodeId,
             itemId            = draggedItem?.dockItemId,
             sourceWorkspaceId = draggedItem?.dockSourceWorkspaceId,
             document          = me.getDocument?.();
 
         if (!operation || !itemId || !document) {
             return null
+        }
+
+        if (groupNodeId) {
+            // A whole-stack handle is a cross-workspace gesture only. Within one document the
+            // model's `moveNode` verb owns grouped moves; silently routing a `transferNode` through
+            // the local item seam would turn one semantic operation into another by accident.
+            if (sourceWorkspaceId == null || sourceWorkspaceId === me.workspaceId) {
+                return null
+            }
+
+            const sourceDocument = me.getForeignDocument?.(sourceWorkspaceId);
+
+            if (!sourceDocument || !me.commitTransfer ||
+                operation.operation !== 'transferNode' || operation.nodeId !== groupNodeId ||
+                DockZoneModel.resolveStackRoot(sourceDocument) !== groupNodeId) {
+                return null
+            }
+
+            const descriptor = {
+                ...operation,
+                sourceWorkspaceId,
+                targetWorkspaceId: me.workspaceId
+            };
+
+            const result = DockZoneModel.transferNode(sourceDocument, document, descriptor);
+
+            if (result.errors.length) {
+                return null
+            }
+
+            const published = me.commitTransfer({
+                descriptor,
+                sourceDocument   : result.sourceDocument,
+                sourceWorkspaceId,
+                targetDocument   : result.targetDocument,
+                targetWorkspaceId: me.workspaceId
+            });
+
+            return published ? result : null
         }
 
         // LOCAL means the payload NAMES this workspace as its source (two windows may project the
@@ -216,7 +262,7 @@ class DockCrossWindowParticipation extends Base {
             return null
         }
 
-        me.commitTransfer({
+        const published = me.commitTransfer({
             descriptor,
             sourceDocument   : result.sourceDocument,
             sourceWorkspaceId,
@@ -224,7 +270,7 @@ class DockCrossWindowParticipation extends Base {
             targetWorkspaceId: me.workspaceId
         });
 
-        return result
+        return published ? result : null
     }
 
     /**

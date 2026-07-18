@@ -42,8 +42,9 @@ import '../../../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype 
  *   (`mainView.add(instance)` — both windows share one App Worker) and reattaching moves it
  *   home. The {@link AgentOS.childapps.dockdemo.view.CounterPane} witness makes the
  *   reparent-never-recreate contract visible: its count survives because its instance does.
- *   Document honesty: pop-out and reattach use the atomic two-document `transferItem` seam,
- *   so ownership moves commit-or-neither while component reparenting stays orthogonal.
+ *   Document honesty: pop-out and item return use the atomic two-document `transferItem` seam;
+ *   the popup stack-handle return composes the sibling `transferNode` seam. Ownership therefore
+ *   moves commit-or-neither while component reparenting stays orthogonal.
  *
  * @class AgentOS.childapps.dockdemo.view.DemoBWorkspace
  * @extends Neo.container.Base
@@ -709,6 +710,24 @@ class DemoBWorkspace extends Container {
     }
 
     /**
+     * @summary (Re-)registers the popup workspace's live accessors before a cold stage opens.
+     *
+     * A successful whole-stack return explicitly unregisters the emptied popup entry. The next
+     * user-authored stage is a NEW workspace lifetime, so it re-registers the same semantic id
+     * against the current owner fields before any participation adapter may resolve it.
+     * @returns {Boolean}
+     * @protected
+     */
+    ensurePopupWorkspaceRegistered() {
+        let me = this;
+
+        return me.workspaceSet.register(DemoBWorkspace.POPUP_WORKSPACE_ID, {
+            getDocument: () => me.popupDocument,
+            setDocument: document => me.popupDocument = document
+        })
+    }
+
+    /**
      * Applies one ordinary single-document operation against a named live workspace.
      * @param {String} workspaceId
      * @param {Object} descriptor
@@ -1106,11 +1125,14 @@ class DemoBWorkspace extends Container {
      * @protected
      */
     isCrossWindowTargetCurrent(workspaceId, windowId, host, generation) {
-        let me = this;
+        let me               = this,
+            expectedWindowId = workspaceId === DemoBWorkspace.POPUP_WORKSPACE_ID
+                ? me.crossWindowTargetWindowId
+                : me.windowId;
 
         return !me.isDestroyed
             && me.crossWindowStageGeneration === generation
-            && me.crossWindowTargetWindowId === windowId
+            && expectedWindowId === windowId
             && me.crossWindowHosts.get(workspaceId) === host
             && !host.isDestroyed
     }
@@ -1149,17 +1171,33 @@ class DemoBWorkspace extends Container {
                 return null
             }
 
-            let participation = await me.createCrossWindowParticipation(workspaceId, windowId, host, generation);
+            let participation     = await me.createCrossWindowParticipation(workspaceId, windowId, host, generation),
+                mainWorkspaceId   = DemoBWorkspace.MAIN_WORKSPACE_ID,
+                mainHost          = me.crossWindowHosts.get(mainWorkspaceId),
+                mainParticipation = mainHost && await me.createCrossWindowParticipation(
+                    mainWorkspaceId,
+                    me.windowId,
+                    mainHost,
+                    generation
+                );
 
-            if (!participation || !me.isCrossWindowTargetCurrent(workspaceId, windowId, host, generation)) {
+            if (!participation || !mainParticipation
+                || !me.isCrossWindowTargetCurrent(workspaceId, windowId, host, generation)
+                || !me.isCrossWindowTargetCurrent(mainWorkspaceId, me.windowId, mainHost, generation)) {
                 participation?.destroy();
+                mainParticipation?.destroy();
                 return null
             }
 
-            let geometry = await me.waitForWorkspaceGeometry(workspaceId);
+            let [geometry, mainGeometry] = await Promise.all([
+                me.waitForWorkspaceGeometry(workspaceId),
+                me.waitForWorkspaceGeometry(mainWorkspaceId)
+            ]);
 
-            if (!geometry || !me.isCrossWindowTargetCurrent(workspaceId, windowId, host, generation)) {
-                throw new Error('popup workspace geometry is not measurable')
+            if (!geometry || !mainGeometry
+                || !me.isCrossWindowTargetCurrent(workspaceId, windowId, host, generation)
+                || !me.isCrossWindowTargetCurrent(mainWorkspaceId, me.windowId, mainHost, generation)) {
+                throw new Error('both cross-window workspace geometries must be measurable')
             }
 
             let receipt = {windowId, workspaceId, hostId: host.id};
@@ -1214,6 +1252,7 @@ class DemoBWorkspace extends Container {
             return Promise.reject(new Error('popup workspace is not empty; cross-window stage refuses split ownership'))
         }
 
+        me.ensurePopupWorkspaceRegistered();
         me.crossWindowStageGeneration++;
         me.popupDocument = DemoBWorkspace.createPopupDocument();
 
@@ -1307,6 +1346,142 @@ class DemoBWorkspace extends Container {
     }
 
     /**
+     * @summary Retires the logically emptied popup workspace after its stack returned.
+     *
+     * Document adoption and target-first projection precede this call. The popup render target
+     * may already have closed (disconnect raced the deferred projection) or may remain alive when
+     * its platform close failed; either way its participation, geometry, registry entry and stage
+     * identity retire exactly once. A later open is a new lifetime and explicitly re-registers via
+     * {@link #ensurePopupWorkspaceRegistered}.
+     * @returns {Boolean} true when the popup registry entry existed and was removed.
+     * @protected
+     */
+    retireReturnedPopupWorkspace() {
+        let me = this;
+
+        me.crossWindowStageGeneration++;
+
+        for (const workspaceId of [DemoBWorkspace.MAIN_WORKSPACE_ID, DemoBWorkspace.POPUP_WORKSPACE_ID]) {
+            me.crossWindowParticipations.get(workspaceId)?.destroy();
+            me.crossWindowParticipations.delete(workspaceId);
+            me.crossWindowGeometry.delete(workspaceId)
+        }
+
+        me.crossWindowHosts.delete(DemoBWorkspace.POPUP_WORKSPACE_ID);
+        me.workspaceProjectionRequests.delete(DemoBWorkspace.POPUP_WORKSPACE_ID);
+        me.crossWindowTargetWindowId = null;
+        me.crossWindowStagePromise   = null;
+        me.crossWindowStageResolve   = null;
+        me.crossWindowStageReject    = null;
+
+        return me.workspaceSet.unregister(DemoBWorkspace.POPUP_WORKSPACE_ID)
+    }
+
+    /**
+     * @summary Commits the popup's model-resolved stack back into the main workspace as one atomic
+     * `transferNode`, then reconciles target-first and retires the emptied popup registry entry.
+     *
+     * The owner re-validates both semantic workspace direction and source stack identity before
+     * accepting the executor pair. Adoption is SYNCHRONOUS — the truth the coordinator consumes
+     * before it retires the source gesture. View reconciliation is deferred, target-first, and
+     * cannot roll model truth back: a render-target disappearance or close failure merely leaves
+     * an honest empty/retired popup surface while main ownership remains committed.
+     * @param {Object} data
+     * @returns {Promise<Object>|Boolean} a truthy accepted lifecycle, or false before adoption.
+     * @protected
+     */
+    commitWholeStackReturn(data) {
+        let me = this,
+            {
+                descriptor,
+                sourceDocument,
+                sourceWorkspaceId,
+                targetDocument,
+                targetWorkspaceId
+            } = data,
+            sourceBefore = me.getWorkspaceDocument(sourceWorkspaceId);
+
+        if (descriptor?.operation !== 'transferNode'
+            || sourceWorkspaceId !== DemoBWorkspace.POPUP_WORKSPACE_ID
+            || targetWorkspaceId !== DemoBWorkspace.MAIN_WORKSPACE_ID
+            || DockZoneModel.resolveStackRoot(sourceBefore) !== descriptor.nodeId) {
+            return false
+        }
+
+        let nodeIds = DockZoneModel.reachableNodeIds({nodes: sourceBefore.nodes, root: descriptor.nodeId}),
+            itemIds = [...new Set([...nodeIds].flatMap(nodeId =>
+                sourceBefore.nodes[nodeId]?.type === 'tabs' ? sourceBefore.nodes[nodeId].items || [] : []
+            ))];
+
+        if (!itemIds.length || !me.adoptCommittedTransferPair({
+            sourceDocument,
+            sourceWorkspaceId,
+            targetDocument,
+            targetWorkspaceId
+        })) {
+            return false
+        }
+
+        // The pair is committed NOW. Clear every click-detach entry synchronously so a physical
+        // disconnect racing the deferred projections cannot route any member through transferItem
+        // again. The pane instances themselves move through the target-first reconciler below.
+        itemIds.forEach(itemId => delete me.detachedPanes[itemId]);
+
+        me.refreshPromise = me.refreshPromise
+            .then(() => me.timeout(0))
+            .then(async () => {
+                let errors = [];
+
+                try {
+                    if (!me.isDestroyed) {
+                        await me.refreshWorkspace(targetWorkspaceId, targetDocument)
+                    }
+
+                    if (!me.isDestroyed) {
+                        await me.refreshWorkspace(sourceWorkspaceId, sourceDocument)
+                    }
+                } catch (error) {
+                    errors.push(`projection after stack return failed: ${error?.message || String(error)}`)
+                }
+
+                let retired = me.isDestroyed ? false : me.retireReturnedPopupWorkspace();
+
+                if (!me.isDestroyed) {
+                    // Direct return never creates a park slot: its committed terminal is therefore
+                    // intentionally a no-op for the vessel-park machine. This owner closes the now
+                    // empty popup after adoption + retirement, without making platform-close
+                    // success part of model truth.
+                    try {
+                        let closing = Neo.Main.windowClose({
+                            names   : ['demo-b-cross-window'],
+                            windowId: me.windowId
+                        });
+
+                        closing?.catch?.(() => {})
+                    } catch {
+                        // best-effort vessel retirement; committed ownership never rolls back
+                    }
+                }
+
+                let receipt = {
+                    applied         : true,
+                    errors,
+                    itemIds,
+                    sourceWorkspaceId,
+                    targetWorkspaceId,
+                    workspaceRetired: retired
+                };
+
+                me.crossWindowGestureResolve?.(receipt);
+                me.crossWindowGestureResolve = null;
+
+                return receipt
+            });
+
+        return me.refreshPromise
+    }
+
+    /**
      * Publishes the atomic transfer pair, then reconciles target before source. Target-first is
      * load-bearing: it adopts the cached pane across the window boundary before the source shell
      * can classify the now-absent item as a retirement.
@@ -1323,6 +1498,10 @@ class DemoBWorkspace extends Container {
                 targetDocument,
                 targetWorkspaceId
             } = data;
+
+        if (descriptor?.operation === 'transferNode') {
+            return me.commitWholeStackReturn(data)
+        }
 
         const
             context       = me.crossWindowGestureContext,
@@ -2497,10 +2676,13 @@ class DemoBWorkspace extends Container {
             });
             me.crossWindowStageReject?.(new Error('cross-window target disconnected before readiness settled'));
 
-            me.crossWindowParticipations.get(workspaceId)?.destroy();
-            me.crossWindowParticipations.delete(workspaceId);
+            for (const id of [DemoBWorkspace.MAIN_WORKSPACE_ID, workspaceId]) {
+                me.crossWindowParticipations.get(id)?.destroy();
+                me.crossWindowParticipations.delete(id);
+                me.crossWindowGeometry.delete(id)
+            }
+
             me.crossWindowHosts.delete(workspaceId);
-            me.crossWindowGeometry.delete(workspaceId);
             me.crossWindowTargetWindowId = null;
             me.crossWindowStagePromise   = null;
             me.crossWindowStageResolve   = null;
@@ -2809,6 +2991,7 @@ class DemoBWorkspace extends Container {
             host              = me.crossWindowHosts.get(workspaceId),
             geometry          = me.crossWindowGeometry.get(workspaceId),
             draggedItem       = data.draggedItem,
+            groupNodeId       = draggedItem?.dockGroupNodeId ?? null,
             itemId            = data.itemId ?? draggedItem?.dockItemId,
             sourceWorkspaceId = draggedItem?.dockSourceWorkspaceId ?? workspaceId,
             sourceNodeId      = data.sourceNodeId
@@ -2826,13 +3009,15 @@ class DemoBWorkspace extends Container {
 
         if (indicators && (zone?.nodeId ?? null) !== (indicators.candidateSet?.zone?.nodeId ?? null)) {
             indicators.candidateSet = zone
-                ? producer.produceCandidates({pointer, zones: geometry.zones, itemId, sourceNodeId, root: geometry.root})
+                ? producer.produceCandidates({
+                    pointer, zones: geometry.zones, groupNodeId, itemId, sourceNodeId, root: geometry.root
+                })
                 : null
         }
 
         let candidate = indicators?.updatePointer(pointer) ?? null,
             preview   = candidate?.preview
-                ?? producer.produce({pointer, zones: geometry.zones, itemId, sourceNodeId});
+                ?? producer.produce({pointer, zones: geometry.zones, groupNodeId, itemId, sourceNodeId});
 
         if (renderer) {
             renderer.dockPreview = preview;
@@ -2923,17 +3108,21 @@ class DemoBWorkspace extends Container {
         // Tear-out arms on the MAIN workspace only: the popup-workspace projection is itself a
         // vessel-hosted render target — a tear-out FROM a vessel is popup-over-popup territory
         // (G3), deliberately not wired here.
-        let tearOut = workspaceId === DemoBWorkspace.MAIN_WORKSPACE_ID;
+        let tearOut   = workspaceId === DemoBWorkspace.MAIN_WORKSPACE_ID;
+        let stackDrag = workspaceId === DemoBWorkspace.POPUP_WORKSPACE_ID;
 
         return DockLayoutAdapter.project(document, {
             applyDockZoneOperation   : descriptor => me.applyWorkspaceOperation(workspaceId, descriptor),
             crossWindowSortGroup     : me.crossWindowEnabled ? DemoBWorkspace.CROSS_WINDOW_SORT_GROUP : null,
             enableDockTearOut        : tearOut,
+            enableStackDrag          : stackDrag,
             onDockCrossZoneDragCancel: data => me.onDockCrossZoneDragCancel(workspaceId, data),
             onDockCrossZoneDragMove  : data => me.onDockCrossZoneDragMove(workspaceId, data),
             onDockCrossZoneDrop      : data => me.onDockCrossZoneDrop(workspaceId, data),
-            onDockZoneDocumentChange : nextDocument => me.onWorkspaceDocumentChange(workspaceId, nextDocument),
-            resolveComponentRef      : resolveComponentRef
+            onDockStackDragTerminal  : ({itemId, outcome}) =>
+                me.vesselParkHandlers?.onGestureTerminal({itemId, outcome}),
+            onDockZoneDocumentChange: nextDocument => me.onWorkspaceDocumentChange(workspaceId, nextDocument),
+            resolveComponentRef     : resolveComponentRef
                 || ((componentRef, item, itemId) => me.resolvePane(itemId, item)),
             resolveRevealComponentRef: (componentRef, item, itemId) => me.resolvePane(itemId, item),
             workspaceId,

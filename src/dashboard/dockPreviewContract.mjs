@@ -58,8 +58,9 @@ export const VALID_PLACEMENT_KINDS = new Set([...EDGE_KINDS, ...SPLIT_KINDS, ...
  *
  * Returns true only for a well-formed `neo.harness.dockPreview.v1` payload that carries a stable
  * `itemId`, a `target.nodeId`, a known `placement.kind`, an accept/reject `feedback.state`, and (for
- * split placements) a valid `placement.orientation`. Anything malformed, partial or unknown returns
- * false so consumers clear/fail rather than guess.
+ * split placements) a valid `placement.orientation`. A whole-stack gesture may additionally carry
+ * a runtime-only `groupNodeId`; when present it must be a non-empty string. Anything malformed,
+ * partial or unknown returns false so consumers clear/fail rather than guess.
  * @param {Object|null} preview
  * @returns {Boolean}
  */
@@ -67,6 +68,8 @@ export function isValidPreview(preview) {
     if (!preview || typeof preview !== 'object')               return false;
     if (preview.schema !== PREVIEW_SCHEMA)                     return false;
     if (typeof preview.itemId !== 'string' || !preview.itemId) return false;
+    if (preview.groupNodeId != null &&
+        (typeof preview.groupNodeId !== 'string' || !preview.groupNodeId)) return false;
 
     let {feedback, placement, target} = preview;
 
@@ -164,6 +167,7 @@ export function isValidCandidateSet(set) {
         candidate &&
         isValidPreview(candidate.preview) &&
         candidate.preview.itemId === set.itemId &&
+        candidate.preview.groupNodeId === set.groupNodeId &&
         candidate.preview.target.nodeId === zone.nodeId &&
         crossPlacementMatchesPosition(candidate.position, candidate.preview.placement)
     )) {
@@ -185,6 +189,7 @@ export function isValidCandidateSet(set) {
             chip &&
             isValidPreview(chip.preview) &&
             chip.preview.itemId === set.itemId &&
+            chip.preview.groupNodeId === set.groupNodeId &&
             chip.preview.target.nodeId === root.nodeId &&
             chip.preview.placement.kind === `edge-${chip.edge}`
         )) {
@@ -210,21 +215,52 @@ export function ratioToSizes(ratio, position) {
  * @summary Converts an ACCEPTED drop preview into a semantic dock-zone operation descriptor, or null.
  *
  * The one authored path from a hover preview to a `DockZoneModel` operation. Invalid previews,
- * `rejected` placements, and non-accepted feedback all yield null (no commit). Tab placements emit
- * `addTab` (the adapter downgrades to `moveItem` when the item already lives in the tree); split and
- * edge placements route to `splitNode`.
+ * `rejected` placements, and non-accepted feedback all yield null (no commit). Item previews emit
+ * `addTab` / `splitNode` as before. A preview carrying `groupNodeId` instead emits one
+ * `transferNode` descriptor whose nested target uses the same tab/split placement grammar — the
+ * preview remains the single placement authority for both item and whole-stack drops.
  * @param {Object|null} preview
  * @returns {Object|null}
  */
 export function previewToOperation(preview) {
     if (!isValidPreview(preview)) return null;
 
-    let {feedback, itemId, placement, target} = preview,
-        {kind}                                = placement;
+    let {feedback, groupNodeId, itemId, placement, target} = preview,
+        {kind}                                             = placement;
 
     if (kind === 'rejected' || feedback.state !== 'accepted') return null;
 
     let nodeId = target.nodeId;
+
+    if (groupNodeId) {
+        let nodePlacement;
+
+        if (TAB_KINDS.has(kind)) {
+            nodePlacement = {kind: 'tab-into'}
+        } else if (SPLIT_KINDS.has(kind)) {
+            let position = kind.slice('split-'.length);
+
+            nodePlacement = {
+                orientation: placement.orientation,
+                position,
+                sizes      : ratioToSizes(placement.ratio, position)
+            }
+        } else {
+            let edge = kind.slice('edge-'.length);
+
+            nodePlacement = {
+                edge,
+                orientation: (edge === 'left' || edge === 'right') ? 'horizontal' : 'vertical',
+                sizes      : ratioToSizes(placement.ratio, edge === 'bottom' || edge === 'right' ? 'after' : 'before')
+            }
+        }
+
+        return {
+            operation: 'transferNode',
+            nodeId   : groupNodeId,
+            target   : {targetNodeId: nodeId, placement: nodePlacement}
+        }
+    }
 
     if (TAB_KINDS.has(kind)) {
         return {operation: 'addTab', itemId, tabsNodeId: nodeId, index: Number.isInteger(placement.index) ? placement.index : null}
