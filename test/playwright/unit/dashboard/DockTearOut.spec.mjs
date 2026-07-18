@@ -20,7 +20,7 @@ import {createDockTearOutHandlers} from '../../../../src/dashboard/DockTearOut.m
  * assertion surface — the machine exposes nothing else.
  */
 test.describe('Neo.dashboard.DockTearOut — createDockTearOutHandlers', () => {
-    const harness = ({admit = true, commitErrors = []} = {}) => {
+    const harness = ({admit = true, commitErrors = [], commitThrows = false} = {}) => {
         const calls = {applied: [], closed: [], ended: 0, opened: [], started: [], synced: []};
 
         const sortZone = {
@@ -31,6 +31,7 @@ test.describe('Neo.dashboard.DockTearOut — createDockTearOutHandlers', () => {
         const handlers = createDockTearOutHandlers({
             applyOperation  : operation => {
                 calls.applied.push(operation);
+                if (commitThrows) throw new Error('host reducer exploded');
                 return commitErrors.length
                     ? {document: null, errors: commitErrors}
                     : {document: {committed: true, detached: operation.itemId}, errors: []}
@@ -99,6 +100,20 @@ test.describe('Neo.dashboard.DockTearOut — createDockTearOutHandlers', () => {
 
         await handlers.onDockTearOutExit(exitData(sortZone));
         handlers.onDockTearOutTerminal({itemId: 'graph', sortZone});
+
+        expect(calls.applied).toHaveLength(1);
+        expect(calls.synced).toHaveLength(0);
+        expect(calls.closed).toEqual([{itemId: 'graph', windowName: 'vessel-graph'}])
+    });
+
+    test('a THROWING host reducer lands on the refusal path — vessel retired, no sync, no propagated throw (the orphan guard)', async () => {
+        const {calls, handlers, sortZone} = harness({commitThrows: true});
+
+        await handlers.onDockTearOutExit(exitData(sortZone));
+
+        // a throw is a host bug, but it must normalize to the refusal path: an uncaught throw
+        // here would skip closeVessel and orphan the window — the exact class the machine prevents
+        expect(() => handlers.onDockTearOutTerminal({itemId: 'graph', sortZone})).not.toThrow();
 
         expect(calls.applied).toHaveLength(1);
         expect(calls.synced).toHaveLength(0);

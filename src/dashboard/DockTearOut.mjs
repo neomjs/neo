@@ -114,8 +114,11 @@ export function createDockTearOutHandlers({applyOperation, closeVessel, onDocume
          * Released while detached — the ONE commit seam: `detachItem` routes through the host's
          * reducer (tree removal, catalog preserved for vessel ownership). Success: the committed
          * document syncs and the vessel STAYS — it owns the item now. A model refusal retires the
-         * vessel instead, so no window survives showing an item the document still owns. Without
-         * an admitted vessel (failed admission earlier in the gesture) there is nothing to commit.
+         * vessel instead, so no window survives showing an item the document still owns. A THROWING
+         * reducer is a host bug, but it must land on the same refusal path — an uncaught throw here
+         * would skip the retirement and orphan the vessel, the exact class this machine prevents.
+         * Without an admitted vessel (failed admission earlier in the gesture) there is nothing to
+         * commit.
          * @param {Object} data
          */
         onDockTearOutTerminal(data) {
@@ -126,7 +129,13 @@ export function createDockTearOutHandlers({applyOperation, closeVessel, onDocume
             activeVessel = null;
 
             let operation = {operation: 'detachItem', itemId: data.itemId},
-                result    = applyOperation(operation);
+                result;
+
+            try {
+                result = applyOperation(operation)
+            } catch (error) {
+                result = {document: null, errors: [`detachItem threw: ${error?.message || error}`]}
+            }
 
             if (result && !result.errors?.length && result.document) {
                 onDocumentChange(result.document, operation)
