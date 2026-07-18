@@ -68,10 +68,8 @@ import {
     TASK_STATE_CHANGED_ENTITY_TYPE
 } from '../../services/memory-core/heartbeatPulseEvaluator.mjs';
 import {
-    COALESCE_HARD_CAP_MS,
     computeFlushDelayMs,
     computeFlushHoldMs,
-    POST_FLUSH_REFRACTORY_MS,
     resolveCoalesceWindowMs
 } from './coalescePolicy.mjs';
 import {
@@ -100,14 +98,9 @@ const POLL_INTERVAL_MS                  = 3000;
 const CODEX_APP_SERVER_ADAPTER          = 'codex-app-server';
 const CODEX_TURN_START_PROOF_TIMEOUT_MS = Number(process.env.WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS) || 45000;
 const CODEX_TURN_START_PROOF_POLL_MS    = Number(process.env.WAKE_CODEX_TURN_START_PROOF_POLL_MS) || 1000;
-// Mechanism constants from ./coalescePolicy.mjs, env-tunable in the daemon's established
-// constant-override idiom (the Codex proof knobs above) — the pure policy module stays env-free;
-// witnesses drive short spans through these.
-const FLUSH_REFRACTORY_MS            = Number(process.env.WAKE_POST_FLUSH_REFRACTORY_MS) || POST_FLUSH_REFRACTORY_MS;
-const FLUSH_HARD_CAP_MS              = Number(process.env.WAKE_COALESCE_HARD_CAP_MS) || COALESCE_HARD_CAP_MS;
-const CODEX_WAKE_SUBMIT_NONCE_PREFIX = 'NEO_WAKE_SUBMIT_NONCE:';
-const WOKEN_MESSAGE_IDS_STATE_KEY    = '__messageIdsByIdentity';
-const WAKE_PRIORITY_RANKS            = {
+const CODEX_WAKE_SUBMIT_NONCE_PREFIX    = 'NEO_WAKE_SUBMIT_NONCE:';
+const WOKEN_MESSAGE_IDS_STATE_KEY       = '__messageIdsByIdentity';
+const WAKE_PRIORITY_RANKS               = {
     low   : 0,
     normal: 1,
     high  : 2
@@ -712,8 +705,8 @@ function queueEvent(subscription, eventPayload, watermarkResetCeiling = 0, water
             windowMs,
             firstQueuedAt: state.firstQueuedAt,
             lastFlushAt  : lastFlushAtBySub[subId] ?? 0,
-            refractoryMs : FLUSH_REFRACTORY_MS,
-            capMs        : FLUSH_HARD_CAP_MS
+            refractoryMs : AiConfig.orchestrator.wakeDispatch.flushRefractorySeconds * 1000,
+            capMs        : AiConfig.orchestrator.wakeDispatch.flushHardCapSeconds * 1000
         }));
     }
 }
@@ -830,8 +823,8 @@ async function flushSubscription(subId) {
         windowMs     : flushWindowMs,
         firstQueuedAt: state.firstQueuedAt,
         lastFlushAt  : lastFlushAtBySub[subId] ?? 0,
-        refractoryMs : FLUSH_REFRACTORY_MS,
-        capMs        : FLUSH_HARD_CAP_MS
+        refractoryMs : AiConfig.orchestrator.wakeDispatch.flushRefractorySeconds * 1000,
+        capMs        : AiConfig.orchestrator.wakeDispatch.flushHardCapSeconds * 1000
     });
 
     if (holdMs > 0) {
@@ -935,7 +928,7 @@ async function flushSubscription(subId) {
         deliveryInFlight.add(subId);
         let deliveryOutcome;
         try {
-            deliveryOutcome = await deliverDigest(subscription, digest, deliveryEvidence);
+            deliveryOutcome = await deliverDigestBounded(subscription, digest, deliveryEvidence);
         } finally {
             deliveryInFlight.delete(subId);
         }
@@ -1347,10 +1340,56 @@ const MAX_DELIVERY_RETRIES   = Number(process.env.WAKE_MAX_DELIVERY_RETRIES) || 
 const pendingDeliveryRetries = new Map(); // subscriptionId -> {subscription, identity, events, attempts, nextAttemptAt}
 
 /**
+ * @summary Races one adapter attempt against the `wakeDispatch.attemptTimeoutSeconds` bound —
+ * every delivery call site goes through here, so a hung transport can hold the per-subscription
+ * delivery owner (and therefore the flush queue behind it) at most one bound before resolving as
+ * a FAILED attempt on the retry path. Without it, an unresponsive adapter starves the queue
+ * behind the in-flight reservation indefinitely and defeats the hard cap's latency guarantee.
+ *
+ * The timeout ABORTS the transport where it supports a signal (the webhook fetch). Spawn-based
+ * adapters (osascript/tmux) cannot be aborted from here: a late-completing orphan attempt is
+ * possible after a timeout, its outcome discarded — the refractory plus the stable per-message
+ * wake claims bound the duplicate-delivery risk of that rare class, and the orphan still holds
+ * the GLOBAL adapter mutex until it truly settles (focus-collision safety is preserved; only the
+ * per-subscription owner is released).
+ * @param {Object} subscription WAKE_SUBSCRIPTION node.
+ * @param {String} digest Wake digest body.
+ * @param {Object} [deliveryEvidence={}] Scenario/count evidence for Codex validation logs.
+ * @returns {Promise<('delivered'|'skipped'|'failed')>}
+ */
+async function deliverDigestBounded(subscription, digest, deliveryEvidence = {}) {
+    const timeoutMs  = AiConfig.orchestrator.wakeDispatch.attemptTimeoutSeconds * 1000;
+    const controller = new AbortController();
+    let   timer;
+
+    const timeout = new Promise(resolve => {
+        timer = setTimeout(() => {
+            controller.abort();
+            writeLog('ERROR',
+                `[Wake Daemon] Delivery attempt for ${subscription.id} exceeded ${timeoutMs}ms — ` +
+                'resolved as failed (retry path); a hung transport must not starve the queue.'
+            );
+            resolve('failed');
+        }, timeoutMs);
+    });
+
+    try {
+        return await Promise.race([
+            deliverDigest(subscription, digest, deliveryEvidence, controller.signal),
+            timeout
+        ]);
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+/**
  * @summary Delivers the digest to the configured harness adapter.
  * @param {Object} subscription WAKE_SUBSCRIPTION node.
  * @param {String} digest Wake digest body.
  * @param {Object} [deliveryEvidence={}] Scenario/count evidence for Codex validation logs.
+ * @param {AbortSignal|null} [abortSignal=null] Attempt-bound signal from
+ *     {@link deliverDigestBounded}, threaded into signal-capable transports (the webhook fetch).
  * @returns {Promise<('delivered'|'skipped'|'failed')>} The explicit adapter outcome:
  *     `delivered` = the adapter accepted the digest (a wake reached a seat — the ONLY outcome
  *     that arms the refractory and counts on the dispatch surface); `skipped` = a fail-closed
@@ -1358,7 +1397,7 @@ const pendingDeliveryRetries = new Map(); // subscriptionId -> {subscription, id
  *     branch-local log carries why; never counts, never arms); `failed` = the dispatch THREW
  *     against a live target (the retry path's input).
  */
-async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
+async function deliverDigest(subscription, digest, deliveryEvidence = {}, abortSignal = null) {
     const meta                           = subscription.properties?.harnessTargetMetadata || {};
     const {instanceAddress, addressType} = resolveInstanceAddress(meta);
     // Fall back to osascript on macOS by default, tmux otherwise
@@ -1387,7 +1426,7 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
         }
 
         if (addressType === 'webhookUrl') {
-            await deliverViaWebhookUrl(subscription, dispatchDigest, instanceAddress);
+            await deliverViaWebhookUrl(subscription, dispatchDigest, instanceAddress, abortSignal);
             return 'delivered';
         }
 
@@ -1838,7 +1877,7 @@ async function attemptDeliveryRetries() {
         deliveryInFlight.add(subId);
         let outcome;
         try {
-            outcome = await deliverDigest(entry.subscription, digest, deliveryEvidence);
+            outcome = await deliverDigestBounded(entry.subscription, digest, deliveryEvidence);
         } finally {
             deliveryInFlight.delete(subId);
         }
@@ -1949,7 +1988,7 @@ function assertFreshTargetPresence(subscription, {addressType}) {
  * @param {String} webhookUrl Target webhook URL.
  * @returns {Promise<void>}
  */
-async function deliverViaWebhookUrl(subscription, digest, webhookUrl) {
+async function deliverViaWebhookUrl(subscription, digest, webhookUrl, abortSignal = null) {
     let url;
     try {
         url = new URL(webhookUrl);
@@ -1969,7 +2008,10 @@ async function deliverViaWebhookUrl(subscription, digest, webhookUrl) {
         body: JSON.stringify({
             subscriptionId: subscription.id,
             digest
-        })
+        }),
+        // The attempt-bound signal: a hung POST aborts when the delivery owner's timeout fires,
+        // so no orphaned request outlives the timed-out attempt on this transport.
+        ...(abortSignal ? {signal: abortSignal} : {})
     });
 
     if (!response.ok) {

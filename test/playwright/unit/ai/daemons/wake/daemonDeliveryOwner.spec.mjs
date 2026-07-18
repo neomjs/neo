@@ -161,7 +161,7 @@ test.describe('Wake Daemon — atomic delivery owner (mounted composition witnes
         }});
         insertHarnessPresence(db, {subId, agentId});
 
-        spawnDaemon({WAKE_POST_FLUSH_REFRACTORY_MS: '4000'});
+        spawnDaemon({NEO_WAKE_FLUSH_REFRACTORY_SECONDS: '4'});
         await sleep(1000);
 
         insertMessageWake(db, {agentId, subject: 'FIRST-DIGEST-MSG'});
@@ -279,7 +279,7 @@ test.describe('Wake Daemon — atomic delivery owner (mounted composition witnes
 
         // 4s cap (env-shortened): a 3s rolling window re-armed by a continuous stream would
         // otherwise flush only after the stream quiets
-        spawnDaemon({WAKE_COALESCE_HARD_CAP_MS: '4000'});
+        spawnDaemon({NEO_WAKE_FLUSH_HARD_CAP_SECONDS: '4'});
         await sleep(1000);
 
         const streamEndsAt = Date.now() + 9000;
@@ -299,6 +299,67 @@ test.describe('Wake Daemon — atomic delivery owner (mounted composition witnes
         // rolling-without-cap would have waited for quiet (stream end + window)
         expect(firstArrival, 'digest arrived before the stream quieted — the cap fired').toBeLessThan(streamEndsAt);
         expect(requests[0].body).toMatch(/\d+ events for @owner-test-cap/)
+    });
+
+    test('W5 — a HUNG adapter cannot starve the queue: the attempt bound resolves it as failed, and the merged follow-up delivers as ONE union on retry', async () => {
+        test.setTimeout(45000);
+
+        const requests  = [];
+        let   hangFirst = true;
+
+        // request 1 NEVER responds (the hung-transport falsifier — respondedAt stays null);
+        // every later request 204s. The ledger separates ARRIVED from RESPONDED: a hung
+        // request must never satisfy a delivery assertion.
+        const server = http.createServer((req, res) => {
+            let body = '';
+            req.on('data', c => body += c.toString());
+            req.on('end', () => {
+                const entry = {body, at: Date.now(), respondedAt: null};
+                requests.push(entry);
+                if (hangFirst) {
+                    hangFirst = false;
+                    return;                         // hold forever — the abort closes the socket
+                }
+                res.writeHead(204);
+                res.end();
+                entry.respondedAt = Date.now();
+            });
+        });
+        await new Promise(r => server.listen(0, '127.0.0.1', r));
+        const {port} = server.address();
+
+        const agentId = '@owner-test-hung', subId = 'sub_' + crypto.randomUUID();
+        insertAgent(db, agentId);
+        insertWakeSubscription(db, {subId, agentId, harnessTargetMetadata: {
+            adapter        : 'tmux', addressType: 'webhookUrl', coalesceWindow: 1,
+            instanceAddress: `http://127.0.0.1:${port}/wake`
+        }});
+        insertHarnessPresence(db, {subId, agentId});
+
+        spawnDaemon({NEO_WAKE_ATTEMPT_TIMEOUT_SECONDS: '3'});
+        await sleep(1000);
+
+        insertMessageWake(db, {agentId, subject: 'HUNG-ATTEMPT-MSG'});
+
+        // inject ONLY once the first attempt is observably in flight (its request arrived and is
+        // hanging) — previously this second message starved forever behind the in-flight
+        // reservation; now the 3s attempt bound fails the hang, the flush merges into the
+        // pending retry, and the union delivers on the recovered route
+        for (let i = 0; i < 30 && requests.length < 1; i++) await sleep(500);
+        expect(requests.length, 'the first attempt is in flight').toBeGreaterThanOrEqual(1);
+        insertMessageWake(db, {agentId, subject: 'QUEUED-BEHIND-HANG-MSG'});
+
+        for (let i = 0; i < 50 && !requests.some(r => r.respondedAt && r.body.includes('QUEUED-BEHIND-HANG-MSG')); i++) await sleep(500);
+        server.close();
+
+        expect(requests[0].respondedAt, 'the first request genuinely hung').toBeNull();
+        const delivered = requests.filter(r => r.respondedAt && r.body.includes('QUEUED-BEHIND-HANG-MSG'));
+        expect(delivered.length, 'the queue survived the hang — the second message delivered').toBeGreaterThanOrEqual(1);
+        expect(delivered[0].body, 'ONE union digest with both messages').toMatch(/2 events for @owner-test-hung/);
+
+        const log = readLog();
+        expect(log, 'the bound resolved the hang as a failed attempt').toContain('exceeded 3000ms');
+        expect(log.match(/\[Wake Dispatch\].*outcome=delivered/g), 'exactly one countable delivery').toHaveLength(1)
     });
 
     test('W4 — a fail-closed skip counts NOTHING: refused route, zero dispatch records', async () => {

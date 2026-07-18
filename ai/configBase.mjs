@@ -956,7 +956,34 @@ class ConfigBase extends ConfigProvider {
                      * env name (NEO_ prefix convention).
                      * @type {Number}
                      */
-                    coalesceWindowSeconds: leaf(150, 'NEO_WAKE_COALESCE_WINDOW_SECONDS', 'number')
+                    coalesceWindowSeconds: leaf(150, 'NEO_WAKE_COALESCE_WINDOW_SECONDS', 'number'),
+                    /**
+                     * Post-flush refractory (seconds): after a CONFIRMED delivery, the next digest
+                     * for the same subscription is held to at least this distance — the
+                     * anti-chatter floor that stops wake-per-message at just-outside-window
+                     * spacing. A mechanism parameter more than an operator knob: change with
+                     * care, the witnesses drive short spans through it. Bound to the
+                     * `NEO_WAKE_FLUSH_REFRACTORY_SECONDS` env name.
+                     * @type {Number}
+                     */
+                    flushRefractorySeconds: leaf(120, 'NEO_WAKE_FLUSH_REFRACTORY_SECONDS', 'number'),
+                    /**
+                     * Hard digest-latency cap (seconds) measured from a queue's FIRST event:
+                     * rolling extension and the refractory both yield to it. The long-standing
+                     * "max 5 minutes" §6.4.1 design ceiling, now a declared leaf. Bound to the
+                     * `NEO_WAKE_FLUSH_HARD_CAP_SECONDS` env name.
+                     * @type {Number}
+                     */
+                    flushHardCapSeconds: leaf(300, 'NEO_WAKE_FLUSH_HARD_CAP_SECONDS', 'number'),
+                    /**
+                     * Delivery-attempt bound (seconds): one adapter attempt may hold the
+                     * per-subscription delivery owner at most this long — a hung transport
+                     * times out as a FAILED attempt (retry path), so an unresponsive adapter
+                     * can never starve the queue behind the in-flight reservation and defeat
+                     * the hard cap. Bound to the `NEO_WAKE_ATTEMPT_TIMEOUT_SECONDS` env name.
+                     * @type {Number}
+                     */
+                    attemptTimeoutSeconds: leaf(30, 'NEO_WAKE_ATTEMPT_TIMEOUT_SECONDS', 'number')
                 },
                 /**
                  * Local-only maintenance lane switches. Cloud deployments can disable these
