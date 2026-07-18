@@ -81,7 +81,7 @@ class MainContainerController extends ComponentController {
 
         data.forEach(item => {
             if (item.country.includes('"')) {
-                item.country = item.country.replace('"', "\'");
+                item.country = item.country.replace(/"/g, "\'");
             }
 
             item.casesPerOneMillion = item.casesPerOneMillion > item.cases ? 'N/A' : item.casesPerOneMillion || 0;
