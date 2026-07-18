@@ -98,7 +98,7 @@
             &.is-sent    { color: var(--fm-state-ok); }
             &.is-refused { color: var(--fm-ink-dim); }
             &.is-error   { color: var(--fm-kind-alert); }
-            &.is-pending { color: var(--fm-ink-faint); font-style: italic; }
+            &.is-pending { color: var(--fm-ink-dim); font-style: italic; }
         }
     }
 }

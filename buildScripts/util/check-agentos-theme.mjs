@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * @module buildScripts/util/check-agentos-theme
- * @summary Mechanical guard for the agentos module's dual-mode (light + dark) theme system. Three checks
+ * @summary Mechanical guard for the agentos module's dual-mode (light + dark) theme system. Four checks
  * an eyeball review misses:
  *
  *   1. Skin parity — every `--fm-*` Fleet-Manager-cockpit COLOR token must carry a genuinely different
@@ -17,6 +17,12 @@
  *   3. Completeness — every `--fm-*` a view consumes must be defined in BOTH skins (the consumers are a
  *      third source of truth), so an empty/truncated palette fails even under symmetric emptiness.
  *      Component-local `--fm-*` aliases (defined inside the view) are exempt.
+ *
+ *   4. Text-safe ink — `--fm-ink-faint` measures below the 4.5:1 text floor on EVERY surface in BOTH
+ *      skins, so it may never fill text; it survives only as the non-text floor. A prose tripwire was
+ *      not enough: an earlier pass cleaned eight text sites and recorded "no live consumer", after
+ *      which four new text sites re-adopted it unnoticed. This check makes the contract mechanical —
+ *      the token stays legal for `background`/`border-color`, and is rejected in a `color:` fill.
  *
  * `collectAgentosThemeFailures` is a pure-over-the-filesystem function (injectable paths, no exit/log)
  * so the CLI wrapper and the isolated spec both drive it. Both mechanical, not discipline.
@@ -34,6 +40,11 @@ const __dirname      = path.dirname(fileURLToPath(import.meta.url)),
       // keywords-not-colors and stay allowed, so they are absent from NAMED_COLOR_RE by design.
       COLOR_LITERAL_RE = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/,
       NAMED_COLOR_RE   = /\b(?:aqua|aquamarine|beige|black|blue|brown|chartreuse|chocolate|coral|crimson|cyan|fuchsia|gold|goldenrod|gray|grey|green|indigo|ivory|khaki|lavender|lime|magenta|maroon|navy|olive|orange|orchid|pink|plum|purple|rebeccapurple|red|salmon|silver|tan|teal|tomato|turquoise|violet|wheat|white|yellow|(?:light|dark)(?:blue|gray|grey|green|red|pink|orange|salmon|violet|cyan|khaki))\b/,
+      // Properties that fill TEXT. A token below the 4.5:1 text floor is legal as a surface/border but
+      // never here. Property name only — the value side is checked against TEXT_FORBIDDEN_INK.
+      TEXT_FILL_PROPERTIES = new Set(['color', '-webkit-text-fill-color']),
+      // Inks measured below 4.5:1 on every surface in both skins: legal as non-text, rejected on text.
+      TEXT_FORBIDDEN_INK   = ['--fm-ink-faint'],
       // The closed design-contract vocabulary — every skin must DEFINE all of these even when a token is
       // momentarily unconsumed, so a symmetric deletion of a contracted token cannot false-green.
       CONTRACTED_FM_TOKENS = new Set([
@@ -153,6 +164,18 @@ export function collectAgentosThemeFailures({
             if (COLOR_LITERAL_RE.test(bareValue) || NAMED_COLOR_RE.test(bareValue)) {
                 failures.push(`[token-only] ${path.relative(repoRoot, file)}:${index + 1} bare color literal — consume a semantic token instead: ${rawLine.trim()}`);
             }
+
+            // check 4 — text-safe ink. The property is whatever precedes the colon once any selector /
+            // preceding declaration on the same line is stripped (`&.x { color:` → `color`).
+            const property = line.slice(0, colonIdx).replace(/^.*[{;]/, '').trim();
+
+            if (TEXT_FILL_PROPERTIES.has(property)) {
+                for (const token of TEXT_FORBIDDEN_INK) {
+                    if (new RegExp(`var\\(\\s*${token}\\b`).test(value)) {
+                        failures.push(`[text-contrast] ${path.relative(repoRoot, file)}:${index + 1} ${token} fills text but measures below the 4.5:1 floor on every surface in both skins — use --fm-ink-dim: ${rawLine.trim()}`);
+                    }
+                }
+            }
         });
     }
     function scanScss(dir) {
@@ -192,5 +215,5 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
         process.exit(1);
     }
 
-    console.log('✓ agentos theme guard: parity + token-only + completeness all pass.');
+    console.log('✓ agentos theme guard: parity + token-only + completeness + text-safe ink all pass.');
 }
