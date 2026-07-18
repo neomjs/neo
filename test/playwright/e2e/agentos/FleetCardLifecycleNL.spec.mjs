@@ -32,9 +32,10 @@ function rosterRow(state) {
 
 /**
  * @summary Start a STATEFUL recording loopback Fleet bridge serving ONE stopped resident. A
- * successful `startAgent` flips the registry-side lifecycle to running, so the cockpit's
- * settle-time re-poll renders REGISTRY truth — never an optimistic client flip. `rejectStart`
- * makes the start verb answer a deterministic domain rejection instead (registry state untouched).
+ * successful `startAgent` flips the registry-side lifecycle to running and `stopAgent` flips it
+ * back, so the cockpit's settle-time re-poll renders REGISTRY truth — never an optimistic client
+ * flip. `rejectStart` makes the start verb answer a deterministic domain rejection instead
+ * (registry state untouched).
  * @param {Object} [options]
  * @param {Boolean} [options.rejectStart=false]
  * @returns {Promise<{close: Function, endpoint: String, requests: Object[], bearerToken: String}>}
@@ -56,6 +57,11 @@ async function startLifecycleFleetBridge({rejectStart = false} = {}) {
 
                 running.add(request.params);
                 return {ok: true, result: {id: request.params, state: 'running'}}
+            }
+
+            if (request.method === 'stopAgent') {
+                running.delete(request.params);
+                return {ok: true, result: {id: request.params, state: 'stopped'}}
             }
 
             if (request.method === 'fleetRoster') {
@@ -89,11 +95,12 @@ async function startLifecycleFleetBridge({rejectStart = false} = {}) {
  * lifecycle click crosses the fleet wire as the minimal agent-id operation — a registered wire
  * method carrying ONE string param, with no credential-shaped bytes.
  * @param {Object} request The recorded loopback fleet request.
+ * @param {String} [method='startAgent'] The expected registered lifecycle wire method.
  */
-function expectMinimalLifecyclePayload(request) {
+function expectMinimalLifecyclePayload(request, method = 'startAgent') {
     expect(FLEET_WIRE_METHODS).toContain(request.method);
     expect(request).toEqual({
-        method: 'startAgent',
+        method,
         params: TEST_AGENT_ID
     });
     expect(typeof request.params).toBe('string');
@@ -147,14 +154,15 @@ async function getRosterRecord(app) {
  * rebuild re-homed the lifecycle surface onto the cards; the retired Control-panel NL specs died
  * with their subject and this spec is the card path's own witness): the B4 control-toggle →
  * `lifecycleIntent` → the C2
- * adapter → the authenticated bridge — minimal wire payload, registry-truth state advance on
- * success, honest terminal rendering + open retry on rejection, and no credential-shaped bytes on
- * any lifecycle request.
+ * adapter → the authenticated bridge — minimal wire payloads across the FULL power cycle
+ * (start-when-off, stop-when-running: the one contextual toggle carrying each verb in turn),
+ * registry-truth state advance on success, honest terminal rendering + open retry on rejection,
+ * and no credential-shaped bytes on any lifecycle request.
  */
 test.describe('AgentOS fleet card lifecycle controls (Neural Link)', () => {
     test.setTimeout(90000);
 
-    test('happy path: the card toggle Starts through the wire; Body state advances only via re-polled registry truth', async ({page, neuralLink}) => {
+    test('happy path: the toggle drives the FULL power cycle through the wire; Body state advances only via re-polled registry truth', async ({page, neuralLink}) => {
         const fleet = await startLifecycleFleetBridge();
 
         try {
@@ -180,13 +188,32 @@ test.describe('AgentOS fleet card lifecycle controls (Neural Link)', () => {
             expectMinimalLifecyclePayload(starts[0]);
 
             // the Body-side record landed the re-polled state — settled, honest, credential-free
-            const record = await getRosterRecord(app);
-            expect(record).toBeTruthy();
-            expect(record.state).toBe('ok');
-            expect(record.pendingAction ?? null).toBeNull();
-            expect(record.controlReason ?? null).toBeNull();
+            const started = await getRosterRecord(app);
+            expect(started).toBeTruthy();
+            expect(started.state).toBe('ok');
+            expect(started.pendingAction ?? null).toBeNull();
+            expect(started.controlReason ?? null).toBeNull();
 
-            // credential hygiene across EVERY recorded lifecycle-window request
+            // ── the Stop leg (the cycle's second half, same contextual toggle): the SAME control
+            // now carries the Stop verb — the registry flips back to stopped, and the render
+            // advance is again the re-poll's, never the click's
+            await toggle.click();
+
+            await expect(toggle.locator('.fa-play')).toBeVisible({timeout: 15000});
+            await expect(card.locator('.fm-card-control-status')).not.toBeVisible();
+
+            const stops = fleet.requests.filter(request => request.method === 'stopAgent');
+            expect(stops).toHaveLength(1);
+            expectMinimalLifecyclePayload(stops[0], 'stopAgent');
+
+            // the record returned to the stopped truth with no residue — the cycle is closed
+            const stopped = await getRosterRecord(app);
+            expect(stopped).toBeTruthy();
+            expect(stopped.state).toBe('off');
+            expect(stopped.pendingAction ?? null).toBeNull();
+            expect(stopped.controlReason ?? null).toBeNull();
+
+            // credential hygiene across EVERY request recorded over the full cycle
             expect(JSON.stringify(fleet.requests)).not.toMatch(/credential|github_pat|bearer/i)
         } finally {
             await fleet.close()
