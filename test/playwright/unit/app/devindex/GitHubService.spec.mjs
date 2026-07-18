@@ -378,6 +378,47 @@ test.describe('DevIndex GitHub service', () => {
         expect(callCount).toBe(2);
     });
 
+    test('query does NOT replay a mutation after a transient 200-body error — a read from the SAME error retries', async () => {
+        const mutationDoc = `
+            mutation($subjectId: ID!, $body: String!) {
+                addComment(input: {subjectId: $subjectId, body: $body}) { clientMutationId }
+            }`;
+        let appliedWrites = 0;
+        let mutationCalls = 0;
+
+        globalThis.fetch = async () => {
+            mutationCalls++;
+            appliedWrites++;
+
+            return jsonResponse({
+                data  : {addComment: {clientMutationId: 'already-applied'}},
+                errors: [{message: 'Resource not accessible by integration'}]
+            });
+        };
+
+        await expect(restClient.query(mutationDoc, {}, 3, 'OptIn Comment'))
+            .rejects.toThrow('GraphQL Query Errors: Resource not accessible by integration');
+        expect(mutationCalls, 'a mutation must not replay a partial-data error response').toBe(1);
+        expect(appliedWrites, 'the first response models a write that already applied').toBe(1);
+
+        let readCalls = 0;
+
+        globalThis.fetch = async () => {
+            readCalls++;
+
+            return readCalls === 1
+                ? jsonResponse({
+                    data  : {viewer: null},
+                    errors: [{message: 'Resource not accessible by integration'}]
+                })
+                : jsonResponse({data: {viewer: {login: 'ada'}}});
+        };
+
+        await expect(restClient.query('query { viewer { login } }', {}, 3, 'OptIn Stars'))
+            .resolves.toEqual({viewer: {login: 'ada'}});
+        expect(readCalls, 'an idempotent read retries the same transient body error').toBe(2);
+    });
+
     test('query exhausts the bounded budget on a persistent transient error, then throws (no infinite retry)', async () => {
         let callCount = 0;
 

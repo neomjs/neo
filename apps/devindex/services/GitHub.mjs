@@ -194,8 +194,9 @@ class GitHub extends Base {
     /**
      * @summary Whether a GraphQL operation document is a mutation. A `query` (or the anonymous
      * shorthand) is idempotent by the GraphQL spec and safe to replay after a transient failure; a
-     * `mutation` is not — replaying it after an ambiguous outcome (a transport disconnect) can
-     * duplicate an already-applied write. Leading whitespace and `#` line comments are skipped before
+     * `mutation` is not — replaying it after an ambiguous outcome (a transport disconnect or a
+     * partial-data error response) can duplicate an already-applied write. Leading whitespace and
+     * `#` line comments are skipped before
      * the leading operation keyword is read, so a documented mutation is still recognised.
      * @param {String} query The GraphQL operation document.
      * @returns {Boolean}
@@ -322,8 +323,9 @@ class GitHub extends Base {
     }
 
     /**
-     * Executes a GraphQL query, retrying bounded transient failures (transport OR API-level, e.g.
-     * GitHub's intermittent `Resource not accessible by integration`) from the shared classification.
+     * Executes a GraphQL operation, retrying bounded transient failures (transport OR API-level, e.g.
+     * GitHub's intermittent `Resource not accessible by integration`) from the shared classification
+     * only when replay is safe for the operation.
      * @param {String} query
      * @param {Object} [variables={}]
      * @param {Number} [retries=3]
@@ -407,10 +409,17 @@ class GitHub extends Base {
 
                 // A transient API failure can arrive as a 200-body error — GitHub intermittently returns
                 // `Resource not accessible by integration` for a query it otherwise permits (proven by the
-                // same token succeeding four hours apart). It is classified from the SAME shared
-                // source of truth the REST path uses, so the two transports cannot drift; a genuine
-                // permission misconfiguration still fails loudly, only after the bounded budget is spent.
-                if (retries > 0 && this.#isRetryableTransientError(messages)) {
+                // same token succeeding four hours apart). Classification comes from the SAME shared source
+                // of truth the REST path uses, while authorization remains operation-aware: GraphQL may
+                // return partial `data` beside `errors`, so a mutation might already have applied and must
+                // fail loud rather than replay. Idempotent reads retain the bounded retry.
+                const isTransientError = this.#isRetryableTransientError(messages);
+
+                if (isTransientError && this.#isMutation(query)) {
+                    throw new Error(`GraphQL Query Errors: ${messages}`);
+                }
+
+                if (retries > 0 && isTransientError) {
                     const delay = this.#getRetryDelay(attempt, response);
                     console.warn(`${prefix} Transient error: ${messages}; retrying in ${delay}ms (attempt ${attempt})`);
                     await this.#sleep(delay);
@@ -427,19 +436,16 @@ class GitHub extends Base {
                 throw error;
             }
 
-            // Transient transport failures retry from the SAME shared classification as the body-error
-            // path above and the REST path — one source of truth, not a second inline token list that
-            // drifts — the prior inline `fetch`/`network`/`terminated` list was exactly that drift.
+            // Transient failures retry from the SAME shared classification as the body-error path above
+            // and the REST path — one source of truth, not a second inline token list that drifts — the
+            // prior inline `fetch`/`network`/`terminated` list was exactly that drift.
             if (retries > 0 && this.#isRetryableTransientError(error)) {
                 // Retry AUTHORIZATION is a separate decision from retry CLASSIFICATION: the failure is
-                // transient, but a transport disconnect leaves a mutation's server-side outcome
-                // unknowable (the write may have applied before the socket dropped), so replaying it
-                // can duplicate. A GraphQL `query` is idempotent and safe to replay; a `mutation` is
-                // not — it fails loud here rather than risk a double write. (The 200-body error path
-                // above is a server *response* — a rejected-not-applied mutation — so it stays
-                // retryable; only this ambiguous transport path is gated.)
+                // transient, but a transport disconnect or a partial-data error response leaves a
+                // mutation's server-side outcome ambiguous, so replaying it can duplicate an applied
+                // write. A GraphQL `query` is idempotent and safe to replay; a `mutation` is not.
                 if (this.#isMutation(query)) {
-                    console.error(`${prefix} Transient transport error on a mutation — NOT replaying (ambiguous outcome may have already applied the write): ${error.message}`);
+                    console.error(`${prefix} Transient error on a mutation — NOT replaying (ambiguous outcome may have already applied the write): ${error.message}`);
                     throw error;
                 }
                 const delay = this.#getRetryDelay(attempt);
