@@ -154,7 +154,10 @@ class DockCrossWindowParticipation extends Base {
             previewFor        : me.previewFor,
             previewToOperation: me.previewToOperation,
             sortGroup         : me.sortGroup,
-            windowId          : me.windowId
+            // the workspace id IS the §2.8.1 stable claim identity: it survives re-registration
+            // and never encodes windowId or registration order
+            stableTargetId: me.workspaceId,
+            windowId      : me.windowId
         })
     }
 
