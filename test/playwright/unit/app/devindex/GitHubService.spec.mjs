@@ -509,4 +509,78 @@ test.describe('DevIndex GitHub service', () => {
             .resolves.toEqual({viewer: {login: 'ada'}});
         expect(readCalls, 'an idempotent read retries the same transient failure').toBe(2);
     });
+
+    test('query does NOT replay a mutation after a 5xx server error — a read retries, and a 403 rate-limit still replays either (#15454)', async () => {
+        // A `>= 500` leaves a MUTATION's server-side outcome ambiguous (the write may have applied before
+        // the error), so it is not replayed — an idempotent read is. A `403` is a pre-execution rate-limit
+        // rejection (the write never ran), so it is always safe to replay, mutation or not. retries=4 zeroes
+        // this path's hardcoded `(4 - retries) * 2000` first-retry backoff — unlike the transient-body path
+        // it is not wired to the configurable delay knobs (a noted follow-up).
+        const mutationDoc = `
+            mutation($subjectId: ID!, $body: String!) {
+                addComment(input: {subjectId: $subjectId, body: $body}) { clientMutationId }
+            }`;
+        const badGateway = () => new Response('', {status: 502, statusText: 'Bad Gateway'});
+
+        // MUTATION on a 5xx: NOT replayed — one fetch, the terminal status error thrown.
+        let mutationCalls = 0;
+        globalThis.fetch = async () => { mutationCalls++; return badGateway() };
+        await expect(restClient.query(mutationDoc, {}, 4, 'OptIn Comment'))
+            .rejects.toThrow('GraphQL Error: 502 Bad Gateway');
+        expect(mutationCalls, 'a mutation must not replay a 5xx ambiguous outcome').toBe(1);
+
+        // READ on the SAME 5xx: IS retried — proving the gate is the operation, not the status.
+        let readCalls = 0;
+        globalThis.fetch = async () => {
+            readCalls++;
+            return readCalls === 1 ? badGateway() : jsonResponse({data: {viewer: {login: 'ada'}}});
+        };
+        await expect(restClient.query('query { viewer { login } }', {}, 4, 'OptIn Stars'))
+            .resolves.toEqual({viewer: {login: 'ada'}});
+        expect(readCalls, 'an idempotent read retries the same 5xx').toBe(2);
+
+        // MUTATION on a 403: IS replayed — a pre-execution rate-limit reject never ran the write. A zero
+        // remaining bucket keeps it on the standard backoff (a >0 quota would trip the 10s abuse penalty).
+        restClient.rateLimit.graphql.remaining = 0;
+        let rateLimitedMutationCalls = 0;
+        globalThis.fetch = async () => {
+            rateLimitedMutationCalls++;
+            return rateLimitedMutationCalls === 1
+                ? new Response('', {status: 403, statusText: 'Forbidden'})
+                : jsonResponse({data: {addComment: {clientMutationId: 'ok'}}});
+        };
+        await expect(restClient.query(mutationDoc, {}, 4, 'OptIn Comment'))
+            .resolves.toEqual({addComment: {clientMutationId: 'ok'}});
+        expect(rateLimitedMutationCalls, 'a 403 rate-limit is pre-execution, so a mutation safely replays').toBe(2);
+    });
+
+    test('query does NOT replay a mutation after an in-body gateway (502/504) error — a read retries (#15454)', async () => {
+        // A gateway error can arrive as a 200-body error. Like a `>= 500` status it leaves a MUTATION's
+        // outcome ambiguous, so it is not replayed — a read is. The transient patterns are overridden to a
+        // token this message does not carry, so the gateway branch is the SOLE retry route under test (not
+        // the shared transient-body path). retries=4 zeroes the same hardcoded first-retry backoff.
+        restClient.retryableTransientErrorPatterns = ['neo-nonmatching-token'];
+        const mutationDoc = `
+            mutation($subjectId: ID!, $body: String!) {
+                addComment(input: {subjectId: $subjectId, body: $body}) { clientMutationId }
+            }`;
+        const gatewayBody = () => jsonResponse({errors: [{message: 'Something went wrong (502)'}]});
+
+        // MUTATION on an in-body gateway error: NOT replayed — one fetch, the error surfaced.
+        let mutationCalls = 0;
+        globalThis.fetch = async () => { mutationCalls++; return gatewayBody() };
+        await expect(restClient.query(mutationDoc, {}, 4, 'OptIn Comment'))
+            .rejects.toThrow('Something went wrong (502)');
+        expect(mutationCalls, 'a mutation must not replay an ambiguous in-body gateway error').toBe(1);
+
+        // READ on the SAME in-body gateway error: IS retried.
+        let readCalls = 0;
+        globalThis.fetch = async () => {
+            readCalls++;
+            return readCalls === 1 ? gatewayBody() : jsonResponse({data: {viewer: {login: 'ada'}}});
+        };
+        await expect(restClient.query('query { viewer { login } }', {}, 4, 'OptIn Stars'))
+            .resolves.toEqual({viewer: {login: 'ada'}});
+        expect(readCalls, 'an idempotent read retries the same in-body gateway error').toBe(2);
+    });
 });
