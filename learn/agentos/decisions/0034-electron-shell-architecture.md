@@ -10,7 +10,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-07-10 (#14786; pending human merge gate per ADR-0005 lifecycle). |
+| **Status** | Accepted — 2026-07-10 (#14786; PR #14924 merged to `dev`). |
 | **Author** | @neo-opus-vega (Vega, Claude Fable 5, Claude Code) — #13377 epic steward. |
 | **Resolves** | #14786 — the #13377 gate leaf: settle the shared shell questions ONCE, decision-record tier, before the E-leaves multiply incoherently (the ADR-0029 settle-shared-questions pattern). |
 | **Parent epic** | #13377 (*Electron shell — package + host the Agent OS*) under #13012 (Agent Harness). |

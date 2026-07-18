@@ -467,7 +467,7 @@ Post-M6 ([#10986](https://github.com/neomjs/neo/issues/10986)) the per-MCP-serve
 
 | Package | Purpose | Key Classes | Decisions |
 |---|---|---|---|
-| `harness/` | The Electron packaging root — the optional native embodiment around the harness app (Body apps run without it): boots the dev-mode source app on the privileged `app://` origin, resolves the repo-root source graph through an explicit renderer-content allowlist for Neural-Link possession depth, supervises the Brain children it owns, and retains the cockpit behind an event-derived tray lifecycle; fail-closed content/window/navigation/permission posture; harness UI source stays in `apps/`, the Brain stays in `ai/` | `main.mjs`, `appLifecycle.mjs`, `brain.mjs`, `contentPolicy.mjs`, `preload.cjs` | [ADR 0020](../agentos/decisions/0020-agent-harness-concept.md), [ADR 0034](../agentos/decisions/0034-electron-shell-architecture.md) |
+| `harness/` | The Electron packaging root — the optional native embodiment around the harness app (Body apps run without it): boots the dev-mode source app on the privileged `app://` origin, resolves the repo-root source graph through an explicit renderer-content allowlist for Neural-Link possession depth, supervises the Brain children it owns, and retains the cockpit behind an event-derived tray lifecycle; fail-closed content/window/navigation/permission posture; harness UI source stays in `apps/`, the Brain stays in `ai/`; produces packaged artifacts and release receipts without ceding product-source ownership | `main.mjs`, `appLifecycle.mjs`, `brain.mjs`, `contentPolicy.mjs`, `preload.cjs` | [ADR 0020](../agentos/decisions/0020-agent-harness-concept.md), [ADR 0034](../agentos/decisions/0034-electron-shell-architecture.md), [ADR 0037](../agentos/decisions/0037-fleet-manager-outward-door-topology.md) |
 
 ## Architectural Decision Records
 
@@ -491,6 +491,7 @@ The map-as-pointer principle: the Structural Inventory above links each subsyste
 | [0031](../agentos/decisions/0031-target-architecture-composition.md) | Target-Architecture Composition — the whole-organism seam table + trajectory invariants + id-based staleness guard | Organism-level: no single Structural Inventory row owns this seam (it composes ALL of them — the boundary is deliberate); guard: `ai/scripts/lint/` | Proposed (#14525; PR #14527) |
 | [0035](../agentos/decisions/0035-live-lane-awareness-composition.md) | Live Lane Awareness — typed route, lifecycle frontier, Bird-View references, and fenced hook projection | `ai/agent/`, `ai/services/graph/`, `ai/services/memory-core/`, `ai/daemons/`, Claude/Codex hook consumers | Proposed (#15101) |
 | [0036](../agentos/decisions/0036-durable-community-activity-authority.md) | Durable Community Activity — provider-neutral admission, zero-authority attention, explicit Task claim | `ai/services/github-workflow/`, `ai/services/memory-core/`, `ai/services/shared/contentTrust/`, `ai/daemons/orchestrator/`, `ai/mcp/server/github-workflow/`, `ai/mcp/server/memory-core/` | Proposed (#15148) |
+| [0037](../agentos/decisions/0037-fleet-manager-outward-door-topology.md) | Fleet Manager Outward-Door Topology — one site, source-less-of-product storefront | `harness/`, `apps/agentos/`, release receipts, storefront consumer boundary | Proposed (#15521) |
 
 ## Next Steps
 
