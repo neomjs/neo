@@ -26,6 +26,13 @@
  * seam REAL rather than a Node-side method the browser can never name — an allowlist omission
  * fails closed and SILENT, which reads exactly like a wired-but-empty mailbox from the pane's side.
  *
+ * `composeOperatorMessage` is the wire's FIRST **write** verb — the operator-mailbox steering
+ * surface: compose a DM or an `AGENT:*` broadcast through the bridge's injected writer. It rides
+ * ONLY the authenticated transport: the ingress stamps the server-resolved viewer into the request
+ * context, and the mailbox primitive resolves the author + its principal class from that ambient
+ * binding — the sender is never wire-carried, and caller-supplied identity fields never leave the
+ * verb's payload whitelist.
+ *
  * **Dependency-free by design** — imported by both a Node module and an App-Worker (browser) module,
  * so it MUST NOT pull in the Node-only FleetControlBridge / crypto / fs chain.
  * @type {String[]}
@@ -33,5 +40,6 @@
 export const FLEET_WIRE_METHODS = Object.freeze([
     'defineAgent', 'configureAgent', 'setRepo', 'setAvatar', 'listAgents', 'getAgent',
     'startAgent', 'stopAgent', 'restartAgent', 'removeAgent', 'fleetStatus', 'fleetRuntimeStatus',
-    'getBootIdentity', 'fleetActivity', 'fleetRoster', 'fleetMailboxMirror', 'connectTenant', 'listTenants'
+    'getBootIdentity', 'fleetActivity', 'fleetRoster', 'fleetMailboxMirror', 'connectTenant', 'listTenants',
+    'composeOperatorMessage'
 ]);
