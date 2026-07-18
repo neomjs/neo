@@ -35,6 +35,7 @@
 
   .status-row{display:flex;align-items:center;gap:8px;min-height:32px}
   .dot{width:9px;height:9px;border-radius:50%;background:var(--state,#34d399);flex:none}
+  .avatar{width:22px;height:22px;border-radius:50%;flex:none;object-fit:cover;background:var(--panel-2)}
   .state-word{font-family:var(--mono);font-size:10px;color:var(--ink-dim);flex:none}
   .state-word.hot{color:var(--state);font-weight:600}
   .name{font-weight:600;font-size:14px;color:var(--ink);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -90,6 +91,7 @@
       <p class="col-label">wide · <b>720px</b></p>
       <div class="card" style="width:720px;--fam:var(--f-gpt)">
         <div class="status-row">
+          <img class="avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Ccircle cx='11' cy='11' r='11' fill='%2358c093'/%3E%3Ctext x='11' y='15' font-size='10' text-anchor='middle' fill='%230b0e13' font-family='monospace'%3EE%3C/text%3E%3C/svg%3E" alt="Euclid">
           <span class="dot" style="--state:var(--ok)"></span>
           <span class="state-word">working</span>
           <span class="name">Euclid</span>
@@ -111,6 +113,7 @@
       <p class="col-label">regular · <b>360px</b></p>
       <div class="card" style="width:360px;--fam:var(--f-claude)">
         <div class="status-row">
+          <img class="avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Ccircle cx='11' cy='11' r='11' fill='%23d99a5b'/%3E%3Ctext x='11' y='15' font-size='10' text-anchor='middle' fill='%230b0e13' font-family='monospace'%3EG%3C/text%3E%3C/svg%3E" alt="Grace">
           <span class="dot" style="--state:var(--wedged)"></span>
           <span class="state-word hot" style="--state:var(--wedged)">wedged</span>
           <span class="name">Grace</span>
@@ -132,6 +135,7 @@
       <p class="col-label">narrow · <b>294px</b></p>
       <div class="card narrow" style="width:294px;--fam:var(--f-gemini)">
         <div class="status-row">
+          <img class="avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Ccircle cx='11' cy='11' r='11' fill='%236ba3e8'/%3E%3Ctext x='11' y='15' font-size='10' text-anchor='middle' fill='%230b0e13' font-family='monospace'%3EG%3C/text%3E%3C/svg%3E" alt="Gemini">
           <span class="dot" style="--state:var(--off)"></span>
           <span class="state-word">benched / offline</span>
           <span class="name">Gemini</span>
@@ -143,16 +147,17 @@
         </div>
         <div class="strip">
           <span class="src full"><i class="dim"></i>RUN</span><span class="src full"><i class="dim"></i>ROS</span><span class="src full"><i class="dim"></i>REP</span>
-          <span class="summary"><i class="dim"></i>all sources nominal ▸</span>
+          <span class="summary"><i class="bad"></i>REP not nominal ▸</span>
         </div>
       </div>
-      <p class="note">narrow mode: engine hidden, strip collapsed to a one-line summary, actions collapse to ONE 44px overflow button</p>
+      <p class="note">narrow mode: engine hidden, the summary NAMES the degraded source (REP not nominal), actions collapse to ONE 44px overflow button</p>
     </div>
 
     <div>
       <p class="col-label">narrow-min · <b>280px</b></p>
       <div class="card narrow" style="width:280px;--fam:var(--f-human)">
         <div class="status-row">
+          <img class="avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Ccircle cx='11' cy='11' r='11' fill='%23c9d2de'/%3E%3Ctext x='11' y='15' font-size='10' text-anchor='middle' fill='%230b0e13' font-family='monospace'%3ET%3C/text%3E%3C/svg%3E" alt="tobiu">
           <span class="dot" style="--state:var(--idle)"></span>
           <span class="state-word">idle</span>
           <span class="name">tobiu</span>
@@ -178,7 +183,8 @@
   <p class="falsifier">294px → 149.95px info body &nbsp;·&nbsp; ~85% width to information; chrome = 3px edge + 32px actions</p>
   <p class="falsifier">48×48 power dominates &nbsp;·&nbsp; 32px in-flow icons at regular+; ONE 44px overflow button at narrow (~16% of a 280px row, never 34%)</p>
   <p class="falsifier">lane → meaningless prefix &nbsp;·&nbsp; 2-line clamp with the distinguishing TAIL preserved (shared middle elides); badge pinned</p>
-  <p class="falsifier">three 9px source rows &nbsp;·&nbsp; summary-DEFAULT strip ("all sources nominal"); degraded sources name themselves — no acronym wall in either direction</p>
+  <p class="falsifier">three 9px source rows &nbsp;·&nbsp; summary-DEFAULT strip that never lies: healthy reads "all sources nominal ▸", degraded NAMES the source ("REP not nominal ▸")</p>
+  <p class="falsifier">avatar is identity, not chrome &nbsp;·&nbsp; 22px in the status row (family-hue ring); the card's "who" keeps its face at every width</p>
   <p class="falsifier">viewport-only breakpoints &nbsp;·&nbsp; card-owned width states (narrow &lt;320, regular 320–560, wide &gt;560 — 294px classifies narrow)</p>
   <p class="falsifier">touch targets eat narrow rows &nbsp;·&nbsp; one 44px overflow button at narrow; the two icons only exist where 32px is cheap</p>
 
