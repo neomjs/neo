@@ -33,11 +33,23 @@ test.describe('AgentOS OperatorComposeForm — operator write surface (#15377, D
     const createForm = cfg => Neo.create(OperatorComposeForm, {appName, ...cfg});
 
     /**
-     * Force the mount-dependent field validation to a known verdict, set the fields, and capture the
-     * fired `compose` intent — isolating `onSendClick`'s own logic from `form.Container.isValid`.
+     * Force the mount-dependent field validation to a known verdict, SELECT recipients through the real
+     * multi-select list (never a hand-fired `to` array), set the fields, and capture the fired `compose`
+     * intent — isolating `onSendClick`'s own logic from `form.Container.isValid`.
      */
-    const composeWith = async (form, {subject = 'S', body = 'B', wake, valid = true} = {}) => {
+    const composeWith = async (form, {subject = 'S', body = 'B', wake, valid = true, recipients = ['@neo-opus-ada']} = {}) => {
         form.isValid = async () => valid;
+
+        // feed the roster and select recipients through the REAL selection model — actual picker
+        // selection, so the fired `to` array is produced by the component, not asserted into existence
+        form.recipientOptions = [
+            {id: '@neo-opus-ada',  name: 'Ada'},
+            {id: '@neo-opus-vega', name: 'Vega'},
+            {id: 'AGENT:*',        name: 'All agents (broadcast)'}
+        ];
+
+        const list = form.getReference('compose-recipients');
+        list.selectionModel.select(recipients.map(id => list.store.get(id)));
 
         form.getReference('compose-subject').value = subject;
         form.getReference('compose-body').value    = body;
@@ -113,6 +125,44 @@ test.describe('AgentOS OperatorComposeForm — operator write surface (#15377, D
         ];
 
         expect(form.getReference('compose-recipients').store.getCount()).toBe(2);
+
+        form.destroy()
+    });
+
+    test('SEVERAL selected recipients fire as the `to` ARRAY — a real multi-select, not one scalar', async () => {
+        // the whole reason the picker is a list.Base(singleSelect:false) and not a Chip/ComboBox: two
+        // selections must survive as two, which the single-select primitive's getSelection()[0] cannot
+        const form     = createForm(),
+              captured = await composeWith(form, {recipients: ['@neo-opus-ada', '@neo-opus-vega']});
+
+        expect(captured.message.to).toEqual(['@neo-opus-ada', '@neo-opus-vega']);
+
+        form.destroy()
+    });
+
+    test('the AGENT:* broadcast row selects as a single-entry `to` — the cockpit sends it once, server-expanded', async () => {
+        const form     = createForm(),
+              captured = await composeWith(form, {recipients: ['AGENT:*']});
+
+        expect(captured.message.to).toEqual(['AGENT:*']);
+
+        form.destroy()
+    });
+
+    test('NO recipient selected → NO compose fired (a recipient is required; no partial message)', async () => {
+        const form = createForm();
+
+        // valid fields, but zero recipients selected — the send must refuse, never fabricate a send with
+        // no destination (the required gate lives in onSendClick since the list has no field-level required)
+        form.getReference('compose-subject').value = 'S';
+        form.getReference('compose-body').value    = 'B';
+        form.isValid = async () => true;
+
+        let captured = null;
+        form.on('compose', data => {captured = data});
+        await form.onSendClick();
+
+        expect(captured).toBeNull();
 
         form.destroy()
     })

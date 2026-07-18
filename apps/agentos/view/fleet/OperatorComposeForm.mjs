@@ -1,7 +1,8 @@
-import ChipField     from '../../../../src/form/field/Chip.mjs';
 import ComboBoxField from '../../../../src/form/field/ComboBox.mjs';
 import FormContainer from '../../../../src/form/Container.mjs';
 import Button        from '../../../../src/button/Base.mjs';
+import Label         from '../../../../src/component/Label.mjs';
+import List          from '../../../../src/list/Base.mjs';
 import Store         from '../../../../src/data/Store.mjs';
 import SwitchField   from '../../../../src/form/field/Switch.mjs';
 import TextField     from '../../../../src/form/field/Text.mjs';
@@ -25,11 +26,12 @@ import TextAreaField from '../../../../src/form/field/TextArea.mjs';
  * contract, wake is the operator's explicit opt-in. So `wake` is a `Switch` **defaulting to off** —
  * the durable-quiet default the operator named preferred — never a class-forced always-wake.
  *
- * **Recipients** compose a `Chip` field: named peers (one or several) or the `AGENT:*` broadcast
- * sentinel, entered as canonical `@`-form / the sentinel. The picker is a real field, never a
- * hand-rolled tag input (`button.Base`/field discipline — the primitive supplies the states a raw
- * tag lacks). Broadcast and named recipients share one field because the transport's `to` already
- * unifies them; the controller splits per-recipient only if the verb requires it.
+ * **Recipients** are a real multi-select {@link Neo.list.Base} (`singleSelect:false`) over the roster
+ * store: named peers (one or several) or the `AGENT:*` broadcast row, each a canonical `@`-form / the
+ * sentinel. A genuine multi-select is load-bearing — the single-select `ComboBox`/`Chip` primitive
+ * collapses its value to one scalar (`getSelection()[0]`) and cannot express "several peers", so the
+ * shipped `singleSelect:false` selection model is the one that can. `to` is read as the ARRAY of
+ * selected ids, and the owning cockpit fans out per recipient (the compose verb is one-target).
  *
  * The form owns no `state.Provider` (a leaf form scoped by the cockpit above it) and no `data.Store`
  * of its own — recipient *options* are supplied by the owning cockpit from the live roster it already
@@ -71,27 +73,37 @@ class OperatorComposeForm extends FormContainer {
          * @member {Object[]} items
          */
         items: [{
-            module       : ChipField,
-            reference    : 'compose-recipients',
-            name         : 'to',
-            labelText    : 'To',
-            labelPosition: 'top',
-            displayField : 'name',
-            valueField   : 'id',
-            // named peers and AGENT:* share one field: the transport's `to` already unifies them
-            placeholderText: 'Named peer(s) or AGENT:* — durable delivery to each',
-            // a real data.Store of {id: canonical-@-form, name: display} records, fed by the owning
-            // cockpit's live roster via `recipientOptions` — never a hand-mapped plain array (apps/** gate)
-            store: {
-                module: Store,
-                model : {
-                    fields: [
-                        {name: 'id',   type: 'String'},
-                        {name: 'name', type: 'String'}
-                    ]
-                },
-                data: []
-            }
+            ntype : 'container',
+            cls   : ['fm-operator-compose-recipients'],
+            flex  : 'none',
+            layout: {ntype: 'vbox', align: 'stretch'},
+            items : [{
+                module: Label,
+                cls   : ['fm-operator-compose-recipients-label'],
+                text  : 'To'
+            }, {
+                module      : List,
+                reference   : 'compose-recipients',
+                cls         : ['fm-operator-compose-recipients-list'],
+                displayField: 'name',
+                height      : 132,
+                // real multi-select: one, several, or the AGENT:* broadcast row. singleSelect:false is the
+                // shipped multi-select the single-select ComboBox/Chip primitive can't express (its value is
+                // one scalar) — the operator steering several peers at once is the whole point of the surface
+                selectionModel: {ntype: 'selection-listmodel', singleSelect: false},
+                // a real data.Store of {id: canonical-@-form, name: display} records, fed by the owning
+                // cockpit's live roster via `recipientOptions` — never a hand-mapped plain array (apps/** gate)
+                store: {
+                    module: Store,
+                    model : {
+                        fields: [
+                            {name: 'id',   type: 'String'},
+                            {name: 'name', type: 'String'}
+                        ]
+                    },
+                    data: []
+                }
+            }]
         }, {
             module       : TextField,
             reference    : 'compose-subject',
@@ -162,7 +174,20 @@ class OperatorComposeForm extends FormContainer {
      * @protected
      */
     async onSendClick() {
-        let me = this;
+        let me         = this,
+            recipients = me.getReference('compose-recipients'),
+            // the recipient list is a real multi-select (not a form field), so `to` is read from its
+            // selection: each selected item id mapped back to its store record's canonical @-form / sentinel
+            to         = recipients.selectionModel.getSelection()
+                .map(itemId => recipients.store.get(recipients.getItemRecordId(itemId))?.id)
+                .filter(Boolean);
+
+        // require at least one recipient — the list carries no field-level `required`, so this is the gate:
+        // a send with no recipient is refused, never a partial or fabricated message (the visible
+        // recipient-required cue rides the outcome surface, still to land)
+        if (!to.length) {
+            return
+        }
 
         if (!await me.isValid()) {
             me.focusFirstInvalidField?.();
@@ -171,14 +196,14 @@ class OperatorComposeForm extends FormContainer {
 
         const values = await me.getSubmitValues();
 
-        // The intent, in transport-natural shape. `wakeSuppressed` is the transport's field, and it is
-        // the INVERSE of the operator's "wake now" choice: wake off ⇒ suppress the wake, keep it
-        // durable-quiet. The controller maps `to`/`subject`/`body`/`priority`/`wakeSuppressed` onto
-        // the compose verb; sender identity is added server-side, never here.
+        // The intent, in transport-natural shape. `to` is the ARRAY of chosen recipients — the owning
+        // cockpit fans out one authenticated call per named target (AGENT:* is one server-expanded call).
+        // `wakeSuppressed` is the transport's field, the INVERSE of the operator's "wake now" choice: wake
+        // off ⇒ suppress the wake, keep it durable-quiet. Sender identity is added server-side, never here.
         me.fire('compose', {
             source : me,
             message: {
-                to            : values.to,
+                to,
                 subject       : values.subject,
                 body          : values.body,
                 priority      : values.priority || 'high',
@@ -196,9 +221,11 @@ class OperatorComposeForm extends FormContainer {
     afterSetRecipientOptions(value, oldValue) {
         if (!this.isConstructed) return;
 
-        const field = this.getReference('compose-recipients');
+        const list = this.getReference('compose-recipients');
 
-        field?.store && (field.store.data = value)
+        // feed the live roster into the multi-select list's own store, so an already-materialized picker
+        // stays current across roster load / reconciliation (never snapshotted once at creation)
+        list?.store && (list.store.data = value)
     }
 }
 

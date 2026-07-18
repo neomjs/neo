@@ -18,6 +18,35 @@
         }
     }
 
+    /* the recipient picker is a real multi-select list (not a form field), so it carries its own quiet
+       label and a bordered, scrollable well; a selected row takes the signal accent to read as chosen —
+       every color a --fm-* token, so both skins hold by construction */
+    .fm-operator-compose-recipients {
+        gap: 4px;
+
+        .fm-operator-compose-recipients-label {
+            color      : var(--fm-ink-dim);
+            font-size  : 12px;
+            font-weight: 600;
+        }
+
+        .fm-operator-compose-recipients-list {
+            border       : 1px solid var(--fm-line-soft);
+            border-radius: 6px;
+            overflow-y   : auto;
+
+            .neo-list-item {
+                cursor : pointer;
+                padding: 6px 10px;
+
+                &.neo-selected {
+                    background: color-mix(in srgb, var(--fm-signal) 16%, transparent);
+                    color     : var(--fm-ink);
+                }
+            }
+        }
+    }
+
     /* the message body wants room; the mono face matches the mailbox rows it will be read beside */
     .fm-operator-compose-body {
         textarea {
