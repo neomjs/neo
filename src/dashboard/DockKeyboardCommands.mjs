@@ -32,8 +32,11 @@
 
 /**
  * @summary Creates the keyboard command set a dock composition threads into its key handlers,
- * closed over the host's seams. One command set serves one workspace composition — commands are
- * discrete and awaited, so no gesture slot is needed.
+ * closed over the host's seams. One command set serves one workspace composition. The detach
+ * command is discrete and awaited (no slot); the transfer commands form a short EXPLICIT cycle
+ * (start → next/prev → commit|cancel) over one cycle slot — the host routes arrow/Enter/Escape
+ * to the cycle commands ONLY while a cycle is active, so outside a cycle those keys keep their
+ * ordinary meaning.
  * @param {Object} seams
  * @param {Function} seams.announce Host announcement seam: `({command, itemId, terminal, focusTransferred, message}) => void` —
  *     renders to the composition's `aria-live` region. The `message` is a complete default
@@ -42,17 +45,59 @@
  *     the workspace's pure reducer (`applyDockZoneOperation`). Called exactly once per admitted command.
  * @param {Function} seams.closeVessel Host vessel retirement: `({itemId, windowName}) => void|Promise` —
  *     closes the OS window a refused commit leaves behind. Never called for a committed detach.
+ * @param {Function} seams.commitTransfer Host transfer seam: `({itemId, target: {workspaceId, tabsId}}) => {errors: String[]}` —
+ *     the host runs `DockZoneModel.transferItem` (commit-or-neither document pair) and lands the
+ *     pair through its workspace set's both-or-neither adoption. Called exactly once per commit.
+ * @param {Function} seams.enumerateTargets Host target enumeration: `({itemId}) => Object[]` —
+ *     `[{workspaceId, tabsId, label}]` in a STABLE order (the workspace set's registry order),
+ *     excluding the item's current tabs. Empty = no legal targets (announced, fail-closed).
  * @param {Function} seams.focusVessel Host focus seam: `({itemId, windowName}) => Boolean|Promise<Boolean>` —
  *     transfers focus into the vessel window; answers `false` when the platform declines (never throws).
+ * @param {Function} seams.focusWorkspace Host workspace-focus seam: `({workspaceId}) => Boolean|Promise<Boolean>` —
+ *     transfers focus to the window rendering `workspaceId` after a committed transfer; the same
+ *     Boolean-admission discipline as `focusVessel`.
+ * @param {Function} seams.highlightTarget Host affordance seam: `(target|null) => void` — renders the
+ *     current cycle candidate through the shared drag-affordance consumer (`null` clears). The
+ *     highlight must pair hue with a non-color carrier — the seam owner's WCAG 1.4.1 duty.
  * @param {Function} seams.onDocumentChange Host view-sync seam: `(document, operation) => void` —
  *     receives the committed post-detach document (the adapter's `moveTo` listener seam shape).
  * @param {Function} seams.openVessel Host vessel acquisition:
  *     `({itemId, proxyRect, sortZone}) => Promise<{popupHeight, popupWidth, windowName}|null>` —
  *     the SAME seam shape the pointer path injects; the keyboard path passes `proxyRect: null` and
  *     `sortZone: null`, so one host implementation serves both paths without branching.
- * @returns {Object} `{detachItem}`
+ * @returns {Object} `{cycleCancel, cycleCommit, cycleNext, cyclePrev, cycleStart, detachItem, getActiveCycle}`
  */
-export function createDockKeyboardCommands({announce, applyOperation, closeVessel, focusVessel, onDocumentChange, openVessel}) {
+export function createDockKeyboardCommands({
+    announce,
+    applyOperation,
+    closeVessel,
+    commitTransfer,
+    enumerateTargets,
+    focusVessel,
+    focusWorkspace,
+    highlightTarget,
+    onDocumentChange,
+    openVessel
+}) {
+    // The single cycle slot: {itemId, label, candidates, index} while a target cycle is active,
+    // else null — one keyboard drives at most one transfer cycle per composition.
+    let activeCycle = null;
+
+    const announceCandidate = () => {
+        const
+            {candidates, index, label} = activeCycle,
+            target                     = candidates[index];
+
+        highlightTarget(target);
+        announce({
+            command         : 'transfer',
+            focusTransferred: false,
+            itemId          : activeCycle.itemId,
+            message         : `Target ${index + 1} of ${candidates.length}: ${target.label}. Arrow keys cycle, Enter moves ${label}, Escape cancels.`,
+            terminal        : 'HOVERING_CLAIM'
+        })
+    };
+
     return {
         /**
          * @summary Detach a focused dock item to its own OS popup window — the discrete command
@@ -122,6 +167,143 @@ export function createDockKeyboardCommands({announce, applyOperation, closeVesse
             });
 
             return {focusTransferred, itemId, terminal: 'COMMITTED_TARGET', windowName: vessel.windowName}
+        },
+
+        /**
+         * @summary Begin the target cycle for a transfer (or the return home — the same command
+         * aimed at the main workspace): enumerate the legal targets, highlight the first, and
+         * announce the cycle grammar. No targets = fail-closed AND announced.
+         * @param {Object} data
+         * @param {String} data.itemId The focused dock item's durable id.
+         * @param {String} [data.itemLabel] Human label for announcements; falls back to the id.
+         * @returns {Object|null} `{terminal: 'HOVERING_CLAIM', candidates: Number}` or a REJECTED outcome.
+         */
+        cycleStart({itemId, itemLabel}) {
+            const
+                label      = itemLabel ?? itemId,
+                candidates = enumerateTargets({itemId}) || [];
+
+            if (!candidates.length) {
+                announce({
+                    command         : 'transfer',
+                    focusTransferred: false,
+                    itemId,
+                    message         : `No transfer targets available. ${label} stays where it is.`,
+                    terminal        : 'REJECTED'
+                });
+                return {candidates: 0, itemId, terminal: 'REJECTED'}
+            }
+
+            activeCycle = {candidates, index: 0, itemId, label};
+            announceCandidate();
+
+            return {candidates: candidates.length, itemId, terminal: 'HOVERING_CLAIM'}
+        },
+
+        /**
+         * @summary Advance the cycle to the next candidate (wrap-around). The host routes arrow
+         * keys here ONLY while a cycle is active — outside one, this is a guarded no-op.
+         */
+        cycleNext() {
+            if (!activeCycle) return;
+
+            activeCycle.index = (activeCycle.index + 1) % activeCycle.candidates.length;
+            announceCandidate()
+        },
+
+        /**
+         * @summary Step the cycle to the previous candidate (wrap-around). Guarded like {@link #cycleNext}.
+         */
+        cyclePrev() {
+            if (!activeCycle) return;
+
+            activeCycle.index = (activeCycle.index - 1 + activeCycle.candidates.length) % activeCycle.candidates.length;
+            announceCandidate()
+        },
+
+        /**
+         * @summary Commit the transfer to the current candidate — exactly one `commitTransfer`
+         * (the host's commit-or-neither pair adoption), the highlight cleared, the terminal
+         * announced. A model refusal leaves the item where it is, announced. Focus follows the
+         * item on success via the same Boolean-admission discipline as the detach command.
+         * @returns {Promise<Object|undefined>} The outcome, or `undefined` outside an active cycle.
+         */
+        async cycleCommit() {
+            if (!activeCycle) return;
+
+            const
+                {itemId, label} = activeCycle,
+                target          = activeCycle.candidates[activeCycle.index];
+
+            activeCycle = null;
+            highlightTarget(null);
+
+            let result;
+
+            try {
+                result = commitTransfer({itemId, target: {tabsId: target.tabsId, workspaceId: target.workspaceId}})
+            } catch (error) {
+                // a throwing host seam lands on the refusal path — the cycle must end honestly
+                result = {errors: [`commitTransfer threw: ${error?.message || error}`]}
+            }
+
+            if (result?.errors?.length) {
+                announce({
+                    command         : 'transfer',
+                    focusTransferred: false,
+                    itemId,
+                    message         : `Move rejected by the workspace. ${label} stays where it is.`,
+                    terminal        : 'REJECTED'
+                });
+                return {focusTransferred: false, itemId, terminal: 'REJECTED'}
+            }
+
+            const focusTransferred = !!(await focusWorkspace({workspaceId: target.workspaceId}));
+
+            announce({
+                command: 'transfer',
+                focusTransferred,
+                itemId,
+                message: focusTransferred
+                    ? `${label} moved to ${target.label}. Focus moved with it.`
+                    : `${label} moved to ${target.label}. Focus stayed here: the platform declined the transfer.`,
+                terminal: 'COMMITTED_TARGET'
+            });
+
+            return {focusTransferred, itemId, target, terminal: 'COMMITTED_TARGET'}
+        },
+
+        /**
+         * @summary Cancel the cycle: zero model mutation, the highlight cleared, the cancellation
+         * announced — the outcome machine's CANCELLED terminal, keyboard leg.
+         * @returns {Object|undefined} The outcome, or `undefined` outside an active cycle.
+         */
+        cycleCancel() {
+            if (!activeCycle) return;
+
+            const {itemId, label} = activeCycle;
+
+            activeCycle = null;
+            highlightTarget(null);
+
+            announce({
+                command         : 'transfer',
+                focusTransferred: false,
+                itemId,
+                message         : `Move cancelled. ${label} stays where it is.`,
+                terminal        : 'CANCELLED'
+            });
+
+            return {itemId, terminal: 'CANCELLED'}
+        },
+
+        /**
+         * @summary The active cycle's read-only state — `{itemId, index, count}` or `null`. The
+         * host's key-routing gate: route arrows/Enter/Escape to the cycle ONLY while non-null.
+         * @returns {Object|null}
+         */
+        getActiveCycle() {
+            return activeCycle && {count: activeCycle.candidates.length, index: activeCycle.index, itemId: activeCycle.itemId}
         }
     }
 }

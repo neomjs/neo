@@ -20,9 +20,15 @@ import {createDockKeyboardCommands} from '../../../../src/dashboard/DockKeyboard
  * announcement derives from the outcome terminal — never from the keystroke. The seams are the
  * assertion surface; the machine exposes nothing else.
  */
+const CYCLE_TARGETS = [
+    {workspaceId: 'main',  tabsId: 'tabs-a', label: 'Main window, left pane'},
+    {workspaceId: 'pop-1', tabsId: 'tabs-b', label: 'Popup one'},
+    {workspaceId: 'pop-2', tabsId: 'tabs-c', label: 'Popup two'}
+];
+
 test.describe('Neo.dashboard.DockKeyboardCommands — createDockKeyboardCommands', () => {
-    const harness = ({admit = true, commitErrors = [], commitThrows = false, focusGranted = true} = {}) => {
-        const calls = {announced: [], applied: [], closed: [], focused: [], opened: [], synced: []};
+    const harness = ({admit = true, commitErrors = [], commitThrows = false, focusGranted = true, targets = CYCLE_TARGETS} = {}) => {
+        const calls = {announced: [], applied: [], closed: [], committed: [], focused: [], focusedWs: [], highlights: [], opened: [], synced: []};
 
         const commands = createDockKeyboardCommands({
             announce      : announcement => calls.announced.push(announcement),
@@ -33,11 +39,22 @@ test.describe('Neo.dashboard.DockKeyboardCommands — createDockKeyboardCommands
                     ? {document: null, errors: commitErrors}
                     : {document: {committed: true, detached: operation.itemId}, errors: []}
             },
-            closeVessel: vessel => calls.closed.push(vessel),
-            focusVessel: vessel => {
+            closeVessel   : vessel => calls.closed.push(vessel),
+            commitTransfer: request => {
+                calls.committed.push(request);
+                if (commitThrows) throw new Error('adoption exploded');
+                return {errors: commitErrors}
+            },
+            enumerateTargets: () => targets,
+            focusVessel     : vessel => {
                 calls.focused.push(vessel);
                 return focusGranted
             },
+            focusWorkspace : request => {
+                calls.focusedWs.push(request);
+                return focusGranted
+            },
+            highlightTarget : target => calls.highlights.push(target),
             onDocumentChange: (document, operation) => calls.synced.push({document, operation}),
             openVessel      : async request => {
                 calls.opened.push(request);
@@ -144,5 +161,122 @@ test.describe('Neo.dashboard.DockKeyboardCommands — createDockKeyboardCommands
             expect(calls.announced[0].terminal).toBe(expected);
             expect(outcome.terminal).toBe(expected)
         }
+    });
+
+    test('cycleStart with no legal targets fails CLOSED and is ANNOUNCED — never a silent no-op keystroke', () => {
+        const {calls, commands} = harness({targets: []});
+
+        const outcome = commands.cycleStart({itemId: 'graph', itemLabel: 'Graph'});
+
+        expect(outcome).toEqual({candidates: 0, itemId: 'graph', terminal: 'REJECTED'});
+        expect(calls.highlights).toHaveLength(0);
+        expect(calls.announced[0]).toMatchObject({command: 'transfer', terminal: 'REJECTED'});
+        expect(calls.announced[0].message).toContain('No transfer targets available');
+        expect(commands.getActiveCycle()).toBeNull()
+    });
+
+    test('cycleStart highlights the first candidate and announces the full cycle grammar (position, keys)', () => {
+        const {calls, commands} = harness();
+
+        const outcome = commands.cycleStart({itemId: 'graph', itemLabel: 'Graph'});
+
+        expect(outcome).toEqual({candidates: 3, itemId: 'graph', terminal: 'HOVERING_CLAIM'});
+        expect(calls.highlights[0]).toEqual(CYCLE_TARGETS[0]);
+        expect(calls.announced[0].message).toContain('Target 1 of 3: Main window, left pane');
+        expect(calls.announced[0].message).toContain('Enter moves Graph, Escape cancels');
+        expect(commands.getActiveCycle()).toEqual({count: 3, index: 0, itemId: 'graph'})
+    });
+
+    test('cycleNext / cyclePrev wrap around; the highlight and the position announcement track the candidate', () => {
+        const {calls, commands} = harness();
+
+        commands.cycleStart({itemId: 'graph'});
+        commands.cycleNext();
+        expect(calls.announced.at(-1).message).toContain('Target 2 of 3: Popup one');
+
+        commands.cycleNext();
+        commands.cycleNext();
+        expect(calls.announced.at(-1).message).toContain('Target 1 of 3'); // wrapped forward
+
+        commands.cyclePrev();
+        expect(calls.announced.at(-1).message).toContain('Target 3 of 3: Popup two'); // wrapped back
+        expect(calls.highlights.at(-1)).toEqual(CYCLE_TARGETS[2])
+    });
+
+    test('cycleCommit commits the CURRENT candidate exactly once, clears the highlight, and focus follows the item', async () => {
+        const {calls, commands} = harness();
+
+        commands.cycleStart({itemId: 'graph', itemLabel: 'Graph'});
+        commands.cycleNext();
+
+        const outcome = await commands.cycleCommit();
+
+        expect(calls.committed).toEqual([{itemId: 'graph', target: {tabsId: 'tabs-b', workspaceId: 'pop-1'}}]);
+        expect(calls.highlights.at(-1)).toBeNull();
+        expect(calls.focusedWs).toEqual([{workspaceId: 'pop-1'}]);
+        expect(outcome.terminal).toBe('COMMITTED_TARGET');
+        expect(calls.announced.at(-1).message).toContain('Graph moved to Popup one. Focus moved with it.');
+        expect(commands.getActiveCycle()).toBeNull()
+    });
+
+    test('a rejected transfer leaves the item where it is and announces the rejection — no focus attempt', async () => {
+        const {calls, commands} = harness({commitErrors: ['target tabs vanished']});
+
+        commands.cycleStart({itemId: 'graph', itemLabel: 'Graph'});
+
+        const outcome = await commands.cycleCommit();
+
+        expect(outcome.terminal).toBe('REJECTED');
+        expect(calls.focusedWs).toHaveLength(0);
+        expect(calls.announced.at(-1).message).toContain('Move rejected by the workspace. Graph stays where it is.')
+    });
+
+    test('a THROWING transfer seam lands on the refusal path — the cycle ends honestly', async () => {
+        const {calls, commands} = harness({commitThrows: true});
+
+        commands.cycleStart({itemId: 'graph'});
+
+        const outcome = await commands.cycleCommit();
+
+        expect(outcome.terminal).toBe('REJECTED');
+        expect(calls.announced.at(-1)).toMatchObject({terminal: 'REJECTED'})
+    });
+
+    test('cycleCancel is the CANCELLED terminal: zero model mutation, highlight cleared, cancellation announced', () => {
+        const {calls, commands} = harness();
+
+        commands.cycleStart({itemId: 'graph', itemLabel: 'Graph'});
+
+        const outcome = commands.cycleCancel();
+
+        expect(calls.committed).toHaveLength(0);
+        expect(outcome.terminal).toBe('CANCELLED');
+        expect(calls.highlights.at(-1)).toBeNull();
+        expect(calls.announced.at(-1).message).toContain('Move cancelled. Graph stays where it is.');
+        expect(commands.getActiveCycle()).toBeNull()
+    });
+
+    test('outside an active cycle the cycle verbs are guarded no-ops — the host routes keys only while one is active', async () => {
+        const {calls, commands} = harness();
+
+        commands.cycleNext();
+        commands.cyclePrev();
+        expect(await commands.cycleCommit()).toBeUndefined();
+        expect(commands.cycleCancel()).toBeUndefined();
+
+        expect(calls.announced).toHaveLength(0);
+        expect(calls.committed).toHaveLength(0)
+    });
+
+    test('focus denial on a committed transfer is a NAMED degraded arrival — the move stands, the announcement says so', async () => {
+        const {calls, commands} = harness({focusGranted: false});
+
+        commands.cycleStart({itemId: 'graph', itemLabel: 'Graph'});
+
+        const outcome = await commands.cycleCommit();
+
+        expect(outcome.terminal).toBe('COMMITTED_TARGET');
+        expect(outcome.focusTransferred).toBe(false);
+        expect(calls.announced.at(-1).message).toContain('Focus stayed here')
     })
 });
