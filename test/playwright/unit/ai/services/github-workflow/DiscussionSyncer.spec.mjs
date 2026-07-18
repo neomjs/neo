@@ -110,6 +110,41 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         expect(content).toMatch(/^routingDispositionReason: untrusted-or-unclassified-root-author$/m);
     });
 
+    test('COMPLETE-membership red-proof: a new discussion ranks PAST the marooned on-disk backlog into chunk-2 (#15452)', async () => {
+        // The discriminating witness for the complete-membership fix. Two discussions already on disk are NOT in metadata (the
+        // marooned backlog). With a chunk size of 2, a NEW discussion's ordinal MUST count them — landing it
+        // in chunk-2 — instead of ranking against the delta alone (index 0 → chunk-1, the pre-fix defect).
+        const originalThreshold = aiConfig.issueSync.archiveChunkThreshold;
+
+        aiConfig.issueSync.archiveChunkThreshold = 2;
+
+        try {
+            const chunk1 = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1');
+
+            await fs.ensureDir(chunk1);
+            await fs.writeFile(path.join(chunk1, 'discussion-24010.md'), '# marooned 24010\n');
+            await fs.writeFile(path.join(chunk1, 'discussion-24011.md'), '# marooned 24011\n');
+
+            const discussion = buildDiscussion(24012, {closed: false});
+
+            GraphqlService.query = async () => ({
+                repository: {discussions: {nodes: [discussion], pageInfo: {hasNextPage: false, endCursor: null}}}
+            });
+
+            await DiscussionSyncer.syncDiscussions({discussions: {}});
+
+            // complete membership (24010 + 24011 on disk, then 24012) → itemIndex 2 → chunk-2; the partial
+            // ordinal (24012 alone) would be index 0 → chunk-1.
+            const correct = path.join(aiConfig.issueSync.discussionsDir, 'chunk-2', 'discussion-24012.md'),
+                  wrong   = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-24012.md');
+
+            await expect(fs.pathExists(correct)).resolves.toBe(true);
+            await expect(fs.pathExists(wrong)).resolves.toBe(false)
+        } finally {
+            aiConfig.issueSync.archiveChunkThreshold = originalThreshold
+        }
+    });
+
     test('projects trusted lifecycle markers into typed source-owned routing frontmatter', async () => {
         const discussion = buildDiscussion(24007, {category: 'Ideas'});
         discussion.author = {login: 'neo-gpt'};
