@@ -73,18 +73,28 @@ test.describe('Memory_DatabaseService — graph.import.replace preserves committ
             db.prepare("UPDATE Edges SET data = json_set(data, '$.properties.readAt', ?) WHERE id = ?").run(committedReadAt, edgeBefore.id);
             const beforeReadAt = readAtOf(selectEdge());
 
-            // The bug: a periodic replace-import restores the LAGGED snapshot (readAt null). The fix must preserve the mark.
-            const importResult = await MemoryDatabaseService.manageDatabaseBackup({action: 'import', file: graphBackupPath, mode: 'replace', confirmation: {sqlitePath: graphPathToken}});
+            // OPERATIONAL re-seed: the caller opts in, so the lagged snapshot's null must not revert the mark.
+            const importResult = await MemoryDatabaseService.manageDatabaseBackup({action: 'import', file: graphBackupPath, mode: 'replace', preserveDeliveryReadState: true, confirmation: {sqlitePath: graphPathToken}});
             const edgeAfter = selectEdge();
+
+            // DISASTER-RECOVERY restore: same snapshot, no opt-in. "The backup IS the new state" must hold —
+            // preservation is a caller's operational choice, never an implicit rewrite of restore semantics.
+            const reMarkEdge = selectEdge();
+            db.prepare("UPDATE Edges SET data = json_set(data, '$.properties.readAt', ?) WHERE id = ?").run(committedReadAt, reMarkEdge.id);
+            const beforeExactRestore = readAtOf(selectEdge());
+            await MemoryDatabaseService.manageDatabaseBackup({action: 'import', file: graphBackupPath, mode: 'replace', confirmation: {sqlitePath: graphPathToken}});
+            const exactRestoreReadAt = readAtOf(selectEdge());
 
             console.log('READAT_RESEED_RESULT:' + JSON.stringify({
                 beforeReadAt,
                 committedReadAt,
-                afterReadAt : readAtOf(edgeAfter),
-                edgePresent : !!edgeAfter,
-                imported    : importResult.imported
+                afterReadAt        : readAtOf(edgeAfter),
+                edgePresent        : !!edgeAfter,
+                beforeExactRestore,
+                exactRestoreReadAt : exactRestoreReadAt ?? null,
+                imported           : importResult.imported
             }));
-        `.replace('graphPathToken', JSON.stringify(graphPath));
+        `.replace(/graphPathToken/g, JSON.stringify(graphPath));
 
         try {
             const result = spawnSync(process.execPath, ['--input-type=module', '--eval', script], {
@@ -114,6 +124,13 @@ test.describe('Memory_DatabaseService — graph.import.replace preserves committ
             // The discriminating assertion — RED without the fix (readAt reverts to the snapshot's null),
             // GREEN with it (the committed receipt is re-applied across the truncate).
             expect(proof.afterReadAt).toBe(proof.committedReadAt);
+
+            // The other half of the contract: WITHOUT the opt-in, `replace` still means "the backup IS the
+            // new state". Preservation is an operational-re-seed choice the caller makes, never an implicit
+            // rewrite of disaster-recovery semantics — a restore that silently kept live state would be a
+            // worse defect than the revert this fix exists to prevent.
+            expect(proof.beforeExactRestore).toBe(proof.committedReadAt);
+            expect(proof.exactRestoreReadAt).toBeNull();
         } finally {
             fs.rmSync(tmpDir, {recursive: true, force: true});
         }

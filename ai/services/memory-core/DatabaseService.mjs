@@ -437,7 +437,7 @@ class DatabaseService extends Base {
      * @param {String|Object} [options.confirmation] Explicit production confirmation token.
      * @returns {Promise<{imported: number, total: number, mode: string}>}
      */
-    async importDatabase({file, mode, reEmbed=false, confirmation}) {
+    async importDatabase({file, mode, reEmbed=false, confirmation, preserveDeliveryReadState = false}) {
         try {
             let filesToImport = [];
 
@@ -480,27 +480,16 @@ class DatabaseService extends Base {
 
             // `readAt`/`archivedAt` on `DELIVERED_TO` edges are graph-owned mutable state — `markRead`
             // writes them to storage and the WAL carries `readAt: null` forever by design (see
-            // `MailboxService.getStorageDeliveryMutableState`, which lets the committed per-recipient value win
-            // over that send-time null during WAL-replay projection). A replace-mode restore truncates the graph
-            // and restores from a snapshot that lags behind live reads, silently reverting acked `mark_read`
-            // writes. Capture the committed non-null values before the truncate below and re-apply them after the
-            // import loop, so the same "committed state wins over null" invariant survives the destructive re-seed.
+            // `MailboxService.getStorageDeliveryMutableState`, which lets the committed per-recipient value
+            // win over that send-time null during WAL-replay projection). An OPERATIONAL re-seed restores a
+            // snapshot that lags behind live reads and would silently revert acked `mark_read` writes.
+            //
+            // Preserving them is opt-in and never the default: `replace` is an operator-facing seam whose
+            // contract is "the backup IS the new state". A disaster-recovery restore must reproduce the
+            // backup exactly, so only a caller that knows it is doing an operational re-seed may ask for
+            // live read-state to survive. The capture itself happens inside the truncate transaction
+            // (see `truncateDatabase`) so no acknowledged write can be lost between capture and wipe.
             let preservedDeliveryState = [];
-            if (mode === 'replace' && filesToImport.some(candidate => path.basename(candidate).startsWith('graph-backup'))) {
-                const graphDb = (await import('./GraphService.mjs')).default.db?.storage?.db;
-                if (graphDb) {
-                    preservedDeliveryState = graphDb.prepare(
-                        `SELECT source,
-                                target,
-                                json_extract(data, '$.properties.readAt')     AS readAt,
-                                json_extract(data, '$.properties.archivedAt') AS archivedAt
-                         FROM Edges
-                         WHERE type = 'DELIVERED_TO'
-                           AND (json_extract(data, '$.properties.readAt')     IS NOT NULL
-                                OR json_extract(data, '$.properties.archivedAt') IS NOT NULL)`
-                    ).all();
-                }
-            }
 
             if (mode === 'replace') {
                 // Truncate ONLY the subsystems that this import will restore — selected
@@ -519,7 +508,11 @@ class DatabaseService extends Base {
 
                 if (subsystemsToWipe.size > 0) {
                     logger.log(`Replace mode: truncating ${[...subsystemsToWipe].join(', ')} before batch import...`);
-                    await this.truncateDatabase({include: [...subsystemsToWipe], confirmation});
+                    ({preservedDeliveryState = []} = await this.truncateDatabase({
+                        include: [...subsystemsToWipe],
+                        confirmation,
+                        preserveDeliveryReadState
+                    }));
                 }
             }
 
@@ -748,10 +741,11 @@ class DatabaseService extends Base {
      * @param {String|Object} [options.confirmation] Explicit production confirmation token.
      * @returns {Promise<{message: string}>}
      */
-    async truncateDatabase({include=['memories', 'summaries', 'graph'], confirmation} = {}) {
+    async truncateDatabase({include=['memories', 'summaries', 'graph'], confirmation, preserveDeliveryReadState = false} = {}) {
         try {
             logger.log('Starting truncation of agent database...');
-            let truncated = [];
+            let truncated              = [],
+                preservedDeliveryState = [];
 
             if (include.includes('memories')) {
                 const proxy = Neo.create('Neo.ai.services.memory-core.managers.CollectionProxy', { collectionType: 'memory' });
@@ -780,13 +774,38 @@ class DatabaseService extends Base {
 
                 const GraphService = (await import('./GraphService.mjs')).default;
                 if (GraphService.db?.storage?.db) {
-                    GraphService.db.storage.db.prepare('DELETE FROM Nodes').run();
-                    GraphService.db.storage.db.prepare('DELETE FROM Edges').run();
+                    const graphDb = GraphService.db.storage.db;
+
+                    // Capture-and-truncate in ONE transaction when the caller opts in. A separate SELECT
+                    // followed by the DELETE leaves a window in which an acknowledged `mark_read` commits
+                    // and is then wiped without ever having been captured — the same lost-acknowledged-write
+                    // class this preservation exists to prevent, reintroduced inside the operation.
+                    // better-sqlite3 transactions are synchronous and serialized, so nothing interleaves.
+                    preservedDeliveryState = graphDb.transaction(() => {
+                        const captured = preserveDeliveryReadState
+                            ? graphDb.prepare(
+                                `SELECT source,
+                                        target,
+                                        json_extract(data, '$.properties.readAt')     AS readAt,
+                                        json_extract(data, '$.properties.archivedAt') AS archivedAt
+                                 FROM Edges
+                                 WHERE type = 'DELIVERED_TO'
+                                   AND (json_extract(data, '$.properties.readAt')     IS NOT NULL
+                                        OR json_extract(data, '$.properties.archivedAt') IS NOT NULL)`
+                            ).all()
+                            : [];
+
+                        graphDb.prepare('DELETE FROM Nodes').run();
+                        graphDb.prepare('DELETE FROM Edges').run();
+
+                        return captured
+                    })();
+
                     truncated.push('graph');
                 }
             }
 
-            return {message: `Truncation complete. Cleared: ${truncated.join(', ')}`};
+            return {message: `Truncation complete. Cleared: ${truncated.join(', ')}`, preservedDeliveryState};
         } catch (error) {
             logger.error('[DatabaseService] Error truncating database:', error);
             const truncateError = new Error(`DATABASE_TRUNCATE_ERROR: ${error.message}`);
