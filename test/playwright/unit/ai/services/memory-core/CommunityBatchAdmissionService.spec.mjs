@@ -42,10 +42,9 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
         },
 
         ATTENTION_POLICY = {
-            responseBearingKinds   : ['issue.opened', 'issue.comment', 'pull.opened', 'discussion.created'],
-            rosteredActorIds       : ['neo-opus-ada', 'neo-gpt'],
-            botActorIds            : ['dependabot'],
-            recordedBotDispositions: {}
+            responseBearingKinds     : ['issue.opened', 'issue.comment', 'pull.opened', 'discussion.created'],
+            rosteredActorIds         : ['neo-opus-ada', 'neo-gpt'],
+            recordedActorDispositions: {}
         },
 
         occurrence = (id, over = {}) => ({
@@ -53,6 +52,7 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
             occurrenceKind  : 'issue.opened',
             occurredAt      : '2026-07-18T10:00:00Z',
             actorId         : 'external-human',
+            actorKind       : 'user',
             ...over
         }),
 
@@ -254,7 +254,7 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
     test('an evidenced absence disposition is persisted verbatim', () => {
         const id = activeSource();
 
-        AdmissionService.admitBatch(batch(id, {occurrences: [occurrence('e1', {absence: 'deleted'})]}));
+        AdmissionService.admitBatch(batch(id, {occurrences: [occurrence('e1', {absence: 'deleted', deletionEvidence: {tombstoneId: 't-1', deletedAt: '2026-07-18T11:00:00Z'}})]}));
 
         expect(AdmissionService.listOccurrences(id)[0].absence).toBe('deleted');
     });
@@ -381,14 +381,40 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
         expect(rows.find(r => r.actorId === 'neo-opus-ada').attentionReason).toBe('rostered-actor');
     });
 
-    test('an unrecorded external bot is UNDETERMINED, never inferred either way', () => {
+    test('a bot is not attention-eligible in v1 — the explicit least-authority disposition', () => {
         const id = activeSource();
 
-        AdmissionService.admitBatch(batch(id, {occurrences: [occurrence('e1', {actorId: 'dependabot'})]}));
+        AdmissionService.admitBatch(batch(id, {occurrences: [occurrence('e1', {actorId: 'dependabot', actorKind: 'bot'})]}));
 
         const [row] = AdmissionService.listOccurrences(id);
-        expect(row.attentionDisposition).toBe('undetermined');
-        expect(row.attentionReason).toBe('bot-disposition-not-recorded');
+        expect(row.attentionDisposition).toBe('ineligible');
+        expect(row.attentionReason).toBe('bot-not-attention-eligible-v1');
+    });
+
+    test('a non-human actor kind fails closed — absent-from-any-list is NOT external-human eligibility', () => {
+        const id = activeSource();
+
+        AdmissionService.admitBatch(batch(id, {occurrences: [
+            occurrence('e1', {actorId: 'some-org', actorKind: 'organization'}),
+            occurrence('e2', {actorId: 'a-puppet',  actorKind: 'mannequin'}),
+            occurrence('e3', {actorId: 'who',        actorKind: 'unknown'})
+        ]}));
+
+        const rows = AdmissionService.listOccurrences(id);
+        expect(rows.every(r => r.attentionDisposition === 'ineligible')).toBe(true);
+        expect(rows.every(r => r.attentionReason === 'actor-kind-not-reviewed-fail-closed')).toBe(true);
+    });
+
+    test('first-time and trusted-repeat external humans share basic eligibility (AC12)', () => {
+        const id = activeSource();
+
+        AdmissionService.admitBatch(batch(id, {occurrences: [
+            occurrence('e1', {actorId: 'first-timer'}),
+            occurrence('e2', {actorId: 'repeat-contributor'})
+        ]}));
+
+        const rows = AdmissionService.listOccurrences(id);
+        expect(rows.every(r => r.attentionDisposition === 'eligible'), 'trust does not gate eligibility').toBe(true);
     });
 
     test('a non-response-bearing kind is ineligible', () => {

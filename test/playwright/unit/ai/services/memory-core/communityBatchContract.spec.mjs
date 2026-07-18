@@ -31,6 +31,7 @@ test.describe('community-activity-batch.v1 contract', () => {
         providerEntityId: id,
         occurrenceKind  : 'issue.opened',
         occurredAt      : '2026-07-18T10:00:00Z',
+        actorKind       : 'user',
         ...over
     });
 
@@ -141,9 +142,23 @@ test.describe('community-activity-batch.v1 contract', () => {
         expect(validateBatch(batch({occurrences: [occurrence('e1', {absence: 'probably-gone'})]})).errors)
             .toContain('OCCURRENCE_0_ABSENCE_DISPOSITION_INVALID');
 
-        ['deleted', 'inaccessible', 'unknown'].forEach(disposition => {
+        // inaccessible/unknown need no extra evidence; deleted does (below).
+        ['inaccessible', 'unknown'].forEach(disposition => {
             expect(validateBatch(batch({occurrences: [occurrence('e1', {absence: disposition})]})).valid).toBe(true);
         });
+    });
+
+    test('deleted requires explicit provider evidence — an enum value alone is a permission-loss risk', () => {
+        expect(validateBatch(batch({occurrences: [occurrence('e1', {absence: 'deleted'})]})).errors)
+            .toContain('OCCURRENCE_0_DELETED_WITHOUT_EVIDENCE');
+
+        expect(validateBatch(batch({occurrences: [occurrence('e1', {absence: 'deleted', deletionEvidence: {tombstoneId: 't-1', deletedAt: '2026-07-18T11:00:00Z'}})]})).valid)
+            .toBe(true);
+    });
+
+    test('an invalid provider actor kind is refused', () => {
+        expect(validateBatch(batch({occurrences: [occurrence('e1', {actorKind: 'wizard'})]})).errors)
+            .toContain('OCCURRENCE_0_ACTOR_KIND_INVALID');
     });
 
     test('a non-current-shaped registration epoch is refused', () => {

@@ -1,4 +1,5 @@
-import crypto from 'crypto';
+import crypto        from 'crypto';
+import {ACTOR_KINDS} from './communityAttentionClassifier.mjs';
 
 /**
  * @summary The versioned canonical batch contract for community-activity admission.
@@ -12,7 +13,7 @@ export const BATCH_SCHEMA_VERSION = 'community-activity-batch.v1';
 const
     REQUIRED_BATCH_KEYS      = ['schemaVersion', 'batchId', 'sourceInstanceId', 'registrationEpoch', 'partition', 'coverage', 'occurrences'],
     REQUIRED_COVERAGE_KEYS   = ['fromBasis', 'toBasis', 'complete'],
-    REQUIRED_OCCURRENCE_KEYS = ['providerEntityId', 'occurrenceKind', 'occurredAt'],
+    REQUIRED_OCCURRENCE_KEYS = ['providerEntityId', 'occurrenceKind', 'occurredAt', 'actorKind'],
     /**
      * Provider prose never enters an automatic durable row. A batch carrying any of these is
      * REJECTED rather than silently stripped: stripping would let a connector believe prose was
@@ -180,8 +181,19 @@ export function validateBatch(batch) {
                 if (SERVER_POLICY_KEYS.has(key)) errors.push(`OCCURRENCE_${index}_ASSERTS_SERVER_POLICY_${key.toUpperCase()}`)
             });
 
+            if (occurrence.actorKind !== undefined && !ACTOR_KINDS.has(occurrence.actorKind)) {
+                errors.push(`OCCURRENCE_${index}_ACTOR_KIND_INVALID`)
+            }
+
             if (occurrence.absence !== undefined && !ABSENCE_DISPOSITIONS.has(occurrence.absence)) {
                 errors.push(`OCCURRENCE_${index}_ABSENCE_DISPOSITION_INVALID`)
+            }
+
+            // `deleted` is the one absence disposition that asserts a fact about provider state, so it
+            // requires explicit provider evidence (a tombstone id / deletion timestamp+actor) — an
+            // enum value alone can be a permission loss masquerading as a deletion.
+            if (occurrence.absence === 'deleted' && (occurrence.deletionEvidence === undefined || occurrence.deletionEvidence === null)) {
+                errors.push(`OCCURRENCE_${index}_DELETED_WITHOUT_EVIDENCE`)
             }
 
             if (POPULARITY_KINDS.has(occurrence.occurrenceKind)) {
