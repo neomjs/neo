@@ -23,10 +23,10 @@ class Phone extends Text {
          */
         errorTextInputPattern: data => `Not a valid phone number`,
         /**
-         * @member {RegExp|null} inputPattern=/^\+?\(?[0-9]+\)?([\-\s\.]?[/0-9]+)*$/
+         * @member {RegExp|null} inputPattern=/^\+?\(?(?:[0-9]+\)[/0-9]*|[0-9][/0-9]*)(?:[\-\s\.][/0-9]+)*$/
          * @reactive
          */
-        inputPattern: /^\+?\(?[0-9]+\)?([\-\s\.]?[/0-9]+)*$/,
+        inputPattern: /^\+?\(?(?:[0-9]+\)[/0-9]*|[0-9][/0-9]*)(?:[\-\s\.][/0-9]+)*$/,
         /**
          * @member {Boolean} inputPatternDOM=false
          * @reactive
