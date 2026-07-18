@@ -165,5 +165,55 @@ test.describe('AgentOS OperatorComposeForm — operator write surface (#15377, D
         expect(captured).toBeNull();
 
         form.destroy()
+    });
+
+    test('composeOutcome renders one verdict row PER recipient — a partial batch (sent + refused) is not collapsed', () => {
+        const form = createForm();
+
+        // the outcome the owner writes back after the fan-out settles — Ada sent, ghost refused
+        form.composeOutcome = {results: [
+            {to: '@neo-opus-ada', outcome: {messageId: 'M:1', status: 'sent'}},
+            {to: '@ghost',        outcome: {status: 'rejected', reason: 'recipient unknown'}}
+        ]};
+
+        const rows = form.getReference('compose-outcome').vdom.cn;
+        expect(rows).toHaveLength(2);
+        expect(rows[0].text).toBe('@neo-opus-ada — sent');
+        expect(rows[0].cls).toContain('is-sent');
+        // the refusal is VISIBLE and carries its reason — the review's P1 (invisible refusals) closed
+        expect(rows[1].text).toBe('@ghost — recipient unknown');
+        expect(rows[1].cls).toContain('is-refused');
+
+        form.destroy()
+    });
+
+    test('composeOutcome not-wired → a visible refusal row; pending → one in-flight line; null → cleared', () => {
+        const form = createForm();
+
+        form.composeOutcome = {results: [{to: 'AGENT:*', outcome: {status: 'not-wired', reason: 'x'}}]};
+        expect(form.getReference('compose-outcome').vdom.cn[0].text).toBe('AGENT:* — not wired');
+        expect(form.getReference('compose-outcome').vdom.cn[0].cls).toContain('is-refused');
+
+        form.composeOutcome = {status: 'pending', count: 3};
+        const pending = form.getReference('compose-outcome').vdom.cn;
+        expect(pending).toHaveLength(1);
+        expect(pending[0].cls).toContain('is-pending');
+        expect(pending[0].text).toBe('Sending to 3…');
+
+        form.composeOutcome = null;
+        expect(form.getReference('compose-outcome').vdom.cn).toEqual([]);
+
+        form.destroy()
+    });
+
+    test('onSendClick sets the pending outcome before firing — the honest in-flight state the owner overwrites', async () => {
+        const form = createForm();
+
+        await composeWith(form, {recipients: ['@neo-opus-ada', 'AGENT:*']});
+
+        // pending reflects the batch size; nothing overwrites it here (no owner wired in this unit)
+        expect(form.composeOutcome).toEqual({status: 'pending', count: 2});
+
+        form.destroy()
     })
 });

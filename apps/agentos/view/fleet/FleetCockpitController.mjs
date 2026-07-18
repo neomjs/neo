@@ -195,10 +195,21 @@ class FleetCockpitController extends Controller {
      * the authenticated `composeOperatorMessage` verb — the sender is server-stamped from the bound viewer,
      * never wire-carried — and re-polls the operator inbox so a sent message lands at canonical truth,
      * never an optimistic insert.
+     * **Closing the outcome loop.** The surface fires `compose` intent-only and `Observable.fire` discards
+     * handler returns, so the fan-out's per-recipient result cannot flow back off the event. Instead the
+     * settled outcome is written back as owner-state onto the operator-mailbox surface, which relays it to
+     * the compose form to render — so a refusal / failure is never invisible (the review's P1).
      * @param {Object} data The `compose` payload `{message, source}` — Neo stamps `source`.
      */
-    onOperatorCompose(data) {
-        return this.component.composeOperatorMessage(data.message)
+    async onOperatorCompose(data) {
+        const
+            me      = this,
+            outcome = await me.component.composeOperatorMessage(data.message),
+            mailbox = me.component.getReference('operator-mailbox');
+
+        mailbox && (mailbox.composeOutcome = outcome);
+
+        return outcome
     }
 
     /**

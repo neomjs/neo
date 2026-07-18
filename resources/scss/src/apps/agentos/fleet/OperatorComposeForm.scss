@@ -70,4 +70,27 @@
             }
         }
     }
+
+    /* the send-outcome surface: one row per recipient verdict, colored by status — every color a --fm-*
+       token, so both skins hold by construction. Shown only once the owner writes an outcome back. */
+    .fm-operator-compose-outcome {
+        display       : flex;
+        flex-direction: column;
+        gap           : 2px;
+
+        &:not(:empty) {
+            margin-top: 8px;
+        }
+
+        .fm-compose-outcome-row {
+            border-radius: 4px;
+            font-size    : 12px;
+            padding      : 3px 8px;
+
+            &.is-sent    { color: var(--fm-state-ok); }
+            &.is-refused { color: var(--fm-ink-dim); }
+            &.is-error   { color: var(--fm-kind-alert); }
+            &.is-pending { color: var(--fm-ink-faint); font-style: italic; }
+        }
+    }
 }

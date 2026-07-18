@@ -65,6 +65,16 @@ class OperatorComposeForm extends FormContainer {
          */
         recipientOptions_: [],
         /**
+         * The send outcome, written back by the owning cockpit once the compose verb settles (this form
+         * fires the intent and holds no transport, so the RESULT returns as owner-set state, never off the
+         * fire-and-forget event): `null` = nothing sent yet, `{status:'pending', count}` while the fan-out
+         * is in flight, or `{results:[{to, outcome}]}` — one honest per-recipient verdict (sent / not-wired
+         * / rejected / error). Rendered so a refusal is never invisible.
+         * @member {Object|null} composeOutcome_=null
+         * @reactive
+         */
+        composeOutcome_: null,
+        /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @reactive
          */
@@ -164,6 +174,13 @@ class OperatorComposeForm extends FormContainer {
                 ui       : 'ghost',
                 handler  : 'up.onSendClick'
             }]
+        }, {
+            // the send-outcome surface — per-recipient verdicts land here so a refusal/failure is never
+            // silent; empty until the owner writes `composeOutcome` back (see afterSetComposeOutcome)
+            ntype    : 'component',
+            reference: 'compose-outcome',
+            cls      : ['fm-operator-compose-outcome'],
+            flex     : 'none'
         }]
     }
 
@@ -196,6 +213,9 @@ class OperatorComposeForm extends FormContainer {
 
         const values = await me.getSubmitValues();
 
+        // the honest "in flight" state — shown until the owner writes the settled per-recipient outcome back
+        me.composeOutcome = {status: 'pending', count: to.length};
+
         // The intent, in transport-natural shape. `to` is the ARRAY of chosen recipients — the owning
         // cockpit fans out one authenticated call per named target (AGENT:* is one server-expanded call).
         // `wakeSuppressed` is the transport's field, the INVERSE of the operator's "wake now" choice: wake
@@ -226,6 +246,58 @@ class OperatorComposeForm extends FormContainer {
         // feed the live roster into the multi-select list's own store, so an already-materialized picker
         // stays current across roster load / reconciliation (never snapshotted once at creation)
         list?.store && (list.store.data = value)
+    }
+
+    /**
+     * Triggered after the send outcome changed — render the per-recipient verdicts (or the pending line,
+     * or clear). The owner writes this once the compose verb settles; it is the ONLY place a refusal /
+     * failure becomes visible, since the form fires the send intent-only and never sees the promise itself.
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetComposeOutcome(value, oldValue) {
+        if (!this.isConstructed) return;
+
+        const outcome = this.getReference('compose-outcome');
+
+        if (outcome) {
+            outcome.vdom.cn = this.buildOutcomeRows(value);
+            outcome.update()
+        }
+    }
+
+    /**
+     * @summary Build the outcome vdom rows: none when idle, one pending line while the fan-out is in flight,
+     * or one line PER recipient carrying its own verdict — sent (a messageId came back), not-wired, rejected,
+     * or error — each with a status class the skin colors. The several-recipient path renders several rows,
+     * so a partial batch (one sent, one refused) is shown honestly, never collapsed to a single verdict.
+     * @param {Object|null} value
+     * @returns {Object[]}
+     * @protected
+     */
+    buildOutcomeRows(value) {
+        if (!value) return [];
+
+        if (value.status === 'pending') {
+            return [{cls: ['fm-compose-outcome-row', 'is-pending'], text: `Sending to ${value.count}…`}]
+        }
+
+        return (value.results || []).map(({to, outcome}) => {
+            let cls = ['fm-compose-outcome-row'], text;
+
+            if (outcome?.messageId) {
+                cls.push('is-sent');    text = `${to} — sent`
+            } else if (outcome?.status === 'not-wired') {
+                cls.push('is-refused'); text = `${to} — not wired`
+            } else if (outcome?.status === 'rejected') {
+                cls.push('is-refused'); text = `${to} — ${outcome.reason || 'rejected'}`
+            } else {
+                cls.push('is-error');   text = `${to} — ${outcome?.reason || 'failed'}`
+            }
+
+            return {cls, text}
+        })
     }
 }
 

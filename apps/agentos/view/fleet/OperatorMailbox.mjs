@@ -70,6 +70,14 @@ class OperatorMailbox extends Container {
          */
         recipientOptions_: [],
         /**
+         * The compose send outcome, set by the cockpit once the compose verb settles and passed straight
+         * to the compose form to render (per-recipient sent / not-wired / rejected / error). `null` = idle.
+         * This surface holds no transport — the outcome is owner-written state, never read here.
+         * @member {Object|null} composeOutcome_=null
+         * @reactive
+         */
+        composeOutcome_: null,
+        /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @reactive
          */
@@ -159,6 +167,18 @@ class OperatorMailbox extends Container {
      */
     afterSetRecipientOptions(value, oldValue) {
         this.isConstructed && (this.getReference('operator-compose-form').recipientOptions = value)
+    }
+
+    /**
+     * Triggered after the compose outcome changed — passed straight to the compose form, which renders the
+     * per-recipient verdicts. Set by the cockpit once the compose verb settles (this surface holds no
+     * transport; the outcome is owner-written state).
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetComposeOutcome(value, oldValue) {
+        this.isConstructed && (this.getReference('operator-compose-form').composeOutcome = value)
     }
 
     /**

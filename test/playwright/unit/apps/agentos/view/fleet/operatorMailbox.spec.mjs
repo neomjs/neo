@@ -106,6 +106,21 @@ test.describe('AgentOS OperatorMailbox — the operator mailbox surface (#15377)
         box.destroy()
     });
 
+    test('passes the compose outcome straight to the compose form — the per-recipient render source', () => {
+        const box     = createBox(),
+              outcome = {results: [{to: '@neo-opus-ada', outcome: {messageId: 'M:1', status: 'sent'}}]};
+
+        // the cockpit writes the settled outcome onto this surface; it relays straight to the form, which
+        // renders the per-recipient verdicts (this surface holds no transport of its own)
+        box.composeOutcome = outcome;
+
+        // deep-equal, not reference: the reactive config clones on set (as snapshot does) — the passthrough
+        // delivers the full content, which is what "straight to the form" means
+        expect(box.getReference('operator-compose-form').composeOutcome).toStrictEqual(outcome);
+
+        box.destroy()
+    });
+
     test('a newly-bound operator record fires the initial own-inbox read (relayed inboxPageRequest, offset 0)', () => {
         const box = createBox();
 

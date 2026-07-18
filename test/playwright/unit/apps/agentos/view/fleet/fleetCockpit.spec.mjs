@@ -1821,7 +1821,7 @@ test.describe('Fleet cockpit — the liveness owner lifecycle (start/stop, #1529
  * method under `.call`, so each method's decision is exercised in isolation with no full instantiation.
  */
 test.describe('Fleet cockpit — operator mailbox (compose · recipients · own-inbox read, #15377)', () => {
-    let FleetCockpit;
+    let FleetCockpit, FleetCockpitController;
 
     // scope the mock to the `fleet` subkey ONLY (see the loadActivity block): replacing `globalThis.AgentOS`
     // would wipe every `AgentOS.*` registration for later specs in the shared worker.
@@ -1851,7 +1851,8 @@ test.describe('Fleet cockpit — operator mailbox (compose · recipients · own-
     };
 
     test.beforeAll(async () => {
-        FleetCockpit = (await import('../../../../../../../apps/agentos/view/fleet/FleetCockpit.mjs')).default
+        FleetCockpit           = (await import('../../../../../../../apps/agentos/view/fleet/FleetCockpit.mjs')).default;
+        FleetCockpitController = (await import('../../../../../../../apps/agentos/view/fleet/FleetCockpitController.mjs')).default
     });
 
     test.afterEach(() => clearBridge());
@@ -1928,6 +1929,23 @@ test.describe('Fleet cockpit — operator mailbox (compose · recipients · own-
         ]});
         // exactly one re-poll for the whole batch, because at least one message genuinely landed
         expect(owner.inboxReloads).toEqual([{offset: 0}])
+    });
+
+    test('compose · onOperatorCompose writes the settled outcome BACK onto the operator-mailbox — closes the loop', async () => {
+        // the review's P1: the surface fires compose intent-only and Observable.fire discards handler
+        // returns, so the fan-out result must return as owner-written state. This is the ONLY path it
+        // reaches the UI — a probe mailbox catches the write-back.
+        const mailbox    = {},
+              controller = Object.create(FleetCockpitController.prototype);
+
+        controller.component = {
+            composeOperatorMessage: async () => ({results: [{to: '@a', outcome: {messageId: 'M', status: 'sent'}}]}),
+            getReference          : ref => ref === 'operator-mailbox' ? mailbox : null
+        };
+
+        await controller.onOperatorCompose({message: {to: ['@a']}, source: 'operator-mailbox'});
+
+        expect(mailbox.composeOutcome).toEqual({results: [{to: '@a', outcome: {messageId: 'M', status: 'sent'}}]})
     });
 
     // --- buildOperatorRecipientOptions: the live roster → @githubUsername identity mapping -------------
