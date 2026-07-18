@@ -357,6 +357,62 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         card.destroy()
     });
 
+    test('1.4.1 State line: the state renders as text beside the dot, from stateLabel — the colour-independent channel (#15512)', () => {
+        const card = createCard({agentId: 'vega', state: 'wedged'});
+
+        // the visible word is the redundant NON-colour carrier WCAG 1.4.1 requires — the dot's hue is no
+        // longer the sole signal. It is the name-row item right after the dot so the two channels pair at
+        // one glance, ahead of the drill name: [state-dot] [state text] [name] … (trailing
+        // provenance/engine items are not part of this adjacency contract)
+        const refs = card.down({reference: 'name-row'}).items.map(item => item.reference);
+        expect(refs.slice(0, 3)).toEqual(['state-dot', 'card-state', 'card-name']);
+
+        // the word comes from stateLabel — the SAME closed-set resolver StateDot names ITSELF with, so the
+        // card can never introduce a second state vocabulary; colour (dot) and word derive from one state
+        expect(card.down({reference: 'card-state'}).text).toBe('wedged');
+        expect(card.down({ntype: 'fm-state-dot'}).state).toBe('wedged');
+
+        card.destroy()
+    });
+
+    test('1.4.1 State line: the word follows displayState through pending + source-gated transitions — one vocabulary, never stale (#15512)', () => {
+        const card      = createCard({agentId: 'vega', state: 'ok'}),
+              stateText = () => card.down({reference: 'card-state'}).text;
+
+        expect(stateText()).toBe('working');
+
+        // a pending intent renders the TRANSITIONAL word, matching the dot — never the stale resolved word
+        applySet(card, {pendingAction: 'stop'});
+        expect(stateText()).toBe('stopping');
+        expect(card.down({ntype: 'fm-state-dot'}).state).toBe('stopping');
+
+        // missing runtime evidence gates the resolved state to off → the word degrades WITH the dot, and
+        // names the off state from the shared vocabulary (never a card-local string)
+        applySet(card, {pendingAction: null, sources: {
+            roster    : {source: 'fleet:listAgents',    state: 'wired',     confidence: 'observed'},
+            repoStatus: {source: 'fleet:fleetStatus',   state: 'wired',     confidence: 'observed'},
+            runtime   : {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none'}
+        }});
+        expect(stateText()).toBe('benched / offline');
+        expect(card.down({ntype: 'fm-state-dot'}).state).toBe('off');
+
+        card.destroy()
+    });
+
+    test('1.4.1 State line: an unrecognized state still READS via the word even as the dot safely degrades to off (#15512)', () => {
+        // stateLabel passes an unknown state through LITERALLY while stateClass degrades the dot to off:
+        // a new runtime state the palette can't yet colour is still legible as TEXT — the word rescues the
+        // exact case where colour alone would silently show "off" for something that is not off.
+        const card = createCard({agentId: 'vega', state: 'quarantined'}),
+              dot  = card.down({ntype: 'fm-state-dot'});
+
+        expect(card.down({reference: 'card-state'}).text).toBe('quarantined');
+        expect(dot.state).toBe('quarantined');   // the config passes through…
+        expect(dot.cls).toContain('fm-state-off'); // …while the dot's own class degrades to the off token
+
+        card.destroy()
+    });
+
     test('density (#14592): the open-lane count badge renders a REPORTED count beside the lane line — in place, pluralized honestly (#14598)', () => {
         const card  = createCard({agentId: 'vega', laneLine: 'harness-UI shell + left-rail nav', openLaneCount: 17, state: 'ok'});
         const badge = () => card.down({reference: 'card-lane-count'});
