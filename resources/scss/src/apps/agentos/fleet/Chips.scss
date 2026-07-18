@@ -1,0 +1,34 @@
+/* The selector-chip primitive: registry-derived pick-one rows (harness types on the config card +
+   the add-agent form). Selection state is structural (border + weight + a signal wash) — never
+   hue-alone (WCAG 1.4.1); every color reads from the token layer. Distinct from EventChip (kind-
+   colored stream facts): a selector chip is an affordance, an event chip is an observation. */
+.fm-chip {
+    border        : 1px solid var(--fm-line);
+    border-radius : 6px;
+    background    : none;
+    box-shadow    : none;
+    color         : var(--fm-ink-dim);
+    cursor        : pointer;
+    font          : inherit;
+    font-size     : 11px;
+    margin        : 0;
+    min-height    : 0;
+    padding       : 2px 8px;
+
+    &.is-selected {
+        background  : color-mix(in srgb, var(--fm-signal) 16%, transparent);
+        border-color: var(--fm-signal);
+        color       : var(--fm-ink);
+        font-weight : 600;
+    }
+
+    &.is-selectable:hover,
+    &:hover {
+        color: var(--fm-ink);
+    }
+
+    &:focus-visible {
+        outline       : 2px solid var(--fm-signal);
+        outline-offset: 1px;
+    }
+}

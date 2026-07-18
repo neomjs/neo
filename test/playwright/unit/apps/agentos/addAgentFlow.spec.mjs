@@ -1,0 +1,188 @@
+import {setup} from '../../../setup.mjs';
+
+setup({
+    appConfig: {
+        name: 'AgentOSAddAgentFlowTest'
+    }
+});
+
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../../src/Neo.mjs';
+import * as core      from '../../../../../src/core/_export.mjs';
+import Instance       from '../../../../../src/manager/Instance.mjs';
+import AddAgentForm   from '../../../../../apps/agentos/view/fleet/AddAgentForm.mjs';
+
+import {
+    ADD_AGENT_STATES,
+    submitDefineAgent,
+    validateDefinePayload,
+    validateReadback
+} from '../../../../../apps/agentos/view/fleet/addAgentFlow.mjs';
+
+const CREDENTIAL = 'github_pat_11TESTSECRET_shouldNeverEscape';
+
+const cleanPayload = () => ({
+    credential    : CREDENTIAL,
+    githubUsername: 'neo-kimi-phoebe',
+    harnessType   : 'opencode'
+});
+
+const cleanReadback = () => ({
+    id            : 'resident-7',
+    githubUsername: 'neo-kimi-phoebe',
+    harnessType   : 'opencode',
+    updatedAt     : '2026-07-18T00:00:00.000Z'
+});
+
+test.describe('AgentOS.view.fleet.addAgentFlow — the pure flow half (#15242)', () => {
+    test('payload validation names every missing ingredient and passes a complete one', () => {
+        expect(validateDefinePayload({}).valid).toBe(false);
+        expect(validateDefinePayload({credential: 'x', githubUsername: '   ', harnessType: 'codex'}).valid).toBe(false);
+        expect(validateDefinePayload({credential: '',  githubUsername: 'user', harnessType: 'codex'}).valid).toBe(false);
+        expect(validateDefinePayload({credential: 'x', githubUsername: 'user', harnessType: ''}).valid).toBe(false);
+        expect(validateDefinePayload(cleanPayload())).toEqual({valid: true, reason: ''})
+    });
+
+    test('the readback guard fails closed on every poisoned shape and passes the canonical one', () => {
+        // missing public identity
+        expect(validateReadback({githubUsername: 'x', harnessType: 'y'}, CREDENTIAL).valid).toBe(false);
+        // top-level secret key
+        expect(validateReadback({...cleanReadback(), token: 'leak'}, CREDENTIAL).valid).toBe(false);
+        expect(validateReadback({...cleanReadback(), credential: 'leak'}, CREDENTIAL).valid).toBe(false);
+        // serialized credential echo, arbitrarily nested
+        expect(validateReadback({...cleanReadback(), meta: {note: `echo ${CREDENTIAL}`}}, CREDENTIAL).valid).toBe(false);
+        // non-serializable
+        const circular = cleanReadback();
+        circular.self  = circular;
+        expect(validateReadback(circular, CREDENTIAL).valid).toBe(false);
+        // canonical
+        expect(validateReadback(cleanReadback(), CREDENTIAL)).toEqual({valid: true, reason: ''})
+    });
+
+    test('no bridge → gated, nothing attempted; a bridge without defineAgent is equally gated', async () => {
+        const gated = await submitDefineAgent({bridgeResolver: () => null, payload: cleanPayload()});
+
+        expect(gated.state).toBe('gated');
+        expect(gated.reason).toContain('fails closed');
+
+        const wrongShape = await submitDefineAgent({bridgeResolver: () => ({}), payload: cleanPayload()});
+        expect(wrongShape.state).toBe('gated')
+    });
+
+    test('a controlled domain rejection passes its reason through; a transport throw stays sanitized', async () => {
+        const rejected = await submitDefineAgent({
+            bridgeResolver: () => ({defineAgent: async () => ({status: 'rejected', reason: 'duplicate handle'})}),
+            payload       : cleanPayload()
+        });
+
+        expect(rejected).toEqual({state: 'rejected', reason: 'duplicate handle'});
+
+        const thrown = await submitDefineAgent({
+            bridgeResolver: () => ({defineAgent: async () => { throw new Error(`boom ${CREDENTIAL}`) }}),
+            payload       : cleanPayload()
+        });
+
+        expect(thrown.state).toBe('rejected');
+        // the sanitization claim: a transport error may carry credential bytes; the outcome must not
+        expect(JSON.stringify(thrown)).not.toContain(CREDENTIAL)
+    });
+
+    test('an invalid readback resolves rejected; the canonical readback is the ONLY confirmed shape', async () => {
+        const echoing = await submitDefineAgent({
+            bridgeResolver: () => ({defineAgent: async () => ({...cleanReadback(), note: CREDENTIAL})}),
+            payload       : cleanPayload()
+        });
+
+        expect(echoing.state).toBe('rejected');
+
+        const confirmed = await submitDefineAgent({
+            bridgeResolver: () => ({defineAgent: async payload => {
+                expect(payload.githubUsername).toBe('neo-kimi-phoebe');
+                return cleanReadback()
+            }}),
+            payload: cleanPayload()
+        });
+
+        expect(confirmed.state).toBe('readback-confirmed');
+        expect(confirmed.definition).toEqual(cleanReadback());
+        expect(ADD_AGENT_STATES).toContain(confirmed.state)
+    });
+});
+
+test.describe('AgentOS.view.fleet.AddAgentForm — flow wiring + the credential-settle rule (#15242)', () => {
+    test('bridge absent at construction renders gated with the submit affordance disabled-with-reason', () => {
+        const form = Neo.create(AddAgentForm, {appName: 'AgentOSAddAgentFlowTest'});
+
+        expect(form.flowStatus.state).toBe('gated');
+        expect(form.getReference('submit-button').disabled).toBe(true);
+
+        const statusCls = form.getReference('flow-status').cls;
+        expect(statusCls).toContain('is-gated');
+
+        form.destroy()
+    });
+
+    test('a confirmed round-trip fires agentDefinitionAccepted with the readback AND clears the PAT field', async () => {
+        const
+            fired = [],
+            form  = Neo.create(AddAgentForm, {
+                appName       : 'AgentOSAddAgentFlowTest',
+                bridgeResolver: () => ({defineAgent: async () => cleanReadback()})
+            });
+
+        form.on('agentDefinitionAccepted', data => fired.push(data));
+
+        const credentialField = await form.getField('credential');
+        const usernameField   = await form.getField('githubUsername');
+
+        usernameField.value   = 'neo-kimi-phoebe';
+        credentialField.value = CREDENTIAL;
+        form.harnessType      = 'opencode';
+
+        await form.onSubmitClick();
+
+        expect(form.flowStatus.state).toBe('readback-confirmed');
+        expect(fired).toHaveLength(1);
+        expect(fired[0].agent).toEqual(cleanReadback());
+        // the settle rule: no terminal state leaves credential bytes in the field
+        expect(credentialField.value ?? '').toBe('');
+
+        form.destroy()
+    });
+
+    test('a rejected round-trip still clears the PAT field — the settle rule is terminal-state-independent', async () => {
+        const form = Neo.create(AddAgentForm, {
+            appName       : 'AgentOSAddAgentFlowTest',
+            bridgeResolver: () => ({defineAgent: async () => ({status: 'rejected', reason: 'nope'})})
+        });
+
+        const credentialField = await form.getField('credential');
+        const usernameField   = await form.getField('githubUsername');
+
+        usernameField.value   = 'neo-kimi-phoebe';
+        credentialField.value = CREDENTIAL;
+
+        await form.onSubmitClick();
+
+        expect(form.flowStatus).toEqual({state: 'rejected', reason: 'nope'});
+        expect(credentialField.value ?? '').toBe('');
+
+        form.destroy()
+    });
+
+    test('an incomplete definition rejects before submitting — the flow never renders an in-flight state it is not in', async () => {
+        const
+            bridgeCalls = [],
+            form        = Neo.create(AddAgentForm, {
+                appName       : 'AgentOSAddAgentFlowTest',
+                bridgeResolver: () => ({defineAgent: async () => { bridgeCalls.push(1); return cleanReadback() }})
+            });
+
+        await form.onSubmitClick(); // nothing filled in
+
+        expect(form.flowStatus.state).toBe('rejected');
+        expect(bridgeCalls).toHaveLength(0);
+
+        form.destroy()
+    });
+});

@@ -1,13 +1,13 @@
-import Component                              from '../../../src/component/Base.mjs';
-import {listHarnessTypes, resolveHarnessType} from '../config/harnessTypes.mjs';
+import Component                              from '../../../../src/component/Base.mjs';
+import {listHarnessTypes, resolveHarnessType} from '../../config/harnessTypes.mjs';
 import {
     listMcpServers,
     normalizeMcpOverrides,
     resolveMcpMatrix
-} from '../config/mcpServers.mjs';
+} from '../../config/mcpServers.mjs';
 
 /**
- * @class AgentOS.view.AgentConfigCard
+ * @class AgentOS.view.fleet.AgentConfigCard
  * @extends Neo.component.Base
  *
  * @summary The per-agent configuration card — renders ONE selected agent's configuration from its
@@ -21,19 +21,19 @@ import {
 class AgentConfigCard extends Component {
     static config = {
         /**
-         * @member {String} className='AgentOS.view.AgentConfigCard'
+         * @member {String} className='AgentOS.view.fleet.AgentConfigCard'
          * @protected
          */
-        className: 'AgentOS.view.AgentConfigCard',
+        className: 'AgentOS.view.fleet.AgentConfigCard',
         /**
-         * @member {String} ntype='agent-config-card'
+         * @member {String} ntype='fm-agent-config-card'
          * @protected
          */
-        ntype: 'agent-config-card',
+        ntype: 'fm-agent-config-card',
         /**
-         * @member {String[]} baseCls=['agent-config-card']
+         * @member {String[]} baseCls=['fm-agent-config-card']
          */
-        baseCls: ['agent-config-card'],
+        baseCls: ['fm-agent-config-card'],
         /**
          * The selected agent's record (an {@link AgentOS.model.AgentDefinition} row) — null renders
          * the empty state ("Select an agent").
@@ -140,7 +140,7 @@ class AgentConfigCard extends Component {
      */
     createCardContent(record) {
         if (!record) {
-            return [{cls: ['agent-config-empty'], text: 'Select an agent to see its configuration.'}]
+            return [{cls: ['fm-config-empty'], text: 'Select an agent to see its configuration.'}]
         }
 
         const
@@ -152,46 +152,46 @@ class AgentConfigCard extends Component {
                 : {state: 'idle', reason: ''};
 
         return [{
-            cls: ['agent-config-identity'],
+            cls: ['fm-config-identity'],
             cn : [
-                {tag: 'strong', cls: ['agent-config-name'], text: record.displayName || record.githubUsername},
-                {cls: ['agent-config-status'], text: record.statusText || ''}
+                {tag: 'strong', cls: ['fm-config-name'], text: record.displayName || record.githubUsername},
+                {cls: ['fm-config-status'], text: record.statusText || ''}
             ]
         }, {
-            cls: ['agent-config-row'],
+            cls: ['fm-config-row'],
             cn : [
-                {cls: ['agent-config-label'], text: 'Harness'},
-                {cls: ['agent-config-value'], text: harness?.label ?? 'Unknown harness'}
+                {cls: ['fm-config-label'], text: 'Harness'},
+                {cls: ['fm-config-value'], text: harness?.label ?? 'Unknown harness'}
             ]
         }, {
-            cls: ['agent-config-chips'],
+            cls: ['fm-config-chips'],
             cn : listHarnessTypes().map(entry => ({
                 id  : `${me.id}__harness__${entry.type}`,
-                cls : ['agent-config-chip', entry.type === record.harnessType ? 'is-selected' : 'is-selectable'],
+                cls : ['fm-chip', entry.type === record.harnessType ? 'is-selected' : 'is-selectable'],
                 text: entry.label
             }))
         }, {
-            cls: ['agent-config-section'],
+            cls: ['fm-config-section'],
             cn : [
-                {tag: 'strong', cls: ['agent-config-heading'], text: 'Servers'},
+                {tag: 'strong', cls: ['fm-config-heading'], text: 'Servers'},
                 ...listMcpServers().map(server => ({
                     id : `${me.id}__srv__${server.key}`,
-                    cls: ['agent-config-row', 'agent-config-toggle', matrix[server.key] ? 'is-enabled' : 'is-disabled'],
+                    cls: ['fm-config-row', 'fm-config-toggle', matrix[server.key] ? 'is-enabled' : 'is-disabled'],
                     cn : [
-                        {cls: ['agent-config-label'], text: server.label},
-                        {cls: ['agent-config-value'], text: matrix[server.key] ? 'On' : 'Off'}
+                        {cls: ['fm-config-label'], text: server.label},
+                        {cls: ['fm-config-value'], text: matrix[server.key] ? 'On' : 'Off'}
                     ]
                 }))
             ]
         }, {
-            cls: ['agent-config-section'],
+            cls: ['fm-config-section'],
             cn : [
-                {tag: 'strong', cls: ['agent-config-heading'], text: 'Operations'},
+                {tag: 'strong', cls: ['fm-config-heading'], text: 'Operations'},
                 this.createToggleRow('Hooks',              record.hooksActive),
                 this.createToggleRow('Wake subscriptions', record.wakeSubscriptionsActive)
             ]
         }, {
-            cls : ['agent-config-save-status', `is-${saveStatus.state}`],
+            cls : ['fm-config-save-status', `is-${saveStatus.state}`],
             text: saveStatus.reason
         }]
     }
@@ -207,10 +207,10 @@ class AgentConfigCard extends Component {
         const known = state === true || state === false;
 
         return {
-            cls: ['agent-config-row', known ? (state ? 'is-enabled' : 'is-disabled') : 'is-unknown'],
+            cls: ['fm-config-row', known ? (state ? 'is-enabled' : 'is-disabled') : 'is-unknown'],
             cn : [
-                {cls: ['agent-config-label'], text: label},
-                {cls: ['agent-config-value'], text: known ? (state ? 'On' : 'Off') : 'Not read back yet'}
+                {cls: ['fm-config-label'], text: label},
+                {cls: ['fm-config-value'], text: known ? (state ? 'On' : 'Off') : 'Not read back yet'}
             ]
         }
     }

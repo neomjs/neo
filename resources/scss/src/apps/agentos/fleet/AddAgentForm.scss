@@ -1,0 +1,67 @@
+/* The S5 add-agent surface — panel geometry + the honest-lifecycle status line. Colors
+   token-only; every flow state pairs its hue with a non-color carrier (text IS the reason line,
+   weight/style mark emphasis) so no state reads by color alone. */
+.fm-add-agent-form {
+    background     : var(--fm-panel);
+    border         : 1px solid var(--fm-line);
+    border-radius  : 8px;
+    color          : var(--fm-ink);
+    display        : flex;
+    flex-direction : column;
+    gap            : 8px;
+    padding        : 12px;
+
+    .fm-add-heading {
+        color     : var(--fm-ink);
+        font-size : 13px;
+
+        strong {
+            font-weight : 600;
+        }
+    }
+
+    .fm-add-harness-row {
+        gap: 6px;
+    }
+
+    .fm-add-actions {
+        gap        : 8px;
+        margin-top : 2px;
+    }
+
+    .fm-add-submit {
+        font-weight : 600;
+
+        &[disabled] {
+            cursor : default;
+        }
+    }
+
+    .fm-add-status {
+        border-top  : 1px solid var(--fm-line-soft);
+        color       : var(--fm-ink-dim);
+        font-size   : 11px;
+        min-height  : 15px;
+        padding-top : 6px;
+
+        &.is-validating,
+        &.is-submitting {
+            font-style : italic;
+        }
+
+        &.is-gated {
+            color       : var(--fm-state-limited);
+            font-weight : 600;
+        }
+
+        &.is-readback-confirmed {
+            color       : var(--fm-state-ok);
+            font-weight : 600;
+        }
+
+        &.is-rejected {
+            color       : var(--fm-kind-alert);
+            font-weight : 600;
+        }
+    }
+}
