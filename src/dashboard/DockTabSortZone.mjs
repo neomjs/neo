@@ -185,6 +185,21 @@ class DockTabSortZone extends TabHeaderSortZone {
     }
 
     /**
+     * Resumes the in-window embodiment after a detached phase ends without an outcome — the
+     * symmetric close of {@link #startWindowDrag}: the proxy becomes visible again and the base
+     * reorder un-parks. Two callers, both host-choreographed: a boundary re-entry (the gesture
+     * continues in-window) and a FAILED vessel admission (the base arms `isWindowDragging` BEFORE
+     * firing the exit event, so a blocked popup must actively restore the in-window gesture or the
+     * zone stays parked with a dead detached state).
+     */
+    endWindowDrag() {
+        let me = this;
+
+        me.dragProxy && (me.dragProxy.style = {opacity: 1});
+        me.isWindowDragging = false
+    }
+
+    /**
      * Engages the OS-window pointer-follow embodiment after the host acquired a vessel for a
      * tear-out: the in-window proxy stays alive to capture pointer events but turns invisible,
      * {@link Neo.draggable.container.SortZone#isWindowDragging} arms (which parks the base

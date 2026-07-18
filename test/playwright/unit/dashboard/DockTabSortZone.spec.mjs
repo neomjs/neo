@@ -312,6 +312,22 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
             expect(proxyStyles).toEqual([{opacity: 0}]);   // invisible, never destroyed — it still captures pointer events
             expect(zone.isWindowDragging).toBe(true);      // parks the base reorder commit for this gesture
             expect(addonCalls).toEqual([{popupHeight: 480, popupName: 'graph', popupWidth: 640, windowId: 7}])
+        });
+
+        test('endWindowDrag is the symmetric close: proxy visible, base reorder un-parked — the failed-admission degrade path', () => {
+            const proxyStyles = [];
+            const zone        = {
+                dragProxy       : {set style(value) { proxyStyles.push(value) }},
+                isWindowDragging: true
+            };
+
+            DockTabSortZone.prototype.endWindowDrag.call(zone);
+
+            expect(proxyStyles).toEqual([{opacity: 1}]);
+            expect(zone.isWindowDragging).toBe(false);
+
+            // proxy-less call (torn down mid-gesture) stays safe — the flag still resets
+            DockTabSortZone.prototype.endWindowDrag.call({dragProxy: null, isWindowDragging: true})
         })
     })
 });
