@@ -47,6 +47,7 @@ import {probeExistingFleetServer, resolveFleetBearer, resolveFleetViewer} from '
 import {readActiveWakeSubscriptionIdentities}                             from './readActiveWakeSubscriptionIdentities.mjs';
 import {wireBootIdentityReadSource}                                       from './wireBootIdentityReadSource.mjs';
 import {wireFleetActivityReadSource}                                      from './wireFleetActivityReadSource.mjs';
+import {wireFleetCatchUpSource}                                           from './wireFleetCatchUpSource.mjs';
 import {wireOperatorComposeWriter}                                        from './wireOperatorComposeWriter.mjs';
 import path                                                               from 'node:path';
 import {fileURLToPath, pathToFileURL}                                     from 'node:url';
@@ -119,6 +120,23 @@ async function boot() {
     FleetControlBridge.viewerIdentitySource = {
         resolveViewerIdentity: () => RequestContextService.getAgentIdentityNodeId()
     };
+
+    // The S3 catch-up source stays behind the authenticated ingress. Its two calls reuse the exact
+    // Memory Core registered operations (schema validation, source ownership, recorder, and
+    // notAuthority envelopes included) through a lazy import; no MCP code crosses into the Body.
+    // The closure holds zero result cache. The source instance holds only per-viewer runtime anchors,
+    // so a cockpit reload preserves them while this process lives and a service restart resets them.
+    const callHistoryOperation = async (name, args) => {
+        const {callTool} = await import('../../mcp/server/memory-core/toolService.mjs');
+
+        return callTool(name, args)
+    };
+
+    wireFleetCatchUpSource({
+        exploreMemoryHistory     : args => callHistoryOperation('explore_memory_history', args),
+        explorePullRequestHistory: args => callHistoryOperation('explore_pull_request_history', args),
+        resolveViewerIdentity    : () => RequestContextService.getAgentIdentityNodeId()
+    });
 
     FleetControlBridge.mailboxMirrorSource = {
         async readMailboxMirror(params = {}) {

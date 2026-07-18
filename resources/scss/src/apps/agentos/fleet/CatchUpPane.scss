@@ -1,0 +1,101 @@
+/* Invoked catch-up rail pane. Source cards remain visually independent so one degraded producer
+   cannot paint the other red; all values come from the Fleet token layer. */
+.fm-catch-up-pane {
+    gap       : 10px;
+    padding   : 12px;
+    background: var(--fm-rail);
+    overflow  : auto;
+
+    .fm-catch-up-head,
+    .fm-catch-up-actions,
+    .fm-catch-up-first-use,
+    .fm-catch-up-partitions {
+        gap: 8px;
+    }
+
+    .fm-catch-up-title {
+        color      : var(--fm-ink);
+        font-weight: 700;
+    }
+
+    .fm-catch-up-authority,
+    .fm-catch-up-window,
+    .fm-catch-up-source-meta,
+    .fm-catch-up-mark-outcome,
+    .fm-catch-up-citation-overflow {
+        color      : var(--fm-ink-dim);
+        font-family: var(--fm-font-mono);
+        font-size  : 10.5px;
+    }
+
+    .fm-catch-up-partitions {
+        overflow-x: auto;
+    }
+
+    .fm-catch-up-partition.is-active {
+        color: var(--fm-signal);
+    }
+
+    .fm-catch-up-sources {
+        gap: 10px;
+    }
+
+    .fm-catch-up-source {
+        gap          : 7px;
+        padding      : 10px;
+        border       : 1px solid var(--fm-line-soft);
+        border-radius: 6px;
+        background   : var(--fm-panel);
+
+        &.is-degraded {
+            border-color: var(--fm-state-limited);
+        }
+
+        &.is-unavailable {
+            border-color: var(--fm-state-wedged);
+        }
+    }
+
+    .fm-catch-up-source-head {
+        gap: 8px;
+    }
+
+    .fm-catch-up-source-title {
+        color      : var(--fm-ink);
+        font-weight: 650;
+    }
+
+    .fm-catch-up-source-state,
+    .fm-catch-up-source-reason {
+        color      : var(--fm-state-limited);
+        font-family: var(--fm-font-mono);
+        font-size  : 10.5px;
+    }
+
+    .fm-catch-up-source-body {
+        color      : var(--fm-ink);
+        font-size  : 12.5px;
+        line-height: 1.45;
+        white-space: pre-wrap;
+    }
+
+    .fm-catch-up-citations {
+        gap       : 4px;
+        padding-top: 3px;
+    }
+
+    .fm-catch-up-citation {
+        color      : var(--fm-ink-dim);
+        font-family: var(--fm-font-mono);
+        font-size  : 10.5px;
+
+        &.is-link {
+            color: var(--fm-signal);
+        }
+    }
+
+    .fm-catch-up-empty {
+        padding: 14px 4px;
+        color  : var(--fm-ink-dim);
+    }
+}

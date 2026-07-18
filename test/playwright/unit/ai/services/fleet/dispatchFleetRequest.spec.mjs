@@ -33,13 +33,13 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
             configureAgent: p  => { calls.push(['configureAgent', p]); return {status: 'accepted', agent: {id: p.id, harnessType: p.harnessType}}; },
             listAgents    : () => { calls.push(['listAgents']);     return [{id: 'a'}]; },
             getAgent      : id => { calls.push(['getAgent', id]);   return {id}; },
-            startAgent  : async id => { calls.push(['startAgent', id]);   return {id, state: 'running'}; },
-            stopAgent   : async id => { calls.push(['stopAgent', id]);    return {success: true, id}; },
-            restartAgent: async id => { calls.push(['restartAgent', id]); return {id, state: 'running'}; },
-            removeAgent : async id => { calls.push(['removeAgent', id]);  return {success: true, id}; },
-            fleetStatus : () => { calls.push(['fleetStatus']); return [{id: 'a'}]; },
-            setRepo     : payload => { calls.push(['setRepo', payload]); return {id: payload.id, metadata: {repo: payload}}; },
-            setAvatar   : payload => { calls.push(['setAvatar', payload]); return {id: payload.id, metadata: {avatarUrl: payload.avatarUrl}}; },
+            startAgent    : async id => { calls.push(['startAgent', id]);   return {id, state: 'running'}; },
+            stopAgent     : async id => { calls.push(['stopAgent', id]);    return {success: true, id}; },
+            restartAgent  : async id => { calls.push(['restartAgent', id]); return {id, state: 'running'}; },
+            removeAgent   : async id => { calls.push(['removeAgent', id]);  return {success: true, id}; },
+            fleetStatus   : () => { calls.push(['fleetStatus']); return [{id: 'a'}]; },
+            setRepo       : payload => { calls.push(['setRepo', payload]); return {id: payload.id, metadata: {repo: payload}}; },
+            setAvatar     : payload => { calls.push(['setAvatar', payload]); return {id: payload.id, metadata: {avatarUrl: payload.avatarUrl}}; },
             // resolver seams that MUST be unreachable over the wire (they return lifecycle-powerful singletons):
             getManager : () => { calls.push(['getManager']);  return {DANGER: 'lifecycle'}; },
             getRegistry: () => { calls.push(['getRegistry']); return {DANGER: 'registry'}; }
@@ -124,21 +124,23 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
         expect(calls).toEqual([['resolveViewerIdentity']])
     });
 
-    test('the wire allowlist is exactly the pane operations (+ the read-observe getBootIdentity / fleetActivity / fleetRoster / fleetMailboxMirror / resolveViewerIdentity + the composeOperatorMessage write verb) — no resolver seams', () => {
+    test('the wire allowlist is exactly the pane operations (+ bounded reads and explicit writes) — no resolver seams', () => {
         expect([...FLEET_WIRE_METHODS].sort()).toEqual(
             // fleet-agent operations (incl. the configureAgent scoped-config patch — never identity,
             // never credential) + the read-observe verbs (boot-identity fact + activity snapshot +
-            // assembled roster DTO + one agent's mailbox mirror + the whoami identity-bootstrap —
-            // advisory reads, no lifecycle-write)
-            // + the single write verb (composeOperatorMessage — payload only, identity never wire-carried)
-            ['composeOperatorMessage', 'configureAgent', 'connectTenant', 'defineAgent', 'fleetActivity', 'fleetMailboxMirror', 'fleetRoster', 'fleetRuntimeStatus', 'fleetStatus', 'getAgent', 'getBootIdentity', 'listAgents', 'listTenants', 'removeAgent', 'resolveViewerIdentity', 'restartAgent', 'setAvatar', 'setRepo', 'startAgent', 'stopAgent'].sort()
+            // assembled roster DTO + viewer-bound catch-up history + one agent's mailbox mirror +
+            // the whoami identity-bootstrap) plus the two explicit write verbs. Catch-up mark is
+            // process-local only; compose persists payload while the server stamps identity.
+            ['composeOperatorMessage', 'configureAgent', 'connectTenant', 'defineAgent', 'fleetActivity', 'fleetHistory', 'fleetMailboxMirror', 'fleetRoster', 'fleetRuntimeStatus', 'fleetStatus', 'getAgent', 'getBootIdentity', 'listAgents', 'listTenants', 'markFleetCaughtUp', 'removeAgent', 'resolveViewerIdentity', 'restartAgent', 'setAvatar', 'setRepo', 'startAgent', 'stopAgent'].sort()
         );
         expect(FLEET_WIRE_METHODS).toContain('getBootIdentity');   // the read-observe verbs ride the wire; the lifecycle-write restart actuator does NOT (R3)
         expect(FLEET_WIRE_METHODS).toContain('fleetActivity');
+        expect(FLEET_WIRE_METHODS).toContain('fleetHistory');
         expect(FLEET_WIRE_METHODS).toContain('fleetRoster');
         // the wire's first WRITE verb: compose rides the authenticated transport with a whitelisted
         // payload — the author is the server-stamped ambient identity, never a wire parameter
         expect(FLEET_WIRE_METHODS).toContain('composeOperatorMessage');
+        expect(FLEET_WIRE_METHODS).toContain('markFleetCaughtUp');
         // a Node-side read verb the browser cannot NAME is not a seam: the omission fails closed and
         // SILENT (the pane's `typeof bridge.x !== 'function'` guard returns early), which reads
         // exactly like a wired-but-empty mailbox — the honest-looking failure this list prevents

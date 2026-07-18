@@ -57,6 +57,8 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
         FleetControlBridge.manager            = null;
         FleetControlBridge.bootIdentitySource = null;
         FleetControlBridge.activitySource     = null;
+        FleetControlBridge.historySource      = null;
+        FleetControlBridge.mailboxMirrorSource = null;
         FleetControlBridge.identityResolver   = null;
     });
 
@@ -163,6 +165,45 @@ test.describe('Neo.ai.services.fleet.FleetControlBridge — capability allowlist
 
         expect(result.events).toEqual([]);   // no invented traffic
         expect(result.capability).toMatchObject({state: 'not-wired', confidence: 'none', reason: 'fleet activity source not wired'});
+    });
+
+    // ---- invoked history: source-owned envelopes + runtime-only explicit anchor write ----
+
+    test('fleetHistory and markFleetCaughtUp route verbatim to one injected viewer-bound source', async () => {
+        const snapshot = {
+            capability: {state: 'wired'},
+            partition : '@neo-opus-ada',
+            window    : {windowStart: '2026-07-17T12:00:00.000Z', windowEnd: '2026-07-18T12:00:00.000Z'},
+            sources   : {memory: {state: 'available'}, pullRequests: {state: 'available'}}
+        };
+
+        FleetControlBridge.historySource = {
+            readHistory : async params => { calls.push(['readHistory', params]); return snapshot; },
+            markCaughtUp: async params => { calls.push(['markCaughtUp', params]); return {status: 'advanced', lastSeen: params.windowEnd}; }
+        };
+
+        await expect(FleetControlBridge.fleetHistory({partition: '@neo-opus-ada'})).resolves.toBe(snapshot);
+        await expect(FleetControlBridge.markFleetCaughtUp({windowEnd: snapshot.window.windowEnd})).resolves.toEqual({
+            status  : 'advanced',
+            lastSeen: snapshot.window.windowEnd
+        });
+        expect(calls).toEqual([
+            ['readHistory', {partition: '@neo-opus-ada'}],
+            ['markCaughtUp', {windowEnd: snapshot.window.windowEnd}]
+        ])
+    });
+
+    test('an unwired history source is named unavailable; mark never fabricates an advance', () => {
+        FleetControlBridge.historySource = null;
+
+        expect(FleetControlBridge.fleetHistory({partition: '@neo-opus-ada'})).toMatchObject({
+            capability: {state: 'unavailable'},
+            partition : '@neo-opus-ada',
+            window    : null,
+            sources   : null
+        });
+        expect(FleetControlBridge.markFleetCaughtUp({windowEnd: '2026-07-18T12:00:00.000Z'}))
+            .toEqual({status: 'not-wired', reason: 'fleet history source not wired'})
     });
 
     // ---- read-observe: the per-agent mailbox mirror (S1; advisory read verb, no mutation path) ----

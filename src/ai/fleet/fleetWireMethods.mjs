@@ -11,7 +11,7 @@
  * `Object` / `Neo.core.Base` member, so a crafted `{method:'getManager'}` / `{method:'constructor'}`
  * request cannot reach a non-operation.
  *
- * `getBootIdentity`, `fleetActivity`, `fleetRoster`, and `fleetMailboxMirror` are **read-observe**
+ * `getBootIdentity`, `fleetActivity`, `fleetHistory`, `fleetRoster`, and `fleetMailboxMirror` are **read-observe**
  * verbs — the advisory boot-identity fact, the bounded fleet activity snapshot, the assembled roster
  * cockpit DTO, and one agent's mailbox mirror: they carry NO lifecycle-write / restart authority. The
  * R3 read-observe ÷ lifecycle-write seam keeps the daemon-core restart actuator physically OFF this
@@ -36,7 +36,9 @@
  * source (no composed launch contract) answers an honest `unavailable`; an admitted-but-unbound
  * context answers a named refusal — never a fallback identity.
  *
- * `composeOperatorMessage` is the wire's FIRST **write** verb — the operator-mailbox steering
+ * `markFleetCaughtUp` is a runtime-only write: it advances only the authenticated viewer's
+ * process-lifetime `lastSeen` through an exact rendered window. It writes no graph, browser storage,
+ * or durable digest. `composeOperatorMessage` is the wire's first durable **write** verb — the operator-mailbox steering
  * surface: compose a DM or an `AGENT:*` broadcast through the bridge's injected writer. It rides
  * ONLY the authenticated transport: the ingress stamps the server-resolved viewer into the request
  * context, and the mailbox primitive resolves the author + its principal class from that ambient
@@ -50,6 +52,6 @@
 export const FLEET_WIRE_METHODS = Object.freeze([
     'defineAgent', 'configureAgent', 'setRepo', 'setAvatar', 'listAgents', 'getAgent',
     'startAgent', 'stopAgent', 'restartAgent', 'removeAgent', 'fleetStatus', 'fleetRuntimeStatus',
-    'getBootIdentity', 'fleetActivity', 'fleetRoster', 'fleetMailboxMirror', 'connectTenant', 'listTenants',
-    'composeOperatorMessage', 'resolveViewerIdentity'
+    'getBootIdentity', 'fleetActivity', 'fleetHistory', 'fleetRoster', 'fleetMailboxMirror', 'connectTenant', 'listTenants',
+    'composeOperatorMessage', 'markFleetCaughtUp', 'resolveViewerIdentity'
 ]);
