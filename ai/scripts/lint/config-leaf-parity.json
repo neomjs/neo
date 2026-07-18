@@ -240,6 +240,8 @@
         "orchestrator.tenantRepoSync",
         "orchestrator.tenantRepoSync.jitterRatio",
         "orchestrator.tenantRepoSync.sweepCadenceMs",
+        "orchestrator.wakeDispatch",
+        "orchestrator.wakeDispatch.coalesceWindowSeconds",
         "projectRoot",
         "publicUrl",
         "temporalSummary",
