@@ -513,7 +513,7 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
     let AgentConfigCard, AgentDefinition, Store;
 
     test.beforeAll(async () => {
-        AgentConfigCard = (await import('../../../../../apps/agentos/view/AgentConfigCard.mjs')).default;
+        AgentConfigCard = (await import('../../../../../apps/agentos/view/fleet/AgentConfigCard.mjs')).default;
         AgentDefinition = (await import('../../../../../apps/agentos/model/AgentDefinition.mjs')).default;
         Store           = (await import('../../../../../src/data/Store.mjs')).default
     });
@@ -539,7 +539,7 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
 
         expect(unreadRows()).toBe(1); // Hooks now renders its observed state...
         expect(cardText(card)).toContain('"text":"Hooks"'); // ...as the On row
-        expect(cardText(card)).toMatch(/"text":"Hooks"\},\{"cls":\["agent-config-value"\],"text":"On"/);
+        expect(cardText(card)).toMatch(/"text":"Hooks"\},\{"cls":\["fm-config-value"\],"text":"On"/);
 
         // reselection / teardown leaves no stale state behind
         card.record = null;
