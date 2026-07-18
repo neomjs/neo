@@ -21,9 +21,13 @@ One transition chain, end to end — no new window manager, no second dwell coor
    conversion to a real, URL-addressed OS popup on the shared heap.
 3. `src/main/addon/DragDrop.mjs` pointer-follow (`windowMoveTo`) — the moving embodiment.
 
-Witness suite: `test/playwright/e2e/workstation/tearOutMatrix.spec.mjs` (headed real-browser
-runs; headless proves wiring, never native placement). Density context: the flagship workstation
-surface — 20 items / 9 nodes / 6 tab nodes (1·12·2·2·1·2 distribution).
+Witness suite: `test/playwright/e2e/colors/tearOutMatrix.spec.mjs` (headed real-browser runs;
+headless proves wiring, never native placement). The measurement surface is the colors app —
+the landed grammar's original live product surface (`useSharedWorkers: true`, `popupUrl` wired
+to its dedicated widget shell, explicit `neo-draggable` panel-header handles). Dock-tier
+surfaces (workstation, dockdemo) opt OUT of the grammar until the G1 leaf lands — they cannot
+serve as measurement surfaces yet. Density context for the G1 calibration remains the flagship
+workstation — 20 items / 9 nodes / 6 tab nodes (1·12·2·2·1·2 distribution).
 
 ## Verdict vocabulary
 
@@ -41,9 +45,9 @@ implementation).
 
 ## The matrix
 
-| # | Row | macOS (Chromium, headed) | Windows | Linux |
+| # | Row | macOS (Chrome, headed) | Windows | Linux |
 |---|---|---|---|---|
-| 1 | Hysteretic grammar (0.8 out / 0.6 in, direction-aware) | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
+| 1 | Hysteretic grammar (0.8 out / 0.6 in, direction-aware) | `PASS_NATIVE` ¹ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 | 2 | Acquisition (`window.open` boolean; activation window) | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 | 3 | Moving embodiment (requested-vs-observed `moveTo`) | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 | 4 | Object permanence / reintegration (same instance back) | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
@@ -54,6 +58,15 @@ implementation).
 Environment note: the current fleet has a qualifying **macOS** headed environment. Windows and
 Linux columns require real desktop sessions (a virtual display proves wiring, not native
 placement semantics) and remain honestly `NOT_YET_MEASURED` until such environments exist.
+
+¹ Row 1 macOS (2026-07-18, Chrome via the matrix runner): the witness proves boundary-exit
+under the documented hysteresis, MID-GESTURE popup acquisition, popup persistence through the
+drop terminal, and same-instance adoption rendering in the popup over the shared heap. Pending
+sub-receipt: the ratio-trace no-oscillation assertion (reads `SortZone.traces`). **Open
+observation (owned by row 3):** sustained pointer movement AFTER acquisition closed the popup
+in earlier runs — isolated by stopping the drag at acquisition; mechanism unattributed
+(candidates: the clamped-coordinate `windowMoveTo` stream; a re-entry misfire under synthetic
+coordinates). Row 3's moving-embodiment cells must reproduce and attribute it.
 
 ## Per-row receipt requirements
 

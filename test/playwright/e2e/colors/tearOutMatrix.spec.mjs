@@ -4,7 +4,8 @@ import {expect, test} from '../../fixtures.mjs';
  * @summary The seven-row tear-out portability witness suite — the headed measurement half of
  * `learn/guides/specificfeatures/TearOutPortabilityMatrix.md`.
  *
- * Drives the LANDED transition chain end to end on the flagship workstation surface:
+ * Drives the LANDED transition chain end to end on the colors app — the grammar's original
+ * live product surface (shared workers on, `popupUrl` wired to the dedicated widget shell):
  * `SortZone#checkWindowBoundary` (intersection-ratio hysteresis, 0.8 detach / 0.6 reattach)
  * → `dashboard.Container#onDragBoundaryExit` → `#openWidgetInPopup` (real URL-addressed OS
  * popup on the shared heap) → `DragDrop` pointer-follow.
@@ -20,23 +21,21 @@ import {expect, test} from '../../fixtures.mjs';
  * in place — red-honest until each cell's witness lands.
  */
 
-// The flagship surface (density context: 20 items / 9 nodes / 6 tab nodes). The dev server
-// port rides NEO_E2E_PORT — the same knob the e2e config uses to dodge a foreign server.
+// The colors app: three DashboardPanels (Grid / Pie Chart / Bar Chart) whose header toolbars
+// carry the explicit `neo-draggable` drag-handle cls. The dev server port rides NEO_E2E_PORT —
+// the same knob the e2e config uses to dodge a foreign server.
 const
     e2ePort    = Number(process.env.NEO_E2E_PORT) || 8080,
-    surfaceUrl = `http://localhost:${e2ePort}/apps/workstation/index.html`,
-    // First-run calibration constants: the drag handle of one dashboard item on the default
-    // workspace. Adjusted on the first headed run against the live DOM; the witness fails
-    // LOUD on a selector miss instead of timing out silently.
-    itemHandle  = '.neo-dashboard-container .neo-header-toolbar',
-    dragSteps   = 25;
+    surfaceUrl = `http://localhost:${e2ePort}/apps/colors/index.html`,
+    itemHandle = '.neo-draggable',
+    dragSteps  = 25;
 
-test.describe('tear-out portability matrix — workstation, headed', () => {
+test.describe('tear-out portability matrix — colors app, headed', () => {
     test.setTimeout(120000);
 
     test.beforeEach(async ({page}) => {
         await page.goto(surfaceUrl);
-        await expect(page.locator('.neo-viewport')).toBeVisible({timeout: 60000})
+        await expect(page.locator('.colors-viewport')).toBeVisible({timeout: 60000})
     });
 
     test('row 1 — hysteretic grammar: a slow boundary crossing detaches below 0.8 moving out, popup acquired, no oscillation', async ({context, page}) => {
@@ -50,30 +49,57 @@ test.describe('tear-out portability matrix — workstation, headed', () => {
 
         expect(box, 'the drag handle reports a bounding box').toBeTruthy();
 
+        // Diagnostic channels: the app worker's console surfaces re-entry/cleanup decisions
+        // (`onDragBoundaryEntry` logs on the reattach path — the only popup-closing path).
+        const mainConsole = [];
+        page.on('console', message => mainConsole.push(`[${message.type()}] ${message.text()}`));
+
         // Slow, stepped drag from the item toward and past the right window boundary — the
         // stepped path is what makes the direction-aware ratio trace meaningful (row-1 receipt:
-        // exit fires while MOVING OUT below the detach threshold, never at rest).
+        // exit fires while MOVING OUT below the detach threshold, never at rest). The loop stops
+        // the moment acquisition fires, isolating the post-acquisition move stream from the
+        // pointer-up path when hunting an unexpected close.
         const popupPromise = context.waitForEvent('page', {timeout: 30000});
 
         await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
         await page.mouse.down();
 
-        for (let i = 1; i <= dragSteps; i++) {
+        let popup = null;
+
+        for (let i = 1; i <= dragSteps && !popup; i++) {
             await page.mouse.move(
                 box.x + (viewport.width + 200 - box.x) * (i / dragSteps),
                 box.y + box.height / 2,
                 {steps: 4}
-            )
+            );
+            popup = await Promise.race([popupPromise.then(acquired => acquired), page.waitForTimeout(50).then(() => null)])
         }
 
         // The mid-gesture conversion: a REAL page (popup) must be acquired before pointer-up —
         // acquisition-during-gesture is the landed grammar, not a drop effect.
-        const popup = await popupPromise;
+        popup = popup || await popupPromise;
 
+        const popupConsole  = [];
+        let   popupClosedAt = null;
+        popup.on('console', message => popupConsole.push(`[${message.type()}] ${message.text()}`));
+        popup.on('close', () => popupClosedAt = Date.now());
+
+        const beforeUp = Date.now();
         await page.mouse.up();
 
         expect(popup.url(), 'the popup is URL-addressed (openWidgetInPopup contract)').toContain('/apps/');
-        await expect(popup.locator('body')).toBeVisible({timeout: 30000})
+
+        // Pointer-up outside the source window is the DETACH terminal: the popup persists as a
+        // standalone OS window (closing here would be the reattach/cancel path — a row-1 FAIL).
+        await page.waitForTimeout(2000);
+        expect(popup.isClosed(),
+            `the popup survives the drop terminal (closedAt-upDelta: ${popupClosedAt ? popupClosedAt - beforeUp : 'n/a'}ms; ` +
+            `popup console: ${popupConsole.join(' | ') || 'none'}; main console tail: ${mainConsole.slice(-8).join(' | ') || 'none'})`
+        ).toBe(false);
+
+        // The widget shell boots over the shared heap and adopts the parked widget — Neo-rendered
+        // content (worker-created ids) is the adoption receipt, not the bare body.
+        await expect(popup.locator('[id^="neo-"]').first(), `adopted Neo content renders in the popup (console: ${popupConsole.join(' | ')})`).toBeVisible({timeout: 45000})
     });
 
     test.fixme('row 2 — acquisition: window.open boolean-shaped failure + the >5s userActivation negative control', async () => {
