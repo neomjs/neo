@@ -18,9 +18,10 @@ const block = body => '```lane-state\n' + body + '\n```';
  * resolution — final assistant text + the prompting user message come from the Stop payload /
  * transcript, not raw JSONL lines (raw JSONL is escaped); (3) end-to-end — the spawned real hook.
  *
- * The decision rule: there is NO valid voluntary stop except a live operator dialogue. A
- * "valid" lane-state terminal is a declaration, not a license to stop — enforce REFUSES it. The one
- * allow is `operatorInLoop`, determined EXTERNALLY (the prompting message type), never self-declared.
+ * The decision rule: there is NO valid voluntary stop except live operator dialogue without an exact
+ * `active-lane` terminal. A "valid" lane-state terminal is a declaration, not a license to stop —
+ * enforce REFUSES it. `operatorInLoop` is determined EXTERNALLY (the prompting message type), while
+ * the active-lane refinement consumes the agent's own parsed continuation record.
  */
 test.describe('laneStateStopHook — pure idle-out decision logic', () => {
     test.describe('parseOutcomeToVerdict — the 3-bucket chain', () => {
@@ -51,15 +52,27 @@ test.describe('laneStateStopHook — pure idle-out decision logic', () => {
         });
     });
 
-    test.describe('decideHookAction — operator-dialogue is the only allow (#13649)', () => {
+    test.describe('decideHookAction — dialogue allow with the #15401 active-lane refinement', () => {
         test('VALID + no operator → BLOCK (enforce) / WOULD-BLOCK (dry-run) — the loophole is closed', () => {
             expect(decideHookAction({valid: true, reason: 'ok'}, true,  false).action).toBe('block');
             expect(decideHookAction({valid: true, reason: 'ok'}, false, false).action).toBe('would-block');
         });
 
-        test('operatorInLoop ALWAYS allows — a live human takes the next turn (enforce AND dry-run)', () => {
+        test('operatorInLoop allows when no active-lane continuation is declared (enforce AND dry-run)', () => {
             expect(decideHookAction({valid: false, reason: 'x'}, true,  true).action).toBe('allow');
             expect(decideHookAction({valid: true,  reason: 'x'}, false, true).action).toBe('allow');
+            expect(decideHookAction({valid: true, reason: 'x'}, true, true, null, 'next-lane').action).toBe('allow');
+            expect(decideHookAction({valid: true, reason: 'x'}, true, true, null, 'blocker-routed').action).toBe('allow');
+        });
+
+        test('operatorInLoop + active-lane → BLOCK (enforce) / WOULD-BLOCK (dry-run)', () => {
+            const enforced = decideHookAction({valid: true, reason: 'x'}, true, true, null, 'active-lane'),
+                  dryRun   = decideHookAction({valid: true, reason: 'x'}, false, true, null, 'active-lane');
+
+            expect(enforced.action).toBe('block');
+            expect(dryRun.action).toBe('would-block');
+            expect(enforced.reason).toContain('[active-lane-in-dialogue]');
+            expect(dryRun.reason).toContain('Answer-plus-drive, not answer-plus-stop');
         });
 
         test('INVALID + no operator → BLOCK when enforcing — the reason is carried through to inject', () => {
@@ -606,10 +619,20 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
         expect(decision.reason).toContain('deference phrase "your move"');
     });
 
-    test('deference phrase in a live operator dialogue → ALLOW (operator-dialogue carve)', async () => {
+    test('deference carve cannot hide active-lane in dialogue → BLOCK with the lane directive', async () => {
         const {stdout, log} = await runHook(`Your call.\n\n${validTerminal}`, {enforce: true, promptingText: 'please pick the exact color and report'});
-        expect(log).toContain('ALLOW');
+        expect(log).toContain('BLOCK');
         expect(log).not.toContain('deference phrase');
+        expect(log).toContain('[active-lane-in-dialogue]');
+        const decision = JSON.parse(stdout);
+        expect(decision.decision).toBe('block');
+        expect(decision.reason).toContain('Answer-plus-drive, not answer-plus-stop');
+    });
+
+    test('LIVE OPERATOR dialogue + active-lane → WOULD-BLOCK in dry-run with a greppable class', async () => {
+        const {stdout, log} = await runHook(validTerminal, {promptingText: 'please do X, then report'});
+        expect(log).toContain('WOULD-BLOCK');
+        expect(log).toContain('[active-lane-in-dialogue]');
         expect(stdout).toBe('');
     });
 
@@ -617,6 +640,19 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
         const {stdout, log} = await runHook('Done — over to you.', {enforce: true, promptingText: 'please do X, then report'});
         expect(log).toContain('ALLOW');
         expect(stdout).toBe('');
+    });
+
+    test('LIVE OPERATOR dialogue keeps ALLOW for malformed and non-active lane-state terminals', async () => {
+        const malformed     = `Done.\n\n${block('{bad json}')}`,
+              nextLane      = `Done.\n\n${block('{"laneContinuation":"next-lane"}')}`,
+              blockerRouted = `Done.\n\n${block('{"laneContinuation":"blocker-routed"}')}`;
+
+        for (const finalText of [malformed, nextLane, blockerRouted]) {
+            const {stdout, log} = await runHook(finalText, {enforce: true, promptingText: 'please do X, then report'});
+            expect(log).toContain('ALLOW');
+            expect(log).not.toContain('[active-lane-in-dialogue]');
+            expect(stdout).toBe('');
+        }
     });
 
     test('handoff-to-autonomous operator prompt + enforce → BLOCK, not operator ALLOW', async () => {
@@ -687,11 +723,15 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
         expect(decision.reason).toContain('Unknown laneContinuation');
     });
 
-    // BEHAVIORAL FLIP (mid-chain operator visibility): the previous expectation here was BLOCK — the
-    // literal defect (a genuine operator record inside a forced chain refused as autonomous). Under
-    // mid-chain operator visibility, a mechanically human-shaped operator record IS live dialogue.
+    // Mid-chain operator visibility remains an independent contract: a genuine operator record inside
+    // a forced chain is live dialogue. The terminal is deliberately bare prose so this witness proves
+    // prompt classification without colliding with the separate active-lane refusal.
     test('stop_hook_active + genuine mid-chain operator record → ALLOW (#14440 Defect-B AC)', async () => {
-        const {stdout, log} = await runHook(validTerminal, {enforce: true, promptingText: 'please do X', stopHookActive: true});
+        const {stdout, log} = await runHook('Done — over to you.', {
+            enforce       : true,
+            promptingText : 'please do X',
+            stopHookActive: true
+        });
         expect(log).toContain('ALLOW');
         expect(log).toContain('midChainOperator=true');
         expect(stdout).toBe('');

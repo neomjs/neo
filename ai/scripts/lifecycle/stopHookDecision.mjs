@@ -257,10 +257,10 @@ export function evaluateCleanTerminalAcceptance({
 }
 
 /**
- * @summary Shared no-hold Stop-hook decision. The one voluntary allow is live operator dialogue.
- * Two AUTONOMOUS allows exist: the PRIMARY material-artifact key (adapter-evaluated — an
- * ID-correlated transcript-verified artifact since the last accepted stop + a valid terminal) and
- * the artifact-less fallback, an adapter-evaluated clean terminal
+ * @summary Shared no-hold Stop-hook decision. Live operator dialogue may stop unless the agent's own
+ * terminal declares the lane still active. Two AUTONOMOUS allows exist: the PRIMARY material-artifact
+ * key (adapter-evaluated — an ID-correlated transcript-verified artifact since the last accepted stop
+ * + a valid terminal) and the artifact-less fallback, an adapter-evaluated clean terminal
  * ({@link evaluateCleanTerminalAcceptance} — valid terminal, fully handed-off gates, drive-ratchet
  * met). Every other turn-end is blocked when the harness has a proven block/inject contract, or
  * would-block when dry-run / fail-open transport semantics apply. The `verdict` reason is
@@ -269,43 +269,56 @@ export function evaluateCleanTerminalAcceptance({
  * @param {Object} [options]
  * @param {Boolean} [options.enforcing=false]
  * @param {Boolean} [options.operatorInLoop=false]
+ * @param {String|null} [options.laneContinuation=null] Parsed terminal continuation. Only the exact
+ * `active-lane` value overrides the dialogue allow; absent/malformed terminals preserve turn-taking.
  * @param {Boolean} [options.blockInjectionSupported=true]
  * @param {String} [options.blockUnsupportedReason='']
  * @param {{accept: Boolean, reason: String}|null} [options.cleanTerminal=null] The adapter-evaluated
  * clean-terminal acceptance; only `accept === true` changes the action (an allow with its audit line).
+ * @param {{accept: Boolean, reason: String}|null} [options.materialArtifact=null] The adapter-evaluated
+ * material-artifact key; only `accept === true` changes the action (the PRIMARY autonomous allow).
  * @returns {{action: ('allow'|'block'|'would-block'), reason: String}}
  */
 export function decideStopHookAction(verdict, {
     enforcing               = false,
     operatorInLoop          = false,
+    laneContinuation        = null,
     blockInjectionSupported = true,
     blockUnsupportedReason  = '',
     cleanTerminal           = null,
     materialArtifact        = null
 } = {}) {
-    if (operatorInLoop) {
+    const activeLaneInDialogue = operatorInLoop && laneContinuation === 'active-lane';
+
+    if (operatorInLoop && !activeLaneInDialogue) {
         return {action: 'allow', reason: 'live operator dialogue — yielding for the human turn'};
     }
 
     // The autonomous-quadrant PRIMARY key: a transcript-verified material lifecycle artifact
-    // (PR opened / formal review / RC-response) since the last accepted stop + a valid terminal.
-    // Evaluated externally (the adapter owns collection + the audit-log boundary); prose can
-    // never mint it. The clean terminal below remains the artifact-less fallback.
+    // (a PR opened or a formal review — the v1 classes) since the last accepted stop + a valid
+    // terminal. Evaluated externally (the adapter owns collection + the audit-log boundary); prose
+    // can never mint it. The clean terminal below remains the artifact-less fallback.
     if (!operatorInLoop && materialArtifact?.accept === true) {
         return {action: 'allow', reason: materialArtifact.reason};
     }
 
-    if (cleanTerminal?.accept === true) {
+    if (!operatorInLoop && cleanTerminal?.accept === true) {
         return {action: 'allow', reason: cleanTerminal.reason};
     }
 
+    const decisionReason = activeLaneInDialogue
+        ? '[active-lane-in-dialogue] Answer delivered — and you declared this lane ACTIVE. ' +
+            'Answer-plus-drive, not answer-plus-stop: continue the lane now, or hand it off honestly ' +
+            '(`next-lane` with gates naming non-self actors).'
+        : verdict.reason;
+
     if (enforcing && blockInjectionSupported) {
-        return {action: 'block', reason: verdict.reason};
+        return {action: 'block', reason: decisionReason};
     }
 
     const reason = enforcing && !blockInjectionSupported && blockUnsupportedReason
-        ? `${verdict.reason} ${blockUnsupportedReason}`
-        : verdict.reason;
+        ? `${decisionReason} ${blockUnsupportedReason}`
+        : decisionReason;
 
     return {action: 'would-block', reason};
 }

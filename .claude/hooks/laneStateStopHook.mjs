@@ -1,35 +1,39 @@
 #!/usr/bin/env node
 /**
  * @module .claude/hooks/laneStateStopHook
- * @summary Claude Code `Stop` hook — REFUSES every turn-end except a live operator dialogue or an
- * audited CLEAN TERMINAL (valid terminal + fully handed-off gates + the session drive-ratchet).
- * DRY-RUN (log-only) by default; ENFORCE via `NEO_LANE_STATE_ENFORCE=1`.
+ * @summary Claude Code `Stop` hook — REFUSES every turn-end except a live operator dialogue whose
+ * terminal does not declare `active-lane`, a transcript-verified MATERIAL ARTIFACT since the last
+ * accepted stop (+ a valid terminal), or an audited CLEAN TERMINAL (valid terminal + fully
+ * handed-off gates + the session drive-ratchet).
+ * An absent enforcement flag is a non-enforcing fail-open fallback; live harness wiring enforces via
+ * `NEO_LANE_STATE_ENFORCE=1`.
  *
  * Fires at every agent turn-end (the `Stop` event). The decision rule: there is NO valid voluntary
  * stop except a **live operator dialogue** — a turn that directly replied to a genuine human-operator
- * message, where the human takes the next turn (turn-taking, not idling) — or one of TWO autonomous
- * edges: the **material-artifact key** (the primary license — a transcript-verified lifecycle
- * artifact, a PR opened or a formal review, shipped since this session's last accepted stop, plus a
- * valid lane-state terminal; provenance is tool-use→tool-result ID-correlated, so prose can never
- * mint it) or the artifact-less fallback, a **clean terminal**: a valid lane-state terminal whose
- * named gates ALL await non-self actors, after ≥2 compliant refused drives already proved the
- * no-hold principle was honored this session (the drive count is read from the hook's OWN audit
- * log, the self identity from `NEO_AGENT_IDENTITY` harness wiring — absent wiring keeps the edge
- * inert, fail-closed). Every acceptance is audited (`MATERIAL-ALLOW` / `[clean-terminal]` line + a
- * transcript systemMessage), never silent. Outside that edge a "valid"
+ * message, where the human takes the next turn (turn-taking, not idling) — whose own terminal does NOT
+ * declare `active-lane`; or one of TWO autonomous edges: the **material-artifact key** (the primary
+ * license — a transcript-verified lifecycle artifact, a PR opened or a formal review, shipped since
+ * this session's last accepted stop, plus a valid lane-state terminal; provenance is
+ * tool-use→tool-result ID-correlated, so prose can never mint it) or the artifact-less fallback, a
+ * **clean terminal**: a valid lane-state terminal whose named gates ALL await non-self actors, after
+ * ≥2 compliant refused drives already proved the no-hold principle was honored this session (the
+ * drive count is read from the hook's OWN audit log, the self identity from `NEO_AGENT_IDENTITY`
+ * harness wiring — absent wiring keeps the edge inert, fail-closed). Every acceptance is audited
+ * (`MATERIAL-ALLOW` / `[clean-terminal]` line + a transcript systemMessage), never silent. Outside that edge a "valid"
  * fenced ```lane-state block is a RECORD (the directive's context + the external substance record),
  * NOT a license to stop: declaring a lane and halting is the announce-without-execute idle-out the
  * hook exists to prevent.
  *
  * Mechanism:
- *  - `operatorInLoop` (the one allow) is determined EXTERNALLY by `isOperatorInLoop`, never
+ *  - `operatorInLoop` is determined EXTERNALLY by `isOperatorInLoop`, never
  *    self-declared, so it cannot be gamed: the prompting candidate comes from the human-filtered
  *    transcript walk ({@link extractLatestHumanUserTextFromJsonl} — harness-injected `isMeta` records
  *    can never masquerade as dialogue), must NOT be a `[WAKE]` autonomous injection, and must be
  *    confirmable (fail-closed). Inside a forced continuation chain (`stop_hook_active`), a genuine
  *    operator message that arrived MID-CHAIN counts as dialogue evidence — the hook's contract could
- *    previously never confirm it and refused live-dialogue terminals as autonomous.
- *  - Otherwise: ENFORCE → block; DRY-RUN → would-block (log only — the audit path). The lane-state
+ *    previously never confirm it and refused live-dialogue terminals as autonomous. Dialogue normally
+ *    allows, but an exact parsed `active-lane` declaration refuses: answer-plus-drive, not answer-plus-stop.
+ *  - Otherwise: ENFORCE → block; non-enforcing → would-block (log only — the audit path). The lane-state
  *    `verdict` (`parseLaneState` → `validateLaneStateTerminal`) no longer gates the action — it only
  *    supplies the `reason` for the injected directive.
  *  - Block path (ENFORCING): write `{"decision":"block","reason":"…"}` to stdout — Claude keeps
@@ -42,9 +46,9 @@
  * emission* (parseLaneState throws) is NOT our failure — it feeds the directive's `reason`, not the gate.
  *
  * ACTIVATION = operator-authority: this script is INERT until wired into the harness settings
- * (`.claude/settings.*`). Wire it in DRY-RUN first, audit the WOULD-BLOCK log, then set
- * `NEO_LANE_STATE_ENFORCE=1` to enforce. A buggy blocking hook would trap every agent's turn-end, so
- * the dry-run → audit → enforce ramp is the safe rollout.
+ * (`.claude/settings.*`). Live wiring sets `NEO_LANE_STATE_ENFORCE=1` immediately. An absent flag is a
+ * fail-open wiring or stale-session signal; WOULD-BLOCK remains a unit-pinned diagnostic output, not a
+ * prescribed live rollout tier.
  *
  * SEAM: `parseLaneState` + `validateLaneStateTerminal` (imported from `ai/scripts/lifecycle/`) supply
  * the `verdict`'s reason; the pure `parseOutcomeToVerdict`, `decideHookAction`, and `isOperatorInLoop`
@@ -75,10 +79,10 @@ import {collectMaterialArtifactsFromJsonl,
 
 export {isOperatorInLoop, parseOutcomeToVerdict};
 
-// Enforce ONLY when the operator explicitly activates it; default is DRY-RUN (log-only, never blocks).
+// Live harness wiring explicitly enables enforcement. An absent flag fails open and emits diagnostics.
 const ENFORCING = process.env.NEO_LANE_STATE_ENFORCE === '1';
 
-// Append-only audit log — the WOULD-BLOCK / ALLOW record for auditing the dry-run before enforcement.
+// Append-only decision log — WOULD-BLOCK records non-enforcing diagnostics; ALLOW/BLOCK record live truth.
 // NEO_AI_DAEMON_DIR override keeps tests off the real store.
 const LOG_DIR  = process.env.NEO_AI_DAEMON_DIR || path.join(os.homedir(), '.neo-ai-data', 'lane-state-hook');
 const LOG_FILE = path.join(LOG_DIR, 'lane-state-stop-hook.log');
@@ -99,7 +103,7 @@ function readStdin() {
 }
 
 /**
- * @summary Best-effort append to the dry-run audit log. A log failure must NEVER gate the hook
+ * @summary Best-effort append to the decision audit log. A log failure must NEVER gate the hook
  * (mirrors the wake daemon's never-fail log discipline) — worst case is a lost audit line.
  * @param {String} line
  * @protected
@@ -118,10 +122,12 @@ function auditLog(line) {
  * operator prompted this turn (`operatorInLoop`) + the adapter-evaluated clean-terminal acceptance
  * to the Stop-hook action. The heart of the idle-out mechanism; exported + unit-tested.
  *
- * The ONE legitimate voluntary stop is a **live operator dialogue** — this turn directly replied to a
+ * The legitimate voluntary stop is a **live operator dialogue** — this turn directly replied to a
  * genuine human-operator message, so the human takes the next turn (turn-taking, not idling). That is
- * `operatorInLoop`, and it ALWAYS allows. `operatorInLoop` is determined EXTERNALLY (the prompting
- * message type — see the entry `main`), never self-declared, so it cannot be gamed.
+ * `operatorInLoop`, determined EXTERNALLY (the prompting message type — see the entry `main`), never
+ * self-declared. The one dialogue refusal is an exact parsed `active-lane` terminal: the agent's own
+ * record says self-work remains, so it must answer-plus-drive or hand the lane off honestly. An absent,
+ * malformed, or other continuation keeps the dialogue allow.
  *
  * TWO legitimate AUTONOMOUS stops exist. The PRIMARY is the **material-artifact key**
  * (`evaluateMaterialArtifactKey` — an ID-correlated, transcript-verified artifact since the
@@ -131,17 +137,27 @@ function auditLog(line) {
  * principle was honored (`evaluateCleanTerminalAcceptance`; the drive count comes from the hook's
  * OWN audit trail, never the agent's claim). Acceptance emits a `[clean-terminal]` audit line —
  * every boundary is observable, not silent. Everything else is unchanged: a first valid terminal still
- * refuses (ratchet), ENFORCE blocks, DRY-RUN previews (would-block), and the `verdict` supplies the
+ * refuses (ratchet), ENFORCE blocks, non-enforcing mode previews (would-block), and the `verdict` supplies the
  * directive `reason`. The remaining autonomous stops are hard external limits (Claude Code's
  * consecutive-block force-override, context-sunset, or an operator halt).
  * @param {{valid: Boolean, reason: String}} verdict
  * @param {Boolean} enforcing
  * @param {Boolean} [operatorInLoop=false] True iff a genuine human-operator message prompted this turn.
  * @param {{accept: Boolean, reason: String}|null} [cleanTerminal=null] Adapter-evaluated acceptance.
+ * @param {String|null} [laneContinuation=null] Parsed terminal continuation, when available.
+ * @param {{accept: Boolean, reason: String}|null} [materialArtifact=null] Adapter-evaluated
+ * material-artifact key (the PRIMARY autonomous allow).
  * @returns {{action: ('allow'|'block'|'would-block'), reason: String}}
  */
-export function decideHookAction(verdict, enforcing, operatorInLoop = false, cleanTerminal = null, materialArtifact = null) {
-    return decideStopHookAction(verdict, {enforcing, operatorInLoop, blockInjectionSupported: true, cleanTerminal, materialArtifact});
+export function decideHookAction(verdict, enforcing, operatorInLoop = false, cleanTerminal = null, laneContinuation = null, materialArtifact = null) {
+    return decideStopHookAction(verdict, {
+        enforcing,
+        operatorInLoop,
+        laneContinuation,
+        blockInjectionSupported: true,
+        cleanTerminal,
+        materialArtifact
+    });
 }
 
 /**
@@ -762,7 +778,7 @@ async function main() {
 
     const session = input.session_id || '?';
 
-    // The clean-terminal edge (the ONE autonomous stop): evaluated ONLY on a valid terminal outside
+    // The clean-terminal edge (the artifact-less autonomous fallback): evaluated ONLY on a valid terminal outside
     // operator dialogue. Inputs are external by construction — the drive count comes from the hook's
     // own audit log ({@link countSessionCompliantRefusals}), the self identity from harness wiring
     // (`NEO_AGENT_IDENTITY`; absent → fail-closed, the edge stays inert), the operator-turn waiver from
@@ -801,7 +817,14 @@ async function main() {
     }
 
     const identity         = process.env.NEO_AGENT_IDENTITY || '?';
-    const {action, reason} = decideHookAction(verdict, ENFORCING, operatorInLoop, cleanTerminal, materialArtifact);
+    const {action, reason} = decideHookAction(
+        verdict,
+        ENFORCING,
+        operatorInLoop,
+        cleanTerminal,
+        descriptor?.laneContinuation,
+        materialArtifact
+    );
 
     if (action === 'allow' && materialArtifact?.accept === true) {
         // The material boundary: audited + surfaced, never silent — the greppable class the next
