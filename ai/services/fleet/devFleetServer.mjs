@@ -85,15 +85,17 @@ async function boot() {
     // Wire the composed activitySource onto FleetControlBridge. The memory-core mailbox + graph
     // singletons are imported lazily at this boot use site (mirroring readActiveWakeSubscriptionIdentities's
     // lazy GraphService) and INJECTED — the composer's slot readers never import a singleton, so the
-    // mailbox identity/permission binding stays here. issuesDir is the synced content tree; readPrs is
-    // omitted in v1 (no synced-`pulls` reader yet — the feed carries issues + lane-claims + stall), which
-    // is honest-empty, not a stub. Fail-soft: an unavailable singleton leaves activitySource unwired.
+    // mailbox identity/permission binding stays here. issuesDir + pullsDir are the synced content trees;
+    // the pulls reader fills the composer's last honest-empty slot so the PR/lane slot emits pr-activity
+    // events (opens/reviews/merges) alongside issues + lane-claims + stall. Fail-soft: an unavailable
+    // singleton leaves activitySource unwired.
     Promise.all([
         import('../memory-core/MailboxService.mjs'),
         import('../memory-core/GraphService.mjs')
     ]).then(([{default: MailboxService}, {default: GraphService}]) => {
         wireFleetActivityReadSource({
             issuesDir   : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../resources/content/issues'),
+            pullsDir    : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../resources/content/pulls'),
             listMessages: MailboxService.listMessages.bind(MailboxService),
             graphService: GraphService
         });
