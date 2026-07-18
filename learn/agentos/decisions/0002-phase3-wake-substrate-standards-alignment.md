@@ -741,13 +741,65 @@ applies symmetrically to all three Shapes.
 
 #### 6.4.1 Coalescing window
 
-- **Default:** 30 seconds
+- **Default:** 30 seconds *(Shape A/B; Shape C diverges per the §6.4.1.1
+  amendment below)*
 - **Configurable per subscription:** `harnessTargetMetadata.coalesceWindow`
   (in seconds; valid range 0-300; 0 = no coalescing, immediate delivery)
 - **Bound:** maximum 5 minutes (300s) — beyond this, events stale enough
   that the agent's response would be on already-superseded state
 
-#### 6.4.2 Digest format
+#### 6.4.1.1 Amendment — Shape-C window divergence by cost model (2026-07-18)
+
+**Why this amendment exists.** The original §6.4 mandate ("coalescing applies
+symmetrically to all three Shapes") assumed the three delivery shapes share a
+cost model. Operationally they do not, and the divergence is structural:
+
+- **Shape A (MCP notification) / Shape B (A2A webhook):** the digest is a
+  `data`-field payload. Receiving one costs the consumer a parse — the
+  30-second default correctly trades freshness against digest quality, and
+  the fixed window is fine because a delivery is cheap.
+- **Shape C (wake daemon → harness injection):** the digest is a literal
+  prompt injected into a harness seat. **Every delivery costs a full harness
+  turn** — system prompt plus full context reload, tens of thousands of
+  tokens — before the first token of the digest is even read.
+
+The first wake-enabled evening under multi-seat load produced the empirical
+receipt (operator-flagged the same hour, source-confirmed): with the dominant
+swarm cadence being INTER-turn — lifecycle messages landing 1-5 minutes
+apart — a fixed 30-second window degenerates to wake-per-message: each
+message catches its own window, and a single-event wake spends a full turn
+to deliver one message header. §6.4's own token-economy rationale ("wake
+events MUST NOT be 1:1 with the event stream"), applied to Shape C's real
+cost model, therefore *indicts* the symmetric default it originally
+prescribed.
+
+**The amended contract, Shape C only:**
+
+- The Shape-C **default** window is an AiConfig leaf
+  (`orchestrator.wakeDispatch.coalesceWindowSeconds`, env
+  `NEO_WAKE_COALESCE_WINDOW_SECONDS`), default **150 seconds** — sized to
+  the inter-turn cadence, operator-tunable without a code change.
+- The Shape-C window is **rolling**: each newly queued event re-arms the
+  flush timer, so trailing arrivals join the current digest instead of
+  arming the next wake. The §6.4.1 **300s bound is retained as the hard
+  flush cap** measured from the FIRST queued event — rolling extension
+  never withholds a wake beyond it. *(Composition note: the Shape-C
+  daemon's heavy-delta read-state deferral sits ABOVE this cap by design —
+  a digest computed against uncommitted read-state would be corrupt, so
+  during a heavy GraphLog delta a digest is late rather than wrong; that
+  deferral carries its own bound.)*
+- A **post-flush refractory** (mechanism constant, ~120s) holds a new
+  digest at distance after a CONFIRMED delivery — the per-recipient mirror
+  of the swarm-idle cooldown precedent.
+- The per-subscription `harnessTargetMetadata.coalesceWindow` override, its
+  0-300 clamp, and the **`0` = immediate-delivery contract stay universal
+  and unchanged** across all three shapes; an explicit `0` is exempt from
+  the rolling/refractory/cap semantics.
+
+**Shapes A/B are deliberately untouched** — their `CoalescingEngineService`
+keeps the original fixed 30-second contract; a future consumer with
+turn-priced Shape A/B deliveries re-opens this amendment rather than
+silently reusing it.
 
 When the coalesce timer fires with N ≥ 1 queued events:
 
