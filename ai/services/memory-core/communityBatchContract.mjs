@@ -10,46 +10,64 @@ import {ACTOR_KINDS} from './communityAttentionClassifier.mjs';
  */
 export const BATCH_SCHEMA_VERSION = 'community-activity-batch.v1';
 
+/**
+ * @summary Bound on the opaque `nextProviderState` blob. It is opaque to Memory Core but not
+ * unbounded: an unbounded caller-supplied blob is a denial-of-storage vector, so it is size-capped,
+ * schema-versioned, and held to the same no-secret/no-prose rule as every other durable field.
+ * @member {Number}
+ */
+export const MAX_PROVIDER_STATE_BYTES = 65536;
+
 const
-    REQUIRED_BATCH_KEYS      = ['schemaVersion', 'batchId', 'sourceInstanceId', 'registrationEpoch', 'partition', 'coverage', 'occurrences'],
-    REQUIRED_COVERAGE_KEYS   = ['fromBasis', 'toBasis', 'complete'],
-    REQUIRED_OCCURRENCE_KEYS = ['providerEntityId', 'occurrenceKind', 'occurredAt', 'actorKind'],
+    REQUIRED_BATCH_KEYS       = [
+        'schemaVersion', 'sourceInstanceId', 'resourceFamily', 'adapterSchemaVersion',
+        'providerStateSchemaVersion', 'registrationEpoch', 'baseCheckpointVersion', 'baseInventoryHash',
+        'batchId', 'observations', 'nextProviderState', 'nextInventoryHash', 'coverage'
+    ],
+    REQUIRED_COVERAGE_KEYS    = ['fromBasis', 'toBasis', 'complete'],
+    /**
+     * v1 keys that must be PRESENT but may hold `null`: the initial checkpoint basis has no prior
+     * inventory, and a batch that changes no opaque provider state carries `null`. Presence is still
+     * required so a reduced batch (an omitted key) fails loudly rather than defaulting.
+     */
+    NULLABLE_BATCH_KEYS       = new Set(['baseInventoryHash', 'nextInventoryHash', 'nextProviderState']),
+    REQUIRED_OBSERVATION_KEYS = ['providerEntityId', 'occurrenceKind', 'occurrenceCoordinate', 'occurredAt', 'actorKind'],
     /**
      * Provider prose never enters an automatic durable row. A batch carrying any of these is
      * REJECTED rather than silently stripped: stripping would let a connector believe prose was
      * admitted and stored, which is a worse contract than a loud refusal.
      */
-    PROSE_KEYS               = new Set(['body', 'bodyHTML', 'bodyText', 'excerpt', 'summary', 'text', 'title']),
+    PROSE_KEYS                = new Set(['body', 'bodyHTML', 'bodyText', 'excerpt', 'summary', 'text', 'title']),
     /** Absence is never inferred — it is one of three explicitly-evidenced dispositions. */
-    ABSENCE_DISPOSITIONS     = new Set(['deleted', 'inaccessible', 'unknown']),
+    ABSENCE_DISPOSITIONS      = new Set(['deleted', 'inaccessible', 'unknown']),
     /**
      * Popularity telemetry sits OUTSIDE the community-event source families. It is refused at the
      * boundary rather than admitted-then-filtered, because an admitted row is durable history that
      * later surfaces (counts, Bird View, wake, claim) would have to keep re-excluding forever.
      */
-    POPULARITY_KINDS         = new Set([
+    POPULARITY_KINDS          = new Set([
         'repository.forked', 'repository.starred', 'repository.unstarred', 'repository.watched', 'repository.unwatched'
     ]),
     /**
      * Server-owned policy output. Attention eligibility is a zero-authority judgement made by a
      * server-side classifier and written in the same admission transaction — it is NOT connector
      * payload. Two consequences, both enforced here: a connector may not self-assert it (validation
-     * refuses), and it never enters the digest (so revising our policy can never masquerade as
+     * refuses), and it never enters any digest (so revising our policy can never masquerade as
      * connector corruption on an otherwise-identical batch).
      */
-    SERVER_POLICY_KEYS       = new Set(['attentionDisposition', 'attentionReason', 'eligibility', 'eligibilityReason', 'trustProjection']);
+    SERVER_POLICY_KEYS        = new Set(['attentionDisposition', 'attentionReason', 'eligibility', 'eligibilityReason', 'trustProjection']);
 
 /**
- * Returns an occurrence without server-owned policy fields, so the digest is computed over
- * connector-supplied payload only and stays stable across policy revisions.
- * @param {Object} occurrence
+ * Returns an observation without server-owned policy fields, so digests are computed over
+ * connector-supplied payload only and stay stable across policy revisions.
+ * @param {Object} observation
  * @returns {Object}
  */
-function connectorPayloadOf(occurrence) {
-    return Object.keys(occurrence)
+function connectorPayloadOf(observation) {
+    return Object.keys(observation)
         .filter(key => !SERVER_POLICY_KEYS.has(key))
         .reduce((out, key) => {
-            out[key] = occurrence[key];
+            out[key] = observation[key];
             return out
         }, {})
 }
@@ -60,7 +78,7 @@ function connectorPayloadOf(occurrence) {
  * Object keys are sorted. Arrays deliberately keep their order here: array-ordering policy is a
  * per-collection semantic decision, not a global one, and a blanket sort is exactly the trap that
  * would silently weaken corruption detection. The one collection whose order is normalized is the
- * occurrence list, and that happens once, explicitly, in {@link canonicalBatchDigest}.
+ * observation list, and that happens once, explicitly, in {@link canonicalBatchDigest}.
  * @param {*} value
  * @returns {String}
  */
@@ -77,48 +95,83 @@ function canonicalize(value) {
 }
 
 /**
- * @summary The corruption detector: a stable digest over a batch's semantic payload.
+ * @summary The stable identity of one observed change — the same across retries, distinct per
+ * revision. It is derived from `(sourceInstanceId, providerEntityId, occurrenceKind,
+ * occurrenceCoordinate)`, NOT minted per insert, so the same observation arriving in two different
+ * batches shares one identity (dedup) while a genuine revision — which carries a different
+ * `occurrenceCoordinate` — is a new identity and a new immutable fact.
+ * @param {String} sourceInstanceId
+ * @param {Object} observation
+ * @returns {String} `occ:<hex>`
+ */
+export function occurrenceIdentity(sourceInstanceId, observation) {
+    const key = canonicalize([sourceInstanceId, observation.providerEntityId, observation.occurrenceKind, observation.occurrenceCoordinate]);
+
+    return `occ:${crypto.createHash('sha256').update(key).digest('hex')}`
+}
+
+/**
+ * @summary The per-observation content digest over its connector payload. Admission uses
+ * `(occurrenceIdentity, observationDigest)` as the dedup key: same identity + same digest is a
+ * retry; same identity + different digest is an integrity conflict.
+ * @param {Object} observation
+ * @returns {String} `sha256:<hex>`
+ */
+export function observationDigest(observation) {
+    return `sha256:${crypto.createHash('sha256').update(canonicalize(connectorPayloadOf(observation))).digest('hex')}`
+}
+
+/**
+ * @summary The batch corruption detector: a stable digest over the whole v1 connector payload.
  *
  * Admission treats `batchId` + this digest as the idempotency key — same id and same digest is a
- * retry, same id and a different digest is an integrity conflict. Transport-only fields are excluded
- * so a redelivery cannot masquerade as corruption.
+ * retry, same id and a different digest is an integrity conflict. Server policy is excluded so a
+ * policy revision cannot masquerade as corruption; everything else the connector supplies (including
+ * the opaque `nextProviderState` and the base/next checkpoint+inventory anchors) participates,
+ * because a batch that advances to a different next-state IS a different batch.
  *
- * **Ordering decision (deliberate, witness-pinned):** the occurrence collection is normalized
- * order-INSENSITIVELY. Ordering authority does not live in the payload — the admitted sequence is
- * server-assigned and distinct from batch identity — so array position carries no durable meaning,
- * and sorting normalizes away a non-authoritative field rather than discarding information. The
- * alternative would raise an integrity conflict every time a connector re-serializes from a map.
- *
- * Normalization is a SORT, never a de-duplication: duplicate multiplicity stays digest-visible,
- * because two occurrences of the same fact is a materially different claim from one.
+ * **Ordering decision (witness-pinned):** the observation collection is normalized order-INSENSITIVELY
+ * (ordering authority is the server-assigned admitted sequence, not payload position) but never
+ * de-duplicated — duplicate multiplicity stays digest-visible. Ordering inside an observation is
+ * preserved.
  * @param {Object} batch
  * @returns {String} `sha256:<hex>`
  */
 export function canonicalBatchDigest(batch) {
     const
-        {batchId, sourceInstanceId, registrationEpoch, partition, coverage, occurrences = []} = batch,
-        // Sort by each occurrence's own canonical form: a total, input-order-independent order.
-        // Server policy is stripped first so classification cannot shift a connector's digest.
-        orderedOccurrences = occurrences
-            .map(occurrence => canonicalize(connectorPayloadOf(occurrence)))
+        {
+            batchId, sourceInstanceId, resourceFamily, adapterSchemaVersion, providerStateSchemaVersion,
+            registrationEpoch, baseCheckpointVersion, baseInventoryHash, nextProviderState, nextInventoryHash,
+            coverage, observations = []
+        } = batch,
+        orderedObservations = observations
+            .map(observation => canonicalize(connectorPayloadOf(observation)))
             .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
         payload = canonicalize({
+            adapterSchemaVersion,
+            baseCheckpointVersion,
+            baseInventoryHash,
             batchId,
             coverage,
-            partition,
+            nextInventoryHash,
+            nextProviderState,
+            providerStateSchemaVersion,
             registrationEpoch,
+            resourceFamily,
             schemaVersion: BATCH_SCHEMA_VERSION,
             sourceInstanceId
         });
 
-    return `sha256:${crypto.createHash('sha256').update(`${payload}|[${orderedOccurrences.join(',')}]`).digest('hex')}`
+    return `sha256:${crypto.createHash('sha256').update(`${payload}|[${orderedObservations.join(',')}]`).digest('hex')}`
 }
 
 /**
  * @summary Validates a batch against the v1 contract. Pure — no I/O, no tenant resolution.
  *
- * Structural validity only: identity/authority checks (registration epoch currency, tenant scoping)
- * belong to the admission service, which owns the server-side authority those decisions require.
+ * Structural + type validity of the complete v1 shape: authority checks (registration epoch currency,
+ * tenant scoping, base checkpoint/inventory verification) belong to the admission service, which owns
+ * the server-side state those decisions require. A reduced shape must NOT validate — minting a
+ * versioned contract means the whole contract, or a loud refusal.
  * @param {Object} batch
  * @returns {{valid: Boolean, errors: String[]}}
  */
@@ -134,11 +187,38 @@ export function validateBatch(batch) {
     }
 
     REQUIRED_BATCH_KEYS.forEach(key => {
-        if (batch[key] === undefined || batch[key] === null) errors.push(`BATCH_MISSING_${key.toUpperCase()}`)
+        const present  = Object.prototype.hasOwnProperty.call(batch, key),
+              nullable = NULLABLE_BATCH_KEYS.has(key);
+
+        if (!present || (batch[key] === undefined) || (batch[key] === null && !nullable)) {
+            errors.push(`BATCH_MISSING_${key.toUpperCase()}`)
+        }
     });
 
     if (!Number.isInteger(batch.registrationEpoch) || batch.registrationEpoch < 1) {
         errors.push('BATCH_REGISTRATION_EPOCH_INVALID')
+    }
+
+    if (!Number.isInteger(batch.baseCheckpointVersion) || batch.baseCheckpointVersion < 0) {
+        errors.push('BATCH_BASE_CHECKPOINT_VERSION_INVALID')
+    }
+
+    // nextProviderState is opaque but bounded, schema-versioned, and prose/secret-free.
+    if (batch.nextProviderState !== undefined && batch.nextProviderState !== null) {
+        let bytes = 0;
+        try {
+            bytes = Buffer.byteLength(JSON.stringify(batch.nextProviderState), 'utf8')
+        } catch {
+            errors.push('BATCH_NEXT_PROVIDER_STATE_NOT_SERIALIZABLE')
+        }
+
+        if (bytes > MAX_PROVIDER_STATE_BYTES) errors.push('BATCH_NEXT_PROVIDER_STATE_TOO_LARGE');
+
+        if (batch.nextProviderState && typeof batch.nextProviderState === 'object') {
+            Object.keys(batch.nextProviderState).forEach(key => {
+                if (PROSE_KEYS.has(key)) errors.push(`BATCH_NEXT_PROVIDER_STATE_CARRIES_PROSE_${key.toUpperCase()}`)
+            })
+        }
     }
 
     const {coverage} = batch;
@@ -163,41 +243,41 @@ export function validateBatch(batch) {
         }
     }
 
-    if (!Array.isArray(batch.occurrences)) {
-        errors.push('BATCH_OCCURRENCES_NOT_AN_ARRAY')
+    if (!Array.isArray(batch.observations)) {
+        errors.push('BATCH_OBSERVATIONS_NOT_AN_ARRAY')
     } else {
-        batch.occurrences.forEach((occurrence, index) => {
-            if (!occurrence || typeof occurrence !== 'object') {
-                errors.push(`OCCURRENCE_${index}_NOT_AN_OBJECT`);
+        batch.observations.forEach((observation, index) => {
+            if (!observation || typeof observation !== 'object') {
+                errors.push(`OBSERVATION_${index}_NOT_AN_OBJECT`);
                 return
             }
 
-            REQUIRED_OCCURRENCE_KEYS.forEach(key => {
-                if (occurrence[key] === undefined || occurrence[key] === null) errors.push(`OCCURRENCE_${index}_MISSING_${key.toUpperCase()}`)
+            REQUIRED_OBSERVATION_KEYS.forEach(key => {
+                if (observation[key] === undefined || observation[key] === null) errors.push(`OBSERVATION_${index}_MISSING_${key.toUpperCase()}`)
             });
 
-            Object.keys(occurrence).forEach(key => {
-                if (PROSE_KEYS.has(key))         errors.push(`OCCURRENCE_${index}_CARRIES_PROSE_${key.toUpperCase()}`);
-                if (SERVER_POLICY_KEYS.has(key)) errors.push(`OCCURRENCE_${index}_ASSERTS_SERVER_POLICY_${key.toUpperCase()}`)
+            Object.keys(observation).forEach(key => {
+                if (PROSE_KEYS.has(key))         errors.push(`OBSERVATION_${index}_CARRIES_PROSE_${key.toUpperCase()}`);
+                if (SERVER_POLICY_KEYS.has(key)) errors.push(`OBSERVATION_${index}_ASSERTS_SERVER_POLICY_${key.toUpperCase()}`)
             });
 
-            if (occurrence.actorKind !== undefined && !ACTOR_KINDS.has(occurrence.actorKind)) {
-                errors.push(`OCCURRENCE_${index}_ACTOR_KIND_INVALID`)
+            if (observation.actorKind !== undefined && !ACTOR_KINDS.has(observation.actorKind)) {
+                errors.push(`OBSERVATION_${index}_ACTOR_KIND_INVALID`)
             }
 
-            if (occurrence.absence !== undefined && !ABSENCE_DISPOSITIONS.has(occurrence.absence)) {
-                errors.push(`OCCURRENCE_${index}_ABSENCE_DISPOSITION_INVALID`)
+            if (observation.absence !== undefined && !ABSENCE_DISPOSITIONS.has(observation.absence)) {
+                errors.push(`OBSERVATION_${index}_ABSENCE_DISPOSITION_INVALID`)
             }
 
             // `deleted` is the one absence disposition that asserts a fact about provider state, so it
             // requires explicit provider evidence (a tombstone id / deletion timestamp+actor) — an
             // enum value alone can be a permission loss masquerading as a deletion.
-            if (occurrence.absence === 'deleted' && (occurrence.deletionEvidence === undefined || occurrence.deletionEvidence === null)) {
-                errors.push(`OCCURRENCE_${index}_DELETED_WITHOUT_EVIDENCE`)
+            if (observation.absence === 'deleted' && (observation.deletionEvidence === undefined || observation.deletionEvidence === null)) {
+                errors.push(`OBSERVATION_${index}_DELETED_WITHOUT_EVIDENCE`)
             }
 
-            if (POPULARITY_KINDS.has(occurrence.occurrenceKind)) {
-                errors.push(`OCCURRENCE_${index}_POPULARITY_TELEMETRY_OUT_OF_SCOPE`)
+            if (POPULARITY_KINDS.has(observation.occurrenceKind)) {
+                errors.push(`OBSERVATION_${index}_POPULARITY_TELEMETRY_OUT_OF_SCOPE`)
             }
         })
     }

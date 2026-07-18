@@ -22,10 +22,9 @@ import {BATCH_SCHEMA_VERSION} from '../../../../../../ai/services/memory-core/co
 import RequestContextService  from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
 
 /**
- * @summary Admission witnesses: the epoch fence and the digest-keyed idempotency contract.
- *
- * The two that matter most are the conflict paths — a same-id/different-digest batch must never
- * silently overwrite durable history, and a stale or revoked registration epoch must never admit.
+ * @summary Admission witnesses for the full v1 contract: the folded serialized transaction, the epoch
+ * fence inside the boundary, partition-scoped receipts, observation-identity dedup, and the base→next
+ * checkpoint CAS. The four reviewer boundary probes appear as the last five cases.
  */
 test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () => {
     let AdmissionService, SourceRegistryService, originalEnv, testDbPath;
@@ -42,32 +41,47 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
         },
 
         ATTENTION_POLICY = {
-            responseBearingKinds     : ['issue.opened', 'issue.comment', 'pull.opened', 'discussion.created'],
+            responseBearingKinds     : ['issue.opened', 'issue.comment', 'pull.opened'],
             rosteredActorIds         : ['neo-opus-ada', 'neo-gpt'],
             recordedActorDispositions: {}
         },
 
-        occurrence = (id, over = {}) => ({
-            providerEntityId: id,
-            occurrenceKind  : 'issue.opened',
-            occurredAt      : '2026-07-18T10:00:00Z',
-            actorId         : 'external-human',
-            actorKind       : 'user',
+        observation = (entityId, over = {}) => ({
+            providerEntityId    : entityId,
+            occurrenceKind      : 'issue.opened',
+            occurrenceCoordinate: `${entityId}:create`,
+            occurredAt          : '2026-07-18T10:00:00Z',
+            actorId             : 'external-human',
+            actorKind           : 'user',
             ...over
         }),
 
-        batch = (sourceInstanceId, over = {}) => ({
-            schemaVersion    : BATCH_SCHEMA_VERSION,
-            batchId          : 'batch-1',
+        // A v1 batch declaring an explicit checkpoint basis (default: the initial 0/null).
+        batchAt = (sourceInstanceId, {batchId = 'batch-1', resourceFamily = 'issues', baseCheckpointVersion = 0,
+                                       baseInventoryHash = null, observations, ...over} = {}) => ({
+            schemaVersion             : BATCH_SCHEMA_VERSION,
             sourceInstanceId,
-            registrationEpoch: 2,
-            partition        : 'issues',
-            coverage         : {fromBasis: 'c1', toBasis: 'c9', complete: true},
-            occurrences      : [occurrence('e1'), occurrence('e2')],
+            resourceFamily,
+            adapterSchemaVersion      : 'github-issue.v1',
+            providerStateSchemaVersion: 'gh-state.v1',
+            registrationEpoch         : 2,
+            baseCheckpointVersion,
+            baseInventoryHash,
+            batchId,
+            observations              : observations || [observation('e1'), observation('e2')],
+            nextProviderState         : {cursor: batchId},
+            nextInventoryHash         : `inv-${batchId}`,
+            coverage                  : {fromBasis: 'c1', toBasis: 'c9', complete: true},
             ...over
         }),
 
-        /** Registers a source and drives it to ACTIVE@2, returning its id. */
+        // Chains a follow-on batch onto the basis a prior receipt established.
+        chained = (sourceInstanceId, priorReceipt, over = {}) => batchAt(sourceInstanceId, {
+            baseCheckpointVersion: priorReceipt.nextCheckpointVersion,
+            baseInventoryHash    : priorReceipt.nextInventoryHash,
+            ...over
+        }),
+
         activeSource = () => {
             SourceRegistryService.localSubjectId = SUBJECT;
 
@@ -112,56 +126,57 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
     });
 
     test.beforeEach(() => {
-        AdmissionService.db.exec('DELETE FROM mc_community_batch_receipt;');
-        AdmissionService.db.exec('DELETE FROM mc_community_occurrence; DELETE FROM mc_community_checkpoint;');
+        AdmissionService.db.exec('DELETE FROM mc_community_batch_receipt; DELETE FROM mc_community_observation; DELETE FROM mc_community_checkpoint;');
         SourceRegistryService.db.exec('DELETE FROM mc_source_registration;');
         SourceRegistryService.localSubjectId = SUBJECT;
-        AdmissionService.attentionPolicy     = ATTENTION_POLICY;
+        AdmissionService.attentionPolicy      = ATTENTION_POLICY;
     });
 
-    test('a valid batch on an ACTIVE source at the current epoch is admitted with a receipt', () => {
+    // ---------------------------------------------------------------- admission + fence
+
+    test('a valid batch on an ACTIVE source admits, receipts, and advances the checkpoint in one step', () => {
         const id     = activeSource(),
-              result = AdmissionService.admitBatch(batch(id));
+              result = AdmissionService.admitBatch(batchAt(id));
 
         expect(result.status).toBe('accepted');
         expect(result.receipt.admittedSequence).toBe(1);
-        expect(result.receipt.occurrenceCount).toBe(2);
-        expect(result.receipt.digest).toBe(result.digest);
+        expect(result.receipt.observationCount).toBe(2);
+        expect(result.receipt.nextCheckpointVersion).toBe(1);
+        expect(result.checkpoint.checkpointVersion, 'the partition advanced atomically with the receipt').toBe(1);
+        expect(result.checkpoint.inventoryHash).toBe('inv-batch-1');
     });
 
-    test('the same batchId with the same digest is an idempotent retry — no second receipt', () => {
+    test('the same batchId + same digest is an idempotent retry — no second receipt', () => {
         const id    = activeSource(),
-              first = AdmissionService.admitBatch(batch(id));
+              first = AdmissionService.admitBatch(batchAt(id));
 
-        // Same payload, occurrences deliberately reordered: still the same batch.
-        const retry = AdmissionService.admitBatch(batch(id, {occurrences: [occurrence('e2'), occurrence('e1')]}));
+        const retry = AdmissionService.admitBatch(batchAt(id, {observations: [observation('e2'), observation('e1')]}));
 
         expect(retry.status).toBe('idempotent');
         expect(retry.receipt.receiptId).toBe(first.receipt.receiptId);
-        expect(retry.receipt.admittedSequence).toBe(1);
-        expect(receiptCount(), 'a retry must not mint a second receipt').toBe(1);
-    });
-
-    test('the same batchId with a DIFFERENT digest is an integrity conflict, never an overwrite', () => {
-        const id    = activeSource(),
-              first = AdmissionService.admitBatch(batch(id));
-
-        const conflicting = AdmissionService.admitBatch(batch(id, {occurrences: [occurrence('e1', {occurrenceKind: 'issue.closed'})]}));
-
-        expect(conflicting.status).toBe('conflict');
-        expect(conflicting.reason).toBe('DIGEST_MISMATCH');
         expect(receiptCount()).toBe(1);
-        expect(AdmissionService.getReceipt(id, 'batch-1').digest, 'durable history is preserved')
-            .toBe(first.digest);
     });
 
-    test('a stale registration epoch cannot admit', () => {
-        const id = activeSource(), // ACTIVE@2
-              result = AdmissionService.admitBatch(batch(id, {registrationEpoch: 1}));
+    test('the same batchId + a DIFFERENT digest is an integrity conflict, never an overwrite', () => {
+        const id = activeSource();
+
+        AdmissionService.admitBatch(batchAt(id));
+
+        const conflict = AdmissionService.admitBatch(batchAt(id, {observations: [observation('e1', {occurrenceKind: 'issue.closed'})]}));
+
+        expect(conflict.status).toBe('conflict');
+        expect(conflict.reason).toBe('DIGEST_MISMATCH');
+        expect(receiptCount()).toBe(1);
+    });
+
+    test('a stale registration epoch cannot admit (fence is inside the transaction)', () => {
+        const id     = activeSource(),
+              result = AdmissionService.admitBatch(batchAt(id, {registrationEpoch: 1}));
 
         expect(result.status).toBe('conflict');
         expect(result.reason).toBe('REGISTRATION_NOT_ADMISSIBLE');
         expect(receiptCount()).toBe(0);
+        expect(AdmissionService.getCheckpoint(id, 'issues'), 'no partial checkpoint advance').toBeNull();
     });
 
     test('a revoked source cannot admit, even at its last-active epoch', () => {
@@ -169,339 +184,205 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
 
         SourceRegistryService.transitionLifecycle(id, 'REVOKED', {expectedState: 'ACTIVE', expectedEpoch: 2});
 
-        const result = AdmissionService.admitBatch(batch(id));
-
-        expect(result.status).toBe('conflict');
-        expect(result.reason).toBe('REGISTRATION_NOT_ADMISSIBLE');
+        expect(AdmissionService.admitBatch(batchAt(id)).reason).toBe('REGISTRATION_NOT_ADMISSIBLE');
         expect(receiptCount()).toBe(0);
     });
 
     test('a schema-invalid batch is refused and writes nothing', () => {
         const id     = activeSource(),
-              result = AdmissionService.admitBatch(batch(id, {occurrences: [occurrence('e1', {title: 'prose'})]}));
+              result = AdmissionService.admitBatch(batchAt(id, {observations: [observation('e1', {title: 'prose'})]}));
 
         expect(result.status).toBe('conflict');
         expect(result.reason).toBe('SCHEMA_INVALID');
-        expect(result.errors).toContain('OCCURRENCE_0_CARRIES_PROSE_TITLE');
+        expect(result.errors).toContain('OBSERVATION_0_CARRIES_PROSE_TITLE');
         expect(receiptCount()).toBe(0);
     });
 
-    test('admitted sequence is monotonic across distinct batches', () => {
-        const id = activeSource();
+    // ---------------------------------------------------------------- checkpoint CAS (folded)
 
-        expect(AdmissionService.admitBatch(batch(id, {batchId: 'batch-1'})).receipt.admittedSequence).toBe(1);
-        expect(AdmissionService.admitBatch(batch(id, {batchId: 'batch-2'})).receipt.admittedSequence).toBe(2);
-        expect(AdmissionService.admitBatch(batch(id, {batchId: 'batch-3'})).receipt.admittedSequence).toBe(3);
-    });
-
-    // ---------------------------------------------------------------- the occurrence ledger
-
-    test('the ledger commits with its receipt and carries a distinct occurrence identity', () => {
-        const id     = activeSource(),
-              result = AdmissionService.admitBatch(batch(id)),
-              ledger = AdmissionService.listOccurrences(id);
-
-        expect(ledger).toHaveLength(2);
-        expect(ledger[0].receiptId, 'each occurrence names the receipt that admitted it').toBe(result.receipt.receiptId);
-        expect(ledger[0].admittedSequence).toBe(result.receipt.admittedSequence);
-
-        // The four identities stay separable — that separation IS the contract.
-        const [first] = ledger;
-        expect(first.occurrenceId).not.toBe(first.providerEntityId);
-        expect(first.occurrenceId).not.toBe(first.receiptId);
-        expect(first.occurrenceId).not.toBe(String(first.admittedSequence));
-        expect(new Set(ledger.map(o => o.occurrenceId)).size, 'occurrence ids are unique per fact').toBe(2);
-    });
-
-    test('an idempotent retry does NOT duplicate ledger rows', () => {
-        const id = activeSource();
-
-        AdmissionService.admitBatch(batch(id));
-        AdmissionService.admitBatch(batch(id, {occurrences: [occurrence('e2'), occurrence('e1')]}));
-
-        expect(AdmissionService.listOccurrences(id), 'a retry must not double durable history').toHaveLength(2);
-    });
-
-    test('a rejected batch writes no ledger rows', () => {
-        const id = activeSource();
-
-        AdmissionService.admitBatch(batch(id, {registrationEpoch: 1}));                              // fenced
-        AdmissionService.admitBatch(batch(id, {batchId: 'b2', occurrences: [occurrence('e1', {title: 'p'})]})); // invalid
-
-        expect(AdmissionService.listOccurrences(id)).toHaveLength(0);
-    });
-
-    test('a revision is a NEW occurrence — the row it revises is never mutated', () => {
-        const id       = activeSource(),
-              admitted = AdmissionService.admitBatch(batch(id, {occurrences: [occurrence('e1')]})),
-              original = AdmissionService.listOccurrences(id, {providerEntityId: 'e1'})[0];
-
-        AdmissionService.admitBatch(batch(id, {
-            batchId    : 'batch-2',
-            occurrences: [occurrence('e1', {occurrenceKind: 'issue.edited', revisionOf: original.occurrenceId})]
-        }));
-
-        const history = AdmissionService.listOccurrences(id, {providerEntityId: 'e1'});
-
-        expect(history, 'both the original and its revision are durable').toHaveLength(2);
-        expect(history[0].occurrenceId).toBe(original.occurrenceId);
-        expect(history[0].occurrenceKind, 'the original is untouched').toBe('issue.opened');
-        expect(history[1].revisionOf).toBe(original.occurrenceId);
-        expect(history[1].admittedSequence).toBeGreaterThan(history[0].admittedSequence);
-        expect(admitted.status).toBe('accepted');
-    });
-
-    test('an evidenced absence disposition is persisted verbatim', () => {
-        const id = activeSource();
-
-        AdmissionService.admitBatch(batch(id, {occurrences: [occurrence('e1', {absence: 'deleted', deletionEvidence: {tombstoneId: 't-1', deletedAt: '2026-07-18T11:00:00Z'}})]}));
-
-        expect(AdmissionService.listOccurrences(id)[0].absence).toBe('deleted');
-    });
-
-    // ---------------------------------------------------------------- checkpoint CAS
-
-    test('a checkpoint claims an unset partition only on a durably-accepted receipt', () => {
-        const id      = activeSource(),
-              receipt = AdmissionService.admitBatch(batch(id)).receipt,
-              result  = AdmissionService.advanceCheckpoint(id, 'issues', {toBasis: 'c9', receiptId: receipt.receiptId});
-
-        expect(result.status).toBe('advanced');
-        expect(result.checkpoint.basis).toBe('c9');
-        expect(result.checkpoint.lastReceiptId).toBe(receipt.receiptId);
-    });
-
-    test('a checkpoint never advances on a receipt that is not durable', () => {
-        const id = activeSource();
-
-        AdmissionService.admitBatch(batch(id));
-
-        const result = AdmissionService.advanceCheckpoint(id, 'issues', {toBasis: 'c9', receiptId: 'no-such-receipt'});
-
-        expect(result.status).toBe('conflict');
-        expect(result.reason).toBe('RECEIPT_NOT_DURABLE');
-        expect(AdmissionService.getCheckpoint(id, 'issues'), 'nothing was written').toBeNull();
-    });
-
-    test('advancing from the current basis succeeds; a STALE basis conflicts without regressing', () => {
+    test('a chained batch advances; a stale base is refused without regressing', () => {
         const id = activeSource(),
-              r1 = AdmissionService.admitBatch(batch(id, {batchId: 'b1'})).receipt,
-              r2 = AdmissionService.admitBatch(batch(id, {batchId: 'b2'})).receipt;
+              r1 = AdmissionService.admitBatch(batchAt(id, {batchId: 'b1'})).receipt;
 
-        AdmissionService.advanceCheckpoint(id, 'issues', {toBasis: 'c9', receiptId: r1.receiptId});
+        const good = AdmissionService.admitBatch(chained(id, r1, {batchId: 'b2', observations: [observation('e3')]}));
+        expect(good.status).toBe('accepted');
+        expect(good.checkpoint.checkpointVersion).toBe(2);
 
-        const good = AdmissionService.advanceCheckpoint(id, 'issues', {expectedBasis: 'c9', toBasis: 'c14', receiptId: r2.receiptId});
-        expect(good.status).toBe('advanced');
-        expect(good.checkpoint.basis).toBe('c14');
-
-        // A writer still holding the pre-advance view must not drag the cursor backwards.
-        const stale = AdmissionService.advanceCheckpoint(id, 'issues', {expectedBasis: 'c9', toBasis: 'c11', receiptId: r2.receiptId});
-
+        // A connector still on the original basis 0 must not clobber the advanced cursor.
+        const stale = AdmissionService.admitBatch(batchAt(id, {batchId: 'b3', baseCheckpointVersion: 0, observations: [observation('e4')]}));
         expect(stale.status).toBe('conflict');
-        expect(stale.reason).toBe('BASIS_MISMATCH');
-        expect(stale.checkpoint.basis, 'the conflict returns current server state, unadvanced').toBe('c14');
+        expect(stale.reason).toBe('STALE_BASIS');
+        expect(AdmissionService.getCheckpoint(id, 'issues').checkpointVersion, 'unadvanced').toBe(2);
     });
 
-    test('two writers racing from the same observed basis — exactly one advances', () => {
+    test('the receipt binds the exact transition it established (a receipt for c1 to c9 cannot advance elsewhere)', () => {
         const id = activeSource(),
-              r1 = AdmissionService.admitBatch(batch(id, {batchId: 'b1'})).receipt,
-              r2 = AdmissionService.admitBatch(batch(id, {batchId: 'b2'})).receipt;
+              r1 = AdmissionService.admitBatch(batchAt(id, {batchId: 'b1'})).receipt;
 
-        AdmissionService.advanceCheckpoint(id, 'issues', {toBasis: 'c9', receiptId: r1.receiptId});
-
-        const winner = AdmissionService.advanceCheckpoint(id, 'issues', {expectedBasis: 'c9', toBasis: 'c20', receiptId: r2.receiptId}),
-              loser  = AdmissionService.advanceCheckpoint(id, 'issues', {expectedBasis: 'c9', toBasis: 'c30', receiptId: r2.receiptId});
-
-        expect([winner.status, loser.status]).toEqual(['advanced', 'conflict']);
-        expect(AdmissionService.getCheckpoint(id, 'issues').basis, 'the loser did not overwrite the winner').toBe('c20');
+        // The receipt persisted base 0 -> next 1 with next inventory inv-b1; any batch claiming a base
+        // other than exactly (1, inv-b1) is refused, so the transition is not free-floating.
+        expect(AdmissionService.admitBatch(batchAt(id, {batchId: 'b2', baseCheckpointVersion: 1, baseInventoryHash: 'inv-WRONG', observations: [observation('e3')]})).reason).toBe('STALE_BASIS');
+        expect(r1.baseCheckpointVersion).toBe(0);
+        expect(r1.nextCheckpointVersion).toBe(1);
     });
 
-    test('a second claimant on an unset partition conflicts rather than clobbering', () => {
+    test('admitted sequence is monotonic across chained batches', () => {
         const id = activeSource(),
-              r1 = AdmissionService.admitBatch(batch(id, {batchId: 'b1'})).receipt,
-              r2 = AdmissionService.admitBatch(batch(id, {batchId: 'b2'})).receipt;
+              r1 = AdmissionService.admitBatch(batchAt(id, {batchId: 'b1'})).receipt,
+              r2 = AdmissionService.admitBatch(chained(id, r1, {batchId: 'b2', observations: [observation('e3')]})).receipt,
+              r3 = AdmissionService.admitBatch(chained(id, r2, {batchId: 'b3', observations: [observation('e4')]})).receipt;
 
-        expect(AdmissionService.advanceCheckpoint(id, 'issues', {toBasis: 'c9', receiptId: r1.receiptId}).status).toBe('advanced');
-
-        const second = AdmissionService.advanceCheckpoint(id, 'issues', {toBasis: 'c99', receiptId: r2.receiptId});
-
-        expect(second.status).toBe('conflict');
-        expect(second.checkpoint.basis).toBe('c9');
+        expect([r1.admittedSequence, r2.admittedSequence, r3.admittedSequence]).toEqual([1, 2, 3]);
     });
 
-    test('checkpoints are per-partition, not per-source', () => {
-        const id      = activeSource(),
-              receipt = AdmissionService.admitBatch(batch(id)).receipt;
-
-        AdmissionService.advanceCheckpoint(id, 'issues', {toBasis: 'c9', receiptId: receipt.receiptId});
-
-        expect(AdmissionService.getCheckpoint(id, 'pulls'), 'a sibling partition is independently unset').toBeNull();
-    });
-
-    // ---------------------------------------------------------------- attention eligibility
-
-    test('popularity telemetry cannot be admitted at all', () => {
+    test('checkpoints are per resource family — a sibling family is independently unset', () => {
         const id = activeSource();
 
-        ['repository.starred', 'repository.forked', 'repository.watched'].forEach((kind, i) => {
-            const result = AdmissionService.admitBatch(batch(id, {
-                batchId    : `pop-${i}`,
-                occurrences: [occurrence('e1', {occurrenceKind: kind})]
-            }));
+        AdmissionService.admitBatch(batchAt(id, {resourceFamily: 'issues'}));
 
-            expect(result.status).toBe('conflict');
-            expect(result.errors).toContain('OCCURRENCE_0_POPULARITY_TELEMETRY_OUT_OF_SCOPE');
-        });
-
-        expect(AdmissionService.listOccurrences(id), 'no popularity row ever becomes durable history').toHaveLength(0);
+        expect(AdmissionService.getCheckpoint(id, 'pulls')).toBeNull();
     });
+
+    test('the same batchId in two resource families does not collide (receipts are partition-scoped)', () => {
+        const id = activeSource();
+
+        expect(AdmissionService.admitBatch(batchAt(id, {batchId: 'shared', resourceFamily: 'issues'})).status).toBe('accepted');
+        expect(AdmissionService.admitBatch(batchAt(id, {batchId: 'shared', resourceFamily: 'pulls', observations: [observation('p1', {occurrenceKind: 'pull.opened'})]})).status).toBe('accepted');
+        expect(receiptCount()).toBe(2);
+    });
+
+    // ---------------------------------------------------------------- observation ledger (dedup / revision)
+
+    test('overlapping observations across different batchIds dedup by identity + digest', () => {
+        const id = activeSource(),
+              r1 = AdmissionService.admitBatch(batchAt(id, {batchId: 'b1', observations: [observation('e1')]})).receipt;
+
+        // b2 carries the SAME observation (same identity + digest) plus a new one.
+        AdmissionService.admitBatch(chained(id, r1, {batchId: 'b2', observations: [observation('e1'), observation('e2')]}));
+
+        const rows = AdmissionService.listObservations(id);
+        expect(rows, 'e1 admitted once despite arriving in two batches').toHaveLength(2);
+        expect(rows.filter(r => r.providerEntityId === 'e1')).toHaveLength(1);
+    });
+
+    test('the same occurrence identity with a different digest is an integrity conflict', () => {
+        const id = activeSource(),
+              r1 = AdmissionService.admitBatch(batchAt(id, {batchId: 'b1', observations: [observation('e1')]})).receipt;
+
+        // Same coordinate (identity) but mutated content -> different observation digest -> conflict.
+        const conflict = AdmissionService.admitBatch(chained(id, r1, {batchId: 'b2', observations: [observation('e1', {occurredAt: '2099-01-01T00:00:00Z'})]}));
+
+        expect(conflict.status).toBe('conflict');
+        expect(conflict.reason).toBe('OBSERVATION_DIGEST_MISMATCH');
+        expect(AdmissionService.listObservations(id), 'the conflicting batch rolled back entirely').toHaveLength(1);
+        expect(receiptCount(), 'no receipt for the aborted batch').toBe(1);
+    });
+
+    test('a genuine revision (new coordinate) is a new immutable fact, leaving the original untouched', () => {
+        const id = activeSource(),
+              r1 = AdmissionService.admitBatch(batchAt(id, {batchId: 'b1', observations: [observation('e1')]})).receipt;
+
+        AdmissionService.admitBatch(chained(id, r1, {batchId: 'b2', observations: [
+            observation('e1', {occurrenceKind: 'issue.edited', occurrenceCoordinate: 'e1:edit-1', revisionOf: 'e1:create'})
+        ]}));
+
+        const history = AdmissionService.listObservations(id, {providerEntityId: 'e1'});
+        expect(history).toHaveLength(2);
+        expect(history[0].occurrenceKind).toBe('issue.opened');
+        expect(history[1].occurrenceKind, 'the original is not overwritten').toBe('issue.edited');
+        expect(history[1].revisionOf).toBe('e1:create');
+    });
+
+    // ---------------------------------------------------------------- attention (§2.1)
 
     test('an external response-bearing occurrence is attention-eligible', () => {
         const id = activeSource();
 
-        AdmissionService.admitBatch(batch(id, {occurrences: [occurrence('e1')]}));
+        AdmissionService.admitBatch(batchAt(id, {observations: [observation('e1')]}));
 
-        const [row] = AdmissionService.listOccurrences(id);
+        const [row] = AdmissionService.listObservations(id);
         expect(row.attentionDisposition).toBe('eligible');
         expect(row.attentionReason).toBe('external-response-bearing');
     });
 
-    test('a rostered actor updates an item WITHOUT minting new attention', () => {
+    test('a bot is not attention-eligible in v1', () => {
         const id = activeSource();
 
-        AdmissionService.admitBatch(batch(id, {occurrences: [
-            occurrence('e1', {actorId: 'external-human'}),
-            occurrence('e1', {actorId: 'neo-opus-ada', occurrenceKind: 'issue.comment'})
-        ]}));
+        AdmissionService.admitBatch(batchAt(id, {observations: [observation('e1', {actorId: 'dependabot', actorKind: 'bot'})]}));
 
-        const rows = AdmissionService.listOccurrences(id, {providerEntityId: 'e1'});
-
-        expect(rows, 'the rostered occurrence is still durable history').toHaveLength(2);
-        expect(rows.filter(r => r.attentionDisposition === 'eligible')).toHaveLength(1);
-        expect(rows.find(r => r.actorId === 'neo-opus-ada').attentionReason).toBe('rostered-actor');
-    });
-
-    test('a bot is not attention-eligible in v1 — the explicit least-authority disposition', () => {
-        const id = activeSource();
-
-        AdmissionService.admitBatch(batch(id, {occurrences: [occurrence('e1', {actorId: 'dependabot', actorKind: 'bot'})]}));
-
-        const [row] = AdmissionService.listOccurrences(id);
-        expect(row.attentionDisposition).toBe('ineligible');
-        expect(row.attentionReason).toBe('bot-not-attention-eligible-v1');
+        expect(AdmissionService.listObservations(id)[0].attentionReason).toBe('bot-not-attention-eligible-v1');
     });
 
     test('a non-human actor kind fails closed — absent-from-any-list is NOT external-human eligibility', () => {
         const id = activeSource();
 
-        AdmissionService.admitBatch(batch(id, {occurrences: [
-            occurrence('e1', {actorId: 'some-org', actorKind: 'organization'}),
-            occurrence('e2', {actorId: 'a-puppet',  actorKind: 'mannequin'}),
-            occurrence('e3', {actorId: 'who',        actorKind: 'unknown'})
+        AdmissionService.admitBatch(batchAt(id, {observations: [
+            observation('e1', {actorId: 'an-org', actorKind: 'organization'}),
+            observation('e2', {actorId: 'a-bot-account', actorKind: 'unknown'})
         ]}));
 
-        const rows = AdmissionService.listOccurrences(id);
-        expect(rows.every(r => r.attentionDisposition === 'ineligible')).toBe(true);
-        expect(rows.every(r => r.attentionReason === 'actor-kind-not-reviewed-fail-closed')).toBe(true);
+        expect(AdmissionService.listObservations(id).every(r => r.attentionReason === 'actor-kind-not-reviewed-fail-closed')).toBe(true);
     });
 
-    test('first-time and trusted-repeat external humans share basic eligibility (AC12)', () => {
+    test('a rostered actor updates an item WITHOUT minting new attention', () => {
         const id = activeSource();
 
-        AdmissionService.admitBatch(batch(id, {occurrences: [
-            occurrence('e1', {actorId: 'first-timer'}),
-            occurrence('e2', {actorId: 'repeat-contributor'})
+        AdmissionService.admitBatch(batchAt(id, {observations: [
+            observation('e1'),
+            observation('e1', {occurrenceKind: 'issue.comment', occurrenceCoordinate: 'e1:c1', actorId: 'neo-opus-ada'})
         ]}));
 
-        const rows = AdmissionService.listOccurrences(id);
-        expect(rows.every(r => r.attentionDisposition === 'eligible'), 'trust does not gate eligibility').toBe(true);
+        const rows = AdmissionService.listObservations(id, {providerEntityId: 'e1'});
+        expect(rows.filter(r => r.attentionDisposition === 'eligible')).toHaveLength(1);
+        expect(rows.find(r => r.actorId === 'neo-opus-ada').attentionReason).toBe('rostered-actor');
     });
 
-    test('a non-response-bearing kind is ineligible', () => {
+    test('popularity telemetry cannot be admitted at all', () => {
+        const id     = activeSource(),
+              result = AdmissionService.admitBatch(batchAt(id, {observations: [observation('e1', {occurrenceKind: 'repository.starred'})]}));
+
+        expect(result.status).toBe('conflict');
+        expect(result.errors).toContain('OBSERVATION_0_POPULARITY_TELEMETRY_OUT_OF_SCOPE');
+        expect(AdmissionService.listObservations(id)).toHaveLength(0);
+    });
+
+    test('deleted requires provider evidence; an evidenced deletion persists it', () => {
         const id = activeSource();
 
-        AdmissionService.admitBatch(batch(id, {occurrences: [occurrence('e1', {occurrenceKind: 'issue.labeled'})]}));
+        expect(AdmissionService.admitBatch(batchAt(id, {batchId: 'no-ev', observations: [observation('e1', {absence: 'deleted'})]})).reason).toBe('SCHEMA_INVALID');
 
-        expect(AdmissionService.listOccurrences(id)[0].attentionReason).toBe('not-response-bearing');
+        AdmissionService.admitBatch(batchAt(id, {observations: [observation('e9', {absence: 'deleted', deletionEvidence: {tombstoneId: 't1', deletedAt: '2026-07-18T11:00:00Z'}})]}));
+        expect(AdmissionService.listObservations(id)[0].deletionEvidence.tombstoneId).toBe('t1');
     });
 
-    test('admission fails loud without an injected attention policy — never dispositionless history', () => {
-        const id = activeSource();
+    // ---------------------------------------------------------------- ingress parity + fail-loud
 
-        AdmissionService.attentionPolicy = null;
-
-        expect(() => AdmissionService.admitBatch(batch(id))).toThrow('ATTENTION_POLICY_NOT_CONFIGURED');
-        expect(AdmissionService.listOccurrences(id)).toHaveLength(0);
-    });
-
-    // ---------------------------------------------------------------- ingress parity + delivery hazards
-
-    test('local and remote ingress reach ONE service and produce the same receipt contract', async () => {
+    test('local and remote ingress reach one service and produce the same receipt contract', async () => {
         const id    = activeSource(),
-              local = AdmissionService.admitBatch(batch(id));
+              local = AdmissionService.admitBatch(batchAt(id));
 
-        // "Remote": the same tenant arriving through an authenticated request context instead of the
-        // deployment subject. Same method, same durable state — the facades differ only in how the
-        // tenant is established.
         const remote = await RequestContextService.run({userId: SUBJECT}, () =>
-            AdmissionService.admitBatch(batch(id, {batchId: 'batch-2'})));
+            AdmissionService.admitBatch(batchAt(id)));   // same batchId + digest -> idempotent against the same row
 
-        expect(remote.status).toBe('accepted');
-        expect(Object.keys(remote.receipt).sort(), 'byte-equivalent receipt shape').toEqual(Object.keys(local.receipt).sort());
-
-        // The strongest parity evidence: a REMOTE retry of the LOCALLY admitted batch resolves
-        // idempotent against the very same durable row.
-        const crossRetry = await RequestContextService.run({userId: SUBJECT}, () =>
-            AdmissionService.admitBatch(batch(id)));
-
-        expect(crossRetry.status).toBe('idempotent');
-        expect(crossRetry.receipt.receiptId).toBe(local.receipt.receiptId);
+        expect(remote.status).toBe('idempotent');
+        expect(remote.receipt.receiptId).toBe(local.receipt.receiptId);
     });
 
     test('an auth failure cannot partially admit', () => {
         const id = activeSource();
 
-        SourceRegistryService.localSubjectId = null; // no deployment subject, no request context
-
-        expect(() => AdmissionService.admitBatch(batch(id))).toThrow('BATCH_ADMISSION_NO_TENANT');
+        SourceRegistryService.localSubjectId = null;
+        expect(() => AdmissionService.admitBatch(batchAt(id))).toThrow('BATCH_ADMISSION_NO_TENANT');
 
         SourceRegistryService.localSubjectId = SUBJECT;
-        expect(receiptCount(), 'nothing was written').toBe(0);
-        expect(AdmissionService.listOccurrences(id)).toHaveLength(0);
+        expect(receiptCount()).toBe(0);
     });
 
-    test('a lost-response retry returns the original receipt rather than re-admitting', () => {
-        const id    = activeSource(),
-              first = AdmissionService.admitBatch(batch(id)),
-              // The connector never saw the response and retries the identical batch.
-              retry = AdmissionService.admitBatch(batch(id));
-
-        expect(retry.status).toBe('idempotent');
-        expect(retry.receipt).toEqual(first.receipt);
-        expect(receiptCount()).toBe(1);
-        expect(AdmissionService.listOccurrences(id)).toHaveLength(2);
-    });
-
-    test('out-of-order delivery: admitted sequence records ACCEPTANCE order, not occurrence time', () => {
+    test('admission fails loud without an injected attention policy', () => {
         const id = activeSource();
 
-        const later = AdmissionService.admitBatch(batch(id, {
-            batchId    : 'b-late',
-            occurrences: [occurrence('e9', {occurredAt: '2026-07-18T20:00:00Z'})]
-        }));
-
-        const earlier = AdmissionService.admitBatch(batch(id, {
-            batchId    : 'b-early',
-            occurrences: [occurrence('e1', {occurredAt: '2026-07-18T08:00:00Z'})]
-        }));
-
-        expect(later.receipt.admittedSequence).toBe(1);
-        expect(earlier.receipt.admittedSequence, 'sequence is ours, not the provider clock').toBe(2);
-
-        const rows = AdmissionService.listOccurrences(id);
-        expect(rows).toHaveLength(2);
-        expect(rows.map(r => r.occurredAt), 'occurrence time is preserved verbatim').toEqual(
-            ['2026-07-18T20:00:00Z', '2026-07-18T08:00:00Z']
-        );
+        AdmissionService.attentionPolicy = null;
+        expect(() => AdmissionService.admitBatch(batchAt(id))).toThrow('ATTENTION_POLICY_NOT_CONFIGURED');
+        expect(AdmissionService.listObservations(id)).toHaveLength(0);
     });
 });

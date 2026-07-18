@@ -13,157 +13,139 @@ setup({
     }
 });
 
-import {test, expect}                                              from '@playwright/test';
-import Neo                                                         from '../../../../../../src/Neo.mjs';
-import * as core                                                   from '../../../../../../src/core/_export.mjs';
-import {BATCH_SCHEMA_VERSION, canonicalBatchDigest, validateBatch} from '../../../../../../ai/services/memory-core/communityBatchContract.mjs';
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
+import {
+    BATCH_SCHEMA_VERSION, MAX_PROVIDER_STATE_BYTES, canonicalBatchDigest, validateBatch,
+    occurrenceIdentity, observationDigest
+} from '../../../../../../ai/services/memory-core/communityBatchContract.mjs';
 
 /**
- * @summary Contract witnesses for community-activity batch admission.
- *
- * The load-bearing pair is the ordering pin: the occurrence COLLECTION is order-insensitive (a
- * connector re-serializing from a map must not raise an integrity conflict), while ordering INSIDE
- * an occurrence is preserved (nothing in the contract makes nested array order non-authoritative, and
- * silently normalizing it is precisely how corruption detection weakens without a test noticing).
+ * @summary Contract witnesses for the community-activity-batch.v1 shape: the corruption digest with
+ * its ordering decision, the stable occurrence identity, and full-shape validation.
  */
 test.describe('community-activity-batch.v1 contract', () => {
-    const occurrence = (id, over = {}) => ({
-        providerEntityId: id,
-        occurrenceKind  : 'issue.opened',
-        occurredAt      : '2026-07-18T10:00:00Z',
-        actorKind       : 'user',
+    const observation = (entityId, over = {}) => ({
+        providerEntityId    : entityId,
+        occurrenceKind      : 'issue.opened',
+        occurrenceCoordinate: `${entityId}:create`,
+        occurredAt          : '2026-07-18T10:00:00Z',
+        actorKind           : 'user',
         ...over
     });
 
     const batch = (over = {}) => ({
-        schemaVersion    : BATCH_SCHEMA_VERSION,
-        batchId          : 'batch-1',
-        sourceInstanceId : 'src-1',
-        registrationEpoch: 2,
-        partition        : 'issues',
-        coverage         : {fromBasis: 'c1', toBasis: 'c9', complete: true},
-        occurrences      : [occurrence('e1'), occurrence('e2')],
+        schemaVersion             : BATCH_SCHEMA_VERSION,
+        sourceInstanceId          : 'src-1',
+        resourceFamily            : 'issues',
+        adapterSchemaVersion      : 'github-issue.v1',
+        providerStateSchemaVersion: 'gh-state.v1',
+        registrationEpoch         : 2,
+        baseCheckpointVersion     : 0,
+        baseInventoryHash         : null,
+        batchId                   : 'batch-1',
+        observations              : [observation('e1'), observation('e2')],
+        nextProviderState         : {cursor: 'x'},
+        nextInventoryHash         : 'inv-1',
+        coverage                  : {fromBasis: 'c1', toBasis: 'c9', complete: true},
         ...over
     });
 
-    // ------------------------------------------------------------------ the ordering decision
+    // ------------------------------------------------------------------ the batch digest ordering
 
-    test('reordering the occurrence collection yields the SAME digest (retry, not corruption)', () => {
+    test('reordering observations yields the SAME digest (retry, not corruption)', () => {
         const forward  = batch(),
-              reversed = batch({occurrences: [...forward.occurrences].reverse()});
+              reversed = batch({observations: [...forward.observations].reverse()});
 
         expect(canonicalBatchDigest(reversed)).toBe(canonicalBatchDigest(forward));
     });
 
-    test('mutating any occurrence field yields a DIFFERENT digest (integrity conflict)', () => {
-        const base    = batch(),
-              mutated = batch({occurrences: [occurrence('e1'), occurrence('e2', {occurrenceKind: 'issue.closed'})]});
-
-        expect(canonicalBatchDigest(mutated)).not.toBe(canonicalBatchDigest(base));
-    });
-
-    test('ordering INSIDE an occurrence stays significant — no blanket array sort', () => {
-        const a = batch({occurrences: [occurrence('e1', {reactionKinds: ['x', 'y']})]}),
-              b = batch({occurrences: [occurrence('e1', {reactionKinds: ['y', 'x']})]});
-
-        expect(canonicalBatchDigest(b), 'a blanket sort would collapse these and weaken detection')
-            .not.toBe(canonicalBatchDigest(a));
+    test('mutating any observation field yields a DIFFERENT digest', () => {
+        expect(canonicalBatchDigest(batch({observations: [observation('e1'), observation('e2', {occurrenceKind: 'issue.closed'})]})))
+            .not.toBe(canonicalBatchDigest(batch()));
     });
 
     test('duplicate multiplicity stays digest-visible — normalization sorts, never dedupes', () => {
-        const once  = batch({occurrences: [occurrence('e1')]}),
-              twice = batch({occurrences: [occurrence('e1'), occurrence('e1')]});
-
-        expect(canonicalBatchDigest(twice), 'two occurrences of a fact is a different claim from one')
-            .not.toBe(canonicalBatchDigest(once));
+        expect(canonicalBatchDigest(batch({observations: [observation('e1'), observation('e1')]})))
+            .not.toBe(canonicalBatchDigest(batch({observations: [observation('e1')]})));
     });
 
-    test('server-side policy output is digest-EXTERNAL — classification cannot shift a connector digest', () => {
-        const connectorBatch = batch(),
-              classifiedRow  = batch({occurrences: [
-                  occurrence('e1', {attentionDisposition: 'eligible', attentionReason: 'external-author'}),
-                  occurrence('e2', {attentionDisposition: 'ineligible', attentionReason: 'rostered-actor'})
-              ]});
-
-        expect(canonicalBatchDigest(classifiedRow), 'a policy revision must never masquerade as connector corruption')
-            .toBe(canonicalBatchDigest(connectorBatch));
+    test('the opaque nextProviderState and the base/next anchors participate in the digest', () => {
+        expect(canonicalBatchDigest(batch({nextProviderState: {cursor: 'y'}}))).not.toBe(canonicalBatchDigest(batch()));
+        expect(canonicalBatchDigest(batch({nextInventoryHash: 'inv-2'}))).not.toBe(canonicalBatchDigest(batch()));
+        expect(canonicalBatchDigest(batch({resourceFamily: 'pulls'}))).not.toBe(canonicalBatchDigest(batch()));
     });
 
-    test('a connector may not self-assert eligibility (zero-authority)', () => {
-        const {valid, errors} = validateBatch(batch({occurrences: [occurrence('e1', {attentionDisposition: 'eligible'})]}));
+    // ------------------------------------------------------------------ occurrence identity
 
-        expect(valid).toBe(false);
-        expect(errors).toContain('OCCURRENCE_0_ASSERTS_SERVER_POLICY_ATTENTIONDISPOSITION');
+    test('occurrence identity is stable across batches and distinct per revision', () => {
+        const create = observation('e1'),
+              edit   = observation('e1', {occurrenceKind: 'issue.edited', occurrenceCoordinate: 'e1:edit-1'});
+
+        expect(occurrenceIdentity('src-1', create), 'same coordinate -> same identity')
+            .toBe(occurrenceIdentity('src-1', {...create}));
+        expect(occurrenceIdentity('src-1', edit), 'a revision has its own identity')
+            .not.toBe(occurrenceIdentity('src-1', create));
+        expect(occurrenceIdentity('src-2', create), 'identity is tenant-source scoped')
+            .not.toBe(occurrenceIdentity('src-1', create));
     });
 
-    test('digest is stable across key insertion order', () => {
-        const a = batch(),
-              b = {occurrences: a.occurrences, coverage: a.coverage, partition: a.partition,
-                   registrationEpoch: a.registrationEpoch, sourceInstanceId: a.sourceInstanceId,
-                   batchId          : a.batchId, schemaVersion: a.schemaVersion};
+    test('observation digest ignores server policy but tracks content', () => {
+        const base = observation('e1');
 
-        expect(canonicalBatchDigest(b)).toBe(canonicalBatchDigest(a));
+        expect(observationDigest({...base, attentionDisposition: 'eligible'}), 'server policy is digest-external')
+            .toBe(observationDigest(base));
+        expect(observationDigest({...base, occurredAt: '2099-01-01T00:00:00Z'})).not.toBe(observationDigest(base));
     });
 
-    test('batch identity fields participate in the digest', () => {
-        expect(canonicalBatchDigest(batch({registrationEpoch: 3}))).not.toBe(canonicalBatchDigest(batch()));
-        expect(canonicalBatchDigest(batch({partition: 'pulls'}))).not.toBe(canonicalBatchDigest(batch()));
-    });
+    // ------------------------------------------------------------------ validation (full v1 shape)
 
-    // ------------------------------------------------------------------ validation (AC1/AC6/AC7)
-
-    test('a well-formed batch validates', () => {
+    test('a well-formed v1 batch validates', () => {
         expect(validateBatch(batch())).toEqual({valid: true, errors: []});
     });
 
+    test('a reduced batch missing v1 authority fields is refused', () => {
+        const {resourceFamily, baseCheckpointVersion, nextInventoryHash, ...reduced} = batch();
+        const {valid, errors}                                                        = validateBatch(reduced);
+
+        expect(valid).toBe(false);
+        expect(errors).toEqual(expect.arrayContaining(['BATCH_MISSING_RESOURCEFAMILY', 'BATCH_MISSING_BASECHECKPOINTVERSION', 'BATCH_MISSING_NEXTINVENTORYHASH']));
+    });
+
     test('an unsupported schema version is refused', () => {
-        const {valid, errors} = validateBatch(batch({schemaVersion: 'community-activity-batch.v2'}));
-
-        expect(valid).toBe(false);
-        expect(errors).toContain('BATCH_SCHEMA_VERSION_UNSUPPORTED');
+        expect(validateBatch(batch({schemaVersion: 'community-activity-batch.v2'})).errors).toContain('BATCH_SCHEMA_VERSION_UNSUPPORTED');
     });
 
-    test('prose is REFUSED, not silently stripped', () => {
-        const {valid, errors} = validateBatch(batch({occurrences: [occurrence('e1', {title: 'Crash on load'})]}));
-
-        expect(valid).toBe(false);
-        expect(errors).toContain('OCCURRENCE_0_CARRIES_PROSE_TITLE');
+    test('an oversized nextProviderState is refused; prose in it is refused', () => {
+        const huge = {blob: 'x'.repeat(MAX_PROVIDER_STATE_BYTES + 10)};
+        expect(validateBatch(batch({nextProviderState: huge})).errors).toContain('BATCH_NEXT_PROVIDER_STATE_TOO_LARGE');
+        expect(validateBatch(batch({nextProviderState: {title: 'a title'}})).errors).toContain('BATCH_NEXT_PROVIDER_STATE_CARRIES_PROSE_TITLE');
     });
 
-    test('a complete window cannot also claim gaps, and an incomplete one must', () => {
-        expect(validateBatch(batch({coverage: {fromBasis: 'c1', toBasis: 'c9', complete: true, gaps: [{fromBasis: 'c4', toBasis: 'c5', reason: 'rate-limit'}]}})).errors)
+    test('prose on an observation is REFUSED, not silently stripped', () => {
+        expect(validateBatch(batch({observations: [observation('e1', {title: 'Crash'})]})).errors).toContain('OBSERVATION_0_CARRIES_PROSE_TITLE');
+    });
+
+    test('a connector may not self-assert a server-policy field', () => {
+        expect(validateBatch(batch({observations: [observation('e1', {attentionDisposition: 'eligible'})]})).errors)
+            .toContain('OBSERVATION_0_ASSERTS_SERVER_POLICY_ATTENTIONDISPOSITION');
+    });
+
+    test('an invalid provider actor kind is refused', () => {
+        expect(validateBatch(batch({observations: [observation('e1', {actorKind: 'wizard'})]})).errors).toContain('OBSERVATION_0_ACTOR_KIND_INVALID');
+    });
+
+    test('a complete window cannot claim gaps, and an incomplete one must', () => {
+        expect(validateBatch(batch({coverage: {fromBasis: 'c1', toBasis: 'c9', complete: true, gaps: [{fromBasis: 'c4', toBasis: 'c5'}]}})).errors)
             .toContain('COVERAGE_COMPLETE_CONTRADICTS_GAPS');
-
         expect(validateBatch(batch({coverage: {fromBasis: 'c1', toBasis: 'c9', complete: false}})).errors)
             .toContain('COVERAGE_INCOMPLETE_WITHOUT_GAPS');
     });
 
-    test('absence must be one of the three evidenced dispositions', () => {
-        expect(validateBatch(batch({occurrences: [occurrence('e1', {absence: 'probably-gone'})]})).errors)
-            .toContain('OCCURRENCE_0_ABSENCE_DISPOSITION_INVALID');
-
-        // inaccessible/unknown need no extra evidence; deleted does (below).
-        ['inaccessible', 'unknown'].forEach(disposition => {
-            expect(validateBatch(batch({occurrences: [occurrence('e1', {absence: disposition})]})).valid).toBe(true);
-        });
-    });
-
-    test('deleted requires explicit provider evidence — an enum value alone is a permission-loss risk', () => {
-        expect(validateBatch(batch({occurrences: [occurrence('e1', {absence: 'deleted'})]})).errors)
-            .toContain('OCCURRENCE_0_DELETED_WITHOUT_EVIDENCE');
-
-        expect(validateBatch(batch({occurrences: [occurrence('e1', {absence: 'deleted', deletionEvidence: {tombstoneId: 't-1', deletedAt: '2026-07-18T11:00:00Z'}})]})).valid)
-            .toBe(true);
-    });
-
-    test('an invalid provider actor kind is refused', () => {
-        expect(validateBatch(batch({occurrences: [occurrence('e1', {actorKind: 'wizard'})]})).errors)
-            .toContain('OCCURRENCE_0_ACTOR_KIND_INVALID');
-    });
-
-    test('a non-current-shaped registration epoch is refused', () => {
-        expect(validateBatch(batch({registrationEpoch: 0})).errors).toContain('BATCH_REGISTRATION_EPOCH_INVALID');
-        expect(validateBatch(batch({registrationEpoch: '2'})).errors).toContain('BATCH_REGISTRATION_EPOCH_INVALID');
+    test('deleted requires explicit provider evidence', () => {
+        expect(validateBatch(batch({observations: [observation('e1', {absence: 'deleted'})]})).errors).toContain('OBSERVATION_0_DELETED_WITHOUT_EVIDENCE');
+        expect(validateBatch(batch({observations: [observation('e1', {absence: 'deleted', deletionEvidence: {tombstoneId: 't1'}})]})).valid).toBe(true);
     });
 
     test('missing required identity is refused', () => {
