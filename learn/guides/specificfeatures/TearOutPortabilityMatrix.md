@@ -48,8 +48,8 @@ implementation).
 | # | Row | macOS (Chrome, headed) | Windows | Linux |
 |---|---|---|---|---|
 | 1 | Hysteretic grammar (0.8 out / 0.6 in, direction-aware) | `PASS_NATIVE` ¹ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
-| 2 | Acquisition (`window.open` boolean; activation window) | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
-| 3 | Moving embodiment (requested-vs-observed `moveTo`) | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
+| 2 | Acquisition (`window.open` boolean; activation window) | `PASS_NATIVE` ² | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
+| 3 | Moving embodiment (requested-vs-observed `moveTo`) | `NOT_YET_MEASURED` ³ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 | 4 | Object permanence / reintegration (same instance back) | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 | 5 | Screen topology (`getScreenDetails` never a prerequisite) | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 | 6 | Multi-window targeting (claim-protocol identity binding) | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
@@ -61,12 +61,33 @@ placement semantics) and remain honestly `NOT_YET_MEASURED` until such environme
 
 ¹ Row 1 macOS (2026-07-18, Chrome via the matrix runner): the witness proves boundary-exit
 under the documented hysteresis, MID-GESTURE popup acquisition, popup persistence through the
-drop terminal, and same-instance adoption rendering in the popup over the shared heap. Pending
-sub-receipt: the ratio-trace no-oscillation assertion (reads `SortZone.traces`). **Open
-observation (owned by row 3):** sustained pointer movement AFTER acquisition closed the popup
-in earlier runs — isolated by stopping the drag at acquisition; mechanism unattributed
-(candidates: the clamped-coordinate `windowMoveTo` stream; a re-entry misfire under synthetic
-coordinates). Row 3's moving-embodiment cells must reproduce and attribute it.
+drop terminal, and same-instance adoption rendering in the popup over the shared heap — **but
+the outcome is NONDETERMINISTIC** (3× green, then a same-choreography red): see footnote ³.
+Pending sub-receipt: the ratio-trace no-oscillation assertion (reads `SortZone.traces`).
+
+² Row 2 macOS (2026-07-18): mid-gesture acquisition itself is `PASS_NATIVE` (row 1's receipts —
+`window.open` succeeds during the gesture). The **>5 s activation-expiry negative control is
+UNMEASURABLE UNDER AUTOMATION**: the decay-trace receipts show `navigator.userActivation.isActive`
+still `true` at 2 s / 4 s / 6 s / 8 s into a held CDP-input gesture AND after release —
+synthesized input sustains transient activation indefinitely on macOS Chrome. Consequence for
+the G2 acquisition contract: **never calibrate activation timings from automated runs**; the
+expiry half of this cell requires real human input to measure. The release-time-`window.open`
+negative baseline stands on spec authority, not on this instrument.
+
+³ Row 3 macOS (2026-07-18): the earlier "sustained movement closes the popup" observation is
+**RETIRED — the truth is sharper and worse**: with the close-listener attached inside the
+acquisition race, the popup closed **2 ms after birth** (`acquiredToCloseMs: 2`), BEFORE the
+first continued move (`closedAfterMoveMs: -30`), before pointer-up (`closedBeforeUp: true`),
+with zero console output and no re-entry involvement. Same-choreography runs nondeterministically
+survive (row 1's three earlier greens) or reap at birth — **a race between the continuing
+pointer-move stream and the popup-birth / `startWindowDrag` handoff**, silently violating the
+gesture-continuity universal invariant when it fires. This is a SUSPECTED
+universal-invariant `FAIL` pending a reproduction-rate receipt (next witness iteration: N-run
+flake rate + engine-side trace); on confirmation it fires the epic's `revalidationTrigger` per
+the contract. Direct consumer warning: G1 ships this exact grammar to dock surfaces —
+the race predates G1 and must be attributed before dock-tier calibration lands on top of it.
+Requested-vs-observed `moveTo` sampling remains blocked behind the race (a 2 ms lifetime cannot
+be position-sampled).
 
 ## Per-row receipt requirements
 
