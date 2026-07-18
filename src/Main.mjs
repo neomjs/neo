@@ -8,6 +8,52 @@ import Observable            from './core/Observable.mjs';
 import WorkerManager         from './worker/Manager.mjs';
 
 /**
+ * @summary Consumes the opener's one-time exact-window capability during the target's connect handshake.
+ * @description The token is useful only while the opener still owns a matching pending `WindowProxy`. It is
+ * removed on the first attempt, so reload, URL/name inference, and same-name reuse cannot reconstruct authority.
+ * Cross-origin or independently opened windows deliberately remain unaddressable.
+ * @param {Window} win
+ * @returns {{capabilities: {close: Boolean, focus: Boolean, position: Boolean}, nativeHandleKey: String, ownerWindowId: String, targetWindowId: String}|null}
+ */
+const resolveNativeWindowRoute = win => {
+    try {
+        const
+            opener     = win?.opener,
+            openerMain = opener?.Neo?.Main,
+            storageKey = openerMain?.nativeRouteStorageKey,
+            token      = storageKey && win.sessionStorage?.getItem(storageKey);
+
+        if (!opener || opener.closed || !openerMain || !token) {
+            return null
+        }
+
+        win.sessionStorage.removeItem(storageKey);
+
+        const route = openerMain.consumeNativeWindowRoute({
+            targetWindowId: WorkerManager.windowId,
+            token,
+            win
+        });
+
+        if (route) {
+            win.addEventListener('pagehide', () => {
+                try {
+                    openerMain.releaseNativeWindowRoute({...route, win})
+                } catch {
+                    // The opener may have closed or crossed origin first; its route is unreachable either way.
+                }
+            }, {once: true})
+        }
+
+        return route
+    } catch {
+        // Cross-origin opener/sessionStorage access is expected to fail closed. The window stays visible in
+        // topology but intentionally exposes no native control route.
+        return null
+    }
+};
+
+/**
  * @class Neo.Main
  * @extends Neo.core.Base
  * @mixes Neo.core.Observable
@@ -32,6 +78,25 @@ class Main extends core.Base {
          * @protected
          */
         mode: 'read',
+        /**
+         * @member {String} nativeRouteStorageKey='neo-native-window-route'
+         * @protected
+         */
+        nativeRouteStorageKey: 'neo-native-window-route',
+        /**
+         * @member {Number} nativeRouteTtl=5000
+         * @protected
+         */
+        nativeRouteTtl: 5000,
+        /**
+         * @member {Object} nativeWindowCapabilities
+         * @protected
+         */
+        nativeWindowCapabilities: {
+            close   : false,
+            focus   : true,
+            position: true
+        },
         /**
          * @member {Object} openWindows={}
          * @protected
@@ -63,6 +128,9 @@ class Main extends core.Base {
                 'windowCloseAll',
                 'windowFocus',
                 'windowMoveTo',
+                'windowNativeClose',
+                'windowNativeFocus',
+                'windowNativeMoveTo',
                 'windowOpen',
                 'windowResizeTo'
             ]
@@ -92,11 +160,33 @@ class Main extends core.Base {
          */
         totalFrameCount: 0,
         /**
+         * @member {Number} windowMovePollAttempts=6
+         * @protected
+         */
+        windowMovePollAttempts: 6,
+        /**
+         * @member {Number} windowMovePollDelay=50
+         * @protected
+         */
+        windowMovePollDelay: 50,
+        /**
          * @member {Array} writeQueue=[]
          * @protected
          */
         writeQueue: []
     }
+
+    /**
+     * @member {Map} #nativeWindowRoutes
+     * @private
+     */
+    #nativeWindowRoutes = new Map()
+
+    /**
+     * @member {Map} #pendingWindowRoutes
+     * @private
+     */
+    #pendingWindowRoutes = new Map()
 
     /**
      * @param {Object} config
@@ -184,6 +274,7 @@ class Main extends core.Base {
             innerWidth     : win.innerWidth,
             mozInnerScreenX: win.mozInnerScreenX, // Firefox specific
             mozInnerScreenY: win.mozInnerScreenY, // Firefox specific
+            nativeRoute    : resolveNativeWindowRoute(win),
             outerHeight    : win.outerHeight,
             outerWidth     : win.outerWidth,
             screen         : {
@@ -495,19 +586,215 @@ class Main extends core.Base {
     }
 
     /**
+     * Consumes one opener-minted capability and binds its opaque handle key to the exact connected target.
+     * This method is intentionally absent from the App-Worker remote manifest: only the same-origin target
+     * main thread calls it directly through its opener during `getWindowData()`.
+     * @param {Object} data
+     * @param {String} data.targetWindowId
+     * @param {String} data.token
+     * @param {Window} data.win
+     * @returns {Object|null} The serializable worker-private route, or `null` when the grant is stale/invalid.
+     */
+    consumeNativeWindowRoute({targetWindowId, token, win}) {
+        const pending = this.#pendingWindowRoutes.get(token);
+
+        this.#pendingWindowRoutes.delete(token);
+
+        if (
+            !pending || pending.expiresAt < Date.now() || !targetWindowId ||
+            pending.entry.win !== win || this.openWindows[pending.entry.windowName] !== pending.entry
+        ) {
+            return null
+        }
+
+        const
+            {entry}      = pending,
+            capabilities = {
+                close   : entry.nativeCapabilities.close    && typeof win.close  === 'function',
+                focus   : entry.nativeCapabilities.focus    && typeof win.focus  === 'function',
+                position: entry.nativeCapabilities.position && typeof win.moveTo === 'function'
+            },
+            route = {
+                capabilities,
+                nativeHandleKey: entry.nativeHandleKey,
+                ownerWindowId  : entry.ownerWindowId,
+                targetWindowId
+            };
+
+        this.#nativeWindowRoutes.set(entry.nativeHandleKey, {entry, targetWindowId});
+
+        return route
+    }
+
+    /**
+     * Releases an active private generation when its exact target document unloads or reloads.
+     * Like consumption, this is a direct same-origin main-thread handshake and is not App-Worker remote API.
+     * @param {Object} data
+     * @param {String} data.nativeHandleKey
+     * @param {String} data.targetWindowId
+     * @param {Window} data.win
+     * @returns {Boolean}
+     */
+    releaseNativeWindowRoute({nativeHandleKey, targetWindowId, win}) {
+        const route = this.#nativeWindowRoutes.get(nativeHandleKey);
+
+        if (!route || route.targetWindowId !== targetWindowId || route.entry.win !== win) {
+            return false
+        }
+
+        this.#invalidateNativeWindowEntry(route.entry);
+
+        return true
+    }
+
+    /**
+     * Removes every pending/active capability associated with one semantic popup generation.
+     * @param {Object} entry
+     * @private
+     */
+    #invalidateNativeWindowEntry(entry) {
+        if (!entry) return;
+
+        this.#nativeWindowRoutes.delete(entry.nativeHandleKey);
+
+        for (const [token, pending] of this.#pendingWindowRoutes) {
+            if (pending.entry === entry) {
+                this.#pendingWindowRoutes.delete(token)
+            }
+        }
+    }
+
+    /**
+     * Resolves a private handle key only when its target generation, owner registry entry, grant, and native method
+     * are all still live.
+     * @param {Object} data
+     * @param {String} data.nativeHandleKey
+     * @param {String} data.targetWindowId
+     * @param {'close'|'focus'|'position'} capability
+     * @returns {Object|null}
+     * @private
+     */
+    #getNativeWindowRoute({nativeHandleKey, targetWindowId}, capability) {
+        const
+            route   = this.#nativeWindowRoutes.get(nativeHandleKey),
+            entry   = route?.entry,
+            methods = {close: 'close', focus: 'focus', position: 'moveTo'};
+
+        if (
+            !route || route.targetWindowId !== targetWindowId ||
+            this.openWindows[entry.windowName] !== entry ||
+            entry.win.closed || entry.nativeCapabilities[capability] !== true ||
+            typeof entry.win[methods[capability]] !== 'function'
+        ) {
+            entry?.win?.closed && this.#invalidateNativeWindowEntry(entry);
+            return null
+        }
+
+        return route
+    }
+
+    /**
+     * Focuses one exact native handle and verifies the target document accepted focus.
+     * @param {Window} win
+     * @returns {Promise<Boolean>}
+     * @private
+     */
+    async #focusWindow(win) {
+        if (!win || win.closed || typeof win.focus !== 'function') {
+            return false
+        }
+
+        try {
+            win.focus()
+        } catch {
+            return false
+        }
+
+        // The verification asks the TARGET, not the opener: did the popup's document take focus?
+        // Asking the opener ("did I blur?") answers about the wrong subject — headless platforms
+        // let every window claim focus simultaneously, so the opener never blurs even when the
+        // popup genuinely focused. The answer feeds user-facing announcements, so it polls
+        // briefly and must not lie in either direction; a same-origin read is expected (vessels
+        // are same-app popups), and an inaccessible document degrades to the opener-blur
+        // fallback rather than a throw.
+        for (let attempt = 0; attempt < 6; attempt++) {
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            try {
+                if (win.document.hasFocus()) {
+                    return true
+                }
+            } catch {
+                if (!document.hasFocus()) {
+                    return true
+                }
+            }
+        }
+
+        return false
+    }
+
+    /**
+     * Moves one exact native handle and verifies the target reached the requested coordinates.
+     * @param {Window} win
+     * @param {Number|String} requestedX
+     * @param {Number|String} requestedY
+     * @returns {Promise<Boolean>}
+     * @private
+     */
+    async #moveWindow(win, requestedX, requestedY) {
+        const
+            x = Number(requestedX),
+            y = Number(requestedY);
+
+        if (!win || win.closed || typeof win.moveTo !== 'function' || !Number.isFinite(x) || !Number.isFinite(y)) {
+            return false
+        }
+
+        try {
+            win.moveTo(x, y)
+        } catch {
+            return false
+        }
+
+        for (let attempt = 0; attempt < this.windowMovePollAttempts; attempt++) {
+            if (Math.abs(win.screenX - x) <= 1 && Math.abs(win.screenY - y) <= 1) {
+                return true
+            }
+
+            await new Promise(resolve => setTimeout(resolve, this.windowMovePollDelay))
+        }
+
+        return false
+    }
+
+    /**
      * Closes popup windows
      * @param {Object} data
      * @param {String|String[]} data.names
+     * @returns {Boolean} True when every named live handle accepted the close request.
      */
     windowClose(data) {
-        if (!Array.isArray(data.names)) {
-            data.names = [data.names]
-        }
+        const names = Array.isArray(data.names) ? data.names : [data.names];
 
-        data.names.forEach(name => {
-            this.openWindows[name]?.win.close();
+        let closed = names.length > 0;
+
+        names.forEach(name => {
+            const
+                entry = this.openWindows[name],
+                win   = entry?.win;
+
+            if (!win || win.closed || typeof win.close !== 'function') {
+                closed = false
+            } else {
+                win.close()
+            }
+
+            this.#invalidateNativeWindowEntry(entry);
             delete this.openWindows[name]
-        })
+        });
+
+        return closed
     }
 
     /**
@@ -515,8 +802,9 @@ class Main extends core.Base {
      * @param {Object} data
      */
     windowCloseAll(data) {
-        Object.values(this.openWindows).forEach(obj => {
-            obj.win.close()
+        Object.values(this.openWindows).forEach(entry => {
+            entry.win.close();
+            this.#invalidateNativeWindowEntry(entry)
         });
 
         this.openWindows = {}
@@ -538,59 +826,84 @@ class Main extends core.Base {
      * @returns {Promise<Boolean>} true when the target window verifiably took focus.
      */
     async windowFocus(data) {
-        let win = data.windowName ? this.openWindows[data.windowName]?.win : window.opener;
-
-        if (!win || win.closed) {
-            return false
-        }
-
-        win.focus();
-
-        // The verification asks the TARGET, not the opener: did the popup's document take focus?
-        // Asking the opener ("did I blur?") answers about the wrong subject — headless platforms
-        // let every window claim focus simultaneously, so the opener never blurs even when the
-        // popup genuinely focused. The answer feeds user-facing announcements, so it polls
-        // briefly and must not lie in either direction; a same-origin read is expected (vessels
-        // are same-app popups), and an inaccessible document degrades to the opener-blur
-        // fallback rather than a throw.
-        for (let attempt = 0; attempt < 6; attempt++) {
-            await new Promise(resolve => setTimeout(resolve, 50));
-
-            try {
-                if (win.document.hasFocus()) {
-                    return true
-                }
-            } catch (error) {
-                if (!document.hasFocus()) {
-                    return true
-                }
-            }
-        }
-
-        return false
+        return this.#focusWindow(data.windowName ? this.openWindows[data.windowName]?.win : window.opener)
     }
 
     /**
      * Move a popup window
      * @param {Object} data
      * @param {String} data.windowName
-     * @param {String} data.x
-     * @param {String} data.y
+     * @param {Number|String} data.x
+     * @param {Number|String} data.y
+     * @returns {Promise<Boolean>} True when the popup reaches the requested screen coordinates.
      */
-    windowMoveTo(data) {
-        this.openWindows[data.windowName]?.win.moveTo(data.x, data.y)
+    async windowMoveTo(data) {
+        return this.#moveWindow(this.openWindows[data.windowName]?.win, data.x, data.y)
+    }
+
+    /**
+     * Closes an exact owner-granted native handle generation.
+     * @param {Object} data
+     * @param {String} data.nativeHandleKey
+     * @param {String} data.targetWindowId
+     * @returns {Boolean}
+     */
+    windowNativeClose(data) {
+        const route = this.#getNativeWindowRoute(data, 'close');
+
+        if (!route) return false;
+
+        const {entry} = route;
+
+        entry.win.close();
+        this.#invalidateNativeWindowEntry(entry);
+
+        if (this.openWindows[entry.windowName] === entry) {
+            delete this.openWindows[entry.windowName]
+        }
+
+        return true
+    }
+
+    /**
+     * Focuses an exact owner-granted native handle generation.
+     * @param {Object} data
+     * @param {String} data.nativeHandleKey
+     * @param {String} data.targetWindowId
+     * @returns {Promise<Boolean>}
+     */
+    async windowNativeFocus(data) {
+        const route = this.#getNativeWindowRoute(data, 'focus');
+
+        return route ? this.#focusWindow(route.entry.win) : false
+    }
+
+    /**
+     * Moves an exact owner-granted native handle generation.
+     * @param {Object} data
+     * @param {String} data.nativeHandleKey
+     * @param {String} data.targetWindowId
+     * @param {Number|String} data.x
+     * @param {Number|String} data.y
+     * @returns {Promise<Boolean>}
+     */
+    async windowNativeMoveTo(data) {
+        const route = this.#getNativeWindowRoute(data, 'position');
+
+        return route ? this.#moveWindow(route.entry.win, data.x, data.y) : false
     }
 
     /**
      * Open a new popup window and return true if successful
      * @param {Object}  data
+     * @param {Object}  [data.nativeCapabilities] Owner-granted generic physical capabilities.
      * @param {String}  data.url
      * @param {Boolean} [data.useTotalHeight=true] Using this flag will set outerHeight to innerHeight, ignoring header tools
      * @param {String}  data.windowFeatures
      * @param {String}  data.windowName
      * @return {Boolean}
      */
-    windowOpen({url, useTotalHeight=true, windowFeatures, windowName}) {
+    windowOpen({nativeCapabilities, url, useTotalHeight=true, windowFeatures, windowName}) {
         let existingWin = this.openWindows[windowName],
             targetName;
 
@@ -608,7 +921,35 @@ class Main extends core.Base {
                 openedWindow.resizeTo(openedWindow.outerWidth, openedWindow.innerHeight)
             }
 
-            this.openWindows[windowName] = {targetName, win: openedWindow}
+            this.#invalidateNativeWindowEntry(existingWin);
+
+            const
+                entry = {
+                    nativeCapabilities: {...this.nativeWindowCapabilities, ...nativeCapabilities},
+                    nativeHandleKey   : crypto.randomUUID(),
+                    ownerWindowId     : WorkerManager.windowId,
+                    targetName,
+                    win               : openedWindow,
+                    windowName
+                },
+                token   = crypto.randomUUID(),
+                pending = {
+                    entry,
+                    expiresAt: Date.now() + this.nativeRouteTtl
+                };
+
+            this.openWindows[windowName] = entry;
+            this.#pendingWindowRoutes.set(token, pending);
+
+            setTimeout(() => {
+                this.#pendingWindowRoutes.get(token) === pending && this.#pendingWindowRoutes.delete(token)
+            }, this.nativeRouteTtl);
+
+            try {
+                openedWindow.sessionStorage.setItem(this.nativeRouteStorageKey, token)
+            } catch {
+                this.#pendingWindowRoutes.delete(token)
+            }
         }
 
         return success

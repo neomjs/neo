@@ -249,6 +249,8 @@ class Container extends BaseContainer {
      * @summary Transactionally stages a widget for popup ownership and returns geometry only after
      * the main-thread vessel admission resolves true. Failed admission restores the exact prior
      * detached-item entry so the fast window-connect ordering never creates false ownership truth.
+     * This owner explicitly grants generic physical close because `onWindowDisconnect()` is its
+     * semantic return contract: an externally closed admitted popup reintegrates the exact widget.
      * @param {Neo.component.Base} widget
      * @param {DOMRect} rect
      * @returns {Promise<Object|null>}
@@ -294,9 +296,10 @@ class Container extends BaseContainer {
 
         try {
             opened = await Neo.Main.windowOpen({
+                nativeCapabilities: {close: true, focus: true, position: true},
                 url,
                 windowId,
-                windowFeatures: `height=${popupHeight},left=${popupLeft},top=${popupTop},width=${width}`,
+                windowFeatures    : `height=${popupHeight},left=${popupLeft},top=${popupTop},width=${width}`,
                 windowName
             })
         } catch (error) {

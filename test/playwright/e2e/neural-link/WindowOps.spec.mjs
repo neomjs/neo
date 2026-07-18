@@ -5,13 +5,13 @@ import {test, expect} from '../../fixtures.mjs';
  *
  * Drives the agent-facing RuntimeService path against the AgentOS dashboard: resolve a real
  * dashboard panel through App-Worker state, open it through the dashboard popup primitive, assert the
- * popup registers in window topology, then exercise focus/position fail-closed behavior for the live
- * popup window id in headless Chrome.
+ * popup registers in window topology, then exercise focus/position/close through the trusted identity
+ * spine and observe the terminal topology disappearance.
  */
 test.describe('Neural Link window operations (e2e)', () => {
     test.setTimeout(90000);
 
-    test('opens a dashboard panel popup and resolves known-window focus/position calls', async ({page, neuralLink}) => {
+    test('operates one exact popup generation and degrades a reloaded generation', async ({page, neuralLink}) => {
         let popup;
 
         await page.goto('/apps/agentos/index.html');
@@ -86,22 +86,83 @@ test.describe('Neural Link window operations (e2e)', () => {
 
             expect(popupWindow?.windowId, 'popup should register a logical window id').toBeTruthy();
             expect(popupWindow.appWorkerId).toBe(app.sessionId);
+            expect(popupWindow.capabilities).toEqual({close: true, focus: true, position: true});
+            expect(popupWindow.nativeHandleKey).toBeUndefined();
+            expect(popupWindow.ownerWindowId).toBeUndefined();
+            expect(popupWindow.targetWindowId).toBeUndefined();
 
             const focusResult = await app.focusWindow(popupWindow.windowId);
             expect(focusResult).toMatchObject({
-                success    : false,
-                unsupported: true
+                success : true,
+                windowId: popupWindow.windowId
             });
-            expect(focusResult.error).toContain(popupWindow.windowId);
 
             const positionResult = await app.positionWindow({windowId: popupWindow.windowId, x: 120, y: 140});
             expect(positionResult).toMatchObject({
-                success    : false,
-                unsupported: true
+                success : true,
+                windowId: popupWindow.windowId,
+                x       : 120,
+                y       : 140
             });
-            expect(positionResult.error).toContain(popupWindow.windowId);
+            await expect.poll(() => popup.evaluate(() => ({x: window.screenX, y: window.screenY})), {
+                timeout: 5000
+            }).toEqual({x: 120, y: 140});
 
             await expect(app.focusWindow('missing-window-id')).rejects.toThrow(/Unknown windowId 'missing-window-id'/);
+
+            const closeResult = await app.closeWindow(popupWindow.windowId);
+            expect(closeResult).toEqual({success: true, windowId: popupWindow.windowId});
+
+            await expect.poll(async () => {
+                const windows = await getBoundWindows();
+                return windows.some(win => win.windowId === popupWindow.windowId)
+            }, {timeout: 15000}).toBe(false);
+            await expect.poll(() => popup.isClosed(), {timeout: 5000}).toBe(true)
+
+            await expect(app.focusWindow(popupWindow.windowId)).rejects.toThrow(
+                new RegExp(`Unknown windowId '${popupWindow.windowId}'`)
+            );
+
+            await expect.poll(async () => {
+                const matches = await app.queryComponent({id: panel.id}, ['parentId']);
+
+                return matches[0]?.properties?.parentId
+            }, {timeout: 15000}).toBe(dashboard.id);
+
+            const reopened = await Promise.all([
+                page.waitForEvent('popup'),
+                app.openComponentWindow({
+                    componentId: panel.id,
+                    dashboardId: dashboard.id,
+                    rect       : {height: 240, width: 420, x: 80, y: 80}
+                })
+            ]);
+
+            popup = reopened[0];
+
+            expect(reopened[1].success).toBe(true);
+            await popup.waitForLoadState('domcontentloaded');
+
+            await expect.poll(async () => {
+                const windows = await getBoundWindows();
+
+                return windows.some(win => win.appName === 'AgentOSWidget' && win.windowId !== popupWindow.windowId)
+            }, {timeout: 15000}).toBe(true);
+
+            const reopenedWindow = (await getBoundWindows()).find(win =>
+                win.appName === 'AgentOSWidget' && win.windowId !== popupWindow.windowId
+            );
+
+            expect(reopenedWindow.capabilities).toEqual({close: true, focus: true, position: true});
+
+            await popup.reload();
+            await popup.waitForLoadState('domcontentloaded');
+
+            await expect.poll(async () => {
+                const windows = await getBoundWindows();
+
+                return windows.find(win => win.appName === 'AgentOSWidget')?.capabilities
+            }, {timeout: 15000}).toEqual({close: false, focus: false, position: false})
         } finally {
             await popup?.close().catch(() => {})
         }

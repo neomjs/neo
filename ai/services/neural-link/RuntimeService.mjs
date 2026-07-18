@@ -1,5 +1,5 @@
-import Base              from '../../../src/core/Base.mjs';
-import ConnectionService from './ConnectionService.mjs';
+import Base                  from '../../../src/core/Base.mjs';
+import ConnectionService     from './ConnectionService.mjs';
 import {resolveWindowTarget} from './windowOps.mjs';
 
 /**
@@ -130,7 +130,7 @@ class RuntimeService extends Base {
                     windows.push({
                         ...win,
                         appWorkerId: meta.appWorkerId, // Enrich with worker ID
-                        sessionId: meta.sessionId
+                        sessionId  : meta.sessionId
                     })
                 }
             }
@@ -164,6 +164,23 @@ class RuntimeService extends Base {
             rect,
             windowId
         })
+    }
+
+    /**
+     * Closes an owner-granted live browser popup and waits for its topology record to disappear.
+     * @param {Object} opts
+     * @param {String} opts.windowId    The logical window id from topology.
+     * @param {String} [opts.sessionId] Optional App Worker session scope.
+     * @returns {Promise<Object>}
+     */
+    async closeWindow({windowId, sessionId}) {
+        const target = resolveWindowTarget({
+            sessionData: ConnectionService.sessionData,
+            sessionId,
+            windowId
+        });
+
+        return await ConnectionService.call(target.sessionId, 'close_window', {windowId})
     }
 
     /**

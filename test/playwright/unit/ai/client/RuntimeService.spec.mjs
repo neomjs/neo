@@ -38,7 +38,7 @@ test.describe('Neo.ai.client.RuntimeService window ops (#13446)', () => {
         let captured;
 
         const dashboard = {
-            id                : 'dashboard-a',
+            id               : 'dashboard-a',
             openWidgetInPopup: async (widget, rect) => {
                 captured = {widget, rect};
 
@@ -63,8 +63,8 @@ test.describe('Neo.ai.client.RuntimeService window ops (#13446)', () => {
         const result = await service.openComponentWindow({componentId: 'widget-a'});
 
         expect(captured).toEqual({
-            widget   : component,
-            rect     : {height: 260, width: 420, x: 12, y: 34}
+            widget: component,
+            rect  : {height: 260, width: 420, x: 12, y: 34}
         });
         expect(result).toEqual({
             success    : true,
@@ -92,57 +92,180 @@ test.describe('Neo.ai.client.RuntimeService window ops (#13446)', () => {
         })
     });
 
-    test('positions and focuses known native popup handles', () => {
+    test('positions and focuses known native popup routes', async () => {
         const calls = [];
 
         Neo.manager.Window = {
-            get: id => id === 'win-a' ? {id} : null
+            get: id => id === 'win-a' ? {
+                id,
+                nativeRoute: {
+                    capabilities   : {close: true, focus: true, position: true},
+                    nativeHandleKey: 'handle-a',
+                    ownerWindowId  : 'owner-a',
+                    targetWindowId : 'win-a'
+                }
+            } : null
         };
 
         Neo.Main = {
-            openWindows: {
-                'win-a': {
-                    win: {
-                        focus : () => calls.push({type: 'focus'}),
-                        moveTo: () => {}
-                    }
-                }
+            windowNativeFocus: async data => {
+                calls.push({type: 'focus', data});
+                return true
             },
-            windowMoveTo: data => calls.push({type: 'move', data})
+            windowNativeMoveTo: async data => {
+                calls.push({type: 'move', data});
+                return true
+            }
         };
 
-        expect(service.positionWindow({windowId: 'win-a', x: 100, y: 200})).toEqual({
+        await expect(service.positionWindow({
+            nativeHandleKey: 'caller-forged-handle',
+            ownerWindowId  : 'caller-forged-owner',
+            targetWindowId : 'caller-forged-target',
+            windowId       : 'win-a',
+            x              : 100,
+            y              : 200
+        })).resolves.toEqual({
             success : true,
             windowId: 'win-a',
             x       : 100,
             y       : 200
         });
-        expect(service.focusWindow({windowId: 'win-a'})).toEqual({success: true, windowId: 'win-a'});
+        await expect(service.focusWindow({windowId: 'win-a'})).resolves.toEqual({success: true, windowId: 'win-a'});
         expect(calls).toEqual([
-            {type: 'move', data: {windowName: 'win-a', x: 100, y: 200}},
-            {type: 'focus'}
+            {
+                type: 'move',
+                data: {
+                    nativeHandleKey: 'handle-a',
+                    targetWindowId : 'win-a',
+                    windowId       : 'owner-a',
+                    x              : 100,
+                    y              : 200
+                }
+            },
+            {
+                type: 'focus',
+                data: {nativeHandleKey: 'handle-a', targetWindowId: 'win-a', windowId: 'owner-a'}
+            }
         ])
     });
 
-    test('fails loud for unknown or unsupported window handles', () => {
-        Neo.manager.Window = {
-            get: id => id === 'win-a' ? {id} : null
-        };
-        Neo.Main = {openWindows: {}};
+    test('closes the native popup and requires terminal topology disappearance', async () => {
+        const calls     = [];
+        let   connected = true;
 
-        expect(service.positionWindow({windowId: 'missing', x: 1, y: 2})).toEqual({
+        Neo.manager.Window = {
+            get: id => id === 'win-a' && connected ? {
+                id,
+                nativeRoute: {
+                    capabilities   : {close: true, focus: true, position: true},
+                    nativeHandleKey: 'handle-a',
+                    ownerWindowId  : 'owner-a',
+                    targetWindowId : 'win-a'
+                }
+            } : null
+        };
+        Neo.Main = {
+            windowNativeClose: async data => {
+                calls.push(data);
+                connected = false;
+                return true
+            }
+        };
+
+        await expect(service.closeWindow({windowId: 'win-a'})).resolves.toEqual({
+            success : true,
+            windowId: 'win-a'
+        });
+        expect(calls).toEqual([{
+            nativeHandleKey: 'handle-a',
+            targetWindowId : 'win-a',
+            windowId       : 'owner-a'
+        }])
+    });
+
+    test('reports platform-blocked native outcomes instead of manufacturing success', async () => {
+        Neo.manager.Window = {
+            get: id => id === 'win-a' ? {
+                id,
+                nativeRoute: {
+                    capabilities   : {close: true, focus: true, position: true},
+                    nativeHandleKey: 'handle-a',
+                    ownerWindowId  : 'owner-a',
+                    targetWindowId : 'win-a'
+                }
+            } : null
+        };
+        Neo.Main = {
+            windowNativeFocus : async () => false,
+            windowNativeMoveTo: async () => false
+        };
+
+        await expect(service.positionWindow({windowId: 'win-a', x: 1, y: 2})).resolves.toEqual({
+            success: false,
+            blocked: true,
+            error  : "Window 'win-a' did not reach the requested position."
+        });
+        await expect(service.focusWindow({windowId: 'win-a'})).resolves.toEqual({
+            success: false,
+            blocked: true,
+            error  : "Window 'win-a' did not accept focus."
+        })
+    });
+
+    test('keeps physical close unsupported when the semantic owner did not grant it', async () => {
+        let closeCalled = false;
+
+        Neo.manager.Window = {
+            get: id => id === 'win-a' ? {
+                id,
+                nativeRoute: {
+                    capabilities   : {close: false, focus: true, position: true},
+                    nativeHandleKey: 'handle-a',
+                    ownerWindowId  : 'owner-a',
+                    targetWindowId : 'win-a'
+                }
+            } : null
+        };
+        Neo.Main = {
+            windowNativeClose: async () => {
+                closeCalled = true;
+                return true
+            }
+        };
+
+        await expect(service.closeWindow({windowId: 'win-a'})).resolves.toEqual({
+            success    : false,
+            unsupported: true,
+            error      : "Window 'win-a' cannot be closed by this runtime."
+        });
+        expect(closeCalled).toBe(false)
+    });
+
+    test('fails loud for unknown or unsupported window routes', async () => {
+        Neo.manager.Window = {
+            get: id => id === 'win-a' ? {id, nativeRoute: null} : null
+        };
+        Neo.Main = {};
+
+        await expect(service.positionWindow({windowId: 'missing', x: 1, y: 2})).resolves.toEqual({
             success: false,
             error  : "Unknown windowId 'missing'."
         });
-        expect(service.positionWindow({windowId: 'win-a', x: 1, y: 2})).toEqual({
+        await expect(service.positionWindow({windowId: 'win-a', x: 1, y: 2})).resolves.toEqual({
             success    : false,
             unsupported: true,
             error      : "Window 'win-a' cannot be positioned by this runtime."
         });
-        expect(service.focusWindow({windowId: 'win-a'})).toEqual({
+        await expect(service.focusWindow({windowId: 'win-a'})).resolves.toEqual({
             success    : false,
             unsupported: true,
             error      : "Window 'win-a' cannot be focused by this runtime."
+        });
+        await expect(service.closeWindow({windowId: 'win-a'})).resolves.toEqual({
+            success    : false,
+            unsupported: true,
+            error      : "Window 'win-a' cannot be closed by this runtime."
         })
     });
 });

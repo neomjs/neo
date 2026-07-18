@@ -87,4 +87,44 @@ test.describe('Neo.ai.Client — non-SharedWorker window registration', () => {
 
         expect(fromApps.length).toBe(0)
     });
+
+    test('projects capability facts without leaking the private native route', () => {
+        const
+            notifications   = [],
+            originalGet     = Neo.manager.Window.get,
+            originalSend    = client.sendNotification,
+            originalConnect = client.isConnected;
+
+        Neo.manager.Window.get = () => ({
+            capabilities: {close: true, focus: true, position: true},
+            nativeRoute : {
+                nativeHandleKey: 'handle-a',
+                ownerWindowId  : 'owner-a',
+                targetWindowId : 'popup-id'
+            }
+        });
+        client.isConnected     = true;
+        client.sendNotification = (method, params) => notifications.push({method, params});
+
+        try {
+            client.onAppWorkerWindowConnect({appName: 'PopupApp', windowId: 'popup-id'})
+        } finally {
+            Neo.manager.Window.get  = originalGet;
+            client.sendNotification = originalSend;
+            client.isConnected      = originalConnect
+        }
+
+        expect(notifications).toEqual([{
+            method: 'window_connected',
+            params: {
+                appName     : 'PopupApp',
+                capabilities: {close: true, focus: true, position: true},
+                chrome      : undefined,
+                innerRect   : undefined,
+                outerRect   : undefined,
+                windowId    : 'popup-id'
+            }
+        }]);
+        expect(notifications[0].params.nativeRoute).toBeUndefined()
+    });
 });
