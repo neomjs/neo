@@ -202,6 +202,18 @@ class SortZone extends DragZone {
      * @protected
      */
     isWindowDragging = false
+    /**
+     * Schmitt-trigger arming for the window-boundary re-entry: `false` from the moment a
+     * boundary-exit fires until the intersection ratio has dropped BELOW {@link #reattachThreshold}
+     * at least once. The exit fires just under {@link #detachThreshold}, which is INSIDE the
+     * reattach zone — so without arming, a single post-exit sample with a positive delta (pointer
+     * jitter, or the exit choreography's own geometry side effects) reads as "moving in above the
+     * threshold" and fires a false `dragBoundaryEntry`, whose handler closes the newborn popup.
+     * Re-entry must be EARNED: leave first, then return.
+     * @member {Boolean} reattachArmed=false
+     * @protected
+     */
+    reattachArmed = false
 
     /**
      * Appends one event to the active drag trace. Events carry where the drag logic
@@ -285,7 +297,11 @@ class SortZone extends DragZone {
 
             if (!me.isWindowDragging) {
                 if (isMovingOut && intersectionRatio < me.detachThreshold) {
-                    me.isWindowDragging = true; // Set flag to prevent re-entry
+                    me.isWindowDragging = true; // window-drag phase begins
+                    // Re-entry must be earned: the ratio has to sit below reattachThreshold before a
+                    // return counts. A slow exit (crossing at ~detachThreshold) starts UNarmed; a
+                    // single-move fling that already landed below reattachThreshold is pre-armed.
+                    me.reattachArmed = intersectionRatio < me.reattachThreshold;
 
                     me.fire('dragBoundaryExit', {
                         draggedItem: me.dragComponent,
@@ -295,7 +311,16 @@ class SortZone extends DragZone {
                     return true // Stop further processing in onDragMove
                 }
             } else if (me.isWindowDragging) {
-                if (isMovingIn && intersectionRatio > me.reattachThreshold) {
+                // The exit fires just UNDER detachThreshold — inside the reattach zone — so the raw
+                // direction test alone would let one post-exit positive-delta sample (pointer jitter,
+                // exit-choreography geometry side effects) fire a false re-entry that closes the
+                // newborn popup ~2ms after birth. Arm re-entry only once the drag has demonstrably
+                // LEFT the reattach zone since the exit.
+                if (intersectionRatio < me.reattachThreshold) {
+                    me.reattachArmed = true
+                }
+
+                if (me.reattachArmed && isMovingIn && intersectionRatio > me.reattachThreshold) {
                     // Restore layout
                     me.dragPlaceholder.wrapperStyle = {
                         ...me.dragPlaceholder.wrapperStyle,
@@ -367,6 +392,7 @@ class SortZone extends DragZone {
         me.currentIndex     = me.startIndex;
         me.isOverDragging   = false;
         me.isWindowDragging = false;
+        me.reattachArmed    = false;
 
         me.fire('dragCancel', data);
 
