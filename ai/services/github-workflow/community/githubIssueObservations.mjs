@@ -1,0 +1,161 @@
+/**
+ * @summary The provider actor-kind axis, mapped from a GitHub GraphQL actor's `__typename`.
+ *
+ * This is the provider-reported identity kind only — the security/content trust tier is a
+ * separate axis resolved elsewhere and never folded in here. An absent actor (a deleted
+ * account, a ghost author on an old issue) and any unrecognized `__typename` both fail
+ * closed to `'unknown'`; the kind is read from the provider, never guessed from a login.
+ * @param {String|null} [typename] The GraphQL `__typename` of the actor node.
+ * @returns {String} One of user | bot | organization | mannequin | enterprise-user | unknown.
+ */
+export function actorKindFromTypename(typename) {
+    switch (typename) {
+        case 'User':                  return 'user';
+        case 'Bot':                   return 'bot';
+        case 'Organization':          return 'organization';
+        case 'Mannequin':             return 'mannequin';
+        case 'EnterpriseUserAccount': return 'enterprise-user';
+        default:                      return 'unknown'
+    }
+}
+
+/**
+ * @summary The GitHub issue-timeline event `__typename` → occurrence-kind whitelist.
+ *
+ * A whitelist, not a blocklist: an event kind absent from this map produces no observation,
+ * so popularity signals and any future event type are refused by construction rather than by
+ * an easily-stale deny-list. Every kind here is a lifecycle or metadata fact — never prose.
+ * @member {Object<String,String>}
+ */
+export const TIMELINE_KIND_BY_TYPENAME = {
+    IssueComment           : 'issue.comment',
+    ClosedEvent            : 'issue.closed',
+    ReopenedEvent          : 'issue.reopened',
+    RenamedTitleEvent      : 'issue.renamed',
+    LabeledEvent           : 'issue.labeled',
+    UnlabeledEvent         : 'issue.unlabeled',
+    AssignedEvent          : 'issue.assigned',
+    UnassignedEvent        : 'issue.unassigned',
+    MilestonedEvent        : 'issue.milestoned',
+    DemilestonedEvent      : 'issue.demilestoned',
+    ReferencedEvent        : 'issue.referenced',
+    CrossReferencedEvent   : 'issue.cross-referenced',
+    SubIssueAddedEvent     : 'issue.sub-issue-added',
+    SubIssueRemovedEvent   : 'issue.sub-issue-removed',
+    ParentIssueAddedEvent  : 'issue.parent-added',
+    ParentIssueRemovedEvent: 'issue.parent-removed',
+    BlockedByAddedEvent    : 'issue.blocked-by-added',
+    BlockingAddedEvent     : 'issue.blocking-added',
+    BlockedByRemovedEvent  : 'issue.blocked-by-removed',
+    BlockingRemovedEvent   : 'issue.blocking-removed'
+};
+
+/**
+ * @summary Projects an actor node onto the `{actorId, actorKind}` pair the observation carries.
+ * @param {Object|null} [actor] `{login, __typename}` — may be null for a deleted/ghost author.
+ * @returns {{actorId: String|null, actorKind: String}}
+ */
+function projectActor(actor) {
+    return {
+        actorId  : actor?.login ?? null,
+        actorKind: actorKindFromTypename(actor?.__typename)
+    }
+}
+
+/**
+ * @summary Maps one reconciled GitHub issue node into an order-independent set of metadata-only
+ * observations for a `community-activity-batch.v1` batch — one per lifecycle fact, never prose.
+ *
+ * The emitted observation is intentionally free of title/body/label text: it carries the
+ * provider entity id, the occurrence kind, a stable revision-distinct coordinate, the moment,
+ * and the provider-reported actor identity/kind. Attention eligibility is NOT decided here —
+ * the connector reports `occurrenceKind` + `actorKind`, and the server-side classifier alone
+ * decides, so this normalizer stays one of several interchangeable producers of the same shape.
+ *
+ * Identity is stable across runs: the root, each comment, and each timeline event key off the
+ * provider's own node id, so re-reconciling the same issue reproduces byte-identical coordinates.
+ * A revision (edit, re-close, re-open) is a distinct coordinate on the same entity, never a
+ * silent overwrite of the create.
+ * @param {Object}        issue                  A reconciled issue node.
+ * @param {String}        issue.id               The provider node id (stable identity).
+ * @param {String}        issue.createdAt        ISO-8601 open moment.
+ * @param {String}        [issue.lastEditedAt]   ISO-8601 last-edit moment, when the body was edited.
+ * @param {Object|null}   [issue.author]         `{login, __typename}`; null for a deleted account.
+ * @param {Object[]}      [issue.comments]       `[{id, createdAt, lastEditedAt, author}]`.
+ * @param {Object[]}      [issue.timeline]       `[{id, __typename, createdAt, actor}]` normalized events.
+ * @returns {Object[]} Observations, each `{providerEntityId, occurrenceKind, occurrenceCoordinate, occurredAt, actorId, actorKind}`.
+ */
+export function issueToObservations(issue) {
+    if (!issue || typeof issue !== 'object' || !issue.id) {
+        throw new Error('ISSUE_OBSERVATIONS_REQUIRE_NODE_ID')
+    }
+
+    const observations = [];
+
+    // The issue root open — the anchor occurrence.
+    observations.push({
+        providerEntityId    : issue.id,
+        occurrenceKind      : 'issue.opened',
+        occurrenceCoordinate: `${issue.id}:opened`,
+        occurredAt          : issue.createdAt,
+        ...projectActor(issue.author)
+    });
+
+    // A body edit is a distinct revision on the same entity, coordinate-separated from the open.
+    if (issue.lastEditedAt) {
+        observations.push({
+            providerEntityId    : issue.id,
+            occurrenceKind      : 'issue.edited',
+            occurrenceCoordinate: `${issue.id}:edited:${issue.lastEditedAt}`,
+            occurredAt          : issue.lastEditedAt,
+            ...projectActor(issue.author)
+        })
+    }
+
+    for (const comment of issue.comments ?? []) {
+        if (!comment?.id) {
+            throw new Error('ISSUE_OBSERVATIONS_REQUIRE_COMMENT_ID')
+        }
+
+        observations.push({
+            providerEntityId    : comment.id,
+            occurrenceKind      : 'issue.comment',
+            occurrenceCoordinate: `${comment.id}:created`,
+            occurredAt          : comment.createdAt,
+            ...projectActor(comment.author)
+        });
+
+        if (comment.lastEditedAt) {
+            observations.push({
+                providerEntityId    : comment.id,
+                occurrenceKind      : 'issue.comment-edited',
+                occurrenceCoordinate: `${comment.id}:edited:${comment.lastEditedAt}`,
+                occurredAt          : comment.lastEditedAt,
+                ...projectActor(comment.author)
+            })
+        }
+    }
+
+    for (const event of issue.timeline ?? []) {
+        const occurrenceKind = TIMELINE_KIND_BY_TYPENAME[event?.__typename];
+
+        // Whitelist gate: an unmapped event kind (incl. any popularity signal) yields nothing.
+        if (!occurrenceKind) {
+            continue
+        }
+
+        if (!event.id) {
+            throw new Error('ISSUE_OBSERVATIONS_REQUIRE_EVENT_ID')
+        }
+
+        observations.push({
+            providerEntityId    : event.id,
+            occurrenceKind,
+            occurrenceCoordinate: `${event.id}:${occurrenceKind}`,
+            occurredAt          : event.createdAt,
+            ...projectActor(event.actor)
+        })
+    }
+
+    return observations
+}
