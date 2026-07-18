@@ -1444,15 +1444,33 @@ class DemoBWorkspace extends Container {
                     errors.push(`projection after stack return failed: ${error?.message || String(error)}`)
                 }
 
-                let retired = me.isDestroyed ? false : me.retireReturnedPopupWorkspace(),
-                    receipt = {
-                        applied         : true,
-                        errors,
-                        itemIds,
-                        sourceWorkspaceId,
-                        targetWorkspaceId,
-                        workspaceRetired: retired
-                    };
+                let retired = me.isDestroyed ? false : me.retireReturnedPopupWorkspace();
+
+                if (!me.isDestroyed) {
+                    // Direct return never creates a park slot: its committed terminal is therefore
+                    // intentionally a no-op for the vessel-park machine. This owner closes the now
+                    // empty popup after adoption + retirement, without making platform-close
+                    // success part of model truth.
+                    try {
+                        let closing = Neo.Main.windowClose({
+                            names   : ['demo-b-cross-window'],
+                            windowId: me.windowId
+                        });
+
+                        closing?.catch?.(() => {})
+                    } catch {
+                        // best-effort vessel retirement; committed ownership never rolls back
+                    }
+                }
+
+                let receipt = {
+                    applied         : true,
+                    errors,
+                    itemIds,
+                    sourceWorkspaceId,
+                    targetWorkspaceId,
+                    workspaceRetired: retired
+                };
 
                 me.crossWindowGestureResolve?.(receipt);
                 me.crossWindowGestureResolve = null;

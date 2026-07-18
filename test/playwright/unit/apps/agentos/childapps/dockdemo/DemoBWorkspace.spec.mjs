@@ -355,47 +355,75 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoBWorkspace', () => {
 
         expect(returned.errors).toEqual([]);
 
-        const refreshes = [];
+        const refreshes = [],
+            order       = [],
+            vessel      = installWindowVessel({closeError: new Error('platform refused close')});
 
-        workspace.timeout = async () => {};
-        workspace.refreshWorkspace = async (workspaceId, document) => {
-            refreshes.push({document, workspaceId})
-        };
+        try {
+            const adoptCommittedTransferPair = workspace.adoptCommittedTransferPair.bind(workspace),
+                retireReturnedPopupWorkspace = workspace.retireReturnedPopupWorkspace.bind(workspace),
+                windowClose                  = Neo.Main.windowClose;
 
-        const commit = workspace.commitCrossWindowTransfer({
-            descriptor,
-            sourceDocument   : returned.sourceDocument,
-            sourceWorkspaceId: DemoBWorkspace.POPUP_WORKSPACE_ID,
-            targetDocument   : returned.targetDocument,
-            targetWorkspaceId: DemoBWorkspace.MAIN_WORKSPACE_ID
-        });
+            workspace.adoptCommittedTransferPair = data => {
+                order.push('adopt');
+                return adoptCommittedTransferPair(data)
+            };
+            workspace.retireReturnedPopupWorkspace = () => {
+                order.push('retire');
+                return retireReturnedPopupWorkspace()
+            };
+            Neo.Main.windowClose = data => {
+                order.push('close');
+                return windowClose(data)
+            };
 
-        // Synchronous admission is the coordinator gate: model truth + disconnect guard are
-        // committed before the promise-owned projection work starts.
-        expect(commit).toBeTruthy();
-        expect(workspace.dockModel.items.workbench).toEqual(initialDocument.items.workbench);
-        expect(workspace.popupDocument.items.workbench).toBeUndefined();
-        expect(workspace.detachedPanes.workbench).toBeUndefined();
+            workspace.timeout = async () => {};
+            workspace.refreshWorkspace = async (workspaceId, document) => {
+                refreshes.push({document, workspaceId})
+            };
 
-        const receipt = await commit;
+            const commit = workspace.commitCrossWindowTransfer({
+                descriptor,
+                sourceDocument   : returned.sourceDocument,
+                sourceWorkspaceId: DemoBWorkspace.POPUP_WORKSPACE_ID,
+                targetDocument   : returned.targetDocument,
+                targetWorkspaceId: DemoBWorkspace.MAIN_WORKSPACE_ID
+            });
 
-        expect(refreshes.map(entry => entry.workspaceId)).toEqual([
-            DemoBWorkspace.MAIN_WORKSPACE_ID,
-            DemoBWorkspace.POPUP_WORKSPACE_ID
-        ]);
-        expect(receipt).toMatchObject({
-            applied         : true,
-            errors          : [],
-            itemIds         : ['workbench'],
-            workspaceRetired: true
-        });
-        expect(workspace.workspaceSet.ids()).toEqual([DemoBWorkspace.MAIN_WORKSPACE_ID]);
-        expect(workspace.getWorkspaceDocument(DemoBWorkspace.POPUP_WORKSPACE_ID)).toBeNull();
+            // Synchronous admission is the coordinator gate: model truth + disconnect guard are
+            // committed before the promise-owned projection work starts.
+            expect(commit).toBeTruthy();
+            expect(workspace.dockModel.items.workbench).toEqual(initialDocument.items.workbench);
+            expect(workspace.popupDocument.items.workbench).toBeUndefined();
+            expect(workspace.detachedPanes.workbench).toBeUndefined();
 
-        // A later explicit stage is a new lifetime: registration is restored against the current
-        // empty owner field, never kept alive as a ghost entry after the prior vessel retired.
-        expect(workspace.ensurePopupWorkspaceRegistered()).toBe(true);
-        expect(workspace.getWorkspaceDocument(DemoBWorkspace.POPUP_WORKSPACE_ID)).toBe(workspace.popupDocument)
+            const receipt = await commit;
+
+            expect(refreshes.map(entry => entry.workspaceId)).toEqual([
+                DemoBWorkspace.MAIN_WORKSPACE_ID,
+                DemoBWorkspace.POPUP_WORKSPACE_ID
+            ]);
+            expect(receipt).toMatchObject({
+                applied         : true,
+                errors          : [],
+                itemIds         : ['workbench'],
+                workspaceRetired: true
+            });
+            expect(order).toEqual(['adopt', 'retire', 'close']);
+            expect(vessel.closeCalls).toEqual([{
+                names   : ['demo-b-cross-window'],
+                windowId: workspace.windowId
+            }]);
+            expect(workspace.workspaceSet.ids()).toEqual([DemoBWorkspace.MAIN_WORKSPACE_ID]);
+            expect(workspace.getWorkspaceDocument(DemoBWorkspace.POPUP_WORKSPACE_ID)).toBeNull();
+
+            // A later explicit stage is a new lifetime: registration is restored against the current
+            // empty owner field, never kept alive as a ghost entry after the prior vessel retired.
+            expect(workspace.ensurePopupWorkspaceRegistered()).toBe(true);
+            expect(workspace.getWorkspaceDocument(DemoBWorkspace.POPUP_WORKSPACE_ID)).toBe(workspace.popupDocument)
+        } finally {
+            vessel.restore()
+        }
     });
 
     test('the popup group identity reaches the existing preview/candidate pipeline unchanged', () => {
