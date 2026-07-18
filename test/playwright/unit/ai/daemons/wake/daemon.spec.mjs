@@ -1952,6 +1952,186 @@ test.describe('Wake Daemon', () => {
         );
     });
 
+    test('delivers wake events via opencode-server adapter without osascript fallback (#15394)', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-opencode-server';
+
+        // Stub the seat's embedded OpenCode server: captures the prompt_async POST.
+        const captured   = [];
+        const stubServer = http.createServer((req, res) => {
+            let body = '';
+            req.on('data', chunk => body += chunk);
+            req.on('end', () => {
+                captured.push({method: req.method, url: req.url, headers: req.headers, body});
+                res.writeHead(204);
+                res.end();
+            });
+        });
+        await new Promise(resolve => stubServer.listen(0, '127.0.0.1', resolve));
+        const stubPort = stubServer.address().port;
+
+        const envelopePath = path.join(DAEMON_DIR, 'opencode-wake-envelope.json');
+        fs.writeJsonSync(envelopePath, {
+            hostname : '127.0.0.1',
+            port     : stubPort,
+            sessionId: 'ses_test',
+            username : 'wake-user',
+            password : 'wake-pass'
+        });
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'opencode-server',
+                envelopePath,
+                coalesceWindow: 1
+            }
+        });
+
+        const binDir               = path.join(DAEMON_DIR, 'bin');
+        const mockOsascriptPath    = path.join(binDir, 'osascript');
+        const mockOsascriptOutPath = path.join(DAEMON_DIR, 'mock_opencode_osascript_out.json');
+
+        fs.ensureDirSync(binDir);
+        writeMockPs(binDir);
+        fs.writeFileSync(mockOsascriptPath,
+            `#!/usr/bin/env node\n` +
+            `const fs = require('fs');\n` +
+            `fs.writeFileSync(${JSON.stringify(mockOsascriptOutPath)}, JSON.stringify(process.argv.slice(2)));\n`
+        );
+        fs.chmodSync(mockOsascriptPath, 0o755);
+
+        let stdoutLog = '';
+
+        try {
+            daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+                stdio: 'pipe',
+                env  : {
+                    ...process.env,
+                    NEO_MEMORY_DB_PATH: DB_PATH,
+                    NEO_AI_DAEMON_DIR : DAEMON_DIR,
+                    PATH              : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
+                }
+            });
+
+            const deliveryPromise = new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver opencode-server digest within timeout')), 10000);
+
+                daemonProcess.stdout.on('data', (data) => {
+                    const out = data.toString();
+                    stdoutLog += out;
+                    if (out.includes(`[Wake Daemon] Dispatched ${subId} via opencode-server prompt_async`)) {
+                        clearTimeout(timeout);
+                        resolve();
+                    }
+                    if (out.includes(`[Wake Daemon] Delivered ${subId} via osascript`)) {
+                        clearTimeout(timeout);
+                        reject(new Error('Daemon fell back to osascript for opencode-server route'));
+                    }
+                });
+                daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+                daemonProcess.on('error', reject);
+            });
+
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            insertMessageWake(db, {
+                agentId,
+                subject: 'OpenCode Server Wake'
+            });
+
+            await deliveryPromise;
+
+            expect(captured.length).toBe(1);
+
+            const call = captured[0];
+            expect(call.method).toBe('POST');
+            expect(call.url).toBe('/session/ses_test/prompt_async');
+            expect(call.headers.authorization).toBe('Basic ' + Buffer.from('wake-user:wake-pass').toString('base64'));
+
+            const payload = JSON.parse(call.body);
+            expect(payload.parts[0].type).toBe('text');
+            expect(payload.parts[0].text).toContain('OpenCode Server Wake');
+
+            expect(fs.existsSync(mockOsascriptOutPath)).toBe(false);
+            expect(stdoutLog).toContain('route=opencode-server; adapterSource=metadata');
+        } finally {
+            stubServer.close();
+        }
+    });
+
+    test('opencode-server route fails visibly (named throw) when the seat envelope is missing (#15394)', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-opencode-server-missing-envelope';
+
+        const envelopePath = path.join(DAEMON_DIR, 'opencode-wake-envelope-missing.json');
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'opencode-server',
+                envelopePath,
+                coalesceWindow: 1
+            }
+        });
+
+        const binDir               = path.join(DAEMON_DIR, 'bin');
+        const mockOsascriptPath    = path.join(binDir, 'osascript');
+        const mockOsascriptOutPath = path.join(DAEMON_DIR, 'mock_opencode_missing_osascript_out.json');
+
+        fs.ensureDirSync(binDir);
+        writeMockPs(binDir);
+        fs.writeFileSync(mockOsascriptPath,
+            `#!/usr/bin/env node\n` +
+            `const fs = require('fs');\n` +
+            `fs.writeFileSync(${JSON.stringify(mockOsascriptOutPath)}, JSON.stringify(process.argv.slice(2)));\n`
+        );
+        fs.chmodSync(mockOsascriptPath, 0o755);
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {
+                ...process.env,
+                NEO_MEMORY_DB_PATH: DB_PATH,
+                NEO_AI_DAEMON_DIR : DAEMON_DIR,
+                PATH              : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
+            }
+        });
+
+        const failurePromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon did not surface the missing-envelope failure within timeout')), 20000);
+
+            // writeLog routes ERROR to stderr, INFO to stdout — the fail-visible signal lives on stderr.
+            daemonProcess.stderr.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes(`Failed to deliver via opencode-server`) && out.includes(`requires a readable seat envelope at '${envelopePath}'`)) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes(`[Wake Daemon] Delivered ${subId} via osascript`)) {
+                    clearTimeout(timeout);
+                    reject(new Error('Daemon fell back to osascript for a missing-envelope opencode-server route'));
+                }
+            });
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {
+            agentId,
+            subject: 'OpenCode Missing Envelope Wake'
+        });
+
+        await failurePromise;
+
+        // Fail-visible means the named error surfaced AND the GUI path stayed untouched.
+        expect(fs.existsSync(mockOsascriptOutPath)).toBe(false);
+    });
+
     test('Claude default focus seed emits r -> Cmd+Z before prompt clear and guards frontmost (#10987, #10422)', async () => {
         const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-claude';
