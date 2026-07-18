@@ -140,4 +140,37 @@ test.describe('check-agentos-theme.mjs', () => {
 
         expect(failures.some(m => m.startsWith('[text-contrast]'))).toBe(true);
     });
+
+    // A pseudo-class puts a colon in the SELECTOR. Resolving the property from the first colon on the
+    // line therefore read a selector fragment as the property and skipped the check entirely — and
+    // `&:hover { color: … }` is the single likeliest place a sub-floor ink returns.
+    for (const [shape, view] of Object.entries({
+        'element pseudo-class'   : '.a:hover { color: var(--fm-ink-faint); }\n',
+        'nested ampersand hover' : '.a {\n    &:hover { color: var(--fm-ink-faint); }\n}\n',
+        'functional pseudo-class': '.a:not(.b) { color: var(--fm-ink-faint); }\n'
+    })) {
+        test(`text-contrast survives a ${shape} on the declaration line`, () => {
+            const failures = run({dark: FAINT_DARK, light: FAINT_LIGHT, views: {'a.scss': view}});
+
+            expect(failures.some(m => m.startsWith('[text-contrast]'))).toBe(true);
+        });
+    }
+
+    test('an uppercase/mixed-case property is caught (CSS property names are case-insensitive)', () => {
+        const upper = run({dark: FAINT_DARK, light: FAINT_LIGHT, views: {'a.scss': '.a { COLOR: var(--fm-ink-faint); }\n'}}),
+              mixed = run({dark: FAINT_DARK, light: FAINT_LIGHT, views: {'a.scss': '.a { Color: var(--fm-ink-faint); }\n'}});
+
+        expect(upper.some(m => m.startsWith('[text-contrast]'))).toBe(true);
+        expect(mixed.some(m => m.startsWith('[text-contrast]'))).toBe(true);
+    });
+
+    test('a pseudo-class line with a NON-text property stays legal (no over-rejection)', () => {
+        const failures = run({
+            dark : FAINT_DARK,
+            light: FAINT_LIGHT,
+            views: {'a.scss': '.a:hover { background: var(--fm-ink-faint); border-color: var(--fm-ink-faint); color: var(--fm-ink); }\n'}
+        });
+
+        expect(failures.some(m => m.startsWith('[text-contrast]'))).toBe(false);
+    });
 });
