@@ -19,11 +19,11 @@ import OperatorComposeForm from './OperatorComposeForm.mjs';
  *
  * **Capability today = the shipped read-only pane.** The pane is read-only by its own MUST-NOT
  * (operator mark-read would mutate an agent's turn-start signal). The operator's OWN inbox is the
- * one place mark-read is legitimate (own-inbox capability) — but that affordance is keyed by the
- * server-stamped viewer↔target relation the projection delivers, so it lands with that half, not
- * here. Until then the operator inbox reads honestly (the pane's four states), and compose is live
- * once the compose verb + the ingress floor are wired: this surface is complete and inert-safe in
- * the interim, never a fake-capable one.
+ * one place mark-read is legitimate (own-inbox capability, keyed by the server-stamped viewer↔target
+ * relation) — but that write verb is NOT wired here, and this surface does not fake it: own-inbox
+ * mark-read is an EXPLICIT deferred acceptance criterion (tracked as remaining ticket work), never
+ * silently claimed as landing elsewhere. What ships is the honest read (the pane's four states) + live
+ * compose with per-recipient outcomes; the surface is complete and inert-safe for what it does not yet do.
  *
  * The container owns no `state.Provider` (the cockpit scopes it) — `record` / `snapshot` /
  * `recipientOptions` are injected by the cockpit from state it already holds, and passed straight
