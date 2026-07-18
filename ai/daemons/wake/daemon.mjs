@@ -68,6 +68,10 @@ import {
     TASK_STATE_CHANGED_ENTITY_TYPE
 } from '../../services/memory-core/heartbeatPulseEvaluator.mjs';
 import {
+    computeFlushDelayMs,
+    resolveCoalesceWindowMs
+} from './coalescePolicy.mjs';
+import {
     HEAVY_DELTA_SETTLE_MS,
     isHeavyDeltaPoll,
     shouldDeferFlush
@@ -90,7 +94,6 @@ let LOG_FILE;
 let WOKEN_WATERMARK_FILE;
 const LOG_RETENTION_DAYS                = 30;
 const POLL_INTERVAL_MS                  = 3000;
-const DEFAULT_COALESCE_WINDOW_MS        = 30000; // 30 seconds
 const CODEX_APP_SERVER_ADAPTER          = 'codex-app-server';
 const CODEX_TURN_START_PROOF_TIMEOUT_MS = Number(process.env.WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS) || 45000;
 const CODEX_TURN_START_PROOF_POLL_MS    = Number(process.env.WAKE_CODEX_TURN_START_PROOF_POLL_MS) || 1000;
@@ -400,8 +403,13 @@ let db;
 let lastSyncId;
 
 // In-memory queues for coalescing
-// Structure: { [subscriptionId]: { timer: Timeout, queue: [events], subscription: {...} } }
+// Structure: { [subscriptionId]: { timer: Timeout, queue: [events], subscription: {...}, firstQueuedAt: ms } }
 const coalesceState = {};
+
+// Epoch ms of the last non-failed digest dispatch per subscription — the post-flush refractory
+// anchor (see ./coalescePolicy.mjs). Runtime-only by design: the refractory is an anti-chatter
+// guard, so a daemon restart resetting it is harmless.
+const lastFlushAtBySub = {};
 
 // Epoch ms of the most recent poll that observed a heavy GraphLog / data-sync delta. flushSubscription
 // defers while within the settle window of this, so digests are computed against committed read-state
@@ -625,8 +633,9 @@ function queueEvent(subscription, eventPayload, watermarkResetCeiling = 0, water
     if (!coalesceState[subId]) {
         coalesceState[subId] = {
             subscription,
-            queue: [],
-            timer: null,
+            firstQueuedAt: Date.now(),
+            queue        : [],
+            timer        : null,
             watermarkGraphTip,
             watermarkResetCeiling
         };
@@ -662,22 +671,33 @@ function queueEvent(subscription, eventPayload, watermarkResetCeiling = 0, water
         coalesceState[subId].queue.push(eventPayload);
     }
 
-    // Start timer if not running
-    if (!coalesceState[subId].timer) {
-        let coalesceSeconds = subscription.properties?.harnessTargetMetadata?.coalesceWindow;
-        if (coalesceSeconds === undefined || coalesceSeconds === null) coalesceSeconds = DEFAULT_COALESCE_WINDOW_MS / 1000;
+    // ROLLING re-arm on EVERY queued event (not only the first): a trailing arrival extends the
+    // quiet window and joins THIS digest instead of arming the next wake — the fixed-window
+    // wake-per-message cadence at inter-turn message spacing was the dominant token waste.
+    // The hard cap measured from firstQueuedAt bounds total latency, and a recent
+    // delivered flush raises the delay to the post-flush refractory boundary (anti-chatter).
+    // All three decisions are pure policy in ./coalescePolicy.mjs; the window default is the
+    // AiConfig leaf (per-subscription override unchanged; 0 = explicit immediate dispatch,
+    // exempt from refractory and cap by contract).
+    const windowMs = resolveCoalesceWindowMs({
+        overrideSeconds: subscription.properties?.harnessTargetMetadata?.coalesceWindow,
+        defaultSeconds : AiConfig.orchestrator.wakeDispatch.coalesceWindowSeconds
+    });
 
-        // Max 5 minutes, Min 0 seconds
-        coalesceSeconds = Math.max(0, Math.min(300, coalesceSeconds));
-        const windowMs = coalesceSeconds * 1000;
+    if (windowMs === 0) {
+        flushSubscription(subId);
+    } else {
+        const state = coalesceState[subId];
 
-        if (windowMs === 0) {
+        clearTimeout(state.timer);
+        state.timer = setTimeout(() => {
             flushSubscription(subId);
-        } else {
-            coalesceState[subId].timer = setTimeout(() => {
-                flushSubscription(subId);
-            }, windowMs);
-        }
+        }, computeFlushDelayMs({
+            now          : Date.now(),
+            windowMs,
+            firstQueuedAt: state.firstQueuedAt,
+            lastFlushAt  : lastFlushAtBySub[subId] ?? 0
+        }));
     }
 }
 
@@ -843,17 +863,39 @@ async function flushSubscription(subId) {
         return;
     }
 
-    const events           = {messages, tasks, permissions, heartbeats};
-    const deliveryEvidence = buildWakeDeliveryEvidence(events);
-    const digest           = buildWakeDigest(identity, events);
+    const events = {messages, tasks, permissions, heartbeats};
 
-    // Delivery to per-harness adapter. A 'failed' outcome (the adapter dispatch threw against a live
-    // target) is re-queued for retry — carrying the EVENTS, not just this digest string, so a second
-    // failure for the same subscription coalesces them without loss. Successful deliveries are not
-    // re-queued.
-    const deliveryOutcome = await deliverDigest(subscription, digest, deliveryEvidence);
-    if (deliveryOutcome === 'failed') {
+    if (pendingDeliveryRetries.has(subId)) {
+        // Merge-don't-stack: an undelivered digest for this subscription is still pending retry —
+        // the seat has NOT seen that block, so dispatching a second one would stack two [WAKE]
+        // blocks into one eventual prompt (the observed double-block delivery). Merge this flush's
+        // surviving events into the pending entry instead (enqueueDeliveryRetry unions; the
+        // watermark advance below still runs) — the retry path delivers ONE union digest when the
+        // target recovers. Presence-aware mid-turn detection deliberately stays OUT of this
+        // daemon (the presence-aware wake-policy layer owns it); this covers the
+        // daemon-observable undelivered state.
         enqueueDeliveryRetry(subscription, identity, events);
+    } else {
+        const deliveryEvidence = buildWakeDeliveryEvidence(events);
+        const digest           = buildWakeDigest(identity, events);
+
+        // Delivery to per-harness adapter. A 'failed' outcome (the adapter dispatch threw against a
+        // live target) is re-queued for retry — carrying the EVENTS, not just this digest string, so
+        // a second failure for the same subscription coalesces them without loss. Successful
+        // deliveries are not re-queued; they arm the post-flush refractory and emit the uniform
+        // dispatch line (the wakes-per-seat counting surface — `outcome=dispatched` includes
+        // adapter fail-closed skips, which return undefined like successes; only thrown dispatches
+        // are distinguishable as 'failed').
+        const deliveryOutcome = await deliverDigest(subscription, digest, deliveryEvidence);
+        if (deliveryOutcome === 'failed') {
+            enqueueDeliveryRetry(subscription, identity, events);
+        } else {
+            lastFlushAtBySub[subId] = Date.now();
+            writeLog('INFO',
+                `[Wake Dispatch] ${identity || subId}: outcome=dispatched priority=${getHighestWakePriority(messages)} ` +
+                `messages=${messages.length} tasks=${tasks.length} permissions=${permissions.length} heartbeats=${heartbeats.length}`
+            );
+        }
     }
 
     // Advance the per-subscription watermark to the highest delivered logId so these events are not
@@ -1735,6 +1777,9 @@ async function attemptDeliveryRetries() {
             }
         } else {
             pendingDeliveryRetries.delete(subId);
+            // A delivered retry is a wake that reached the seat: arm the same post-flush
+            // refractory the direct path arms, so the next digest keeps its distance.
+            lastFlushAtBySub[subId] = Date.now();
             writeLog('INFO',
                 `[Wake Daemon] Wake delivery for ${subId} succeeded on retry (attempt ${entry.attempts + 1}).`
             )

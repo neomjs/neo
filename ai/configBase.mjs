@@ -936,6 +936,29 @@ class ConfigBase extends ConfigProvider {
                     allIdleIdentities: leaf(null, 'NEO_SWARM_IDENTITIES', 'csv')
                 },
                 /**
+                 * Event-wake dispatch policy — how the wake daemon batches EVENT wakes (message /
+                 * task / permission) into digests. Distinct from `swarmHeartbeat` above (the
+                 * idle-watchdog lane): these knobs shape per-event delivery rate, not idle nudges.
+                 * @type {Object}
+                 */
+                wakeDispatch: {
+                    /**
+                     * Default coalescing window (seconds) for event wakes: after an event queues,
+                     * the daemon waits this long for FURTHER events before flushing one digest —
+                     * and the window is ROLLING (each new arrival extends the wait; the hard
+                     * 300s flush cap in `ai/daemons/wake/coalescePolicy.mjs` bounds total
+                     * latency). Sized for the swarm's real INTER-turn cadence — lifecycle
+                     * messages land minutes apart, and every wake costs a full harness turn, so
+                     * waking per-message is the dominant token waste (the prior 30s fixed
+                     * window produced exactly that). Per-subscription override stays
+                     * `harnessTargetMetadata.coalesceWindow` (same clamp; `0` = explicit
+                     * immediate dispatch). Bound to the `NEO_WAKE_COALESCE_WINDOW_SECONDS`
+                     * env name (NEO_ prefix convention).
+                     * @type {Number}
+                     */
+                    coalesceWindowSeconds: leaf(150, 'NEO_WAKE_COALESCE_WINDOW_SECONDS', 'number')
+                },
+                /**
                  * Local-only maintenance lane switches. Cloud deployments can disable these
                  * without changing remote graph-backed A2A / Memory Core behavior.
                  * `null` means "use the deployment profile default" (`local` enables,
