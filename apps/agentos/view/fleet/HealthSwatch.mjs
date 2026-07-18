@@ -1,32 +1,12 @@
-import Component    from '../../../../src/component/Base.mjs';
-import NeoArray     from '../../../../src/util/Array.mjs';
-import {stateClass} from './StateDot.mjs';
+import Component                from '../../../../src/component/Base.mjs';
+import NeoArray                 from '../../../../src/util/Array.mjs';
+import {stateClass, stateLabel} from './StateDot.mjs';
 
-/**
- * Canonical legend label per session-state category. Kept beside the state→token map so the fleet
- * health summary reads one vocabulary.
- * @type {Object}
- */
-const STATE_LABEL = {
-    ok     : 'working',
-    idle   : 'idle',
-    wedged : 'wedged',
-    limited: 'rate-limited',
-    off    : 'benched / offline'
-};
-
-/**
- * Pure state → label resolver. A known category → its canonical label; an unknown category →
- * the LITERAL category string (never invisible, never silently re-labelled as `off`), so a new
- * runtime state still renders a readable swatch until it earns a canonical label here. Uses an
- * `Object.hasOwn` check (not `MAP[k] ||`) so a prototype-shaped key (`toString`, `constructor`,
- * `__proto__`) resolves to its literal text instead of leaking an inherited Object.prototype value.
- * @param {String} state
- * @returns {String}
- */
-export function stateLabel(state) {
-    return Object.hasOwn(STATE_LABEL, state) ? STATE_LABEL[state] : String(state ?? 'unknown')
-}
+// `stateLabel` now lives beside `stateToken` / `stateClass` in StateDot.mjs so all three closed-set
+// resolvers stay one source of truth — and so the dot can name itself for assistive tech without
+// importing from this consumer, which would close an import cycle. Re-exported here because this
+// module has been the label's public seam; consumers and specs keep their existing import.
+export {stateLabel};
 
 /**
  * A single entry in the fleet health-summary legend / bar: a swatch dot (colored from the same
