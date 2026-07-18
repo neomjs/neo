@@ -157,4 +157,24 @@ test.describe('Fleet cockpit — fusion tour hosting seam', () => {
         expect(result.completed).toBe(false);
         expect(result.errors[0]).toContain('already running')
     });
+
+    test('a detached detail pane refuses the take fail-closed — reattach is a host decision, never an implicit tour side-effect', async () => {
+        const result = await proto.playFusionTour.call({tourRunner: null, detachedDetail: {windowName: 'x'}});
+
+        expect(result.completed).toBe(false);
+        expect(result.errors[0]).toContain('reattach before a take')
+    });
+
+    test('resetTourStage commits a fresh opening document through the standard commit loop — the replay seam', () => {
+        const commits = [];
+        const host    = {onDockZoneDocumentChange: document => commits.push(document)};
+
+        const returned = proto.resetTourStage.call(host);
+
+        expect(commits).toHaveLength(1);
+        expect(commits[0]).toBe(returned);
+        // the committed stage IS the screenplay's opening document (fresh clone, never the frozen original)
+        expect(returned).toEqual(cockpitDockDocument());
+        expect(Object.isFrozen(returned)).toBe(false)
+    });
 });

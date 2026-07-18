@@ -103,15 +103,30 @@ test.describe.serial('apps/agentos/tour/fusionFlagship', () => {
         expect(DockZoneModel.findContainingTabsId(finale, 'stream')).toBeTruthy()
     });
 
-    test('two consecutive runs replay identically — id minting stays stable through prune/re-mint', async () => {
+    test('two consecutive runs on the SAME mounted stage replay identically — the reset seam, not a fresh holder, restores the opening document', async () => {
+        // the reviewer probe this pins: without a stage reset, run 2 replays against run 1's
+        // committed document and splitNode mints `split-fleet-tabs-1` while the script asserts
+        // `-0`. The hosting surface's resetTourStage() commits a fresh opening document; this
+        // witness reuses ONE holder and applies exactly that seam between takes.
         createRunner();
 
-        const first = await runner.start();
+        const holder = Neo.getComponent('fusion-stage');
+        const first  = await runner.start();
 
         expect(first.completed).toBe(true);
 
         runner.destroy();
-        createRunner();
+
+        // the reset seam's document semantics (clone the screenplay's opening stage), applied
+        // to the SAME holder — never a fresh one
+        holder.dockZoneDocument = DockZoneModel.clone(initialDocument);
+
+        runner = Neo.create(TourRunner, {
+            componentId: 'fusion-stage',
+            dockService: service,
+            mode       : 'spec',
+            script     : fusionTourScript
+        });
 
         const second = await runner.start();
 

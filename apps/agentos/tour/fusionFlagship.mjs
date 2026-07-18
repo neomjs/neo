@@ -84,7 +84,7 @@ export const fusionTourScript = Object.freeze({
         caption: 'detachItem: the detail becomes a real OS window on the SAME SharedWorker heap. Reparent, never recreate — the stream underneath keeps ticking through the hop.',
         steps  : [
             {type: 'pause', ms: 900, cue: {type: 'popout', itemId: 'detail'}, caption: 'pop out(detail): the host vessel flow runs — detachItem commits, the catalog record becomes the vessel ownership, a REAL OS window opens'},
-            {type: 'pause', ms: 2200, caption: 'two OS windows, one heap: the SAME component instance, the SAME live subscriptions — this is what portal architectures cannot do'},
+            {type: 'pause', ms: 2200, caption: 'two OS windows, one heap: the SAME component instance, the SAME live subscriptions — none of the docking libraries surveyed in ADR-0029 §4 offered this'},
             {type: 'pause', ms: 900, cue: {type: 'reattach', itemId: 'detail'}, caption: 'reattach(detail): home again — same instance, same state, zero re-mount'},
             {type: 'pause', ms: 1200}
         ]
@@ -94,7 +94,7 @@ export const fusionTourScript = Object.freeze({
         caption: 'A workspace you can hand to a teammate: save it, export the JSON, prove the round-trip by morphing away and importing it back.',
         steps  : [
             {type: 'pause', ms: 700, cue: {type: 'perspective-save', name: 'Shared Session'}, caption: 'save("Shared Session"): the current shape, named'},
-            {type: 'pause', ms: 700, cue: {type: 'perspective-export', name: 'Shared Session'}, caption: 'export("Shared Session"): one copyable JSON artifact — the whole layout, no backend'},
+            {type: 'pause', ms: 700, cue: {type: 'perspective-export', name: 'Shared Session'}, caption: 'export("Shared Session"): the whole layout as one JSON artifact, readable over the Neural Link — no backend'},
             {type: 'pause', ms: 1100, cue: {type: 'perspective-load', name: 'Mission Control'}, caption: 'load("Mission Control"): morph away — the shared shape is gone from the stage'},
             {type: 'pause', ms: 1100, cue: {type: 'perspective-import', name: 'Shared Session'}, caption: 'import(artifact): the JSON comes back through validation, exactly as exported'},
             {type: 'pause', ms: 1100, cue: {type: 'perspective-load', name: 'Shared Session'}, caption: 'load("Shared Session"): the teammate sees YOUR workspace — fingerprint-equal, asserted in the e2e leg'},

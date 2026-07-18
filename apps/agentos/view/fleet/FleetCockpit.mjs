@@ -1,29 +1,29 @@
-import ActivityStream              from './ActivityStream.mjs';
-import AddAgentForm                from './AddAgentForm.mjs';
-import AgentDetail                 from './AgentDetail.mjs';
-import Button                      from '../../../../src/button/Base.mjs';
-import Component                   from '../../../../src/component/Base.mjs';
-import Container                   from '../../../../src/container/Base.mjs';
-import DockLayoutAdapter           from '../../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockMotionSignal            from '../../../../src/dashboard/DockMotionSignal.mjs';
-import DockPerspectiveStore        from '../../../../src/dashboard/DockPerspectiveStore.mjs';
-import DockPreviewProducer         from '../../../../src/dashboard/DockPreviewProducer.mjs';
-import DockProjectionReconciler    from '../../../../src/dashboard/DockProjectionReconciler.mjs';
-import DockService                 from '../../../../src/ai/client/DockService.mjs';
-import DockZoneModel               from '../../../../src/dashboard/DockZoneModel.mjs';
-import FleetCockpitController      from './FleetCockpitController.mjs';
-import FleetGrid                   from './FleetGrid.mjs';
-import FleetRoster                 from '../../store/FleetRoster.mjs';
-import OperatorMailbox             from './OperatorMailbox.mjs';
-import StateProvider               from '../../../../src/state/Provider.mjs';
-import TourRunner                  from '../../../../src/ai/client/TourRunner.mjs';
-import cockpitDockDocument         from './cockpitDockDocument.mjs';
-import cockpitPresetCollection     from './cockpitPresets.mjs';
-import {createDockTearOutHandlers} from '../../../../src/dashboard/DockTearOut.mjs';
-import {deriveSpineBanner}         from './spineBanner.mjs';
-import {fusionTourScript}          from '../../tour/fusionFlagship.mjs';
-import {mapFleetSessionHealth}     from './sourceHealth.mjs';
-import {previewToOperation}        from '../../../../src/dashboard/dockPreviewContract.mjs';
+import ActivityStream                                               from './ActivityStream.mjs';
+import AddAgentForm                                                 from './AddAgentForm.mjs';
+import AgentDetail                                                  from './AgentDetail.mjs';
+import Button                                                       from '../../../../src/button/Base.mjs';
+import Component                                                    from '../../../../src/component/Base.mjs';
+import Container                                                    from '../../../../src/container/Base.mjs';
+import DockLayoutAdapter                                            from '../../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockMotionSignal                                             from '../../../../src/dashboard/DockMotionSignal.mjs';
+import DockPerspectiveStore                                         from '../../../../src/dashboard/DockPerspectiveStore.mjs';
+import DockPreviewProducer                                          from '../../../../src/dashboard/DockPreviewProducer.mjs';
+import DockProjectionReconciler                                     from '../../../../src/dashboard/DockProjectionReconciler.mjs';
+import DockService                                                  from '../../../../src/ai/client/DockService.mjs';
+import DockZoneModel                                                from '../../../../src/dashboard/DockZoneModel.mjs';
+import FleetCockpitController                                       from './FleetCockpitController.mjs';
+import FleetGrid                                                    from './FleetGrid.mjs';
+import FleetRoster                                                  from '../../store/FleetRoster.mjs';
+import OperatorMailbox                                              from './OperatorMailbox.mjs';
+import StateProvider                                                from '../../../../src/state/Provider.mjs';
+import TourRunner                                                   from '../../../../src/ai/client/TourRunner.mjs';
+import cockpitDockDocument                                          from './cockpitDockDocument.mjs';
+import cockpitPresetCollection                                      from './cockpitPresets.mjs';
+import {createDockTearOutHandlers}                                  from '../../../../src/dashboard/DockTearOut.mjs';
+import {deriveSpineBanner}                                          from './spineBanner.mjs';
+import {fusionTourScript, initialDocument as fusionInitialDocument} from '../../tour/fusionFlagship.mjs';
+import {mapFleetSessionHealth}                                      from './sourceHealth.mjs';
+import {previewToOperation}                                         from '../../../../src/dashboard/dockPreviewContract.mjs';
 import '../../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the dock projection emits for tab zones
 
 /**
@@ -544,11 +544,12 @@ class FleetCockpit extends Container {
      */
     tourRunner = null
     /**
-     * The share beat's v1 artifact: the exported perspective record as a JSON string — the
-     * copyable layout a teammate could paste back. Held on the instance (no backend by design);
-     * the import cue consumes it, the e2e leg asserts round-trip fingerprint equality through it.
+     * The share beat's v1 artifact: the exported perspective record as a JSON string. The v1
+     * transfer boundary is the Neural Link property read (an agent on the shared heap reads
+     * this member and imports it on another cockpit) — deliberately NOT a UI copy affordance
+     * yet, and no backend by design. The import cue consumes it; the e2e leg asserts round-trip
+     * fingerprint equality through it.
      * @member {String|null} sharedPerspectiveArtifact=null
-     * @protected
      */
     sharedPerspectiveArtifact = null
     /**
@@ -668,6 +669,19 @@ class FleetCockpit extends Container {
             return {completed: false, cueErrors: [], errors: ['a tour is already running'], log: []}
         }
 
+        // fail-closed preconditions for a deterministic take: a detached detail pane belongs to
+        // a previous (possibly failed) vessel cycle — reattach is a host decision, never an
+        // implicit tour side-effect.
+        if (me.detachedDetail) {
+            return {completed: false, cueErrors: [], errors: ['agent-detail is detached — reattach before a take'], log: []}
+        }
+
+        // REPLAY contract: every take starts from the screenplay's own opening stage. Without
+        // this reset a second run replays against the previous run's committed document and the
+        // reducer mints differently-numbered nodes than the script's expects pin.
+        me.resetTourStage();
+        await me.refreshPromise;
+
         me.cuePromise  = Promise.resolve();
         me.cueReceipts = [];
         me.cueErrors   = [];
@@ -705,6 +719,21 @@ class FleetCockpit extends Container {
             me.tourRunner = null;
             me.setTourCaption('')
         }
+    }
+
+    /**
+     * @summary Commits the fusion screenplay's opening document as the live stage — the tour
+     * replay seam. Rides the standard commit loop ({@link #onDockZoneDocumentChange}), so the
+     * reset re-projects exactly like any committed operation; the caller awaits
+     * {@link #refreshPromise} for the settled view.
+     * @returns {Object} The freshly committed opening document.
+     */
+    resetTourStage() {
+        let me       = this,
+            document = DockZoneModel.clone(fusionInitialDocument);
+
+        me.onDockZoneDocumentChange(document);
+        return document
     }
 
     /**
