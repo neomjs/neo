@@ -7,6 +7,11 @@ setup({
 });
 
 import {test, expect}               from '@playwright/test';
+// the machine module is deliberately pure (no Neo import), so THIS spec must populate the
+// Neo namespace setup() touches — without these, the file is green in a shared worker (a
+// sibling spec populated Neo first) and red run ALONE: a test-isolation leak, not a machine fact
+import Neo                          from '../../../../src/Neo.mjs';
+import * as core                    from '../../../../src/core/_export.mjs';
 import {createDockKeyboardCommands} from '../../../../src/dashboard/DockKeyboardCommands.mjs';
 
 /**
