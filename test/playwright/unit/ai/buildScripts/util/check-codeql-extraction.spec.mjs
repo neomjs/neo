@@ -1,5 +1,5 @@
-import {test, expect}                                        from '@playwright/test';
-import {findCodeqlExtractionErrors, EXTRACTION_GROUP_MARKER} from '../../../../../../buildScripts/util/check-codeql-extraction.mjs';
+import {test, expect}                                                                       from '@playwright/test';
+import {findCodeqlExtractionErrors, summarizeExtractionAcrossLegs, EXTRACTION_GROUP_MARKER} from '../../../../../../buildScripts/util/check-codeql-extraction.mjs';
 
 /**
  * @summary The discriminating heart of the CodeQL extraction gate: given the raw Analyze-job
@@ -96,5 +96,55 @@ test.describe('buildScripts/util/check-codeql-extraction — findCodeqlExtractio
         const line = `${ts}  * src/Dup.mjs#L1C1:1: A parse error occurred: \`Unexpected token\`\n`;
 
         expect(findCodeqlExtractionErrors(line + line).files).toEqual(['src/Dup.mjs'])
+    });
+
+    // --- summarizeExtractionAcrossLegs: matrix-robust aggregation (Euclid's matrix-false-clean finding) ---
+
+    const cleanLog = `${ts}Running CodeQL analysis.\n`;
+    const dropLog  = file => `${ts}##[group]${EXTRACTION_GROUP_MARKER} (1 result)\n${ts}  * ${file}#L1C1:1: A parse error occurred: \`Unexpected token\`\n`;
+
+    test('all matrix legs clean → no errors, legCount counted', () => {
+        const legs = [{name: 'Analyze (javascript)', log: cleanLog}, {name: 'Analyze (python)', log: cleanLog}];
+
+        expect(summarizeExtractionAcrossLegs(legs)).toEqual({hasErrors: false, dropped: [], legCount: 2})
+    });
+
+    test('a drop in a NON-first leg is caught — the matrix-shaped false-clean the `find`-first form missed', () => {
+        // js clean, python drops, go clean: certifying only the first (js) leg would pass this falsely
+        const legs = [
+            {name: 'Analyze (javascript)', log: cleanLog},
+            {name: 'Analyze (python)',     log: dropLog('ai/x.py')},
+            {name: 'Analyze (go)',         log: cleanLog}
+        ];
+        const result = summarizeExtractionAcrossLegs(legs);
+
+        expect(result.hasErrors).toBe(true);
+        expect(result.dropped).toEqual([{leg: 'Analyze (python)', file: 'ai/x.py'}]);
+        expect(result.legCount).toBe(3)
+    });
+
+    test('drops in MULTIPLE legs aggregate, each tagged with its leg', () => {
+        const legs = [
+            {name: 'Analyze (javascript)', log: dropLog('src/a.mjs')},
+            {name: 'Analyze (python)',     log: dropLog('ai/b.py')}
+        ];
+
+        expect(summarizeExtractionAcrossLegs(legs).dropped).toEqual([
+            {leg: 'Analyze (javascript)', file: 'src/a.mjs'},
+            {leg: 'Analyze (python)',     file: 'ai/b.py'}
+        ])
+    });
+
+    test('a leg with the group header but unparsed per-file bullets still fails, file:null tagged to the leg', () => {
+        const legs   = [{name: 'Analyze (javascript)', log: `${ts}##[group]${EXTRACTION_GROUP_MARKER} (1 result)\n${ts}[drifted format]\n`}];
+        const result = summarizeExtractionAcrossLegs(legs);
+
+        expect(result.hasErrors).toBe(true);
+        expect(result.dropped).toEqual([{leg: 'Analyze (javascript)', file: null}])
+    });
+
+    test('empty / non-array legs → no errors, total (never throws certifying an unread matrix)', () => {
+        expect(summarizeExtractionAcrossLegs([])).toEqual({hasErrors: false, dropped: [], legCount: 0});
+        expect(summarizeExtractionAcrossLegs(undefined)).toEqual({hasErrors: false, dropped: [], legCount: 0})
     })
 });

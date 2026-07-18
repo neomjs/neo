@@ -64,17 +64,46 @@ export function findCodeqlExtractionErrors(logText) {
 }
 
 /**
- * @summary I/O wrapper: fetch the completed Analyze job's raw log for this run via the Actions API.
- * Runs inside a `needs: analyze` guard job, so the Analyze job has finished and its log is available.
+ * @summary Pure aggregation across EVERY Analyze matrix leg — the matrix-robust verdict. A language
+ * matrix produces one `Analyze (<lang>)` leg per language, and a drop in ANY leg is a drop; certifying
+ * only the first leg is a matrix-shaped false-clean. Runs each leg's log through the parser and returns
+ * every dropped file tagged with its leg.
+ * @param {Array<{name: String, log: String}>} legs One entry per completed Analyze leg.
+ * @returns {{hasErrors: Boolean, dropped: Array<{leg: String, file: String|null}>, legCount: Number}}
+ *     `file` is `null` for a leg whose group header fired but whose per-file bullets did not parse.
+ */
+export function summarizeExtractionAcrossLegs(legs) {
+    const rows    = Array.isArray(legs) ? legs : [],
+          dropped = [];
+
+    for (const {name, log} of rows) {
+        const {hasErrors, files, groupMarkerSeen} = findCodeqlExtractionErrors(log);
+
+        if (!hasErrors) continue;
+
+        if (files.length) {
+            files.forEach(file => dropped.push({leg: name, file}))
+        } else if (groupMarkerSeen) {
+            // the header proves a drop even when the per-file bullet format drifts — never swallow it
+            dropped.push({leg: name, file: null})
+        }
+    }
+
+    return {hasErrors: dropped.length > 0, dropped, legCount: rows.length}
+}
+
+/**
+ * @summary I/O wrapper: fetch the raw log of EVERY completed Analyze matrix leg for this run via the
+ * Actions API. A `needs: analyze` guard runs after all legs finish, so each leg's log is available.
+ * A single leg's fetch failure throws — an unread leg is an uncertified leg, never a silent pass.
  * @param {Object} params
  * @param {String} params.repo `owner/name` (`GITHUB_REPOSITORY`).
  * @param {String|Number} params.runId `GITHUB_RUN_ID`.
  * @param {String} params.token `GITHUB_TOKEN` with `actions:read`.
- * @param {RegExp} [params.jobNameMatch=/Analyze/] Match for the CodeQL analyze job's name (matrixed
- *     names like `Analyze (javascript)` are covered).
- * @returns {Promise<String>} the Analyze job's raw log text.
+ * @param {RegExp} [params.jobNameMatch=/Analyze/] Match for the CodeQL analyze leg names (`Analyze (javascript)`, …).
+ * @returns {Promise<Array<{name: String, log: String}>>} one entry per matching Analyze leg.
  */
-export async function fetchAnalyzeJobLog({repo, runId, token, jobNameMatch = /Analyze/}) {
+export async function fetchAnalyzeJobLogs({repo, runId, token, jobNameMatch = /Analyze/}) {
     const base    = 'https://api.github.com',
           headers = {Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'};
 
@@ -82,19 +111,21 @@ export async function fetchAnalyzeJobLog({repo, runId, token, jobNameMatch = /An
     if (!jobsRes.ok) throw new Error(`fetch run jobs failed: ${jobsRes.status} ${jobsRes.statusText}`);
 
     const {jobs = []} = await jobsRes.json(),
-          analyze     = jobs.find(job => jobNameMatch.test(job.name));
-    if (!analyze) throw new Error(`no job matching ${jobNameMatch} in run ${runId} (jobs: ${jobs.map(j => j.name).join(', ')})`);
+          legs        = jobs.filter(job => jobNameMatch.test(job.name));
+    if (!legs.length) throw new Error(`no job matching ${jobNameMatch} in run ${runId} (jobs: ${jobs.map(j => j.name).join(', ')})`);
 
-    const logRes = await fetch(`${base}/repos/${repo}/actions/jobs/${analyze.id}/logs`, {headers, redirect: 'follow'});
-    if (!logRes.ok) throw new Error(`fetch Analyze job log failed: ${logRes.status} ${logRes.statusText}`);
+    return Promise.all(legs.map(async leg => {
+        const logRes = await fetch(`${base}/repos/${repo}/actions/jobs/${leg.id}/logs`, {headers, redirect: 'follow'});
+        if (!logRes.ok) throw new Error(`fetch Analyze leg "${leg.name}" log failed: ${logRes.status} ${logRes.statusText}`);
 
-    return logRes.text()
+        return {name: leg.name, log: await logRes.text()}
+    }))
 }
 
 /**
- * @summary CLI entry: fetch the Analyze log, run the pure parser, exit non-zero (naming the files) on
- * any dropped file. Fail-closed: if the log cannot be fetched, exit non-zero rather than certify clean
- * from a surface it never read — a silent pass here is exactly the false-clean the gate exists to kill.
+ * @summary CLI entry: fetch EVERY Analyze leg's log, aggregate the parser verdict, exit non-zero
+ * (naming each dropped file + its leg) on any drop. Fail-closed: if a log cannot be fetched, exit
+ * non-zero rather than certify clean from a surface it never read — the exact false-clean the gate kills.
  */
 async function main() {
     const repo  = process.env.GITHUB_REPOSITORY,
@@ -106,27 +137,26 @@ async function main() {
         process.exit(2)
     }
 
-    let log;
+    let legs;
     try {
-        log = await fetchAnalyzeJobLog({repo, runId, token})
+        legs = await fetchAnalyzeJobLogs({repo, runId, token})
     } catch (error) {
-        console.error(`check-codeql-extraction: could not read the Analyze-job log — refusing to certify clean from an unread surface.\n  ${error.message}`);
+        console.error(`check-codeql-extraction: could not read an Analyze-leg log — refusing to certify clean from an unread surface.\n  ${error.message}`);
         process.exit(2)
     }
 
-    const {hasErrors, files, groupMarkerSeen} = findCodeqlExtractionErrors(log);
+    const {hasErrors, dropped, legCount} = summarizeExtractionAcrossLegs(legs);
 
     if (hasErrors) {
-        console.error('❌ CodeQL dropped source file(s) for parse errors — scanning coverage was silently lost:');
-        files.forEach(file => console.error(`   • ${file}`));
-        if (groupMarkerSeen && !files.length) {
-            console.error('   (extractor group header present; per-file names not parsed — open the Analyze job log for the list)')
-        }
+        console.error(`❌ CodeQL dropped source file(s) for parse errors across ${legCount} Analyze leg(s) — scanning coverage was silently lost:`);
+        dropped.forEach(({leg, file}) => console.error(
+            file ? `   • [${leg}] ${file}` : `   • [${leg}] (group header present; per-file names not parsed — open the leg's log)`
+        ));
         console.error('\nA file CodeQL cannot parse emits ZERO alerts and clears the alert-gate clean, so this never surfaces as a security finding. Fix the parse error (or explicitly exclude the file) so coverage is honest.');
         process.exit(1)
     }
 
-    console.log('✅ CodeQL extraction clean — no files dropped for parse errors.')
+    console.log(`✅ CodeQL extraction clean — no files dropped across ${legCount} Analyze leg(s).`)
 }
 
 // only run the CLI when invoked directly, so the spec can import the pure parser without side effects
