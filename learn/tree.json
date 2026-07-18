@@ -159,6 +159,7 @@
             {"name": "Whitebox E2E",                                   "parentId": "guides/testing",                                      "id": "guides/testing/WhiteboxE2E"},
         {"name": "Specific Applications/Features",                     "parentId": "guides",                             "isLeaf": false, "id": "guides/specificfeatures", "collapsed": true},
             {"name": "Multi-Window Applications",                      "parentId": "guides/specificfeatures",                             "id": "guides/specificfeatures/MultiWindow", "hidden":  true},
+            {"name": "Tear-Out Portability Matrix",                    "parentId": "guides/specificfeatures",                             "id": "guides/specificfeatures/TearOutPortabilityMatrix", "hidden": true},
             {"name": "Mixins",                                         "parentId": "guides/specificfeatures",                             "id": "guides/specificfeatures/Mixins", "hidden": true},
             {"name": "Portal App",                                     "parentId": "guides/specificfeatures",                             "id": "guides/specificfeatures/PortalApp"},
         {"name": "DevIndex App",                                       "parentId": "guides",                             "isLeaf": false, "id": "guides/devindex", "collapsed": true},
