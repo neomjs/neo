@@ -24,6 +24,14 @@ class View extends Base {
          */
         baseCls: ['neo-grid-view', 'neo-hide-scrollbar'],
         /**
+         * grid.View is the single logical focus anchor for the multi-body grid: its outer element is
+         * programmatically focusable (`tabIndex: '-1'`, not tab-reachable), so a row activation in ANY
+         * body resolves to ONE View-owned focus state instead of an accidental per-body user-agent ring.
+         * @member {Object} _vdom={tabIndex:'-1',cn:[]}
+         */
+        _vdom:
+            {tabIndex: '-1', cn: []},
+        /**
          * Back-reference to the owning grid.Container (the macro layer). grid.View orchestrates the
          * 1-3 bodies (`bodyStart`, `body`, `bodyEnd`) but reaches up to the container for macro state
          * it does not own — column distribution and the ScrollManager (horizontal scroll position plus
@@ -31,6 +39,14 @@ class View extends Base {
          * @member {Neo.grid.Container|null} gridContainer=null
          */
         gridContainer: null,
+        /**
+         * Empty keys container so the single View-owned SelectionModel registers its Up/Down handlers
+         * HERE (`view.keys._keys`) — grid.View is the single key registry, the keyboard half of the
+         * multi-body focus/selection centralization (the earlier split left keyboard migration for
+         * follow-up). Now that a row activation focuses the View, ArrowUp/Down reach these handlers directly.
+         * @member {Object} keys={}
+         */
+        keys: {},
         /**
          * @member {Object} layout={ntype: 'hbox', align: 'stretch'}
          * @protected

@@ -6,7 +6,9 @@
     overflow-y     : scroll;
     position       : relative;
 
-    &:focus {
+    // A pointer / programmatic focus (a row activation) must not paint an accidental user-agent ring;
+    // a keyboard-origin focus keeps its intentional :focus-visible outline for a11y.
+    &:focus:not(:focus-visible) {
         outline: none;
     }
 

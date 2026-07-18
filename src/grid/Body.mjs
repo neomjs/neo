@@ -238,7 +238,7 @@ class GridBody extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-            { tabIndex: '-1', cn: [] }
+            { cn: [] }
     }
 
     /**
@@ -1229,9 +1229,13 @@ class GridBody extends Component {
      * @param {Object} data
      */
     onRowClick(data) {
-        let me = this;
+        let me     = this,
+            {view} = me.gridContainer;
 
-        me.focus(me.vdom.id, false, true);
+        // Focus the View, not this physical body: a row activation in ANY body resolves to one
+        // View-owned focus state (bodies are render/event delegates). preventScroll keeps the
+        // row-click from moving the scroll position; the View's `keys` still catch Up/Down from here.
+        view.focus(view.id, false, true);
         me.fireRowEvent(data, 'rowClick')
     }
 
