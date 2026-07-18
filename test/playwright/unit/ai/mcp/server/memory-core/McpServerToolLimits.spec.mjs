@@ -62,20 +62,23 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
         const tool = tools.find(item => item.name === 'manage_wake_subscription');
         const metadata = tool.inputSchema.properties.harnessTargetMetadata;
 
-        expect(metadata.required).toContain('appName');
+        expect(metadata.required).toBeUndefined();
+        expect(metadata.description).toContain("not for adapter 'opencode-server'");
         expect(Object.keys(metadata.properties)).toEqual(expect.arrayContaining([
             'addressType',
             'adapter',
             'appName',
             'coalesceWindow',
             'daemonSocketPath',
+            'envelopePath',
             'focusSeedKey',
             'instanceAddress',
             'tabShortcut',
             'tmuxSession',
             'url'
         ]));
-        expect(metadata.properties.adapter.enum).toEqual(['osascript', 'tmux', 'codex-app-server']);
+        expect(metadata.properties.adapter.enum).toEqual(['osascript', 'tmux', 'codex-app-server', 'opencode-server']);
+        expect(metadata.properties.envelopePath.type).toBe('string');
         expect(metadata.properties.addressType.enum).toEqual(['userDataDir', 'pid', 'tmuxSession', 'webhookUrl']);
     });
 

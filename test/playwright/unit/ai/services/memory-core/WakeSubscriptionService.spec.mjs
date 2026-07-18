@@ -747,6 +747,61 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         });
     });
 
+    test('subscribe with the opencode-server adapter succeeds WITHOUT appName (#15394 — the route is publicly registerable)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            const res = await WakeSubscriptionService.subscribe({
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {
+                    adapter     : 'opencode-server',
+                    envelopePath: '/tmp/test-opencode-wake-envelope.json'
+                }
+            });
+
+            expect(res.subscriptionId).toMatch(/^WAKE_SUB:[0-9a-f-]{36}$/);
+
+            const node = GraphService.db.nodes.get(res.subscriptionId);
+            expect(node.properties.harnessTarget).toBe('bridge-daemon');
+            expect(node.properties.harnessTargetMetadata.adapter).toBe('opencode-server');
+            expect(node.properties.harnessTargetMetadata.envelopePath).toBe('/tmp/test-opencode-wake-envelope.json');
+            expect(node.properties.harnessTargetMetadata.appName).toBeUndefined();
+        });
+    });
+
+    test('subscribe with the opencode-server adapter defaults envelopePath (daemon-side default applies)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            const res = await WakeSubscriptionService.subscribe({
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {adapter: 'opencode-server'}
+            });
+
+            const node = GraphService.db.nodes.get(res.subscriptionId);
+            expect(node.properties.harnessTargetMetadata.adapter).toBe('opencode-server');
+            expect(node.properties.harnessTargetMetadata.envelopePath).toBeUndefined();
+        });
+    });
+
+    test('subscribe rejects an unknown adapter', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            await expect(WakeSubscriptionService.subscribe({
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {adapter: 'opencode-serve'}
+            })).rejects.toThrow("Invalid adapter 'opencode-serve'. Must be one of: osascript, tmux, codex-app-server, opencode-server");
+        });
+    });
+
+    test('subscribe with bridge-daemon + a non-opencode adapter still requires appName', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            await expect(WakeSubscriptionService.subscribe({
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {adapter: 'tmux'}
+            })).rejects.toThrow('Shape C (bridge-daemon) requires harnessTargetMetadata.appName');
+        });
+    });
+
     test('subscribe rejects partial generic instance addressing (#12422)', async () => {
         await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
             await expect(WakeSubscriptionService.subscribe({

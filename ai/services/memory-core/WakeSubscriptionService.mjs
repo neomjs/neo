@@ -85,6 +85,18 @@ class WakeSubscriptionService extends Base {
     validAppNames = ['Antigravity', 'Claude', 'Codex']
 
     /**
+     * @member {String[]} validAdapters
+     *
+     * Delivery-adapter identifiers accepted in `harnessTargetMetadata.adapter`. The first three
+     * dispatch through GUI/CLI control planes (osascript, tmux, the Codex app-server);
+     * `opencode-server` routes through the seat's embedded HTTP server via its seat envelope
+     * and is exempt from the bridge-daemon `appName` requirement.
+     *
+     * @protected
+     */
+    validAdapters = ['osascript', 'tmux', 'codex-app-server', 'opencode-server']
+
+    /**
      * In-memory write-through cache for sub-millisecond trigger evaluation.
      * Keyed by subscriptionId; values are the full WAKE_SUBSCRIPTION node payload.
      * Populated lazily on `list` and on every mutation; rebuilt at boot from graph state
@@ -1025,8 +1037,16 @@ class WakeSubscriptionService extends Base {
      * @protected
      */
     validateHarnessTargetMetadata(harnessTarget, metadata = {}) {
-        if (harnessTarget === 'bridge-daemon' && !metadata.appName) {
+        if (metadata.adapter !== undefined && !this.validAdapters.includes(metadata.adapter)) {
+            throw new Error(`Invalid adapter '${metadata.adapter}'. Must be one of: ${this.validAdapters.join(', ')}`);
+        }
+        // The osascript-style bridge-daemon routes need an appName target; the opencode-server
+        // adapter routes by seat envelope instead and is exempt (its authority is the envelope file).
+        if (harnessTarget === 'bridge-daemon' && metadata.adapter !== 'opencode-server' && !metadata.appName) {
             throw new Error('Shape C (bridge-daemon) requires harnessTargetMetadata.appName.');
+        }
+        if (metadata.envelopePath !== undefined && typeof metadata.envelopePath !== 'string') {
+            throw new Error('harnessTargetMetadata.envelopePath must be a string when provided.');
         }
         if (metadata.appName && !this.validAppNames.includes(metadata.appName)) {
             throw new Error(`Invalid appName '${metadata.appName}'. Must be one of: ${this.validAppNames.join(', ')}`);

@@ -36,6 +36,7 @@ import {assertConfigFresh}   from '../../scripts/setup/initServerConfigs.mjs';
 import {WAKE_LANE_DIRECTIVE} from './wakeLaneDirective.mjs';
 
 import fs                               from 'fs-extra';
+import os                               from 'os';
 import path                             from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { spawn, execSync }              from 'child_process';
@@ -96,6 +97,7 @@ let WOKEN_WATERMARK_FILE;
 const LOG_RETENTION_DAYS                = 30;
 const POLL_INTERVAL_MS                  = 3000;
 const CODEX_APP_SERVER_ADAPTER          = 'codex-app-server';
+const OPENCODE_SERVER_ADAPTER           = 'opencode-server';
 const CODEX_TURN_START_PROOF_TIMEOUT_MS = Number(process.env.WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS) || 45000;
 const CODEX_TURN_START_PROOF_POLL_MS    = Number(process.env.WAKE_CODEX_TURN_START_PROOF_POLL_MS) || 1000;
 const CODEX_WAKE_SUBMIT_NONCE_PREFIX    = 'NEO_WAKE_SUBMIT_NONCE:';
@@ -1008,6 +1010,87 @@ async function deliverViaCodexAppServer(subscription, digest, evidenceLabel = ''
 }
 
 /**
+ * @summary Dispatches a wake digest into a live OpenCode session through the seat's embedded
+ * HTTP server (`POST /session/:id/prompt_async` — async, non-interactive, 204 fire-and-forget).
+ *
+ * Explicit route for subscriptions configured as `opencode-server`. It intentionally does not
+ * fall back to `osascript`/tmux; a route explicitly configured as `opencode-server` must fail
+ * visibly instead of recreating the GUI-focus delivery path (codex-app-server parity).
+ *
+ * **First-boot envelope contract** (what an OpenCode seat's self-registration must provide):
+ * the seat side writes a JSON envelope, refreshed per session, carrying
+ * `{hostname, port, sessionId, username, password, projectId, updatedAt}` — the embedded
+ * server's coordinates (a random localhost port per boot), the live `sessionId`, and the
+ * basic-auth credentials the seat was spawned with (`OPENCODE_SERVER_USERNAME` /
+ * `OPENCODE_SERVER_PASSWORD`). Default location `~/.local/share/opencode/wake-envelope.json`
+ * (mode 0600), overridable via `harnessTargetMetadata.envelopePath`. The daemon re-reads the
+ * envelope on every delivery, so port/session rotation needs no graph write. The reference
+ * writer is `ai/services/fleet/opencodeWakeEnvelopePlugin.mjs` (plant into the seat's global
+ * OpenCode plugins directory).
+ *
+ * Probe evidence (2026-07-18, seat `@neo-kimi-phoebe`, OpenCode desktop 1.18.3): embedded
+ * server on a random localhost port, basic auth accepted from the seat's spawn env, and a
+ * live `prompt_async` injection into the seat's own running session (HTTP 204, wake text
+ * landed as a session message).
+ *
+ * @param {Object} subscription WAKE_SUBSCRIPTION node.
+ * @param {String} digest Wake digest body.
+ * @param {String} [evidenceLabel=''] Formatted wake scenario / route evidence for validation logs.
+ * @param {AbortSignal|null} [abortSignal=null] Shared attempt-bound signal from the delivery owner.
+ * @returns {Promise<void>}
+ */
+async function deliverViaOpencodeServer(subscription, digest, evidenceLabel = '', abortSignal = null) {
+    const meta         = subscription.properties?.harnessTargetMetadata || {};
+    const envelopePath = meta.envelopePath || path.join(os.homedir(), '.local', 'share', 'opencode', 'wake-envelope.json');
+
+    let envelope;
+    try {
+        envelope = JSON.parse(await fs.readFile(envelopePath, 'utf8'));
+    } catch (err) {
+        throw new Error(`opencode-server requires a readable seat envelope at '${envelopePath}' (${err.message})`);
+    }
+
+    const {hostname, port, sessionId, username, password} = envelope;
+
+    // Typed + authority-checked coordinates: a malformed or hostile envelope must never steer the
+    // daemon's HTTP client off the seat's loopback server. Delivery is globally serialized, so the
+    // fetch is also deadline-bounded — one hung endpoint must not wedge every later wake route.
+    for (const [key, value] of Object.entries({hostname, sessionId, username, password})) {
+        if (typeof value !== 'string' || value.length === 0) {
+            throw new Error(`opencode-server envelope at '${envelopePath}' requires '${key}' to be a non-empty string`);
+        }
+    }
+
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        throw new Error(`opencode-server envelope at '${envelopePath}' requires 'port' to be an integer in 1..65535`);
+    }
+
+    if (!['127.0.0.1', 'localhost', '::1'].includes(hostname)) {
+        throw new Error(`opencode-server envelope at '${envelopePath}' requires a loopback hostname (received '${hostname}')`);
+    }
+
+    const deliverySignal = abortSignal
+        ? AbortSignal.any([abortSignal, AbortSignal.timeout(5000)])
+        : AbortSignal.timeout(5000);
+    const response = await fetch(`http://${hostname}:${port}/session/${encodeURIComponent(sessionId)}/prompt_async`, {
+        method : 'POST',
+        headers: {
+            'content-type' : 'application/json',
+            'authorization': 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64')
+        },
+        body    : JSON.stringify({parts: [{type: 'text', text: digest}]}),
+        redirect: 'error',
+        signal  : deliverySignal
+    });
+
+    if (response.status !== 204) {
+        throw new Error(`opencode-server prompt_async expected HTTP 204, received ${response.status}`);
+    }
+
+    writeLog('INFO', `[Wake Daemon] Dispatched ${subscription.id} via opencode-server prompt_async${evidenceLabel}`);
+}
+
+/**
  * @summary Delivers a wake digest via osascript, retrying transient frontmost-loss races.
  *
  * macOS focus-stealing prevention makes a background daemon's `activate` / `set frontmost`
@@ -1432,6 +1515,11 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}, abortS
 
         if (adapter === CODEX_APP_SERVER_ADAPTER) {
             await deliverViaCodexAppServer(subscription, dispatchDigest, evidenceLabel);
+            return 'delivered';
+        }
+
+        if (adapter === OPENCODE_SERVER_ADAPTER) {
+            await deliverViaOpencodeServer(subscription, dispatchDigest, evidenceLabel, abortSignal);
             return 'delivered';
         }
 

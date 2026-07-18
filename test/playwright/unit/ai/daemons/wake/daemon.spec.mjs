@@ -1952,6 +1952,347 @@ test.describe('Wake Daemon', () => {
         );
     });
 
+    test('delivers wake events via opencode-server adapter without osascript fallback (#15394)', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-opencode-server';
+
+        // Stub the seat's embedded OpenCode server: captures the prompt_async POST.
+        const captured   = [];
+        const stubServer = http.createServer((req, res) => {
+            let body = '';
+            req.on('data', chunk => body += chunk);
+            req.on('end', () => {
+                captured.push({method: req.method, url: req.url, headers: req.headers, body});
+                res.writeHead(204);
+                res.end();
+            });
+        });
+        await new Promise(resolve => stubServer.listen(0, '127.0.0.1', resolve));
+        const stubPort = stubServer.address().port;
+
+        const envelopePath = path.join(DAEMON_DIR, 'opencode-wake-envelope.json');
+        fs.writeJsonSync(envelopePath, {
+            hostname : '127.0.0.1',
+            port     : stubPort,
+            sessionId: 'ses_test',
+            username : 'wake-user',
+            password : 'wake-pass'
+        });
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'opencode-server',
+                envelopePath,
+                coalesceWindow: 1
+            }
+        });
+
+        const binDir               = path.join(DAEMON_DIR, 'bin');
+        const mockOsascriptPath    = path.join(binDir, 'osascript');
+        const mockOsascriptOutPath = path.join(DAEMON_DIR, 'mock_opencode_osascript_out.json');
+
+        fs.ensureDirSync(binDir);
+        writeMockPs(binDir);
+        fs.writeFileSync(mockOsascriptPath,
+            `#!/usr/bin/env node\n` +
+            `const fs = require('fs');\n` +
+            `fs.writeFileSync(${JSON.stringify(mockOsascriptOutPath)}, JSON.stringify(process.argv.slice(2)));\n`
+        );
+        fs.chmodSync(mockOsascriptPath, 0o755);
+
+        let stdoutLog = '';
+
+        try {
+            daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+                stdio: 'pipe',
+                env  : {
+                    ...process.env,
+                    NEO_MEMORY_DB_PATH: DB_PATH,
+                    NEO_AI_DAEMON_DIR : DAEMON_DIR,
+                    PATH              : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
+                }
+            });
+
+            const deliveryPromise = new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver opencode-server digest within timeout')), 10000);
+
+                daemonProcess.stdout.on('data', (data) => {
+                    const out = data.toString();
+                    stdoutLog += out;
+                    if (out.includes(`[Wake Dispatch] ${agentId}: outcome=delivered`)) {
+                        clearTimeout(timeout);
+                        resolve();
+                    }
+                    if (out.includes(`[Wake Daemon] Delivered ${subId} via osascript`)) {
+                        clearTimeout(timeout);
+                        reject(new Error('Daemon fell back to osascript for opencode-server route'));
+                    }
+                });
+                daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+                daemonProcess.on('error', reject);
+            });
+
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            insertMessageWake(db, {
+                agentId,
+                subject: 'OpenCode Server Wake'
+            });
+
+            await deliveryPromise;
+
+            expect(captured.length).toBe(1);
+
+            const call = captured[0];
+            expect(call.method).toBe('POST');
+            expect(call.url).toBe('/session/ses_test/prompt_async');
+            expect(call.headers.authorization).toBe('Basic ' + Buffer.from('wake-user:wake-pass').toString('base64'));
+
+            const payload = JSON.parse(call.body);
+            expect(payload.parts[0].type).toBe('text');
+            expect(payload.parts[0].text).toContain('OpenCode Server Wake');
+
+            expect(fs.existsSync(mockOsascriptOutPath)).toBe(false);
+            expect(stdoutLog).toContain(`[Wake Daemon] Dispatched ${subId} via opencode-server prompt_async`);
+            expect(stdoutLog).toContain(`[Wake Dispatch] ${agentId}: outcome=delivered`);
+            expect(stdoutLog).toContain('route=opencode-server; adapterSource=metadata');
+        } finally {
+            stubServer.close();
+        }
+    });
+
+    test('opencode-server shares the configured attempt abort and cannot report orphan success (#15394, #15414)', async () => {
+        test.setTimeout(15000);
+
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-opencode-shared-abort';
+        const requests = [];
+
+        // Respond AFTER the 1s delivery-owner bound. If the route ignores the shared signal,
+        // this orphan logs a false success at 2s even though the owner already resolved failed.
+        const stubServer = http.createServer((req, res) => {
+            requests.push(Date.now());
+            setTimeout(() => {
+                if (!res.destroyed) {
+                    res.writeHead(204);
+                    res.end();
+                }
+            }, 2000);
+        });
+        await new Promise(resolve => stubServer.listen(0, '127.0.0.1', resolve));
+        const stubPort = stubServer.address().port;
+
+        const envelopePath = path.join(DAEMON_DIR, 'opencode-wake-envelope-shared-abort.json');
+        fs.writeJsonSync(envelopePath, {
+            hostname : '127.0.0.1',
+            port     : stubPort,
+            sessionId: 'ses_shared_abort',
+            username : 'wake-user',
+            password : 'wake-pass'
+        });
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'opencode-server',
+                envelopePath,
+                coalesceWindow: 1
+            }
+        });
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {
+                ...process.env,
+                NEO_MEMORY_DB_PATH              : DB_PATH,
+                NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                NEO_WAKE_ATTEMPT_TIMEOUT_SECONDS: '1'
+            }
+        });
+
+        try {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            insertMessageWake(db, {
+                agentId,
+                subject: 'OpenCode Shared Abort Wake'
+            });
+
+            for (let i = 0; i < 50 && requests.length === 0; i++) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            expect(requests.length).toBeGreaterThanOrEqual(1);
+
+            // Wait beyond the server's delayed response. A detached 5s-local signal would let
+            // the orphan complete and emit a transport success after the 1s owner timeout.
+            await new Promise(resolve => setTimeout(resolve, 2800));
+
+            const logContents = fs.readFileSync(path.join(DAEMON_DIR, 'wake-daemon.log'), 'utf8');
+            expect(logContents).toContain('exceeded 1000ms');
+            expect(logContents).not.toContain(`Dispatched ${subId} via opencode-server prompt_async`);
+            expect(logContents).not.toContain(`[Wake Dispatch] ${agentId}: outcome=delivered`);
+        } finally {
+            stubServer.closeAllConnections?.();
+            stubServer.close();
+        }
+    });
+
+    test('opencode-server route fails visibly (named throw) when the seat envelope is missing (#15394)', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-opencode-server-missing-envelope';
+
+        const envelopePath = path.join(DAEMON_DIR, 'opencode-wake-envelope-missing.json');
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'opencode-server',
+                envelopePath,
+                coalesceWindow: 1
+            }
+        });
+
+        const binDir               = path.join(DAEMON_DIR, 'bin');
+        const mockOsascriptPath    = path.join(binDir, 'osascript');
+        const mockOsascriptOutPath = path.join(DAEMON_DIR, 'mock_opencode_missing_osascript_out.json');
+
+        fs.ensureDirSync(binDir);
+        writeMockPs(binDir);
+        fs.writeFileSync(mockOsascriptPath,
+            `#!/usr/bin/env node\n` +
+            `const fs = require('fs');\n` +
+            `fs.writeFileSync(${JSON.stringify(mockOsascriptOutPath)}, JSON.stringify(process.argv.slice(2)));\n`
+        );
+        fs.chmodSync(mockOsascriptPath, 0o755);
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {
+                ...process.env,
+                NEO_MEMORY_DB_PATH: DB_PATH,
+                NEO_AI_DAEMON_DIR : DAEMON_DIR,
+                PATH              : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
+            }
+        });
+
+        const failurePromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon did not surface the missing-envelope failure within timeout')), 20000);
+
+            // writeLog routes ERROR to stderr, INFO to stdout — the fail-visible signal lives on stderr.
+            daemonProcess.stderr.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes(`Failed to deliver via opencode-server`) && out.includes(`requires a readable seat envelope at '${envelopePath}'`)) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes(`[Wake Daemon] Delivered ${subId} via osascript`)) {
+                    clearTimeout(timeout);
+                    reject(new Error('Daemon fell back to osascript for a missing-envelope opencode-server route'));
+                }
+            });
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {
+            agentId,
+            subject: 'OpenCode Missing Envelope Wake'
+        });
+
+        await failurePromise;
+
+        // Fail-visible means the named error surfaced AND the GUI path stayed untouched.
+        expect(fs.existsSync(mockOsascriptOutPath)).toBe(false);
+    });
+
+    test('a hung OpenCode endpoint fails deadline-bounded and does NOT wedge the serialized delivery of later routes (#15394)', async () => {
+        const hungSubId  = 'sub_' + crypto.randomUUID();
+        const hungAgent  = '@test-agent-opencode-hung';
+        const laterSubId = 'sub_' + crypto.randomUUID();
+        const laterAgent = '@test-agent-after-hung';
+
+        // Accept-and-never-respond stub: the worst accepting endpoint — the delivery must die by
+        // the AbortSignal deadline, not by the endpoint.
+        const stubServer = http.createServer((req, res) => { /* accept, never respond */ });
+        await new Promise(resolve => stubServer.listen(0, '127.0.0.1', resolve));
+        const stubPort = stubServer.address().port;
+
+        const envelopePath = path.join(DAEMON_DIR, 'opencode-wake-envelope-hung.json');
+        fs.writeJsonSync(envelopePath, {
+            hostname : '127.0.0.1',
+            port     : stubPort,
+            sessionId: 'ses_hung',
+            username : 'wake-user',
+            password : 'wake-pass'
+        });
+
+        insertWakeSubscription(db, {
+            subId                : hungSubId,
+            agentId              : hungAgent,
+            harnessTargetMetadata: {
+                adapter       : 'opencode-server',
+                envelopePath,
+                coalesceWindow: 1
+            }
+        });
+
+        insertWakeSubscription(db, {
+            subId                : laterSubId,
+            agentId              : laterAgent,
+            harnessTargetMetadata: {
+                adapter       : 'test',
+                coalesceWindow: 1
+            }
+        });
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {
+                ...process.env,
+                NEO_MEMORY_DB_PATH: DB_PATH,
+                NEO_AI_DAEMON_DIR : DAEMON_DIR
+            }
+        });
+
+        let hungFailed = false;
+
+        const laterDeliveredPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('the later route never delivered — the hung endpoint wedged the serialized loop')), 30000);
+
+            daemonProcess.stderr.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes(`Failed to deliver via opencode-server`)) {
+                    hungFailed = true;
+                }
+            });
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes(`[Wake Daemon Test Adapter] Delivered ${laterSubId}`)) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            daemonProcess.on('error', reject);
+        });
+
+        try {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            insertMessageWake(db, { agentId: hungAgent,  subject: 'Hung Endpoint Wake' });
+            insertMessageWake(db, { agentId: laterAgent, subject: 'After Hung Wake' });
+
+            await laterDeliveredPromise;
+            expect(hungFailed).toBe(true);
+        } finally {
+            stubServer.closeAllConnections?.();
+            stubServer.close();
+        }
+    });
+
     test('Claude default focus seed emits r -> Cmd+Z before prompt clear and guards frontmost (#10987, #10422)', async () => {
         const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-claude';
