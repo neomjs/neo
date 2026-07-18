@@ -528,12 +528,17 @@ class Main extends core.Base {
      * opener actually lose focus to the popup), never the attempt. A keyboard-command flow rides
      * its keystroke's user activation through this verb; a `false` answer is a legitimate
      * degraded terminal for the caller to announce, not an error.
+     *
+     * Omitting `windowName` targets this window's OPENER instead — the popup-origin return path:
+     * the popup holds the keystroke's user activation, so routing the call to the popup's main
+     * thread (via `windowId`) lets IT ask its opener to take focus, the direction focus-stealing
+     * rules permit. Same Boolean-admission verification either way.
      * @param {Object} data
-     * @param {String} data.windowName
-     * @returns {Promise<Boolean>} true when the popup verifiably took focus.
+     * @param {String} [data.windowName] Named popup to focus; absent = this window's opener.
+     * @returns {Promise<Boolean>} true when the target window verifiably took focus.
      */
     async windowFocus(data) {
-        let win = this.openWindows[data.windowName]?.win;
+        let win = data.windowName ? this.openWindows[data.windowName]?.win : window.opener;
 
         if (!win || win.closed) {
             return false
