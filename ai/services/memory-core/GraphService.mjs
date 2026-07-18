@@ -7,6 +7,7 @@ import SQLite              from '../../../ai/graph/storage/SQLite.mjs';
 import { IDENTITIES }      from '../../../ai/graph/identityRoots.mjs';
 import { normalizeUserId } from '../../mcp/server/shared/services/RequestContextService.mjs';
 import fsExtra             from 'fs-extra';
+import {projectNode}       from './nodeProjection.mjs';
 
 /**
  * Row-level-security visibility predicate for an in-memory graph **node or edge**, mirroring
@@ -79,17 +80,6 @@ export const PROTECTED_EDGE_TYPES = Object.freeze([
     'RESOLVES'
 ]);
 const PROTECTED_EDGE_TYPE_SET = new Set(PROTECTED_EDGE_TYPES);
-
-/**
- * Node types whose complete `properties` bag may be exposed through `getNode`'s opt-in `full`
- * projection. Graph-row RLS is row-participation authorization, NOT field authorization — a type
- * joins this list only with its owning service's sign-off that every stored property is safe for
- * any caller who can see the row. Counterexample kept out by design: `MESSAGE` rows are
- * `sharedEntity: true` (row visible to all) while `bodyText` is mailbox-audience-gated
- * (`MailboxService.getMessage`).
- * @type {Set<String>}
- */
-const FULL_PROJECTION_TYPES = new Set(['AgentIdentity']);
 
 /**
  * @summary Service that manages the SQLite Knowledge Graph (Nodes and Edges).
@@ -699,14 +689,11 @@ class GraphService extends Base {
      * AgentIdentity node), so a single node's stored facts are readable through the graph's own
      * read verb.
      *
-     * **The full projection is type-allowlisted** ({@link FULL_PROJECTION_TYPES}): graph-row RLS
-     * answers "may this row participate in the caller's graph?" — it is NOT a substitute for a
-     * type's own field authorization. A `MESSAGE` row is deliberately RLS-moot
-     * (`sharedEntity: true`) while its `bodyText` is guarded by the mailbox audience edges
-     * (`MailboxService.getMessage`); an unconditional raw bag here would bypass that contract.
-     * A non-allowlisted type therefore answers the LEAN shape (fail-closed to the cheaper truth —
-     * mechanically detectable via the absent `properties` key), and a type joins the allowlist
-     * only with its owning service's field-authorization sign-off.
+     * **The full projection is type-allowlisted** — the policy lives in the pure
+     * {@link module:ai/services/memory-core/nodeProjection} module (hermetically witnessed):
+     * graph-row RLS answers "may this row participate in the caller's graph?" — it is NOT a
+     * substitute for a type's own field authorization (the `MESSAGE` counterexample: shared row,
+     * mailbox-audience-gated body). A non-allowlisted type answers the LEAN shape.
      * @param {Object} data
      * @param {String} data.id
      * @param {'lean'|'full'} [data.projection='lean'] `'full'` adds the `properties` bag to the lean shape for allowlisted types.
@@ -728,27 +715,11 @@ class GraphService extends Base {
             return null;
         }
 
-        const
-            nodeId     = node.isRecord ? node.get('id') : node.id,
-            label      = node.isRecord ? node.get('label') : node.label,
-            properties = node.isRecord ? node.get('properties') : node.properties;
-
-        const result = {
-            id              : nodeId,
-            type            : label,
-            name            : properties?.name,
-            description     : properties?.description,
-            semanticVectorId: properties?.semanticVectorId,
-            state           : properties?.state
-        };
-
-        // type-allowlisted: row visibility is not field authorization (see FULL_PROJECTION_TYPES);
-        // a non-allowlisted type answers the lean shape — fail-closed to the cheaper truth
-        if (projection === 'full' && FULL_PROJECTION_TYPES.has(label)) {
-            result.properties = properties || {}
-        }
-
-        return result;
+        return projectNode({
+            id        : node.isRecord ? node.get('id') : node.id,
+            label     : node.isRecord ? node.get('label') : node.label,
+            properties: node.isRecord ? node.get('properties') : node.properties
+        }, projection);
     }
 
     /**
