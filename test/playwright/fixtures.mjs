@@ -597,6 +597,14 @@ export const test = base.extend({
                     },
 
                     /**
+                     * Close an owner-granted topology-known popup and wait for its terminal disconnect.
+                     * @param {String} windowId
+                     */
+                    async closeWindow(windowId) {
+                        return NeuralLink_RuntimeService.closeWindow({ sessionId, windowId });
+                    },
+
+                    /**
                      * Moves a known popup window when the runtime exposes a native handle.
                      * @param {Object} options
                      * @returns {Promise<Object>}

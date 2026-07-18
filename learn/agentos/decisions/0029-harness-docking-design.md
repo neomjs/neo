@@ -342,6 +342,32 @@ Four invariants, all mandatory:
 - **ADR 0034 boundary:** the Electron shell may improve vessel *materialization*; it never forks placement or arbitration semantics.
 - **Merge order:** this amendment precedes all consuming implementation — #15244 (G1 tear-out), #15246 (G3 composition/arbitration), #15247 (G4 reintegration/vessel), #15248 (teardown hygiene) cite their §2.8 subsection as upstream contract; the #15243 spike's row 6 binds to §2.8.1's identity requirements without implementing arbitration.
 
+#### §2.8.5 Generic runtime window identity and Neural Link possession (2026-07-18, #15514)
+
+Neural Link addresses windows by the connected App-Worker `windowId`, while the browser main thread owns popup
+handles by the semantic `windowName` passed to `Main.windowOpen()`. Those identities are deliberately distinct:
+
+- `manager.Window` remains the runtime topology and geometry observer. Its private entry may carry the reconnect-bounded
+  `{targetWindowId, ownerWindowId, opaqueHandleKey}` route plus generic capability facts (`focus`, `position`, `close`);
+  no dock document, workspace, vessel, reintegration, or persistence semantics enter the manager.
+- `Main` remains the physical-handle owner. On open, the opener mints a short-lived one-time capability and a separate
+  opaque handle key against the exact `WindowProxy`. The target consumes that capability once during the existing
+  `getWindowData()` handshake; only then does the opener bind the private key to the target runtime `windowId`. URL,
+  `window.name`, semantic name, `appName`, timing, and same-name reuse are never routing authority. Timeout, reload,
+  close, reuse, or a mismatched handle invalidates the generation.
+- `get_window_topology` projects generic capability booleans, not the private route. Focus, position, and close resolve
+  the topology entry inside the App Worker, route the opaque key to the exact owning main thread, and revalidate the
+  live generation before touching the native handle.
+- Close remains §2.8.3's **post-commit render-target effect** and is separately owner-granted. Generic popups default
+  close-unsupported; a product owner may grant physical close only when its semantic return/disposal contract makes
+  that effect safe. The Neural Link receipt is terminal only after the connected `windowId` disappears from topology;
+  accepting a native `close()` call alone is not completion.
+- Every identity and route field in this join is runtime-only and reconnect-bounded. Independently opened, cross-origin,
+  stale, or uncorrelated windows remain inspectable where possible but fail closed for physical control.
+
+This is the generic multi-window Possession Interface consumed by inspection tooling. Product code still decides what a
+window *means* and which semantic transaction precedes a physical effect.
+
 ## 3. Rejected Options
 
 - **Qt-ADS wholesale import** — Qt-ADS is the capability bar, not the design: its single-process, single-window-tree assumptions (native floating windows, one owning widget tree) do not survive the worker-owned/multi-window reality. Rejected in favor of extending `dockZone.v1` semantics.
@@ -405,6 +431,7 @@ Per the parent epic's discipline (one Contract-Ledgered leaf per capability), im
 | Workspace-set composition + claim arbitration + remote preview | §2.8.1 + §2.1 workspace-set | #15246 (epic #15239) |
 | Whole-stack reintegration + vessel close policy | §2.8.2/§2.8.3 + §2.4 `transferNode` | #15247 (epic #15239) |
 | Coordinator teardown hygiene (exact-once terminals) | §2.8.2 invariant 4 | #15248 (epic #15239) |
+| Neural Link generic window identity + physical focus/position/close | §2.8.5 | #15514 |
 
 ### JSON-First Guardrail (restated, applied)
 

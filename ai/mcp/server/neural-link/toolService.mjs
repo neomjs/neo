@@ -22,6 +22,7 @@ const serviceMapping = {
     begin_transaction            : InstanceService   .beginTransaction          .bind(InstanceService),
     call_method                  : InstanceService   .callMethod              .bind(InstanceService),
     check_namespace              : RuntimeService    .checkNamespace            .bind(RuntimeService),
+    close_window                 : RuntimeService    .closeWindow                .bind(RuntimeService),
     commit_transaction           : InstanceService   .commitTransaction         .bind(InstanceService),
     create_component             : ComponentService  .createComponent           .bind(ComponentService),
     create_instance              : InstanceService   .createInstance            .bind(InstanceService),
