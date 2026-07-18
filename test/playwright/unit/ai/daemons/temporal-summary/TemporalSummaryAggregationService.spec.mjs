@@ -211,7 +211,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
                 // two real actions — the marker LEADS its line (heading, then bold+backtick wrappers), both in dated
                 // in-window comments. closedAt is deliberately OUT of window (Aug): proves event time, not close time
                 {
-                    frontmatter: {number: 10, createdAt: '2026-06-01T00:00:00Z', closedAt: '2026-08-01T00:00:00Z'},
+                    frontmatter: {number: 10, conversationComplete: true, createdAt: '2026-06-01T00:00:00Z', closedAt: '2026-08-01T00:00:00Z'},
                     body       : [
                         '## Comments',
                         '### `@neo-gpt` commented on 2026-07-05T10:00:00Z',
@@ -223,7 +223,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
                 // a ticket-bearing marker INLINE in prose (rejected) + a real leading action + a later
                 // BLOCKQUOTE quoting that same action → the action counts exactly once (dedupe + blockquote)
                 {
-                    frontmatter: {number: 11, createdAt: '2026-06-01T00:00:00Z', closedAt: null},
+                    frontmatter: {number: 11, conversationComplete: true, createdAt: '2026-06-01T00:00:00Z', closedAt: null},
                     body       : [
                         '### `@neo-gpt` commented on 2026-07-05T09:00:00Z',
                         'we should do [GRADUATED_TO_TICKET: #902] once OQ3 lands',
@@ -235,12 +235,12 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
                 // marker LEADS its line but sits in the ORIGINAL POST (no dated comment) → fail closed: createdAt is
                 // creation time, not the marker's edit time, so it is not a proxy — even though createdAt is in-window
                 {
-                    frontmatter: {number: 12, createdAt: '2026-07-05T05:00:00Z', closedAt: null},
+                    frontmatter: {number: 12, conversationComplete: true, createdAt: '2026-07-05T05:00:00Z', closedAt: null},
                     body       : '## [GRADUATED_TO_TICKET: #904] — graduated\n\n## Concept\n…'
                 },
                 // real leading action but its comment event time is OUT of window → rejected
                 {
-                    frontmatter: {number: 13, createdAt: '2026-06-01T00:00:00Z', closedAt: null},
+                    frontmatter: {number: 13, conversationComplete: true, createdAt: '2026-06-01T00:00:00Z', closedAt: null},
                     body       : '### `@y` commented on 2026-07-09T00:00:00Z\n## [GRADUATED_TO_TICKET: #905] — graduated'
                 }
             ]
@@ -265,7 +265,7 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         TemporalSummaryAggregationService.execCommand        = () => '';
         TemporalSummaryAggregationService.readContentRecords = () => [
             {
-                frontmatter: {number: 20, createdAt: '2026-06-01T00:00:00Z', closedAt: null},
+                frontmatter: {number: 20, conversationComplete: true, createdAt: '2026-06-01T00:00:00Z', closedAt: null},
                 body       : [
                     '### `@neo-gpt` commented on 2026-07-05T08:00:00Z',
                     'plain discussion prose',
@@ -290,6 +290,35 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         // the ~~~-fenced marker is rejected exactly like a ```-fenced one
         expect(graduated.map(g => g.ticket)).toEqual(['#920']);
         expect(graduated.map(g => g.at)).toEqual(['2026-07-05T10:00:00Z'])
+    });
+
+    test('fetchSandboxesGraduated rejects incomplete and legacy-unknown mirrors before counting', async () => {
+        TemporalSummaryAggregationService.readContentRecords = () => [
+            {frontmatter: {number: 30, conversationComplete: false}, body: ''},
+            {frontmatter: {number: 31}, body: ''}
+        ];
+
+        await expect(TemporalSummaryAggregationService.fetchSandboxesGraduated({
+            windowStart: '2026-07-05T00:00:00.000Z',
+            windowEnd  : '2026-07-06T00:00:00.000Z'
+        })).rejects.toThrow(/#30, #31/)
+    });
+
+    test('extractGraduationActions closes a fence only with the matching delimiter and sufficient length', () => {
+        const actions = TemporalSummaryAggregationService.extractGraduationActions({
+            frontmatter: {number: 32},
+            body       : [
+                '### `@neo-gpt` commented on 2026-07-05T10:00:00Z',
+                '````js',
+                '~~~',
+                '```',
+                '## [GRADUATED_TO_TICKET: #930] — still fenced',
+                '````',
+                '## [GRADUATED_TO_TICKET: #931] — real action'
+            ].join('\n')
+        });
+
+        expect(actions.map(action => action.ticket)).toEqual(['#931'])
     });
 
     test('fetchSessions binds sessions to the summary collection over a bounded half-open window', async () => {
@@ -495,10 +524,10 @@ test.describe('Neo.ai.daemons.TemporalSummaryAggregationService', () => {
         TemporalSummaryAggregationService.fetchMergedPrs     = async () => [];
         TemporalSummaryAggregationService.readContentRecords = () => [
             // real leading author-action in a dated in-window comment
-            {frontmatter: {number: 10, createdAt: '2026-06-01T00:00:00Z', closedAt: null}, body: '### `@x` commented on 2026-07-05T06:00:00.000Z\n## [GRADUATED_TO_TICKET: #810] — graduated'},
-            {frontmatter: {number: 11, createdAt: '2026-07-05T07:00:00.000Z', closedAt: null}, body: 'just an ordinary discussion'},
+            {frontmatter: {number: 10, conversationComplete: true, createdAt: '2026-06-01T00:00:00Z', closedAt: null}, body: '### `@x` commented on 2026-07-05T06:00:00.000Z\n## [GRADUATED_TO_TICKET: #810] — graduated'},
+            {frontmatter: {number: 11, conversationComplete: true, createdAt: '2026-07-05T07:00:00.000Z', closedAt: null}, body: 'just an ordinary discussion'},
             // ticket-bearing marker inline in prose — rejected (not marker-leading)
-            {frontmatter: {number: 12, createdAt: '2026-07-05T08:00:00.000Z', closedAt: null}, body: '### `@y` commented on 2026-07-05T08:00:00Z\nwe will do [GRADUATED_TO_TICKET: #811] soon'}
+            {frontmatter: {number: 12, conversationComplete: true, createdAt: '2026-07-05T08:00:00.000Z', closedAt: null}, body: '### `@y` commented on 2026-07-05T08:00:00Z\nwe will do [GRADUATED_TO_TICKET: #811] soon'}
         ];
 
         const sources = await TemporalSummaryAggregationService.fetchWindowSources({

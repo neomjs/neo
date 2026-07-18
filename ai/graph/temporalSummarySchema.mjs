@@ -29,9 +29,10 @@ import {slugifyIdPart} from './businessSchema.mjs';
  *   or the single unified track with attribution. Partition is identity, not annotation: a
  *   malformed partition fragments every downstream window query silently, so the validator
  *   fail-closes on anything outside the two sanctioned forms.
- * - **Append-only versioning (§2.4 / OQ8):** document ids embed the `version` field — a
- *   re-aggregation mints NEW documents under the next version instead of rewriting history.
- *   Retention policy within the version field is Leaf B's contract, not schema's.
+ * - **Material-contract versioning (§2.4 / OQ8):** document ids embed the `version` field. A
+ *   same-window + same-track + same-version re-fold deterministically overwrites one id; only a
+ *   material contract-version bump mints a new append-only id. Retention across versions is Leaf
+ *   B's contract, not schema's.
  */
 
 /**

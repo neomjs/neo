@@ -327,12 +327,13 @@ class TemporalSummaryAggregationService extends Base {
      * to), NOT the discussion close: a discussion may close long after — or never — while the graduation happened
      * in a dated comment, so `closedAt` is the wrong clock and is never used here.
      *
-     * The synced corpus is complete (never a truncated live `discussions(first: 50)` page) and preserves the
-     * per-comment `### `@author` commented on <ISO>` boundaries, so a marker's event time is its enclosing dated
-     * comment's timestamp; a marker outside any dated comment (e.g. the original post) fails closed, never proxied.
-     * Only the exact ticket-naming bracket counts: a bare `[GRADUATED_TO_TICKET]` mentioned in prose is the
-     * marker being DISCUSSED, not an author-action, and is rejected; a marker whose event time cannot be resolved
-     * fails closed (uncounted) rather than borrow the close time.
+     * Every artifact must carry producer-owned `conversationComplete: true`; one incomplete or legacy-unknown
+     * mirror rejects the whole source before counting. A proven-complete artifact preserves the per-comment
+     * `### `@author` commented on <ISO>` boundaries, so a marker's event time is its enclosing dated comment's
+     * timestamp; a marker outside any dated comment (e.g. the original post) fails closed, never proxied. Only the
+     * exact ticket-naming bracket counts: a bare `[GRADUATED_TO_TICKET]` mentioned in prose is the marker being
+     * DISCUSSED, not an author-action, and is rejected; a marker whose event time cannot be resolved fails closed
+     * (uncounted) rather than borrow the close time.
      * @param {{windowStart:String, windowEnd:String}} window
      * @returns {Promise<Array<{ref:String, ticket:String, at:String}>>}
      * @protected
@@ -340,9 +341,20 @@ class TemporalSummaryAggregationService extends Base {
     async fetchSandboxesGraduated({windowStart, windowEnd}) {
         const
             startMs = Date.parse(windowStart),
-            endMs   = Date.parse(windowEnd);
+            endMs   = Date.parse(windowEnd),
+            records = this.readContentRecords('discussions'),
+            unknown = records
+                .filter(({frontmatter}) => frontmatter.conversationComplete !== true)
+                .map(({frontmatter}) => frontmatter.number ?? 'unknown');
 
-        return this.readContentRecords('discussions').flatMap(({frontmatter, body}) =>
+        if (unknown.length > 0) {
+            throw new Error(
+                `Discussion mirror completeness is unknown/incomplete for: ${unknown.map(number => `#${number}`).join(', ')}. ` +
+                'Re-sync the corpus before temporal-summary aggregation; incompleteness is never a numeric zero.'
+            )
+        }
+
+        return records.flatMap(({frontmatter, body}) =>
             this.extractGraduationActions({frontmatter, body}).filter(action => {
                 const eventMs = Date.parse(action.at);
 
@@ -383,15 +395,26 @@ class TemporalSummaryAggregationService extends Base {
             seen           = new Set(),
             actions        = [];
 
-        let currentAt = null, inFence = false;
+        let currentAt = null, fence = null;
 
         for (const line of body.split('\n')) {
-            // a fence is delimited by ``` OR ~~~ — a marker inside either is a code example, never an author action
-            if (/^\s*(?:```|~~~)/.test(line)) {
-                inFence = !inFence;
+            const
+                fenceStart = /^\s*(`{3,}|~{3,})/.exec(line),
+                fenceClose = /^\s*(`{3,}|~{3,})\s*$/.exec(line);
+
+            if (!fence && fenceStart) {
+                fence = {delimiter: fenceStart[1][0], length: fenceStart[1].length};
                 continue
             }
-            if (inFence) continue;
+            if (fence) {
+                if (
+                    fenceClose && fenceClose[1][0] === fence.delimiter &&
+                    fenceClose[1].length >= fence.length
+                ) {
+                    fence = null
+                }
+                continue
+            }
 
             const boundary = commentPattern.exec(line) || replyPattern.exec(line);
 

@@ -113,8 +113,9 @@ export const GET_DISCUSSION_CONVERSATION = `
 `;
 
 /**
- * Basic query to fetch discussions for local synchronization.
- * Includes nested comments and replies.
+ * @summary Fetches Discussions for local synchronization, including bounded nested comments and
+ * replies plus each connection's `totalCount` / `pageInfo`. Those exhaustion facts let the shared
+ * renderer persist explicit incompleteness instead of mistaking a 50/20 cap for a complete mirror.
  *
  * Variables required:
  * - $owner: String!
@@ -161,6 +162,11 @@ export const FETCH_DISCUSSIONS_FOR_SYNC = `
           }
 
           comments(first: $maxComments) {
+            totalCount
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
             nodes {
               author {
                 login
@@ -169,6 +175,11 @@ export const FETCH_DISCUSSIONS_FOR_SYNC = `
               createdAt
               isAnswer
               replies(first: $maxReplies) {
+                totalCount
+                pageInfo {
+                  hasNextPage
+                  endCursor
+                }
                 nodes {
                   author {
                     login
@@ -189,9 +200,9 @@ export const FETCH_DISCUSSIONS_FOR_SYNC = `
 /**
  * @summary Single-discussion variant of {@link FETCH_DISCUSSIONS_FOR_SYNC} for the force-refetch path.
  *
- * Returns the identical sync node shape (body + comments + nested replies + frontmatter fields) for
+ * Returns the identical sync node shape (body + comments + nested replies + exhaustion facts) for
  * ONE discussion by number, bypassing the bulk delta-by-`updatedAt` gating so a known-stale local
- * mirror can be force-re-rendered from current GitHub state.
+ * mirror can be force-re-rendered from current GitHub state without weakening completeness evidence.
  *
  * Variables required:
  * - $owner: String!
@@ -227,6 +238,11 @@ export const FETCH_SINGLE_DISCUSSION_FOR_SYNC = `
         }
 
         comments(first: $maxComments) {
+          totalCount
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
           nodes {
             author {
               login
@@ -235,6 +251,11 @@ export const FETCH_SINGLE_DISCUSSION_FOR_SYNC = `
             createdAt
             isAnswer
             replies(first: $maxReplies) {
+              totalCount
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
               nodes {
                 author {
                   login
