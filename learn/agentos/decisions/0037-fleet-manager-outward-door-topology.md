@@ -119,9 +119,10 @@ under the graduated Discussion authority.
 ### §2.5 Demo and data honesty
 
 The door's proof is the deterministic recorded Fleet walkthrough and bundled sample roster owned
-by the #15519 demo leaves. Sample data is always captioned as sample data. A public-fleet
-read-only backend is an opt-in upgrade, never the default authority and never implied by a
-recording. The engine repository remains the inspectable live-work proof one click deeper.
+by the #15519 demo leaves. Sample data is always captioned as sample data. The org-adjacent,
+credential-free public-fleet read-only backend is an opt-in upgrade, never the default authority
+and never implied by a recording. The engine repository remains the inspectable live-work proof
+one click deeper.
 
 ### §2.6 Rejected alternatives and their falsifiers
 
@@ -129,7 +130,7 @@ recording. The engine repository remains the inspectable live-work proof one cli
 |---|---|---|
 | **A — separate product repo + site** | The clean-consumer packaging boundary failed at #15527; a new repo also begins with zero social proof | §2.4 experiment passes and a separate source-divergence reason survives review |
 | **B — site only, all tracking in `neomjs/neo`** | The support layer retains the measured blend of 91 open FM/cockpit-titled issues instead of giving the product a routed entrance | Evidence that the storefront tracker adds only routing cost and does not partition product support |
-| **C — separate org and unbound product identity** | Severs both the engine-credit flywheel and the product's direct path to the monorepo's live demo source, while doubling governance/coherence surfaces | Evidence that org adjacency itself prevents adoption strongly enough to outweigh provenance and proof loss |
+| **C — separate org and unbound product identity** | Severs both the engine-credit flywheel and the org-adjacent, credential-free public-fleet demo source/provenance path, while doubling governance/coherence surfaces | Evidence that org adjacency itself prevents adoption strongly enough to outweigh provenance and proof loss |
 | **D — defer topology until usage signal** | The public launch is itself the topology moment; deferral spends the launch twice and blocks feedback from the absent door | Evidence that an early door measurably harms rather than improves launch learning |
 
 ## 3. Consequences and consumer obligations
