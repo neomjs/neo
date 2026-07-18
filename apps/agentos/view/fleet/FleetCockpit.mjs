@@ -782,6 +782,21 @@ class FleetCockpit extends Container {
     }
 
     /**
+     * @summary Resolve the provider-hosted `AgentDefinitions` store for the detail pane's
+     * configuration tab — the sanctioned `getStateProvider().getStore()` access (the store's own
+     * JSDoc names it), degraded to `null` when no chain or no hosting provider exists (bare unit
+     * mounts): the tab renders its honest no-definition state rather than demanding a provider.
+     * @returns {Neo.data.Store|null}
+     */
+    resolveAgentDefinitionsStore() {
+        try {
+            return this.getStateProvider()?.getStore('agentDefinitions') ?? null
+        } catch {
+            return null
+        }
+    }
+
+    /**
      * @summary Resolves a dock item's `componentRef` to its pane config — the cockpit's keeper
      * surfaces for the live refs, honest placeholders for panes whose views are sibling leaves.
      *
@@ -843,6 +858,11 @@ class FleetCockpit extends Container {
                 // affordance lives in SHELL chrome, never on the pane.
                 return {
                     module   : AgentDetail,
+                    // the configuration tab's data surface, resolved imperatively at composition
+                    // time (the store instance is app-stable) so the view stays provider-agnostic:
+                    // a bare mount or a chain without the store degrades to null — the tab's honest
+                    // empty state — instead of a bind demanding a provider chain that may not exist
+                    agentDefinitions: me.resolveAgentDefinitionsStore(),
                     cls      : [marker],
                     record   : me.detailRecord,
                     reference: 'agent-detail'

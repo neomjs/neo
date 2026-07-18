@@ -25,7 +25,7 @@ import Instance       from '../../../../../../../src/manager/Instance.mjs';
  * freshness contract renders deterministically.
  */
 test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () => {
-    let AgentDetail, FleetAgent, Store;
+    let AgentDetail, AgentDefinition, FleetAgent, Store;
 
     const
         stores          = [],
@@ -87,9 +87,10 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
     const body = (detail, key) => detail.down({reference: `pane-${key}-body`});
 
     test.beforeAll(async () => {
-        AgentDetail = (await import('../../../../../../../apps/agentos/view/fleet/AgentDetail.mjs')).default;
-        FleetAgent  = (await import('../../../../../../../apps/agentos/model/FleetAgent.mjs')).default;
-        Store       = (await import('../../../../../../../src/data/Store.mjs')).default
+        AgentDetail     = (await import('../../../../../../../apps/agentos/view/fleet/AgentDetail.mjs')).default;
+        AgentDefinition = (await import('../../../../../../../apps/agentos/model/AgentDefinition.mjs')).default;
+        FleetAgent      = (await import('../../../../../../../apps/agentos/model/FleetAgent.mjs')).default;
+        Store           = (await import('../../../../../../../src/data/Store.mjs')).default
     });
 
     test.afterAll(() => {
@@ -121,7 +122,7 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
         // no count (an unread count would imply operator-side read tracking that deliberately
         // does not exist)
         const buttonTexts = tabs.getTabBar().items.map(button => button.text);
-        expect(buttonTexts).toEqual(['Status', 'Mailbox']);
+        expect(buttonTexts).toEqual(['Status', 'Mailbox', 'Configuration']);
 
         // the mailbox pane's record follows the drill-in (its snapshot is wiring-injected)
         detail.record = {agentId: '@neo-gpt', displayName: 'Euclid'};
@@ -525,6 +526,77 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
         // the contract is that the subject's mail SURVIVES a same-subject re-seat
         expect(mailbox.snapshot).toEqual(snapshot);
         expect(mailbox.getPaneState()).toBe('empty');
+
+        detail.destroy()
+    });
+
+    test('the configuration tab joins on the registry key and degrades honestly without a definition (#15242)', () => {
+        const definitions = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
+            {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
+        ]});
+        stores.push(definitions);
+
+        const
+            detail = createDetail({agentId: 'ada', displayName: 'Ada'}, {agentDefinitions: definitions}),
+            card   = detail.getReference('config-pane');
+
+        // the join: FleetAgent.agentId === AgentDefinition.id (the Fleet Registry key)
+        expect(card.record).toBe(definitions.get('ada'));
+
+        // a resident with NO stored definition renders the tab's honest empty line — never a
+        // fabricated config, and never the keeper-view's off-context "select an agent" copy
+        detail.record = makeRecord({agentId: 'ghost', displayName: 'Ghost'});
+        expect(card.record).toBeNull();
+        expect(JSON.stringify(card.vdom.cn)).toContain('no stored definition');
+
+        detail.destroy()
+    });
+
+    test('a config intent from the tab runs the shared round-trip: readback lands on the record, status renders (#15242)', async () => {
+        const definitions = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
+            {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
+        ]});
+        stores.push(definitions);
+
+        const detail = createDetail({agentId: 'ada', displayName: 'Ada'}, {agentDefinitions: definitions});
+
+        // AgentOS is the APP NAMESPACE — deleting it would unregister every AgentOS.* class for
+        // the tests that follow in this worker. Stub the `fleet` key only, and restore it.
+        const priorFleet = globalThis.AgentOS?.fleet;
+
+        globalThis.AgentOS ??= {};
+        globalThis.AgentOS.fleet = {registryBridge: {configureAgent: async intent => {
+            // the runner curates the wire intent: no event envelope may cross
+            expect(Object.keys(intent).sort()).toEqual(['harnessType', 'id']);
+            return {status: 'accepted', agent: {id: 'ada', harnessType: intent.harnessType, mcpServers: null}}
+        }}};
+
+        await detail.onConfigIntent({id: 'ada', harnessType: 'claude-code', source: 'evt-noise'});
+
+        // only the RESPONSE mutated the record; the tab's card re-rendered through its own sink
+        expect(definitions.get('ada').harnessType).toBe('claude-code');
+        expect(JSON.stringify(detail.getReference('config-pane').vdom.cn)).toContain('Configuration saved.');
+
+        globalThis.AgentOS.fleet = priorFleet;
+        detail.destroy()
+    });
+
+    test('an external definition write (another owner\'s readback) refreshes the seated tab in place (#15242)', () => {
+        const definitions = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
+            {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
+        ]});
+        stores.push(definitions);
+
+        const detail = createDetail({agentId: 'ada', displayName: 'Ada'}, {agentDefinitions: definitions});
+
+        // e.g. the Accounts keeper-view lands an accepted readback on the SAME store record —
+        // record identity unchanged, so the card's reactive `record` never re-fires; the store's
+        // recordChange → the detail's refresh keeps the tab live (the same-record contract).
+        // statusText is asserted because the card renders it RAW — a harnessType would render its
+        // registry LABEL (or the fail-closed "Unknown harness"), making the raw string a blind probe.
+        definitions.get('ada').set({statusText: 'externally refreshed'});
+
+        expect(JSON.stringify(detail.getReference('config-pane').vdom.cn)).toContain('externally refreshed');
 
         detail.destroy()
     });

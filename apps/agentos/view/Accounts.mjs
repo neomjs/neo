@@ -1,12 +1,13 @@
-import AgentConfigCard    from './fleet/AgentConfigCard.mjs';
-import Button             from '../../../src/button/Base.mjs';
-import DashboardPanel     from '../../../src/dashboard/Panel.mjs';
-import FormContainer      from '../../../src/form/Container.mjs';
-import {listHarnessTypes} from '../config/harnessTypes.mjs';
-import PasswordField      from '../../../src/form/field/Password.mjs';
-import Radio              from '../../../src/form/field/Radio.mjs';
-import TextField          from '../../../src/form/field/Text.mjs';
-import Toolbar            from '../../../src/toolbar/Base.mjs';
+import AgentConfigCard            from './fleet/AgentConfigCard.mjs';
+import {runConfigIntentRoundTrip} from './fleet/configIntentRoundTrip.mjs';
+import Button                     from '../../../src/button/Base.mjs';
+import DashboardPanel             from '../../../src/dashboard/Panel.mjs';
+import FormContainer              from '../../../src/form/Container.mjs';
+import {listHarnessTypes}         from '../config/harnessTypes.mjs';
+import PasswordField              from '../../../src/form/field/Password.mjs';
+import Radio                      from '../../../src/form/field/Radio.mjs';
+import TextField                  from '../../../src/form/field/Text.mjs';
+import Toolbar                    from '../../../src/toolbar/Base.mjs';
 
 /**
  * @class AgentOS.view.Accounts
@@ -272,65 +273,17 @@ class Accounts extends DashboardPanel {
      * @returns {Promise<void>}
      */
     async onAgentConfigIntent(intent={}) {
-        const
-            me      = this,
-            agentId = intent.id,
-            bridge  = globalThis.AgentOS?.fleet?.registryBridge,
-            // Neo events add transport-irrelevant envelope fields such as `source`. Reconstruct the
-            // curated wire intent explicitly so no event metadata can cross the Brain allowlist.
-            wireIntent = {id: agentId};
+        const me = this;
 
-        if (me.agentConfigSaveStatuses.get(agentId)?.state === 'pending') {
-            return
-        }
-
-        if (Object.hasOwn(intent, 'harnessType')) wireIntent.harnessType = intent.harnessType;
-        if (Object.hasOwn(intent, 'mcpServers'))  wireIntent.mcpServers  = intent.mcpServers;
-
-        const requestGeneration = (me.agentConfigRequestGenerations.get(agentId) || 0) + 1;
-        me.agentConfigRequestGenerations.set(agentId, requestGeneration);
-        me.setAgentConfigSaveStatus(agentId, 'pending', 'Saving configuration…');
-
-        if (typeof bridge?.configureAgent !== 'function') {
-            const reason = 'Configuration is unavailable in dev-server mode. Nothing was changed.';
-            me.setAgentConfigSaveStatus(agentId, 'rejected', reason);
-            return
-        }
-
-        try {
-            const outcome = await bridge.configureAgent(wireIntent);
-
-            if (me.agentConfigRequestGenerations.get(agentId) !== requestGeneration) {
-                return
-            }
-
-            if (outcome?.status === 'accepted' && outcome.agent?.id === agentId) {
-                const record = me.agentDefinitionsStore?.get(agentId);
-
-                if (!record) {
-                    throw new Error('accepted configuration has no matching local agent')
-                }
-
-                // Invalidate any older boot-list response before applying the canonical save
-                // readback. Only the RESPONSE mutates the durable Body projection.
-                me.agentDefinitionsLoadGeneration = (me.agentDefinitionsLoadGeneration || 0) + 1;
-                record.set(outcome.agent);
-                me.setAgentConfigSaveStatus(agentId, 'accepted', 'Configuration saved.')
-            } else {
-                const reason = outcome?.status === 'rejected'
-                    ? (outcome.reason || 'Configuration was rejected.')
-                    : 'Configuration response was invalid. Nothing was changed.';
-
-                me.setAgentConfigSaveStatus(agentId, 'rejected', reason)
-            }
-        } catch (error) {
-            if (me.agentConfigRequestGenerations.get(agentId) !== requestGeneration) {
-                return
-            }
-
-            const reason = 'Could not save the configuration. Nothing was changed.';
-            me.setAgentConfigSaveStatus(agentId, 'rejected', reason)
-        }
+        return runConfigIntentRoundTrip({
+            generations: me.agentConfigRequestGenerations,
+            getRecord  : agentId => me.agentDefinitionsStore?.get(agentId),
+            intent,
+            // Invalidate any older boot-list response before applying the canonical save
+            // readback. Only the RESPONSE mutates the durable Body projection.
+            onAcceptedReadback: () => {me.agentDefinitionsLoadGeneration = (me.agentDefinitionsLoadGeneration || 0) + 1},
+            setSaveStatus     : me.setAgentConfigSaveStatus.bind(me)
+        })
     }
 
     /**

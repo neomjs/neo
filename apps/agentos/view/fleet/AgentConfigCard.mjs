@@ -35,6 +35,13 @@ class AgentConfigCard extends Component {
          */
         baseCls: ['fm-agent-config-card'],
         /**
+         * The empty-state line rendered when no record is seated. Owners override it to stay honest
+         * in their own context: the keeper-view's "select an agent" differs from the detail tab's
+         * "this agent has no stored definition".
+         * @member {String} emptyText='Select an agent to see its configuration.'
+         */
+        emptyText: 'Select an agent to see its configuration.',
+        /**
          * The selected agent's record (an {@link AgentOS.model.AgentDefinition} row) — null renders
          * the empty state ("Select an agent").
          * @member {Object|null} record_=null
@@ -140,7 +147,7 @@ class AgentConfigCard extends Component {
      */
     createCardContent(record) {
         if (!record) {
-            return [{cls: ['fm-config-empty'], text: 'Select an agent to see its configuration.'}]
+            return [{cls: ['fm-config-empty'], text: this.emptyText}]
         }
 
         const

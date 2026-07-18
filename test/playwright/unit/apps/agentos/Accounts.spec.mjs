@@ -510,13 +510,21 @@ test.describe('AgentOS.view.Accounts — agent-scoped configuration (multiple ag
 // assignments — the card must still re-render (refresh), and the intent path must fire from the
 // real vdom-derived ids.
 test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + configIntent (real objects)', () => {
-    let AgentConfigCard, AgentDefinition, Store;
+    let AgentConfigCard, AgentDefinition, Store, savedAgentOS;
 
     test.beforeAll(async () => {
         AgentConfigCard = (await import('../../../../../apps/agentos/view/fleet/AgentConfigCard.mjs')).default;
         AgentDefinition = (await import('../../../../../apps/agentos/model/AgentDefinition.mjs')).default;
         Store           = (await import('../../../../../src/data/Store.mjs')).default
     });
+
+    // AgentOS is the APP NAMESPACE (every registered AgentOS.* class lives under it). The bridge
+    // stubs below replace it wholesale for their window — fine in-test (nothing here resolves an
+    // app class by name) — but it must be RESTORED, never deleted: under fullyParallel a worker
+    // interleaves tests from OTHER files, and a deleted namespace makes any later `Neo.create`
+    // of an AgentOS view in that worker fail with "Class … does not exist".
+    test.beforeEach(() => { savedAgentOS = globalThis.AgentOS });
+    test.afterEach(()  => { globalThis.AgentOS = savedAgentOS });
 
     const cardText = card => JSON.stringify(card.vdom.cn);
 
