@@ -7,6 +7,7 @@ import SQLite              from '../../../ai/graph/storage/SQLite.mjs';
 import { IDENTITIES }      from '../../../ai/graph/identityRoots.mjs';
 import { normalizeUserId } from '../../mcp/server/shared/services/RequestContextService.mjs';
 import fsExtra             from 'fs-extra';
+import {projectNode}       from './nodeProjection.mjs';
 
 /**
  * Row-level-security visibility predicate for an in-memory graph **node or edge**, mirroring
@@ -681,11 +682,24 @@ class GraphService extends Base {
 
     /**
      * Retrieves a specific node by its ID.
+     *
+     * The default `lean` projection hoists only the identity fields — the token-economy contract
+     * roster-wide sweeps rely on. `projection: 'full'` returns the SAME shape plus the type's
+     * PUBLIC FACT SET (e.g. the IdentitySchema facts on an AgentIdentity node), so a single node's
+     * public facts are readable through the graph's own read verb.
+     *
+     * **The full projection is a field-level pick, never the raw bag** — the policy lives in the
+     * pure {@link module:ai/services/memory-core/nodeProjection} module (hermetically witnessed):
+     * graph-row RLS answers "may this row participate in the caller's graph?" — it is NOT field
+     * authorization (the `MESSAGE` counterexample: shared row, mailbox-audience-gated body; the
+     * auto-provision counterexample: a global AgentIdentity row carrying provider/auth/timing
+     * metadata). Types without a public fact set answer the LEAN shape.
      * @param {Object} data
      * @param {String} data.id
+     * @param {'lean'|'full'} [data.projection='lean'] `'full'` adds the type's public fact set to the lean shape.
      * @returns {Object|null}
      */
-    getNode({id}) {
+    getNode({id, projection = 'lean'}) {
         // Guarantee lazy-loading from SQLite triggers if not cached
         this.db.getAdjacentNodes(id, 'both');
 
@@ -701,19 +715,11 @@ class GraphService extends Base {
             return null;
         }
 
-        const
-            nodeId     = node.isRecord ? node.get('id') : node.id,
-            label      = node.isRecord ? node.get('label') : node.label,
-            properties = node.isRecord ? node.get('properties') : node.properties;
-
-        return {
-            id              : nodeId,
-            type            : label,
-            name            : properties?.name,
-            description     : properties?.description,
-            semanticVectorId: properties?.semanticVectorId,
-            state           : properties?.state
-        };
+        return projectNode({
+            id        : node.isRecord ? node.get('id') : node.id,
+            label     : node.isRecord ? node.get('label') : node.label,
+            properties: node.isRecord ? node.get('properties') : node.properties
+        }, projection);
     }
 
     /**
