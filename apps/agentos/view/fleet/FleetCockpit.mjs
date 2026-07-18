@@ -551,6 +551,29 @@ class FleetCockpit extends Container {
      * @protected
      */
     sharedPerspectiveArtifact = null
+    /**
+     * The serialized hosting-cue chain (the Workstation settlement pattern): TourRunner fires
+     * cues synchronously and deliberately never awaits them, so every async cue consumer chains
+     * here and {@link #playFusionTour} awaits the WHOLE chain before reporting — a tour can
+     * never claim `completed` while a vessel or share beat is pending.
+     * @member {Promise} cuePromise
+     * @protected
+     */
+    cuePromise = Promise.resolve()
+    /**
+     * Observable receipts from settled cues, in execution order — `{cue, receipt}` pairs; the
+     * e2e leg reads these as the host-side settlement evidence.
+     * @member {Object[]} cueReceipts
+     * @protected
+     */
+    cueReceipts = []
+    /**
+     * Folded cue failures (`"<type>: <message>"`). A non-empty list makes the tour result
+     * `completed: false` — cue truth outranks runner truth.
+     * @member {String[]} cueErrors
+     * @protected
+     */
+    cueErrors = []
 
     /**
      * @summary Seed the layout SSOT and build the toolbar + dock projection as instance items —
@@ -642,8 +665,12 @@ class FleetCockpit extends Container {
         let me = this;
 
         if (me.tourRunner) {
-            return {completed: false, errors: ['a tour is already running'], log: []}
+            return {completed: false, cueErrors: [], errors: ['a tour is already running'], log: []}
         }
+
+        me.cuePromise  = Promise.resolve();
+        me.cueReceipts = [];
+        me.cueErrors   = [];
 
         me.tourRunner = Neo.create(TourRunner, {
             componentId: me.id,
@@ -660,7 +687,19 @@ class FleetCockpit extends Container {
         });
 
         try {
-            return await me.tourRunner.start()
+            const result = await me.tourRunner.start();
+
+            // the runner never awaits host cues (its documented contract) — the tour's OWN
+            // truth is runner-log AND settled-cue truth together, so the pending chain must
+            // drain before this report exists. Cue failures outrank a green runner log.
+            await me.cuePromise;
+
+            return {
+                ...result,
+                completed  : result.completed && me.cueErrors.length === 0,
+                cueErrors  : [...me.cueErrors],
+                cueReceipts: me.cueReceipts.length
+            }
         } finally {
             me.tourRunner?.destroy?.();
             me.tourRunner = null;
@@ -669,12 +708,10 @@ class FleetCockpit extends Container {
     }
 
     /**
-     * @summary Caption feed + the surface cues that make narrated beats EXECUTABLE (the Demo-B
-     * hosting pattern): perspective saves ride the landed DockService capture verb, loads ride
-     * {@link #activatePerspective}, export/import ride {@link #exportPerspectiveArtifact} /
-     * {@link #importPerspectiveArtifact}, and the vessel beats ride the detail vessel's OWN
-     * state machine ({@link #popOutAgentDetail} / {@link #reattachAgentDetail}) — none of them
-     * are dock-document ops, so none of them masquerade as descriptors.
+     * @summary Caption feed + the SETTLED surface cues (the Workstation hosting pattern): each
+     * cue chains serially onto {@link #cuePromise}, its consumer must return an observable
+     * receipt, and failures fold into {@link #cueErrors} — TourRunner deliberately never awaits
+     * host cues, so this chain is what {@link #playFusionTour} awaits before reporting.
      * @param {Object} data The runner's beat payload.
      */
     onTourBeat(data) {
@@ -685,17 +722,66 @@ class FleetCockpit extends Container {
 
         if (!cue) return;
 
-        cue.type === 'perspective-save'   && me.dockService.capturePerspective({
-            componentId    : me.id,
-            layoutId       : `tour-${cue.name.toLowerCase().replace(/\s+/g, '-')}`,
-            perspectiveName: cue.name,
-            replace        : true
-        }).then(() => me.syncControlBar());
-        cue.type === 'perspective-load'   && me.activatePerspective(cue.name);
-        cue.type === 'perspective-export' && me.exportPerspectiveArtifact(cue.name);
-        cue.type === 'perspective-import' && me.importPerspectiveArtifact();
-        cue.type === 'popout'             && me.popOutAgentDetail();
-        cue.type === 'reattach'           && me.reattachAgentDetail()
+        me.cuePromise = me.cuePromise.then(async () => {
+            const receipt = await me.executeTourCue(cue);
+
+            me.cueReceipts.push({cue: {...cue}, receipt})
+        }).catch(error => {
+            const message = `${cue.type}: ${error.message}`;
+
+            me.cueErrors.push(message);
+            me.setTourCaption(`Surface cue failed: ${message}`)
+        })
+    }
+
+    /**
+     * @summary Executes ONE hosting cue against the cockpit's existing verbs and returns its
+     * observable receipt — perspective saves ride the landed DockService capture verb, loads
+     * ride {@link #activatePerspective}, export/import ride the share round-trip, and the
+     * vessel beats ride the detail vessel's OWN state machine ({@link #popOutAgentDetail} /
+     * {@link #reattachAgentDetail}). None of them are dock-document ops, so none masquerade as
+     * descriptors; every refused verb THROWS so the settlement chain folds it — an unknown cue
+     * type fails closed the same way (paired with the script spec's vocabulary pin).
+     * @param {Object} cue `{type, name?, itemId?, scope?}`
+     * @returns {Promise<Object>} The verb's result object — the cue's receipt.
+     */
+    async executeTourCue(cue) {
+        let me = this, result;
+
+        switch (cue.type) {
+            case 'perspective-save':
+                result = await me.dockService.capturePerspective({
+                    componentId    : me.id,
+                    layoutId       : `tour-${cue.name.toLowerCase().replace(/\s+/g, '-')}`,
+                    perspectiveName: cue.name,
+                    replace        : true
+                });
+                me.syncControlBar();
+                if (!result.stored) throw new Error(result.errors?.[0] || 'capture not stored');
+                return result;
+            case 'perspective-load':
+                result = me.activatePerspective(cue.name);
+                if (!result.switched) throw new Error(result.errors[0] || 'perspective not switched');
+                return result;
+            case 'perspective-export':
+                result = me.exportPerspectiveArtifact(cue.name);
+                if (!result.exported) throw new Error(result.errors[0] || 'export refused');
+                return result;
+            case 'perspective-import':
+                result = me.importPerspectiveArtifact();
+                if (!result.imported) throw new Error(result.errors[0] || 'import refused');
+                return result;
+            case 'popout':
+                result = await me.popOutAgentDetail();
+                if (!result.detached) throw new Error(result.errors[0] || 'pop-out refused');
+                return result;
+            case 'reattach':
+                result = await me.reattachAgentDetail();
+                if (!result.reattached) throw new Error(result.errors[0] || 'reattach refused');
+                return result;
+            default:
+                throw new Error(`unknown cue type "${cue.type}"`)
+        }
     }
 
     /**

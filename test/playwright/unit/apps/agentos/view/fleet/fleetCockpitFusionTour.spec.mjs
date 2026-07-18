@@ -26,7 +26,8 @@ test.describe('Fleet cockpit — fusion tour hosting seam', () => {
     const proto = FleetCockpit.prototype;
 
     /**
-     * A spy host recording every collaborator call `onTourBeat` can route to.
+     * A spy host recording every collaborator call the cue executor can route to — each verb
+     * returns its REAL success shape so the receipt discipline holds.
      * @returns {Object}
      */
     function makeSpyHost() {
@@ -34,42 +35,37 @@ test.describe('Fleet cockpit — fusion tour hosting seam', () => {
 
         return {
             calls,
-            activatePerspective      : name  => calls.push(['load', name]),
-            dockService              : {capturePerspective: params => (calls.push(['save', params.perspectiveName, params.replace]), Promise.resolve({stored: true}))},
-            exportPerspectiveArtifact: name  => calls.push(['export', name]),
-            importPerspectiveArtifact: ()    => calls.push(['import']),
-            popOutAgentDetail        : ()    => calls.push(['popout']),
-            reattachAgentDetail      : ()    => calls.push(['reattach']),
+            cuePromise               : Promise.resolve(),
+            cueReceipts              : [],
+            cueErrors                : [],
+            executeTourCue           : proto.executeTourCue,
+            activatePerspective      : name  => (calls.push(['load', name]), {errors: [], switched: true}),
+            dockService              : {capturePerspective: params => (calls.push(['save', params.perspectiveName, params.replace]), Promise.resolve({errors: [], stored: true}))},
+            exportPerspectiveArtifact: name  => (calls.push(['export', name]), {errors: [], exported: true}),
+            importPerspectiveArtifact: ()    => (calls.push(['import']), {errors: [], imported: true}),
+            popOutAgentDetail        : ()    => (calls.push(['popout']), Promise.resolve({detached: true, errors: []})),
+            reattachAgentDetail      : ()    => (calls.push(['reattach']), Promise.resolve({errors: [], reattached: true})),
             setTourCaption           : text  => calls.push(['caption', text]),
             syncControlBar           : ()    => {}
         }
     }
 
-    test('onTourBeat routes every scripted cue class to exactly one collaborator — and a cue-less beat only feeds the caption', () => {
+    test('executeTourCue routes every cue class to exactly one collaborator and returns its receipt; unknown types fail closed', async () => {
         const host = makeSpyHost();
 
-        proto.onTourBeat.call(host, {caption: 'hello', cue: null});
-        expect(host.calls).toEqual([['caption', 'hello']]);
+        expect((await proto.executeTourCue.call(host, {type: 'perspective-save', name: 'Mission Control'})).stored).toBe(true);
+        expect((await proto.executeTourCue.call(host, {type: 'perspective-load', name: 'Mission Control'})).switched).toBe(true);
+        expect((await proto.executeTourCue.call(host, {type: 'perspective-export', name: 'Shared Session'})).exported).toBe(true);
+        expect((await proto.executeTourCue.call(host, {type: 'perspective-import'})).imported).toBe(true);
+        expect((await proto.executeTourCue.call(host, {type: 'popout', itemId: 'detail'})).detached).toBe(true);
+        expect((await proto.executeTourCue.call(host, {type: 'reattach', itemId: 'detail'})).reattached).toBe(true);
 
-        host.calls.length = 0;
-        proto.onTourBeat.call(host, {cue: {type: 'perspective-save', name: 'Mission Control'}});
-        proto.onTourBeat.call(host, {cue: {type: 'perspective-load', name: 'Mission Control'}});
-        proto.onTourBeat.call(host, {cue: {type: 'perspective-export', name: 'Shared Session'}});
-        proto.onTourBeat.call(host, {cue: {type: 'perspective-import'}});
-        proto.onTourBeat.call(host, {cue: {type: 'popout', itemId: 'detail'}});
-        proto.onTourBeat.call(host, {cue: {type: 'reattach', itemId: 'detail'}});
+        expect(host.calls.map(call => call[0])).toEqual(['save', 'load', 'export', 'import', 'popout', 'reattach']);
 
-        expect(host.calls).toEqual([
-            ['save', 'Mission Control', true],
-            ['load', 'Mission Control'],
-            ['export', 'Shared Session'],
-            ['import'],
-            ['popout'],
-            ['reattach']
-        ])
+        await expect(proto.executeTourCue.call(host, {type: 'no-such-cue'})).rejects.toThrow('unknown cue type')
     });
 
-    test('the script and the host agree on the cue vocabulary — every scripted cue type has a routing branch', () => {
+    test('the script and the host agree on the cue vocabulary — every scripted cue type executes to a receipt', async () => {
         const scripted = new Set(
             fusionTourScript.scenes.flatMap(scene => scene.steps)
                 .map(step => step.cue?.type)
@@ -77,11 +73,34 @@ test.describe('Fleet cockpit — fusion tour hosting seam', () => {
         );
 
         for (const type of scripted) {
-            const host = makeSpyHost();
+            const host    = makeSpyHost(),
+                  receipt = await proto.executeTourCue.call(host, {type, name: 'X', itemId: 'detail'});
 
-            proto.onTourBeat.call(host, {cue: {type, name: 'X', itemId: 'detail'}});
-            expect(host.calls.length, `cue "${type}" must route somewhere`).toBe(1)
+            expect(receipt, `cue "${type}" must produce a receipt`).toBeTruthy()
         }
+    });
+
+    test('the settlement chain (the Workstation pattern): the runner never awaits cues, so onTourBeat chains them — a REFUSED verb folds into cueErrors, cue truth outranks a green log', async () => {
+        const host = makeSpyHost();
+
+        // behavior keyed by NAME (the beat handlers chain onto microtasks, so a mutated spy
+        // would race the chain): "Ghost" refuses, everything else switches
+        host.activatePerspective = name => name === 'Ghost'
+            ? {errors: ['no such perspective'], switched: false}
+            : {errors: [], switched: true};
+
+        proto.onTourBeat.call(host, {cue: {type: 'perspective-load', name: 'Mission Control'}});
+        // the refusing verb must FOLD, not throw out of the beat handler
+        proto.onTourBeat.call(host, {cue: {type: 'perspective-load', name: 'Ghost'}});
+        // and a later healthy cue still settles — one failure never wedges the chain
+        proto.onTourBeat.call(host, {cue: {type: 'perspective-load', name: 'Recovery'}});
+
+        await host.cuePromise;
+
+        expect(host.cueReceipts.map(entry => entry.cue.name)).toEqual(['Mission Control', 'Recovery']);
+        expect(host.cueErrors).toEqual(['perspective-load: no such perspective']);
+        // the failure surfaced on the caption strip, never silently
+        expect(host.calls.filter(call => call[0] === 'caption').some(call => call[1].includes('Surface cue failed'))).toBe(true)
     });
 
     test('the share round-trip on the REAL store: export serializes the stored layout, import re-admits it through validation, fingerprint-stable', () => {
