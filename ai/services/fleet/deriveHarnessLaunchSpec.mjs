@@ -34,6 +34,10 @@ import path            from 'node:path';
 //   against its nested `codex-home`). `'in-app'` = auth is the sign-in INSIDE the
 //   launched window — no marker exists, `authRequired` stays honestly `null`, and the handoff
 //   instruction must render from THIS mode, never from the (permanently null) heuristic.
+//   `'env-key'` = auth rides the SPAWN ENVIRONMENT (a provider API key in the seat env), so no
+//   per-home auth step exists at all: no marker to check (`authRequired` stays `null`), no window
+//   to sign in through (the supervised mode is headless) — the handoff names the provisioning
+//   assumption instead of inventing a login.
 const HARNESS_LAUNCH_CONTRACTS = {
     'antigravity': {
         authMode        : 'in-app',
@@ -62,6 +66,14 @@ const HARNESS_LAUNCH_CONTRACTS = {
     'codex-desktop': {
         authMode        : 'marker',
         versionProbeArgs: null
+    },
+    // Isolation is a TWO-var XDG pair, not a single homeEnvVar: the derivation points BOTH
+    // XDG_CONFIG_HOME and XDG_DATA_HOME at the instance home (plus XDG_CACHE_HOME at a child),
+    // so config AND state unify beneath it — see the derivation branch + the fn JSDoc probe record.
+    'opencode': {
+        authMode        : 'env-key',
+        modeArgs        : ['serve', '--hostname', '127.0.0.1', '--port', '0'],
+        versionProbeArgs: ['--version']
     }
 };
 
@@ -91,12 +103,14 @@ export const LAUNCHABLE_HARNESS_TYPES = Object.freeze(Object.keys(HARNESS_LAUNCH
 
 /**
  * @summary The family's operator-owned auth mode — `'marker'` (a documented marker file inside the
- * home drives the lifecycle `authRequired` heuristic; the login is a command) or `'in-app'` (auth
+ * home drives the lifecycle `authRequired` heuristic; the login is a command), `'in-app'` (auth
  * is the sign-in inside the launched window; no marker exists and `authRequired` stays honestly
  * `null`, so ANY auth handoff for these families must branch on THIS mode, never on the
- * permanently-null heuristic). `null` for unlaunchable/unknown families — consumers fail closed.
+ * permanently-null heuristic), or `'env-key'` (auth rides the spawned env as a provider API key;
+ * no per-home step exists, `authRequired` stays `null`, and the handoff names the provisioning
+ * assumption). `null` for unlaunchable/unknown families — consumers fail closed.
  * @param {String} harnessType
- * @returns {'marker'|'in-app'|null}
+ * @returns {'marker'|'in-app'|'env-key'|null}
  */
 export function getHarnessAuthMode(harnessType) {
     return HARNESS_LAUNCH_CONTRACTS[harnessType]?.authMode ?? null;
@@ -175,6 +189,24 @@ export function getHarnessAuthMode(harnessType) {
  *   NOT answer `--version` without booting the app (wizard log lines instead of a version), so
  *   `versionProbeArgs` is `null` — the supervisor skips the probe and `binaryVersion` stays
  *   honestly `null`. Auth is the in-app sign-in; `authRequired` stays `null` as above.
+ *
+ * - **`'opencode'`** → `{command: binaryPath, args: ['serve', '--hostname', '127.0.0.1', '--port',
+ *   '0'], env: {XDG_CONFIG_HOME: instanceHome, XDG_DATA_HOME: instanceHome, XDG_CACHE_HOME:
+ *   '<instanceHome>/cache'}}`. The headless `serve` mode is the supervisable shape: stdio-
+ *   indifferent (stays resident on an EOF'd stdin as well as a held pipe) and SIGTERM-clean.
+ *   `--port 0` auto-assigns; the bound port is discovered from the server's listening log line.
+ *   Isolation is a TWO-var XDG pair, not one home var: OpenCode reads its seat config from
+ *   `$XDG_CONFIG_HOME/opencode/opencode.json(c)` and its state (db, logs, repos) from
+ *   `$XDG_DATA_HOME/opencode/` — pointing BOTH at the instance home unifies the whole footprint
+ *   as `<instanceHome>/opencode/` (the seat-config generator's planting target), with
+ *   `XDG_CACHE_HOME=<instanceHome>/cache` containing the model-catalog cache; the bun runtime
+ *   cache stays HOME-relative (harmless artifact). Probed (opencode-ai 1.18.3, darwin-arm64):
+ *   `serve` alive at 4s with stdin held AND with stdin EOF, clean SIGTERM; unified-home census
+ *   `<home>/opencode/{opencode.jsonc, opencode.db, log/, repos/}`; `--version` answers `1.18.3`
+ *   in milliseconds. Auth is `'env-key'`: the provider API key rides the seat env (the portable
+ *   flatrate property — the OpenCode+Kimi path), so NO per-home auth step exists; OAuth via
+ *   `opencode auth login` writes provider state into the data home but is not the fleet path,
+ *   and no documented marker exists, so `authRequired` stays honestly `null`.
  *
  * `open -n -a …` launches remain **excluded by design**: `open` detaches — the spawned process is
  * the launcher, not the harness — so the Fleet Manager could never supervise (signal, reap, or
@@ -261,6 +293,19 @@ export function deriveHarnessLaunchSpec({harnessType, instanceHome, binaryPath, 
             args            : [homeArg],
             env             : {CLAUDE_USER_DATA_DIR: instanceHome},
             versionProbeArgs: [homeArg, ...contract.versionProbeArgs]
+        };
+    }
+
+    if (harnessType === 'opencode') {
+        return {
+            command: binaryPath,
+            args   : [...contract.modeArgs],
+            env    : {
+                XDG_CONFIG_HOME: instanceHome,
+                XDG_DATA_HOME  : instanceHome,
+                XDG_CACHE_HOME : path.join(instanceHome, 'cache')
+            },
+            versionProbeArgs: [...contract.versionProbeArgs]
         };
     }
 

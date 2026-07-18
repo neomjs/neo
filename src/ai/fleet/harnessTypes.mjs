@@ -22,6 +22,7 @@ export const HARNESS_TYPES = Object.freeze([
     Object.freeze({type: 'codex-desktop',  label: 'Codex Desktop'}),
     Object.freeze({type: 'claude-code',    label: 'Claude Code'}),
     Object.freeze({type: 'claude-desktop', label: 'Claude'}),
+    Object.freeze({type: 'opencode',       label: 'OpenCode'}),
     Object.freeze({type: 'antigravity',    label: 'Antigravity'}),
     Object.freeze({type: 'native-neo',     label: 'Native'})
 ]);

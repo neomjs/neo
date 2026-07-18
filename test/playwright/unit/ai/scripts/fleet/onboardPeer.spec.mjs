@@ -128,7 +128,7 @@ test.describe('onboardPeer — intent construction (pure half)', () => {
     test('only curated harness families are accepted, with a named refusal', () => {
         // The curated set IS the launch-templated subset — one derived truth, widened in lockstep
         // with deriveHarnessLaunchSpec. `native-neo` stays registered-but-unlaunchable.
-        expect(CURATED_HARNESS_TYPES).toEqual(['antigravity', 'claude-code', 'claude-desktop', 'codex', 'codex-desktop']);
+        expect(CURATED_HARNESS_TYPES).toEqual(['antigravity', 'claude-code', 'claude-desktop', 'codex', 'codex-desktop', 'opencode']);
         expect(CURATED_HARNESS_TYPES).not.toContain('native-neo');
 
         const built = buildOnboardingIntent({...BASE_OPTIONS, harnessType: 'gemini-cli'});
@@ -284,6 +284,22 @@ test.describe('onboardPeer — auth handoff', () => {
         expect(() => buildLoginCommand({harnessType: 'native-neo', instanceHome: '/srv/homes/c', launchCommand: '/bin/x'})).toThrow(/unsupported harnessType/);
     });
 
+    test('the executable login helper names the actual authMode for non-marker families — env-key is not mislabeled in-app', () => {
+        expect(() => buildLoginCommand({harnessType: 'opencode', authHome: '/srv/homes/p', authCommand: '/usr/local/bin/opencode'}))
+            .toThrow(/authMode 'env-key'; login commands are marker-family only/);
+    });
+
+    test('opencode (env-key): the post-launch handoff is done plus the provisioning reminder — no login, no sign-in, no guessed command', () => {
+        const handoff = deriveAuthHandoff({harnessType: 'opencode', status: {authRequired: null, instanceHome: '/srv/homes/p'}});
+        const output  = handoff.lines.join('\n');
+
+        expect(handoff.kind).toBe('done');
+        expect(output).toContain('env-key family');
+        expect(output).toContain('no per-home login step');
+        expect(output).not.toContain('SIGN-IN REQUIRED');
+        expect(output).not.toContain('LOGIN REQUIRED');
+    });
+
     test('claude-desktop authenticates in the Fleet-launched window and routes closed-window recovery back through Fleet', () => {
         const status = {
             authRequired : null,
@@ -372,6 +388,16 @@ test.describe('onboardPeer — auth handoff', () => {
         const codexPlan = planOnboarding({intent: buildIntent(), facts: {agent: buildAgent(), rosterHasResident: true, graphNodeSeeded: true, running: false, authRequired: null}});
 
         expect(codexPlan.segments.find(segment => segment.key === 'auth').detail).toContain('UNKNOWN');
+    });
+
+    test('the dry-run planner names the env-key mode for opencode — plan and post-launch decision cannot drift', () => {
+        const plan = planOnboarding({intent: buildIntent({harnessType: 'opencode'}), facts: {agent: buildAgent({harnessType: 'opencode'}), rosterHasResident: true, graphNodeSeeded: true, running: false, authRequired: null}});
+
+        const auth = plan.segments.find(segment => segment.key === 'auth');
+
+        expect(auth.detail).toContain('auth rides the spawned env');
+        expect(auth.detail).not.toContain('UNKNOWN');
+        expect(auth.detail).not.toContain('in-app sign-in');
     });
 
     test('the rendered login line executes through /bin/sh without command injection', async () => {
