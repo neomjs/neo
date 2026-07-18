@@ -6,7 +6,7 @@
 
     @media (prefers-reduced-motion: no-preference) {
         &.fm-animate-counts .fm-sw-count {
-            transition: color .3s ease, opacity .3s ease;
+            transition: color var(--motion-base) var(--ease-out-soft), opacity var(--motion-base) var(--ease-out-soft);
         }
     }
 }
