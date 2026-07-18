@@ -34,8 +34,25 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
 
         const ToolServiceModule = await import('../../../../../../../ai/mcp/server/memory-core/toolService.mjs');
         toolService = {
-            listTools: ToolServiceModule.listTools
+            listTools              : ToolServiceModule.listTools,
+            readLaneLandscapeConfig: ToolServiceModule.readLaneLandscapeConfig
         };
+    });
+
+    test('explore_lane_landscape resolves both owning child-config domains (#15468)', () => {
+        expect(toolService.readLaneLandscapeConfig()).toEqual({
+            census: {
+                edgeLimit: 5000,
+                maxPages : 50,
+                pageLimit: 100
+            },
+            source: {
+                maxAssignees: 10,
+                maxLabels   : 20,
+                owner       : 'neomjs',
+                repo        : 'neo'
+            }
+        })
     });
 
     test('All Memory Core tools must respect description length constraints', async () => {
