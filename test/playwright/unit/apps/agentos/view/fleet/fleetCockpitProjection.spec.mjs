@@ -268,7 +268,18 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
 
         // the auto-hidden chrome (detail + perspectives) must NOT render as full panes — the
         // document declares them rail material (their reveal chain is the shipped machinery)
-        expect(nodes.filter(node => node.cls?.includes('fm-pane-placeholder')).length).toBe(0)
+        expect(nodes.filter(node => node.cls?.includes('fm-pane-placeholder')).length).toBe(0);
+
+        const rails = nodes.filter(node => node.dockNodeType === 'edge-rail');
+
+        expect(rails).toHaveLength(1);
+        expect(rails[0].dockEdge).toBe('right');
+        expect(rails[0].railItems.map(item => item.dockItemId)).toEqual([
+            'detail',
+            'perspectives',
+            'defineAgent',
+            'operator'
+        ])
     });
 });
 
