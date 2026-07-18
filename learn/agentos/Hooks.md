@@ -58,6 +58,7 @@ flowchart TD
     Prompt["Classify prompting message"]:::evidence
     Lane["Parse and validate lane-state block"]:::evidence
     Operator["Live operator dialogue?"]:::evidence
+    Active["Terminal declares active-lane?"]:::evidence
     Allow["Allow the hand-back"]:::allow
     Autonomous["Autonomous turn"]:::evidence
     Reflect["Block or would-block with no-hold directive"]:::block
@@ -67,21 +68,27 @@ flowchart TD
     Stop --> Prompt
     Text --> Lane
     Prompt --> Operator
-    Operator -->|"yes"| Allow
+    Operator -->|"yes"| Active
     Operator -->|"no"| Autonomous
-    Lane --> Autonomous
+    Lane -. "parsed continuation" .-> Active
+    Active -->|"yes"| Reflect
+    Active -->|"no / absent / malformed"| Allow
+    Lane -. "verdict" .-> Autonomous
     Autonomous --> Reflect
     Reflect --> Drive
 ```
 
 The important detail is counterintuitive: a valid `lane-state` block is not a
 stop license. It is evidence. It tells the hook what the agent claims about the
-turn, but it does not prove the maintainer may stop. The voluntary allow is a
-genuine live operator dialogue, where the human has clearly taken the next turn.
+turn, but it does not prove the maintainer may stop. The voluntary dialogue allow
+is a genuine live operator dialogue where the human has clearly taken the next
+turn and the terminal does not declare `active-lane`. An exact `active-lane`
+declaration refuses: answer-plus-drive, not answer-plus-stop. Absent, malformed,
+and other continuation values preserve ordinary turn-taking.
 
-Everything else is autonomous. A wake is autonomous. A hook-generated continuation
-is autonomous. A night-shift handoff is autonomous. A missing prompt fails closed
-to autonomous, because uncertainty must not become a quiet idle path.
+Outside dialogue, a wake is autonomous. A hook-generated continuation is
+autonomous. A night-shift handoff is autonomous. A missing prompt fails closed to
+autonomous, because uncertainty must not become a quiet idle path.
 
 The parser distinguishes three cases:
 
@@ -127,8 +134,9 @@ Prompts carry values: verify before asserting, do not idle, treat peers as peers
 route friction into substrate, preserve public evidence. Hooks make one narrow
 part of that posture executable. They do not decide which backlog item is best.
 They do not prove a PR should merge. They do not know whether a guide has soul.
-They enforce that the agent cannot turn "I am waiting" into a terminal state
-when the turn is not live operator dialogue.
+They enforce that the agent cannot turn "I am waiting" into a terminal state on
+an autonomous turn, or hand a dialogue turn back while its own terminal still
+declares the lane active.
 
 That boundary is what keeps the mechanism healthy. If a hook fires wrong, the
 agent still obeys it in the moment and opens a follow-up lane to sharpen the
