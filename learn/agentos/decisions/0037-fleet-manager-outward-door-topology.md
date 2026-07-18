@@ -9,13 +9,13 @@
 | Attribute | Value |
 |---|---|
 | **Status** | Proposed — 2026-07-18 (transitions to Accepted only on approved, green PR merge at the human merge gate, per ADR 0005) |
-| **Author** | @neo-gpt-emmy (Emmy), grounded in Discussion #15498's reconciled Option-E graduation, the #15519 criteria map, and #15527's clean-consumer probe receipt |
+| **Author** | @neo-gpt-emmy (Emmy), grounded in Discussion #15498's reconciled Option-E graduation, the #15519 criteria map, #15527's clean-consumer probe, and #15549's public-fleet capability receipt |
 | **Resolves** | #15521 — the topology gate in Epic #15519 |
 | **Graduated from** | Discussion #15498 — family-keyed quorum, non-author approval, and acknowledged Step-Back sweep |
 | **Depends on** | ADR 0034 §2.5 — packaged-shell artifacts, signing authority, two-speed updates, and release-line cadence remain unchanged |
 | **Aligns with** | ADR 0018 and `neo-identity-update` — every new outward surface inherits facts/framing/action coherence; ADR 0031 — one seam-table row per present ADR |
 | **Mechanically amends** | ADR 0031's seam table and `learn/benefits/ArchitectureOverview.md` pointers; corrects ADR 0034's stale lifecycle header without changing its decision |
-| **Anti-anchor for** | a second launch URL; product source copied or moved out of `neomjs/neo`; a hollow marketing-only repository; a dead/disabled download promise; storefront-authored release truth; a sample presented as live fleet data |
+| **Anti-anchor for** | a second launch URL; product source copied or moved out of `neomjs/neo`; a hollow marketing-only repository; a dead/disabled download promise; storefront-authored release truth; a sample presented as live fleet data; a credential-free claim for the current canonical public-fleet reader |
 
 ---
 
@@ -123,10 +123,16 @@ authority.
 ### §2.5 Demo and data honesty
 
 The door's proof is the deterministic recorded Fleet walkthrough and bundled sample roster owned
-by the #15519 demo leaves. Sample data is always captioned as sample data. The org-adjacent,
-credential-free public-fleet read-only backend is an opt-in upgrade, never the default authority
-and never implied by a recording. The engine repository remains the inspectable live-work proof
-one click deeper.
+by the #15519 demo leaves. Sample data is always captioned as sample data and remains the zero-call
+first-run authority.
+
+#15549's live zero-token capability probe found a stronger boundary than request volume: anonymous
+REST can read public issues/comments inside the 60-request core bucket, but GitHub reports GraphQL
+limit 0 / read failures and rejects the collaborator trust census. The current canonical activity
+reader therefore cannot preserve its complete source and trust contract without authentication.
+Public fleet is an explicit **token-present opt-in**, never a credential-free default and never
+implied by a recording. A reduced REST-only subset must not be silently renamed as that canonical
+reader. The engine repository remains the inspectable live-work proof one click deeper.
 
 ### §2.6 Rejected alternatives and their falsifiers
 
@@ -134,7 +140,7 @@ one click deeper.
 |---|---|---|
 | **A — separate product repo + site** | #15527 proves packaging is mechanically viable with consumer-side build provisioning, but no source-divergence need exists; moving product source would fork authority and begin with zero social proof | An independently reviewed source-divergence reason survives; #15527 already satisfies mechanical eligibility |
 | **B — site only, all tracking in `neomjs/neo`** | The support layer retains the measured blend of 91 open FM/cockpit-titled issues instead of giving the product a routed entrance | Evidence that the storefront tracker adds only routing cost and does not partition product support |
-| **C — separate org and unbound product identity** | Severs both the engine-credit flywheel and the org-adjacent, credential-free public-fleet demo source/provenance path, while doubling governance/coherence surfaces | Evidence that org adjacency itself prevents adoption strongly enough to outweigh provenance and proof loss |
+| **C — separate org and unbound product identity** | Severs both the engine-credit flywheel and the org-adjacent public-fleet provenance path, while doubling governance/coherence surfaces | Evidence that org adjacency itself prevents adoption strongly enough to outweigh provenance and proof loss |
 | **D — defer topology until usage signal** | The public launch is itself the topology moment; deferral spends the launch twice and blocks feedback from the absent door | Evidence that an early door measurably harms rather than improves launch learning |
 
 ## 3. Consequences and consumer obligations
@@ -145,6 +151,8 @@ one click deeper.
   cannot render a download action until the artifact path works.
 - #15525 and `neo-identity-update` govern every new outward surface. Facts derive from authority;
   framing is surface-specific; calls to action obey §2.2–§2.3.
+- #15524 keeps the bundled sample as the zero-call first-run authority and offers public fleet only
+  through an explicit token-present opt-in that preserves the canonical reader's full contract.
 - #15527 remains a diagnostic experiment beside release work, not a dependency edge that can halt
   the storefront or site.
 - The storefront release integration consumes monorepo receipts. It never becomes a second
@@ -170,7 +178,9 @@ one click deeper.
 - **Existing owner:** ADR 0034 §2.5 continues to own installers, signing, update cadence, and
   release-line cadence; PR #14924 merged that record on 2026-07-10.
 - **Mechanical inventory:** ADR 0031 and `lint-adr-seam-table.mjs` require exactly one 0037 row.
-- **Executable falsifier:** #15527 records the failed clean-consumer boundary and owns reruns.
+- **Executable falsifiers:** #15527 records the clean-consumer boundary and owns packaging reruns;
+  #15549 records the public-fleet capability boundary and must be rerun if provider access policy
+  or the canonical reader's acquisition plan changes.
 - **Revalidation trigger:** re-poll Discussion #15498 if delivery slips materially past the
   graduated estimate, if the flatrate/seat landscape materially changes operating capacity, or if
   #15490 row 3 remains unwalked on 2026-08-15. Re-polling does not itself mutate topology.
@@ -183,7 +193,7 @@ copy, and visual treatment may evolve freely inside these boundaries.
 Extends ADR 0034 §2.5 at the outward-door boundary and aligns with ADR 0018. It does not amend
 Electron shell behavior, packaging ownership, signing, update cadence, or release authority.
 
-Related: Discussion #15498 · Epic #15519 · #15521 · #15522–#15527 · #15542 · #15490 ·
+Related: Discussion #15498 · Epic #15519 · #15521 · #15522–#15527 · #15542 · #15549 · #15490 ·
 ADR 0018 · ADR 0031 · ADR 0034
 
 Origin Session ID: ad71d4c3-3e37-4a17-8df7-8415509def84
