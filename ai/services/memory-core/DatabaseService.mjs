@@ -478,6 +478,30 @@ class DatabaseService extends Base {
             filesToImport = [...new Set(filesToImport)];
             logger.log(`Starting agent memory import. Discovered ${filesToImport.length} backup file(s)...`);
 
+            // `readAt`/`archivedAt` on `DELIVERED_TO` edges are graph-owned mutable state — `markRead`
+            // writes them to storage and the WAL carries `readAt: null` forever by design (see
+            // `MailboxService.getStorageDeliveryMutableState`, which lets the committed per-recipient value win
+            // over that send-time null during WAL-replay projection). A replace-mode restore truncates the graph
+            // and restores from a snapshot that lags behind live reads, silently reverting acked `mark_read`
+            // writes. Capture the committed non-null values before the truncate below and re-apply them after the
+            // import loop, so the same "committed state wins over null" invariant survives the destructive re-seed.
+            let preservedDeliveryState = [];
+            if (mode === 'replace' && filesToImport.some(candidate => path.basename(candidate).startsWith('graph-backup'))) {
+                const graphDb = (await import('./GraphService.mjs')).default.db?.storage?.db;
+                if (graphDb) {
+                    preservedDeliveryState = graphDb.prepare(
+                        `SELECT source,
+                                target,
+                                json_extract(data, '$.properties.readAt')     AS readAt,
+                                json_extract(data, '$.properties.archivedAt') AS archivedAt
+                         FROM Edges
+                         WHERE type = 'DELIVERED_TO'
+                           AND (json_extract(data, '$.properties.readAt')     IS NOT NULL
+                                OR json_extract(data, '$.properties.archivedAt') IS NOT NULL)`
+                    ).all();
+                }
+            }
+
             if (mode === 'replace') {
                 // Truncate ONLY the subsystems that this import will restore — selected
                 // by the same filename heuristic the per-file dispatch loop uses below.
@@ -674,6 +698,27 @@ class DatabaseService extends Base {
                 chromaCounts.failed              += fileFailed;
                 totalImported                    += fileInserted;
                 subsystemCounts.memoriesInserted += fileInserted;
+            }
+
+            // Re-apply the graph-owned delivery state captured before the truncate, wherever the restored
+            // snapshot left it null — a committed read/archive receipt wins over a lagged snapshot's send-time
+            // null, exactly as `getStorageDeliveryMutableState` enforces during WAL-replay projection. Only
+            // null-in-restore rows are touched, so a fresher import is never regressed. Keyed by (source, target)
+            // — the identity of one per-recipient delivery — because the importer re-derives the edge `id`.
+            if (preservedDeliveryState.length) {
+                const graphDb = (await import('./GraphService.mjs')).default.db?.storage?.db;
+                if (graphDb) {
+                    const reapplyReadAt     = graphDb.prepare(`UPDATE Edges SET data = json_set(data, '$.properties.readAt', ?)     WHERE source = ? AND target = ? AND type = 'DELIVERED_TO' AND json_extract(data, '$.properties.readAt')     IS NULL`),
+                          reapplyArchivedAt = graphDb.prepare(`UPDATE Edges SET data = json_set(data, '$.properties.archivedAt', ?) WHERE source = ? AND target = ? AND type = 'DELIVERED_TO' AND json_extract(data, '$.properties.archivedAt') IS NULL`);
+                    let reapplied = 0;
+                    graphDb.transaction(rows => {
+                        for (const row of rows) {
+                            if (row.readAt     != null) reapplied += reapplyReadAt.run(row.readAt, row.source, row.target).changes;
+                            if (row.archivedAt != null) reapplyArchivedAt.run(row.archivedAt, row.source, row.target);
+                        }
+                    })(preservedDeliveryState);
+                    if (reapplied) logger.log(`[importDatabase] Re-applied ${reapplied} committed DELIVERED_TO read-receipt(s) preserved across the replace (#15448).`);
+                }
             }
 
             return {
