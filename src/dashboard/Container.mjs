@@ -150,11 +150,11 @@ class Container extends BaseContainer {
      * @param {Object} data
      */
     async onDragBoundaryEntry(data) {
-        let me            = this,
-            {windowId}    = me,
-            {sortZone}    = data,
-            widget        = data.draggedItem,
-            widgetName    = widget.reference || widget.id;
+        let me         = this,
+            {windowId} = me,
+            {sortZone} = data,
+            widget     = data.draggedItem,
+            widgetName = widget.reference || widget.id;
 
         me.#isReintegrating = true;
 
@@ -213,10 +213,13 @@ class Container extends BaseContainer {
     }
 
     /**
+     * @summary Admits a dragged widget into a popup before engaging the OS-window drag embodiment.
+     * A refused vessel restores the in-window gesture state the sort zone armed before firing the
+     * boundary event.
      * @param {Object} data
      */
     async onDragBoundaryExit(data) {
-        let me = this,
+        let me                                 = this,
             {draggedItem, proxyRect, sortZone} = data,
             popupData;
 
@@ -227,6 +230,13 @@ class Container extends BaseContainer {
 
         popupData = await me.openWidgetInPopup(draggedItem, proxyRect);
 
+        if (!popupData) {
+            me.#isWindowDragging      = false;
+            sortZone.isWindowDragging = false;
+            sortZone.reattachArmed    = false;
+            return
+        }
+
         sortZone.startWindowDrag({
             dragData: data,
             ...popupData
@@ -236,9 +246,12 @@ class Container extends BaseContainer {
     }
 
     /**
+     * @summary Transactionally stages a widget for popup ownership and returns geometry only after
+     * the main-thread vessel admission resolves true. Failed admission restores the exact prior
+     * detached-item entry so the fast window-connect ordering never creates false ownership truth.
      * @param {Neo.component.Base} widget
      * @param {DOMRect} rect
-     * @returns {Promise<Object>}
+     * @returns {Promise<Object|null>}
      */
     async openWidgetInPopup(widget, rect) {
         let me              = this,
@@ -268,17 +281,39 @@ class Container extends BaseContainer {
             popupTop              = y + (winData.outerHeight - winData.innerHeight + winData.screenTop),
             windowName            = widgetName;
 
-        me.detachedItems.set(widgetName, {
-            index : me.items.indexOf(widget),
-            widget: widget
-        });
+        let hadDetachedItem = me.detachedItems.has(widgetName),
+            previousItem    = me.detachedItems.get(widgetName),
+            provisionalItem = {
+                index : me.items.indexOf(widget),
+                widget: widget
+            };
 
-        await Neo.Main.windowOpen({
-            url,
-            windowId,
-            windowFeatures: `height=${popupHeight},left=${popupLeft},top=${popupTop},width=${width}`,
-            windowName
-        });
+        me.detachedItems.set(widgetName, provisionalItem);
+
+        let opened = false;
+
+        try {
+            opened = await Neo.Main.windowOpen({
+                url,
+                windowId,
+                windowFeatures: `height=${popupHeight},left=${popupLeft},top=${popupTop},width=${width}`,
+                windowName
+            })
+        } catch (error) {
+            console.error('Failed to open popup window for dashboard item', widget, error)
+        }
+
+        if (opened !== true) {
+            // A newer admission attempt may already own this slot. Roll back only our provisional
+            // write; otherwise a stale failure could erase the newer attempt's truth.
+            if (me.detachedItems.get(widgetName) === provisionalItem) {
+                hadDetachedItem
+                    ? me.detachedItems.set(widgetName, previousItem)
+                    : me.detachedItems.delete(widgetName)
+            }
+
+            return null
+        }
 
         return {popupHeight, popupLeft, popupTop, popupWidth: width, windowName}
     }
@@ -289,14 +324,14 @@ class Container extends BaseContainer {
      * @param {String} data.windowId
      */
     async onWindowConnect(data) {
-        let me         = this,
-            app        = Neo.apps[data.windowId],
-            mainView   = app.mainView,
-            {windowId} = data,
-            url        = await Neo.Main.getByPath({path: 'document.URL', windowId}),
-            params     = new URL(url).searchParams,
-            dashboardId= params.get('dashboardId'),
-            widgetName = params.get('name');
+        let me          = this,
+            app         = Neo.apps[data.windowId],
+            mainView    = app.mainView,
+            {windowId}  = data,
+            url         = await Neo.Main.getByPath({path: 'document.URL', windowId}),
+            params      = new URL(url).searchParams,
+            dashboardId = params.get('dashboardId'),
+            widgetName  = params.get('name');
 
         if (dashboardId === me.id) {
             let detachedItem = me.detachedItems.get(widgetName);
@@ -339,6 +374,8 @@ class Container extends BaseContainer {
     }
 
     /**
+     * @summary Contains the legacy popup reacquisition path until vessel park/re-show replaces it.
+     * A refused re-open never arms pointer-follow or dereferences missing geometry.
      * Re-opens the popup window and resumes the window drag operation.
      * Called by the DragCoordinator when a remote drag leaves a target dashboard back into the void.
      * @param {String} widgetName
@@ -353,6 +390,11 @@ class Container extends BaseContainer {
             me.#isWindowDragging = true;
 
             popupData = await me.openWidgetInPopup(detachedItem.widget, proxyRect);
+
+            if (!popupData) {
+                me.#isWindowDragging = false;
+                return
+            }
 
             // We need to tell the DragDrop addon to resume window dragging
             Neo.main.addon.DragDrop.startWindowDrag({
