@@ -20,7 +20,7 @@ Throughout the `.agents` skill ecosystem, you will see references to the "Human 
 - Challenge Assumptions. Avoid Unnecessary Positive Reinforcement. Avoid Deferential Language. Prioritize Signal Over Politeness.
 
 ## §anti_hallucination_policy [DISCIPLINE-ONLY]
-You must **NEVER** make guesses, assumptions, or "hallucinate" answers about the Neo.mjs framework. If you do not know something, you must find the answer using the knowledge base tools.
+You must **NEVER** make guesses, assumptions, or "hallucinate" answers about Neo.mjs. If you do not know something, you must find the answer using the knowledge base tools.
 - **`ask_knowledge_base` is your PRIMARY Anti-Hallucination tool.**
 - **The Verify-Before-Assert Pre-Flight Check (Core Value — see `AGENTS.md` §verify_before_assert):** Never assert a system state without first empirically validating that state via a tool call. **Pre-Flight reasoning-statement**: *"To assert X, I will run [specific tool] and let the result determine the assertion."*
 - **Tool inventory (non-exhaustive)**:
@@ -137,7 +137,7 @@ Query -> Read -> Add Intent-driven comments -> Implement -> Knowledge base gets 
 Re-embed latest changes into the database using `manage_knowledge_base` with `action: 'sync'`.
 
 ## §working_with_sub_agents [DISCIPLINE-ONLY]
-Inject Context Preamble: "Before analyzing the code, you MUST first read `src/Neo.mjs` and `src/core/Base.mjs` to understand the framework's class system, config system, and lifecycle hooks."
+Inject Context Preamble: "Before analyzing the code, you MUST first read `src/Neo.mjs` and `src/core/Base.mjs` to understand the engine's class system, config system, and lifecycle hooks."
 
 ## §visual_verification_protocol [DISCIPLINE-ONLY]
 **FORBIDDEN** from modifying CSS or Layout Configs based solely on static code analysis when a visual bug is reported. Use `neural_link` tool suite to verify physical DOM constraints.

@@ -1,6 +1,6 @@
 # App Shell & MVVM: The DevIndex Architecture
 
-The DevIndex application is built with the Neo.mjs framework, which utilizes a revolutionary architecture: it runs almost entirely outside the browser's main thread. This guide details how the DevIndex frontend is structured to leverage this "Off-Main-Thread" paradigm, along with a hybrid approach to MVC and MVVM patterns.
+The DevIndex application is built with Neo.mjs, which utilizes a revolutionary architecture: it runs almost entirely outside the browser's main thread. This guide details how the DevIndex frontend is structured to leverage this "Off-Main-Thread" paradigm, along with a hybrid approach to MVC and MVVM patterns.
 
 > **Explore the Source:** You can find the complete source code for the DevIndex application here: [GitHub: apps/devindex](https://github.com/neomjs/neo/tree/dev/apps/devindex).
 
@@ -41,7 +41,7 @@ By keeping the main thread clear of application logic, data processing, and stat
 
 ## The App Worker: Where DevIndex Lives
 
-After the MicroLoader boots up the framework, it spawns the application inside a dedicated background thread known as the **App Worker**.
+After the MicroLoader boots up the engine, it spawns the application inside a dedicated background thread known as the **App Worker**.
 
 ```mermaid
 graph TD
@@ -97,7 +97,7 @@ items: [{
 }]
 ```
 
-Notice the `module: () => import(...)` syntax. The framework will only fetch and execute the code for the Home (Grid) or Learn (Documentation) sections when the routing logic dictates they should be visible.
+Notice the `module: () => import(...)` syntax. The engine will only fetch and execute the code for the Home (Grid) or Learn (Documentation) sections when the routing logic dictates they should be visible.
 
 ## A Hybrid Approach: MVC meets MVVM
 
@@ -117,10 +117,10 @@ While the data layer leans MVC, the UI components utilize a powerful, instance-b
 These providers and controllers form a **hierarchical chain**:
 
 *   **Hierarchical State Providers (ViewModel)**: 
-    When a component requests data (e.g., `bind: { text: data => data.title }`), the framework searches up the component tree. If the current component's State Provider doesn't have the data, it checks the parent's State Provider, and so on. This creates a deeply nested chain of merged data access. The `ViewportStateProvider` holds global UI state, while the `MainContainerStateProvider` might hold the specific `Contributors` store.
+    When a component requests data (e.g., `bind: { text: data => data.title }`), the engine searches up the component tree. If the current component's State Provider doesn't have the data, it checks the parent's State Provider, and so on. This creates a deeply nested chain of merged data access. The `ViewportStateProvider` holds global UI state, while the `MainContainerStateProvider` might hold the specific `Contributors` store.
 
 *   **Hierarchical View Controllers**:
-    Event handling works the same way. When a button is configured with a string-based listener (e.g., `handler: 'onButtonClick'`), the framework doesn't look in a global registry. It walks up the component tree to find the *closest* View Controller that implements the `onButtonClick` method. This elegantly encapsulates logic exactly where it's needed, preventing bloated, monolithic controllers.
+    Event handling works the same way. When a button is configured with a string-based listener (e.g., `handler: 'onButtonClick'`), the engine doesn't look in a global registry. It walks up the component tree to find the *closest* View Controller that implements the `onButtonClick` method. This elegantly encapsulates logic exactly where it's needed, preventing bloated, monolithic controllers.
 
 For a deeper dive into how these controllers manage filtering and global state, see the [State Management & Controls](#/learn/frontend/StateAndControls) guide.
 

@@ -1,7 +1,7 @@
 # Under the Hood: The Philosophy and Mechanics of HTML Templates
 
 This guide explores the "why" and "how" behind the HTML template feature in Neo.mjs. It's a deep dive into an architecture
-designed to deliver on a core framework promise: a zero-builds, instant-feedback development mode that doesn't sacrifice
+designed to deliver on a core engine promise: a zero-builds, instant-feedback development mode that doesn't sacrifice
 production performance.
 
 This serves as a companion to the [Using HTML Templates](./HtmlTemplates.md) guide, which focuses on syntax
@@ -25,7 +25,7 @@ Neo.mjs chose a different path: **Tagged Template Literals**. This is a standard
 2.  **No Special Directives:** Logic isn't handled by template-specific directives like `n-if` or `n-for`. You use
     standard JavaScript (`if/else`, `map()`) for all conditionals and loops, which is more powerful and familiar.
 3.  **Architectural Purity:** The template is just a function call that returns a data structure (a VDOM object).
-    This maintains a clean separation between your view definition and the framework's rendering engine.
+    This maintains a clean separation between your view definition and the rendering engine.
 
 ## Mechanism 1: The Zero-Builds Development Experience
 

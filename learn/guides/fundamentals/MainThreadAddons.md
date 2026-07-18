@@ -67,13 +67,13 @@ Here's what happens when `getMySetting()` is executed:
 |                                                |         |                                                |
 |------------------------------------------------|         |                                                |
 |                                                |         |                                                |
-| 2. A message is sent to the Main Thread        | ---->   | 3. The message is received. The framework      |
+| 2. A message is sent to the Main Thread        | ---->   | 3. The message is received. The engine         |
 |    containing the target & arguments.          |         |    finds the addon instance and calls the      |
 |                                                |         |    *real* method with the arguments.           |
 |                                                |         |                                                |
 |------------------------------------------------|         |------------------------------------------------|
 |                                                |         |                                                |
-| 5. The Promise from Step 1 is resolved with    | <----   | 4. The method returns a value. The framework   |
+| 5. The Promise from Step 1 is resolved with    | <----   | 4. The method returns a value. The engine      |
 |    the value from the reply message.           |         |    packages this value in a reply message      |
 |                                                |         |    and sends it back to the App Worker.        |
 |    The `await` keyword gets the final value.   |         |                                                |
@@ -96,7 +96,7 @@ Here's what happens when `getMySetting()` is executed:
 5.  **Promise Resolution (App Worker)**: The App Worker receives the reply and uses it to resolve the
     Promise from Step 2. The `await` is now complete, and the `data` variable receives the value.
 
-This entire round trip is completely managed by the framework. As a developer, you only need to
+This entire round trip is completely managed by the engine. As a developer, you only need to
 `await` the result, just like any other asynchronous function.
 
 ## Anatomy of an Addon: `LocalStorage` and `Cookie` Examples
@@ -276,7 +276,7 @@ export default Neo.setupClass(CustomLocalStorage);
 ```
 
 Next, configure your `neo-config.json` to use your custom addon instead of the engine's default.
-This is done by mapping your custom class to the framework's original class name using the `WS/` prefix.
+This is done by mapping your custom class to the engine's original class name using the `WS/` prefix.
 The `WS/` prefix (which stands for "workspace") tells the engine to look for your addon within the `src/main/addon`
 directory of your workspace (the output of `npx neo-app`).
 
@@ -473,7 +473,7 @@ unparalleled responsiveness and performance.
 
 This guide has explored the full lifecycle of addons, from their "semi-singleton" design that promotes
 extensibility, to the sophisticated `initAsync` and `isReady` mechanisms that guarantee safe,
-asynchronous initialization. You've seen how the framework seamlessly handles remote method calls,
+asynchronous initialization. You've seen how the engine seamlessly handles remote method calls,
 queuing them when necessary, and how the component wrapper pattern provides a clean, declarative
 interface for your application.
 

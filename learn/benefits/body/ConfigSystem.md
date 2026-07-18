@@ -559,7 +559,7 @@ history management, will be provided in a separate, dedicated guide.
 
 ## Conclusion: Empowering Declarative Development with Neo.mjs Configs
 
-The Neo.mjs Unified Class Config System is a cornerstone of the framework's design, extending the power of declarative
+The Neo.mjs Unified Class Config System is a cornerstone of the engine's design, extending the power of declarative
 programming beyond traditional UI elements to encompass every aspect of your application. By providing a consistent,
 intuitive, and hierarchical way to define and manage properties for all classes — from UI components to data stores,
 controllers, and routers—Neo.mjs significantly reduces cognitive load and enhances maintainability.
