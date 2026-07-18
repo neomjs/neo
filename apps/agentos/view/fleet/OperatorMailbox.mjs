@@ -90,16 +90,37 @@ class OperatorMailbox extends Container {
     }
 
     /**
-     * @summary Wire the two child intents up to the owner: the inbox's paged re-read and the
-     * compose submit. Wired explicitly (not via a string handler) — like AgentDetail, this surface
-     * carries no controller for one to resolve against.
+     * @summary Wire the two child intents up to the owner AND flush any projection-injected state to the
+     * children. Wired explicitly (not via a string handler) — like AgentDetail, this surface carries no
+     * controller for one to resolve against.
+     *
+     * The flush is load-bearing: `afterSetRecord`/`afterSetSnapshot`/`afterSetRecipientOptions` all return
+     * early while `!isConstructed`, so `record`/`snapshot`/`recipientOptions` supplied as construction
+     * configs (the normal reveal-after-boot path, when the cockpit already holds the resolved operator
+     * identity) never reached the children — the pane materialized empty and could not pass possession.
+     * Flush them here, then a construction-time identity kicks its first read exactly as a live set does.
      * @param {...*} args
      */
     onConstructed(...args) {
         super.onConstructed(...args);
 
-        this.getReference('operator-inbox-pane')?.on('pageRequest', this.onInboxPageRequest, this);
-        this.getReference('operator-compose-form')?.on('compose', this.onCompose, this)
+        const
+            me    = this,
+            inbox = me.getReference('operator-inbox-pane'),
+            form  = me.getReference('operator-compose-form');
+
+        inbox?.on('pageRequest', me.onInboxPageRequest, me);
+        form?.on('compose', me.onCompose, me);
+
+        if (inbox) {
+            me.record   && (inbox.record   = me.record);
+            me.snapshot && (inbox.snapshot = me.snapshot)
+        }
+        form && me.recipientOptions?.length && (form.recipientOptions = me.recipientOptions);
+
+        // a construction-time identity lands its first inbox read without a page gesture (afterSetRecord
+        // was skipped pre-construct, so this is the single fire for the reveal path)
+        me.record && me.onInboxPageRequest({offset: 0})
     }
 
     /**

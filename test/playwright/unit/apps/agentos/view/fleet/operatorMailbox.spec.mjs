@@ -125,7 +125,7 @@ test.describe('AgentOS OperatorMailbox — the operator mailbox surface (#15377)
     });
 
     test('clearing the record (→ null) fires NO read — there is no subject to read', () => {
-        const box = createBox({record: {agentIdentityNodeId: 'NODE:operator'}});
+        const box = createBox({record: {agentIdentityNodeId: '@neo-opus-grace', githubUsername: 'neo-opus-grace'}});
 
         let fired = 0;
         box.on('inboxPageRequest', () => {fired++});
@@ -133,6 +133,25 @@ test.describe('AgentOS OperatorMailbox — the operator mailbox surface (#15377)
         box.record = null;
 
         expect(fired).toBe(0);
+
+        box.destroy()
+    });
+
+    test('reveal-after-boot: state injected as CONSTRUCTION configs reaches the children (real component, review RA-1)', () => {
+        // the normal reveal path: the projection materializes the pane with the operator identity, its
+        // snapshot, and recipient options ALREADY resolved owner-side, supplied as construction configs.
+        // Before the onConstructed flush, afterSet* skipped these (isConstructed false) and the children
+        // materialized EMPTY — the pane could not pass possession. This is the real composed component,
+        // not a spy or a post-construction assignment.
+        const record   = {agentIdentityNodeId: '@neo-opus-grace', githubUsername: 'neo-opus-grace'},
+              snapshot = {capability: {state: 'wired'}, admission: {state: 'granted', subjectAgentId: '@neo-opus-grace'}, rows: [], page: {limit: 10, offset: 0, count: 0}},
+              options  = [{id: '@neo-opus-ada', name: 'Ada'}, {id: 'AGENT:*', name: 'All agents'}];
+
+        const box = createBox({record, snapshot, recipientOptions: options});
+
+        expect(box.getReference('operator-inbox-pane').record).toEqual(record);
+        expect(box.getReference('operator-inbox-pane').snapshot).toStrictEqual(snapshot);
+        expect(box.getReference('operator-compose-form').recipientOptions).toEqual(options);
 
         box.destroy()
     })
