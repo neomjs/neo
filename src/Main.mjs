@@ -61,6 +61,7 @@ class Main extends core.Base {
                 'setRoute',
                 'windowClose',
                 'windowCloseAll',
+                'windowFocus',
                 'windowMoveTo',
                 'windowOpen',
                 'windowResizeTo'
@@ -519,6 +520,49 @@ class Main extends core.Base {
         });
 
         this.openWindows = {}
+    }
+
+    /**
+     * Focus a named popup window — Boolean admission, the `windowOpen` discipline applied to
+     * focus: the platform may decline silently, so the answer is the VERIFIED outcome (did this
+     * opener actually lose focus to the popup), never the attempt. A keyboard-command flow rides
+     * its keystroke's user activation through this verb; a `false` answer is a legitimate
+     * degraded terminal for the caller to announce, not an error.
+     * @param {Object} data
+     * @param {String} data.windowName
+     * @returns {Promise<Boolean>} true when the popup verifiably took focus.
+     */
+    async windowFocus(data) {
+        let win = this.openWindows[data.windowName]?.win;
+
+        if (!win || win.closed) {
+            return false
+        }
+
+        win.focus();
+
+        // The verification asks the TARGET, not the opener: did the popup's document take focus?
+        // Asking the opener ("did I blur?") answers about the wrong subject — headless platforms
+        // let every window claim focus simultaneously, so the opener never blurs even when the
+        // popup genuinely focused. The answer feeds user-facing announcements, so it polls
+        // briefly and must not lie in either direction; a same-origin read is expected (vessels
+        // are same-app popups), and an inaccessible document degrades to the opener-blur
+        // fallback rather than a throw.
+        for (let attempt = 0; attempt < 6; attempt++) {
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            try {
+                if (win.document.hasFocus()) {
+                    return true
+                }
+            } catch (error) {
+                if (!document.hasFocus()) {
+                    return true
+                }
+            }
+        }
+
+        return false
     }
 
     /**

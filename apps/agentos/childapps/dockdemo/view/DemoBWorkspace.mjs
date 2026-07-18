@@ -12,6 +12,7 @@ import DockService                        from '../../../../../src/ai/client/Doc
 import DockTopologyReconciler             from '../../../../../src/dashboard/DockTopologyReconciler.mjs';
 import DockZoneModel                      from '../../../../../src/dashboard/DockZoneModel.mjs';
 import InteractionService                 from '../../../../../src/ai/client/InteractionService.mjs';
+import {createDockKeyboardCommands}       from '../../../../../src/dashboard/DockKeyboardCommands.mjs';
 import {createDockTearOutHandlers}        from '../../../../../src/dashboard/DockTearOut.mjs';
 import {createDockWorkspaceSet}           from '../../../../../src/dashboard/DockWorkspaceSet.mjs';
 import TourRunner                         from '../../../../../src/ai/client/TourRunner.mjs';
@@ -255,6 +256,16 @@ class DemoBWorkspace extends Container {
      */
     tearOutConnects = {}
     /**
+     * Exact-position return truth: `tearOutPlacements[itemId] = {tabsNodeId, index}`, captured
+     * at the detach terminal BEFORE the commit removes the item from the tree (`addTab` appends
+     * by default, so this pair is the only way home). Consumed exact-once by
+     * {@link #reintegrateTearOutItem} on vessel death; a refused detach commit deletes its own
+     * capture, so no stale placement outlives a gesture that never committed.
+     * @member {Object} tearOutPlacements={}
+     * @protected
+     */
+    tearOutPlacements = {}
+    /**
      * Plain structured result of the most recent topology reconciliation. This is rendered
      * into the workspace so remainder semantics are visible rather than buried in logs.
      * @member {Object|null} restoreReport=null
@@ -319,11 +330,36 @@ class DemoBWorkspace extends Container {
         // cancelled tear-out is zero-mutation by GUARD. Post-commit adoption uses its own
         // bookkeeping (`tearOutPanes` / `tearOutConnects`).
         me.tearOutHandlers = createDockTearOutHandlers({
-            applyOperation  : descriptor => me.applyWorkspaceOperation(DemoBWorkspace.MAIN_WORKSPACE_ID, descriptor),
+            applyOperation  : descriptor => me.applyTearOutOperation(descriptor),
             closeVessel     : vessel => me.closeTearOutVessel(vessel),
             onDocumentChange: (document, operation) => {
                 me.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, document);
                 // The committed detach is the adoption trigger: the vessel owns the item now.
+                operation?.operation === 'detachItem' && me.adoptTearOutPane(operation.itemId)
+            },
+            openVessel: request => me.openTearOutVessel(request)
+        });
+
+        // The keyboard command surface — the discrete a11y-parity twin of the gesture paths,
+        // composed over the SAME host seams (detach reuses the tear-out seams verbatim) plus the
+        // keyboard-specific ones. The transfer commit composes the OWNED primitives directly
+        // (transferItem → adoptTransfer → target-first reconcile) rather than the pointer path's
+        // gesture-witness wrapper: that wrapper's context/generation predicates and proof
+        // machinery belong to the continuous gesture, not to a discrete command.
+        me.keyboardCommands = createDockKeyboardCommands({
+            announce        : announcement => me.announceKeyboardOutcome(announcement),
+            applyOperation  : descriptor => me.applyWorkspaceOperation(DemoBWorkspace.MAIN_WORKSPACE_ID, descriptor),
+            closeVessel     : vessel => me.closeTearOutVessel(vessel),
+            commitTransfer  : data => me.commitKeyboardTransfer(data),
+            enumerateTargets: request => me.enumerateKeyboardTargets(request),
+            focusVessel     : vessel => me.focusNamedWindow(vessel.windowName),
+            focusWorkspace  : ({workspaceId}) => workspaceId === DemoBWorkspace.POPUP_WORKSPACE_ID
+                ? me.focusNamedWindow('demo-b-cross-window')
+                : true, // the main workspace is THIS window — the command runs focused here already
+            highlightTarget : target => me.setKeyboardTargetHighlight(target),
+            onDocumentChange: (document, operation) => {
+                me.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, document);
+                // the committed detach is the adoption trigger — identical to the pointer path
                 operation?.operation === 'detachItem' && me.adoptTearOutPane(operation.itemId)
             },
             openVessel: request => me.openTearOutVessel(request)
@@ -365,6 +401,16 @@ class DemoBWorkspace extends Container {
             ntype    : 'component',
             reference: 'restore-report-b'
         }, {
+            // The keyboard command surface's announcement region: every outcome terminal the
+            // command machine derives lands here as TEXT for the screen reader — visually
+            // unobtrusive, never hidden from the accessibility tree. `role` rides the
+            // Component.Base config (the renderer owns root-attr routing); aria-live rides the vdom.
+            cls      : ['agentos-dockdemo-kbd-live'],
+            ntype    : 'component',
+            reference: 'kbd-live-b',
+            role     : 'status',
+            vdom     : {'aria-live': 'polite', cn: []}
+        }, {
             module: Container,
             cls   : ['agentos-dockdemo-dock-host', 'neo-dashboard'],
             flex  : 1,
@@ -377,7 +423,270 @@ class DemoBWorkspace extends Container {
             reference: 'dock-host-b'
         }]);
 
-        me.crossWindowHosts.set(DemoBWorkspace.MAIN_WORKSPACE_ID, me.getReference('dock-host-b'))
+        me.crossWindowHosts.set(DemoBWorkspace.MAIN_WORKSPACE_ID, me.getReference('dock-host-b'));
+
+        // The keyboard command routing — MAIN workspace only, the projection's tear-out arming
+        // rule applied to keys. Entry chords act on the FOCUSED tab header; the cycle keys are
+        // fully chorded too (no preventDefault crosses the worker boundary, so the grammar avoids
+        // every native key meaning instead of suppressing it). Escape alone cancels — it has no
+        // native meaning on a header.
+        me.getReference('dock-host-b').addDomListeners([
+            {keydown: me.onDockHostKeyDown, scope: me}
+        ])
+    }
+
+    /**
+     * @summary Render a keyboard command outcome into the aria-live region — the announcement
+     * seam of the keyboard command machine. TEXT only (`.text` is inert by construction); the
+     * message is the machine's complete terminal-derived sentence.
+     * @param {Object} announcement `{command, itemId, terminal, focusTransferred, message}`.
+     * @protected
+     */
+    announceKeyboardOutcome({message}) {
+        let live = this.getReference('kbd-live-b');
+
+        live && (live.text = message)
+    }
+
+    /**
+     * The host-owned cycle key grammar, stated in every candidate announcement — fully chorded
+     * because no key suppression crosses the worker boundary: the grammar AVOIDS native meanings
+     * instead of preventing them.
+     * @member {String} KEYBOARD_CYCLE_INSTRUCTIONS
+     * @static
+     */
+    static KEYBOARD_CYCLE_INSTRUCTIONS =
+        'Ctrl+Shift+Arrow keys cycle targets, Ctrl+Shift+Enter moves it there, Escape cancels.'
+
+    /**
+     * @summary The keyboard command surface's key routing. Entry chords on a focused dock tab
+     * header: Ctrl+Shift+D detaches it to its own OS window; Ctrl+Shift+M starts the move cycle.
+     * While a cycle is active, Ctrl+Shift+ArrowRight/ArrowLeft cycle the candidates,
+     * Ctrl+Shift+Enter commits, and Escape (alone — no native meaning on a header) cancels.
+     * Outside a cycle every key keeps its native meaning; the machine's `getActiveCycle()` is
+     * the single routing gate.
+     * @param {Object} data The keydown DomEvent payload.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async onDockHostKeyDown(data) {
+        let me       = this,
+            commands = me.keyboardCommands,
+            chorded  = data.ctrlKey && data.shiftKey;
+
+        if (commands.getActiveCycle()) {
+            if (data.key === 'Escape') {
+                commands.cycleCancel();
+                return
+            }
+
+            if (chorded) {
+                switch (data.key) {
+                    case 'ArrowRight':
+                        commands.cycleNext();
+                        return
+                    case 'ArrowLeft':
+                        commands.cyclePrev();
+                        return
+                    case 'Enter':
+                        await commands.cycleCommit();
+                        return
+                }
+            }
+
+            return
+        }
+
+        if (!chorded || !['d', 'm'].includes(data.key?.toLowerCase?.())) {
+            return
+        }
+
+        let focused = me.resolveFocusedDockItem(data);
+
+        if (!focused) return;
+
+        if (data.key.toLowerCase() === 'd') {
+            await commands.detachItem(focused)
+        } else {
+            commands.cycleStart({...focused, instructions: DemoBWorkspace.KEYBOARD_CYCLE_INSTRUCTIONS})
+        }
+    }
+
+    /**
+     * @summary Resolve the dock item the keydown acted on: the event path's tab-header button →
+     * its header toolbar index → the owning projected tab-container's `dockNodeId` → the
+     * DOCUMENT's tabs node items at that index. The document is the authority on purpose:
+     * DemoB's panes are LIVE instances, which the adapter's item decoration deliberately passes
+     * through untouched — only the freshly-projected CONTAINER configs carry dock metadata, so
+     * the container's node id + the committed document answer identity where the card cannot.
+     * @param {Object} data The keydown DomEvent payload (carries the component path).
+     * @returns {Object|null} `{itemId, itemLabel}` or `null` when the focus is not a dock tab header.
+     * @protected
+     */
+    resolveFocusedDockItem(data) {
+        let me     = this,
+            button = (data.path || [])
+                .map(node => Neo.getComponent(node.id))
+                .find(component => component?.ntype === 'tab-header-button');
+
+        if (!button) return null;
+
+        let toolbar      = button.up({ntype: 'tab-header-toolbar'}) || button.parent,
+            index        = toolbar?.items?.indexOf(button) ?? -1,
+            tabContainer = toolbar?.up({ntype: 'tab-container'}),
+            // the projection filters rail-hidden items out of the tab flow — mirror it so the
+            // header index maps to the same list the strip renders
+            nodeItems    = me.dockModel?.nodes?.[tabContainer?.dockNodeId]?.items?.filter(id =>
+                me.dockModel.items?.[id]?.autoHidden !== true
+            ),
+            itemId       = index > -1 && Array.isArray(nodeItems) ? nodeItems[index] : null;
+
+        if (!itemId) return null;
+
+        return {
+            itemId,
+            itemLabel: me.dockModel?.items?.[itemId]?.title ?? itemId
+        }
+    }
+
+    /**
+     * @summary Enumerate the legal keyboard-transfer targets across the registered workspaces —
+     * every tabs zone in STABLE registry order, excluding the item's current tabs, labeled with
+     * the workspace's human name (+ a zone ordinal when a workspace has several).
+     * @param {Object} data
+     * @param {String} data.itemId
+     * @returns {Object[]} `[{workspaceId, tabsId, label}]`
+     * @protected
+     */
+    enumerateKeyboardTargets({itemId}) {
+        let me     = this,
+            labels = {
+                [DemoBWorkspace.MAIN_WORKSPACE_ID] : 'Main window',
+                [DemoBWorkspace.POPUP_WORKSPACE_ID]: 'Popup window'
+            };
+
+        return me.workspaceSet.ids().flatMap(workspaceId => {
+            // only workspaces with a LIVE render target are legal keyboard targets: a registered
+            // popup workspace whose window never opened cannot show the highlight, cannot take
+            // focus, and would leave the operator committing into the invisible
+            let host = me.crossWindowHosts.get(workspaceId);
+
+            if (!host || host.isDestroyed) return [];
+
+            let document     = me.workspaceSet.getDocument(workspaceId),
+                nodes        = document?.nodes || {},
+                sourceTabsId = document?.items?.[itemId]
+                    ? DockZoneModel.findContainingTabsId(document, itemId)
+                    : null,
+                tabsIds      = Object.keys(nodes).filter(nodeId =>
+                    nodes[nodeId].type === 'tabs' && nodeId !== sourceTabsId
+                );
+
+            return tabsIds.map((tabsId, index) => ({
+                label: tabsIds.length > 1
+                    ? `${labels[workspaceId] ?? workspaceId}, zone ${index + 1}`
+                    : (labels[workspaceId] ?? workspaceId),
+                tabsId,
+                workspaceId
+            }))
+        })
+    }
+
+    /**
+     * @summary Render (or clear) the keyboard cycle's current-candidate highlight on the target
+     * zone container. The class pairs hue with a non-color carrier (outline) in the skin — the
+     * WCAG 1.4.1 duty the command machine's seam documents.
+     * @param {Object|null} target `{workspaceId, tabsId}` or `null` to clear.
+     * @protected
+     */
+    setKeyboardTargetHighlight(target) {
+        let me   = this,
+            zone = me.keyboardHighlightZone;
+
+        if (zone && !zone.isDestroyed) {
+            zone.removeCls('agentos-kbd-target')
+        }
+
+        me.keyboardHighlightZone = null;
+
+        if (!target) return;
+
+        let host = me.crossWindowHosts.get(target.workspaceId);
+
+        zone = host && !host.isDestroyed && host.down({dockNodeId: target.tabsId});
+
+        if (zone) {
+            zone.addCls('agentos-kbd-target');
+            me.keyboardHighlightZone = zone
+        }
+    }
+
+    /**
+     * @summary The keyboard transfer commit — `DockZoneModel.transferItem` produces the
+     * commit-or-neither document pair, then the shared two-phase core lands it:
+     * {@link #adoptCommittedTransferPair} (both-or-neither adoption, first exit on refusal) and
+     * {@link #reconcileTransferPair} (target-first, unguarded — a discrete command has no
+     * mid-flight supersession to fence). The pointer path's `commitCrossWindowTransfer` wrapper
+     * is deliberately NOT reused: its context/generation predicates and continuity-proof
+     * machinery belong to the continuous gesture. Deliberately NO `detachedPanes` bookkeeping
+     * here — that classification belongs to the pointer pop-out flow, and close-race policy for
+     * transferred items is the whole-stack return leaf's contract, which binds to the same core.
+     * @param {Object} data
+     * @param {String} data.itemId
+     * @param {Object} data.target `{workspaceId, tabsId}` — the committed cycle candidate.
+     * @returns {Promise<{errors: String[]}>}
+     * @protected
+     */
+    async commitKeyboardTransfer({itemId, target}) {
+        let me                = this,
+            sourceWorkspaceId = me.workspaceSet.ids().find(id =>
+                !!me.workspaceSet.getDocument(id)?.items?.[itemId]
+            );
+
+        if (!sourceWorkspaceId) {
+            return {errors: [`unknown item "${itemId}"`]}
+        }
+
+        let {sourceDocument, targetDocument, errors} = DockZoneModel.transferItem(
+            me.workspaceSet.getDocument(sourceWorkspaceId),
+            me.workspaceSet.getDocument(target.workspaceId),
+            {
+                itemId,
+                sourceWorkspaceId,
+                targetWorkspaceId: target.workspaceId,
+                target           : {operation: 'addTab', tabsNodeId: target.tabsId}
+            }
+        );
+
+        if (errors.length) {
+            return {errors}
+        }
+
+        let pair = {sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId: target.workspaceId};
+
+        if (!me.adoptCommittedTransferPair(pair)) {
+            return {errors: ['workspace-set adoption refused the pair']}
+        }
+
+        await me.reconcileTransferPair(pair);
+
+        return {errors: []}
+    }
+
+    /**
+     * @summary Focus a named popup window through the Main verb — Boolean admission (the
+     * `windowOpen` discipline applied to focus): the answer is the verified outcome, and `false`
+     * is a legitimate degraded terminal for the command machine to announce, never a throw.
+     * @param {String} windowName
+     * @returns {Promise<Boolean>}
+     * @protected
+     */
+    async focusNamedWindow(windowName) {
+        try {
+            return !!(await Neo.Main.windowFocus({windowName, windowId: this.windowId}))
+        } catch (error) {
+            return false
+        }
     }
 
     /**
@@ -947,6 +1256,57 @@ class DemoBWorkspace extends Container {
     }
 
     /**
+     * @summary The SYNCHRONOUS half of the operation-agnostic transfer-commit core: the stats
+     * increment plus the workspace-set's both-or-neither adoption of a committed document PAIR —
+     * whatever executor produced it (`transferItem` today; the whole-stack return's
+     * `transferNode` pair binds here next). A refused adoption is the core's first exit: the
+     * vessel bookkeeping any caller performs after this must never diverge from document truth.
+     * @param {Object} pair
+     * @param {Object} pair.sourceDocument
+     * @param {String} pair.sourceWorkspaceId
+     * @param {Object} pair.targetDocument
+     * @param {String} pair.targetWorkspaceId
+     * @returns {Boolean} false when the workspace-set refused the pair.
+     * @protected
+     */
+    adoptCommittedTransferPair({sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId}) {
+        this.crossWindowStats.transferCommits++;
+
+        return this.workspaceSet.adoptTransfer({sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId})
+    }
+
+    /**
+     * @summary The reconcile half of the transfer-commit core. Target-first is load-bearing: it
+     * adopts the cached pane across the window boundary before the source shell can classify the
+     * now-absent item as a retirement. The `guard` seam is checked before each projection so a
+     * caller with supersession semantics (the pointer gesture's ownership fences) keeps them
+     * without the core knowing gesture state; guard-stopped reconciles are the CALLER's outcome
+     * to interpret.
+     * @param {Object} pair
+     * @param {Object} pair.sourceDocument
+     * @param {String} pair.sourceWorkspaceId
+     * @param {Object} pair.targetDocument
+     * @param {String} pair.targetWorkspaceId
+     * @param {Object} [options]
+     * @param {Function} [options.guard] `() => Boolean` — false stops before the next projection.
+     * @returns {Promise<Boolean>} true when both projections ran.
+     * @protected
+     */
+    async reconcileTransferPair({sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId}, {guard = () => true} = {}) {
+        let me = this;
+
+        if (!guard()) return false;
+
+        await me.refreshWorkspace(targetWorkspaceId, targetDocument);
+
+        if (!guard()) return false;
+
+        await me.refreshWorkspace(sourceWorkspaceId, sourceDocument);
+
+        return true
+    }
+
+    /**
      * Publishes the atomic transfer pair, then reconciles target before source. Target-first is
      * load-bearing: it adopts the cached pane across the window boundary before the source shell
      * can classify the now-absent item as a retirement.
@@ -976,12 +1336,9 @@ class DemoBWorkspace extends Container {
                 && me.crossWindowTargetWindowId === targetWindowId
                 && (!isPopupDetach || me.detachedPanes[itemId]?.windowId === targetWindowId);
 
-        me.crossWindowStats.transferCommits++;
-
-        // Both-or-neither adoption through the workspace-set: a pair that cannot land on both
-        // registered owners lands on neither, and the vessel bookkeeping below must not diverge
-        // from document truth — so a refused adoption ends the commit here.
-        if (!me.workspaceSet.adoptTransfer({sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId})) {
+        // Both-or-neither adoption through the shared core — a refused pair ends the commit here,
+        // so the gesture bookkeeping below never diverges from document truth.
+        if (!me.adoptCommittedTransferPair({sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId})) {
             return
         }
 
@@ -1014,15 +1371,16 @@ class DemoBWorkspace extends Container {
                 };
 
                 try {
-                    await me.refreshWorkspace(targetWorkspaceId, targetDocument)
+                    if (!await me.reconcileTransferPair(
+                        {sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId},
+                        {guard: ownsTransfer}
+                    )) {
+                        return
+                    }
                 } catch (error) {
                     if (!ownsTransfer()) return;
                     throw error
                 }
-
-                if (!ownsTransfer()) return;
-
-                await me.refreshWorkspace(sourceWorkspaceId, sourceDocument);
 
                 if (!ownsTransfer()) return;
 
@@ -2163,16 +2521,82 @@ class DemoBWorkspace extends Container {
             }
         }
 
-        // Tear-out vessel death: post-adoption reintegration is the vessel-lifecycle leaf's
-        // scope — here the bookkeeping simply retires (the catalog entry stays the model truth).
-        // A pre-terminal disconnect has no entry in either map and needs nothing.
+        // Tear-out vessel death: the item comes HOME. Model commit precedes every render
+        // effect, the reintegration is exact-once and idempotent against an already-re-treed
+        // item, and the bookkeeping retires with the vessel. A pre-terminal disconnect has no
+        // entry in either map and needs nothing.
         for (const [itemId, entry] of Object.entries(me.tearOutPanes)) {
             if (entry.windowId === data.windowId) {
                 delete me.tearOutPanes[itemId];
                 delete me.tearOutConnects[itemId];
+                me.reintegrateTearOutItem(itemId);
                 break
             }
         }
+    }
+
+    /**
+     * @summary The tear-out commit seam with exact-position capture riding it: the
+     * `{tabsNodeId, index}` pair is readable only BEFORE a detach commit removes the item from
+     * the tree, and a refused commit deletes its own capture — no stale placement outlives a
+     * gesture that never committed. Every non-detach descriptor passes through untouched.
+     * @param {Object} descriptor
+     * @returns {{document:Object, errors:String[]}|null}
+     * @protected
+     */
+    applyTearOutOperation(descriptor) {
+        let me       = this,
+            isDetach = descriptor?.operation === 'detachItem',
+            captured = isDetach ? DockZoneModel.captureItemPlacement(me.dockModel, descriptor.itemId) : null,
+            result;
+
+        captured && (me.tearOutPlacements[descriptor.itemId] = captured);
+
+        result = me.applyWorkspaceOperation(DemoBWorkspace.MAIN_WORKSPACE_ID, descriptor);
+
+        isDetach && result?.errors?.length && delete me.tearOutPlacements[descriptor.itemId];
+
+        return result
+    }
+
+    /**
+     * @summary Brings a torn-out item HOME on vessel death — the exact-position return of the
+     * vessel close policy (harness docking design record §2.8; the disposition this host's
+     * pre-vessel-lifecycle comment deferred).
+     *
+     * The stored `{tabsNodeId, index}` pair (captured at the detach terminal) is the placement
+     * truth; recovery is SEMANTIC, never geometric: a stored home node that left the tree falls
+     * back to the first surviving tabs node (append), mirroring the click path's
+     * `reattachPane` fallback. Exact-once and idempotent: an item some other flow already
+     * re-treed is left where it is, and the placement record is consumed regardless — a second
+     * vessel death for the same item finds nothing to do. An item whose document no longer
+     * catalogs it, or a document with no surviving tabs node, stays catalog-only/absent — the
+     * honest terminal, with zero mutation.
+     * @param {String} itemId
+     * @protected
+     */
+    reintegrateTearOutItem(itemId) {
+        let me         = this,
+            placement  = me.tearOutPlacements[itemId],
+            doc        = me.dockModel,
+            storedHome = placement && doc.nodes?.[placement.tabsNodeId]?.type === 'tabs' ? placement.tabsNodeId : null,
+            fallback   = storedHome || Object.entries(doc.nodes || {}).find(([, node]) => node.type === 'tabs')?.[0],
+            result;
+
+        delete me.tearOutPlacements[itemId];
+
+        if (!doc.items?.[itemId] || !fallback || DockZoneModel.findContainingTabsId(doc, itemId)) {
+            return
+        }
+
+        result = me.applyWorkspaceOperation(DemoBWorkspace.MAIN_WORKSPACE_ID, {
+            operation : 'addTab',
+            itemId,
+            tabsNodeId: fallback,
+            ...(storedHome ? {index: placement.index} : {})
+        });
+
+        result?.errors?.length === 0 && me.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, result.document)
     }
 
     /**

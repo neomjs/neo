@@ -85,3 +85,20 @@
         flex: 1;
     }
 }
+
+// the keyboard cycle's current-candidate highlight: hue PAIRED with a non-color carrier (the
+// dashed outline geometry) — WCAG 1.4.1 requires the state to survive a colorless rendering
+.agentos-kbd-target {
+    outline       : 2px dashed var(--fm-signal);
+    outline-offset: -2px;
+}
+
+// the keyboard announcement region: visually unobtrusive, never removed from the a11y tree
+// (display:none / visibility:hidden would silence the live region — this deliberately is
+// a one-line, low-emphasis strip instead of a visually-hidden clip)
+.agentos-dockdemo-kbd-live {
+    color     : var(--fm-ink-dim);
+    font-size : 11px;
+    min-height: 14px;
+    padding   : 0 12px;
+}

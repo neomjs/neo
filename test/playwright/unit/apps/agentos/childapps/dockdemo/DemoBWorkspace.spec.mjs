@@ -586,6 +586,94 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoBWorkspace', () => {
         expect(workspace.dockModel).toEqual(initialDocument)
     });
 
+    test('tear-out vessel death brings the item HOME at its EXACT stored position', () => {
+        // 'timeline' sits at side-tabs index 1 of ['inspector', 'timeline', 'console'] — the
+        // middle slot, so an append-shaped return would betray itself immediately.
+        const before = workspace.getDockZoneDocument().nodes['side-tabs'].items;
+
+        expect(before).toEqual(['inspector', 'timeline', 'console']);
+
+        // the detach terminal commits through the seam the projection threads — capture rides it
+        const result = workspace.applyTearOutOperation({operation: 'detachItem', itemId: 'timeline'});
+
+        expect(result.errors).toEqual([]);
+        expect(workspace.tearOutPlacements.timeline).toEqual({tabsNodeId: 'side-tabs', index: 1});
+
+        workspace.onWorkspaceDocumentChange('demo-b-main', result.document);
+        expect(workspace.getDockZoneDocument().nodes['side-tabs'].items).toEqual(['inspector', 'console']);
+
+        // the vessel dies: the disconnect correlates by windowId and the item returns home
+        workspace.tearOutPanes.timeline = {windowName: 'demo-b-tearout-timeline', windowId: 'tear-win-9'};
+        workspace.onWindowDisconnect({windowId: 'tear-win-9'});
+
+        expect(workspace.getDockZoneDocument().nodes['side-tabs'].items, 'identical order, not append order').toEqual(['inspector', 'timeline', 'console']);
+        expect(workspace.tearOutPanes.timeline).toBeUndefined();
+        expect(workspace.tearOutPlacements.timeline, 'the placement record is consumed exact-once').toBeUndefined();
+
+        // idempotent: a duplicate disconnect for the same window finds nothing and mutates nothing
+        const stable = JSON.stringify(workspace.getDockZoneDocument());
+
+        workspace.onWindowDisconnect({windowId: 'tear-win-9'});
+        expect(JSON.stringify(workspace.getDockZoneDocument())).toBe(stable)
+    });
+
+    test('a stored home that left the tree falls back SEMANTICALLY to a surviving tabs node', () => {
+        const detach = workspace.applyTearOutOperation({operation: 'detachItem', itemId: 'timeline'});
+
+        expect(detach.errors).toEqual([]);
+        workspace.onWorkspaceDocumentChange('demo-b-main', detach.document);
+
+        // the remembered home leaves the tree: move the two remaining side-tabs items into the
+        // workbench node — the emptied side-tabs collapses out on normalize
+        for (const itemId of ['inspector', 'console']) {
+            const moved = workspace.applyDockZoneOperation({operation: 'addTab', itemId, tabsNodeId: 'workbench-tabs'});
+
+            expect(moved.errors).toEqual([]);
+            workspace.onWorkspaceDocumentChange('demo-b-main', moved.document)
+        }
+
+        expect(workspace.getDockZoneDocument().nodes['side-tabs']).toBeUndefined();
+
+        workspace.tearOutPanes.timeline = {windowName: 'demo-b-tearout-timeline', windowId: 'tear-win-10'};
+        workspace.onWindowDisconnect({windowId: 'tear-win-10'});
+
+        // semantic recovery: the first surviving tabs node, append — never a resurrected node,
+        // never geometry
+        const home = workspace.getDockZoneDocument().nodes['workbench-tabs'].items;
+
+        expect(home).toContain('timeline');
+        expect(home[home.length - 1]).toBe('timeline')
+    });
+
+    test('a refused detach commit deletes its own capture — no stale placement survives', () => {
+        const result = workspace.applyTearOutOperation({operation: 'detachItem', itemId: 'ghost-item'});
+
+        expect(result.errors.length).toBeGreaterThan(0);
+        expect(workspace.tearOutPlacements['ghost-item']).toBeUndefined()
+    });
+
+    test('reintegration is idempotent against an item some other flow already re-treed', () => {
+        const detach = workspace.applyTearOutOperation({operation: 'detachItem', itemId: 'timeline'});
+
+        workspace.onWorkspaceDocumentChange('demo-b-main', detach.document);
+
+        // another flow re-trees the item mid-vessel (preset restore, NL addTab)
+        const readd = workspace.applyDockZoneOperation({operation: 'addTab', itemId: 'timeline', tabsNodeId: 'workbench-tabs'});
+
+        workspace.onWorkspaceDocumentChange('demo-b-main', readd.document);
+
+        workspace.tearOutPanes.timeline = {windowName: 'demo-b-tearout-timeline', windowId: 'tear-win-11'};
+        workspace.onWindowDisconnect({windowId: 'tear-win-11'});
+
+        // the reintegration finds the item already placed and leaves it EXACTLY there — one
+        // occurrence, in the node the other flow chose, placement record still consumed
+        const doc = workspace.getDockZoneDocument();
+
+        expect(DockZoneModel.findContainingTabsId(doc, 'timeline')).toBe('workbench-tabs');
+        expect(doc.nodes['workbench-tabs'].items.filter(id => id === 'timeline')).toHaveLength(1);
+        expect(workspace.tearOutPlacements.timeline).toBeUndefined()
+    });
+
     test('destroy tears down the runner, seam, store, and every cached pane', () => {
         const pane                                        = workspace.resolvePane('workbench', initialDocument.items.workbench);
         const {dockService, perspectiveStore, tourRunner} = workspace;
