@@ -47,6 +47,7 @@ import {probeExistingFleetServer, resolveFleetBearer, resolveFleetViewer} from '
 import {readActiveWakeSubscriptionIdentities}                             from './readActiveWakeSubscriptionIdentities.mjs';
 import {wireBootIdentityReadSource}                                       from './wireBootIdentityReadSource.mjs';
 import {wireFleetActivityReadSource}                                      from './wireFleetActivityReadSource.mjs';
+import {wireOperatorComposeWriter}                                        from './wireOperatorComposeWriter.mjs';
 import path                                                               from 'node:path';
 import {fileURLToPath, pathToFileURL}                                     from 'node:url';
 
@@ -95,6 +96,14 @@ async function boot() {
             issuesDir   : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../resources/content/issues'),
             listMessages: MailboxService.listMessages.bind(MailboxService),
             graphService: GraphService
+        });
+
+        // The write-side sibling: the composeOperatorMessage verb's writer. Same lazy-singleton
+        // boundary discipline — the bound addMessage resolves the author + principal class from
+        // the request context the authenticated ingress stamped; the seam carries payload, never
+        // identity. Fail-soft: an unavailable singleton leaves the compose seam honestly unwired.
+        wireOperatorComposeWriter({
+            addMessage: MailboxService.addMessage.bind(MailboxService)
         })
     }).catch(error => console.warn('[fleet] activity source not wired:', error?.message ?? error));
 
