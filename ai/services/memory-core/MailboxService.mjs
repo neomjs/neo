@@ -868,11 +868,19 @@ function getCachedMessageProjectionIssues(messageId) {
 }
 
 /**
- * @summary Checks whether projected WAL count exceeds required graph projection counts.
+ * @summary Checks whether the graph projection is damaged relative to the projected WAL count OR a
+ * broadcast has lost its whole delivery cohort — the mailbox read-path guard.
  *
- * This is the mailbox read-path guard: healthy reads use cheap SQLite counts plus the compact
- * graph-marker index and avoid parsing accepted message WAL records. A mismatch means the graph
- * projection may be damaged, so callers should run the full WAL-backed repair path.
+ * Healthy reads use cheap SQLite counts plus the compact graph-marker index and avoid parsing
+ * accepted message WAL records. A mismatch means the graph projection may be damaged, so callers
+ * should run the full WAL-backed repair path.
+ *
+ * Two damage classes are detected. (1) The count trio (MESSAGE / SENT_BY / SENT_TO falling below
+ * projectedCount) catches a lost message or send-edge. (2) The broadcast-cohort term catches a
+ * `SENT_TO → AGENT:*` broadcast whose entire per-recipient `DELIVERED_TO` cohort was lost — invisible
+ * to the trio because the MESSAGE node, SENT_BY, and SENT_TO all survive, so all three counts still
+ * match projectedCount. Without term (2) a pure read (list/count with no prior mark) of such a
+ * broadcast never self-heals, since the read routes through this gate.
  *
  * @returns {Promise<Boolean>}
  * @private
@@ -890,12 +898,24 @@ async function hasMailboxGraphProjectionGap() {
         SELECT
             (SELECT COUNT(*) FROM Nodes WHERE id LIKE 'MESSAGE:%' AND json_extract(data, '$.label') = 'MESSAGE') AS messageCount,
             (SELECT COUNT(DISTINCT source) FROM Edges WHERE source LIKE 'MESSAGE:%' AND type = 'SENT_BY') AS sentByCount,
-            (SELECT COUNT(DISTINCT source) FROM Edges WHERE source LIKE 'MESSAGE:%' AND type = 'SENT_TO') AS sentToCount
+            (SELECT COUNT(DISTINCT source) FROM Edges WHERE source LIKE 'MESSAGE:%' AND type = 'SENT_TO') AS sentToCount,
+            (SELECT COUNT(*) FROM Edges b
+                 WHERE b.source LIKE 'MESSAGE:%' AND b.type = 'SENT_TO' AND b.target = 'AGENT:*'
+                   AND NOT EXISTS (SELECT 1 FROM Edges d WHERE d.source = b.source AND d.type = 'DELIVERED_TO')) AS brokenBroadcastCount
     `).get();
 
+    // The first three are count-vs-projectedCount comparisons. The broadcast cohort term is
+    // DELIBERATELY an absolute `> 0`, NOT `deliveredToCount < projectedCount`: projectedCount counts
+    // ALL messages while the delivery-cohort spans broadcasts only, so a single DM would make a
+    // `< projectedCount` term permanently true and force a full WAL scan on every list. This term
+    // instead asks the precise question — a broadcast (`SENT_TO → AGENT:*`) that lost its WHOLE
+    // per-recipient delivery cohort (zero `DELIVERED_TO` rows) — which the count trio cannot see
+    // (its MESSAGE / SENT_BY / SENT_TO all still match projectedCount), so a pure read of it never
+    // self-healed until now.
     return (row?.messageCount ?? 0) < projectedCount ||
         (row?.sentByCount ?? 0) < projectedCount ||
-        (row?.sentToCount ?? 0) < projectedCount;
+        (row?.sentToCount ?? 0) < projectedCount ||
+        (row?.brokenBroadcastCount ?? 0) > 0;
 }
 
 /**
