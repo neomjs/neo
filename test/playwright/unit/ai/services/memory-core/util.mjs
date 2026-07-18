@@ -191,7 +191,7 @@ export class TestLifecycleHelper {
         }
 
         if (SystemLifecycleService) {
-            SystemLifecycleService._initPromise = null;
+            await SystemLifecycleService.reInitAsync();
         }
 
         await resetMemoryCoreLifecycle();
