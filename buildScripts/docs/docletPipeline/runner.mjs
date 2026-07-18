@@ -14,14 +14,14 @@ function buildConf(options) {
     return {
         tags: {
             allowUnknownTags: options.allowUnknownTags !== false,
-            dictionaries: Array.isArray(options.dictionaries) ? options.dictionaries : ['jsdoc', 'closure']
+            dictionaries    : Array.isArray(options.dictionaries) ? options.dictionaries : ['jsdoc', 'closure']
         },
         source: {
             includePattern: options.includePattern || '.+\\.js(doc|x)?$',
             excludePattern: options.excludePattern || '(^|\\/|\\\\)_'
         },
         templates: {
-            cleverLinks: false,
+            cleverLinks   : false,
             monospaceLinks: false
         },
         plugins: Array.isArray(options.plugins) ? options.plugins : [],
@@ -35,12 +35,12 @@ function buildConf(options) {
  * @returns {Promise<{path: string, cleanup: Function}>}
  */
 async function createTempConfig(conf) {
-    const tempDir = os.tmpdir();
-    const tempPath = path.join(tempDir, `jsdocx-conf-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.json`);
+    const tempDir  = os.tmpdir();
+    const tempPath = path.join(tempDir, `docs-json-conf-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.json`);
     await fs.writeFile(tempPath, JSON.stringify(conf), 'utf8');
 
     return {
-        path: tempPath,
+        path   : tempPath,
         cleanup: async () => {
             try {
                 await fs.unlink(tempPath);
@@ -60,12 +60,12 @@ async function createTempConfig(conf) {
  */
 function buildJSDocApiOptions(options, files, configPath) {
     return {
-        files: files || options.files,
+        files    : files || options.files,
         configure: configPath, // Must be a path, not an object
-        encoding: options.encoding || 'utf8',
-        package: options.package,
-        recurse: options.recurse,
-        pedantic: options.pedantic
+        encoding : options.encoding || 'utf8',
+        package  : options.package,
+        recurse  : options.recurse,
+        pedantic : options.pedantic
     };
 }
 
@@ -90,14 +90,14 @@ function chunkArray(array, size) {
  * @returns {Promise<any[]>} - Combined results from all workers
  */
 async function runParallel(options, workerCount) {
-    const files = options.files;
+    const files          = options.files;
     const filesPerWorker = Math.ceil(files.length / workerCount);
-    const chunks = chunkArray(files, filesPerWorker);
+    const chunks         = chunkArray(files, filesPerWorker);
 
     console.log(`Processing ${files.length} files in ${chunks.length} parallel batches (~${filesPerWorker} files each)`);
 
     // Create a single config file to share across all workers
-    const conf = buildConf(options);
+    const conf       = buildConf(options);
     const configFile = await createTempConfig(conf);
 
     try {
@@ -131,13 +131,13 @@ async function runParallel(options, workerCount) {
  * @returns {number}
  */
 function getOptimalWorkerCount() {
-    const cpus = os.cpus();
+    const cpus     = os.cpus();
     const cpuCount = cpus.length;
 
     // On macOS/systems with hyperthreading, logical cores = 2x physical cores
     // We want to use physical cores for CPU-bound tasks
     // Heuristic: If all CPUs have same model, likely hyperthreading
-    const uniqueModels = new Set(cpus.map(cpu => cpu.model));
+    const uniqueModels         = new Set(cpus.map(cpu => cpu.model));
     const likelyHyperthreading = uniqueModels.size === 1 && cpuCount > 4;
 
     const physicalCores = likelyHyperthreading ? Math.floor(cpuCount / 2) : cpuCount;
@@ -156,12 +156,12 @@ export async function run(options) {
 
     // Use parallel processing for larger file sets
     const PARALLEL_THRESHOLD = 100;
-    const cpuCount = os.cpus().length;
+    const cpuCount           = os.cpus().length;
 
     // Use optimal worker count based on physical cores
     // Can be overridden via options.workerCount
     const defaultWorkerCount = getOptimalWorkerCount();
-    const workerCount = options.workerCount || defaultWorkerCount;
+    const workerCount        = options.workerCount || defaultWorkerCount;
 
     if (fileCount >= PARALLEL_THRESHOLD) {
         console.log(`Using jsdoc-api with ${workerCount} parallel workers for ${fileCount} files (${cpuCount} logical CPUs available)`);
@@ -171,12 +171,12 @@ export async function run(options) {
     // Single batch for smaller file sets
     console.log(`Using jsdoc-api for ${fileCount} files`);
 
-    const conf = buildConf(options);
+    const conf       = buildConf(options);
     const configFile = await createTempConfig(conf);
 
     try {
         const apiOptions = buildJSDocApiOptions(options, options.files, configFile.path);
-        const result = await jsdocApi.explain(apiOptions);
+        const result     = await jsdocApi.explain(apiOptions);
         await configFile.cleanup();
         return result;
     } catch (e) {

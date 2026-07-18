@@ -106,7 +106,7 @@ if (programOpts.info) {
             questions.push({
                 type   : 'list',
                 name   : 'parsedocs',
-                message: 'Trigger the jsdocx parsing?',
+                message: 'Trigger the docs-json parsing?',
                 choices: ['yes', 'no'],
                 default: 'yes'
             });

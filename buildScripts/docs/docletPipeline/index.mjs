@@ -13,11 +13,11 @@ async function promiseGlobFiles(globs) {
     const patterns = Array.isArray(globs) ? globs : [globs];
 
     return fg(patterns, {
-        absolute: false,
+        absolute : false,
         onlyFiles: true,
-        unique: true,
-        dot: false,
-        ignore: [
+        unique   : true,
+        dot      : false,
+        ignore   : [
             '**/node_modules/**',
             '**/dist/**',
             '**/docs/output/**'
@@ -39,7 +39,7 @@ export async function writeJSON(options, object) {
     const {indent = false, force = false} = opts;
 
     const indentSize = indent === true ? 2 : (typeof indent === 'number' ? indent : 0);
-    const json = JSON.stringify(object, null, indentSize);
+    const json       = JSON.stringify(object, null, indentSize);
 
     if (force) {
         await fs.mkdir(path.dirname(opts.path), {recursive: true});
@@ -58,7 +58,7 @@ export async function parse(options) {
     const opts = typeof options !== 'object' || options === null ? {files: options} : {...options};
     opts.files = opts.files || opts.file;
 
-    const hasFiles = typeof opts.files === 'string' || (Array.isArray(opts.files) && opts.files.length > 0);
+    const hasFiles  = typeof opts.files === 'string' || (Array.isArray(opts.files) && opts.files.length > 0);
     const hasSource = typeof opts.source === 'string';
 
     if (!hasFiles && !hasSource) {

@@ -1585,7 +1585,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         });
 
         if (gapElementsCount === 0) {
-            handoffContent += `*No architectural gaps detected at this time. Codebase is aligned with structural jsdocx graph expectations.*\n`;
+            handoffContent += `*No architectural gaps detected at this time. Codebase is aligned with structural jsdoc graph expectations.*\n`;
         } else {
             const limit = 5;
             if (testGaps.length > 0) {

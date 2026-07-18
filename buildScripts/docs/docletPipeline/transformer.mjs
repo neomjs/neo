@@ -17,7 +17,7 @@ function normalizeAccess(access) {
 // sorts documentation symbols and properties of each symbol, if any.
 function sortDocs(docs, sortType) {
     if (!sortType) return;
-    const fnSorter = getSymbolsComparer(sortType, '$longname');
+    const fnSorter     = getSymbolsComparer(sortType, '$longname');
     const fnPropSorter = getSymbolsComparer(sortType, 'name');
     docs.sort(fnSorter);
     docs.forEach(symbol => {
@@ -28,7 +28,7 @@ function sortDocs(docs, sortType) {
 }
 
 function hierarchy(docs, sortType) {
-    const fnSorter = getSymbolsComparer(sortType, '$longname');
+    const fnSorter     = getSymbolsComparer(sortType, '$longname');
     const fnPropSorter = getSymbolsComparer('alphabetic', 'name');
 
     // Use a reverse loop to be able to splice items without affecting the loop
@@ -89,7 +89,7 @@ function isDuplicateSymbol(docs, symbol) {
     const found = docs.find(s => {
         if (!isSymbolComparable(s)) return false;
 
-        const meta = s.meta;
+        const meta    = s.meta;
         const symMeta = symbol.meta;
 
         const isDup = s.name === symbol.name
@@ -126,18 +126,18 @@ export function transform(docs, options, predicate) {
 
     docs = Array.isArray(docs) ? docs : [];
 
-    // Filter out items that do not have meta.filename, as jsdocx.mjs expects it.
+    // Filter out items that do not have meta.filename, as generateDocsJson.mjs expects it.
     docs = docs.filter(symbol => symbol.meta?.filename);
 
     const defaultedOptions = {
-        access: undefined,
-        package: true,
-        module: true,
+        access      : undefined,
+        package     : true,
+        module      : true,
         undocumented: true,
-        undescribed: true,
-        ignored: true,
-        hierarchy: false,
-        sort: false, // (true|"alphabetic")|"grouped"|false
+        undescribed : true,
+        ignored     : true,
+        hierarchy   : false,
+        sort        : false, // (true|"alphabetic")|"grouped"|false
         relativePath: null,
         ...options
     };
@@ -152,12 +152,12 @@ export function transform(docs, options, predicate) {
         symbol.$longname = utils.getLongName(symbol);
         symbol.$kind = utils.getKind(symbol);
 
-        const undoc = defaultedOptions.undocumented || symbol.undocumented !== true;
-        const undesc = defaultedOptions.undescribed || utils.hasDescription(symbol);
-        const pkg = defaultedOptions.package || symbol.kind !== 'package';
-        const mdl = defaultedOptions.module || symbol.longname !== 'module.exports';
+        const undoc   = defaultedOptions.undocumented || symbol.undocumented !== true;
+        const undesc  = defaultedOptions.undescribed || utils.hasDescription(symbol);
+        const pkg     = defaultedOptions.package || symbol.kind !== 'package';
+        const mdl     = defaultedOptions.module || symbol.longname !== 'module.exports';
         const ignored = defaultedOptions.ignored || symbol.ignore !== true;
-        const acc = access === 'all' || !symbol.access || access.includes(symbol.access);
+        const acc     = access === 'all' || !symbol.access || access.includes(symbol.access);
 
         const isDup = isDuplicateSymbol(docs, symbol);
         const isCon = acc && !isDup && utils.isConstructor(symbol);

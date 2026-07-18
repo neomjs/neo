@@ -9,7 +9,7 @@ import {fileURLToPath}      from 'node:url';
  * Substrate gate against unparseable JSDoc type expressions in the docs build.
  *
  * The docs build (`npm run generate-docs-json` — the last `build all` step) parses every `{type}` with
- * `jsdoc-x` → `catharsis` (the Closure/JSDoc type grammar, NOT TypeScript). A TS-like expression catharsis
+ * the jsdoc engine → `catharsis` (the Closure/JSDoc type grammar, NOT TypeScript). A TS-like expression catharsis
  * cannot parse throws inside a parse batch; the build then fails the whole run (by design) and the
  * docs app loses that content. That failure surfaces late (last build step) and aborts on the first bad
  * batch without enumerating the rest. This lint runs the SAME parser, ahead of the build, over every
@@ -192,11 +192,11 @@ function main() {
         if (!quiet) {
             violations.forEach(v => console.error('  ' + v));
             console.error('\nThe docs build (`npm run generate-docs-json`, the last `build all` step) parses these with');
-            console.error('jsdoc-x → catharsis (Closure/JSDoc grammar, NOT TypeScript); an unparseable type fails the build');
+            console.error('the jsdoc engine → catharsis (Closure/JSDoc grammar, NOT TypeScript); an unparseable type fails the build');
             console.error('and breaks the docs app. Most common cause: a TS-like type — typically a bare union inside a');
             console.error('record value with no space after the colon (`{a:Object|null}`). Fix: parenthesize the union');
             console.error('(`{a:(Object|null)}`) or add a space (`{a: Object|null}`); use a `@typedef` for complex shapes.')
-            console.error('See .github/CODING_GUIDELINES.md#11-jsdoc-type-expressions for accepted forms.')
+            console.error('See https://github.com/neomjs/neo/blob/dev/.github/CODING_GUIDELINES.md#11-jsdoc-type-expressions for accepted forms.')
         }
         process.exit(1)
     }

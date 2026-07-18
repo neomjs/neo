@@ -3,7 +3,7 @@ import {findUnparseableTypes, extractType, inScope} from '../../../../../../buil
 
 /**
  * Self-test for the JSDoc-type lint: the mechanical gate that stops TS-like type expressions the
- * docs build (jsdoc-x → catharsis) cannot parse from breaking `npm run generate-docs-json` (the last
+ * docs build (the jsdoc engine → catharsis) cannot parse from breaking `npm run generate-docs-json` (the last
  * `build all` step) + the docs app. Verifies it flags the build-breaking no-space record-union (+ malformed
  * types), passes the catharsis-valid spaced / parenthesized / plain / top-level-union forms, scans only
  * `/**` doc blocks (not `/*` or `//`), and scopes to the authored-source surface (src/ai/examples/apps/docs-app) —

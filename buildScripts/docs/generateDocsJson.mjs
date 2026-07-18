@@ -1,5 +1,5 @@
 import fs                 from 'fs-extra';
-import {parse, writeJSON} from './jsdoc-x/index.mjs';
+import {parse, writeJSON} from './docletPipeline/index.mjs';
 import {marked}           from 'marked';
 import path               from 'path';
 
@@ -13,7 +13,7 @@ const __dirname   = path.resolve(),
       insideNeo   = packageJson.name.includes('neo.mjs'),
       neoPath     = insideNeo ? '' : 'node_modules/neo.mjs/',
       appNames    = [],
-      options = {
+      options     = {
           access        : 'all',
           files         : [`${neoPath}src/**/*.mjs`, `${neoPath}ai/**/*.mjs`, `${neoPath}docs/app/**/*.mjs`],
           includePattern: ".+\\.(m)js(doc)?$",
@@ -52,8 +52,8 @@ appJson?.apps.forEach(key => {
 function createNamespaceTree(names) {
     names = Array.isArray(names) ? names : names.split('.');
 
-    const root = {};
-    let current = root;
+    const root    = {};
+    let   current = root;
 
     for (const name of names) {
         if (!current[name]) {
@@ -139,11 +139,11 @@ function generateStructure(namespaceTree, target, parentId, docIndex) {
     for (const [key, value] of entries) {
         const id        = ++neoStructureId;
         const isLeaf    = Object.keys(value).length === 0;
-        let className   = null;
-        let singleton   = false;
-        let srcPath     = null;
-        let path        = '';
-        let hasMatch    = false;
+        let   className = null;
+        let   singleton = false;
+        let   srcPath   = null;
+        let   path      = '';
+        let   hasMatch  = false;
 
         // Check app names
         for (const appName of appNames) {
@@ -171,7 +171,7 @@ function generateStructure(namespaceTree, target, parentId, docIndex) {
 
             if (docItem) {
                 const metaPath = docItem.meta.path;
-                let m = false;
+                let   m        = false;
 
                 // Try different path patterns
                 const patterns = [
@@ -235,7 +235,7 @@ function processPath(itemPath, filename, appNames) {
         return pathCache.get(cacheKey);
     }
 
-    let path = itemPath.replace(/\\/g, '/'); // sync windows paths to macOS
+    let path  = itemPath.replace(/\\/g, '/'); // sync windows paths to macOS
     let index = path.indexOf('/ai/');
 
     if (index > -1) {
@@ -258,7 +258,7 @@ function processPath(itemPath, filename, appNames) {
                 if (index > -1) {
                     for (const appName of appNames) {
                         const lAppName = appName.toLowerCase();
-                        let pathLen = path.lastIndexOf('/' + lAppName);
+                        let   pathLen  = path.lastIndexOf('/' + lAppName);
 
                         if (pathLen !== -1) {
                             // top level files
@@ -292,24 +292,24 @@ function processPath(itemPath, filename, appNames) {
     return result;
 }
 
-console.log('Start default jsdocx parsing.');
+console.log('Start default doclet parsing.');
 const startDateDefault = new Date();
 
 parse(options)
     .then(async function (docs) {
-        console.log('Default jsdocx parsing done.');
+        console.log('Default doclet parsing done.');
         const processTimeDefault = (Math.round((new Date - startDateDefault) * 100) / 100000).toFixed(2);
-        console.log(`jsdocx default parsing time: ${processTimeDefault}s`);
+        console.log(`default doclet parsing time: ${processTimeDefault}s`);
 
         const startDate = new Date();
 
         // Create namespace trees
-        const neoTree = {};
+        const neoTree  = {};
         const docsTree = {};
         const appTrees = {};
         appNames.forEach(name => appTrees[name] = {});
 
-        const structure = {};
+        const structure      = {};
         const classHierarchy = {};
         const fileNamespaces = {};
 
@@ -330,7 +330,7 @@ parse(options)
             structure[fullPath] = true;
 
             // Determine which tree this belongs to
-            let hasMatch = false;
+            let hasMatch     = false;
             let neoClassName = '';
 
             for (const appName of appNames) {
@@ -430,7 +430,7 @@ parse(options)
         const writePromises = [];
         for (const [key, namespace] of Object.entries(fileNamespaces)) {
             const firstChar = key.charAt(0);
-            let filePath = key.replace(/\./g, '/');
+            let   filePath  = key.replace(/\./g, '/');
 
             if (firstChar === firstChar.toUpperCase() && key.includes('.')) {
                 filePath = 'apps/' + filePath + '.json';
@@ -482,7 +482,7 @@ parse(options)
         let changed = true;
         while (changed) {
             changed = false;
-            const parentIds = new Set(neoStructure.map(item => item.parentId));
+            const parentIds     = new Set(neoStructure.map(item => item.parentId));
             const initialLength = neoStructure.length;
 
             neoStructure = neoStructure.filter(item => {
@@ -524,7 +524,7 @@ parse(options)
         console.log('Generated docs/output/class-hierarchy.yaml');
 
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
-        console.log(`jsdocx custom parsing time: ${processTime}s`);
+        console.log(`custom doclet parsing time: ${processTime}s`);
 
         const totalTime = (Math.round((new Date - totalStartTime) * 100) / 100000).toFixed(2);
         console.log(`\nTotal documentation generation time: ${totalTime}s`);
