@@ -47,6 +47,36 @@ export function stateClass(state) {
 }
 
 /**
+ * Human-readable label per session state. Lives here beside {@link stateToken} / {@link stateClass}
+ * so the three closed-set resolvers stay one source of truth for the fleet primitives — and so the
+ * dot can name itself without importing from a consumer (`HealthSwatch` imports `stateClass` from
+ * this module, so sourcing the label there would close an import cycle).
+ * @type {Object}
+ */
+const STATE_LABEL = {
+    ok      : 'working',
+    idle    : 'idle',
+    wedged  : 'wedged',
+    limited : 'rate-limited',
+    starting: 'starting',
+    stopping: 'stopping',
+    off     : 'benched / offline'
+};
+
+/**
+ * Pure state → human-readable label. An unrecognized state renders its LITERAL category string
+ * (never invisible, never silently re-labelled as `off`), so a new runtime state still reads until it
+ * earns a canonical label here. Uses an `Object.hasOwn` check (not `MAP[k] ||`) so a prototype-shaped
+ * key (`toString`, `constructor`, `__proto__`) resolves to its literal text instead of leaking an
+ * inherited `Object.prototype` value.
+ * @param {String} state
+ * @returns {String}
+ */
+export function stateLabel(state) {
+    return Object.hasOwn(STATE_LABEL, state) ? STATE_LABEL[state] : String(state ?? 'unknown')
+}
+
+/**
  * The atomic session-state indicator: a colored dot whose color is driven entirely by the
  * `--fm-state-*` token layer, with an optional live-pulse gated behind `prefers-reduced-motion`
  * in the component SCSS (`resources/scss/src/apps/agentos/fleet/StateDot.scss`). The color — not the
@@ -102,6 +132,12 @@ class StateDot extends Component {
 
         oldValue !== undefined && NeoArray.remove(cls, stateClass(oldValue));
         NeoArray.add(cls, stateClass(value));
+
+        // a11y: the dot is a graphical indicator carrying information, so it needs an accessible NAME —
+        // unlabelled it reaches assistive tech as decoration. Set before the `cls` assignment below,
+        // which flushes the vdom. This satisfies 4.1.2 / 1.1.1 and NOT 1.4.1: a name does nothing for a
+        // sighted operator who cannot separate the hues, which needs a visible non-colour channel.
+        Object.assign(this.vdom, {role: 'img', 'aria-label': stateLabel(value)});
 
         this.cls = cls
     }
