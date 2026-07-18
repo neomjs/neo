@@ -413,9 +413,11 @@ class FleetControlBridge extends Base {
      * @param {String}   params.body
      * @param {String}   [params.priority]       Omitted → sender-class default.
      * @param {Boolean}  [params.wakeSuppressed] Omitted → sender-class default (human ⇒ quiet).
-     * @param {String[]} [params.relatedTickets]
-     * @returns {Promise<Object>|Object} the writer's acceptance (`{messageId, sentAt, …}`), or the
-     *     `{status:'not-wired'}` refusal when no writer is installed.
+     * @param {String[]} [params.relatedTickets] Must be an array; a non-array value is rejected before
+     *     the writer is invoked (the fleet wire's only schema-less shape guard — the primitive spreads it).
+     * @returns {Promise<Object>|Object} the writer's acceptance (`{messageId, sentAt, …}`), the
+     *     `{status:'not-wired'}` refusal when no writer is installed, or `{status:'rejected'}` when
+     *     `relatedTickets` is a non-array.
      */
     composeOperatorMessage(params = {}) {
         const writer = this.composeWriter;
@@ -426,6 +428,16 @@ class FleetControlBridge extends Base {
 
         const {to, subject, body, priority, wakeSuppressed, relatedTickets} = params;
         const payload                                                       = {to, subject, body};
+
+        // Shape-guard the one array-typed whitelisted field. The fleet wire has NO schema layer (the
+        // MCP transport enforces `String[]`; this verb is the single schema-less caller), and
+        // `MailboxService.addMessage` spreads it (`[...relatedTickets]`) — so a non-array string
+        // CHAR-SPLITS into garbage WAL refs and a number THROWS mid-send. Reject loudly here rather
+        // than corrupt the coordination fabric; `undefined` still omits (sender-class defaults stay
+        // the primitive's decision). The whitelist governs WHICH fields cross; this governs the SHAPE.
+        if (relatedTickets !== undefined && !Array.isArray(relatedTickets)) {
+            return {status: 'rejected', reason: 'relatedTickets must be an array'};
+        }
 
         if (priority       !== undefined) payload.priority       = priority;
         if (wakeSuppressed !== undefined) payload.wakeSuppressed = wakeSuppressed;
