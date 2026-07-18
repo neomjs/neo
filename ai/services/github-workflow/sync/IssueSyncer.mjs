@@ -380,6 +380,9 @@ class IssueSyncer extends Base {
      * @summary Pre-computes bucket counts and indices for all active and archived issues.
      * @param {Object} metadata The sync metadata.
      * @param {Array} fetchedIssues The delta issues fetched from GitHub.
+     * @param {Object} [options]
+     * @param {Boolean} [options.ignoreOldVersion=false] Ignore cached archive placement while migrating.
+     * @param {Map<number, Array<Object>>} [options.inventory=null] Complete active + archive corpus membership.
      * @returns {Map<number, {version: string|null, itemCount: number, itemIndex: number}>}
      * @private
      */

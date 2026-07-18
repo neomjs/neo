@@ -86,6 +86,61 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         await fs.remove(tmpRoot).catch(() => {});
     });
 
+    test('COMPLETE-membership red-proof: a new issue ranks past the marooned on-disk backlog into chunk-2 (#15452)', async () => {
+        const originalThreshold = issueSyncConfig.archiveChunkThreshold,
+              originalReleases  = ReleaseNotesSyncer.sortedReleases;
+
+        issueSyncConfig.archiveChunkThreshold = 2;
+        ReleaseNotesSyncer.sortedReleases     = [];
+
+        try {
+            const chunk1 = path.join(issueSyncConfig.issuesDir, 'chunk-1');
+
+            await fs.ensureDir(chunk1);
+            await fs.writeFile(path.join(chunk1, 'issue-43010.md'), '# marooned 43010\n');
+            await fs.writeFile(path.join(chunk1, 'issue-43011.md'), '# marooned 43011\n');
+
+            const issue = buildMockIssue({
+                number       : 43012,
+                title        : 'Complete-membership issue witness',
+                timelineFirst: [],
+                hasNextPage  : false,
+                endCursor    : null
+            });
+
+            issue.state     = 'OPEN';
+            issue.closedAt  = null;
+            issue.milestone = null;
+
+            GraphqlService.query = async query => {
+                if (query.includes('FetchIssuesForSync')) {
+                    return {
+                        rateLimit : {cost: 1, remaining: 4999, resetAt: '2026-07-18T11:00:00Z'},
+                        repository: {
+                            issues: {
+                                nodes   : [structuredClone(issue)],
+                                pageInfo: {hasNextPage: false, endCursor: null}
+                            }
+                        }
+                    };
+                }
+
+                throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`);
+            };
+
+            await IssueSyncer.pullFromGitHub({issues: {}});
+
+            const correct = path.join(issueSyncConfig.issuesDir, 'chunk-2', 'issue-43012.md'),
+                  wrong   = path.join(chunk1, 'issue-43012.md');
+
+            await expect(fs.pathExists(correct)).resolves.toBe(true);
+            await expect(fs.pathExists(wrong)).resolves.toBe(false)
+        } finally {
+            issueSyncConfig.archiveChunkThreshold = originalThreshold;
+            ReleaseNotesSyncer.sortedReleases     = originalReleases
+        }
+    });
+
     test('refetchIssuesByNumber paginates timeline and renders all events past the page cap', async () => {
         const PAGE_SIZE    = issueSyncConfig.maxTimelineItemsPerIssue; // 50
         const TOTAL_EVENTS = 75;

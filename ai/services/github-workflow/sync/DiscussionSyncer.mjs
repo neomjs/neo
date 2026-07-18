@@ -100,6 +100,7 @@ class DiscussionSyncer extends Base {
      * @summary Pre-computes bucket counts and indices for all discussions based on historical releases.
      * @param {Object} metadata The sync metadata.
      * @param {Array} fetchedDiscussions The delta discussions fetched from GitHub.
+     * @param {Map<number, Array<Object>>} [inventory] Complete active + archive corpus membership.
      * @returns {Map<number, {version: string|null, itemCount: number, itemIndex: number}>}
      * @private
      */
