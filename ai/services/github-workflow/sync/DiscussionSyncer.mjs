@@ -9,6 +9,7 @@ import GraphqlService                                                 from '../G
 import ReleaseNotesSyncer                                             from './ReleaseNotesSyncer.mjs';
 import {FETCH_DISCUSSIONS_FOR_SYNC, FETCH_SINGLE_DISCUSSION_FOR_SYNC} from '../queries/discussionQueries.mjs';
 import contentPath                                                    from '../shared/contentPath.mjs';
+import {buildContentInventory}                                        from '../shared/contentInventory.mjs';
 import {
     createContentIndexEntry,
     updateContentIndex
@@ -102,7 +103,7 @@ class DiscussionSyncer extends Base {
      * @returns {Map<number, {version: string|null, itemCount: number, itemIndex: number}>}
      * @private
      */
-    #planBuckets(metadata, fetchedDiscussions = []) {
+    #planBuckets(metadata, fetchedDiscussions = [], inventory = null) {
         const combined = new Map();
 
         for (const [idStr, discussion] of Object.entries(metadata.discussions || {})) {
@@ -149,6 +150,32 @@ class DiscussionSyncer extends Base {
                 buckets.set(version, []);
             }
             buckets.get(version).push(discussion.number);
+        }
+
+        // Seed marooned on-disk ids AFTER classification — membership is inherited from the corpus only
+        // for ids this run has no live opinion about (the whole marooned backlog), so `itemIndex` is
+        // computed over COMPLETE membership, not the metadata+delta fraction that misplaces them. BOTH
+        // tiers: an active file is a member of the active collection exactly as an archived file is a
+        // member of its bucket; both ordinals are defined over complete membership.
+        if (inventory) {
+            const classified = new Set(activeItems);
+
+            for (const items of buckets.values()) {
+                for (const id of items) classified.add(id);
+            }
+
+            for (const [id, copies] of inventory) {
+                if (classified.has(id)) continue;
+
+                const archived = copies.find(copy => copy.version);
+
+                if (archived) {
+                    if (!buckets.has(archived.version)) buckets.set(archived.version, []);
+                    buckets.get(archived.version).push(id);
+                } else {
+                    activeItems.push(id)
+                }
+            }
         }
 
         const plans = new Map();
@@ -392,7 +419,8 @@ class DiscussionSyncer extends Base {
             allDiscussions = allDiscussions.filter(discussion => !deniedFetchedNumbers.has(discussion.number));
         }
 
-        const planBuckets          = this.#planBuckets(metadata, allDiscussions);
+        const inventory            = await buildContentInventory(issueSyncConfig, {type: 'discussions', filePrefix: issueSyncConfig.discussionFilenamePrefix});
+        const planBuckets          = this.#planBuckets(metadata, allDiscussions, inventory);
         let   shouldPruneEmptyDirs = false;
 
         for (const discussion of allDiscussions) {
@@ -531,7 +559,8 @@ class DiscussionSyncer extends Base {
                     continue;
                 }
 
-                const planBuckets = this.#planBuckets(metadata, [discussion]);
+                const inventory   = await buildContentInventory(issueSyncConfig, {type: 'discussions', filePrefix: issueSyncConfig.discussionFilenamePrefix});
+                const planBuckets = this.#planBuckets(metadata, [discussion], inventory);
                 const targetPath  = this.#getDiscussionPath(discussion, planBuckets);
                 if (!targetPath) {
                     if (indexMutations) {
