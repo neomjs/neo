@@ -730,6 +730,11 @@ class DockLayoutAdapter extends Base {
                     // this zone's drags. Only the serializable flag rides here — the gesture
                     // handlers live on the tab.Container listeners block below, the clone-safe
                     // closure home this projection already uses for its cross-zone events.
+                    // `allowOverdrag` MUST pair with it (mirrors src/dashboard/Container.mjs): the
+                    // boundary-exit grammar reads the LIVE proxy rect, and while the proxy is clamped
+                    // to the tab-strip boundary the intersection ratio never drops — the exit cannot
+                    // fire. The tear-out gesture is the proxy LEAVING the strip, so it must overdrag.
+                    allowOverdrag     : context.enableDockTearOut === true,
                     enableProxyToPopup: context.enableDockTearOut === true,
                     sortGroup         : context.crossWindowSortGroup
                 }
