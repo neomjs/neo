@@ -143,6 +143,21 @@ test.describe('AgentOS fusion flagship — four-beat tour on the live cockpit', 
             expect(popupCount, `take ${run + 1} opened exactly one real popup`).toBe(popupsBefore + 1)
         }
 
+        // THE TEAMMATE PROOF, mechanical: the artifact leaves the cockpit OVER the Neural Link
+        // (the read above), and comes back OVER the Neural Link — pushed into the member from
+        // outside and imported by a Neural-Link-driven call. This exercises the v1 transfer
+        // boundary in both directions on the LIVE surface; the second-store admission semantics
+        // (validation, collision, fingerprint equality) are pinned at the unit tier on two real
+        // store instances.
+        const outbound = (await app.getComponent(cockpitId, ['sharedPerspectiveArtifact'])).sharedPerspectiveArtifact;
+
+        await app.setProperties(cockpitId, {sharedPerspectiveArtifact: outbound});
+
+        const reimport = await app.callMethod(cockpitId, 'importPerspectiveArtifact');
+
+        expect(reimport?.imported, 'the NL-transferred artifact is re-admitted through full validation').toBe(true);
+        expect(reimport?.errors).toEqual([]);
+
         expect(pageErrors, 'the journey must be error-free in the main window').toEqual([])
     });
 });
