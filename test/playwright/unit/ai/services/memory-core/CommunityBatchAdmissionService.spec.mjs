@@ -247,4 +247,83 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
 
         expect(AdmissionService.listOccurrences(id)[0].absence).toBe('deleted');
     });
+
+    // ---------------------------------------------------------------- checkpoint CAS
+
+    test('a checkpoint claims an unset partition only on a durably-accepted receipt', () => {
+        const id      = activeSource(),
+              receipt = AdmissionService.admitBatch(batch(id)).receipt,
+              result  = AdmissionService.advanceCheckpoint(id, 'issues', {toBasis: 'c9', receiptId: receipt.receiptId});
+
+        expect(result.status).toBe('advanced');
+        expect(result.checkpoint.basis).toBe('c9');
+        expect(result.checkpoint.lastReceiptId).toBe(receipt.receiptId);
+    });
+
+    test('a checkpoint never advances on a receipt that is not durable', () => {
+        const id = activeSource();
+
+        AdmissionService.admitBatch(batch(id));
+
+        const result = AdmissionService.advanceCheckpoint(id, 'issues', {toBasis: 'c9', receiptId: 'no-such-receipt'});
+
+        expect(result.status).toBe('conflict');
+        expect(result.reason).toBe('RECEIPT_NOT_DURABLE');
+        expect(AdmissionService.getCheckpoint(id, 'issues'), 'nothing was written').toBeNull();
+    });
+
+    test('advancing from the current basis succeeds; a STALE basis conflicts without regressing', () => {
+        const id = activeSource(),
+              r1 = AdmissionService.admitBatch(batch(id, {batchId: 'b1'})).receipt,
+              r2 = AdmissionService.admitBatch(batch(id, {batchId: 'b2'})).receipt;
+
+        AdmissionService.advanceCheckpoint(id, 'issues', {toBasis: 'c9', receiptId: r1.receiptId});
+
+        const good = AdmissionService.advanceCheckpoint(id, 'issues', {expectedBasis: 'c9', toBasis: 'c14', receiptId: r2.receiptId});
+        expect(good.status).toBe('advanced');
+        expect(good.checkpoint.basis).toBe('c14');
+
+        // A writer still holding the pre-advance view must not drag the cursor backwards.
+        const stale = AdmissionService.advanceCheckpoint(id, 'issues', {expectedBasis: 'c9', toBasis: 'c11', receiptId: r2.receiptId});
+
+        expect(stale.status).toBe('conflict');
+        expect(stale.reason).toBe('BASIS_MISMATCH');
+        expect(stale.checkpoint.basis, 'the conflict returns current server state, unadvanced').toBe('c14');
+    });
+
+    test('two writers racing from the same observed basis — exactly one advances', () => {
+        const id = activeSource(),
+              r1 = AdmissionService.admitBatch(batch(id, {batchId: 'b1'})).receipt,
+              r2 = AdmissionService.admitBatch(batch(id, {batchId: 'b2'})).receipt;
+
+        AdmissionService.advanceCheckpoint(id, 'issues', {toBasis: 'c9', receiptId: r1.receiptId});
+
+        const winner = AdmissionService.advanceCheckpoint(id, 'issues', {expectedBasis: 'c9', toBasis: 'c20', receiptId: r2.receiptId}),
+              loser  = AdmissionService.advanceCheckpoint(id, 'issues', {expectedBasis: 'c9', toBasis: 'c30', receiptId: r2.receiptId});
+
+        expect([winner.status, loser.status]).toEqual(['advanced', 'conflict']);
+        expect(AdmissionService.getCheckpoint(id, 'issues').basis, 'the loser did not overwrite the winner').toBe('c20');
+    });
+
+    test('a second claimant on an unset partition conflicts rather than clobbering', () => {
+        const id = activeSource(),
+              r1 = AdmissionService.admitBatch(batch(id, {batchId: 'b1'})).receipt,
+              r2 = AdmissionService.admitBatch(batch(id, {batchId: 'b2'})).receipt;
+
+        expect(AdmissionService.advanceCheckpoint(id, 'issues', {toBasis: 'c9', receiptId: r1.receiptId}).status).toBe('advanced');
+
+        const second = AdmissionService.advanceCheckpoint(id, 'issues', {toBasis: 'c99', receiptId: r2.receiptId});
+
+        expect(second.status).toBe('conflict');
+        expect(second.checkpoint.basis).toBe('c9');
+    });
+
+    test('checkpoints are per-partition, not per-source', () => {
+        const id      = activeSource(),
+              receipt = AdmissionService.admitBatch(batch(id)).receipt;
+
+        AdmissionService.advanceCheckpoint(id, 'issues', {toBasis: 'c9', receiptId: receipt.receiptId});
+
+        expect(AdmissionService.getCheckpoint(id, 'pulls'), 'a sibling partition is independently unset').toBeNull();
+    });
 });

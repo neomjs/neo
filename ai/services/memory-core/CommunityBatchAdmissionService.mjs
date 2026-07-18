@@ -19,6 +19,16 @@ export const ADMISSION_STATUS = {
 };
 
 /**
+ * @summary Checkpoint-advance outcomes. A conflict is a normal race result, not an error: the loser
+ * re-reads the returned server state and retries from it.
+ * @member {Object<String,String>}
+ */
+export const CHECKPOINT_STATUS = {
+    ADVANCED: 'advanced',
+    CONFLICT: 'conflict'
+};
+
+/**
  * @summary Atomically admits reproducible community-activity batches into durable history.
  *
  * Providers acquire and normalize; this service validates and admits. Three properties carry the
@@ -143,6 +153,17 @@ class CommunityBatchAdmissionService extends Base {
                 ON mc_community_occurrence(tenant_id, receipt_id);
             CREATE INDEX IF NOT EXISTS idx_mc_community_occurrence_revision
                 ON mc_community_occurrence(tenant_id, revision_of);
+
+            CREATE TABLE IF NOT EXISTS mc_community_checkpoint (
+                tenant_id          TEXT    NOT NULL,
+                source_instance_id TEXT    NOT NULL,
+                partition          TEXT    NOT NULL,
+                basis              TEXT    NOT NULL,
+                last_receipt_id    TEXT    NOT NULL,
+                admitted_sequence  INTEGER NOT NULL,
+                updated_at         INTEGER NOT NULL,
+                PRIMARY KEY (tenant_id, source_instance_id, partition)
+            );
         `);
     }
 
@@ -255,6 +276,99 @@ class CommunityBatchAdmissionService extends Base {
         ).get(tenantId, sourceInstanceId, batchId);
 
         return row ? this.#toCamel(row) : null;
+    }
+
+    /**
+     * @summary Advances a partition checkpoint as a compare-and-swap against the basis the caller read.
+     *
+     * Two preconditions, both refusals rather than best-effort writes:
+     *
+     * 1. **Durable acceptance.** The cited receipt must already be committed for this tenant, source
+     *    and partition — a cursor may only move to a basis some accepted batch actually established.
+     *    Advancing before durable receipt is exactly how events get skipped.
+     * 2. **Expected basis.** The UPDATE predicate carries the basis the caller observed, so a writer
+     *    whose view was superseded matches zero rows. A losing writer gets the CURRENT server state
+     *    back and never advances destructively — a regressed or forked cursor is worse than a retry.
+     * @param {String} sourceInstanceId
+     * @param {String} partition
+     * @param {Object} advance
+     * @param {String|null} [advance.expectedBasis=null] The observed basis; `null` claims an unset checkpoint.
+     * @param {String} advance.toBasis
+     * @param {String} advance.receiptId The durably-accepted receipt establishing `toBasis`.
+     * @returns {Object} `{status, reason?, checkpoint}`
+     * @throws {Error} `BATCH_ADMISSION_NO_TENANT` | `CHECKPOINT_ADVANCE_ARGUMENTS_REQUIRED`
+     */
+    advanceCheckpoint(sourceInstanceId, partition, {expectedBasis = null, toBasis, receiptId} = {}) {
+        const tenantId = SourceRegistryService.resolveTenantId();
+
+        if (!tenantId) {
+            throw new Error('BATCH_ADMISSION_NO_TENANT');
+        }
+
+        if (!toBasis || !receiptId) {
+            throw new Error('CHECKPOINT_ADVANCE_ARGUMENTS_REQUIRED');
+        }
+
+        const receipt = this.db.prepare(
+            `SELECT admitted_sequence FROM mc_community_batch_receipt
+             WHERE tenant_id = ? AND source_instance_id = ? AND receipt_id = ? AND partition = ?`
+        ).get(tenantId, sourceInstanceId, receiptId, partition);
+
+        if (!receipt) {
+            return {
+                status    : CHECKPOINT_STATUS.CONFLICT,
+                reason    : 'RECEIPT_NOT_DURABLE',
+                checkpoint: this.getCheckpoint(sourceInstanceId, partition)
+            }
+        }
+
+        const
+            now    = Date.now(),
+            result = expectedBasis === null
+                // Claiming an unset checkpoint: OR IGNORE makes the race decidable — a second
+                // claimant changes zero rows instead of clobbering the first.
+                ? this.db.prepare(
+                      `INSERT OR IGNORE INTO mc_community_checkpoint
+                          (tenant_id, source_instance_id, partition, basis, last_receipt_id, admitted_sequence, updated_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)`
+                  ).run(tenantId, sourceInstanceId, partition, toBasis, receiptId, receipt.admitted_sequence, now)
+                : this.db.prepare(
+                      `UPDATE mc_community_checkpoint
+                          SET basis = ?, last_receipt_id = ?, admitted_sequence = ?, updated_at = ?
+                        WHERE tenant_id = ? AND source_instance_id = ? AND partition = ? AND basis = ?`
+                  ).run(toBasis, receiptId, receipt.admitted_sequence, now, tenantId, sourceInstanceId, partition, expectedBasis);
+
+        return result.changes === 1
+            ? {status: CHECKPOINT_STATUS.ADVANCED, checkpoint: this.getCheckpoint(sourceInstanceId, partition)}
+            : {status: CHECKPOINT_STATUS.CONFLICT, reason: 'BASIS_MISMATCH', checkpoint: this.getCheckpoint(sourceInstanceId, partition)}
+    }
+
+    /**
+     * Reads one partition checkpoint, tenant-scoped. `null` means unset — distinct from a checkpoint
+     * whose basis happens to be empty.
+     * @param {String} sourceInstanceId
+     * @param {String} partition
+     * @returns {Object|null}
+     */
+    getCheckpoint(sourceInstanceId, partition) {
+        const tenantId = SourceRegistryService.resolveTenantId();
+
+        if (!tenantId) return null;
+
+        const row = this.db.prepare(
+            `SELECT * FROM mc_community_checkpoint
+             WHERE tenant_id = ? AND source_instance_id = ? AND partition = ?`
+        ).get(tenantId, sourceInstanceId, partition);
+
+        return row ? {
+            tenantId        : row.tenant_id,
+            sourceInstanceId: row.source_instance_id,
+            partition       : row.partition,
+            basis           : row.basis,
+            lastReceiptId   : row.last_receipt_id,
+            admittedSequence: row.admitted_sequence,
+            updatedAt       : row.updated_at
+        } : null
     }
 
     /**
