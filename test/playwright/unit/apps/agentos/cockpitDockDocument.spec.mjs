@@ -41,7 +41,7 @@ test.describe('AgentOS.view.fleet cockpit dock document — dockZone.v1 default 
 
         const autoHidden = Object.entries(items).filter(([, i]) => i.autoHidden === true).map(([id]) => id);
         expect(autoHidden.length).toBeGreaterThan(0);
-        expect(autoHidden).toEqual(expect.arrayContaining(['detail', 'perspectives', 'defineAgent']));
+        expect(autoHidden).toEqual(expect.arrayContaining(['detail', 'perspectives', 'defineAgent', 'catchUp']));
 
         expect(items.fleet.autoHidden).toBeUndefined();
         expect(items.stream.autoHidden).toBeUndefined()
@@ -62,6 +62,20 @@ test.describe('AgentOS.view.fleet cockpit dock document — dockZone.v1 default 
         expect(doc.nodes['secondary-rail'].items).toContain('defineAgent');
         expect(doc.nodes['fleet-tabs'].items).not.toContain('defineAgent');
         expect(doc.nodes['stream-tabs'].items).not.toContain('defineAgent')
+    });
+
+    test('carries S3 catch-up as invoked rail chrome, never ambient cockpit density', () => {
+        const doc = cockpitDockDocument();
+
+        expect(doc.items.catchUp).toEqual({
+            componentRef: 'catch-up',
+            title       : 'Catch up',
+            kind        : 'tool',
+            autoHidden  : true
+        });
+        expect(doc.nodes['secondary-rail'].items).toContain('catchUp');
+        expect(doc.nodes['fleet-tabs'].items).not.toContain('catchUp');
+        expect(doc.nodes['stream-tabs'].items).not.toContain('catchUp')
     });
 
     test('is pure data — a fresh, equal document each call (no shared mutable singleton)', () => {
