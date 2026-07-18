@@ -43,9 +43,9 @@ test.describe('DevIndex GitHub service', () => {
         process.env.GH_TOKEN                    = 'devindex-unit-test-token';
         restClient                              = new GitHub.constructor();
         restClient.restMaxRetryAttempts         = 2;
-        restClient.restRetryBaseDelayMs         = 0;
-        restClient.restRetryMaxDelayMs          = 0;
-        restClient.restRetryJitterRatio         = 0;
+        restClient.retryBaseDelayMs             = 0;
+        restClient.retryMaxDelayMs              = 0;
+        restClient.retryJitterRatio             = 0;
         restClient.restRetryableHttpStatuses    = [429, 502, 503, 504]
     });
 
@@ -310,9 +310,9 @@ test.describe('DevIndex GitHub service', () => {
         const delays             = [];
         let   callCount          = 0;
 
-        restClient.restRetryBaseDelayMs = 100;
-        restClient.restRetryMaxDelayMs  = 150;
-        restClient.restRetryJitterRatio = 0.2;
+        restClient.retryBaseDelayMs = 100;
+        restClient.retryMaxDelayMs  = 150;
+        restClient.retryJitterRatio = 0.2;
         globalThis.setTimeout = (callback, delay) => {
             delays.push(delay);
             callback();
@@ -352,5 +352,88 @@ test.describe('DevIndex GitHub service', () => {
 
         await expect(restClient.rest('meta')).rejects.toBeInstanceOf(SyntaxError);
         expect(callCount).toBe(1);
+    });
+
+    // ---- GraphQL query() transient-retry ----
+    // The transport treated GitHub's intermittent `Resource not accessible by integration` (a 200-body
+    // GraphQL error, transient despite its permissions wording) as fatal on attempt 1, though OptIn calls
+    // query() with 3 retries. These pin the retry — and, per the AC, that it still gives up.
+
+    test('query retries the transient "Resource not accessible by integration" body error, then succeeds', async () => {
+        let callCount = 0;
+
+        globalThis.fetch = async () => {
+            callCount++;
+
+            if (callCount === 1) {
+                // GitHub returns this intermittently as a 200-body error for a query it otherwise permits.
+                return jsonResponse({errors: [{message: 'Resource not accessible by integration'}]});
+            }
+
+            return jsonResponse({data: {viewer: {login: 'ada'}}});
+        };
+
+        await expect(restClient.query('query { viewer { login } }', {}, 3, 'OptIn Stars'))
+            .resolves.toEqual({viewer: {login: 'ada'}});
+        expect(callCount).toBe(2);
+    });
+
+    test('query exhausts the bounded budget on a persistent transient error, then throws (no infinite retry)', async () => {
+        let callCount = 0;
+
+        globalThis.fetch = async () => {
+            callCount++;
+            return jsonResponse({errors: [{message: 'Resource not accessible by integration'}]});
+        };
+
+        // retries=2 → attempt 1 + 2 retries = 3 calls, then the terminal throw. A retry that can never
+        // give up is a hang, not a fix; a genuine permission misconfig fails here, loudly, after the budget.
+        await expect(restClient.query('query { viewer { login } }', {}, 2, 'OptIn Stars'))
+            .rejects.toThrow('GraphQL Query Errors: Resource not accessible by integration');
+        expect(callCount).toBe(3);
+    });
+
+    test('query fails fast on a fatal error class — a genuine NOT_FOUND is never retried', async () => {
+        let callCount = 0;
+
+        globalThis.fetch = async () => {
+            callCount++;
+            return jsonResponse({errors: [{message: 'NOT_FOUND'}]});
+        };
+
+        await expect(restClient.query('query { node { id } }', {}, 3, 'ID lookup'))
+            .rejects.toThrow('GraphQL Fatal Error: NOT_FOUND');
+        expect(callCount).toBe(1);
+    });
+
+    test('query and rest classify transient failures from ONE shared source of truth (#15359 AC-2)', async () => {
+        // Override the single shared list with a token neither transport hard-codes. If either path kept
+        // its own inline list, that path would not retry this token and its assertion below would fail.
+        restClient.retryableTransientErrorPatterns = ['neo-shared-transient-token'];
+
+        // GraphQL: the token arrives as a 200-body error.
+        let graphqlCalls = 0;
+        globalThis.fetch = async () => {
+            graphqlCalls++;
+            return graphqlCalls === 1
+                ? jsonResponse({errors: [{message: 'neo-shared-transient-token flapped'}]})
+                : jsonResponse({data: {ok: true}});
+        };
+        await expect(restClient.query('query { ok }', {}, 3, 'shared')).resolves.toEqual({ok: true});
+        expect(graphqlCalls).toBe(2);
+
+        // REST: the same token arrives as a thrown transport error, classified from the same list.
+        let restCalls = 0;
+        globalThis.fetch = async () => {
+            restCalls++;
+
+            if (restCalls === 1) {
+                throw new TypeError('neo-shared-transient-token flapped');
+            }
+
+            return jsonResponse({ok: true});
+        };
+        await expect(restClient.rest('meta')).resolves.toEqual({ok: true});
+        expect(restCalls).toBe(2);
     });
 });
