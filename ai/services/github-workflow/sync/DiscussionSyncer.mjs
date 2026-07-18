@@ -539,6 +539,10 @@ class DiscussionSyncer extends Base {
         const stats = {refetched: {count: 0, discussions: []}, errors: []};
         const list  = [...numbers];
 
+        // Build the complete-membership inventory ONCE for the whole refetch batch — a full corpus scan
+        // per discussion would be pathological; every planned ordinal reads the same complete membership.
+        const inventory = await buildContentInventory(issueSyncConfig, {type: 'discussions', filePrefix: issueSyncConfig.discussionFilenamePrefix});
+
         for (const discussionNumber of list) {
             try {
                 const data = await GraphqlService.query(
@@ -559,7 +563,6 @@ class DiscussionSyncer extends Base {
                     continue;
                 }
 
-                const inventory   = await buildContentInventory(issueSyncConfig, {type: 'discussions', filePrefix: issueSyncConfig.discussionFilenamePrefix});
                 const planBuckets = this.#planBuckets(metadata, [discussion], inventory);
                 const targetPath  = this.#getDiscussionPath(discussion, planBuckets);
                 if (!targetPath) {
