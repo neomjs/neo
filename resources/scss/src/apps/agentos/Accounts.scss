@@ -3,14 +3,38 @@
 
     .agent-selector {
         flex-wrap : wrap;
-        gap       : 6px;
-        padding   : 10px 12px 0;
+        gap    : 6px;
+        padding: 10px 12px 0;
 
-        .agent-selector-button {
-            font-size : 12px;
+        /* Button hierarchy (ledger, re-scoped leaf): the selector strip joins the SSOT's quiet,
+           panel-toned base — never the default theme's same-weight blue slab. Mirrors the
+           chrome's agent-button pair (Viewport.scss) and the cockpit bar's D1 pair. */
+        .neo-button.agent-selector-button {
+            border       : 1px solid var(--fm-line);
+            border-radius: 6px;
+            background   : var(--fm-panel-2);
+            box-shadow   : none;
+            color        : var(--fm-ink-dim);
+            font-size    : 12px;
+            font-weight  : 500;
+            transition   : background .15s ease, border-color .15s ease, color .15s ease;
+
+            &:hover {
+                border-color: var(--fm-ink-dim);
+                background: var(--fm-panel);
+                color     : var(--fm-ink);
+            }
 
             &.neo-pressed {
-                font-weight : 600;
+                border-color: var(--fm-ink-dim);
+                background: var(--fm-panel);
+                color     : var(--fm-ink);
+                font-weight  : 600;
+            }
+
+            .neo-button-glyph,
+            .neo-button-text {
+                color: inherit;
             }
         }
     }
@@ -18,7 +42,7 @@
     /* the config card's skin lives with the fleet module: fleet/AgentConfigCard.scss */
 
     .agent-definition-form {
-        gap     : 10px;
-        padding : 12px;
+        gap    : 10px;
+        padding: 12px;
     }
 }
