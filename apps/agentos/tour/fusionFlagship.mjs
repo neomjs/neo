@@ -86,7 +86,7 @@ export const fusionTourScript = Object.freeze({
             {type: 'pause', ms: 900, cue: {type: 'popout', itemId: 'detail'}, caption: 'pop out(detail): the host vessel flow runs — detachItem commits, the catalog record becomes the vessel ownership, a REAL OS window opens'},
             {type: 'pause', ms: 2200, caption: 'two OS windows, one heap: the SAME component instance, the SAME live subscriptions — none of the docking libraries surveyed in ADR-0029 §4 offered this'},
             {type: 'pause', ms: 900, cue: {type: 'reattach', itemId: 'detail'}, caption: 'reattach(detail): home again — same instance, same state, zero re-mount'},
-            {type: 'pause', ms: 1200}
+            {type: 'pause', ms: 1800}
         ]
     }, {
         id     : 's4',
