@@ -502,8 +502,11 @@ class DemoBWorkspace extends Container {
 
     /**
      * @summary Resolve the dock item the keydown acted on: the event path's tab-header button →
-     * its header toolbar index → the sibling card container's item at that index → the
-     * adapter-stamped `dockItemId`, labeled from the workspace document's item title.
+     * its header toolbar index → the owning projected tab-container's `dockNodeId` → the
+     * DOCUMENT's tabs node items at that index. The document is the authority on purpose:
+     * DemoB's panes are LIVE instances, which the adapter's item decoration deliberately passes
+     * through untouched — only the freshly-projected CONTAINER configs carry dock metadata, so
+     * the container's node id + the committed document answer identity where the card cannot.
      * @param {Object} data The keydown DomEvent payload (carries the component path).
      * @returns {Object|null} `{itemId, itemLabel}` or `null` when the focus is not a dock tab header.
      * @protected
@@ -519,8 +522,12 @@ class DemoBWorkspace extends Container {
         let toolbar      = button.up({ntype: 'tab-header-toolbar'}) || button.parent,
             index        = toolbar?.items?.indexOf(button) ?? -1,
             tabContainer = toolbar?.up({ntype: 'tab-container'}),
-            card         = index > -1 && tabContainer?.getCardContainer?.()?.items?.[index],
-            itemId       = card?.dockItemId || card?.data?.dockItemId;
+            // the projection filters rail-hidden items out of the tab flow — mirror it so the
+            // header index maps to the same list the strip renders
+            nodeItems    = me.dockModel?.nodes?.[tabContainer?.dockNodeId]?.items?.filter(id =>
+                me.dockModel.items?.[id]?.autoHidden !== true
+            ),
+            itemId       = index > -1 && Array.isArray(nodeItems) ? nodeItems[index] : null;
 
         if (!itemId) return null;
 
@@ -547,6 +554,13 @@ class DemoBWorkspace extends Container {
             };
 
         return me.workspaceSet.ids().flatMap(workspaceId => {
+            // only workspaces with a LIVE render target are legal keyboard targets: a registered
+            // popup workspace whose window never opened cannot show the highlight, cannot take
+            // focus, and would leave the operator committing into the invisible
+            let host = me.crossWindowHosts.get(workspaceId);
+
+            if (!host || host.isDestroyed) return [];
+
             let document     = me.workspaceSet.getDocument(workspaceId),
                 nodes        = document?.nodes || {},
                 sourceTabsId = document?.items?.[itemId]
