@@ -61,7 +61,7 @@ function makeReadPrLaneSnapshot({issuesDir, pullsDir, graphService}) {
         const capturedAt = new Date();
 
         try {
-            const prs           = (typeof pullsDir === 'string' && pullsDir.length > 0) ? readSyncedPullRecords(pullsDir) : [],
+            const prs           = (typeof pullsDir === 'string' && pullsDir.length > 0) ? readSyncedPullRecords(pullsDir, {limit: params.limit}) : [],
                   issues        = readWorkGraphIssueRecords(issuesDir),
                   stallFindings = buildWorkGraphStallFindings({issuesDir, prs, now: capturedAt, graphService});
 

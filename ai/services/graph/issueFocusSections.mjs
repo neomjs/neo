@@ -680,31 +680,133 @@ export function readWorkGraphIssueRecords(issuesDir) {
     return records
 }
 
-/**
- * @summary Reads synced pull-request markdown into deterministic PR records — the sibling of
- * {@link readWorkGraphIssueRecords} for the fleet-activity PR/lane slot. Each record carries the
- * synced frontmatter (`number`, `title`, `author`, `state`, the lifecycle timestamps, `url`) plus
- * the markdown body — the shape `createPrActivityEvents` (fleetPrLaneActivityAdapter) consumes.
- * Reuses {@link collectIssueMarkdownFiles} (a generic recursive `.md` collector, despite its
- * issue-era name). Fail-soft: an absent or unreadable directory yields `[]`, never a throw — the
- * PR/lane slot then honestly emits no pr-activity events rather than taking the composite down.
- *
- * @param {String} pullsDir Local synced pulls directory (`resources/content/pulls`).
- * @returns {Array<Object>} Parsed PR records; empty when the directory is absent or unreadable.
- */
-export function readSyncedPullRecords(pullsDir) {
-    let files;
+const PULL_REVIEW_STATES = new Set(['APPROVED', 'CHANGES_REQUESTED', 'COMMENTED', 'DISMISSED']);
 
-    try {
-        files = collectIssueMarkdownFiles(pullsDir);
-    } catch (error) {
-        logger.warn(`[fleet-activity] synced pulls directory unreadable: ${pullsDir}`, error);
+// CONTENT_GRAMMAR.md: a `## Reviews` entry is `### `@user` (<STATE>) reviewed on <ISO_Z>`.
+const PULL_REVIEW_ENTRY_PATTERN = /^###\s+`(@?[^`]+)`\s+\(([A-Z_]+)\)\s+reviewed on\s+(\S+)/;
+
+/**
+ * @summary Extracts the PR number from a `pr-<N>.md` synced-pull path so the candidate set can be
+ * ranked WITHOUT reading each file (the pre-parse bound).
+ * @param {String} filePath
+ * @returns {Number} the PR number, or `-1` when the basename does not match (ranked last).
+ * @private
+ */
+function prNumberFromPath(filePath) {
+    const match = /pr-(\d+)\.md$/.exec(filePath);
+
+    return match ? Number(match[1]) : -1
+}
+
+/**
+ * @summary Parses the `## Reviews` section of a synced-pull body into structured per-review facts —
+ * the shape {@link getPrHumanGateState} consumes. CONTENT_GRAMMAR.md serializes each review as
+ * `` ### `@user` (<STATE>) reviewed on <ISO_Z> ``; only the `## Reviews` section is scanned (the next
+ * `## ` header bounds it, per the grammar's "separate sections" rule). An unknown STATE is kept
+ * verbatim — neutral downstream, since the gate acts only on APPROVED / CHANGES_REQUESTED.
+ * @param {String} body The markdown body (frontmatter already stripped by gray-matter).
+ * @returns {Array<{author: String, state: String, submittedAt: String}>}
+ * @private
+ */
+function parsePullReviewEntries(body) {
+    if (typeof body !== 'string' || !body.includes('## Reviews')) {
         return []
     }
 
+    const reviews   = [];
+    let   inReviews = false;
+
+    for (const line of body.split('\n')) {
+        if (/^##\s+\S/.test(line)) {
+            inReviews = /^##\s+Reviews\s*$/.test(line);
+            continue
+        }
+
+        if (!inReviews) continue;
+
+        const match = PULL_REVIEW_ENTRY_PATTERN.exec(line);
+
+        if (match) {
+            reviews.push({author: match[1].trim(), state: match[2], submittedAt: match[3]})
+        }
+    }
+
+    return reviews
+}
+
+/**
+ * @summary Derives the GitHub-style `reviewDecision` from structured reviews — latest-per-author, with
+ * CHANGES_REQUESTED dominating an APPROVED. Mirrors {@link getPrHumanGateState}'s own latest-per-author
+ * reduction so the consumer's two reads (`reviewDecision` + `reviews`) cannot disagree.
+ * @param {Array<{author: String, state: String, submittedAt: String}>} reviews
+ * @returns {String|null} `'CHANGES_REQUESTED'` | `'APPROVED'` | `null` (no decisive review).
+ * @private
+ */
+function deriveReviewDecision(reviews) {
+    const latestByAuthor = new Map();
+
+    for (const review of reviews) {
+        const existing = latestByAuthor.get(review.author);
+
+        if (!existing || new Date(review.submittedAt || 0) > new Date(existing.submittedAt || 0)) {
+            latestByAuthor.set(review.author, review)
+        }
+    }
+
+    const latest = [...latestByAuthor.values()];
+
+    if (latest.some(review => review.state === 'CHANGES_REQUESTED')) return 'CHANGES_REQUESTED';
+    if (latest.some(review => review.state === 'APPROVED'))          return 'APPROVED';
+
+    return null
+}
+
+/**
+ * @summary Reads synced pull-request markdown into deterministic PR records — the sibling of
+ * {@link readWorkGraphIssueRecords} for the fleet-activity PR/lane slot. Each record projects the
+ * synced frontmatter (`number`, `title`, `author`, `state`, lifecycle timestamps, `url`) PLUS the
+ * structured review facts the consumer actually reads: `reviews: [{author, state, submittedAt}]`
+ * parsed from the `## Reviews` body section (CONTENT_GRAMMAR.md) and the derived `reviewDecision` —
+ * so `getPrHumanGateState` (fleetPrLaneActivityAdapter) emits truthful approved / changes-requested
+ * facts rather than reading raw frontmatter that never carried them.
+ *
+ * **Absent vs unreadable (three states, not two).** An OMITTED `pullsDir` is the caller's concern (the
+ * wiring returns honest-empty WITHOUT calling this reader). A CONFIGURED directory that cannot be
+ * collected — missing or unreadable — **THROWS** (via `collectIssueMarkdownFiles`' `fs.readdirSync`);
+ * the wiring's catch turns that into the slot's `degraded` capability, never a silent `[]` that would
+ * read as valid-empty. A configured, readable, PR-less directory is the only `[]` this reader returns.
+ * A single stray/malformed file is still skip-soft — one bad file must not fail the whole read.
+ *
+ * **Bounded before parse.** When `limit` is a non-negative number, the PR-number-descending candidate
+ * set is sliced BEFORE any `fs.readFileSync` / `gray-matter`, so a 300+-file corpus never fully parses
+ * to fill a small event window. PR numbers come from the `pr-<N>.md` filename — no read to rank.
+ *
+ * **`isDraft` is intentionally unset.** CONTENT_GRAMMAR.md carries no draft frontmatter field, so a
+ * synced record cannot assert draft state; it is left absent (unknown) rather than fabricated `false`.
+ *
+ * @param {String} pullsDir Local synced pulls directory (`resources/content/pulls`).
+ * @param {Object} [options]
+ * @param {Number} [options.limit] Max PR records to parse, newest-PR-first; omit to parse all.
+ * @returns {Array<Object>} Parsed PR records; `[]` only when the (readable) directory holds no PRs.
+ * @throws when `pullsDir` cannot be collected (missing/unreadable) — the caller's catch degrades the slot.
+ */
+export function readSyncedPullRecords(pullsDir, {limit} = {}) {
+    // Collection failure PROPAGATES by design (a configured-but-unreadable dir → the wiring's catch →
+    // degraded capability). Only the per-file parse below is skip-soft.
+    const files = collectIssueMarkdownFiles(pullsDir);
+
+    // Bound BEFORE parsing: rank by the PR number in the filename (no read), keep the newest `limit`.
+    const ordered = (typeof limit === 'number' && limit >= 0)
+        ? files
+            .map(filePath => ({filePath, number: prNumberFromPath(filePath)}))
+            .sort((left, right) => right.number - left.number)
+            .slice(0, limit)
+            .map(entry => entry.filePath)
+        : files;
+
     const records = [];
 
-    for (const filePath of files) {
+    for (const filePath of ordered) {
         let parsed;
 
         try {
@@ -722,7 +824,10 @@ export function readSyncedPullRecords(pullsDir) {
             continue
         }
 
-        records.push({...meta, body: parsed.content || '', filePath})
+        const body    = parsed.content || '',
+              reviews = parsePullReviewEntries(body);
+
+        records.push({...meta, body, filePath, reviews, reviewDecision: deriveReviewDecision(reviews)})
     }
 
     return records
