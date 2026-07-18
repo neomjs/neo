@@ -123,6 +123,26 @@ class CommunityBatchAdmissionService extends Base {
                 ON mc_community_batch_receipt(tenant_id, source_instance_id, batch_id);
             CREATE INDEX IF NOT EXISTS idx_mc_community_batch_receipt_sequence
                 ON mc_community_batch_receipt(tenant_id, admitted_sequence);
+
+            CREATE TABLE IF NOT EXISTS mc_community_occurrence (
+                occurrence_id      TEXT    PRIMARY KEY,
+                tenant_id          TEXT    NOT NULL,
+                source_instance_id TEXT    NOT NULL,
+                provider_entity_id TEXT    NOT NULL,
+                occurrence_kind    TEXT    NOT NULL,
+                occurred_at        TEXT    NOT NULL,
+                revision_of        TEXT,
+                absence            TEXT,
+                receipt_id         TEXT    NOT NULL,
+                admitted_sequence  INTEGER NOT NULL,
+                admitted_at        INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_mc_community_occurrence_entity
+                ON mc_community_occurrence(tenant_id, source_instance_id, provider_entity_id);
+            CREATE INDEX IF NOT EXISTS idx_mc_community_occurrence_receipt
+                ON mc_community_occurrence(tenant_id, receipt_id);
+            CREATE INDEX IF NOT EXISTS idx_mc_community_occurrence_revision
+                ON mc_community_occurrence(tenant_id, revision_of);
         `);
     }
 
@@ -187,6 +207,26 @@ class CommunityBatchAdmissionService extends Base {
             ).run(receiptId, tenantId, sourceInstanceId, batchId, digest, partition,
                   registrationEpoch, occurrences.length, nextSequence, now);
 
+            // The ledger commits with its receipt: a crash can never leave occurrences without the
+            // receipt that authorizes them, nor a receipt whose occurrence_count is a lie.
+            const insertOccurrence = this.db.prepare(
+                `INSERT INTO mc_community_occurrence (
+                    occurrence_id, tenant_id, source_instance_id, provider_entity_id, occurrence_kind,
+                    occurred_at, revision_of, absence, receipt_id, admitted_sequence, admitted_at
+                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            );
+
+            occurrences.forEach(occurrence => {
+                // occurrence_id is OURS — deliberately distinct from the provider entity id, the
+                // delivering batch/receipt, and the admitted sequence, so no consumer can conflate
+                // "which thing happened", "how it reached us", and "in what order we accepted it".
+                insertOccurrence.run(
+                    crypto.randomUUID(), tenantId, sourceInstanceId, occurrence.providerEntityId,
+                    occurrence.occurrenceKind, occurrence.occurredAt, occurrence.revisionOf || null,
+                    occurrence.absence || null, receiptId, nextSequence, now
+                )
+            });
+
             return receiptId
         });
 
@@ -215,6 +255,48 @@ class CommunityBatchAdmissionService extends Base {
         ).get(tenantId, sourceInstanceId, batchId);
 
         return row ? this.#toCamel(row) : null;
+    }
+
+    /**
+     * @summary Lists admitted occurrences, tenant-scoped, newest sequence last.
+     *
+     * The ledger is INSERT-only: a revision is a new occurrence carrying `revisionOf`, never an
+     * update of the row it revises, so history stays reconstructible rather than overwritten.
+     * @param {String} sourceInstanceId
+     * @param {Object} [filter]
+     * @param {String} [filter.providerEntityId] Narrow to one provider entity's history.
+     * @returns {Object[]}
+     */
+    listOccurrences(sourceInstanceId, {providerEntityId} = {}) {
+        const tenantId = SourceRegistryService.resolveTenantId();
+
+        if (!tenantId) return [];
+
+        const rows = providerEntityId
+            ? this.db.prepare(
+                  `SELECT * FROM mc_community_occurrence
+                   WHERE tenant_id = ? AND source_instance_id = ? AND provider_entity_id = ?
+                   ORDER BY admitted_sequence, occurred_at`
+              ).all(tenantId, sourceInstanceId, providerEntityId)
+            : this.db.prepare(
+                  `SELECT * FROM mc_community_occurrence
+                   WHERE tenant_id = ? AND source_instance_id = ?
+                   ORDER BY admitted_sequence, occurred_at`
+              ).all(tenantId, sourceInstanceId);
+
+        return rows.map(row => ({
+            occurrenceId    : row.occurrence_id,
+            tenantId        : row.tenant_id,
+            sourceInstanceId: row.source_instance_id,
+            providerEntityId: row.provider_entity_id,
+            occurrenceKind  : row.occurrence_kind,
+            occurredAt      : row.occurred_at,
+            revisionOf      : row.revision_of,
+            absence         : row.absence,
+            receiptId       : row.receipt_id,
+            admittedSequence: row.admitted_sequence,
+            admittedAt      : row.admitted_at
+        }))
     }
 
     /**

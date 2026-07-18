@@ -182,4 +182,69 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
         expect(AdmissionService.admitBatch(batch(id, {batchId: 'batch-2'})).receipt.admittedSequence).toBe(2);
         expect(AdmissionService.admitBatch(batch(id, {batchId: 'batch-3'})).receipt.admittedSequence).toBe(3);
     });
+
+    // ---------------------------------------------------------------- the occurrence ledger
+
+    test('the ledger commits with its receipt and carries a distinct occurrence identity', () => {
+        const id     = activeSource(),
+              result = AdmissionService.admitBatch(batch(id)),
+              ledger = AdmissionService.listOccurrences(id);
+
+        expect(ledger).toHaveLength(2);
+        expect(ledger[0].receiptId, 'each occurrence names the receipt that admitted it').toBe(result.receipt.receiptId);
+        expect(ledger[0].admittedSequence).toBe(result.receipt.admittedSequence);
+
+        // The four identities stay separable — that separation IS the contract.
+        const [first] = ledger;
+        expect(first.occurrenceId).not.toBe(first.providerEntityId);
+        expect(first.occurrenceId).not.toBe(first.receiptId);
+        expect(first.occurrenceId).not.toBe(String(first.admittedSequence));
+        expect(new Set(ledger.map(o => o.occurrenceId)).size, 'occurrence ids are unique per fact').toBe(2);
+    });
+
+    test('an idempotent retry does NOT duplicate ledger rows', () => {
+        const id = activeSource();
+
+        AdmissionService.admitBatch(batch(id));
+        AdmissionService.admitBatch(batch(id, {occurrences: [occurrence('e2'), occurrence('e1')]}));
+
+        expect(AdmissionService.listOccurrences(id), 'a retry must not double durable history').toHaveLength(2);
+    });
+
+    test('a rejected batch writes no ledger rows', () => {
+        const id = activeSource();
+
+        AdmissionService.admitBatch(batch(id, {registrationEpoch: 1}));                              // fenced
+        AdmissionService.admitBatch(batch(id, {batchId: 'b2', occurrences: [occurrence('e1', {title: 'p'})]})); // invalid
+
+        expect(AdmissionService.listOccurrences(id)).toHaveLength(0);
+    });
+
+    test('a revision is a NEW occurrence — the row it revises is never mutated', () => {
+        const id       = activeSource(),
+              admitted = AdmissionService.admitBatch(batch(id, {occurrences: [occurrence('e1')]})),
+              original = AdmissionService.listOccurrences(id, {providerEntityId: 'e1'})[0];
+
+        AdmissionService.admitBatch(batch(id, {
+            batchId    : 'batch-2',
+            occurrences: [occurrence('e1', {occurrenceKind: 'issue.edited', revisionOf: original.occurrenceId})]
+        }));
+
+        const history = AdmissionService.listOccurrences(id, {providerEntityId: 'e1'});
+
+        expect(history, 'both the original and its revision are durable').toHaveLength(2);
+        expect(history[0].occurrenceId).toBe(original.occurrenceId);
+        expect(history[0].occurrenceKind, 'the original is untouched').toBe('issue.opened');
+        expect(history[1].revisionOf).toBe(original.occurrenceId);
+        expect(history[1].admittedSequence).toBeGreaterThan(history[0].admittedSequence);
+        expect(admitted.status).toBe('accepted');
+    });
+
+    test('an evidenced absence disposition is persisted verbatim', () => {
+        const id = activeSource();
+
+        AdmissionService.admitBatch(batch(id, {occurrences: [occurrence('e1', {absence: 'deleted'})]}));
+
+        expect(AdmissionService.listOccurrences(id)[0].absence).toBe('deleted');
+    });
 });
