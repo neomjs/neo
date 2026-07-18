@@ -168,6 +168,52 @@ test.describe('fleet transport — full-chain integration (real server + real re
         expect(envelope.error).toContain('not on the control surface')
     });
 
+    test('resolveViewerIdentity (whoami): the stamped viewer round-trips through the authenticated wire; refusal shapes are named, never a fallback identity', async () => {
+        const
+            {default: FleetControlBridge}    = await import('../../../../../../ai/services/fleet/FleetControlBridge.mjs'),
+            {default: RequestContextService} = await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs'),
+            url                              = `http://127.0.0.1:${server.address().port}/fleet`,
+            priorSource                      = FleetControlBridge.viewerIdentitySource;
+
+        // the launch-entry wiring shape: whoami reads the SAME per-request binding the mirror uses
+        FleetControlBridge.viewerIdentitySource = {
+            resolveViewerIdentity: () => RequestContextService.getAgentIdentityNodeId()
+        };
+
+        try {
+            // The bootstrap leg end to end: an authenticated caller with NO identity knowledge asks
+            // whoami; the answer is the TRANSPORT-stamped viewer — the exact @-id the cockpit then
+            // passes back explicitly as the mirror's subjectAgentId.
+            const admitted = await fetch(url, {
+                method : 'POST',
+                headers: {'Content-Type': 'application/json', Authorization: `Bearer ${bearerToken}`},
+                body   : JSON.stringify({method: 'resolveViewerIdentity'})
+            });
+            const {ok, result} = await admitted.json();
+
+            expect(ok).toBe(true);
+            expect(result).toEqual({ok: true, agentIdentityNodeId: '@integration-viewer'});
+
+            // Unbound context (a direct call outside runInContext): named refusal, no fallback.
+            const unbound = FleetControlBridge.resolveViewerIdentity();
+            expect(unbound).toEqual({ok: false, error: 'viewer identity unbound — authenticated ingress required'});
+
+            // Unwired source: the honest source-not-wired refusal.
+            FleetControlBridge.viewerIdentitySource = null;
+            expect(FleetControlBridge.resolveViewerIdentity()).toEqual({ok: false, error: 'fleet viewer identity source not wired'});
+
+            // Unauthenticated: dies at the ingress guard before any method resolution.
+            const denied = await fetch(url, {
+                method : 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body   : JSON.stringify({method: 'resolveViewerIdentity'})
+            });
+            expect(denied.status).toBe(401)
+        } finally {
+            FleetControlBridge.viewerIdentitySource = priorSource
+        }
+    });
+
     test('the mailbox-admission chain: HTTP -> stamped context -> real adapter reads UNDER the transport viewer; a smuggled viewer is refused through the wire', async () => {
         const url = `http://127.0.0.1:${server.address().port}/fleet`;
 

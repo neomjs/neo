@@ -26,6 +26,16 @@
  * seam REAL rather than a Node-side method the browser can never name — an allowlist omission
  * fails closed and SILENT, which reads exactly like a wired-but-empty mailbox from the pane's side.
  *
+ * `resolveViewerIdentity` is the **identity-bootstrap** read verb — whoami: it returns the
+ * SERVER-stamped viewer identity (`{agentIdentityNodeId}`) from the authenticated request context,
+ * never a caller claim. It exists because the mirror's explicit-subject contract is deliberate
+ * (no self-defaulting at a trust boundary) while `admission.viewerIdentity` only arrives IN a read
+ * result — circular for the FIRST own-inbox read. Whoami is the missing bootstrap leg of
+ * "the client SAYS self, and the admission stamp proves it": cockpit calls whoami → passes the
+ * returned @-id EXPLICITLY as `subjectAgentId` → the mirror re-stamps and proves it. An unwired
+ * source (no composed launch contract) answers an honest `unavailable`; an admitted-but-unbound
+ * context answers a named refusal — never a fallback identity.
+ *
  * `composeOperatorMessage` is the wire's FIRST **write** verb — the operator-mailbox steering
  * surface: compose a DM or an `AGENT:*` broadcast through the bridge's injected writer. It rides
  * ONLY the authenticated transport: the ingress stamps the server-resolved viewer into the request
@@ -41,5 +51,5 @@ export const FLEET_WIRE_METHODS = Object.freeze([
     'defineAgent', 'configureAgent', 'setRepo', 'setAvatar', 'listAgents', 'getAgent',
     'startAgent', 'stopAgent', 'restartAgent', 'removeAgent', 'fleetStatus', 'fleetRuntimeStatus',
     'getBootIdentity', 'fleetActivity', 'fleetRoster', 'fleetMailboxMirror', 'connectTenant', 'listTenants',
-    'composeOperatorMessage'
+    'composeOperatorMessage', 'resolveViewerIdentity'
 ]);

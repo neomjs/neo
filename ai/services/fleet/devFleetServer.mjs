@@ -111,6 +111,13 @@ async function boot() {
     // lazily (the established cross-process read pattern — pay the memory-core import when a pane
     // actually asks), and the bound identity resolves PER REQUEST from the context the transport
     // stamped — the composer never receives, trusts, or forwards a caller-supplied viewer.
+    // The whoami bootstrap seam: the SAME per-request binding the mirror source reads — the
+    // ingress stamps the viewer, this exposes it as the identity the cockpit passes back
+    // explicitly as the mirror's subject (the anti-fork contract's missing first leg).
+    FleetControlBridge.viewerIdentitySource = {
+        resolveViewerIdentity: () => RequestContextService.getAgentIdentityNodeId()
+    };
+
     FleetControlBridge.mailboxMirrorSource = {
         async readMailboxMirror(params = {}) {
             const [{readFleetMailboxMirror}, {default: MailboxService}] = await Promise.all([
