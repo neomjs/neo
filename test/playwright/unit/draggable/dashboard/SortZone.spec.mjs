@@ -506,7 +506,12 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
 
         await new Promise(resolve => setTimeout(resolve, 20));
 
-        expect(calls.map(call => call.type)).toEqual(['suspend', 'move', 'drop', 'dropOut']);
+        // The pinned native sequence: the FIRST move is the continuous hover preview, rendered on
+        // the geometry event itself (per frame, before any dwell elapses); the commit then runs
+        // the landed refresh — suspend, a final move so the preview is current at the drop
+        // instant, drop, and outcome-gated source retirement. Dwell/settle still gate the COMMIT
+        // only; they no longer gate the preview.
+        expect(calls.map(call => call.type)).toEqual(['move', 'suspend', 'move', 'drop', 'dropOut']);
 
         const move = calls.find(call => call.type === 'move').data;
 
@@ -584,7 +589,11 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
 
         await new Promise(resolve => setTimeout(resolve, 70));
 
-        expect(calls).toEqual([]);
+        // The single 'move' is the continuous hover preview from the FIRST position event — the
+        // per-frame preview renders before dwell by design. The load-bearing assertion is what
+        // stays ABSENT after the popup leaves before settle: no suspend, no drop, no retirement —
+        // the departure cleared the candidate, so the commit never ran.
+        expect(calls).toEqual(['move']);
         expect(DragCoordinator.nativeWindowDropCandidates.size).toBe(0)
     });
 });

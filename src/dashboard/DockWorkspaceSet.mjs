@@ -48,9 +48,11 @@ export function createDockWorkspaceSet() {
         /**
          * Adopts an atomically-committed document pair into both owning entries — or neither.
          * Fail-closed preconditions, all checked BEFORE the first write: distinct source and
-         * target ids, both entries registered, both writable. A pair that cannot land whole
-         * does not land at all — the executor's commit-or-neither contract, kept at the
-         * ownership tier.
+         * target ids, both entries registered, both writable. Both-or-neither also holds against
+         * a THROWING writer: a target writer that throws after the source adopted rolls the
+         * source back to its pre-call document before the error propagates — the owner's error
+         * stays observable, the ownership state never splits. (A writer that ALSO throws during
+         * that rollback has broken its accessor contract twice; that error propagates as-is.)
          * @param {Object} data
          * @param {Object} data.sourceDocument
          * @param {String} data.sourceWorkspaceId
@@ -71,8 +73,17 @@ export function createDockWorkspaceSet() {
                 return false
             }
 
+            const previousSourceDocument = source.getDocument();
+
             source.setDocument(sourceDocument);
-            target.setDocument(targetDocument);
+
+            try {
+                target.setDocument(targetDocument)
+            } catch (error) {
+                source.setDocument(previousSourceDocument);
+                throw error
+            }
+
             return true
         },
 

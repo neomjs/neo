@@ -139,6 +139,32 @@ test.describe('Neo.dashboard.DockWorkspaceSet — the workspace-set registry', (
         expect(popup.document).toEqual({rootId: 'popup-before'})
     });
 
+    test('a THROWING target writer cannot split ownership: the source rolls back, the error propagates', () => {
+        const main     = createHolder({rootId: 'main-before'});
+        let   popupDoc = {rootId: 'popup-before'};
+
+        set.register('main', main.seams);
+        set.register('popup-1', {
+            getDocument: () => popupDoc,
+            setDocument: () => {
+                throw new Error('render target detached mid-adopt')
+            }
+        });
+
+        // the error stays the owner's to observe — adoption must not swallow it...
+        expect(() => set.adoptTransfer({
+            sourceDocument   : {rootId: 'main-after'},
+            sourceWorkspaceId: 'main',
+            targetDocument   : {rootId: 'popup-after'},
+            targetWorkspaceId: 'popup-1'
+        })).toThrow(/render target detached mid-adopt/);
+
+        // ...and the half that DID land is rolled back: both owners sit at their pre-call
+        // documents — the exact half-publication the contract forbids, proven absent
+        expect(main.document).toEqual({rootId: 'main-before'});
+        expect(popupDoc).toEqual({rootId: 'popup-before'})
+    });
+
     test('adoptTransfer refuses a same-workspace pair and absent documents', () => {
         const main = createHolder();
 

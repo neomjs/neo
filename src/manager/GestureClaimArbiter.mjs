@@ -58,7 +58,11 @@ export function createGestureClaimArbiter({claimTtlMs = 300, now = Date.now} = {
         },
 
         /**
-         * Acquire-or-refresh the claim for one stable identity.
+         * Acquire-or-refresh the claim for one stable identity. Seniority survives a refresh
+         * ONLY while the claim is still live: an existing record whose expiry has elapsed is
+         * absent by contract (stale = ignored), so re-claiming after expiry is a REACQUISITION —
+         * a new acquisition time, competing under the tie/age rules as a new claim. The expiry
+         * boundary is `expiresAt >= now` = live, matching the resolver's prune condition exactly.
          * @param {String} stableId
          * @param {Object} zone Opaque target handle, returned verbatim by a winning resolve.
          * @returns {Object} the live claim record `{acquiredAt, expiresAt, stableId, token, zone}`
@@ -67,8 +71,9 @@ export function createGestureClaimArbiter({claimTtlMs = 300, now = Date.now} = {
             const
                 timestamp = now(),
                 existing  = claims.get(stableId),
+                live      = existing != null && existing.expiresAt >= timestamp,
                 record    = {
-                    acquiredAt: existing ? existing.acquiredAt : timestamp,
+                    acquiredAt: live ? existing.acquiredAt : timestamp,
                     expiresAt : timestamp + claimTtlMs,
                     stableId,
                     token,

@@ -107,6 +107,44 @@ test.describe('Neo.manager.GestureClaimArbiter — the §2.8.1 claim protocol', 
         expect(record.acquiredAt).toBe(1_000)
     });
 
+    test('reacquisition after expiry is a NEW claim — stale seniority cannot revive', () => {
+        const
+            zoneA = {id: 'zone-a'},
+            zoneB = {id: 'zone-b'};
+
+        // A claims at t=1000 (expires t=1100)...
+        arbiter.claim('workspace-a', zoneA);
+
+        // ...B claims at t=1120, while A sits expired-but-unpruned in the map...
+        clock = 1_120;
+        arbiter.claim('workspace-b', zoneB);
+
+        // ...and A re-claims at t=1150. An expired record is ABSENT by contract, so this is a
+        // reacquisition: a fresh acquisition time, not the revival of t=1000 seniority.
+        clock = 1_150;
+        const record = arbiter.claim('workspace-a', zoneA);
+
+        expect(record.acquiredAt).toBe(1_150);
+
+        // The competitive proof: B (t=1120) beats the reacquired A (t=1150). Under the revival
+        // defect A would carry t=1000 and steal the gesture back through its own staleness.
+        expect(arbiter.resolve()).toEqual({stableId: 'workspace-b', zone: zoneB})
+    });
+
+    test('the expiry boundary is exact: a refresh AT expiresAt keeps seniority; one tick past is reacquisition', () => {
+        const zone = {id: 'zone-a'};
+
+        arbiter.claim('workspace-a', zone);
+
+        // exactly at the boundary (expiresAt === now): still live — seniority survives
+        clock = 1_100;
+        expect(arbiter.claim('workspace-a', zone).acquiredAt).toBe(1_000);
+
+        // one tick past the refreshed expiry (1100 + 100): reacquisition
+        clock = 1_201;
+        expect(arbiter.claim('workspace-a', zone).acquiredAt).toBe(1_201)
+    });
+
     test('an expired claim is ignored AND pruned — staleness is not an error, it is absence', () => {
         arbiter.claim('workspace-a', {id: 'zone-a'});
 

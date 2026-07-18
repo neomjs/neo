@@ -110,7 +110,7 @@ class DragCoordinator extends Manager {
         }
 
         if (hover) {
-            hover.onRemoteDragLeave();
+            hover.onRemoteDragLeave?.();
             me.nativeHoverTargets.delete(windowId)
         }
     }
@@ -515,7 +515,7 @@ class DragCoordinator extends Manager {
             next     = candidate?.targetSortZone || null;
 
         if (previous && previous !== next) {
-            previous.onRemoteDragLeave()
+            previous.onRemoteDragLeave?.()
         }
 
         if (next) {
