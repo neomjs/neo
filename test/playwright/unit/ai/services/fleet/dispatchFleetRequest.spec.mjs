@@ -111,13 +111,27 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
         expect(res.ok).toBe(false);
     });
 
-    test('the wire allowlist is exactly the pane operations (+ the read-observe getBootIdentity / fleetActivity / fleetRoster / fleetMailboxMirror + the composeOperatorMessage write verb) — no resolver seams', () => {
+    test('resolveViewerIdentity routes over the wire — the whoami identity-bootstrap is a real pane-callable verb', async () => {
+        bridge.resolveViewerIdentity = () => {
+            calls.push(['resolveViewerIdentity']);
+            return {ok: true, agentIdentityNodeId: '@stamped-viewer'}
+        };
+
+        const res = await dispatchFleetRequest({method: 'resolveViewerIdentity'}, bridge);
+
+        expect(res.ok).toBe(true);
+        expect(res.result).toEqual({ok: true, agentIdentityNodeId: '@stamped-viewer'});
+        expect(calls).toEqual([['resolveViewerIdentity']])
+    });
+
+    test('the wire allowlist is exactly the pane operations (+ the read-observe getBootIdentity / fleetActivity / fleetRoster / fleetMailboxMirror / resolveViewerIdentity + the composeOperatorMessage write verb) — no resolver seams', () => {
         expect([...FLEET_WIRE_METHODS].sort()).toEqual(
             // fleet-agent operations (incl. the configureAgent scoped-config patch — never identity,
             // never credential) + the read-observe verbs (boot-identity fact + activity snapshot +
-            // assembled roster DTO + one agent's mailbox mirror — advisory reads, no lifecycle-write)
+            // assembled roster DTO + one agent's mailbox mirror + the whoami identity-bootstrap —
+            // advisory reads, no lifecycle-write)
             // + the single write verb (composeOperatorMessage — payload only, identity never wire-carried)
-            ['composeOperatorMessage', 'configureAgent', 'connectTenant', 'defineAgent', 'fleetActivity', 'fleetMailboxMirror', 'fleetRoster', 'fleetRuntimeStatus', 'fleetStatus', 'getAgent', 'getBootIdentity', 'listAgents', 'listTenants', 'removeAgent', 'restartAgent', 'setAvatar', 'setRepo', 'startAgent', 'stopAgent'].sort()
+            ['composeOperatorMessage', 'configureAgent', 'connectTenant', 'defineAgent', 'fleetActivity', 'fleetMailboxMirror', 'fleetRoster', 'fleetRuntimeStatus', 'fleetStatus', 'getAgent', 'getBootIdentity', 'listAgents', 'listTenants', 'removeAgent', 'resolveViewerIdentity', 'restartAgent', 'setAvatar', 'setRepo', 'startAgent', 'stopAgent'].sort()
         );
         expect(FLEET_WIRE_METHODS).toContain('getBootIdentity');   // the read-observe verbs ride the wire; the lifecycle-write restart actuator does NOT (R3)
         expect(FLEET_WIRE_METHODS).toContain('fleetActivity');
