@@ -165,6 +165,58 @@ test.describe('Neo.dashboard.DockWorkspaceSet — the workspace-set registry', (
         expect(popupDoc).toEqual({rootId: 'popup-before'})
     });
 
+    test('a target writer that MUTATES then throws is compensated: both owners at pre-call documents', () => {
+        // the sharper falsifier class: the opaque setter lands its assignment BEFORE throwing,
+        // so a source-only rollback would leave source-before / target-after — the split state
+        // wearing a subtler costume. Two-sided compensation re-invokes the breaching writer with
+        // its prior document; the breach's own mutation ordering makes the restore stick.
+        const main     = createHolder({rootId: 'main-before'});
+        let   popupDoc = {rootId: 'popup-before'};
+
+        set.register('main', main.seams);
+        set.register('popup-1', {
+            getDocument: () => popupDoc,
+            setDocument: value => {
+                popupDoc = value;
+                throw new Error('mutated then threw')
+            }
+        });
+
+        expect(() => set.adoptTransfer({
+            sourceDocument   : {rootId: 'main-after'},
+            sourceWorkspaceId: 'main',
+            targetDocument   : {rootId: 'popup-after'},
+            targetWorkspaceId: 'popup-1'
+        })).toThrow(/mutated then threw/);
+
+        expect(main.document).toEqual({rootId: 'main-before'});
+        expect(popupDoc).toEqual({rootId: 'popup-before'})
+    });
+
+    test('a SOURCE writer failing leaves the target untouched and compensates the source — either write failing unwinds', () => {
+        let   mainDoc = {rootId: 'main-before'};
+        const popup   = createHolder({rootId: 'popup-before'});
+
+        set.register('main', {
+            getDocument: () => mainDoc,
+            setDocument: value => {
+                mainDoc = value;
+                throw new Error('source adoption failed')
+            }
+        });
+        set.register('popup-1', popup.seams);
+
+        expect(() => set.adoptTransfer({
+            sourceDocument   : {rootId: 'main-after'},
+            sourceWorkspaceId: 'main',
+            targetDocument   : {rootId: 'popup-after'},
+            targetWorkspaceId: 'popup-1'
+        })).toThrow(/source adoption failed/);
+
+        expect(mainDoc).toEqual({rootId: 'main-before'});
+        expect(popup.document, 'the second writer was never invoked').toEqual({rootId: 'popup-before'})
+    });
+
     test('adoptTransfer refuses a same-workspace pair and absent documents', () => {
         const main = createHolder();
 

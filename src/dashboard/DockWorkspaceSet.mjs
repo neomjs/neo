@@ -48,11 +48,20 @@ export function createDockWorkspaceSet() {
         /**
          * Adopts an atomically-committed document pair into both owning entries — or neither.
          * Fail-closed preconditions, all checked BEFORE the first write: distinct source and
-         * target ids, both entries registered, both writable. Both-or-neither also holds against
-         * a THROWING writer: a target writer that throws after the source adopted rolls the
-         * source back to its pre-call document before the error propagates — the owner's error
-         * stays observable, the ownership state never splits. (A writer that ALSO throws during
-         * that rollback has broken its accessor contract twice; that error propagates as-is.)
+         * target ids, both entries registered, both writable.
+         *
+         * Both-or-neither against THROWING writers holds by two-sided compensation: BOTH previous
+         * documents are captured before the first write, and either write failing compensates
+         * every writer already invoked — in reverse order, each re-invoked with its prior
+         * document under a guard. The compensation is deliberately re-invocation: a writer that
+         * BREACHES its accessor contract by mutating before it throws is restored by the same
+         * assignment landing again with the prior document (the breach's own mutation ordering
+         * is what makes the compensation stick), while a writer that throws without mutating
+         * makes the compensating call a guarded no-op. The original error always propagates —
+         * the owner's failure stays observable. Residual, stated: a writer that defeats BOTH
+         * the write and the compensating re-invocation (throwing before any mutation on both
+         * calls while still having mutated externally) has broken its accessor contract twice;
+         * its own state is its breach, and the pair's other side is still restored.
          * @param {Object} data
          * @param {Object} data.sourceDocument
          * @param {String} data.sourceWorkspaceId
@@ -73,14 +82,31 @@ export function createDockWorkspaceSet() {
                 return false
             }
 
-            const previousSourceDocument = source.getDocument();
+            const
+                previousSourceDocument = source.getDocument(),
+                previousTargetDocument = target.getDocument(),
+                compensate             = (entry, document) => {
+                    try {
+                        entry.setDocument(document)
+                    } catch (compensationError) {
+                        // best-effort by construction: the original failure below still
+                        // propagates, and a writer failing its own compensation is the
+                        // documented double-breach residual
+                    }
+                };
 
-            source.setDocument(sourceDocument);
+            try {
+                source.setDocument(sourceDocument)
+            } catch (error) {
+                compensate(source, previousSourceDocument);
+                throw error
+            }
 
             try {
                 target.setDocument(targetDocument)
             } catch (error) {
-                source.setDocument(previousSourceDocument);
+                compensate(target, previousTargetDocument);
+                compensate(source, previousSourceDocument);
                 throw error
             }
 
