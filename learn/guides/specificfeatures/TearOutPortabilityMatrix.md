@@ -81,10 +81,16 @@ first continued move (`closedAfterMoveMs: -30`), before pointer-up (`closedBefor
 with zero console output and no re-entry involvement. Same-choreography runs nondeterministically
 survive (row 1's three earlier greens) or reap at birth — **a race between the continuing
 pointer-move stream and the popup-birth / `startWindowDrag` handoff**, silently violating the
-gesture-continuity universal invariant when it fires. This is a SUSPECTED
-universal-invariant `FAIL` pending a reproduction-rate receipt (next witness iteration: N-run
-flake rate + engine-side trace); on confirmation it fires the epic's `revalidationTrigger` per
-the contract. Direct consumer warning: G1 ships this exact grammar to dock surfaces —
+gesture-continuity universal invariant when it fires. **Reproduction-rate receipt
+(2026-07-18, --repeat-each=6): 5/6 REAP, 1/6 survive — the reap is the DOMINANT outcome under
+this witness** (session total: ~8 reaps across 12 same-choreography runs). Instrument caveat,
+carried honestly per footnote ²'s lesson: the rate is measured under CDP-synthesized input,
+which this same suite proved distorts activation semantics — the real-input reap rate is
+unknown (the flagship demo's manual operation suggests real-mouse tear-outs succeed at a far
+higher rate). Classification: CONFIRMED high-rate invariant violation UNDER AUTOMATION;
+engine-side attribution is the named successor investigation. Whether an automation-measured
+violation qualifies the epic's `revalidationTrigger` is the ROUND's call, not this document's —
+the question is posed to the epic owners with these receipts. Direct consumer warning: G1 ships this exact grammar to dock surfaces —
 the race predates G1 and must be attributed before dock-tier calibration lands on top of it.
 Requested-vs-observed `moveTo` sampling remains blocked behind the race (a 2 ms lifetime cannot
 be position-sampled).
