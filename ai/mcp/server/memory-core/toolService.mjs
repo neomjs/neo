@@ -21,6 +21,8 @@ import {makeChatModelGenerate}       from '../../../services/memory-core/helpers
 import {makeLandscapeCensusSource}   from '../../../services/graph/laneLandscapeCensusSource.mjs';
 import {makeOpenWorkCensusReader}    from '../../../services/github-workflow/openWorkCensusReader.mjs';
 import {synthesizeTemporalBirdView}  from '../../../services/memory-core/helpers/temporalBirdViewSynthesizer.mjs';
+import GitHubWorkflowConfig          from '../github-workflow/config.mjs';
+import MemoryCoreConfig              from './config.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
@@ -44,35 +46,58 @@ const readDeploymentInspection = args => readDeploymentStateSnapshot({
 // The pure composition is dependency-injected; this handler binds the impure edges at the MC server —
 // the graph census reads and the live chat model. Both reads resolve through their owning service at
 // call time (never captured here), so a store re-open cannot leave the census reading a dead database.
-const exploreLaneLandscapeOp = () => exploreLaneLandscape({
-    now : new Date(),
-    deps: {
-        // The census reads the source that OWNS the facts (live, cursor-walked to exhaustion); the graph
-        // supplies only relation edges, which is the one thing it does own, through its RLS seam. A local
-        // projection cannot answer a current-state question: both the graph and the synced corpus lag,
-        // and neither carries assignee truth.
-        ...makeLandscapeCensusSource({
-            ...makeOpenWorkCensusReader({
-                query : (queryString, variables) => GraphqlService.query(queryString, variables),
-                config: {
-                    owner       : AiConfig.owner,
-                    repo        : AiConfig.repo,
-                    maxLabels   : AiConfig.issueSync.maxLabelsPerIssue,
-                    maxAssignees: AiConfig.issueSync.maxAssigneesPerIssue
-                }
-            }),
-            listEdgeRecordsByType: args => GraphService.listEdgeRecordsByType(args),
-            pageLimit            : AiConfig.laneLandscapeCensusPageLimit,
-            maxPages             : AiConfig.laneLandscapeCensusMaxPages,
-            edgeLimit            : AiConfig.laneLandscapeRelationEdgeLimit
-        }),
-        generate: makeChatModelGenerate({
-            // SessionService is the Memory Core server's model owner and completes startup before tools
-            // dispatch. Read the live model at call time; do not thread AiConfig leaves into a second builder.
-            buildModel: () => SessionService.model
-        })
+/**
+ * @summary Reads the lane-landscape binding leaves from the child Provider that owns each domain.
+ *
+ * GitHub repository/query fan-out belongs to the GitHub Workflow child; census traversal bounds belong
+ * to the Memory Core child. Reading both at call time preserves reactive overlay/env resolution and
+ * fails loud when either provider is not wired, instead of masking the boundary with local defaults.
+ *
+ * @returns {{census: {edgeLimit: Number, maxPages: Number, pageLimit: Number}, source: {
+ *   maxAssignees: Number, maxLabels: Number, owner: String, repo: String}}}
+ */
+const readLaneLandscapeConfig = () => ({
+    census: {
+        edgeLimit: MemoryCoreConfig.laneLandscapeRelationEdgeLimit,
+        maxPages : MemoryCoreConfig.laneLandscapeCensusMaxPages,
+        pageLimit: MemoryCoreConfig.laneLandscapeCensusPageLimit
+    },
+    source: {
+        maxAssignees: GitHubWorkflowConfig.issueSync.maxAssigneesPerIssue,
+        maxLabels   : GitHubWorkflowConfig.issueSync.maxLabelsPerIssue,
+        owner       : GitHubWorkflowConfig.owner,
+        repo        : GitHubWorkflowConfig.repo
     }
 });
+
+const exploreLaneLandscapeOp = () => {
+    const {census, source} = readLaneLandscapeConfig();
+
+    return exploreLaneLandscape({
+        now : new Date(),
+        deps: {
+            // The census reads the source that OWNS the facts (live, cursor-walked to exhaustion); the graph
+            // supplies only relation edges, which is the one thing it does own, through its RLS seam. A local
+            // projection cannot answer a current-state question: both the graph and the synced corpus lag,
+            // and neither carries assignee truth.
+            ...makeLandscapeCensusSource({
+                ...makeOpenWorkCensusReader({
+                    query : (queryString, variables) => GraphqlService.query(queryString, variables),
+                    config: source
+                }),
+                listEdgeRecordsByType: args => GraphService.listEdgeRecordsByType(args),
+                pageLimit            : census.pageLimit,
+                maxPages             : census.maxPages,
+                edgeLimit            : census.edgeLimit
+            }),
+            generate: makeChatModelGenerate({
+                // SessionService is the Memory Core server's model owner and completes startup before tools
+                // dispatch. Read the live model at call time; do not thread AiConfig leaves into a second builder.
+                buildModel: () => SessionService.model
+            })
+        }
+    })
+};
 
 const exploreMemoryHistoryOp = args => exploreMemoryHistory({
     partition  : args?.partition,
@@ -194,4 +219,4 @@ const callTool = async (name, args, options = {}) => {
 };
 const listTools = toolService.listTools.bind(toolService);
 
-export {callTool, listTools};
+export {callTool, listTools, readLaneLandscapeConfig};
