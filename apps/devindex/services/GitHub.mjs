@@ -189,6 +189,20 @@ class GitHub extends Base {
     }
 
     /**
+     * @summary Whether a GraphQL operation document is a mutation. A `query` (or the anonymous
+     * shorthand) is idempotent by the GraphQL spec and safe to replay after a transient failure; a
+     * `mutation` is not — replaying it after an ambiguous outcome (a transport disconnect) can
+     * duplicate an already-applied write. Leading whitespace and `#` line comments are skipped before
+     * the leading operation keyword is read, so a documented mutation is still recognised.
+     * @param {String} query The GraphQL operation document.
+     * @returns {Boolean}
+     * @private
+     */
+    #isMutation(query) {
+        return /^\s*(#[^\n]*\n\s*)*mutation\b/.test(query);
+    }
+
+    /**
      * @summary Determines whether a REST response status is configured as transient.
      * @param {Number} status The HTTP response status.
      * @returns {Boolean}
@@ -414,6 +428,17 @@ class GitHub extends Base {
             // path above and the REST path — one source of truth, not a second inline token list that
             // drifts — the prior inline `fetch`/`network`/`terminated` list was exactly that drift.
             if (retries > 0 && this.#isRetryableTransientError(error)) {
+                // Retry AUTHORIZATION is a separate decision from retry CLASSIFICATION: the failure is
+                // transient, but a transport disconnect leaves a mutation's server-side outcome
+                // unknowable (the write may have applied before the socket dropped), so replaying it
+                // can duplicate. A GraphQL `query` is idempotent and safe to replay; a `mutation` is
+                // not — it fails loud here rather than risk a double write. (The 200-body error path
+                // above is a server *response* — a rejected-not-applied mutation — so it stays
+                // retryable; only this ambiguous transport path is gated.)
+                if (this.#isMutation(query)) {
+                    console.error(`${prefix} Transient transport error on a mutation — NOT replaying (ambiguous outcome may have already applied the write): ${error.message}`);
+                    throw error;
+                }
                 const delay = this.#getRetryDelay(attempt);
                 console.warn(`${prefix} Transient transport error: ${error.message}; retrying in ${delay}ms (attempt ${attempt})`);
                 await this.#sleep(delay);

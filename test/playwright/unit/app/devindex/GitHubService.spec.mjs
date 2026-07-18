@@ -436,4 +436,36 @@ test.describe('DevIndex GitHub service', () => {
         await expect(restClient.rest('meta')).resolves.toEqual({ok: true});
         expect(restCalls).toBe(2);
     });
+
+    test('query does NOT replay a mutation after an ambiguous transport failure — a read from the SAME error retries (#15359 mutation-safety)', async () => {
+        // Classify the transport failure as transient so the read below retries it: this pins retry
+        // AUTHORIZATION, not classification. A transport disconnect leaves a mutation's server-side
+        // outcome unknowable (the write may have applied before the socket dropped), so replaying it
+        // could duplicate — a read is idempotent and safe, a mutation fails loud on attempt 1 instead.
+        restClient.retryableTransientErrorPatterns = ['neo-transient-flap'];
+        const throwTransport = () => { throw new TypeError('neo-transient-flap: socket hangup') };
+
+        // A mutation in the OptIn/OptOut leading-whitespace shape — the gate must recognise it.
+        const mutationDoc = `
+            mutation($subjectId: ID!, $body: String!) {
+                addComment(input: {subjectId: $subjectId, body: $body}) { clientMutationId }
+            }`;
+
+        // MUTATION: the transient transport failure is NOT replayed — one fetch, original error rethrown.
+        let mutationCalls = 0;
+        globalThis.fetch = async () => { mutationCalls++; throwTransport() };
+        await expect(restClient.query(mutationDoc, {}, 3, 'OptIn Comment')).rejects.toThrow('neo-transient-flap');
+        expect(mutationCalls, 'a mutation must not replay an ambiguous transport failure').toBe(1);
+
+        // READ: the SAME transient failure IS retried — proving the gate is the operation, not the error.
+        let readCalls = 0;
+        globalThis.fetch = async () => {
+            readCalls++;
+            if (readCalls === 1) throwTransport();
+            return jsonResponse({data: {viewer: {login: 'ada'}}});
+        };
+        await expect(restClient.query('query { viewer { login } }', {}, 3, 'OptIn Stars'))
+            .resolves.toEqual({viewer: {login: 'ada'}});
+        expect(readCalls, 'an idempotent read retries the same transient failure').toBe(2);
+    });
 });
