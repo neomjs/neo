@@ -2030,8 +2030,9 @@ test.describe('Fleet cockpit — operator mailbox (compose · recipients · own-
         expect(cockpit.operatorRecord).toBe(null)
     });
 
-    test('identity · resolveViewerIdentity ok → seeds operatorRecord AND pushes the record to the pane', async () => {
-        setBridge({resolveViewerIdentity: async () => ({ok: true, agentIdentityNodeId: 'NODE:operator'})});
+    test('identity · resolveViewerIdentity ok → seeds operatorRecord (incl. the githubUsername possession authority) AND pushes it to the pane', async () => {
+        // a realistic @-form node id — the mailbox subject the adapter returns, not a `NODE:` placeholder
+        setBridge({resolveViewerIdentity: async () => ({ok: true, agentIdentityNodeId: '@neo-opus-grace'})});
 
         const paneSets = [],
               pane     = {set(cfg) { paneSets.push(cfg) }},
@@ -2039,9 +2040,12 @@ test.describe('Fleet cockpit — operator mailbox (compose · recipients · own-
 
         await FleetCockpit.prototype.loadOperatorIdentity.call(cockpit);
 
-        // the client learns its OWN @-id, holds it owner-side, and hands it to the pane — which reads
-        expect(cockpit.operatorRecord).toEqual({agentIdentityNodeId: 'NODE:operator'});
-        expect(paneSets).toEqual([{record: {agentIdentityNodeId: 'NODE:operator'}}])
+        // the record MUST carry `githubUsername` — MailboxPane's possession guard canonicalizes it to
+        // `@<username>` and matches the admission's subjectAgentId; seeding only the node id fails
+        // possession closed and the own inbox never renders (the exact review finding).
+        const expected = {agentIdentityNodeId: '@neo-opus-grace', githubUsername: 'neo-opus-grace'};
+        expect(cockpit.operatorRecord).toEqual(expected);
+        expect(paneSets).toEqual([{record: expected}])
     });
 
     test('identity · a refusal (ok:false — unbound / source-not-wired) never seeds a wrong subject', async () => {
@@ -2055,14 +2059,14 @@ test.describe('Fleet cockpit — operator mailbox (compose · recipients · own-
     });
 
     test('identity · an autoHidden pane (not materialized at boot) still seeds the record for a reveal-time read', async () => {
-        setBridge({resolveViewerIdentity: async () => ({ok: true, agentIdentityNodeId: 'NODE:operator'})});
+        setBridge({resolveViewerIdentity: async () => ({ok: true, agentIdentityNodeId: '@neo-opus-grace'})});
 
         // the pane is not materialized yet (getReference → null); the `?.set` no-ops but the record is held
-        // owner-side, so a later projection materializes the pane at the operator's identity and reads
+        // owner-side (with the possession authority), so a later projection materializes the pane and reads
         const cockpit = {operatorRecord: null, getReference: () => null};
 
         await FleetCockpit.prototype.loadOperatorIdentity.call(cockpit);
 
-        expect(cockpit.operatorRecord).toEqual({agentIdentityNodeId: 'NODE:operator'})
+        expect(cockpit.operatorRecord).toEqual({agentIdentityNodeId: '@neo-opus-grace', githubUsername: 'neo-opus-grace'})
     });
 });

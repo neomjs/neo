@@ -1638,7 +1638,13 @@ class FleetCockpit extends Container {
         // {ok:true, agentIdentityNodeId} | {ok:false, error} (source-not-wired | unbound). Only a proven
         // identity seeds the subject; a refusal never reads a wrong inbox.
         if (outcome?.ok && outcome.agentIdentityNodeId && !me.isDestroyed) {
-            me.operatorRecord = {agentIdentityNodeId: outcome.agentIdentityNodeId};
+            const nodeId = outcome.agentIdentityNodeId;
+            // the reused MailboxPane proves possession from `record.githubUsername` — it canonicalizes it
+            // to `@<username>` and matches the mirror admission's `subjectAgentId`. Seeding only the node
+            // id fails that guard closed and the own inbox NEVER renders. The resolved node id IS the
+            // `@`-form authority, so carry both: `githubUsername` for the possession match, the node id as
+            // the explicit read subject (they canonicalize to the same value).
+            me.operatorRecord = {agentIdentityNodeId: nodeId, githubUsername: nodeId.replace(/^@/, '')};
             // a materialized pane picks up the identity live and reads; an autoHidden one materializes from
             // the held record on reveal
             me.getReference('operator-mailbox')?.set({record: me.operatorRecord})
