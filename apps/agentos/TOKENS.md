@@ -15,7 +15,7 @@ The token vocabulary every cockpit view leaf consumes — the design floor of th
 
 ## Contrast (WCAG 2.1, measured — `#14619`)
 
-Measured, not assumed: relative luminance per WCAG 2.1 over the two skins' literal values. Threshold is set by **usage class**, so it is argued from this table's Role column, never from the token's name — `--fm-ink-faint` carries meta *text* (4.5), a state dot is a non-text indicator (3.0). Re-measure when a value moves; a delta here is a design decision on a ticket, same rule as the values themselves.
+Measured, not assumed: relative luminance per WCAG 2.1 over the two skins' literal values. Threshold is set by **usage class**, so it is argued from this table's Role column, never from the token's name — `--fm-ink-dim` carries meta *text* (4.5), a state dot is a non-text indicator (3.0), and a purely decorative fill carries no threshold at all (`--fm-ink-faint`, below — which is exactly why its class had to be decided rather than inferred from the word "ink"). Re-measure when a value moves; a delta here is a design decision on a ticket, same rule as the values themselves.
 
 Ratios vs each surface, **dark** / **light**:
 
