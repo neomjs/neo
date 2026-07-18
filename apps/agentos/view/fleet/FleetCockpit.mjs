@@ -1583,33 +1583,61 @@ class FleetCockpit extends Container {
 
     /**
      * @summary WRITE: route one operator-composed message to the authenticated `composeOperatorMessage`
-     * verb, then re-poll the operator inbox so the sent message lands at CANONICAL truth — never an
-     * optimistic insert. The cockpit is the composition root that knows the bridge; the sender is
-     * server-stamped from the bound viewer at the authenticated ingress, never carried in this payload.
+     * verb — one, several, or the `AGENT:*` broadcast — then re-poll the operator inbox so the sent
+     * rows land at CANONICAL truth, never an optimistic insert. The cockpit is the composition root
+     * that knows the bridge; the sender is server-stamped from the bound viewer at the authenticated
+     * ingress, never carried in this payload.
      *
-     * Fail-closed: no bridge / no verb → an honest `not-wired` refusal, nothing attempted; a `not-wired`
-     * or rejected outcome re-polls nothing (only a real send changes the inbox).
-     * @param {Object} message `{to, subject, body, priority?, wakeSuppressed?, relatedTickets?}`.
-     * @returns {Promise<Object|undefined>} the verb outcome, for the surface + tests.
+     * **The verb is one-target, so SEVERAL named recipients fan out.** The compose surface emits `to`
+     * as a list; the authenticated verb accepts one `@login` or the `AGENT:*` sentinel per call, so
+     * each named recipient is a separate authenticated call and carries its OWN outcome — an operator
+     * steering three peers learns each landed (or refused) independently, never one aggregate verdict.
+     * `AGENT:*` stays a single call (the server expands the broadcast from the one sentinel target); a
+     * scalar `to` stays one call (back-compatible).
+     *
+     * Fail-closed: no bridge / no verb → an honest per-recipient `not-wired` refusal, nothing attempted;
+     * a thrown bridge promise is caught as that recipient's `error` outcome, never a detached rejection.
+     * The inbox re-polls exactly ONCE for the batch, and only when a real send landed (a `messageId`
+     * came back) — not-wired / rejected / error changed nothing.
+     * @param {Object} message `{to, subject, body, priority?, wakeSuppressed?, relatedTickets?}` — `to`
+     *     is one `@login` / `AGENT:*`, or a list of them.
+     * @returns {Promise<Object>} `{results: [{to, outcome}]}` — one entry per target, in order, each
+     *     outcome the verb's own (`{messageId, …}` sent | `{status:'not-wired'|'rejected'|'error', …}`).
      */
     async composeOperatorMessage(message) {
         const
-            me     = this,
-            bridge = globalThis.AgentOS?.fleet?.registryBridge;
+            me      = this,
+            bridge  = globalThis.AgentOS?.fleet?.registryBridge,
+            targets = Array.isArray(message.to) ? message.to : (message.to == null ? [] : [message.to]),
+            wired   = typeof bridge?.composeOperatorMessage === 'function',
+            results = [];
 
-        if (typeof bridge?.composeOperatorMessage !== 'function') {
-            return {status: 'not-wired', reason: 'fleet: operator compose verb not wired'}
+        for (const to of targets) {
+            if (!wired) {
+                results.push({to, outcome: {status: 'not-wired', reason: 'fleet: operator compose verb not wired'}});
+                continue
+            }
+
+            let outcome;
+
+            try {
+                // one target per call; the spread never mutates the caller's payload and never carries
+                // the list — and the sender is server-stamped, never a field here
+                outcome = await bridge.composeOperatorMessage({...message, to})
+            } catch (error) {
+                outcome = {status: 'error', reason: error?.message || 'compose failed'}
+            }
+
+            results.push({to, outcome})
         }
 
-        const outcome = await bridge.composeOperatorMessage(message);
-
-        // a real send (a messageId came back) re-polls the inbox so the sent row appears at canonical
-        // truth; a not-wired / rejected outcome changed nothing, so there is nothing to re-read
-        if (outcome?.messageId) {
+        // a real send anywhere (a messageId came back) re-polls the inbox ONCE so the sent rows land at
+        // canonical truth; not-wired / rejected / error changed nothing, so there is nothing to re-read
+        if (results.some(result => result.outcome?.messageId)) {
             await me.loadOperatorInbox({offset: 0})
         }
 
-        return outcome
+        return {results}
     }
 
     /**

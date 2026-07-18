@@ -1858,13 +1858,14 @@ test.describe('Fleet cockpit — operator mailbox (compose · recipients · own-
 
     // --- composeOperatorMessage: fail-closed refusal + conditional canonical re-read -------------------
 
-    test('compose · no bridge → honest not-wired refusal, nothing sent, no re-poll', async () => {
+    test('compose · no bridge → honest per-recipient not-wired refusal, nothing sent, no re-poll', async () => {
         clearBridge();
 
         const owner   = makeComposeOwner(),
               outcome = await FleetCockpit.prototype.composeOperatorMessage.call(owner, {to: 'AGENT:*', body: 'hi'});
 
-        expect(outcome).toEqual({status: 'not-wired', reason: 'fleet: operator compose verb not wired'});
+        // one result per target, each an honest not-wired refusal — the surface renders each recipient's state
+        expect(outcome).toEqual({results: [{to: 'AGENT:*', outcome: {status: 'not-wired', reason: 'fleet: operator compose verb not wired'}}]});
         expect(owner.inboxReloads, 'a refused send must not re-poll the inbox').toHaveLength(0)
     });
 
@@ -1874,7 +1875,7 @@ test.describe('Fleet cockpit — operator mailbox (compose · recipients · own-
         const owner   = makeComposeOwner(),
               outcome = await FleetCockpit.prototype.composeOperatorMessage.call(owner, {to: 'AGENT:*', body: 'hi'});
 
-        expect(outcome).toEqual({status: 'not-wired', reason: 'fleet: operator compose verb not wired'});
+        expect(outcome).toEqual({results: [{to: 'AGENT:*', outcome: {status: 'not-wired', reason: 'fleet: operator compose verb not wired'}}]});
         expect(owner.inboxReloads).toHaveLength(0)
     });
 
@@ -1889,9 +1890,10 @@ test.describe('Fleet cockpit — operator mailbox (compose · recipients · own-
         const owner   = makeComposeOwner(),
               outcome = await FleetCockpit.prototype.composeOperatorMessage.call(owner, message);
 
-        // asserted against a fresh literal, not `message` itself, so an added/changed field would be caught
+        // asserted against a fresh literal, not `message` itself, so an added/changed field would be caught;
+        // the single target passes through with `to` set to that one recipient (never the list)
         expect(seen).toEqual([{to: '@neo-fable-vega', subject: 's', body: 'b', priority: 'high'}]);
-        expect(outcome).toEqual({messageId: 'M:42', status: 'sent'});
+        expect(outcome).toEqual({results: [{to: '@neo-fable-vega', outcome: {messageId: 'M:42', status: 'sent'}}]});
         // the ONLY re-read: from the top of the inbox, exactly once, because a message genuinely landed
         expect(owner.inboxReloads).toEqual([{offset: 0}])
     });
@@ -1902,8 +1904,30 @@ test.describe('Fleet cockpit — operator mailbox (compose · recipients · own-
         const owner   = makeComposeOwner(),
               outcome = await FleetCockpit.prototype.composeOperatorMessage.call(owner, {to: '@ghost', body: 'b'});
 
-        expect(outcome).toEqual({status: 'rejected', reason: 'recipient unknown'});
+        expect(outcome).toEqual({results: [{to: '@ghost', outcome: {status: 'rejected', reason: 'recipient unknown'}}]});
         expect(owner.inboxReloads, 'nothing was sent, so nothing changed to re-read').toHaveLength(0)
+    });
+
+    test('compose · SEVERAL named recipients FAN OUT — one call each, per-target outcome, one re-poll for the batch', async () => {
+        const seen = [];
+        // vega sends, ghost is rejected — a discriminating mix a single aggregate verdict could not produce
+        setBridge({composeOperatorMessage: async payload => {
+            seen.push(payload.to);
+            return payload.to === '@ghost' ? {status: 'rejected', reason: 'recipient unknown'} : {messageId: 'M:' + payload.to, status: 'sent'}
+        }});
+
+        const owner   = makeComposeOwner(),
+              outcome = await FleetCockpit.prototype.composeOperatorMessage.call(owner, {to: ['@neo-fable-vega', '@ghost'], subject: 's', body: 'b', priority: 'high'});
+
+        // one authenticated call per named target, in order — the verb is one-target, the fan-out is the cockpit's
+        expect(seen).toEqual(['@neo-fable-vega', '@ghost']);
+        // each recipient carries its OWN result: vega landed, ghost was refused
+        expect(outcome).toEqual({results: [
+            {to: '@neo-fable-vega', outcome: {messageId: 'M:@neo-fable-vega', status: 'sent'}},
+            {to: '@ghost',          outcome: {status: 'rejected', reason: 'recipient unknown'}}
+        ]});
+        // exactly one re-poll for the whole batch, because at least one message genuinely landed
+        expect(owner.inboxReloads).toEqual([{offset: 0}])
     });
 
     // --- buildOperatorRecipientOptions: the live roster → @githubUsername identity mapping -------------
