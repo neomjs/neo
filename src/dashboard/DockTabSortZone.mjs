@@ -60,6 +60,13 @@ class DockTabSortZone extends TabHeaderSortZone {
          */
         dockItemIds: null,
         /**
+         * The model-resolved transferable stack root this toolbar's grip represents. `null` keeps
+         * the toolbar item-only. A non-null value is runtime projection state: it stamps the drag
+         * payload but never enters the committed dock document.
+         * @member {String|null} dockGroupNodeId=null
+         */
+        dockGroupNodeId: null,
+        /**
          * The dock-zone (tabs node) id this toolbar renders — the source of a cross-zone move.
          * @member {String|null} dockSourceNodeId=null
          */
@@ -96,6 +103,14 @@ class DockTabSortZone extends TabHeaderSortZone {
      * @member {Boolean} remoteDropCommitted=false
      */
     remoteDropCommitted = false
+
+    /**
+     * True only while the projected stack grip owns the active gesture. The flag bypasses the
+     * base tab-reorder machinery while retaining its drag proxy + coordinator lifecycle.
+     * @member {Boolean} stackDragActive=false
+     * @protected
+     */
+    stackDragActive = false
 
     /**
      * The source toolbar's PRISTINE viewport rect, measured once per gesture at
@@ -283,6 +298,33 @@ class DockTabSortZone extends TabHeaderSortZone {
     async onDragStart(data) {
         let me = this;
 
+        if (me.isStackHandleDrag?.(data)) {
+            let pathIds     = new Set((data.path || []).map(node => node.id).filter(Boolean)),
+                draggedItem = me.owner.items.find(item => pathIds.has(item.id)),
+                index       = me.owner.items.indexOf(draggedItem);
+
+            if (!draggedItem || index < 0 || !me.dockWorkspaceId) {
+                return
+            }
+
+            me.dockSourceToolbarRect = await me.owner?.getDomRect() ?? null;
+            me.currentIndex          = index;
+            me.dragComponent         = draggedItem;
+            me.dragElement           = draggedItem.vdom;
+            me.stackDragActive       = true;
+            me.startIndex            = index;
+
+            draggedItem.dockGroupNodeId       = me.dockGroupNodeId;
+            draggedItem.dockItemId            = me.dockItemIds?.[index] ?? me.dockItemIds?.[0] ?? null;
+            draggedItem.dockSourceWorkspaceId = me.dockWorkspaceId;
+
+            await me.dragStart(data);
+
+            return
+        }
+
+        me.stackDragActive = false;
+
         // The real toolbar boundary — measured BEFORE the base runs: the base drag-start (with
         // its inherited `expandOwnerOnDrag`) WRITES the trimmed button-span dimensions onto the
         // toolbar's live style, so any post-`super` measure reads the mutated box, not the
@@ -294,9 +336,21 @@ class DockTabSortZone extends TabHeaderSortZone {
         let item = me.dragComponent;
 
         if (item) {
+            delete item.dockGroupNodeId;
             item.dockItemId              = me.dockItemIds?.[me.startIndex] ?? null;
             item.dockSourceWorkspaceId   = me.dockWorkspaceId
         }
+    }
+
+    /**
+     * @summary Whether this drag originated on the opt-in whole-stack grip.
+     * @param {Object} data drag-start payload with the main-thread DOM path
+     * @returns {Boolean}
+     * @protected
+     */
+    isStackHandleDrag(data) {
+        return !!this.dockGroupNodeId && (data?.path || []).some(node =>
+            Array.isArray(node.cls) && node.cls.includes('neo-dock-stack-handle'))
     }
 
     /**
@@ -396,6 +450,51 @@ class DockTabSortZone extends TabHeaderSortZone {
             tabContainer = me.owner?.up?.(),
             {clientX, clientY} = data || {};
 
+        if (me.stackDragActive) {
+            let commitError    = null,
+                terminalItemId = me.dragComponent?.dockItemId ?? itemId ?? null;
+
+            try {
+                if (me.sortGroup && me.dragComponent) {
+                    me.dragCoordinator?.[data.cancelled ? 'onDragCancel' : 'onDragEnd']({
+                        draggedItem   : me.dragComponent,
+                        sourceSortZone: me
+                    })
+                }
+            } catch (error) {
+                commitError = error
+            }
+
+            const committed = !data.cancelled && !commitError && me.remoteDropCommitted,
+                outcome     = committed ? 'committed' : data.cancelled ? 'cancelled' : 'rejected';
+
+            try {
+                tabContainer?.fire('dockStackDragTerminal', {
+                    cancelled        : data.cancelled === true,
+                    committed,
+                    errors           : commitError ? [commitError?.message || String(commitError)] : [],
+                    groupNodeId      : me.dockGroupNodeId,
+                    itemId           : terminalItemId,
+                    outcome,
+                    sortZone         : me,
+                    sourceWorkspaceId: me.dockWorkspaceId
+                })
+            } finally {
+                me.remoteDropCommitted = false;
+                me.dragEnd(data);
+                me.dragComponent   = null;
+                me.dragElement     = null;
+                me.stackDragActive = false;
+                me.startIndex      = -1
+            }
+
+            if (commitError) {
+                throw commitError
+            }
+
+            return
+        }
+
         if (me.sortGroup && me.dragComponent) {
             me.dragCoordinator?.[data.cancelled ? 'onDragCancel' : 'onDragEnd']({
                 draggedItem   : me.dragComponent,
@@ -467,6 +566,11 @@ class DockTabSortZone extends TabHeaderSortZone {
                 screenY       : data.screenY,
                 sourceSortZone: me
             })
+        }
+
+        if (me.stackDragActive) {
+            me.dragMove(data);
+            return
         }
 
         await super.onDragMove(data);

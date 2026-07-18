@@ -189,6 +189,12 @@ test.describe('Neo.dashboard.DockPreview', () => {
             expect(DockPreview.isValidPreview(preview({itemId: undefined}))).toBe(false)
         });
 
+        test('admits only a non-empty runtime whole-stack identity', () => {
+            expect(DockPreview.isValidPreview(preview({groupNodeId: 'popup-stack'}))).toBe(true);
+            expect(DockPreview.isValidPreview(preview({groupNodeId: ''}))).toBe(false);
+            expect(DockPreview.isValidPreview(preview({groupNodeId: 42}))).toBe(false)
+        });
+
         test('rejects a missing target.nodeId', () => {
             expect(DockPreview.isValidPreview(preview({target: {containerId: 'workspace'}}))).toBe(false);
             expect(DockPreview.isValidPreview(preview({target: {nodeId: ''}}))).toBe(false)
@@ -288,6 +294,37 @@ test.describe('Neo.dashboard.DockPreview', () => {
 
             const bottom = DockPreview.previewToOperation(preview({placement: {kind: 'edge-bottom'}}));
             expect(bottom.orientation).toBe('vertical')
+        });
+
+        test('whole-stack previews preserve the placement grammar in one transferNode descriptor', () => {
+            const groupNodeId = 'popup-stack';
+
+            expect(DockPreview.previewToOperation(preview({groupNodeId, placement: {kind: 'tab-into'}}))).toEqual({
+                operation: 'transferNode',
+                nodeId   : groupNodeId,
+                target   : {targetNodeId: 'main-tabs', placement: {kind: 'tab-into'}}
+            });
+
+            expect(DockPreview.previewToOperation(preview({
+                groupNodeId,
+                placement: {kind: 'split-before', orientation: 'vertical', ratio: 0.3}
+            }))).toEqual({
+                operation: 'transferNode',
+                nodeId   : groupNodeId,
+                target   : {
+                    targetNodeId: 'main-tabs',
+                    placement   : {orientation: 'vertical', position: 'before', sizes: [0.3, 0.7]}
+                }
+            });
+
+            expect(DockPreview.previewToOperation(preview({groupNodeId, placement: {kind: 'edge-right'}}))).toEqual({
+                operation: 'transferNode',
+                nodeId   : groupNodeId,
+                target   : {
+                    targetNodeId: 'main-tabs',
+                    placement   : {edge: 'right', orientation: 'horizontal', sizes: [0.5, 0.5]}
+                }
+            })
         });
 
         test('returns null for rejected feedback', () => {

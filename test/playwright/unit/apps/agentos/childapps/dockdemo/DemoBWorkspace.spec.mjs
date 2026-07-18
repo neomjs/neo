@@ -324,6 +324,166 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoBWorkspace', () => {
         expect(workspace.popupDocument.items.workbench).toBeUndefined()
     });
 
+    test('whole-stack return commits synchronously, reconciles target-first, then unregisters the emptied popup', async () => {
+        const detached = DockZoneModel.transferItem(
+            workspace.dockModel,
+            DemoBWorkspace.createPopupDocument(),
+            {
+                itemId           : 'workbench',
+                sourceWorkspaceId: DemoBWorkspace.MAIN_WORKSPACE_ID,
+                targetWorkspaceId: DemoBWorkspace.POPUP_WORKSPACE_ID,
+                target           : {operation: 'addTab', tabsNodeId: 'popup-tabs'}
+            }
+        );
+
+        expect(detached.errors).toEqual([]);
+
+        workspace.dockModel     = detached.sourceDocument;
+        workspace.popupDocument = detached.targetDocument;
+        workspace.detachedPanes.workbench = {
+            tabsNodeId: 'workbench-tabs', windowId: 'window-popup', windowName: 'demo-b-cross-window'
+        };
+
+        const descriptor = {
+            operation        : 'transferNode',
+            nodeId           : DockZoneModel.resolveStackRoot(workspace.popupDocument),
+            sourceWorkspaceId: DemoBWorkspace.POPUP_WORKSPACE_ID,
+            targetWorkspaceId: DemoBWorkspace.MAIN_WORKSPACE_ID,
+            target           : {targetNodeId: 'side-tabs', placement: {kind: 'tab-into'}}
+        };
+        const returned = DockZoneModel.transferNode(workspace.popupDocument, workspace.dockModel, descriptor);
+
+        expect(returned.errors).toEqual([]);
+
+        const refreshes = [];
+
+        workspace.timeout = async () => {};
+        workspace.refreshWorkspace = async (workspaceId, document) => {
+            refreshes.push({document, workspaceId})
+        };
+
+        const commit = workspace.commitCrossWindowTransfer({
+            descriptor,
+            sourceDocument   : returned.sourceDocument,
+            sourceWorkspaceId: DemoBWorkspace.POPUP_WORKSPACE_ID,
+            targetDocument   : returned.targetDocument,
+            targetWorkspaceId: DemoBWorkspace.MAIN_WORKSPACE_ID
+        });
+
+        // Synchronous admission is the coordinator gate: model truth + disconnect guard are
+        // committed before the promise-owned projection work starts.
+        expect(commit).toBeTruthy();
+        expect(workspace.dockModel.items.workbench).toEqual(initialDocument.items.workbench);
+        expect(workspace.popupDocument.items.workbench).toBeUndefined();
+        expect(workspace.detachedPanes.workbench).toBeUndefined();
+
+        const receipt = await commit;
+
+        expect(refreshes.map(entry => entry.workspaceId)).toEqual([
+            DemoBWorkspace.MAIN_WORKSPACE_ID,
+            DemoBWorkspace.POPUP_WORKSPACE_ID
+        ]);
+        expect(receipt).toMatchObject({
+            applied         : true,
+            errors          : [],
+            itemIds         : ['workbench'],
+            workspaceRetired: true
+        });
+        expect(workspace.workspaceSet.ids()).toEqual([DemoBWorkspace.MAIN_WORKSPACE_ID]);
+        expect(workspace.getWorkspaceDocument(DemoBWorkspace.POPUP_WORKSPACE_ID)).toBeNull();
+
+        // A later explicit stage is a new lifetime: registration is restored against the current
+        // empty owner field, never kept alive as a ghost entry after the prior vessel retired.
+        expect(workspace.ensurePopupWorkspaceRegistered()).toBe(true);
+        expect(workspace.getWorkspaceDocument(DemoBWorkspace.POPUP_WORKSPACE_ID)).toBe(workspace.popupDocument)
+    });
+
+    test('the popup group identity reaches the existing preview/candidate pipeline unchanged', () => {
+        const popup = DemoBWorkspace.createPopupDocument();
+
+        popup.items.workbench = initialDocument.items.workbench;
+        popup.nodes['popup-tabs'].items = ['workbench'];
+        popup.nodes['popup-tabs'].activeItemId = 'workbench';
+        workspace.popupDocument = popup;
+
+        const renderer   = {dockPreview: null, applyTargetGeometry() {}};
+        const indicators = {
+            candidateSet: null,
+            updatePointer() { return this.candidateSet?.cross?.find(candidate => candidate.position === 'center') ?? null }
+        };
+        const host = {
+            down({ntype}) {
+                return ntype === 'dock-preview' ? renderer : indicators
+            }
+        };
+        const geometry = {
+            hostRect: {x: 0, y: 0, width: 400, height: 300},
+            root    : {nodeId: 'main-root', rect: {x: 0, y: 0, width: 400, height: 300}},
+            zones   : [{nodeId: 'side-tabs', rect: {x: 0, y: 0, width: 400, height: 300}, orientation: 'vertical'}]
+        };
+
+        workspace.crossWindowHosts.set(DemoBWorkspace.MAIN_WORKSPACE_ID, host);
+        workspace.crossWindowGeometry.set(DemoBWorkspace.MAIN_WORKSPACE_ID, geometry);
+
+        const preview = workspace.renderWorkspacePreview(DemoBWorkspace.MAIN_WORKSPACE_ID, {
+            draggedItem: {
+                dockGroupNodeId      : 'popup-tabs',
+                dockItemId           : 'workbench',
+                dockSourceWorkspaceId: DemoBWorkspace.POPUP_WORKSPACE_ID
+            },
+            localX: 200,
+            localY: 150
+        });
+
+        expect(preview.groupNodeId).toBe('popup-tabs');
+        expect(preview.previewId).toContain('preview:group:popup-tabs:');
+        expect(indicators.candidateSet.groupNodeId).toBe('popup-tabs');
+        expect(renderer.dockPreview).toBe(preview)
+    });
+
+    test('popup projection alone owns the stack grip and routes one terminal to the optional park machine', () => {
+        const popup     = DemoBWorkspace.createPopupDocument();
+        const terminals = [];
+        const findTabs  = (config, nodeId) => {
+            if (config?.ntype === 'tab-container' && config.dockNodeId === nodeId) return config;
+
+            for (const item of config?.items || []) {
+                const found = findTabs(item, nodeId);
+
+                if (found) return found
+            }
+
+            return null
+        };
+
+        popup.items.workbench = initialDocument.items.workbench;
+        popup.nodes['popup-tabs'].items = ['workbench'];
+        popup.nodes['popup-tabs'].activeItemId = 'workbench';
+        workspace.popupDocument = popup;
+        workspace.vesselParkHandlers = {onGestureTerminal: data => terminals.push(data)};
+
+        const popupTabs = findTabs(workspace.projectDockModel(
+            null,
+            DemoBWorkspace.POPUP_WORKSPACE_ID,
+            popup
+        ), 'popup-tabs');
+
+        expect(popupTabs.headerToolbar.sortZoneConfig.dockGroupNodeId).toBe('popup-tabs');
+        expect(popupTabs.items[0].header.text[1].cls).toEqual(['neo-dock-stack-handle']);
+
+        // The same live pane then projects home item-only: this second projection must restore
+        // its source header before the popup config can leak an affordance into main.
+        const mainTabs = findTabs(workspace.projectDockModel(), 'workbench-tabs');
+
+        expect(mainTabs.headerToolbar.sortZoneConfig.dockGroupNodeId).toBeNull();
+        expect(mainTabs.items[0].header).toBeUndefined();
+
+        popupTabs.listeners.dockStackDragTerminal({
+            itemId: 'workbench', outcome: 'committed', groupNodeId: 'popup-tabs'
+        });
+        expect(terminals).toEqual([{itemId: 'workbench', outcome: 'committed'}])
+    });
+
     test('cross-window execution drains a cue projection before it opens the popup stage', async () => {
         workspace.resolvePane('workbench', initialDocument.items.workbench);
 

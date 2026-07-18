@@ -170,6 +170,29 @@ test.describe('Neo.dashboard.DockPreviewProducer (ADR 0029 §2.3 — the dock pr
         expect(producer.produce()).toBeNull()                                                        // no args
     });
 
+    test('whole-stack production carries one coherent runtime group through previews and candidates', async () => {
+        const {isValidCandidateSet} = await import('../../../../src/dashboard/dockPreviewContract.mjs');
+        const zones                 = [{nodeId: 'main-tabs', rect: RECT, orientation: 'vertical'}];
+        const params                = {
+            groupNodeId: 'popup-stack',
+            itemId     : 'strategy',
+            pointer    : {x: 50, y: 50},
+            zones
+        };
+        const preview = producer.produce(params);
+        const set     = producer.produceCandidates(params);
+
+        expect(preview.groupNodeId).toBe('popup-stack');
+        expect(preview.previewId).toBe('preview:group:popup-stack:main-tabs:tab-into');
+        expect(DockPreview.isValidPreview(preview)).toBe(true);
+        expect(set.groupNodeId).toBe('popup-stack');
+        expect(set.cross.every(candidate => candidate.preview.groupNodeId === 'popup-stack')).toBe(true);
+        expect(isValidCandidateSet(set)).toBe(true);
+
+        expect(producer.produce({...params, groupNodeId: ''})).toBeNull();
+        expect(producer.produceCandidates({...params, groupNodeId: 42})).toBeNull()
+    });
+
     test('the produce → previewToOperation → applyOperation pipeline SPLITS the target for an edge drop', async () => {
         const DockZoneModel = (await import('../../../../src/dashboard/DockZoneModel.mjs')).default;
 
