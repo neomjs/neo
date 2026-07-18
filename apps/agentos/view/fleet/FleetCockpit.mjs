@@ -1,4 +1,5 @@
 import ActivityStream           from './ActivityStream.mjs';
+import AddAgentForm             from './AddAgentForm.mjs';
 import AgentDetail              from './AgentDetail.mjs';
 import Button                   from '../../../../src/button/Base.mjs';
 import Component                from '../../../../src/component/Base.mjs';
@@ -845,6 +846,16 @@ class FleetCockpit extends Container {
                     cls      : [marker],
                     record   : me.detailRecord,
                     reference: 'agent-detail'
+                };
+            case 'define-agent':
+                // the S5 add-agent flow (rail tool, invoked-not-ambient per the design ruling).
+                // `agentDefinitionAccepted` walks up the component chain to the Viewport's roster
+                // seam — the same consumer Accounts feeds, so both entry points write one truth.
+                return {
+                    module   : AddAgentForm,
+                    cls      : [marker],
+                    listeners: {agentDefinitionAccepted: 'up.onAgentDefinitionAccepted'},
+                    reference: 'add-agent-form'
                 };
             default:
                 // perspectives arrives with its own leaf — an honest labelled placeholder, never a

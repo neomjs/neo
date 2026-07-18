@@ -27,7 +27,10 @@ export function cockpitDockDocument() {
             fleet       : {componentRef: 'fleet-grid',      title: 'Fleet',        kind: 'panel'},
             stream      : {componentRef: 'activity-stream',  title: 'Activity',     kind: 'panel'},
             detail      : {componentRef: 'agent-detail',     title: 'Agent detail', kind: 'inspector', autoHidden: true},
-            perspectives: {componentRef: 'perspectives',     title: 'Perspectives', kind: 'tool',      autoHidden: true}
+            perspectives: {componentRef: 'perspectives',     title: 'Perspectives', kind: 'tool',      autoHidden: true},
+            // S5 define-agent (design ruling on record: rail placement, invoked-not-ambient) —
+            // the add-agent flow rides the same autoHidden tool chrome as perspectives
+            defineAgent : {componentRef: 'define-agent',     title: 'Add agent',    kind: 'tool',      autoHidden: true}
         },
         nodes: {
             // Root edge-zone: the primary split in the center, the auto-hidden chrome on the right rail.
@@ -37,7 +40,7 @@ export function cockpitDockDocument() {
             'fleet-tabs'   : {type: 'tabs', items: ['fleet'],  activeItemId: 'fleet'},
             'stream-tabs'  : {type: 'tabs', items: ['stream'], activeItemId: 'stream'},
             // Secondary panes collapse to this edge's rail (§2.7): their item records carry `autoHidden`.
-            'secondary-rail': {type: 'tabs', items: ['detail', 'perspectives'], activeItemId: 'detail'}
+            'secondary-rail': {type: 'tabs', items: ['detail', 'perspectives', 'defineAgent'], activeItemId: 'detail'}
         }
     }
 }
