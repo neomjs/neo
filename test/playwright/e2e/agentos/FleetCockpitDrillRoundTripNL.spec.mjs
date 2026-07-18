@@ -96,6 +96,13 @@ test.describe('AgentOS fleet cockpit — the drill round-trip journey (card → 
         await expect(detail.locator('.fm-detail-name')).not.toBeEmpty();
         await expect(detail.locator('.fm-detail-pane')).toHaveCount(4);
 
+        // the RENDERED freshness vocabulary (the ledger's DOM seam): every pane carries its
+        // labeled chip — the labels, not their substrates, are what the user reads
+        await expect(detail.locator('.fm-freshness')).toHaveCount(4);
+        for (const chip of await detail.locator('.fm-freshness').all()) {
+            await expect(chip).not.toBeEmpty()
+        }
+
         const drilled = await queryDetail();
 
         expect(drilled?.properties?.record?.agentId, 'the inspector drilled into the exact activated resident').toBe(firstAgentId);
@@ -120,8 +127,13 @@ test.describe('AgentOS fleet cockpit — the drill round-trip journey (card → 
 
         expect((await queryDetail())?.id, 'the OS-window hop reparents the SAME instance').toBe(detailId);
 
-        // freshness after the hop: every pane carries its chip in the VESSEL window
+        // freshness after the hop: every pane carries its RENDERED labeled chip in the VESSEL
+        // window — the freshness surfaces survive the transition as pixels, not just as state
         await expect(popup.locator('.fm-detail-pane')).toHaveCount(4);
+        await expect(popup.locator('.fm-freshness')).toHaveCount(4);
+        for (const chip of await popup.locator('.fm-freshness').all()) {
+            await expect(chip).not.toBeEmpty()
+        }
 
         // ticking continuity through the hop: the pre-hop 30 SURVIVED (no reset), and the pane
         // keeps ACCEPTING ticks while the detail is windowed — monotone 30 → 45
@@ -148,8 +160,16 @@ test.describe('AgentOS fleet cockpit — the drill round-trip journey (card → 
 
         expect((await queryDetail())?.id, 'the re-seat renders through the SAME instance').toBe(detailId);
 
-        // ── join 3: reattach — same instance home, grid consistent, ticks never reset ────────
+        // ── join 3: reattach — same instance home, the VESSEL terminally closes, grid
+        // consistent, ticks never reset ──────────────────────────────────────────────────────
+        const popupClosed = popup.waitForEvent('close', {timeout: 30000});
+
         await toggle.click();
+
+        // the old render target RETIRES — observed, not inferred: an orphan vessel would make
+        // every home-side assertion below pass while the journey silently leaked a window
+        await popupClosed;
+        expect(popup.isClosed(), 'the vessel window terminally closed on reattach').toBe(true);
 
         await expect(page.locator('.fm-agent-detail')).toBeVisible({timeout: 30000});
         expect((await queryDetail())?.id, 'the instance survives the whole round trip').toBe(detailId);
@@ -169,12 +189,10 @@ test.describe('AgentOS fleet cockpit — the drill round-trip journey (card → 
 
         await app.setProperties(streamId, {adapterState: 'stale'});
 
-        await expect.poll(async () => {
-            const stale = await app.findInstances({className: 'AgentOS.view.fleet.ActivityStream'}, ['adapterState']),
-                  entry = Array.isArray(stale) ? stale[0] : stale;
-
-            return entry?.properties?.adapterState
-        }, {timeout: 10000}).toBe('stale');
+        // the RENDERED stale vocabulary (the burst sibling's exact seam) — the user-visible
+        // truth, not the worker substrate alone
+        await expect(page.locator('.fm-activity-stream .fm-stream-head.is-stale')).toBeVisible({timeout: 10000});
+        await expect(page.locator('.fm-activity-stream .fm-stream-state')).toHaveText('stale — reconnecting');
 
         // stale-NOT-frozen: with the adapter lost, a FURTHER native drill still runs the whole
         // gesture chain — the path degrades honestly instead of wedging
