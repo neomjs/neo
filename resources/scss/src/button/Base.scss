@@ -351,17 +351,17 @@
     &.neo-button {
         background-color: var(--button-background-color-disabled);
         border          : var(--button-border-disabled);
+        color           : inherit;
         cursor          : default;
         opacity         : var(--button-opacity-disabled);
 
         // Projecting the native disabled attribute (src/button/Base.mjs) activates the UA
         // button:disabled cascade, dormant for as long as this class was the only disabled
-        // authority. The class stays the sole visual owner: pin the one axis this block does
-        // not declare (measured leak: Chromium paints the element color as disabled GrayText).
-        // Witnessed by the render-equivalence assertion in the button component spec.
-        &:disabled {
-            color: inherit;
-        }
+        // authority. Chromium exposed both sides of the gap: native-disabled painted GrayText,
+        // while class-only retained the platform button color. Keep every root paint axis here:
+        // background, border and opacity use disabled tokens; color inherits because the child
+        // glyph/text nodes own themed colors. The attribute therefore adds semantics, never paint.
+        // Witnessed cross-platform by the render-equivalence assertion in the component spec.
 
         .neo-button-glyph {
             color: var(--button-glyph-color-disabled);
