@@ -45,6 +45,10 @@ const __dirname      = path.dirname(fileURLToPath(import.meta.url)),
       TEXT_FILL_PROPERTIES = new Set(['color', '-webkit-text-fill-color']),
       // Inks measured below 4.5:1 on every surface in both skins: legal as non-text, rejected on text.
       TEXT_FORBIDDEN_INK   = ['--fm-ink-faint'],
+      // Built once, not per declaration: the guard walks every declaration of every view file, so a
+      // per-iteration `new RegExp` would recompile the same pattern thousands of times. Non-global on
+      // purpose — `.test()` against a `/g` regex is stateful across calls and would skip matches.
+      TEXT_FORBIDDEN_INK_RE = TEXT_FORBIDDEN_INK.map(token => [token, new RegExp(`var\\(\\s*${token}\\b`)]),
       // Every declaration on a line, anchored on a preceding `{` or `;` so the property is resolved from
       // the DECLARATION rather than the first colon on the line — a pseudo-class (`&:hover`, `:not(.b)`)
       // puts a colon in the SELECTOR, and a first-colon split then reads a selector fragment as the
@@ -176,8 +180,8 @@ export function collectAgentosThemeFailures({
             for (const [, property, declarationValue] of line.matchAll(DECLARATION_RE)) {
                 if (!TEXT_FILL_PROPERTIES.has(property)) continue;
 
-                for (const token of TEXT_FORBIDDEN_INK) {
-                    if (new RegExp(`var\\(\\s*${token}\\b`).test(declarationValue)) {
+                for (const [token, tokenRe] of TEXT_FORBIDDEN_INK_RE) {
+                    if (tokenRe.test(declarationValue)) {
                         failures.push(`[text-contrast] ${path.relative(repoRoot, file)}:${index + 1} ${token} fills text but measures below the 4.5:1 floor on every surface in both skins — use --fm-ink-dim: ${rawLine.trim()}`);
                     }
                 }
