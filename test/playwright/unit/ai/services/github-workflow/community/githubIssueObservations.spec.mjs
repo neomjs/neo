@@ -119,6 +119,21 @@ test.describe('githubIssueObservations normalizer', () => {
         expect(kinds.filter(k => k.startsWith('issue.'))).toEqual(['issue.opened', 'issue.edited', 'issue.comment', 'issue.comment', 'issue.comment-edited'])
     });
 
+    test('a stray IssueComment on the timeline is ignored — the comments axis owns comments (no double-count)', () => {
+        const withStray = {
+            ...fullIssue,
+            timeline: [
+                {id: 'IC_x', __typename: 'IssueComment', createdAt: '2026-07-18T12:00:00Z', author: {login: 'replier', __typename: 'User'}},
+                {id: 'CE_x', __typename: 'ClosedEvent',   createdAt: '2026-07-18T12:01:00Z', actor: {login: 'maintainer', __typename: 'User'}}
+            ]
+        };
+
+        const timelineComments = issueToObservations(withStray)
+            .filter(o => o.occurrenceKind === 'issue.comment' && o.providerEntityId === 'IC_x');
+
+        expect(timelineComments, 'a timeline IssueComment produces no observation').toHaveLength(0)
+    });
+
     test('a deleted author on the root fails closed to unknown, actorId null', () => {
         const [root] = issueToObservations({id: 'I_ghost', createdAt: '2020-01-01T00:00:00Z', author: null});
 

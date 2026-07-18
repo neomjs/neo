@@ -25,10 +25,13 @@ export function actorKindFromTypename(typename) {
  * A whitelist, not a blocklist: an event kind absent from this map produces no observation,
  * so popularity signals and any future event type are refused by construction rather than by
  * an easily-stale deny-list. Every kind here is a lifecycle or metadata fact — never prose.
+ *
+ * Comments are deliberately NOT here: they are exhausted on their own connection axis and mapped
+ * from the issue's `comments`, so a stray `IssueComment` reaching the timeline path is ignored
+ * rather than emitted a second time under a different coordinate for the same node.
  * @member {Object<String,String>}
  */
 export const TIMELINE_KIND_BY_TYPENAME = {
-    IssueComment           : 'issue.comment',
     ClosedEvent            : 'issue.closed',
     ReopenedEvent          : 'issue.reopened',
     RenamedTitleEvent      : 'issue.renamed',
