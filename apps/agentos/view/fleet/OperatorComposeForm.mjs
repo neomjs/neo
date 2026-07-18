@@ -114,8 +114,10 @@ class OperatorComposeForm extends FormContainer {
             name         : 'priority',
             labelText    : 'Priority',
             labelPosition: 'top',
-            // the transport's own priority vocabulary; normal is the honest default
-            value         : 'normal',
+            // the transport's own priority vocabulary; HIGH is the default (AC-7): operator steering
+            // ranks first at the recipient's turn-start drain — paired with wake-off below it reads
+            // "top of your queue when you next look, but I won't interrupt you now"
+            value         : 'high',
             forceSelection: true,
             store         : {
                 data: [
@@ -179,7 +181,7 @@ class OperatorComposeForm extends FormContainer {
                 to            : values.to,
                 subject       : values.subject,
                 body          : values.body,
-                priority      : values.priority || 'normal',
+                priority      : values.priority || 'high',
                 wakeSuppressed: !values.wake
             }
         })

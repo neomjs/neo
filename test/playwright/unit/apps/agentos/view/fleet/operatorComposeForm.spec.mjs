@@ -15,6 +15,10 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
+// registers Neo.get — the ComboBox/Chip fields build an internal source-bound collection whose
+// afterSetSourceId calls it; without this the spec crashes in isolation (green only when a sibling
+// in the shared worker imported it first). Mirrors fleetCockpit.spec's robust import.
+import Instance       from '../../../../../../../src/manager/Instance.mjs';
 
 /**
  * @summary The operator compose surface's load-bearing contract: the wake semantics and the intent
@@ -65,7 +69,19 @@ test.describe('AgentOS OperatorComposeForm — operator write surface (#15377, D
         // the inversion is the whole point: "wake now = off" ⇒ suppress the wake, keep it durable-quiet
         expect(captured.message.wakeSuppressed).toBe(true);
         expect(captured.message.subject).toBe('Ship it');
-        expect(captured.message.priority).toBe('normal');
+
+        form.destroy()
+    });
+
+    test('priority defaults to HIGH — operator steering ranks first at the recipient turn-start drain (AC-7)', async () => {
+        // priority left untouched, so the sent value IS the field default — asserted on the fired
+        // intent (the real contract), not the ComboBox's `.value` record
+        const form     = createForm(),
+              captured = await composeWith(form, {subject: 'steer', body: 'now'});
+
+        // the AC-7 sender-side pairing: HIGH priority (ranked first when the recipient next drains) yet
+        // wake OFF by default (durable-quiet) — "top of your queue when you next look, but no interrupt now"
+        expect(captured.message.priority).toBe('high');
 
         form.destroy()
     });
