@@ -95,6 +95,14 @@ For any content collection (e.g., active issues, archived discussions for v12.1.
 
 **This is OUR OWN mathematically sound real-100.** It does NOT derive from GitHub IDs. Two collections of the same size produce identically-shaped chunks regardless of GitHub-ID gaps.
 
+### 2.2.1 Precondition: an ordinal is only meaningful against COMPLETE membership
+
+`itemIndex` (§2.2) is a position *within a bucket*, so it is correct only when computed against that bucket's **complete membership** — a precondition the rule assumes and, until this amendment, never wrote down. That silence is why it was violated silently, by more than one syncer.
+
+**A partial collection yields a DIFFERENT ordinal, not an approximate one.** An ordinal derived from a fraction of a bucket is not a smaller truth: the item lands in a chunk the complete ordering would never have chosen, beside the copy already there. The corpus on disk is the *only* complete membership that exists — the files outlive every cache that describes them. `metadata.{type}` and each run's delta fetch are **partial by design** (the delta sync rebuilds its cache from each run's fetch), so a planner reading only those is not "optimising" — it is computing a different number, and the failure is silent: a wrong ordinal produces a *valid-looking* artifact in a *plausible* chunk. Empirical anchor: #15130 / #15319 repaired 2,015 stale index entries → 0 and restored 27 divergent duplicate artifacts.
+
+**Complete membership costs a full scan of both tiers, per type, per sync — and that is the correct price.** The only alternative is a membership cache that must never drift, which is exactly the thing that already failed (§1.2's substrate-bypass anti-pattern). `ai/services/github-workflow/shared/contentInventory.mjs` (`buildContentInventory` — active tier + every archive bucket, recursive) is the reference implementation and the canonical way to satisfy this precondition; a planner that computes placement from `metadata.{type}` plus a delta fetch does not satisfy it, and is free to reintroduce the defect until it reads complete membership.
+
 ### 2.3 Retired primitives
 
 - **`ai/services/github-workflow/shared/chunkPath.mjs`** (3-line `String(id).padStart(4,'0').slice(0,-2) + 'xx'`) — RETIRED. ID-range chunking abandoned everywhere.
