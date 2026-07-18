@@ -120,6 +120,9 @@ sent-to-cull.jsonl
 # Per-user Codex MCP server configs
 .codex/config.toml
 
+# Per-seat OpenCode harness config (seat-personal; the #15392 seat-config generator emits it — never track it)
+/opencode.jsonc
+
 # Playwright test results
 test/playwright/test-results/
 # Single-file Playwright runs via npx

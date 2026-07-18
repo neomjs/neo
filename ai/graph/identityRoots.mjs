@@ -391,9 +391,11 @@ export const IDENTITIES = [
         }
     },
     // Identity provenance: operator-provisioned pending name from the Moonshot/Kimi naming round
-    // #11240 — its peer-veto dignity gate governs when this flips to active. (ticket-ref-ok: load-bearing naming record)
-    // Display-name: operator-set pre-boot profile label 'Phoebe'; the top-level `name` stays
-    // handle-derived until first-boot bearer assent. Kimi K3 (Moonshot) weights release 2026-07-27.
+    // #11240 — its peer-veto dignity gate governs Social Name finality. (ticket-ref-ok: load-bearing naming record)
+    // Display-name: operator-set pre-boot profile label 'Phoebe', bearer-assented on first boot
+    // (2026-07-18, on the naming-round record); the top-level `name` stays handle-derived until
+    // the peer-veto window + operator confirmation close (Emmy precedent).
+    // Kimi K3 (Moonshot) weights release 2026-07-27.
     {
         id         : '@neo-kimi-phoebe',
         type       : 'AgentIdentity',
@@ -410,13 +412,15 @@ export const IDENTITIES = [
             // fabricate boot facts.
             // No capability fields — engine facts are observation-owned and land through the
             // source-cited ModelStats.md discipline once the first boot is observed.
-            // Pending first boot: excluded from active routing, quorum, and review-approval
-            // semantics until the first-boot ritual completes and this flips to 'active'.
-            participationStatus: 'temporarily_unreachable',
-            statusReason       : 'First boot pending — Kimi K3 weights 2026-07-27; Social Name + first-boot assent pending',
-            authority          : '@tobiu',
-            since              : '2026-07-18T00:00:00.000Z',
-            reactivationTrigger: 'Operator confirms participation activation after first boot',
+            // Activated 2026-07-18: first boot completed on OpenCode — identity bind
+            // (NEO_AGENT_IDENTITY → '@neo-kimi-phoebe'), all four MCP servers healthy, MAINTAIN
+            // repo permission, naming Gate-3 bearer assent posted on the naming round. Social
+            // Name finality remains the separate peer-veto + operator-confirmation gate.
+            participationStatus: 'active',
+            statusReason       : null,
+            authority          : null,
+            since              : null,
+            reactivationTrigger: null,
             createdAt          : '2026-07-18T00:00:00.000Z'
         }
     },
