@@ -299,17 +299,19 @@
 
     // "we looked and could not see" reads as absent-information, never as an alert and never as health
     .fm-detail-telltale-unknown {
-        color: var(--fm-ink-faint);
+        color: var(--fm-ink-dim);
     }
 
-    // "nobody reported this axis" — the faintest thing on the surface: it is the absence of an
-    // observation, which is less than an unknown one.
+    // "nobody reported this axis" — the absence of an observation, which is less than an unknown one.
+    // That gradient rides the ITALIC channel rather than a fainter ink: the faint tier measures below
+    // the 4.5:1 text floor on every surface in both skins, and carrying the distinction in colour alone
+    // would make colour the sole bearer of the meaning. Italic separates it while the text stays legible.
     .fm-detail-telltale-unreported {
-        color     : var(--fm-ink-faint);
+        color     : var(--fm-ink-dim);
         font-style: italic;
     }
 
     .fm-detail-telltale-reason {
-        color: var(--fm-ink-faint);
+        color: var(--fm-ink-dim);
     }
 }
