@@ -202,7 +202,7 @@ The authoritative operation surface lives in
 [Neural Link Capability Matrix](./tooling/NeuralLinkCapabilityMatrix.md), and the
 lazy handbook tool `get_mcp_tool_handbook` returns operation-level usage detail
 when an agent needs it. At the time of this rewrite, the OpenAPI surface exposes
-58 operation IDs.
+59 operation IDs.
 
 Keeping the catalog out of the conceptual guide prevents the old failure mode:
 a polished explanation slowly turning into stale reference sludge. When the
