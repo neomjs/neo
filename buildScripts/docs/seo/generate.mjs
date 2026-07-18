@@ -139,7 +139,11 @@ const PRIORITIES = new Map([
     ['guides/uibuildingblocks/ComponentsAndContainers', 0.8],
     ['guides/uibuildingblocks/Layouts'                , 0.8],
     ['guides/datahandling/Grids'                      , 0.8],
-    ['guides/userinteraction/Forms'                   , 0.8]
+    ['guides/userinteraction/Forms'                   , 0.8],
+
+    // Internal evidence surfaces (hidden tree entries): registered explicitly at the floor so
+    // the guide-authoring convention holds without promoting them in search.
+    ['guides/specificfeatures/TearOutPortabilityMatrix', 0.1]
 ]);
 
 const DEFAULT_PRIORITY = 0.5;

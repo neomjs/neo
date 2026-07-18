@@ -1,11 +1,12 @@
 import './configTemplateResolver.mjs';
 
-import {defineConfig} from '@playwright/test';
+import {defineConfig}        from '@playwright/test';
+import {resolveFreePortSync} from './resolveFreePort.mjs';
 
-// Overridable so agent/dev runs can isolate from a foreign dev-server already squatting on 8080:
-// with `reuseExistingServer` a server started from ANOTHER checkout silently serves the wrong tree
-// to every probe — set NEO_E2E_PORT to a private port to guarantee the served tree is this one.
-const PORT = process.env.NEO_E2E_PORT || 8080;
+// Foreign-tree evidence is structurally impossible here: an explicit NEO_E2E_PORT pin wins,
+// otherwise an OS-assigned free port is probed per process — and the webServer below never
+// adopts an existing listener, so every probe run serves exactly THIS checkout's tree.
+const PORT = resolveFreePortSync(process.env.NEO_E2E_PORT);
 
 /**
  * The tear-out portability-matrix runner (see
@@ -53,10 +54,15 @@ export default defineConfig({
     webServer: {
         command            : `npm run server-start -- --port ${PORT} --no-open`,
         url                : `http://localhost:${PORT}`,
-        reuseExistingServer: !process.env.CI
+        // NEVER adopt an existing listener: reuse is how a server from ANOTHER checkout silently
+        // serves the wrong tree to every probe (the foreign-server evidence class).
+        reuseExistingServer: false
     },
 
     projects: [{
-        name: 'chromium'
+        // Real Google Chrome, matching the ledger's "macOS Chrome" receipts — the bare project
+        // would launch bundled Chromium, a different browser than the one the evidence names.
+        name: 'chrome',
+        use : {channel: 'chrome'}
     }]
 });
