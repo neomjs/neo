@@ -12,6 +12,7 @@ import ReleaseNotesSyncer                                                     fr
 import {FETCH_ISSUE_TIMELINE_PAGE, FETCH_ISSUES_FOR_SYNC, FETCH_SINGLE_ISSUE} from '../queries/issueQueries.mjs';
 import {GET_ISSUE_FOR_PUSH, UPDATE_ISSUE}                                     from '../queries/mutations.mjs';
 import contentPath                                                            from '../shared/contentPath.mjs';
+import {buildContentInventory}                                                from '../shared/contentInventory.mjs';
 import {createContentIndexEntry, updateContentIndex}                          from '../shared/contentIndex.mjs';
 import {createContentTrustSummary, projectAuthoredNodeTrust}                  from '../shared/conversationTrust.mjs';
 import pruneEmptyDirs                                                         from '../shared/pruneEmptyDirs.mjs';
@@ -379,10 +380,13 @@ class IssueSyncer extends Base {
      * @summary Pre-computes bucket counts and indices for all active and archived issues.
      * @param {Object} metadata The sync metadata.
      * @param {Array} fetchedIssues The delta issues fetched from GitHub.
+     * @param {Object} [options]
+     * @param {Boolean} [options.ignoreOldVersion=false] Ignore cached archive placement while migrating.
+     * @param {Map<number, Array<Object>>} [options.inventory=null] Complete active + archive corpus membership.
      * @returns {Map<number, {version: string|null, itemCount: number, itemIndex: number}>}
      * @private
      */
-    #planBuckets(metadata, fetchedIssues = [], {ignoreOldVersion = false} = {}) {
+    #planBuckets(metadata, fetchedIssues = [], {ignoreOldVersion = false, inventory = null} = {}) {
         const combined = new Map();
 
         for (const [idStr, issue] of Object.entries(metadata.issues || {})) {
@@ -494,6 +498,32 @@ class IssueSyncer extends Base {
 
             if (!buckets.has(version)) buckets.set(version, []);
             buckets.get(version).push(issue);
+        }
+
+        // Seed marooned on-disk ids AFTER classification — membership is inherited from the corpus only
+        // for ids this run has no live opinion about (the whole marooned backlog), so `itemIndex` is
+        // computed over COMPLETE membership, not the metadata+delta fraction that misplaces them. BOTH
+        // tiers: an active file is a member of the active collection exactly as an archived file is a
+        // member of its bucket; both ordinals are defined over complete membership.
+        if (inventory) {
+            const classified = new Set(activeItems.map(issue => issue.number));
+
+            for (const issues of buckets.values()) {
+                for (const issue of issues) classified.add(issue.number);
+            }
+
+            for (const [id, copies] of inventory) {
+                if (classified.has(id)) continue;
+
+                const archived = copies.find(copy => copy.version);
+
+                if (archived) {
+                    if (!buckets.has(archived.version)) buckets.set(archived.version, []);
+                    buckets.get(archived.version).push({number: id});
+                } else {
+                    activeItems.push({number: id})
+                }
+            }
         }
 
         const plans = new Map();
@@ -661,7 +691,8 @@ class IssueSyncer extends Base {
         const indexMutations       = {upsert: [], remove: []};
         let   shouldPruneEmptyDirs = false;
 
-        const planBuckets = this.#planBuckets(metadata, allIssues);
+        const inventory   = await buildContentInventory(issueSyncConfig, {type: 'issues', filePrefix: issueSyncConfig.issueFilenamePrefix});
+        const planBuckets = this.#planBuckets(metadata, allIssues, {inventory});
 
         // Process each issue
         for (const issue of allIssues) {
@@ -883,6 +914,10 @@ class IssueSyncer extends Base {
         const stats = {refetched: {count: 0, issues: []}, errors: []};
         const list  = [...numbers];
 
+        // Build the complete-membership inventory ONCE for the whole refetch batch — a full corpus scan
+        // per issue would be pathological; every planned ordinal reads the same complete membership.
+        const inventory = await buildContentInventory(issueSyncConfig, {type: 'issues', filePrefix: issueSyncConfig.issueFilenamePrefix});
+
         for (const issueNumber of list) {
             try {
                 const data = await GraphqlService.query(
@@ -907,7 +942,7 @@ class IssueSyncer extends Base {
 
                 await this.#exhaustTimelineItems(issue);
 
-                const planBuckets = this.#planBuckets(metadata, [issue]);
+                const planBuckets = this.#planBuckets(metadata, [issue], {inventory});
                 const targetPath  = this.#getIssuePath(issue, planBuckets);
                 if (!targetPath) {
                     if (indexMutations) {
@@ -1099,6 +1134,10 @@ class IssueSyncer extends Base {
             return stats;
         }
 
+        // Build the complete-membership inventory ONCE for the reconcile pass (not per closed issue) —
+        // every "where SHOULD this land" ordinal reads the same complete membership.
+        const inventory = await buildContentInventory(issueSyncConfig, {type: 'issues', filePrefix: issueSyncConfig.issueFilenamePrefix});
+
         for (const issueNumber in metadata.issues) {
             const issueData = metadata.issues[issueNumber];
 
@@ -1116,7 +1155,7 @@ class IssueSyncer extends Base {
             }
 
             // Calculate where this closed issue SHOULD be
-            const planBuckets = this.#planBuckets(metadata);
+            const planBuckets = this.#planBuckets(metadata, [], {inventory});
             const correctPath = this.#getIssuePath({
                 number   : parseInt(issueNumber),
                 state    : issueData.state,
@@ -1204,7 +1243,8 @@ class IssueSyncer extends Base {
 
         // Recompute from scratch: ignore the cached-path `oldVersion` (which would re-pin the existing
         // mis-bucketing) so each closed issue resolves via milestone-guard / closedAt→release.
-        const plan = this.#planBuckets(metadata, [], {ignoreOldVersion: true});
+        const inventory = await buildContentInventory(issueSyncConfig, {type: 'issues', filePrefix: issueSyncConfig.issueFilenamePrefix});
+        const plan      = this.#planBuckets(metadata, [], {ignoreOldVersion: true, inventory});
 
         const moves     = [];
         const upserts   = [];
