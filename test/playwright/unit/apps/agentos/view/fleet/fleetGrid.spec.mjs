@@ -279,4 +279,32 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         grid.destroy()
     });
 
+    test('the bootstrap CTA renders ONLY at roster count 0, fires addAgentRequest, and vanishes with the first agent (#15242)', () => {
+        const
+            fired = [],
+            store = makeStore([]),
+            grid  = Neo.create(FleetGrid, {appName, store});
+
+        grid.on('addAgentRequest', data => fired.push(data));
+
+        const cta = () => cardsBox(grid).items.find(item => item.cls?.includes('fm-fleet-empty-cta'));
+
+        // empty fleet: the one findable path to the first agent — a native Button, real Tab order
+        expect(cta()).toBeTruthy();
+        expect(cta().text).toBe('Add your first agent');
+        expect(agentCards(grid).length).toBe(0);
+
+        cta().handler();
+        expect(fired).toHaveLength(1);
+
+        // the first agent retires the CTA — it is a bootstrap affordance, never ambient chrome
+        store.add({agentId: 'first', displayName: 'First', state: 'ok'});
+        grid.refreshGrid();
+
+        expect(cta()).toBeUndefined();
+        expect(agentCards(grid).length).toBe(1);
+
+        grid.destroy()
+    });
+
 });

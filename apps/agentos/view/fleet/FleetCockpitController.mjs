@@ -171,6 +171,21 @@ class FleetCockpitController extends Controller {
     }
 
     /**
+     * @summary The grid's bootstrap CTA (empty fleet) opens the S5 define-agent zone — the same
+     * reveal verb the card-drill uses for the detail pane, aimed at the rail's add-agent tool.
+     * @param {Object} data The `addAgentRequest` payload — Neo stamps `source`.
+     */
+    onAddAgentRequest(data) {
+        const cockpit = this.component;
+
+        if (cockpit.dockModel?.items?.defineAgent?.autoHidden) {
+            const result = cockpit.applyDockZoneOperation({operation: 'setItemAutoHidden', itemId: 'defineAgent', autoHidden: false});
+
+            result && !result.errors?.length && cockpit.onDockZoneDocumentChange(result.document)
+        }
+    }
+
+    /**
      * @summary Re-poll the roster once a lifecycle intent has genuinely changed runtime state.
      *
      * `loadRoster` is the ONLY path that maps live runtime truth onto the roster records, and the

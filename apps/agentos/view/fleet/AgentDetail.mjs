@@ -1,9 +1,11 @@
+import AgentConfigCard                                from './AgentConfigCard.mjs';
 import Container                                      from '../../../../src/container/Base.mjs';
 import FamilyRail                                     from './FamilyRail.mjs';
 import Image                                          from '../../../../src/component/Image.mjs';
 import MailboxPane                                    from './MailboxPane.mjs';
 import StateDot                                       from './StateDot.mjs';
 import TabContainer                                   from '../../../../src/tab/Container.mjs';
+import {runConfigIntentRoundTrip}                     from './configIntentRoundTrip.mjs';
 import {describeTelltaleReadout}                      from './telltale.mjs';
 import {classifyPaneFreshness, describePaneFreshness} from './agentFreshness.mjs';
 import {normalizeFleetSources}                        from './sourceHealth.mjs';
@@ -102,6 +104,18 @@ class AgentDetail extends Container {
          * @member {String[]} baseCls=['fm-agent-detail']
          */
         baseCls: ['fm-agent-detail'],
+        /**
+         * The provider-hosted `AgentDefinitions` Store, resolved via the standard bind (the same
+         * instance Accounts writes into) — the configuration tab's data surface. The JOIN is the
+         * Fleet Registry key: `FleetAgent.agentId` IS the roster row's `id`, which IS
+         * `AgentDefinition.id`. `null` (no store seated, e.g. a bare unit mount) renders the
+         * tab's honest no-definition state — never a fabricated config. The bind lives in the
+         * COMPOSITION (the cockpit's resolver), not here — this view stays provider-agnostic, so
+         * bare mounts and vessel reparents never require a provider chain.
+         * @member {Neo.data.Store|null} agentDefinitions_=null
+         * @reactive
+         */
+        agentDefinitions_: null,
         /**
          * The drilled-in resident: an {@link AgentOS.model.FleetAgent} record (store-backed, live)
          * or a plain field bag with the same keys. `null` renders the honest "no agent selected"
@@ -237,6 +251,16 @@ class AgentDetail extends Container {
                 module   : MailboxPane,
                 header   : {text: 'Mailbox'},
                 reference: 'mailbox-pane'
+            }, {
+                // object permanence (the S5 fork-1 ruling): per-agent CONFIGURATION belongs to the
+                // agent object, so it rides the detail as a tab — the mailbox precedent applied to
+                // the config card. The card fires `configIntent`; THIS view owns the bridge
+                // round-trip through the shared runner (which arbitrates supersession per shared
+                // record, across every owner), with the card as this owner's status sink.
+                module   : AgentConfigCard,
+                emptyText: 'This agent has no stored definition yet — add it via the rail\'s Add agent zone.',
+                header   : {text: 'Configuration'},
+                reference: 'config-pane'
             }]
         }]
     }
@@ -255,6 +279,9 @@ class AgentDetail extends Container {
         // read seam and the subject) performs the bounded re-read. Wired explicitly rather than via
         // a string handler — this view carries no controller for one to resolve against.
         this.getReference('mailbox-pane')?.on('pageRequest', this.onMailboxPageRequest, this);
+        // same explicit-wiring rule for the config tab: the card fires, this view runs the shared
+        // bridge round-trip (see onConfigIntent)
+        this.getReference('config-pane')?.on('configIntent', this.onConfigIntent, this);
         this.applyRecord();
         this.startFreshnessAging()
     }
@@ -413,6 +440,112 @@ class AgentDetail extends Container {
      * runtime source so missing evidence never renders as live).
      * @protected
      */
+    /**
+     * The full store-lifecycle listener set for the definitions store — one map, attached and
+     * detached symmetrically ({@link #afterSetAgentDefinitions} + {@link #destroy}). Three distinct
+     * edges, three listeners: `recordChange` (a field mutated in place — record identity unchanged,
+     * so the card's reactive `record` never re-fires), `mutate` (membership: a definition added,
+     * replaced, or removed after this view mounted), `load` (a reload re-seated the rows wholesale).
+     * @returns {Object}
+     * @protected
+     */
+    getDefinitionsStoreListeners() {
+        const me = this;
+
+        return {
+            load        : me.onDefinitionsStoreMutation,
+            mutate      : me.onDefinitionsStoreMutation,
+            recordChange: me.onDefinitionRecordChange,
+            scope       : me
+        }
+    }
+
+    /**
+     * Triggered after the agentDefinitions config got changed — the composition seating the shared
+     * store (or a test seating one directly). Moves the store-lifecycle listeners old → new, then
+     * re-seats the card: a detail mounted BEFORE its definition existed must acquire the record the
+     * moment membership delivers it.
+     * @param {Neo.data.Store|null} value
+     * @param {Neo.data.Store|null} oldValue
+     * @protected
+     */
+    afterSetAgentDefinitions(value, oldValue) {
+        const me = this;
+
+        oldValue?.un?.(me.getDefinitionsStoreListeners());
+        value?.on?.(me.getDefinitionsStoreListeners());
+
+        me.isConstructed && me.applyConfigRecord()
+    }
+
+    /**
+     * @summary Store membership or a wholesale reload changed the definition rows — re-seat the
+     * card from the canonical store. Covers a definition ADDED after mount (null → record),
+     * REPLACED (new instance for the same id), REMOVED (record → honest empty state), and reloads.
+     * @protected
+     */
+    onDefinitionsStoreMutation() {
+        this.applyConfigRecord()
+    }
+
+    /**
+     * @summary Detach the provider-owned store's listeners — the store outlives this view, so an
+     * attached listener would keep firing into a destroyed component.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        this.agentDefinitions?.un?.(this.getDefinitionsStoreListeners());
+        super.destroy(...args)
+    }
+
+    /**
+     * @summary Seat the configuration tab from the definitions store — the Fleet-Registry-key join
+     * (`record.agentId` === `AgentDefinition.id`). No resident or no store → `null` → the card's
+     * honest empty line.
+     */
+    applyConfigRecord() {
+        const
+            me   = this,
+            card = me.getReference('config-pane');
+
+        if (card) {
+            card.record = (me.record?.agentId && me.agentDefinitions?.get(me.record.agentId)) || null
+        }
+    }
+
+    /**
+     * @summary A definition record changed in place (e.g. an accepted configure readback from ANY
+     * owner, incl. Accounts) — refresh the card when the change concerns the seated definition.
+     * @param {Object} data The store's `recordChange` payload.
+     * @protected
+     */
+    onDefinitionRecordChange(data) {
+        const card = this.getReference('config-pane');
+
+        card?.record && data?.record?.id === card.record.id && card.refresh()
+    }
+
+    /**
+     * @summary The config tab's `configIntent` → the shared bridge round-trip. Ordering is NOT
+     * owned here: the runner arbitrates supersession per shared record across every owner
+     * (Accounts included), so a newer intent from either surface outranks an older in-flight
+     * response. This owner contributes only its store resolution and its status sink (the card).
+     * Fail-closed and readback-only by construction —
+     * see {@link module:apps/agentos/view/fleet/configIntentRoundTrip}.
+     * @param {Object} intent `{id, harnessType?, mcpServers?}` (+ event envelope, stripped by the runner).
+     * @returns {Promise<void>}
+     */
+    onConfigIntent(intent={}) {
+        const me = this;
+
+        return runConfigIntentRoundTrip({
+            intent,
+            owner        : me,
+            setSaveStatus: (agentId, state, reason) => me.getReference('config-pane')?.setSaveStatus(agentId, state, reason),
+            store        : me.agentDefinitions
+        })
+    }
+
     applyRecord() {
         let me     = this,
             record = me.record,
@@ -439,6 +572,10 @@ class AgentDetail extends Container {
         });
 
         sameAgent || me.loadMailboxMirror();
+
+        // the configuration tab joins on the Fleet Registry key; a roster resident with no stored
+        // definition renders the card's honest no-definition line, never a fabricated config
+        me.applyConfigRecord();
 
         if (!record) {
             return

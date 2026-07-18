@@ -15,6 +15,8 @@ import * as core       from '../../../../../src/core/_export.mjs';
 import Instance        from '../../../../../src/manager/Instance.mjs';
 import Accounts        from '../../../../../apps/agentos/view/Accounts.mjs';
 
+import {runConfigIntentRoundTrip} from '../../../../../apps/agentos/view/fleet/configIntentRoundTrip.mjs';
+
 const
     __filename = fileURLToPath(import.meta.url),
     __dirname  = path.dirname(__filename),
@@ -405,6 +407,23 @@ test.describe('AgentOS.view.Accounts — agent-scoped configuration (multiple ag
         store.destroy()
     });
 
+    test('a definition ADDED to the store joins the selector strip — the Viewport upsert path fires `mutate`, not `load` (#15440)', () => {
+        const store = makeAgentStore([
+            {id: 'neo-gpt', githubUsername: 'neo-gpt', harnessType: 'codex'}
+        ]);
+        const stub = makeScopedAccounts(store);
+
+        expect(stub.selector.items.map(item => item.agentId)).toEqual(['neo-gpt']);
+
+        // the accepted-definition composition boundary: Viewport lands the canonical readback via
+        // `store.add()` — a membership change, which fires `mutate` (`load` never fires for it)
+        store.add({id: 'neo-phoebe', githubUsername: 'neo-phoebe', harnessType: 'codex'});
+
+        expect(stub.selector.items.map(item => item.agentId)).toEqual(['neo-gpt', 'neo-phoebe']);
+
+        store.destroy()
+    });
+
     test('selecting an agent scopes the configuration card to ITS record', () => {
         const store = makeAgentStore([
             {id: 'a', githubUsername: 'a', harnessType: 'codex'},
@@ -510,13 +529,21 @@ test.describe('AgentOS.view.Accounts — agent-scoped configuration (multiple ag
 // assignments — the card must still re-render (refresh), and the intent path must fire from the
 // real vdom-derived ids.
 test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + configIntent (real objects)', () => {
-    let AgentConfigCard, AgentDefinition, Store;
+    let AgentConfigCard, AgentDefinition, Store, savedAgentOS;
 
     test.beforeAll(async () => {
         AgentConfigCard = (await import('../../../../../apps/agentos/view/fleet/AgentConfigCard.mjs')).default;
         AgentDefinition = (await import('../../../../../apps/agentos/model/AgentDefinition.mjs')).default;
         Store           = (await import('../../../../../src/data/Store.mjs')).default
     });
+
+    // AgentOS is the APP NAMESPACE (every registered AgentOS.* class lives under it). The bridge
+    // stubs below replace it wholesale for their window — fine in-test (nothing here resolves an
+    // app class by name) — but it must be RESTORED, never deleted: under fullyParallel a worker
+    // interleaves tests from OTHER files, and a deleted namespace makes any later `Neo.create`
+    // of an AgentOS view in that worker fail with "Class … does not exist".
+    test.beforeEach(() => { savedAgentOS = globalThis.AgentOS });
+    test.afterEach(()  => { globalThis.AgentOS = savedAgentOS });
 
     const cardText = card => JSON.stringify(card.vdom.cn);
 
@@ -590,6 +617,33 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
         store.destroy()
     });
 
+    test('superseded is non-latching: the losing surface can immediately correct (#15440)', () => {
+        const store = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
+            {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
+        ]});
+        const card    = Neo.create(AgentConfigCard, {record: store.get('ada')});
+        const intents = [];
+
+        card.on('configIntent', data => intents.push(data));
+
+        // pending is the ONLY latching state — a mid-flight save blocks overlap…
+        card.setSaveStatus('ada', 'pending', 'Saving configuration…');
+        card.onCardClick({path: [{id: `${card.id}__harness__claude-code`}]});
+        expect(intents).toHaveLength(0);
+
+        // …but a surface whose request lost to ANOTHER owner's newer change is told so and must
+        // stay correctable: a chip latched at pending forever would be a dead affordance
+        card.setSaveStatus('ada', 'superseded', 'Superseded by a newer change from another surface.');
+        expect(cardText(card)).toContain('Superseded by a newer change');
+
+        card.onCardClick({path: [{id: `${card.id}__harness__claude-code`}]});
+        expect(intents).toHaveLength(1);
+        expect(intents[0]).toMatchObject({id: 'ada', harnessType: 'claude-code'});
+
+        card.destroy();
+        store.destroy()
+    });
+
     test('the Accounts round-trip writes the bridge RESPONSE onto the record and reports honestly', async () => {
         const store = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
             {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
@@ -598,12 +652,11 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
         const saveStatuses = [],
               card         = {setSaveStatus: (...args) => saveStatuses.push(args)},
               stub         = {
-            agentDefinitionsStore        : store,
-            agentConfigRequestGenerations: new Map(),
-            agentConfigSaveStatuses      : new Map(),
-            onAgentConfigIntent          : Accounts.prototype.onAgentConfigIntent,
-            setAgentConfigSaveStatus     : Accounts.prototype.setAgentConfigSaveStatus,
-            getReference                 : ref => ref === 'agent-config-card' ? card : null
+            agentDefinitionsStore   : store,
+            agentConfigSaveStatuses : new Map(),
+            onAgentConfigIntent     : Accounts.prototype.onAgentConfigIntent,
+            setAgentConfigSaveStatus: Accounts.prototype.setAgentConfigSaveStatus,
+            getReference            : ref => ref === 'agent-config-card' ? card : null
         };
 
         // no bridge → fail closed, nothing mutates
@@ -642,7 +695,6 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
             stub     = {
                 agentDefinitionsStore         : store,
                 agentDefinitionsLoadGeneration: 0,
-                agentConfigRequestGenerations : new Map(),
                 agentConfigSaveStatuses       : new Map(),
                 onAgentConfigIntent           : Accounts.prototype.onAgentConfigIntent,
                 setAgentConfigSaveStatus      : Accounts.prototype.setAgentConfigSaveStatus,
@@ -680,7 +732,6 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
         const stub         = {
             agentDefinitionsStore         : store,
             agentDefinitionsLoadGeneration: 0,
-            agentConfigRequestGenerations : new Map(),
             agentConfigSaveStatuses       : new Map(),
             onAgentConfigIntent           : Accounts.prototype.onAgentConfigIntent,
             setAgentConfigSaveStatus      : Accounts.prototype.setAgentConfigSaveStatus,
@@ -722,6 +773,51 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
         expect(store.get('canonical').harnessType).toBe('claude-code');
 
         delete globalThis.AgentOS;
+        store.destroy()
+    });
+
+    test('an accepted readback from ANOTHER owner invalidates an older in-flight boot list (#15440)', async () => {
+        const store = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
+            {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
+        ]});
+        const stub = {
+            agentDefinitionsStore         : store,
+            agentDefinitionsLoadGeneration: 0,
+            syncAgentSelector             : () => {},
+            loadAgentDefinitions          : Accounts.prototype.loadAgentDefinitions
+        };
+
+        let resolveList;
+
+        const priorFleet = globalThis.AgentOS?.fleet;
+
+        globalThis.AgentOS ??= {};
+        globalThis.AgentOS.fleet = {registryBridge: {
+            listAgents    : () => new Promise(resolve => resolveList = resolve),
+            configureAgent: async () => ({status: 'accepted', agent: {id: 'ada', harnessType: 'native-neo', mcpServers: null}})
+        }};
+
+        // Accounts' boot list goes in flight…
+        const load = stub.loadAgentDefinitions();
+
+        // …and the DETAIL owner (a different surface — Accounts' own onAcceptedReadback hook
+        // never runs) lands an accepted configure readback meanwhile
+        await runConfigIntentRoundTrip({
+            intent       : {id: 'ada', harnessType: 'native-neo'},
+            owner        : {},
+            setSaveStatus: () => {},
+            store
+        });
+
+        expect(store.get('ada').harnessType).toBe('native-neo');
+
+        // the OLDER list snapshot answers with pre-write truth — the shared write generation
+        // moved while it flew, so the whole snapshot is discarded and nothing regresses
+        resolveList([{id: 'ada', githubUsername: 'ada', harnessType: 'codex'}]);
+        await expect(load).resolves.toBe(false);
+        expect(store.get('ada').harnessType).toBe('native-neo');
+
+        globalThis.AgentOS.fleet = priorFleet;
         store.destroy()
     });
 });

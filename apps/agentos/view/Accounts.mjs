@@ -1,21 +1,22 @@
-import AgentConfigCard    from './fleet/AgentConfigCard.mjs';
-import Button             from '../../../src/button/Base.mjs';
-import DashboardPanel     from '../../../src/dashboard/Panel.mjs';
-import FormContainer      from '../../../src/form/Container.mjs';
-import {listHarnessTypes} from '../config/harnessTypes.mjs';
-import PasswordField      from '../../../src/form/field/Password.mjs';
-import Radio              from '../../../src/form/field/Radio.mjs';
-import TextField          from '../../../src/form/field/Text.mjs';
-import Toolbar            from '../../../src/toolbar/Base.mjs';
+import AgentConfigCard            from './fleet/AgentConfigCard.mjs';
+import {getDefinitionsWriteGeneration, runConfigIntentRoundTrip} from './fleet/configIntentRoundTrip.mjs';
+import Button                     from '../../../src/button/Base.mjs';
+import DashboardPanel             from '../../../src/dashboard/Panel.mjs';
+import FormContainer              from '../../../src/form/Container.mjs';
+import {listHarnessTypes}         from '../config/harnessTypes.mjs';
+import PasswordField              from '../../../src/form/field/Password.mjs';
+import Radio                      from '../../../src/form/field/Radio.mjs';
+import TextField                  from '../../../src/form/field/Text.mjs';
+import Toolbar                    from '../../../src/toolbar/Base.mjs';
 
 /**
  * @class AgentOS.view.Accounts
  * @extends Neo.dashboard.Panel
  *
  * @summary The **Accounts keeper-view** — set up the cross-family fleet's agent identities (GitHub
- * identity + harness type + provider credential). Extracted from `FleetSettingsPanel` per the cockpit
- * keeper-view decomposition: this view owns identity *setup*; the Fleet view owns the live roster
- * + lifecycle. It also surfaces a **basic NL-MCP connect entry** (the external-harness
+ * identity + harness type + provider credential). Extracted from the retired settings panel per the
+ * cockpit keeper-view decomposition: this view owns identity *setup*; the cockpit owns the live
+ * roster + lifecycle. It also surfaces a **basic NL-MCP connect entry** (the external-harness
  * `manage_connection` start path) through the same fail-closed injected-bridge discipline.
  *
  * Capability-security boundary (the load-bearing reason this is its own surface): a credential is
@@ -180,14 +181,6 @@ class Accounts extends DashboardPanel {
     agentDefinitionsLoadGeneration = 0
 
     /**
-     * Latest save-request generation per agent. Only the newest response may update the Body
-     * projection or visible save state.
-     * @member {Map<String,Number>} agentConfigRequestGenerations
-     * @private
-     */
-    agentConfigRequestGenerations = new Map()
-
-    /**
      * Ephemeral save status per agent. Selection changes re-project this state onto the card, so a
      * pending/accepted/rejected result never moves to or disappears behind another agent.
      * @member {Map<String,Object>} agentConfigSaveStatuses
@@ -217,6 +210,9 @@ class Accounts extends DashboardPanel {
         let me        = this,
             listeners = {
                 load        : me.onAgentRosterChange,
+                // membership changes fire `mutate`, not `load` — the Viewport's accepted-definition
+                // upsert lands via `store.add()`, and the selector strip must show the new resident
+                mutate      : me.onAgentRosterChange,
                 recordChange: me.onAgentRosterChange,
                 scope       : me
             };
@@ -272,65 +268,14 @@ class Accounts extends DashboardPanel {
      * @returns {Promise<void>}
      */
     async onAgentConfigIntent(intent={}) {
-        const
-            me      = this,
-            agentId = intent.id,
-            bridge  = globalThis.AgentOS?.fleet?.registryBridge,
-            // Neo events add transport-irrelevant envelope fields such as `source`. Reconstruct the
-            // curated wire intent explicitly so no event metadata can cross the Brain allowlist.
-            wireIntent = {id: agentId};
+        const me = this;
 
-        if (me.agentConfigSaveStatuses.get(agentId)?.state === 'pending') {
-            return
-        }
-
-        if (Object.hasOwn(intent, 'harnessType')) wireIntent.harnessType = intent.harnessType;
-        if (Object.hasOwn(intent, 'mcpServers'))  wireIntent.mcpServers  = intent.mcpServers;
-
-        const requestGeneration = (me.agentConfigRequestGenerations.get(agentId) || 0) + 1;
-        me.agentConfigRequestGenerations.set(agentId, requestGeneration);
-        me.setAgentConfigSaveStatus(agentId, 'pending', 'Saving configuration…');
-
-        if (typeof bridge?.configureAgent !== 'function') {
-            const reason = 'Configuration is unavailable in dev-server mode. Nothing was changed.';
-            me.setAgentConfigSaveStatus(agentId, 'rejected', reason);
-            return
-        }
-
-        try {
-            const outcome = await bridge.configureAgent(wireIntent);
-
-            if (me.agentConfigRequestGenerations.get(agentId) !== requestGeneration) {
-                return
-            }
-
-            if (outcome?.status === 'accepted' && outcome.agent?.id === agentId) {
-                const record = me.agentDefinitionsStore?.get(agentId);
-
-                if (!record) {
-                    throw new Error('accepted configuration has no matching local agent')
-                }
-
-                // Invalidate any older boot-list response before applying the canonical save
-                // readback. Only the RESPONSE mutates the durable Body projection.
-                me.agentDefinitionsLoadGeneration = (me.agentDefinitionsLoadGeneration || 0) + 1;
-                record.set(outcome.agent);
-                me.setAgentConfigSaveStatus(agentId, 'accepted', 'Configuration saved.')
-            } else {
-                const reason = outcome?.status === 'rejected'
-                    ? (outcome.reason || 'Configuration was rejected.')
-                    : 'Configuration response was invalid. Nothing was changed.';
-
-                me.setAgentConfigSaveStatus(agentId, 'rejected', reason)
-            }
-        } catch (error) {
-            if (me.agentConfigRequestGenerations.get(agentId) !== requestGeneration) {
-                return
-            }
-
-            const reason = 'Could not save the configuration. Nothing was changed.';
-            me.setAgentConfigSaveStatus(agentId, 'rejected', reason)
-        }
+        return runConfigIntentRoundTrip({
+            intent,
+            owner        : me,
+            setSaveStatus: me.setAgentConfigSaveStatus.bind(me),
+            store        : me.agentDefinitionsStore
+        })
     }
 
     /**
@@ -364,13 +309,22 @@ class Accounts extends DashboardPanel {
             return false
         }
 
+        // the SHARED write recency: an accepted configure readback from ANY owner (this view's
+        // card OR the AgentDetail tab) bumps the store's write generation — a list snapshot older
+        // than that write must never regress the store
+        const writeGeneration = getDefinitionsWriteGeneration(store);
+
         try {
             const agents = await bridge.listAgents();
 
             if (!Array.isArray(agents)) {
                 return false
             }
-            if (generation !== me.agentDefinitionsLoadGeneration || store !== me.agentDefinitionsStore) {
+            if (
+                generation !== me.agentDefinitionsLoadGeneration ||
+                store      !== me.agentDefinitionsStore          ||
+                getDefinitionsWriteGeneration(store) !== writeGeneration
+            ) {
                 return false
             }
 
@@ -438,6 +392,7 @@ class Accounts extends DashboardPanel {
         let me        = this,
             listeners = {
                 load        : me.onAgentRosterChange,
+                mutate      : me.onAgentRosterChange,
                 recordChange: me.onAgentRosterChange,
                 scope       : me
             };

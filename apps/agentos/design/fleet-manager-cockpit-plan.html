@@ -384,6 +384,18 @@
         <div class="lane-body"><p>Out of v13.2 by <b>criticality, not capacity</b>: operator↔agent chat is not on the front-door critical path, and shipping it without the operator-as-sender authority contract would be the half-baked failure mode applied to a brand-new surface. Design prior art stands (<span class="mono">chat-creation-plan.html</span>). When it returns, it evolves S1 per the convergence rule — one communication surface, maturing read-only → actionable.</p>
         </div>
       </div>
+
+      <div class="lane">
+        <div class="lane-head"><span class="lane-id">S5</span><h3>Define agent (add + per-agent config)</h3><span class="reg-scope rs-in">v13.2</span><span class="lane-own"><b>ruled:</b> #15242 S5 ruling, 2026-07-18 (design authority)</span></div>
+        <div class="lane-body"><p>The fleet→agent object model applied to <b>setup</b>. ADD is fleet-grain: one document-driven dock zone (<span class="mono">cockpitDockDocument.defineAgent</span>, right-rail <span class="mono">autoHidden</span> tool — the perspectives twin; the secondary rail is the established home for invoked chrome). Per-agent CONFIG is agent-grain: the configuration card rides <span class="mono">AgentDetail</span> as a <b>tab</b> — S1's object-permanence logic verbatim. This entry retired <span class="mono">FleetSettingsPanel</span> whole: its grid duplicated the FleetGrid, lifecycle belongs to the card controls (B4), and its one unique asset — the fail-closed registry-bridge discipline — transferred into the add flow.</p>
+          <ul class="subs">
+            <li><span class="s-tag">model</span><span class="s-txt">Honest-lifecycle states end-to-end: <span class="mono">idle → validating → submitting → readback-confirmed | gated | rejected</span> — the registry's canonical readback is the <b>only</b> success truth (the roster renders the RESPONSE, never an optimistic insert). Bridge absent → submit <b>disabled-with-reason</b>, never hidden.</span></li>
+            <li><span class="s-tag">must-not</span><span class="s-txt"><span class="must-not">No credential byte outside the password field.</span> PAT is write-only UI state — never in localStorage/sessionStorage/URL/logs/echo (the four-sink matrix, witnessed mounted); the field clears on every settle. No second mounted setup surface in the FM module. No ambient "+" on the grid — entry is invoked (rail) per the density contract.</span></li>
+            <li><span class="s-tag">bootstrap</span><span class="s-txt">The ruling's required refinement: an <b>empty-state CTA</b> ("Add your first agent") renders only while the roster count is 0 and opens the S5 zone — add-agent is <i>required to start</i>, the one discoverability gap invoked-not-ambient cannot cover. It retires itself with the first agent, so populated fleets never see ambient chrome.</span></li>
+            <li><span class="s-tag">disposition</span><span class="s-txt">Config-while-comparing-two-agents was weighed and rejected for v13.2 (not an operator journey); if it ever proves real, a zone-hosted config surface is purely additive on top of the tab — recorded so the fork stays reopenable on evidence, not memory.</span></li>
+          </ul>
+        </div>
+      </div>
     </div>
   </section>
 </div>
