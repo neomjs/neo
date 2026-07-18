@@ -184,6 +184,31 @@ test.describe('githubIssueObservations normalizer', () => {
         expect(issueToObservations(explained).some(o => o.occurrenceKind === 'issue.observed-snapshot-change')).toBe(false)
     });
 
+    // ------------------------------------------------------------------ RA2 — edits are unattributed
+
+    test('an edit is NOT attributed to the original author — lastEditedAt proves when, never who', () => {
+        const edited = {
+            id      : 'I_x', createdAt: '2026-07-18T09:00:00Z', lastEditedAt: '2026-07-18T12:00:00Z',
+            author  : {login: 'original-author', __typename: 'User'}, authorAssociation: 'OWNER',
+            comments: [{id: 'IC_x', createdAt: '2026-07-18T10:00:00Z', lastEditedAt: '2026-07-18T13:00:00Z', author: {login: 'commenter', __typename: 'User'}, authorAssociation: 'CONTRIBUTOR'}]
+        };
+
+        const obs         = issueToObservations(edited),
+              issueEdit   = obs.find(o => o.occurrenceKind === 'issue.edited'),
+              commentEdit = obs.find(o => o.occurrenceKind === 'issue.comment-edited');
+
+        for (const revision of [issueEdit, commentEdit]) {
+            expect(revision.actorId, 'no editor identity is fabricated').toBe(null);
+            expect(revision.actorKind).toBe('unknown');
+            expect(revision.sourceAssociation).toBe(null);
+            expect(revision.lossMarker).toBe('editor-unattributed')
+        }
+
+        // the CREATE still carries the real author — only the edit is unattributed
+        expect(obs.find(o => o.occurrenceKind === 'issue.opened').actorId).toBe('original-author');
+        expect(validateBatch(batchAround(obs))).toEqual({valid: true, errors: []})
+    });
+
     // ------------------------------------------------------------------ identity is mandatory (fail loud)
 
     test('a node or comment or event without a provider id is refused', () => {

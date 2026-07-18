@@ -49,6 +49,7 @@ class IssueReconciliationService extends Base {
      * @param {String}   [spec.observedAt]             ISO-8601 run moment; defaults to now. Injected in tests.
      * @param {Object}   [spec.pageSizes]              `{issuePage, commentPage, timelinePage}` GraphQL page sizes.
      * @param {Object}   [spec.caps]                   `{maxIssuePages, maxCommentPagesPerIssue, maxTimelinePagesPerIssue}` — honest degraded coverage when hit.
+     * @param {Function} [spec.acquireDeletionEvidence] async (vanishedIds) => `{id: evidence}` — the provider deletion-evidence seam; the default yields none, so every vanished root is an access gap, never a fabricated deletion.
      * @param {Object}   [spec.admissionService]       Injected admission dependency; defaults to the singleton.
      * @param {Object}   [spec.graphqlService]         Injected GraphQL dependency; defaults to the singleton.
      * @param {Object}   [spec.registryService]        Injected registry dependency; defaults to the singleton.
@@ -58,9 +59,10 @@ class IssueReconciliationService extends Base {
     async reconcile({
         sourceInstanceId, resourceFamily = 'issues', owner, repo, batchId, observedAt,
         pageSizes = {}, caps = {},
-        admissionService = CommunityBatchAdmissionService,
-        graphqlService   = GraphqlService,
-        registryService  = SourceRegistryService
+        acquireDeletionEvidence = async () => ({}),
+        admissionService        = CommunityBatchAdmissionService,
+        graphqlService          = GraphqlService,
+        registryService         = SourceRegistryService
     }) {
         const {issuePage = 50, commentPage = 50, timelinePage = 50} = pageSizes;
 
@@ -71,27 +73,37 @@ class IssueReconciliationService extends Base {
             throw new Error('ISSUE_RECONCILIATION_SOURCE_NOT_ACTIVE')
         }
 
-        // The checkpoint carries the base version, the base inventory, and the resume cursor.
+        // The checkpoint carries the base version + inventory for the admission CAS. It deliberately
+        // does NOT seed a resume cursor: exhaustive reconciliation must RE-ENUMERATE every root each
+        // pass so a comment/edit/close/reopen on an already-seen root is caught. A root-list end
+        // cursor is an enumeration receipt for a historical root window, never proof of child
+        // completeness for mutable roots or their comment/timeline connections.
         const checkpoint            = admissionService.getCheckpoint(sourceInstanceId, resourceFamily),
               baseCheckpointVersion = checkpoint?.checkpointVersion ?? 0,
-              baseInventoryHash     = checkpoint?.inventoryHash     ?? null,
-              resumeCursor          = checkpoint?.providerState?.issuesCursor ?? null;
+              baseInventoryHash     = checkpoint?.inventoryHash     ?? null;
 
         // Prior live inventory = the issue roots this source has previously admitted.
         const priorInventory = admissionService.listObservations(sourceInstanceId)
             .filter(observation => observation.occurrenceKind === 'issue.opened')
             .map(observation => observation.providerEntityId);
 
+        // fromBasis omitted → the runner walks from the beginning, re-establishing full root + child
+        // truth on every pass (mutation-safe); caps still bound a single pass into honest coverage.
         const seams        = this.#buildSeams({graphqlService, owner, repo, issuePage, commentPage, timelinePage}),
-              runnerResult = await reconcileIssueActivity(seams, {fromBasis: resumeCursor, ...caps});
+              runnerResult = await reconcileIssueActivity(seams, {...caps});
 
         const currentInventory = runnerResult.observations
             .filter(observation => observation.occurrenceKind === 'issue.opened')
             .map(observation => observation.providerEntityId);
 
-        // Deletion evidence is carried by explicit tombstone events; absent that, a vanished root is
-        // access-indeterminate, never a deletion (classifyAbsences enforces it).
-        const absences = classifyAbsences(priorInventory, currentInventory, {});
+        // A root in the prior inventory but not this pass has vanished — ask the injected evidence
+        // seam whether the provider can prove a deletion. Evidence → an admitted deletion; no
+        // evidence → an inventory-access gap, NEVER a fabricated deletion (classifyAbsences enforces
+        // the split). The default seam yields nothing, so absent a tombstone source every vanish is
+        // an access gap.
+        const vanished             = priorInventory.filter(id => !currentInventory.includes(id)),
+              deletionEvidenceById = vanished.length ? await acquireDeletionEvidence(vanished) : {},
+              absences             = classifyAbsences(priorInventory, currentInventory, deletionEvidenceById);
 
         const batch = assembleIssueBatch({
             sourceInstanceId, resourceFamily,
@@ -101,8 +113,8 @@ class IssueReconciliationService extends Base {
             batchId, observedAt: observedAt ?? new Date().toISOString()
         });
 
-        // AC8 — the admission transaction is the sole durable cursor advance. A CONFLICT receipt
-        // leaves the checkpoint (hence the resume cursor) untouched; nothing here advances it.
+        // AC8 — the admission transaction is the sole durable checkpoint advance. A CONFLICT receipt
+        // leaves the checkpoint untouched; nothing here advances it.
         return admissionService.admitBatch(batch)
     }
 

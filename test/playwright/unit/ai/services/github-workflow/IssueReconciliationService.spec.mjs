@@ -113,14 +113,79 @@ test.describe('IssueReconciliationService.reconcile', () => {
             .rejects.toThrow('ISSUE_RECONCILIATION_SOURCE_NOT_ACTIVE')
     });
 
-    test('AC9 repeated cursors — re-running the same window reproduces a digest-identical batch (idempotent)', async () => {
+    test('deterministic assembly — the same base + same provider truth reproduces a digest-identical batch (retry idempotency)', async () => {
         const runOnce = async () => {
             const admissionService = makeAdmission();
             await IssueReconciliationService.reconcile({...runSpec, admissionService, graphqlService, registryService: registryActive});
             return admissionService.admitted
         };
 
-        expect(canonicalBatchDigest(await runOnce()), 'same inputs → same digest → admission dedupes').toBe(canonicalBatchDigest(await runOnce()))
+        expect(canonicalBatchDigest(await runOnce()), 'same base + same truth → same digest → admission dedupes').toBe(canonicalBatchDigest(await runOnce()))
+    });
+
+    test('RA1 mutation-safe — pass 2 consumes the pass-1 checkpoint and RE-EMITS a new comment on a KNOWN root (no resume-skip)', async () => {
+        // A stateful admission that actually persists the checkpoint + observations, so pass 2 reads
+        // pass 1's real checkpoint — the vacuous fresh-service-twice shape could never falsify this.
+        let   checkpoint = null;
+        const admitted   = [],
+              statefulAdmission = {
+                  getCheckpoint   : () => checkpoint,
+                  listObservations: () => admitted,
+                  admitBatch(batch) {
+                      this.lastBatch = batch;
+                      checkpoint = {checkpointVersion: (checkpoint?.checkpointVersion ?? 0) + 1, inventoryHash: batch.nextInventoryHash, providerState: batch.nextProviderState};
+                      admitted.push(...batch.observations);
+                      return {status: 'accepted', receipt: {receiptId: 'r'}}
+                  }
+              };
+
+        // A mutable provider that HONORS the after-cursor: the SAME root I1 gains a comment between
+        // the two passes, and a request that RESUMES past `END` returns nothing (exactly the real
+        // GraphQL behavior). This is what makes the witness falsify the resume-skip: if the service
+        // resumed from pass-1's `END` cursor, pass 2 would fetch after `END` → empty → miss C1.
+        let   i1Comments = [];
+        const issuePage  = comments => ({repository: {issues: {pageInfo: {hasNextPage: false, endCursor: 'END'}, nodes: [
+            {id: 'I1', createdAt: '2026-01-01T00:00:00Z', lastEditedAt: null, authorAssociation: 'OWNER', author: {login: 'human', __typename: 'User'},
+             comments: {pageInfo: {hasNextPage: false, endCursor: null}, nodes: comments}, timelineItems: {pageInfo: {hasNextPage: false, endCursor: null}, nodes: []}}
+        ]}}});
+        const mutableGraphql = {
+            query: async (queryStr, vars) => queryStr.includes('ReconcileIssues')
+                ? (vars.after ? {repository: {issues: {pageInfo: {hasNextPage: false, endCursor: 'END'}, nodes: []}}} : issuePage(i1Comments))
+                : {node: {comments: {pageInfo: {hasNextPage: false}, nodes: []}, timelineItems: {pageInfo: {hasNextPage: false}, nodes: []}}}
+        };
+
+        const run = () => IssueReconciliationService.reconcile({...runSpec, admissionService: statefulAdmission, graphqlService: mutableGraphql, registryService: registryActive});
+
+        await run(); // pass 1 — I1 opened, no comments
+        expect(statefulAdmission.lastBatch.observations.some(o => o.occurrenceKind === 'issue.comment')).toBe(false);
+
+        i1Comments = [{id: 'C1', createdAt: '2026-01-02T00:00:00Z', lastEditedAt: null, authorAssociation: 'CONTRIBUTOR', author: {login: 'replier', __typename: 'User'}}];
+
+        await run(); // pass 2 — consumes the checkpoint, RE-ENUMERATES I1, catches C1
+        const pass2 = statefulAdmission.lastBatch;
+
+        expect(pass2.observations.some(o => o.providerEntityId === 'C1' && o.occurrenceKind === 'issue.comment'), 'the new comment on a known root is caught').toBe(true);
+        expect(pass2.coverage.complete).toBe(true);
+        expect(pass2.coverage.gaps ?? [], 'I1 is still present — no fabricated inventory-access gap').toEqual([]);
+        expect(pass2.observations.some(o => o.absence === 'deleted'), 'nothing deleted').toBe(false)
+    });
+
+    test('RA3 delete-evidence seam — an evidenced vanish becomes an admitted deletion; an unevidenced vanish stays an inventory gap', async () => {
+        const admissionService = makeAdmission({
+            listObservations: () => [
+                {occurrenceKind: 'issue.opened', providerEntityId: 'I_gone'},
+                {occurrenceKind: 'issue.opened', providerEntityId: 'I_hidden'}
+            ]
+        });
+        const emptyGraphql            = {query: async queryStr => queryStr.includes('ReconcileIssues') ? {repository: {issues: {pageInfo: {hasNextPage: false, endCursor: 'E'}, nodes: []}}} : {node: {}}},
+              acquireDeletionEvidence = async vanished => vanished.includes('I_gone') ? {I_gone: {tombstoneId: 't-gone', deletedAt: '2026-01-04T00:00:00Z'}} : {};
+
+        await IssueReconciliationService.reconcile({...runSpec, admissionService, graphqlService: emptyGraphql, registryService: registryActive, acquireDeletionEvidence});
+        const batch = admissionService.admitted;
+
+        expect(batch.observations.find(o => o.providerEntityId === 'I_gone')?.absence, 'evidenced vanish → admitted deletion').toBe('deleted');
+        expect(batch.observations.some(o => o.providerEntityId === 'I_hidden'), 'unevidenced vanish is NOT a deletion').toBe(false);
+        expect(batch.coverage.gaps).toEqual(expect.arrayContaining([{axis: 'inventory-access', providerEntityId: 'I_hidden'}]))
     });
 
     test('AC9 collaborator change — a shifted association reaches the observation, distinguishing the run', async () => {

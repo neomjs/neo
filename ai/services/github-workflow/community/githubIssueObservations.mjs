@@ -76,6 +76,18 @@ function projectActor(actor, sourceAssociation = null) {
 }
 
 /**
+ * @summary The actor projection for an edit revision. `lastEditedAt` proves an edit happened but
+ * NOT who made it — the connection carries no editor identity, and the original author is not
+ * evidence of the editor — so the editor is left explicitly unattributed with a loss marker rather
+ * than fabricated. Same discipline as a deleted author or an unexplained snapshot change: an
+ * unprovable actor is `null` / `unknown`, never guessed.
+ * @returns {{actorId: null, actorKind: String, sourceAssociation: null, lossMarker: String}}
+ */
+function unattributedEdit() {
+    return {actorId: null, actorKind: 'unknown', sourceAssociation: null, lossMarker: 'editor-unattributed'}
+}
+
+/**
  * @summary Maps one reconciled GitHub issue node into an order-independent set of metadata-only
  * observations for a `community-activity-batch.v1` batch — one per lifecycle fact, never prose.
  *
@@ -123,7 +135,7 @@ export function issueToObservations(issue) {
             occurrenceKind      : 'issue.edited',
             occurrenceCoordinate: `${issue.id}:edited:${issue.lastEditedAt}`,
             occurredAt          : issue.lastEditedAt,
-            ...projectActor(issue.author, issue.authorAssociation ?? null)
+            ...unattributedEdit()
         })
     }
 
@@ -146,7 +158,7 @@ export function issueToObservations(issue) {
                 occurrenceKind      : 'issue.comment-edited',
                 occurrenceCoordinate: `${comment.id}:edited:${comment.lastEditedAt}`,
                 occurredAt          : comment.lastEditedAt,
-                ...projectActor(comment.author, comment.authorAssociation ?? null)
+                ...unattributedEdit()
             })
         }
     }
