@@ -13,7 +13,17 @@ class RuntimeService extends Service {
          * @member {String} className='Neo.ai.client.RuntimeService'
          * @protected
          */
-        className: 'Neo.ai.client.RuntimeService'
+        className: 'Neo.ai.client.RuntimeService',
+        /**
+         * @member {Number} closeWindowPollAttempts=80
+         * @protected
+         */
+        closeWindowPollAttempts: 80,
+        /**
+         * @member {Number} closeWindowPollDelay=25
+         * @protected
+         */
+        closeWindowPollDelay: 25
     }
 
     /**
@@ -262,21 +272,76 @@ class RuntimeService extends Service {
     }
 
     /**
-     * Moves a known browser popup when Neo.Main has an addressable native handle for it.
+     * Closes a topology-known popup through the main thread that owns its native handle, then waits for the
+     * App Worker topology to observe the terminal disconnect.
+     * @param {Object} params
+     * @param {String} params.windowId
+     * @returns {Promise<Object>}
+     */
+    async closeWindow({windowId} = {}) {
+        const windowEntry = this.#getKnownWindow(windowId);
+
+        if (!windowEntry) {
+            return {success: false, error: `Unknown windowId '${windowId}'.`}
+        }
+
+        const {nativeRoute} = windowEntry;
+
+        if (!nativeRoute?.capabilities?.close) {
+            return {
+                success    : false,
+                unsupported: true,
+                error      : `Window '${windowId}' cannot be closed by this runtime.`
+            }
+        }
+
+        const accepted = await Neo.Main.windowNativeClose({
+            nativeHandleKey: nativeRoute.nativeHandleKey,
+            targetWindowId : nativeRoute.targetWindowId,
+            windowId       : nativeRoute.ownerWindowId
+        });
+
+        if (accepted !== true) {
+            return {
+                success: false,
+                stale  : true,
+                error  : `Window '${windowId}' no longer has a live native close handle.`
+            }
+        }
+
+        for (let attempt = 0; attempt < this.closeWindowPollAttempts; attempt++) {
+            if (!this.#getKnownWindow(windowId)) {
+                return {success: true, windowId}
+            }
+
+            await this.timeout(this.closeWindowPollDelay)
+        }
+
+        return {
+            success : false,
+            timedOut: true,
+            error   : `Window '${windowId}' accepted close but remained in topology.`
+        }
+    }
+
+    /**
+     * Moves a known browser popup through the main thread that owns its native handle.
      * @param {Object} params
      * @param {String} params.windowId
      * @param {Number} params.x
      * @param {Number} params.y
-     * @returns {Object}
+     * @returns {Promise<Object>}
      */
-    positionWindow({windowId, x, y} = {}) {
-        if (!this.#hasKnownWindow(windowId)) {
+    async positionWindow({windowId, x, y} = {}) {
+        const windowEntry = this.#getKnownWindow(windowId);
+
+        if (!windowEntry) {
             return {success: false, error: `Unknown windowId '${windowId}'.`}
         }
 
-        const nativeWindow = Neo.Main?.openWindows?.[windowId]?.win;
+        const {nativeRoute} = windowEntry;
 
-        if (!nativeWindow?.moveTo) {
+        if (!nativeRoute?.capabilities?.position) {
             return {
                 success    : false,
                 unsupported: true,
@@ -284,25 +349,41 @@ class RuntimeService extends Service {
             }
         }
 
-        Neo.Main.windowMoveTo({windowName: windowId, x, y});
+        const positioned = await Neo.Main.windowNativeMoveTo({
+            nativeHandleKey: nativeRoute.nativeHandleKey,
+            targetWindowId : nativeRoute.targetWindowId,
+            windowId       : nativeRoute.ownerWindowId,
+            x,
+            y
+        });
+
+        if (positioned !== true) {
+            return {
+                success: false,
+                blocked: true,
+                error  : `Window '${windowId}' did not reach the requested position.`
+            }
+        }
 
         return {success: true, windowId, x, y}
     }
 
     /**
-     * Focuses a known browser popup when Neo.Main has an addressable native handle for it.
+     * Focuses a known browser popup through the main thread that owns its native handle.
      * @param {Object} params
      * @param {String} params.windowId
-     * @returns {Object}
+     * @returns {Promise<Object>}
      */
-    focusWindow({windowId} = {}) {
-        if (!this.#hasKnownWindow(windowId)) {
+    async focusWindow({windowId} = {}) {
+        const windowEntry = this.#getKnownWindow(windowId);
+
+        if (!windowEntry) {
             return {success: false, error: `Unknown windowId '${windowId}'.`}
         }
 
-        const nativeWindow = Neo.Main?.openWindows?.[windowId]?.win;
+        const {nativeRoute} = windowEntry;
 
-        if (!nativeWindow?.focus) {
+        if (!nativeRoute?.capabilities?.focus) {
             return {
                 success    : false,
                 unsupported: true,
@@ -310,7 +391,19 @@ class RuntimeService extends Service {
             }
         }
 
-        nativeWindow.focus();
+        const focused = await Neo.Main.windowNativeFocus({
+            nativeHandleKey: nativeRoute.nativeHandleKey,
+            targetWindowId : nativeRoute.targetWindowId,
+            windowId       : nativeRoute.ownerWindowId
+        });
+
+        if (focused !== true) {
+            return {
+                success: false,
+                blocked: true,
+                error  : `Window '${windowId}' did not accept focus.`
+            }
+        }
 
         return {success: true, windowId}
     }
@@ -351,12 +444,12 @@ class RuntimeService extends Service {
 
         // 2. Configs & Methods
         const
-            configs        = {},
-            methods        = new Set(),
-            configKeys     = new Set(Object.keys(ctor.config)),
-            descriptors    = ctor.configDescriptors || {},
-            ignoredProps   = ['constructor', 'construct', 'init', 'onConstructed', 'onAfterConstructed'],
-            hookRegex      = /^(before|after)(Get|Set)([A-Z])/,
+            configs      = {},
+            methods      = new Set(),
+            configKeys   = new Set(Object.keys(ctor.config)),
+            descriptors  = ctor.configDescriptors || {},
+            ignoredProps = ['constructor', 'construct', 'init', 'onConstructed', 'onAfterConstructed'],
+            hookRegex    = /^(before|after)(Get|Set)([A-Z])/,
             // Helper to get raw hook name from config key
             getHookName    = (prefix, key) => prefix + key[0].toUpperCase() + key.slice(1);
 
@@ -557,10 +650,10 @@ class RuntimeService extends Service {
 
     /**
      * @param {String} windowId
-     * @returns {Boolean}
+     * @returns {Object|null}
      */
-    #hasKnownWindow(windowId) {
-        return !!(windowId && Neo.manager?.Window?.get(windowId))
+    #getKnownWindow(windowId) {
+        return windowId ? Neo.manager?.Window?.get(windowId) || null : null
     }
 
     /**

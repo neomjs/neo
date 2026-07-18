@@ -67,10 +67,14 @@ class Window extends Manager {
      * @returns {Object} {chrome, innerRect, outerRect}
      */
     calculateGeometry(data) {
+        const {
+            innerHeight, innerWidth, mozInnerScreenX, mozInnerScreenY,
+            outerHeight, outerWidth, screenLeft, screenTop
+        } = data;
+
         const
-            {innerHeight, innerWidth, mozInnerScreenX, mozInnerScreenY, outerHeight, outerWidth, screenLeft, screenTop} = data,
-            widthDiff    = outerWidth  - innerWidth,
-            heightDiff   = outerHeight - innerHeight,
+            widthDiff  = outerWidth  - innerWidth,
+            heightDiff = outerHeight - innerHeight,
             // Assumption: Side borders are symmetric
             sideBorder   = widthDiff / 2,
             // Assumption: Bottom border matches side border (common in Windows)
@@ -118,14 +122,15 @@ class Window extends Manager {
      * In Shared Worker mode, `Neo.worker.App#onConnect` ensures that `windowData`
      * is fetched from the Main Thread and included in the payload.
      * @param {Object} data
-     * @param {Number} data.appName
+     * @param {String} data.appName
      * @param {Object} [data.windowData] Contains geometry data (screenLeft, innerHeight, etc.)
      * @param {String} data.windowId
      */
     onWindowConnect({appName, windowData, windowId}) {
-        let chrome    = null,
-            innerRect = null,
-            outerRect = null;
+        let chrome      = null,
+            innerRect   = null,
+            nativeRoute = windowData?.nativeRoute || null,
+            outerRect   = null;
 
         if (windowData) {
             ({chrome, innerRect, outerRect} = this.calculateGeometry(windowData))
@@ -133,7 +138,15 @@ class Window extends Manager {
 
         console.log('Window.onWindowConnect', {windowId, appName, chrome, innerRect, outerRect});
 
-        this.register({appName, chrome, id: windowId, innerRect, outerRect})
+        this.register({
+            appName,
+            capabilities: nativeRoute?.capabilities || {close: false, focus: false, position: false},
+            chrome,
+            id          : windowId,
+            innerRect,
+            nativeRoute,
+            outerRect
+        })
     }
 
     /**
@@ -159,8 +172,9 @@ class Window extends Manager {
     onWindowPositionChange(data) {
         const
             me   = this,
-            item = me.get(data.windowId),
-            {chrome, innerRect, outerRect} = me.calculateGeometry(data);
+            item = me.get(data.windowId);
+
+        const {chrome, innerRect, outerRect} = me.calculateGeometry(data);
 
         if (item) {
             item.chrome    = chrome;
@@ -169,8 +183,10 @@ class Window extends Manager {
         } else {
             me.register({
                 chrome,
-                id: data.windowId,
+                capabilities: {close: false, focus: false, position: false},
+                id          : data.windowId,
                 innerRect,
+                nativeRoute : null,
                 outerRect
             })
         }
@@ -183,11 +199,12 @@ class Window extends Manager {
         return {
             className: this.className,
             windows  : this.items.map(win => ({
-                id       : win.id,
-                appName  : win.appName,
-                chrome   : win.chrome,
-                innerRect: win.innerRect,
-                outerRect: win.outerRect
+                id          : win.id,
+                appName     : win.appName,
+                capabilities: win.capabilities,
+                chrome      : win.chrome,
+                innerRect   : win.innerRect,
+                outerRect   : win.outerRect
             }))
         }
     }

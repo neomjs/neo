@@ -1532,10 +1532,11 @@ paths:
       operationId: get_window_topology
       x-neo-tool-tier: read
       description: |
-        Retrieves the topology of all connected windows.
+        Retrieves the topology of all connected windows plus generic physical-operation capabilities.
 
         **When to Use:**
-        To map logical window IDs to physical browser windows and their dimensions.
+        To map logical window IDs to physical browser windows, dimensions, and supported operations. Private owner
+        routes and opaque native handle keys are never projected.
       tags: [Topology]
       requestBody:
         content:
@@ -1553,10 +1554,19 @@ paths:
                 items:
                   type: object
                   properties:
-                    id:
+                    windowId:
                       type: string
                     appName:
                       type: string
+                    capabilities:
+                      type: object
+                      properties:
+                        close:
+                          type: boolean
+                        focus:
+                          type: boolean
+                        position:
+                          type: boolean
                     innerRect:
                       type: object
                     outerRect:
@@ -1585,6 +1595,41 @@ paths:
       responses:
         '200':
           description: Popup open result
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /window/close:
+    post:
+      summary: Close Window
+      operationId: close_window
+      x-neo-tool-tier: write-locked
+      x-pass-as-object: true
+      description: |
+        Closes an owner-granted topology-known popup through its private main-thread route and waits for topology
+        disappearance. Product-owned windows without a safe semantic close contract advertise close unsupported.
+
+        **When to Use:**
+        To retire an addressable popup by logical window ID only after confirming topology advertises close support.
+      tags: [Window]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloseWindowRequest'
+      responses:
+        '200':
+          description: Window close and terminal topology result
         '400':
           description: Invalid request body
           content:
@@ -2546,6 +2591,18 @@ components:
               type: number
             height:
               type: number
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    CloseWindowRequest:
+      type: object
+      required:
+        - windowId
+      properties:
+        windowId:
+          type: string
+          description: The known live popup ID from window topology.
         sessionId:
           type: string
           description: The target App Worker Session ID

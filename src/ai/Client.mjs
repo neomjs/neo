@@ -153,6 +153,7 @@ class Client extends Base {
             modify_state_provider : data,
 
             check_namespace      : runtime,
+            close_window         : runtime,
             focus_window         : runtime,
             get_dom_event        : runtime,
             get_drag             : runtime,
@@ -274,9 +275,10 @@ class Client extends Base {
 
             this.sendNotification('window_connected', {
                 appName,
-                chrome   : win?.chrome,
-                innerRect: win?.innerRect,
-                outerRect: win?.outerRect,
+                capabilities: win?.capabilities,
+                chrome      : win?.chrome,
+                innerRect   : win?.innerRect,
+                outerRect   : win?.outerRect,
                 windowId
             })
         }
@@ -381,11 +383,12 @@ class Client extends Base {
         // 2. Rehydrate window topology
         WindowManager.items.forEach(win => {
             this.sendNotification('window_connected', {
-                appName  : win.appName,
-                chrome   : win.chrome,
-                innerRect: win.innerRect,
-                outerRect: win.outerRect,
-                windowId : win.id
+                appName     : win.appName,
+                capabilities: win.capabilities,
+                chrome      : win.chrome,
+                innerRect   : win.innerRect,
+                outerRect   : win.outerRect,
+                windowId    : win.id
             })
         })
 
