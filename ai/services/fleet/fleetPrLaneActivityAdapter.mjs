@@ -116,7 +116,7 @@ export function createPrActivityEvents(prs = [], {capturedAt = new Date()} = {})
                     state           : pr.state || null,
                     author,
                     reviewDecision  : pr.reviewDecision || null,
-                    isDraft         : Boolean(pr.isDraft),
+                    isDraft         : pr.isDraft ?? null,
                     relatedPrs      : number ? [number] : [],
                     relatedTickets,
                     deferDisposition: normalizeDeferDisposition(getPrDeferDisposition(pr, new Date(capturedAt))),
