@@ -425,6 +425,80 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(repairCheck).toMatchObject({scanned: 1, intact: 1, repaired: 0, failed: 0});
     });
 
+    test('listMessages repairs a broadcast whose WHOLE DELIVERED_TO cohort was lost — read-path, no prior mark (#15369)', async () => {
+        // @bob authorizes @alice; @alice broadcasts to AGENT:* (bob is in the send-time audience).
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+        });
+
+        const res = await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            return await MailboxService.addMessage({to: 'AGENT:*', subject: 'cohort loss', body: 'durable broadcast'});
+        });
+
+        // WAL truth is committed BEFORE we damage the projection — the repair source is real.
+        expect(await readPendingMessageWalRecords({dir: messageWalDir, ids: [res.messageId]})).toHaveLength(0);
+
+        // TOTAL cohort loss: strip every DELIVERED_TO edge (cache AND storage) while the MESSAGE node,
+        // SENT_BY, and SENT_TO → AGENT:* all survive. The count trio (MESSAGE/SENT_BY/SENT_TO) therefore
+        // still matches projectedCount, so the pre-fix gate is BLIND — this is the exact silent damage
+        // class the read-gate could not see, and the only signal is the zero-DELIVERED_TO broadcast term.
+        const removed = damageEdgeProjection(res.messageId, 'DELIVERED_TO');
+        expect(removed, 'the broadcast must have had a delivery cohort to lose').toBeGreaterThan(0);
+        expect(
+            GraphService.db.storage.db.prepare("SELECT COUNT(*) AS c FROM Edges WHERE source = ? AND type = 'DELIVERED_TO'").get(res.messageId).c,
+            'storage cohort is truly gone — not a cache-only eviction that self-heals on reload'
+        ).toBe(0);
+
+        // The read path, NO prior mark: a recipient LISTS. The message stays visible via the surviving
+        // SENT_TO → AGENT:* sentinel, so the loss is silent — but the per-recipient DELIVERED_TO cohort
+        // (delivery + read-state) is gone. Pre-fix the blind gate early-returns at scanned:0, so the list
+        // leaves the cohort broken; post-fix the broadcast-cohort term flips the gate and the WAL-backed
+        // repair rebuilds it during the read.
+        const bobInbox = await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            return await MailboxService.listMessages({status: 'all'});
+        });
+        expect(bobInbox.messages.map(message => message.messageId)).toContain(res.messageId);
+
+        // THE discriminating assertion (red-proof confirmed by disabling the new term): a follow-up
+        // integrity scan finds the cohort already rebuilt by the read. Without the fix the list never
+        // repairs, so this scan reports `repaired: 1` — the exact never-self-heals defect this closes.
+        const repairCheck = await MailboxService.repairMessageGraphIntegrity({ids: [res.messageId]});
+        expect(repairCheck).toMatchObject({scanned: 1, intact: 1, repaired: 0, failed: 0});
+    });
+
+    test('a healthy DB of a DM + an INTACT broadcast reports no gap — the fix does NOT false-positive on DMs (#15369)', async () => {
+        // The trap the fix must avoid (flagged by @neo-opus-ada): `deliveredToCount < projectedCount`
+        // false-positives on any DM, forcing a full WAL scan every list. The precise term (a broadcast
+        // with ZERO delivery rows) must leave a healthy tree — DM + intact broadcast — reporting no gap.
+        // Instrument (the unrelated-WAL-segment pattern): a directory where a WAL segment file is expected makes any
+        // spurious WAL scan throw; a healthy read that never scans reads clean past it.
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+        });
+
+        const dm = await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            const direct = await MailboxService.addMessage({to: '@bob', subject: 'a direct message', body: 'dm body'});
+            await MailboxService.addMessage({to: 'AGENT:*', subject: 'an intact broadcast', body: 'bcast body'});
+            return direct
+        });
+
+        const bogusSegment = path.join(messageWalDir, 'message-wal-2001-01-01.jsonl');
+        fs.ensureDirSync(bogusSegment);
+
+        try {
+            // no damage: the gap gate must be FALSE (no zero-delivery broadcast; the DM must not drag a
+            // count term below projectedCount), so the read never scans WAL and never touches the bogus dir.
+            const bobInbox = await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+                return await MailboxService.listMessages({status: 'all'});
+            });
+
+            // both messages visible, and the read completed WITHOUT choking on the bogus segment
+            expect(bobInbox.messages.map(message => message.messageId)).toContain(dm.messageId)
+        } finally {
+            fs.removeSync(bogusSegment);
+        }
+    });
+
     test('healthy reads and targeted getMessage repair do not open unrelated WAL segments (#14426)', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
