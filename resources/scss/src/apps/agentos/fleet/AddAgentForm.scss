@@ -9,6 +9,12 @@
     display        : flex;
     flex-direction : column;
     gap            : 8px;
+    /* The zone pane grants whatever height the dock geometry leaves; on short viewports (or
+       wider platform font metrics) the form can want more. It must scroll INSIDE that grant —
+       an unreachable submit button below a non-scrolling fold is a dead affordance. min-height
+       0 lets the flex child actually shrink to the pane instead of overflowing it. */
+    min-height     : 0;
+    overflow-y     : auto;
     padding        : 12px;
 
     .fm-add-heading {

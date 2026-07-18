@@ -94,6 +94,11 @@ async function startJourneyFleetBridge() {
 test.describe('AgentOS S5 add-agent journey (Neural Link)', () => {
     test.setTimeout(120000);
 
+    // pinned geometry: the reviewer's falsifier environment (and a realistic short laptop
+    // viewport) — the witness must hold where the zone has LESS height than the form wants,
+    // not only on tall local screens. The zone scrolls; the journey must survive that.
+    test.use({viewport: {width: 1280, height: 720}});
+
     test('bootstrap CTA → S5 zone → readback-confirmed → roster graduation + CTA retirement → Start', async ({page, neuralLink}) => {
         const fleet = await startJourneyFleetBridge();
 

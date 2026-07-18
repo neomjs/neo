@@ -6,18 +6,20 @@ setup({
     }
 });
 
-import {test, expect}             from '@playwright/test';
-import Neo                        from '../../../../../../../src/Neo.mjs';
-import * as core                  from '../../../../../../../src/core/_export.mjs';
-import {runConfigIntentRoundTrip} from '../../../../../../../apps/agentos/view/fleet/configIntentRoundTrip.mjs';
+import {test, expect}                                            from '@playwright/test';
+import Neo                                                       from '../../../../../../../src/Neo.mjs';
+import * as core                                                 from '../../../../../../../src/core/_export.mjs';
+import {getDefinitionsWriteGeneration, runConfigIntentRoundTrip} from '../../../../../../../apps/agentos/view/fleet/configIntentRoundTrip.mjs';
 
 /**
- * @summary The shared configure round-trip's CROSS-OWNER ordering contract: both the
- * Accounts keeper-view and the AgentDetail configuration tab resolve the SAME provider-hosted
- * record, so supersession is arbitrated per shared record inside the runner — never per owner.
- * These witnesses drive two independent owners (own sinks, own calls) against one real store and
- * prove the one ordering authority: a newer intent from either surface wins, an older response
- * from the other can neither regress the record nor claim a terminal state.
+ * @summary The shared configure round-trip's CROSS-OWNER contracts: both the Accounts keeper-view
+ * and the AgentDetail configuration tab resolve the SAME provider-hosted store, so the runner owns
+ * the shared-state authorities — per-record intent ordering, losing-surface supersede honesty, and
+ * the per-store accepted-write generation. These witnesses drive two independent owners (own
+ * identity tokens, own sinks) against one real store and prove: a newer intent from either surface
+ * wins; an older response from the other owner can neither regress the record nor claim a terminal
+ * state; the losing surface is TOLD (non-latching `superseded`) and can correct; and every
+ * accepted write advances the store's write generation for boot-list recency checks.
  */
 test.describe('configIntentRoundTrip — cross-owner supersession authority (#15242)', () => {
     let AgentDefinition, Store;
@@ -29,31 +31,35 @@ test.describe('configIntentRoundTrip — cross-owner supersession authority (#15
 
     const makeStore = data => Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data});
 
-    test('two-owner overlap: a newer Detail intent resolved FIRST cannot be regressed by the older Accounts response', async () => {
+    test('two-owner overlap: a newer Detail intent resolved FIRST cannot be regressed by the older Accounts response — and the losing surface recovers', async () => {
         const store = makeStore([
             {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
         ]);
 
         const
+            accountsOwner    = {},
+            detailOwner      = {},
             deferred         = [],
             bridgeResolver   = () => ({configureAgent: intent => new Promise(resolve => deferred.push({intent, resolve}))}),
             accountsStatuses = [],
             detailStatuses   = [];
 
-        // two OWNERS — separate calls, separate sinks, the same shared record. Under per-owner
-        // generation maps each response believed itself latest; the shared authority must not.
+        // two OWNERS — separate identity tokens, separate sinks, the same shared record. Under
+        // per-owner generation maps each response believed itself latest; the shared authority must not.
         const older = runConfigIntentRoundTrip({
             bridgeResolver,
-            getRecord    : id => store.get(id),
             intent       : {id: 'ada', harnessType: 'claude-code'},
-            setSaveStatus: (...args) => accountsStatuses.push(args)
+            owner        : accountsOwner,
+            setSaveStatus: (...args) => accountsStatuses.push(args),
+            store
         });
 
         const newer = runConfigIntentRoundTrip({
             bridgeResolver,
-            getRecord    : id => store.get(id),
             intent       : {id: 'ada', harnessType: 'native-neo'},
-            setSaveStatus: (...args) => detailStatuses.push(args)
+            owner        : detailOwner,
+            setSaveStatus: (...args) => detailStatuses.push(args),
+            store
         });
 
         // out-of-order transport: the NEWER intent's response arrives first…
@@ -62,57 +68,72 @@ test.describe('configIntentRoundTrip — cross-owner supersession authority (#15
 
         expect(store.get('ada').harnessType).toBe('native-neo');
 
-        // …then the OLDER response answers 'accepted' — and must change nothing
+        // …then the OLDER response answers 'accepted' — and must change nothing durable
         deferred[0].resolve({status: 'accepted', agent: {id: 'ada', harnessType: 'claude-code', mcpServers: null}});
         await older;
 
         expect(store.get('ada').harnessType).toBe('native-neo');
 
-        // the winner reported its truth; the superseded owner's sink got NO terminal claim (a
-        // stamped "saved" beside a record now rendering someone else's newer truth would be a lie)
+        // the winner reported its truth; the superseded owner's sink got the HONEST non-terminal
+        // 'superseded' — told what happened, never latched, never a fake 'saved'
         expect(detailStatuses.map(entry => entry[1])).toEqual(['pending', 'accepted']);
-        expect(accountsStatuses.map(entry => entry[1])).toEqual(['pending']);
+        expect(accountsStatuses.map(entry => entry[1])).toEqual(['pending', 'superseded']);
+
+        // RE-ENTRY: the losing surface is not dead — its next intent runs a full round-trip
+        const retry = runConfigIntentRoundTrip({
+            bridgeResolver,
+            intent       : {id: 'ada', harnessType: 'antigravity'},
+            owner        : accountsOwner,
+            setSaveStatus: (...args) => accountsStatuses.push(args),
+            store
+        });
+
+        deferred[2].resolve({status: 'accepted', agent: {id: 'ada', harnessType: 'antigravity', mcpServers: null}});
+        await retry;
+
+        expect(store.get('ada').harnessType).toBe('antigravity');
+        expect(accountsStatuses.map(entry => entry[1])).toEqual(['pending', 'superseded', 'pending', 'accepted']);
 
         store.destroy()
     });
 
-    test('a response whose record identity moved mid-flight yields to a newer intent on the NEW instance', async () => {
+    test('same-owner supersession stays SILENT: the newer request owns that sink\'s next paint', async () => {
         const store = makeStore([
             {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
         ]);
 
         const
+            owner          = {},
             deferred       = [],
             bridgeResolver = () => ({configureAgent: intent => new Promise(resolve => deferred.push({intent, resolve}))}),
             statuses       = [];
 
         const older = runConfigIntentRoundTrip({
             bridgeResolver,
-            getRecord    : id => store.get(id),
             intent       : {id: 'ada', harnessType: 'claude-code'},
-            setSaveStatus: (...args) => statuses.push(args)
+            owner,
+            setSaveStatus: (...args) => statuses.push(args),
+            store
         });
-
-        // a reload replaces membership wholesale while the response is in flight: same id, NEW
-        // record instance — the older response's issue-time target no longer exists in the store
-        store.clear();
-        store.add({id: 'ada', githubUsername: 'ada', harnessType: 'antigravity'});
 
         const newer = runConfigIntentRoundTrip({
             bridgeResolver,
-            getRecord    : id => store.get(id),
             intent       : {id: 'ada', harnessType: 'native-neo'},
-            setSaveStatus: () => {}
+            owner,
+            setSaveStatus: (...args) => statuses.push(args),
+            store
         });
 
         deferred[1].resolve({status: 'accepted', agent: {id: 'ada', harnessType: 'native-neo', mcpServers: null}});
         await newer;
 
+        // the older response resolving now belongs to the SAME sink the newer request just
+        // painted 'accepted' — a 'superseded' stamp here would mislabel a save that succeeded
         deferred[0].resolve({status: 'accepted', agent: {id: 'ada', harnessType: 'claude-code', mcpServers: null}});
         await older;
 
-        // the post-reload instance carries the newer truth; the pre-reload response changed nothing
         expect(store.get('ada').harnessType).toBe('native-neo');
+        expect(statuses.map(entry => entry[1])).toEqual(['pending', 'pending', 'accepted']);
 
         store.destroy()
     });
@@ -130,9 +151,10 @@ test.describe('configIntentRoundTrip — cross-owner supersession authority (#15
 
         const older = runConfigIntentRoundTrip({
             bridgeResolver,
-            getRecord    : id => store.get(id),
             intent       : {id: 'ada', harnessType: 'claude-code'},
-            setSaveStatus: (...args) => olderStatuses.push(args)
+            owner        : {},
+            setSaveStatus: (...args) => olderStatuses.push(args),
+            store
         });
 
         // the reload replaces instance A with instance B while the older response is in flight —
@@ -142,22 +164,23 @@ test.describe('configIntentRoundTrip — cross-owner supersession authority (#15
 
         const newer = runConfigIntentRoundTrip({
             bridgeResolver,
-            getRecord    : id => store.get(id),
             intent       : {id: 'ada', harnessType: 'native-neo'},
-            setSaveStatus: (...args) => newerStatuses.push(args)
+            owner        : {},
+            setSaveStatus: (...args) => newerStatuses.push(args),
+            store
         });
 
         deferred[1].resolve({status: 'accepted', agent: {id: 'ada', harnessType: 'native-neo', mcpServers: null}});
         await newer;
 
-        // the older response answers REJECTED — stale on every axis, it may claim NOTHING: not the
-        // record, and not a terminal status over the newer owner's accepted truth
+        // the older response answers REJECTED — stale on every axis, it may claim NO terminal
+        // state: the record stays, and its sink gets the honest non-latching 'superseded'
         deferred[0].resolve({status: 'rejected', reason: 'stale rejection must not win'});
         await older;
 
         expect(store.get('ada').harnessType).toBe('native-neo');
         expect(newerStatuses.map(entry => entry[1])).toEqual(['pending', 'accepted']);
-        expect(olderStatuses.map(entry => entry[1])).toEqual(['pending']);
+        expect(olderStatuses.map(entry => entry[1])).toEqual(['pending', 'superseded']);
 
         store.destroy()
     });
@@ -175,9 +198,10 @@ test.describe('configIntentRoundTrip — cross-owner supersession authority (#15
 
         const older = runConfigIntentRoundTrip({
             bridgeResolver,
-            getRecord    : id => store.get(id),
             intent       : {id: 'ada', harnessType: 'claude-code'},
-            setSaveStatus: (...args) => olderStatuses.push(args)
+            owner        : {},
+            setSaveStatus: (...args) => olderStatuses.push(args),
+            store
         });
 
         store.clear();
@@ -185,22 +209,56 @@ test.describe('configIntentRoundTrip — cross-owner supersession authority (#15
 
         const newer = runConfigIntentRoundTrip({
             bridgeResolver,
-            getRecord    : id => store.get(id),
             intent       : {id: 'ada', harnessType: 'native-neo'},
-            setSaveStatus: (...args) => newerStatuses.push(args)
+            owner        : {},
+            setSaveStatus: (...args) => newerStatuses.push(args),
+            store
         });
 
         deferred[1].resolve({status: 'accepted', agent: {id: 'ada', harnessType: 'native-neo', mcpServers: null}});
         await newer;
 
         // the older request DIES on the wire — the sanitized catch path must consult the same
-        // staleness authority and stay silent, not repaint 'rejected' over the newer 'accepted'
+        // staleness authority: no 'rejected' repaint over the newer 'accepted', an honest
+        // 'superseded' on its own sink instead
         deferred[0].reject(new Error('transport died'));
         await older;
 
         expect(store.get('ada').harnessType).toBe('native-neo');
         expect(newerStatuses.map(entry => entry[1])).toEqual(['pending', 'accepted']);
-        expect(olderStatuses.map(entry => entry[1])).toEqual(['pending']);
+        expect(olderStatuses.map(entry => entry[1])).toEqual(['pending', 'superseded']);
+
+        store.destroy()
+    });
+
+    test('every accepted write advances the store\'s shared write generation; nothing else does', async () => {
+        const store = makeStore([
+            {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
+        ]);
+
+        const before = getDefinitionsWriteGeneration(store);
+
+        // a rejected outcome writes nothing — the generation must not move
+        await runConfigIntentRoundTrip({
+            bridgeResolver: () => ({configureAgent: async () => ({status: 'rejected', reason: 'no'})}),
+            intent        : {id: 'ada', harnessType: 'claude-code'},
+            owner         : {},
+            setSaveStatus : () => {},
+            store
+        });
+
+        expect(getDefinitionsWriteGeneration(store)).toBe(before);
+
+        // an accepted readback is newer canonical truth — any in-flight boot list is now stale
+        await runConfigIntentRoundTrip({
+            bridgeResolver: () => ({configureAgent: async () => ({status: 'accepted', agent: {id: 'ada', harnessType: 'native-neo', mcpServers: null}})}),
+            intent        : {id: 'ada', harnessType: 'native-neo'},
+            owner         : {},
+            setSaveStatus : () => {},
+            store
+        });
+
+        expect(getDefinitionsWriteGeneration(store)).toBe(before + 1);
 
         store.destroy()
     })

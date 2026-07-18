@@ -15,6 +15,8 @@ import * as core       from '../../../../../src/core/_export.mjs';
 import Instance        from '../../../../../src/manager/Instance.mjs';
 import Accounts        from '../../../../../apps/agentos/view/Accounts.mjs';
 
+import {runConfigIntentRoundTrip} from '../../../../../apps/agentos/view/fleet/configIntentRoundTrip.mjs';
+
 const
     __filename = fileURLToPath(import.meta.url),
     __dirname  = path.dirname(__filename),
@@ -615,6 +617,33 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
         store.destroy()
     });
 
+    test('superseded is non-latching: the losing surface can immediately correct (#15440)', () => {
+        const store = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
+            {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
+        ]});
+        const card    = Neo.create(AgentConfigCard, {record: store.get('ada')});
+        const intents = [];
+
+        card.on('configIntent', data => intents.push(data));
+
+        // pending is the ONLY latching state — a mid-flight save blocks overlap…
+        card.setSaveStatus('ada', 'pending', 'Saving configuration…');
+        card.onCardClick({path: [{id: `${card.id}__harness__claude-code`}]});
+        expect(intents).toHaveLength(0);
+
+        // …but a surface whose request lost to ANOTHER owner's newer change is told so and must
+        // stay correctable: a chip latched at pending forever would be a dead affordance
+        card.setSaveStatus('ada', 'superseded', 'Superseded by a newer change from another surface.');
+        expect(cardText(card)).toContain('Superseded by a newer change');
+
+        card.onCardClick({path: [{id: `${card.id}__harness__claude-code`}]});
+        expect(intents).toHaveLength(1);
+        expect(intents[0]).toMatchObject({id: 'ada', harnessType: 'claude-code'});
+
+        card.destroy();
+        store.destroy()
+    });
+
     test('the Accounts round-trip writes the bridge RESPONSE onto the record and reports honestly', async () => {
         const store = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
             {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
@@ -744,6 +773,51 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
         expect(store.get('canonical').harnessType).toBe('claude-code');
 
         delete globalThis.AgentOS;
+        store.destroy()
+    });
+
+    test('an accepted readback from ANOTHER owner invalidates an older in-flight boot list (#15440)', async () => {
+        const store = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
+            {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
+        ]});
+        const stub = {
+            agentDefinitionsStore         : store,
+            agentDefinitionsLoadGeneration: 0,
+            syncAgentSelector             : () => {},
+            loadAgentDefinitions          : Accounts.prototype.loadAgentDefinitions
+        };
+
+        let resolveList;
+
+        const priorFleet = globalThis.AgentOS?.fleet;
+
+        globalThis.AgentOS ??= {};
+        globalThis.AgentOS.fleet = {registryBridge: {
+            listAgents    : () => new Promise(resolve => resolveList = resolve),
+            configureAgent: async () => ({status: 'accepted', agent: {id: 'ada', harnessType: 'native-neo', mcpServers: null}})
+        }};
+
+        // Accounts' boot list goes in flight…
+        const load = stub.loadAgentDefinitions();
+
+        // …and the DETAIL owner (a different surface — Accounts' own onAcceptedReadback hook
+        // never runs) lands an accepted configure readback meanwhile
+        await runConfigIntentRoundTrip({
+            intent       : {id: 'ada', harnessType: 'native-neo'},
+            owner        : {},
+            setSaveStatus: () => {},
+            store
+        });
+
+        expect(store.get('ada').harnessType).toBe('native-neo');
+
+        // the OLDER list snapshot answers with pre-write truth — the shared write generation
+        // moved while it flew, so the whole snapshot is discarded and nothing regresses
+        resolveList([{id: 'ada', githubUsername: 'ada', harnessType: 'codex'}]);
+        await expect(load).resolves.toBe(false);
+        expect(store.get('ada').harnessType).toBe('native-neo');
+
+        globalThis.AgentOS.fleet = priorFleet;
         store.destroy()
     });
 });

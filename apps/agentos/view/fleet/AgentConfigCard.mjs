@@ -121,8 +121,11 @@ class AgentConfigCard extends Component {
     /**
      * @summary Render one save-state transition only when the card still shows the originating
      * agent. A slow response after selection changed must never paint the next agent's card.
+     * `pending` is the ONLY latching state (see {@link #onCardClick}); `superseded` — another
+     * surface's newer change outran this card's request — is informational and non-latching, so
+     * the losing surface stays correctable.
      * @param {String} agentId
-     * @param {'idle'|'pending'|'accepted'|'rejected'} state
+     * @param {'idle'|'pending'|'accepted'|'rejected'|'superseded'} state
      * @param {String} [reason=''] Operator-facing status or rejection reason.
      * @returns {Boolean} True when the visible card accepted the state.
      */

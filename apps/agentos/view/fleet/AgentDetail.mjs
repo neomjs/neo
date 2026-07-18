@@ -539,9 +539,10 @@ class AgentDetail extends Container {
         const me = this;
 
         return runConfigIntentRoundTrip({
-            getRecord    : agentId => me.agentDefinitions?.get(agentId),
             intent,
-            setSaveStatus: (agentId, state, reason) => me.getReference('config-pane')?.setSaveStatus(agentId, state, reason)
+            owner        : me,
+            setSaveStatus: (agentId, state, reason) => me.getReference('config-pane')?.setSaveStatus(agentId, state, reason),
+            store        : me.agentDefinitions
         })
     }
 

@@ -1,5 +1,5 @@
 import AgentConfigCard            from './fleet/AgentConfigCard.mjs';
-import {runConfigIntentRoundTrip} from './fleet/configIntentRoundTrip.mjs';
+import {getDefinitionsWriteGeneration, runConfigIntentRoundTrip} from './fleet/configIntentRoundTrip.mjs';
 import Button                     from '../../../src/button/Base.mjs';
 import DashboardPanel             from '../../../src/dashboard/Panel.mjs';
 import FormContainer              from '../../../src/form/Container.mjs';
@@ -271,12 +271,10 @@ class Accounts extends DashboardPanel {
         const me = this;
 
         return runConfigIntentRoundTrip({
-            getRecord: agentId => me.agentDefinitionsStore?.get(agentId),
             intent,
-            // Invalidate any older boot-list response before applying the canonical save
-            // readback. Only the RESPONSE mutates the durable Body projection.
-            onAcceptedReadback: () => {me.agentDefinitionsLoadGeneration = (me.agentDefinitionsLoadGeneration || 0) + 1},
-            setSaveStatus     : me.setAgentConfigSaveStatus.bind(me)
+            owner        : me,
+            setSaveStatus: me.setAgentConfigSaveStatus.bind(me),
+            store        : me.agentDefinitionsStore
         })
     }
 
@@ -311,13 +309,22 @@ class Accounts extends DashboardPanel {
             return false
         }
 
+        // the SHARED write recency: an accepted configure readback from ANY owner (this view's
+        // card OR the AgentDetail tab) bumps the store's write generation — a list snapshot older
+        // than that write must never regress the store
+        const writeGeneration = getDefinitionsWriteGeneration(store);
+
         try {
             const agents = await bridge.listAgents();
 
             if (!Array.isArray(agents)) {
                 return false
             }
-            if (generation !== me.agentDefinitionsLoadGeneration || store !== me.agentDefinitionsStore) {
+            if (
+                generation !== me.agentDefinitionsLoadGeneration ||
+                store      !== me.agentDefinitionsStore          ||
+                getDefinitionsWriteGeneration(store) !== writeGeneration
+            ) {
                 return false
             }
 
