@@ -1,6 +1,14 @@
 import {issueToObservations} from './githubIssueObservations.mjs';
 
 /**
+ * @summary The basis marker for the beginning of history — the `fromBasis` of a first run that
+ * resumes from no prior cursor, and the `toBasis` of a run over an empty family. Keeps the coverage
+ * window a pair of concrete bases rather than nulls the contract would reject.
+ * @member {String}
+ */
+export const GENESIS_BASIS = 'genesis';
+
+/**
  * @summary Drives one paginated connection to true exhaustion (or until a page cap truncates it),
  * merging every page's items into a single list. The first page arrives inline on the parent node;
  * only the overflow is continuation-fetched here.
@@ -123,16 +131,20 @@ export async function reconcileIssueActivity(seams, options = {}) {
             observations.push(...issueToObservations({...issue, comments: comments.items, timeline: timeline.items}))
         }
 
+        // Capture the reached cursor on EVERY page, including the last — the endpoint of a complete
+        // walk is the final page's endCursor, not just the boundary before a continuation.
+        if (pageInfo?.endCursor) {
+            issuesCursor = pageInfo.endCursor
+        }
+
         if (!pageInfo?.hasNextPage) {
             break
         }
-
-        issuesCursor = pageInfo.endCursor
     }
 
     const coverage = {
-        fromBasis,
-        toBasis : issuesCursor,
+        fromBasis: fromBasis ?? GENESIS_BASIS,
+        toBasis  : issuesCursor ?? GENESIS_BASIS,
         complete,
         ...(gaps.length ? {gaps} : {})
     };
