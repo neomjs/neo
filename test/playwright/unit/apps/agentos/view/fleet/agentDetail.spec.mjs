@@ -600,4 +600,99 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
 
         detail.destroy()
     });
+
+    test('a definition ADDED after mount seats the tab; REMOVED clears it to the honest empty state (#15440)', () => {
+        const definitions = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: []});
+        stores.push(definitions);
+
+        const
+            detail = createDetail({agentId: 'ada', displayName: 'Ada'}, {agentDefinitions: definitions}),
+            card   = detail.getReference('config-pane');
+
+        // mounted BEFORE its definition exists — the honest empty line, not a fabricated config
+        expect(card.record).toBeNull();
+
+        // membership delivers the definition later (e.g. the S5 zone's accepted readback upsert)
+        definitions.add({id: 'ada', githubUsername: 'ada', harnessType: 'codex'});
+        expect(card.record).toBe(definitions.get('ada'));
+
+        // removal must clear the seat — a removed definition rendering on is a stale ghost
+        definitions.remove(definitions.get('ada'));
+        expect(card.record).toBeNull();
+
+        detail.destroy()
+    });
+
+    test('a wholesale reload re-seats the tab onto the NEW record instance (#15440)', () => {
+        const definitions = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
+            {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
+        ]});
+        stores.push(definitions);
+
+        const
+            detail = createDetail({agentId: 'ada', displayName: 'Ada'}, {agentDefinitions: definitions}),
+            card   = detail.getReference('config-pane'),
+            first  = definitions.get('ada');
+
+        expect(card.record).toBe(first);
+
+        // a reload replaces membership wholesale: same id, NEW record instance — the reactive
+        // `record` config would suppress a same-identity write, so the re-seat must carry the swap
+        definitions.clear();
+        definitions.add({id: 'ada', githubUsername: 'ada', harnessType: 'claude-code'});
+
+        const second = definitions.get('ada');
+
+        expect(second).not.toBe(first);
+        expect(card.record).toBe(second);
+
+        detail.destroy()
+    });
+
+    test('destroy detaches the provider-owned store listeners — no zombie re-seat, no zombie recordChange (#15440)', () => {
+        const definitions = Neo.create(Store, {keyProperty: 'id', model: AgentDefinition, data: [
+            {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
+        ]});
+        stores.push(definitions);
+
+        // the spies must be installed BEFORE construction: the listener registry captures the fn
+        // ref at on() time, so only a pre-construct prototype patch makes the registered ref the spy
+        const
+            calls             = {mutation: 0, recordChange: 0},
+            originalMutation  = AgentDetail.prototype.onDefinitionsStoreMutation,
+            originalRecChange = AgentDetail.prototype.onDefinitionRecordChange;
+
+        AgentDetail.prototype.onDefinitionsStoreMutation = function(...args) {
+            calls.mutation++;
+            return originalMutation.apply(this, args)
+        };
+        AgentDetail.prototype.onDefinitionRecordChange = function(...args) {
+            calls.recordChange++;
+            return originalRecChange.apply(this, args)
+        };
+
+        try {
+            const detail = createDetail({agentId: 'ada', displayName: 'Ada'}, {agentDefinitions: definitions});
+
+            // positive control: the live listeners DO fire through real store mutations
+            definitions.add({id: 'grace', githubUsername: 'grace', harnessType: 'codex'});
+            definitions.get('ada').set({statusText: 'still alive'});
+
+            const alive = {...calls};
+            expect(alive.mutation).toBeGreaterThan(0);
+            expect(alive.recordChange).toBeGreaterThan(0);
+
+            detail.destroy();
+
+            // the store OUTLIVES the view (provider-owned) — post-destroy mutations must not reach it
+            definitions.add({id: 'clio', githubUsername: 'clio', harnessType: 'codex'});
+            definitions.get('ada').set({statusText: 'after teardown'});
+
+            expect(calls.mutation).toBe(alive.mutation);
+            expect(calls.recordChange).toBe(alive.recordChange)
+        } finally {
+            AgentDetail.prototype.onDefinitionsStoreMutation = originalMutation;
+            AgentDetail.prototype.onDefinitionRecordChange   = originalRecChange
+        }
+    });
 });

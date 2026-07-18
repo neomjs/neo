@@ -181,14 +181,6 @@ class Accounts extends DashboardPanel {
     agentDefinitionsLoadGeneration = 0
 
     /**
-     * Latest save-request generation per agent. Only the newest response may update the Body
-     * projection or visible save state.
-     * @member {Map<String,Number>} agentConfigRequestGenerations
-     * @private
-     */
-    agentConfigRequestGenerations = new Map()
-
-    /**
      * Ephemeral save status per agent. Selection changes re-project this state onto the card, so a
      * pending/accepted/rejected result never moves to or disappears behind another agent.
      * @member {Map<String,Object>} agentConfigSaveStatuses
@@ -218,6 +210,9 @@ class Accounts extends DashboardPanel {
         let me        = this,
             listeners = {
                 load        : me.onAgentRosterChange,
+                // membership changes fire `mutate`, not `load` — the Viewport's accepted-definition
+                // upsert lands via `store.add()`, and the selector strip must show the new resident
+                mutate      : me.onAgentRosterChange,
                 recordChange: me.onAgentRosterChange,
                 scope       : me
             };
@@ -276,8 +271,7 @@ class Accounts extends DashboardPanel {
         const me = this;
 
         return runConfigIntentRoundTrip({
-            generations: me.agentConfigRequestGenerations,
-            getRecord  : agentId => me.agentDefinitionsStore?.get(agentId),
+            getRecord: agentId => me.agentDefinitionsStore?.get(agentId),
             intent,
             // Invalidate any older boot-list response before applying the canonical save
             // readback. Only the RESPONSE mutates the durable Body projection.
@@ -391,6 +385,7 @@ class Accounts extends DashboardPanel {
         let me        = this,
             listeners = {
                 load        : me.onAgentRosterChange,
+                mutate      : me.onAgentRosterChange,
                 recordChange: me.onAgentRosterChange,
                 scope       : me
             };

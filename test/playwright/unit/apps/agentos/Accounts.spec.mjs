@@ -405,6 +405,23 @@ test.describe('AgentOS.view.Accounts — agent-scoped configuration (multiple ag
         store.destroy()
     });
 
+    test('a definition ADDED to the store joins the selector strip — the Viewport upsert path fires `mutate`, not `load` (#15440)', () => {
+        const store = makeAgentStore([
+            {id: 'neo-gpt', githubUsername: 'neo-gpt', harnessType: 'codex'}
+        ]);
+        const stub = makeScopedAccounts(store);
+
+        expect(stub.selector.items.map(item => item.agentId)).toEqual(['neo-gpt']);
+
+        // the accepted-definition composition boundary: Viewport lands the canonical readback via
+        // `store.add()` — a membership change, which fires `mutate` (`load` never fires for it)
+        store.add({id: 'neo-phoebe', githubUsername: 'neo-phoebe', harnessType: 'codex'});
+
+        expect(stub.selector.items.map(item => item.agentId)).toEqual(['neo-gpt', 'neo-phoebe']);
+
+        store.destroy()
+    });
+
     test('selecting an agent scopes the configuration card to ITS record', () => {
         const store = makeAgentStore([
             {id: 'a', githubUsername: 'a', harnessType: 'codex'},
@@ -606,12 +623,11 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
         const saveStatuses = [],
               card         = {setSaveStatus: (...args) => saveStatuses.push(args)},
               stub         = {
-            agentDefinitionsStore        : store,
-            agentConfigRequestGenerations: new Map(),
-            agentConfigSaveStatuses      : new Map(),
-            onAgentConfigIntent          : Accounts.prototype.onAgentConfigIntent,
-            setAgentConfigSaveStatus     : Accounts.prototype.setAgentConfigSaveStatus,
-            getReference                 : ref => ref === 'agent-config-card' ? card : null
+            agentDefinitionsStore   : store,
+            agentConfigSaveStatuses : new Map(),
+            onAgentConfigIntent     : Accounts.prototype.onAgentConfigIntent,
+            setAgentConfigSaveStatus: Accounts.prototype.setAgentConfigSaveStatus,
+            getReference            : ref => ref === 'agent-config-card' ? card : null
         };
 
         // no bridge → fail closed, nothing mutates
@@ -650,7 +666,6 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
             stub     = {
                 agentDefinitionsStore         : store,
                 agentDefinitionsLoadGeneration: 0,
-                agentConfigRequestGenerations : new Map(),
                 agentConfigSaveStatuses       : new Map(),
                 onAgentConfigIntent           : Accounts.prototype.onAgentConfigIntent,
                 setAgentConfigSaveStatus      : Accounts.prototype.setAgentConfigSaveStatus,
@@ -688,7 +703,6 @@ test.describe('AgentOS.view.AgentConfigCard — live same-record propagation + c
         const stub         = {
             agentDefinitionsStore         : store,
             agentDefinitionsLoadGeneration: 0,
-            agentConfigRequestGenerations : new Map(),
             agentConfigSaveStatuses       : new Map(),
             onAgentConfigIntent           : Accounts.prototype.onAgentConfigIntent,
             setAgentConfigSaveStatus      : Accounts.prototype.setAgentConfigSaveStatus,

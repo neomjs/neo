@@ -255,7 +255,8 @@ class AgentDetail extends Container {
                 // object permanence (the S5 fork-1 ruling): per-agent CONFIGURATION belongs to the
                 // agent object, so it rides the detail as a tab — the mailbox precedent applied to
                 // the config card. The card fires `configIntent`; THIS view owns the bridge
-                // round-trip through the shared runner, with its own generation map + status sink.
+                // round-trip through the shared runner (which arbitrates supersession per shared
+                // record, across every owner), with the card as this owner's status sink.
                 module   : AgentConfigCard,
                 emptyText: 'This agent has no stored definition yet — add it via the rail\'s Add agent zone.',
                 header   : {text: 'Configuration'},
@@ -263,14 +264,6 @@ class AgentDetail extends Container {
             }]
         }]
     }
-
-    /**
-     * Per-agent request generations for the configuration round-trip — detail-owned, so a slow
-     * response from this surface can never cross into the Accounts keeper-view's ordering.
-     * @member {Map} configRequestGenerations=new Map()
-     * @protected
-     */
-    configRequestGenerations = new Map()
 
     /**
      * @summary Populate the header + panes once the anatomy exists (content is record-derived).
@@ -448,10 +441,30 @@ class AgentDetail extends Container {
      * @protected
      */
     /**
-     * Triggered after the agentDefinitions config got changed — the provider bind resolving (or a
-     * test seating a store directly). Moves the same-record propagation listener old → new: a
-     * `recordChange` mutates fields without changing record identity, so the card's reactive
-     * `record` never re-fires — the owning view refreshes it (the card's documented contract).
+     * The full store-lifecycle listener set for the definitions store — one map, attached and
+     * detached symmetrically ({@link #afterSetAgentDefinitions} + {@link #destroy}). Three distinct
+     * edges, three listeners: `recordChange` (a field mutated in place — record identity unchanged,
+     * so the card's reactive `record` never re-fires), `mutate` (membership: a definition added,
+     * replaced, or removed after this view mounted), `load` (a reload re-seated the rows wholesale).
+     * @returns {Object}
+     * @protected
+     */
+    getDefinitionsStoreListeners() {
+        const me = this;
+
+        return {
+            load        : me.onDefinitionsStoreMutation,
+            mutate      : me.onDefinitionsStoreMutation,
+            recordChange: me.onDefinitionRecordChange,
+            scope       : me
+        }
+    }
+
+    /**
+     * Triggered after the agentDefinitions config got changed — the composition seating the shared
+     * store (or a test seating one directly). Moves the store-lifecycle listeners old → new, then
+     * re-seats the card: a detail mounted BEFORE its definition existed must acquire the record the
+     * moment membership delivers it.
      * @param {Neo.data.Store|null} value
      * @param {Neo.data.Store|null} oldValue
      * @protected
@@ -459,10 +472,30 @@ class AgentDetail extends Container {
     afterSetAgentDefinitions(value, oldValue) {
         const me = this;
 
-        oldValue?.un?.('recordChange', me.onDefinitionRecordChange, me);
-        value?.on?.('recordChange', me.onDefinitionRecordChange, me);
+        oldValue?.un?.(me.getDefinitionsStoreListeners());
+        value?.on?.(me.getDefinitionsStoreListeners());
 
         me.isConstructed && me.applyConfigRecord()
+    }
+
+    /**
+     * @summary Store membership or a wholesale reload changed the definition rows — re-seat the
+     * card from the canonical store. Covers a definition ADDED after mount (null → record),
+     * REPLACED (new instance for the same id), REMOVED (record → honest empty state), and reloads.
+     * @protected
+     */
+    onDefinitionsStoreMutation() {
+        this.applyConfigRecord()
+    }
+
+    /**
+     * @summary Detach the provider-owned store's listeners — the store outlives this view, so an
+     * attached listener would keep firing into a destroyed component.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        this.agentDefinitions?.un?.(this.getDefinitionsStoreListeners());
+        super.destroy(...args)
     }
 
     /**
@@ -493,9 +526,12 @@ class AgentDetail extends Container {
     }
 
     /**
-     * @summary The config tab's `configIntent` → the shared bridge round-trip, with detail-owned
-     * ordering (generation map) and the card as the status sink. Fail-closed and readback-only by
-     * construction — see {@link module:apps/agentos/view/fleet/configIntentRoundTrip}.
+     * @summary The config tab's `configIntent` → the shared bridge round-trip. Ordering is NOT
+     * owned here: the runner arbitrates supersession per shared record across every owner
+     * (Accounts included), so a newer intent from either surface outranks an older in-flight
+     * response. This owner contributes only its store resolution and its status sink (the card).
+     * Fail-closed and readback-only by construction —
+     * see {@link module:apps/agentos/view/fleet/configIntentRoundTrip}.
      * @param {Object} intent `{id, harnessType?, mcpServers?}` (+ event envelope, stripped by the runner).
      * @returns {Promise<void>}
      */
@@ -503,7 +539,6 @@ class AgentDetail extends Container {
         const me = this;
 
         return runConfigIntentRoundTrip({
-            generations  : me.configRequestGenerations,
             getRecord    : agentId => me.agentDefinitions?.get(agentId),
             intent,
             setSaveStatus: (agentId, state, reason) => me.getReference('config-pane')?.setSaveStatus(agentId, state, reason)
