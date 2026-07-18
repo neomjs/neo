@@ -965,6 +965,48 @@ class Base {
     }
 
     /**
+     * @summary Re-runs the async-init leg of an already-initialized instance, resetting the ready gate.
+     *
+     * **[unitTestMode-ONLY SEAM]** This is the sanctioned replacement for the private
+     * `instance._initPromise = null; await instance.initAsync()` reach-in that specs used to re-initialize
+     * singletons between test cases. It exists ONLY so singleton re-initialization is expressible without
+     * touching private state, and it is **fenced**: calling it outside `Neo.config.unitTestMode` throws,
+     * because re-running `initAsync()` in production is the exact double-init this framework forbids (see
+     * {@link Neo.core.Base#initAsync}'s warning). This fence is what REPLACES the bespoke `_initPromise`
+     * idempotency guards — with the guards gone, the fence is the only thing between a stray re-init and a
+     * production double-init.
+     *
+     * It re-runs ONLY the async-init leg: it resets `#readyPromise` + `isReady` and re-invokes
+     * `initAsync()`. It deliberately does NOT re-run `construct()` — no config re-wiring, no
+     * Instance-manager re-registration, no listener re-binding — those are one-time construction concerns,
+     * and re-firing them would risk the very cross-spec leak class this seam exists to retire. In
+     * `unitTestMode`, `initRemote()` is a no-op ({@link Neo.core.Base#initRemote} guards on it), so the
+     * re-run touches no remote registration.
+     *
+     * @returns {Promise<void>} the reset ready promise — resolves when the re-init completes
+     * @see Neo.core.Base#ready
+     */
+    async reInitAsync() {
+        if (!Neo.config.unitTestMode) {
+            throw new Error(`Neo.core.Base#reInitAsync() is a unitTestMode-only seam — re-running initAsync() in production is a fatal double-init: ${this.className}`)
+        }
+
+        let me = this;
+
+        // Reset the ready gate to its pre-init state first, so `ready()` consumers await THIS re-init...
+        me.#readyPromise = new Promise(resolve => {
+            me.#readyResolver = resolve
+        });
+        me.isReady = false;
+
+        // ...then re-run only the async-init leg. `afterSetIsReady` resolves the new promise + fires `ready`.
+        await me.initAsync();
+        me.isReady = true;
+
+        return me.#readyPromise
+    }
+
+    /**
      * Returns a promise that resolves when the remote methods are registered.
      * @returns {Promise<void>}
      */
