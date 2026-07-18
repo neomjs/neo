@@ -90,12 +90,47 @@ export function resolveCoalesceWindowMs({overrideSeconds, defaultSeconds}) {
  *     subscription (`0` when none — no refractory).
  * @returns {Number} Timer delay in ms (`0` = flush now).
  */
-export function computeFlushDelayMs({now, windowMs, firstQueuedAt, lastFlushAt = 0}) {
+export function computeFlushDelayMs({now, windowMs, firstQueuedAt, lastFlushAt = 0, refractoryMs = POST_FLUSH_REFRACTORY_MS, capMs = COALESCE_HARD_CAP_MS}) {
     if (windowMs === 0) return 0;
 
     const
-        refractoryFloor = Math.max(0, (lastFlushAt + POST_FLUSH_REFRACTORY_MS) - now),
-        capRemaining    = Math.max(0, (firstQueuedAt + COALESCE_HARD_CAP_MS) - now);
+        refractoryFloor = Math.max(0, (lastFlushAt + refractoryMs) - now),
+        capRemaining    = Math.max(0, (firstQueuedAt + capMs) - now);
 
     return Math.min(Math.max(windowMs, refractoryFloor), capRemaining)
+}
+
+/**
+ * @summary The FLUSH-TIME hold gate — how long an already-due flush must still wait.
+ *
+ * A flush timer's delay is computed at ARM time ({@link computeFlushDelayMs}), so it cannot see
+ * deliveries that CONFIRM after it was armed — the canonical case being events that queued while
+ * the previous digest's adapter attempt was in flight: their timer fires moments after that
+ * delivery settles, and dispatching immediately is exactly the back-to-back double-prompt the
+ * refractory exists to prevent. Called at the top of the flush with the NOW-settled
+ * `lastFlushAt`:
+ * - returns the remaining refractory when one is active — bounded by the remaining hard cap
+ *   (the cap beats the refractory here exactly as it does at arm time);
+ * - returns `0` when the flush may proceed;
+ * - `windowMs === 0` returns `0` unconditionally — the explicit-immediate contract again.
+ *
+ * @param {Object} opts
+ * @param {Number} opts.now             Current epoch ms.
+ * @param {Number} opts.windowMs        Effective window from {@link resolveCoalesceWindowMs}.
+ * @param {Number} opts.firstQueuedAt   Epoch ms the queue's FIRST event arrived.
+ * @param {Number} [opts.lastFlushAt=0] Epoch ms of the last CONFIRMED delivery (`0` = none).
+ * @param {Number} [opts.refractoryMs=POST_FLUSH_REFRACTORY_MS] Mechanism constant; parameterized
+ *     so the daemon can thread its env-tunable value (its established constant-override idiom)
+ *     and witnesses can drive short spans.
+ * @param {Number} [opts.capMs=COALESCE_HARD_CAP_MS] Mechanism constant; same parameterization.
+ * @returns {Number} Remaining hold in ms (`0` = flush now).
+ */
+export function computeFlushHoldMs({now, windowMs, firstQueuedAt, lastFlushAt = 0, refractoryMs = POST_FLUSH_REFRACTORY_MS, capMs = COALESCE_HARD_CAP_MS}) {
+    if (windowMs === 0) return 0;
+
+    const
+        refractoryRemaining = Math.max(0, (lastFlushAt + refractoryMs) - now),
+        capRemaining        = Math.max(0, (firstQueuedAt + capMs) - now);
+
+    return Math.min(refractoryRemaining, capRemaining)
 }

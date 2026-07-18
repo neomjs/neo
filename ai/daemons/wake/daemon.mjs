@@ -68,7 +68,10 @@ import {
     TASK_STATE_CHANGED_ENTITY_TYPE
 } from '../../services/memory-core/heartbeatPulseEvaluator.mjs';
 import {
+    COALESCE_HARD_CAP_MS,
     computeFlushDelayMs,
+    computeFlushHoldMs,
+    POST_FLUSH_REFRACTORY_MS,
     resolveCoalesceWindowMs
 } from './coalescePolicy.mjs';
 import {
@@ -97,9 +100,14 @@ const POLL_INTERVAL_MS                  = 3000;
 const CODEX_APP_SERVER_ADAPTER          = 'codex-app-server';
 const CODEX_TURN_START_PROOF_TIMEOUT_MS = Number(process.env.WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS) || 45000;
 const CODEX_TURN_START_PROOF_POLL_MS    = Number(process.env.WAKE_CODEX_TURN_START_PROOF_POLL_MS) || 1000;
-const CODEX_WAKE_SUBMIT_NONCE_PREFIX    = 'NEO_WAKE_SUBMIT_NONCE:';
-const WOKEN_MESSAGE_IDS_STATE_KEY       = '__messageIdsByIdentity';
-const WAKE_PRIORITY_RANKS               = {
+// Mechanism constants from ./coalescePolicy.mjs, env-tunable in the daemon's established
+// constant-override idiom (the Codex proof knobs above) — the pure policy module stays env-free;
+// witnesses drive short spans through these.
+const FLUSH_REFRACTORY_MS            = Number(process.env.WAKE_POST_FLUSH_REFRACTORY_MS) || POST_FLUSH_REFRACTORY_MS;
+const FLUSH_HARD_CAP_MS              = Number(process.env.WAKE_COALESCE_HARD_CAP_MS) || COALESCE_HARD_CAP_MS;
+const CODEX_WAKE_SUBMIT_NONCE_PREFIX = 'NEO_WAKE_SUBMIT_NONCE:';
+const WOKEN_MESSAGE_IDS_STATE_KEY    = '__messageIdsByIdentity';
+const WAKE_PRIORITY_RANKS            = {
     low   : 0,
     normal: 1,
     high  : 2
@@ -703,7 +711,9 @@ function queueEvent(subscription, eventPayload, watermarkResetCeiling = 0, water
             now          : Date.now(),
             windowMs,
             firstQueuedAt: state.firstQueuedAt,
-            lastFlushAt  : lastFlushAtBySub[subId] ?? 0
+            lastFlushAt  : lastFlushAtBySub[subId] ?? 0,
+            refractoryMs : FLUSH_REFRACTORY_MS,
+            capMs        : FLUSH_HARD_CAP_MS
         }));
     }
 }
@@ -804,6 +814,28 @@ async function flushSubscription(subId) {
     // lands after the in-flight attempt resolves (the defer idiom above, at poll cadence).
     if (deliveryInFlight.has(subId)) {
         state.timer = setTimeout(() => flushSubscription(subId), POLL_INTERVAL_MS);
+        return;
+    }
+
+    // Flush-time refractory gate: this timer's delay was computed at ARM time, so it cannot have
+    // seen a delivery that CONFIRMED after arming — canonically, events queued while the previous
+    // digest was in flight. Re-armed to the boundary here (cap still beats refractory), those
+    // events land as the NEXT properly-spaced digest instead of a back-to-back double prompt.
+    const flushWindowMs = resolveCoalesceWindowMs({
+        overrideSeconds: state.subscription.properties?.harnessTargetMetadata?.coalesceWindow,
+        defaultSeconds : AiConfig.orchestrator.wakeDispatch.coalesceWindowSeconds
+    });
+    const holdMs = computeFlushHoldMs({
+        now          : Date.now(),
+        windowMs     : flushWindowMs,
+        firstQueuedAt: state.firstQueuedAt,
+        lastFlushAt  : lastFlushAtBySub[subId] ?? 0,
+        refractoryMs : FLUSH_REFRACTORY_MS,
+        capMs        : FLUSH_HARD_CAP_MS
+    });
+
+    if (holdMs > 0) {
+        state.timer = setTimeout(() => flushSubscription(subId), holdMs);
         return;
     }
 

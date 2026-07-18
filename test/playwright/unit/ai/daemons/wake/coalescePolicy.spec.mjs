@@ -2,6 +2,7 @@ import {test, expect} from '@playwright/test';
 import {
     COALESCE_HARD_CAP_MS,
     computeFlushDelayMs,
+    computeFlushHoldMs,
     POST_FLUSH_REFRACTORY_MS,
     resolveCoalesceWindowMs
 } from '../../../../../../ai/daemons/wake/coalescePolicy.mjs';
@@ -108,6 +109,61 @@ test.describe('ai/daemons/wake/coalescePolicy', () => {
             firstQueuedAt: T0 - 999_999,        // cap long passed
             lastFlushAt  : T0                   // refractory at its freshest
         })).toBe(0)
+    });
+
+    test.describe('computeFlushHoldMs — the flush-time refractory gate', () => {
+        test('a flush firing right after a confirmed delivery is held to the refractory boundary', () => {
+            expect(computeFlushHoldMs({
+                now          : T0 + 10_000,
+                windowMs     : 150_000,
+                firstQueuedAt: T0 + 5_000,
+                lastFlushAt  : T0
+            })).toBe(POST_FLUSH_REFRACTORY_MS - 10_000)
+        });
+
+        test('no confirmed delivery, or one beyond the refractory, holds nothing', () => {
+            expect(computeFlushHoldMs({now: T0, windowMs: 150_000, firstQueuedAt: T0})).toBe(0);
+            expect(computeFlushHoldMs({
+                now          : T0,
+                windowMs     : 150_000,
+                firstQueuedAt: T0,
+                lastFlushAt  : T0 - POST_FLUSH_REFRACTORY_MS - 1
+            })).toBe(0)
+        });
+
+        test('the cap beats the hold: a queue at its latency bound flushes despite an active refractory', () => {
+            expect(computeFlushHoldMs({
+                now          : T0 + 295_000,     // 5s of cap left on this queue
+                windowMs     : 150_000,
+                firstQueuedAt: T0,
+                lastFlushAt  : T0 + 290_000      // refractory wants 115s more
+            })).toBe(5_000)
+        });
+
+        test('explicit-immediate subscriptions are exempt from the hold gate too', () => {
+            expect(computeFlushHoldMs({
+                now          : T0,
+                windowMs     : 0,
+                firstQueuedAt: T0 - 999_999,
+                lastFlushAt  : T0
+            })).toBe(0)
+        });
+
+        test('the mechanism constants are injectable parameters with the module constants as defaults', () => {
+            expect(computeFlushHoldMs({
+                now          : T0 + 500,
+                windowMs     : 2_000,
+                firstQueuedAt: T0 + 500,
+                lastFlushAt  : T0,
+                refractoryMs : 1_500
+            })).toBe(1_000);
+            expect(computeFlushDelayMs({
+                now          : T0 + 3_000,
+                windowMs     : 2_000,
+                firstQueuedAt: T0,
+                capMs        : 4_000
+            })).toBe(1_000)
+        })
     });
 
     test('constants sanity: the refractory sits strictly inside the hard cap', () => {
