@@ -189,7 +189,7 @@ test.describe('Fleet cockpit — dock projection wiring (the resize commit loop)
             const absent = options.resolveItem('fleet');
 
             expect(absent.module).toBe(FleetGrid);
-            expect(absent.header).toEqual({text: 'Fleet'});
+            expect(absent.header).toEqual({text: 'Fleet', dockItemId: 'fleet'});
             expect(absent.dockItemId).toBe('fleet');
             expect(absent.data).toMatchObject({componentRef: 'fleet-grid', dockItemId: 'fleet'})
         } finally {
