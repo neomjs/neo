@@ -827,7 +827,11 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
          * Example: code.LivePreview running inside a dist/production app.
          */
         if (ns) {
-            if (Neo.config.unitTestMode) {
+            // A SINGLETON re-registration honors the arbitration the comment above documents (singletons
+            // must stay unique) — return the existing instance, exactly as the non-test path does. The
+            // unitTestMode guard flags only a NON-singleton double-setup: the genuine test-isolation leak
+            // it exists to catch, where two independent classes collide on one namespace.
+            if (Neo.config.unitTestMode && !proto.constructor.config.singleton) {
                 throw new Error('Namespace collision in unitTestMode for ' + proto.constructor.config.className)
             }
 

@@ -75,4 +75,49 @@ test.describe('ClassSystem', () => {
         });
         expectations.forEach(item => expect(item.value, item.description).toBe(item.expected));
     });
+
+    test('unitTestMode setupClass returns the existing SINGLETON instead of throwing (#15364)', () => {
+        // The namespace-collision guard honors the documented singleton arbitration ("whichever
+        // registers first wins"): a re-registered singleton returns the existing instance, exactly as
+        // the non-test path does — it does NOT throw. This is what lets config.mjs + config.template.mjs
+        // (both className 'Neo.ai.Config', singleton) coexist in one unit process.
+        const className = 'Test.Unit.Core.ClassSystem.CollisionSingleton';
+
+        class FirstSingleton extends core.Base {
+            static config = {className, singleton: true}
+        }
+        const first = Neo.setupClass(FirstSingleton);
+
+        class SecondSingleton extends core.Base {
+            static config = {className, singleton: true}
+        }
+
+        let second, threw = false;
+        try {
+            second = Neo.setupClass(SecondSingleton)
+        } catch (e) {
+            threw = true
+        }
+
+        expect(threw, 'a re-registered singleton must NOT throw in unitTestMode').toBe(false);
+        expect(second, 'the second registration returns the existing singleton instance').toBe(first)
+    });
+
+    test('unitTestMode setupClass still THROWS for a NON-singleton double-setup (#15364)', () => {
+        // The guard's real purpose survives: two independent NON-singleton classes colliding on one
+        // namespace is a genuine test-isolation leak and must still fail loud.
+        const className = 'Test.Unit.Core.ClassSystem.CollisionNonSingleton';
+
+        class FirstClass extends core.Base {
+            static config = {className}
+        }
+        Neo.setupClass(FirstClass);
+
+        class SecondClass extends core.Base {
+            static config = {className}
+        }
+
+        expect(() => Neo.setupClass(SecondClass))
+            .toThrow('Namespace collision in unitTestMode for ' + className)
+    });
 });
