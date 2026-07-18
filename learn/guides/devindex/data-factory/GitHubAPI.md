@@ -57,13 +57,18 @@ if ((response.status >= 500 || response.status === 403) && retries > 0) {
 
 This path is GraphQL-specific. Its caller-supplied retry budget and secondary-abuse handling should not be confused with the independently configurable REST policy.
 
+### GraphQL Transient Retry & the Read/Mutation Boundary
+Beyond the server-failure/`403` policy above, the GraphQL path also retries **transient** failures — transport disconnects and GitHub's intermittent 200-body API errors (e.g. `Resource not accessible by integration`) — classified from the same shared `retryableTransientErrorPatterns` source of truth the REST path uses, so the two transports cannot drift into separate hand-maintained lists. Backoff uses the shared `restRetryBaseDelayMs` / `restRetryMaxDelayMs` / `restRetryJitterRatio` configs; their legacy REST-prefixed names remain stable for operator compatibility even though both transports now consume them.
+
+Retry **classification** (is the failure transient?) and retry **authorization** (is replay safe?) are separate decisions. A GraphQL `query` is idempotent by spec and safe to replay; a `mutation` is not. A transport disconnect leaves a mutation's server-side outcome unknowable, and a 200-body GraphQL response can carry partial `data` beside `errors` after mutation effects have applied. Mutations therefore fail loud rather than replay on either transient path; idempotent reads retain the bounded retry.
+
 ### REST Backoff
 REST requests retry only bounded transport failures. The default retryable statuses are `429`, `502`, `503`, and `504`; recognized fetch/network failures such as connection resets and timeouts use the same attempt budget. Operators can override the policy through the service's Neo configs:
 
 - `restMaxRetryAttempts`
-- `restRetryBaseDelayMs`
-- `restRetryMaxDelayMs`
-- `restRetryJitterRatio`
+- `restRetryBaseDelayMs` *(shared with the GraphQL transient retry; legacy name retained)*
+- `restRetryMaxDelayMs` *(shared with the GraphQL transient retry; legacy name retained)*
+- `restRetryJitterRatio` *(shared with the GraphQL transient retry; legacy name retained)*
 - `restRetryableHttpStatuses`
 
 When GitHub supplies `Retry-After`, the service honors either its numeric-seconds or HTTP-date form. Otherwise it uses capped exponential delay plus jitter. Every HTTP response updates the relevant `x-ratelimit-*` bucket before the service decides whether to retry.

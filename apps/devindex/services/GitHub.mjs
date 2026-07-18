@@ -50,17 +50,20 @@ class GitHub extends Base {
          */
         restMaxRetryAttempts: 3,
         /**
-         * Initial REST retry delay in milliseconds.
+         * Initial retry delay in milliseconds (shared by the REST loop and the GraphQL transient retry).
+         * The legacy `restRetry*` name is retained as the operator-facing compatibility contract.
          * @member {Number} restRetryBaseDelayMs=1000
          */
         restRetryBaseDelayMs: 1000,
         /**
-         * Maximum exponential REST retry delay in milliseconds.
+         * Maximum exponential retry delay in milliseconds (shared REST + GraphQL).
+         * The legacy `restRetry*` name is retained as the operator-facing compatibility contract.
          * @member {Number} restRetryMaxDelayMs=10000
          */
         restRetryMaxDelayMs: 10000,
         /**
-         * Jitter ratio applied to exponential REST retry delays.
+         * Jitter ratio applied to exponential retry delays (shared REST + GraphQL).
+         * The legacy `restRetry*` name is retained as the operator-facing compatibility contract.
          * @member {Number} restRetryJitterRatio=0.2
          */
         restRetryJitterRatio: 0.2,
@@ -69,6 +72,28 @@ class GitHub extends Base {
          * @member {Number[]} restRetryableHttpStatuses=[429,502,503,504]
          */
         restRetryableHttpStatuses: [429, 502, 503, 504],
+        /**
+         * Lower-cased message substrings that mark a transport OR API-level failure as a retryable
+         * transient condition — the single classification source of truth shared by the REST network
+         * catch and the GraphQL body/transport paths, so the two transports never drift into separate
+         * hand-maintained lists. GitHub's intermittent `Resource not accessible by integration`
+         * (a 200-body GraphQL error, transient despite its permissions wording — proven by same-token
+         * success four hours apart) sits here beside the transport failures; a genuine permission
+         * misconfiguration still fails loudly, only after the bounded budget rather than on attempt 1.
+         * @member {String[]} retryableTransientErrorPatterns
+         */
+        retryableTransientErrorPatterns: [
+            'fetch failed',
+            'network',
+            'terminated',
+            'timeout',
+            'econnreset',
+            'etimedout',
+            'enotfound',
+            'eai_again',
+            'socket hang up',
+            'resource not accessible by integration'
+        ],
         /**
          * Current Rate Limit Status
          * @member {Object} rateLimit
@@ -114,13 +139,13 @@ class GitHub extends Base {
     }
 
     /**
-     * @summary Calculates the delay for a transient REST retry.
+     * @summary Calculates the bounded, jittered backoff delay for a transient retry (shared REST + GraphQL).
      * @param {Number}        attempt       The 1-based retry attempt.
-     * @param {Response|null} [response=null] The failed response, when available.
+     * @param {Response|null} [response=null] The failed response, when available (honours `Retry-After`).
      * @returns {Number} Delay in milliseconds.
      * @private
      */
-    #getRestRetryDelay(attempt, response=null) {
+    #getRetryDelay(attempt, response=null) {
         const retryAfter = response?.headers?.get?.('retry-after');
 
         if (retryAfter) {
@@ -147,12 +172,14 @@ class GitHub extends Base {
     }
 
     /**
-     * @summary Determines whether a REST fetch failure is likely transient.
-     * @param {*} error The thrown fetch error.
+     * @summary Determines whether a failure — transport OR API-level — is a retryable transient
+     * condition, classified from the shared `retryableTransientErrorPatterns` source of truth so the
+     * REST and GraphQL transports never drift into separate hand-maintained lists.
+     * @param {Error|String} error The thrown error, or a GraphQL body-error message string.
      * @returns {Boolean}
      * @private
      */
-    #isRestRetryableNetworkError(error) {
+    #isRetryableTransientError(error) {
         const message = [
             error?.message,
             error?.cause?.message,
@@ -161,17 +188,22 @@ class GitHub extends Base {
             String(error)
         ].filter(Boolean).join(' ').toLowerCase();
 
-        return [
-            'fetch failed',
-            'network',
-            'terminated',
-            'timeout',
-            'econnreset',
-            'etimedout',
-            'enotfound',
-            'eai_again',
-            'socket hang up'
-        ].some(pattern => message.includes(pattern));
+        return this.retryableTransientErrorPatterns.some(pattern => message.includes(pattern));
+    }
+
+    /**
+     * @summary Whether a GraphQL operation document is a mutation. A `query` (or the anonymous
+     * shorthand) is idempotent by the GraphQL spec and safe to replay after a transient failure; a
+     * `mutation` is not — replaying it after an ambiguous outcome (a transport disconnect or a
+     * partial-data error response) can duplicate an already-applied write. Leading whitespace and
+     * `#` line comments are skipped before
+     * the leading operation keyword is read, so a documented mutation is still recognised.
+     * @param {String} query The GraphQL operation document.
+     * @returns {Boolean}
+     * @private
+     */
+    #isMutation(query) {
+        return /^\s*(#[^\n]*\n\s*)*mutation\b/.test(query);
     }
 
     /**
@@ -228,7 +260,7 @@ class GitHub extends Base {
      * @private
      */
     async #waitForRestRetry(prefix, reason, attempt, response=null) {
-        const delay = this.#getRestRetryDelay(attempt, response);
+        const delay = this.#getRetryDelay(attempt, response);
 
         console.warn(
             `${prefix} ${reason}; retrying in ${delay}ms ` +
@@ -291,14 +323,17 @@ class GitHub extends Base {
     }
 
     /**
-     * Executes a GraphQL query.
+     * Executes a GraphQL operation, retrying bounded transient failures (transport OR API-level, e.g.
+     * GitHub's intermittent `Resource not accessible by integration`) from the shared classification
+     * only when replay is safe for the operation.
      * @param {String} query
      * @param {Object} [variables={}]
      * @param {Number} [retries=3]
      * @param {String} [logContext='']
+     * @param {Number} [attempt=1] 1-based retry attempt, threaded through transient retries for backoff.
      * @returns {Promise<Object>} The `data` property of the response.
      */
-    async query(query, variables = {}, retries = 3, logContext = '') {
+    async query(query, variables = {}, retries = 3, logContext = '', attempt = 1) {
         const token  = await this.#getAuthToken();
         const prefix = logContext ? `[GitHub] [${logContext}]` : '[GitHub]';
 
@@ -372,6 +407,25 @@ class GitHub extends Base {
                     }
                 }
 
+                // A transient API failure can arrive as a 200-body error — GitHub intermittently returns
+                // `Resource not accessible by integration` for a query it otherwise permits (proven by the
+                // same token succeeding four hours apart). Classification comes from the SAME shared source
+                // of truth the REST path uses, while authorization remains operation-aware: GraphQL may
+                // return partial `data` beside `errors`, so a mutation might already have applied and must
+                // fail loud rather than replay. Idempotent reads retain the bounded retry.
+                const isTransientError = this.#isRetryableTransientError(messages);
+
+                if (isTransientError && this.#isMutation(query)) {
+                    throw new Error(`GraphQL Query Errors: ${messages}`);
+                }
+
+                if (retries > 0 && isTransientError) {
+                    const delay = this.#getRetryDelay(attempt, response);
+                    console.warn(`${prefix} Transient error: ${messages}; retrying in ${delay}ms (attempt ${attempt})`);
+                    await this.#sleep(delay);
+                    return this.query(query, variables, retries - 1, logContext, attempt + 1);
+                }
+
                 throw new Error(`GraphQL Query Errors: ${messages}`);
             }
 
@@ -382,16 +436,22 @@ class GitHub extends Base {
                 throw error;
             }
 
-            // Also catch network errors for retry
-            // 'terminated' likely means connection closed by server/proxy
-            if (retries > 0 && (
-                error.message.includes('fetch') ||
-                error.message.includes('network') ||
-                error.message.includes('terminated')
-            )) {
-                console.log(`${prefix} Network/Terminated Error: ${error.message}. Retrying...`);
-                await new Promise(r => setTimeout(r, 2000));
-                return this.query(query, variables, retries - 1, logContext);
+            // Transient failures retry from the SAME shared classification as the body-error path above
+            // and the REST path — one source of truth, not a second inline token list that drifts — the
+            // prior inline `fetch`/`network`/`terminated` list was exactly that drift.
+            if (retries > 0 && this.#isRetryableTransientError(error)) {
+                // Retry AUTHORIZATION is a separate decision from retry CLASSIFICATION: the failure is
+                // transient, but a transport disconnect or a partial-data error response leaves a
+                // mutation's server-side outcome ambiguous, so replaying it can duplicate an applied
+                // write. A GraphQL `query` is idempotent and safe to replay; a `mutation` is not.
+                if (this.#isMutation(query)) {
+                    console.error(`${prefix} Transient error on a mutation — NOT replaying (ambiguous outcome may have already applied the write): ${error.message}`);
+                    throw error;
+                }
+                const delay = this.#getRetryDelay(attempt);
+                console.warn(`${prefix} Transient transport error: ${error.message}; retrying in ${delay}ms (attempt ${attempt})`);
+                await this.#sleep(delay);
+                return this.query(query, variables, retries - 1, logContext, attempt + 1);
             }
             console.error(`${prefix} GraphQL Query Failed:`, error.message);
             throw error;
@@ -423,7 +483,7 @@ class GitHub extends Base {
                         }
                     });
                 } catch (error) {
-                    if (attempt < this.restMaxRetryAttempts && this.#isRestRetryableNetworkError(error)) {
+                    if (attempt < this.restMaxRetryAttempts && this.#isRetryableTransientError(error)) {
                         await this.#waitForRestRetry(
                             prefix,
                             `Transient REST transport failure (${error.message})`,
@@ -441,7 +501,7 @@ class GitHub extends Base {
                     try {
                         return await response.json();
                     } catch (error) {
-                        if (attempt < this.restMaxRetryAttempts && this.#isRestRetryableNetworkError(error)) {
+                        if (attempt < this.restMaxRetryAttempts && this.#isRetryableTransientError(error)) {
                             await this.#releaseRestResponseBody(response);
                             await this.#waitForRestRetry(
                                 prefix,
