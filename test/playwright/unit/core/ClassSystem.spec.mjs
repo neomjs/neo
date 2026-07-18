@@ -120,4 +120,42 @@ test.describe('ClassSystem', () => {
         expect(() => Neo.setupClass(SecondClass))
             .toThrow('Namespace collision in unitTestMode for ' + className)
     });
+
+    test('unitTestMode setupClass THROWS when a SINGLETON collides with an existing NON-singleton (#15364 mixed)', () => {
+        // Two-sided guard: the exemption must classify BOTH sides. A singleton arriving onto a namespace
+        // already holding a NON-singleton class is two distinct classes sharing a name — a real leak — so
+        // it must fail loud. A one-sided check that only inspects the INCOMING singleton would silently
+        // return the existing non-singleton here.
+        const className = 'Test.Unit.Core.ClassSystem.MixedNonSingletonFirst';
+
+        class FirstNonSingleton extends core.Base {
+            static config = {className}
+        }
+        Neo.setupClass(FirstNonSingleton);
+
+        class SecondSingleton extends core.Base {
+            static config = {className, singleton: true}
+        }
+
+        expect(() => Neo.setupClass(SecondSingleton))
+            .toThrow('Namespace collision in unitTestMode for ' + className)
+    });
+
+    test('unitTestMode setupClass THROWS when a NON-singleton collides with an existing SINGLETON (#15364 mixed)', () => {
+        // The opposite direction: a non-singleton arriving onto a namespace already holding a singleton
+        // instance is equally a leak — the exemption applies only when BOTH sides are singletons.
+        const className = 'Test.Unit.Core.ClassSystem.MixedSingletonFirst';
+
+        class FirstSingleton extends core.Base {
+            static config = {className, singleton: true}
+        }
+        Neo.setupClass(FirstSingleton);
+
+        class SecondNonSingleton extends core.Base {
+            static config = {className}
+        }
+
+        expect(() => Neo.setupClass(SecondNonSingleton))
+            .toThrow('Namespace collision in unitTestMode for ' + className)
+    });
 });

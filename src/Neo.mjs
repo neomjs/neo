@@ -5,7 +5,7 @@ const
     camelRegex   = /-./g,
     configSymbol = Symbol.for('configSymbol'),
     getSetCache  = Symbol('getSetCache'),
-    cloneMap = {
+    cloneMap     = {
         Array(obj, deep, ignoreNeoInstances) {
             return !deep ? obj.slice() : obj.map(val => Neo.clone(val, deep, ignoreNeoInstances))
         },
@@ -600,7 +600,7 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
 
             b.forEach(newItem => {
                 const
-                    itemKey = getItemKey(newItem),
+                    itemKey       = getItemKey(newItem),
                     existingIndex = itemKey !== null ? existingMap.get(itemKey) : -1;
 
                 if (existingIndex !== undefined && existingIndex > -1) {
@@ -827,12 +827,20 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
          * Example: code.LivePreview running inside a dist/production app.
          */
         if (ns) {
-            // A SINGLETON re-registration honors the arbitration the comment above documents (singletons
-            // must stay unique) — return the existing instance, exactly as the non-test path does. The
-            // unitTestMode guard flags only a NON-singleton double-setup: the genuine test-isolation leak
-            // it exists to catch, where two independent classes collide on one namespace.
-            if (Neo.config.unitTestMode && !proto.constructor.config.singleton) {
-                throw new Error('Namespace collision in unitTestMode for ' + proto.constructor.config.className)
+            // Exempt (return the already-registered value) ONLY when BOTH the incoming class and the
+            // existing registration are singletons — the documented "whichever registers first wins"
+            // arbitration (e.g. config.mjs + config.template.mjs, both 'Neo.ai.Config'). A non-singleton
+            // registers its class, a singleton its instance; a singleton colliding with a non-singleton on
+            // one namespace (in EITHER direction) is two distinct classes sharing a name — a genuine
+            // test-isolation leak — and must still fail loud.
+            if (Neo.config.unitTestMode) {
+                const existingClass       = ns.classConfigApplied ? ns : ns.constructor,
+                      incomingIsSingleton = proto.constructor.config.singleton === true,
+                      existingIsSingleton = existingClass?.config?.singleton === true;
+
+                if (!(incomingIsSingleton && existingIsSingleton)) {
+                    throw new Error('Namespace collision in unitTestMode for ' + proto.constructor.config.className)
+                }
             }
 
             return ns
