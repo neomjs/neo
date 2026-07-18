@@ -4,7 +4,7 @@ import Container               from '../../../../src/container/Base.mjs';
 import FamilyRail              from './FamilyRail.mjs';
 import Image                   from '../../../../src/component/Image.mjs';
 import SourceHealthMarker      from './SourceHealthMarker.mjs';
-import StateDot                from './StateDot.mjs';
+import StateDot, {stateLabel}  from './StateDot.mjs';
 import {normalizeFleetSources} from './sourceHealth.mjs';
 
 import {describeNameProvenance, resolveNameSlot} from './nameSlot.mjs';
@@ -107,14 +107,26 @@ class AgentCard extends Container {
             layout: {ntype: 'vbox', align: 'stretch'},
 
             items: [{
-                ntype : 'container',
-                cls   : ['fm-card-name-row'],
-                layout: {ntype: 'hbox', align: 'center'},
+                ntype    : 'container',
+                cls      : ['fm-card-name-row'],
+                reference: 'name-row',
+                layout   : {ntype: 'hbox', align: 'center'},
 
                 items: [{
                     module   : StateDot,
                     flex     : 'none',
                     reference: 'state-dot'
+                }, {
+                    // the visible State line (WCAG 1.4.1), folded INLINE beside the dot rather than onto
+                    // its own row: the density contract can't spend a scarce row on one state word at
+                    // 7–17 lanes, and adjacency pairs the colour (dot) and the colour-INDEPENDENT word at
+                    // one glance. Coloured with --fm-ink-dim (a text-safe ink), NEVER a --fm-state-* hue:
+                    // those are dot-tuned to the 3:1 non-text floor (--fm-state-off ≈ 3:1) and fail the
+                    // 4.5:1 TEXT floor — the dot carries the hue, the word carries the colour-free name.
+                    ntype    : 'component',
+                    cls      : ['fm-card-state'],
+                    flex     : 'none',
+                    reference: 'card-state'
                 }, {
                     // the dedicated native drill Button: the keyboard-operable target
                     // that opens the resident. A native <button> owns Enter/Space; its accessible name is
@@ -311,6 +323,12 @@ class AgentCard extends Container {
             live : displayState === 'ok' && runtime.confidence === 'observed',
             state: displayState
         });
+        // the visible State line: the SAME displayState the dot renders, named via the SAME closed-set
+        // stateLabel the dot names itself with — so colour (dot) and text can never disagree and no
+        // second state vocabulary is introduced (WCAG 1.4.1). An unrecognized state passes through as
+        // its literal word (stateLabel's contract) while the dot degrades to off: the word rescues a new
+        // runtime state colour alone would silently show as "off".
+        me.getReference('card-state').text = stateLabel(displayState);
         // a badge only for a REPORTED positive count: null/absent = the roster DTO carries no
         // stamped count — rendering "0 lanes" there would fabricate a fact no producer stated
         const laneCount = Number.isInteger(record.openLaneCount) && record.openLaneCount > 0 ? record.openLaneCount : null;
