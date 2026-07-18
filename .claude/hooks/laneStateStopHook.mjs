@@ -7,12 +7,16 @@
  *
  * Fires at every agent turn-end (the `Stop` event). The decision rule: there is NO valid voluntary
  * stop except a **live operator dialogue** — a turn that directly replied to a genuine human-operator
- * message, where the human takes the next turn (turn-taking, not idling) — or the ONE autonomous
- * edge, a **clean terminal**: a valid lane-state terminal whose named gates ALL await non-self actors,
- * after ≥2 compliant refused drives already proved the no-hold principle was honored this session
- * (the drive count is read from the hook's OWN audit log, the self identity from `NEO_AGENT_IDENTITY`
- * harness wiring — absent wiring keeps the edge inert, fail-closed). Acceptance is audited
- * (`[clean-terminal]` line + a transcript systemMessage), never silent. Outside that edge a "valid"
+ * message, where the human takes the next turn (turn-taking, not idling) — or one of TWO autonomous
+ * edges: the **material-artifact key** (the primary license — a transcript-verified lifecycle
+ * artifact, a PR opened or a formal review, shipped since this session's last accepted stop, plus a
+ * valid lane-state terminal; provenance is tool-use→tool-result ID-correlated, so prose can never
+ * mint it) or the artifact-less fallback, a **clean terminal**: a valid lane-state terminal whose
+ * named gates ALL await non-self actors, after ≥2 compliant refused drives already proved the
+ * no-hold principle was honored this session (the drive count is read from the hook's OWN audit
+ * log, the self identity from `NEO_AGENT_IDENTITY` harness wiring — absent wiring keeps the edge
+ * inert, fail-closed). Every acceptance is audited (`MATERIAL-ALLOW` / `[clean-terminal]` line + a
+ * transcript systemMessage), never silent. Outside that edge a "valid"
  * fenced ```lane-state block is a RECORD (the directive's context + the external substance record),
  * NOT a license to stop: declaring a lane and halting is the announce-without-execute idle-out the
  * hook exists to prevent.
@@ -165,33 +169,45 @@ export function countSessionCompliantRefusals(sessionId) {
 }
 
 /**
- * @summary Resolves the ISO timestamp of this session's LAST accepted stop (a `CLEAN-TERMINAL
- * ALLOW` or `MATERIAL-ALLOW` audit line) from the hook's own append-only log — the external
- * "since" boundary for the material-artifact key: an artifact shipped BEFORE the last accepted
- * stop cannot license a later one. Fail-open to `null` (no boundary — the whole session counts):
- * a missing log or an unmatched session means no stop was ever accepted, which is exactly the
- * no-boundary case. Exported + unit-tested via the log-format contract.
+ * @summary Resolves the ISO timestamp of this session's LAST accepted stop from the hook's own
+ * append-only log — the external "since" boundary for the material-artifact key: an artifact
+ * shipped BEFORE the last accepted stop cannot license a later one. EVERY accepted-stop class
+ * counts as a boundary: `MATERIAL-ALLOW`, `CLEAN-TERMINAL ALLOW`, and the ordinary dialogue
+ * `] ALLOW` (an operator-dialogue stop IS an accepted stop — artifacts shipped before it must not
+ * license the next autonomous one). The session needle is comma-delimited (`(session=<id>,`) so a
+ * session id that PREFIXES another can never cross-match. Two distinct non-boundary outcomes:
+ * `{iso: null, unavailable: false}` — the log is readable but records no accepted stop for this
+ * session (the legitimate session-start case; the whole session counts); `{iso: null,
+ * unavailable: true}` — the log could not be read at all (fail-CLOSED downstream: evidence that
+ * cannot prove its scope licenses nothing). Exported + unit-tested against the log-format contract.
  * @param {String} sessionId The Stop payload's `session_id`.
- * @returns {String|null}
+ * @param {String} [logFile=LOG_FILE] Injectable for tests.
+ * @returns {{iso: String|null, unavailable: Boolean}}
  */
-export function findLastAcceptedStopIso(sessionId) {
-    if (!sessionId || sessionId === '?') return null;
+export function findLastAcceptedStopIso(sessionId, logFile = LOG_FILE) {
+    if (!sessionId || sessionId === '?') return {iso: null, unavailable: false};
 
+    let raw;
     try {
-        const lines = fs.readFileSync(LOG_FILE, 'utf8').split('\n');
-
-        for (let i = lines.length - 1; i >= 0; i--) {
-            const line = lines[i];
-            if (!line.includes(`(session=${sessionId}`)) continue;
-            if (!line.includes('CLEAN-TERMINAL ALLOW') && !line.includes('MATERIAL-ALLOW')) continue;
-
-            const match = line.match(/^\[([^\]]+)\]/);
-            if (match && Number.isFinite(Date.parse(match[1]))) return match[1];
-        }
-        return null;
-    } catch {
-        return null;
+        raw = fs.readFileSync(logFile, 'utf8');
+    } catch (error) {
+        // A MISSING log is the legitimate first-run case (no stop was ever accepted anywhere);
+        // any OTHER read failure is corrupt/unreadable boundary evidence → unavailable.
+        return error?.code === 'ENOENT' ? {iso: null, unavailable: false} : {iso: null, unavailable: true};
     }
+
+    const needle = `(session=${sessionId},`,
+          lines  = raw.split('\n');
+
+    for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i];
+        if (!line.includes(needle)) continue;
+        if (!line.includes('CLEAN-TERMINAL ALLOW') && !line.includes('MATERIAL-ALLOW') && !line.includes('] ALLOW')) continue;
+
+        const match = line.match(/^\[([^\]]+)\]/);
+        if (match && Number.isFinite(Date.parse(match[1]))) return {iso: match[1], unavailable: false};
+    }
+    return {iso: null, unavailable: false};
 }
 
 // The curated no-hold-state directive injected on a block. References the always-loaded
@@ -699,11 +715,12 @@ async function main() {
 
     const deferenceDecision = decideDeferenceStopHookAction(finalText, {operatorInLoop, enforcing: ENFORCING});
     if (deferenceDecision) {
-        const reason  = `deference phrase "${deferenceDecision.phrase}" at turn-terminal`,
-              session = input.session_id || '?';
+        const reason   = `deference phrase "${deferenceDecision.phrase}" at turn-terminal`,
+              session  = input.session_id || '?',
+              identity = process.env.NEO_AGENT_IDENTITY || '?';
 
         if (deferenceDecision.action === 'block') {
-            auditLog(`BLOCK (session=${session}, operatorInLoop=${operatorInLoop}, midChainOperator=${midChainOperator}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
+            auditLog(`BLOCK (session=${session}, identity=${identity}, operatorInLoop=${operatorInLoop}, midChainOperator=${midChainOperator}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
             process.stdout.write(JSON.stringify({
                 decision: 'block',
                 reason  : deferenceDecision.reason
@@ -711,7 +728,7 @@ async function main() {
             return;
         }
 
-        auditLog(`WOULD-BLOCK (session=${session}, operatorInLoop=${operatorInLoop}, midChainOperator=${midChainOperator}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
+        auditLog(`WOULD-BLOCK (session=${session}, identity=${identity}, operatorInLoop=${operatorInLoop}, midChainOperator=${midChainOperator}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
         process.exit(0);
     }
 
@@ -764,9 +781,12 @@ async function main() {
     let materialArtifact = null;
     if (verdict.valid && !operatorInLoop) {
         try {
+            const boundary = findLastAcceptedStopIso(session);
+
             materialArtifact = evaluateMaterialArtifactKey({
-                verdictValid: true,
-                artifacts   : collectMaterialArtifactsFromJsonl(transcriptJsonl, {sinceIso: findLastAcceptedStopIso(session)})
+                verdictValid    : true,
+                sinceUnavailable: boundary.unavailable,
+                artifacts       : boundary.unavailable ? [] : collectMaterialArtifactsFromJsonl(transcriptJsonl, {sinceIso: boundary.iso})
             });
         } catch {
             materialArtifact = null;

@@ -6,17 +6,21 @@
  * unit of shipped motion is the lifecycle artifact, so the artifact IS the license and the terminal
  * stays the handoff record.
  *
- * Three artifact classes, all externally verifiable from tool-use/tool-result record shapes
- * (fail-closed: an unrecognized shape yields NO key — prose claims can never mint one):
- * - `pr-opened`      — a `gh pr create` tool call whose result carries the new PR URL;
- * - `formal-review`  — a `manage_pr_review` create call whose result confirms the posted review;
- * - `rc-response`    — the author-response cycle: a successful `git push` followed by a PR-comment
- *   call whose result confirms the posted comment (the v1 recognizer for "commits pushed + the
- *   response comment"; deliberately conservative — refinement rides dogfood evidence).
+ * Two artifact classes in v1, both provenance-correlated end-to-end (the producing `tool_use` is
+ * tracked by its `id`; ONLY the `tool_result` carrying the matching `tool_use_id` can confirm it;
+ * an `is_error` result confirms nothing; a result with no matching pending id confirms nothing):
+ * - `pr-opened`     — a `gh pr create` invocation (the command's FIRST token sequence, so shell
+ *   echo/quoting cannot impersonate it) whose own result carries the new PR URL;
+ * - `formal-review` — a `manage_pr_review` create call whose own result confirms the posted review.
+ *
+ * The own-PR RC-response cycle is deliberately NOT a v1 class: a trustworthy recognizer must bind a
+ * fresh push delta to the SAME author-owned PR under live CHANGES_REQUESTED authority — facts the
+ * transcript alone cannot establish without a false-proxy risk, so the class rides the ticket as a
+ * dogfood-gated successor rather than shipping weak.
  *
  * A PR-only key would fight the hook's own capacity advisory (review seats outrank new artifacts
  * past the own-open-PR threshold) and reinstate the commit-bias the contributions-over-commits
- * principle overrides — so formal reviews and RC-responses are first-class keys by design.
+ * principle overrides — so formal reviews are a first-class key by design.
  *
  * Pure + total throughout: injected strings in, plain objects out, never throws (turn-end hook
  * path), no imports beyond the standard library.
@@ -27,15 +31,14 @@
  * collector emits. Anything else is not a key.
  * @type {String[]}
  */
-export const MATERIAL_ARTIFACT_CLASSES = Object.freeze(['pr-opened', 'formal-review', 'rc-response']);
+export const MATERIAL_ARTIFACT_CLASSES = Object.freeze(['pr-opened', 'formal-review']);
 
-const PULL_URL_RE    = /github\.com\/[^\s"'\\]+\/pull\/(\d+)/;
-const COMMENT_URL_RE = /#issuecomment-\d+|Successfully created .*comment/i;
-const REVIEW_OK_RE   = /"reviewId"|Successfully created \w+ review/i;
-const PR_CREATE_RE   = /\bgh\s+pr\s+create\b/;
-const GIT_PUSH_RE    = /\bgit\s+push\b/;
-const PUSH_OK_RE     = /->\s+\S+|Everything up-to-date|branch .* set up to track/;
-const PR_COMMENT_RE  = /\bgh\s+pr\s+comment\b/;
+// The arming anchor tolerates leading env assignments but requires `gh pr create` as the actual
+// command head — `echo "gh pr create ..."`, quoted mentions, and pipelines that merely CONTAIN the
+// string never arm (the shell-impersonation negative).
+const PR_CREATE_HEAD_RE = /^(?:\s*[A-Za-z_][A-Za-z0-9_]*=\S+\s+)*gh\s+pr\s+create\b/;
+const PULL_URL_RE       = /github\.com\/[^\s"'\\]+\/pull\/(\d+)/;
+const REVIEW_OK_RE      = /"reviewId"|Successfully created \w+ review/i;
 
 /**
  * @summary Extracts the flat text of a tool_result content field (string, or joined text blocks).
@@ -53,10 +56,13 @@ function resultText(content) {
 
 /**
  * @summary Collects material lifecycle artifacts from a Claude Code JSONL transcript — the
- * verification substrate for {@link evaluateMaterialArtifactKey}. Walks tool_use records to arm a
- * per-class pending expectation and the FOLLOWING tool_result records to confirm it: an armed call
- * whose result never confirms yields nothing (fail-closed), and text that merely TALKS about a PR
- * or review arms nothing (the prose-claim negative by construction).
+ * verification substrate for {@link evaluateMaterialArtifactKey}. Provenance is ID-CORRELATED:
+ * a qualifying `tool_use` block arms a pending entry keyed by its `id`; only a `tool_result`
+ * block whose `tool_use_id` matches that key can confirm it, and an `is_error: true` result
+ * consumes the key while confirming nothing. Batched records (multiple tool_use or tool_result
+ * blocks in one message) are handled per block; a result with no matching pending key is ignored
+ * (so free-floating or replayed result text cannot mint an artifact); a use block without an `id`
+ * arms nothing (fail-closed — uncorrelatable provenance is no provenance).
  *
  * `sinceIso` scopes the key to "since this session's last accepted stop": records at-or-before the
  * boundary are ignored; when a boundary is given, records WITHOUT a parseable timestamp are also
@@ -70,10 +76,8 @@ export function collectMaterialArtifactsFromJsonl(jsonl = '', {sinceIso = null} 
     if (typeof jsonl !== 'string' || !jsonl) return [];
 
     const sinceMs   = sinceIso ? Date.parse(sinceIso) : null,
-          artifacts = [];
-
-    let pending = null, // {kind, ref} armed by the newest qualifying tool_use
-        pushConfirmed = false; // a successful `git push` seen inside the window (the rc-response first half)
+          artifacts = [],
+          pending   = new Map(); // tool_use.id → {kind, ref}
 
     for (const line of jsonl.split('\n')) {
         const trimmed = line.trim();
@@ -94,41 +98,35 @@ export function collectMaterialArtifactsFromJsonl(jsonl = '', {sinceIso = null} 
 
         for (const block of content) {
             if (block?.type === 'tool_use') {
+                // Uncorrelatable provenance is no provenance: a use block without an id arms nothing.
+                if (typeof block.id !== 'string' || !block.id) continue;
+
                 const name  = block.name || '',
                       input = block.input || {};
 
-                if (name === 'Bash' && typeof input.command === 'string') {
-                    if (PR_CREATE_RE.test(input.command)) {
-                        pending = {kind: 'pr-opened', ref: ''}
-                    } else if (GIT_PUSH_RE.test(input.command)) {
-                        pending = {kind: 'push', ref: ''}
-                    } else if (PR_COMMENT_RE.test(input.command)) {
-                        const match = input.command.match(/gh\s+pr\s+comment\s+(\d+)/);
-                        pending = {kind: 'pr-comment', ref: match ? `#${match[1]}` : ''}
-                    } else {
-                        pending = null
-                    }
+                if (name === 'Bash' && typeof input.command === 'string' && PR_CREATE_HEAD_RE.test(input.command)) {
+                    pending.set(block.id, {kind: 'pr-opened', ref: ''})
                 } else if (name === 'mcp__neo-mjs-github-workflow__manage_pr_review' && input.action === 'create') {
-                    pending = {kind: 'formal-review', ref: input.pr_number ? `#${input.pr_number}` : ''}
-                } else {
-                    pending = null
+                    pending.set(block.id, {kind: 'formal-review', ref: input.pr_number ? `#${input.pr_number}` : ''})
                 }
-            } else if (block?.type === 'tool_result' && pending) {
+                // any other tool_use arms nothing and disturbs nothing (batched records keep their keys)
+            } else if (block?.type === 'tool_result') {
+                const useId = typeof block.tool_use_id === 'string' ? block.tool_use_id : null,
+                      armed = useId ? pending.get(useId) : null;
+
+                if (!armed) continue;            // no matching producer — replayed/echoed text mints nothing
+                pending.delete(useId);           // one result consumes one key, confirming or not
+
+                if (block.is_error === true) continue; // a failed call is not an artifact
+
                 const text = resultText(block.content);
 
-                if (pending.kind === 'pr-opened' && PULL_URL_RE.test(text)) {
+                if (armed.kind === 'pr-opened' && PULL_URL_RE.test(text)) {
                     const match = text.match(PULL_URL_RE);
                     artifacts.push({class: 'pr-opened', ref: `#${match[1]}`, at: at || ''})
-                } else if (pending.kind === 'formal-review' && REVIEW_OK_RE.test(text)) {
-                    artifacts.push({class: 'formal-review', ref: pending.ref, at: at || ''})
-                } else if (pending.kind === 'push' && PUSH_OK_RE.test(text)) {
-                    pushConfirmed = true
-                } else if (pending.kind === 'pr-comment' && COMMENT_URL_RE.test(text) && pushConfirmed) {
-                    // the author-response cycle: confirmed push + confirmed PR comment, in order
-                    artifacts.push({class: 'rc-response', ref: pending.ref, at: at || ''})
+                } else if (armed.kind === 'formal-review' && REVIEW_OK_RE.test(text)) {
+                    artifacts.push({class: 'formal-review', ref: armed.ref, at: at || ''})
                 }
-
-                pending = null
             }
         }
     }
@@ -141,16 +139,24 @@ export function collectMaterialArtifactsFromJsonl(jsonl = '', {sinceIso = null} 
  * terminal (the handoff record still matters) plus at least one collector-confirmed artifact
  * (the license). The inputs are external by construction — the artifacts come from
  * {@link collectMaterialArtifactsFromJsonl} over the transcript, the boundary from the hook's own
- * audit log — so prose can never self-declare a key. Returns the accept/refuse verdict with the
- * audit-ready reason; the caller owns the `MATERIAL-ALLOW` audit line.
+ * audit log — so prose can never self-declare a key. When the boundary itself is UNAVAILABLE
+ * (`sinceUnavailable: true` — an unreadable/corrupt audit log), the key REFUSES regardless of
+ * artifacts: evidence that cannot prove its scope licenses nothing (fail-closed), and the refusal
+ * names the cause. Returns the accept/refuse verdict with the audit-ready reason; the caller owns
+ * the `MATERIAL-ALLOW` audit line.
  * @param {Object} input
  * @param {Boolean} [input.verdictValid=false] The lane-state terminal validation verdict.
  * @param {Object[]} [input.artifacts=[]] Collector-confirmed artifacts — each `{class, ref}` (String fields).
+ * @param {Boolean} [input.sinceUnavailable=false] True when the accepted-stop boundary could not be read.
  * @returns {{accept: Boolean, reason: String}}
  */
-export function evaluateMaterialArtifactKey({verdictValid = false, artifacts = []} = {}) {
+export function evaluateMaterialArtifactKey({verdictValid = false, artifacts = [], sinceUnavailable = false} = {}) {
     if (!verdictValid) {
         return {accept: false, reason: 'terminal verdict not valid — the material-artifact key still requires a valid lane-state terminal'}
+    }
+
+    if (sinceUnavailable) {
+        return {accept: false, reason: 'the accepted-stop boundary is unreadable — artifacts cannot prove their scope, so the key refuses (fail-closed)'}
     }
 
     const confirmed = Array.isArray(artifacts)
@@ -160,7 +166,7 @@ export function evaluateMaterialArtifactKey({verdictValid = false, artifacts = [
     if (!confirmed.length) {
         return {
             accept: false,
-            reason: 'no material lifecycle artifact since the last accepted stop — ship one (a PR opened, a formal review, or an RC-response cycle); that is the stop key'
+            reason: 'no material lifecycle artifact since the last accepted stop — ship one (a PR opened or a formal review); that is the stop key'
         }
     }
 

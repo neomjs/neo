@@ -1,5 +1,6 @@
 import {test, expect}                                                                              from '@playwright/test';
 import {composeBlockDirective, composeDeferenceDirective, countSessionCompliantRefusals, decideHookAction,
+        findLastAcceptedStopIso,
         isOperatorInLoop, parseOutcomeToVerdict,
         extractFinalAssistantText, extractLastAssistantTextFromJsonl, extractLastUserTextFromJsonl,
         extractLatestHumanUserTextFromJsonl,
@@ -992,5 +993,56 @@ test.describe('laneStateStopHook — clean-terminal support units', () => {
         expect(formatCapacityAdvisory({openPRs: [{number: 1}, {number: 2}]}, {threshold: 2})).toContain('Capacity: 2 own PRs');
         // malformed entries are excluded from the count (only 2 valid of 4 → below default threshold)
         expect(formatCapacityAdvisory({openPRs: [null, {}, {number: 1}, {number: 2}]})).toBe('');
+    });
+});
+
+test.describe('findLastAcceptedStopIso — the accepted-stop boundary, literal and fail-closed', () => {
+    const SID  = 'aaaa1111-2222-3333-4444-555566667777';
+    const LONG = `${SID}-extended`;   // SID is a strict PREFIX of this id
+
+    const writeLog = lines => {
+        const file = path.join(os.tmpdir(), `neo-boundary-spec-${Date.now()}-${Math.random().toString(36).slice(2)}.log`);
+        fs.writeFileSync(file, lines.join('\n') + '\n', 'utf8');
+        return file
+    };
+
+    test('every accepted-stop class is a boundary — including the ordinary dialogue ALLOW', () => {
+        // append-only chronological, like the real log: the newest line IS the newest stop
+        const file = writeLog([
+            `[2026-07-18T04:00:00.000Z] BLOCK (session=${SID}, identity=x): valid lane-state terminal refused`,
+            `[2026-07-18T04:30:00.000Z] CLEAN-TERMINAL ALLOW (session=${SID}, identity=x): [clean-terminal] accepted`,
+            `[2026-07-18T05:00:00.000Z] ALLOW (session=${SID}, identity=x, operatorInLoop=true): live operator dialogue — yielding for the human turn`
+        ]);
+
+        try {
+            // the ordinary dialogue ALLOW at 05:00 is the LAST accepted stop, not the 04:30 clean terminal —
+            // an operator-dialogue stop IS an accepted stop, so pre-dialogue artifacts cannot key later
+            expect(findLastAcceptedStopIso(SID, file)).toEqual({iso: '2026-07-18T05:00:00.000Z', unavailable: false})
+        } finally { fs.unlinkSync(file) }
+    });
+
+    test('a session id that PREFIXES another can never cross-match (the comma-delimited needle)', () => {
+        const file = writeLog([
+            `[2026-07-18T05:00:00.000Z] MATERIAL-ALLOW (session=${LONG}, identity=x): [material-allow] earned`
+        ]);
+
+        try {
+            expect(findLastAcceptedStopIso(SID, file)).toEqual({iso: null, unavailable: false})
+        } finally { fs.unlinkSync(file) }
+    });
+
+    test('readable-but-unmatched is the legitimate session-start case; UNREADABLE evidence is unavailable (fail-closed downstream)', () => {
+        const file = writeLog([`[2026-07-18T05:00:00.000Z] BLOCK (session=${SID}, identity=x): refused`]);
+
+        try {
+            expect(findLastAcceptedStopIso(SID, file)).toEqual({iso: null, unavailable: false});
+        } finally { fs.unlinkSync(file) }
+
+        // a MISSING log is first-run legitimate (no stop ever accepted anywhere)
+        expect(findLastAcceptedStopIso(SID, path.join(os.tmpdir(), 'neo-definitely-absent.log')))
+            .toEqual({iso: null, unavailable: false});
+
+        // any OTHER read failure (a directory is not a readable log) = corrupt boundary evidence
+        expect(findLastAcceptedStopIso(SID, os.tmpdir())).toEqual({iso: null, unavailable: true})
     });
 });
