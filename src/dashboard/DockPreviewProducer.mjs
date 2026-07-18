@@ -180,14 +180,16 @@ class DockPreviewProducer extends Base {
      * @param {Object} params
      * @param {Object} params.pointer {x, y} window-local pointer
      * @param {Object[]} params.zones [{nodeId, rect, orientation?}] rendered dock-zone rects, outer → inner
-     * @param {String} params.itemId the dragged dock item id
+     * @param {String} params.itemId the representative dragged dock item id
+     * @param {String} [params.groupNodeId] runtime-only whole-stack source node id
      * @param {String} [params.containerId] the hovered workspace/container id
      * @param {Object} [params.source] producer surface, e.g. {surface, sortZoneId}
      * @param {String} [params.sourceNodeId] the drag's origin dock node (used as sortZoneId fallback)
      * @returns {Object|null} a `neo.harness.dockPreview.v1` payload, or null
      */
-    produce({pointer, zones, itemId, containerId=null, source=null, sourceNodeId=null}={}) {
-        if (typeof itemId !== 'string' || !itemId) return null;
+    produce({pointer, zones, itemId, groupNodeId=null, containerId=null, source=null, sourceNodeId=null}={}) {
+        if (typeof itemId !== 'string' || !itemId ||
+            (groupNodeId != null && (typeof groupNodeId !== 'string' || !groupNodeId))) return null;
 
         let zone = this.hitTestZone(zones, pointer);
 
@@ -197,7 +199,7 @@ class DockPreviewProducer extends Base {
 
         if (kind === 'rejected') return null;
 
-        return this.buildPreview({containerId, itemId, source, sourceNodeId}, zone.nodeId, kind, zone.orientation)
+        return this.buildPreview({containerId, groupNodeId, itemId, source, sourceNodeId}, zone.nodeId, kind, zone.orientation)
     }
 
     /**
@@ -206,16 +208,18 @@ class DockPreviewProducer extends Base {
      * The single payload-assembly path shared by the pointer-inference `produce()` and the
      * indicator-menu `produceCandidates()`, so an indicator candidate and the pointer-inferred
      * preview for the same placement are IDENTICAL objects field-for-field — including the
-     * deterministic `previewId` (`preview:<item>:<node>:<kind>`) the renderer diffs on.
-     * @param {Object} params {itemId, containerId, source, sourceNodeId} as passed to the producer entry points
+     * deterministic `previewId` (`preview:<item>:<node>:<kind>` or
+     * `preview:group:<groupNodeId>:<node>:<kind>`) the renderer diffs on.
+     * @param {Object} params {itemId, groupNodeId, containerId, source, sourceNodeId} as passed to the producer entry points
      * @param {String} nodeId the target dock node
      * @param {String} kind a non-`rejected` placement kind
      * @param {String} [orientation] the target's parent-split orientation (required for `split-*` kinds)
      * @returns {Object} a `neo.harness.dockPreview.v1` payload
      * @protected
      */
-    buildPreview({containerId=null, itemId, source=null, sourceNodeId=null}, nodeId, kind, orientation) {
-        let placement = {kind};
+    buildPreview({containerId=null, groupNodeId=null, itemId, source=null, sourceNodeId=null}, nodeId, kind, orientation) {
+        let placement = {kind},
+            subjectId = groupNodeId ? `group:${groupNodeId}` : itemId;
 
         if (kind === 'split-before' || kind === 'split-after') {
             placement.orientation = orientation
@@ -223,12 +227,13 @@ class DockPreviewProducer extends Base {
 
         return {
             schema   : this.schema,
-            previewId: `preview:${itemId}:${nodeId}:${kind}`,
+            previewId: `preview:${subjectId}:${nodeId}:${kind}`,
             itemId,
-            source   : source ?? {surface: 'dashboard-sort-zone', sortZoneId: sourceNodeId},
-            target   : {containerId, nodeId},
+            ...(groupNodeId ? {groupNodeId} : {}),
+            source  : source ?? {surface: 'dashboard-sort-zone', sortZoneId: sourceNodeId},
+            target  : {containerId, nodeId},
             placement,
-            feedback : {state: 'accepted'}
+            feedback: {state: 'accepted'}
         }
     }
 
@@ -283,22 +288,24 @@ class DockPreviewProducer extends Base {
      * @param {Object} params
      * @param {Object} params.pointer {x, y} window-local pointer
      * @param {Object[]} params.zones [{nodeId, rect, orientation?}] rendered dock-zone rects, outer → inner
-     * @param {String} params.itemId the dragged dock item id
+     * @param {String} params.itemId the representative dragged dock item id
+     * @param {String} [params.groupNodeId] runtime-only whole-stack source node id
      * @param {String} [params.containerId] the hovered workspace/container id
      * @param {Object} [params.source] producer surface, e.g. {surface, sortZoneId}
      * @param {String} [params.sourceNodeId] the drag's origin dock node
      * @param {Object} [params.root] {nodeId, rect} the document root + its measured rect (enables the edge chips)
      * @returns {Object|null} a `neo.harness.dockCandidates.v1` payload, or null
      */
-    produceCandidates({pointer, zones, itemId, containerId=null, source=null, sourceNodeId=null, root=null}={}) {
-        if (typeof itemId !== 'string' || !itemId) return null;
+    produceCandidates({pointer, zones, itemId, groupNodeId=null, containerId=null, source=null, sourceNodeId=null, root=null}={}) {
+        if (typeof itemId !== 'string' || !itemId ||
+            (groupNodeId != null && (typeof groupNodeId !== 'string' || !groupNodeId))) return null;
 
         let me   = this,
             zone = me.hitTestZone(zones, pointer);
 
         if (!zone) return null;
 
-        let params = {containerId, itemId, source, sourceNodeId},
+        let params = {containerId, groupNodeId, itemId, source, sourceNodeId},
             cross  = ['center', 'top', 'right', 'bottom', 'left'].map(position => ({
                 position,
                 preview: me.buildPreview(params, zone.nodeId, me.directionKind(position, zone.orientation), zone.orientation)
@@ -319,9 +326,10 @@ class DockPreviewProducer extends Base {
         return {
             schema: me.candidatesSchema,
             itemId,
-            zone  : {nodeId: zone.nodeId, rect: zone.rect, orientation: zone.orientation ?? null},
+            ...(groupNodeId ? {groupNodeId} : {}),
+            zone: {nodeId: zone.nodeId, rect: zone.rect, orientation: zone.orientation ?? null},
             cross,
-            root  : rootOut
+            root: rootOut
         }
     }
 }

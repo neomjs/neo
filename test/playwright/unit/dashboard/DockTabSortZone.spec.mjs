@@ -198,6 +198,89 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
         })
     });
 
+    test.describe('whole-stack gesture — existing drag lifecycle, grouped semantic terminal', () => {
+        test('drag-start on the projected grip stamps the model-resolved group and bypasses tab reorder setup', async () => {
+            const dragStarts = [];
+            const strategy   = {id: 'strategy-button', vdom: {id: 'strategy-vdom'}};
+            const swarm      = {id: 'swarm-button', vdom: {id: 'swarm-vdom'}};
+            const zone       = {
+                dockGroupNodeId  : 'main-tabs',
+                dockItemIds      : ['strategy', 'swarm'],
+                dockWorkspaceId  : 'popup',
+                dragStart        : data => dragStarts.push(data),
+                isStackHandleDrag: DockTabSortZone.prototype.isStackHandleDrag,
+                owner            : {
+                    getDomRect: async () => ({x: 10, y: 20, width: 300, height: 32}),
+                    items     : [strategy, swarm]
+                }
+            };
+            const data = {path: [{cls: ['neo-dock-stack-handle']}, {id: 'swarm-button'}]};
+
+            await DockTabSortZone.prototype.onDragStart.call(zone, data);
+
+            expect(dragStarts).toEqual([data]);
+            expect(zone.stackDragActive).toBe(true);
+            expect(zone.dragComponent).toBe(swarm);
+            expect(zone.dragElement).toBe(swarm.vdom);
+            expect(zone.startIndex).toBe(1);
+            expect(zone.dockSourceToolbarRect).toEqual({x: 10, y: 20, width: 300, height: 32});
+            expect(swarm).toMatchObject({
+                dockGroupNodeId      : 'main-tabs',
+                dockItemId           : 'swarm',
+                dockSourceWorkspaceId: 'popup'
+            })
+        });
+
+        test('commit and cancel each report exactly one terminal, then clear grouped drag state', async () => {
+            const run = async cancelled => {
+                const calls = [];
+                const zone  = {
+                    dockGroupNodeId: 'main-tabs',
+                    dockItemIds    : ['swarm'],
+                    dockWorkspaceId: 'popup',
+                    dragComponent  : {id: 'swarm-button'},
+                    dragElement    : {id: 'swarm-vdom'},
+                    dragEnd        : data => calls.push(['cleanup', data]),
+                    dragCoordinator: {
+                        onDragCancel: () => calls.push(['coordinator-cancel']),
+                        onDragEnd   : () => calls.push(['coordinator-end'])
+                    },
+                    owner              : {up: () => ({fire: (name, data) => calls.push([name, data])})},
+                    remoteDropCommitted: !cancelled,
+                    sortGroup          : 'dock-demo',
+                    stackDragActive    : true,
+                    startIndex         : 0
+                };
+                const data = {cancelled};
+
+                await DockTabSortZone.prototype.processDragEnd.call(zone, data);
+
+                return {calls, zone}
+            };
+
+            const committed = await run(false);
+            const cancelled = await run(true);
+
+            expect(committed.calls.map(([name]) => name)).toEqual(['coordinator-end', 'dockStackDragTerminal', 'cleanup']);
+            expect(committed.calls[1][1]).toMatchObject({
+                cancelled: false, committed: true, errors: [], groupNodeId: 'main-tabs',
+                itemId   : 'swarm', outcome: 'committed'
+            });
+            expect(cancelled.calls.map(([name]) => name)).toEqual(['coordinator-cancel', 'dockStackDragTerminal', 'cleanup']);
+            expect(cancelled.calls[1][1]).toMatchObject({
+                cancelled: true, committed: false, errors: [], groupNodeId: 'main-tabs',
+                itemId   : 'swarm', outcome: 'cancelled'
+            });
+
+            for (const state of [committed.zone, cancelled.zone]) {
+                expect(state.remoteDropCommitted).toBe(false);
+                expect(state.stackDragActive).toBe(false);
+                expect(state.dragComponent).toBeNull();
+                expect(state.startIndex).toBe(-1)
+            }
+        })
+    });
+
     test.describe('tear-out gesture terminals — the choreography outcome routing', () => {
         // Prototype-driven like every pin above: the drag-end decision chain is the unit; the
         // base lifecycle is stubbed to nothing so only the dock routing under test runs.

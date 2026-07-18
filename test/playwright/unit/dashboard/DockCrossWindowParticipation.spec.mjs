@@ -173,6 +173,64 @@ test.describe('Neo.dashboard.DockCrossWindowParticipation (ADR 0029 §2.3 — wo
         participation.destroy()
     });
 
+    test('whole-stack drop: only the source model-resolved stack root transfers and publication gates source retirement', () => {
+        const source    = sourceDoc();
+        const target    = targetDoc();
+        const transfers = [];
+
+        target.nodes['target-tabs'] = target.nodes['main-tabs'];
+        target.nodes.root.zones.center = 'target-tabs';
+        delete target.nodes['main-tabs'];
+
+        const create = commitTransfer => Neo.create(DockCrossWindowParticipation, {
+            commitTransfer,
+            dragCoordinator   : createCoordinatorStub([]),
+            getDocument       : () => target,
+            getForeignDocument: workspaceId => workspaceId === 'A' ? source : null,
+            sortGroup         : 'dock-demo',
+            windowId          : 'window-b',
+            workspaceId       : 'B'
+        });
+        const operation = {
+            operation: 'transferNode',
+            nodeId   : 'main-tabs',
+            target   : {targetNodeId: 'target-tabs', placement: {kind: 'tab-into'}}
+        };
+        const drag     = {dockGroupNodeId: 'main-tabs', dockItemId: 'strategy', dockSourceWorkspaceId: 'A'};
+        const accepted = create(pair => transfers.push(pair));
+        const result   = accepted.commitDrop(operation, drag);
+
+        expect(result).not.toBeNull();
+        expect(transfers).toHaveLength(1);
+        expect(transfers[0].descriptor).toEqual({
+            ...operation,
+            sourceWorkspaceId: 'A',
+            targetWorkspaceId: 'B'
+        });
+        expect(transfers[0].sourceDocument.items.strategy).toBeUndefined();
+        expect(transfers[0].targetDocument.nodes['target-tabs'].items).toEqual(['alpha', 'strategy']);
+
+        const mismatch = create(() => { throw new Error('a non-root group must never publish') });
+
+        expect(mismatch.commitDrop(
+            {...operation, nodeId: 'side-tabs'},
+            {...drag, dockGroupNodeId: 'side-tabs', dockItemId: 'terminal'}
+        )).toBeNull();
+
+        let   refusedPublications = 0;
+        const refused             = create(() => { refusedPublications++; return false });
+
+        expect(refused.commitDrop(operation, drag)).toBeNull();
+        expect(refusedPublications).toBe(1);
+        // The executor is pure and a refused publication cannot retire the source workspace.
+        expect(source.items.strategy).toBeDefined();
+        expect(target.items.strategy).toBeUndefined();
+
+        accepted.destroy();
+        mismatch.destroy();
+        refused.destroy()
+    });
+
     test('foreign addTab and splitNode publish verbatim finite item records that remain topology-capturable', () => {
         for (const operation of [
             {operation: 'addTab', itemId: 'terminal', tabsNodeId: 'main-tabs'},

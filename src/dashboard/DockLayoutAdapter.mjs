@@ -6,6 +6,10 @@ import DockTabSortZone    from './DockTabSortZone.mjs';
 import DockZoneModel      from './DockZoneModel.mjs';
 import TabOverflowPlugin  from '../tab/plugin/Overflow.mjs';
 
+// Private runtime restoration slot for live component instances projected through the popup
+// stack grip. Symbol-keyed so it can never collide with application config or persisted data.
+const stackHeaderSource = Symbol('dockStackHeaderSource');
+
 /**
  * @summary Projects Agent Harness dock-zone model nodes into existing Neo layout and tab configs.
  *
@@ -113,22 +117,47 @@ class DockLayoutAdapter extends Base {
      * @summary Applies adapter-owned item metadata and one-use add-tab decoration to a pane config.
      *
      * Reconciliation discovers live panes before consulting its app resolver. When a pane is genuinely
-     * absent, this pure helper lets that resolver prepare the same config the normal projection path
+     * absent, this helper lets that resolver prepare the same config the normal projection path
      * would have emitted without copying dashboard-owned header policy into the consuming workspace.
-     * Neo instances intentionally pass through unchanged; transient header decoration remains a
-     * plain-config capability and therefore fails closed to an instant landing for custom instances.
+     * Add-tab animation remains plain-config-only. The stack handle also supports a LIVE component
+     * instance through a symbol-keyed runtime header overlay whose exact prior ownership/value is
+     * restored as soon as that instance projects without the handle; the popup affordance therefore
+     * cannot leak into the main workspace or persisted item state.
      * @param {*} component Resolved pane config or live component instance.
      * @param {String} itemId Stable item identity.
      * @param {Object} item Persisted item record.
      * @param {Object} [options={}]
      * @param {String|null} [options.nodeId=null] Owning projected tabs-node id.
+     * @param {Boolean} [options.stackHandle=false] Decorate this exact header with the runtime grip.
      * @param {Object|null} [options.tabInsertDescriptor=null] One-use normalized `addTab` correlation.
      * @returns {*}
      * @static
      */
-    static decorateProjectedItem(component, itemId, item, {nodeId=null, tabInsertDescriptor=null}={}) {
+    static decorateProjectedItem(component, itemId, item, {nodeId=null, stackHandle=false, tabInsertDescriptor=null}={}) {
         let config = this.decorateItemConfig(component, itemId, item),
             header;
+
+        if (config instanceof Base) {
+            let source = config[stackHeaderSource];
+
+            if (stackHandle) {
+                source ||= config[stackHeaderSource] = {
+                    hadOwn: Object.hasOwn(config, 'header'),
+                    value : config.header
+                };
+                config.header = this.createStackHeader(source.value, itemId, item)
+            } else if (source) {
+                if (source.hadOwn) {
+                    config.header = source.value
+                } else {
+                    delete config.header
+                }
+
+                delete config[stackHeaderSource]
+            }
+
+            return config
+        }
 
         if (config?.constructor === Object
             && tabInsertDescriptor?.operation === 'addTab'
@@ -146,7 +175,41 @@ class DockLayoutAdapter extends Base {
             }
         }
 
+        if (config?.constructor === Object && stackHandle) {
+            config.header = this.createStackHeader(config.header, itemId, item)
+        }
+
         return config
+    }
+
+    /**
+     * @summary Creates the runtime-only whole-stack header overlay from an untouched source.
+     * @param {Object|null} header Existing header config.
+     * @param {String} itemId Stable item identity.
+     * @param {Object} item Persisted item record.
+     * @returns {Object}
+     * @protected
+     * @static
+     */
+    static createStackHeader(header, itemId, item) {
+        let source = header?.constructor === Object ? header : {text: header ?? item?.title ?? itemId},
+            text   = source.text;
+
+        return {
+            ...source,
+            text: [
+                ...(Array.isArray(text)
+                    ? text
+                    : [text?.constructor === Object ? text : {vtype: 'text', text: text ?? item?.title ?? itemId}]),
+                {
+                    'aria-hidden': true,
+                    cls          : ['neo-dock-stack-handle'],
+                    tag          : 'span',
+                    text         : '⠿',
+                    title        : 'Drag whole stack'
+                }
+            ]
+        }
     }
 
     /**
@@ -249,6 +312,8 @@ class DockLayoutAdapter extends Base {
      * re-projection loop) with no error surfacing anywhere.
      * @param {Object} model
      * @param {Object} [options={}]
+     * @param {Boolean} [options.enableStackDrag=false] Decorate the model-resolved stack root
+     *     with one runtime-only whole-stack grip and arm its existing dock SortZone.
      * @param {Function} [options.resolveComponentRef]
      * @param {Function} [options.resolveRevealComponentRef] Durable resolver retained by edge rails.
      * @param {Object|null} [options.tabInsertDescriptor] Runtime-only normalized `addTab`
@@ -267,7 +332,10 @@ class DockLayoutAdapter extends Base {
             throw new Error('DockLayoutAdapter requires a model with `root` and `nodes`.')
         }
 
-        let config = this.projectNode(model.root, {
+        let stackDragNodeId = options.enableStackDrag === true
+                ? DockZoneModel.resolveStackRoot(model)
+                : null,
+            config = this.projectNode(model.root, {
             applyDockZoneOperation: options.applyDockZoneOperation,
             autoHideRevealOnHover : options.autoHideRevealOnHover === true,
             // Cross-WINDOW participation (docking design record §2.3, additive + opt-in): a composition that
@@ -289,6 +357,7 @@ class DockLayoutAdapter extends Base {
             onDockCrossZoneDragCancel: options.onDockCrossZoneDragCancel,
             onDockCrossZoneDragMove  : options.onDockCrossZoneDragMove,
             onDockCrossZoneDrop      : options.onDockCrossZoneDrop,
+            onDockStackDragTerminal  : options.onDockStackDragTerminal,
             onDockTearOutCancel      : options.onDockTearOutCancel,
             onDockTearOutEntry       : options.onDockTearOutEntry,
             onDockTearOutExit        : options.onDockTearOutExit,
@@ -298,6 +367,7 @@ class DockLayoutAdapter extends Base {
             resolveRevealComponentRef: options.resolveRevealComponentRef
                 || options.resolveComponentRef
                 || (() => null),
+            stackDragNodeId,
             tabInsertDescriptor: options.tabInsertDescriptor ?? null,
             workspaceId        : options.workspaceId ?? null
         });
@@ -690,13 +760,18 @@ class DockLayoutAdapter extends Base {
         }
 
         // One-use operation correlation: only a real addTab's exact target header receives
-        // the dashboard-owned producer. Non-object component results fail safe to an instant
-        // landing; no broad selector or document mutation is used as a fallback.
-        projectedItems = items.map(itemId => this.decorateProjectedItem(
+        // the dashboard-owned producer. Whole-stack projection additionally overlays the active
+        // root header (plain config OR live instance) with exact restoration on its next item-only
+        // projection; no broad selector or committed-document mutation is used as a fallback.
+        projectedItems = items.map((itemId, index) => this.decorateProjectedItem(
             this.projectItem(itemId, context),
             itemId,
             context.items[itemId],
-            {nodeId, tabInsertDescriptor: context.tabInsertDescriptor}
+            {
+                nodeId,
+                stackHandle        : nodeId === context.stackDragNodeId && index === activeIndex,
+                tabInsertDescriptor: context.tabInsertDescriptor
+            }
         ));
 
         return {
@@ -721,6 +796,7 @@ class DockLayoutAdapter extends Base {
                 plugins       : [{module: TabOverflowPlugin}],
                 sortZoneConfig: {
                     module          : DockTabSortZone,
+                    dockGroupNodeId : nodeId === context.stackDragNodeId ? nodeId : null,
                     dockItemIds     : items,
                     dockSourceNodeId: nodeId,
                     // §2.3 source identity (opt-in): the coordinator gates registration on
@@ -752,6 +828,10 @@ class DockLayoutAdapter extends Base {
                 // closure holds `context` (captured here, not serialized), so the reducer survives config
                 // cloning and needs no component-tree walk. The reducer hit-tests the target zone + commits.
                 dockCrossZoneDrop: data => context.onDockCrossZoneDrop?.(data),
+                // Whole-stack terminal: exactly one committed/cancelled/refused outcome leaves
+                // the generic SortZone. The host composes its vessel-park policy at this closure;
+                // no app callback enters sortZoneConfig or committed dock state.
+                dockStackDragTerminal: data => context.onDockStackDragTerminal?.(data),
                 // Tear-out gesture seams (§2.8): the zone re-fires the inherited boundary events here.
                 // Cancel retires the host's vessel with zero model mutation; entry is a resumed
                 // in-window gesture (vessel closes, no outcome); exit is where the host acquires its

@@ -71,6 +71,27 @@
     }
 }
 
+// Runtime-only handle projected into the active header of a transferable stack root. The real
+// tab button remains the drag owner; this child only distinguishes whole-stack intent from an
+// ordinary item drag. No application palette dependency — it inherits the tab's own foreground.
+.neo-dock-stack-handle {
+    cursor             : grab;
+    display            : inline-flex;
+    margin-inline-start: 0.4em;
+    opacity            : 0.65;
+    padding-inline     : 0.15em;
+    touch-action       : none;
+    user-select        : none;
+
+    &:hover {
+        opacity: 1;
+    }
+
+    &:active {
+        cursor: grabbing;
+    }
+}
+
 // Arrival settle: a brief outline pulse on the pane that just landed from another window
 // (§2.3 cross-window arrival) — the workspace toggles the class; the animation completes
 // itself. transform/opacity/outline only: no layout thrash.

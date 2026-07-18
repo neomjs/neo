@@ -9,6 +9,7 @@ setup({
 import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
+import Component          from '../../../../src/component/Base.mjs';
 import DockLayoutAdapter  from '../../../../src/dashboard/DockLayoutAdapter.mjs';
 import DockRail           from '../../../../src/dashboard/DockRail.mjs';
 import DockSplitter       from '../../../../src/dashboard/DockSplitter.mjs';
@@ -656,6 +657,63 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
             });
 
             expect(result.items[0].headerToolbar.sortZoneConfig.enableProxyToPopup).toBe(false)
+        })
+    });
+
+    test.describe('whole-stack projection threading — one model-derived grip', () => {
+        test('a live pane gets a reversible runtime header overlay with its original restored exactly', () => {
+            const pane    = Neo.create(Component, {header: {text: 'Live pane'}}),
+                item      = {componentRef: 'live', kind: 'panel', title: 'Live pane'},
+                decorated = DockLayoutAdapter.decorateProjectedItem(pane, 'live', item, {stackHandle: true}),
+                grip      = decorated.header.text[1];
+
+            expect(decorated).toBe(pane);
+            expect(grip.cls).toEqual(['neo-dock-stack-handle']);
+
+            const restored = DockLayoutAdapter.decorateProjectedItem(pane, 'live', item);
+
+            expect(restored).toBe(pane);
+            expect(restored.header).toEqual({text: 'Live pane'});
+
+            pane.destroy()
+        });
+
+        test('the opt-in decorates only the active resolved-stack header and threads its terminal', () => {
+            const terminals = [];
+            const model     = createEdgeZoneModel();
+            const snapshot  = JSON.parse(JSON.stringify(model));
+            const result    = DockLayoutAdapter.project(model, {
+                enableStackDrag        : true,
+                onDockStackDragTerminal: data => terminals.push(data),
+                resolveComponentRef    : componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            });
+            const mainTabs = result.items[0].items[0];
+            const header   = mainTabs.items[1].header;
+
+            expect(mainTabs.items[0].header.text).toBe('Strategy');
+            expect(header.text[0]).toEqual({vtype: 'text', text: 'Swarm'});
+            expect(header.text[1]).toMatchObject({
+                'aria-hidden': true,
+                cls          : ['neo-dock-stack-handle'],
+                tag          : 'span',
+                title        : 'Drag whole stack'
+            });
+            expect(mainTabs.headerToolbar.sortZoneConfig.dockGroupNodeId).toBe('main-tabs');
+            expect(result.items[0].items[1].items[0].headerToolbar.sortZoneConfig.dockGroupNodeId).toBeNull();
+
+            mainTabs.listeners.dockStackDragTerminal({groupNodeId: 'main-tabs'});
+            expect(terminals).toEqual([{groupNodeId: 'main-tabs'}]);
+            expect(model).toEqual(snapshot)
+        });
+
+        test('without the opt-in every projected header and sort zone stays item-only', () => {
+            const result = DockLayoutAdapter.project(createEdgeZoneModel(), {
+                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            });
+            const mainTabs = result.items[0].items[0];
+
+            expect(mainTabs.items.map(item => item.header.text)).toEqual(['Strategy', 'Swarm']);
+            expect(mainTabs.headerToolbar.sortZoneConfig.dockGroupNodeId).toBeNull()
         })
     });
 });
