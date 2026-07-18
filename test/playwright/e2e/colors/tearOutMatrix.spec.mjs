@@ -38,7 +38,7 @@ test.describe('tear-out portability matrix — colors app, headed', () => {
         await expect(page.locator('.colors-viewport')).toBeVisible({timeout: 60000})
     });
 
-    test('row 1 — hysteretic grammar: a slow boundary crossing detaches below 0.8 moving out, popup acquired, no oscillation', async ({context, page}) => {
+    test('row 1 probe — boundary-exit fires on a slow crossing, popup acquired MID-GESTURE, persists the drop terminal, Neo content renders (ratio-trace + instance-identity receipts pending)', async ({context, page}) => {
         const handle = page.locator(itemHandle).first();
 
         await expect(handle, 'calibration: the dashboard item drag handle must exist on the surface').toBeVisible({timeout: 30000});
@@ -102,7 +102,7 @@ test.describe('tear-out portability matrix — colors app, headed', () => {
         await expect(popup.locator('[id^="neo-"]').first(), `adopted Neo content renders in the popup (console: ${popupConsole.join(' | ')})`).toBeVisible({timeout: 45000})
     });
 
-    test('row 2 — acquisition: transient activation EXPIRES across a >5s gesture — release-time window.open is the negative baseline', async ({page}) => {
+    test('row 2 probe — activation decay-trace capture across an 8s held gesture (expiry itself UNMEASURABLE under CDP input; receipts recorded, verdict pending real-input + blocking-controlled cells)', async ({page}) => {
         const handle = page.locator(itemHandle).first();
 
         await expect(handle).toBeVisible({timeout: 30000});
@@ -159,7 +159,7 @@ test.describe('tear-out portability matrix — colors app, headed', () => {
         expect(trace.length,      'the decay trace was captured across the 8s gesture').toBeGreaterThan(2)
     });
 
-    test('row 3 — moving embodiment: post-acquisition pointer-follow receipts + the close-attribution capture', async ({context, page}, testInfo) => {
+    test('row 3 probe — post-acquisition lifecycle-terminal receipts (requested-vs-observed coordinate pairing pending)', async ({context, page}, testInfo) => {
         const handle = page.locator(itemHandle).first();
 
         await expect(handle).toBeVisible({timeout: 30000});

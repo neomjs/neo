@@ -1,14 +1,18 @@
 # The Tear-Out Portability Matrix
 
-The measured per-platform truth for the multi-window tear-out lineage (Dynamic Proxy
-Transitioning + intersection-ratio hysteresis + the live-popup embodiment). Multi-window
-implementation defaults — acquisition path, moving embodiment, fallbacks — are selected FROM this
-matrix, never from assumption: WHATWG activation, `moveTo` throttling, and screen-topology
-permissions all vary by platform.
+**An empirical EVIDENCE LEDGER — subordinate to its authorities, never normative itself.** This
+document accumulates the measured per-platform receipts for the multi-window tear-out lineage
+(Dynamic Proxy Transitioning + intersection-ratio hysteresis + the live-popup embodiment).
+Multi-window implementation defaults — acquisition path, moving embodiment, fallbacks — are
+selected by CITING this ledger's receipts, under the authority of ADR 0029 and the live matrix
+contract: WHATWG activation, `moveTo` throttling, and screen-topology permissions all vary by
+platform, and assumption is not evidence.
 
-Authority chain: Discussion #15204 OQ2 `[RESOLVED_TO_AC]` (the ratified matrix contract) →
-issue #15243 (the executing spike) → this document (the committed result the G1/G2
-implementation leaves cite as their defaults-selection authority).
+Authority chain (this ledger sits at the BOTTOM): Discussion #15204 OQ2 `[RESOLVED_TO_AC]` (the
+ratified matrix contract) → issue #15243 (OPEN — owns the complete 7×3 result and the
+revalidation gate) → this ledger (the accumulating receipts its children produce). The ledger
+is registered hidden in the learn tree: an internal evidence surface, not a public-facing
+guide.
 
 ## The grammar under test
 
@@ -38,10 +42,12 @@ workstation — 20 items / 9 nodes / 6 tab nodes (1·12·2·2·1·2 distribution
 - `NOT_YET_MEASURED` — no qualifying headed environment has executed the cell yet. An honest
   hole, never a guess.
 
-**Universal invariants asserted in every cell:** gesture continuity · same-instance permanence ·
-JSON-only persisted state · exact-once commit · idempotent cleanup. Any `FAIL` on a universal
-invariant fires the epic's `revalidationTrigger` (reopen the design discussion, pause consuming
-implementation).
+**Universal invariants — REQUIRED in every completed cell** (a cell's verdict is admissible only
+when its receipts assert all five): gesture continuity · same-instance permanence · JSON-only
+persisted state · exact-once commit · idempotent cleanup. The current qualified probes do NOT
+yet assert them — which is exactly why every cell below remains `NOT_YET_MEASURED`. Any
+confirmed `FAIL` on a universal invariant fires the epic's `revalidationTrigger` (reopen the
+design discussion, pause consuming implementation).
 
 ## The matrix
 
@@ -84,10 +90,10 @@ this instrument.
 **RETIRED — the truth is sharper and worse**: with the close-listener attached inside the
 acquisition race, the popup closed **2 ms after birth** (`acquiredToCloseMs: 2`), BEFORE the
 first continued move (`closedAfterMoveMs: -30`), before pointer-up (`closedBeforeUp: true`),
-with zero console output captured — **and that absence is INSTRUMENT-BLIND, not negative**: the
+with zero console output captured — **and that absence was INSTRUMENT-BLIND, not negative**: the
 colors app runs on a SharedWorker, whose console `page.on('console')` cannot see, so the
-re-entry path's own log line is invisible to this witness (the earlier "no re-entry
-involvement" phrasing is retracted; sweep scope was the page console only). Same-choreography
+re-entry path's own log line was invisible to this witness (the earlier "no re-entry
+involvement" phrasing was retracted; sweep scope was the page console only). Same-choreography
 runs nondeterministically
 survive (row 1's three earlier greens) or reap at birth — **a race between the continuing
 pointer-move stream and the popup-birth / `startWindowDrag` handoff**, silently violating the
@@ -97,10 +103,11 @@ this witness** (session total: ~8 reaps across 12 same-choreography runs). Instr
 carried honestly per footnote ²'s lesson: the rate is measured under CDP-synthesized input,
 which this same suite proved distorts activation semantics — the real-input reap rate is
 unknown (the flagship demo's manual operation suggests real-mouse tear-outs succeed at a far
-higher rate). Classification: CONFIRMED high-rate invariant violation UNDER AUTOMATION;
-engine-side attribution is the named successor investigation. Whether an automation-measured
-violation qualifies the epic's `revalidationTrigger` is the ROUND's call, not this document's —
-the question is posed to the epic owners with these receipts.
+higher rate). **RESOLVED (2026-07-18):** the race was attributed (a false re-entry — the exit's own layout
+choreography jumped the hysteresis read) and FIXED at mechanism in PR #15413 (Schmitt-trigger
+arming, merged); this ledger's own witness confirmed 6/6 survivals post-fix against the exact
+pre-fix baseline, and the post-rebase run holds 3/3. The `revalidationTrigger` question is
+resolved-as-fixed; rows 4–7 are measurable again as #15243 children.
 
 **Attribution hypothesis (source-anchored, falsifier-backed):** the boundary-EXIT reconfigures
 the exact geometry the hysteresis reads — the drag placeholder hides and the remaining items
