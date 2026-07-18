@@ -1,0 +1,104 @@
+/* AgentOS.view.fleet.OperatorComposeForm — the operator write surface (#15377, D#15372 slice).
+   Layout + the actions rail only; every color reads from the --fm-* token layer (no hardcoded
+   colors, no CSS-in-JS — the fields inherit the theme's form-field styling). Sibling of
+   AgentDetail.scss (the read-half mailbox pane); same token vocabulary so the cockpit speaks one
+   language across read and write. */
+.fm-operator-mailbox {
+    // The auto-hide reveal slot is height-bounded. Let this flex item shrink to that bound and own
+    // the vertical overflow; otherwise the outcome rows render below the viewport with no scroll
+    // owner, making the send verdicts present in DOM truth but unreachable to the operator.
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.fm-operator-compose-form {
+    gap    : 10px;
+    padding: 12px;
+
+    /* stacked field labels (labelPosition: top) get an even rhythm and a quiet label */
+    .neo-form-field {
+        gap: 4px;
+
+        .neo-form-field-label {
+            color      : var(--fm-ink-dim);
+            font-size  : 12px;
+            font-weight: 600;
+        }
+    }
+
+    /* the recipient picker is a real multi-select list (not a form field), so it carries its own quiet
+       label and a bordered, scrollable well; a selected row takes the signal accent to read as chosen —
+       every color a --fm-* token, so both skins hold by construction */
+    .fm-operator-compose-recipients {
+        gap: 4px;
+
+        .fm-operator-compose-recipients-label {
+            color      : var(--fm-ink-dim);
+            font-size  : 12px;
+            font-weight: 600;
+        }
+
+        .fm-operator-compose-recipients-list {
+            border       : 1px solid var(--fm-line-soft);
+            border-radius: 6px;
+            overflow-y   : auto;
+
+            .neo-list-item {
+                cursor : pointer;
+                padding: 6px 10px;
+
+                &.neo-selected {
+                    background: color-mix(in srgb, var(--fm-signal) 16%, transparent);
+                    color     : var(--fm-ink);
+                }
+            }
+        }
+    }
+
+    /* the message body wants room; the mono face matches the mailbox rows it will be read beside */
+    .fm-operator-compose-body {
+        textarea {
+            font-family: var(--fm-font-mono);
+            line-height: 1.45;
+        }
+    }
+
+    /* the send rail sits under a soft divider, its control pushed to the trailing edge by the spacer */
+    .fm-operator-compose-actions {
+        gap          : 8px;
+        margin-top   : 4px;
+        padding-top  : 10px;
+        border-top   : 1px solid var(--fm-line-soft);
+
+        .neo-button {
+            /* the send affordance carries the signal accent — the one emphasized action on the form */
+            .neo-button-glyph,
+            .neo-button-text {
+                color: var(--fm-signal);
+            }
+        }
+    }
+
+    /* the send-outcome surface: one row per recipient verdict, colored by status — every color a --fm-*
+       token, so both skins hold by construction. Shown only once the owner writes an outcome back. */
+    .fm-operator-compose-outcome {
+        display       : flex;
+        flex-direction: column;
+        gap           : 2px;
+
+        &:not(:empty) {
+            margin-top: 8px;
+        }
+
+        .fm-compose-outcome-row {
+            border-radius: 4px;
+            font-size    : 12px;
+            padding      : 3px 8px;
+
+            &.is-sent    { color: var(--fm-state-ok); }
+            &.is-refused { color: var(--fm-ink-dim); }
+            &.is-error   { color: var(--fm-kind-alert); }
+            &.is-pending { color: var(--fm-ink-faint); font-style: italic; }
+        }
+    }
+}
