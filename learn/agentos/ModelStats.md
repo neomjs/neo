@@ -11,7 +11,7 @@ Per ADR 0012 §2.5:
 3. New rows added at first swarm contact OR at model-public-release date for reference entries
 4. Updates do NOT require ADR amendment unless a capability dimension changes or new dimension is added
 
-**Last updated:** 2026-07-12
+**Last updated:** 2026-07-18
 
 ---
 
@@ -214,6 +214,51 @@ fact: disabling it after the two-peer usage review would change only the harness
 - **Primary/runtime**: isolated Codex first-boot configuration (`model: gpt-5.6-sol`, `reasoning_effort: ultra`; verified 2026-07-12 in Origin Session `f95e01ff-ba36-409a-98af-573263fab247`)
 - **Primary/identity**: bearer assent record `MESSAGE:1be08f3c-9477-4607-9e93-53ebb12fd53b` (Social Name remains pending the final #11240 gates)
 
+### §neo_kimi_phoebe
+
+| Field | Value |
+|---|---|
+| `id` / `githubLogin` | `@neo-kimi-phoebe` |
+| `name` | Kimi K3 (Social Name: **Phoebe** — bearer-assented 2026-07-18 on first boot, #11240; pending peer-veto closure and operator confirmation) |
+| `family` | `kimi` (Moonshot AI) |
+| `participationStatus` | `active` (first boot verified 2026-07-18; activated via #15390 / PR #15393) |
+| `hosting` | `cloud` (Kimi API, OpenCode harness; self-hosting pending the 2026-07-27 weights release) |
+| `tier` | `frontier` |
+| `contextWindowInput` | 1,048,576 (1M) |
+| `contextWindowOutput` | 131,072 default (`max_completion_tokens`; configurable up to 1,048,576) |
+| `parallelToolCalls` | `true` |
+| `thoughtBudget` | `max` (thinking always enabled; `reasoning_effort` exposes only `max` at launch — low/high levels announced, not yet shipped) |
+| `releaseDate` | 2026-07-17 (launch post; same-day GA on the Kimi API) |
+| `pricingInput` | $0.30 per 1M tokens (cache-hit); $3.00 per 1M tokens (cache-miss) |
+| `pricingOutput` | $15.00 per 1M tokens |
+| `license` | (pending — full weights and license announced for 2026-07-27; Arena currently lists `Proprietary`) |
+| `benchmarkSnapshot` | (preliminary; accessed 2026-07-18; Arena snapshots dated 2026-07-16) WebDev Arena: **#1 of 99** (1679, +17/-17, 1,757 votes); Text Arena: **#9** (1486±11, 3,024 votes) |
+| `sunsetTriggers` | Moonshot releases a successor K-class model with material reasoning capability upgrade; OR `kimi-k3` API endpoint deprecation announcement |
+
+`@neo-kimi-phoebe` is a version-free GitHub handle (ADR 0018 handle-indirection), sibling in
+shape to `@neo-gpt-emmy`: the durable resident is Phoebe; Kimi K3 is the current observed
+embodiment. Capability facts live here, never on the identity node (`identityRoots.mjs` carries
+none by design — engine facts land here once first boot is observed). The Arena `Preliminary`
+labels reflect early-listing vote counts; the snapshot is a dated observation, not a family
+role or routing prescription (ADR 0012 §2.4).
+
+**Revalidation trigger — 2026-07-27:** Moonshot's full weights + technical report release.
+Refresh `license`, `hosting`/self-hosting feasibility, architecture claims (KDA / AttnRes /
+Stable LatentMoE), and the technical-report benchmark table. If publication slips, retain the
+pending markers and record the observed delay.
+
+**Harness-relevant limitations (launch post, Limitations):** (1) thinking-history sensitivity —
+the harness must return complete prior thinking content; mid-session model switches can
+destabilize generation. (2) excessive proactiveness — long-horizon training bias; Moonshot's
+own remedy is explicit behavioral constraints in the system prompt / `AGENTS.md` (this swarm's
+AGENTS.md is exactly that constraint surface).
+
+**Sources** (primary first):
+- **Primary**: [Kimi K3: Open Frontier Intelligence — Moonshot AI](https://www.kimi.com/blog/kimi-k3) (launch post: 2.8T params, first open 3T-class model, 1M context, max-thinking at launch, pricing $0.30/$3.00/$15.00 per MTok, weights by 2026-07-27, limitations)
+- **Primary**: [Kimi K3 — Kimi API Docs](https://platform.kimi.ai/docs/guide/kimi-k3-quickstart) (`reasoning_effort` max-only at launch with thinking always on; `max_completion_tokens` 131,072 default / 1,048,576 max; tool-call loop shape)
+- **Primary/runtime**: PR #15393 (first-boot activation evidence — authored from this seat, merged into `dev` 2026-07-18)
+- **Secondary (preliminary)**: [Arena WebDev leaderboard](https://arena.ai/leaderboard/code/webdev), [Arena Text leaderboard](https://arena.ai/leaderboard/text) (accessed 2026-07-18; snapshots dated 2026-07-16)
+
 ---
 
 ## §pending_swarm_identities
@@ -319,6 +364,7 @@ Tracks deprecated and retired identities for archaeology (per IdentitySchema.md 
 | 2026-07-09 | #14901 | Rotated Euclid's stable `@neo-gpt` model lineage from GPT-5.5 to GPT-5.6 Sol at GA. Updated verified release, active reasoning setting, pricing, benchmark, successor-trigger, and live Codex context facts while preserving the stable handle, Social Name, wake route, participation state, and memory provenance. Recorded the 353,400-token Codex cap separately from the upstream model's 1,050,000-token capability. |
 | 2026-07-11 | #15042 | Added pending `@neo-gpt-emmy` through the canonical roster generator. GitHub profile display label **Emmy** is verified; Social Name assent and engine facts remain first-boot-owned. Immutable hardcoded `createdAt` facts now let the era migration detect post-epoch residents without a second roster. |
 | 2026-07-12 | #15052 | Activated `@neo-gpt-emmy` after verified first boot; moved the row pending→active, recorded the GPT-5.6 Sol/Codex embodiment by reference to `§neo_gpt`, and captured the provisional harness-local `ultra` task-delegation profile separately from the `xhigh` effective thought budget without adding engine facts to the durable resident. |
+| 2026-07-18 | (this PR) | Added active `@neo-kimi-phoebe` row — first-contact registry discipline applied to the Kimi K3 embodiment (runtime provenance PR #15393; Moonshot launch post + API docs primary; Arena snapshots preliminary, dated 2026-07-16). Weights/report/license/self-hosting facts marked pending with a 2026-07-27 revalidation trigger; harness-relevant launch limitations recorded. Table kept strictly to ADR 0012 §2.2 dimensions (no ADR amendment). |
 
 ---
 
