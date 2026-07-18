@@ -684,19 +684,19 @@ class GraphService extends Base {
      * Retrieves a specific node by its ID.
      *
      * The default `lean` projection hoists only the identity fields — the token-economy contract
-     * roster-wide sweeps rely on. `projection: 'full'` returns the SAME shape plus the node's
-     * complete `properties` bag (a superset — e.g. the IdentitySchema capability facts on an
-     * AgentIdentity node), so a single node's stored facts are readable through the graph's own
-     * read verb.
+     * roster-wide sweeps rely on. `projection: 'full'` returns the SAME shape plus the type's
+     * PUBLIC FACT SET (e.g. the IdentitySchema facts on an AgentIdentity node), so a single node's
+     * public facts are readable through the graph's own read verb.
      *
-     * **The full projection is type-allowlisted** — the policy lives in the pure
-     * {@link module:ai/services/memory-core/nodeProjection} module (hermetically witnessed):
-     * graph-row RLS answers "may this row participate in the caller's graph?" — it is NOT a
-     * substitute for a type's own field authorization (the `MESSAGE` counterexample: shared row,
-     * mailbox-audience-gated body). A non-allowlisted type answers the LEAN shape.
+     * **The full projection is a field-level pick, never the raw bag** — the policy lives in the
+     * pure {@link module:ai/services/memory-core/nodeProjection} module (hermetically witnessed):
+     * graph-row RLS answers "may this row participate in the caller's graph?" — it is NOT field
+     * authorization (the `MESSAGE` counterexample: shared row, mailbox-audience-gated body; the
+     * auto-provision counterexample: a global AgentIdentity row carrying provider/auth/timing
+     * metadata). Types without a public fact set answer the LEAN shape.
      * @param {Object} data
      * @param {String} data.id
-     * @param {'lean'|'full'} [data.projection='lean'] `'full'` adds the `properties` bag to the lean shape for allowlisted types.
+     * @param {'lean'|'full'} [data.projection='lean'] `'full'` adds the type's public fact set to the lean shape.
      * @returns {Object|null}
      */
     getNode({id, projection = 'lean'}) {

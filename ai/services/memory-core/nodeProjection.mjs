@@ -6,23 +6,35 @@
  * Two projections, one authorization rule:
  * - **lean** (default): exactly the six hoisted identity fields — the token-economy contract
  *   roster-wide sweeps rely on.
- * - **full**: the SAME shape plus the node's complete `properties` bag — but ONLY for
- *   {@link FULL_PROJECTION_TYPES allowlisted} node types. Graph-row RLS answers "may this row
- *   participate in the caller's graph?"; it is NOT field authorization. A `MESSAGE` row is
- *   deliberately RLS-moot (`sharedEntity: true`) while its `bodyText` is guarded by the mailbox
- *   audience edges (`MailboxService.getMessage`) — an unallowlisted raw bag would bypass that
- *   contract. Non-allowlisted types answer the LEAN shape: fail-closed to the cheaper truth,
- *   mechanically detectable via the absent `properties` key.
+ * - **full**: the SAME shape plus the type's **public fact set** — a FIELD-level pick, never the
+ *   raw bag. Graph-row RLS answers "may this row participate in the caller's graph?"; it is NOT
+ *   field authorization, and even an allowlisted TYPE holds heterogeneous fields: auto-provisioned
+ *   `AgentIdentity` rows are globally visible yet carry provider/auth/timing metadata
+ *   (`authProvider`, `providerBaseUrl`, `providerUserId`, `lastAuthenticatedAt`, …) that no owning
+ *   service signed off for generic reads. The `MESSAGE` counterexample sits one level up: its row
+ *   is deliberately RLS-moot (`sharedEntity: true`) while `bodyText` is mailbox-audience-gated.
+ *   A type without a public fact set — or a fact outside it — answers the LEAN truth: fail-closed,
+ *   mechanically detectable via the absent key.
+ *
+ * The policy authority is module-PRIVATE by design: exporting a mutable allowlist would itself be
+ * a runtime bypass surface. Consumers get behavior; the fact sets change only by editing this
+ * module with the owning service's field-authorization sign-off.
  * @module ai/services/memory-core/nodeProjection
  */
 
 /**
- * Node types whose complete `properties` bag may be exposed through the `full` projection.
- * A type joins this list only with its owning service's sign-off that every stored property is
- * safe for any caller who can see the row.
- * @type {Set<String>}
+ * The per-type PUBLIC fact sets exposable through the `full` projection — the single, private
+ * policy authority. A field joins a list only with the type's owning service signing off that it
+ * is safe for ANY caller who can see the row.
+ * @type {Map<String, String[]>}
+ * @private
  */
-export const FULL_PROJECTION_TYPES = new Set(['AgentIdentity']);
+const PUBLIC_NODE_FIELDS = new Map([
+    ['AgentIdentity', Object.freeze([
+        'accountType', 'createdAt', 'displayName', 'githubLogin',
+        'modelFamily', 'participationStatus', 'trustTier'
+    ])]
+]);
 
 /**
  * @summary Project one visible node's fields per the requested projection.
@@ -30,8 +42,8 @@ export const FULL_PROJECTION_TYPES = new Set(['AgentIdentity']);
  * @param {String}      node.id         The node id.
  * @param {String}      node.label      The node's graph type (e.g. `AgentIdentity`, `MESSAGE`).
  * @param {Object|null} node.properties The node's stored properties bag (may be absent).
- * @param {'lean'|'full'} [projection='lean'] `'full'` adds the `properties` bag for allowlisted types.
- * @returns {Object} The projected node — six hoisted fields, plus `properties` only when allowed.
+ * @param {'lean'|'full'} [projection='lean'] `'full'` adds the type's public fact set for allowlisted types.
+ * @returns {Object} The projected node — six hoisted fields, plus a picked `properties` only when allowed.
  */
 export function projectNode({id, label, properties}, projection = 'lean') {
     const result = {
@@ -43,8 +55,16 @@ export function projectNode({id, label, properties}, projection = 'lean') {
         state           : properties?.state
     };
 
-    if (projection === 'full' && FULL_PROJECTION_TYPES.has(label)) {
-        result.properties = properties || {}
+    const publicFields = projection === 'full' ? PUBLIC_NODE_FIELDS.get(label) : null;
+
+    if (publicFields) {
+        result.properties = {};
+
+        for (const field of publicFields) {
+            if (properties && field in properties) {
+                result.properties[field] = properties[field]
+            }
+        }
     }
 
     return result
