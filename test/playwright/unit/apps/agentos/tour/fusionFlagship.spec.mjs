@@ -89,14 +89,16 @@ test.describe.serial('apps/agentos/tour/fusionFlagship', () => {
         expect(result.errors).toEqual([]);
         expect(result.completed).toBe(true);
 
-        // finale document truth (cue-independent): the detail was detached by beat 3 and no
-        // reducer re-adds it (reattach is a HOST cue) — catalog record preserved, tree clean
+        // finale document truth in PURE replay (all host cues inert — pop-out/reattach and every
+        // perspective transition are host-owned): the two S2 ops are the only mutations, so the
+        // detail sits revealed in its split and the whole cast stays in the tree
         const finale = holder.dockZoneDocument;
 
         expect(finale.items.detail.title).toBe('Agent detail');
         expect(finale.items.detail.autoHidden).toBe(false);
         expect(finale.items.fleet.title).toBe('Fleet');
-        expect(DockZoneModel.findContainingTabsId(finale, 'detail')).toBeFalsy();
+        expect(finale.nodes['split-fleet-tabs-0'].orientation).toBe('horizontal');
+        expect(DockZoneModel.findContainingTabsId(finale, 'detail')).toBeTruthy();
         expect(DockZoneModel.findContainingTabsId(finale, 'fleet')).toBeTruthy();
         expect(DockZoneModel.findContainingTabsId(finale, 'stream')).toBeTruthy()
     });
@@ -117,13 +119,13 @@ test.describe.serial('apps/agentos/tour/fusionFlagship', () => {
         expect(second.log).toEqual(first.log)
     });
 
-    test('storyboard parity: four beats, operation budget S1:0 · S2:2 · S3:1 · S4:0', () => {
+    test('storyboard parity: four beats, operation budget S1:0 · S2:2 · S3:0 · S4:0 — the vessel beats are cues, never bare ops', () => {
         const opCounts = fusionTourScript.scenes.map(
             scene => scene.steps.filter(step => step.type === 'op').length
         );
 
         expect(fusionTourScript.scenes.map(scene => scene.id)).toEqual(['s1', 's2', 's3', 's4']);
-        expect(opCounts).toEqual([0, 2, 1, 0]);
+        expect(opCounts).toEqual([0, 2, 0, 0]);
 
         // every op descriptor stays inside the executable vocabulary (no invented operations)
         fusionTourScript.scenes.forEach(scene =>
@@ -141,10 +143,11 @@ test.describe.serial('apps/agentos/tour/fusionFlagship', () => {
         );
 
         // perspective-save/load ride the Demo-B precedent; export/import are the share
-        // round-trip; reattach is the pop-in. A NEW cue type added to the script without
-        // updating this pin (and the cockpit wiring) fails here first.
+        // round-trip; popout/reattach ride the detail vessel's own state machine. A NEW cue
+        // type added to the script without updating this pin (and the cockpit wiring) fails
+        // here first.
         expect([...cueTypes].sort()).toEqual([
-            'perspective-export', 'perspective-import', 'perspective-load', 'perspective-save', 'reattach'
+            'perspective-export', 'perspective-import', 'perspective-load', 'perspective-save', 'popout', 'reattach'
         ])
     });
 });

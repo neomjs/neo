@@ -9,16 +9,19 @@ import DockMotionSignal            from '../../../../src/dashboard/DockMotionSig
 import DockPerspectiveStore        from '../../../../src/dashboard/DockPerspectiveStore.mjs';
 import DockPreviewProducer         from '../../../../src/dashboard/DockPreviewProducer.mjs';
 import DockProjectionReconciler    from '../../../../src/dashboard/DockProjectionReconciler.mjs';
+import DockService                 from '../../../../src/ai/client/DockService.mjs';
 import DockZoneModel               from '../../../../src/dashboard/DockZoneModel.mjs';
 import FleetCockpitController      from './FleetCockpitController.mjs';
 import FleetGrid                   from './FleetGrid.mjs';
 import FleetRoster                 from '../../store/FleetRoster.mjs';
 import OperatorMailbox             from './OperatorMailbox.mjs';
 import StateProvider               from '../../../../src/state/Provider.mjs';
+import TourRunner                  from '../../../../src/ai/client/TourRunner.mjs';
 import cockpitDockDocument         from './cockpitDockDocument.mjs';
 import cockpitPresetCollection     from './cockpitPresets.mjs';
 import {createDockTearOutHandlers} from '../../../../src/dashboard/DockTearOut.mjs';
 import {deriveSpineBanner}         from './spineBanner.mjs';
+import {fusionTourScript}          from '../../tour/fusionFlagship.mjs';
 import {mapFleetSessionHealth}     from './sourceHealth.mjs';
 import {previewToOperation}        from '../../../../src/dashboard/dockPreviewContract.mjs';
 import '../../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the dock projection emits for tab zones
@@ -524,6 +527,30 @@ class FleetCockpit extends Container {
      * @protected
      */
     tearOutPaneHandles = {}
+    /**
+     * The cockpit-owned dock seam instance — the SAME `execute_dock_operation` path a live
+     * agent drives, injected into the tour runner so scripted ops and agent ops are one code
+     * path (this holder already implements the full contract: `getDockZoneDocument` /
+     * `applyDockZoneOperation` / `onDockZoneDocumentChange`).
+     * @member {Neo.ai.client.DockService|null} dockService=null
+     * @protected
+     */
+    dockService = null
+    /**
+     * The one-per-stage fusion-tour runner — non-null ONLY while a tour plays (lazy create,
+     * destroyed on completion/error), so a running tour is observable as `!!tourRunner`.
+     * @member {Neo.ai.client.TourRunner|null} tourRunner=null
+     * @protected
+     */
+    tourRunner = null
+    /**
+     * The share beat's v1 artifact: the exported perspective record as a JSON string — the
+     * copyable layout a teammate could paste back. Held on the instance (no backend by design);
+     * the import cue consumes it, the e2e leg asserts round-trip fingerprint equality through it.
+     * @member {String|null} sharedPerspectiveArtifact=null
+     * @protected
+     */
+    sharedPerspectiveArtifact = null
 
     /**
      * @summary Seed the layout SSOT and build the toolbar + dock projection as instance items —
@@ -537,6 +564,7 @@ class FleetCockpit extends Container {
         let me = this;
 
         me.dockPreviewProducer = Neo.create(DockPreviewProducer);
+        me.dockService         = Neo.create(DockService, {});
         me.perspectiveStore    = Neo.create(DockPerspectiveStore, {collection: cockpitPresetCollection()});
         me.dockModel           = me.dockModel || cockpitDockDocument();
 
@@ -599,6 +627,140 @@ class FleetCockpit extends Container {
         me.presetError = null;
         me.onDockZoneDocumentChange(document);
         return {errors: [], switched: true}
+    }
+
+    /**
+     * @summary Plays the flagship fusion tour on THIS live cockpit — the four-beat screenplay
+     * (cockpit → docked panel → OS window → share) through the standard runner trinity. The
+     * runner exists only while the tour plays; a second invocation while one runs is a guarded
+     * refusal (one stage, one take). Document ops ride the same `execute_dock_operation` seam a
+     * live agent drives; the vessel and perspective beats arrive as cues ({@link #onTourBeat})
+     * and reuse the cockpit's OWN machinery — no tour-only code path touches dock truth.
+     * @returns {Promise<Object>} The runner's completion result `{completed, errors, log}`.
+     */
+    async playFusionTour() {
+        let me = this;
+
+        if (me.tourRunner) {
+            return {completed: false, errors: ['a tour is already running'], log: []}
+        }
+
+        me.tourRunner = Neo.create(TourRunner, {
+            componentId: me.id,
+            dockService: me.dockService,
+            mode       : 'demo',
+            script     : fusionTourScript
+        });
+
+        me.tourRunner.on({
+            beat    : me.onTourBeat,
+            complete: me.onTourComplete,
+            error   : me.onTourComplete,
+            scope   : me
+        });
+
+        try {
+            return await me.tourRunner.start()
+        } finally {
+            me.tourRunner?.destroy?.();
+            me.tourRunner = null;
+            me.setTourCaption('')
+        }
+    }
+
+    /**
+     * @summary Caption feed + the surface cues that make narrated beats EXECUTABLE (the Demo-B
+     * hosting pattern): perspective saves ride the landed DockService capture verb, loads ride
+     * {@link #activatePerspective}, export/import ride {@link #exportPerspectiveArtifact} /
+     * {@link #importPerspectiveArtifact}, and the vessel beats ride the detail vessel's OWN
+     * state machine ({@link #popOutAgentDetail} / {@link #reattachAgentDetail}) — none of them
+     * are dock-document ops, so none of them masquerade as descriptors.
+     * @param {Object} data The runner's beat payload.
+     */
+    onTourBeat(data) {
+        let me    = this,
+            {cue} = data;
+
+        data.caption && me.setTourCaption(data.caption);
+
+        if (!cue) return;
+
+        cue.type === 'perspective-save'   && me.dockService.capturePerspective({
+            componentId    : me.id,
+            layoutId       : `tour-${cue.name.toLowerCase().replace(/\s+/g, '-')}`,
+            perspectiveName: cue.name,
+            replace        : true
+        }).then(() => me.syncControlBar());
+        cue.type === 'perspective-load'   && me.activatePerspective(cue.name);
+        cue.type === 'perspective-export' && me.exportPerspectiveArtifact(cue.name);
+        cue.type === 'perspective-import' && me.importPerspectiveArtifact();
+        cue.type === 'popout'             && me.popOutAgentDetail();
+        cue.type === 'reattach'           && me.reattachAgentDetail()
+    }
+
+    /**
+     * @summary Tour teardown on `complete` AND `error` (one handler — both are terminal): the
+     * caption clears via the shared `finally` in {@link #playFusionTour}; this hook only keeps
+     * the terminal event observable for listeners layered on the cockpit.
+     * @param {Object} data `{completed, errors, log}` (or the runner's structured error payload).
+     */
+    onTourComplete(data) {
+        // deliberately empty beyond observability: playFusionTour's finally owns the teardown
+    }
+
+    /**
+     * @summary Renders the current tour caption into the control bar's caption strip.
+     * @param {String} caption Empty string clears the strip.
+     */
+    setTourCaption(caption) {
+        let strip = this.getReference('fleet-tour-caption');
+
+        strip?.set({hidden: !caption, html: caption})
+    }
+
+    /**
+     * @summary The share beat's EXPORT half: serializes the named stored perspective to the v1
+     * artifact — one copyable JSON string held on the instance (no backend by design; the e2e
+     * leg asserts round-trip fingerprint equality through it).
+     * @param {String} name The stored perspective's name.
+     * @returns {{exported: Boolean, errors: String[]}}
+     */
+    exportPerspectiveArtifact(name) {
+        let me     = this,
+            stored = me.perspectiveStore.getPerspective(name);
+
+        if (!stored) {
+            return {errors: [`perspective "${name}" is not stored`], exported: false}
+        }
+
+        me.sharedPerspectiveArtifact = JSON.stringify(stored.layout);
+        return {errors: [], exported: true}
+    }
+
+    /**
+     * @summary The share beat's IMPORT half: admits the held JSON artifact back through the
+     * store's full validation path (`savePerspective` re-validates via the landed restore
+     * gate — a malformed artifact is refused, the live layout untouched).
+     * @returns {{imported: Boolean, errors: String[]}}
+     */
+    importPerspectiveArtifact() {
+        let me = this,
+            record;
+
+        if (!me.sharedPerspectiveArtifact) {
+            return {errors: ['no exported artifact is held'], imported: false}
+        }
+
+        try {
+            record = JSON.parse(me.sharedPerspectiveArtifact)
+        } catch (e) {
+            return {errors: [`artifact is not valid JSON: ${e.message}`], imported: false}
+        }
+
+        let {saved, errors} = me.perspectiveStore.savePerspective(record, {replace: true});
+
+        saved && me.syncControlBar();
+        return {errors, imported: saved}
     }
 
     /**
@@ -814,7 +976,25 @@ class FleetCockpit extends Container {
                     reference: 'fleet-spine-banner',
                     role     : 'status'
                 },
+                {
+                    // The live tour caption strip — fed exclusively by onTourBeat; hidden
+                    // whenever no tour plays (setTourCaption('') on teardown).
+                    ntype    : 'component',
+                    cls      : ['fm-tour-caption'],
+                    hidden   : true,
+                    reference: 'fleet-tour-caption',
+                    role     : 'status'
+                },
                 '->', {
+                    // The flagship fusion tour (cockpit → docked panel → OS window → share):
+                    // one deterministic scripted take on THIS live surface.
+                    module   : Button,
+                    cls      : ['fm-fusion-tour'],
+                    handler  : me.playFusionTour.bind(me),
+                    iconCls  : 'fa-solid fa-wand-magic-sparkles',
+                    reference: 'fusion-tour-button',
+                    text     : 'Play tour'
+                }, {
                     // The morning-start outcome summary — written by the controller after the
                     // staged bring-up settles ("N started · M rejected · K excluded"; per-member
                     // reasons ride the title). Empty + hidden until a start ran; hover reaches the
@@ -1680,6 +1860,10 @@ class FleetCockpit extends Container {
 
         me.dockPreviewProducer?.destroy();
         me.dockPreviewProducer = null;
+        me.tourRunner?.destroy?.();
+        me.tourRunner = null;
+        me.dockService?.destroy();
+        me.dockService = null;
         me.perspectiveStore?.destroy();
         me.perspectiveStore = null;
         super.destroy(...args)
