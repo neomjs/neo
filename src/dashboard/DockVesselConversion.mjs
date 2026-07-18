@@ -35,9 +35,12 @@
  *   idempotently: gesture terminals (commit, cancel, vessel close, park) are choreographed by the
  *   outcome machine and the vessel-lifecycle leaves; a sensor emitting on reset would double-drive
  *   the actuators the terminal choreography already owns.
- * - **Garbage geometry fails CLOSED.** Missing, zero-extent, or non-finite rects compose to 0 — a
- *   converted sensor fed garbage REVERTS. Without the guard, `NaN` poisons both threshold
- *   comparisons to false and a converted sensor would hold its conversion forever.
+ * - **Garbage geometry fails CLOSED and DOMINATES composition.** Missing, zero-extent, or
+ *   non-finite rects force the sample to 0 WITHOUT consulting the composition seam — an injected
+ *   composer (average, weighted sum, anything non-`min`-shaped) can never elevate a degenerate
+ *   axis's valid-looking `0` back above a threshold. A converted sensor fed garbage REVERTS.
+ *   Without the non-finite guard, `NaN` would additionally poison both threshold comparisons to
+ *   false and freeze a converted sensor forever.
  *
  * The shipped thresholds are REVIEWABLE PLACEHOLDERS: the dead-band width mirrors the landed
  * grammar's proven 0.2 spread; the absolute positions and the composition pick (`min` vs product)
@@ -67,6 +70,23 @@ function assertThreshold(name, value) {
  */
 function clampRatio(value) {
     return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0
+}
+
+/**
+ * Whether one `{x, y, width, height}` rect is measurable window geometry: every field finite,
+ * both extents strictly positive. The VALIDITY gate the composition seam sits behind — a
+ * degenerate axis yields a valid-LOOKING `0` ratio, and an injected composer that is not
+ * `min`-shaped (an average, a weighted sum) could elevate that zero back above a threshold, so
+ * invalid geometry must dominate BEFORE composition, never inside it.
+ * @param {Object} rect
+ * @returns {Boolean}
+ * @private
+ */
+function isMeasurableRect(rect) {
+    return Boolean(rect) &&
+        Number.isFinite(rect.x) && Number.isFinite(rect.y) &&
+        Number.isFinite(rect.width)  && rect.width  > 0 &&
+        Number.isFinite(rect.height) && rect.height > 0
 }
 
 /**
@@ -176,12 +196,16 @@ export function createVesselConversionSensor(config = {}) {
          *     sourceRect, targetRect}` — `converted` reflects the POST-decision state
          */
         sample({pointerInTarget, sourceRect, targetRect} = {}) {
+            // Invalid geometry DOMINATES: a missing, degenerate, or non-finite rect forces the
+            // whole sample to zero WITHOUT consulting the composition seam — a degenerate axis
+            // produces a valid-looking 0 ratio, and a non-min injected composer could elevate it
+            // back above the convert threshold, silently defeating the fail-closed contract.
             const
-                bothRects = Boolean(sourceRect && targetRect),
-                pointer   = pointerInTarget === true,
-                rx        = bothRects ? axisRatio(sourceRect, targetRect, 'x', 'width')  : 0,
-                ry        = bothRects ? axisRatio(sourceRect, targetRect, 'y', 'height') : 0,
-                composed  = clampRatio(composeRatios({rx, ry}));
+                measurable = isMeasurableRect(sourceRect) && isMeasurableRect(targetRect),
+                pointer    = pointerInTarget === true,
+                rx         = measurable ? axisRatio(sourceRect, targetRect, 'x', 'width')  : 0,
+                ry         = measurable ? axisRatio(sourceRect, targetRect, 'y', 'height') : 0,
+                composed   = measurable ? clampRatio(composeRatios({rx, ry})) : 0;
 
             let event = null;
 

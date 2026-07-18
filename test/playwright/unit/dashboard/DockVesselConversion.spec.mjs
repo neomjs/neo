@@ -219,6 +219,35 @@ test.describe('Neo.dashboard.DockVesselConversion — createVesselConversionSens
         expect(garbageSensor.calls.converted).toHaveLength(0)
     });
 
+    test('invalid geometry DOMINATES the composition seam: a finite non-min composer can never elevate a degenerate rect', () => {
+        // the escape: width 0 yields rx = 0 but ry = 1 — an AVERAGING composer would read 0.5
+        // and clear a 0.45 threshold. The validity gate must force 0 BEFORE composition.
+        const averaging = harness({
+            composeRatios   : ({rx, ry}) => (rx + ry) / 2,
+            convertThreshold: 0.45,
+            revertThreshold : 0.25
+        });
+
+        const degenerate = averaging.sensor.sample({
+            pointerInTarget: true,
+            sourceRect     : rect(0, 0, 100, 100),
+            targetRect     : rect(0, 0, 0, 100)     // zero width, full-height overlap
+        });
+
+        expect(degenerate.composed, 'the composer was never consulted — invalid geometry is 0').toBe(0);
+        expect(degenerate.rx).toBe(0);
+        expect(degenerate.ry).toBe(0);
+        expect(averaging.calls.converted).toHaveLength(0);
+
+        // convert legitimately under the same composer, then feed the degenerate rect: REVERT
+        averaging.sensor.sample({pointerInTarget: true, sourceRect: rect(0, 0, 100, 100), targetRect: rect(0, 0, 100, 100)});
+        expect(averaging.sensor.converted).toBe(true);
+
+        averaging.sensor.sample({pointerInTarget: true, sourceRect: rect(0, 0, 100, 100), targetRect: rect(0, 0, 0, 100)});
+        expect(averaging.sensor.converted, 'a converted sensor fed degenerate geometry reverts').toBe(false);
+        expect(averaging.calls.reverted).toHaveLength(1)
+    });
+
     test('the convert-in record carries the full geometry + gate truth for the actuator', () => {
         const {calls, sensor} = harness();
         const source          = rect(10, 20, 300, 200),
