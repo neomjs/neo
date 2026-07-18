@@ -406,10 +406,17 @@ let lastSyncId;
 // Structure: { [subscriptionId]: { timer: Timeout, queue: [events], subscription: {...}, firstQueuedAt: ms } }
 const coalesceState = {};
 
-// Epoch ms of the last non-failed digest dispatch per subscription — the post-flush refractory
-// anchor (see ./coalescePolicy.mjs). Runtime-only by design: the refractory is an anti-chatter
-// guard, so a daemon restart resetting it is harmless.
+// Epoch ms of the last CONFIRMED delivery per subscription — the post-flush refractory anchor
+// (see ./coalescePolicy.mjs). Armed exclusively on a 'delivered' adapter outcome (direct or
+// retry) — a skip or failure never holds the next digest at distance. Runtime-only by design:
+// the refractory is an anti-chatter guard, so a daemon restart resetting it is harmless.
 const lastFlushAtBySub = {};
+
+// Subscriptions with an adapter attempt currently unresolved (direct flush or retry) — the
+// atomic delivery owner: while a sub is in flight, a firing flush timer defers and its queue
+// keeps absorbing arrivals, so a second digest can never dispatch behind an unresolved first
+// one and the refractory always reads a settled lastFlushAtBySub.
+const deliveryInFlight = new Set();
 
 // Epoch ms of the most recent poll that observed a heavy GraphLog / data-sync delta. flushSubscription
 // defers while within the settle window of this, so digests are computed against committed read-state
@@ -792,6 +799,14 @@ async function flushSubscription(subId) {
         return;
     }
 
+    // One delivery owner per subscription: an unresolved adapter attempt (direct or retry) defers
+    // this flush — the queue stays intact and keeps absorbing arrivals, and the short re-check
+    // lands after the in-flight attempt resolves (the defer idiom above, at poll cadence).
+    if (deliveryInFlight.has(subId)) {
+        state.timer = setTimeout(() => flushSubscription(subId), POLL_INTERVAL_MS);
+        return;
+    }
+
     const { queue, subscription, watermarkGraphTip, watermarkResetCeiling } = state;
     delete coalesceState[subId]; // reset
 
@@ -879,20 +894,26 @@ async function flushSubscription(subId) {
         const deliveryEvidence = buildWakeDeliveryEvidence(events);
         const digest           = buildWakeDigest(identity, events);
 
-        // Delivery to per-harness adapter. A 'failed' outcome (the adapter dispatch threw against a
-        // live target) is re-queued for retry — carrying the EVENTS, not just this digest string, so
-        // a second failure for the same subscription coalesces them without loss. Successful
-        // deliveries are not re-queued; they arm the post-flush refractory and emit the uniform
-        // dispatch line (the wakes-per-seat counting surface — `outcome=dispatched` includes
-        // adapter fail-closed skips, which return undefined like successes; only thrown dispatches
-        // are distinguishable as 'failed').
-        const deliveryOutcome = await deliverDigest(subscription, digest, deliveryEvidence);
+        // Delivery to per-harness adapter, under the per-subscription in-flight reservation. A
+        // 'failed' outcome (the dispatch threw against a live target) re-queues for retry —
+        // carrying the EVENTS, not just this digest string, so a second failure for the same
+        // subscription coalesces them without loss. ONLY a confirmed 'delivered' arms the
+        // refractory and emits the uniform counting line (direct and retry symmetrically); a
+        // 'skipped' fail-closed refusal does neither — its branch-local log already carries why.
+        deliveryInFlight.add(subId);
+        let deliveryOutcome;
+        try {
+            deliveryOutcome = await deliverDigest(subscription, digest, deliveryEvidence);
+        } finally {
+            deliveryInFlight.delete(subId);
+        }
+
         if (deliveryOutcome === 'failed') {
             enqueueDeliveryRetry(subscription, identity, events);
-        } else {
+        } else if (deliveryOutcome === 'delivered') {
             lastFlushAtBySub[subId] = Date.now();
             writeLog('INFO',
-                `[Wake Dispatch] ${identity || subId}: outcome=dispatched priority=${getHighestWakePriority(messages)} ` +
+                `[Wake Dispatch] ${identity || subId}: outcome=delivered priority=${getHighestWakePriority(messages)} ` +
                 `messages=${messages.length} tasks=${tasks.length} permissions=${permissions.length} heartbeats=${heartbeats.length}`
             );
         }
@@ -1298,7 +1319,12 @@ const pendingDeliveryRetries = new Map(); // subscriptionId -> {subscription, id
  * @param {Object} subscription WAKE_SUBSCRIPTION node.
  * @param {String} digest Wake digest body.
  * @param {Object} [deliveryEvidence={}] Scenario/count evidence for Codex validation logs.
- * @returns {Promise<String|undefined>}
+ * @returns {Promise<('delivered'|'skipped'|'failed')>} The explicit adapter outcome:
+ *     `delivered` = the adapter accepted the digest (a wake reached a seat — the ONLY outcome
+ *     that arms the refractory and counts on the dispatch surface); `skipped` = a fail-closed
+ *     refusal (stale presence, missing/unknown adapter metadata, unresolvable instance — the
+ *     branch-local log carries why; never counts, never arms); `failed` = the dispatch THREW
+ *     against a live target (the retry path's input).
  */
 async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
     const meta                           = subscription.properties?.harnessTargetMetadata || {};
@@ -1325,17 +1351,17 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
         if (addressType && addressType !== 'userDataDir' && instanceAddress &&
             !assertFreshTargetPresence(subscription, {addressType})
         ) {
-            return;
+            return 'skipped';
         }
 
         if (addressType === 'webhookUrl') {
             await deliverViaWebhookUrl(subscription, dispatchDigest, instanceAddress);
-            return;
+            return 'delivered';
         }
 
         if (adapter === CODEX_APP_SERVER_ADAPTER) {
             await deliverViaCodexAppServer(subscription, dispatchDigest, evidenceLabel);
-            return;
+            return 'delivered';
         }
 
         if (adapter === 'tmux') {
@@ -1354,7 +1380,7 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
                     `Verify subscription template via 'manage_wake_subscription({action: \\'list\\'})' ` +
                     `or fix the AgentIdentity subscriptionTemplate.${evidenceLabel}`
                 );
-                return;
+                return 'skipped';
             }
             const metadataWithDefaults = applyHarnessMetadataDefaults(meta);
             let   tabShortcut          = metadataWithDefaults.tabShortcut;
@@ -1375,7 +1401,7 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
                     `Subscription must opt in via meta.focusSeedKey with a verified primitive, ` +
                     `or use a submit-proven Codex app-server route.`
                 );
-                return;
+                return 'skipped';
             }
 
             // Instance-addressable wake — LOCAL deployment only. When the subscription carries an
@@ -1404,7 +1430,7 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
                     writeLog('ERROR',
                         `[Wake Daemon] Instance wake refused for ${subscription.id}: ${err.message}`
                     );
-                    return;
+                    return 'skipped';
                 }
             } else if (AiConfig.orchestrator.deploymentMode === 'local') {
                 // No userDataDir = the DEFAULT instance, started as the normal macOS app (which can
@@ -1423,7 +1449,7 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
                         `${defaultTarget.bundleName}.app main processes without exactly one arg-less default. ` +
                         'Failing closed to avoid wrong-resident delivery.'
                     );
-                    return;
+                    return 'skipped';
                 }
 
                 instancePid = defaultTarget.pid;
@@ -1624,7 +1650,10 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}) {
             writeLog('INFO', `[Wake Daemon Test-Fail Adapter] Attempted ${subscription.id}: ${dispatchDigest}`);
             throw new Error('test-fail adapter: simulated delivery failure');
         } else {
+            // Pre-outcome-enum, this branch FELL THROUGH to the delivered return — an unknown
+            // adapter counted as a successful dispatch. It is a refusal: nothing reached a seat.
             writeLog('ERROR', `[Wake Daemon] Unknown adapter '${adapter}' for subscription ${subscription.id}`);
+            return 'skipped';
         }
         return 'delivered';
     } catch (err) {
@@ -1743,16 +1772,26 @@ async function attemptDeliveryRetries() {
             continue;
         }
 
+        // Snapshot-and-swap: THIS attempt delivers the snapshot while the map entry stays live
+        // with an empty event set — a direct flush that finds this sub pending merges into
+        // `entry.events` (the union path), and because the attempt only ever clears what it
+        // took, events merged DURING the adapter await survive the outcome instead of being
+        // deleted unseen (the after-await race).
+        const snapshot = entry.events;
+        entry.events   = {messages: [], tasks: [], permissions: [], heartbeats: []};
+
         // Re-apply the read-state reconcile the initial digest used (see `flushSubscription`): a message
         // the recipient read between the failed delivery and this retry must NOT be re-delivered. The
         // watermark filter is deliberately NOT re-applied — it advanced past these events on the first
         // attempt, and the retry's whole job is to re-deliver those below-watermark events; only the
         // read-state axis is reconciled here.
-        const liveMessages = entry.events.messages.filter(ev => !isMessageReadFor(db, ev.messageId, entry.identity));
+        const liveMessages = snapshot.messages.filter(ev => !isMessageReadFor(db, ev.messageId, entry.identity));
 
-        if (liveMessages.length === 0 && entry.events.tasks.length === 0 &&
-            entry.events.permissions.length === 0 && entry.events.heartbeats.length === 0
+        if (liveMessages.length === 0 && snapshot.tasks.length === 0 &&
+            snapshot.permissions.length === 0 && snapshot.heartbeats.length === 0
         ) {
+            // The swap above is synchronous, so the live entry cannot have gained events yet —
+            // the entry retires whole.
             pendingDeliveryRetries.delete(subId);
             writeLog('INFO',
                 `[Wake Daemon] Retry for ${subId} dropped: all queued messages were read before re-delivery.`
@@ -1760,12 +1799,31 @@ async function attemptDeliveryRetries() {
             continue;
         }
 
-        const retryEvents      = {...entry.events, messages: liveMessages};
+        const retryEvents      = {...snapshot, messages: liveMessages};
         const deliveryEvidence = buildWakeDeliveryEvidence(retryEvents);
         const digest           = buildWakeDigest(entry.identity, retryEvents);
-        const outcome          = await deliverDigest(entry.subscription, digest, deliveryEvidence);
+
+        deliveryInFlight.add(subId);
+        let outcome;
+        try {
+            outcome = await deliverDigest(entry.subscription, digest, deliveryEvidence);
+        } finally {
+            deliveryInFlight.delete(subId);
+        }
+
+        const mergedDuringAwait =
+            entry.events.messages.length + entry.events.tasks.length +
+            entry.events.permissions.length + entry.events.heartbeats.length > 0;
 
         if (outcome === 'failed') {
+            // Restore the undelivered snapshot INTO the live entry — union with anything merged
+            // during the await (the sets are disjoint by watermark, so concat is loss-free).
+            entry.events = {
+                messages   : [...snapshot.messages,    ...entry.events.messages],
+                tasks      : [...snapshot.tasks,       ...entry.events.tasks],
+                permissions: [...snapshot.permissions, ...entry.events.permissions],
+                heartbeats : [...snapshot.heartbeats,  ...entry.events.heartbeats]
+            };
             entry.attempts += 1;
             if (entry.attempts >= MAX_DELIVERY_RETRIES) {
                 pendingDeliveryRetries.delete(subId);
@@ -1775,14 +1833,37 @@ async function attemptDeliveryRetries() {
             } else {
                 entry.nextAttemptAt = now + POLL_INTERVAL_MS * entry.attempts;
             }
-        } else {
-            pendingDeliveryRetries.delete(subId);
-            // A delivered retry is a wake that reached the seat: arm the same post-flush
-            // refractory the direct path arms, so the next digest keeps its distance.
+        } else if (outcome === 'delivered') {
+            // The snapshot reached the seat: a confirmed delivery arms the refractory and counts
+            // on the SAME dispatch surface as the direct path. Events merged during the await
+            // stay pending as a fresh cycle (new events, new attempt budget); an unchanged entry
+            // retires.
             lastFlushAtBySub[subId] = Date.now();
             writeLog('INFO',
-                `[Wake Daemon] Wake delivery for ${subId} succeeded on retry (attempt ${entry.attempts + 1}).`
-            )
+                `[Wake Dispatch] ${entry.identity || subId}: outcome=delivered priority=${getHighestWakePriority(liveMessages)} ` +
+                `messages=${liveMessages.length} tasks=${snapshot.tasks.length} permissions=${snapshot.permissions.length} ` +
+                `heartbeats=${snapshot.heartbeats.length} via=retry attempt=${entry.attempts + 1}`
+            );
+            if (mergedDuringAwait) {
+                entry.attempts      = 0;
+                entry.nextAttemptAt = now + POLL_INTERVAL_MS;
+            } else {
+                pendingDeliveryRetries.delete(subId);
+            }
+        } else {
+            // 'skipped': the route refused fail-closed (stale presence, bad metadata) — the
+            // refusal's branch-local log carries why, nothing counts, no refractory. Events
+            // merged during the await keep their fresh cycle rather than being silently lost.
+            if (mergedDuringAwait) {
+                entry.attempts      = 0;
+                entry.nextAttemptAt = now + POLL_INTERVAL_MS;
+            } else {
+                pendingDeliveryRetries.delete(subId);
+            }
+            writeLog('INFO',
+                `[Wake Daemon] Retry for ${subId} skipped by the adapter route (fail-closed refusal); ` +
+                (mergedDuringAwait ? 'events merged mid-attempt stay pending.' : 'entry retired.')
+            );
         }
     }
 }
