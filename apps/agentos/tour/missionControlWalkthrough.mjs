@@ -7,10 +7,11 @@ import cockpitDockDocument from '../view/fleet/cockpitDockDocument.mjs';
  *
  * Five beats, one continuous minute (the story no competitor can film):
  *
- * 1. **The fleet, live** — the density-ranked agent roster over the ticking activity stream:
- *    real maintainers, real events, one running app-worker.
- * 2. **The stream speaks** — a burst of fleet activity arrives and the stream coalesces it
- *    live (the `activity-burst` cue drives the stream's own reactive seam).
+ * 1. **The fleet, live** — the density-ranked agent roster over the activity stream: real
+ *    maintainers, one running app-worker.
+ * 2. **The stream speaks** — a CONTROLLED demonstration burst (tour provenance, explicitly
+ *    bounded, restored at the take terminal) drives the stream's own reactive seam — the demo
+ *    shows the mechanism, never poses generated data as Memory Core arrival.
  * 3. **Drill** — one resident's detail opens through the production selection seam (the
  *    `drill` cue is NAME-addressed against the public roster, so every run drills the same
  *    agent deterministically).
@@ -29,9 +30,10 @@ import cockpitDockDocument from '../view/fleet/cockpitDockDocument.mjs';
  * worker-truth assertions live in the walkthrough's e2e leg (the trinity: one script = the
  * demo, the e2e, the recording).
  *
- * Cue vocabulary consumed by the hosting cockpit: `activity-burst` (inject `count` synthetic
- * fleet events through the stream's reactive seam) · `drill` (select the resident whose
- * record `agentId` matches `name`, through the production selection seam) · `popout`,
+ * Cue vocabulary consumed by the hosting cockpit: `activity-burst` (inject an explicitly
+ * bounded `count` of TOUR-provenance demo events through the stream's reactive seam; the
+ * displaced owner-held state restores at the take terminal) · `drill` (select the resident
+ * whose record `agentId` matches `name`, through the production selection seam) · `popout`,
  * `reattach` (the detail vessel's own state machine).
  */
 
@@ -57,16 +59,16 @@ export const missionControlTourScript = Object.freeze({
     scenes: [{
         id     : 's1',
         title  : 'The fleet, live',
-        caption: 'This is mission control for an AI engineering team. Every card is a real maintainer; the stream below is their real activity. One running app-worker owns everything on this stage.',
+        caption: 'This is mission control for an AI engineering team. Every card is a real maintainer; the stream below carries fleet activity. One running app-worker owns everything on this stage.',
         steps  : [
-            {type: 'pause', ms: 2600, caption: 'the roster ranks itself by activity — the fleet you see is the fleet that is working right now'}
+            {type: 'pause', ms: 2600, caption: 'the roster ranks itself by activity — the fleet you see is the fleet this workspace watches'}
         ]
     }, {
         id     : 's2',
         title  : 'The stream speaks',
-        caption: 'Fleet events arrive as they happen. Watch the stream take a burst and coalesce it live — no refresh, no polling, the worker pushes truth.',
+        caption: 'Fleet events arrive through one reactive seam — no refresh, no polling, the worker pushes truth. Watch the stream take a CONTROLLED demonstration burst through that exact seam.',
         steps  : [
-            {type: 'pause', ms: 900, cue: {type: 'activity-burst', count: 40}, caption: 'forty events land: the window keeps the newest, folds the rest, and names the fold honestly'},
+            {type: 'pause', ms: 900, cue: {type: 'activity-burst', count: 40}, caption: 'forty demo events land the same way real ones do: the window keeps the newest, folds the rest, and names the fold honestly'},
             {type: 'pause', ms: 2200}
         ]
     }, {

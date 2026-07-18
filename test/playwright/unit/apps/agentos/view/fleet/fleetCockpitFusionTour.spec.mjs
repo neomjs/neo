@@ -165,35 +165,93 @@ test.describe('Fleet cockpit — fusion tour hosting seam', () => {
         expect(result.errors[0]).toContain('reattach before a take')
     });
 
-    test('the walkthrough cues route to their seams with receipts: activity-burst injects through the stream, drill selects through the controller — refusals fail closed', async () => {
+    test('the walkthrough cues route to their seams with receipts: the burst is bounded/honest/reversible, the drill selects through the controller — refusals fail closed', async () => {
         const streamSets = [];
         const selected   = [];
 
         const host = {
-            getReference : name => name === 'activity-stream'
-                ? {set: config => streamSets.push(config)}
+            tourStreamRestore: null,
+            getReference     : name => name === 'activity-stream'
+                ? {adapterState: 'sample', events: [{agentId: 'owner-held'}], set: config => streamSets.push(config)}
                 : name === 'fleet-grid'
                     ? {store: {items: [{agentId: 'neo-fable'}, {agentId: 'neo-opus-ada'}]}}
                     : null,
-            getController: () => ({onAgentSelect: data => selected.push(data.agentId)})
+            getController    : () => ({onAgentSelect: data => selected.push(data.agentId)})
         };
 
         const burst = await proto.executeTourCue.call(host, {type: 'activity-burst', count: 7});
 
-        expect(burst).toEqual({injected: 7});
-        expect(streamSets[0].adapterState).toBe('live');
+        expect(burst).toEqual({injected: 7, provenance: 'tour:demo-burst'});
+        // the surface's adapter state is NOT touched: a sample surface stays labeled sample
+        expect(streamSets[0].adapterState).toBeUndefined();
         expect(streamSets[0].events).toHaveLength(7);
+        // TOUR provenance on every event — generated data never poses as Memory Core arrival
+        expect(streamSets[0].events.every(event => event.source === 'tour:demo-burst')).toBe(true);
         // distinct actors + monotone timestamps: coalescing can never collapse the burst
         expect(new Set(streamSets[0].events.map(event => event.agentId)).size).toBe(7);
+        // the displaced owner-held state is captured for the take-terminal restore
+        expect(host.tourStreamRestore).toEqual({adapterState: 'sample', events: [{agentId: 'owner-held'}]});
 
         const drill = await proto.executeTourCue.call(host, {type: 'drill', name: 'neo-fable'});
 
         expect(drill).toEqual({drilled: 'neo-fable'});
         expect(selected).toEqual(['neo-fable']);
 
-        // fail-closed refusals: an unknown resident and a missing stream both THROW into the fold
+        // fail-closed refusals: unknown resident, missing stream, and every dishonest count
         await expect(proto.executeTourCue.call(host, {type: 'drill', name: 'no-such-agent'})).rejects.toThrow('no roster resident');
-        await expect(proto.executeTourCue.call({getReference: () => null}, {type: 'activity-burst', count: 3})).rejects.toThrow('no activity stream')
+        await expect(proto.executeTourCue.call({getReference: () => null}, {type: 'activity-burst', count: 3})).rejects.toThrow('no activity stream');
+        for (const bad of [undefined, 0, -5, 2.5, 201, 'many']) {
+            await expect(proto.executeTourCue.call(host, {type: 'activity-burst', count: bad}), `count "${bad}" must refuse`)
+                .rejects.toThrow('explicit integer count')
+        }
+    });
+
+    test('restoreTourStream puts the owner-held state back exactly and goes inert after — the burst is reversible at the take terminal', () => {
+        const streamSets = [];
+        const host       = {
+            tourStreamRestore: {adapterState: 'sample', events: [{agentId: 'owner-held'}]},
+            getReference     : name => name === 'activity-stream' ? {set: config => streamSets.push(config)} : null
+        };
+
+        proto.restoreTourStream.call(host);
+
+        expect(streamSets).toEqual([{adapterState: 'sample', events: [{agentId: 'owner-held'}]}]);
+        expect(host.tourStreamRestore).toBeNull();
+
+        // inert when nothing was displaced
+        proto.restoreTourStream.call(host);
+        expect(streamSets).toHaveLength(1)
+    });
+
+    test('CURRENT-ATTEMPT terminal truth: a thrown refresh publishes a failed report for THIS take — a seeded stale success can never masquerade (the RA-1 falsifier)', async () => {
+        const restored = [];
+        const host     = {
+            id               : 'truth-stage',
+            dockService      : null,
+            detachedDetail   : null,
+            playTour         : proto.playTour,
+            restoreTourStream: () => restored.push(true),
+            tourRunner       : null,
+            tourStreamRestore: null,
+            // the seeded STALE SUCCESS from a previous take — the exact masquerade RA-1 names
+            lastTourReport: {completed: true, cueErrors: [], cueReceipts: 6, errors: [], log: ['old']},
+            refreshPromise: Promise.reject(new Error('refresh rejected by the falsifier')),
+            resetTourStage: () => {},
+            onTourBeat    : () => {},
+            onTourComplete: () => {},
+            setTourCaption: () => {}
+        };
+
+        const report = await proto.playFusionTour.call(host);
+
+        // the readable report is CURRENT + FAILED — never stale + green
+        expect(report.completed).toBe(false);
+        expect(report.errors[0]).toContain('refresh rejected');
+        expect(host.lastTourReport).toBe(report);
+        expect(host.lastTourReport.log).toEqual([]);
+        // ownership released through the same terminal, restore ran
+        expect(host.tourRunner).toBeNull();
+        expect(restored).toEqual([true])
     });
 
     test('single-flight under CONCURRENCY: ownership is claimed before any await, so a second call refuses while the first is parked in the refresh window', async () => {
@@ -203,16 +261,18 @@ test.describe('Fleet cockpit — fusion tour hosting seam', () => {
         let releaseRefresh;
 
         const host = {
-            id            : 'concurrency-stage',
-            dockService   : null,
-            detachedDetail: null,
-            playTour      : proto.playTour,
-            tourRunner    : null,
-            refreshPromise: new Promise(resolve => releaseRefresh = resolve),
-            resetTourStage: () => {},
-            onTourBeat    : () => {},
-            onTourComplete: () => {},
-            setTourCaption: () => {}
+            id               : 'concurrency-stage',
+            dockService      : null,
+            detachedDetail   : null,
+            playTour         : proto.playTour,
+            restoreTourStream: () => {},
+            tourRunner       : null,
+            tourStreamRestore: null,
+            refreshPromise   : new Promise(resolve => releaseRefresh = resolve),
+            resetTourStage   : () => {},
+            onTourBeat       : () => {},
+            onTourComplete   : () => {},
+            setTourCaption   : () => {}
         };
 
         const first  = proto.playFusionTour.call(host).catch(error => ({completed: false, errors: [String(error)], crashed: true})),

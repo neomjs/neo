@@ -46,6 +46,16 @@ test.describe('AgentOS mission control — the walkthrough trinity (demo = e2e =
         const scriptedCueCount = missionControlTourScript.scenes.flatMap(scene => scene.steps).filter(step => step.cue).length;
         const logs             = [];
 
+        // the owner-held stream state BEFORE any take — the burst's reversibility baseline
+        const readStream = async () => {
+            const streams = await app.findInstances({className: 'AgentOS.view.fleet.ActivityStream'}, ['adapterState', 'events']),
+                  stream  = Array.isArray(streams) ? streams[0] : streams;
+
+            return {adapterState: stream?.properties?.adapterState, eventCount: stream?.properties?.events?.length ?? 0}
+        };
+
+        const streamBaseline = await readStream();
+
         for (let run = 0; run < 2; run++) {
             const popupPromise = page.waitForEvent('popup', {timeout: 90000});
 
@@ -82,7 +92,10 @@ test.describe('AgentOS mission control — the walkthrough trinity (demo = e2e =
             const details = await app.queryComponent({className: 'AgentOS.view.fleet.AgentDetail'}, ['record']),
                   detail  = (Array.isArray(details) ? details : [details]).filter(Boolean)[0];
 
-            expect(detail?.properties?.record?.agentId, 'the drill seated the deterministic resident').toBe('neo-fable')
+            expect(detail?.properties?.record?.agentId, 'the drill seated the deterministic resident').toBe('neo-fable');
+
+            // the burst is REVERSIBLE: the owner-held stream state is back exactly at the terminal
+            expect(await readStream(), `take ${run + 1}: the displaced stream state restored`).toEqual(streamBaseline)
         }
 
         // the determinism AC: two consecutive runs, identical beat sequence

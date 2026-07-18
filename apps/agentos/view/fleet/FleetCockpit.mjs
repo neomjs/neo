@@ -554,14 +554,23 @@ class FleetCockpit extends Container {
      */
     sharedPerspectiveArtifact = null
     /**
-     * The last settled tour report (`{completed, cueErrors, cueReceipts, errors, log}`) —
-     * stamped by {@link #playTour} at every terminal so an NL-driven take can FIRE the play
-     * and read the report AFTER teardown (a long take outlives the transport's request
-     * window, so awaiting the call over the wire is not the contract; polling
-     * `tourRunner === null` then reading this member is).
+     * The CURRENT ATTEMPT's settled tour report (`{completed, cueErrors, cueReceipts, errors,
+     * log}`) — cleared SYNCHRONOUSLY when a take claims ownership and stamped at EVERY owned
+     * terminal (success AND thrown reset/refresh/start), so the NL contract — fire, poll
+     * `tourRunner === null`, read this member — can never attribute a previous take's success
+     * to a failed current attempt. `null` means "no settled report for the latest attempt";
+     * pre-ownership refusals return their report to the caller directly and never touch it.
      * @member {Object|null} lastTourReport=null
      */
     lastTourReport = null
+    /**
+     * The owner-held activity-stream state (`{adapterState, events}`) an `activity-burst` cue
+     * displaced — captured once per take at first injection, restored by
+     * {@link #restoreTourStream} at the take terminal. `null` when no burst ran.
+     * @member {Object|null} tourStreamRestore=null
+     * @protected
+     */
+    tourStreamRestore = null
     /**
      * The serialized hosting-cue chain (the Workstation settlement pattern): TourRunner fires
      * cues synchronously and deliberately never awaits them, so every async cue consumer chains
@@ -709,10 +718,13 @@ class FleetCockpit extends Container {
 
         // SINGLE-FLIGHT: ownership is claimed SYNCHRONOUSLY — `tourRunner` is set before any
         // await, so a concurrent second call refuses at the guard above instead of slipping
-        // through the pre-start refresh window and double-creating runners.
-        me.cuePromise  = Promise.resolve();
-        me.cueReceipts = [];
-        me.cueErrors   = [];
+        // through the pre-start refresh window and double-creating runners. The stale report
+        // clears in the SAME synchronous window: a reader polling `tourRunner === null` can
+        // never attribute a previous take's success to this attempt.
+        me.cuePromise     = Promise.resolve();
+        me.cueReceipts    = [];
+        me.cueErrors      = [];
+        me.lastTourReport = null;
 
         me.tourRunner = Neo.create(TourRunner, {
             componentId: me.id,
@@ -751,11 +763,39 @@ class FleetCockpit extends Container {
             };
 
             return me.lastTourReport
+        } catch (error) {
+            // CURRENT-ATTEMPT terminal truth: a thrown reset/refresh/start still publishes a
+            // structured failed report for THIS invocation before ownership releases — a prior
+            // successful terminal is never a valid fallback for a failed current attempt.
+            me.lastTourReport = {
+                completed  : false,
+                cueErrors  : [...me.cueErrors],
+                cueReceipts: me.cueReceipts.length,
+                errors     : [error?.message || String(error)],
+                log        : []
+            };
+
+            return me.lastTourReport
         } finally {
+            me.restoreTourStream();
             me.tourRunner?.destroy?.();
             me.tourRunner = null;
             me.setTourCaption('')
         }
+    }
+
+    /**
+     * @summary Restores the owner-held activity-stream state an `activity-burst` cue displaced —
+     * the take-terminal half of the burst's reversibility contract. Inert when no burst ran.
+     */
+    restoreTourStream() {
+        let me      = this,
+            restore = me.tourStreamRestore;
+
+        if (!restore) return;
+
+        me.tourStreamRestore = null;
+        me.getReference('activity-stream')?.set(restore)
     }
 
     /**
@@ -848,24 +888,35 @@ class FleetCockpit extends Container {
                 if (!result.reattached) throw new Error(result.errors[0] || 'reattach refused');
                 return result;
             case 'activity-burst': {
-                // the walkthrough's stream beat: inject `count` synthetic fleet events through
-                // the stream's OWN reactive seam (distinct actors + monotone timestamps, so
-                // coalescing never collapses them) — the same mechanic the burst witnesses drive
+                // the walkthrough's stream beat: inject `count` DEMO events through the stream's
+                // OWN reactive seam (distinct actors + monotone timestamps, so coalescing never
+                // collapses them). Honest by construction: the count is an explicit bounded
+                // positive integer (no hidden host default), the events carry TOUR provenance —
+                // never a Memory Core source — the surface's adapter state is NOT touched (a
+                // sample surface stays labeled sample), and the displaced owner-held state is
+                // captured once for the take-terminal restore ({@link #restoreTourStream}).
                 const stream = me.getReference('activity-stream');
 
                 if (!stream) throw new Error('no activity stream is mounted');
 
-                const count  = cue.count ?? 40,
-                      events = Array.from({length: count}, (_, i) => ({
-                          agentId   : `tour-burst-${i}`,
-                          occurredAt: new Date(Date.UTC(2026, 6, 18, 12, 0, 0) + i * 60000).toISOString(),
-                          payload   : {text: `fleet event ${i}`},
-                          source    : 'memory-core:mailbox',
-                          type      : 'a2a-activity'
-                      }));
+                const count = cue.count;
 
-                stream.set({adapterState: 'live', events});
-                return {injected: count}
+                if (!Number.isInteger(count) || count < 1 || count > 200) {
+                    throw new Error(`activity-burst needs an explicit integer count 1-200, got "${count}"`)
+                }
+
+                me.tourStreamRestore ??= {adapterState: stream.adapterState, events: stream.events};
+
+                const events = Array.from({length: count}, (_, i) => ({
+                    agentId   : `tour-burst-${i}`,
+                    occurredAt: new Date(Date.UTC(2026, 6, 18, 12, 0, 0) + i * 60000).toISOString(),
+                    payload   : {text: `demo fleet event ${i}`},
+                    source    : 'tour:demo-burst',
+                    type      : 'a2a-activity'
+                }));
+
+                stream.set({events});
+                return {injected: count, provenance: 'tour:demo-burst'}
             }
             case 'drill': {
                 // the walkthrough's selection beat: NAME-addressed against the public roster
