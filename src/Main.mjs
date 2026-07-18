@@ -61,6 +61,7 @@ class Main extends core.Base {
                 'setRoute',
                 'windowClose',
                 'windowCloseAll',
+                'windowFocus',
                 'windowMoveTo',
                 'windowOpen',
                 'windowResizeTo'
@@ -519,6 +520,32 @@ class Main extends core.Base {
         });
 
         this.openWindows = {}
+    }
+
+    /**
+     * Focus a named popup window — Boolean admission, the `windowOpen` discipline applied to
+     * focus: the platform may decline silently, so the answer is the VERIFIED outcome (did this
+     * opener actually lose focus to the popup), never the attempt. A keyboard-command flow rides
+     * its keystroke's user activation through this verb; a `false` answer is a legitimate
+     * degraded terminal for the caller to announce, not an error.
+     * @param {Object} data
+     * @param {String} data.windowName
+     * @returns {Promise<Boolean>} true when the popup verifiably took focus.
+     */
+    async windowFocus(data) {
+        let win = this.openWindows[data.windowName]?.win;
+
+        if (!win || win.closed) {
+            return false
+        }
+
+        win.focus();
+
+        // the blur is not synchronous on every platform — give it one short beat, then answer
+        // with the verified truth rather than the optimistic attempt
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        return !document.hasFocus()
     }
 
     /**

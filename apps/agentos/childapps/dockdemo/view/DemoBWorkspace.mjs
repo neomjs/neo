@@ -12,6 +12,7 @@ import DockService                        from '../../../../../src/ai/client/Doc
 import DockTopologyReconciler             from '../../../../../src/dashboard/DockTopologyReconciler.mjs';
 import DockZoneModel                      from '../../../../../src/dashboard/DockZoneModel.mjs';
 import InteractionService                 from '../../../../../src/ai/client/InteractionService.mjs';
+import {createDockKeyboardCommands}       from '../../../../../src/dashboard/DockKeyboardCommands.mjs';
 import {createDockTearOutHandlers}        from '../../../../../src/dashboard/DockTearOut.mjs';
 import {createDockWorkspaceSet}           from '../../../../../src/dashboard/DockWorkspaceSet.mjs';
 import TourRunner                         from '../../../../../src/ai/client/TourRunner.mjs';
@@ -329,6 +330,31 @@ class DemoBWorkspace extends Container {
             openVessel: request => me.openTearOutVessel(request)
         });
 
+        // The keyboard command surface — the discrete a11y-parity twin of the gesture paths,
+        // composed over the SAME host seams (detach reuses the tear-out seams verbatim) plus the
+        // keyboard-specific ones. The transfer commit composes the OWNED primitives directly
+        // (transferItem → adoptTransfer → target-first reconcile) rather than the pointer path's
+        // gesture-witness wrapper: that wrapper's context/generation predicates and proof
+        // machinery belong to the continuous gesture, not to a discrete command.
+        me.keyboardCommands = createDockKeyboardCommands({
+            announce        : announcement => me.announceKeyboardOutcome(announcement),
+            applyOperation  : descriptor => me.applyWorkspaceOperation(DemoBWorkspace.MAIN_WORKSPACE_ID, descriptor),
+            closeVessel     : vessel => me.closeTearOutVessel(vessel),
+            commitTransfer  : data => me.commitKeyboardTransfer(data),
+            enumerateTargets: request => me.enumerateKeyboardTargets(request),
+            focusVessel     : vessel => me.focusNamedWindow(vessel.windowName),
+            focusWorkspace  : ({workspaceId}) => workspaceId === DemoBWorkspace.POPUP_WORKSPACE_ID
+                ? me.focusNamedWindow('demo-b-cross-window')
+                : true, // the main workspace is THIS window — the command runs focused here already
+            highlightTarget : target => me.setKeyboardTargetHighlight(target),
+            onDocumentChange: (document, operation) => {
+                me.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, document);
+                // the committed detach is the adoption trigger — identical to the pointer path
+                operation?.operation === 'detachItem' && me.adoptTearOutPane(operation.itemId)
+            },
+            openVessel: request => me.openTearOutVessel(request)
+        });
+
         me.tourRunner = Neo.create(TourRunner, {
             componentId        : me.id,
             crossWindowExecutor: me,
@@ -365,6 +391,14 @@ class DemoBWorkspace extends Container {
             ntype    : 'component',
             reference: 'restore-report-b'
         }, {
+            // The keyboard command surface's announcement region: every outcome terminal the
+            // command machine derives lands here as TEXT for the screen reader — visually
+            // unobtrusive, never hidden from the accessibility tree.
+            cls      : ['agentos-dockdemo-kbd-live'],
+            ntype    : 'component',
+            reference: 'kbd-live-b',
+            vdom     : {role: 'status', 'aria-live': 'polite', cn: []}
+        }, {
             module: Container,
             cls   : ['agentos-dockdemo-dock-host', 'neo-dashboard'],
             flex  : 1,
@@ -378,6 +412,166 @@ class DemoBWorkspace extends Container {
         }]);
 
         me.crossWindowHosts.set(DemoBWorkspace.MAIN_WORKSPACE_ID, me.getReference('dock-host-b'))
+    }
+
+    /**
+     * @summary Render a keyboard command outcome into the aria-live region — the announcement
+     * seam of the keyboard command machine. TEXT only (`.text` is inert by construction); the
+     * message is the machine's complete terminal-derived sentence.
+     * @param {Object} announcement `{command, itemId, terminal, focusTransferred, message}`.
+     * @protected
+     */
+    announceKeyboardOutcome({message}) {
+        let live = this.getReference('kbd-live-b');
+
+        live && (live.text = message)
+    }
+
+    /**
+     * @summary Enumerate the legal keyboard-transfer targets across the registered workspaces —
+     * every tabs zone in STABLE registry order, excluding the item's current tabs, labeled with
+     * the workspace's human name (+ a zone ordinal when a workspace has several).
+     * @param {Object} data
+     * @param {String} data.itemId
+     * @returns {Object[]} `[{workspaceId, tabsId, label}]`
+     * @protected
+     */
+    enumerateKeyboardTargets({itemId}) {
+        let me     = this,
+            labels = {
+                [DemoBWorkspace.MAIN_WORKSPACE_ID] : 'Main window',
+                [DemoBWorkspace.POPUP_WORKSPACE_ID]: 'Popup window'
+            };
+
+        return me.workspaceSet.ids().flatMap(workspaceId => {
+            let document     = me.workspaceSet.getDocument(workspaceId),
+                nodes        = document?.nodes || {},
+                sourceTabsId = document?.items?.[itemId]
+                    ? DockZoneModel.findContainingTabsId(document, itemId)
+                    : null,
+                tabsIds      = Object.keys(nodes).filter(nodeId =>
+                    nodes[nodeId].type === 'tabs' && nodeId !== sourceTabsId
+                );
+
+            return tabsIds.map((tabsId, index) => ({
+                label: tabsIds.length > 1
+                    ? `${labels[workspaceId] ?? workspaceId}, zone ${index + 1}`
+                    : (labels[workspaceId] ?? workspaceId),
+                tabsId,
+                workspaceId
+            }))
+        })
+    }
+
+    /**
+     * @summary Render (or clear) the keyboard cycle's current-candidate highlight on the target
+     * zone container. The class pairs hue with a non-color carrier (outline) in the skin — the
+     * WCAG 1.4.1 duty the command machine's seam documents.
+     * @param {Object|null} target `{workspaceId, tabsId}` or `null` to clear.
+     * @protected
+     */
+    setKeyboardTargetHighlight(target) {
+        let me   = this,
+            zone = me.keyboardHighlightZone;
+
+        if (zone && !zone.isDestroyed) {
+            zone.removeCls('agentos-kbd-target')
+        }
+
+        me.keyboardHighlightZone = null;
+
+        if (!target) return;
+
+        let host = me.crossWindowHosts.get(target.workspaceId);
+
+        zone = host && !host.isDestroyed && host.down({dockNodeId: target.tabsId});
+
+        if (zone) {
+            zone.addCls('agentos-kbd-target');
+            me.keyboardHighlightZone = zone
+        }
+    }
+
+    /**
+     * @summary The keyboard transfer commit — composes the OWNED primitives directly:
+     * `DockZoneModel.transferItem` (the commit-or-neither document pair), the workspace-set's
+     * both-or-neither adoption, vessel bookkeeping (published synchronously BEFORE projection,
+     * the same discipline the pointer path documents), then the target-first reconcile (adopt
+     * the pane across the window boundary before the source shell can classify the now-absent
+     * item as a retirement). The pointer path's `commitCrossWindowTransfer` wrapper is NOT
+     * reused: its context/generation predicates and continuity-proof machinery belong to the
+     * continuous gesture.
+     * @param {Object} data
+     * @param {String} data.itemId
+     * @param {Object} data.target `{workspaceId, tabsId}` — the committed cycle candidate.
+     * @returns {Promise<{errors: String[]}>}
+     * @protected
+     */
+    async commitKeyboardTransfer({itemId, target}) {
+        let me                = this,
+            sourceWorkspaceId = me.workspaceSet.ids().find(id =>
+                !!me.workspaceSet.getDocument(id)?.items?.[itemId]
+            );
+
+        if (!sourceWorkspaceId) {
+            return {errors: [`unknown item "${itemId}"`]}
+        }
+
+        let sourceBefore = me.workspaceSet.getDocument(sourceWorkspaceId),
+            sourceTabsId = DockZoneModel.findContainingTabsId(sourceBefore, itemId),
+
+            {sourceDocument, targetDocument, errors} = DockZoneModel.transferItem(
+                sourceBefore,
+                me.workspaceSet.getDocument(target.workspaceId),
+                {
+                    itemId,
+                    sourceWorkspaceId,
+                    targetWorkspaceId: target.workspaceId,
+                    target           : {operation: 'addTab', tabsNodeId: target.tabsId}
+                }
+            );
+
+        if (errors.length) {
+            return {errors}
+        }
+
+        if (!me.workspaceSet.adoptTransfer({sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId: target.workspaceId})) {
+            return {errors: ['workspace-set adoption refused the pair']}
+        }
+
+        // vessel bookkeeping rides the commit synchronously: an item entering the popup must be
+        // classified re-attachable before a physical close can race the projection; an item
+        // returning home retires its entry
+        if (target.workspaceId === DemoBWorkspace.POPUP_WORKSPACE_ID) {
+            me.detachedPanes[itemId] = {
+                tabsNodeId: sourceTabsId,
+                windowId  : me.crossWindowHosts.get(DemoBWorkspace.POPUP_WORKSPACE_ID)?.windowId,
+                windowName: 'demo-b-cross-window'
+            }
+        } else if (sourceWorkspaceId === DemoBWorkspace.POPUP_WORKSPACE_ID) {
+            delete me.detachedPanes[itemId]
+        }
+
+        await me.refreshWorkspace(target.workspaceId, targetDocument);
+        await me.refreshWorkspace(sourceWorkspaceId, sourceDocument);
+
+        return {errors: []}
+    }
+
+    /**
+     * @summary Focus a named popup window through the Main verb — Boolean admission (the
+     * `windowOpen` discipline applied to focus): the answer is the verified outcome, and `false`
+     * is a legitimate degraded terminal for the command machine to announce, never a throw.
+     * @param {String} windowName
+     * @returns {Promise<Boolean>}
+     * @protected
+     */
+    async focusNamedWindow(windowName) {
+        try {
+            return !!(await Neo.Main.windowFocus({windowName, windowId: this.windowId}))
+        } catch (error) {
+            return false
+        }
     }
 
     /**
