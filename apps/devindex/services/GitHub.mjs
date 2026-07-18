@@ -353,6 +353,13 @@ class GitHub extends Base {
             if (!response.ok) {
                 // Retry on 5xx (Server Error) or 403 (Rate Limit/Abuse)
                 if ((response.status >= 500 || response.status === 403) && retries > 0) {
+                    // A 5xx leaves a mutation's server-side outcome ambiguous (the write may have
+                    // applied before the error), so it is not replayed; a 403 is a pre-execution
+                    // rate-limit rejection, safe to replay. Idempotent reads retry either.
+                    if (response.status >= 500 && this.#isMutation(query)) {
+                        throw new Error(`GraphQL Error: ${response.status} ${response.statusText} — mutation not replayed after an ambiguous server error`);
+                    }
+
                     let delay = (4 - retries) * 2000; // Default: 2s, 4s, 6s
 
                     // Special handling for 403 Secondary Rate Limit (Abuse Detection)
@@ -389,6 +396,13 @@ class GitHub extends Base {
 
                 // Sometimes 502s come as 200 OK with errors body
                 const isGatewayError = json.errors.some(e => e.message?.includes('502') || e.message?.includes('504'));
+
+                // A gateway 502/504 is ambiguous for a mutation — the request may have reached the
+                // backend and applied before the gateway failed — so a mutation fails loud rather than
+                // replay; idempotent reads retry.
+                if (isGatewayError && this.#isMutation(query)) {
+                    throw new Error(`GraphQL Gateway Error: ${messages} — mutation not replayed after an ambiguous gateway failure`);
+                }
 
                 if (isGatewayError && retries > 0) {
                     const delay = (4 - retries) * 2000;

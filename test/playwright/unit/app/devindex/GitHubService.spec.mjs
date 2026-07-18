@@ -419,6 +419,66 @@ test.describe('DevIndex GitHub service', () => {
         expect(readCalls, 'an idempotent read retries the same transient body error').toBe(2);
     });
 
+    test('query does NOT replay a mutation after a 5xx server error — a read from the SAME 5xx retries', async () => {
+        const mutationDoc = `
+            mutation($issueId: ID!) {
+                closeIssue(input: {issueId: $issueId}) { clientMutationId }
+            }`;
+
+        // MUTATION: a 5xx leaves the write's server-side outcome ambiguous, so it fails loud on the
+        // first response instead of replaying — one fetch, no duplicate write.
+        let mutationCalls = 0;
+        globalThis.fetch = async () => {
+            mutationCalls++;
+            return new Response('', {status: 500, statusText: 'Internal Server Error'});
+        };
+        await expect(restClient.query(mutationDoc, {}, 3, 'OptIn Close'))
+            .rejects.toThrow(/mutation not replayed after an ambiguous server error/);
+        expect(mutationCalls, 'a mutation must not replay a 5xx').toBe(1);
+
+        // READ: the SAME 5xx IS retried — the gate is the operation, not the status.
+        let readCalls = 0;
+        globalThis.fetch = async () => {
+            readCalls++;
+            return readCalls === 1
+                ? new Response('', {status: 500, statusText: 'Internal Server Error'})
+                : jsonResponse({data: {viewer: {login: 'ada'}}});
+        };
+        await expect(restClient.query('query { viewer { login } }', {}, 3, 'OptIn Stars'))
+            .resolves.toEqual({viewer: {login: 'ada'}});
+        expect(readCalls, 'an idempotent read retries the same 5xx').toBe(2);
+    });
+
+    test('query does NOT replay a mutation after an in-body gateway (502/504) error — a read from the SAME error retries', async () => {
+        const mutationDoc = `
+            mutation($subjectId: ID!, $body: String!) {
+                addComment(input: {subjectId: $subjectId, body: $body}) { clientMutationId }
+            }`;
+
+        // MUTATION: an in-body 502 is ambiguous for a mutation (the write may have reached the backend
+        // before the gateway failed), so it fails loud rather than replay — one fetch.
+        let mutationCalls = 0;
+        globalThis.fetch = async () => {
+            mutationCalls++;
+            return jsonResponse({errors: [{message: 'Something failed: 502 Bad Gateway'}]});
+        };
+        await expect(restClient.query(mutationDoc, {}, 3, 'OptIn Comment'))
+            .rejects.toThrow(/mutation not replayed after an ambiguous gateway failure/);
+        expect(mutationCalls, 'a mutation must not replay an in-body gateway error').toBe(1);
+
+        // READ: the SAME in-body gateway error IS retried.
+        let readCalls = 0;
+        globalThis.fetch = async () => {
+            readCalls++;
+            return readCalls === 1
+                ? jsonResponse({errors: [{message: 'Something failed: 502 Bad Gateway'}]})
+                : jsonResponse({data: {viewer: {login: 'ada'}}});
+        };
+        await expect(restClient.query('query { viewer { login } }', {}, 3, 'OptIn Stars'))
+            .resolves.toEqual({viewer: {login: 'ada'}});
+        expect(readCalls, 'an idempotent read retries the same in-body gateway error').toBe(2);
+    });
+
     test('query exhausts the bounded budget on a persistent transient error, then throws (no infinite retry)', async () => {
         let callCount = 0;
 
