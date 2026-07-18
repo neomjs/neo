@@ -1474,6 +1474,55 @@ test.describe('Neo.dashboard.DockZoneModel', () => {
         }
     });
 
+    test.describe('captureItemPlacement (exact-position return, stored half)', () => {
+        test('captures the holding tabs node and the exact index', () => {
+            expect(DockZoneModel.captureItemPlacement(doc(), 'strategy')).toEqual({tabsNodeId: 'main-tabs', index: 0});
+            expect(DockZoneModel.captureItemPlacement(doc(), 'swarm')).toEqual({tabsNodeId: 'main-tabs', index: 1});
+            expect(DockZoneModel.captureItemPlacement(doc(), 'terminal')).toEqual({tabsNodeId: 'side-tabs', index: 0})
+        });
+
+        test('fails closed when no tabs node holds the item — catalog presence is not placement', () => {
+            expect(DockZoneModel.captureItemPlacement(doc(), 'ghost')).toBeNull();
+
+            // a DETACHED item stays in the catalog but has no placement to capture
+            const {document: detached, errors} = DockZoneModel.applyOperation(doc(), {operation: 'detachItem', itemId: 'strategy'});
+
+            expect(errors).toEqual([]);
+            expect(detached.items.strategy).toBeTruthy();
+            expect(DockZoneModel.captureItemPlacement(detached, 'strategy')).toBeNull()
+        });
+
+        test('the ROUND TRIP: capture → detach → addTab with the stored pair restores the ORIGINAL order, not append order', () => {
+            const source = doc();
+
+            // 'strategy' sits at index 0 of ['strategy', 'swarm'] — the append default would
+            // put it BACK at index 1, which is exactly the defect the stored pair compensates
+            const placement = DockZoneModel.captureItemPlacement(source, 'strategy');
+
+            expect(placement).toEqual({tabsNodeId: 'main-tabs', index: 0});
+
+            const {document: detached} = DockZoneModel.applyOperation(source, {operation: 'detachItem', itemId: 'strategy'});
+
+            const {document: restored, errors} = DockZoneModel.applyOperation(detached, {
+                operation : 'addTab',
+                itemId    : 'strategy',
+                tabsNodeId: placement.tabsNodeId,
+                index     : placement.index
+            });
+
+            expect(errors).toEqual([]);
+            expect(restored.nodes['main-tabs'].items, 'identical order, not append order').toEqual(['strategy', 'swarm']);
+
+            // the control: WITHOUT the stored index the item lands at the tail — the append
+            // default alone cannot deliver exact-position return
+            const {document: appended} = DockZoneModel.applyOperation(detached, {
+                operation: 'addTab', itemId: 'strategy', tabsNodeId: 'main-tabs'
+            });
+
+            expect(appended.nodes['main-tabs'].items).toEqual(['swarm', 'strategy'])
+        })
+    });
+
     test.describe('resolveStackRoot (whole-stack source projection)', () => {
         // The canonical vessel document: an edge-zone ROOT (window chrome) whose center zone
         // holds the stack — so the transferable whole is the root's center child, never the root.

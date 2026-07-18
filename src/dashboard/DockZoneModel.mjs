@@ -513,6 +513,28 @@ class DockZoneModel extends Base {
     }
 
     /**
+     * @summary Captures an item's exact tree placement — the stored-position half of
+     * exact-position reintegration (harness docking design record §2.8,
+     * `learn/agentos/decisions/0029-harness-docking-design.md`).
+     *
+     * `addTab` appends by default, so a detached item's way back to its ORIGINAL slot exists
+     * only if this pair was captured while the item was still in the tree — capture happens
+     * BEFORE the detach commit, restore passes the pair straight into `addTab`'s clamped
+     * `index`. Fail-closed: an item no tabs node currently holds captures `null` (catalog
+     * presence is not placement; there is nothing to restore to).
+     * @param {Object} document
+     * @param {String} itemId
+     * @returns {{tabsNodeId: String, index: Number}|null}
+     * @static
+     */
+    static captureItemPlacement(document, itemId) {
+        let tabsNodeId = DockZoneModel.findContainingTabsId(document, itemId),
+            index      = tabsNodeId ? document.nodes[tabsNodeId].items.indexOf(itemId) : -1;
+
+        return index >= 0 ? {tabsNodeId, index} : null
+    }
+
+    /**
      * @summary Finds the parent node id + the slot key pointing at `nodeId`.
      *
      * For a `split` parent the slot is the child index (Number); for an `edge-zone` parent it is the
