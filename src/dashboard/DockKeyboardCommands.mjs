@@ -79,21 +79,22 @@ export function createDockKeyboardCommands({
     onDocumentChange,
     openVessel
 }) {
-    // The single cycle slot: {itemId, label, candidates, index} while a target cycle is active,
-    // else null — one keyboard drives at most one transfer cycle per composition.
+    // The single cycle slot: {itemId, label, candidates, index, instructions} while a target
+    // cycle is active, else null — one keyboard drives at most one transfer cycle per composition.
     let activeCycle = null;
 
     const announceCandidate = () => {
         const
-            {candidates, index, label} = activeCycle,
-            target                     = candidates[index];
+            {candidates, index, instructions, label} = activeCycle,
+            target                                   = candidates[index];
 
         highlightTarget(target);
         announce({
             command         : 'transfer',
             focusTransferred: false,
             itemId          : activeCycle.itemId,
-            message         : `Target ${index + 1} of ${candidates.length}: ${target.label}. Arrow keys cycle, Enter moves ${label}, Escape cancels.`,
+            message         : `Target ${index + 1} of ${candidates.length}: ${target.label}. `
+                + (instructions || `Arrow keys cycle, Enter moves ${label}, Escape cancels.`),
             terminal        : 'HOVERING_CLAIM'
         })
     };
@@ -176,9 +177,12 @@ export function createDockKeyboardCommands({
          * @param {Object} data
          * @param {String} data.itemId The focused dock item's durable id.
          * @param {String} [data.itemLabel] Human label for announcements; falls back to the id.
+         * @param {String} [data.instructions] Host-owned key-grammar sentence appended to every
+         *     candidate announcement — the HOST binds the keys, so the host states them; the
+         *     default names the bare-key grammar.
          * @returns {Object|null} `{terminal: 'HOVERING_CLAIM', candidates: Number}` or a REJECTED outcome.
          */
-        cycleStart({itemId, itemLabel}) {
+        cycleStart({instructions, itemId, itemLabel}) {
             const
                 label      = itemLabel ?? itemId,
                 candidates = enumerateTargets({itemId}) || [];
@@ -194,7 +198,7 @@ export function createDockKeyboardCommands({
                 return {candidates: 0, itemId, terminal: 'REJECTED'}
             }
 
-            activeCycle = {candidates, index: 0, itemId, label};
+            activeCycle = {candidates, index: 0, instructions, itemId, label};
             announceCandidate();
 
             return {candidates: candidates.length, itemId, terminal: 'HOVERING_CLAIM'}

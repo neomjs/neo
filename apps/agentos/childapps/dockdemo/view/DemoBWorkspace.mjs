@@ -411,7 +411,16 @@ class DemoBWorkspace extends Container {
             reference: 'dock-host-b'
         }]);
 
-        me.crossWindowHosts.set(DemoBWorkspace.MAIN_WORKSPACE_ID, me.getReference('dock-host-b'))
+        me.crossWindowHosts.set(DemoBWorkspace.MAIN_WORKSPACE_ID, me.getReference('dock-host-b'));
+
+        // The keyboard command routing — MAIN workspace only, the projection's tear-out arming
+        // rule applied to keys. Entry chords act on the FOCUSED tab header; the cycle keys are
+        // fully chorded too (no preventDefault crosses the worker boundary, so the grammar avoids
+        // every native key meaning instead of suppressing it). Escape alone cancels — it has no
+        // native meaning on a header.
+        me.getReference('dock-host-b').addDomListeners([
+            {keydown: me.onDockHostKeyDown, scope: me}
+        ])
     }
 
     /**
@@ -425,6 +434,100 @@ class DemoBWorkspace extends Container {
         let live = this.getReference('kbd-live-b');
 
         live && (live.text = message)
+    }
+
+    /**
+     * The host-owned cycle key grammar, stated in every candidate announcement — fully chorded
+     * because no key suppression crosses the worker boundary: the grammar AVOIDS native meanings
+     * instead of preventing them.
+     * @member {String} KEYBOARD_CYCLE_INSTRUCTIONS
+     * @static
+     */
+    static KEYBOARD_CYCLE_INSTRUCTIONS =
+        'Ctrl+Shift+Arrow keys cycle targets, Ctrl+Shift+Enter moves it there, Escape cancels.'
+
+    /**
+     * @summary The keyboard command surface's key routing. Entry chords on a focused dock tab
+     * header: Ctrl+Shift+D detaches it to its own OS window; Ctrl+Shift+M starts the move cycle.
+     * While a cycle is active, Ctrl+Shift+ArrowRight/ArrowLeft cycle the candidates,
+     * Ctrl+Shift+Enter commits, and Escape (alone — no native meaning on a header) cancels.
+     * Outside a cycle every key keeps its native meaning; the machine's `getActiveCycle()` is
+     * the single routing gate.
+     * @param {Object} data The keydown DomEvent payload.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async onDockHostKeyDown(data) {
+        let me       = this,
+            commands = me.keyboardCommands,
+            chorded  = data.ctrlKey && data.shiftKey;
+
+        if (commands.getActiveCycle()) {
+            if (data.key === 'Escape') {
+                commands.cycleCancel();
+                return
+            }
+
+            if (chorded) {
+                switch (data.key) {
+                    case 'ArrowRight':
+                        commands.cycleNext();
+                        return
+                    case 'ArrowLeft':
+                        commands.cyclePrev();
+                        return
+                    case 'Enter':
+                        await commands.cycleCommit();
+                        return
+                }
+            }
+
+            return
+        }
+
+        if (!chorded || !['d', 'm'].includes(data.key?.toLowerCase?.())) {
+            return
+        }
+
+        let focused = me.resolveFocusedDockItem(data);
+
+        if (!focused) return;
+
+        if (data.key.toLowerCase() === 'd') {
+            await commands.detachItem(focused)
+        } else {
+            commands.cycleStart({...focused, instructions: DemoBWorkspace.KEYBOARD_CYCLE_INSTRUCTIONS})
+        }
+    }
+
+    /**
+     * @summary Resolve the dock item the keydown acted on: the event path's tab-header button →
+     * its header toolbar index → the sibling card container's item at that index → the
+     * adapter-stamped `dockItemId`, labeled from the workspace document's item title.
+     * @param {Object} data The keydown DomEvent payload (carries the component path).
+     * @returns {Object|null} `{itemId, itemLabel}` or `null` when the focus is not a dock tab header.
+     * @protected
+     */
+    resolveFocusedDockItem(data) {
+        let me     = this,
+            button = (data.path || [])
+                .map(node => Neo.getComponent(node.id))
+                .find(component => component?.ntype === 'tab-header-button');
+
+        if (!button) return null;
+
+        let toolbar      = button.up({ntype: 'tab-header-toolbar'}) || button.parent,
+            index        = toolbar?.items?.indexOf(button) ?? -1,
+            tabContainer = toolbar?.up({ntype: 'tab-container'}),
+            card         = index > -1 && tabContainer?.getCardContainer?.()?.items?.[index],
+            itemId       = card?.dockItemId || card?.data?.dockItemId;
+
+        if (!itemId) return null;
+
+        return {
+            itemId,
+            itemLabel: me.dockModel?.items?.[itemId]?.title ?? itemId
+        }
     }
 
     /**
