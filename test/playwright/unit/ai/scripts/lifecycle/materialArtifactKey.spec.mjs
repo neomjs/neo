@@ -88,15 +88,17 @@ test.describe('ai/scripts/lifecycle/materialArtifactKey', () => {
 
             expect(collectMaterialArtifactsFromJsonl(jsonl)).toEqual([]);
 
-            // while env-prefixed REAL invocations still arm
+            // while env-prefixed and leading-whitespace REAL invocations still arm (the shell
+            // ignores both — and the linear anchor hoists exactly one whitespace run outside
+            // the assignment loop, the js/redos-safe form)
             const real = [
                 record([use('toolu_3', 'Bash', PR_CREATE('GH_TOKEN=x gh pr create --title real'))]),
-                record([result('toolu_3', 'https://github.com/neomjs/neo/pull/700')])
+                record([result('toolu_3', 'https://github.com/neomjs/neo/pull/700')]),
+                record([use('toolu_4', 'Bash', PR_CREATE('  gh pr create --title indented'))]),
+                record([result('toolu_4', 'https://github.com/neomjs/neo/pull/701')])
             ].join('\n');
 
-            expect(collectMaterialArtifactsFromJsonl(real)).toEqual([
-                {class: 'pr-opened', ref: '#700', at: '2026-07-18T06:00:00.000Z'}
-            ])
+            expect(collectMaterialArtifactsFromJsonl(real).map(artifact => artifact.ref)).toEqual(['#700', '#701'])
         });
 
         test('the prose-claim negative: text blocks and free-floating results mint nothing; an id-less tool_use arms nothing', () => {

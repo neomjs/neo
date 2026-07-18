@@ -33,10 +33,13 @@
  */
 export const MATERIAL_ARTIFACT_CLASSES = Object.freeze(['pr-opened', 'formal-review']);
 
-// The arming anchor tolerates leading env assignments but requires `gh pr create` as the actual
-// command head — `echo "gh pr create ..."`, quoted mentions, and pipelines that merely CONTAIN the
-// string never arm (the shell-impersonation negative).
-const PR_CREATE_HEAD_RE = /^(?:\s*[A-Za-z_][A-Za-z0-9_]*=\S+\s+)*gh\s+pr\s+create\b/;
+// The arming anchor tolerates leading whitespace + env assignments but requires `gh pr create` as
+// the actual command head — `echo "gh pr create ..."`, quoted mentions, and pipelines that merely
+// CONTAIN the string never arm (the shell-impersonation negative). Linear by construction: the one
+// optional whitespace run is hoisted OUTSIDE the assignment loop, so every quantifier boundary
+// inside the loop separates disjoint character classes (`\S+` vs `\s+`) — no ambiguous split, no
+// exponential backtracking (the js/redos class the adjacent `\s*…\s+` form carried).
+const PR_CREATE_HEAD_RE = /^\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)*gh\s+pr\s+create\b/;
 const PULL_URL_RE       = /github\.com\/[^\s"'\\]+\/pull\/(\d+)/;
 const REVIEW_OK_RE      = /"reviewId"|Successfully created \w+ review/i;
 
