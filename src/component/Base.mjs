@@ -1241,9 +1241,12 @@ class Component extends Abstract {
      * @param {String} id=this.id
      * @param {Boolean} children=false
      * @param {Boolean} preventScroll
+     * @param {String} [modality] 'pointer' | 'keyboard' — optional input modality carried across the
+     * worker→main focus seam so DomAccess can suppress the accidental ring on a pointer / programmatic
+     * focus while a keyboard focus keeps its intentional ring. Undefined preserves user-agent behavior.
      */
-    focus(id=this.id, children=false, preventScroll) {
-        Neo.main.DomAccess.focus({children, id, preventScroll, windowId: this.windowId})
+    focus(id=this.id, children=false, preventScroll, modality) {
+        Neo.main.DomAccess.focus({children, id, modality, preventScroll, windowId: this.windowId})
     }
 
     /**

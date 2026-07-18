@@ -6,7 +6,16 @@
     overflow-y     : scroll;
     position       : relative;
 
-    &:focus {
+    // grid.View owns a single focus state for the multi-body grid. Modality is an explicit contract because
+    // :focus-visible cannot survive the async worker→main programmatic focus, and this tabindex=-1 node has
+    // no reliable user-agent ring to fall back on. DomAccess.focus stamps the modality class before focus():
+    // `neo-focus-keyboard` paints an intentional a11y ring; `neo-focus-pointer` (a row activation) paints none.
+    // The pointer class swaps to keyboard on the first keydown, so a pointer→keyboard switch restores the ring.
+    &.neo-focus-keyboard:focus {
+        outline: var(--grid-view-focus-outline, 2px solid #1a73e8);
+    }
+
+    &.neo-focus-pointer:focus {
         outline: none;
     }
 
