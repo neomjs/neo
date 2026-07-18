@@ -49,7 +49,7 @@ function getMetaCodeName(symbol) {
 function getSymNames(data, memo) {
     memo = memo || [];
     data.forEach(function (symbol) {
-        // const longName = jsdocx.utils.getFullName(symbol);
+        // const longName = docletPipeline.utils.getFullName(symbol);
         memo.push(symbol.$longname);
         if (!symbol.isEnum && symbol.$members) {
             memo = getSymNames(symbol.$members, memo);
@@ -71,7 +71,7 @@ const utils = {
     /**
      *  Gets the value from the given object, with the specified notation. See
      *  {@link https://github.com/onury/notation|Notation} for an advanced library.
-     *  @name jsdocx.utils.notate
+     *  @name docletPipeline.utils.notate
      *  @function
      *
      *  @param {Object} obj - Source object.
@@ -90,7 +90,7 @@ const utils = {
      *  Gets the short name of the given symbol.
      *  JSDoc overwrites the `longname` and `name` of the symbol, if it has an
      *  alias. This returns the correct short name.
-     *  @name jsdocx.utils.getName
+     *  @name docletPipeline.utils.getName
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -110,17 +110,17 @@ const utils = {
      *  Gets the original long name of the given symbol.
      *  JSDoc overwrites the `longname` and `name` of the symbol, if it has an
      *  alias. This returns the correct long name.
-     *  @name jsdocx.utils.getLongName
+     *  @name docletPipeline.utils.getLongName
      *  @function
-     *  @alias jsdocx.utils.getFullName
+     *  @alias docletPipeline.utils.getFullName
      *
      *  @param {Object} symbol - Documented symbol object.
      *  @returns {String} -
      */
     getLongName(symbol) {
-        const longName = cleanName(symbol.longname);
+        const longName     = cleanName(symbol.longname);
         const metaCodeName = getMetaCodeName(symbol) || longName;
-        let memberOf = symbol.memberof || '';
+        let   memberOf     = symbol.memberof || '';
         // if memberOf is like "\"./some/file.js\""
         memberOf = /^".*"$/.test(memberOf) ? '' : cleanName(memberOf);
 
@@ -136,7 +136,7 @@ const utils = {
         const codeName = symbol.alias ? metaCodeName : longName;
 
         if (!memberOf) return codeName;
-        const re = new RegExp('^' + memberOf + '[#.~:]');
+        const re  = new RegExp('^' + memberOf + '[#.~:]');
         const dot = symbol.scope === 'instance' ? '#' : '.';
 
         return re.test(codeName) ? codeName : memberOf + dot + codeName;
@@ -144,7 +144,7 @@ const utils = {
 
     /**
      *  Gets the code name of the given symbol.
-     *  @name jsdocx.utils.getCodeName
+     *  @name docletPipeline.utils.getCodeName
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -157,7 +157,7 @@ const utils = {
     /**
      *  Gets the number of levels for the given symbol or name. e.g.
      *  `mylib.prop` has 2 levels.
-     *  @name jsdocx.utils.getLevels
+     *  @name docletPipeline.utils.getLevels
      *  @function
      *
      *  @param {Object|String} symbol - Documented symbol object or long name.
@@ -178,7 +178,7 @@ const utils = {
      *  name (notation). Note that, this will return the parent name even if the
      *  parent symbol does not exist in the documentation. If there is no
      *  parent, returns `""` (empty string).
-     *  @name jsdocx.utils.getParentName
+     *  @name docletPipeline.utils.getParentName
      *  @function
      *
      *  @param {Object|String} symbol - Documented symbol object or long name.
@@ -205,7 +205,7 @@ const utils = {
     /**
      *  Gets the parent symbol object from the given symbol object or symbol's
      *  name.
-     *  @name jsdocx.utils.getParent
+     *  @name docletPipeline.utils.getParent
      *  @function
      *
      *  @param {Array} docs - Documentation symbols array.
@@ -225,7 +225,7 @@ const utils = {
 
     /**
      *  Gets the first matching symbol by the given name.
-     *  @name jsdocx.utils.getSymbolByName
+     *  @name docletPipeline.utils.getSymbolByName
      *  @function
      *
      *  @param {Array} docs - Documentation symbols array.
@@ -253,7 +253,7 @@ const utils = {
      *  Gets the kind of the symbol. This is not the same as `symbol.kind`.
      *  i.e. JSDoc generates a constructor's kind as `"class"`. This will return
      *  `"constructor"`.
-     *  @name jsdocx.utils.getKind
+     *  @name docletPipeline.utils.getKind
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -281,7 +281,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol has global scope.
-     *  @name jsdocx.utils.isGlobal
+     *  @name docletPipeline.utils.isGlobal
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -293,7 +293,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol is a namespace.
-     *  @name jsdocx.utils.isNamespace
+     *  @name docletPipeline.utils.isNamespace
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -305,7 +305,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol is a module.
-     *  @name jsdocx.utils.isModule
+     *  @name docletPipeline.utils.isModule
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -318,7 +318,7 @@ const utils = {
     /**
      *  Checks whether the given symbol is marked as a mixin (is intended to be
      *  added to other objects).
-     *  @name jsdocx.utils.isMixin
+     *  @name docletPipeline.utils.isMixin
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -330,7 +330,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol is a class.
-     *  @name jsdocx.utils.isClass
+     *  @name docletPipeline.utils.isClass
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -345,7 +345,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol is marked as a constant.
-     *  @name jsdocx.utils.isConstant
+     *  @name docletPipeline.utils.isConstant
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -357,7 +357,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol is a constructor.
-     *  @name jsdocx.utils.isConstructor
+     *  @name docletPipeline.utils.isConstructor
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -370,9 +370,9 @@ const utils = {
 
     /**
      *  Checks whether the given symbol is a static member.
-     *  @name jsdocx.utils.isStaticMember
+     *  @name docletPipeline.utils.isStaticMember
      *  @function
-     *  @alias jsdocx.utils.isStatic
+     *  @alias docletPipeline.utils.isStatic
      *
      *  @param {Object} symbol - Documented symbol object.
      *  @returns {Boolean} -
@@ -383,7 +383,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol has an inner scope.
-     *  @name jsdocx.utils.isInner
+     *  @name docletPipeline.utils.isInner
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -395,7 +395,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol is an instance member.
-     *  @name jsdocx.utils.isInstanceMember
+     *  @name docletPipeline.utils.isInstanceMember
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -408,7 +408,7 @@ const utils = {
     /**
      *  Checks whether the given symbol is marked as an interface that other
      *  symbols can implement.
-     *  @name jsdocx.utils.isInterface
+     *  @name docletPipeline.utils.isInterface
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -420,9 +420,9 @@ const utils = {
 
     /**
      *  Checks whether the given symbol is a method.
-     *  @name jsdocx.utils.isMethod
+     *  @name docletPipeline.utils.isMethod
      *  @function
-     *  @alias jsdocx.utils.isFunction
+     *  @alias docletPipeline.utils.isFunction
      *
      *  @param {Object} symbol - Documented symbol object.
      *  @returns {Boolean} -
@@ -438,7 +438,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol is an instance method.
-     *  @name jsdocx.utils.isInstanceMethod
+     *  @name docletPipeline.utils.isInstanceMethod
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -450,7 +450,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol is a static method.
-     *  @name jsdocx.utils.isStaticMethod
+     *  @name docletPipeline.utils.isStaticMethod
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -462,7 +462,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol is a property (not a method.)
-     *  @name jsdocx.utils.isProperty
+     *  @name docletPipeline.utils.isProperty
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -474,7 +474,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol is marked with `@ignore` tag.
-     *  @name jsdocx.utils.isIgnored
+     *  @name docletPipeline.utils.isIgnored
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -486,7 +486,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol is an instance property.
-     *  @name jsdocx.utils.isInstanceProperty
+     *  @name docletPipeline.utils.isInstanceProperty
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -498,7 +498,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol is a static property.
-     *  @name jsdocx.utils.isStaticProperty
+     *  @name docletPipeline.utils.isStaticProperty
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -510,7 +510,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol is a custom type definition.
-     *  @name jsdocx.utils.isTypeDef
+     *  @name docletPipeline.utils.isTypeDef
      *  @function
      *  @alias utils.isCustomType
      *
@@ -523,7 +523,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol is a callback definition.
-     *  @name jsdocx.utils.isCallback
+     *  @name docletPipeline.utils.isCallback
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -538,7 +538,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol is an enumeration.
-     *  @name jsdocx.utils.isEnum
+     *  @name docletPipeline.utils.isEnum
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -550,7 +550,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol is an event.
-     *  @name jsdocx.utils.isEvent
+     *  @name docletPipeline.utils.isEvent
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -563,7 +563,7 @@ const utils = {
     /**
      *  Checks whether the given symbol is defined outside of the current
      *  package.
-     *  @name jsdocx.utils.isExternal
+     *  @name docletPipeline.utils.isExternal
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -575,7 +575,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol is a generator function.
-     *  @name jsdocx.utils.isGenerator
+     *  @name docletPipeline.utils.isGenerator
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -587,7 +587,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol is read-only.
-     *  @name jsdocx.utils.isReadOnly
+     *  @name docletPipeline.utils.isReadOnly
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -599,7 +599,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol has `public` access.
-     *  @name jsdocx.utils.isPublic
+     *  @name docletPipeline.utils.isPublic
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -611,7 +611,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol has `private` access.
-     *  @name jsdocx.utils.isPrivate
+     *  @name docletPipeline.utils.isPrivate
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -625,7 +625,7 @@ const utils = {
      *  Checks whether the given symbol has `package` private access; indicating
      *  that the symbol is available only to code in the same directory as the
      *  source file for this symbol.
-     *  @name jsdocx.utils.isPackagePrivate
+     *  @name docletPipeline.utils.isPackagePrivate
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -637,7 +637,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol has `protected` access.
-     *  @name jsdocx.utils.isProtected
+     *  @name docletPipeline.utils.isProtected
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -650,7 +650,7 @@ const utils = {
     /**
      *  Checks whether the given symbol is undocumented.
      *  This checks if the symbol has any comments.
-     *  @name jsdocx.utils.isUndocumented
+     *  @name docletPipeline.utils.isUndocumented
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -666,7 +666,7 @@ const utils = {
 
     /**
      *  Checks whether the given symbol has description.
-     *  @name jsdocx.utils.hasDescription
+     *  @name docletPipeline.utils.hasDescription
      *  @function
      *
      *  @param {Object} symbol - Documented symbol object.
@@ -677,9 +677,9 @@ const utils = {
     },
 
     /**
-     *  Builds and gets a flat array of symbol names from the given jsdoc-x
+     *  Builds and gets a flat array of symbol names from the given jsdoc
      *  parsed output.
-     *  @name jsdocx.utils.getSymbolNames
+     *  @name docletPipeline.utils.getSymbolNames
      *  @function
      *
      *  @param {Array} docs - JSDoc documentation data.
@@ -714,7 +714,7 @@ const utils = {
     _getSorter(sortType, prop) {
         if (!sortType) return null;
         // colon (:) is not included bec. it just indicates a prefix, it's not a level separator as dot (.).
-        const re = /[#.~]/g,
+        const re  = /[#.~]/g,
             group = sortType === 'grouped';
         if (!group) {
             return (a, b) => {
@@ -727,8 +727,8 @@ const utils = {
         }
         // grouped sort (by scope). also moving inner symbols to end.
         return (a, b) => {
-            const A = prop ? a[prop] : a;
-            const B = prop ? b[prop] : b;
+            const A      = prop ? a[prop] : a;
+            const B      = prop ? b[prop] : b;
             const aInner = A.indexOf('~') >= 0;
             const bInner = B.indexOf('~') >= 0;
             return (aInner && bInner) || (!aInner && !bInner)

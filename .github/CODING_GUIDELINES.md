@@ -501,7 +501,7 @@ fields: [{
 
 ## 11. JSDoc type expressions
 
-Neo's docs build parses every type expression with `jsdoc-x` and `catharsis` in JSDoc mode. This is the
+Neo's docs build parses every type expression with `catharsis`, the type parser the jsdoc engine uses, in JSDoc mode. This is the
 Closure/JSDoc grammar, not TypeScript. `node ./buildScripts/util/check-jsdoc-types.mjs` runs the same parser
 before `npm run generate-docs-json`, so fix the linted expression instead of treating the build failure as a
 docs-output problem.

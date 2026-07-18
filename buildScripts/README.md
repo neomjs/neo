@@ -51,7 +51,7 @@ Tools for generating the API documentation and handling SEO for the portal.
 
 | Script | NPM Command | Description |
 | :--- | :--- | :--- |
-| `jsdocx.mjs` | `npm run generate-docs-json` | Parses JSDoc comments across the codebase and generates `docs/output/db.json` for the Docs App. |
+| `generateDocsJson.mjs` | `npm run generate-docs-json` | Parses JSDoc comments across the codebase and generates `docs/output/db.json` for the Docs App. |
 | `seo/generate.mjs` | N/A | Generates static HTML snapshots for Search Engine Optimization. |
 
 ---
