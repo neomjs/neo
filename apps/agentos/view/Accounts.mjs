@@ -14,9 +14,9 @@ import Toolbar                    from '../../../src/toolbar/Base.mjs';
  * @extends Neo.dashboard.Panel
  *
  * @summary The **Accounts keeper-view** — set up the cross-family fleet's agent identities (GitHub
- * identity + harness type + provider credential). Extracted from `FleetSettingsPanel` per the cockpit
- * keeper-view decomposition: this view owns identity *setup*; the Fleet view owns the live roster
- * + lifecycle. It also surfaces a **basic NL-MCP connect entry** (the external-harness
+ * identity + harness type + provider credential). Extracted from the retired settings panel per the
+ * cockpit keeper-view decomposition: this view owns identity *setup*; the cockpit owns the live
+ * roster + lifecycle. It also surfaces a **basic NL-MCP connect entry** (the external-harness
  * `manage_connection` start path) through the same fail-closed injected-bridge discipline.
  *
  * Capability-security boundary (the load-bearing reason this is its own surface): a credential is

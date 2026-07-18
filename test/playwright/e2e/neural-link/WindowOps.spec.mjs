@@ -15,18 +15,18 @@ test.describe('Neural Link window operations (e2e)', () => {
         let popup;
 
         await page.goto('/apps/agentos/index.html');
-        // the FleetSettingsPanel is the 'Control' keeper-view in the shell rail
-        await page.locator('.agent-shell').getByText('Control', {exact: true}).click();
-        await expect(page.locator('.agent-panel-settings')).toBeVisible({timeout: 60000});
+        // the Accounts panel is the rail's dashboard-hosted keeper-view (the pop-out host)
+        await page.locator('.agent-shell').getByText('Accounts', {exact: true}).click();
+        await expect(page.locator('.agent-panel-accounts')).toBeVisible({timeout: 60000});
 
         const app = await neuralLink.connectToApp('AgentOS');
 
         const
             dashboards = await app.queryComponent({className: 'Neo.dashboard.Container'}, ['id', 'className', 'ntype']),
-            panels     = await app.queryComponent({className: 'AgentOS.view.FleetSettingsPanel'}, ['id', 'className', 'ntype', 'parentId']);
+            panels     = await app.queryComponent({className: 'AgentOS.view.Accounts'}, ['id', 'className', 'ntype', 'parentId']);
 
         expect(dashboards.length, 'dashboard host should be discoverable through Neural Link').toBeGreaterThan(0);
-        expect(panels.length, 'FleetSettingsPanel should be discoverable through Neural Link').toBeGreaterThan(0);
+        expect(panels.length, 'the Accounts panel should be discoverable through Neural Link').toBeGreaterThan(0);
 
         const
             dashboard = dashboards[0],
@@ -37,7 +37,7 @@ test.describe('Neural Link window operations (e2e)', () => {
             ntype    : 'dashboard'
         });
         expect(panel.properties).toMatchObject({
-            className: 'AgentOS.view.FleetSettingsPanel',
+            className: 'AgentOS.view.Accounts',
             ntype    : 'dashboard-panel',
             parentId : dashboard.id
         });
@@ -69,11 +69,11 @@ test.describe('Neural Link window operations (e2e)', () => {
                 componentId: panel.id,
                 dashboardId: dashboard.id,
                 popupWidth : 420,
-                windowName : 'fleet'
+                windowName : 'accounts'
             });
 
             await popup.waitForLoadState('domcontentloaded');
-            await expect(popup.locator('.agent-panel-settings')).toBeVisible({timeout: 30000});
+            await expect(popup.locator('.agent-panel-accounts')).toBeVisible({timeout: 30000});
 
             await expect.poll(async () => {
                 const windows = await getBoundWindows();

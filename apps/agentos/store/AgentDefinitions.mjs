@@ -9,11 +9,11 @@ import Store                from '../../../src/data/Store.mjs';
  * local bridge-state placeholder, not persisted registry data, and carries no credential bytes.
  *
  * **Not a singleton**: the sharing scope is the `state.Provider` that hosts it — the Viewport-level
- * provider `stores` block, the shared ancestor of both consumers ("if used inside a state provider,
+ * provider `stores` block, the shared ancestor of every consumer ("if used inside a state provider,
  * we get it anyway"). `AgentOS.view.Accounts` writes redacted identities into it (after the
- * Brain-side credential submit) via `getStateProvider().getStore('agentDefinitions')`, and
- * `AgentOS.view.FleetSettingsPanel`'s roster grid binds it via
- * `bind: {store: 'stores.agentDefinitions'}`. No credential bytes ever enter this Body-side store.
+ * Brain-side credential submit) via `getStateProvider().getStore('agentDefinitions')`, and the
+ * cockpit's detail configuration tab resolves the same instance through its composition.
+ * No credential bytes ever enter this Body-side store.
  */
 class AgentDefinitions extends Store {
     static config = {

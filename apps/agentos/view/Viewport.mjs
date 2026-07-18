@@ -3,7 +3,6 @@ import AgentDefinitions   from '../store/AgentDefinitions.mjs';
 import BaseViewport       from '../../../src/container/Viewport.mjs';
 import Dashboard          from '../../../src/dashboard/Container.mjs';
 import FleetCockpit       from './fleet/FleetCockpit.mjs';
-import FleetSettingsPanel from './FleetSettingsPanel.mjs';
 import StateProvider      from '../../../src/state/Provider.mjs';
 import TabContainer       from '../../../src/tab/Container.mjs';
 import ViewportController from './ViewportController.mjs';
@@ -47,10 +46,10 @@ class Viewport extends BaseViewport {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
-         * The shell-level shared-store host — the one sharing scope both keeper-view consumers
-         * resolve (Accounts writes into it, FleetSettingsPanel's grid reads it; each binds the
-         * instance at construct, so a pop-out reparent keeps the reference). Store classes are NOT
-         * singletons — the provider IS the sharing mechanism.
+         * The shell-level shared-store host — the one sharing scope every consumer resolves
+         * (Accounts writes into it; the cockpit's detail configuration tab reads it; each binds
+         * or resolves the instance at construct, so a pop-out reparent keeps the reference).
+         * Store classes are NOT singletons — the provider IS the sharing mechanism.
          * @member {Object} stateProvider
          */
         stateProvider: {
@@ -110,21 +109,6 @@ class Viewport extends BaseViewport {
                 header   : {iconCls: 'fa-solid fa-satellite-dish', route: '/fleet', text: 'Fleet'},
                 reference: 'fleet-cockpit'
             }, {
-                // FleetSettingsPanel is a dashboard.Panel, so its keeper-view rides a dashboard.Container
-                // to keep the detach-to-window (pop-out) host — the WindowOps E2E contract + the working
-                // lifecycle pop-out. The rail tab reads this wrapper's `header`.
-                module   : Dashboard,
-                cls      : ['agent-control-dashboard'],
-                header   : {iconCls: 'fa-solid fa-sliders', route: '/control', text: 'Control'},
-                popupUrl : 'apps/agentos/childapps/widget/index.html',
-                sortGroup: 'neo-connected-dashboard',
-
-                items: [{
-                    module   : FleetSettingsPanel,
-                    flex     : 1,
-                    reference: 'fleet'
-                }]
-            }, {
                 // Accounts is likewise a dashboard.Panel — its own dashboard.Container host so the
                 // identity panel keeps the pop-out affordance and stays structurally idiomatic.
                 module   : Dashboard,
@@ -157,9 +141,25 @@ class Viewport extends BaseViewport {
      * @returns {Promise<Boolean>} True after the cockpit refresh settles; false when no valid route exists.
      */
     async onAgentDefinitionAccepted({agent}={}) {
-        const cockpit = this.getReference('fleet-cockpit');
+        const
+            me      = this,
+            cockpit = me.getReference('fleet-cockpit');
 
-        if (!agent?.id || typeof cockpit?.loadRoster !== 'function') {
+        if (!agent?.id) {
+            return false
+        }
+
+        // land the canonical readback in the shared definitions store: the S5 zone's form ends at
+        // this event by design (the mount owner writes), and the config tab reads the same rows.
+        // Accounts upserts its own row before firing, so this is idempotent for that path; with
+        // no provider in reach (bare mounts) the write degrades away and the roster refresh stands.
+        const
+            store  = me.getStateProvider?.()?.getStore('agentDefinitions'),
+            record = store?.get(agent.id);
+
+        record ? record.set(agent) : store?.add(agent);
+
+        if (typeof cockpit?.loadRoster !== 'function') {
             return false
         }
 
