@@ -383,7 +383,7 @@ class MainContainerController extends ComponentController {
             logoPath   = 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/apps/covid/',
             mapView    = me.getReference('mapboxglmap'),
             themeLight = button.text === 'Theme Light',
-            buttonText, cls, iconCls, mapViewStyle, theme;
+            buttonText, iconCls, mapViewStyle, theme;
 
         if (themeLight) {
             buttonText   = 'Theme Dark';
@@ -400,16 +400,8 @@ class MainContainerController extends ComponentController {
         logo.vdom.src = logoPath + (theme === 'neo-theme-dark' ? 'covid_logo_dark.jpg' : 'covid_logo_light.jpg');
         logo.update();
 
-        cls = [...component.cls];
-
-        component.cls.forEach(item => {
-            if (item.includes('neo-theme')) {
-                NeoArray.remove(cls, item)
-            }
-        });
-
-        NeoArray.add(cls, theme);
-        component.cls = cls;
+        component.cls.filter(item => item.includes('neo-theme')).forEach(item => component.removeCls(item));
+        component.addCls(theme);
 
         button.set({iconCls, text: buttonText});
 

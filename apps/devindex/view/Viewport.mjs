@@ -1,6 +1,5 @@
 import Header                from './HeaderToolbar.mjs';
 import BaseViewport          from '../../../src/container/Viewport.mjs';
-import NeoArray              from '../../../src/util/Array.mjs';
 import ViewportController    from './ViewportController.mjs';
 import ViewportStateProvider from './ViewportStateProvider.mjs';
 
@@ -91,12 +90,10 @@ class Viewport extends BaseViewport {
      */
     afterSetSize(value, oldValue) {
         if (value) {
-            let me  = this,
-                cls = me.cls;
+            let me = this;
 
-            NeoArray.remove(cls, 'devindex-size-' + oldValue);
-            NeoArray.add(   cls, 'devindex-size-' + value);
-            me.cls = cls;
+            me.removeCls('devindex-size-' + oldValue);
+            me.addCls('devindex-size-' + value);
 
             me.stateProvider.setData({size: value})
         }

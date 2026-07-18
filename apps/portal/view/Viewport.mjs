@@ -1,7 +1,6 @@
 import BaseViewport          from '../../../src/container/Viewport.mjs';
 import Container             from '../../../src/container/Base.mjs';
 import HeaderToolbar         from './HeaderToolbar.mjs';
-import NeoArray              from '../../../src/util/Array.mjs';
 import ViewportController    from './ViewportController.mjs';
 import ViewportStateProvider from './ViewportStateProvider.mjs';
 
@@ -94,12 +93,10 @@ class Viewport extends BaseViewport {
      */
     afterSetSize(value, oldValue) {
         if (value) {
-            let me  = this,
-                cls = me.cls;
+            let me = this;
 
-            NeoArray.remove(cls, 'portal-size-' + oldValue);
-            NeoArray.add(   cls, 'portal-size-' + value);
-            me.cls = cls;
+            me.removeCls('portal-size-' + oldValue);
+            me.addCls('portal-size-' + value);
 
             me.stateProvider.setData({size: value});
 

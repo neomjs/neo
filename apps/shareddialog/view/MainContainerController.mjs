@@ -450,7 +450,7 @@ class MainContainerController extends ComponentController {
                         appName         : dockedWindowAppName,
                         cls             : ['neo-dialog', 'neo-panel', 'neo-container'],
                         moveInMainThread: false,
-                        vdom            : vdom,
+                        vdom,
                         windowId        : dockedWindowId
                     });
 
@@ -585,8 +585,7 @@ class MainContainerController extends ComponentController {
             buttonText = 'Theme Light',
             dialog     = me.dialog,
             iconCls    = 'fa fa-sun',
-            theme      = 'neo-theme-dark',
-            cls;
+            theme      = 'neo-theme-dark';
 
         if (button.text === 'Theme Light') {
             buttonText = 'Theme Dark';
@@ -614,11 +613,8 @@ class MainContainerController extends ComponentController {
         button.set({iconCls, text: buttonText});
 
         if (dialog) {
-            cls = dialog.cls;
-
-            NeoArray.removeAdd(cls, me.previousTheme, me.currentTheme);
-
-            dialog.cls = cls
+            dialog.removeCls(me.previousTheme);
+            dialog.addCls(me.currentTheme)
         }
     }
 

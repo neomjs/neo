@@ -1,6 +1,5 @@
 import Controller        from '../../../src/controller/Component.mjs';
 import CubeLayout        from '../../../src/layout/Cube.mjs';
-import NeoArray          from '../../../src/util/Array.mjs';
 import SeoService        from '../service/Seo.mjs';
 
 /**
@@ -394,17 +393,14 @@ class ViewportController extends Controller {
 
         if (Neo.isNumber(activeIndex) && size) {
             let headerSocialIcons = me.getReference('header-social-icons'),
-                {cls}             = headerSocialIcons,
                 vertical          = size === 'x-small',
                 hidden            = activeIndex !== 0 && vertical;
 
-            NeoArray.toggle(cls, 'hide-sidebar', hidden);
+            headerSocialIcons.toggleCls('hide-sidebar', hidden);
 
             if (!hidden) {
-                NeoArray.toggle(cls, 'separate-bar', vertical)
+                headerSocialIcons.toggleCls('separate-bar', vertical)
             }
-
-            headerSocialIcons.cls = cls;
 
 
             if (hidden && vertical) {
