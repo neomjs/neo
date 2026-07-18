@@ -166,7 +166,7 @@ export function decideHookAction(verdict, enforcing, operatorInLoop = false, cle
  * `BLOCK … : valid lane-state terminal` line is one turn where the agent emitted a fully valid
  * terminal and the hook refused it anyway (so a real drive followed); the count is therefore
  * hook-written evidence the agent cannot self-declare. Deference blocks and invalid-terminal blocks
- * do not count. WOULD-BLOCK (dry-run) lines do not count — no chain formed. Fail-CLOSED: a missing /
+ * do not count. WOULD-BLOCK (non-enforcing) lines do not count — no chain formed. Fail-CLOSED: a missing /
  * unreadable log or an unknown session returns 0, so a broken audit trail can never mint a
  * stop-license. Exported + unit-tested.
  * @param {String} sessionId The Stop payload's `session_id`.

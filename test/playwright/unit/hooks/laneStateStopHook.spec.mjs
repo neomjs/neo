@@ -5,6 +5,8 @@ import {composeBlockDirective, composeDeferenceDirective, countSessionCompliantR
         extractFinalAssistantText, extractLastAssistantTextFromJsonl, extractLastUserTextFromJsonl,
         extractLatestHumanUserTextFromJsonl,
         formatCapacityAdvisory, formatLifecycleBoard, formatGoldenPathDirection, formatHoldCostumeCallout} from '../../../../.claude/hooks/laneStateStopHook.mjs';
+import {collectMaterialArtifactsFromJsonl,
+        evaluateMaterialArtifactKey} from '../../../../ai/scripts/lifecycle/materialArtifactKey.mjs';
 import {spawn} from 'node:child_process';
 import fs      from 'node:fs';
 import os      from 'node:os';
@@ -1086,5 +1088,51 @@ test.describe('findLastAcceptedStopIso — the accepted-stop boundary, literal a
 
         // any other read failure (a directory is not a readable log) = the same fail-closed shape
         expect(findLastAcceptedStopIso(SID, os.tmpdir())).toEqual({iso: null, unavailable: true})
+    });
+});
+
+test.describe('the adapter composition — boundary → collector → evaluator, wired exactly as main() wires them', () => {
+    const SID = 'bbbb1111-2222-3333-4444-555566667777';
+
+    // one REAL confirmed artifact: an ID-correlated pr-create whose matching result carries the URL
+    const artifactJsonl = [
+        JSON.stringify({timestamp: '2026-07-18T06:00:00.000Z', message: {content: [
+            {type: 'tool_use', id: 'toolu_adapter', name: 'Bash', input: {command: 'gh pr create --title real'}}
+        ]}}),
+        JSON.stringify({timestamp: '2026-07-18T06:00:05.000Z', message: {content: [
+            {type: 'tool_result', tool_use_id: 'toolu_adapter', content: 'https://github.com/neomjs/neo/pull/900'}
+        ]}})
+    ].join('\n');
+
+    // the hook's exact wiring: the boundary feeds BOTH the availability gate and the since-scope
+    const composeKey = (jsonl, logFile) => {
+        const boundary = findLastAcceptedStopIso(SID, logFile);
+
+        return evaluateMaterialArtifactKey({
+            verdictValid    : true,
+            sinceUnavailable: boundary.unavailable,
+            artifacts       : boundary.unavailable ? [] : collectMaterialArtifactsFromJsonl(jsonl, {sinceIso: boundary.iso})
+        })
+    };
+
+    test('artifact PRESENT + MISSING audit log = refusal — unscoped evidence licenses nothing through the full chain', () => {
+        const key = composeKey(artifactJsonl, path.join(os.tmpdir(), 'neo-adapter-absent.log'));
+
+        expect(key.accept).toBe(false);
+        expect(key.reason).toContain('boundary')
+    });
+
+    test('the SAME artifact with an available boundary = acceptance; predating the boundary = refusal (the scope is live end-to-end)', () => {
+        const file = path.join(os.tmpdir(), `neo-adapter-spec-${Date.now()}-${Math.random().toString(36).slice(2)}.log`);
+
+        // boundary BEFORE the artifact: the chain accepts on the confirmed pr-opened
+        fs.writeFileSync(file, `[2026-07-18T05:00:00.000Z] ALLOW (session=${SID}, identity=x, operatorInLoop=true): dialogue\n`, 'utf8');
+        try {
+            expect(composeKey(artifactJsonl, file).accept).toBe(true);
+
+            // boundary AFTER the artifact: the same transcript now proves nothing new — refusal
+            fs.appendFileSync(file, `[2026-07-18T07:00:00.000Z] ALLOW (session=${SID}, identity=x, operatorInLoop=true): dialogue\n`, 'utf8');
+            expect(composeKey(artifactJsonl, file).accept).toBe(false)
+        } finally { fs.unlinkSync(file) }
     });
 });

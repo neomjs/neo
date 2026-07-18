@@ -101,7 +101,7 @@ test.describe('ai/scripts/lifecycle/materialArtifactKey', () => {
             expect(collectMaterialArtifactsFromJsonl(real).map(artifact => artifact.ref)).toEqual(['#700', '#701'])
         });
 
-        test('compound commands never arm — the || echo fallback cannot mint from its own echoed URL, and even legitimate && chains fail closed', () => {
+        test('compound commands never arm — ||, &&, ;, |, single-& backgrounding, and CR/LF line breaks all fail closed', () => {
             const jsonl = [
                 record([use('toolu_c1', 'Bash', PR_CREATE('gh pr create --title x || echo https://github.com/neomjs/neo/pull/800'))]),
                 record([result('toolu_c1', 'https://github.com/neomjs/neo/pull/800')]),
@@ -110,7 +110,16 @@ test.describe('ai/scripts/lifecycle/materialArtifactKey', () => {
                 record([use('toolu_c3', 'Bash', PR_CREATE('gh pr create --title z; echo tail'))]),
                 record([result('toolu_c3', 'https://github.com/neomjs/neo/pull/802')]),
                 record([use('toolu_c4', 'Bash', PR_CREATE('gh pr create --title w | tee log'))]),
-                record([result('toolu_c4', 'https://github.com/neomjs/neo/pull/803')])
+                record([result('toolu_c4', 'https://github.com/neomjs/neo/pull/803')]),
+                // the reviewer falsifiers, pinned exactly: a single `&` BACKGROUNDS the pr-create and
+                // hands the tail command the visible output — no double-operator spelling required
+                record([use('toolu_c5', 'Bash', PR_CREATE('gh pr create --title v & echo https://github.com/neomjs/neo/pull/804'))]),
+                record([result('toolu_c5', 'https://github.com/neomjs/neo/pull/804')]),
+                // and a line break is sequential composition with NO operator spelling at all
+                record([use('toolu_c6', 'Bash', PR_CREATE('gh pr create --title u\necho https://github.com/neomjs/neo/pull/805'))]),
+                record([result('toolu_c6', 'https://github.com/neomjs/neo/pull/805')]),
+                record([use('toolu_c7', 'Bash', PR_CREATE('gh pr create --title t\r\necho https://github.com/neomjs/neo/pull/806'))]),
+                record([result('toolu_c7', 'https://github.com/neomjs/neo/pull/806')])
             ].join('\n');
 
             // the stop LICENSE requires the standalone invocation whose result is unambiguously

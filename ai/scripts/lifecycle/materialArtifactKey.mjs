@@ -43,10 +43,13 @@ const PR_CREATE_HEAD_RE = /^\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)*gh\s+pr\s+creat
 
 // Compound commands never arm — `gh pr create … || echo <url>` would otherwise mint from the
 // fallback's echoed text (the result of a compound is the COMPOUND's output, not the pr-create's).
-// Fail-closed: any shell control/composition operator disqualifies, including legitimate `&&`
-// chains — the artifact still exists in reality; only the STOP LICENSE requires the standalone
-// invocation whose result is unambiguously the pr-create's own.
-const SHELL_COMPOUND_RE = /\|\||&&|[;|`]|\$\(|[<>]/;
+// Fail-closed on the ENUMERATED composition forms: `;`, `|` (and `||`), `&` (and `&&` — a single
+// `&` backgrounds the pr-create and hands the tail command the visible output), backticks, `$(`,
+// redirection `<`/`>`, and CR/LF line breaks (a multi-line command is sequential composition with
+// no operator spelling at all). Legitimate `&&` chains disqualify too — the artifact still exists
+// in reality; only the STOP LICENSE requires the standalone invocation whose result is
+// unambiguously the pr-create's own.
+const SHELL_COMPOUND_RE = /[;|&`<>\r\n]|\$\(/;
 const PULL_URL_RE       = /github\.com\/[^\s"'\\]+\/pull\/(\d+)/;
 const REVIEW_OK_RE      = /"reviewId"|Successfully created \w+ review/i;
 

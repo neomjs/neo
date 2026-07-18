@@ -263,7 +263,7 @@ export function evaluateCleanTerminalAcceptance({
  * + a valid terminal) and the artifact-less fallback, an adapter-evaluated clean terminal
  * ({@link evaluateCleanTerminalAcceptance} — valid terminal, fully handed-off gates, drive-ratchet
  * met). Every other turn-end is blocked when the harness has a proven block/inject contract, or
- * would-block when dry-run / fail-open transport semantics apply. The `verdict` reason is
+ * would-block when non-enforcing / fail-open transport semantics apply. The `verdict` reason is
  * evidence, not a gate.
  * @param {{valid: Boolean, reason: String}} verdict
  * @param {Object} [options]
@@ -334,7 +334,7 @@ export function buildDeferenceStopHookDirective(phrase = null) {
 
 /**
  * @summary Shared deference-register Stop-hook decision. Returns `null` when no autonomous
- * deference slip exists; otherwise maps the match to the same dry-run/enforcing action for every
+ * deference slip exists; otherwise maps the match to the same non-enforcing/enforcing action for every
  * Stop-hook adapter. Operator dialogue is carved before matching, so adapters cannot drift on that
  * business rule.
  * @param {String} text Assistant final-turn text.
