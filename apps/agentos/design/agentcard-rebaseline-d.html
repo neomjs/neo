@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentCard rebaseline — direction D: status-first, two-row, actions-in-flow</title>
+<style>
+  :root {
+    --ground:#0b0e13; --panel:#141a23; --panel-2:#1a212c; --rail:#0e131a;
+    --line:#262f3d; --line-soft:#1c242f;
+    --ink:#d6dce6; --ink-dim:#8b97a8; --ink-faint:#5a6575;
+    --signal:#5eead4;
+    --ok:#34d399; --idle:#f5b544; --wedged:#f4718b; --limited:#a78bfa; --off:#5b6675;
+    --f-claude:#d99a5b; --f-gpt:#58c093; --f-gemini:#6ba3e8; --f-human:#c9d2de;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);
+       line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px;margin:0 auto;padding:36px 24px 64px}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--signal);margin:0}
+  h1{font-size:26px;letter-spacing:-.01em;margin:10px 0 6px;font-weight:640}
+  .lede{font-size:14px;color:var(--ink-dim);max-width:74ch;margin:0 0 26px}
+  .grid{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start}
+  .grid > div{flex:none}
+  .col-label{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+             color:var(--ink-faint);margin:0 0 8px}
+  .col-label b{color:var(--ink-dim);font-weight:500}
+
+  /* ── the D card ── */
+  .card{background:var(--panel);border:1px solid var(--line-soft);border-radius:9px;
+        padding:10px 12px;position:relative;display:flex;flex-direction:column;gap:8px}
+  .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:9px 0 0 9px;background:var(--fam,#58c093)}
+
+  .status-row{display:flex;align-items:center;gap:8px;min-height:32px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--state,#34d399);flex:none}
+  .state-word{font-family:var(--mono);font-size:10px;color:var(--ink-dim);flex:none}
+  .state-word.hot{color:var(--state);font-weight:600}
+  .name{font-weight:600;font-size:14px;color:var(--ink);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .actions{display:flex;gap:6px;flex:none}
+  .icon-btn{width:32px;height:32px;border-radius:6px;border:1px solid var(--line);background:var(--panel-2);
+            color:var(--ink-dim);font-size:13px;display:grid;place-items:center;cursor:pointer;font-family:var(--sans)}
+  .icon-btn:hover{border-color:var(--ink-dim);color:var(--ink)}
+  .icon-btn.power{color:var(--ink-dim)}
+
+  .work-row{display:flex;align-items:flex-start;gap:8px;min-height:34px}
+  .lane{font-size:12.5px;color:var(--ink);flex:1;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .badge{flex:none;font-family:var(--mono);font-size:10px;color:var(--ink-dim);border:1px solid var(--line);
+         border-radius:6px;padding:2px 7px;white-space:nowrap}
+
+  .strip{display:flex;gap:10px;font-family:var(--mono);font-size:10px;color:var(--ink-dim)}
+  .strip .src{display:flex;align-items:center;gap:4px}
+  .strip .src i{width:7px;height:7px;border-radius:50%;background:var(--ok);font-style:normal}
+  .strip .src i.dim{background:var(--off)}
+  .strip .src i.bad{background:var(--wedged)}
+
+  /* narrow-mode adjustments (the card's own width states) */
+  .card.narrow .engine{display:none}
+  .card.narrow .strip .src.full{display:none}
+  .card.narrow .strip .summary{display:flex}
+  .strip .summary{display:none;align-items:center;gap:4px}
+
+  .engine{font-family:var(--mono);font-size:10px;color:var(--ink-faint);flex:none}
+
+  .note{font-size:12px;color:var(--ink-dim);margin-top:8px;max-width:34ch}
+  .note b{color:var(--ink);font-weight:600}
+  .divider{border-top:1px solid var(--line-soft);margin:34px 0 26px}
+  .falsifier{font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">AgentCard rebaseline · direction D</p>
+  <h1>Status-first, two-row, actions-in-flow</h1>
+  <p class="lede">The card at its own four width states. State and name share one glance; the lane clamps at two lines with the count pinned; actions are 32px in-flow, never dominant; the truth strip is one line or a tap-to-expand summary. Chrome is a 3px family edge — information gets ~85% of the width.</p>
+
+  <div class="grid">
+
+    <div>
+      <p class="col-label">wide · <b>480px</b></p>
+      <div class="card" style="width:480px;--fam:var(--f-gpt)">
+        <div class="status-row">
+          <span class="dot" style="--state:var(--ok)"></span>
+          <span class="state-word">working</span>
+          <span class="name">Euclid</span>
+          <span class="engine">gpt-5.6-s</span>
+          <span class="actions"><span class="icon-btn power">⏻</span><span class="icon-btn">↻</span></span>
+        </div>
+        <div class="work-row">
+          <span class="lane">NL transaction archive — the merge-sweep witness chain on the night queue</span>
+          <span class="badge">11 lanes</span>
+        </div>
+        <div class="strip">
+          <span class="src"><i></i>RUN</span><span class="src"><i></i>ROS</span><span class="src"><i class="dim"></i>REP</span>
+        </div>
+      </div>
+      <p class="note">everything on the contract, one calm read</p>
+    </div>
+
+    <div>
+      <p class="col-label">mobile · <b>360px</b></p>
+      <div class="card" style="width:360px;--fam:var(--f-claude)">
+        <div class="status-row">
+          <span class="dot" style="--state:var(--wedged)"></span>
+          <span class="state-word hot" style="--state:var(--wedged)">wedged</span>
+          <span class="name">Grace</span>
+          <span class="engine">opus-4.8</span>
+          <span class="actions"><span class="icon-btn power">⏻</span><span class="icon-btn">↻</span></span>
+        </div>
+        <div class="work-row">
+          <span class="lane">design authority — the AgentCard rebaseline and the D2 third channel landing</span>
+          <span class="badge">17 lanes</span>
+        </div>
+        <div class="strip">
+          <span class="src"><i></i>RUN</span><span class="src"><i class="bad"></i>ROS</span><span class="src"><i></i>REP</span>
+        </div>
+      </div>
+      <p class="note">severity = weight on the state word, identity never recedes</p>
+    </div>
+
+    <div>
+      <p class="col-label">current · <b>294px</b></p>
+      <div class="card" style="width:294px;--fam:var(--f-gemini)">
+        <div class="status-row">
+          <span class="dot" style="--state:var(--off)"></span>
+          <span class="state-word">benched / offline</span>
+          <span class="name">Gemini</span>
+          <span class="actions"><span class="icon-btn power">⏻</span></span>
+        </div>
+        <div class="work-row">
+          <span class="lane">operator-benched — the v3-line slip, waiting on a stable harness</span>
+          <span class="badge">3.1-pro</span>
+        </div>
+        <div class="strip">
+          <span class="src"><i class="dim"></i>RUN</span><span class="src"><i class="dim"></i>ROS</span><span class="src"><i class="dim"></i>REP</span>
+        </div>
+      </div>
+      <p class="note">the badge slot carries the engine when there's no lane count</p>
+    </div>
+
+    <div>
+      <p class="col-label">narrow · <b>240px</b></p>
+      <div class="card narrow" style="width:240px;--fam:var(--f-human)">
+        <div class="status-row">
+          <span class="dot" style="--state:var(--idle)"></span>
+          <span class="state-word">idle</span>
+          <span class="name">tobiu</span>
+          <span class="actions"><span class="icon-btn power">⏻</span></span>
+        </div>
+        <div class="work-row">
+          <span class="lane">merge sweep and the morning review queue</span>
+          <span class="badge">7 lanes</span>
+        </div>
+        <div class="strip">
+          <span class="src full"><i></i>RUN</span><span class="src full"><i></i>ROS</span><span class="src full"><i class="dim"></i>REP</span>
+          <span class="summary"><i></i>3 sources ▸</span>
+        </div>
+      </div>
+      <p class="note">engine hides, strip collapses to a tap summary, nothing truncates to a meaningless prefix</p>
+    </div>
+
+  </div>
+
+  <div class="divider"></div>
+
+  <p class="eyebrow">the falsifiers, answered</p>
+  <p class="falsifier">294px → 149.95px info body &nbsp;·&nbsp; ~85% width to information; chrome = 3px edge + 32px actions</p>
+  <p class="falsifier">48×48 power dominates &nbsp;·&nbsp; 32px in-flow icons; ≥44px touch height at narrow; never fully hidden (touch has no hover)</p>
+  <p class="falsifier">lane → meaningless prefix &nbsp;·&nbsp; 2-line clamp + badge pinned; prefix expendable, count exact</p>
+  <p class="falsifier">three 9px source rows &nbsp;·&nbsp; one 10px strip, collapsible to a summary at narrow</p>
+  <p class="falsifier">viewport-only breakpoints &nbsp;·&nbsp; card-owned width states (container query / ResizeObserver class — layout-blind)</p>
+
+  <p class="note" style="max-width:74ch;margin-top:20px">mockup by <b>Phoebe</b> (@neo-kimi-phoebe, Moonshot Kimi K3) — design-peer on #15536. The a11y invariants hold everywhere: state as text beside the dot (#15512/#15534), text-safe inks only, state-honesty markers verbatim, id-keyed cards. Severity changes the state word's weight — never the identity order.</p>
+</div>
+</body>
+</html>
