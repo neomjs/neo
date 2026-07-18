@@ -16,7 +16,7 @@ import {createDockKeyboardCommands}       from '../../../../../src/dashboard/Doc
 import {createDockTearOutHandlers}        from '../../../../../src/dashboard/DockTearOut.mjs';
 import {createDockWorkspaceSet}           from '../../../../../src/dashboard/DockWorkspaceSet.mjs';
 import TourRunner                         from '../../../../../src/ai/client/TourRunner.mjs';
-import {previewToOperation}               from '../../../../../src/dashboard/dockPreviewContract.mjs';
+import {PREVIEW_SCHEMA, previewToOperation} from '../../../../../src/dashboard/dockPreviewContract.mjs';
 import {demoBTourScript, initialDocument} from '../../../tour/demoBPerspectives.mjs';
 import '../../../../../src/button/Base.mjs';   // registers the `button` ntype the bars compose
 import '../../../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the projection emits
@@ -266,6 +266,31 @@ class DemoBWorkspace extends Container {
      */
     tearOutPlacements = {}
     /**
+     * Supersession token for the async keyboard-cycle highlight: every highlight call bumps it,
+     * and a paint whose measured geometry resolves after a newer call (or a clear) loses — a
+     * fast candidate cycle must never leave a stale zone lit.
+     * @member {Number} keyboardHighlightGeneration=0
+     * @protected
+     */
+    keyboardHighlightGeneration = 0
+    /**
+     * The popup workspace's announcement region instance (composed in
+     * {@link #mountCrossWindowTarget}, retired with its window). Kept as an instance ref because
+     * it lives in the popup window's view tree, outside this component's reference scope.
+     * @member {Neo.component.Base|null} kbdLivePopup=null
+     * @protected
+     */
+    kbdLivePopup = null
+    /**
+     * The window the most recent keyboard command originated in — recorded per keydown from the
+     * routing host's own `windowId`. Focus mechanics need the ORIGIN because focus-stealing rules
+     * are directional: a popup may focus its opener (it holds the keystroke's activation), while
+     * the opener focuses a popup through its named handle.
+     * @member {String|null} lastKeyboardOriginWindowId=null
+     * @protected
+     */
+    lastKeyboardOriginWindowId = null
+    /**
      * Plain structured result of the most recent topology reconciliation. This is rendered
      * into the workspace so remainder semantics are visible rather than buried in logs.
      * @member {Object|null} restoreReport=null
@@ -353,9 +378,7 @@ class DemoBWorkspace extends Container {
             commitTransfer  : data => me.commitKeyboardTransfer(data),
             enumerateTargets: request => me.enumerateKeyboardTargets(request),
             focusVessel     : vessel => me.focusNamedWindow(vessel.windowName),
-            focusWorkspace  : ({workspaceId}) => workspaceId === DemoBWorkspace.POPUP_WORKSPACE_ID
-                ? me.focusNamedWindow('demo-b-cross-window')
-                : true, // the main workspace is THIS window — the command runs focused here already
+            focusWorkspace  : ({workspaceId}) => me.focusDockWorkspaceWindow(workspaceId),
             highlightTarget : target => me.setKeyboardTargetHighlight(target),
             onDocumentChange: (document, operation) => {
                 me.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, document);
@@ -436,16 +459,23 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * @summary Render a keyboard command outcome into the aria-live region — the announcement
-     * seam of the keyboard command machine. TEXT only (`.text` is inert by construction); the
-     * message is the machine's complete terminal-derived sentence.
+     * @summary Render a keyboard command outcome into EVERY live announcement region — the
+     * announcement seam of the keyboard command machine. TEXT only (`.text` is inert by
+     * construction); the message is the machine's complete terminal-derived sentence.
+     *
+     * Both windows carry the same terminal-derived truth: a command's outcome must be audible
+     * wherever the operator's focus ends up (a committed transfer moves focus ACROSS windows,
+     * so announcing only in the origin window would announce into the window they just left).
      * @param {Object} announcement `{command, itemId, terminal, focusTransferred, message}`.
      * @protected
      */
     announceKeyboardOutcome({message}) {
-        let live = this.getReference('kbd-live-b');
+        let me    = this,
+            main  = me.getReference('kbd-live-b'),
+            popup = me.kbdLivePopup;
 
-        live && (live.text = message)
+        main && (main.text = message);
+        popup && !popup.isDestroyed && (popup.text = message)
     }
 
     /**
@@ -473,6 +503,10 @@ class DemoBWorkspace extends Container {
         let me       = this,
             commands = me.keyboardCommands,
             chorded  = data.ctrlKey && data.shiftKey;
+
+        // the routing host that caught this keydown names the ORIGIN window — the directional
+        // fact focus mechanics need (a popup focuses its opener; the opener focuses by name)
+        me.lastKeyboardOriginWindowId = data.component?.windowId ?? me.windowId;
 
         if (commands.getActiveCycle()) {
             if (data.key === 'Escape') {
@@ -506,6 +540,11 @@ class DemoBWorkspace extends Container {
         if (!focused) return;
 
         if (data.key.toLowerCase() === 'd') {
+            // detach parity with the pointer projection's arming rule: tear-out arms on the
+            // MAIN workspace only — a tear-out FROM a vessel window is popup-over-popup
+            // territory, deliberately not wired on either input path
+            if (focused.workspaceId !== DemoBWorkspace.MAIN_WORKSPACE_ID) return;
+
             await commands.detachItem(focused)
         } else {
             commands.cycleStart({...focused, instructions: DemoBWorkspace.KEYBOARD_CYCLE_INSTRUCTIONS})
@@ -514,13 +553,15 @@ class DemoBWorkspace extends Container {
 
     /**
      * @summary Resolve the dock item the keydown acted on: the event path's tab-header button →
-     * its header toolbar index → the owning projected tab-container's `dockNodeId` → the
-     * DOCUMENT's tabs node items at that index. The document is the authority on purpose:
-     * DemoB's panes are LIVE instances, which the adapter's item decoration deliberately passes
-     * through untouched — only the freshly-projected CONTAINER configs carry dock metadata, so
-     * the container's node id + the committed document answer identity where the card cannot.
+     * its header toolbar index → the owning projected tab-container's `dockNodeId` → its
+     * WORKSPACE's document tabs node items at that index. The document is the authority on
+     * purpose: DemoB's panes are LIVE instances, which the adapter's item decoration deliberately
+     * passes through untouched — only the freshly-projected CONTAINER configs carry dock
+     * metadata, so the container's node id + the committed document answer identity where the
+     * card cannot. Which document is answered by host containment ({@link #resolveDockWorkspaceId}),
+     * so a popup-origin keydown resolves against the popup workspace's truth.
      * @param {Object} data The keydown DomEvent payload (carries the component path).
-     * @returns {Object|null} `{itemId, itemLabel}` or `null` when the focus is not a dock tab header.
+     * @returns {Object|null} `{itemId, itemLabel, workspaceId}` or `null` when the focus is not a dock tab header.
      * @protected
      */
     resolveFocusedDockItem(data) {
@@ -534,10 +575,12 @@ class DemoBWorkspace extends Container {
         let toolbar      = button.up({ntype: 'tab-header-toolbar'}) || button.parent,
             index        = toolbar?.items?.indexOf(button) ?? -1,
             tabContainer = toolbar?.up({ntype: 'tab-container'}),
+            workspaceId  = me.resolveDockWorkspaceId(tabContainer),
+            document     = workspaceId ? me.getWorkspaceDocument(workspaceId) : null,
             // the projection filters rail-hidden items out of the tab flow — mirror it so the
             // header index maps to the same list the strip renders
-            nodeItems    = me.dockModel?.nodes?.[tabContainer?.dockNodeId]?.items?.filter(id =>
-                me.dockModel.items?.[id]?.autoHidden !== true
+            nodeItems    = document?.nodes?.[tabContainer?.dockNodeId]?.items?.filter(id =>
+                document.items?.[id]?.autoHidden !== true
             ),
             itemId       = index > -1 && Array.isArray(nodeItems) ? nodeItems[index] : null;
 
@@ -545,8 +588,33 @@ class DemoBWorkspace extends Container {
 
         return {
             itemId,
-            itemLabel: me.dockModel?.items?.[itemId]?.title ?? itemId
+            itemLabel: document?.items?.[itemId]?.title ?? itemId,
+            workspaceId
         }
+    }
+
+    /**
+     * @summary Resolve which registered workspace a projected component belongs to, by walking
+     * its parent chain up to a live host in {@link #crossWindowHosts}. Containment is the
+     * identity mechanism on purpose: the adapter stamps `dockWorkspaceId` on SortZone configs
+     * (created lazily on first drag), while the host registry is live from composition time —
+     * one mechanism that answers for every projected child in either window, drag-armed or not.
+     * @param {Neo.component.Base|null} component
+     * @returns {String|null} The workspace id, or `null` when the component is outside every host.
+     * @protected
+     */
+    resolveDockWorkspaceId(component) {
+        let current = component;
+
+        while (current) {
+            for (const [workspaceId, host] of this.crossWindowHosts) {
+                if (host === current) return workspaceId
+            }
+
+            current = current.parent
+        }
+
+        return null
     }
 
     /**
@@ -582,7 +650,10 @@ class DemoBWorkspace extends Container {
                     nodes[nodeId].type === 'tabs' && nodeId !== sourceTabsId
                 );
 
+            // itemId rides every candidate: the highlight seam renders through the shared
+            // dockPreview contract, whose payloads are item-scoped by schema
             return tabsIds.map((tabsId, index) => ({
+                itemId,
                 label: tabsIds.length > 1
                     ? `${labels[workspaceId] ?? workspaceId}, zone ${index + 1}`
                     : (labels[workspaceId] ?? workspaceId),
@@ -593,32 +664,56 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * @summary Render (or clear) the keyboard cycle's current-candidate highlight on the target
-     * zone container. The class pairs hue with a non-color carrier (outline) in the skin — the
-     * WCAG 1.4.1 duty the command machine's seam documents.
-     * @param {Object|null} target `{workspaceId, tabsId}` or `null` to clear.
+     * @summary Render (or clear) the keyboard cycle's current-candidate highlight through the
+     * SHARED drag-affordance consumer: a hand-built `tab-into` dockPreview payload (the contract
+     * module is the pure SSOT; the fail-closed renderer validates it) drives the target host's
+     * {@link Neo.dashboard.DockPreview} — the same overlay, geometry conversion, and skin the
+     * pointer hover renders through, so one affordance model serves both input paths. The
+     * indicator MENU stays pointer-owned: its semantics are within-zone position choice, which
+     * the keyboard cycle's zone-target grammar deliberately does not offer.
+     *
+     * The overlay's whole-zone band is shape+position — inherently paired with a non-color
+     * carrier, the WCAG 1.4.1 duty the command machine's seam documents.
+     *
+     * Async by necessity (a popup target may need a first geometry measure); the generation
+     * token makes it supersession-safe — a stale measure never paints over a newer candidate
+     * or a clear. The machine treats the seam as fire-and-forget, so ordering is owned here.
+     * @param {Object|null} target `{workspaceId, tabsId, itemId}` or `null` to clear.
+     * @returns {Promise<void>}
      * @protected
      */
-    setKeyboardTargetHighlight(target) {
-        let me   = this,
-            zone = me.keyboardHighlightZone;
+    async setKeyboardTargetHighlight(target) {
+        let me         = this,
+            generation = ++me.keyboardHighlightGeneration;
 
-        if (zone && !zone.isDestroyed) {
-            zone.removeCls('agentos-kbd-target')
-        }
-
-        me.keyboardHighlightZone = null;
+        // every flip clears BOTH windows' overlays first: the previous candidate may render
+        // in the other window, and a clear (null) must reach it too
+        me.crossWindowHosts.forEach((host, workspaceId) => me.clearWorkspaceAffordances(workspaceId));
 
         if (!target) return;
 
         let host = me.crossWindowHosts.get(target.workspaceId);
 
-        zone = host && !host.isDestroyed && host.down({dockNodeId: target.tabsId});
+        if (!host || host.isDestroyed) return;
 
-        if (zone) {
-            zone.addCls('agentos-kbd-target');
-            me.keyboardHighlightZone = zone
-        }
+        let geometry = me.crossWindowGeometry.get(target.workspaceId)
+                || await me.measureWorkspaceGeometry(target.workspaceId);
+
+        if (generation !== me.keyboardHighlightGeneration || !geometry || me.isDestroyed) return;
+
+        let renderer = host.down({ntype: 'dock-preview'}),
+            zone     = geometry.zones.find(entry => entry.nodeId === target.tabsId);
+
+        if (!renderer || !zone) return;
+
+        renderer.dockPreview = {
+            feedback : {state: 'accepted'},
+            itemId   : target.itemId,
+            placement: {kind: 'tab-into'},
+            schema   : PREVIEW_SCHEMA,
+            target   : {nodeId: target.tabsId}
+        };
+        renderer.applyTargetGeometry(me.localDockRect(zone.rect, geometry.hostRect))
     }
 
     /**
@@ -684,6 +779,43 @@ class DemoBWorkspace extends Container {
     async focusNamedWindow(windowName) {
         try {
             return !!(await Neo.Main.windowFocus({windowName, windowId: this.windowId}))
+        } catch (error) {
+            return false
+        }
+    }
+
+    /**
+     * @summary Transfer focus to the window rendering a workspace — the command machine's
+     * `focusWorkspace` seam, DIRECTIONAL because focus-stealing rules are: a window may focus a
+     * popup it opened (the named handle lives in its Main actor), and a popup may focus its
+     * OPENER (it holds the keystroke's user activation) — so the route is picked from the
+     * command's recorded origin window. Same Boolean-admission discipline on every branch; a
+     * platform decline is the machine's announced degraded terminal, never a throw.
+     * @param {String} workspaceId
+     * @returns {Promise<Boolean>}
+     * @protected
+     */
+    async focusDockWorkspaceWindow(workspaceId) {
+        let me   = this,
+            host = me.crossWindowHosts.get(workspaceId);
+
+        if (!host || host.isDestroyed) return false;
+
+        let targetWindowId = host.windowId,
+            originWindowId = me.lastKeyboardOriginWindowId ?? me.windowId;
+
+        // the command ran in the target's own window — focus is already there
+        if (targetWindowId === originWindowId) return true;
+
+        // popup-workspace target: the MAIN window opened it, so ITS Main actor holds the handle
+        if (targetWindowId !== me.windowId) {
+            return me.focusNamedWindow('demo-b-cross-window')
+        }
+
+        // main-window target from a popup origin: route the verb to the POPUP's main thread
+        // (windowId routing) — omitting windowName makes it focus its opener
+        try {
+            return !!(await Neo.Main.windowFocus({windowId: originWindowId}))
         } catch (error) {
             return false
         }
@@ -1118,16 +1250,26 @@ class DemoBWorkspace extends Container {
     /**
      * Mounts the popup workspace projection into a newly connected render target, registers its
      * target participation, and resolves only after real DOM geometry is measurable.
+     *
+     * The keyboard surface composes here too: the popup window gets its own aria-live
+     * announcement region (same terminal-derived truth as the main window's — the a11y-parity
+     * AC) and the same chorded key routing on its host, so a focused popup item can drive the
+     * return command exactly like a main-window one. One handler, one machine, two windows.
      * @param {Neo.app.Base} app
      * @param {String} windowId
      * @returns {Promise<Object>}
      * @protected
      */
     async mountCrossWindowTarget(app, windowId) {
-        let me          = this,
-            workspaceId = DemoBWorkspace.POPUP_WORKSPACE_ID,
-            generation  = me.crossWindowStageGeneration,
-            host        = app.mainView.add({
+        let me           = this,
+            workspaceId  = DemoBWorkspace.POPUP_WORKSPACE_ID,
+            generation   = me.crossWindowStageGeneration,
+            [live, host] = app.mainView.add([{
+                cls  : ['agentos-dockdemo-kbd-live'],
+                ntype: 'component',
+                role : 'status',
+                vdom : {'aria-live': 'polite', cn: []}
+            }, {
                 module: Container,
                 cls   : ['agentos-dockdemo-dock-host', 'neo-dashboard'],
                 flex  : 1,
@@ -1137,10 +1279,15 @@ class DemoBWorkspace extends Container {
                     module: DockDropIndicators
                 }],
                 layout: {ntype: 'fit'}
-            });
+            }]);
 
         me.crossWindowTargetWindowId = windowId;
         me.crossWindowHosts.set(workspaceId, host);
+        me.kbdLivePopup = live;
+
+        host.addDomListeners([
+            {keydown: me.onDockHostKeyDown, scope: me}
+        ]);
 
         try {
             await app.mainView.promiseUpdate();
@@ -2507,6 +2654,7 @@ class DemoBWorkspace extends Container {
             me.crossWindowStageReject    = null;
             me.crossWindowGestureResolve = null;
             me.crossWindowGestureContext = null;
+            me.kbdLivePopup              = null;
 
             // A post-commit manual close is a terminal vessel event, not ownership loss.
             // A pre-commit close has no detached entry and remains a cancelled gesture.

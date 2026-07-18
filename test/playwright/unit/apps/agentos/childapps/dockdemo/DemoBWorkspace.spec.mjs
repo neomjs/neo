@@ -10,7 +10,10 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 import '../../../../../../../src/manager/Instance.mjs'; // defines Neo.get — the container child-add path resolves parents through it
+import Component                from '../../../../../../../src/component/Base.mjs';
+import Container                from '../../../../../../../src/container/Base.mjs';
 import DemoBWorkspace           from '../../../../../../../apps/agentos/childapps/dockdemo/view/DemoBWorkspace.mjs';
+import DockPreview              from '../../../../../../../src/dashboard/DockPreview.mjs';
 import DockProjectionReconciler from '../../../../../../../src/dashboard/DockProjectionReconciler.mjs';
 import DockZoneModel            from '../../../../../../../src/dashboard/DockZoneModel.mjs';
 
@@ -672,6 +675,212 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoBWorkspace', () => {
         expect(DockZoneModel.findContainingTabsId(doc, 'timeline')).toBe('workbench-tabs');
         expect(doc.nodes['workbench-tabs'].items.filter(id => id === 'timeline')).toHaveLength(1);
         expect(workspace.tearOutPlacements.timeline).toBeUndefined()
+    });
+
+    test('resolveDockWorkspaceId answers by host containment, in either window, and fails closed outside', () => {
+        // MAIN: a really-projected dock child resolves through the main host's parent chain
+        const sideTabs = workspace.getReference('dock-host-b').down({dockNodeId: 'side-tabs'});
+
+        expect(sideTabs, 'the main projection renders the side-tabs container').toBeTruthy();
+        expect(workspace.resolveDockWorkspaceId(sideTabs)).toBe(DemoBWorkspace.MAIN_WORKSPACE_ID);
+
+        // POPUP: a child of a registered popup host resolves to the popup workspace
+        const popupHost  = Neo.create(Container, {items: []}),
+              popupChild = popupHost.add({module: Component});
+
+        workspace.crossWindowHosts.set(DemoBWorkspace.POPUP_WORKSPACE_ID, popupHost);
+
+        expect(workspace.resolveDockWorkspaceId(popupChild)).toBe(DemoBWorkspace.POPUP_WORKSPACE_ID);
+
+        // outside every host: null, never a guess
+        const stray = Neo.create(Component, {});
+
+        expect(workspace.resolveDockWorkspaceId(stray)).toBe(null);
+        expect(workspace.resolveDockWorkspaceId(null)).toBe(null);
+
+        stray.destroy();
+        popupHost.destroy()
+    });
+
+    test('resolveFocusedDockItem answers popup-origin identity from the POPUP workspace document', () => {
+        // stage a real transfer so the popup document owns the workbench item
+        const detached = DockZoneModel.transferItem(
+            workspace.dockModel,
+            DemoBWorkspace.createPopupDocument(),
+            {
+                itemId: 'workbench', sourceWorkspaceId: 'demo-b-main', targetWorkspaceId: 'demo-b-popup',
+                target: {operation: 'addTab', tabsNodeId: 'popup-tabs'}
+            }
+        );
+
+        expect(detached.errors).toEqual([]);
+        workspace.dockModel     = detached.sourceDocument;
+        workspace.popupDocument = detached.targetDocument;
+
+        // project the popup document into a registered popup host — real tab chrome, real chain
+        const popupHost = Neo.create(Container, {items: []});
+
+        workspace.crossWindowHosts.set(DemoBWorkspace.POPUP_WORKSPACE_ID, popupHost);
+        popupHost.add(workspace.projectDockModel(null, DemoBWorkspace.POPUP_WORKSPACE_ID));
+
+        const button = popupHost.down({ntype: 'tab-header-button'});
+
+        expect(button, 'the popup projection renders a real tab header').toBeTruthy();
+
+        const focused = workspace.resolveFocusedDockItem({path: [{id: button.id}]});
+
+        expect(focused).toEqual({
+            itemId     : 'workbench',
+            itemLabel  : 'Workbench',
+            workspaceId: DemoBWorkspace.POPUP_WORKSPACE_ID
+        });
+
+        popupHost.destroy()
+    });
+
+    test('the detach chord is gated to the MAIN workspace — popup-origin detach never opens a vessel', async () => {
+        let openCount = 0;
+
+        workspace.openTearOutVessel = async () => (openCount++, null);
+
+        const popupFocus = {itemId: 'workbench', itemLabel: 'Workbench', workspaceId: DemoBWorkspace.POPUP_WORKSPACE_ID},
+              mainFocus  = {itemId: 'timeline',  itemLabel: 'Timeline',  workspaceId: DemoBWorkspace.MAIN_WORKSPACE_ID},
+              keyDown    = focused => {
+                  workspace.resolveFocusedDockItem = () => focused;
+                  return workspace.onDockHostKeyDown({
+                      component: {windowId: 'win-popup'},
+                      ctrlKey  : true, key: 'd', path: [], shiftKey: true
+                  })
+              };
+
+        await keyDown(popupFocus);
+        expect(openCount, 'popup-origin detach is not wired — parity with the pointer arming rule').toBe(0);
+        expect(workspace.lastKeyboardOriginWindowId, 'the origin window is recorded from the routing host').toBe('win-popup');
+
+        await keyDown(mainFocus);
+        expect(openCount, 'main-origin detach reaches the admission seam').toBe(1)
+    });
+
+    test('focusDockWorkspaceWindow routes DIRECTIONALLY from the recorded command origin', async () => {
+        const popupHost = Neo.create(Container, {items: []}),
+              verbCalls = [],
+              nameCalls = [],
+              previous  = Neo.Main.windowFocus;
+
+        popupHost.windowId = 'win-popup';
+        workspace.crossWindowHosts.set(DemoBWorkspace.POPUP_WORKSPACE_ID, popupHost);
+        workspace.focusNamedWindow = async name => (nameCalls.push(name), true);
+        Neo.Main.windowFocus       = async data => (verbCalls.push(data), true);
+
+        try {
+            // target === origin window: focus is already there, no verb rides
+            workspace.lastKeyboardOriginWindowId = 'win-popup';
+            expect(await workspace.focusDockWorkspaceWindow(DemoBWorkspace.POPUP_WORKSPACE_ID)).toBe(true);
+            expect(verbCalls).toEqual([]);
+            expect(nameCalls).toEqual([]);
+
+            // popup target from the main origin: the opener's named handle
+            workspace.lastKeyboardOriginWindowId = workspace.windowId;
+            expect(await workspace.focusDockWorkspaceWindow(DemoBWorkspace.POPUP_WORKSPACE_ID)).toBe(true);
+            expect(nameCalls).toEqual(['demo-b-cross-window']);
+
+            // MAIN target from a popup origin: the verb routes to the POPUP's main thread,
+            // windowName omitted — the opener branch
+            workspace.lastKeyboardOriginWindowId = 'win-popup';
+            expect(await workspace.focusDockWorkspaceWindow(DemoBWorkspace.MAIN_WORKSPACE_ID)).toBe(true);
+            expect(verbCalls).toEqual([{windowId: 'win-popup'}]);
+
+            // unknown / dead target workspace: false, fail-closed
+            expect(await workspace.focusDockWorkspaceWindow('demo-b-ghost')).toBe(false)
+        } finally {
+            Neo.Main.windowFocus = previous;
+            popupHost.destroy()
+        }
+    });
+
+    test('announceKeyboardOutcome carries the same terminal-derived truth into BOTH windows', () => {
+        const popupLive = Neo.create(Component, {});
+
+        workspace.kbdLivePopup = popupLive;
+        workspace.announceKeyboardOutcome({message: 'Workbench moved to Main window. Focus moved with it.'});
+
+        expect(workspace.getReference('kbd-live-b').text).toBe('Workbench moved to Main window. Focus moved with it.');
+        expect(popupLive.text).toBe('Workbench moved to Main window. Focus moved with it.');
+
+        // a destroyed popup region degrades silently — the main region still announces
+        popupLive.destroy();
+        workspace.announceKeyboardOutcome({message: 'Move cancelled. Workbench stays where it is.'});
+        expect(workspace.getReference('kbd-live-b').text).toBe('Move cancelled. Workbench stays where it is.')
+    });
+
+    test('the keyboard highlight renders through the SHARED dock-preview consumer as a whole-zone tab-into affordance', async () => {
+        const popupHost = Neo.create(Container, {items: [{module: DockPreview}]}),
+              geometry  = {
+                  hostRect: {x: 100, y: 50, width: 400, height: 300},
+                  root    : {nodeId: 'popup-root', rect: {x: 100, y: 50, width: 400, height: 300}},
+                  zones   : [{nodeId: 'popup-tabs', rect: {x: 120, y: 60, width: 300, height: 200}, orientation: null}]
+              };
+
+        workspace.crossWindowHosts.set(DemoBWorkspace.POPUP_WORKSPACE_ID, popupHost);
+        workspace.crossWindowGeometry.set(DemoBWorkspace.POPUP_WORKSPACE_ID, geometry);
+
+        await workspace.setKeyboardTargetHighlight({
+            itemId: 'workbench', tabsId: 'popup-tabs', workspaceId: DemoBWorkspace.POPUP_WORKSPACE_ID
+        });
+
+        const renderer   = popupHost.down({ntype: 'dock-preview'}),
+              affordance = renderer.vdom.cn[0];
+
+        // the payload IS the shared contract — the fail-closed renderer accepted it
+        expect(renderer.dockPreview).toMatchObject({
+            itemId   : 'workbench',
+            placement: {kind: 'tab-into'},
+            schema   : 'neo.harness.dockPreview.v1',
+            target   : {nodeId: 'popup-tabs'}
+        });
+        expect(DockPreview.isValidPreview(renderer.dockPreview)).toBe(true);
+
+        // rendered as the whole-zone band, positioned host-locally (viewport → host conversion)
+        expect(affordance.cls).toEqual(expect.arrayContaining([
+            'neo-dock-preview-affordance', 'neo-dock-preview-tab', 'neo-dock-preview-tab-into', 'neo-dock-preview-accepted'
+        ]));
+        expect(affordance.style).toMatchObject({height: '200px', left: '20px', top: '10px', width: '300px'});
+
+        // clear reaches the other window's renderer too
+        await workspace.setKeyboardTargetHighlight(null);
+        expect(renderer.dockPreview).toBe(null);
+
+        // supersession: a SLOW geometry measure must never paint a stale candidate over a clear
+        let releaseMeasure;
+
+        workspace.crossWindowGeometry.delete(DemoBWorkspace.POPUP_WORKSPACE_ID);
+        workspace.measureWorkspaceGeometry = () => new Promise(resolve => {
+            releaseMeasure = () => resolve(geometry)
+        });
+
+        const stalePaint = workspace.setKeyboardTargetHighlight({
+            itemId: 'workbench', tabsId: 'popup-tabs', workspaceId: DemoBWorkspace.POPUP_WORKSPACE_ID
+        });
+
+        await workspace.setKeyboardTargetHighlight(null);
+        releaseMeasure();
+        await stalePaint;
+
+        expect(renderer.dockPreview, 'the superseded paint lost against the newer clear').toBe(null);
+
+        popupHost.destroy()
+    });
+
+    test('keyboard-transfer candidates carry the item identity the shared preview contract requires', () => {
+        const candidates = workspace.enumerateKeyboardTargets({itemId: 'workbench'});
+
+        // main host only: the item sits in workbench-tabs, so side-tabs is the one legal target
+        expect(candidates).toEqual([{
+            itemId     : 'workbench',
+            label      : 'Main window',
+            tabsId     : 'side-tabs',
+            workspaceId: DemoBWorkspace.MAIN_WORKSPACE_ID
+        }])
     });
 
     test('destroy tears down the runner, seam, store, and every cached pane', () => {
