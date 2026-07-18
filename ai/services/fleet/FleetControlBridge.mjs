@@ -99,6 +99,14 @@ class FleetControlBridge extends Base {
      */
     activitySource = null
     /**
+     * Viewer-bound catch-up source — an injected collaborator exposing the independent
+     * `readHistory(params)` and runtime-only `markCaughtUp(params)` capabilities. The source resolves
+     * the viewer from authenticated request context at each call; this bridge carries no viewer field
+     * and owns neither history synthesis nor temporal state.
+     * @member {Object|null} historySource=null
+     */
+    historySource = null
+    /**
      * Per-agent mailbox-mirror **read-observe** source — an injected collaborator exposing
      * `readMailboxMirror({subjectAgentId, limit, offset})` that returns the S1 mirror snapshot
      * (`{capability, admission, rows, page}`). Same DI contract as {@link #activitySource}: the
@@ -398,6 +406,39 @@ class FleetControlBridge extends Base {
                 capability: createNotWiredCapability(FLEET_COCKPIT_SOURCES.activity, 'fleet activity source not wired'),
                 events    : []
             };
+    }
+
+    /**
+     * @summary READ-OBSERVE: invoke Memory + resolved-PR Bird Views for one viewer-bound catch-up
+     * window. The source envelopes pass through under separate slots; an unwired entry is named as
+     * unavailable rather than fabricated empty history.
+     * @param {Object} [params]
+     * @returns {Promise<Object>|Object}
+     */
+    fleetHistory(params = {}) {
+        return typeof this.historySource?.readHistory === 'function'
+            ? this.historySource.readHistory(params)
+            : {
+                capability         : {state: 'unavailable', reason: 'fleet history source not wired'},
+                needsFirstUseWindow: false,
+                partition          : params.partition || 'unified',
+                viewerState        : {lastSeen: null, lastVisitAt: null},
+                window             : null,
+                sources            : null
+            };
+    }
+
+    /**
+     * @summary RUNTIME-WRITE: explicitly advance the authenticated viewer's process-lifetime
+     * catch-up anchor through the exact latest rendered window end. This is not a graph/browser
+     * write and carries no caller-supplied identity.
+     * @param {Object} params `{windowEnd}`
+     * @returns {Promise<Object>|Object}
+     */
+    markFleetCaughtUp(params = {}) {
+        return typeof this.historySource?.markCaughtUp === 'function'
+            ? this.historySource.markCaughtUp(params)
+            : {status: 'not-wired', reason: 'fleet history source not wired'};
     }
 
     /**

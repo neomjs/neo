@@ -223,6 +223,35 @@ class FleetCockpitController extends Controller {
     }
 
     /**
+     * @summary Relay a CatchUpPane read intent to the cockpit-owned authenticated bridge.
+     * @param {Object} data
+     * @returns {Promise<Object>}
+     */
+    onCatchUpHistoryRequest(data) {
+        const {source, ...params} = data;
+
+        return this.component.loadCatchUp(params)
+    }
+
+    /**
+     * @summary Relay the explicit runtime-only mark intent.
+     * @param {Object} data
+     * @returns {Promise<Object>}
+     */
+    onCatchUpMarkRequest(data) {
+        return this.component.markCatchUp({windowEnd: data.windowEnd})
+    }
+
+    /**
+     * @summary Route to the existing live adjacency without turning it into history authority.
+     * @param {Object} data
+     * @returns {Object}
+     */
+    onCatchUpLiveSurfaceRequest(data) {
+        return this.component.openCatchUpLiveSurface({target: data.target})
+    }
+
+    /**
      * @summary Re-poll the roster once a lifecycle intent has genuinely changed runtime state.
      *
      * `loadRoster` is the ONLY path that maps live runtime truth onto the roster records, and the

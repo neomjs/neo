@@ -173,7 +173,7 @@ class ActivityStream extends Container {
         // a11y: the live feed is a log region — new rows are announced to assistive tech `polite`ly
         // (never interrupting), with a name. Without this an updating feed is silent to screen
         // readers. Set on the root before the first `refreshFeed` render flushes the vdom.
-        Object.assign(this.vdom, {'aria-live': 'polite', 'aria-label': 'Live fleet activity', role: 'log'});
+        Object.assign(this.vdom, {'aria-live': 'polite', 'aria-label': 'Live fleet activity', role: 'log', tabIndex: 0});
 
         this.refreshFeed()
     }

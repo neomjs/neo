@@ -2,6 +2,7 @@ import ActivityStream                                               from './Acti
 import AddAgentForm                                                 from './AddAgentForm.mjs';
 import AgentDetail                                                  from './AgentDetail.mjs';
 import Button                                                       from '../../../../src/button/Base.mjs';
+import CatchUpPane                                                  from './CatchUpPane.mjs';
 import Component                                                    from '../../../../src/component/Base.mjs';
 import Container                                                    from '../../../../src/container/Base.mjs';
 import DockLayoutAdapter                                            from '../../../../src/dashboard/DockLayoutAdapter.mjs';
@@ -445,6 +446,21 @@ class FleetCockpit extends Container {
      * @protected
      */
     operatorInboxReadGeneration = 0
+    /**
+     * Latest catch-up response, owner-held so rail re-projection rematerializes from current truth.
+     * @member {Object|null} catchUpSnapshot=null
+     */
+    catchUpSnapshot = null
+    /**
+     * Latest explicit mark outcome returned by the runtime-only Brain seam.
+     * @member {Object|null} catchUpMarkOutcome=null
+     */
+    catchUpMarkOutcome = null
+    /**
+     * Monotonic fence: an older source response never overwrites a newer partition/window request.
+     * @member {Number} catchUpReadGeneration=0
+     */
+    catchUpReadGeneration = 0
     /**
      * Detached-detail bookkeeping — `null` while the inspector is docked. While detached it holds
      * `{homeTabsNodeId, homeTabIndex, windowId, windowName, connectTimer}`: the tabs node + EXACT
@@ -1295,6 +1311,23 @@ class FleetCockpit extends Container {
                     recipientOptions: me.buildOperatorRecipientOptions(),
                     listeners       : {compose: 'onOperatorCompose', inboxPageRequest: 'onOperatorInboxPageRequest'},
                     reference       : 'operator-mailbox'
+                };
+            case 'catch-up':
+                // S3 invoked history: the pane renders owner-held source envelopes and fires intent;
+                // this cockpit owns the authenticated bridge. Partition choices derive from the same
+                // provider-owned roster as the cards — no second resident list.
+                return {
+                    module          : CatchUpPane,
+                    cls             : [marker],
+                    snapshot        : me.catchUpSnapshot,
+                    markOutcome     : me.catchUpMarkOutcome,
+                    partitionOptions: me.buildCatchUpPartitionOptions(),
+                    listeners       : {
+                        historyRequest     : 'onCatchUpHistoryRequest',
+                        markCaughtUpRequest: 'onCatchUpMarkRequest',
+                        liveSurfaceRequest : 'onCatchUpLiveSurfaceRequest'
+                    },
+                    reference: 'catch-up'
                 };
             default:
                 // perspectives arrives with its own leaf — an honest labelled placeholder, never a
@@ -2151,6 +2184,7 @@ class FleetCockpit extends Container {
 
             me.gridAdapterState = 'live';
             grid.adapterState   = 'live';
+            me.getReference('catch-up')?.set({partitionOptions: me.buildCatchUpPartitionOptions()});
             me.clearDegradedReason('grid')
         } catch (error) {
             // fenced: a slow failure must not overwrite a newer success (see the stream twin)
@@ -2184,6 +2218,113 @@ class FleetCockpit extends Container {
                 .filter(row => row.githubUsername)
                 .map(row => ({id: `@${row.githubUsername}`, name: row.githubUsername}))
         ]
+    }
+
+    /**
+     * @summary Build canonical Fleet/agent Memory partitions from the live roster Store. PR history
+     * remains Fleet-wide; these choices alter only the Memory operation in the Brain adapter.
+     * @returns {Object[]}
+     */
+    buildCatchUpPartitionOptions() {
+        const rows = this.getReference('fleet-grid')?.store?.items ?? [];
+
+        return rows
+            .filter(row => row.githubUsername)
+            .map(row => ({
+                id       : `catch-up-${row.agentId}`,
+                label    : row.displayName || row.githubUsername,
+                partition: `@${row.githubUsername}`
+            }))
+    }
+
+    /**
+     * @summary READ-OBSERVE: route one pane history intent through the authenticated Fleet verb and
+     * write the returned source envelopes back as owner state. Fail-closed: absence/throw becomes an
+     * explicit unavailable snapshot, never an empty historical claim.
+     * @param {Object} [params]
+     * @returns {Promise<Object>}
+     */
+    async loadCatchUp(params = {}) {
+        const me         = this,
+              pane       = me.getReference('catch-up'),
+              bridge     = globalThis.AgentOS?.fleet?.registryBridge,
+              generation = ++me.catchUpReadGeneration;
+
+        let snapshot;
+
+        if (typeof bridge?.fleetHistory !== 'function') {
+            snapshot = {
+                capability         : {state: 'unavailable', reason: 'fleet history verb not wired'},
+                needsFirstUseWindow: false,
+                partition          : params.partition || 'unified',
+                viewerState        : {lastSeen: null, lastVisitAt: null},
+                window             : null,
+                sources            : null
+            }
+        } else {
+            try {
+                snapshot = await bridge.fleetHistory(params)
+            } catch (error) {
+                snapshot = {
+                    capability         : {state: 'unavailable', reason: 'fleet history read failed'},
+                    needsFirstUseWindow: false,
+                    partition          : params.partition || 'unified',
+                    viewerState        : {lastSeen: null, lastVisitAt: null},
+                    window             : null,
+                    sources            : null
+                }
+            }
+        }
+
+        if (generation === me.catchUpReadGeneration && !me.isDestroyed) {
+            me.catchUpSnapshot = snapshot;
+            pane && (pane.snapshot = snapshot)
+        }
+
+        return snapshot
+    }
+
+    /**
+     * @summary RUNTIME-WRITE: advance the authenticated viewer's lastSeen only through the pane's
+     * rendered window end, then write the honest outcome back to the pane.
+     * @param {Object} params `{windowEnd}`
+     * @returns {Promise<Object>}
+     */
+    async markCatchUp(params) {
+        const me     = this,
+              pane   = me.getReference('catch-up'),
+              bridge = globalThis.AgentOS?.fleet?.registryBridge;
+
+        let outcome;
+
+        try {
+            outcome = typeof bridge?.markFleetCaughtUp === 'function'
+                ? await bridge.markFleetCaughtUp(params)
+                : {status: 'not-wired', reason: 'fleet catch-up mark verb not wired'}
+        } catch (error) {
+            outcome = {status: 'error', reason: 'fleet catch-up mark failed'}
+        }
+
+        if (!me.isDestroyed) {
+            me.catchUpMarkOutcome = outcome;
+            pane && (pane.markOutcome = outcome)
+        }
+
+        return outcome
+    }
+
+    /**
+     * @summary Focus the existing bounded live Activity surface as adjacency. No history citation is
+     * injected into it and no alternate historical authority is implied.
+     * @param {Object} request `{target}`
+     * @returns {{opened: Boolean, target: String}}
+     */
+    openCatchUpLiveSurface({target} = {}) {
+        const stream = target === 'activity-stream' ? this.getReference('activity-stream') : null;
+
+        stream?.focus(stream.id, false, true);
+
+        return {opened: Boolean(stream), target: target || 'unknown'}
     }
 
     /**
