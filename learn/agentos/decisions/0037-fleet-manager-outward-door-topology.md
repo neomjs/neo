@@ -97,24 +97,28 @@ remaining operator-owned per ADR 0034 §2.5.
 4. use no sibling checkout, `node_modules` patch, or copied authority; and
 5. map the resulting installer receipt to its release commit.
 
-The 2026-07-18 run failed at boundary 2. Boundary 1 found that the packed artifact omits prebuilt
-`dist/` CSS and a clean dependency install does not install the theme toolchain's declared
+The first 2026-07-18 run failed at boundary 2. Boundary 1 found that the packed artifact omits
+prebuilt `dist/` CSS and a clean dependency install does not install the theme toolchain's declared
 devDependencies; adding that toolchain at the consumer root cleared the experiment forward.
-Boundary 2 then stopped in `buildOrganismManifest`: the staged Genesis probe dynamically imports
-bare `playwright`, while
-the package declares only `@playwright/test`. #15542 tracks that packaging defect, but a repair
-does not turn the standing probe green until the full clean-consumer path is rerun. The staged
-install, Electron rebuild, config initialization, and builder tail remain unprobed past that
-stopper. This receipt does **not** block Option E because E moves no product source and does not
-build the product from the storefront. It does show that Option A — a true engine-consumer
-product repository — is not mechanically available.
+Boundary 2 then stopped in `buildOrganismManifest` because the staged, checkout-only Genesis probe
+dynamically imported undeclared bare `playwright`.
 
-A successful rerun makes Option A eligible for reconsideration; it does not silently supersede
-Option E. Supersession still requires an explicit ADR amendment and a source-divergence reason.
-The named rerun owner is #15527's Kimi-family seat. Re-run triggers are a `.npmignore` or pack-stage
-allowlist change, an ADR-0034 implementation change, an Electron major change, or a proposal to
-reconsider Option A. This experiment is the only path that may reopen the repository topology
-under the graduated Discussion authority.
+The exact-head rerun after #15542 repaired that classification passed the full chain: from an empty
+directory, the consumer installed the packed artifact, provisioned its own theme and Electron build
+toolchains, staged the organism, completed `@electron/rebuild` and config initialization, and emitted
+`Neo Harness-0.0.1-arm64-mac.zip` (290.6 MB) without patching the dependency or copying authority.
+The current result is therefore **PASS-with-provisioning**. Boundary 1 remains packaging-maturity
+work — prebuilt `dist/` CSS or a conditional theme build would remove that consumer provision — but
+it is no longer a mechanical blocker to a separate consumer repository.
+
+That pass makes Option A eligible for reconsideration; it does not silently supersede Option E.
+Supersession still requires an explicit ADR amendment and an independently justified
+source-divergence reason. No such reason exists in the current record, so moving product source
+would add a second authority surface without a product gain. The named rerun owner is #15527's
+Kimi-family seat. Re-run triggers are a `.npmignore` or pack-stage allowlist change, an ADR-0034
+implementation change, an Electron major change, or a proposal to reconsider Option A. This
+experiment is the only path that may reopen the repository topology under the graduated Discussion
+authority.
 
 ### §2.5 Demo and data honesty
 
@@ -128,7 +132,7 @@ one click deeper.
 
 | Alternative | Why rejected now | Reconsideration evidence |
 |---|---|---|
-| **A — separate product repo + site** | The clean-consumer packaging boundary failed at #15527; a new repo also begins with zero social proof | §2.4 experiment passes and a separate source-divergence reason survives review |
+| **A — separate product repo + site** | #15527 proves packaging is mechanically viable with consumer-side build provisioning, but no source-divergence need exists; moving product source would fork authority and begin with zero social proof | An independently reviewed source-divergence reason survives; #15527 already satisfies mechanical eligibility |
 | **B — site only, all tracking in `neomjs/neo`** | The support layer retains the measured blend of 91 open FM/cockpit-titled issues instead of giving the product a routed entrance | Evidence that the storefront tracker adds only routing cost and does not partition product support |
 | **C — separate org and unbound product identity** | Severs both the engine-credit flywheel and the org-adjacent, credential-free public-fleet demo source/provenance path, while doubling governance/coherence surfaces | Evidence that org adjacency itself prevents adoption strongly enough to outweigh provenance and proof loss |
 | **D — defer topology until usage signal** | The public launch is itself the topology moment; deferral spends the launch twice and blocks feedback from the absent door | Evidence that an early door measurably harms rather than improves launch learning |
