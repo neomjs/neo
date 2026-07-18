@@ -617,4 +617,45 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         expect(plugins).toHaveLength(1);
         expect(plugins[0].module).toBe(TabOverflowPlugin);
     });
+
+    test.describe('tear-out projection threading — opt-in flag + the clone-safe gesture seams', () => {
+        test('enableDockTearOut arms enableProxyToPopup on every projected tab sort zone and threads the four gesture seams', () => {
+            const captured = {cancel: [], entry: [], exit: [], terminal: []};
+
+            const result = DockLayoutAdapter.project(createModel(), {
+                enableDockTearOut    : true,
+                onDockTearOutCancel  : data => captured.cancel.push(data),
+                onDockTearOutEntry   : data => captured.entry.push(data),
+                onDockTearOutExit    : data => captured.exit.push(data),
+                onDockTearOutTerminal: data => captured.terminal.push(data),
+                resolveComponentRef  : componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            });
+
+            const mainTabs = result.items[0];
+
+            // The serializable flag rides the sortZoneConfig; the closures live on the tab.Container
+            // listeners block — the projection's proven clone-safe closure home. A function inside
+            // sortZoneConfig would not survive config cloning; this split is the load-bearing shape.
+            expect(mainTabs.headerToolbar.sortZoneConfig.enableProxyToPopup).toBe(true);
+
+            for (const [listener, bucket] of [
+                ['dockTearOutCancel', 'cancel'], ['dockTearOutEntry', 'entry'],
+                ['dockTearOutExit', 'exit'], ['dockTearOutTerminal', 'terminal']
+            ]) {
+                const handler = mainTabs.listeners[listener];
+
+                expect(typeof handler, `${listener} must be wired`).toBe('function');
+                handler({itemId: 'swarm'});
+                expect(captured[bucket]).toEqual([{itemId: 'swarm'}])
+            }
+        });
+
+        test('absent opt-in keeps the dock fully in-window: the flag projects false (the unchanged default)', () => {
+            const result = DockLayoutAdapter.project(createModel(), {
+                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            });
+
+            expect(result.items[0].headerToolbar.sortZoneConfig.enableProxyToPopup).toBe(false)
+        })
+    });
 });
