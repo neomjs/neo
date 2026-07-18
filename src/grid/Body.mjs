@@ -1235,7 +1235,8 @@ class GridBody extends Component {
         // Focus the View, not this physical body: a row activation in ANY body resolves to one
         // View-owned focus state (bodies are render/event delegates). preventScroll keeps the
         // row-click from moving the scroll position; the View's `keys` still catch Up/Down from here.
-        view.focus(view.id, false, true);
+        // 'pointer' modality suppresses the accidental focus ring — a click is not a keyboard focus.
+        view.focus(view.id, false, true, 'pointer');
         me.fireRowEvent(data, 'rowClick')
     }
 

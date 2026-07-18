@@ -304,10 +304,13 @@ class DomAccess extends Base {
      * @param {Object}  data
      * @param {Boolean} data.children
      * @param {String}  data.id
+     * @param {String}  [data.modality] 'pointer' | 'keyboard' — explicit input-modality contract. :focus-visible
+     * cannot tie an async worker→main programmatic focus back to the originating pointer gesture, so the caller
+     * states it. Undefined preserves user-agent behavior.
      * @param {Boolean} [data.preventScroll=false]
      * @returns {Object} obj.id => the passed id
      */
-    focus({children, id, preventScroll}) {
+    focus({children, id, modality, preventScroll}) {
         let node = this.getElement(id);
 
         if (node) {
@@ -318,6 +321,39 @@ class DomAccess extends Base {
             }
 
             if (node) {
+                // Modality is an explicit contract: :focus-visible cannot survive the async worker→main
+                // programmatic focus (and a tabindex=-1 node has no reliable user-agent ring to fall back on).
+                // The class is applied immediately before focus() so class + focus land atomically (no flash).
+                // 'pointer' suppresses the accidental ring; the first keydown without an intervening blur swaps
+                // it to the intentional keyboard ring; both self-clear on blur.
+                if (modality === 'pointer') {
+                    node.classList.add('neo-focus-pointer');
+
+                    const onKeydown = () => {
+                        node.classList.replace('neo-focus-pointer', 'neo-focus-keyboard');
+                        node.removeEventListener('keydown', onKeydown)
+                    };
+
+                    const onBlur = () => {
+                        node.classList.remove('neo-focus-pointer', 'neo-focus-keyboard');
+                        node.removeEventListener('keydown', onKeydown);
+                        node.removeEventListener('blur',    onBlur)
+                    };
+
+                    node.addEventListener('keydown', onKeydown);
+                    node.addEventListener('blur',    onBlur)
+                } else if (modality === 'keyboard') {
+                    node.classList.add('neo-focus-keyboard');
+                    node.classList.remove('neo-focus-pointer');
+
+                    const onBlur = () => {
+                        node.classList.remove('neo-focus-keyboard');
+                        node.removeEventListener('blur', onBlur)
+                    };
+
+                    node.addEventListener('blur', onBlur)
+                }
+
                 node.focus({preventScroll});
 
                 if (Neo.isNumber(node.selectionStart)) {
