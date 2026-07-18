@@ -1,13 +1,13 @@
-import AgentConfigCard            from './fleet/AgentConfigCard.mjs';
+import AgentConfigCard                                           from './fleet/AgentConfigCard.mjs';
 import {getDefinitionsWriteGeneration, runConfigIntentRoundTrip} from './fleet/configIntentRoundTrip.mjs';
-import Button                     from '../../../src/button/Base.mjs';
-import DashboardPanel             from '../../../src/dashboard/Panel.mjs';
-import FormContainer              from '../../../src/form/Container.mjs';
-import {listHarnessTypes}         from '../config/harnessTypes.mjs';
-import PasswordField              from '../../../src/form/field/Password.mjs';
-import Radio                      from '../../../src/form/field/Radio.mjs';
-import TextField                  from '../../../src/form/field/Text.mjs';
-import Toolbar                    from '../../../src/toolbar/Base.mjs';
+import Button                                                    from '../../../src/button/Base.mjs';
+import DashboardPanel                                            from '../../../src/dashboard/Panel.mjs';
+import FormContainer                                             from '../../../src/form/Container.mjs';
+import {listHarnessTypes}                                        from '../config/harnessTypes.mjs';
+import PasswordField                                             from '../../../src/form/field/Password.mjs';
+import Radio                                                     from '../../../src/form/field/Radio.mjs';
+import TextField                                                 from '../../../src/form/field/Text.mjs';
+import Toolbar                                                   from '../../../src/toolbar/Base.mjs';
 
 /**
  * @class AgentOS.view.Accounts
@@ -112,7 +112,7 @@ class Accounts extends DashboardPanel {
                 module         : TextField,
                 clearable      : true,
                 labelText      : 'GitHub username',
-                labelWidth     : 118,
+                labelWidth     : 136,
                 name           : 'githubUsername',
                 placeholderText: 'neo-gpt',
                 required       : true
@@ -120,7 +120,7 @@ class Accounts extends DashboardPanel {
                 module         : PasswordField,
                 clearable      : true,
                 labelText      : 'GitHub PAT',
-                labelWidth     : 118,
+                labelWidth     : 136,
                 name           : 'credential',
                 placeholderText: 'stored Brain-side only',
                 required       : true
@@ -135,7 +135,7 @@ class Accounts extends DashboardPanel {
                     checked       : index === 0,
                     hideValueLabel: false,
                     labelText     : index === 0 ? 'Harness' : '',
-                    labelWidth    : 118,
+                    labelWidth    : 136,
                     name          : 'harnessType',
                     value         : entry.type,
                     valueLabel    : entry.label

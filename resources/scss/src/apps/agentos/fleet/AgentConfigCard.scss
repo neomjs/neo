@@ -4,14 +4,14 @@
    failure is on record); outcome states borrow the kind/state vocabulary, each paired with a
    non-color carrier (weight / style / text), never hue alone. */
 .fm-agent-config-card {
-    background     : var(--fm-panel);
-    border         : 1px solid var(--fm-line);
+    background: var(--fm-panel);
+    border    : 1px solid var(--fm-line);
     border-radius  : 8px;
-    color          : var(--fm-ink);
-    display        : flex;
+    color  : var(--fm-ink);
+    display: flex;
     flex-direction : column;
-    gap            : 6px;
-    padding        : 10px 12px;
+    gap    : 6px;
+    padding: 10px 12px;
 
     .fm-config-empty {
         color     : var(--fm-ink-dim);
@@ -89,6 +89,35 @@
         display   : flex;
         flex-wrap : wrap;
         gap       : 6px;
+    }
+
+    /* Harness chips: selectable pills on the quiet base, the selected one reaches for the
+       signal pair (the chrome's submit-button treatment) — never plain inline text. */
+    .fm-chip {
+        border       : 1px solid var(--fm-line);
+        border-radius: 6px;
+        cursor       : pointer;
+        font-size    : 12px;
+        padding   : 2px 8px;
+        transition: background var(--motion-base) var(--ease-out-soft), border-color var(--motion-base) var(--ease-out-soft), color var(--motion-base) var(--ease-out-soft);
+
+        &.is-selectable {
+            background: var(--fm-panel-2);
+            color     : var(--fm-ink-dim);
+
+            &:hover {
+                border-color: var(--fm-ink-dim);
+                color        : var(--fm-ink);
+            }
+        }
+
+        &.is-selected {
+            border-color: color-mix(in srgb, var(--fm-signal) 55%, var(--fm-line));
+            background: color-mix(in srgb, var(--fm-signal) 14%, var(--fm-panel-2));
+            color     : var(--fm-signal);
+            cursor    : default;
+            font-weight  : 600; // the non-color carrier — selection never rides hue alone (1.4.1)
+        }
     }
 
     .fm-config-save-status {
