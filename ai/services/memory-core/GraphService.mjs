@@ -81,6 +81,17 @@ export const PROTECTED_EDGE_TYPES = Object.freeze([
 const PROTECTED_EDGE_TYPE_SET = new Set(PROTECTED_EDGE_TYPES);
 
 /**
+ * Node types whose complete `properties` bag may be exposed through `getNode`'s opt-in `full`
+ * projection. Graph-row RLS is row-participation authorization, NOT field authorization — a type
+ * joins this list only with its owning service's sign-off that every stored property is safe for
+ * any caller who can see the row. Counterexample kept out by design: `MESSAGE` rows are
+ * `sharedEntity: true` (row visible to all) while `bodyText` is mailbox-audience-gated
+ * (`MailboxService.getMessage`).
+ * @type {Set<String>}
+ */
+const FULL_PROJECTION_TYPES = new Set(['AgentIdentity']);
+
+/**
  * @summary Service that manages the SQLite Knowledge Graph (Nodes and Edges).
  *
  * It provides the topological layout of the Neo.mjs namespace, knowledge,
@@ -686,11 +697,19 @@ class GraphService extends Base {
      * roster-wide sweeps rely on. `projection: 'full'` returns the SAME shape plus the node's
      * complete `properties` bag (a superset — e.g. the IdentitySchema capability facts on an
      * AgentIdentity node), so a single node's stored facts are readable through the graph's own
-     * read verb. Both projections run behind the identical RLS visibility re-check: `full` widens
-     * what a visible node shows, never which nodes are visible.
+     * read verb.
+     *
+     * **The full projection is type-allowlisted** ({@link FULL_PROJECTION_TYPES}): graph-row RLS
+     * answers "may this row participate in the caller's graph?" — it is NOT a substitute for a
+     * type's own field authorization. A `MESSAGE` row is deliberately RLS-moot
+     * (`sharedEntity: true`) while its `bodyText` is guarded by the mailbox audience edges
+     * (`MailboxService.getMessage`); an unconditional raw bag here would bypass that contract.
+     * A non-allowlisted type therefore answers the LEAN shape (fail-closed to the cheaper truth —
+     * mechanically detectable via the absent `properties` key), and a type joins the allowlist
+     * only with its owning service's field-authorization sign-off.
      * @param {Object} data
      * @param {String} data.id
-     * @param {'lean'|'full'} [data.projection='lean'] `'full'` adds the `properties` bag to the lean shape.
+     * @param {'lean'|'full'} [data.projection='lean'] `'full'` adds the `properties` bag to the lean shape for allowlisted types.
      * @returns {Object|null}
      */
     getNode({id, projection = 'lean'}) {
@@ -723,7 +742,9 @@ class GraphService extends Base {
             state           : properties?.state
         };
 
-        if (projection === 'full') {
+        // type-allowlisted: row visibility is not field authorization (see FULL_PROJECTION_TYPES);
+        // a non-allowlisted type answers the lean shape — fail-closed to the cheaper truth
+        if (projection === 'full' && FULL_PROJECTION_TYPES.has(label)) {
             result.properties = properties || {}
         }
 
