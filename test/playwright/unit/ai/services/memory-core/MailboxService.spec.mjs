@@ -899,6 +899,62 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(node.properties.readAt).toBeTruthy();
     });
 
+    test('markRead BULK: an array marks each id, per-id failures never fail the batch', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        const ids = [];
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            for (const subject of ['bulk-1', 'bulk-2']) {
+                const res = await MailboxService.addMessage({ to: '@bob', subject, body: 'drain' });
+                ids.push(res.messageId);
+            }
+        });
+
+        // mixed batch: two valid ids + one ghost — the batch resolves, the ghost is its own result
+        const result = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            return await MailboxService.markRead({ messageId: [...ids, 'MESSAGE:ghost-does-not-exist'] });
+        });
+
+        expect(result.results).toHaveLength(3);
+        expect(result.results[0]).toMatchObject({messageId: ids[0], status: 'read'});
+        expect(result.results[1]).toMatchObject({messageId: ids[1], status: 'read'});
+        expect(result.results[2]).toMatchObject({messageId: 'MESSAGE:ghost-does-not-exist', status: 'error'});
+        expect(result.results[2].error).toMatch(/Message not found/);
+
+        // every valid id really read
+        for (const id of ids) {
+            expect(GraphService.db.nodes.get(id).properties.readAt).toBeTruthy();
+        }
+    });
+
+    test('markRead BULK: an empty array is a clean no-op; auth is enforced PER ID', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        let msgId;
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({ to: '@bob', subject: 'not-yours', body: 'auth' });
+            msgId = res.messageId;
+        });
+
+        const empty = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            return await MailboxService.markRead({ messageId: [] });
+        });
+        expect(empty.results).toEqual([]);
+
+        // charlie is NOT the recipient: the single-id path would throw — the batch captures it per-id
+        GraphService.upsertNode({ id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {accountType: 'agent'} });
+        const denied = await RequestContextService.run({ agentIdentityNodeId: '@charlie' }, async () => {
+            return await MailboxService.markRead({ messageId: [msgId] });
+        });
+        expect(denied.results).toHaveLength(1);
+        expect(denied.results[0].status).toBe('error');
+        expect(denied.results[0].error).toMatch(/Unauthorized/);
+    });
+
     test('#15253 a mark resolves through the same repair the read path uses — a cold cache is not a missing message', async () => {
         await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
             await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
