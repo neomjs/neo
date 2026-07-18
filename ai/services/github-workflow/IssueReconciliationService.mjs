@@ -152,6 +152,7 @@ class IssueReconciliationService extends Base {
         return {
             id               : node.id,
             createdAt        : node.createdAt,
+            updatedAt        : node.updatedAt,
             lastEditedAt     : node.lastEditedAt,
             author           : node.author,
             authorAssociation: node.authorAssociation,

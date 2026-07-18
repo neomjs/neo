@@ -13,11 +13,11 @@ setup({
     }
 });
 
-import {test, expect}             from '@playwright/test';
-import Neo                        from '../../../../../../src/Neo.mjs';
-import * as core                  from '../../../../../../src/core/_export.mjs';
-import IssueReconciliationService from '../../../../../../ai/services/github-workflow/IssueReconciliationService.mjs';
-import {validateBatch}            from '../../../../../../ai/services/memory-core/communityBatchContract.mjs';
+import {test, expect}                        from '@playwright/test';
+import Neo                                   from '../../../../../../src/Neo.mjs';
+import * as core                             from '../../../../../../src/core/_export.mjs';
+import IssueReconciliationService            from '../../../../../../ai/services/github-workflow/IssueReconciliationService.mjs';
+import {canonicalBatchDigest, validateBatch} from '../../../../../../ai/services/memory-core/communityBatchContract.mjs';
 
 /**
  * @summary End-to-end wiring witness for the reconciliation service: fake GraphQL / admission /
@@ -111,6 +111,31 @@ test.describe('IssueReconciliationService.reconcile', () => {
 
         await expect(IssueReconciliationService.reconcile({...runSpec, admissionService: makeAdmission(), graphqlService, registryService}))
             .rejects.toThrow('ISSUE_RECONCILIATION_SOURCE_NOT_ACTIVE')
+    });
+
+    test('AC9 repeated cursors — re-running the same window reproduces a digest-identical batch (idempotent)', async () => {
+        const runOnce = async () => {
+            const admissionService = makeAdmission();
+            await IssueReconciliationService.reconcile({...runSpec, admissionService, graphqlService, registryService: registryActive});
+            return admissionService.admitted
+        };
+
+        expect(canonicalBatchDigest(await runOnce()), 'same inputs → same digest → admission dedupes').toBe(canonicalBatchDigest(await runOnce()))
+    });
+
+    test('AC9 collaborator change — a shifted association reaches the observation, distinguishing the run', async () => {
+        const promoted = {
+            query: async queryStr => queryStr.includes('ReconcileIssues')
+                ? {repository: {issues: {pageInfo: {hasNextPage: false, endCursor: 'E'}, nodes: [
+                    {id: 'I_a', createdAt: '2026-01-01T00:00:00Z', lastEditedAt: null, authorAssociation: 'MEMBER', author: {login: 'human', __typename: 'User'}, comments: {pageInfo: {hasNextPage: false}, nodes: []}, timelineItems: {pageInfo: {hasNextPage: false}, nodes: []}}
+                ]}}}
+                : {node: {}}
+        };
+        const admissionService = makeAdmission();
+
+        await IssueReconciliationService.reconcile({...runSpec, admissionService, graphqlService: promoted, registryService: registryActive});
+
+        expect(admissionService.admitted.observations.find(o => o.providerEntityId === 'I_a').sourceAssociation, 'the new association is carried, not the old').toBe('MEMBER')
     });
 
     test('prior inventory that vanishes without evidence degrades coverage — never a deletion', async () => {

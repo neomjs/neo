@@ -156,6 +156,34 @@ test.describe('githubIssueObservations normalizer', () => {
         expect(root.actorId).toBe(null)
     });
 
+    // ------------------------------------------------------------------ AC4 — honest snapshot-only change
+
+    test('an updatedAt newer than every explained occurrence emits a null-actor snapshot-change marker', () => {
+        const changed = {
+            id      : 'I_s', createdAt: '2026-07-18T09:00:00Z', updatedAt: '2026-07-18T15:00:00Z',
+            author  : {login: 'a', __typename: 'User'}, authorAssociation: 'OWNER',
+            timeline: [{id: 'CE', __typename: 'ClosedEvent', createdAt: '2026-07-18T10:00:00Z', actor: {login: 'm', __typename: 'User'}}]
+        };
+
+        const marker = issueToObservations(changed).find(o => o.occurrenceKind === 'issue.observed-snapshot-change');
+
+        expect(marker, 'the unexplained change is recorded').toBeTruthy();
+        expect(marker.actorId, 'no actor is fabricated').toBe(null);
+        expect(marker.actorKind).toBe('unknown');
+        expect(marker.lossMarker).toBe('snapshot-without-granular-event');
+        expect(validateBatch(batchAround(issueToObservations(changed)))).toEqual({valid: true, errors: []})
+    });
+
+    test('an updatedAt explained by a captured occurrence emits NO snapshot-change marker', () => {
+        const explained = {
+            id      : 'I_e', createdAt: '2026-07-18T09:00:00Z', updatedAt: '2026-07-18T10:00:00Z',
+            author  : {login: 'a', __typename: 'User'}, authorAssociation: 'OWNER',
+            timeline: [{id: 'CE', __typename: 'ClosedEvent', createdAt: '2026-07-18T10:00:00Z', actor: {login: 'm', __typename: 'User'}}]
+        };
+
+        expect(issueToObservations(explained).some(o => o.occurrenceKind === 'issue.observed-snapshot-change')).toBe(false)
+    });
+
     // ------------------------------------------------------------------ identity is mandatory (fail loud)
 
     test('a node or comment or event without a provider id is refused', () => {

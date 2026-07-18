@@ -92,6 +92,7 @@ function projectActor(actor, sourceAssociation = null) {
  * @param {Object}        issue                  A reconciled issue node.
  * @param {String}        issue.id               The provider node id (stable identity).
  * @param {String}        issue.createdAt        ISO-8601 open moment.
+ * @param {String}        [issue.updatedAt]      ISO-8601 last-touched moment; an unexplained advance emits a snapshot-change marker.
  * @param {String}        [issue.lastEditedAt]   ISO-8601 last-edit moment, when the body was edited.
  * @param {Object|null}   [issue.author]         `{login, __typename}`; null for a deleted account.
  * @param {String}        [issue.authorAssociation] Provider association-with-source of the author.
@@ -169,6 +170,27 @@ export function issueToObservations(issue) {
             occurredAt          : event.createdAt,
             ...projectActor(event.actor)
         })
+    }
+
+    // An `updatedAt` strictly newer than every granular occurrence we could see is a change we
+    // cannot attribute — a comment/edit behind an access gap, or a provider event we do not fetch.
+    // Record it honestly as a snapshot-only change with a null actor and a loss marker, never a
+    // fabricated event with a guessed actor.
+    if (issue.updatedAt) {
+        const newestExplained = observations.reduce((max, o) => o.occurredAt > max ? o.occurredAt : max, issue.createdAt);
+
+        if (issue.updatedAt > newestExplained) {
+            observations.push({
+                providerEntityId    : issue.id,
+                occurrenceKind      : 'issue.observed-snapshot-change',
+                occurrenceCoordinate: `${issue.id}:snapshot:${issue.updatedAt}`,
+                occurredAt          : issue.updatedAt,
+                actorId             : null,
+                actorKind           : 'unknown',
+                sourceAssociation   : null,
+                lossMarker          : 'snapshot-without-granular-event'
+            })
+        }
     }
 
     return observations

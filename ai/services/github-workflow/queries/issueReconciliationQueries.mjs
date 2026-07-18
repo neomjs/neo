@@ -52,7 +52,7 @@ query ReconcileIssues($owner: String!, $repo: String!, $after: String, $issuePag
     issues(first: $issuePage, after: $after, states: [OPEN, CLOSED], orderBy: {field: CREATED_AT, direction: ASC}) {
       pageInfo { hasNextPage endCursor }
       nodes {
-        id createdAt lastEditedAt authorAssociation
+        id createdAt updatedAt lastEditedAt authorAssociation
         author { login __typename }
         comments(first: $commentPage) {
           pageInfo { hasNextPage endCursor }
