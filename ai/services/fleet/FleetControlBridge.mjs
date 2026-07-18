@@ -112,6 +112,18 @@ class FleetControlBridge extends Base {
      * @member {Object|null} mailboxMirrorSource=null
      */
     mailboxMirrorSource = null
+    /**
+     * Operator-compose **WRITE** seam — an injected collaborator exposing `addMessage(payload)`
+     * (the MailboxService primitive, bound by the launch entry — never imported here). The FIRST
+     * write seam on this bridge: unlike the read-observe sources above it persists a mailbox
+     * message, but it carries NO identity — `addMessage` resolves the author and its server-stamped
+     * principal class from the ambient request context the authenticated ingress bound, so the
+     * writer moves payload, never sender. Same DI contract as {@link #activitySource} (no static
+     * default; the launch entry wires the live writer); unwired → `composeOperatorMessage` answers
+     * an honest `not-wired` refusal, never a fabricated acceptance.
+     * @member {Object|null} composeWriter=null
+     */
+    composeWriter = null
 
     /**
      * Identity-display resolver seam — maps a fleet agent onto its identity-root display facts
@@ -376,6 +388,50 @@ class FleetControlBridge extends Base {
                 capability: createNotWiredCapability(FLEET_COCKPIT_SOURCES.activity, 'fleet activity source not wired'),
                 events    : []
             };
+    }
+
+    /**
+     * @summary WRITE: compose one operator mailbox message — a DM to a named identity or an
+     * `AGENT:*` broadcast — through the injected {@link #composeWriter} under the TRANSPORT-STAMPED
+     * request identity. The first write verb on the fleet wire — the operator-steering inversion:
+     * durable, attributed messages into the coordination fabric instead of session-bound prompts.
+     *
+     * **The sender is never a parameter.** `MailboxService.addMessage` resolves the author and its
+     * server-stamped principal class from the ambient request context the authenticated ingress
+     * bound — so a caller-supplied `from` / sender-shaped field has no path into the flow: the
+     * payload below is whitelisted field-by-field, and identity fields are simply never copied.
+     * Omitted `priority` / `wakeSuppressed` resolve to the sender-class defaults at the primitive
+     * (the operator-steering class: durable-quiet, priority-high drain metadata, wake as a
+     * per-message election).
+     *
+     * Unwired writer → an honest `not-wired` refusal envelope, never a fabricated acceptance; a
+     * writer failure throws and is sanitized by `dispatchFleetRequest`.
+     *
+     * @param {Object}   params
+     * @param {String}   params.to               Target identity (`@login`) or `AGENT:*`.
+     * @param {String}   params.subject
+     * @param {String}   params.body
+     * @param {String}   [params.priority]       Omitted → sender-class default.
+     * @param {Boolean}  [params.wakeSuppressed] Omitted → sender-class default (human ⇒ quiet).
+     * @param {String[]} [params.relatedTickets]
+     * @returns {Promise<Object>|Object} the writer's acceptance (`{messageId, sentAt, …}`), or the
+     *     `{status:'not-wired'}` refusal when no writer is installed.
+     */
+    composeOperatorMessage(params = {}) {
+        const writer = this.composeWriter;
+
+        if (typeof writer?.addMessage !== 'function') {
+            return {status: 'not-wired', reason: 'fleet: operator compose writer not wired'};
+        }
+
+        const {to, subject, body, priority, wakeSuppressed, relatedTickets} = params;
+        const payload                                                       = {to, subject, body};
+
+        if (priority       !== undefined) payload.priority       = priority;
+        if (wakeSuppressed !== undefined) payload.wakeSuppressed = wakeSuppressed;
+        if (relatedTickets !== undefined) payload.relatedTickets = relatedTickets;
+
+        return writer.addMessage(payload)
     }
 
     /**
