@@ -2039,14 +2039,17 @@ paths:
       x-neo-tool-tier: write
       x-pass-as-object: true
       description: |
-        Marks a specific message as read.
+        Marks one or more messages as read. Accepts a single messageId or an array of ids; the array form returns per-id results and an individual failure (ghost id, unauthorized id) never fails the batch.
       tags: [Mailbox]
       parameters:
         - name: messageId
           in: path
           required: true
           schema:
-            type: string
+            oneOf:
+              - type: string
+              - type: array
+                items: {type: string}
       responses:
         '200':
           description: OK

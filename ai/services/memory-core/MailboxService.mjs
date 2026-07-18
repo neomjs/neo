@@ -2170,12 +2170,29 @@ class MailboxService extends Base {
     }
 
     /**
-     * Marks a message as read.
+     * Marks a message as read. Accepts a single id or an array of ids: the array form marks
+     * each id independently through the same single-id path and returns per-id results — an
+     * individual failure (a ghost id, an unauthorized id) is captured in its own result and
+     * never fails the batch, so a bulk drain cannot abort on one stale entry.
      * @param {Object} args
-     * @param {String} args.messageId The ID of the message to mark read
-     * @returns {Promise<Object>}
+     * @param {String|String[]} args.messageId The ID of the message to mark read, or an array of IDs
+     * @returns {Promise<Object>} Single form: `{messageId, readAt, status}`; array form: `{results: [...]}`.
      */
     async markRead({ messageId }) {
+        if (Array.isArray(messageId)) {
+            const results = [];
+
+            for (const id of messageId) {
+                try {
+                    results.push(await this.markRead({messageId: id}));
+                } catch (error) {
+                    results.push({messageId: id, status: 'error', error: error.message});
+                }
+            }
+
+            return {results};
+        }
+
         const boundIdentity = RequestContextService.getAgentIdentityNodeId();
         if (!boundIdentity) {
             throw RequestContextService.unboundIdentityError('mark message read');
