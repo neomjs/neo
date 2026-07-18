@@ -385,15 +385,18 @@ export function planOnboarding({intent, facts = {}} = {}) {
     // The auth segment names the FAMILY's auth mode, not just the marker heuristic: in-app
     // families carry a permanently-null `authRequired` (no marker exists), so their handoff is the
     // in-window sign-in — rendered from the launch contract's authMode, mirroring the exact
-    // decision `deriveAuthHandoff` makes post-launch (dry-run and --commit cannot drift).
+    // decision `deriveAuthHandoff` makes post-launch (dry-run and --commit cannot drift). env-key
+    // families have no per-home step at all — the provider key rides the spawned env.
     push('auth', 'PRINT',
         getHarnessAuthMode(intent.harnessType) === 'in-app'
             ? 'in-app sign-in inside the Fleet-launched window (operator-owned; if closed, restart through this command --commit or Fleet cockpit Start)'
-            : facts.authRequired === false
-                ? 'per-home credentials already present — no login step required'
-                : facts.authRequired === true
-                    ? 'per-home login required once (surfaced via status().authRequired after launch)'
-                    : 'auth state UNKNOWN until the long-lived owner returns live launch status');
+            : getHarnessAuthMode(intent.harnessType) === 'env-key'
+                ? 'auth rides the spawned env (provider API key in the seat env) — no per-home login step; verify the key is provisioned before start'
+                : facts.authRequired === false
+                    ? 'per-home credentials already present — no login step required'
+                    : facts.authRequired === true
+                        ? 'per-home login required once (surfaced via status().authRequired after launch)'
+                        : 'auth state UNKNOWN until the long-lived owner returns live launch status');
 
     return {phase: 'B', segments, gateMessage: null}
 }
@@ -438,7 +441,7 @@ export function buildLoginCommand({harnessType, authHome, authCommand} = {}) {
         throw new Error(`buildLoginCommand: unsupported harnessType '${String(harnessType)}'.`);
     }
     if (getHarnessAuthMode(harnessType) !== 'marker') {
-        throw new Error(`buildLoginCommand: harnessType '${harnessType}' authenticates in-app; login commands are marker-family only.`);
+        throw new Error(`buildLoginCommand: harnessType '${harnessType}' has authMode '${getHarnessAuthMode(harnessType)}'; login commands are marker-family only.`);
     }
     if (typeof authHome !== 'string' || !path.isAbsolute(authHome) || CONTROL_CHARACTERS.test(authHome)) {
         throw new Error('buildLoginCommand: lifecycle status must provide a control-character-free absolute authHome.');
@@ -467,9 +470,11 @@ export function buildLoginCommand({harnessType, authHome, authCommand} = {}) {
  * @summary The post-launch auth handoff DECISION — the one branch `--commit` executes after
  * `startAgent` returns, extracted pure so tests enter where the real conductor does. Mode-first:
  * an `'in-app'` family (permanently-null `authRequired` — no marker exists) ALWAYS hands off the
- * in-window sign-in instruction and routes a closed-window recovery back through Fleet; a
- * `'marker'` family branches on the live heuristic (`true` → the login command, `false` → done,
- * `null` → an honest WARN, never a guessed command).
+ * in-window sign-in instruction and routes a closed-window recovery back through Fleet; an
+ * `'env-key'` family has no per-home step at all (the provider key rides the spawned env), so the
+ * handoff is `done` plus the provisioning reminder; a `'marker'` family branches on the live
+ * heuristic (`true` → the login command, `false` → done, `null` → an honest WARN, never a
+ * guessed command).
  * @param {Object} options
  * @param {String} options.harnessType Curated harness family.
  * @param {Object} options.status The long-lived owner's `startAgent`/`status` projection —
@@ -488,6 +493,13 @@ export function deriveAuthHandoff({harnessType, status} = {}) {
                 '    Sign in inside that window.',
                 '    If it was closed, restart through Fleet: re-run this onboardPeer command with --commit, or use Start in the Fleet cockpit.'
             ]
+        };
+    }
+
+    if (getHarnessAuthMode(harnessType) === 'env-key') {
+        return {
+            kind : 'done',
+            lines: ['  [DONE] auth — env-key family: the provider API key rides the spawned env; no per-home login step exists (verify the seat env carries it before start)']
         };
     }
 

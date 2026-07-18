@@ -109,7 +109,7 @@ test.describe('deriveHarnessLaunchSpec (per-family harness launch templates)', (
     });
 
     test('LAUNCHABLE_HARNESS_TYPES is the frozen alphabetical template subset AND every entry is a registered harness type', () => {
-        expect(LAUNCHABLE_HARNESS_TYPES).toEqual(['antigravity', 'claude-code', 'claude-desktop', 'codex', 'codex-desktop']);
+        expect(LAUNCHABLE_HARNESS_TYPES).toEqual(['antigravity', 'claude-code', 'claude-desktop', 'codex', 'codex-desktop', 'opencode']);
         expect(Object.isFrozen(LAUNCHABLE_HARNESS_TYPES)).toBe(true);
 
         // The lockstep invariant the module also guards at import: launch vocabulary ⊆ the shared
@@ -125,12 +125,13 @@ test.describe('deriveHarnessLaunchSpec (per-family harness launch templates)', (
         expect(LAUNCHABLE_HARNESS_TYPES).not.toContain('native-neo');
     });
 
-    test('getHarnessAuthMode: marker for the CLI families, in-app for the app bundles, null fail-closed for everything else', () => {
+    test('getHarnessAuthMode: marker for the CLI families, in-app for the app bundles, env-key for the key-riding family, null fail-closed for everything else', () => {
         expect(getHarnessAuthMode('codex')).toBe('marker');
         expect(getHarnessAuthMode('codex-desktop')).toBe('marker');
         expect(getHarnessAuthMode('claude-code')).toBe('marker');
         expect(getHarnessAuthMode('claude-desktop')).toBe('in-app');
         expect(getHarnessAuthMode('antigravity')).toBe('in-app');
+        expect(getHarnessAuthMode('opencode')).toBe('env-key');
         expect(getHarnessAuthMode('native-neo')).toBeNull();
         expect(getHarnessAuthMode(undefined)).toBeNull();
     });
@@ -144,6 +145,27 @@ test.describe('deriveHarnessLaunchSpec (per-family harness launch templates)', (
         expect(call).toThrow(/'codex-desktop'/);
         expect(call).toThrow(/'claude-desktop'/);
         expect(call).toThrow(/'antigravity'/);
+    });
+
+    test('opencode: the headless serve template with the unified two-var XDG home (config + state under <instanceHome>/opencode)', () => {
+        const spec = deriveHarnessLaunchSpec({harnessType: 'opencode', instanceHome: '/srv/instances/p/oc', binaryPath: '/usr/local/bin/opencode'});
+
+        expect(spec).toEqual({
+            command: '/usr/local/bin/opencode',
+            args   : ['serve', '--hostname', '127.0.0.1', '--port', '0'],
+            env    : {
+                XDG_CONFIG_HOME: '/srv/instances/p/oc',
+                XDG_DATA_HOME  : '/srv/instances/p/oc',
+                XDG_CACHE_HOME : '/srv/instances/p/oc/cache'
+            },
+            versionProbeArgs: ['--version']
+        });
+
+        // fresh spec per call — a mutating caller never bleeds into the template
+        const other = deriveHarnessLaunchSpec({harnessType: 'opencode', instanceHome: '/srv/instances/p/oc', binaryPath: '/usr/local/bin/opencode'});
+        spec.args.push('--extra');
+        expect(other.args).toEqual(['serve', '--hostname', '127.0.0.1', '--port', '0']);
+        expect(spec.env).not.toBe(other.env);
     });
 
     test('fails loud on contract violations (no silent default spec)', () => {
