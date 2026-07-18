@@ -351,8 +351,12 @@ class GitHub extends Base {
             this.#updateRateLimit(response);
 
             if (!response.ok) {
-                // Retry on 5xx (Server Error) or 403 (Rate Limit/Abuse)
-                if ((response.status >= 500 || response.status === 403) && retries > 0) {
+                // Retry on 5xx (Server Error) or 403 (Rate Limit/Abuse). A `>= 500` leaves a MUTATION's
+                // server-side outcome AMBIGUOUS (the write may have applied before the error), so a mutation
+                // is not replayed on it — a read still is. A `403` is a pre-execution rate-limit rejection,
+                // so it is always safe to replay (the write never ran). Mirrors the transport-catch
+                // retry-authorization gate.
+                if (retries > 0 && (response.status === 403 || (response.status >= 500 && !this.#isMutation(query)))) {
                     let delay = (4 - retries) * 2000; // Default: 2s, 4s, 6s
 
                     // Special handling for 403 Secondary Rate Limit (Abuse Detection)
@@ -387,10 +391,11 @@ class GitHub extends Base {
                     throw new Error(`GraphQL Fatal Error: ${messages}`);
                 }
 
-                // Sometimes 502s come as 200 OK with errors body
+                // Sometimes 502s come as 200 OK with errors body. Like a `>= 500`, a gateway error leaves a
+                // MUTATION's outcome ambiguous, so it is not replayed for one — a read still is.
                 const isGatewayError = json.errors.some(e => e.message?.includes('502') || e.message?.includes('504'));
 
-                if (isGatewayError && retries > 0) {
+                if (isGatewayError && retries > 0 && !this.#isMutation(query)) {
                     const delay = (4 - retries) * 2000;
                     console.log(`${prefix} Gateway Error in body. Retrying in ${delay}ms...`);
                     await new Promise(r => setTimeout(r, delay));
