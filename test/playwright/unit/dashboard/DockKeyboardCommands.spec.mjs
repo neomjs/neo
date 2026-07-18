@@ -112,7 +112,9 @@ test.describe('Neo.dashboard.DockKeyboardCommands — createDockKeyboardCommands
 
         expect(calls.applied).toHaveLength(1);
         expect(calls.synced).toHaveLength(0);
-        expect(calls.closed).toEqual([{popupHeight: 480, popupWidth: 640, windowName: 'vessel-graph'}]);
+        // retirement names the ITEM, not just the window — the host's connect-race bookkeeping
+        // is keyed by itemId and a window-only retirement would leave it stale
+        expect(calls.closed).toEqual([{itemId: 'graph', popupHeight: 480, popupWidth: 640, windowName: 'vessel-graph'}]);
         expect(calls.focused).toHaveLength(0);
 
         expect(calls.announced).toHaveLength(1);
@@ -278,5 +280,96 @@ test.describe('Neo.dashboard.DockKeyboardCommands — createDockKeyboardCommands
         expect(outcome.terminal).toBe('COMMITTED_TARGET');
         expect(outcome.focusTransferred).toBe(false);
         expect(calls.announced.at(-1).message).toContain('Focus stayed here')
+    });
+
+    // ── the ASYNC host shapes: the first real host commits an async document pair, so the
+    // machine must await settlement and fail-close on every unproven result — a synchronous
+    // fixture alone would let a delayed refusal announce a green terminal
+
+    const asyncHarness = commitImpl => {
+        const calls = {announced: [], committed: [], focusedWs: []};
+
+        const commands = createDockKeyboardCommands({
+            announce      : announcement => calls.announced.push(announcement),
+            applyOperation: () => ({document: {}, errors: []}),
+            closeVessel   : () => {},
+            commitTransfer: request => {
+                calls.committed.push(request);
+                return commitImpl(request)
+            },
+            enumerateTargets: () => CYCLE_TARGETS,
+            focusVessel     : () => true,
+            focusWorkspace  : request => {
+                calls.focusedWs.push(request);
+                return true
+            },
+            highlightTarget : () => {},
+            onDocumentChange: () => {},
+            openVessel      : async () => null
+        });
+
+        return {calls, commands}
+    };
+
+    const settleDelay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    test('a DELAYED async success settles BEFORE the terminal — focus and announcement wait for the pair', async () => {
+        let settled = false;
+
+        const {calls, commands} = asyncHarness(async () => {
+            await settleDelay(60);
+            settled = true;
+            return {errors: []}
+        });
+
+        commands.cycleStart({itemId: 'graph'});
+
+        const outcome = await commands.cycleCommit();
+
+        expect(settled, 'the commit must have settled before the terminal').toBe(true);
+        expect(outcome.terminal).toBe('COMMITTED_TARGET');
+        expect(calls.focusedWs).toHaveLength(1)
+    });
+
+    test('a DELAYED async refusal lands REJECTED with ZERO focus — the false-green falsifier, pinned', async () => {
+        const {calls, commands} = asyncHarness(async () => {
+            await settleDelay(60);
+            return {errors: ['async refusal']}
+        });
+
+        commands.cycleStart({itemId: 'graph', itemLabel: 'Graph'});
+
+        const outcome = await commands.cycleCommit();
+
+        expect(outcome.terminal).toBe('REJECTED');
+        expect(calls.focusedWs, 'no focus may move on a refused commit').toHaveLength(0);
+        expect(calls.announced.at(-1).message).toContain('Move rejected')
+    });
+
+    test('an async REJECTION lands on the refusal path — zero focus, honest terminal', async () => {
+        const {calls, commands} = asyncHarness(async () => {
+            await settleDelay(20);
+            throw new Error('adoption exploded late')
+        });
+
+        commands.cycleStart({itemId: 'graph'});
+
+        const outcome = await commands.cycleCommit();
+
+        expect(outcome.terminal).toBe('REJECTED');
+        expect(calls.focusedWs).toHaveLength(0)
+    });
+
+    test('malformed results refuse across the shape matrix — an unproven commit is a refused one', async () => {
+        for (const bad of [undefined, null, 42, {}, {errors: 'nope'}]) {
+            const {calls, commands} = asyncHarness(async () => bad);
+
+            commands.cycleStart({itemId: 'graph'});
+
+            const outcome = await commands.cycleCommit();
+
+            expect(outcome.terminal, `shape ${JSON.stringify(bad)} must refuse`).toBe('REJECTED');
+            expect(calls.focusedWs).toHaveLength(0)
+        }
     })
 });

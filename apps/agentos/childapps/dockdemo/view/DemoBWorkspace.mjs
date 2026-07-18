@@ -393,11 +393,13 @@ class DemoBWorkspace extends Container {
         }, {
             // The keyboard command surface's announcement region: every outcome terminal the
             // command machine derives lands here as TEXT for the screen reader — visually
-            // unobtrusive, never hidden from the accessibility tree.
+            // unobtrusive, never hidden from the accessibility tree. `role` rides the
+            // Component.Base config (the renderer owns root-attr routing); aria-live rides the vdom.
             cls      : ['agentos-dockdemo-kbd-live'],
             ntype    : 'component',
             reference: 'kbd-live-b',
-            vdom     : {role: 'status', 'aria-live': 'polite', cn: []}
+            role     : 'status',
+            vdom     : {'aria-live': 'polite', cn: []}
         }, {
             module: Container,
             cls   : ['agentos-dockdemo-dock-host', 'neo-dashboard'],

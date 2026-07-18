@@ -45,9 +45,11 @@
  *     the workspace's pure reducer (`applyDockZoneOperation`). Called exactly once per admitted command.
  * @param {Function} seams.closeVessel Host vessel retirement: `({itemId, windowName}) => void|Promise` —
  *     closes the OS window a refused commit leaves behind. Never called for a committed detach.
- * @param {Function} seams.commitTransfer Host transfer seam: `({itemId, target: {workspaceId, tabsId}}) => {errors: String[]}` —
+ * @param {Function} seams.commitTransfer Host transfer seam:
+ *     `({itemId, target: {workspaceId, tabsId}}) => {errors: String[]}|Promise<{errors: String[]}>` —
  *     the host runs `DockZoneModel.transferItem` (commit-or-neither document pair) and lands the
- *     pair through its workspace set's both-or-neither adoption. Called exactly once per commit.
+ *     pair through its workspace set's both-or-neither adoption. Called exactly once per commit
+ *     and AWAITED to settlement — a rejection or a malformed result is treated as a refusal.
  * @param {Function} seams.enumerateTargets Host target enumeration: `({itemId}) => Object[]` —
  *     `[{workspaceId, tabsId, label}]` in a STABLE order (the workspace set's registry order),
  *     excluding the item's current tabs. Empty = no legal targets (announced, fail-closed).
@@ -139,7 +141,10 @@ export function createDockKeyboardCommands({
             }
 
             if (!result || result.errors?.length || !result.document) {
-                closeVessel(vessel);
+                // retirement carries the ITEM identity, not just the window's: the host's vessel
+                // bookkeeping (e.g. connect-race entries) is keyed by itemId, and a retirement
+                // that names only the window leaves that entry stale
+                closeVessel({itemId, ...vessel});
                 announce({
                     command         : 'detach',
                     focusTransferred: false,
@@ -227,9 +232,11 @@ export function createDockKeyboardCommands({
 
         /**
          * @summary Commit the transfer to the current candidate — exactly one `commitTransfer`
-         * (the host's commit-or-neither pair adoption), the highlight cleared, the terminal
-         * announced. A model refusal leaves the item where it is, announced. Focus follows the
-         * item on success via the same Boolean-admission discipline as the detach command.
+         * (the host's commit-or-neither pair adoption), AWAITED TO SETTLEMENT: hosts commit
+         * async document pairs, and success may only be announced (and focus moved) after the
+         * pair actually landed. Returned errors, a rejection/throw, or a missing/malformed
+         * result all land on the REJECTED path — an unproven commit is a refused one. The
+         * highlight clears either way; the terminal says which.
          * @returns {Promise<Object|undefined>} The outcome, or `undefined` outside an active cycle.
          */
         async cycleCommit() {
@@ -245,13 +252,21 @@ export function createDockKeyboardCommands({
             let result;
 
             try {
-                result = commitTransfer({itemId, target: {tabsId: target.tabsId, workspaceId: target.workspaceId}})
+                // AWAITED to settlement: the first real host commits an async document pair —
+                // announcing success before it settles would green-light a commit the workspace
+                // may still refuse (a rejection/throw lands on the refusal path)
+                result = await commitTransfer({itemId, target: {tabsId: target.tabsId, workspaceId: target.workspaceId}})
             } catch (error) {
-                // a throwing host seam lands on the refusal path — the cycle must end honestly
                 result = {errors: [`commitTransfer threw: ${error?.message || error}`]}
             }
 
-            if (result?.errors?.length) {
+            // shape validation IS the fail-close: a host answering undefined/null/non-object has
+            // not proven a settled commit, and an unproven commit is a refused one
+            if (!result || !Array.isArray(result.errors)) {
+                result = {errors: ['commitTransfer answered without a settled result shape']}
+            }
+
+            if (result.errors.length) {
                 announce({
                     command         : 'transfer',
                     focusTransferred: false,
