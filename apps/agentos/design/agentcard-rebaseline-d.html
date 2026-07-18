@@ -55,11 +55,20 @@
   .strip .src i.dim{background:var(--off)}
   .strip .src i.bad{background:var(--wedged)}
 
-  /* narrow-mode adjustments (the card's own width states) */
+  /* narrow-mode adjustments (the card's own width states — 294px classifies NARROW: regular starts ~320px) */
   .card.narrow .engine{display:none}
   .card.narrow .strip .src.full{display:none}
   .card.narrow .strip .summary{display:flex}
+  .card.narrow .actions .icon-btn{width:44px;height:44px;font-size:16px}
+  .card.narrow .actions .icon-btn.solo{width:44px}
   .strip .summary{display:none;align-items:center;gap:4px}
+
+  /* the lane's tail-preserving clamp: the distinguishing suffix survives; the shared middle elides */
+  .lane-tail{color:var(--ink)}
+  .lane-elide{color:var(--ink-faint)}
+
+  /* the summary-default truth strip: green needs no wall of acronyms; degraded names itself */
+  .strip .nominal{color:var(--ink-dim)}
 
   .engine{font-family:var(--mono);font-size:10px;color:var(--ink-faint);flex:none}
 
@@ -78,8 +87,8 @@
   <div class="grid">
 
     <div>
-      <p class="col-label">wide · <b>480px</b></p>
-      <div class="card" style="width:480px;--fam:var(--f-gpt)">
+      <p class="col-label">wide · <b>720px</b></p>
+      <div class="card" style="width:720px;--fam:var(--f-gpt)">
         <div class="status-row">
           <span class="dot" style="--state:var(--ok)"></span>
           <span class="state-word">working</span>
@@ -95,11 +104,11 @@
           <span class="src"><i></i>RUN</span><span class="src"><i></i>ROS</span><span class="src"><i class="dim"></i>REP</span>
         </div>
       </div>
-      <p class="note">everything on the contract, one calm read</p>
+      <p class="note">everything on the contract, one calm read — the strip earns its line here</p>
     </div>
 
     <div>
-      <p class="col-label">mobile · <b>360px</b></p>
+      <p class="col-label">regular · <b>360px</b></p>
       <div class="card" style="width:360px;--fam:var(--f-claude)">
         <div class="status-row">
           <span class="dot" style="--state:var(--wedged)"></span>
@@ -116,60 +125,62 @@
           <span class="src"><i></i>RUN</span><span class="src"><i class="bad"></i>ROS</span><span class="src"><i></i>REP</span>
         </div>
       </div>
-      <p class="note">severity = weight on the state word, identity never recedes</p>
+      <p class="note">severity = weight on the state word, identity never recedes; 360px is where the full strip still earns its line</p>
     </div>
 
     <div>
-      <p class="col-label">current · <b>294px</b></p>
-      <div class="card" style="width:294px;--fam:var(--f-gemini)">
+      <p class="col-label">narrow · <b>294px</b></p>
+      <div class="card narrow" style="width:294px;--fam:var(--f-gemini)">
         <div class="status-row">
           <span class="dot" style="--state:var(--off)"></span>
           <span class="state-word">benched / offline</span>
           <span class="name">Gemini</span>
-          <span class="actions"><span class="icon-btn power">⏻</span></span>
+          <span class="actions"><span class="icon-btn power solo">⋯</span></span>
         </div>
         <div class="work-row">
-          <span class="lane">operator-benched — the v3-line slip, waiting on a stable harness</span>
+          <span class="lane"><span class="lane-elide">operator-benched — … —</span><span class="lane-tail"> waiting on a stable harness</span></span>
           <span class="badge">3.1-pro</span>
         </div>
         <div class="strip">
-          <span class="src"><i class="dim"></i>RUN</span><span class="src"><i class="dim"></i>ROS</span><span class="src"><i class="dim"></i>REP</span>
+          <span class="src full"><i class="dim"></i>RUN</span><span class="src full"><i class="dim"></i>ROS</span><span class="src full"><i class="dim"></i>REP</span>
+          <span class="summary"><i class="dim"></i>all sources nominal ▸</span>
         </div>
       </div>
-      <p class="note">the badge slot carries the engine when there's no lane count</p>
+      <p class="note">narrow mode: engine hidden, strip collapsed to a one-line summary, actions collapse to ONE 44px overflow button</p>
     </div>
 
     <div>
-      <p class="col-label">narrow · <b>240px</b></p>
-      <div class="card narrow" style="width:240px;--fam:var(--f-human)">
+      <p class="col-label">narrow-min · <b>280px</b></p>
+      <div class="card narrow" style="width:280px;--fam:var(--f-human)">
         <div class="status-row">
           <span class="dot" style="--state:var(--idle)"></span>
           <span class="state-word">idle</span>
           <span class="name">tobiu</span>
-          <span class="actions"><span class="icon-btn power">⏻</span></span>
+          <span class="actions"><span class="icon-btn power solo">⋯</span></span>
         </div>
         <div class="work-row">
-          <span class="lane">merge sweep and the morning review queue</span>
+          <span class="lane"><span class="lane-elide">merge sweep — … —</span><span class="lane-tail"> the morning review queue</span></span>
           <span class="badge">7 lanes</span>
         </div>
         <div class="strip">
           <span class="src full"><i></i>RUN</span><span class="src full"><i></i>ROS</span><span class="src full"><i class="dim"></i>REP</span>
-          <span class="summary"><i></i>3 sources ▸</span>
+          <span class="summary"><i></i>all sources nominal ▸</span>
         </div>
       </div>
-      <p class="note">engine hides, strip collapses to a tap summary, nothing truncates to a meaningless prefix</p>
+      <p class="note">ONE 44px target ≈ 16% of the row, never 34% — and the lane keeps its distinguishing tail</p>
     </div>
 
   </div>
 
   <div class="divider"></div>
 
-  <p class="eyebrow">the falsifiers, answered</p>
+  <p class="eyebrow">the falsifiers + the four render teeth, answered</p>
   <p class="falsifier">294px → 149.95px info body &nbsp;·&nbsp; ~85% width to information; chrome = 3px edge + 32px actions</p>
-  <p class="falsifier">48×48 power dominates &nbsp;·&nbsp; 32px in-flow icons; ≥44px touch height at narrow; never fully hidden (touch has no hover)</p>
-  <p class="falsifier">lane → meaningless prefix &nbsp;·&nbsp; 2-line clamp + badge pinned; prefix expendable, count exact</p>
-  <p class="falsifier">three 9px source rows &nbsp;·&nbsp; one 10px strip, collapsible to a summary at narrow</p>
-  <p class="falsifier">viewport-only breakpoints &nbsp;·&nbsp; card-owned width states (container query / ResizeObserver class — layout-blind)</p>
+  <p class="falsifier">48×48 power dominates &nbsp;·&nbsp; 32px in-flow icons at regular+; ONE 44px overflow button at narrow (~16% of a 280px row, never 34%)</p>
+  <p class="falsifier">lane → meaningless prefix &nbsp;·&nbsp; 2-line clamp with the distinguishing TAIL preserved (shared middle elides); badge pinned</p>
+  <p class="falsifier">three 9px source rows &nbsp;·&nbsp; summary-DEFAULT strip ("all sources nominal"); degraded sources name themselves — no acronym wall in either direction</p>
+  <p class="falsifier">viewport-only breakpoints &nbsp;·&nbsp; card-owned width states (narrow &lt;320, regular 320–560, wide &gt;560 — 294px classifies narrow)</p>
+  <p class="falsifier">touch targets eat narrow rows &nbsp;·&nbsp; one 44px overflow button at narrow; the two icons only exist where 32px is cheap</p>
 
   <p class="note" style="max-width:74ch;margin-top:20px">mockup by <b>Phoebe</b> (@neo-kimi-phoebe, Moonshot Kimi K3) — design-peer on #15536. The a11y invariants hold everywhere: state as text beside the dot (#15512/#15534), text-safe inks only, state-honesty markers verbatim, id-keyed cards. Severity changes the state word's weight — never the identity order.</p>
 </div>
