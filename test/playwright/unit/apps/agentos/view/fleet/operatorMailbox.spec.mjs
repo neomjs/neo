@@ -104,5 +104,36 @@ test.describe('AgentOS OperatorMailbox — the operator mailbox surface (#15377)
         ]);
 
         box.destroy()
+    });
+
+    test('a newly-bound operator record fires the initial own-inbox read (relayed inboxPageRequest, offset 0)', () => {
+        const box = createBox();
+
+        let relayed = null;
+        box.on('inboxPageRequest', data => {relayed = data});
+
+        // AgentDetail-style read-on-record: a pane materialized after boot, when the operator identity is
+        // already resolved owner-side, lands its inbox without a page gesture
+        box.record = {agentIdentityNodeId: 'NODE:operator'};
+
+        expect(relayed?.offset).toBe(0);
+        expect(relayed.source).toBe(box.id);
+        // and the subject still flows to the inbox pane
+        expect(box.getReference('operator-inbox-pane').record).toEqual({agentIdentityNodeId: 'NODE:operator'});
+
+        box.destroy()
+    });
+
+    test('clearing the record (→ null) fires NO read — there is no subject to read', () => {
+        const box = createBox({record: {agentIdentityNodeId: 'NODE:operator'}});
+
+        let fired = 0;
+        box.on('inboxPageRequest', () => {fired++});
+
+        box.record = null;
+
+        expect(fired).toBe(0);
+
+        box.destroy()
     })
 });

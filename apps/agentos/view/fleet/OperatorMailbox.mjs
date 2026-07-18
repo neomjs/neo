@@ -103,13 +103,21 @@ class OperatorMailbox extends Container {
     }
 
     /**
-     * Triggered after the operator record changed — the inbox pane's subject follows it.
+     * Triggered after the operator record changed — the inbox pane's subject follows it, and a newly-bound
+     * identity kicks the first own-inbox read. The owner (cockpit) holds the read seam, so this fires the
+     * `inboxPageRequest` relay rather than reading here: a pane materialized after boot — when the operator
+     * identity is already resolved owner-side — lands its inbox without a page gesture, exactly as
+     * {@link AgentOS.view.fleet.AgentDetail} reads on its record.
      * @param {Object|null} value
      * @param {Object|null} oldValue
      * @protected
      */
     afterSetRecord(value, oldValue) {
-        this.isConstructed && (this.getReference('operator-inbox-pane').record = value)
+        if (!this.isConstructed) return;
+
+        this.getReference('operator-inbox-pane').record = value;
+        // a real identity (null → record) triggers the first read; the owner services it against the mirror
+        value && this.onInboxPageRequest({offset: 0})
     }
 
     /**

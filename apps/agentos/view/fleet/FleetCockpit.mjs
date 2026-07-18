@@ -562,6 +562,7 @@ class FleetCockpit extends Container {
 
         me.loadActivity();
         me.loadRoster();
+        me.loadOperatorIdentity();
         me.startLiveness()
     }
 
@@ -1609,6 +1610,39 @@ class FleetCockpit extends Container {
         }
 
         return outcome
+    }
+
+    /**
+     * @summary BOOT: resolve the operator's OWN identity from the authenticated bridge (whoami) and hold it
+     * owner-side so the operator-mailbox pane can read its own inbox — the missing bootstrap leg of "the
+     * client SAYS self, the admission stamp proves it". The mirror read requires an EXPLICIT subjectAgentId
+     * (never a viewer-default — a self-default at a trust boundary is spoof-adjacent), so the cockpit first
+     * learns its own @-id via `resolveViewerIdentity`, then the pane passes it and the mirror's admission
+     * re-stamps + proves it. Pushing the record to a materialized pane drives its first read (the pane fires
+     * `inboxPageRequest` on a newly-bound identity); an autoHidden pane materializes from the held record on
+     * reveal. Fail-closed: an unwired source / unbound context / absent bridge leaves `operatorRecord` null,
+     * so the pane stays honestly unobserved — never a fabricated or fallback identity.
+     * @protected
+     */
+    async loadOperatorIdentity() {
+        const
+            me     = this,
+            bridge = globalThis.AgentOS?.fleet?.registryBridge;
+
+        if (typeof bridge?.resolveViewerIdentity !== 'function') {
+            return
+        }
+
+        const outcome = await bridge.resolveViewerIdentity();
+
+        // {ok:true, agentIdentityNodeId} | {ok:false, error} (source-not-wired | unbound). Only a proven
+        // identity seeds the subject; a refusal never reads a wrong inbox.
+        if (outcome?.ok && outcome.agentIdentityNodeId && !me.isDestroyed) {
+            me.operatorRecord = {agentIdentityNodeId: outcome.agentIdentityNodeId};
+            // a materialized pane picks up the identity live and reads; an autoHidden one materializes from
+            // the held record on reveal
+            me.getReference('operator-mailbox')?.set({record: me.operatorRecord})
+        }
     }
 
     /**

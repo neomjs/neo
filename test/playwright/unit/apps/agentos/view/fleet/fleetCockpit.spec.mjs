@@ -2017,4 +2017,52 @@ test.describe('Fleet cockpit — operator mailbox (compose · recipients · own-
         expect(pane.snapshot).toBe(prior);
         expect(cockpit.operatorSnapshot).toBe(prior)
     });
+
+    // --- loadOperatorIdentity: the whoami bootstrap (resolveViewerIdentity → seed → pane) --------------
+
+    test('identity · no resolveViewerIdentity verb → fail-closed, no operatorRecord seeded', async () => {
+        setBridge({});
+
+        const cockpit = {operatorRecord: null, getReference: () => ({set() {}})};
+
+        await FleetCockpit.prototype.loadOperatorIdentity.call(cockpit);
+
+        expect(cockpit.operatorRecord).toBe(null)
+    });
+
+    test('identity · resolveViewerIdentity ok → seeds operatorRecord AND pushes the record to the pane', async () => {
+        setBridge({resolveViewerIdentity: async () => ({ok: true, agentIdentityNodeId: 'NODE:operator'})});
+
+        const paneSets = [],
+              pane     = {set(cfg) { paneSets.push(cfg) }},
+              cockpit  = {operatorRecord: null, getReference: reference => reference === 'operator-mailbox' ? pane : null};
+
+        await FleetCockpit.prototype.loadOperatorIdentity.call(cockpit);
+
+        // the client learns its OWN @-id, holds it owner-side, and hands it to the pane — which reads
+        expect(cockpit.operatorRecord).toEqual({agentIdentityNodeId: 'NODE:operator'});
+        expect(paneSets).toEqual([{record: {agentIdentityNodeId: 'NODE:operator'}}])
+    });
+
+    test('identity · a refusal (ok:false — unbound / source-not-wired) never seeds a wrong subject', async () => {
+        setBridge({resolveViewerIdentity: async () => ({ok: false, error: 'viewer identity unbound — authenticated ingress required'})});
+
+        const cockpit = {operatorRecord: null, getReference: () => ({set() {}})};
+
+        await FleetCockpit.prototype.loadOperatorIdentity.call(cockpit);
+
+        expect(cockpit.operatorRecord, 'a refusal leaves the pane honestly unobserved, never a fallback identity').toBe(null)
+    });
+
+    test('identity · an autoHidden pane (not materialized at boot) still seeds the record for a reveal-time read', async () => {
+        setBridge({resolveViewerIdentity: async () => ({ok: true, agentIdentityNodeId: 'NODE:operator'})});
+
+        // the pane is not materialized yet (getReference → null); the `?.set` no-ops but the record is held
+        // owner-side, so a later projection materializes the pane at the operator's identity and reads
+        const cockpit = {operatorRecord: null, getReference: () => null};
+
+        await FleetCockpit.prototype.loadOperatorIdentity.call(cockpit);
+
+        expect(cockpit.operatorRecord).toEqual({agentIdentityNodeId: 'NODE:operator'})
+    });
 });
