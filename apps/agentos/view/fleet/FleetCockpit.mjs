@@ -520,13 +520,32 @@ class FleetCockpit extends Container {
      * Live pane instances captured at the detached terminal, keyed by item id — the cockpit's
      * projection DESTROYS un-preserved panes on reconcile, so the instance is captured
      * synchronously before the commit's re-projection runs and parked via the reconciler's
-     * `preserveItemIds` until its vessel adopts it. Released when the vessel disconnects (the
-     * popup's view-tree teardown destroys the mounted pane; the catalog entry stays the model
-     * truth and a re-treed item re-materializes from owner-held state).
+     * `preserveItemIds` until its vessel adopts it. On vessel death the handle feeds
+     * {@link #reintegrateTearOutItem}: a window disconnect never destroys the popup's view tree,
+     * so the LIVE instance survives and comes home same-instance through
+     * {@link #returningTearOutPanes} — destruction is only the no-home fallback terminal.
      * @member {Object} tearOutPaneHandles={}
      * @protected
      */
     tearOutPaneHandles = {}
+    /**
+     * Exact-position return truth: `tearOutPlacements[itemId] = {tabsNodeId, index}`, captured
+     * at the detach terminal BEFORE the commit removes the item (`addTab` appends by default,
+     * so this pair is the only way home). A refused detach commit deletes its own capture;
+     * {@link #reintegrateTearOutItem} consumes the record exact-once on vessel death.
+     * @member {Object} tearOutPlacements={}
+     * @protected
+     */
+    tearOutPlacements = {}
+    /**
+     * The one-refresh handoff slot for a pane coming HOME on vessel death:
+     * {@link #resolveDockComponentRef} consumes it FIRST — before the torn stand-in guard — and
+     * returns the LIVE instance into the projection (the {@link #detachedDetailPane} re-adoption
+     * precedent, generalized to gesture vessels). Same instance, never a recreation.
+     * @member {Object} returningTearOutPanes={}
+     * @protected
+     */
+    returningTearOutPanes = {}
     /**
      * The cockpit-owned dock seam instance — the SAME `execute_dock_operation` path a live
      * agent drives, injected into the tour runner so scripted ops and agent ops are one code
@@ -600,7 +619,7 @@ class FleetCockpit extends Container {
         // pathways converge only through guards (the toggle disables while `detail` is torn;
         // a click-windowed `detail` has no projected tab for the gesture to arm on).
         me.tearOutHandlers = createDockTearOutHandlers({
-            applyOperation  : descriptor => me.applyDockZoneOperation(descriptor),
+            applyOperation  : descriptor => me.applyTearOutOperation(descriptor),
             closeVessel     : vessel => me.closeTearOutVessel(vessel),
             onDocumentChange: (document, operation) => {
                 let detached = operation?.operation === 'detachItem';
@@ -1199,13 +1218,29 @@ class FleetCockpit extends Container {
      * @returns {Object}
      */
     resolveDockComponentRef(componentRef, item, itemId) {
-        let me     = this,
-            marker = `dock-flip-item-${encodeURIComponent(itemId)}`;
+        let me        = this,
+            marker    = `dock-flip-item-${encodeURIComponent(itemId)}`,
+            returning = me.returningTearOutPanes?.[itemId];
+
+        // vessel-death re-adoption FIRST — before the torn stand-in guard, because the records
+        // are already retired when the handoff slot is armed: the LIVE pane returns into the
+        // projection, same instance, never a recreation (the detachedDetailPane precedent
+        // below, generalized to gesture vessels). A slot holding a destroyed pane is consumed
+        // and falls through to normal materialization.
+        if (returning) {
+            delete me.returningTearOutPanes[itemId];
+
+            if (!returning.isDestroyed) {
+                returning.parent?.remove(returning, false);
+                return returning
+            }
+        }
 
         // a GESTURE-torn item's live pane is vessel-owned: a preset restore (or NL addTab)
         // re-treeing the item while torn must not steal or duplicate the instance — an honest
         // stand-in holds the slot (the same discipline as the click-detached inspector below);
-        // whole-stack reintegration is the G4 leaf's scope. Optional-chained like every sibling
+        // the vessel-death return path above swaps it for the live pane when the vessel dies.
+        // Optional-chained like every sibling
         // field read: the projection specs drive these prototype methods over controlled state.
         if (me.tearOutPaneHandles?.[itemId] && !me.tearOutPaneHandles[itemId].isDestroyed) {
             return {
@@ -1468,9 +1503,10 @@ class FleetCockpit extends Container {
     /**
      * The owner-destroy exit for every live tear-out record: closes each admitted vessel
      * (fire-and-forget — the disconnect listener is already detached by the destroy path, so no
-     * re-entry) and settles every owner-held pane exactly once with the same detach + destroy
-     * disposition the vessel-death path uses. Cockpit teardown must not leave an OS vessel open
-     * or a live pane orphaned under a popup view tree the worker never destroys.
+     * re-entry) and settles every owner-held pane exactly once — captured handles AND armed
+     * returning slots alike (cockpit teardown is a terminal, so the bring-home handoff has no
+     * refresh left to land in). Cockpit teardown must not leave an OS vessel open or a live
+     * pane orphaned under a popup view tree the worker never destroys.
      * @protected
      */
     retireTearOutState() {
@@ -1480,16 +1516,105 @@ class FleetCockpit extends Container {
             windowName && Neo.Main.windowClose({names: [windowName], windowId: me.windowId}).catch(() => {})
         }
 
-        for (const pane of Object.values(me.tearOutPaneHandles || {})) {
+        for (const pane of [...Object.values(me.tearOutPaneHandles || {}), ...Object.values(me.returningTearOutPanes || {})]) {
             if (pane && !pane.isDestroyed) {
                 pane.parent?.remove(pane, false);
                 pane.destroy()
             }
         }
 
-        me.tearOutPanes       = {};
-        me.tearOutConnects    = {};
-        me.tearOutPaneHandles = {}
+        me.tearOutPanes          = {};
+        me.tearOutConnects       = {};
+        me.tearOutPaneHandles    = {};
+        me.tearOutPlacements     = {};
+        me.returningTearOutPanes = {}
+    }
+
+    /**
+     * @summary The tear-out commit seam with exact-position capture riding it: the
+     * `{tabsNodeId, index}` pair is readable only BEFORE a detach commit removes the item from
+     * the tree, and a refused commit deletes its own capture — no stale placement outlives a
+     * gesture that never committed. Every non-detach descriptor passes through untouched.
+     * @param {Object} descriptor
+     * @returns {{document:Object, errors:String[]}}
+     * @protected
+     */
+    applyTearOutOperation(descriptor) {
+        let me       = this,
+            isDetach = descriptor?.operation === 'detachItem',
+            captured = isDetach ? DockZoneModel.captureItemPlacement(me.dockModel, descriptor.itemId) : null,
+            result;
+
+        captured && ((me.tearOutPlacements ??= {})[descriptor.itemId] = captured);
+
+        result = me.applyDockZoneOperation(descriptor);
+
+        isDetach && result?.errors?.length && delete me.tearOutPlacements?.[descriptor.itemId];
+
+        return result
+    }
+
+    /**
+     * @summary Brings a torn-out item HOME on vessel death — same instance, exact stored
+     * position (the vessel close policy of the harness docking design record §2.8).
+     *
+     * A window disconnect never destroys the popup's view tree, so the captured pane survives
+     * LIVE; it hands off through {@link #returningTearOutPanes} and the resolver returns it
+     * into the projection (the {@link #detachedDetailPane} re-adoption precedent). Placement
+     * recovery is SEMANTIC, never geometric: the stored `{tabsNodeId, index}` pair when its
+     * node survives, the first surviving tabs node (append) when it left the tree. An item some
+     * other flow already re-treed keeps that placement — the refresh simply swaps its stand-in
+     * for the live pane. Destruction remains only the no-home fallback terminal (no catalog
+     * record, no surviving tabs node, or a failed return commit) — ownership always settles,
+     * nothing is ever orphaned under a dead vessel's view.
+     * @param {String} itemId
+     * @param {Neo.component.Base|null} pane The captured handle, already released from the maps.
+     * @protected
+     */
+    reintegrateTearOutItem(itemId, pane) {
+        let me         = this,
+            placement  = me.tearOutPlacements?.[itemId],
+            doc        = me.dockModel,
+            storedHome = placement && doc?.nodes?.[placement.tabsNodeId]?.type === 'tabs' ? placement.tabsNodeId : null,
+            fallback   = storedHome || Object.entries(doc?.nodes || {}).find(([, node]) => node.type === 'tabs')?.[0],
+            live       = pane && !pane.isDestroyed,
+            settle     = () => {
+                if (live) {
+                    pane.parent?.remove(pane, false);
+                    pane.destroy()
+                }
+            },
+            result;
+
+        delete me.tearOutPlacements?.[itemId];
+
+        if (!doc?.items?.[itemId] || !fallback) {
+            settle();
+            return
+        }
+
+        live && ((me.returningTearOutPanes ??= {})[itemId] = pane);
+
+        if (DockZoneModel.findContainingTabsId(doc, itemId)) {
+            // already re-treed by another flow (preset restore, NL addTab): the model is
+            // truthful as-is — the refresh swaps the stand-in for the returning live pane
+            me.refreshDockWorkspace();
+            return
+        }
+
+        result = me.applyDockZoneOperation({
+            operation : 'addTab',
+            itemId,
+            tabsNodeId: fallback,
+            ...(storedHome ? {index: placement.index} : {})
+        });
+
+        if (result?.errors?.length === 0) {
+            me.onDockZoneDocumentChange(result.document)
+        } else {
+            delete me.returningTearOutPanes?.[itemId];
+            settle()
+        }
     }
 
     /**
@@ -1867,26 +1992,21 @@ class FleetCockpit extends Container {
             return
         }
 
-        // Tear-out vessel death: a window disconnect is a render-target signal ONLY — the worker
-        // fires `disconnect` without destroying the popup application or its view tree, so the
-        // reparented pane SURVIVES under the dead vessel's mainView. Ownership is therefore
-        // settled explicitly before the handle is retired: detach + destroy, which keeps the
-        // catalog entry the single model truth and lets a later re-tree materialize exactly ONE
-        // successor from owner-held state (a retained hidden instance would duplicate it).
-        // Post-adoption reintegration (bringing the item HOME on vessel close) is the G4
-        // vessel-lifecycle leaf's scope.
+        // Tear-out vessel death: the item comes HOME. A window disconnect is a render-target
+        // signal ONLY — the worker fires `disconnect` without destroying the popup application
+        // or its view tree, so the captured pane survives LIVE and ownership settles through
+        // {@link #reintegrateTearOutItem}: same instance back at its stored position, semantic
+        // fallback when the home node left the tree, destruction only as the no-home terminal.
+        // The records retire BEFORE the reintegration so the torn stand-in guard cannot fire on
+        // the returning item's re-projection.
         for (const [itemId, entry] of Object.entries(me.tearOutPanes || {})) {
             if (entry.windowId === data.windowId) {
                 let pane = me.tearOutPaneHandles?.[itemId];
 
-                if (pane && !pane.isDestroyed) {
-                    pane.parent?.remove(pane, false);
-                    pane.destroy()
-                }
-
                 delete me.tearOutPanes[itemId];
                 delete me.tearOutConnects?.[itemId];
                 delete me.tearOutPaneHandles?.[itemId];
+                me.reintegrateTearOutItem(itemId, pane || null);
                 me.syncControlBar();
                 break
             }

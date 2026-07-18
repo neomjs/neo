@@ -11,6 +11,7 @@ import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 import '../../../../../../../src/manager/Instance.mjs'; // defines Neo.get — the container child-add path resolves parents through it
 import Container     from '../../../../../../../src/container/Base.mjs';
+import DockZoneModel from '../../../../../../../src/dashboard/DockZoneModel.mjs';
 import FleetCockpit  from '../../../../../../../apps/agentos/view/fleet/FleetCockpit.mjs';
 import FleetRoster   from '../../../../../../../apps/agentos/store/FleetRoster.mjs';
 import StateProvider from '../../../../../../../src/state/Provider.mjs';
@@ -70,9 +71,10 @@ function installWindowVessel({openResult = true, popupUrl = null} = {}) {
  * 5. convergence-by-guard with the click pop-out: the toggle goes inert while `detail` is torn,
  *    a torn item re-treed mid-flight renders a stand-in (never steals the instance), and the
  *    accessor still resolves the live pane;
- * 6. vessel disconnect SETTLES pane ownership — a disconnect is a render-target signal, never
- *    implicit destruction: the pane is disposed (not orphaned under the dead vessel's view), the
- *    records retire, and a re-tree yields exactly one successor;
+ * 6. vessel death brings the item HOME — a disconnect is a render-target signal, never implicit
+ *    destruction: the SAME live instance returns to the projection at its stored position
+ *    (semantic fallback when the home node left the tree), every record is consumed exact-once,
+ *    and destruction remains only the no-home fallback terminal;
  * 7. the owner-destroy exit: cockpit teardown closes admitted vessels and settles every
  *    owner-held pane exactly once (idempotent).
  *
@@ -299,13 +301,16 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — gesture tear-out seam 
         expect(detailPane.isDestroyed).toBeFalsy()
     });
 
-    test('vessel disconnect SETTLES pane ownership: the orphan view keeps no live pane, and a re-tree yields exactly one successor', async () => {
+    test('vessel death brings the item HOME — same instance, no orphan under the dead view, semantic fallback placement', async () => {
         vessel = installWindowVessel();
 
         const streamPane = cockpit.getReference('activity-stream');
         const zone       = await tearOutExit('stream');
 
         cockpit.tearOutHandlers.onDockTearOutTerminal({itemId: 'stream', sortZone: zone});
+
+        // capture rode the detach commit: 'stream' lived alone in stream-tabs at index 0
+        expect(cockpit.tearOutPlacements.stream).toEqual({tabsNodeId: 'stream-tabs', index: 0});
 
         vessel.restore();
         vessel = installWindowVessel({popupUrl: `https://unit.test/widget/index.html?tearout=stream&cockpitId=${cockpit.id}`});
@@ -319,31 +324,90 @@ test.describe.serial('AgentOS.view.fleet.FleetCockpit — gesture tear-out seam 
         expect(mainView.items).toContain(streamPane);
 
         cockpit.onWindowDisconnect({windowId: 'tearout-win-3'});
+        await cockpit.refreshPromise;
 
         // A window disconnect does NOT destroy the popup application or its view tree — the
-        // worker only fires the event — so ownership must be settled EXPLICITLY. The load-bearing
-        // assertions: the dead vessel's mainView holds no forgotten live pane, and the instance
-        // itself is disposed, not merely forgotten by the bookkeeping.
-        expect(mainView.items, 'the orphan view keeps no live pane').not.toContain(streamPane);
-        expect(streamPane.isDestroyed, 'ownership settled: the pane is disposed, not orphaned').toBeTruthy();
+        // worker only fires the event — so the captured pane survives LIVE and comes HOME:
+        // the same instance, out of the dead vessel's view, back in the projection. The
+        // emptied stream-tabs node collapsed at detach, so placement recovery is the SEMANTIC
+        // fallback (a surviving tabs node), never a resurrected node, never geometry.
+        expect(mainView.items, 'the dead vessel view keeps no pane').not.toContain(streamPane);
+        expect(streamPane.isDestroyed, 'same-instance return: the pane is never destroyed').toBeFalsy();
+        expect(cockpit.getReference('activity-stream'), 'the projection resolves the ORIGINAL instance').toBe(streamPane);
+        expect(DockZoneModel.findContainingTabsId(cockpit.dockModel, 'stream'), 'the item is back in the tree').toBeTruthy();
 
+        // every record is consumed exact-once
         expect(cockpit.tearOutPanes.stream).toBeUndefined();
         expect(cockpit.tearOutConnects.stream).toBeUndefined();
         expect(cockpit.tearOutPaneHandles.stream).toBeUndefined();
+        expect(cockpit.tearOutPlacements.stream).toBeUndefined();
+        expect(cockpit.returningTearOutPanes.stream).toBeUndefined()
+    });
 
-        // Re-treeing the item materializes exactly ONE successor from owner-held state — the
-        // catalog record stayed the model truth, and no hidden retained instance can duplicate it.
-        const readd = cockpit.applyDockZoneOperation({operation: 'addTab', itemId: 'stream', tabsNodeId: 'secondary-rail'});
+    test('a surviving home node gets the EXACT stored position back — not append order', async () => {
+        vessel = installWindowVessel();
 
-        expect(readd.errors).toEqual([]);
-        cockpit.onDockZoneDocumentChange(readd.document);
+        // pre-arrange a two-item strip so the emptied-node collapse cannot hide append-shaped
+        // returns: 'stream' at index 0 AHEAD of 'perspectives'
+        const arrange = cockpit.applyDockZoneOperation({operation: 'addTab', itemId: 'perspectives', tabsNodeId: 'stream-tabs'});
+
+        expect(arrange.errors).toEqual([]);
+        cockpit.onDockZoneDocumentChange(arrange.document);
         await cockpit.refreshPromise;
 
-        const successor = cockpit.getReference('activity-stream');
+        const move = cockpit.applyDockZoneOperation({operation: 'moveItem', itemId: 'stream', targetNodeId: 'stream-tabs', index: 0});
 
-        expect(successor, 'exactly one valid pane materializes').toBeTruthy();
-        expect(successor).not.toBe(streamPane);
-        expect(successor.isDestroyed).toBeFalsy()
+        expect(move.errors).toEqual([]);
+        cockpit.onDockZoneDocumentChange(move.document);
+        await cockpit.refreshPromise;
+        expect(cockpit.dockModel.nodes['stream-tabs'].items).toEqual(['stream', 'perspectives']);
+
+        const zone = await tearOutExit('stream');
+
+        cockpit.tearOutHandlers.onDockTearOutTerminal({itemId: 'stream', sortZone: zone});
+        expect(cockpit.tearOutPlacements.stream).toEqual({tabsNodeId: 'stream-tabs', index: 0});
+        expect(cockpit.dockModel.nodes['stream-tabs'].items).toEqual(['perspectives']);
+
+        cockpit.tearOutPanes.stream = {windowName: `fm-tearout-stream-${cockpit.id}`, windowId: 'tearout-win-5'};
+        cockpit.onWindowDisconnect({windowId: 'tearout-win-5'});
+        await cockpit.refreshPromise;
+
+        expect(cockpit.dockModel.nodes['stream-tabs'].items, 'identical order, not append order').toEqual(['stream', 'perspectives'])
+    });
+
+    test('the no-home terminal still settles ownership: a closed-out item\'s pane is destroyed, never orphaned', async () => {
+        vessel = installWindowVessel();
+
+        const streamPane = cockpit.getReference('activity-stream');
+        const zone       = await tearOutExit('stream');
+
+        cockpit.tearOutHandlers.onDockTearOutTerminal({itemId: 'stream', sortZone: zone});
+
+        vessel.restore();
+        vessel = installWindowVessel({popupUrl: `https://unit.test/widget/index.html?tearout=stream&cockpitId=${cockpit.id}`});
+
+        const mainView = Neo.create(Container, {});
+        Neo.apps ??= {};
+        Neo.apps['tearout-win-6'] = {mainView};
+
+        await cockpit.onWindowConnect({windowId: 'tearout-win-6'});
+        expect(mainView.items).toContain(streamPane);
+
+        // the catalog record leaves while the item is vessel-owned: no home exists to return to
+        const closed = cockpit.applyDockZoneOperation({operation: 'closeItem', itemId: 'stream'});
+
+        expect(closed.errors).toEqual([]);
+        cockpit.onDockZoneDocumentChange(closed.document);
+        await cockpit.refreshPromise;
+        expect(cockpit.dockModel.items.stream).toBeUndefined();
+
+        cockpit.onWindowDisconnect({windowId: 'tearout-win-6'});
+
+        // the fallback terminal: ownership settles by destruction — nothing orphans, nothing returns
+        expect(streamPane.isDestroyed).toBeTruthy();
+        expect(mainView.items).not.toContain(streamPane);
+        expect(cockpit.returningTearOutPanes.stream).toBeUndefined();
+        expect(cockpit.tearOutPlacements.stream).toBeUndefined()
     });
 
     test('the owner-destroy exit: cockpit teardown closes admitted vessels and settles every owner-held pane exactly once', async () => {
