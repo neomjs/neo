@@ -258,11 +258,13 @@ export function evaluateCleanTerminalAcceptance({
 
 /**
  * @summary Shared no-hold Stop-hook decision. Live operator dialogue may stop unless the agent's own
- * terminal declares the lane still active; the one AUTONOMOUS allow is an adapter-evaluated clean
- * terminal ({@link evaluateCleanTerminalAcceptance} — valid terminal, fully handed-off gates,
- * drive-ratchet met). Every other turn-end is blocked when the harness has a proven block/inject
- * contract, or would-block when dry-run / fail-open transport semantics apply. The `verdict` reason
- * is evidence, not a gate.
+ * terminal declares the lane still active. Two AUTONOMOUS allows exist: the PRIMARY material-artifact
+ * key (adapter-evaluated — an ID-correlated transcript-verified artifact since the last accepted stop
+ * + a valid terminal) and the artifact-less fallback, an adapter-evaluated clean terminal
+ * ({@link evaluateCleanTerminalAcceptance} — valid terminal, fully handed-off gates, drive-ratchet
+ * met). Every other turn-end is blocked when the harness has a proven block/inject contract, or
+ * would-block when non-enforcing / fail-open transport semantics apply. The `verdict` reason is
+ * evidence, not a gate.
  * @param {{valid: Boolean, reason: String}} verdict
  * @param {Object} [options]
  * @param {Boolean} [options.enforcing=false]
@@ -273,6 +275,8 @@ export function evaluateCleanTerminalAcceptance({
  * @param {String} [options.blockUnsupportedReason='']
  * @param {{accept: Boolean, reason: String}|null} [options.cleanTerminal=null] The adapter-evaluated
  * clean-terminal acceptance; only `accept === true` changes the action (an allow with its audit line).
+ * @param {{accept: Boolean, reason: String}|null} [options.materialArtifact=null] The adapter-evaluated
+ * material-artifact key; only `accept === true` changes the action (the PRIMARY autonomous allow).
  * @returns {{action: ('allow'|'block'|'would-block'), reason: String}}
  */
 export function decideStopHookAction(verdict, {
@@ -281,12 +285,21 @@ export function decideStopHookAction(verdict, {
     laneContinuation        = null,
     blockInjectionSupported = true,
     blockUnsupportedReason  = '',
-    cleanTerminal           = null
+    cleanTerminal           = null,
+    materialArtifact        = null
 } = {}) {
     const activeLaneInDialogue = operatorInLoop && laneContinuation === 'active-lane';
 
     if (operatorInLoop && !activeLaneInDialogue) {
         return {action: 'allow', reason: 'live operator dialogue — yielding for the human turn'};
+    }
+
+    // The autonomous-quadrant PRIMARY key: a transcript-verified material lifecycle artifact
+    // (a PR opened or a formal review — the v1 classes) since the last accepted stop + a valid
+    // terminal. Evaluated externally (the adapter owns collection + the audit-log boundary); prose
+    // can never mint it. The clean terminal below remains the artifact-less fallback.
+    if (!operatorInLoop && materialArtifact?.accept === true) {
+        return {action: 'allow', reason: materialArtifact.reason};
     }
 
     if (!operatorInLoop && cleanTerminal?.accept === true) {
@@ -321,7 +334,7 @@ export function buildDeferenceStopHookDirective(phrase = null) {
 
 /**
  * @summary Shared deference-register Stop-hook decision. Returns `null` when no autonomous
- * deference slip exists; otherwise maps the match to the same dry-run/enforcing action for every
+ * deference slip exists; otherwise maps the match to the same non-enforcing/enforcing action for every
  * Stop-hook adapter. Operator dialogue is carved before matching, so adapters cannot drift on that
  * business rule.
  * @param {String} text Assistant final-turn text.

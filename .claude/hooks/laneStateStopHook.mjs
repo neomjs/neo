@@ -2,7 +2,8 @@
 /**
  * @module .claude/hooks/laneStateStopHook
  * @summary Claude Code `Stop` hook — REFUSES every turn-end except a live operator dialogue whose
- * terminal does not declare `active-lane`, or an audited CLEAN TERMINAL (valid terminal + fully
+ * terminal does not declare `active-lane`, a transcript-verified MATERIAL ARTIFACT since the last
+ * accepted stop (+ a valid terminal), or an audited CLEAN TERMINAL (valid terminal + fully
  * handed-off gates + the session drive-ratchet).
  * An absent enforcement flag is a non-enforcing fail-open fallback; live harness wiring enforces via
  * `NEO_LANE_STATE_ENFORCE=1`.
@@ -10,12 +11,15 @@
  * Fires at every agent turn-end (the `Stop` event). The decision rule: there is NO valid voluntary
  * stop except a **live operator dialogue** — a turn that directly replied to a genuine human-operator
  * message, where the human takes the next turn (turn-taking, not idling) — whose own terminal does NOT
- * declare `active-lane`; or the ONE autonomous edge, a **clean terminal**: a valid lane-state terminal
- * whose named gates ALL await non-self actors,
- * after ≥2 compliant refused drives already proved the no-hold principle was honored this session
- * (the drive count is read from the hook's OWN audit log, the self identity from `NEO_AGENT_IDENTITY`
- * harness wiring — absent wiring keeps the edge inert, fail-closed). Acceptance is audited
- * (`[clean-terminal]` line + a transcript systemMessage), never silent. Outside that edge a "valid"
+ * declare `active-lane`; or one of TWO autonomous edges: the **material-artifact key** (the primary
+ * license — a transcript-verified lifecycle artifact, a PR opened or a formal review, shipped since
+ * this session's last accepted stop, plus a valid lane-state terminal; provenance is
+ * tool-use→tool-result ID-correlated, so prose can never mint it) or the artifact-less fallback, a
+ * **clean terminal**: a valid lane-state terminal whose named gates ALL await non-self actors, after
+ * ≥2 compliant refused drives already proved the no-hold principle was honored this session (the
+ * drive count is read from the hook's OWN audit log, the self identity from `NEO_AGENT_IDENTITY`
+ * harness wiring — absent wiring keeps the edge inert, fail-closed). Every acceptance is audited
+ * (`MATERIAL-ALLOW` / `[clean-terminal]` line + a transcript systemMessage), never silent. Outside that edge a "valid"
  * fenced ```lane-state block is a RECORD (the directive's context + the external substance record),
  * NOT a license to stop: declaring a lane and halting is the announce-without-execute idle-out the
  * hook exists to prevent.
@@ -70,6 +74,8 @@ import {buildDeferenceStopHookDirective,
         STOP_HOOK_TURN_OPTIONS_HINT} from '../../ai/scripts/lifecycle/stopHookDecision.mjs';
 import {collectLaneStateToolEvidenceFromJsonl,
         validateLaneStateTerminal} from '../../ai/scripts/lifecycle/validateLaneStateTerminal.mjs';
+import {collectMaterialArtifactsFromJsonl,
+        evaluateMaterialArtifactKey} from '../../ai/scripts/lifecycle/materialArtifactKey.mjs';
 
 export {isOperatorInLoop, parseOutcomeToVerdict};
 
@@ -123,11 +129,14 @@ function auditLog(line) {
  * record says self-work remains, so it must answer-plus-drive or hand the lane off honestly. An absent,
  * malformed, or other continuation keeps the dialogue allow.
  *
- * The ONE legitimate AUTONOMOUS stop is a **clean terminal** — a valid lane-state terminal on a fully
- * handed-off board (every named gate awaiting a non-self actor) after the session drive-ratchet proved
- * the no-hold principle was honored (`evaluateCleanTerminalAcceptance`; the drive count comes from the
- * hook's OWN audit trail, never the agent's claim). Acceptance emits a `[clean-terminal]` audit line —
- * the boundary is observable, not silent. Everything else is unchanged: a first valid terminal still
+ * TWO legitimate AUTONOMOUS stops exist. The PRIMARY is the **material-artifact key**
+ * (`evaluateMaterialArtifactKey` — an ID-correlated, transcript-verified artifact since the
+ * session's last accepted stop + a valid terminal; audited as `MATERIAL-ALLOW`). The artifact-less
+ * fallback is the **clean terminal** — a valid lane-state terminal on a fully handed-off board
+ * (every named gate awaiting a non-self actor) after the session drive-ratchet proved the no-hold
+ * principle was honored (`evaluateCleanTerminalAcceptance`; the drive count comes from the hook's
+ * OWN audit trail, never the agent's claim). Acceptance emits a `[clean-terminal]` audit line —
+ * every boundary is observable, not silent. Everything else is unchanged: a first valid terminal still
  * refuses (ratchet), ENFORCE blocks, non-enforcing mode previews (would-block), and the `verdict` supplies the
  * directive `reason`. The remaining autonomous stops are hard external limits (Claude Code's
  * consecutive-block force-override, context-sunset, or an operator halt).
@@ -136,15 +145,18 @@ function auditLog(line) {
  * @param {Boolean} [operatorInLoop=false] True iff a genuine human-operator message prompted this turn.
  * @param {{accept: Boolean, reason: String}|null} [cleanTerminal=null] Adapter-evaluated acceptance.
  * @param {String|null} [laneContinuation=null] Parsed terminal continuation, when available.
+ * @param {{accept: Boolean, reason: String}|null} [materialArtifact=null] Adapter-evaluated
+ * material-artifact key (the PRIMARY autonomous allow).
  * @returns {{action: ('allow'|'block'|'would-block'), reason: String}}
  */
-export function decideHookAction(verdict, enforcing, operatorInLoop = false, cleanTerminal = null, laneContinuation = null) {
+export function decideHookAction(verdict, enforcing, operatorInLoop = false, cleanTerminal = null, laneContinuation = null, materialArtifact = null) {
     return decideStopHookAction(verdict, {
         enforcing,
         operatorInLoop,
         laneContinuation,
         blockInjectionSupported: true,
-        cleanTerminal
+        cleanTerminal,
+        materialArtifact
     });
 }
 
@@ -154,7 +166,7 @@ export function decideHookAction(verdict, enforcing, operatorInLoop = false, cle
  * `BLOCK … : valid lane-state terminal` line is one turn where the agent emitted a fully valid
  * terminal and the hook refused it anyway (so a real drive followed); the count is therefore
  * hook-written evidence the agent cannot self-declare. Deference blocks and invalid-terminal blocks
- * do not count. WOULD-BLOCK (dry-run) lines do not count — no chain formed. Fail-CLOSED: a missing /
+ * do not count. WOULD-BLOCK (non-enforcing) lines do not count — no chain formed. Fail-CLOSED: a missing /
  * unreadable log or an unknown session returns 0, so a broken audit trail can never mint a
  * stop-license. Exported + unit-tested.
  * @param {String} sessionId The Stop payload's `session_id`.
@@ -175,6 +187,52 @@ export function countSessionCompliantRefusals(sessionId) {
     }
 }
 
+/**
+ * @summary Resolves the ISO timestamp of this session's LAST accepted stop from the hook's own
+ * append-only log — the external "since" boundary for the material-artifact key: an artifact
+ * shipped BEFORE the last accepted stop cannot license a later one. EVERY accepted-stop class
+ * counts as a boundary: `MATERIAL-ALLOW`, `CLEAN-TERMINAL ALLOW`, and the ordinary dialogue
+ * `] ALLOW` (an operator-dialogue stop IS an accepted stop — artifacts shipped before it must not
+ * license the next autonomous one). The session needle is comma-delimited (`(session=<id>,`) so a
+ * session id that PREFIXES another can never cross-match. Two distinct non-boundary outcomes:
+ * `{iso: null, unavailable: false}` — the log is readable but records no accepted stop for this
+ * session (the legitimate session-start case on a LIVE log; the whole session counts); `{iso: null,
+ * unavailable: true}` — the log could not be read at all, INCLUDING a missing file (a deleted or
+ * never-written log is indistinguishable from tampering; fail-CLOSED downstream — evidence that
+ * cannot prove its scope licenses nothing, and the first-session stop routes through the
+ * clean-terminal fallback). Exported + unit-tested against the log-format contract.
+ * @param {String} sessionId The Stop payload's `session_id`.
+ * @param {String} [logFile=LOG_FILE] Injectable for tests.
+ * @returns {{iso: String|null, unavailable: Boolean}}
+ */
+export function findLastAcceptedStopIso(sessionId, logFile = LOG_FILE) {
+    if (!sessionId || sessionId === '?') return {iso: null, unavailable: false};
+
+    let raw;
+    try {
+        raw = fs.readFileSync(logFile, 'utf8');
+    } catch {
+        // ANY read failure — including a missing file — is unavailable boundary evidence: a
+        // deleted/never-written log is indistinguishable from tampering, and unscoped whole-session
+        // replay must not license a stop. The genuine first-session autonomous stop routes through
+        // the clean-terminal fallback instead (which carries its own ratchet).
+        return {iso: null, unavailable: true};
+    }
+
+    const needle = `(session=${sessionId},`,
+          lines  = raw.split('\n');
+
+    for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i];
+        if (!line.includes(needle)) continue;
+        if (!line.includes('CLEAN-TERMINAL ALLOW') && !line.includes('MATERIAL-ALLOW') && !line.includes('] ALLOW')) continue;
+
+        const match = line.match(/^\[([^\]]+)\]/);
+        if (match && Number.isFinite(Date.parse(match[1]))) return {iso: match[1], unavailable: false};
+    }
+    return {iso: null, unavailable: false};
+}
+
 // The curated no-hold-state directive injected on a block. References the always-loaded
 // L3_No_Hold_State stance + carries a self-sufficient operational core (the lifecycle ladder + the
 // named-lane teeth-test) so it redirects without assuming a live L3 lookup. The wording's semantics
@@ -190,6 +248,7 @@ Declaring a lane is NOT driving it. Do the next concrete action NOW:
 Teeth-test: does this advance a NAMED lane right now? If you can't name the lane, it isn't driving.
 Collaboration (review · ideation · A2A) counts ONLY when it advances a named lane AND ends with a return to your own lane or an explicit lane-swap — it is an interruption, not a replacement for your own PRs.
 Passive waiting (a merge · a review · CI) is parked, not driven — take another lane.
+Stop key: ship ONE material artifact — a PR opened, a formal review submitted, or an own-PR RC-response cycle — since your last accepted stop; artifact-less autonomous turns do not stop (transcript-verified, never prose).
 ${STOP_HOOK_TURN_OPTIONS_HINT}
 
 ${LANE_STATE_SCHEMA_HINT}`;
@@ -632,7 +691,7 @@ async function main() {
     try {
         input = JSON.parse(await readStdin());
     } catch (e) {
-        auditLog(`PARSE-ERROR: could not parse Stop-hook input (${e.message}); allowing stop.`);
+        auditLog(`PARSE-ERROR (identity=${process.env.NEO_AGENT_IDENTITY || '?'}): could not parse Stop-hook input (${e.message}); allowing stop.`);
         process.exit(0);
     }
 
@@ -644,7 +703,7 @@ async function main() {
         finalText = extractFinalAssistantText(input);
     } catch (e) {
         // OUR failure (unreadable / unparseable transcript) → never block; allow + audit.
-        auditLog(`READ-ERROR: ${e.message}; allowing stop.`);
+        auditLog(`READ-ERROR (identity=${process.env.NEO_AGENT_IDENTITY || '?'}): ${e.message}; allowing stop.`);
         process.exit(0);
     }
 
@@ -679,11 +738,12 @@ async function main() {
 
     const deferenceDecision = decideDeferenceStopHookAction(finalText, {operatorInLoop, enforcing: ENFORCING});
     if (deferenceDecision) {
-        const reason  = `deference phrase "${deferenceDecision.phrase}" at turn-terminal`,
-              session = input.session_id || '?';
+        const reason   = `deference phrase "${deferenceDecision.phrase}" at turn-terminal`,
+              session  = input.session_id || '?',
+              identity = process.env.NEO_AGENT_IDENTITY || '?';
 
         if (deferenceDecision.action === 'block') {
-            auditLog(`BLOCK (session=${session}, operatorInLoop=${operatorInLoop}, midChainOperator=${midChainOperator}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
+            auditLog(`BLOCK (session=${session}, identity=${identity}, operatorInLoop=${operatorInLoop}, midChainOperator=${midChainOperator}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
             process.stdout.write(JSON.stringify({
                 decision: 'block',
                 reason  : deferenceDecision.reason
@@ -691,7 +751,7 @@ async function main() {
             return;
         }
 
-        auditLog(`WOULD-BLOCK (session=${session}, operatorInLoop=${operatorInLoop}, midChainOperator=${midChainOperator}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
+        auditLog(`WOULD-BLOCK (session=${session}, identity=${identity}, operatorInLoop=${operatorInLoop}, midChainOperator=${midChainOperator}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
         process.exit(0);
     }
 
@@ -712,13 +772,13 @@ async function main() {
         );
     } catch (e) {
         // A validator/mapping bug is OUR failure → never block; allow + audit.
-        auditLog(`VALIDATOR-ERROR: ${e.message}; allowing stop.`);
+        auditLog(`VALIDATOR-ERROR (identity=${process.env.NEO_AGENT_IDENTITY || '?'}): ${e.message}; allowing stop.`);
         process.exit(0);
     }
 
     const session = input.session_id || '?';
 
-    // The clean-terminal edge (the ONE autonomous stop): evaluated ONLY on a valid terminal outside
+    // The clean-terminal edge (the artifact-less autonomous fallback): evaluated ONLY on a valid terminal outside
     // operator dialogue. Inputs are external by construction — the drive count comes from the hook's
     // own audit log ({@link countSessionCompliantRefusals}), the self identity from harness wiring
     // (`NEO_AGENT_IDENTITY`; absent → fail-closed, the edge stays inert), the operator-turn waiver from
@@ -736,18 +796,48 @@ async function main() {
         });
     }
 
+    // The material-artifact key (the autonomous quadrant's PRIMARY stop license): transcript-verified
+    // artifacts since this session's last accepted stop (the hook's own audit log supplies the
+    // boundary), evaluated only on a valid terminal outside operator dialogue. Prose never mints it —
+    // the collector confirms tool-use→tool-result shapes only; a total failure degrades to null (no
+    // key), never a trap.
+    let materialArtifact = null;
+    if (verdict.valid && !operatorInLoop) {
+        try {
+            const boundary = findLastAcceptedStopIso(session);
+
+            materialArtifact = evaluateMaterialArtifactKey({
+                verdictValid    : true,
+                sinceUnavailable: boundary.unavailable,
+                artifacts       : boundary.unavailable ? [] : collectMaterialArtifactsFromJsonl(transcriptJsonl, {sinceIso: boundary.iso})
+            });
+        } catch {
+            materialArtifact = null;
+        }
+    }
+
+    const identity         = process.env.NEO_AGENT_IDENTITY || '?';
     const {action, reason} = decideHookAction(
         verdict,
         ENFORCING,
         operatorInLoop,
         cleanTerminal,
-        descriptor?.laneContinuation
+        descriptor?.laneContinuation,
+        materialArtifact
     );
+
+    if (action === 'allow' && materialArtifact?.accept === true) {
+        // The material boundary: audited + surfaced, never silent — the greppable class the next
+        // teethless-fleet forensic reads in minutes.
+        auditLog(`MATERIAL-ALLOW (session=${session}, identity=${identity}, midChainOperator=${midChainOperator}): ${reason}`);
+        process.stdout.write(JSON.stringify({systemMessage: reason}), () => process.exit(0));
+        return;
+    }
 
     if (action === 'allow' && cleanTerminal?.accept === true) {
         // The audited boundary: the acceptance is observable (log + a best-effort systemMessage into
         // the transcript), never a silent stop. Exit only after stdout drains.
-        auditLog(`CLEAN-TERMINAL ALLOW (session=${session}, midChainOperator=${midChainOperator}): ${reason}`);
+        auditLog(`CLEAN-TERMINAL ALLOW (session=${session}, identity=${identity}, midChainOperator=${midChainOperator}): ${reason}`);
         process.stdout.write(JSON.stringify({systemMessage: reason}), () => process.exit(0));
         return;
     }
@@ -757,7 +847,7 @@ async function main() {
         // the injected directive names the SPECIFIC relapse-phrase back (a sharper mirror). Never gates
         // the block (the decision is unchanged) — only enriches the reason.
         const holdMatches = scanHoldLexicon(finalText);
-        auditLog(`BLOCK (session=${session}, operatorInLoop=${operatorInLoop}, midChainOperator=${midChainOperator}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}${holdMatches.length ? ` [hold-costume: ${holdMatches.join(', ')}]` : ''}`);
+        auditLog(`BLOCK (session=${session}, identity=${identity}, operatorInLoop=${operatorInLoop}, midChainOperator=${midChainOperator}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}${holdMatches.length ? ` [hold-costume: ${holdMatches.join(', ')}]` : ''}`);
         // Block the stop + inject the curated no-hold-state directive — Claude uses the injected
         // `reason` as its next instruction; the audit log keeps the terse trigger cause.
         // Exit only AFTER stdout drains so the decision JSON is never truncated on a pipe.
@@ -766,7 +856,7 @@ async function main() {
         return;
     }
 
-    auditLog(`${action === 'would-block' ? 'WOULD-BLOCK' : 'ALLOW'} (session=${session}, operatorInLoop=${operatorInLoop}, midChainOperator=${midChainOperator}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
+    auditLog(`${action === 'would-block' ? 'WOULD-BLOCK' : 'ALLOW'} (session=${session}, identity=${identity}, operatorInLoop=${operatorInLoop}, midChainOperator=${midChainOperator}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
     process.exit(0);
 }
 

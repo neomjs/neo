@@ -1,9 +1,12 @@
 import {test, expect}                                                                              from '@playwright/test';
 import {composeBlockDirective, composeDeferenceDirective, countSessionCompliantRefusals, decideHookAction,
+        findLastAcceptedStopIso,
         isOperatorInLoop, parseOutcomeToVerdict,
         extractFinalAssistantText, extractLastAssistantTextFromJsonl, extractLastUserTextFromJsonl,
         extractLatestHumanUserTextFromJsonl,
         formatCapacityAdvisory, formatLifecycleBoard, formatGoldenPathDirection, formatHoldCostumeCallout} from '../../../../.claude/hooks/laneStateStopHook.mjs';
+import {collectMaterialArtifactsFromJsonl,
+        evaluateMaterialArtifactKey} from '../../../../ai/scripts/lifecycle/materialArtifactKey.mjs';
 import {spawn} from 'node:child_process';
 import fs      from 'node:fs';
 import os      from 'node:os';
@@ -1032,5 +1035,104 @@ test.describe('laneStateStopHook — clean-terminal support units', () => {
         expect(formatCapacityAdvisory({openPRs: [{number: 1}, {number: 2}]}, {threshold: 2})).toContain('Capacity: 2 own PRs');
         // malformed entries are excluded from the count (only 2 valid of 4 → below default threshold)
         expect(formatCapacityAdvisory({openPRs: [null, {}, {number: 1}, {number: 2}]})).toBe('');
+    });
+});
+
+test.describe('findLastAcceptedStopIso — the accepted-stop boundary, literal and fail-closed', () => {
+    const SID  = 'aaaa1111-2222-3333-4444-555566667777';
+    const LONG = `${SID}-extended`;   // SID is a strict PREFIX of this id
+
+    const writeLog = lines => {
+        const file = path.join(os.tmpdir(), `neo-boundary-spec-${Date.now()}-${Math.random().toString(36).slice(2)}.log`);
+        fs.writeFileSync(file, lines.join('\n') + '\n', 'utf8');
+        return file
+    };
+
+    test('every accepted-stop class is a boundary — including the ordinary dialogue ALLOW', () => {
+        // append-only chronological, like the real log: the newest line IS the newest stop
+        const file = writeLog([
+            `[2026-07-18T04:00:00.000Z] BLOCK (session=${SID}, identity=x): valid lane-state terminal refused`,
+            `[2026-07-18T04:30:00.000Z] CLEAN-TERMINAL ALLOW (session=${SID}, identity=x): [clean-terminal] accepted`,
+            `[2026-07-18T05:00:00.000Z] ALLOW (session=${SID}, identity=x, operatorInLoop=true): live operator dialogue — yielding for the human turn`
+        ]);
+
+        try {
+            // the ordinary dialogue ALLOW at 05:00 is the LAST accepted stop, not the 04:30 clean terminal —
+            // an operator-dialogue stop IS an accepted stop, so pre-dialogue artifacts cannot key later
+            expect(findLastAcceptedStopIso(SID, file)).toEqual({iso: '2026-07-18T05:00:00.000Z', unavailable: false})
+        } finally { fs.unlinkSync(file) }
+    });
+
+    test('a session id that PREFIXES another can never cross-match (the comma-delimited needle)', () => {
+        const file = writeLog([
+            `[2026-07-18T05:00:00.000Z] MATERIAL-ALLOW (session=${LONG}, identity=x): [material-allow] earned`
+        ]);
+
+        try {
+            expect(findLastAcceptedStopIso(SID, file)).toEqual({iso: null, unavailable: false})
+        } finally { fs.unlinkSync(file) }
+    });
+
+    test('readable-but-unmatched is the legitimate session-start case; UNREADABLE evidence is unavailable (fail-closed downstream)', () => {
+        const file = writeLog([`[2026-07-18T05:00:00.000Z] BLOCK (session=${SID}, identity=x): refused`]);
+
+        try {
+            expect(findLastAcceptedStopIso(SID, file)).toEqual({iso: null, unavailable: false});
+        } finally { fs.unlinkSync(file) }
+
+        // a MISSING log is ALSO unavailable — a deleted/never-written log is indistinguishable
+        // from tampering, and whole-session replay must not license a stop (the first-session
+        // autonomous stop routes through the clean-terminal fallback instead)
+        expect(findLastAcceptedStopIso(SID, path.join(os.tmpdir(), 'neo-definitely-absent.log')))
+            .toEqual({iso: null, unavailable: true});
+
+        // any other read failure (a directory is not a readable log) = the same fail-closed shape
+        expect(findLastAcceptedStopIso(SID, os.tmpdir())).toEqual({iso: null, unavailable: true})
+    });
+});
+
+test.describe('the adapter composition — boundary → collector → evaluator, wired exactly as main() wires them', () => {
+    const SID = 'bbbb1111-2222-3333-4444-555566667777';
+
+    // one REAL confirmed artifact: an ID-correlated pr-create whose matching result carries the URL
+    const artifactJsonl = [
+        JSON.stringify({timestamp: '2026-07-18T06:00:00.000Z', message: {content: [
+            {type: 'tool_use', id: 'toolu_adapter', name: 'Bash', input: {command: 'gh pr create --title real'}}
+        ]}}),
+        JSON.stringify({timestamp: '2026-07-18T06:00:05.000Z', message: {content: [
+            {type: 'tool_result', tool_use_id: 'toolu_adapter', content: 'https://github.com/neomjs/neo/pull/900'}
+        ]}})
+    ].join('\n');
+
+    // the hook's exact wiring: the boundary feeds BOTH the availability gate and the since-scope
+    const composeKey = (jsonl, logFile) => {
+        const boundary = findLastAcceptedStopIso(SID, logFile);
+
+        return evaluateMaterialArtifactKey({
+            verdictValid    : true,
+            sinceUnavailable: boundary.unavailable,
+            artifacts       : boundary.unavailable ? [] : collectMaterialArtifactsFromJsonl(jsonl, {sinceIso: boundary.iso})
+        })
+    };
+
+    test('artifact PRESENT + MISSING audit log = refusal — unscoped evidence licenses nothing through the full chain', () => {
+        const key = composeKey(artifactJsonl, path.join(os.tmpdir(), 'neo-adapter-absent.log'));
+
+        expect(key.accept).toBe(false);
+        expect(key.reason).toContain('boundary')
+    });
+
+    test('the SAME artifact with an available boundary = acceptance; predating the boundary = refusal (the scope is live end-to-end)', () => {
+        const file = path.join(os.tmpdir(), `neo-adapter-spec-${Date.now()}-${Math.random().toString(36).slice(2)}.log`);
+
+        // boundary BEFORE the artifact: the chain accepts on the confirmed pr-opened
+        fs.writeFileSync(file, `[2026-07-18T05:00:00.000Z] ALLOW (session=${SID}, identity=x, operatorInLoop=true): dialogue\n`, 'utf8');
+        try {
+            expect(composeKey(artifactJsonl, file).accept).toBe(true);
+
+            // boundary AFTER the artifact: the same transcript now proves nothing new — refusal
+            fs.appendFileSync(file, `[2026-07-18T07:00:00.000Z] ALLOW (session=${SID}, identity=x, operatorInLoop=true): dialogue\n`, 'utf8');
+            expect(composeKey(artifactJsonl, file).accept).toBe(false)
+        } finally { fs.unlinkSync(file) }
     });
 });
