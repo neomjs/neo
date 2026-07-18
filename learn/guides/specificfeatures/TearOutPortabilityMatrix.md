@@ -78,7 +78,11 @@ negative baseline stands on spec authority, not on this instrument.
 **RETIRED — the truth is sharper and worse**: with the close-listener attached inside the
 acquisition race, the popup closed **2 ms after birth** (`acquiredToCloseMs: 2`), BEFORE the
 first continued move (`closedAfterMoveMs: -30`), before pointer-up (`closedBeforeUp: true`),
-with zero console output and no re-entry involvement. Same-choreography runs nondeterministically
+with zero console output captured — **and that absence is INSTRUMENT-BLIND, not negative**: the
+colors app runs on a SharedWorker, whose console `page.on('console')` cannot see, so the
+re-entry path's own log line is invisible to this witness (the earlier "no re-entry
+involvement" phrasing is retracted; sweep scope was the page console only). Same-choreography
+runs nondeterministically
 survive (row 1's three earlier greens) or reap at birth — **a race between the continuing
 pointer-move stream and the popup-birth / `startWindowDrag` handoff**, silently violating the
 gesture-continuity universal invariant when it fires. **Reproduction-rate receipt
@@ -90,7 +94,19 @@ unknown (the flagship demo's manual operation suggests real-mouse tear-outs succ
 higher rate). Classification: CONFIRMED high-rate invariant violation UNDER AUTOMATION;
 engine-side attribution is the named successor investigation. Whether an automation-measured
 violation qualifies the epic's `revalidationTrigger` is the ROUND's call, not this document's —
-the question is posed to the epic owners with these receipts. Direct consumer warning: G1 ships this exact grammar to dock surfaces —
+the question is posed to the epic owners with these receipts.
+
+**Attribution hypothesis (source-anchored, falsifier-backed):** the boundary-EXIT reconfigures
+the exact geometry the hysteresis reads — the drag placeholder hides and the remaining items
+expand (`SortZone#startWindowDrag` choreography), so on the NEXT pointer move
+`checkWindowBoundary`'s direction-aware ratio can JUMP upward (reading as "moving in" above the
+0.6 reattach threshold) → a false `dragBoundaryEntry` → `Container#onDragBoundaryEntry` →
+`Neo.Main.windowClose` — the silent ~2 ms reap. The run distribution is the falsifier already
+executed: survivals correlate with zero post-birth moves (the witness loop stopping at
+acquisition); reaps with ≥1 extra move inside the acquisition race window. Fix candidates for
+the attribution ticket: reset `lastIntersectionRatio` at exit; require N consecutive moving-in
+samples before re-entry; gate re-entry on the live proxy rect rather than post-exit layout
+geometry. Direct consumer warning: G1 ships this exact grammar to dock surfaces —
 the race predates G1 and must be attributed before dock-tier calibration lands on top of it.
 Requested-vs-observed `moveTo` sampling remains blocked behind the race (a 2 ms lifetime cannot
 be position-sampled).
