@@ -286,3 +286,93 @@ test.describe.serial('Neo.draggable.container.SortZone', () => {
         SortZone.activeTrace   = null
     });
 });
+
+test.describe('checkWindowBoundary — the re-entry Schmitt trigger (the false-re-entry reap)', () => {
+    // Prototype-driven: the hysteresis decision chain is the unit. Geometry helper: a 1000×1000
+    // boundary + a 100×100 proxy whose x-position dials the intersection ratio exactly —
+    // ratioAt(f) places the proxy so intersectionArea/proxyArea === f.
+    const BOUNDARY = {x: 0, y: 0, width: 1000, height: 1000, left: 0, top: 0, right: 1000, bottom: 1000};
+
+    const proxyAt = f => {
+        const x = 1000 - 100 * f;
+        return {x, y: 450, width: 100, height: 100, left: x, top: 450, right: x + 100, bottom: 550}
+    };
+
+    const zoneFor = () => {
+        const fired = [], continued = [];
+
+        const zone = {
+            boundaryContainerRect: BOUNDARY,
+            detachThreshold      : 0.8,
+            dragComponent        : {id: 'dragged'},
+            dragPlaceholder      : {wrapperStyle: {}},
+            indexMap             : [],
+            isWindowDragging     : false,
+            itemRects            : [],
+            lastIntersectionRatio: 1,
+            owner                : {items: []},
+            reattachArmed        : false,
+            reattachThreshold    : 0.6,
+            fire                 : (name, data) => fired.push(name),
+            onWindowDragContinue : () => continued.push(1)
+        };
+
+        const move = f => SortZone.prototype.checkWindowBoundary.call(zone, {proxyRect: proxyAt(f)});
+
+        return {continued, fired, move, zone}
+    };
+
+    test('the reap sequence: exit at the band edge + one inward-jitter sample fires NO re-entry (the newborn popup survives)', () => {
+        const {continued, fired, move, zone} = zoneFor();
+
+        zone.lastIntersectionRatio = 0.85;
+
+        move(0.79);                                     // crossing under detachThreshold, moving out
+        expect(fired).toEqual(['dragBoundaryExit']);
+        expect(zone.isWindowDragging).toBe(true);
+        expect(zone.reattachArmed, 'slow exit inside the reattach zone starts UNarmed').toBe(false);
+
+        move(0.795);                                    // the single post-exit jitter that used to reap
+        move(0.85);                                     // even sustained inward drift without leaving
+        expect(fired, 'no false dragBoundaryEntry — the pre-fix reap path').toEqual(['dragBoundaryExit']);
+        expect(continued.length, 'the window drag CONTINUES instead').toBe(2)
+    });
+
+    test('genuine re-entry still works: leave below reattachThreshold, then return moving in', () => {
+        const {fired, move, zone} = zoneFor();
+
+        zone.lastIntersectionRatio = 0.85;
+
+        move(0.79);                                     // exit
+        move(0.5);                                      // demonstrably left — arms the trigger
+        expect(zone.reattachArmed).toBe(true);
+
+        move(0.65);                                     // rising back above reattachThreshold
+        expect(fired).toEqual(['dragBoundaryExit', 'dragBoundaryEntry'])
+    });
+
+    test('band wobble between the thresholds never re-enters (hysteresis discipline)', () => {
+        const {continued, fired, move, zone} = zoneFor();
+
+        zone.lastIntersectionRatio = 0.85;
+
+        move(0.79);
+        for (const f of [0.7, 0.65, 0.75, 0.7, 0.78]) move(f);
+
+        expect(fired).toEqual(['dragBoundaryExit']);
+        expect(continued.length).toBe(5)
+    });
+
+    test('a single-move fling below reattachThreshold is PRE-armed: the direct return re-enters', () => {
+        const {fired, move, zone} = zoneFor();
+
+        zone.lastIntersectionRatio = 0.9;
+
+        move(0.5);                                      // one move from deep-inside to below reattach
+        expect(fired).toEqual(['dragBoundaryExit']);
+        expect(zone.reattachArmed, 'exit already below reattachThreshold pre-arms').toBe(true);
+
+        move(0.65);                                     // direct return, moving in
+        expect(fired).toEqual(['dragBoundaryExit', 'dragBoundaryEntry'])
+    })
+});

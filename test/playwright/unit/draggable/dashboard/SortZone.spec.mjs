@@ -147,12 +147,27 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
         expect(sortZone.lastIntersectionRatio).toBeCloseTo(0.70);
         expect(sortZone.isWindowDragging).toBe(true);
 
+        // Band-internal return (0.70 → 0.75, never below the 0.6 reattach threshold) is window-drag
+        // CONTINUATION, not re-entry: a same-band flap used to fire a false dragBoundaryEntry whose
+        // handler closed the newborn popup ~2ms after birth. Re-entry is EARNED — the ratio must
+        // drop below the reattach threshold before a rising sample counts (the Schmitt trigger).
         await simulateMove(25, 0);
         expect(sortZone.lastIntersectionRatio).toBe(0.75);
-        expect(sortZone.isWindowDragging).toBe(false);
+        expect(sortZone.isWindowDragging).toBe(true);
 
+        // Demonstrably leave the reattach zone — arms the trigger, still window-dragging.
+        await simulateMove(45, 0);
+        expect(sortZone.lastIntersectionRatio).toBeCloseTo(0.55);
+        expect(sortZone.isWindowDragging).toBe(true);
+
+        // The EARNED return: rising back above the reattach threshold now re-enters.
         await simulateMove(30, 0);
         expect(sortZone.lastIntersectionRatio).toBeCloseTo(0.70);
+        expect(sortZone.isWindowDragging).toBe(false);
+
+        // And the cycle re-exits cleanly below the detach threshold, moving out.
+        await simulateMove(40, 0);
+        expect(sortZone.lastIntersectionRatio).toBeCloseTo(0.60);
         expect(sortZone.isWindowDragging).toBe(true);
     });
 
