@@ -98,4 +98,22 @@ test.describe('Neo.ai.services.fleet.wireOperatorComposeWriter', () => {
         expect(Object.hasOwn(captured, 'wakeSuppressed')).toBe(false);
         expect(Object.hasOwn(captured, 'relatedTickets')).toBe(false);
     });
+
+    test('#15400 shape-guard: a non-array relatedTickets is REJECTED and the writer is NEVER invoked', async () => {
+        // Finding-1 of the compose verb's break-it review: the fleet wire has no schema layer, and
+        // MailboxService.addMessage spreads relatedTickets — so a string would CHAR-SPLIT into garbage
+        // WAL refs (e.g. '15379' stores ['1','5','3','7','9']) and a number would THROW mid-send. The
+        // verb rejects at the seam, before the writer is ever invoked. undefined (omit) + a real array
+        // pass-through are pinned by the sibling witnesses above.
+        for (const bad of ['15379', 42, {0: '15379'}]) {
+            let invoked = false;
+            wireOperatorComposeWriter({addMessage: () => { invoked = true; return {messageId: 'MESSAGE:x'}; }});
+
+            const result = await FleetControlBridge.composeOperatorMessage({to: 'AGENT:*', subject: 's', body: 'b', relatedTickets: bad});
+
+            expect(result.status, `${JSON.stringify(bad)} must be rejected`).toBe('rejected');
+            expect(result.reason).toContain('relatedTickets must be an array');
+            expect(invoked, `the writer must NEVER be invoked for a non-array relatedTickets (${JSON.stringify(bad)})`).toBe(false);
+        }
+    });
 });
