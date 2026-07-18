@@ -51,19 +51,22 @@ class GitHub extends Base {
         restMaxRetryAttempts: 3,
         /**
          * Initial retry delay in milliseconds (shared by the REST loop and the GraphQL transient retry).
-         * @member {Number} retryBaseDelayMs=1000
+         * The legacy `restRetry*` name is retained as the operator-facing compatibility contract.
+         * @member {Number} restRetryBaseDelayMs=1000
          */
-        retryBaseDelayMs: 1000,
+        restRetryBaseDelayMs: 1000,
         /**
          * Maximum exponential retry delay in milliseconds (shared REST + GraphQL).
-         * @member {Number} retryMaxDelayMs=10000
+         * The legacy `restRetry*` name is retained as the operator-facing compatibility contract.
+         * @member {Number} restRetryMaxDelayMs=10000
          */
-        retryMaxDelayMs: 10000,
+        restRetryMaxDelayMs: 10000,
         /**
          * Jitter ratio applied to exponential retry delays (shared REST + GraphQL).
-         * @member {Number} retryJitterRatio=0.2
+         * The legacy `restRetry*` name is retained as the operator-facing compatibility contract.
+         * @member {Number} restRetryJitterRatio=0.2
          */
-        retryJitterRatio: 0.2,
+        restRetryJitterRatio: 0.2,
         /**
          * HTTP statuses that represent transient REST edge or proxy failures.
          * @member {Number[]} restRetryableHttpStatuses=[429,502,503,504]
@@ -160,12 +163,12 @@ class GitHub extends Base {
         }
 
         const baseDelay = Math.min(
-            this.retryMaxDelayMs,
-            this.retryBaseDelayMs * 2 ** (attempt - 1)
+            this.restRetryMaxDelayMs,
+            this.restRetryBaseDelayMs * 2 ** (attempt - 1)
         );
-        const jitter = baseDelay * this.retryJitterRatio * Math.random();
+        const jitter = baseDelay * this.restRetryJitterRatio * Math.random();
 
-        return Math.min(this.retryMaxDelayMs, Math.round(baseDelay + jitter));
+        return Math.min(this.restRetryMaxDelayMs, Math.round(baseDelay + jitter));
     }
 
     /**

@@ -43,9 +43,9 @@ test.describe('DevIndex GitHub service', () => {
         process.env.GH_TOKEN                    = 'devindex-unit-test-token';
         restClient                              = new GitHub.constructor();
         restClient.restMaxRetryAttempts         = 2;
-        restClient.retryBaseDelayMs             = 0;
-        restClient.retryMaxDelayMs              = 0;
-        restClient.retryJitterRatio             = 0;
+        restClient.restRetryBaseDelayMs         = 0;
+        restClient.restRetryMaxDelayMs          = 0;
+        restClient.restRetryJitterRatio         = 0;
         restClient.restRetryableHttpStatuses    = [429, 502, 503, 504]
     });
 
@@ -310,9 +310,9 @@ test.describe('DevIndex GitHub service', () => {
         const delays             = [];
         let   callCount          = 0;
 
-        restClient.retryBaseDelayMs = 100;
-        restClient.retryMaxDelayMs  = 150;
-        restClient.retryJitterRatio = 0.2;
+        restClient.restRetryBaseDelayMs = 100;
+        restClient.restRetryMaxDelayMs  = 150;
+        restClient.restRetryJitterRatio = 0.2;
         globalThis.setTimeout = (callback, delay) => {
             delays.push(delay);
             callback();
