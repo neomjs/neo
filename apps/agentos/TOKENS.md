@@ -15,7 +15,7 @@ The token vocabulary every cockpit view leaf consumes — the design floor of th
 
 ## Contrast (WCAG 2.1, measured — `#14619`)
 
-Measured, not assumed: relative luminance per WCAG 2.1 over the two skins' literal values. Threshold is set by **usage class**, so it is argued from this table's Role column, never from the token's name — `--fm-ink-faint` carries meta *text* (4.5), a state dot is a non-text indicator (3.0). Re-measure when a value moves; a delta here is a design decision on a ticket, same rule as the values themselves.
+Measured, not assumed: relative luminance per WCAG 2.1 over the two skins' literal values. Threshold is set by **usage class**, so it is argued from this table's Role column, never from the token's name — `--fm-ink-dim` carries meta *text* (4.5), a state dot is a non-text indicator (3.0), and a purely decorative fill carries no threshold at all (`--fm-ink-faint`, below — which is exactly why its class had to be decided rather than inferred from the word "ink"). Re-measure when a value moves; a delta here is a design decision on a ticket, same rule as the values themselves.
 
 Ratios vs each surface, **dark** / **light**:
 
@@ -23,16 +23,16 @@ Ratios vs each surface, **dark** / **light**:
 |---|---|---|---|---|---|
 | `--fm-ink` | 4.5 | 14.03 / 13.75 | 12.68 / 15.04 | 11.74 / 14.26 | 13.53 / 12.80 |
 | `--fm-ink-dim` | 4.5 | 6.53 / 4.99 | 5.90 / 5.46 | 5.46 / 5.17 | 6.29 / 4.64 |
-| `--fm-ink-faint` | 4.5 | **3.27 / 2.83** ❌ | **2.96 / 3.10** ❌ | **2.74 / 2.94** ❌ | **3.15 / 2.64** ❌ |
+| `--fm-ink-faint` | n/a — decorative | 3.27 / 2.83 | 2.96 / 3.10 | 2.74 / 2.94 | 3.15 / 2.64 |
 | `--fm-signal` | 3.0 | 13.07 / 5.01 | 11.81 / 5.47 | 10.94 / 5.19 | 12.60 / 4.66 |
 | `--fm-state-off` | 3.0 | 3.67 / 3.29 | 3.32 / 3.59 | 3.07 / 3.41 | 3.54 / 3.06 |
 | `--fm-state-*` (others) | 3.0 | ✅ all pass — dark 6.98–10.65, light 4.27–6.50 (lowest: `stopping` 4.05 vs light `rail`) |
 | `--fm-family-*` | 3.0 | ✅ all pass — dark 6.19–12.66, light 4.03–7.23 |
 | `--fm-kind-*` | 3.0 | ✅ all pass — dark 6.43–9.17, light 4.56–6.98 |
 
-**One open failure, ruled and awaiting its implementing leaf (design authority: `@neo-opus-grace`) — recorded here rather than silently fixed, per the delta rule:**
+**No open contrast failures.** Both are resolved; the rulings and their reasoning are recorded below rather than the fixes landing silently, per the delta rule.
 
-1. **`--fm-ink-faint` fails 4.5:1 on every surface in both skins** (2.64–3.27). Ruled: it is **non-text only** — text consumers re-bind to `--fm-ink-dim`, the token keeps its contracted slot as the non-text floor, and the contract becomes mechanical rather than prose. Implementing leaf: #15493.
+**Resolved — `--fm-ink-faint` (D4).** It measures 2.64–3.27 across the eight surface/skin combinations, so it can never carry text (4.5) and cannot be relied on for information-bearing non-text either (3.0 — it clears that on only two of eight). Ruled **decorative, non-text only**: its four text consumers re-bound to `--fm-ink-dim`, the token keeps its contracted slot as a surface/border value, and — the part that matters — the contract became **mechanical**. A prose "no live consumer" tripwire had already failed once: an earlier pass cleaned eight text sites, and four new ones re-adopted the token unnoticed while `CARD-CONTRACT.md` was still prescribing it for foot meta. `check-agentos-theme` check 4 now rejects it in a `color:` declaration, so the next recurrence fails the build instead of waiting on a reader. Because its usage class is now decorative, the row above carries no AA threshold — a ratio is recorded for reference, not as a gate.
 
 **Resolved — `--fm-state-off` (D3).** It was failing the 3:1 non-text floor on five of eight surface/skin combinations while serving double duty: `StateDot.scss` binds `&.fm-state-off { --fm-dot: var(--fm-state-off) }`, and `stateToken()` degrades **every unknown state** to `off`, so the token is both the off-indicator and the unknown-state fallback — a floor failure there is a failure of the most-reached dot on the surface. Retuned per the ruling to the quietest **passing** value in each skin (lightness-only; hue/saturation preserved so it stays the quietest state, and each skin moves the minimum distance that clears the floor): dark `#5b6675` → `#616d7c`, light `#8b95a5` → `#7c889a`. Every surface now clears 3.0 with margin — see the table above.
 
