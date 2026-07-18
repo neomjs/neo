@@ -54,14 +54,24 @@ export const TIMELINE_KIND_BY_TYPENAME = {
 };
 
 /**
- * @summary Projects an actor node onto the `{actorId, actorKind}` pair the observation carries.
- * @param {Object|null} [actor] `{login, __typename}` — may be null for a deleted/ghost author.
- * @returns {{actorId: String|null, actorKind: String}}
+ * @summary Projects an actor node onto the `{actorId, actorKind, sourceAssociation}` triple the
+ * observation carries — the provider actor kind and the source-relative trust signal as SEPARATE
+ * fields (AC6). `sourceAssociation` is the provider's raw association-with-this-source
+ * (`OWNER`/`MEMBER`/`COLLABORATOR`/`CONTRIBUTOR`/`FIRST_TIME_CONTRIBUTOR`/`NONE`); the trust TIER
+ * is derived from it downstream, relative to the admitting source, never inside the producer.
+ *
+ * Actor kind and association are orthogonal: `bot` can be `NONE`, a `user` can be `OWNER`. Both an
+ * absent actor and an absent/unavailable association stay explicit — `unknown` and `null` — rather
+ * than being guessed. Lifecycle events carry no content authorship, so their association is null.
+ * @param {Object|null} [actor]             `{login, __typename}` — may be null for a deleted/ghost author.
+ * @param {String|null} [sourceAssociation] The provider association-with-source, or null when absent.
+ * @returns {{actorId: String|null, actorKind: String, sourceAssociation: String|null}}
  */
-function projectActor(actor) {
+function projectActor(actor, sourceAssociation = null) {
     return {
         actorId  : actor?.login ?? null,
-        actorKind: actorKindFromTypename(actor?.__typename)
+        actorKind: actorKindFromTypename(actor?.__typename),
+        sourceAssociation
     }
 }
 
@@ -84,9 +94,10 @@ function projectActor(actor) {
  * @param {String}        issue.createdAt        ISO-8601 open moment.
  * @param {String}        [issue.lastEditedAt]   ISO-8601 last-edit moment, when the body was edited.
  * @param {Object|null}   [issue.author]         `{login, __typename}`; null for a deleted account.
- * @param {Object[]}      [issue.comments]       `[{id, createdAt, lastEditedAt, author}]`.
+ * @param {String}        [issue.authorAssociation] Provider association-with-source of the author.
+ * @param {Object[]}      [issue.comments]       `[{id, createdAt, lastEditedAt, author, authorAssociation}]`.
  * @param {Object[]}      [issue.timeline]       `[{id, __typename, createdAt, actor}]` normalized events.
- * @returns {Object[]} Observations, each `{providerEntityId, occurrenceKind, occurrenceCoordinate, occurredAt, actorId, actorKind}`.
+ * @returns {Object[]} Observations, each `{providerEntityId, occurrenceKind, occurrenceCoordinate, occurredAt, actorId, actorKind, sourceAssociation}`.
  */
 export function issueToObservations(issue) {
     if (!issue || typeof issue !== 'object' || !issue.id) {
@@ -101,7 +112,7 @@ export function issueToObservations(issue) {
         occurrenceKind      : 'issue.opened',
         occurrenceCoordinate: `${issue.id}:opened`,
         occurredAt          : issue.createdAt,
-        ...projectActor(issue.author)
+        ...projectActor(issue.author, issue.authorAssociation ?? null)
     });
 
     // A body edit is a distinct revision on the same entity, coordinate-separated from the open.
@@ -111,7 +122,7 @@ export function issueToObservations(issue) {
             occurrenceKind      : 'issue.edited',
             occurrenceCoordinate: `${issue.id}:edited:${issue.lastEditedAt}`,
             occurredAt          : issue.lastEditedAt,
-            ...projectActor(issue.author)
+            ...projectActor(issue.author, issue.authorAssociation ?? null)
         })
     }
 
@@ -125,7 +136,7 @@ export function issueToObservations(issue) {
             occurrenceKind      : 'issue.comment',
             occurrenceCoordinate: `${comment.id}:created`,
             occurredAt          : comment.createdAt,
-            ...projectActor(comment.author)
+            ...projectActor(comment.author, comment.authorAssociation ?? null)
         });
 
         if (comment.lastEditedAt) {
@@ -134,7 +145,7 @@ export function issueToObservations(issue) {
                 occurrenceKind      : 'issue.comment-edited',
                 occurrenceCoordinate: `${comment.id}:edited:${comment.lastEditedAt}`,
                 occurredAt          : comment.lastEditedAt,
-                ...projectActor(comment.author)
+                ...projectActor(comment.author, comment.authorAssociation ?? null)
             })
         }
     }

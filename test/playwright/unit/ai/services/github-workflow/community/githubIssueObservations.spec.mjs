@@ -29,10 +29,10 @@ test.describe('githubIssueObservations normalizer', () => {
         id          : 'I_root',
         createdAt   : '2026-07-18T09:00:00Z',
         lastEditedAt: '2026-07-18T09:30:00Z',
-        author      : {login: 'octo-human', __typename: 'User'},
+        author      : {login: 'octo-human', __typename: 'User'}, authorAssociation: 'OWNER',
         comments    : [
-            {id: 'IC_1', createdAt: '2026-07-18T10:00:00Z', author: {login: 'replier', __typename: 'User'}},
-            {id: 'IC_2', createdAt: '2026-07-18T10:05:00Z', lastEditedAt: '2026-07-18T10:07:00Z', author: {login: 'dependabot', __typename: 'Bot'}}
+            {id: 'IC_1', createdAt: '2026-07-18T10:00:00Z', author: {login: 'replier', __typename: 'User'}, authorAssociation: 'CONTRIBUTOR'},
+            {id: 'IC_2', createdAt: '2026-07-18T10:05:00Z', lastEditedAt: '2026-07-18T10:07:00Z', author: {login: 'dependabot', __typename: 'Bot'}, authorAssociation: 'NONE'}
         ],
         timeline    : [
             {id: 'CE_1', __typename: 'ClosedEvent',   createdAt: '2026-07-18T11:00:00Z', actor: {login: 'maintainer', __typename: 'User'}},
@@ -67,6 +67,21 @@ test.describe('githubIssueObservations normalizer', () => {
         expect(actorKindFromTypename('EnterpriseUserAccount')).toBe('enterprise-user');
         expect(actorKindFromTypename(undefined), 'a deleted/ghost actor').toBe('unknown');
         expect(actorKindFromTypename('SomethingNew'), 'an unrecognized kind').toBe('unknown')
+    });
+
+    test('source-relative trust is a SEPARATE field from actor kind, and orthogonal to it', () => {
+        const obs        = issueToObservations(fullIssue),
+              root       = obs.find(o => o.providerEntityId === 'I_root' && o.occurrenceKind === 'issue.opened'),
+              botComment = obs.find(o => o.providerEntityId === 'IC_2' && o.occurrenceKind === 'issue.comment'),
+              closed     = obs.find(o => o.occurrenceKind === 'issue.closed');
+
+        expect(root.actorKind).toBe('user');
+        expect(root.sourceAssociation, 'kind and association are distinct fields').toBe('OWNER');
+        // Orthogonal axes: a bot may carry any association — here NONE — and the two never conflate.
+        expect(botComment.actorKind).toBe('bot');
+        expect(botComment.sourceAssociation).toBe('NONE');
+        // A lifecycle event has no content authorship, so its association is explicitly null, not guessed.
+        expect(closed.sourceAssociation).toBe(null)
     });
 
     // ------------------------------------------------------------------ the emitted shape is admissible
