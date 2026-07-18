@@ -18,7 +18,7 @@
             color        : var(--fm-ink-dim);
             box-shadow   : none;
             font-weight  : 500;
-            transition   : background .15s ease, border-color .15s ease, color .15s ease;
+            transition   : background var(--motion-fast) var(--ease-out-soft), border-color var(--motion-fast) var(--ease-out-soft), color var(--motion-fast) var(--ease-out-soft);
 
             &:hover {
                 border-color: var(--fm-ink-dim);
@@ -45,7 +45,7 @@
             color        : var(--fm-signal);
             box-shadow   : none;
             font-weight  : 600;
-            transition   : background .15s ease, border-color .15s ease, color .15s ease;
+            transition   : background var(--motion-fast) var(--ease-out-soft), border-color var(--motion-fast) var(--ease-out-soft), color var(--motion-fast) var(--ease-out-soft);
 
             &:hover {
                 border-color: var(--fm-signal);
