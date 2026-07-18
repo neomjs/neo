@@ -91,6 +91,14 @@ class CrossWindowDragTarget extends Base {
          */
         sortGroup: null,
         /**
+         * §2.8.1 claim identity: the STABLE workspace/zone identity this target claims gestures
+         * under — never `windowId`, never registration order. A target that declares one rides
+         * the coordinator's deterministic claim protocol; without it the target stays on the
+         * legacy first-intersecting resolution. Dock workspaces pass their workspace id.
+         * @member {String|null} stableTargetId=null
+         */
+        stableTargetId: null,
+        /**
          * §2.3 registry identity: the window this surface renders in.
          * @member {String|Number|null} windowId=null
          */

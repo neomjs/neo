@@ -420,3 +420,352 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
         expect(DragCoordinator.activeTargetZone).toBeNull()
     });
 });
+
+/**
+ * @summary The §2.8.1 gesture/claim protocol at the coordinator tier: deterministic target
+ * resolution on stable identity, replacing first-intersecting registration order on the dock path.
+ *
+ * The binding falsifier lives here verbatim — three OVERLAPPING windows, one gesture, exactly ONE
+ * preview and exactly ONE commit — alongside the negative witness that PINS the legacy path's
+ * registration-order dependence (the reason stable-identity zones are forbidden from riding it),
+ * and the continuous-preview contract for native-titlebar hovers.
+ *
+ * Real coordinator, real `Neo.manager.Window` geometry (registered `Rectangle`s), plain-object
+ * zones — the same harness idiom as the teardown-hygiene block above.
+ */
+test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () => {
+    let DragCoordinator, Rectangle, WindowManager;
+    let calls;
+
+    test.beforeAll(async () => {
+        DragCoordinator = (await import('../../../../src/manager/DragCoordinator.mjs')).default;
+        Rectangle       = (await import('../../../../src/util/Rectangle.mjs')).default;
+        WindowManager   = (await import('../../../../src/manager/Window.mjs')).default
+    });
+
+    function resetCoordinator() {
+        DragCoordinator.activeTargetZone = null;
+        DragCoordinator.sortZones.clear();
+        DragCoordinator.nativeWindowDropCandidates.forEach(candidate => clearTimeout(candidate.timeoutId));
+        DragCoordinator.nativeWindowDropCandidates.clear();
+        DragCoordinator.nativeClaimArbiters.clear();
+        DragCoordinator.nativeHoverTargets.clear();
+        DragCoordinator.pointerClaimArbiter = null
+    }
+
+    function clearWindows() {
+        [...WindowManager.items].forEach(item => WindowManager.unregister(item))
+    }
+
+    test.beforeEach(() => {
+        calls = [];
+        resetCoordinator();
+        clearWindows()
+    });
+
+    test.afterEach(() => {
+        resetCoordinator();
+        clearWindows()
+    });
+
+    /**
+     * @param {String} id
+     * @param {Number} x
+     * @param {Number} y
+     * @param {Number} width
+     * @param {Number} height
+     * @param {Object} [rects] optional divergent inner/outer rects (chrome simulation)
+     */
+    function registerWindow(id, x, y, width, height, rects = null) {
+        WindowManager.register({
+            id,
+            innerRect: rects?.innerRect ?? new Rectangle(x, y, width, height),
+            outerRect: rects?.outerRect ?? new Rectangle(x, y, width, height)
+        })
+    }
+
+    /**
+     * @param {String|null} stableId null creates a LEGACY zone (no stable identity)
+     * @param {String} windowId
+     * @param {Object} [options]
+     * @returns {Object}
+     */
+    function createZone(stableId, windowId, {accepts = () => true, operation = {type: 'transferItem'}} = {}) {
+        const zone = {
+            sortGroup: 'dock',
+            windowId,
+            acceptsRemoteDrag(localX, localY) {
+                return accepts(localX, localY)
+            },
+            onRemoteDragMove(payload) {
+                calls.push(['move', stableId ?? windowId, payload.localX, payload.localY])
+            },
+            onRemoteDragLeave() {
+                calls.push(['leave', stableId ?? windowId])
+            },
+            onRemoteDrop(draggedItem) {
+                calls.push(['drop', stableId ?? windowId, draggedItem.id]);
+                return operation
+            }
+        };
+
+        if (stableId != null) {
+            zone.stableTargetId = stableId
+        }
+
+        return zone
+    }
+
+    /**
+     * @returns {Object}
+     */
+    function createSource() {
+        return {
+            sortGroup       : 'dock',
+            windowId        : 'win-source',
+            isWindowDragging: false,
+            suspendWindowDrag(widgetName) {
+                calls.push(['suspend', widgetName])
+            },
+            resumeWindowDrag(widgetName) {
+                calls.push(['resume', widgetName])
+            },
+            onRemoteDropOut(draggedItem) {
+                calls.push(['dropOut', draggedItem.id])
+            }
+        }
+    }
+
+    /**
+     * @param {Object} source
+     * @param {Number} screenX
+     * @param {Number} screenY
+     */
+    function move(source, screenX, screenY) {
+        DragCoordinator.onDragMove({
+            draggedItem   : {id: 'tab-1', reference: 'tab-1'},
+            offsetX       : 10,
+            offsetY       : 10,
+            proxyRect     : {width: 100, height: 60},
+            screenX,
+            screenY,
+            sourceSortZone: source
+        })
+    }
+
+    test('THE OVERLAP FALSIFIER: three overlapping windows, one gesture → exactly ONE preview and exactly ONE commit', () => {
+        const source = createSource();
+
+        registerWindow('win-source', 2000, 0, 400, 400);
+        registerWindow('win-a',      0,     0, 800, 600);
+        registerWindow('win-b',      100, 100, 800, 600);
+        registerWindow('win-c',      200, 200, 800, 600);
+
+        // Registered in REVERSE lexicographic order: an insertion-order resolver answers
+        // 'workspace-c'; the protocol must answer 'workspace-a' (same-tick tie → lexicographic).
+        const
+            zoneC = createZone('workspace-c', 'win-c'),
+            zoneB = createZone('workspace-b', 'win-b'),
+            zoneA = createZone('workspace-a', 'win-a');
+
+        DragCoordinator.register(zoneC);
+        DragCoordinator.register(zoneB);
+        DragCoordinator.register(zoneA);
+
+        // (300, 300) lies inside ALL THREE target windows — the popup-over-popup overlap.
+        move(source, 300, 300);
+        move(source, 310, 310);
+
+        // one gesture token, alive between moves and dead after the terminal
+        expect(DragCoordinator.pointerClaimArbiter?.token).toBeTruthy();
+
+        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        const
+            previewIds = new Set(calls.filter(([name]) => name === 'move').map(([, id]) => id)),
+            dropCalls  = calls.filter(([name]) => name === 'drop');
+
+        // exactly ONE window previews...
+        expect([...previewIds]).toEqual(['workspace-a']);
+
+        // ...and exactly ONE commit lands, on the deterministic winner
+        expect(dropCalls).toEqual([['drop', 'workspace-a', 'tab-1']]);
+        expect(calls.filter(([name]) => name === 'dropOut')).toEqual([['dropOut', 'tab-1']]);
+
+        // the source's drag embodiment was suspended exactly once, on entering the claimed target
+        expect(calls.filter(([name]) => name === 'suspend')).toEqual([['suspend', 'tab-1']]);
+
+        // gesture terminal: the token is dead
+        expect(DragCoordinator.pointerClaimArbiter).toBeNull()
+    });
+
+    test('the NEGATIVE witness: stable-identity-free zones resolve by REGISTRATION ORDER — the pinned legacy nondeterminism', () => {
+        const source = createSource();
+
+        // Round 1: windows registered a-first. `getWindowAt` finds the FIRST intersecting item.
+        registerWindow('win-a', 0,     0, 800, 600);
+        registerWindow('win-b', 100, 100, 800, 600);
+        registerWindow('win-source', 2000, 0, 400, 400);
+
+        DragCoordinator.register(createZone(null, 'win-a'));
+        DragCoordinator.register(createZone(null, 'win-b'));
+
+        move(source, 300, 300);
+
+        expect(calls.filter(([name]) => name === 'move').map(([, id]) => id)).toEqual(['win-a']);
+
+        DragCoordinator.onDragCancel({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+        resetCoordinator();
+        clearWindows();
+        calls = [];
+
+        // Round 2: the IDENTICAL layout, windows registered b-first — the winner flips with
+        // registration order. This is the behavior the claim protocol exists to replace, pinned
+        // here so the legacy path's semantics stay observable and documented.
+        registerWindow('win-b', 100, 100, 800, 600);
+        registerWindow('win-a', 0,     0, 800, 600);
+        registerWindow('win-source', 2000, 0, 400, 400);
+
+        DragCoordinator.register(createZone(null, 'win-a'));
+        DragCoordinator.register(createZone(null, 'win-b'));
+
+        move(source, 300, 300);
+
+        expect(calls.filter(([name]) => name === 'move').map(([, id]) => id)).toEqual(['win-b'])
+    });
+
+    test('the legacy door is CLOSED to stable zones: first-intersecting resolution cannot reach a zone that failed to claim', () => {
+        const source = createSource();
+
+        // win-a's OUTER rect contains the point, its INNER rect does not (an 80px chrome band) —
+        // so the zone cannot claim (inner containment fails), while `getWindowAt` (outer-rect,
+        // first-intersecting) still resolves win-a. Without the guard, the legacy path would
+        // hand this zone the gesture with chrome-space coordinates its blind hit-test accepts.
+        registerWindow('win-a', 0, 0, 800, 600, {
+            innerRect: new Rectangle(0, 80, 800, 520),
+            outerRect: new Rectangle(0, 0,  800, 600)
+        });
+        registerWindow('win-source', 2000, 0, 400, 400);
+
+        DragCoordinator.register(createZone('workspace-a', 'win-a', {accepts: () => true}));
+
+        move(source, 300, 40);
+
+        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        // fail closed: no preview, no commit — §2.8.1's no-claim outcome
+        expect(calls.filter(([name]) => name === 'move')).toEqual([]);
+        expect(calls.filter(([name]) => name === 'drop')).toEqual([]);
+        expect(calls.filter(([name]) => name === 'dropOut')).toEqual([])
+    });
+
+    test('claim seniority holds the winner steady — a later valid claimant cannot steal the hover', () => {
+        const source = createSource();
+
+        registerWindow('win-a', 0,     0, 800, 600);
+        registerWindow('win-b', 100, 100, 800, 600);
+        registerWindow('win-source', 2000, 0, 400, 400);
+
+        let zoneBAccepts = false;
+
+        // 'workspace-0' sorts lexicographically BEFORE 'workspace-a': if the second move's tie
+        // fell to the lexicographic axis, B would win — seniority must dominate the tiebreak.
+        const
+            zoneA = createZone('workspace-a', 'win-a'),
+            zoneB = createZone('workspace-0', 'win-b', {accepts: () => zoneBAccepts});
+
+        DragCoordinator.register(zoneB);
+        DragCoordinator.register(zoneA);
+
+        move(source, 300, 300);
+
+        // The coordinator claims on the REAL clock: advance it one millisecond so B's acquisition
+        // is strictly younger — in the same-millisecond case the tie falls to the lexicographic
+        // axis by contract, which is the arbiter spec's territory, not this witness's.
+        const start = Date.now();
+        while (Date.now() === start) {/* spin across the millisecond boundary */}
+
+        zoneBAccepts = true;
+        move(source, 310, 310);
+
+        const previewIds = calls.filter(([name]) => name === 'move').map(([, id]) => id);
+
+        // A previews on both moves; B never does; no leave — the hover does not flicker
+        expect(previewIds).toEqual(['workspace-a', 'workspace-a']);
+        expect(calls.filter(([name]) => name === 'leave')).toEqual([])
+    });
+
+    test('the winning claimant departing mid-gesture hands over deterministically: leave, then the successor previews', () => {
+        const source = createSource();
+
+        registerWindow('win-a', 0,     0, 800, 600);
+        registerWindow('win-b', 100, 100, 800, 600);
+        registerWindow('win-source', 2000, 0, 400, 400);
+
+        const
+            zoneA = createZone('workspace-a', 'win-a'),
+            zoneB = createZone('workspace-b', 'win-b');
+
+        DragCoordinator.register(zoneA);
+        DragCoordinator.register(zoneB);
+
+        move(source, 300, 300);
+
+        // the winner's window closes under the drag
+        DragCoordinator.unregister(zoneA);
+
+        move(source, 310, 310);
+
+        expect(calls.filter(([name]) => name === 'move' || name === 'leave')).toEqual([
+            ['move',  'workspace-a', 300, 300],
+            ['leave', 'workspace-a'],
+            ['move',  'workspace-b', 210, 210]
+        ])
+    });
+
+    test('NATIVE hover renders CONTINUOUS preview per geometry event — the dwell timer gates only the commit', () => {
+        const
+            draggedItem = {id: 'tab-1'},
+            source      = {
+                sortGroup: 'dock',
+                windowId : 'win-source',
+                getNativeWindowDrag(windowId) {
+                    return windowId === 'win-popup' ? {draggedItem, widgetName: 'tab-1'} : null
+                },
+                async suspendWindowDrag(widgetName) {
+                    calls.push(['suspend', widgetName])
+                }
+            },
+            target = createZone('workspace-b', 'win-target');
+
+        registerWindow('win-source', 2000,   0, 400, 400);
+        registerWindow('win-popup',   500, 500, 300, 200);
+        registerWindow('win-target',  600, 550, 400, 300);
+
+        DragCoordinator.register(source);
+        DragCoordinator.register(target);
+
+        // two geometry events while the popup's center (650, 600) sits over the target
+        DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+        DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+
+        // preview rendered per event, BEFORE any dwell elapsed; nothing committed
+        expect(calls.filter(([name]) => name === 'move').length).toBe(2);
+        expect(calls.filter(([name]) => name === 'drop')).toEqual([]);
+
+        // the popup leaves the target: the hover ends exact-once
+        WindowManager.get('win-popup').innerRect = new Rectangle(3000, 3000, 300, 200);
+
+        DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+
+        expect(calls.filter(([name]) => name === 'leave')).toEqual([['leave', 'workspace-b']]);
+        expect(DragCoordinator.nativeHoverTargets.size).toBe(0);
+
+        // the source drag ends (popup no longer carries a drag): the gesture's token dies
+        source.getNativeWindowDrag = () => null;
+
+        DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
+
+        expect(DragCoordinator.nativeClaimArbiters.size).toBe(0)
+    })
+});

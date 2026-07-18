@@ -13,6 +13,7 @@ import DockTopologyReconciler             from '../../../../../src/dashboard/Doc
 import DockZoneModel                      from '../../../../../src/dashboard/DockZoneModel.mjs';
 import InteractionService                 from '../../../../../src/ai/client/InteractionService.mjs';
 import {createDockTearOutHandlers}        from '../../../../../src/dashboard/DockTearOut.mjs';
+import {createDockWorkspaceSet}           from '../../../../../src/dashboard/DockWorkspaceSet.mjs';
 import TourRunner                         from '../../../../../src/ai/client/TourRunner.mjs';
 import {previewToOperation}               from '../../../../../src/dashboard/dockPreviewContract.mjs';
 import {demoBTourScript, initialDocument} from '../../../tour/demoBPerspectives.mjs';
@@ -107,6 +108,13 @@ class DemoBWorkspace extends Container {
      * @member {Object|null} popupDocument=null
      */
     popupDocument = null
+    /**
+     * The worker-owned `{workspaceId → document}` registry (§2.1 workspace-set composition):
+     * both workspaces register their document accessors here, foreign-document resolution rides
+     * it, and an atomic transfer's committed pair lands through its both-or-neither adoption.
+     * @member {Object|null} workspaceSet=null
+     */
+    workspaceSet = null
     /**
      * The app-side Neural Link dock seam (tour + agent drivability).
      * @member {Neo.ai.client.DockService|null} dockService=null
@@ -283,6 +291,21 @@ class DemoBWorkspace extends Container {
 
         me.dockModel        = DockZoneModel.clone(initialDocument);
         me.popupDocument    = DemoBWorkspace.createPopupDocument();
+
+        // Both workspaces register under their STABLE semantic ids — the seams read/write the
+        // live owner fields, so registry resolution always answers with committed truth.
+        me.workspaceSet = createDockWorkspaceSet();
+
+        me.workspaceSet.register(DemoBWorkspace.MAIN_WORKSPACE_ID, {
+            getDocument: () => me.dockModel,
+            setDocument: document => me.dockModel = document
+        });
+
+        me.workspaceSet.register(DemoBWorkspace.POPUP_WORKSPACE_ID, {
+            getDocument: () => me.popupDocument,
+            setDocument: document => me.popupDocument = document
+        });
+
         me.dockPreviewProducer = Neo.create(DockPreviewProducer);
         me.dockService      = Neo.create(DockService, {});
         me.interactionService = Neo.create(InteractionService, {});
@@ -367,20 +390,13 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * Resolves worker-owned document truth by semantic workspace id.
+     * Resolves worker-owned document truth by semantic workspace id — through the workspace-set
+     * registry, so an unknown id fails closed instead of guessing.
      * @param {String} workspaceId
      * @returns {Object|null}
      */
     getWorkspaceDocument(workspaceId) {
-        if (workspaceId === DemoBWorkspace.MAIN_WORKSPACE_ID) {
-            return this.dockModel
-        }
-
-        if (workspaceId === DemoBWorkspace.POPUP_WORKSPACE_ID) {
-            return this.popupDocument
-        }
-
-        return null
+        return this.workspaceSet.getDocument(workspaceId)
     }
 
     /**
@@ -962,12 +978,12 @@ class DemoBWorkspace extends Container {
 
         me.crossWindowStats.transferCommits++;
 
-        sourceWorkspaceId === DemoBWorkspace.MAIN_WORKSPACE_ID
-            ? (me.dockModel = sourceDocument)
-            : (me.popupDocument = sourceDocument);
-        targetWorkspaceId === DemoBWorkspace.MAIN_WORKSPACE_ID
-            ? (me.dockModel = targetDocument)
-            : (me.popupDocument = targetDocument);
+        // Both-or-neither adoption through the workspace-set: a pair that cannot land on both
+        // registered owners lands on neither, and the vessel bookkeeping below must not diverge
+        // from document truth — so a refused adoption ends the commit here.
+        if (!me.workspaceSet.adoptTransfer({sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId})) {
+            return
+        }
 
         // The document pair and vessel ownership are one worker-side commit. A physical close can
         // arrive before either projection settles; publishing this entry synchronously lets the

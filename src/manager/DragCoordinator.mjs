@@ -1,6 +1,7 @@
-import Manager   from './Base.mjs';
-import Rectangle from '../util/Rectangle.mjs';
-import Window    from './Window.mjs';
+import {createGestureClaimArbiter} from './GestureClaimArbiter.mjs';
+import Manager                     from './Base.mjs';
+import Rectangle                   from '../util/Rectangle.mjs';
+import Window                      from './Window.mjs';
 
 /**
  * @class Neo.manager.DragCoordinator
@@ -45,10 +46,35 @@ class DragCoordinator extends Manager {
     activeTargetZone = null
 
     /**
+     * Per-moving-popup claim arbiters for native-titlebar gestures (windowId → arbiter). One
+     * native drag IS one gesture, so each moving popup owns exactly one token (harness docking
+     * design record §2.8.1).
+     * @member {Map<String,Object>} nativeClaimArbiters=new Map()
+     * @protected
+     */
+    nativeClaimArbiters = new Map()
+
+    /**
+     * The target zone currently receiving continuous native-hover preview, per moving popup
+     * (windowId → zone). Runtime-only hover bookkeeping; swept on every gesture terminal.
+     * @member {Map<String,Object>} nativeHoverTargets=new Map()
+     * @protected
+     */
+    nativeHoverTargets = new Map()
+
+    /**
      * @member {Map<String,Object>} nativeWindowDropCandidates=new Map()
      * @protected
      */
     nativeWindowDropCandidates = new Map()
+
+    /**
+     * The active pointer gesture's claim arbiter — minted lazily at the gesture's first move,
+     * killed at every terminal (end or cancel), so its token's claims die with the gesture.
+     * @member {Object|null} pointerClaimArbiter=null
+     * @protected
+     */
+    pointerClaimArbiter = null
 
     /**
      * @summary Clears a pending geometry-only native window-drop candidate.
@@ -62,6 +88,30 @@ class DragCoordinator extends Manager {
         if (candidate) {
             clearTimeout(candidate.timeoutId);
             this.nativeWindowDropCandidates.delete(windowId)
+        }
+    }
+
+    /**
+     * @summary Ends a native-titlebar gesture's claim/hover bookkeeping exact-once.
+     *
+     * Kills the moving popup's claim arbiter (its token's claims die with the gesture) and ends
+     * any continuous-hover preview it was driving. Safe on every terminal — commit, source
+     * retirement, vessel departure — and idempotent: a second invocation finds nothing.
+     * @param {String} windowId The MOVING popup's window id (the native gesture key).
+     */
+    endNativeGesture(windowId) {
+        let me      = this,
+            arbiter = me.nativeClaimArbiters.get(windowId),
+            hover   = me.nativeHoverTargets.get(windowId);
+
+        if (arbiter) {
+            arbiter.reset();
+            me.nativeClaimArbiters.delete(windowId)
+        }
+
+        if (hover) {
+            hover.onRemoteDragLeave?.();
+            me.nativeHoverTargets.delete(windowId)
         }
     }
 
@@ -124,6 +174,10 @@ class DragCoordinator extends Manager {
         if (operation) {
             sourceSortZone.onRemoteDropOut(draggedItem)
         }
+
+        // The commit is a gesture terminal: the popup's token and hover bookkeeping die here.
+        // Ordered AFTER the drop — the preview is the drop's input and must outlive it.
+        me.endNativeGesture(windowId);
 
         if (me.activeTargetZone === targetSortZone) {
             me.activeTargetZone = null
@@ -188,7 +242,7 @@ class DragCoordinator extends Manager {
             popupWindow      = Window.get(data.windowId),
             popupRect        = popupWindow?.innerRect,
             {sortGroup}      = sourceSortZone,
-            targetWindowId, targetSortZone, targetWindow, localX, localY, width, height;
+            targetWindowId, targetSortZone, targetWindow, localX, localY, width, height, arbiter, claimed, excludedWindowIds;
 
         if (!popupRect || !sortGroup) {
             return null
@@ -197,14 +251,42 @@ class DragCoordinator extends Manager {
         localX = popupRect.x + popupRect.width  / 2;
         localY = popupRect.y + popupRect.height / 2;
 
-        targetWindowId = me.getWindowAtExcept(localX, localY, new Set([data.windowId, sourceSortZone.windowId]));
+        excludedWindowIds = new Set([data.windowId, sourceSortZone.windowId]);
+        arbiter           = me.nativeClaimArbiters.get(data.windowId);
 
-        if (!targetWindowId) {
-            return null
+        if (!arbiter) {
+            arbiter = createGestureClaimArbiter();
+            me.nativeClaimArbiters.set(data.windowId, arbiter)
         }
 
-        targetSortZone = me.sortZones.get(sortGroup)?.get(targetWindowId);
-        targetWindow   = Window.get(targetWindowId);
+        claimed = me.resolveClaimedTarget({
+            arbiter,
+            excludedWindowIds,
+            screenX: localX,
+            screenY: localY,
+            sortGroup,
+            sourceSortZone
+        });
+
+        if (claimed) {
+            targetSortZone = claimed.zone;
+            targetWindowId = targetSortZone.windowId
+        } else {
+            // The pinned legacy path, stable-identity-free zones only (see resolveClaimedTarget).
+            targetWindowId = me.getWindowAtExcept(localX, localY, excludedWindowIds);
+
+            if (!targetWindowId) {
+                return null
+            }
+
+            targetSortZone = me.sortZones.get(sortGroup)?.get(targetWindowId);
+
+            if (targetSortZone?.stableTargetId != null) {
+                return null
+            }
+        }
+
+        targetWindow = Window.get(targetWindowId);
 
         if (!targetSortZone || !targetWindow?.innerRect) {
             return null
@@ -213,7 +295,7 @@ class DragCoordinator extends Manager {
         localX = localX - targetWindow.innerRect.x;
         localY = localY - targetWindow.innerRect.y;
 
-        if (!targetSortZone.acceptsRemoteDrag(localX, localY)) {
+        if (!claimed && !targetSortZone.acceptsRemoteDrag(localX, localY)) {
             return null
         }
 
@@ -250,6 +332,66 @@ class DragCoordinator extends Manager {
     }
 
     /**
+     * @summary Resolves the gesture's single claimed target among stable-identity zones.
+     *
+     * The claim pass of the §2.8.1 protocol (harness docking design record): every registered
+     * zone in the gesture's `sortGroup` that declares a `stableTargetId`, renders in a window
+     * other than the source's, geometrically contains the point (window `innerRect`) AND accepts
+     * the window-local hit-test acquires-or-refreshes a claim; zones that stop matching release
+     * theirs. The arbiter then answers deterministically — earliest valid claim, stable-id
+     * lexicographic tiebreak — or `null`, and `null` means fail closed: no preview, no commit.
+     *
+     * Dock-blindness holds: this method consumes registered zone identity and the main-thread
+     * window geometry only — never dock semantics. Zones WITHOUT a `stableTargetId` never claim;
+     * they stay on the legacy first-intersecting resolution their callers pin.
+     * @param {Object} data
+     * @param {Object} data.arbiter The gesture's claim arbiter.
+     * @param {Set<String>|null} [data.excludedWindowIds=null] Window ids that cannot host a valid
+     *     target (e.g. the moving popup itself on the native path).
+     * @param {Number} data.screenX Global screen-space x.
+     * @param {Number} data.screenY Global screen-space y.
+     * @param {String} data.sortGroup
+     * @param {Neo.draggable.container.SortZone} data.sourceSortZone
+     * @returns {Object|null} `{stableId, zone}` of the winning claim, or null (fail closed)
+     */
+    resolveClaimedTarget({arbiter, excludedWindowIds = null, screenX, screenY, sortGroup, sourceSortZone}) {
+        let group = this.sortZones.get(sortGroup);
+
+        if (!group) {
+            return null
+        }
+
+        for (const [windowId, zone] of group) {
+            if (
+                zone === sourceSortZone              ||
+                windowId === sourceSortZone.windowId ||
+                excludedWindowIds?.has(windowId)
+            ) {
+                continue
+            }
+
+            if (zone.stableTargetId == null || typeof zone.acceptsRemoteDrag !== 'function') {
+                continue
+            }
+
+            let inner = Window.get(windowId)?.innerRect;
+
+            if (
+                inner?.intersects({bottom: screenY, right: screenX, x: screenX, y: screenY}) &&
+                zone.acceptsRemoteDrag(screenX - inner.x, screenY - inner.y)
+            ) {
+                arbiter.claim(zone.stableTargetId, zone)
+            } else {
+                arbiter.release(zone.stableTargetId)
+            }
+        }
+
+        return arbiter.resolve()
+    }
+
+    /**
+     * @summary Pointer-path target resolution: the §2.8.1 claim protocol first, the pinned legacy
+     * first-intersecting path for stable-identity-free zones only, fail closed otherwise.
      * @param {Object} data
      * @param {Neo.component.Base} data.draggedItem
      * @param {Number} data.offsetX
@@ -262,52 +404,66 @@ class DragCoordinator extends Manager {
         let me                                                                           = this,
             {draggedItem, offsetX, offsetY, proxyRect, screenX, screenY, sourceSortZone} = data,
             {sortGroup}                                                                  = sourceSortZone,
-            targetWindowId                                                               = Window.getWindowAt(screenX, screenY),
-            targetSortZone;
+            arbiter                                                                      = me.pointerClaimArbiter ??= createGestureClaimArbiter(),
+            claimed                                                                      = me.resolveClaimedTarget({arbiter, screenX, screenY, sortGroup, sourceSortZone}),
+            targetSortZone                                                               = claimed?.zone,
+            targetWindowId;
 
-        if (targetWindowId && targetWindowId !== sourceSortZone.windowId) {
-            targetSortZone = me.sortZones.get(sortGroup)?.get(targetWindowId);
+        if (!targetSortZone) {
+            // The pinned legacy path: first-intersecting window by REGISTRATION ORDER. It survives
+            // exclusively for zones without a stable identity — a zone that declares one rides the
+            // claim protocol above and must never fall back here, otherwise overlap resolution
+            // would silently regress to nondeterminism when its claim fails.
+            targetWindowId = Window.getWindowAt(screenX, screenY);
 
-            if (targetSortZone) {
-                let targetWindow    = Window.get(targetWindowId),
-                    localX          = screenX - targetWindow.innerRect.x,
-                    localY          = screenY - targetWindow.innerRect.y,
-                    targetProxyRect = new Rectangle(
-                        localX - offsetX,
-                        localY - offsetY,
-                        proxyRect.width,
-                        proxyRect.height
-                    );
+            if (targetWindowId && targetWindowId !== sourceSortZone.windowId) {
+                let zone = me.sortZones.get(sortGroup)?.get(targetWindowId);
 
-                if (targetSortZone.acceptsRemoteDrag(localX, localY)) {
-                    // console.log('DragCoordinator target found', {targetWindowId, localX, localY});
+                if (zone && zone.stableTargetId == null) {
+                    let targetWindow = Window.get(targetWindowId);
 
-                    // Entering a new target zone
-                    if (me.activeTargetZone !== targetSortZone) {
-                        // Leaving previous target (if any)
-                        me.activeTargetZone?.onRemoteDragLeave();
-
-                        // Suspend source drag (close popup, etc)
-                        // We only do this once when leaving the void/source context
-                        if (!me.activeTargetZone) {
-                            sourceSortZone.suspendWindowDrag(draggedItem.reference || draggedItem.id)
-                        }
-
-                        me.activeTargetZone = targetSortZone
+                    if (zone.acceptsRemoteDrag(screenX - targetWindow.innerRect.x, screenY - targetWindow.innerRect.y)) {
+                        targetSortZone = zone
                     }
-
-                    targetSortZone.onRemoteDragMove({
-                        draggedItem,
-                        localX,
-                        localY,
-                        offsetX,
-                        offsetY,
-                        proxyRect: targetProxyRect
-                    });
-
-                    return
                 }
             }
+        }
+
+        if (targetSortZone) {
+            let targetWindow    = Window.get(targetSortZone.windowId),
+                localX          = screenX - targetWindow.innerRect.x,
+                localY          = screenY - targetWindow.innerRect.y,
+                targetProxyRect = new Rectangle(
+                    localX - offsetX,
+                    localY - offsetY,
+                    proxyRect.width,
+                    proxyRect.height
+                );
+
+            // Entering a new target zone
+            if (me.activeTargetZone !== targetSortZone) {
+                // Leaving previous target (if any)
+                me.activeTargetZone?.onRemoteDragLeave();
+
+                // Suspend source drag (close popup, etc)
+                // We only do this once when leaving the void/source context
+                if (!me.activeTargetZone) {
+                    sourceSortZone.suspendWindowDrag(draggedItem.reference || draggedItem.id)
+                }
+
+                me.activeTargetZone = targetSortZone
+            }
+
+            targetSortZone.onRemoteDragMove({
+                draggedItem,
+                localX,
+                localY,
+                offsetX,
+                offsetY,
+                proxyRect: targetProxyRect
+            });
+
+            return
         }
 
         // In void or back in source window
@@ -326,6 +482,10 @@ class DragCoordinator extends Manager {
         let me               = this,
             {sourceSortZone} = data;
 
+        // The token's claims die with its gesture — cancel is a terminal like any other.
+        me.pointerClaimArbiter?.reset();
+        me.pointerClaimArbiter = null;
+
         if (me.activeTargetZone) {
             me.activeTargetZone.onRemoteDragLeave();
             me.activeTargetZone = null
@@ -333,8 +493,44 @@ class DragCoordinator extends Manager {
 
         for (const [windowId, candidate] of me.nativeWindowDropCandidates.entries()) {
             if (candidate.sourceSortZone === sourceSortZone || candidate.targetSortZone === sourceSortZone) {
-                me.clearNativeWindowDropCandidate(windowId)
+                me.clearNativeWindowDropCandidate(windowId);
+                me.endNativeGesture(windowId)
             }
+        }
+    }
+
+    /**
+     * @summary Drives continuous hover preview for a native-titlebar drag, per geometry event.
+     *
+     * The hover contract of §2.8.1's remote-preview requirement: the CURRENT candidate target
+     * renders its own affordances through `onRemoteDragMove` on EVERY position update — per
+     * frame, not only after the dwell timer — while the dwell/settle contract keeps gating the
+     * COMMIT. Target switches and hover loss end the previous target's preview exact-once.
+     * @param {String} windowId The MOVING popup's window id.
+     * @param {Object|null} candidate The current drop candidate, or null when nothing claims.
+     */
+    updateNativeHover(windowId, candidate) {
+        let me       = this,
+            previous = me.nativeHoverTargets.get(windowId),
+            next     = candidate?.targetSortZone || null;
+
+        if (previous && previous !== next) {
+            previous.onRemoteDragLeave?.()
+        }
+
+        if (next) {
+            me.nativeHoverTargets.set(windowId, next);
+
+            next.onRemoteDragMove({
+                draggedItem: candidate.draggedItem,
+                localX     : candidate.localX,
+                localY     : candidate.localY,
+                offsetX    : candidate.offsetX,
+                offsetY    : candidate.offsetY,
+                proxyRect  : candidate.proxyRect
+            })
+        } else {
+            me.nativeHoverTargets.delete(windowId)
         }
     }
 
@@ -342,9 +538,10 @@ class DragCoordinator extends Manager {
      * @summary Handles geometry updates for native OS-titlebar popup reintegration.
      *
      * Consumes high-frequency window geometry updates for native OS-titlebar popup drags,
-     * where the browser does not emit pointer move/up events. A terminal detached popup
-     * reintegrates only after it remains over a remote dashboard target long enough to
-     * satisfy the settle/dwell intent contract.
+     * where the browser does not emit pointer move/up events. The current candidate target
+     * renders continuous hover preview per update; a terminal detached popup reintegrates
+     * only after it remains over a remote dashboard target long enough to satisfy the
+     * settle/dwell intent contract.
      * @param {Object} data
      * @param {String} data.windowId
      */
@@ -356,10 +553,13 @@ class DragCoordinator extends Manager {
 
         if (!sourceDrag) {
             me.clearNativeWindowDropCandidate(windowId);
+            me.endNativeGesture(windowId);
             return
         }
 
         candidate = me.getNativeWindowDropCandidate(data, sourceDrag);
+
+        me.updateNativeHover(windowId, candidate);
 
         if (!candidate) {
             me.clearNativeWindowDropCandidate(windowId);
@@ -398,6 +598,11 @@ class DragCoordinator extends Manager {
      */
     onDragEnd(data) {
         let me = this;
+
+        // The gesture reaches a terminal on every branch below, so its token dies here — the
+        // committed target already lives in `activeTargetZone`; claims are hover-time state only.
+        me.pointerClaimArbiter?.reset();
+        me.pointerClaimArbiter = null;
 
         if (me.activeTargetZone) {
             // The TARGET decides whether the gesture committed: onRemoteDrop() returns the committed
@@ -491,6 +696,26 @@ class DragCoordinator extends Manager {
             me.activeTargetZone = null
         }
 
+        // Claim hygiene mirrors the activeTargetZone rule above: a departed zone must not stay
+        // reachable as a WINNING CLAIM either — a later resolve would hand the gesture a commit
+        // destination whose vessel is gone. Release is identity-scoped across every live arbiter.
+        if (sortZone.stableTargetId != null) {
+            me.pointerClaimArbiter?.release(sortZone.stableTargetId);
+
+            for (const arbiter of me.nativeClaimArbiters.values()) {
+                arbiter.release(sortZone.stableTargetId)
+            }
+        }
+
+        // ...and a departing zone stops receiving continuous native hover, ending its preview
+        // while the reference can still reach it (same reasoning as the activeTargetZone leave).
+        for (const [windowId, hover] of me.nativeHoverTargets.entries()) {
+            if (hover === sortZone) {
+                hover.onRemoteDragLeave?.();
+                me.nativeHoverTargets.delete(windowId)
+            }
+        }
+
         for (const [windowId, candidate] of me.nativeWindowDropCandidates.entries()) {
             if (candidate.sourceSortZone === sortZone || candidate.targetSortZone === sortZone) {
                 me.clearNativeWindowDropCandidate(windowId)
@@ -511,7 +736,9 @@ class DragCoordinator extends Manager {
                 sortGroup: me.activeTargetZone.sortGroup,
                 windowId : me.activeTargetZone.windowId
             } : null,
-            sortZones: Array.from(me.sortZones.entries()).map(([group, map]) => ({
+            nativeGestures     : Array.from(me.nativeClaimArbiters.keys()),
+            pointerGestureToken: me.pointerClaimArbiter?.token ?? null,
+            sortZones          : Array.from(me.sortZones.entries()).map(([group, map]) => ({
                 group,
                 windows: Array.from(map.keys())
             }))
