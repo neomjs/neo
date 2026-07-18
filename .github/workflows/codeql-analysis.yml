@@ -66,3 +66,28 @@ jobs:
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v4
+
+  # A file CodeQL cannot parse emits zero alerts and clears the alert-gate clean — "unparseable" and
+  # "clean" are indistinguishable there, and the code-scanning API's `warning` field is empirically
+  # empty on a run whose own Analyze log carries the drop. This guard reads the discriminating surface
+  # (the completed Analyze job's log) and fails CI naming the dropped file(s). Complements, never
+  # duplicates, the alert-gate (ruleset 19087298): alerts and processing-warnings are different signals.
+  extraction-guard:
+    name: CodeQL extraction guard
+    needs: analyze
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read   # read the completed Analyze job's log for this run
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v6
+
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
+    - name: Fail on CodeQL extraction errors
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: node buildScripts/util/check-codeql-extraction.mjs
