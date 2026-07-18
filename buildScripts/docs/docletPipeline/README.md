@@ -1,4 +1,4 @@
-# jsdoc-x (ESM Rewrite)
+# docletPipeline — an ESM rewrite of jsdoc-x
 
 This directory contains an ES module (ESM) rewrite of the excellent `jsdoc-x` library by Onury (https://github.com/onury/jsdoc-x).
 
