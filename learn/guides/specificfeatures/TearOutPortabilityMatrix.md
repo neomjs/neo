@@ -47,8 +47,8 @@ implementation).
 
 | # | Row | macOS (Chrome, headed) | Windows | Linux |
 |---|---|---|---|---|
-| 1 | Hysteretic grammar (0.8 out / 0.6 in, direction-aware) | `PASS_NATIVE` ¹ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
-| 2 | Acquisition (`window.open` boolean; activation window) | `PASS_NATIVE` ² | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
+| 1 | Hysteretic grammar (0.8 out / 0.6 in, direction-aware) | `NOT_YET_MEASURED` ¹ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
+| 2 | Acquisition (`window.open` boolean; activation window) | `NOT_YET_MEASURED` ² | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 | 3 | Moving embodiment (requested-vs-observed `moveTo`) | `NOT_YET_MEASURED` ³ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 | 4 | Object permanence / reintegration (same instance back) | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 | 5 | Screen topology (`getScreenDetails` never a prerequisite) | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
@@ -59,20 +59,26 @@ Environment note: the current fleet has a qualifying **macOS** headed environmen
 Linux columns require real desktop sessions (a virtual display proves wiring, not native
 placement semantics) and remain honestly `NOT_YET_MEASURED` until such environments exist.
 
-¹ Row 1 macOS (2026-07-18, Chrome via the matrix runner): the witness proves boundary-exit
-under the documented hysteresis, MID-GESTURE popup acquisition, popup persistence through the
-drop terminal, and same-instance adoption rendering in the popup over the shared heap — **but
-the outcome is NONDETERMINISTIC** (3× green, then a same-choreography red): see footnote ³.
-Pending sub-receipt: the ratio-trace no-oscillation assertion (reads `SortZone.traces`).
+¹ Row 1 macOS — **qualified PROBE receipts, verdict pending** (2026-07-18, Chrome via the
+matrix runner): the probes witnessed boundary-exit under the documented hysteresis, MID-GESTURE
+popup acquisition, popup persistence through the drop terminal, and Neo-rendered content in the
+popup. The verdict awaits its named sub-receipts: the ratio-trace no-oscillation assertion
+(reads `SortZone.traces`) and a stronger same-instance adoption receipt (the current evidence
+is `[id^=neo-]`-level rendering, not an instance-id identity check). The earlier nondeterminism
+(3× green → reap; see ³) is RESOLVED by the merged birth-race fix — post-fix confirmation ran
+6/6 green on this exact witness.
 
-² Row 2 macOS (2026-07-18): mid-gesture acquisition itself is `PASS_NATIVE` (row 1's receipts —
-`window.open` succeeds during the gesture). The **>5 s activation-expiry negative control is
-UNMEASURABLE UNDER AUTOMATION**: the decay-trace receipts show `navigator.userActivation.isActive`
-still `true` at 2 s / 4 s / 6 s / 8 s into a held CDP-input gesture AND after release —
-synthesized input sustains transient activation indefinitely on macOS Chrome. Consequence for
+² Row 2 macOS — **qualified PROBE receipts, verdict pending**: mid-gesture `window.open`
+succeeds during the gesture (row-1 probes). But TWO instrument caveats block the verdict:
+the **>5 s activation-expiry negative control is UNMEASURABLE UNDER AUTOMATION** (decay-trace
+receipts: `navigator.userActivation.isActive` still `true` at 2/4/6/8 s into a held CDP-input
+gesture AND after release — synthesized input sustains transient activation indefinitely), and
+**the matrix runner itself carries Playwright's default `--disable-popup-blocking`**, so no
+blocked-acquisition cell has been measured under real blocking conditions yet. Consequence for
 the G2 acquisition contract: **never calibrate activation timings from automated runs**; the
-expiry half of this cell requires real human input to measure. The release-time-`window.open`
-negative baseline stands on spec authority, not on this instrument.
+expiry half + the blocking-controlled cells require real-input / blocking-controlled
+measurement. The release-time-`window.open` negative baseline stands on spec authority, not on
+this instrument.
 
 ³ Row 3 macOS (2026-07-18): the earlier "sustained movement closes the popup" observation is
 **RETIRED — the truth is sharper and worse**: with the close-listener attached inside the
