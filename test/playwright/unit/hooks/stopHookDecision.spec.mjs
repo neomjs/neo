@@ -160,7 +160,7 @@ test.describe('ai/scripts/lifecycle/stopHookDecision — shared no-hold decision
     });
 
     test('decideStopHookAction: dialogue fail-open is exact — absent, malformed, and other continuations allow', () => {
-        for (const laneContinuation of [null, undefined, '', 'next-lane', 'ACTIVE-LANE', {value: 'active-lane'}]) {
+        for (const laneContinuation of [null, undefined, '', 'next-lane', 'blocker-routed', 'ACTIVE-LANE', {value: 'active-lane'}]) {
             expect(decideStopHookAction(verdict, {enforcing: true, operatorInLoop: true, laneContinuation}).action)
                 .toBe('allow');
         }

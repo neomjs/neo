@@ -4,7 +4,8 @@
  * @summary Claude Code `Stop` hook — REFUSES every turn-end except a live operator dialogue whose
  * terminal does not declare `active-lane`, or an audited CLEAN TERMINAL (valid terminal + fully
  * handed-off gates + the session drive-ratchet).
- * DRY-RUN (log-only) by default; ENFORCE via `NEO_LANE_STATE_ENFORCE=1`.
+ * An absent enforcement flag is a non-enforcing fail-open fallback; live harness wiring enforces via
+ * `NEO_LANE_STATE_ENFORCE=1`.
  *
  * Fires at every agent turn-end (the `Stop` event). The decision rule: there is NO valid voluntary
  * stop except a **live operator dialogue** — a turn that directly replied to a genuine human-operator
@@ -28,7 +29,7 @@
  *    operator message that arrived MID-CHAIN counts as dialogue evidence — the hook's contract could
  *    previously never confirm it and refused live-dialogue terminals as autonomous. Dialogue normally
  *    allows, but an exact parsed `active-lane` declaration refuses: answer-plus-drive, not answer-plus-stop.
- *  - Otherwise: ENFORCE → block; DRY-RUN → would-block (log only — the audit path). The lane-state
+ *  - Otherwise: ENFORCE → block; non-enforcing → would-block (log only — the audit path). The lane-state
  *    `verdict` (`parseLaneState` → `validateLaneStateTerminal`) no longer gates the action — it only
  *    supplies the `reason` for the injected directive.
  *  - Block path (ENFORCING): write `{"decision":"block","reason":"…"}` to stdout — Claude keeps
@@ -41,9 +42,9 @@
  * emission* (parseLaneState throws) is NOT our failure — it feeds the directive's `reason`, not the gate.
  *
  * ACTIVATION = operator-authority: this script is INERT until wired into the harness settings
- * (`.claude/settings.*`). Wire it in DRY-RUN first, audit the WOULD-BLOCK log, then set
- * `NEO_LANE_STATE_ENFORCE=1` to enforce. A buggy blocking hook would trap every agent's turn-end, so
- * the dry-run → audit → enforce ramp is the safe rollout.
+ * (`.claude/settings.*`). Live wiring sets `NEO_LANE_STATE_ENFORCE=1` immediately. An absent flag is a
+ * fail-open wiring or stale-session signal; WOULD-BLOCK remains a unit-pinned diagnostic output, not a
+ * prescribed live rollout tier.
  *
  * SEAM: `parseLaneState` + `validateLaneStateTerminal` (imported from `ai/scripts/lifecycle/`) supply
  * the `verdict`'s reason; the pure `parseOutcomeToVerdict`, `decideHookAction`, and `isOperatorInLoop`
@@ -72,10 +73,10 @@ import {collectLaneStateToolEvidenceFromJsonl,
 
 export {isOperatorInLoop, parseOutcomeToVerdict};
 
-// Enforce ONLY when the operator explicitly activates it; default is DRY-RUN (log-only, never blocks).
+// Live harness wiring explicitly enables enforcement. An absent flag fails open and emits diagnostics.
 const ENFORCING = process.env.NEO_LANE_STATE_ENFORCE === '1';
 
-// Append-only audit log — the WOULD-BLOCK / ALLOW record for auditing the dry-run before enforcement.
+// Append-only decision log — WOULD-BLOCK records non-enforcing diagnostics; ALLOW/BLOCK record live truth.
 // NEO_AI_DAEMON_DIR override keeps tests off the real store.
 const LOG_DIR  = process.env.NEO_AI_DAEMON_DIR || path.join(os.homedir(), '.neo-ai-data', 'lane-state-hook');
 const LOG_FILE = path.join(LOG_DIR, 'lane-state-stop-hook.log');
@@ -96,7 +97,7 @@ function readStdin() {
 }
 
 /**
- * @summary Best-effort append to the dry-run audit log. A log failure must NEVER gate the hook
+ * @summary Best-effort append to the decision audit log. A log failure must NEVER gate the hook
  * (mirrors the wake daemon's never-fail log discipline) — worst case is a lost audit line.
  * @param {String} line
  * @protected
@@ -127,7 +128,7 @@ function auditLog(line) {
  * the no-hold principle was honored (`evaluateCleanTerminalAcceptance`; the drive count comes from the
  * hook's OWN audit trail, never the agent's claim). Acceptance emits a `[clean-terminal]` audit line —
  * the boundary is observable, not silent. Everything else is unchanged: a first valid terminal still
- * refuses (ratchet), ENFORCE blocks, DRY-RUN previews (would-block), and the `verdict` supplies the
+ * refuses (ratchet), ENFORCE blocks, non-enforcing mode previews (would-block), and the `verdict` supplies the
  * directive `reason`. The remaining autonomous stops are hard external limits (Claude Code's
  * consecutive-block force-override, context-sunset, or an operator halt).
  * @param {{valid: Boolean, reason: String}} verdict

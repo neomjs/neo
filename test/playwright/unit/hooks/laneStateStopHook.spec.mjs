@@ -61,6 +61,7 @@ test.describe('laneStateStopHook — pure idle-out decision logic', () => {
             expect(decideHookAction({valid: false, reason: 'x'}, true,  true).action).toBe('allow');
             expect(decideHookAction({valid: true,  reason: 'x'}, false, true).action).toBe('allow');
             expect(decideHookAction({valid: true, reason: 'x'}, true, true, null, 'next-lane').action).toBe('allow');
+            expect(decideHookAction({valid: true, reason: 'x'}, true, true, null, 'blocker-routed').action).toBe('allow');
         });
 
         test('operatorInLoop + active-lane → BLOCK (enforce) / WOULD-BLOCK (dry-run)', () => {
@@ -641,10 +642,11 @@ test.describe('laneStateStopHook — end-to-end (spawned hook against the real S
     });
 
     test('LIVE OPERATOR dialogue keeps ALLOW for malformed and non-active lane-state terminals', async () => {
-        const malformed = `Done.\n\n${block('{bad json}')}`,
-              nextLane  = `Done.\n\n${block('{"laneContinuation":"next-lane"}')}`;
+        const malformed     = `Done.\n\n${block('{bad json}')}`,
+              nextLane      = `Done.\n\n${block('{"laneContinuation":"next-lane"}')}`,
+              blockerRouted = `Done.\n\n${block('{"laneContinuation":"blocker-routed"}')}`;
 
-        for (const finalText of [malformed, nextLane]) {
+        for (const finalText of [malformed, nextLane, blockerRouted]) {
             const {stdout, log} = await runHook(finalText, {enforce: true, promptingText: 'please do X, then report'});
             expect(log).toContain('ALLOW');
             expect(log).not.toContain('[active-lane-in-dialogue]');
