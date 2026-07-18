@@ -1,4 +1,5 @@
 import {test, expect}     from '../../fixtures.mjs';
+import DockZoneModel      from '../../../../src/dashboard/DockZoneModel.mjs';
 import {fusionTourScript} from '../../../../apps/agentos/tour/fusionFlagship.mjs';
 
 /**
@@ -139,6 +140,16 @@ test.describe('AgentOS fusion flagship — four-beat tour on the live cockpit', 
 
             expect(artifact.perspectiveName).toBe('Shared Session');
             expect(artifact.dockZone, 'the artifact carries the whole layout document').toBeTruthy();
+
+            // AC-3's LIVE equality: the tour's final beat restored "Shared Session", so the
+            // COMMITTED live document must re-fingerprint EQUAL to the exported artifact —
+            // the share round-trip restores fingerprint-equal topology on the real surface
+            const liveDocument    = (await app.getComponent(cockpitId, ['dockModel'])).dockModel,
+                  liveFingerprint = DockZoneModel.computeShapeFingerprint(liveDocument);
+
+            expect(liveFingerprint.errors).toEqual([]);
+            expect(liveFingerprint.fingerprint, `take ${run + 1}: the restored live topology is fingerprint-equal to the exported artifact`)
+                .toEqual(artifact.windowFingerprint);
 
             expect(popupCount, `take ${run + 1} opened exactly one real popup`).toBe(popupsBefore + 1)
         }

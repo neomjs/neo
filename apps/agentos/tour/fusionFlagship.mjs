@@ -97,7 +97,7 @@ export const fusionTourScript = Object.freeze({
             {type: 'pause', ms: 700, cue: {type: 'perspective-export', name: 'Shared Session'}, caption: 'export("Shared Session"): the whole layout as one JSON artifact, readable over the Neural Link — no backend'},
             {type: 'pause', ms: 1100, cue: {type: 'perspective-load', name: 'Mission Control'}, caption: 'load("Mission Control"): morph away — the shared shape is gone from the stage'},
             {type: 'pause', ms: 1100, cue: {type: 'perspective-import', name: 'Shared Session'}, caption: 'import(artifact): the JSON comes back through validation, exactly as exported'},
-            {type: 'pause', ms: 1100, cue: {type: 'perspective-load', name: 'Shared Session'}, caption: 'load("Shared Session"): the teammate sees YOUR workspace — fingerprint-equal, asserted in the e2e leg'},
+            {type: 'pause', ms: 1100, cue: {type: 'perspective-load', name: 'Shared Session'}, caption: 'load("Shared Session"): the exported artifact restores fingerprint-equal — the transfer rides the Neural Link read; cross-cockpit hand-off builds on this boundary'},
             {
                 type   : 'topology-assert',
                 caption: 'the catalog truth that holds in every mode: the detail is a first-class workspace citizen, the fleet never left',
