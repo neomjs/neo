@@ -19,6 +19,7 @@ import * as core              from '../../../../../../src/core/_export.mjs';
 import fs                     from 'fs';
 import path                   from 'path';
 import {BATCH_SCHEMA_VERSION} from '../../../../../../ai/services/memory-core/communityBatchContract.mjs';
+import RequestContextService  from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
 
 /**
  * @summary Admission witnesses: the epoch fence and the digest-keyed idempotency contract.
@@ -405,5 +406,76 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
 
         expect(() => AdmissionService.admitBatch(batch(id))).toThrow('ATTENTION_POLICY_NOT_CONFIGURED');
         expect(AdmissionService.listOccurrences(id)).toHaveLength(0);
+    });
+
+    // ---------------------------------------------------------------- ingress parity + delivery hazards
+
+    test('local and remote ingress reach ONE service and produce the same receipt contract', async () => {
+        const id    = activeSource(),
+              local = AdmissionService.admitBatch(batch(id));
+
+        // "Remote": the same tenant arriving through an authenticated request context instead of the
+        // deployment subject. Same method, same durable state — the facades differ only in how the
+        // tenant is established.
+        const remote = await RequestContextService.run({userId: SUBJECT}, () =>
+            AdmissionService.admitBatch(batch(id, {batchId: 'batch-2'})));
+
+        expect(remote.status).toBe('accepted');
+        expect(Object.keys(remote.receipt).sort(), 'byte-equivalent receipt shape').toEqual(Object.keys(local.receipt).sort());
+
+        // The strongest parity evidence: a REMOTE retry of the LOCALLY admitted batch resolves
+        // idempotent against the very same durable row.
+        const crossRetry = await RequestContextService.run({userId: SUBJECT}, () =>
+            AdmissionService.admitBatch(batch(id)));
+
+        expect(crossRetry.status).toBe('idempotent');
+        expect(crossRetry.receipt.receiptId).toBe(local.receipt.receiptId);
+    });
+
+    test('an auth failure cannot partially admit', () => {
+        const id = activeSource();
+
+        SourceRegistryService.localSubjectId = null; // no deployment subject, no request context
+
+        expect(() => AdmissionService.admitBatch(batch(id))).toThrow('BATCH_ADMISSION_NO_TENANT');
+
+        SourceRegistryService.localSubjectId = SUBJECT;
+        expect(receiptCount(), 'nothing was written').toBe(0);
+        expect(AdmissionService.listOccurrences(id)).toHaveLength(0);
+    });
+
+    test('a lost-response retry returns the original receipt rather than re-admitting', () => {
+        const id    = activeSource(),
+              first = AdmissionService.admitBatch(batch(id)),
+              // The connector never saw the response and retries the identical batch.
+              retry = AdmissionService.admitBatch(batch(id));
+
+        expect(retry.status).toBe('idempotent');
+        expect(retry.receipt).toEqual(first.receipt);
+        expect(receiptCount()).toBe(1);
+        expect(AdmissionService.listOccurrences(id)).toHaveLength(2);
+    });
+
+    test('out-of-order delivery: admitted sequence records ACCEPTANCE order, not occurrence time', () => {
+        const id = activeSource();
+
+        const later = AdmissionService.admitBatch(batch(id, {
+            batchId    : 'b-late',
+            occurrences: [occurrence('e9', {occurredAt: '2026-07-18T20:00:00Z'})]
+        }));
+
+        const earlier = AdmissionService.admitBatch(batch(id, {
+            batchId    : 'b-early',
+            occurrences: [occurrence('e1', {occurredAt: '2026-07-18T08:00:00Z'})]
+        }));
+
+        expect(later.receipt.admittedSequence).toBe(1);
+        expect(earlier.receipt.admittedSequence, 'sequence is ours, not the provider clock').toBe(2);
+
+        const rows = AdmissionService.listOccurrences(id);
+        expect(rows).toHaveLength(2);
+        expect(rows.map(r => r.occurredAt), 'occurrence time is preserved verbatim').toEqual(
+            ['2026-07-18T20:00:00Z', '2026-07-18T08:00:00Z']
+        );
     });
 });
