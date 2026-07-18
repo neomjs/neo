@@ -277,10 +277,19 @@ export function decideStopHookAction(verdict, {
     operatorInLoop          = false,
     blockInjectionSupported = true,
     blockUnsupportedReason  = '',
-    cleanTerminal           = null
+    cleanTerminal           = null,
+    materialArtifact        = null
 } = {}) {
     if (operatorInLoop) {
         return {action: 'allow', reason: 'live operator dialogue — yielding for the human turn'};
+    }
+
+    // The autonomous-quadrant PRIMARY key: a transcript-verified material lifecycle artifact
+    // (PR opened / formal review / RC-response) since the last accepted stop + a valid terminal.
+    // Evaluated externally (the adapter owns collection + the audit-log boundary); prose can
+    // never mint it. The clean terminal below remains the artifact-less fallback.
+    if (!operatorInLoop && materialArtifact?.accept === true) {
+        return {action: 'allow', reason: materialArtifact.reason};
     }
 
     if (cleanTerminal?.accept === true) {

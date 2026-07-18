@@ -447,3 +447,55 @@ test.describe('stopHookDecision — evaluateCleanTerminalAcceptance (the audited
         expect(LANE_STATE_SCHEMA_HINT).toContain('not a stop-license');
     });
 });
+
+test.describe('decideStopHookAction — the material-artifact key (the autonomous-quadrant primary allow)', () => {
+    const valid = {valid: true, reason: 'valid lane-state terminal'};
+
+    test('an accepted material key allows an AUTONOMOUS turn, carrying the material reason', () => {
+        const out = decideStopHookAction(valid, {
+            enforcing       : true,
+            operatorInLoop  : false,
+            materialArtifact: {accept: true, reason: '[material-allow] 1 material artifact (pr-opened #7) + a valid terminal'}
+        });
+
+        expect(out).toEqual({action: 'allow', reason: '[material-allow] 1 material artifact (pr-opened #7) + a valid terminal'})
+    });
+
+    test('material outranks the clean-terminal fallback when both accept (the primary key wins the reason)', () => {
+        const out = decideStopHookAction(valid, {
+            enforcing       : true,
+            operatorInLoop  : false,
+            cleanTerminal   : {accept: true, reason: '[clean-terminal] fallback'},
+            materialArtifact: {accept: true, reason: '[material-allow] primary'}
+        });
+
+        expect(out.reason).toBe('[material-allow] primary')
+    });
+
+    test('a REFUSED material key changes nothing: today\'s teeth stand (block under enforce), and the clean-terminal fallback still works alone', () => {
+        const blocked = decideStopHookAction(valid, {
+            enforcing       : true,
+            operatorInLoop  : false,
+            materialArtifact: {accept: false, reason: 'no material lifecycle artifact'}
+        });
+        expect(blocked.action).toBe('block');
+
+        const fallback = decideStopHookAction(valid, {
+            enforcing       : true,
+            operatorInLoop  : false,
+            cleanTerminal   : {accept: true, reason: '[clean-terminal] all gates non-self + ratchet met'},
+            materialArtifact: {accept: false, reason: 'no artifact'}
+        });
+        expect(fallback).toEqual({action: 'allow', reason: '[clean-terminal] all gates non-self + ratchet met'})
+    });
+
+    test('the dialogue quadrant is untouched: operator dialogue allows regardless of the material key (regression pin)', () => {
+        const out = decideStopHookAction(valid, {
+            enforcing       : true,
+            operatorInLoop  : true,
+            materialArtifact: {accept: false, reason: 'no artifact'}
+        });
+
+        expect(out).toEqual({action: 'allow', reason: 'live operator dialogue — yielding for the human turn'})
+    })
+});
