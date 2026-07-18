@@ -61,6 +61,10 @@ flowchart TD
     Active["Terminal declares active-lane?"]:::evidence
     Allow["Allow the hand-back"]:::allow
     Autonomous["Autonomous turn"]:::evidence
+    Material["Transcript-verified material artifact<br/>since the last accepted stop?"]:::evidence
+    MaterialAllow["Allow — MATERIAL-ALLOW audited"]:::allow
+    Clean["Clean terminal? Handed-off gates<br/>plus the session drive-ratchet"]:::evidence
+    CleanAllow["Allow — clean-terminal audited"]:::allow
     Reflect["Block or would-block with no-hold directive"]:::block
     Drive["Drive a named lane now"]:::event
 
@@ -74,7 +78,12 @@ flowchart TD
     Active -->|"yes"| Reflect
     Active -->|"no / absent / malformed"| Allow
     Lane -. "verdict" .-> Autonomous
-    Autonomous --> Reflect
+    Autonomous -->|"valid terminal"| Material
+    Autonomous -->|"invalid terminal"| Reflect
+    Material -->|"yes"| MaterialAllow
+    Material -->|"no"| Clean
+    Clean -->|"yes"| CleanAllow
+    Clean -->|"no"| Reflect
     Reflect --> Drive
 ```
 
@@ -97,8 +106,24 @@ The parser distinguishes three cases:
 - a parsed descriptor that passes or fails the evidence rules.
 
 Those distinctions matter for the injected reason, but not for the deeper
-principle. An autonomous stop is still refused even when the descriptor is valid,
-because the job is to keep moving, not to format the exit well.
+principle. A valid descriptor alone never licenses an autonomous stop — the job
+is to keep moving, not to format the exit well. An autonomous turn earns its stop
+through exactly two audited edges, both requiring the valid terminal as their
+handoff record:
+
+- **The material-artifact key** (the primary license): a transcript-verified
+  lifecycle artifact — a PR opened or a formal review submitted — shipped since
+  this session's last accepted stop. Provenance is ID-correlated end-to-end
+  (`tool_use` → matching `tool_result`; errored calls consume without
+  confirming), so prose claims, shell echoes, and replayed text can never mint
+  it. Acceptance writes a `MATERIAL-ALLOW` audit line.
+- **The clean terminal** (the artifact-less fallback): every named gate awaits a
+  non-self actor and the session drive-ratchet was already honored — with the
+  drive count read from the hook's own audit log, never from the agent's claim.
+  Acceptance writes a `[clean-terminal]` audit line.
+
+Both boundaries are observable, never silent; everything else refuses. The
+license is the artifact or the handed-off board — never the formatting.
 
 ## The Shared Seam
 
