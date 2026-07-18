@@ -18,7 +18,7 @@ import path                                                      from 'path';
  * AgentDefinitions + FleetRoster stores; this is behavioral evidence rather than a screenshot generator.
  *
  * @see apps/agentos/view/Accounts.mjs
- * @see apps/agentos/view/AgentConfigCard.mjs
+ * @see apps/agentos/view/fleet/AgentConfigCard.mjs
  */
 test.describe('AgentOS Accounts — agent-scoped configuration surface', () => {
     test.setTimeout(120000);
@@ -70,17 +70,17 @@ test.describe('AgentOS Accounts — agent-scoped configuration surface', () => {
             // is gone before an existing agent can be edited.
             await expect(page.locator('.agent-selector-button').filter({hasText: agentId})).toHaveCount(1);
 
-            await expect(page.locator('.agent-config-card')).toBeVisible();
-            expect(await page.locator('.agent-config-chip').count()).toBe(listHarnessTypes().length);
-            await expect(page.locator('.agent-config-chip.is-selected')).toHaveCount(1);
+            await expect(page.locator('.fm-agent-config-card')).toBeVisible();
+            expect(await page.locator('.fm-chip').count()).toBe(listHarnessTypes().length);
+            await expect(page.locator('.fm-chip.is-selected')).toHaveCount(1);
 
-            const memoryCore = page.locator('.agent-config-toggle').filter({hasText: 'Memory Core'});
+            const memoryCore = page.locator('.fm-config-toggle').filter({hasText: 'Memory Core'});
             await expect(memoryCore).toHaveClass(/is-enabled/);
             // Docked keeper views may render beyond the browser viewport while remaining the live
             // mounted surface. Dispatch through the real DOM listener instead of weakening the
             // component path with a direct method call.
             await memoryCore.dispatchEvent('click');
-            await expect(page.locator('.agent-config-save-status.is-accepted')).toContainText('Configuration saved');
+            await expect(page.locator('.fm-config-save-status.is-accepted')).toContainText('Configuration saved');
             await expect(memoryCore).toHaveClass(/is-disabled/);
 
             expect(FleetRegistryService.getDefinition(agentId).mcpServers).toEqual({'memory-core': false});
@@ -182,7 +182,7 @@ test.describe('AgentOS Accounts — agent-scoped configuration surface', () => {
             await appReloaded.callMethod(accountsReloaded.properties.id, 'loadAgentDefinitions');
             await expect(page.locator('.agent-selector-button').filter({hasText: agentId})).toHaveCount(1);
             await expect(page.locator('.agent-selector-button').filter({hasText: createdAgentId})).toHaveCount(1);
-            await expect(page.locator('.agent-config-toggle').filter({hasText: 'Memory Core'})).toHaveClass(/is-disabled/);
+            await expect(page.locator('.fm-config-toggle').filter({hasText: 'Memory Core'})).toHaveClass(/is-disabled/);
 
             expect(await page.locator('.agent-harness-picker .neo-radiofield').count()).toBe(listHarnessTypes().length)
         } finally {

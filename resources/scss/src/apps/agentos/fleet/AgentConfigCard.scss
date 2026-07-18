@@ -1,0 +1,117 @@
+/* The per-agent configuration card, re-skinned to the cockpit token layer — geometry from
+   the legacy Accounts-embedded skin, every color a token read. Ink tiers per TOKENS.md roles:
+   values/names on --fm-ink, labels/meta on --fm-ink-dim (NEVER --fm-ink-faint — its contrast
+   failure is on record); outcome states borrow the kind/state vocabulary, each paired with a
+   non-color carrier (weight / style / text), never hue alone. */
+.fm-agent-config-card {
+    background     : var(--fm-panel);
+    border         : 1px solid var(--fm-line);
+    border-radius  : 8px;
+    color          : var(--fm-ink);
+    display        : flex;
+    flex-direction : column;
+    gap            : 6px;
+    padding        : 10px 12px;
+
+    .fm-config-empty {
+        color     : var(--fm-ink-dim);
+        font-size : 12px;
+    }
+
+    .fm-config-identity {
+        display        : flex;
+        flex-direction : column;
+        gap            : 2px;
+
+        .fm-config-name {
+            color     : var(--fm-ink);
+            font-size : 14px;
+        }
+
+        .fm-config-status {
+            color     : var(--fm-ink-dim);
+            font-size : 11px;
+        }
+    }
+
+    .fm-config-section {
+        display        : flex;
+        flex-direction : column;
+        gap            : 4px;
+        margin-top     : 6px;
+
+        .fm-config-heading {
+            color          : var(--fm-ink-dim);
+            font-family    : var(--fm-font-mono);
+            font-size      : 11px;
+            letter-spacing : .04em;
+            text-transform : uppercase;
+        }
+    }
+
+    .fm-config-row {
+        display         : flex;
+        font-size       : 12px;
+        gap             : 12px;
+        justify-content : space-between;
+
+        .fm-config-label {
+            color: var(--fm-ink-dim);
+        }
+
+        .fm-config-value {
+            color: var(--fm-ink);
+        }
+
+        &.is-disabled .fm-config-value {
+            color: var(--fm-ink-dim);
+        }
+
+        &.is-enabled .fm-config-value {
+            font-weight : 600;
+        }
+
+        &.is-unknown .fm-config-value {
+            color      : var(--fm-ink-dim);
+            font-style : italic;
+        }
+    }
+
+    .fm-config-toggle {
+        cursor : pointer;
+
+        &:hover .fm-config-value {
+            text-decoration : underline;
+        }
+    }
+
+    .fm-config-chips {
+        display   : flex;
+        flex-wrap : wrap;
+        gap       : 6px;
+    }
+
+    .fm-config-save-status {
+        font-size  : 11px;
+        min-height : 14px;
+
+        &.is-idle {
+            visibility : hidden;
+        }
+
+        &.is-pending {
+            color      : var(--fm-ink-dim);
+            font-style : italic;
+        }
+
+        &.is-accepted {
+            color       : var(--fm-state-ok);
+            font-weight : 600;
+        }
+
+        &.is-rejected {
+            color       : var(--fm-kind-alert);
+            font-weight : 600;
+        }
+    }
+}

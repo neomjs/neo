@@ -1,4 +1,4 @@
-import AgentConfigCard    from './AgentConfigCard.mjs';
+import AgentConfigCard    from './fleet/AgentConfigCard.mjs';
 import Button             from '../../../src/button/Base.mjs';
 import DashboardPanel     from '../../../src/dashboard/Panel.mjs';
 import FormContainer      from '../../../src/form/Container.mjs';
