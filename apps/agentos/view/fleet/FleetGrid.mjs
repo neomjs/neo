@@ -1,4 +1,5 @@
 import AgentCard from './AgentCard.mjs';
+import Button    from '../../../../src/button/Base.mjs';
 import Component from '../../../../src/component/Base.mjs';
 import Container from '../../../../src/container/Base.mjs';
 import HealthBar from './HealthBar.mjs';
@@ -284,6 +285,14 @@ class FleetGrid extends Container {
      * health bar counts) and rebuild only the ranked card set (online cards → collapsed-idle fold
      * when over threshold, else idle cards → benched tail).
      */
+    /**
+     * @summary The bootstrap CTA's click — one intent event; the owning cockpit opens the S5
+     * define-agent zone (the grid never touches dock state itself: layout-blind).
+     */
+    onEmptyCtaClick() {
+        this.fire('addAgentRequest', {})
+    }
+
     refreshGrid() {
         const me             = this,
               records        = me.getRecords(),
@@ -305,6 +314,19 @@ class FleetGrid extends Container {
         }
 
         cards.push(...rank.benched.map(record => me.agentCardConfig(record)));
+
+        // the bootstrap CTA (design ruling on record): an EMPTY fleet must have a findable path to
+        // its first agent — a new operator stranded at a blank cockpit is the one discoverability
+        // gap the invoked-not-ambient rail entry cannot cover. Renders ONLY at roster count 0 and
+        // therefore disappears with the first agent: not ambient chrome, so the density contract
+        // holds for every populated fleet. A native Button — real element, ordinary Tab order.
+        rank.total === 0 && cards.push({
+            module : Button,
+            cls    : ['fm-fleet-empty-cta'],
+            handler: me.onEmptyCtaClick.bind(me),
+            iconCls: 'fa fa-plus',
+            text   : 'Add your first agent'
+        });
 
         const cardsContainer = me.getReference('fleet-cards');
 

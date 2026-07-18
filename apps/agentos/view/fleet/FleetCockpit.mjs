@@ -821,7 +821,10 @@ class FleetCockpit extends Container {
                     adapterState: me.gridAdapterState,
                     bind        : {store: 'stores.fleetRoster'},
                     cls         : [marker],
-                    reference   : 'fleet-grid'
+                    // the bootstrap CTA's intent: an empty fleet's one path to its first agent —
+                    // the controller opens the S5 define-agent zone (the card-drill precedent)
+                    listeners: {addAgentRequest: 'onAddAgentRequest'},
+                    reference: 'fleet-grid'
                 };
             case 'activity-stream':
                 return {
@@ -863,9 +866,9 @@ class FleetCockpit extends Container {
                     // a bare mount or a chain without the store degrades to null — the tab's honest
                     // empty state — instead of a bind demanding a provider chain that may not exist
                     agentDefinitions: me.resolveAgentDefinitionsStore(),
-                    cls      : [marker],
-                    record   : me.detailRecord,
-                    reference: 'agent-detail'
+                    cls             : [marker],
+                    record          : me.detailRecord,
+                    reference       : 'agent-detail'
                 };
             case 'define-agent':
                 // the S5 add-agent flow (rail tool, invoked-not-ambient per the design ruling).
