@@ -11,7 +11,6 @@ class ViewportController extends Controller {
         routes   : {
             '/accounts': 'onAccountsRoute',
             '/chat'    : 'onChatRoute',
-            '/control' : 'onControlRoute',
             '/fleet'   : 'onFleetRoute',
             '/home'    : 'onHomeRoute'
         }
@@ -83,13 +82,6 @@ class ViewportController extends Controller {
      */
     onChatRoute() {
         this.activateRoute('/chat')
-    }
-
-    /**
-     * @summary Activates the Control keeper-view from the route.
-     */
-    onControlRoute() {
-        this.activateRoute('/control')
     }
 
     /**

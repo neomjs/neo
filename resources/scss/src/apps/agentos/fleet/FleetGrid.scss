@@ -50,3 +50,21 @@
         border-radius: 8px;
     }
 }
+
+/* the bootstrap CTA — renders only while the roster is empty (the design ruling's required
+   refinement): a real button in the card region, token-only, gone with the first agent */
+.fm-fleet-empty-cta {
+    align-self   : center;
+    background   : color-mix(in srgb, var(--fm-signal) 12%, transparent);
+    border       : 1px dashed var(--fm-signal);
+    border-radius: 8px;
+    color        : var(--fm-ink);
+    font-weight  : 600;
+    margin       : 24px auto;
+    padding      : 10px 18px;
+
+    &:focus-visible {
+        outline       : 2px solid var(--fm-signal);
+        outline-offset: 2px;
+    }
+}

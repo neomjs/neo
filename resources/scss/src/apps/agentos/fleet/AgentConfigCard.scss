@@ -113,5 +113,12 @@
             color       : var(--fm-kind-alert);
             font-weight : 600;
         }
+
+        /* informational, non-terminal: another surface's newer change won — text carries the
+           full story (no color-only signal), italics mark it as a note rather than an outcome */
+        &.is-superseded {
+            color      : var(--fm-ink-dim);
+            font-style : italic;
+        }
     }
 }
