@@ -1,5 +1,4 @@
 import Component              from '../../../../src/component/Base.mjs';
-import NeoArray               from '../../../../src/util/Array.mjs';
 import {kindClass, kindLabel} from './kindRegistry.mjs';
 
 /**
@@ -57,12 +56,10 @@ class EventChip extends Component {
      * @protected
      */
     afterSetKind(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
+        let me = this;
 
-        oldValue !== undefined && NeoArray.remove(cls, kindClass(oldValue));
-        NeoArray.add(cls, kindClass(value));
-        me.cls = cls;
+        oldValue !== undefined && me.removeCls(kindClass(oldValue));
+        me.addCls(kindClass(value));
 
         me.updateChipText()
     }

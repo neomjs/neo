@@ -1,5 +1,4 @@
 import Component from '../../../../src/component/Base.mjs';
-import NeoArray  from '../../../../src/util/Array.mjs';
 
 /**
  * Maps a model-family key to its rail token (the `--fm-family-*` values live in the theme skin,
@@ -100,16 +99,13 @@ class FamilyRail extends Component {
      */
     afterSetFamily(value, oldValue) {
         let me       = this,
-            cls      = me.cls,
             oldClass = familyClass(oldValue),
             newClass = familyClass(value);
 
-        oldClass && NeoArray.remove(cls, oldClass);
-        newClass && NeoArray.add(cls, newClass);
+        oldClass && me.removeCls(oldClass);
+        newClass && me.addCls(newClass);
 
-        NeoArray[isKnownFamily(value) ? 'remove' : 'add'](cls, 'fm-family-unclassified');
-
-        me.cls = cls
+        me.toggleCls('fm-family-unclassified', !isKnownFamily(value))
     }
 }
 

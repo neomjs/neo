@@ -1,5 +1,4 @@
 import Component from '../../../../src/component/Base.mjs';
-import NeoArray  from '../../../../src/util/Array.mjs';
 
 /**
  * Maps a session-state key to its design token (the `--fm-state-*` values live in the theme skin,
@@ -98,12 +97,8 @@ class StateDot extends Component {
      * @protected
      */
     afterSetState(value, oldValue) {
-        let cls = this.cls;
-
-        oldValue !== undefined && NeoArray.remove(cls, stateClass(oldValue));
-        NeoArray.add(cls, stateClass(value));
-
-        this.cls = cls
+        oldValue !== undefined && this.removeCls(stateClass(oldValue));
+        this.addCls(stateClass(value))
     }
 
     /**
@@ -114,9 +109,7 @@ class StateDot extends Component {
      * @protected
      */
     afterSetLive(value, oldValue) {
-        let cls = this.cls;
-        NeoArray[value ? 'add' : 'remove'](cls, 'fm-live');
-        this.cls = cls
+        this.toggleCls('fm-live', value)
     }
 }
 

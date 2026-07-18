@@ -1,5 +1,4 @@
 import Component    from '../../../../src/component/Base.mjs';
-import NeoArray     from '../../../../src/util/Array.mjs';
 import {stateClass} from './StateDot.mjs';
 
 /**
@@ -97,12 +96,10 @@ class HealthSwatch extends Component {
      * @protected
      */
     afterSetState(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
+        let me = this;
 
-        oldValue !== undefined && NeoArray.remove(cls, stateClass(oldValue));
-        NeoArray.add(cls, stateClass(value));
-        me.cls = cls;
+        oldValue !== undefined && me.removeCls(stateClass(oldValue));
+        me.addCls(stateClass(value));
 
         me.applyLabel();
         me.update()
