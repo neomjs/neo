@@ -189,4 +189,55 @@ test.describe('fleetPrLaneActivityAdapter - PR/lane activity mapping', () => {
         })
         expect(snapshot.events.map(event => event.payload.number || event.payload.issueNumber)).toEqual([2, 3])
     })
+
+    // ---- human-gate truth at the consumer boundary (Cycle-2 RA3: draft + formal-disposition) ----
+
+    test('draft state is preserved truthfully — unknown stays null, never fabricated false', () => {
+        const [unknown] = createPrActivityEvents([{number: 1, author: {login: 'a'}, updatedAt: '2026-07-04T03:00:00Z'}])
+        const [drafted] = createPrActivityEvents([{number: 2, author: {login: 'a'}, updatedAt: '2026-07-04T03:00:00Z', isDraft: true}])
+        const [ready]   = createPrActivityEvents([{number: 3, author: {login: 'a'}, updatedAt: '2026-07-04T03:00:00Z', isDraft: false}])
+
+        // synced records carry no draft field → unknown must stay null in the cockpit payload, not false
+        expect(unknown.payload.isDraft).toBeNull()
+        expect(drafted.payload.isDraft).toBe(true)
+        expect(ready.payload.isDraft).toBe(false)
+    })
+
+    test('a later COMMENTED review never supersedes a formal disposition (human-gate truth)', () => {
+        const [crThenComment] = createPrActivityEvents([{
+            number   : 1,
+            author   : {login: 'a'},
+            updatedAt: '2026-07-04T03:00:00Z',
+            reviews  : [
+                {author: {login: 'rev'}, state: 'CHANGES_REQUESTED', submittedAt: '2026-07-04T01:00:00Z'},
+                {author: {login: 'rev'}, state: 'COMMENTED',         submittedAt: '2026-07-04T02:00:00Z'}
+            ]
+        }])
+        expect(crThenComment.payload.humanGateState.changedRequested).toBe(true)
+
+        const [approveThenComment] = createPrActivityEvents([{
+            number   : 2,
+            author   : {login: 'a'},
+            updatedAt: '2026-07-04T03:00:00Z',
+            reviews  : [
+                {author: {login: 'rev'}, state: 'APPROVED',  submittedAt: '2026-07-04T01:00:00Z'},
+                {author: {login: 'rev'}, state: 'COMMENTED', submittedAt: '2026-07-04T02:00:00Z'}
+            ]
+        }])
+        expect(approveThenComment.payload.humanGateState.approved).toBe(true)
+    })
+
+    test('DISMISSED clears a formal disposition — a dismissed APPROVED is no longer approved', () => {
+        const [approveThenDismiss] = createPrActivityEvents([{
+            number   : 1,
+            author   : {login: 'a'},
+            updatedAt: '2026-07-04T03:00:00Z',
+            reviews  : [
+                {author: {login: 'rev'}, state: 'APPROVED',  submittedAt: '2026-07-04T01:00:00Z'},
+                {author: {login: 'rev'}, state: 'DISMISSED', submittedAt: '2026-07-04T02:00:00Z'}
+            ]
+        }])
+        expect(approveThenDismiss.payload.humanGateState.approved).not.toBe(true)
+        expect(approveThenDismiss.payload.humanGateState.changedRequested).toBe(false)
+    })
 })

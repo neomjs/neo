@@ -680,7 +680,10 @@ export function readWorkGraphIssueRecords(issuesDir) {
     return records
 }
 
-const PULL_REVIEW_STATES = new Set(['APPROVED', 'CHANGES_REQUESTED', 'COMMENTED', 'DISMISSED']);
+// Only formal dispositions transition the human-gate; COMMENTED (and any unknown state) is neutral —
+// it never clears or sets a formal APPROVED/CHANGES_REQUESTED. Mirrors PullRequestService's
+// getOutstandingRequestChanges. DISMISSED is formal: as a reviewer's latest, it clears their disposition.
+const FORMAL_REVIEW_STATES = new Set(['APPROVED', 'CHANGES_REQUESTED', 'DISMISSED']);
 
 // CONTENT_GRAMMAR.md: a `## Reviews` entry is `### `@user` (<STATE>) reviewed on <ISO_Z>`.
 const PULL_REVIEW_ENTRY_PATTERN = /^###\s+`(@?[^`]+)`\s+\(([A-Z_]+)\)\s+reviewed on\s+(\S+)/;
@@ -746,6 +749,9 @@ function deriveReviewDecision(reviews) {
     const latestByAuthor = new Map();
 
     for (const review of reviews) {
+        // COMMENTED (and unknown) is neutral — only a formal review is a reviewer's disposition.
+        if (!FORMAL_REVIEW_STATES.has(review.state)) continue;
+
         const existing = latestByAuthor.get(review.author);
 
         if (!existing || new Date(review.submittedAt || 0) > new Date(existing.submittedAt || 0)) {
@@ -753,6 +759,7 @@ function deriveReviewDecision(reviews) {
         }
     }
 
+    // Latest formal review per author: CHANGES_REQUESTED dominates; a DISMISSED latest clears (neutral).
     const latest = [...latestByAuthor.values()];
 
     if (latest.some(review => review.state === 'CHANGES_REQUESTED')) return 'CHANGES_REQUESTED';
@@ -924,14 +931,19 @@ export function getPrDeferDisposition(pr, now = new Date()) {
 }
 
 /**
- * @summary Resolves the latest per-reviewer state for a PR.
+ * @summary Resolves the latest FORMAL review per reviewer for a PR. COMMENTED (and unknown) states are
+ * neutral — they never supersede an APPROVED/CHANGES_REQUESTED; DISMISSED is formal and clears it.
  * @param {Object[]} reviews GitHub PR review payloads.
- * @returns {Object[]} Latest review per author.
+ * @returns {Object[]} Latest formal review per author.
  */
 function getLatestReviewsByAuthor(reviews = []) {
     const latestByAuthor = new Map();
 
     for (const review of Array.isArray(reviews) ? reviews : []) {
+        // COMMENTED (and any unknown state) is neutral — it must not supersede a reviewer's formal
+        // disposition, so only formal reviews compete for "latest" here.
+        if (!FORMAL_REVIEW_STATES.has(review.state)) continue;
+
         const author      = review.author?.login || review.author || 'unknown';
         const submittedAt = new Date(review.submittedAt || review.createdAt || 0);
         const existing    = latestByAuthor.get(author);
