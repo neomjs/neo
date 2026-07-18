@@ -115,5 +115,93 @@ test.describe('configIntentRoundTrip — cross-owner supersession authority (#15
         expect(store.get('ada').harnessType).toBe('native-neo');
 
         store.destroy()
+    });
+
+    test('identity-move: a stale REJECTION cannot claim terminal status over the newer owner (@neo-gpt\'s cycle-2 falsifier)', async () => {
+        const store = makeStore([
+            {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
+        ]);
+
+        const
+            deferred       = [],
+            bridgeResolver = () => ({configureAgent: intent => new Promise((resolve, reject) => deferred.push({intent, resolve, reject}))}),
+            olderStatuses  = [],
+            newerStatuses  = [];
+
+        const older = runConfigIntentRoundTrip({
+            bridgeResolver,
+            getRecord    : id => store.get(id),
+            intent       : {id: 'ada', harnessType: 'claude-code'},
+            setSaveStatus: (...args) => olderStatuses.push(args)
+        });
+
+        // the reload replaces instance A with instance B while the older response is in flight —
+        // A's generation counter cannot see anything that happens to B
+        store.clear();
+        store.add({id: 'ada', githubUsername: 'ada', harnessType: 'antigravity'});
+
+        const newer = runConfigIntentRoundTrip({
+            bridgeResolver,
+            getRecord    : id => store.get(id),
+            intent       : {id: 'ada', harnessType: 'native-neo'},
+            setSaveStatus: (...args) => newerStatuses.push(args)
+        });
+
+        deferred[1].resolve({status: 'accepted', agent: {id: 'ada', harnessType: 'native-neo', mcpServers: null}});
+        await newer;
+
+        // the older response answers REJECTED — stale on every axis, it may claim NOTHING: not the
+        // record, and not a terminal status over the newer owner's accepted truth
+        deferred[0].resolve({status: 'rejected', reason: 'stale rejection must not win'});
+        await older;
+
+        expect(store.get('ada').harnessType).toBe('native-neo');
+        expect(newerStatuses.map(entry => entry[1])).toEqual(['pending', 'accepted']);
+        expect(olderStatuses.map(entry => entry[1])).toEqual(['pending']);
+
+        store.destroy()
+    });
+
+    test('identity-move: a stale transport THROW cannot claim terminal status over the newer owner', async () => {
+        const store = makeStore([
+            {id: 'ada', githubUsername: 'ada', harnessType: 'codex'}
+        ]);
+
+        const
+            deferred       = [],
+            bridgeResolver = () => ({configureAgent: intent => new Promise((resolve, reject) => deferred.push({intent, resolve, reject}))}),
+            olderStatuses  = [],
+            newerStatuses  = [];
+
+        const older = runConfigIntentRoundTrip({
+            bridgeResolver,
+            getRecord    : id => store.get(id),
+            intent       : {id: 'ada', harnessType: 'claude-code'},
+            setSaveStatus: (...args) => olderStatuses.push(args)
+        });
+
+        store.clear();
+        store.add({id: 'ada', githubUsername: 'ada', harnessType: 'antigravity'});
+
+        const newer = runConfigIntentRoundTrip({
+            bridgeResolver,
+            getRecord    : id => store.get(id),
+            intent       : {id: 'ada', harnessType: 'native-neo'},
+            setSaveStatus: (...args) => newerStatuses.push(args)
+        });
+
+        deferred[1].resolve({status: 'accepted', agent: {id: 'ada', harnessType: 'native-neo', mcpServers: null}});
+        await newer;
+
+        // the older request DIES on the wire — the sanitized catch path must consult the same
+        // staleness authority and stay silent, not repaint 'rejected' over the newer 'accepted'
+        deferred[0].reject(new Error('transport died'));
+        await older;
+
+        expect(store.get('ada').harnessType).toBe('native-neo');
+        expect(newerStatuses.map(entry => entry[1])).toEqual(['pending', 'accepted']);
+        expect(olderStatuses.map(entry => entry[1])).toEqual(['pending']);
+
+        store.destroy()
     })
 });

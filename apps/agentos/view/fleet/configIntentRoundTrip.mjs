@@ -30,17 +30,6 @@
 const RECORD_GENERATIONS = new WeakMap();
 
 /**
- * @summary True when a newer intent against the same shared record has outdated this response.
- * @param {Object|null} arbiter The record instance resolved at issue time (`null` = no record existed).
- * @param {Number} requestGeneration This call's issued generation.
- * @returns {Boolean}
- * @private
- */
-function isSuperseded(arbiter, requestGeneration) {
-    return arbiter !== null && RECORD_GENERATIONS.get(arbiter) !== requestGeneration
-}
-
-/**
  * @summary Run one configuration round-trip and render its truth through the caller's sink.
  * @param {Object}        config
  * @param {Function|null} [config.bridgeResolver]     Injected bridge resolver (defaults to the global seam) — the DI discipline shared with `addAgentFlow`.
@@ -78,6 +67,28 @@ export async function runConfigIntentRoundTrip({
 
     arbiter && RECORD_GENERATIONS.set(arbiter, requestGeneration);
 
+    /**
+     * The ONE staleness authority, consulted by EVERY outcome path (accepted, rejected, thrown)
+     * before any record write or status repaint. Two ways a response goes stale: a newer intent
+     * bumped MY record instance's generation — or the instance itself was REPLACED mid-flight (a
+     * reload) and a newer intent already targets the replacement, which my instance's counter
+     * cannot see. A stale response may claim nothing: not the record, and not a terminal status.
+     * @returns {Boolean}
+     */
+    const responseIsStale = () => {
+        if (!arbiter) {
+            return false
+        }
+
+        if (RECORD_GENERATIONS.get(arbiter) !== requestGeneration) {
+            return true
+        }
+
+        const current = getRecord(agentId) ?? null;
+
+        return current !== arbiter && RECORD_GENERATIONS.has(current)
+    };
+
     setSaveStatus(agentId, 'pending', 'Saving configuration…');
 
     if (typeof bridge?.configureAgent !== 'function') {
@@ -88,7 +99,7 @@ export async function runConfigIntentRoundTrip({
     try {
         const outcome = await bridge.configureAgent(wireIntent);
 
-        if (isSuperseded(arbiter, requestGeneration)) {
+        if (responseIsStale()) {
             return
         }
 
@@ -100,8 +111,10 @@ export async function runConfigIntentRoundTrip({
                 return
             }
 
-            // the record identity moved mid-flight (a reload re-seated the row) and a newer intent
-            // already targets the NEW instance → this response lost the race against it
+            // the write-target is not my issue-time instance (it appeared or was replaced
+            // mid-flight) and a newer intent already targets it → this response lost the race.
+            // For a non-null arbiter responseIsStale() caught this upstream; this line is the
+            // recordless-issue edge (arbiter === null, record materialized during the flight).
             if (record !== arbiter && RECORD_GENERATIONS.has(record)) {
                 return
             }
@@ -118,7 +131,7 @@ export async function runConfigIntentRoundTrip({
             setSaveStatus(agentId, 'rejected', reason)
         }
     } catch (error) {
-        if (isSuperseded(arbiter, requestGeneration)) {
+        if (responseIsStale()) {
             return
         }
 
