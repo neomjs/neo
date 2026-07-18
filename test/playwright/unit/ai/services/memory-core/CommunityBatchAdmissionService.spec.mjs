@@ -184,8 +184,51 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
 
         SourceRegistryService.transitionLifecycle(id, 'REVOKED', {expectedState: 'ACTIVE', expectedEpoch: 2});
 
-        expect(AdmissionService.admitBatch(batchAt(id)).reason).toBe('REGISTRATION_NOT_ADMISSIBLE');
+        // The fence is step 1 of the transaction, so a rejected registration writes NOTHING —
+        // no receipt, no observations, no checkpoint advance (full atomicity of the gate).
+        const result = AdmissionService.admitBatch(batchAt(id));
+        expect(result.reason).toBe('REGISTRATION_NOT_ADMISSIBLE');
         expect(receiptCount()).toBe(0);
+        expect(AdmissionService.listObservations(id)).toHaveLength(0);
+        expect(AdmissionService.getCheckpoint(id, 'issues')).toBeNull();
+    });
+
+    test('the fence reads the registration through the admission connection, inside the transaction', () => {
+        const id = activeSource();
+
+        // A revoke committed through a SEPARATE connection to the same database (standing in for the
+        // registry connection or any concurrent lifecycle writer). If the fence read through a cached
+        // or foreign connection outside the admission transaction, it could admit under this revoke —
+        // exactly the two-connection interleaving that produced an accepted batch under REVOKED truth.
+        const Database = AdmissionService.db.constructor,
+              probe    = new Database(testDbPath);
+
+        probe.pragma('busy_timeout = 5000');
+        probe.prepare(
+            `UPDATE mc_source_registration SET lifecycle_state = 'REVOKED', updated_at = 1
+             WHERE source_instance_id = ?`
+        ).run(id);
+        probe.close();
+
+        const result = AdmissionService.admitBatch(batchAt(id));
+
+        expect(result.reason, 'the fence sees the cross-connection committed revoke').toBe('REGISTRATION_NOT_ADMISSIBLE');
+        expect(receiptCount()).toBe(0);
+        expect(AdmissionService.getCheckpoint(id, 'issues')).toBeNull();
+    });
+
+    test('an epoch bump from reprovisioning fences a batch declaring the old epoch', () => {
+        const id = activeSource();   // ACTIVE@2
+
+        AdmissionService.admitBatch(batchAt(id, {batchId: 'b1'}));   // valid at epoch 2
+
+        SourceRegistryService.transitionLifecycle(id, 'REVOKED',     {expectedState: 'ACTIVE', expectedEpoch: 2});
+        SourceRegistryService.transitionLifecycle(id, 'PROVISIONED', {expectedState: 'REVOKED', expectedEpoch: 2});   // epoch -> 3
+        SourceRegistryService.transitionLifecycle(id, 'ACTIVE',      {expectedState: 'PROVISIONED', expectedEpoch: 3});
+
+        // A batch still claiming epoch 2 is fenced even though the source is ACTIVE again at epoch 3.
+        expect(AdmissionService.admitBatch(batchAt(id, {batchId: 'b2', registrationEpoch: 2, observations: [observation('e9')]})).reason)
+            .toBe('REGISTRATION_NOT_ADMISSIBLE');
     });
 
     test('a schema-invalid batch is refused and writes nothing', () => {

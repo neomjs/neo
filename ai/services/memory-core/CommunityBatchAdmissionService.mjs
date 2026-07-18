@@ -95,6 +95,10 @@ class CommunityBatchAdmissionService extends Base {
                 this.db.pragma('journal_mode = WAL');
             }
 
+            // A competing writer (e.g. a lifecycle revoke on the registry connection) waits for the
+            // IMMEDIATE admission transaction to finish rather than failing SQLITE_BUSY.
+            this.db.pragma('busy_timeout = 5000');
+
             this.ensureSchema();
             logger.info('[CommunityBatchAdmissionService] Connected to Memory Core community admission tables.');
         } catch (err) {
@@ -216,9 +220,20 @@ class CommunityBatchAdmissionService extends Base {
         let outcome;
 
         try {
+            // IMMEDIATE acquires the write lock at BEGIN, so the registration read below and every
+            // write commit or roll back as one serialized unit — a concurrent revoke on another
+            // connection either lands before this transaction (and is seen) or serializes behind it.
             outcome = this.db.transaction(() => {
-                // Step 1 — the epoch fence, inside the serialized boundary (not a pre-transaction read).
-                if (!SourceRegistryService.canAdmit(sourceInstanceId, registrationEpoch)) {
+                // Step 1 — the epoch fence, read through THIS connection inside the transaction. The
+                // registration table lives in the same database; delegating to the registry service
+                // would read through its separate connection, leaving the fence outside this
+                // serialized boundary and admitting a batch under a concurrently-committed revocation.
+                const registration = this.db.prepare(
+                    `SELECT lifecycle_state, registration_epoch FROM mc_source_registration
+                     WHERE tenant_id = ? AND source_instance_id = ?`
+                ).get(tenantId, sourceInstanceId);
+
+                if (!registration || registration.lifecycle_state !== 'ACTIVE' || registration.registration_epoch !== registrationEpoch) {
                     return {status: ADMISSION_STATUS.CONFLICT, reason: 'REGISTRATION_NOT_ADMISSIBLE'}
                 }
 
@@ -317,7 +332,7 @@ class CommunityBatchAdmissionService extends Base {
                 );
 
                 return {status: ADMISSION_STATUS.ACCEPTED, receiptId}
-            })()
+            }).immediate()
         } catch (err) {
             if (err instanceof ObservationConflict) {
                 return {status: ADMISSION_STATUS.CONFLICT, reason: err.reason, digest}
