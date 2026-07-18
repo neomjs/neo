@@ -2021,7 +2021,7 @@ test.describe('Wake Daemon', () => {
                 daemonProcess.stdout.on('data', (data) => {
                     const out = data.toString();
                     stdoutLog += out;
-                    if (out.includes(`[Wake Daemon] Dispatched ${subId} via opencode-server prompt_async`)) {
+                    if (out.includes(`[Wake Dispatch] ${agentId}: outcome=delivered`)) {
                         clearTimeout(timeout);
                         resolve();
                     }
@@ -2054,8 +2054,86 @@ test.describe('Wake Daemon', () => {
             expect(payload.parts[0].text).toContain('OpenCode Server Wake');
 
             expect(fs.existsSync(mockOsascriptOutPath)).toBe(false);
+            expect(stdoutLog).toContain(`[Wake Daemon] Dispatched ${subId} via opencode-server prompt_async`);
+            expect(stdoutLog).toContain(`[Wake Dispatch] ${agentId}: outcome=delivered`);
             expect(stdoutLog).toContain('route=opencode-server; adapterSource=metadata');
         } finally {
+            stubServer.close();
+        }
+    });
+
+    test('opencode-server shares the configured attempt abort and cannot report orphan success (#15394, #15414)', async () => {
+        test.setTimeout(15000);
+
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-opencode-shared-abort';
+        const requests = [];
+
+        // Respond AFTER the 1s delivery-owner bound. If the route ignores the shared signal,
+        // this orphan logs a false success at 2s even though the owner already resolved failed.
+        const stubServer = http.createServer((req, res) => {
+            requests.push(Date.now());
+            setTimeout(() => {
+                if (!res.destroyed) {
+                    res.writeHead(204);
+                    res.end();
+                }
+            }, 2000);
+        });
+        await new Promise(resolve => stubServer.listen(0, '127.0.0.1', resolve));
+        const stubPort = stubServer.address().port;
+
+        const envelopePath = path.join(DAEMON_DIR, 'opencode-wake-envelope-shared-abort.json');
+        fs.writeJsonSync(envelopePath, {
+            hostname : '127.0.0.1',
+            port     : stubPort,
+            sessionId: 'ses_shared_abort',
+            username : 'wake-user',
+            password : 'wake-pass'
+        });
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'opencode-server',
+                envelopePath,
+                coalesceWindow: 1
+            }
+        });
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {
+                ...process.env,
+                NEO_MEMORY_DB_PATH              : DB_PATH,
+                NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                NEO_WAKE_ATTEMPT_TIMEOUT_SECONDS: '1'
+            }
+        });
+
+        try {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            insertMessageWake(db, {
+                agentId,
+                subject: 'OpenCode Shared Abort Wake'
+            });
+
+            for (let i = 0; i < 50 && requests.length === 0; i++) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            expect(requests.length).toBeGreaterThanOrEqual(1);
+
+            // Wait beyond the server's delayed response. A detached 5s-local signal would let
+            // the orphan complete and emit a transport success after the 1s owner timeout.
+            await new Promise(resolve => setTimeout(resolve, 2800));
+
+            const logContents = fs.readFileSync(path.join(DAEMON_DIR, 'wake-daemon.log'), 'utf8');
+            expect(logContents).toContain('exceeded 1000ms');
+            expect(logContents).not.toContain(`Dispatched ${subId} via opencode-server prompt_async`);
+            expect(logContents).not.toContain(`[Wake Dispatch] ${agentId}: outcome=delivered`);
+        } finally {
+            stubServer.closeAllConnections?.();
             stubServer.close();
         }
     });

@@ -6,8 +6,8 @@ import { NeoWakeEnvelope } from '../../../../../../ai/services/fleet/opencodeWak
 
 /**
  * Seat-side wake-envelope plugin witnesses: authoritative serverUrl over lsof, per-seat XDG
- * isolation, atomic 0600 enforcement on a pre-existing permissive file, operator-seat-only
- * writes (child/subagent sessions never retarget), and credential passthrough.
+ * isolation, private temp creation plus final 0600 enforcement, operator-seat-only writes
+ * (child/subagent sessions never retarget), and credential passthrough.
  */
 test.describe('opencodeWakeEnvelopePlugin (#15394)', () => {
     let tmpRoot, savedEnv;
@@ -111,6 +111,26 @@ test.describe('opencodeWakeEnvelopePlugin (#15394)', () => {
         expect(envelope.sessionId).toBe('ses_perms');
         // no tmp residue from the atomic write
         expect(fs.readdirSync(path.dirname(envelopePath)).filter(f => f.endsWith('.tmp')).length).toBe(0);
+    });
+
+    test('the credential-bearing temp is 0600 before a rename can expose it', async () => {
+        process.env.XDG_DATA_HOME = path.join(tmpRoot, 'seatA');
+
+        const envelopePath = path.join(tmpRoot, 'seatA', 'opencode', 'wake-envelope.json');
+        // Force rename to fail after the tmp write by occupying the destination with a directory.
+        // The plugin catches the error; the retained tmp exposes its pre-rename mode for inspection.
+        fs.ensureDirSync(envelopePath);
+
+        const hooks = await NeoWakeEnvelope(mockCtx({lsofPorts: [41003]}));
+        await fireSessionCreated(hooks, {id: 'ses_tmp_perms'});
+
+        const tmpPath = `${envelopePath}.${process.pid}.tmp`;
+        expect(fs.existsSync(tmpPath)).toBe(true);
+        expect(fs.statSync(tmpPath).mode & 0o777).toBe(0o600);
+
+        const tmpEnvelope = fs.readJsonSync(tmpPath);
+        expect(tmpEnvelope.username).toBe('opencode');
+        expect(tmpEnvelope.password).toBe('test-secret');
     });
 
     test('child/subagent session.created events never retarget the operator-seat envelope', async () => {

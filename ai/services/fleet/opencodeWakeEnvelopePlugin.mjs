@@ -39,9 +39,9 @@
  * - The envelope root honors `XDG_DATA_HOME`, so per-seat XDG isolation (Fleet launch
  *   specs) keeps each seat's envelope on its own path instead of collapsing onto the
  *   shared default.
- * - Writes are same-directory atomic (tmp file + rename) with an explicit `chmod 0600`
- *   AFTER the rename — `{mode}` on `writeFile` only applies at creation and leaves a
- *   pre-existing 0644 file permissive; the rename also closes torn reads.
+ * - Writes are same-directory atomic (tmp file + rename). The credential-bearing tmp is
+ *   created with mode 0600 and explicitly tightened before rename; a final `chmod 0600`
+ *   also repairs a pre-existing permissive destination. The rename closes torn reads.
  * - Only OPERATOR-seat sessions refresh the envelope: `session.created` events whose
  *   session carries a parent id (child/subagent sessions) are ignored, so a spawned
  *   subagent can never retarget the seat's wake route to its own session.
@@ -108,10 +108,12 @@ export const NeoWakeEnvelope = async (ctx) => {
 
         await fs.mkdir(path.dirname(envelopePath), { recursive: true });
 
-        // Atomic write: tmp file + same-directory rename (no torn reads), then an explicit
-        // chmod AFTER the rename — writeFile's mode option does not tighten a pre-existing file.
+        // Atomic private write: the secret-bearing tmp is born 0600, explicitly tightened in
+        // case a stale tmp already exists, then renamed without ever exposing a permissive window.
+        // The final chmod remains defense-in-depth for a pre-existing permissive destination.
         const tmpPath = `${envelopePath}.${process.pid}.tmp`;
-        await fs.writeFile(tmpPath, JSON.stringify(envelope, null, 2) + '\n');
+        await fs.writeFile(tmpPath, JSON.stringify(envelope, null, 2) + '\n', {mode: 0o600});
+        await fs.chmod(tmpPath, 0o600);
         await fs.rename(tmpPath, envelopePath);
         await fs.chmod(envelopePath, 0o600);
 

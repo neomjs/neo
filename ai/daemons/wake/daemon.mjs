@@ -1036,9 +1036,10 @@ async function deliverViaCodexAppServer(subscription, digest, evidenceLabel = ''
  * @param {Object} subscription WAKE_SUBSCRIPTION node.
  * @param {String} digest Wake digest body.
  * @param {String} [evidenceLabel=''] Formatted wake scenario / route evidence for validation logs.
+ * @param {AbortSignal|null} [abortSignal=null] Shared attempt-bound signal from the delivery owner.
  * @returns {Promise<void>}
  */
-async function deliverViaOpencodeServer(subscription, digest, evidenceLabel = '') {
+async function deliverViaOpencodeServer(subscription, digest, evidenceLabel = '', abortSignal = null) {
     const meta         = subscription.properties?.harnessTargetMetadata || {};
     const envelopePath = meta.envelopePath || path.join(os.homedir(), '.local', 'share', 'opencode', 'wake-envelope.json');
 
@@ -1068,6 +1069,9 @@ async function deliverViaOpencodeServer(subscription, digest, evidenceLabel = ''
         throw new Error(`opencode-server envelope at '${envelopePath}' requires a loopback hostname (received '${hostname}')`);
     }
 
+    const deliverySignal = abortSignal
+        ? AbortSignal.any([abortSignal, AbortSignal.timeout(5000)])
+        : AbortSignal.timeout(5000);
     const response = await fetch(`http://${hostname}:${port}/session/${encodeURIComponent(sessionId)}/prompt_async`, {
         method : 'POST',
         headers: {
@@ -1076,7 +1080,7 @@ async function deliverViaOpencodeServer(subscription, digest, evidenceLabel = ''
         },
         body    : JSON.stringify({parts: [{type: 'text', text: digest}]}),
         redirect: 'error',
-        signal  : AbortSignal.timeout(5000)
+        signal  : deliverySignal
     });
 
     if (response.status !== 204) {
@@ -1515,8 +1519,8 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}, abortS
         }
 
         if (adapter === OPENCODE_SERVER_ADAPTER) {
-            await deliverViaOpencodeServer(subscription, dispatchDigest, evidenceLabel);
-            return;
+            await deliverViaOpencodeServer(subscription, dispatchDigest, evidenceLabel, abortSignal);
+            return 'delivered';
         }
 
         if (adapter === 'tmux') {
