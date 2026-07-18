@@ -123,11 +123,14 @@ function auditLog(line) {
  * `operatorInLoop`, and it ALWAYS allows. `operatorInLoop` is determined EXTERNALLY (the prompting
  * message type — see the entry `main`), never self-declared, so it cannot be gamed.
  *
- * The ONE legitimate AUTONOMOUS stop is a **clean terminal** — a valid lane-state terminal on a fully
- * handed-off board (every named gate awaiting a non-self actor) after the session drive-ratchet proved
- * the no-hold principle was honored (`evaluateCleanTerminalAcceptance`; the drive count comes from the
- * hook's OWN audit trail, never the agent's claim). Acceptance emits a `[clean-terminal]` audit line —
- * the boundary is observable, not silent. Everything else is unchanged: a first valid terminal still
+ * TWO legitimate AUTONOMOUS stops exist. The PRIMARY is the **material-artifact key**
+ * (`evaluateMaterialArtifactKey` — an ID-correlated, transcript-verified artifact since the
+ * session's last accepted stop + a valid terminal; audited as `MATERIAL-ALLOW`). The artifact-less
+ * fallback is the **clean terminal** — a valid lane-state terminal on a fully handed-off board
+ * (every named gate awaiting a non-self actor) after the session drive-ratchet proved the no-hold
+ * principle was honored (`evaluateCleanTerminalAcceptance`; the drive count comes from the hook's
+ * OWN audit trail, never the agent's claim). Acceptance emits a `[clean-terminal]` audit line —
+ * every boundary is observable, not silent. Everything else is unchanged: a first valid terminal still
  * refuses (ratchet), ENFORCE blocks, DRY-RUN previews (would-block), and the `verdict` supplies the
  * directive `reason`. The remaining autonomous stops are hard external limits (Claude Code's
  * consecutive-block force-override, context-sunset, or an operator halt).
@@ -177,9 +180,11 @@ export function countSessionCompliantRefusals(sessionId) {
  * license the next autonomous one). The session needle is comma-delimited (`(session=<id>,`) so a
  * session id that PREFIXES another can never cross-match. Two distinct non-boundary outcomes:
  * `{iso: null, unavailable: false}` — the log is readable but records no accepted stop for this
- * session (the legitimate session-start case; the whole session counts); `{iso: null,
- * unavailable: true}` — the log could not be read at all (fail-CLOSED downstream: evidence that
- * cannot prove its scope licenses nothing). Exported + unit-tested against the log-format contract.
+ * session (the legitimate session-start case on a LIVE log; the whole session counts); `{iso: null,
+ * unavailable: true}` — the log could not be read at all, INCLUDING a missing file (a deleted or
+ * never-written log is indistinguishable from tampering; fail-CLOSED downstream — evidence that
+ * cannot prove its scope licenses nothing, and the first-session stop routes through the
+ * clean-terminal fallback). Exported + unit-tested against the log-format contract.
  * @param {String} sessionId The Stop payload's `session_id`.
  * @param {String} [logFile=LOG_FILE] Injectable for tests.
  * @returns {{iso: String|null, unavailable: Boolean}}
@@ -190,10 +195,12 @@ export function findLastAcceptedStopIso(sessionId, logFile = LOG_FILE) {
     let raw;
     try {
         raw = fs.readFileSync(logFile, 'utf8');
-    } catch (error) {
-        // A MISSING log is the legitimate first-run case (no stop was ever accepted anywhere);
-        // any OTHER read failure is corrupt/unreadable boundary evidence → unavailable.
-        return error?.code === 'ENOENT' ? {iso: null, unavailable: false} : {iso: null, unavailable: true};
+    } catch {
+        // ANY read failure — including a missing file — is unavailable boundary evidence: a
+        // deleted/never-written log is indistinguishable from tampering, and unscoped whole-session
+        // replay must not license a stop. The genuine first-session autonomous stop routes through
+        // the clean-terminal fallback instead (which carries its own ratchet).
+        return {iso: null, unavailable: true};
     }
 
     const needle = `(session=${sessionId},`,
@@ -668,7 +675,7 @@ async function main() {
     try {
         input = JSON.parse(await readStdin());
     } catch (e) {
-        auditLog(`PARSE-ERROR: could not parse Stop-hook input (${e.message}); allowing stop.`);
+        auditLog(`PARSE-ERROR (identity=${process.env.NEO_AGENT_IDENTITY || '?'}): could not parse Stop-hook input (${e.message}); allowing stop.`);
         process.exit(0);
     }
 
@@ -680,7 +687,7 @@ async function main() {
         finalText = extractFinalAssistantText(input);
     } catch (e) {
         // OUR failure (unreadable / unparseable transcript) → never block; allow + audit.
-        auditLog(`READ-ERROR: ${e.message}; allowing stop.`);
+        auditLog(`READ-ERROR (identity=${process.env.NEO_AGENT_IDENTITY || '?'}): ${e.message}; allowing stop.`);
         process.exit(0);
     }
 
@@ -749,7 +756,7 @@ async function main() {
         );
     } catch (e) {
         // A validator/mapping bug is OUR failure → never block; allow + audit.
-        auditLog(`VALIDATOR-ERROR: ${e.message}; allowing stop.`);
+        auditLog(`VALIDATOR-ERROR (identity=${process.env.NEO_AGENT_IDENTITY || '?'}): ${e.message}; allowing stop.`);
         process.exit(0);
     }
 

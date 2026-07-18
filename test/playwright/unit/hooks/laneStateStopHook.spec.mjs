@@ -1038,11 +1038,13 @@ test.describe('findLastAcceptedStopIso — the accepted-stop boundary, literal a
             expect(findLastAcceptedStopIso(SID, file)).toEqual({iso: null, unavailable: false});
         } finally { fs.unlinkSync(file) }
 
-        // a MISSING log is first-run legitimate (no stop ever accepted anywhere)
+        // a MISSING log is ALSO unavailable — a deleted/never-written log is indistinguishable
+        // from tampering, and whole-session replay must not license a stop (the first-session
+        // autonomous stop routes through the clean-terminal fallback instead)
         expect(findLastAcceptedStopIso(SID, path.join(os.tmpdir(), 'neo-definitely-absent.log')))
-            .toEqual({iso: null, unavailable: false});
+            .toEqual({iso: null, unavailable: true});
 
-        // any OTHER read failure (a directory is not a readable log) = corrupt boundary evidence
+        // any other read failure (a directory is not a readable log) = the same fail-closed shape
         expect(findLastAcceptedStopIso(SID, os.tmpdir())).toEqual({iso: null, unavailable: true})
     });
 });

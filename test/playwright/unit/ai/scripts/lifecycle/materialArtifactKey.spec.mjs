@@ -101,6 +101,23 @@ test.describe('ai/scripts/lifecycle/materialArtifactKey', () => {
             expect(collectMaterialArtifactsFromJsonl(real).map(artifact => artifact.ref)).toEqual(['#700', '#701'])
         });
 
+        test('compound commands never arm — the || echo fallback cannot mint from its own echoed URL, and even legitimate && chains fail closed', () => {
+            const jsonl = [
+                record([use('toolu_c1', 'Bash', PR_CREATE('gh pr create --title x || echo https://github.com/neomjs/neo/pull/800'))]),
+                record([result('toolu_c1', 'https://github.com/neomjs/neo/pull/800')]),
+                record([use('toolu_c2', 'Bash', PR_CREATE('gh pr create --title y && echo done'))]),
+                record([result('toolu_c2', 'https://github.com/neomjs/neo/pull/801')]),
+                record([use('toolu_c3', 'Bash', PR_CREATE('gh pr create --title z; echo tail'))]),
+                record([result('toolu_c3', 'https://github.com/neomjs/neo/pull/802')]),
+                record([use('toolu_c4', 'Bash', PR_CREATE('gh pr create --title w | tee log'))]),
+                record([result('toolu_c4', 'https://github.com/neomjs/neo/pull/803')])
+            ].join('\n');
+
+            // the stop LICENSE requires the standalone invocation whose result is unambiguously
+            // the pr-create's own — chained forms fail closed even when legitimate
+            expect(collectMaterialArtifactsFromJsonl(jsonl)).toEqual([])
+        });
+
         test('the prose-claim negative: text blocks and free-floating results mint nothing; an id-less tool_use arms nothing', () => {
             const jsonl = [
                 JSON.stringify({timestamp: '2026-07-18T06:00:00.000Z', message: {content: [

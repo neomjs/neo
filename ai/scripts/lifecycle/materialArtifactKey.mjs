@@ -40,6 +40,13 @@ export const MATERIAL_ARTIFACT_CLASSES = Object.freeze(['pr-opened', 'formal-rev
 // inside the loop separates disjoint character classes (`\S+` vs `\s+`) — no ambiguous split, no
 // exponential backtracking (the js/redos class the adjacent `\s*…\s+` form carried).
 const PR_CREATE_HEAD_RE = /^\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)*gh\s+pr\s+create\b/;
+
+// Compound commands never arm — `gh pr create … || echo <url>` would otherwise mint from the
+// fallback's echoed text (the result of a compound is the COMPOUND's output, not the pr-create's).
+// Fail-closed: any shell control/composition operator disqualifies, including legitimate `&&`
+// chains — the artifact still exists in reality; only the STOP LICENSE requires the standalone
+// invocation whose result is unambiguously the pr-create's own.
+const SHELL_COMPOUND_RE = /\|\||&&|[;|`]|\$\(|[<>]/;
 const PULL_URL_RE       = /github\.com\/[^\s"'\\]+\/pull\/(\d+)/;
 const REVIEW_OK_RE      = /"reviewId"|Successfully created \w+ review/i;
 
@@ -107,7 +114,8 @@ export function collectMaterialArtifactsFromJsonl(jsonl = '', {sinceIso = null} 
                 const name  = block.name || '',
                       input = block.input || {};
 
-                if (name === 'Bash' && typeof input.command === 'string' && PR_CREATE_HEAD_RE.test(input.command)) {
+                if (name === 'Bash' && typeof input.command === 'string'
+                    && PR_CREATE_HEAD_RE.test(input.command) && !SHELL_COMPOUND_RE.test(input.command)) {
                     pending.set(block.id, {kind: 'pr-opened', ref: ''})
                 } else if (name === 'mcp__neo-mjs-github-workflow__manage_pr_review' && input.action === 'create') {
                     pending.set(block.id, {kind: 'formal-review', ref: input.pr_number ? `#${input.pr_number}` : ''})

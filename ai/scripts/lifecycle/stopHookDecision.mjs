@@ -257,11 +257,14 @@ export function evaluateCleanTerminalAcceptance({
 }
 
 /**
- * @summary Shared no-hold Stop-hook decision. The one voluntary allow is live operator dialogue;
- * the one AUTONOMOUS allow is an adapter-evaluated clean terminal ({@link evaluateCleanTerminalAcceptance}
- * — valid terminal, fully handed-off gates, drive-ratchet met); every other turn-end is blocked when
- * the harness has a proven block/inject contract, or would-block when dry-run / fail-open transport
- * semantics apply. The `verdict` reason is evidence, not a gate.
+ * @summary Shared no-hold Stop-hook decision. The one voluntary allow is live operator dialogue.
+ * Two AUTONOMOUS allows exist: the PRIMARY material-artifact key (adapter-evaluated — an
+ * ID-correlated transcript-verified artifact since the last accepted stop + a valid terminal) and
+ * the artifact-less fallback, an adapter-evaluated clean terminal
+ * ({@link evaluateCleanTerminalAcceptance} — valid terminal, fully handed-off gates, drive-ratchet
+ * met). Every other turn-end is blocked when the harness has a proven block/inject contract, or
+ * would-block when dry-run / fail-open transport semantics apply. The `verdict` reason is
+ * evidence, not a gate.
  * @param {{valid: Boolean, reason: String}} verdict
  * @param {Object} [options]
  * @param {Boolean} [options.enforcing=false]
