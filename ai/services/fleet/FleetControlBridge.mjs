@@ -476,7 +476,7 @@ class FleetControlBridge extends Base {
      * facts through the ONE {@link #getIdentityResolver} seam (`family` as era/display attribute,
      * `engineTag` as current-model metadata — read-only, era-swap re-points the resolver, zero Body
      * diff), stamps the launch-derived truth per agent (`launchable` = the family is in the
-     * launch-templated subset; `authMode` = `'marker' | 'in-app' | null` — both DERIVED at read
+     * launch-templated subset; `authMode` = `'marker' | 'in-app' | 'env-key' | null` — both DERIVED at read
      * time from the launch seam, never a second hand-maintained list, so a family becomes
      * cockpit-launchable exactly when its template lands), and hands the enriched agents to the
      * Body-side pure map (`createFleetCockpitStatus` — which never imports `ai/graph` or the Brain
