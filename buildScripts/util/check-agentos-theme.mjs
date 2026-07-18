@@ -45,6 +45,17 @@ const __dirname      = path.dirname(fileURLToPath(import.meta.url)),
       TEXT_FILL_PROPERTIES = new Set(['color', '-webkit-text-fill-color']),
       // Inks measured below 4.5:1 on every surface in both skins: legal as non-text, rejected on text.
       TEXT_FORBIDDEN_INK   = ['--fm-ink-faint'],
+      // Built once, not per declaration: the guard walks every declaration of every view file, so a
+      // per-iteration `new RegExp` would recompile the same pattern thousands of times. Non-global on
+      // purpose — `.test()` against a `/g` regex is stateful across calls and would skip matches.
+      TEXT_FORBIDDEN_INK_RE = TEXT_FORBIDDEN_INK.map(token => [token, new RegExp(`var\\(\\s*${token}\\b`)]),
+      // Every declaration on a line, anchored on a preceding `{` or `;` so the property is resolved from
+      // the DECLARATION rather than the first colon on the line — a pseudo-class (`&:hover`, `:not(.b)`)
+      // puts a colon in the SELECTOR, and a first-colon split then reads a selector fragment as the
+      // property and silently skips the check. Also handles multi-declaration lines uniformly.
+      // Case-insensitive because CSS property names are (`COLOR:` === `color:`); the captured property
+      // is lowercased before the `TEXT_FILL_PROPERTIES` lookup so `COLOR: var(--fm-ink-faint)` cannot evade.
+      DECLARATION_RE       = /(?:^|[{;])\s*([-a-zA-Z]+)\s*:\s*([^;}]*)/g,
       // The closed design-contract vocabulary — every skin must DEFINE all of these even when a token is
       // momentarily unconsumed, so a symmetric deletion of a contracted token cannot false-green.
       CONTRACTED_FM_TOKENS = new Set([
@@ -165,13 +176,14 @@ export function collectAgentosThemeFailures({
                 failures.push(`[token-only] ${path.relative(repoRoot, file)}:${index + 1} bare color literal — consume a semantic token instead: ${rawLine.trim()}`);
             }
 
-            // check 4 — text-safe ink. The property is whatever precedes the colon once any selector /
-            // preceding declaration on the same line is stripped (`&.x { color:` → `color`).
-            const property = line.slice(0, colonIdx).replace(/^.*[{;]/, '').trim();
+            // check 4 — text-safe ink. Resolve the property per DECLARATION (see DECLARATION_RE), never
+            // from the first colon on the line: a pseudo-class puts a colon in the selector, so
+            // `&:hover { color: … }` would otherwise read `&` as the property and skip the check.
+            for (const [, property, declarationValue] of line.matchAll(DECLARATION_RE)) {
+                if (!TEXT_FILL_PROPERTIES.has(property.toLowerCase())) continue;
 
-            if (TEXT_FILL_PROPERTIES.has(property)) {
-                for (const token of TEXT_FORBIDDEN_INK) {
-                    if (new RegExp(`var\\(\\s*${token}\\b`).test(value)) {
+                for (const [token, tokenRe] of TEXT_FORBIDDEN_INK_RE) {
+                    if (tokenRe.test(declarationValue)) {
                         failures.push(`[text-contrast] ${path.relative(repoRoot, file)}:${index + 1} ${token} fills text but measures below the 4.5:1 floor on every surface in both skins — use --fm-ink-dim: ${rawLine.trim()}`);
                     }
                 }
