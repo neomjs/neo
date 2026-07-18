@@ -156,6 +156,14 @@ test.describe('check-agentos-theme.mjs', () => {
         });
     }
 
+    test('an uppercase/mixed-case property is caught (CSS property names are case-insensitive)', () => {
+        const upper = run({dark: FAINT_DARK, light: FAINT_LIGHT, views: {'a.scss': '.a { COLOR: var(--fm-ink-faint); }\n'}}),
+              mixed = run({dark: FAINT_DARK, light: FAINT_LIGHT, views: {'a.scss': '.a { Color: var(--fm-ink-faint); }\n'}});
+
+        expect(upper.some(m => m.startsWith('[text-contrast]'))).toBe(true);
+        expect(mixed.some(m => m.startsWith('[text-contrast]'))).toBe(true);
+    });
+
     test('a pseudo-class line with a NON-text property stays legal (no over-rejection)', () => {
         const failures = run({
             dark : FAINT_DARK,

@@ -53,7 +53,9 @@ const __dirname      = path.dirname(fileURLToPath(import.meta.url)),
       // the DECLARATION rather than the first colon on the line — a pseudo-class (`&:hover`, `:not(.b)`)
       // puts a colon in the SELECTOR, and a first-colon split then reads a selector fragment as the
       // property and silently skips the check. Also handles multi-declaration lines uniformly.
-      DECLARATION_RE       = /(?:^|[{;])\s*([-a-z]+)\s*:\s*([^;}]*)/g,
+      // Case-insensitive because CSS property names are (`COLOR:` === `color:`); the captured property
+      // is lowercased before the `TEXT_FILL_PROPERTIES` lookup so `COLOR: var(--fm-ink-faint)` cannot evade.
+      DECLARATION_RE       = /(?:^|[{;])\s*([-a-zA-Z]+)\s*:\s*([^;}]*)/g,
       // The closed design-contract vocabulary — every skin must DEFINE all of these even when a token is
       // momentarily unconsumed, so a symmetric deletion of a contracted token cannot false-green.
       CONTRACTED_FM_TOKENS = new Set([
@@ -178,7 +180,7 @@ export function collectAgentosThemeFailures({
             // from the first colon on the line: a pseudo-class puts a colon in the selector, so
             // `&:hover { color: … }` would otherwise read `&` as the property and skip the check.
             for (const [, property, declarationValue] of line.matchAll(DECLARATION_RE)) {
-                if (!TEXT_FILL_PROPERTIES.has(property)) continue;
+                if (!TEXT_FILL_PROPERTIES.has(property.toLowerCase())) continue;
 
                 for (const [token, tokenRe] of TEXT_FORBIDDEN_INK_RE) {
                     if (tokenRe.test(declarationValue)) {
