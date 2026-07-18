@@ -12,6 +12,7 @@ import DockService                        from '../../../../../src/ai/client/Doc
 import DockTopologyReconciler             from '../../../../../src/dashboard/DockTopologyReconciler.mjs';
 import DockZoneModel                      from '../../../../../src/dashboard/DockZoneModel.mjs';
 import InteractionService                 from '../../../../../src/ai/client/InteractionService.mjs';
+import {createDockTearOutHandlers}        from '../../../../../src/dashboard/DockTearOut.mjs';
 import TourRunner                         from '../../../../../src/ai/client/TourRunner.mjs';
 import {previewToOperation}               from '../../../../../src/dashboard/dockPreviewContract.mjs';
 import {demoBTourScript, initialDocument} from '../../../tour/demoBPerspectives.mjs';
@@ -228,6 +229,24 @@ class DemoBWorkspace extends Container {
      */
     detachedPanes = {}
     /**
+     * Gesture tear-out bookkeeping, SEPARATE from {@link #detachedPanes} by design (the
+     * composition law): `tearOutPanes[itemId] = {windowName, windowId}` is written only
+     * POST-COMMIT (the detached terminal), so mid-gesture the click-pop-out machinery —
+     * connect-reparent and the model-mutating disconnect-reattach — sees nothing and a
+     * cancelled tear-out stays zero-mutation by guard.
+     * @member {Object} tearOutPanes={}
+     * @protected
+     */
+    tearOutPanes = {}
+    /**
+     * The connect-race partner of {@link #tearOutPanes}: records a tear-out vessel window that
+     * connected BEFORE its terminal committed (long drags) as `tearOutConnects[itemId] =
+     * {appName, windowId}`. Adoption runs at whichever event lands SECOND — terminal or connect.
+     * @member {Object} tearOutConnects={}
+     * @protected
+     */
+    tearOutConnects = {}
+    /**
      * Plain structured result of the most recent topology reconciliation. This is rendered
      * into the workspace so remainder semantics are visible rather than buried in logs.
      * @member {Object|null} restoreReport=null
@@ -268,6 +287,24 @@ class DemoBWorkspace extends Container {
         me.dockService      = Neo.create(DockService, {});
         me.interactionService = Neo.create(InteractionService, {});
         me.perspectiveStore = Neo.create(DockPerspectiveStore, {});
+
+        // The gesture tear-out choreography (MAIN workspace only): the admission machine holds the
+        // one vessel slot; this host supplies the platform seams. The composition law: a tear-out
+        // vessel NEVER writes `detachedPanes` mid-gesture — that single omission keeps the
+        // click-pop-out reparent (`onWindowConnect`) and the model-mutating reattach
+        // (`onWindowDisconnect` → `reattachPane`) structurally OUT of the gesture path, so a
+        // cancelled tear-out is zero-mutation by GUARD. Post-commit adoption uses its own
+        // bookkeeping (`tearOutPanes` / `tearOutConnects`).
+        me.tearOutHandlers = createDockTearOutHandlers({
+            applyOperation  : descriptor => me.applyWorkspaceOperation(DemoBWorkspace.MAIN_WORKSPACE_ID, descriptor),
+            closeVessel     : vessel => me.closeTearOutVessel(vessel),
+            onDocumentChange: (document, operation) => {
+                me.onWorkspaceDocumentChange(DemoBWorkspace.MAIN_WORKSPACE_ID, document);
+                // The committed detach is the adoption trigger: the vessel owns the item now.
+                operation?.operation === 'detachItem' && me.adoptTearOutPane(operation.itemId)
+            },
+            openVessel: request => me.openTearOutVessel(request)
+        });
 
         me.tourRunner = Neo.create(TourRunner, {
             componentId        : me.id,
@@ -1707,12 +1744,23 @@ class DemoBWorkspace extends Container {
 
         if (!itemId) return;
 
+        // Tear-out vessels connect through the SAME ?popout= shell but live in their own
+        // bookkeeping: post-terminal (tearOutPanes written) → adopt now; mid-gesture → record
+        // the connect for the terminal to consume (the race runs both orders). Either way the
+        // click-pop-out flow below never touches a tear-out window (no detachedPanes entry).
+        if (me.tearOutPanes[itemId]) {
+            me.reparentTearOutPane(itemId, {windowId});
+            return
+        }
+
         let entry = me.detachedPanes[itemId],
             pane  = me.paneCache[itemId];
 
         if (entry && pane && me.popupDocument?.items?.[itemId]) {
             entry.windowId = windowId;
             app.mainView.add(pane)
+        } else if (!entry) {
+            me.tearOutConnects[itemId] = {windowId}
         }
     }
 
@@ -1761,6 +1809,17 @@ class DemoBWorkspace extends Container {
         for (const [itemId, entry] of Object.entries(me.detachedPanes)) {
             if (entry.windowId === data.windowId) {
                 me.reattachPane(itemId, {windowAlreadyClosed: true});
+                break
+            }
+        }
+
+        // Tear-out vessel death: post-adoption reintegration is the vessel-lifecycle leaf's
+        // scope — here the bookkeeping simply retires (the catalog entry stays the model truth).
+        // A pre-terminal disconnect has no entry in either map and needs nothing.
+        for (const [itemId, entry] of Object.entries(me.tearOutPanes)) {
+            if (entry.windowId === data.windowId) {
+                delete me.tearOutPanes[itemId];
+                delete me.tearOutConnects[itemId];
                 break
             }
         }
@@ -2087,9 +2146,15 @@ class DemoBWorkspace extends Container {
     ) {
         let me = this;
 
+        // Tear-out arms on the MAIN workspace only: the popup-workspace projection is itself a
+        // vessel-hosted render target — a tear-out FROM a vessel is popup-over-popup territory
+        // (G3), deliberately not wired here.
+        let tearOut = workspaceId === DemoBWorkspace.MAIN_WORKSPACE_ID;
+
         return DockLayoutAdapter.project(document, {
             applyDockZoneOperation   : descriptor => me.applyWorkspaceOperation(workspaceId, descriptor),
             crossWindowSortGroup     : me.crossWindowEnabled ? DemoBWorkspace.CROSS_WINDOW_SORT_GROUP : null,
+            enableDockTearOut        : tearOut,
             onDockCrossZoneDragCancel: data => me.onDockCrossZoneDragCancel(workspaceId, data),
             onDockCrossZoneDragMove  : data => me.onDockCrossZoneDragMove(workspaceId, data),
             onDockCrossZoneDrop      : data => me.onDockCrossZoneDrop(workspaceId, data),
@@ -2097,8 +2162,112 @@ class DemoBWorkspace extends Container {
             resolveComponentRef      : resolveComponentRef
                 || ((componentRef, item, itemId) => me.resolvePane(itemId, item)),
             resolveRevealComponentRef: (componentRef, item, itemId) => me.resolvePane(itemId, item),
-            workspaceId
+            workspaceId,
+            ...(tearOut ? me.tearOutHandlers : null)
         })
+    }
+
+    /**
+     * The tear-out admission seam: opens the vessel window for a mid-gesture boundary exit.
+     * Reuses the `?popout=` EMPTY-host viewport mode — the vessel carries no workspace document
+     * (a pure pane host), and because NOTHING is written to {@link #detachedPanes}, the
+     * click-pop-out connect-reparent guards itself out: the vessel rides empty until the
+     * terminal commits. Fail-closed per the admission contract: `windowOpen` returns a BOOLEAN
+     * (a blocked popup never throws), and any falsy/throwing acquisition returns `null` so the
+     * gesture degrades to its in-window fallback.
+     * @param {Object} request
+     * @param {String} request.itemId
+     * @param {Object} request.proxyRect
+     * @returns {Promise<{popupHeight: Number, popupWidth: Number, windowName: String}|null>}
+     * @protected
+     */
+    async openTearOutVessel({itemId, proxyRect}) {
+        let me         = this,
+            {windowId} = me,
+            windowName = `tearout-${itemId}`;
+
+        try {
+            let winData = await Neo.Main.getWindowData({windowId}),
+                width   = Math.max(Math.round(proxyRect?.width  || 480), 320),
+                height  = Math.max(Math.round(proxyRect?.height || 360), 240),
+                left    = Math.round((proxyRect?.x ?? 120) + winData.screenLeft),
+                top     = Math.round((proxyRect?.y ?? 120) + (winData.outerHeight - winData.innerHeight) + winData.screenTop),
+                opened  = await Neo.Main.windowOpen({
+                    url           : `./index.html?popout=${itemId}&hostId=${me.id}`,
+                    windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
+                    windowId,
+                    windowName
+                });
+
+            if (opened === false) return null;
+
+            return {popupHeight: height, popupWidth: width, windowName}
+        } catch (error) {
+            return null
+        }
+    }
+
+    /**
+     * The tear-out retirement seam: closes a vessel the gesture no longer needs (re-entry,
+     * cancel, or a refused model commit). Best-effort — an already-closed vessel is not an
+     * error surface, and {@link #onWindowDisconnect} ignores tear-out windows by construction
+     * (no {@link #detachedPanes} entry), so no reattach machinery fires.
+     * @param {Object} vessel
+     * @param {String} vessel.itemId
+     * @param {String} vessel.windowName
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async closeTearOutVessel({itemId, windowName}) {
+        let me = this;
+
+        delete me.tearOutConnects[itemId];
+
+        try {
+            await Neo.Main.windowClose({names: [windowName], windowId: me.windowId})
+        } catch (error) {
+            // best-effort retirement
+        }
+    }
+
+    /**
+     * The post-commit adoption: the detached terminal committed `detachItem` (the item left the
+     * tree, catalog preserved), so the vessel now OWNS the pane. Writes the {@link #tearOutPanes}
+     * entry and — if the vessel already connected ({@link #tearOutConnects}, the long-drag order)
+     * — reparents the live pane into it immediately; otherwise {@link #onWindowConnect} adopts on
+     * arrival (the fast-terminal order). Close-after-adoption reintegration is the vessel-lifecycle
+     * leaf's scope, deliberately not handled here.
+     * @param {String} itemId
+     * @protected
+     */
+    adoptTearOutPane(itemId) {
+        let me        = this,
+            connected = me.tearOutConnects[itemId];
+
+        me.tearOutPanes[itemId] = {windowName: `tearout-${itemId}`, windowId: connected?.windowId ?? null};
+
+        connected && me.reparentTearOutPane(itemId, connected)
+    }
+
+    /**
+     * Moves the LIVE cached pane into a connected tear-out vessel — the same instance-moving
+     * reparent the click-pop-out uses, minus every document write (the model already committed
+     * at the terminal; this is pure render-target work).
+     * @param {String} itemId
+     * @param {Object} target `{appName, windowId}`
+     * @protected
+     */
+    reparentTearOutPane(itemId, {windowId}) {
+        let me   = this,
+            app  = Neo.apps[windowId],
+            pane = me.paneCache[itemId];
+
+        if (!app || !pane || pane.isDestroyed) return;
+
+        me.tearOutPanes[itemId] && (me.tearOutPanes[itemId].windowId = windowId);
+
+        pane.parent?.remove(pane, false);
+        app.mainView.add(pane)
     }
 
     /**
