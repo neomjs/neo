@@ -1,29 +1,30 @@
-import ActivityStream                                               from './ActivityStream.mjs';
-import AddAgentForm                                                 from './AddAgentForm.mjs';
-import AgentDetail                                                  from './AgentDetail.mjs';
-import Button                                                       from '../../../../src/button/Base.mjs';
-import Component                                                    from '../../../../src/component/Base.mjs';
-import Container                                                    from '../../../../src/container/Base.mjs';
-import DockLayoutAdapter                                            from '../../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockMotionSignal                                             from '../../../../src/dashboard/DockMotionSignal.mjs';
-import DockPerspectiveStore                                         from '../../../../src/dashboard/DockPerspectiveStore.mjs';
-import DockPreviewProducer                                          from '../../../../src/dashboard/DockPreviewProducer.mjs';
-import DockProjectionReconciler                                     from '../../../../src/dashboard/DockProjectionReconciler.mjs';
-import DockService                                                  from '../../../../src/ai/client/DockService.mjs';
-import DockZoneModel                                                from '../../../../src/dashboard/DockZoneModel.mjs';
-import FleetCockpitController                                       from './FleetCockpitController.mjs';
-import FleetGrid                                                    from './FleetGrid.mjs';
-import FleetRoster                                                  from '../../store/FleetRoster.mjs';
-import OperatorMailbox                                              from './OperatorMailbox.mjs';
-import StateProvider                                                from '../../../../src/state/Provider.mjs';
-import TourRunner                                                   from '../../../../src/ai/client/TourRunner.mjs';
-import cockpitDockDocument                                          from './cockpitDockDocument.mjs';
-import cockpitPresetCollection                                      from './cockpitPresets.mjs';
-import {createDockTearOutHandlers}                                  from '../../../../src/dashboard/DockTearOut.mjs';
-import {deriveSpineBanner}                                          from './spineBanner.mjs';
-import {fusionTourScript, initialDocument as fusionInitialDocument} from '../../tour/fusionFlagship.mjs';
-import {mapFleetSessionHealth}                                      from './sourceHealth.mjs';
-import {previewToOperation}                                         from '../../../../src/dashboard/dockPreviewContract.mjs';
+import ActivityStream              from './ActivityStream.mjs';
+import AddAgentForm                from './AddAgentForm.mjs';
+import AgentDetail                 from './AgentDetail.mjs';
+import Button                      from '../../../../src/button/Base.mjs';
+import Component                   from '../../../../src/component/Base.mjs';
+import Container                   from '../../../../src/container/Base.mjs';
+import DockLayoutAdapter           from '../../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockMotionSignal            from '../../../../src/dashboard/DockMotionSignal.mjs';
+import DockPerspectiveStore        from '../../../../src/dashboard/DockPerspectiveStore.mjs';
+import DockPreviewProducer         from '../../../../src/dashboard/DockPreviewProducer.mjs';
+import DockProjectionReconciler    from '../../../../src/dashboard/DockProjectionReconciler.mjs';
+import DockService                 from '../../../../src/ai/client/DockService.mjs';
+import DockZoneModel               from '../../../../src/dashboard/DockZoneModel.mjs';
+import FleetCockpitController      from './FleetCockpitController.mjs';
+import FleetGrid                   from './FleetGrid.mjs';
+import FleetRoster                 from '../../store/FleetRoster.mjs';
+import OperatorMailbox             from './OperatorMailbox.mjs';
+import StateProvider               from '../../../../src/state/Provider.mjs';
+import TourRunner                  from '../../../../src/ai/client/TourRunner.mjs';
+import cockpitDockDocument         from './cockpitDockDocument.mjs';
+import cockpitPresetCollection     from './cockpitPresets.mjs';
+import {createDockTearOutHandlers} from '../../../../src/dashboard/DockTearOut.mjs';
+import {deriveSpineBanner}         from './spineBanner.mjs';
+import {fusionTourScript}          from '../../tour/fusionFlagship.mjs';
+import {missionControlTourScript}  from '../../tour/missionControlWalkthrough.mjs';
+import {mapFleetSessionHealth}     from './sourceHealth.mjs';
+import {previewToOperation}        from '../../../../src/dashboard/dockPreviewContract.mjs';
 import '../../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the dock projection emits for tab zones
 
 /**
@@ -553,6 +554,24 @@ class FleetCockpit extends Container {
      */
     sharedPerspectiveArtifact = null
     /**
+     * The CURRENT ATTEMPT's settled tour report (`{completed, cueErrors, cueReceipts, errors,
+     * log}`) — cleared SYNCHRONOUSLY when a take claims ownership and stamped at EVERY owned
+     * terminal (success AND thrown reset/refresh/start), so the NL contract — fire, poll
+     * `tourRunner === null`, read this member — can never attribute a previous take's success
+     * to a failed current attempt. `null` means "no settled report for the latest attempt";
+     * pre-ownership refusals return their report to the caller directly and never touch it.
+     * @member {Object|null} lastTourReport=null
+     */
+    lastTourReport = null
+    /**
+     * The owner-held activity-stream state (`{adapterState, events}`) an `activity-burst` cue
+     * displaced — captured once per take at first injection, restored by
+     * {@link #restoreTourStream} at the take terminal. `null` when no burst ran.
+     * @member {Object|null} tourStreamRestore=null
+     * @protected
+     */
+    tourStreamRestore = null
+    /**
      * The serialized hosting-cue chain (the Workstation settlement pattern): TourRunner fires
      * cues synchronously and deliberately never awaits them, so every async cue consumer chains
      * here and {@link #playFusionTour} awaits the WHOLE chain before reporting — a tour can
@@ -655,14 +674,35 @@ class FleetCockpit extends Container {
 
     /**
      * @summary Plays the flagship fusion tour on THIS live cockpit — the four-beat screenplay
-     * (cockpit → docked panel → OS window → share) through the standard runner trinity. The
-     * runner exists only while the tour plays; a second invocation while one runs is a guarded
-     * refusal (one stage, one take). Document ops ride the same `execute_dock_operation` seam a
-     * live agent drives; the vessel and perspective beats arrive as cues ({@link #onTourBeat})
-     * and reuse the cockpit's OWN machinery — no tour-only code path touches dock truth.
+     * (cockpit → docked panel → OS window → share). Delegates to {@link #playTour}.
      * @returns {Promise<Object>} The runner's completion result `{completed, errors, log}`.
      */
-    async playFusionTour() {
+    playFusionTour() {
+        return this.playTour(fusionTourScript)
+    }
+
+    /**
+     * @summary Plays the mission-control walkthrough — the cockpit's public story ("watch a
+     * real AI engineering team run") — on THIS live cockpit. Delegates to {@link #playTour};
+     * driven over the Neural Link by the walkthrough's e2e leg and the recording pipeline.
+     * @returns {Promise<Object>} The runner's completion result `{completed, errors, log}`.
+     */
+    playWalkthroughTour() {
+        return this.playTour(missionControlTourScript)
+    }
+
+    /**
+     * @summary Plays ONE `neo.tour.script.v1` screenplay on THIS live cockpit through the
+     * standard runner trinity — the shared play seam every cockpit tour rides (the fusion
+     * four-beat, the mission-control walkthrough, and any future screenplay). The runner
+     * exists only while the tour plays; a second invocation while one runs is a guarded
+     * refusal (one stage, one take). Document ops ride the same `execute_dock_operation` seam
+     * a live agent drives; every host transition arrives as a cue ({@link #onTourBeat}) and
+     * reuses the cockpit's OWN machinery — no tour-only code path touches dock truth.
+     * @param {Object} script The `neo.tour.script.v1` screenplay to play.
+     * @returns {Promise<Object>} The runner's completion result `{completed, errors, log}`.
+     */
+    async playTour(script) {
         let me = this;
 
         if (me.tourRunner) {
@@ -678,16 +718,19 @@ class FleetCockpit extends Container {
 
         // SINGLE-FLIGHT: ownership is claimed SYNCHRONOUSLY — `tourRunner` is set before any
         // await, so a concurrent second call refuses at the guard above instead of slipping
-        // through the pre-start refresh window and double-creating runners.
-        me.cuePromise  = Promise.resolve();
-        me.cueReceipts = [];
-        me.cueErrors   = [];
+        // through the pre-start refresh window and double-creating runners. The stale report
+        // clears in the SAME synchronous window: a reader polling `tourRunner === null` can
+        // never attribute a previous take's success to this attempt.
+        me.cuePromise     = Promise.resolve();
+        me.cueReceipts    = [];
+        me.cueErrors      = [];
+        me.lastTourReport = null;
 
         me.tourRunner = Neo.create(TourRunner, {
             componentId: me.id,
             dockService: me.dockService,
             mode       : 'demo',
-            script     : fusionTourScript
+            script
         });
 
         me.tourRunner.on({
@@ -712,17 +755,47 @@ class FleetCockpit extends Container {
             // drain before this report exists. Cue failures outrank a green runner log.
             await me.cuePromise;
 
-            return {
+            me.lastTourReport = {
                 ...result,
                 completed  : result.completed && me.cueErrors.length === 0,
                 cueErrors  : [...me.cueErrors],
                 cueReceipts: me.cueReceipts.length
-            }
+            };
+
+            return me.lastTourReport
+        } catch (error) {
+            // CURRENT-ATTEMPT terminal truth: a thrown reset/refresh/start still publishes a
+            // structured failed report for THIS invocation before ownership releases — a prior
+            // successful terminal is never a valid fallback for a failed current attempt.
+            me.lastTourReport = {
+                completed  : false,
+                cueErrors  : [...me.cueErrors],
+                cueReceipts: me.cueReceipts.length,
+                errors     : [error?.message || String(error)],
+                log        : []
+            };
+
+            return me.lastTourReport
         } finally {
+            me.restoreTourStream();
             me.tourRunner?.destroy?.();
             me.tourRunner = null;
             me.setTourCaption('')
         }
+    }
+
+    /**
+     * @summary Restores the owner-held activity-stream state an `activity-burst` cue displaced —
+     * the take-terminal half of the burst's reversibility contract. Inert when no burst ran.
+     */
+    restoreTourStream() {
+        let me      = this,
+            restore = me.tourStreamRestore;
+
+        if (!restore) return;
+
+        me.tourStreamRestore = null;
+        me.getReference('activity-stream')?.set(restore)
     }
 
     /**
@@ -734,7 +807,7 @@ class FleetCockpit extends Container {
      */
     resetTourStage() {
         let me       = this,
-            document = DockZoneModel.clone(fusionInitialDocument);
+            document = cockpitDockDocument();
 
         me.onDockZoneDocumentChange(document);
         return document
@@ -770,11 +843,13 @@ class FleetCockpit extends Container {
     /**
      * @summary Executes ONE hosting cue against the cockpit's existing verbs and returns its
      * observable receipt — perspective saves ride the landed DockService capture verb, loads
-     * ride {@link #activatePerspective}, export/import ride the share round-trip, and the
-     * vessel beats ride the detail vessel's OWN state machine ({@link #popOutAgentDetail} /
-     * {@link #reattachAgentDetail}). None of them are dock-document ops, so none masquerade as
-     * descriptors; every refused verb THROWS so the settlement chain folds it — an unknown cue
-     * type fails closed the same way (paired with the script spec's vocabulary pin).
+     * ride {@link #activatePerspective}, export/import ride the share round-trip, the vessel
+     * beats ride the detail vessel's OWN state machine ({@link #popOutAgentDetail} /
+     * {@link #reattachAgentDetail}), the walkthrough's `activity-burst` rides the stream's
+     * reactive seam, and `drill` rides the production selection seam. None of them are
+     * dock-document ops, so none masquerade as descriptors; every refused verb THROWS so the
+     * settlement chain folds it — an unknown cue type fails closed the same way (paired with
+     * each script spec's vocabulary pin).
      * @param {Object} cue `{type, name?, itemId?, scope?}`
      * @returns {Promise<Object>} The verb's result object — the cue's receipt.
      */
@@ -812,6 +887,50 @@ class FleetCockpit extends Container {
                 result = await me.reattachAgentDetail();
                 if (!result.reattached) throw new Error(result.errors[0] || 'reattach refused');
                 return result;
+            case 'activity-burst': {
+                // the walkthrough's stream beat: inject `count` DEMO events through the stream's
+                // OWN reactive seam (distinct actors + monotone timestamps, so coalescing never
+                // collapses them). Honest by construction: the count is an explicit bounded
+                // positive integer (no hidden host default), the events carry TOUR provenance —
+                // never a Memory Core source — the surface's adapter state is NOT touched (a
+                // sample surface stays labeled sample), and the displaced owner-held state is
+                // captured once for the take-terminal restore ({@link #restoreTourStream}).
+                const stream = me.getReference('activity-stream');
+
+                if (!stream) throw new Error('no activity stream is mounted');
+
+                const count = cue.count;
+
+                if (!Number.isInteger(count) || count < 1 || count > 200) {
+                    throw new Error(`activity-burst needs an explicit integer count 1-200, got "${count}"`)
+                }
+
+                me.tourStreamRestore ??= {adapterState: stream.adapterState, events: stream.events};
+
+                const events = Array.from({length: count}, (_, i) => ({
+                    agentId   : `tour-burst-${i}`,
+                    occurredAt: new Date(Date.UTC(2026, 6, 18, 12, 0, 0) + i * 60000).toISOString(),
+                    payload   : {text: `demo fleet event ${i}`},
+                    source    : 'tour:demo-burst',
+                    type      : 'a2a-activity'
+                }));
+
+                stream.set({events});
+                return {injected: count, provenance: 'tour:demo-burst'}
+            }
+            case 'drill': {
+                // the walkthrough's selection beat: NAME-addressed against the public roster
+                // (deterministic across runs), through the production selection seam — the same
+                // path the operator's click drives
+                const controller = me.getController(),
+                      grid       = me.getReference('fleet-grid'),
+                      record     = grid?.store?.items?.find(item => item.agentId === cue.name);
+
+                if (!record) throw new Error(`no roster resident "${cue.name}"`);
+
+                controller.onAgentSelect({agentId: record.agentId});
+                return {drilled: record.agentId}
+            }
             default:
                 throw new Error(`unknown cue type "${cue.type}"`)
         }
