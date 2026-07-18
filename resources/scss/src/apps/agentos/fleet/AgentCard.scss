@@ -23,6 +23,19 @@
         gap: 6px;
     }
 
+    /* the State line (WCAG 1.4.1), folded inline beside the dot. --fm-ink-dim, NOT a --fm-state-* hue:
+       the state tokens are dot-tuned to the 3:1 non-text floor (--fm-state-off ≈ 3:1) and fail the
+       4.5:1 TEXT floor — so the word joins the secondary-metadata ink register (matching engine/lane)
+       and the adjacent DOT carries the colour. Literal lowercase vocabulary from stateLabel(). */
+    .fm-card-state {
+        flex       : none;
+        font-family: var(--fm-font-mono);
+        font-size  : 10px;
+        line-height: 1;
+        white-space: nowrap;
+        color      : var(--fm-ink-dim);
+    }
+
     /* the drill Button (gate-1): the keyboard-operable target that opens the resident. Reset the
        neo-button chrome so the resident's NAME reads as the card title (a text-link drill), not a chip;
        hover + focus-visible signal its interactivity — the card itself is a non-interactive listitem. */
