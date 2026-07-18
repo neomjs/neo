@@ -69,6 +69,32 @@ test.describe('community-activity-batch.v1 contract', () => {
             .not.toBe(canonicalBatchDigest(a));
     });
 
+    test('duplicate multiplicity stays digest-visible — normalization sorts, never dedupes', () => {
+        const once  = batch({occurrences: [occurrence('e1')]}),
+              twice = batch({occurrences: [occurrence('e1'), occurrence('e1')]});
+
+        expect(canonicalBatchDigest(twice), 'two occurrences of a fact is a different claim from one')
+            .not.toBe(canonicalBatchDigest(once));
+    });
+
+    test('server-side policy output is digest-EXTERNAL — classification cannot shift a connector digest', () => {
+        const connectorBatch = batch(),
+              classifiedRow  = batch({occurrences: [
+                  occurrence('e1', {attentionDisposition: 'eligible', attentionReason: 'external-author'}),
+                  occurrence('e2', {attentionDisposition: 'ineligible', attentionReason: 'rostered-actor'})
+              ]});
+
+        expect(canonicalBatchDigest(classifiedRow), 'a policy revision must never masquerade as connector corruption')
+            .toBe(canonicalBatchDigest(connectorBatch));
+    });
+
+    test('a connector may not self-assert eligibility (zero-authority)', () => {
+        const {valid, errors} = validateBatch(batch({occurrences: [occurrence('e1', {attentionDisposition: 'eligible'})]}));
+
+        expect(valid).toBe(false);
+        expect(errors).toContain('OCCURRENCE_0_ASSERTS_SERVER_POLICY_ATTENTIONDISPOSITION');
+    });
+
     test('digest is stable across key insertion order', () => {
         const a = batch(),
               b = {occurrences: a.occurrences, coverage: a.coverage, partition: a.partition,

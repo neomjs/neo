@@ -20,7 +20,30 @@ const
      */
     PROSE_KEYS               = new Set(['body', 'bodyHTML', 'bodyText', 'excerpt', 'summary', 'text', 'title']),
     /** Absence is never inferred — it is one of three explicitly-evidenced dispositions. */
-    ABSENCE_DISPOSITIONS     = new Set(['deleted', 'inaccessible', 'unknown']);
+    ABSENCE_DISPOSITIONS     = new Set(['deleted', 'inaccessible', 'unknown']),
+    /**
+     * Server-owned policy output. Attention eligibility is a zero-authority judgement made by a
+     * server-side classifier and written in the same admission transaction — it is NOT connector
+     * payload. Two consequences, both enforced here: a connector may not self-assert it (validation
+     * refuses), and it never enters the digest (so revising our policy can never masquerade as
+     * connector corruption on an otherwise-identical batch).
+     */
+    SERVER_POLICY_KEYS       = new Set(['attentionDisposition', 'attentionReason', 'eligibility', 'eligibilityReason', 'trustProjection']);
+
+/**
+ * Returns an occurrence without server-owned policy fields, so the digest is computed over
+ * connector-supplied payload only and stays stable across policy revisions.
+ * @param {Object} occurrence
+ * @returns {Object}
+ */
+function connectorPayloadOf(occurrence) {
+    return Object.keys(occurrence)
+        .filter(key => !SERVER_POLICY_KEYS.has(key))
+        .reduce((out, key) => {
+            out[key] = occurrence[key];
+            return out
+        }, {})
+}
 
 /**
  * @summary Deterministically serializes a value so equal payloads yield equal strings.
@@ -56,6 +79,9 @@ function canonicalize(value) {
  * server-assigned and distinct from batch identity — so array position carries no durable meaning,
  * and sorting normalizes away a non-authoritative field rather than discarding information. The
  * alternative would raise an integrity conflict every time a connector re-serializes from a map.
+ *
+ * Normalization is a SORT, never a de-duplication: duplicate multiplicity stays digest-visible,
+ * because two occurrences of the same fact is a materially different claim from one.
  * @param {Object} batch
  * @returns {String} `sha256:<hex>`
  */
@@ -63,8 +89,9 @@ export function canonicalBatchDigest(batch) {
     const
         {batchId, sourceInstanceId, registrationEpoch, partition, coverage, occurrences = []} = batch,
         // Sort by each occurrence's own canonical form: a total, input-order-independent order.
+        // Server policy is stripped first so classification cannot shift a connector's digest.
         orderedOccurrences = occurrences
-            .map(canonicalize)
+            .map(occurrence => canonicalize(connectorPayloadOf(occurrence)))
             .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
         payload = canonicalize({
             batchId,
@@ -141,7 +168,8 @@ export function validateBatch(batch) {
             });
 
             Object.keys(occurrence).forEach(key => {
-                if (PROSE_KEYS.has(key)) errors.push(`OCCURRENCE_${index}_CARRIES_PROSE_${key.toUpperCase()}`)
+                if (PROSE_KEYS.has(key))         errors.push(`OCCURRENCE_${index}_CARRIES_PROSE_${key.toUpperCase()}`);
+                if (SERVER_POLICY_KEYS.has(key)) errors.push(`OCCURRENCE_${index}_ASSERTS_SERVER_POLICY_${key.toUpperCase()}`)
             });
 
             if (occurrence.absence !== undefined && !ABSENCE_DISPOSITIONS.has(occurrence.absence)) {
