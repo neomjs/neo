@@ -113,6 +113,16 @@ class FleetControlBridge extends Base {
      */
     mailboxMirrorSource = null
     /**
+     * Viewer-identity bootstrap seam — an injected collaborator exposing `resolveViewerIdentity()`
+     * returning the SERVER-stamped viewer from the authenticated request context (the launch entry
+     * wires it to the same per-request binding the mirror source reads; never cached, never a
+     * caller claim). Exists because the mirror's explicit-subject contract is deliberate while
+     * `admission.viewerIdentity` only arrives IN a read result — circular for the FIRST own-inbox
+     * read; whoami is the bootstrap leg. Unwired → an honest source-not-wired refusal.
+     * @member {Object|null} viewerIdentitySource=null
+     */
+    viewerIdentitySource = null
+    /**
      * Operator-compose **WRITE** seam — an injected collaborator exposing `addMessage(payload)`
      * (the MailboxService primitive, bound by the launch entry — never imported here). The FIRST
      * write seam on this bridge: unlike the read-observe sources above it persists a mailbox
@@ -478,6 +488,34 @@ class FleetControlBridge extends Base {
                 page   : {limit: params?.limit ?? DEFAULT_FLEET_MAILBOX_MIRROR_LIMIT, offset: params?.offset ?? 0},
                 subject: params?.subjectAgentId ?? null
             });
+    }
+
+    /**
+     * @summary Whoami — the identity-bootstrap read verb: the SERVER-stamped viewer identity from
+     * the authenticated request context, never a caller claim.
+     *
+     * The one consumer problem this solves: the mirror's explicit-subject contract refuses an
+     * omitted `subjectAgentId` by design (no self-defaulting at a trust boundary), but
+     * `admission.viewerIdentity` only arrives IN a read result — circular for the FIRST own-inbox
+     * read. Whoami is the missing bootstrap leg of "the client SAYS self, and the admission stamp
+     * proves it": the cockpit calls this, then passes the returned @-id EXPLICITLY as the subject,
+     * and the mirror's admission re-stamps and proves it.
+     *
+     * Fail-closed in both refusal shapes: an unwired source (no composed launch contract) answers
+     * `source not wired`; a wired source under an UNBOUND request context answers `viewer identity
+     * unbound` — never a fallback identity, never an empty-string viewer.
+     * @returns {Object} `{ok: true, agentIdentityNodeId}` or `{ok: false, error}`
+     */
+    resolveViewerIdentity() {
+        if (!this.viewerIdentitySource) {
+            return {ok: false, error: 'fleet viewer identity source not wired'};
+        }
+
+        const agentIdentityNodeId = this.viewerIdentitySource.resolveViewerIdentity();
+
+        return agentIdentityNodeId
+            ? {ok: true, agentIdentityNodeId}
+            : {ok: false, error: 'viewer identity unbound — authenticated ingress required'};
     }
 
     /**
