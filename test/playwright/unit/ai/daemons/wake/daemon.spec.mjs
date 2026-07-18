@@ -2132,6 +2132,89 @@ test.describe('Wake Daemon', () => {
         expect(fs.existsSync(mockOsascriptOutPath)).toBe(false);
     });
 
+    test('a hung OpenCode endpoint fails deadline-bounded and does NOT wedge the serialized delivery of later routes (#15394)', async () => {
+        const hungSubId  = 'sub_' + crypto.randomUUID();
+        const hungAgent  = '@test-agent-opencode-hung';
+        const laterSubId = 'sub_' + crypto.randomUUID();
+        const laterAgent = '@test-agent-after-hung';
+
+        // Accept-and-never-respond stub: the worst accepting endpoint — the delivery must die by
+        // the AbortSignal deadline, not by the endpoint.
+        const stubServer = http.createServer((req, res) => { /* accept, never respond */ });
+        await new Promise(resolve => stubServer.listen(0, '127.0.0.1', resolve));
+        const stubPort = stubServer.address().port;
+
+        const envelopePath = path.join(DAEMON_DIR, 'opencode-wake-envelope-hung.json');
+        fs.writeJsonSync(envelopePath, {
+            hostname : '127.0.0.1',
+            port     : stubPort,
+            sessionId: 'ses_hung',
+            username : 'wake-user',
+            password : 'wake-pass'
+        });
+
+        insertWakeSubscription(db, {
+            subId                : hungSubId,
+            agentId              : hungAgent,
+            harnessTargetMetadata: {
+                adapter       : 'opencode-server',
+                envelopePath,
+                coalesceWindow: 1
+            }
+        });
+
+        insertWakeSubscription(db, {
+            subId                : laterSubId,
+            agentId              : laterAgent,
+            harnessTargetMetadata: {
+                adapter       : 'test',
+                coalesceWindow: 1
+            }
+        });
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {
+                ...process.env,
+                NEO_MEMORY_DB_PATH: DB_PATH,
+                NEO_AI_DAEMON_DIR : DAEMON_DIR
+            }
+        });
+
+        let hungFailed = false;
+
+        const laterDeliveredPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('the later route never delivered — the hung endpoint wedged the serialized loop')), 30000);
+
+            daemonProcess.stderr.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes(`Failed to deliver via opencode-server`)) {
+                    hungFailed = true;
+                }
+            });
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes(`[Wake Daemon Test Adapter] Delivered ${laterSubId}`)) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            daemonProcess.on('error', reject);
+        });
+
+        try {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            insertMessageWake(db, { agentId: hungAgent,  subject: 'Hung Endpoint Wake' });
+            insertMessageWake(db, { agentId: laterAgent, subject: 'After Hung Wake' });
+
+            await laterDeliveredPromise;
+            expect(hungFailed).toBe(true);
+        } finally {
+            stubServer.closeAllConnections?.();
+            stubServer.close();
+        }
+    });
+
     test('Claude default focus seed emits r -> Cmd+Z before prompt clear and guards frontmost (#10987, #10422)', async () => {
         const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-claude';

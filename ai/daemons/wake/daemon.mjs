@@ -1051,23 +1051,36 @@ async function deliverViaOpencodeServer(subscription, digest, evidenceLabel = ''
 
     const {hostname, port, sessionId, username, password} = envelope;
 
-    for (const [key, value] of Object.entries({hostname, port, sessionId, username, password})) {
-        if (value === undefined || value === null || value === '') {
-            throw new Error(`opencode-server envelope at '${envelopePath}' is missing '${key}'`);
+    // Typed + authority-checked coordinates: a malformed or hostile envelope must never steer the
+    // daemon's HTTP client off the seat's loopback server. Delivery is globally serialized, so the
+    // fetch is also deadline-bounded — one hung endpoint must not wedge every later wake route.
+    for (const [key, value] of Object.entries({hostname, sessionId, username, password})) {
+        if (typeof value !== 'string' || value.length === 0) {
+            throw new Error(`opencode-server envelope at '${envelopePath}' requires '${key}' to be a non-empty string`);
         }
     }
 
-    const response = await fetch(`http://${hostname}:${port}/session/${sessionId}/prompt_async`, {
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        throw new Error(`opencode-server envelope at '${envelopePath}' requires 'port' to be an integer in 1..65535`);
+    }
+
+    if (!['127.0.0.1', 'localhost', '::1'].includes(hostname)) {
+        throw new Error(`opencode-server envelope at '${envelopePath}' requires a loopback hostname (received '${hostname}')`);
+    }
+
+    const response = await fetch(`http://${hostname}:${port}/session/${encodeURIComponent(sessionId)}/prompt_async`, {
         method : 'POST',
         headers: {
             'content-type' : 'application/json',
             'authorization': 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64')
         },
-        body   : JSON.stringify({parts: [{type: 'text', text: digest}]})
+        body    : JSON.stringify({parts: [{type: 'text', text: digest}]}),
+        redirect: 'error',
+        signal  : AbortSignal.timeout(5000)
     });
 
-    if (!response.ok) {
-        throw new Error(`opencode-server prompt_async failed with HTTP ${response.status}`);
+    if (response.status !== 204) {
+        throw new Error(`opencode-server prompt_async expected HTTP 204, received ${response.status}`);
     }
 
     writeLog('INFO', `[Wake Daemon] Dispatched ${subscription.id} via opencode-server prompt_async${evidenceLabel}`);

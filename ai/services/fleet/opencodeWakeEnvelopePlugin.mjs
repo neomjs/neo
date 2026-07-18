@@ -8,8 +8,9 @@
  * (`.opencode/plugins/`) works too, but the seat checkout is itself a git repo — the global
  * dir keeps the plant out of the tracked tree.
  *
- * What it does: on every `session.created` event, writes the seat's wake envelope to
- * `~/.local/share/opencode/wake-envelope.json` (mode 0600):
+ * What it does: on every operator-seat `session.created` event, atomically writes the seat's
+ * wake envelope to `$XDG_DATA_HOME/opencode/wake-envelope.json` (fallback
+ * `~/.local/share/opencode/wake-envelope.json`), mode 0600:
  *
  * ```json
  * {
@@ -28,25 +29,39 @@
  * envelope on every delivery, so the embedded server's random per-boot port and the live
  * session id never need a graph write. Credentials come from the seat's own spawn env
  * (`OPENCODE_SERVER_USERNAME` / `OPENCODE_SERVER_PASSWORD`) — the same env-only secret
- * discipline as the rest of the seat substrate; the envelope file is mode 0600 beside the
+ * discipline as the rest of the seat substrate; the envelope file is chmod 0600 beside the
  * desktop's own `auth.json`.
  *
- * Port discovery: the plugin runs inside the seat's embedded-server process, so the
- * process's own TCP listener IS the server address — no config, no guessing.
+ * Seat-isolation + correctness disciplines (learned from review falsifiers):
+ * - The embedded server's address comes from the plugin input's authoritative `serverUrl`
+ *   (when present); the `lsof`-on-own-pid scan is only a fallback — with multiple listeners
+ *   on the process, the first `lsof` row is not guaranteed to be the API server.
+ * - The envelope root honors `XDG_DATA_HOME`, so per-seat XDG isolation (Fleet launch
+ *   specs) keeps each seat's envelope on its own path instead of collapsing onto the
+ *   shared default.
+ * - Writes are same-directory atomic (tmp file + rename) with an explicit `chmod 0600`
+ *   AFTER the rename — `{mode}` on `writeFile` only applies at creation and leaves a
+ *   pre-existing 0644 file permissive; the rename also closes torn reads.
+ * - Only OPERATOR-seat sessions refresh the envelope: `session.created` events whose
+ *   session carries a parent id (child/subagent sessions) are ignored, so a spawned
+ *   subagent can never retarget the seat's wake route to its own session.
  *
  * NOTE: the envelope is written on `session.created`; a session already open when the
  * plugin is first planted re-writes it at the next session start (or immediately on
  * restart of the seat).
  *
- * @summary OpenCode plugin that writes the wake-daemon seat envelope on session.created.
+ * @summary OpenCode plugin that writes the wake-daemon seat envelope on operator-seat session.created.
  * @see ai/daemons/wake/daemon.mjs deliverViaOpencodeServer (the consuming route)
  */
-export const NeoWakeEnvelope = async ({ project, client, $, directory }) => {
+export const NeoWakeEnvelope = async (ctx) => {
+    const { project, client, $, directory } = ctx;
+
     const fs   = await import('node:fs/promises');
     const os   = await import('node:os');
     const path = await import('node:path');
 
-    const envelopePath = path.join(os.homedir(), '.local', 'share', 'opencode', 'wake-envelope.json');
+    const dataRoot     = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
+    const envelopePath = path.join(dataRoot, 'opencode', 'wake-envelope.json');
 
     const log = async (level, message) => {
         try {
@@ -54,13 +69,31 @@ export const NeoWakeEnvelope = async ({ project, client, $, directory }) => {
         } catch (_) { /* logging must never break the envelope writer */ }
     };
 
-    const writeEnvelope = async (sessionId) => {
+    const resolvePort = async () => {
+        // Authoritative first: the plugin input's serverUrl (the exact URL the seat's
+        // client/server pair is bound to). Shape-tolerant: ctx.serverUrl or client.serverUrl.
+        const serverUrl = ctx.serverUrl ?? client?.serverUrl;
+
+        if (serverUrl) {
+            const port = Number(new URL(serverUrl).port);
+            if (Number.isInteger(port) && port > 0) return port;
+        }
+
+        // Fallback: the plugin runs inside the seat's embedded-server process, so the
+        // process's own TCP listener is the server address. With multiple listeners the
+        // first row may not be the API server — hence serverUrl preferred.
         const lsof = await $`lsof -nP -iTCP -sTCP:LISTEN -a -p ${process.pid}`.text();
         const port = Number(lsof.match(/:(\d+)\s+\(LISTEN\)/)?.[1]);
 
         if (!Number.isInteger(port)) {
-            throw new Error(`no TCP listener found on pid ${process.pid}`);
+            throw new Error(`no serverUrl and no TCP listener found on pid ${process.pid}`);
         }
+
+        return port;
+    };
+
+    const writeEnvelope = async (sessionId) => {
+        const port = await resolvePort();
 
         const envelope = {
             hostname : '127.0.0.1',
@@ -74,7 +107,13 @@ export const NeoWakeEnvelope = async ({ project, client, $, directory }) => {
         };
 
         await fs.mkdir(path.dirname(envelopePath), { recursive: true });
-        await fs.writeFile(envelopePath, JSON.stringify(envelope, null, 2) + '\n', { mode: 0o600 });
+
+        // Atomic write: tmp file + same-directory rename (no torn reads), then an explicit
+        // chmod AFTER the rename — writeFile's mode option does not tighten a pre-existing file.
+        const tmpPath = `${envelopePath}.${process.pid}.tmp`;
+        await fs.writeFile(tmpPath, JSON.stringify(envelope, null, 2) + '\n');
+        await fs.rename(tmpPath, envelopePath);
+        await fs.chmod(envelopePath, 0o600);
 
         await log('info', `wake envelope written for session ${sessionId} (port ${port})`);
     };
@@ -85,9 +124,12 @@ export const NeoWakeEnvelope = async ({ project, client, $, directory }) => {
                 return;
             }
 
-            const sessionId = event.properties?.info?.id;
+            const info      = event.properties?.info ?? {};
+            const sessionId = info.id;
+            const parentId  = info.parentID ?? info.parent_id ?? null;
 
-            if (!sessionId) {
+            // Child/subagent sessions never retarget the operator seat's wake route.
+            if (!sessionId || parentId) {
                 return;
             }
 

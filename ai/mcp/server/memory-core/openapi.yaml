@@ -2273,14 +2273,14 @@ paths:
                   description: Required for subscribe; specifies how wake events are delivered.
                 harnessTargetMetadata:
                   type: object
-                  description: Channel-specific metadata. appName is required so fresh agents always provide the bridge-daemon routing target; url is required for a2a-webhook; coalesceWindow is an optional override. instanceAddress + addressType (local bridge-daemon only) target a specific receiver instance; userDataDir is a legacy compatibility field for existing subscriptions.
-                  required: [appName]
+                  description: Channel-specific metadata. appName is required by the service for osascript-style bridge-daemon routes (not for adapter 'opencode-server'); url is required for a2a-webhook; coalesceWindow is an optional override. instanceAddress + addressType (local bridge-daemon only) target a specific receiver instance; userDataDir is a legacy compatibility field for existing subscriptions. envelopePath overrides the opencode-server seat-envelope location.
                   properties:
                     url:              {type: string}
                     coalesceWindow:   {type: integer, minimum: 0, maximum: 300}
                     daemonSocketPath: {type: string}
-                    adapter:          {type: string, enum: [osascript, tmux, codex-app-server]}
+                    adapter:          {type: string, enum: [osascript, tmux, codex-app-server, opencode-server]}
                     appName:          {type: string}
+                    envelopePath:     {type: string}
                     instanceAddress:  {type: string, nullable: true}
                     addressType:      {type: string, enum: [userDataDir, pid, tmuxSession, webhookUrl], nullable: true}
                     userDataDir:      {type: string, nullable: true}
