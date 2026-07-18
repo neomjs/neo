@@ -681,6 +681,54 @@ export function readWorkGraphIssueRecords(issuesDir) {
 }
 
 /**
+ * @summary Reads synced pull-request markdown into deterministic PR records — the sibling of
+ * {@link readWorkGraphIssueRecords} for the fleet-activity PR/lane slot. Each record carries the
+ * synced frontmatter (`number`, `title`, `author`, `state`, the lifecycle timestamps, `url`) plus
+ * the markdown body — the shape `createPrActivityEvents` (fleetPrLaneActivityAdapter) consumes.
+ * Reuses {@link collectIssueMarkdownFiles} (a generic recursive `.md` collector, despite its
+ * issue-era name). Fail-soft: an absent or unreadable directory yields `[]`, never a throw — the
+ * PR/lane slot then honestly emits no pr-activity events rather than taking the composite down.
+ *
+ * @param {String} pullsDir Local synced pulls directory (`resources/content/pulls`).
+ * @returns {Array<Object>} Parsed PR records; empty when the directory is absent or unreadable.
+ */
+export function readSyncedPullRecords(pullsDir) {
+    let files;
+
+    try {
+        files = collectIssueMarkdownFiles(pullsDir);
+    } catch (error) {
+        logger.warn(`[fleet-activity] synced pulls directory unreadable: ${pullsDir}`, error);
+        return []
+    }
+
+    const records = [];
+
+    for (const filePath of files) {
+        let parsed;
+
+        try {
+            parsed = matter(fs.readFileSync(filePath, 'utf-8'));
+        } catch (error) {
+            logger.warn(`[fleet-activity] failed to parse synced pull markdown: ${filePath}`, error);
+            continue
+        }
+
+        const meta = parsed.data || {};
+
+        // Skip any non-PR markdown (a record with no `number` in its frontmatter); every synced
+        // pull file carries its PR number, so this only guards against stray index/metadata files.
+        if (meta.number === undefined || meta.number === null) {
+            continue
+        }
+
+        records.push({...meta, body: parsed.content || '', filePath})
+    }
+
+    return records
+}
+
+/**
  * @summary Detects deliberate-defer state for an issue work item.
  *
  * @param {Object} issue Parsed issue work record.

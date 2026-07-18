@@ -3,6 +3,7 @@ import {createFleetActivityReadSource}     from './fleetActivityComposer.mjs';
 import {readFleetA2AActivitySnapshot}      from './fleetA2AActivityAdapter.mjs';
 import {createFleetPrLaneActivitySnapshot} from './fleetPrLaneActivityAdapter.mjs';
 import {buildWorkGraphStallFindings,
+        readSyncedPullRecords,
         readWorkGraphIssueRecords}           from '../graph/issueFocusSections.mjs';
 
 /**
@@ -44,23 +45,23 @@ function makeReadA2ASnapshot(listMessages) {
 }
 
 /**
- * @summary The PR/lane slot reader — reads local-synced issue records + work-graph stall findings +
- * injected PR payloads, then hands them to the pure builder. A read failure becomes a degraded
+ * @summary The PR/lane slot reader — reads local-synced issue + pull records + work-graph stall
+ * findings, then hands them to the pure builder. A read failure becomes a degraded
  * capability naming the slot (the builder's `error` path), never a thrown snapshot that would take the
  * whole composite down.
  * @param {Object} options
  * @param {String} options.issuesDir Local synced issue directory (`resources/content/issues`).
+ * @param {String} [options.pullsDir] Local synced pulls directory (`resources/content/pulls`); omit for no PR events.
  * @param {Object} [options.graphService] memory-core GraphService for stall-finding defer disposition.
- * @param {Function} [options.readPrs] Optional `async params => pr payloads[]`; omit for no PR events.
  * @returns {Function} `params => Promise<{capability, events}>`
  * @private
  */
-function makeReadPrLaneSnapshot({issuesDir, graphService, readPrs}) {
+function makeReadPrLaneSnapshot({issuesDir, pullsDir, graphService}) {
     return async params => {
         const capturedAt = new Date();
 
         try {
-            const prs           = typeof readPrs === 'function' ? await readPrs(params) : [],
+            const prs           = (typeof pullsDir === 'string' && pullsDir.length > 0) ? readSyncedPullRecords(pullsDir) : [],
                   issues        = readWorkGraphIssueRecords(issuesDir),
                   stallFindings = buildWorkGraphStallFindings({issuesDir, prs, now: capturedAt, graphService});
 
@@ -87,7 +88,8 @@ function makeReadPrLaneSnapshot({issuesDir, graphService, readPrs}) {
  *     caller (never imported here). Absent → the A2A slot degrades.
  * @param {Object} [options.graphService] memory-core GraphService for stall-finding defer disposition
  *     (injected; the caller lazily imports the singleton).
- * @param {Function} [options.readPrs] Optional `async params => pr payloads[]`.
+ * @param {String} [options.pullsDir] Local synced pulls directory (`resources/content/pulls`), read at
+ *     the caller's use site. Absent → the PR/lane slot emits no pr-activity events (honest-empty).
  * @param {Number} [options.limit] Default event bound forwarded to the composer.
  * @param {Object} [options.bridge=FleetControlBridge] The control bridge to wire (a stub in specs).
  * @param {Function} [options.createSource=createFleetActivityReadSource] The composer factory (injected in specs).
@@ -97,7 +99,7 @@ export function wireFleetActivityReadSource({
     issuesDir,
     listMessages,
     graphService,
-    readPrs,
+    pullsDir,
     limit,
     bridge       = FleetControlBridge,
     createSource = createFleetActivityReadSource
@@ -117,7 +119,7 @@ export function wireFleetActivityReadSource({
         : () => { throw new Error('a2a activity source not wired — no listMessages bound') };
 
     const readPrLaneSnapshot = hasPrLane
-        ? makeReadPrLaneSnapshot({issuesDir, graphService, readPrs})
+        ? makeReadPrLaneSnapshot({issuesDir, pullsDir, graphService})
         : () => { throw new Error('pr-lane activity source not wired — no issuesDir') };
 
     bridge.activitySource = createSource({readA2ASnapshot, readPrLaneSnapshot, limit});
