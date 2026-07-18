@@ -152,17 +152,48 @@ test.describe('Fleet cockpit — fusion tour hosting seam', () => {
     });
 
     test('one stage, one take: a play invoked while a tour runs is a guarded refusal, not a second runner', async () => {
-        const result = await proto.playFusionTour.call({tourRunner: {}});
+        const result = await proto.playFusionTour.call({playTour: proto.playTour, tourRunner: {}});
 
         expect(result.completed).toBe(false);
         expect(result.errors[0]).toContain('already running')
     });
 
     test('a detached detail pane refuses the take fail-closed — reattach is a host decision, never an implicit tour side-effect', async () => {
-        const result = await proto.playFusionTour.call({tourRunner: null, detachedDetail: {windowName: 'x'}});
+        const result = await proto.playFusionTour.call({playTour: proto.playTour, tourRunner: null, detachedDetail: {windowName: 'x'}});
 
         expect(result.completed).toBe(false);
         expect(result.errors[0]).toContain('reattach before a take')
+    });
+
+    test('the walkthrough cues route to their seams with receipts: activity-burst injects through the stream, drill selects through the controller — refusals fail closed', async () => {
+        const streamSets = [];
+        const selected   = [];
+
+        const host = {
+            getReference : name => name === 'activity-stream'
+                ? {set: config => streamSets.push(config)}
+                : name === 'fleet-grid'
+                    ? {store: {items: [{agentId: 'neo-fable'}, {agentId: 'neo-opus-ada'}]}}
+                    : null,
+            getController: () => ({onAgentSelect: data => selected.push(data.agentId)})
+        };
+
+        const burst = await proto.executeTourCue.call(host, {type: 'activity-burst', count: 7});
+
+        expect(burst).toEqual({injected: 7});
+        expect(streamSets[0].adapterState).toBe('live');
+        expect(streamSets[0].events).toHaveLength(7);
+        // distinct actors + monotone timestamps: coalescing can never collapse the burst
+        expect(new Set(streamSets[0].events.map(event => event.agentId)).size).toBe(7);
+
+        const drill = await proto.executeTourCue.call(host, {type: 'drill', name: 'neo-fable'});
+
+        expect(drill).toEqual({drilled: 'neo-fable'});
+        expect(selected).toEqual(['neo-fable']);
+
+        // fail-closed refusals: an unknown resident and a missing stream both THROW into the fold
+        await expect(proto.executeTourCue.call(host, {type: 'drill', name: 'no-such-agent'})).rejects.toThrow('no roster resident');
+        await expect(proto.executeTourCue.call({getReference: () => null}, {type: 'activity-burst', count: 3})).rejects.toThrow('no activity stream')
     });
 
     test('single-flight under CONCURRENCY: ownership is claimed before any await, so a second call refuses while the first is parked in the refresh window', async () => {
@@ -175,6 +206,7 @@ test.describe('Fleet cockpit — fusion tour hosting seam', () => {
             id            : 'concurrency-stage',
             dockService   : null,
             detachedDetail: null,
+            playTour      : proto.playTour,
             tourRunner    : null,
             refreshPromise: new Promise(resolve => releaseRefresh = resolve),
             resetTourStage: () => {},
