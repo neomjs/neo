@@ -11,9 +11,12 @@ import { NeuralLink_InstanceService } from '../../../../ai/services.mjs';
 test.describe('Neural Link - transaction archive replay (e2e)', () => {
     test.setTimeout(120000);
 
-    test('saves a named transaction and replays it after reload into a fresh undoable build', async ({ page, neuralLink }) => {
+    test('saves a named transaction and replays it after reload into a fresh undoable build', async ({ page, neuralLink, baseURL }) => {
         const
-            appOrigin = process.env.NEO_E2E_BASE_URL || 'http://localhost:8080',
+            // Default to the runner's injected baseURL (the resolved free port); an explicit
+            // NEO_E2E_BASE_URL still wins. A default run must never fall back to a foreign :8080 server —
+            // this witness synthesizes an absolute origin, so it has to consume the same port the config resolved.
+            appOrigin = process.env.NEO_E2E_BASE_URL || baseURL,
             appUrl    = `${appOrigin}/examples/button/base/index.html?nlArchiveReplay=${Date.now()}`;
 
         await page.goto(`${appOrigin}/package.json?nlArchiveReplayPurge=${Date.now()}`);
