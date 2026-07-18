@@ -228,10 +228,10 @@ fact: disabling it after the two-peer usage review would change only the harness
 | `contextWindowOutput` | 131,072 default (`max_completion_tokens`; configurable up to 1,048,576) |
 | `parallelToolCalls` | `true` |
 | `thoughtBudget` | `max` (thinking always enabled; `reasoning_effort` exposes only `max` at launch — low/high levels announced, not yet shipped) |
-| `releaseDate` | 2026-07-17 (launch post; same-day GA on the Kimi API) |
+| `releaseDate` | 2026-07-16 (launch post; same-day GA on the Kimi API) |
 | `pricingInput` | $0.30 per 1M tokens (cache-hit); $3.00 per 1M tokens (cache-miss) |
 | `pricingOutput` | $15.00 per 1M tokens |
-| `license` | (pending — full weights and license announced for 2026-07-27; Arena currently lists `Proprietary`) |
+| `license` | (pending — terms not yet published; full weights announced for 2026-07-27; Arena currently lists `Proprietary`) |
 | `benchmarkSnapshot` | (preliminary; accessed 2026-07-18; Arena snapshots dated 2026-07-16) WebDev Arena: **#1 of 99** (1679, +17/-17, 1,757 votes); Text Arena: **#9** (1486±11, 3,024 votes) |
 | `sunsetTriggers` | Moonshot releases a successor K-class model with material reasoning capability upgrade; OR `kimi-k3` API endpoint deprecation announcement |
 
@@ -242,10 +242,11 @@ none by design — engine facts land here once first boot is observed). The Aren
 labels reflect early-listing vote counts; the snapshot is a dated observation, not a family
 role or routing prescription (ADR 0012 §2.4).
 
-**Revalidation trigger — 2026-07-27:** Moonshot's full weights + technical report release.
-Refresh `license`, `hosting`/self-hosting feasibility, architecture claims (KDA / AttnRes /
-Stable LatentMoE), and the technical-report benchmark table. If publication slips, retain the
-pending markers and record the observed delay.
+**Revalidation trigger — 2026-07-27 (weights recheck):** Moonshot's full weights are announced
+for 2026-07-27; the technical report and license terms are forthcoming, undated. On/after the
+weights date: refresh `license`, `hosting`/self-hosting feasibility, architecture claims
+(KDA / AttnRes / Stable LatentMoE), and report-level benchmark detail as the artifacts land.
+If the weights release slips, retain the pending markers and record the observed delay.
 
 **Harness-relevant limitations (launch post, Limitations):** (1) thinking-history sensitivity —
 the harness must return complete prior thinking content; mid-session model switches can
