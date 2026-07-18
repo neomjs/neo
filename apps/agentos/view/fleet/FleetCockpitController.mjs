@@ -186,6 +186,32 @@ class FleetCockpitController extends Controller {
     }
 
     /**
+     * @summary Relay the operator-mailbox compose intent to the fleet write verb — the operator-steering
+     * seam, symmetric with {@link #onAgentLifecycleIntent}.
+     *
+     * The operator-mailbox surface fires `compose {message}` intent-only (it holds no transport, like the
+     * cards); the cockpit is the composition root that knows the bridge. It hands the message to the
+     * cockpit's {@link AgentOS.view.fleet.FleetCockpit#composeOperatorMessage} write, which routes it to
+     * the authenticated `composeOperatorMessage` verb — the sender is server-stamped from the bound viewer,
+     * never wire-carried — and re-polls the operator inbox so a sent message lands at canonical truth,
+     * never an optimistic insert.
+     * @param {Object} data The `compose` payload `{message, source}` — Neo stamps `source`.
+     */
+    onOperatorCompose(data) {
+        return this.component.composeOperatorMessage(data.message)
+    }
+
+    /**
+     * @summary Relay the operator-mailbox paged re-read to the cockpit's own-inbox mirror read — the
+     * read-seam split mirroring {@link #onAgentSelect}'s detail drill: the surface fires the intent, the
+     * composition root holds the bridge and re-reads the operator mirror at the requested offset.
+     * @param {Object} data The `inboxPageRequest` payload `{offset, source}`.
+     */
+    onOperatorInboxPageRequest(data) {
+        return this.component.loadOperatorInbox({offset: data.offset})
+    }
+
+    /**
      * @summary Re-poll the roster once a lifecycle intent has genuinely changed runtime state.
      *
      * `loadRoster` is the ONLY path that maps live runtime truth onto the roster records, and the

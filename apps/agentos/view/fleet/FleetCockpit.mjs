@@ -420,6 +420,28 @@ class FleetCockpit extends Container {
      */
     detailRecord = null
     /**
+     * The operator's own identity — OWNER-held, resolved from the viewer the ingress boundary binds
+     * and feeds the operator-mailbox `record` and the own-inbox mirror `subjectAgentId`. `null` =
+     * the pane's honest unwired state until it resolves.
+     * @member {Object|null} operatorRecord=null
+     * @protected
+     */
+    operatorRecord = null
+    /**
+     * The last operator-inbox mailbox-mirror snapshot — OWNER-held so a re-projected operator-mailbox pane
+     * re-materializes at current truth (written by {@link #loadOperatorInbox}). `null` = `unobserved`.
+     * @member {Object|null} operatorSnapshot=null
+     * @protected
+     */
+    operatorSnapshot = null
+    /**
+     * Monotonic read-fence for the operator-inbox mirror reads — a page-request read, a post-compose
+     * re-poll, and an interval tick can be in flight at once; only the newest generation may write.
+     * @member {Number} operatorInboxReadGeneration=0
+     * @protected
+     */
+    operatorInboxReadGeneration = 0
+    /**
      * Detached-detail bookkeeping — `null` while the inspector is docked. While detached it holds
      * `{homeTabsNodeId, homeTabIndex, windowId, windowName, connectTimer}`: the tabs node + EXACT
      * index the reattach restores (`addTab` APPENDS by default — the stored index is the only
@@ -882,14 +904,19 @@ class FleetCockpit extends Container {
                     reference: 'add-agent-form'
                 };
             case 'operator-mailbox':
-                // the operator's own inbox + compose surface. record / snapshot / recipientOptions
-                // are fed by the controller from state it already holds; the live inbox read and the
-                // compose verb are wired to the authenticated ingress + Brain seam as those land —
-                // until then the pane reads its honest unwired state and compose is inert-safe.
+                // the operator's own inbox + compose surface. record / snapshot / recipientOptions are
+                // OWNER-held (materialized from state the cockpit already polls), so a pane returning from
+                // true absence re-materializes at current truth — the {@link #detailRecord} precedent. The
+                // surface is transport-blind: it fires intent-only `compose` / `inboxPageRequest`, routed up
+                // to the controller which holds the bridge (the authenticated ingress + Brain write seam).
                 return {
-                    module   : OperatorMailbox,
-                    cls      : [marker],
-                    reference: 'operator-mailbox'
+                    module          : OperatorMailbox,
+                    cls             : [marker],
+                    record          : me.operatorRecord,
+                    snapshot        : me.operatorSnapshot,
+                    recipientOptions: me.buildOperatorRecipientOptions(),
+                    listeners       : {compose: 'onOperatorCompose', inboxPageRequest: 'onOperatorInboxPageRequest'},
+                    reference       : 'operator-mailbox'
                 };
             default:
                 // perspectives arrives with its own leaf — an honest labelled placeholder, never a
@@ -1532,6 +1559,94 @@ class FleetCockpit extends Container {
             if (generation === me.gridReadGeneration && !me.isDestroyed) {
                 me.syncSpineBanner()
             }
+        }
+    }
+
+    /**
+     * @summary Build the operator-compose recipient options from the LIVE roster — `{id, name}` records
+     * the picker's ChipField store renders. The `id` is the mailbox IDENTITY (`@githubUsername`), NOT the
+     * roster `agentId` (a Fleet key like `vega`), plus the `AGENT:*` broadcast sentinel. Empty until the
+     * roster resolves — the pane picks recipients from a real current fleet, never a hand-mapped list.
+     * @returns {Object[]}
+     */
+    buildOperatorRecipientOptions() {
+        const rows = this.getReference('fleet-grid')?.store?.items ?? [];
+
+        return [
+            {id: 'AGENT:*', name: 'All agents (broadcast)'},
+            ...rows
+                .filter(row => row.githubUsername)
+                .map(row => ({id: `@${row.githubUsername}`, name: row.githubUsername}))
+        ]
+    }
+
+    /**
+     * @summary WRITE: route one operator-composed message to the authenticated `composeOperatorMessage`
+     * verb, then re-poll the operator inbox so the sent message lands at CANONICAL truth — never an
+     * optimistic insert. The cockpit is the composition root that knows the bridge; the sender is
+     * server-stamped from the bound viewer at the authenticated ingress, never carried in this payload.
+     *
+     * Fail-closed: no bridge / no verb → an honest `not-wired` refusal, nothing attempted; a `not-wired`
+     * or rejected outcome re-polls nothing (only a real send changes the inbox).
+     * @param {Object} message `{to, subject, body, priority?, wakeSuppressed?, relatedTickets?}`.
+     * @returns {Promise<Object|undefined>} the verb outcome, for the surface + tests.
+     */
+    async composeOperatorMessage(message) {
+        const
+            me     = this,
+            bridge = globalThis.AgentOS?.fleet?.registryBridge;
+
+        if (typeof bridge?.composeOperatorMessage !== 'function') {
+            return {status: 'not-wired', reason: 'fleet: operator compose verb not wired'}
+        }
+
+        const outcome = await bridge.composeOperatorMessage(message);
+
+        // a real send (a messageId came back) re-polls the inbox so the sent row appears at canonical
+        // truth; a not-wired / rejected outcome changed nothing, so there is nothing to re-read
+        if (outcome?.messageId) {
+            await me.loadOperatorInbox({offset: 0})
+        }
+
+        return outcome
+    }
+
+    /**
+     * @summary READ-OBSERVE: re-read the OPERATOR's own mailbox mirror at `offset` and route the snapshot
+     * to the operator-mailbox pane — the own-inbox twin of {@link AgentOS.view.fleet.AgentDetail#loadMailboxMirror}.
+     * Generation-fenced (older news never overwrites newer) and fail-closed (the pane stays honestly
+     * unobserved rather than inventing a snapshot). The viewer is server-resolved from the ingress request
+     * context; the subject is the operator's own identity, held owner-side.
+     * @param {Object} [params]
+     * @param {Number} [params.offset=0]
+     * @protected
+     */
+    async loadOperatorInbox({offset = 0} = {}) {
+        const
+            me      = this,
+            pane    = me.getReference('operator-mailbox'),
+            bridge  = globalThis.AgentOS?.fleet?.registryBridge,
+            subject = me.operatorRecord?.agentIdentityNodeId;
+
+        const generation = ++me.operatorInboxReadGeneration;
+
+        if (!pane || !subject || typeof bridge?.fleetMailboxMirror !== 'function') {
+            // no bound identity / no bridge / no verb IS the honest unobserved truth — never a fabricated
+            // snapshot; the pane's own `unobserved` state stands until a real read lands
+            return
+        }
+
+        try {
+            const snapshot = await bridge.fleetMailboxMirror({subjectAgentId: subject, offset});
+
+            // the fence: an interval re-poll or a post-compose re-read can race a page-request read; the
+            // loser must not write staler news over newer, and a read outliving its owner has no pane to speak for
+            if (generation === me.operatorInboxReadGeneration && !me.isDestroyed) {
+                me.operatorSnapshot = snapshot;
+                pane.snapshot       = snapshot
+            }
+        } catch (error) {
+            // fail-closed: the last-known snapshot stays; the pane never renders "no mail" for a read that did not happen
         }
     }
 
