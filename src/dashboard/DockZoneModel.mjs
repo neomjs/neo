@@ -2010,6 +2010,37 @@ class DockZoneModel extends Base {
     }
 
     /**
+     * @summary Resolves a workspace document's transferable STACK ROOT — the explicit source-side
+     * projection for whole-stack reintegration (harness docking design record §2.8,
+     * `learn/agentos/decisions/0029-harness-docking-design.md`).
+     *
+     * The canonical vessel document shape is an `edge-zone` ROOT (window chrome) whose `center`
+     * zone names the subtree holding the vessel's content — so "the whole stack" is the root's
+     * center child, never the document root itself. Resolving it keeps `transferNode`'s root
+     * rejection byte-identical: whole-stack transfer is explicit resolution composed with the
+     * landed two-document executor, and an implicit root transfer stays impossible.
+     *
+     * Fail-closed: a missing document, a missing root node, a root that is not an `edge-zone`,
+     * or a center zone that is absent or names an unknown node all resolve `null` — a document
+     * that cannot prove its stack root never transfers.
+     * @param {Object} document a committed dock-zone document
+     * @returns {String|null} the stack-root node id, or null
+     * @static
+     */
+    static resolveStackRoot(document) {
+        let root = document?.nodes?.[document?.root],
+            centerId;
+
+        if (!root || root.type !== 'edge-zone') {
+            return null
+        }
+
+        centerId = root.zones?.center;
+
+        return centerId && document.nodes[centerId] ? centerId : null
+    }
+
+    /**
      * @summary Atomically transfers the subtree rooted at `nodeId` out of `sourceDocument` and into
      * `targetDocument` in one commit-or-neither step — the cross-window grouped-drag transfer. It is
      * the two-document sibling of `moveNode`: `transferItem` atomicity applied to a whole subtree. The
