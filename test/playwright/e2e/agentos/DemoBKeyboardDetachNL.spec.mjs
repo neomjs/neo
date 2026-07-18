@@ -46,8 +46,11 @@ test.describe('AgentOS Demo B — keyboard detach + cycle grammar (Neural Link)'
         await popup.waitForLoadState('domcontentloaded');
         expect(popup.url()).toContain('popout');
 
-        // the aria-live region announced the COMMITTED outcome
+        // the aria-live region announced the COMMITTED outcome — and IS a live region in the
+        // accessibility tree, not just a styled div (role + politeness asserted, never assumed)
         const live = page.locator('.agentos-dockdemo-kbd-live');
+        await expect(live).toHaveAttribute('role', 'status');
+        await expect(live).toHaveAttribute('aria-live', 'polite');
         await expect(live).toContainText('detached to its own window', {timeout: 15000});
 
         // announced truth === platform truth, in whichever direction the platform ruled:
