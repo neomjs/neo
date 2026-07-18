@@ -681,11 +681,19 @@ class GraphService extends Base {
 
     /**
      * Retrieves a specific node by its ID.
+     *
+     * The default `lean` projection hoists only the identity fields — the token-economy contract
+     * roster-wide sweeps rely on. `projection: 'full'` returns the SAME shape plus the node's
+     * complete `properties` bag (a superset — e.g. the IdentitySchema capability facts on an
+     * AgentIdentity node), so a single node's stored facts are readable through the graph's own
+     * read verb. Both projections run behind the identical RLS visibility re-check: `full` widens
+     * what a visible node shows, never which nodes are visible.
      * @param {Object} data
      * @param {String} data.id
+     * @param {'lean'|'full'} [data.projection='lean'] `'full'` adds the `properties` bag to the lean shape.
      * @returns {Object|null}
      */
-    getNode({id}) {
+    getNode({id, projection = 'lean'}) {
         // Guarantee lazy-loading from SQLite triggers if not cached
         this.db.getAdjacentNodes(id, 'both');
 
@@ -706,7 +714,7 @@ class GraphService extends Base {
             label      = node.isRecord ? node.get('label') : node.label,
             properties = node.isRecord ? node.get('properties') : node.properties;
 
-        return {
+        const result = {
             id              : nodeId,
             type            : label,
             name            : properties?.name,
@@ -714,6 +722,12 @@ class GraphService extends Base {
             semanticVectorId: properties?.semanticVectorId,
             state           : properties?.state
         };
+
+        if (projection === 'full') {
+            result.properties = properties || {}
+        }
+
+        return result;
     }
 
     /**

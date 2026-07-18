@@ -293,6 +293,33 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         expect(await GraphService.getNodeRecord({id: 'kb-config:does-not-exist'})).toBe(null);
     });
 
+    test('getNode opt-in full projection: lean default byte-identical, full adds the properties bag (#15430)', async () => {
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: SqliteError disk I/O - bucket G3 (#10924)');
+        await GraphService.upsertNode({
+            id        : '@projection-witness',
+            type      : 'AgentIdentity',
+            properties: {name: 'Projection Witness', participationStatus: 'active_full_member', modelFamily: 'kimi', trustTier: 'probation'}
+        });
+
+        // the lean regression pin: the DEFAULT projection stays byte-identical to the pre-opt-in
+        // contract — exactly the six hoisted fields, never a properties key
+        const lean = await GraphService.getNode({id: '@projection-witness'});
+        expect(Object.keys(lean).sort()).toEqual(['description', 'id', 'name', 'semanticVectorId', 'state', 'type']);
+        expect(lean.properties).toBeUndefined();
+
+        // full = the SAME lean shape plus the complete properties bag (a superset, not a
+        // different shape) — the identity probe is answerable through the graph's own read verb
+        const full = await GraphService.getNode({id: '@projection-witness', projection: 'full'});
+        expect(full).toMatchObject(lean);
+        expect(full.properties.participationStatus).toBe('active_full_member');
+        expect(full.properties.modelFamily).toBe('kimi');
+        expect(full.properties.trustTier).toBe('probation');
+
+        // an absent node stays null in both projections — full widens what a node shows,
+        // never whether one exists
+        expect(await GraphService.getNode({id: '@projection-absent', projection: 'full'})).toBe(null);
+    });
+
     test('getNodeRecord applies the #10011 RLS visibility re-check (#11637)', async () => {
         test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: SqliteError disk I/O - bucket G3 (#10924)');
         const RequestContextService = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
