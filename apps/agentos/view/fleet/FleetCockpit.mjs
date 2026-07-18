@@ -710,7 +710,7 @@ class FleetCockpit extends Container {
             // same way — their vessels adopt the parked instances post-commit.
             preserveItemIds: [
                 ...(me.detachedDetailPane ? ['detail'] : []),
-                ...Object.keys(me.tearOutPaneHandles)
+                ...Object.keys(me.tearOutPaneHandles || {})
             ],
             resolveItem    : itemId => {
                 const item = document.items[itemId];
@@ -762,7 +762,7 @@ class FleetCockpit extends Container {
                 out   = state === 'opening' || state === 'connected' || state === 'windowed',
                 // convergence-by-guard: while a GESTURE tear-out owns the detail pane, the click
                 // toggle is inert — one vessel pathway at a time (G4 owns richer convergence)
-                torn  = Boolean(me.tearOutPanes.detail || me.tearOutPaneHandles.detail);
+                torn  = Boolean(me.tearOutPanes?.detail || me.tearOutPaneHandles?.detail);
 
             toggle.set({
                 disabled: state === 'reattaching' || torn,
@@ -906,8 +906,9 @@ class FleetCockpit extends Container {
         // a GESTURE-torn item's live pane is vessel-owned: a preset restore (or NL addTab)
         // re-treeing the item while torn must not steal or duplicate the instance — an honest
         // stand-in holds the slot (the same discipline as the click-detached inspector below);
-        // whole-stack reintegration is the G4 leaf's scope
-        if (me.tearOutPaneHandles[itemId] && !me.tearOutPaneHandles[itemId].isDestroyed) {
+        // whole-stack reintegration is the G4 leaf's scope. Optional-chained like every sibling
+        // field read: the projection specs drive these prototype methods over controlled state.
+        if (me.tearOutPaneHandles?.[itemId] && !me.tearOutPaneHandles[itemId].isDestroyed) {
             return {
                 ntype: 'component',
                 cls  : [marker, 'fm-pane-placeholder'],
@@ -1086,7 +1087,7 @@ class FleetCockpit extends Container {
      * @returns {Neo.container.Base|null} The detail pane, or `null` before its first materialization.
      */
     getAgentDetailPane() {
-        return this.detachedDetailPane || this.tearOutPaneHandles.detail || this.getReference('agent-detail')
+        return this.detachedDetailPane || this.tearOutPaneHandles?.detail || this.getReference('agent-detail')
     }
 
     /**
@@ -1109,7 +1110,7 @@ class FleetCockpit extends Container {
 
         // fail-closed preconditions: only a live, projected, singly-owned pane may embody
         if (
-            me.tearOutPanes[itemId] || me.tearOutPaneHandles[itemId] ||
+            me.tearOutPanes?.[itemId] || me.tearOutPaneHandles?.[itemId] ||
             (itemId === 'detail' && me.detachedDetail) ||
             !me.findProjectedDockPane(itemId)
         ) {
@@ -1491,10 +1492,10 @@ class FleetCockpit extends Container {
         let tearOutItemId = params.get('tearout');
 
         if (tearOutItemId) {
-            if (me.tearOutPanes[tearOutItemId]) {
+            if (me.tearOutPanes?.[tearOutItemId]) {
                 me.reparentTearOutPane(tearOutItemId, {windowId})
             } else {
-                me.tearOutConnects[tearOutItemId] = {windowId}
+                (me.tearOutConnects ??= {})[tearOutItemId] = {windowId}
             }
             return
         }
@@ -1544,11 +1545,11 @@ class FleetCockpit extends Container {
         // the handle is released too — the catalog entry stays the model truth, and a later
         // re-tree re-materializes the pane from owner-held state. Post-adoption reintegration
         // (bringing the item HOME on vessel close) is the G4 vessel-lifecycle leaf's scope.
-        for (const [itemId, entry] of Object.entries(me.tearOutPanes)) {
+        for (const [itemId, entry] of Object.entries(me.tearOutPanes || {})) {
             if (entry.windowId === data.windowId) {
                 delete me.tearOutPanes[itemId];
-                delete me.tearOutConnects[itemId];
-                delete me.tearOutPaneHandles[itemId];
+                delete me.tearOutConnects?.[itemId];
+                delete me.tearOutPaneHandles?.[itemId];
                 me.syncControlBar();
                 break
             }
