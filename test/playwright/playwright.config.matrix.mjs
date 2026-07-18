@@ -8,6 +8,11 @@ import {resolveFreePortSync} from './resolveFreePort.mjs';
 // adopts an existing listener, so every probe run serves exactly THIS checkout's tree.
 const PORT = resolveFreePortSync(process.env.NEO_E2E_PORT);
 
+// Pin the resolved authority for every process that re-imports this config. The specs navigate
+// relative to baseURL, but child helpers and future matrix rows must still observe the same port
+// as the webServer instead of resolving a second free port during worker bootstrap.
+process.env.NEO_E2E_PORT = String(PORT);
+
 /**
  * The tear-out portability-matrix runner (see
  * `learn/guides/specificfeatures/TearOutPortabilityMatrix.md` — the evidence ledger).

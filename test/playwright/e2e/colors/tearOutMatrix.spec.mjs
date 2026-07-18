@@ -22,11 +22,10 @@ import {expect, test} from '../../fixtures.mjs';
  */
 
 // The colors app: three DashboardPanels (Grid / Pie Chart / Bar Chart) whose header toolbars
-// carry the explicit `neo-draggable` drag-handle cls. The dev server port rides NEO_E2E_PORT —
-// the same knob the e2e config uses to dodge a foreign server.
+// carry the explicit `neo-draggable` drag-handle cls. Relative navigation consumes the matrix
+// runner's baseURL directly, so a fallback port can never diverge from the server it launched.
 const
-    e2ePort    = Number(process.env.NEO_E2E_PORT) || 8080,
-    surfaceUrl = `http://localhost:${e2ePort}/apps/colors/index.html`,
+    surfaceUrl = '/apps/colors/index.html',
     itemHandle = '.neo-draggable',
     dragSteps  = 25;
 
