@@ -258,6 +258,35 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         bar.destroy()
     });
 
+    test('HealthBar animateCounts enforces one class membership without disturbing caller or base classes (#15201)', () => {
+        const
+            bar      = Neo.create(HealthBar, {animateCounts: false, appName}),
+            observed = [];
+
+        bar.addCls('caller-authored');
+
+        const cleanup = bar.observeConfig(bar, 'cls', cls => observed.push([...cls]));
+
+        bar.animateCounts = true;
+        bar.animateCounts = true;
+
+        expect(observed).toHaveLength(1);
+        expect(observed[0]).toContain('fm-health-bar');
+        expect(observed[0]).toContain('caller-authored');
+        expect(observed[0].filter(cls => cls === 'fm-animate-counts')).toHaveLength(1);
+
+        bar.animateCounts = false;
+        bar.animateCounts = false;
+
+        expect(observed).toHaveLength(2);
+        expect(observed[1]).toContain('fm-health-bar');
+        expect(observed[1]).toContain('caller-authored');
+        expect(observed[1]).not.toContain('fm-animate-counts');
+
+        cleanup();
+        bar.destroy()
+    });
+
     test('degrades honestly on adapter loss — a stale header, never a blanked grid', () => {
         const grid = Neo.create(FleetGrid, {appName, adapterState: 'stale', store: makeStore(roster(['ok', 'idle', 'off']))});
 
