@@ -190,6 +190,18 @@ class FleetCockpit extends Container {
          */
         baseCls: ['fm-fleet-cockpit'],
         /**
+         * The roster-source admission mode. `sample` is the zero-call cold-first-run authority: an
+         * empty first bridge answer cannot erase the honestly labelled bundled fleet. `selected`
+         * means the operator/product composition explicitly chose the wired source, so even an
+         * empty first snapshot is authoritative. A populated snapshot promotes this mode while
+         * {@link #rosterWired} keeps every later snapshot (including empty) authoritative.
+         *
+         * Non-reactive on purpose: this is an ingress policy, not render state. Instance config and
+         * `Neo.overwrites` may select it without introducing a hidden hardware/product constant.
+         * @member {'sample'|'selected'} rosterSourceMode='sample'
+         */
+        rosterSourceMode: 'sample',
+        /**
          * The B4÷C2 composition root: catches each card's `lifecycleIntent` and the whole-fleet
          * "▶ Start fleet" click, driving both through the C2 adapter to honest per-card
          * round-trip state. See {@link AgentOS.view.fleet.FleetCockpitController}.
@@ -2002,12 +2014,16 @@ class FleetCockpit extends Container {
      * on the injected registry bridge — the Brain-side assembler DTO (`{sources, capabilities, rows,
      * events}`, identity-enriched per the `resolveIdentityDisplay` join) — map its rows onto the
      * FleetAgent record contract, and route honestly into the Store the grid renders from:
-     * - a resolved snapshot (rows is an Array — EVEN EMPTY) is **authoritative**: the first one
-     *   replaces the sample seed (a zero-agent fleet renders as the TRUE cold-onboarding zero
-     *   state, never seven sample maintainers masquerading as live); every later one **reconciles**
-     *   the Store — `record.set(row)` per known `agentId`, `store.add` for a joiner, `store.remove`
-     *   for a resident absent from the snapshot (a `removeAgent` must never leave a ghost card).
-     *   Grid goes `live` (instance + the owner-held fallback state).
+     * - a populated resolved snapshot is **authoritative**: the first one replaces the sample seed
+     *   and promotes {@link #rosterSourceMode} to `selected`; every later one **reconciles** the
+     *   Store — `record.set(row)` per known `agentId`, `store.add` for a joiner, `store.remove` for
+     *   a resident absent from the snapshot (a `removeAgent` must never leave a ghost card).
+     * - an EMPTY first snapshot preserves the bundled sample while the source mode is `sample` — a
+     *   fresh private registry must not blank the zero-setup first paint. It becomes authoritative
+     *   when the source was explicitly `selected`, or after any live snapshot established
+     *   {@link #rosterWired}; a genuinely selected/drained fleet therefore still renders its TRUE
+     *   zero state rather than resurrecting sample residents.
+     *   Every admitted snapshot makes the grid `live` (instance + owner-held fallback state).
      * - absent bridge / no verb / a MALFORMED answer (`rows` not an Array) / a thrown source →
      *   keep the last-known roster; fail closed rather than blanking the fleet. A resolved call is
      *   mechanically distinguishable from a failed one — only failures preserve last-known state.
@@ -2053,7 +2069,17 @@ class FleetCockpit extends Container {
 
             const mapped = rows.filter(row => row?.id).map(row => me.mapRosterRow(row));
 
+            // The shipped sample is the cold-first-run authority. A reachable but fresh/empty
+            // private registry has answered, but it has not supplied a working fleet and no source
+            // was selected — replacing the sample here would turn successful boot into an empty
+            // flagship. Once selected or once any populated snapshot made the surface live, empty
+            // regains its ordinary authoritative meaning (the real fleet may genuinely drain).
+            if (!me.rosterWired && mapped.length === 0 && me.rosterSourceMode !== 'selected') {
+                return
+            }
+
             me.lastLiveRows = mapped;
+            me.rosterSourceMode = 'selected';
 
             if (me.rosterWired) {
                 me.reconcileRoster(grid.store, mapped)
