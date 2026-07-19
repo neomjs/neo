@@ -252,7 +252,9 @@ const githubWorkflowDangerousReadForbidden = [
 const memoryCoreToolTiers = ['read', 'write', 'extended', 'admin'];
 
 const expectedMemoryCoreToolTiers = {
+    admit_community_batch        : 'write',
     healthcheck                  : 'read',
+    get_community_source_health  : 'read',
     get_mcp_tool_handbook        : 'read',
     get_memory_core_tool_metrics : 'extended',
     get_deployment_state_snapshot: 'extended',
@@ -297,6 +299,7 @@ const expectedMemoryCoreToolTiers = {
 // grant/revoke_permission) are `admin`; the constant maintainer-writes (add_message/add_memory/mark_read/
 // record_turn_presence) are visible `write`; the rest of the mutations are withheld `extended`.
 const memoryCoreDangerousReadForbidden = [
+    'admit_community_batch',
     'add_memory',
     'add_message',
     'mark_read',

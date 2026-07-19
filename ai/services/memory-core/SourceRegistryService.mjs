@@ -1,10 +1,11 @@
-import fs                    from 'fs-extra';
-import path                  from 'path';
-import crypto                from 'crypto';
-import Base                  from '../../../src/core/Base.mjs';
-import config                from '../../mcp/server/memory-core/config.mjs';
-import logger                from '../../mcp/server/memory-core/logger.mjs';
-import RequestContextService from '../../mcp/server/shared/services/RequestContextService.mjs';
+import fs                          from 'fs-extra';
+import path                        from 'path';
+import crypto                      from 'crypto';
+import Base                        from '../../../src/core/Base.mjs';
+import config                      from '../../mcp/server/memory-core/config.mjs';
+import logger                      from '../../mcp/server/memory-core/logger.mjs';
+import RequestContextService       from '../../mcp/server/shared/services/RequestContextService.mjs';
+import {carriesCredentialMaterial} from './communityBatchContract.mjs';
 
 /**
  * @summary The neutral source-registration lifecycle transitions Memory Core owns.
@@ -68,9 +69,9 @@ class SourceRegistryService extends Base {
          *
          * Bound ONCE at the trusted server/deployment boundary (startup injection) — never supplied
          * by a caller, and never defaulted. `null` means this process is not an explicit
-         * local-single-user deployment, so no caller holds source-admin authority and control-plane
-         * mutation fails closed. Hosted operator-authorized provisioning is a separate, deferred
-         * authority; an ordinary authenticated hosted subject is NOT a source admin.
+         * local-single-user deployment, so no caller holds source-admin authority and the local
+         * mutation path fails closed. Hosted provisioning is the separate co-located operator path;
+         * an ordinary authenticated hosted subject is NOT a source admin.
          */
         localSubjectId: null
     }
@@ -140,6 +141,20 @@ class SourceRegistryService extends Base {
                 ON mc_source_registration(tenant_id);
             CREATE UNIQUE INDEX IF NOT EXISTS idx_mc_source_registration_identity
                 ON mc_source_registration(tenant_id, canonical_provider_host, resource_kind, provider_resource_id);
+
+            CREATE TABLE IF NOT EXISTS mc_source_registration_audit (
+                audit_id           TEXT    PRIMARY KEY,
+                tenant_id          TEXT    NOT NULL,
+                source_instance_id TEXT    NOT NULL,
+                actor_id           TEXT    NOT NULL,
+                action             TEXT    NOT NULL,
+                from_state         TEXT,
+                to_state           TEXT    NOT NULL,
+                registration_epoch INTEGER NOT NULL,
+                recorded_at        INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_mc_source_registration_audit_tenant_source
+                ON mc_source_registration_audit(tenant_id, source_instance_id, recorded_at);
         `);
     }
 
@@ -163,10 +178,10 @@ class SourceRegistryService extends Base {
      * @summary Resolves the tenant key for a CONTROL-PLANE mutation, or throws.
      *
      * Source-admin authority is a deployment property, not a session property. Only an explicit
-     * local-single-user deployment — whose subject the server injected at startup — may register or
-     * transition sources today. An ordinary authenticated hosted subject is NOT a source admin: that
-     * authority belongs to an operator-authorized hosted provisioning path which does not exist yet,
-     * so this fails closed with a stable, distinguishable error instead of silently self-serving.
+     * local-single-user deployment — whose subject the server injected at startup — may use this local
+     * mutation path. An ordinary authenticated hosted subject is NOT a source admin; hosted bootstrap
+     * routes through the distinct co-located operator CLI, never through request context or MCP tier.
+     * This path therefore fails closed with a stable, distinguishable error instead of self-serving.
      * @returns {String} The server-owned tenant key for the mutation.
      * @throws {Error} `SOURCE_REGISTRATION_AUTHORITY_UNAVAILABLE` for a hosted subject (deferred authority).
      * @throws {Error} `SOURCE_REGISTRATION_NO_TENANT` when no deployment authority resolves at all.
@@ -208,39 +223,86 @@ class SourceRegistryService extends Base {
     register(data) {
         const tenantId = this.resolveAdminTenantId();
 
-        const
-            {provider, canonicalProviderHost, resourceKind, providerResourceId, displayLocator = null, grantRef = null, providerCapabilities = null} = data,
-            now      = Date.now(),
-            existing = this.db.prepare(
-                `SELECT source_instance_id FROM mc_source_registration
-                 WHERE tenant_id = ? AND canonical_provider_host = ? AND resource_kind = ? AND provider_resource_id = ?`
-            ).get(tenantId, canonicalProviderHost, resourceKind, providerResourceId);
+        return this.registerForTenant(tenantId, data, {actorId: `local:${tenantId}`})
+    }
 
-        if (existing) {
+    /**
+     * @summary Registers a source for an explicit tenant at the co-located deployment-operator boundary.
+     *
+     * This method is intentionally NOT mapped to MCP. Possession of an MCP `admin` tool tier is metadata,
+     * not source-admin authority; hosted bootstrap runs only through the server-side operator CLI whose
+     * process already owns the Memory Core database. Every call writes a credential-free audit row.
+     * @param {String} tenantId Deployment-owned tenant key.
+     * @param {Object} data Neutral registration fields.
+     * @param {Object} authority
+     * @param {String} authority.actorId Deployment operator audit identity.
+     * @returns {Object}
+     */
+    registerForTenant(tenantId, data, {actorId} = {}) {
+        this.#assertOperatorAuthority(tenantId, actorId);
+        this.#assertNeutralRegistration(data);
+
+        return this.db.transaction(() => {
+            const
+                {provider, canonicalProviderHost, resourceKind, providerResourceId, displayLocator = null, grantRef = null, providerCapabilities = null} = data,
+                now      = Date.now(),
+                existing = this.db.prepare(
+                    `SELECT source_instance_id FROM mc_source_registration
+                     WHERE tenant_id = ? AND canonical_provider_host = ? AND resource_kind = ? AND provider_resource_id = ?`
+                ).get(tenantId, canonicalProviderHost, resourceKind, providerResourceId);
+
+            if (existing) {
+                this.db.prepare(
+                    `UPDATE mc_source_registration SET display_locator = ?, grant_ref = ?, updated_at = ?
+                     WHERE tenant_id = ? AND source_instance_id = ?`
+                ).run(displayLocator, grantRef, now, tenantId, existing.source_instance_id);
+
+                const registration = this.getRegistrationForTenant(tenantId, existing.source_instance_id);
+
+                this.#recordAudit({
+                    tenantId,
+                    sourceInstanceId : registration.sourceInstanceId,
+                    actorId,
+                    action           : 'REFRESHED',
+                    fromState        : registration.lifecycleState,
+                    toState          : registration.lifecycleState,
+                    registrationEpoch: registration.registrationEpoch,
+                    recordedAt       : now
+                });
+
+                return registration
+            }
+
+            const sourceInstanceId = crypto.randomUUID();
+
             this.db.prepare(
-                `UPDATE mc_source_registration SET display_locator = ?, grant_ref = ?, updated_at = ?
-                 WHERE tenant_id = ? AND source_instance_id = ?`
-            ).run(displayLocator, grantRef, now, tenantId, existing.source_instance_id);
+                `INSERT INTO mc_source_registration (
+                    source_instance_id, tenant_id, provider, canonical_provider_host, resource_kind,
+                    provider_resource_id, display_locator, grant_ref, provider_capabilities,
+                    registration_epoch, lifecycle_state, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'REQUESTED', ?, ?)`
+            ).run(
+                sourceInstanceId, tenantId, provider, canonicalProviderHost, resourceKind,
+                providerResourceId, displayLocator, grantRef,
+                providerCapabilities ? JSON.stringify(providerCapabilities) : null,
+                now, now
+            );
 
-            return this.getRegistration(existing.source_instance_id);
-        }
+            const registration = this.getRegistrationForTenant(tenantId, sourceInstanceId);
 
-        const sourceInstanceId = crypto.randomUUID();
+            this.#recordAudit({
+                tenantId,
+                sourceInstanceId,
+                actorId,
+                action           : 'REGISTERED',
+                fromState        : null,
+                toState          : registration.lifecycleState,
+                registrationEpoch: registration.registrationEpoch,
+                recordedAt       : now
+            });
 
-        this.db.prepare(
-            `INSERT INTO mc_source_registration (
-                source_instance_id, tenant_id, provider, canonical_provider_host, resource_kind,
-                provider_resource_id, display_locator, grant_ref, provider_capabilities,
-                registration_epoch, lifecycle_state, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'REQUESTED', ?, ?)`
-        ).run(
-            sourceInstanceId, tenantId, provider, canonicalProviderHost, resourceKind,
-            providerResourceId, displayLocator, grantRef,
-            providerCapabilities ? JSON.stringify(providerCapabilities) : null,
-            now, now
-        );
-
-        return this.getRegistration(sourceInstanceId);
+            return registration
+        })()
     }
 
     /**
@@ -254,11 +316,42 @@ class SourceRegistryService extends Base {
 
         if (!tenantId) return null;
 
+        return this.getRegistrationForTenant(tenantId, sourceInstanceId)
+    }
+
+    /**
+     * @summary Loads one registration under an explicit server-owned tenant predicate.
+     * @param {String} tenantId
+     * @param {String} sourceInstanceId
+     * @returns {Object|null}
+     */
+    getRegistrationForTenant(tenantId, sourceInstanceId) {
         const row = this.db.prepare(
             `SELECT * FROM mc_source_registration WHERE tenant_id = ? AND source_instance_id = ?`
         ).get(tenantId, sourceInstanceId);
 
         return row ? this.#toCamel(row) : null;
+    }
+
+    /**
+     * @summary Resolves a caller-neutral provider identity to the current tenant's durable source row.
+     * @param {Object} identity
+     * @param {String} identity.canonicalProviderHost
+     * @param {String} identity.resourceKind
+     * @param {String} identity.providerResourceId
+     * @returns {Object|null}
+     */
+    resolveRegistration(identity) {
+        const tenantId = this.resolveTenantId();
+
+        if (!tenantId) return null;
+
+        const row = this.db.prepare(
+            `SELECT * FROM mc_source_registration
+             WHERE tenant_id = ? AND canonical_provider_host = ? AND resource_kind = ? AND provider_resource_id = ?`
+        ).get(tenantId, identity.canonicalProviderHost, identity.resourceKind, identity.providerResourceId);
+
+        return row ? this.#toCamel(row) : null
     }
 
     /**
@@ -285,26 +378,85 @@ class SourceRegistryService extends Base {
     transitionLifecycle(sourceInstanceId, toState, {expectedState, expectedEpoch} = {}) {
         const tenantId = this.resolveAdminTenantId();
 
-        if (!expectedState || !Number.isInteger(expectedEpoch)) {
-            throw new Error('SOURCE_REGISTRATION_CONTROL_GENERATION_REQUIRED');
-        }
+        return this.transitionLifecycleForTenant(tenantId, sourceInstanceId, toState, {
+            actorId: `local:${tenantId}`,
+            expectedState,
+            expectedEpoch
+        })
+    }
 
-        if (!LIFECYCLE_TRANSITIONS[expectedState]?.includes(toState)) {
-            throw new Error('SOURCE_REGISTRATION_INVALID_TRANSITION');
-        }
+    /**
+     * @summary Applies one lifecycle CAS for a co-located deployment operator and audits the result.
+     * @param {String} tenantId
+     * @param {String} sourceInstanceId
+     * @param {String} toState
+     * @param {Object} generation
+     * @param {String} generation.actorId
+     * @param {String} generation.expectedState
+     * @param {Number} generation.expectedEpoch
+     * @returns {Object}
+     */
+    transitionLifecycleForTenant(tenantId, sourceInstanceId, toState, {actorId, expectedState, expectedEpoch} = {}) {
+        this.#assertOperatorAuthority(tenantId, actorId);
 
-        const
-            nextEpoch = EPOCH_ADVANCING_STATES.has(toState) ? expectedEpoch + 1 : expectedEpoch,
-            result    = this.db.prepare(
-                `UPDATE mc_source_registration SET lifecycle_state = ?, registration_epoch = ?, updated_at = ?
-                 WHERE tenant_id = ? AND source_instance_id = ? AND lifecycle_state = ? AND registration_epoch = ?`
-            ).run(toState, nextEpoch, Date.now(), tenantId, sourceInstanceId, expectedState, expectedEpoch);
+        return this.db.transaction(() => {
+            if (!expectedState || !Number.isInteger(expectedEpoch)) {
+                throw new Error('SOURCE_REGISTRATION_CONTROL_GENERATION_REQUIRED');
+            }
 
-        if (result.changes === 0) {
-            throw new Error('SOURCE_REGISTRATION_STALE_CONTROL');
-        }
+            if (!LIFECYCLE_TRANSITIONS[expectedState]?.includes(toState)) {
+                throw new Error('SOURCE_REGISTRATION_INVALID_TRANSITION');
+            }
 
-        return this.getRegistration(sourceInstanceId);
+            const
+                nextEpoch = EPOCH_ADVANCING_STATES.has(toState) ? expectedEpoch + 1 : expectedEpoch,
+                result    = this.db.prepare(
+                    `UPDATE mc_source_registration SET lifecycle_state = ?, registration_epoch = ?, updated_at = ?
+                     WHERE tenant_id = ? AND source_instance_id = ? AND lifecycle_state = ? AND registration_epoch = ?`
+                ).run(toState, nextEpoch, Date.now(), tenantId, sourceInstanceId, expectedState, expectedEpoch);
+
+            if (result.changes === 0) {
+                throw new Error('SOURCE_REGISTRATION_STALE_CONTROL');
+            }
+
+            const registration = this.getRegistrationForTenant(tenantId, sourceInstanceId);
+
+            this.#recordAudit({
+                tenantId,
+                sourceInstanceId,
+                actorId,
+                action           : toState,
+                fromState        : expectedState,
+                toState,
+                registrationEpoch: registration.registrationEpoch,
+                recordedAt       : registration.updatedAt
+            });
+
+            return registration
+        })()
+    }
+
+    /**
+     * @summary Returns the credential-free operator audit trail for one tenant-scoped source.
+     * @param {String} tenantId
+     * @param {String} sourceInstanceId
+     * @returns {Object[]}
+     */
+    listAuditForTenant(tenantId, sourceInstanceId) {
+        return this.db.prepare(
+            `SELECT * FROM mc_source_registration_audit
+             WHERE tenant_id = ? AND source_instance_id = ? ORDER BY recorded_at, audit_id`
+        ).all(tenantId, sourceInstanceId).map(row => ({
+            auditId          : row.audit_id,
+            tenantId         : row.tenant_id,
+            sourceInstanceId : row.source_instance_id,
+            actorId          : row.actor_id,
+            action           : row.action,
+            fromState        : row.from_state,
+            toState          : row.to_state,
+            registrationEpoch: row.registration_epoch,
+            recordedAt       : row.recorded_at
+        }))
     }
 
     /**
@@ -320,6 +472,54 @@ class SourceRegistryService extends Base {
         return !!registration
             && registration.lifecycleState   === 'ACTIVE'
             && registration.registrationEpoch === submittedEpoch;
+    }
+
+    /**
+     * @param {String} tenantId
+     * @param {String} actorId
+     * @throws {Error} Stable operator-boundary errors.
+     * @private
+     */
+    #assertOperatorAuthority(tenantId, actorId) {
+        if (typeof tenantId !== 'string' || !tenantId.trim()) {
+            throw new Error('SOURCE_OPERATOR_TENANT_REQUIRED')
+        }
+        if (typeof actorId !== 'string' || !actorId.trim()) {
+            throw new Error('SOURCE_OPERATOR_ACTOR_REQUIRED')
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @throws {Error} When identity is incomplete or credential-shaped material is present.
+     * @private
+     */
+    #assertNeutralRegistration(data) {
+        const required = ['provider', 'canonicalProviderHost', 'resourceKind', 'providerResourceId'];
+
+        if (!data || typeof data !== 'object' || required.some(key => typeof data[key] !== 'string' || !data[key].trim())) {
+            throw new Error('SOURCE_REGISTRATION_IDENTITY_INVALID')
+        }
+        if (carriesCredentialMaterial(data)) {
+            throw new Error('SOURCE_REGISTRATION_CREDENTIAL_MATERIAL_FORBIDDEN')
+        }
+    }
+
+    /**
+     * @param {Object} event
+     * @returns {void}
+     * @private
+     */
+    #recordAudit(event) {
+        this.db.prepare(
+            `INSERT INTO mc_source_registration_audit (
+                audit_id, tenant_id, source_instance_id, actor_id, action, from_state,
+                to_state, registration_epoch, recorded_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).run(
+            crypto.randomUUID(), event.tenantId, event.sourceInstanceId, event.actorId, event.action,
+            event.fromState, event.toState, event.registrationEpoch, event.recordedAt
+        )
     }
 
     /**

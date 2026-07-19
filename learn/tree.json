@@ -85,6 +85,7 @@
             {"name": "Knowledge Base MCP API",                          "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/KnowledgeBaseMcpApi"},
             {"name": "Memory Core MCP API",                            "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/MemoryCoreMcpApi"},
             {"name": "Memory Core MCP Authentication",                 "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/MemoryCoreMcpAuth"},
+            {"name": "Hosted Community Source Runbook",                "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/CommunitySourceRunbook"},
             {"name": "Graph Back-Fill: Memory & Session Lifecycle",    "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/GraphBackfill"},
             {"name": "Chrome DevTools MCP Server",                     "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/ChromeDevToolsMcpServer"},
             {"name": "GitHub CLI Setup",                               "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/GitHubCLISetup"},
