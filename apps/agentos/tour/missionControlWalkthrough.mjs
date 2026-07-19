@@ -20,7 +20,7 @@ import cockpitDockDocument from '../view/fleet/cockpitDockDocument.mjs';
  * 5. **The close** — the line the whole surface earns: the team on screen built the app the
  *    viewer is watching.
  *
- * The morning-start cascade is deliberately NOT a scripted beat in v1: its live effects need
+ * The fleet-start cascade is deliberately NOT a scripted beat in v1: its live effects need
  *  the real fleet bridge, so the recorded demo narrates it over the health bar instead (the
  * scoping is recorded on the owning ticket).
  *
@@ -92,7 +92,7 @@ export const missionControlTourScript = Object.freeze({
     }, {
         id     : 's5',
         title  : 'The close',
-        caption: 'The morning-start cascade, the perspectives, the tear-out gestures — all of it runs from this surface. One line matters more than any feature:',
+        caption: 'The Start fleet action, the perspectives, the tear-out gestures — all of it runs from this surface. One line matters more than any feature:',
         steps  : [
             {type: 'pause', ms: 2600, caption: '…and this team built the app you are watching.'},
             {type: 'pause', ms: 1200}
