@@ -95,11 +95,7 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
             } catch (e) {}
         }
 
-        if (!SystemLifecycleService._initPromise) {
-            await SystemLifecycleService.initAsync();
-        } else {
-            await SystemLifecycleService.ready();
-        }
+        await SystemLifecycleService.ready();
     });
 
     test.afterAll(() => {

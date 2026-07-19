@@ -64,11 +64,7 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
             } catch (e) {}
         }
 
-        if (!SystemLifecycleService._initPromise) {
-            await SystemLifecycleService.initAsync();
-        } else {
-            await SystemLifecycleService.ready();
-        }
+        await SystemLifecycleService.ready();
     });
 
     test.afterAll(() => {
