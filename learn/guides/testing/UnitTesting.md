@@ -16,6 +16,23 @@ To run the logic-heavy unit tests in the simulated Node.js environment:
 npm run test-unit
 ```
 
+### Chroma Is an On-Demand Brain Capability
+
+The unit config owns `UNIT_TEST_MODE`; callers do not need to set it in the shell. It also splits
+the suite into two Playwright projects:
+
+- Body and other non-`ai/` specs run in the pure `unit` project. A focused command for one of
+  these files does not import or start Chroma, allocate Chroma storage, or leave a server behind.
+- Brain specs under `test/playwright/unit/ai/` run in `unit-brain`. That project depends on a
+  run-scoped Chroma setup project and always executes its paired teardown, including after failure.
+
+This is a capability boundary, not a second test command. Keep using `npm run test-unit` for both
+focused files and the complete suite. An explicit `NEO_CHROMA_DATA_DIR_TEST` remains caller-owned
+and is never deleted; otherwise the setup creates and removes its own guarded OS-temp directory.
+
+Native Windows can therefore run focused Body tests without loading Chroma's native binding. The
+Agent OS / Brain development contract remains WSL-first when a selected test actually needs Chroma.
+
 ## Developer Workflow (Best Practices)
 
 ### 1. Running a Single File (Focus Mode)
@@ -171,14 +188,14 @@ test.describe('Neo.button.Base', () => {
 
         // 4. Initial Render (Manually trigger VDOM generation)
         const { vnode } = await button.initVnode();
-        
+
         // Assert Initial State
         expect(vnode.nodeName).toBe('button');
         expect(vnode.childNodes[1].textContent).toBe('Home');
 
         // 5. Simulate Mounting
         // We must tell the instance it is "mounted" so subsequent updates trigger the VDOM engine
-        button.mounted = true; 
+        button.mounted = true;
 
         // 6. Test Reactivity (Update Config)
         const { deltas } = await button.set({text: 'Welcome'});
@@ -211,7 +228,7 @@ test.describe('functional/Button', () => {
         button = Neo.create(Button, {
             appName,
             // Ensure unique ID per test run to avoid collisions
-            id     : 'my-button-' + testRun, 
+            id     : 'my-button-' + testRun,
             iconCls: 'fa fa-home',
             text   : 'Click me'
         });
@@ -248,7 +265,7 @@ test('Provider should update data and trigger config changes', () => {
     const component = Neo.create(MockComponent, {
         stateProvider: {data: {counter: 0}}
     });
-    
+
     // 2. Create a binding (simulates a view binding)
     let effectRunCount = 0;
     component.getStateProvider().createBinding(component.id, 'testConfig', data => {
@@ -324,7 +341,7 @@ test('Effects should be batched during core.Base#set() operations', () => {
 
     // 4. Verify the effect ran ONLY ONCE despite two changes
     expect(effectRunCount).toBe(1);
-    
+
     instance.destroy();
 });
 ```
@@ -381,7 +398,7 @@ test('expandParents followed by store update should not break VDOM', async () =>
     // 4. Verify VDOM structure is still valid
     const folderNode = tree.getVdomChild('folder1');
     expect(folderNode.tag).toBe('li'); // Should not have morphed into 'ul'
-    
+
     tree.destroy();
 });
 ```

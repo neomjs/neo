@@ -1,8 +1,10 @@
 # Agent OS Windows Support Audit
 
 Issue #10135 asked for an Agent OS Windows support audit after the prerequisite
-work in #9999. The live state on June 7, 2026 is that #9999 is closed and the
-audit is no longer blocked.
+work in #9999. The live state on July 19, 2026 is that #9999 is closed and the
+audit is no longer blocked. #15576 subsequently removed Chroma startup and the
+POSIX environment prefix from focused Body unit-test runs without widening the
+native-Windows Agent OS support contract.
 
 ## Decision
 
@@ -25,9 +27,10 @@ and the daemon/tooling scripts.
 - `package.json` requires Node `>=24.0.0`, starts the local vector store through
   `chroma run --path ./.neo-ai-data/chroma/unified`, and depends on
   `chromadb` plus `better-sqlite3`.
-- Most repo automation is Node-based `.mjs`, but core package scripts still
-  contain POSIX shell assumptions such as `UNIT_TEST_MODE=true playwright ...`
-  in `test-unit`.
+- Most repo automation is Node-based `.mjs`. `test-unit` is now portable at the
+  command boundary: its Playwright config owns `UNIT_TEST_MODE`, and focused
+  non-`ai/` specs do not start Chroma. Other package scripts still contain shell
+  assumptions, such as the `prepare` script's POSIX `if [ ... ]` expression.
 - Existing CI runs on `ubuntu-latest` only. There is no current Windows matrix
   providing native Agent OS proof.
 - The codebase has targeted Windows handling where it has been required:
@@ -48,7 +51,7 @@ and the daemon/tooling scripts.
 | Scope Area | Severity | Current State | Decision |
 | --- | --- | --- | --- |
 | Path handling | Minor | Many source paths use `path` APIs or normalize separators; selected build/doc scripts explicitly handle `path.sep === '\\'`. Native Windows is not broadly proven. | Keep WSL-first. Fix path issues only when a native-Windows support lane is opened. |
-| Process invocation | Minor | Build scripts use Windows binary names such as `node.exe` / `npm.cmd` in places, and lifecycle resume has explicit `.cmd` support. Package scripts still use POSIX env-prefix syntax. | Do not claim native support. Keep new process code Node-owned and platform-explicit. |
+| Process invocation | Minor | Build scripts use Windows binary names such as `node.exe` / `npm.cmd` in places, and lifecycle resume has explicit `.cmd` support. The unit-test command no longer uses POSIX env-prefix syntax; selected Brain specs provision Chroma through a Node-owned Playwright lifecycle project. Other package scripts retain shell assumptions. | Do not claim native Agent OS support. Keep new process code Node-owned and platform-explicit. |
 | SQLite / native modules | WSL-only | Memory Core, wake, graph, and tests use `better-sqlite3`. There is no Windows CI proving install/runtime behavior. | WSL remains the supported Windows path for Agent OS persistence. |
 | Chroma server | Native blocker | The documented Windows setup routes through WSL because the AI environment depends on ChromaDB, and `package.json` exposes `ai:server` through `chroma run`. | No native Agent OS support until Chroma install/runtime is empirically proven or replaced. |
 | Shell scripts | Minor | The few `.sh` files are example/deployment or MLX helper paths, while primary orchestration is `.mjs`. Some npm scripts still depend on POSIX shell semantics. | Accept under WSL-first. Make future boot-critical scripts portable by construction. |
