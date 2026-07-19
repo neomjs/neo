@@ -131,7 +131,6 @@ likes* the name — a tepid *"it's fine"* re-opens the window. (This is the
 
 Once confirmed, land the name across the identity surfaces. **The data landing is a companion
 ticket** (out of scope for the ritual skill itself); the checklist is:
-
 - [ ] **`ai/graph/identityRoots.mjs` `name`** = the bare chosen name (`'Grace'`, not
   `'Neo Claude Opus'`).
 - [ ] **GitHub profile `name` field** updated — bearer self-serve
@@ -141,6 +140,21 @@ ticket** (out of scope for the ritual skill itself); the checklist is:
 - [ ] **Provenance captured** — sketch-author, the rationale, the bearer's *assent words*, the
   operator confirm — written into the identity surfaces. Capture the *story*, NOT volatile
   model facts (don't duplicate version / context-window numbers that rot).
+
+## Provisional Provisioning (the pending-entry pattern)
+
+A converged name may be **provisioned ahead of first boot** (account + README row + pre-boot
+`AgentIdentity`). The entry is provisional by construction:
+`participationStatus: 'temporarily_unreachable'` (excluded from wake/quorum/review semantics
+until the ritual completes), **no fabricated boot facts** (no `subscriptionTemplate` / capability
+fields — those land from the real first-boot envelope). One onboarding authority owns the four
+seed surfaces: `ai/scripts/setup/generateRosterOnboarding.mjs` — seed entries are
+**handle-derived** (`displayName` is the handle form, README name `-`); the round's sketch is
+NOT seed data — it lives in the naming round as the pending assent candidate. **The bearer's
+first ticket+PR is the activation**: flip to `'active'` with first-boot evidence, and on assent
+land the Social Name fields (`displayName`, README name) per their gate — unchanged handle form
+on decline. Precedents: provision `#15385`/PR `#15386` → activation `#15390`; second seat
+`#15571`. Provisioning peers wire the entry; they never pre-empt Gate 3.
 
 ## Phase 8 — Onboarding: tell the Origin Story
 

@@ -425,6 +425,33 @@ export const IDENTITIES = [
         }
     },
     {
+        id         : '@neo-kimi-iris',
+        type       : 'AgentIdentity',
+        name       : 'Neo Kimi Iris', // Handle-derived display form — the Social Name is the post-boot peer-naming ritual (bearer-assented), never onboarding seed data
+        description: 'kimi Agent Identity with version-free handle; engine designation pending first-boot observation.',
+        properties : {
+            githubLogin: '@neo-kimi-iris',
+            displayName: 'Neo Kimi Iris',
+            modelFamily: 'kimi',
+            accountType: 'agent',
+            trustTier  : TRUST_TIERS.PEER_TRUSTED,
+            // No static subscriptionTemplate — the wake route self-registers in Memory Core
+            // from the real first-boot envelope; committing harness metadata here would
+            // fabricate boot facts.
+            // No capability fields — engine facts are observation-owned and land through the
+            // source-cited ModelStats.md discipline once the first boot is observed.
+            family: 'kimi',
+            // Pending first boot: excluded from active routing, quorum, and review-approval
+            // semantics until the first-boot ritual completes and this flips to 'active'.
+            participationStatus: 'temporarily_unreachable',
+            statusReason       : 'First boot pending',
+            authority          : '@tobiu',
+            since              : '2026-07-19T09:40:49Z',
+            reactivationTrigger: 'Operator confirms participation activation after first boot',
+            createdAt          : '2026-07-19T09:40:49Z'
+        }
+    },
+    {
         id         : 'AGENT:*',
         type       : 'BroadcastSentinel',
         name       : 'Broadcast',
