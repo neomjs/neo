@@ -116,6 +116,7 @@ class Main extends core.Base {
             app: [
                 'alert',
                 'editRoute',
+                'fleetRequest',
                 'getByPath',
                 'getWindowData',
                 'importAddon',
@@ -241,6 +242,20 @@ class Main extends core.Base {
         });
 
         window.location.hash = hashArr.join('&')
+    }
+
+    /**
+     * @summary Forward one credential-free Fleet wire request through the named preload capability.
+     * Endpoint and bearer ownership stay in Electron main; this page-main method only bridges the
+     * App Worker RMA call onto the capability-shaped preload API.
+     * @param {Object} data
+     * @param {Object} data.request `{method, params}`.
+     * @returns {Promise<Object>|Object}
+     */
+    fleetRequest({request} = {}) {
+        return globalThis.neoShell?.fleetRequest
+            ? globalThis.neoShell.fleetRequest(request)
+            : {ok: false, error: 'fleet: shell request capability unavailable'}
     }
 
     /**

@@ -31,6 +31,8 @@ import {randomUUID}                    from 'node:crypto';
 import fs                              from 'node:fs';
 import net                             from 'node:net';
 import path                            from 'node:path';
+import {normalizeAgentIdentityNodeId}  from '../ai/graph/normalizeAgentIdentityNodeId.mjs';
+import {probeExistingFleetServer}      from '../ai/services/fleet/fleetLaunchContract.mjs';
 
 export const ORCHESTRATOR_ENTRY = 'ai/daemons/orchestrator/daemon.mjs';
 export const FLEET_SERVER_ENTRY = 'ai/services/fleet/devFleetServer.mjs';
@@ -315,33 +317,33 @@ export function assertIsolatedProfile({resolved, isolationRoot, chromaPort}) {
 }
 
 /**
- * @summary Probes FLEET PROTOCOL IDENTITY on a port: one `POST /fleet {method:'listAgents'}`
- * round-trip answering `{ok:true}`. A listening socket is an observation about occupancy; only
- * the wire envelope proves the listener IS the fleet transport — a foreign server squatting the
- * port must read as "held but not serving", never as attach-ready.
+ * @summary Probes an occupied Fleet port through the canonical same-bearer, same-viewer reuse
+ * contract. A listening socket is an observation about occupancy; only the authenticated
+ * `/fleet/probe` envelope proves the listener is the expected Fleet process.
  * @param {Object} options
  * @param {Number|String} options.port
  * @param {String} options.bearerToken Main-owned process bearer.
+ * @param {String} options.agentIdentityNodeId Trusted launcher's expected viewer node id.
  * @param {Number} [options.timeoutMs=2500]
  * @param {Function} [options.fetchFn=fetch] Injection seam for tests.
- * @returns {Promise<Boolean>}
+ * @returns {Promise<Object>} Canonical `{reusable, reason}` probe outcome.
  */
-export async function probeFleetServing({port, bearerToken, timeoutMs = 2500, fetchFn = fetch}) {
-    try {
-        const response = await fetchFn(`http://127.0.0.1:${port}/fleet`, {
-            body   : JSON.stringify({method: 'listAgents', params: {}}),
-            headers: {
-                Authorization : `Bearer ${bearerToken}`,
-                'content-type': 'application/json'
-            },
-            method : 'POST',
-            signal : AbortSignal.timeout(timeoutMs)
-        });
+export function probeFleetServing({port, bearerToken, agentIdentityNodeId, timeoutMs = 2500, fetchFn = fetch}) {
+    const viewer = normalizeAgentIdentityNodeId(agentIdentityNodeId);
 
-        return (await response.json())?.ok === true
-    } catch (error) {
-        return false
+    if (typeof viewer !== 'string' || !/^@[^@:\s]+$/.test(viewer)) {
+        return Promise.resolve({
+            reusable: false,
+            reason  : 'cannot resolve a canonical expected Fleet viewer from NEO_AGENT_IDENTITY — refusing existing-port reuse'
+        })
     }
+
+    return probeExistingFleetServer({
+        agentIdentityNodeId: viewer,
+        bearerToken,
+        probeUrl           : `http://127.0.0.1:${port}/fleet/probe`,
+        fetchImpl          : (url, init) => fetchFn(url, {...init, signal: AbortSignal.timeout(timeoutMs)})
+    })
 }
 
 /**
@@ -354,29 +356,35 @@ export async function probeFleetServing({port, bearerToken, timeoutMs = 2500, fe
  * @param {String} options.orchestratorDataDir Resolved `AiConfig.orchestrator.dataDir`.
  * @param {Number|String} options.fleetPort Fleet transport port to probe.
  * @param {String} options.bearerToken Main-owned process bearer.
+ * @param {String} [options.agentIdentityNodeId=process.env.NEO_AGENT_IDENTITY] Trusted launcher viewer.
  * @param {Function} [options.killFn=process.kill] Injection seam for tests.
  * @param {Function} [options.commandFn] pid → command line. Injection seam for tests.
  * @param {Function} [options.probePortFn=probePort] Injection seam for tests.
  * @param {Function} [options.probeFleetFn=probeFleetServing] Injection seam for tests.
- * @returns {Promise<{orchestratorAlive: Boolean, orchestratorPid: Number|null, fleetServing: Boolean, fleetPortHeld: Boolean}>}
+ * @returns {Promise<{orchestratorAlive: Boolean, orchestratorPid: Number|null, fleetServing: Boolean, fleetPortHeld: Boolean, fleetRefusalReason: String|null}>}
  */
 export async function detectLiveBrain({
     orchestratorDataDir,
     fleetPort,
     bearerToken,
+    agentIdentityNodeId = process.env.NEO_AGENT_IDENTITY,
     killFn       = process.kill,
     commandFn    = null,
     probePortFn  = probePort,
     probeFleetFn = probeFleetServing
 }) {
     const
-        pidFile      = path.join(orchestratorDataDir, 'orchestrator-daemon.pid'),
-        fleetServing = await probeFleetFn({bearerToken, port: fleetPort}),
-        result       = {
-            fleetPortHeld    : fleetServing || await probePortFn({port: fleetPort}),
-            fleetServing,
-            orchestratorAlive: false,
-            orchestratorPid  : null
+        pidFile       = path.join(orchestratorDataDir, 'orchestrator-daemon.pid'),
+        fleetPortHeld = await probePortFn({port: fleetPort}),
+        fleetProbe    = fleetPortHeld
+            ? await probeFleetFn({agentIdentityNodeId, bearerToken, port: fleetPort})
+            : {reusable: false, reason: null},
+        result        = {
+            fleetPortHeld,
+            fleetRefusalReason: fleetPortHeld && !fleetProbe.reusable ? fleetProbe.reason : null,
+            fleetServing      : fleetProbe.reusable === true,
+            orchestratorAlive : false,
+            orchestratorPid   : null
         };
 
     try {

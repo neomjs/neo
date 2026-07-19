@@ -81,7 +81,9 @@ function createFakeGroup({pid, diesOn}) {
 }
 
 test.describe('harness brain lifecycle', () => {
-    const bearerToken = 'A'.repeat(43);
+    const
+        agentIdentityNodeId = '@neo-gpt-emmy',
+        bearerToken         = 'A'.repeat(43);
 
     let workDir;
 
@@ -165,16 +167,37 @@ test.describe('harness brain lifecycle', () => {
         }
     });
 
-    test('probeFleetServing requires the wire envelope — occupancy alone is not fleet identity', async () => {
+    test('probeFleetServing reuses only the canonical same-bearer, same-viewer probe', async () => {
         const fetchFn = async (url, init) => {
+            expect(url).toContain('/fleet/probe');
             expect(url).not.toContain(bearerToken);
             expect(init.headers.Authorization).toBe(`Bearer ${bearerToken}`);
-            return {json: async () => ({ok: true, result: []})}
+            return {ok: true, status: 200, json: async () => ({result: {agentIdentityNodeId, pid: 7}})}
         };
 
-        expect(await probeFleetServing({bearerToken, fetchFn, port: 1})).toBe(true);
-        expect(await probeFleetServing({bearerToken, fetchFn: async () => ({json: async () => 'not the fleet protocol'}), port: 1})).toBe(false);
-        expect(await probeFleetServing({bearerToken, fetchFn: async () => { throw new Error('ECONNREFUSED') }, port: 1})).toBe(false)
+        const admitted = await probeFleetServing({agentIdentityNodeId, bearerToken, fetchFn, port: 1});
+
+        expect(admitted).toEqual({reusable: true, reason: 'same token, same viewer', viewer: agentIdentityNodeId, pid: 7});
+
+        const wrongBearer = await probeFleetServing({
+            agentIdentityNodeId,
+            bearerToken,
+            fetchFn: async () => ({ok: false, status: 401}),
+            port   : 1
+        });
+
+        expect(wrongBearer.reusable).toBe(false);
+        expect(wrongBearer.reason).toContain('rejected our bearer');
+
+        const wrongViewer = await probeFleetServing({
+            agentIdentityNodeId,
+            bearerToken,
+            fetchFn: async () => ({ok: true, status: 200, json: async () => ({result: {agentIdentityNodeId: '@other', pid: 8}})}),
+            port   : 1
+        });
+
+        expect(wrongViewer.reusable).toBe(false);
+        expect(wrongViewer.reason).toContain('wrong-viewer')
     });
 
     test('awaitReadyMarker resolves on the marker and never on PID existence alone', async () => {
@@ -321,10 +344,10 @@ test.describe('harness brain lifecycle', () => {
         let invocation;
 
         const child = startBrainChild({
-            entry             : ORCHESTRATOR_ENTRY,
-            ownershipTokenFn  : () => 'spawn-token-a',
-            repoRoot          : workDir,
-            spawnFn           : (command, args, options) => {
+            entry           : ORCHESTRATOR_ENTRY,
+            ownershipTokenFn: () => 'spawn-token-a',
+            repoRoot        : workDir,
+            spawnFn         : (command, args, options) => {
                 invocation = {args, command, options};
                 return createFakeChild()
             }
@@ -339,10 +362,10 @@ test.describe('harness brain lifecycle', () => {
 
     test('startBrainChild rejects entries outside its checkout root', () => {
         expect(() => startBrainChild({
-            entry             : path.join('..', 'sibling', ORCHESTRATOR_ENTRY),
-            ownershipTokenFn  : () => 'spawn-token-a',
-            repoRoot          : workDir,
-            spawnFn           : () => createFakeChild()
+            entry           : path.join('..', 'sibling', ORCHESTRATOR_ENTRY),
+            ownershipTokenFn: () => 'spawn-token-a',
+            repoRoot        : workDir,
+            spawnFn         : () => createFakeChild()
         })).toThrow(/entry must resolve inside repoRoot/)
     });
 
@@ -438,43 +461,67 @@ test.describe('harness brain lifecycle', () => {
         writeFileSync(path.join(dataDir, 'orchestrator-daemon.pid'), '8123', 'utf8');
 
         const live = await detectLiveBrain({
+            agentIdentityNodeId,
             bearerToken,
             commandFn          : () => `node ${ORCHESTRATOR_ENTRY}`,
             fleetPort          : 18501,
             killFn             : () => true,
             orchestratorDataDir: dataDir,
             probeFleetFn       : async options => {
-                expect(options).toEqual({bearerToken, port: 18501});
-                return true
+                expect(options).toEqual({agentIdentityNodeId, bearerToken, port: 18501});
+                return {reusable: true, reason: 'same token, same viewer'}
             },
             probePortFn        : async () => true
         });
 
-        expect(live).toEqual({fleetPortHeld: true, fleetServing: true, orchestratorAlive: true, orchestratorPid: 8123});
+        expect(live).toEqual({
+            fleetPortHeld     : true,
+            fleetRefusalReason: null,
+            fleetServing      : true,
+            orchestratorAlive : true,
+            orchestratorPid   : 8123
+        });
 
         // A foreign HTTP server on the fleet port: occupied, but NOT the fleet protocol —
         // attach must not treat it as a reachable Brain surface.
         const squatted = await detectLiveBrain({
+            agentIdentityNodeId,
             bearerToken,
             commandFn          : () => `node ${ORCHESTRATOR_ENTRY}`,
             fleetPort          : 18501,
             killFn             : () => true,
             orchestratorDataDir: dataDir,
-            probeFleetFn       : async () => false,
+            probeFleetFn       : async () => ({reusable: false, reason: 'a process on the Fleet port rejected our bearer — refusing silent reuse'}),
             probePortFn        : async () => true
         });
 
         expect(squatted.fleetServing).toBe(false);
         expect(squatted.fleetPortHeld).toBe(true);
+        expect(squatted.fleetRefusalReason).toContain('rejected our bearer');
+
+        const unresolvedViewer = await detectLiveBrain({
+            agentIdentityNodeId: null,
+            bearerToken,
+            commandFn          : () => `node ${ORCHESTRATOR_ENTRY}`,
+            fleetPort          : 18501,
+            killFn             : () => true,
+            orchestratorDataDir: dataDir,
+            probeFleetFn       : probeFleetServing,
+            probePortFn        : async () => true
+        });
+
+        expect(unresolvedViewer.fleetServing).toBe(false);
+        expect(unresolvedViewer.fleetRefusalReason).toContain('canonical expected Fleet viewer');
 
         // A recycled pid running something else must NOT read as a live Brain.
         const foreign = await detectLiveBrain({
+            agentIdentityNodeId,
             bearerToken,
             commandFn          : () => '/usr/bin/some-other-tool',
             fleetPort          : 18501,
             killFn             : () => true,
             orchestratorDataDir: dataDir,
-            probeFleetFn       : async () => false,
+            probeFleetFn       : async () => { throw new Error('a free port must not be probed as an incumbent') },
             probePortFn        : async () => false
         });
 
@@ -484,10 +531,11 @@ test.describe('harness brain lifecycle', () => {
 
         // No PID file at all.
         const missing = await detectLiveBrain({
+            agentIdentityNodeId,
             bearerToken,
             fleetPort          : 18501,
             orchestratorDataDir: path.join(workDir, 'nowhere'),
-            probeFleetFn       : async () => false,
+            probeFleetFn       : async () => { throw new Error('a free port must not be probed as an incumbent') },
             probePortFn        : async () => false
         });
 
@@ -511,7 +559,7 @@ test.describe('harness brain lifecycle', () => {
         const entry = path.join(workDir, ORCHESTRATOR_ENTRY);
 
         writeRunState({
-            children: [{entry, ownershipToken: 'token-111', pgid: 111}],
+            children     : [{entry, ownershipToken: 'token-111', pgid: 111}],
             isolationRoot: workDir
         });
 
