@@ -746,7 +746,7 @@ test.describe('Fleet cockpit — whole-fleet control (B4, #14611)', () => {
     });
 
     test('onStartFleet fans out start to every resident card via the C2 adapter (fold skipped; no bridge → fail-closed per card, never optimistic)', () => {
-        // The morning-start button drives the round-trip directly (the cockpit owns the wire): it
+        // The fleet-start button drives the round-trip directly (the cockpit owns the wire): it
         // enumerates the rendered cards — the collapsed-idle fold is filtered by ntype — and dispatches a
         // start intent + each card's roster record to the adapter. No bridge → each card takes an honest
         // `unauthorized` controlReason onto its record, never an optimistic fleet-wide success.
@@ -770,6 +770,118 @@ test.describe('Fleet cockpit — whole-fleet control (B4, #14611)', () => {
 
         expect(vega.writes.some(write => write.controlReason?.kind === 'unauthorized')).toBe(true);
         expect(ada.writes.some(write => write.controlReason?.kind === 'unauthorized')).toBe(true)
+    });
+
+    test('getRosterRecords treats a present empty Store as authoritative and falls back to cards only when the Store composition is absent', () => {
+        const
+            staleCard  = {ntype: 'fm-agent-card', record: {agentId: 'stale'}},
+            controller = Object.create(FleetCockpitController.prototype);
+
+        controller.getReference = name => ({
+            'fleet-cards': {items: [staleCard]},
+            'fleet-grid' : {store: {items: []}}
+        })[name] ?? null;
+
+        expect(controller.getRosterRecords()).toEqual([]);
+
+        controller.getReference = name => ({
+            'fleet-cards': {items: [staleCard]},
+            'fleet-grid' : {store: {}}
+        })[name] ?? null;
+
+        expect(controller.getRosterRecords()).toEqual([]);
+
+        controller.getReference = name => name === 'fleet-cards' ? {items: [staleCard]} : null;
+
+        expect(controller.getRosterRecords()).toEqual([staleCard.record])
+    });
+
+    test('overlapping fleet activations join one active batch: one bridge call per member and one authoritative summary', async () => {
+        const
+            calls    = [],
+            releases = new Map(),
+            records  = ['ada', 'euclid'].map(agentId => ({
+                agentId,
+                controlReason: null,
+                pendingAction: null,
+                sources      : wiredSources(),
+                state        : 'off',
+                set(values) { Object.assign(this, values) }
+            })),
+            summaries  = [],
+            controller = Object.create(FleetCockpitController.prototype);
+
+        (globalThis.AgentOS ??= {}).fleet = {
+            registryBridge: {
+                startAgent(agentId) {
+                    calls.push(agentId);
+                    return new Promise(resolve => releases.set(agentId, resolve))
+                }
+            }
+        };
+
+        controller.getReference          = name => name === 'fleet-grid' ? {store: {items: records}} : null;
+        controller.refreshRosterOnSettle = settledOk => settledOk;
+        controller.renderStartSummary    = summary => summaries.push(summary);
+
+        try {
+            const
+                first  = controller.onStartFleet(),
+                second = controller.onStartFleet();
+
+            expect(second).toBe(first);
+
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(calls).toEqual(['ada', 'euclid']);
+
+            releases.get('ada')({state: 'running'});
+            await Promise.resolve();
+            await Promise.resolve();
+
+            const third = controller.onStartFleet();
+
+            expect(third).toBe(first);
+            expect(calls).toEqual(['ada', 'euclid']);
+
+            releases.get('euclid')({state: 'running'});
+            await first;
+
+            expect(summaries.filter(Boolean)).toHaveLength(1);
+            expect(summaries.filter(Boolean)[0].started).toBe(2);
+            expect(controller.startFleetPromise).toBeNull()
+        } finally {
+            delete globalThis.AgentOS?.fleet
+        }
+    });
+
+    test('the next fleet activation excludes a timeout-bearing member instead of silently retrying an unknown operation', async () => {
+        const
+            calls  = [],
+            record = {
+                agentId      : 'euclid',
+                controlReason: {action: 'start', kind: 'timeout', reason: 'start timed out after 30000ms'},
+                sources      : wiredSources(),
+                state        : 'off'
+            },
+            controller = Object.create(FleetCockpitController.prototype);
+
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {startAgent: agentId => calls.push(agentId)}};
+        controller.getReference          = name => name === 'fleet-grid' ? {store: {items: [record]}} : null;
+        controller.refreshRosterOnSettle = settledOk => settledOk;
+        controller.renderStartSummary    = () => {};
+
+        try {
+            const summary = await controller.onStartFleet();
+
+            expect(calls).toEqual([]);
+            expect(summary.attempted).toBe(0);
+            expect(summary.excluded).toHaveLength(1);
+            expect(summary.excluded[0].reason).toContain('outcome unknown')
+        } finally {
+            delete globalThis.AgentOS?.fleet
+        }
     });
 
     test('onStartFleet partitions from the wire: excluded members never flip pending, and the summary renders their reasons (#14612)', async () => {
@@ -1045,7 +1157,7 @@ test.describe('Fleet cockpit — controller re-polls the roster on a settled lif
         });
 
         // a REAL store the REAL loadRoster reconciles into — the record is the card's data surface
-        const store   = Neo.create(Store, {keyProperty: 'agentId', model: FleetAgent});
+        const store = Neo.create(Store, {keyProperty: 'agentId', model: FleetAgent});
         // `gridReadGeneration` mirrors the class default because the async-ingress fence reads it: a
         // fake omitting it makes `++undefined` NaN, so the read's generation never matches the
         // owner's and EVERY read silently drops itself — a green suite over state nobody wrote.

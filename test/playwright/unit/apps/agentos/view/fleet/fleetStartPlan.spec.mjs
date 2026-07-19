@@ -14,13 +14,15 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
+import Neo            from '../../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../../src/core/_export.mjs';
 
 import {partitionFleetStart, renderFleetStartSummary, summarizeFleetStart} from '../../../../../../../apps/agentos/view/fleet/fleetStartPlan.mjs';
 
 /**
- * @summary Tests for the morning-start plan helpers — the pure half of the fleet-level
+ * @summary Tests for the fleet-start plan helpers — the pure half of the fleet-level
  * bring-up: wire-derived eligibility partition (excluded-with-reason, never silently
- * skipped) and the honest outcome summary (started / rejected-with-reasons / excluded).
+ * skipped) and the honest outcome summary (started / unknown / rejected / excluded).
  */
 
 /** A usable three-source collection: the runtime axis is WIRED with real confidence. */
@@ -30,7 +32,7 @@ const wiredRuntime = (confidence = 'observed') => ({
     runtime   : {source: 'fleet:runtimeStatus', state: 'wired', confidence}
 });
 
-test.describe('fleetStartPlan — the staged morning bring-up (pure half)', () => {
+test.describe('fleetStartPlan — the staged fleet bring-up (pure half)', () => {
 
     test('partition: every exclusion is wire-derived and carries its reason; the down fleet is what starts', () => {
         const records = [
@@ -122,9 +124,32 @@ test.describe('fleetStartPlan — the staged morning bring-up (pure half)', () =
         }));
         expect(eligible).toHaveLength(0);
 
-        // the preserve side: genuinely WIRED stopped records are the morning start's exact target
+        // the preserve side: genuinely WIRED stopped records are the fleet start's exact target
         expect(partitionOne({agentId: 'observed-down', state: 'off', sources: wiredRuntime('observed')}).eligible).toHaveLength(1);
         expect(partitionOne({agentId: 'inferred-down', state: 'off', sources: wiredRuntime('inferred')}).eligible).toHaveLength(1)
+    });
+
+    test('unknown timeout state is not silently retried by a later fleet activation; explicit non-timeout failures remain eligible', () => {
+        const {eligible, excluded} = partitionFleetStart([
+            {
+                agentId      : 'euclid',
+                controlReason: {action: 'start', kind: 'timeout', reason: 'start timed out after 30000ms'},
+                sources      : wiredRuntime(),
+                state        : 'off'
+            },
+            {
+                agentId      : 'ada',
+                controlReason: {action: 'start', kind: 'rejected', reason: 'harness offline'},
+                sources      : wiredRuntime(),
+                state        : 'off'
+            }
+        ]);
+
+        expect(eligible.map(record => record.agentId)).toEqual(['ada']);
+        expect(excluded).toHaveLength(1);
+        expect(excluded[0].agentId).toBe('euclid');
+        expect(excluded[0].reason).toContain('outcome unknown');
+        expect(excluded[0].reason).toContain('explicit card control')
     });
 
     test('mixed settle/reject: the summary counts honestly and keeps every terminal kind visible', () => {
@@ -145,9 +170,8 @@ test.describe('fleetStartPlan — the staged morning bring-up (pure half)', () =
         expect(summary.started).toBe(1);
         expect(summary.attempted).toBe(3);
         expect(summary.total).toBe(4);
-        expect(summary.rejected).toEqual([
-            {agentId: 'ada',    reason: 'missing credential'},
-            // a timeout is an UNKNOWN outcome — the kind stays visible, never folded into a plain reject
+        expect(summary.rejected).toEqual([{agentId: 'ada', reason: 'missing credential'}]);
+        expect(summary.unknown).toEqual([
             {agentId: 'euclid', reason: 'timeout: start timed out after 30000ms'}
         ]);
         expect(summary.excluded).toEqual([{agentId: 'up', reason: "already up — session state 'ok'"}])
@@ -166,6 +190,7 @@ test.describe('fleetStartPlan — the staged morning bring-up (pure half)', () =
 
         expect(summary.started).toBe(0);
         expect(summary.rejected).toHaveLength(2);
+        expect(summary.unknown).toHaveLength(0);
         expect(summary.rejected[0].reason).toContain('unauthorized:')
     });
 
@@ -175,15 +200,17 @@ test.describe('fleetStartPlan — the staged morning bring-up (pure half)', () =
             excluded : [{agentId: null, reason: 'guest — no fleet definition to start'}],
             rejected : [{agentId: 'ada', reason: 'missing credential'}],
             started  : 2,
-            total    : 4
+            total    : 5,
+            unknown  : [{agentId: 'euclid', reason: 'timeout: start timed out after 30000ms'}]
         });
 
-        expect(text).toBe('2 started · 1 rejected · 1 excluded');
+        expect(text).toBe('2 started · 1 UNKNOWN · 1 rejected · 1 excluded');
+        expect(detail).toContain('euclid: timeout: start timed out after 30000ms');
         expect(detail).toContain('ada: missing credential');
         expect(detail).toContain('(guest): guest — no fleet definition to start');
 
-        // the quiet morning: everything started, nothing to explain
-        const clean = renderFleetStartSummary({attempted: 2, excluded: [], rejected: [], started: 2, total: 2});
+        // the quiet batch: everything started, nothing to explain
+        const clean = renderFleetStartSummary({attempted: 2, excluded: [], rejected: [], started: 2, total: 2, unknown: []});
 
         expect(clean.text).toBe('2 started');
         expect(clean.detail).toBe('')
