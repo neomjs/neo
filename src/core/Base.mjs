@@ -1063,6 +1063,11 @@ class Base {
             return me.#readyPromise
         } catch (error) {
             readyReject(error);
+            // Mark the rejected ready gate as INTERNALLY observed: a caller that consumes only
+            // reInitAsync() (no `ready()` observer) must not trigger a process-level unhandledRejection.
+            // This no-op handler does NOT change the promise `ready()` returns — future `ready()` callers
+            // still receive `error` from the same `#readyPromise`.
+            me.#readyPromise.catch(() => {});
             throw error
         } finally {
             me.#reInitPromise = null

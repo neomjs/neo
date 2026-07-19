@@ -68,8 +68,11 @@ reset ready promise. Three conditions are normative:
   before the FIRST init has ever settled (a later failed re-init still counts as ever-initialized and may
   recover). It COALESCES a concurrent re-init onto the in-flight one (single-flight — the async leg never
   runs twice at once). And it settles the reset `ready()` promise on both success AND `initAsync()`
-  failure, so `ready()` observers are never left pending forever. Without it, the public method
-  mechanically permits a broader, less deterministic state space than the singleton-only contract claims.
+  failure — `ready()` observers always receive the outcome, and the failure rejection is additionally
+  marked *internally observed* so a caller that consumes only `reInitAsync()` (no `ready()` observer)
+  stays process-clean (no `unhandledRejection`), without changing what `ready()` returns. Without this,
+  the public method mechanically permits a broader, less deterministic state space than the singleton-only
+  contract claims.
 
 The `_initPromise = null; initAsync()` reach-in migrates to `await X.reInitAsync()`; a first-init external
 `initAsync()` wait migrates to `await X.ready()`; the bespoke `_initPromise` guards are deleted; and a

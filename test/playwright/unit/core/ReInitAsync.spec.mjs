@@ -80,6 +80,28 @@ test.describe('Neo.core.Base#reInitAsync (singleton re-init seam, #15034)', () =
         expect(singleton.isReady).toBe(true)
     });
 
+    test('failure without a ready() observer stays process-clean (no unhandledRejection)', async () => {
+        await singleton.ready();
+
+        const unhandled   = [],
+              onUnhandled = reason => unhandled.push(reason);
+
+        process.on('unhandledRejection', onUnhandled);
+        try {
+            singleton.failNext = true;
+            // consume ONLY reInitAsync() — deliberately NO `ready()` observer for the rejected gate
+            await singleton.reInitAsync().catch(() => {});
+            // cross an event-loop turn so any leaked rejection would have surfaced
+            await new Promise(resolve => setTimeout(resolve, 0));
+            expect(unhandled).toHaveLength(0)   // the reset #readyPromise rejection was internally observed
+        } finally {
+            process.off('unhandledRejection', onUnhandled)
+        }
+
+        await singleton.reInitAsync();   // recover for isolation
+        expect(singleton.isReady).toBe(true)
+    });
+
     test('admission: rejects a non-singleton instance, and (fenced) outside unitTestMode', async () => {
         class ReInitOrdinary extends core.Base {
             static config = {className: 'Neo.Test.ReInitOrdinary'}
