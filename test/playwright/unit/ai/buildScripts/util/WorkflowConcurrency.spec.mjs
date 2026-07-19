@@ -185,6 +185,22 @@ test.describe('GitHub workflow concurrency (#15593)', () => {
         );
     });
 
+    test('the failed-job gate preserves current-head and push retries', async () => {
+        const workflow   = readWorkflow('test.yml'),
+              steps      = workflow.jobs.test.steps,
+              headScript = steps.find(step => step.id === 'head').with.script,
+              current    = createRuntime({ eventHead: 'current-head' }),
+              push       = createRuntime({ eventName: 'push' });
+
+        await executeScript(headScript, current);
+        await executeScript(headScript, push);
+
+        expect(current.calls.pullsGet).toBe(1);
+        expect(push.calls.pullsGet).toBe(0);
+        expect(Object.fromEntries(current.outputs)).toEqual({ current: 'true' });
+        expect(Object.fromEntries(push.outputs)).toEqual({ current: 'true' });
+    });
+
     test('a live-head lookup failure fails closed before path classification', async () => {
         const workflow = readWorkflow('test.yml'),
               script   = workflow.jobs.changes.steps.find(step => step.id === 'scope').with.script,
