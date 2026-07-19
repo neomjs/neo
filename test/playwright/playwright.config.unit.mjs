@@ -1,27 +1,20 @@
 import './configTemplateResolver.mjs';
 
-import {defineConfig}        from '@playwright/test';
-import os                    from 'os';
-import path                  from 'path';
-import {fileURLToPath}       from 'url';
-import {resolveFreePortSync} from './resolveFreePort.mjs';
+import {defineConfig}  from '@playwright/test';
+import path            from 'path';
+import {fileURLToPath} from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 process.env.UNIT_TEST_MODE = 'true';
 
-const chromaTestHost = process.env.NEO_CHROMA_HOST_TEST || '127.0.0.1';
-// Per-process like the data dir below — a fixed default port + reuseExistingServer:false wedges
-// concurrent runs on the shared multi-agent machine (and an orphaned chroma made the wedge sticky
-// machine-wide). Env pin still wins; see resolveFreePort.mjs for the full incident rationale.
-const chromaTestPort    = resolveFreePortSync(process.env.NEO_CHROMA_PORT_TEST);
-const chromaTestDataDir = process.env.NEO_CHROMA_DATA_DIR_TEST ||
-    path.join(os.tmpdir(), `neo-chroma-unit-test-${process.pid}`);
-
-process.env.NEO_CHROMA_HOST_TEST     = chromaTestHost;
-process.env.NEO_CHROMA_PORT_TEST     = String(chromaTestPort);
-process.env.NEO_CHROMA_DATA_DIR_TEST = chromaTestDataDir;
+// Brain specs retain the Chroma capability by default. Body-focused runs do not select this
+// project, so Playwright omits its setup dependency entirely instead of booting Chroma before it
+// knows what the command selected. The structural boundary is deliberately conservative: a Brain
+// test may freely exercise Memory Core / KB transitively without maintaining a fragile filename
+// allow-list, while every non-Brain spec remains a genuinely pure Node.js unit run.
+export const brainTestMatch = /[\\/]ai[\\/].*\.spec\.mjs$/;
 
 export default defineConfig({
     testDir      : path.join(__dirname, 'unit'),
@@ -32,16 +25,19 @@ export default defineConfig({
     workers      : process.env.CI ? 1 : undefined,
     reporter     : [['json', {outputFile: path.join(__dirname, 'test-results/unit/test-results.json')}]],
     use          : {trace: 'on-first-retry'},
-    webServer    : {
-        command            : `chroma run --path "${chromaTestDataDir}" --host ${chromaTestHost} --port ${chromaTestPort}`,
-        url                : `http://${chromaTestHost}:${chromaTestPort}/api/v2/heartbeat`,
-        timeout            : 120000,
-        reuseExistingServer: false,
-        stdout             : 'pipe',
-        stderr             : 'pipe',
-        gracefulShutdown   : {
-            signal : 'SIGTERM',
-            timeout: 30000
-        }
-    }
+    projects     : [{
+        name     : 'chroma-setup',
+        testMatch: /chroma\.setup\.mjs$/,
+        teardown : 'chroma-teardown'
+    }, {
+        name     : 'chroma-teardown',
+        testMatch: /chroma\.teardown\.mjs$/
+    }, {
+        name      : 'unit',
+        testIgnore: brainTestMatch
+    }, {
+        name        : 'unit-brain',
+        dependencies: ['chroma-setup'],
+        testMatch   : brainTestMatch
+    }]
 });

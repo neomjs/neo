@@ -110,7 +110,7 @@
         "test-components"                      : "playwright test -c test/playwright/playwright.config.component.mjs",
         "test-e2e"                             : "playwright test -c test/playwright/playwright.config.e2e.mjs",
         "test-integration-unified"             : "playwright test -c test/playwright/playwright.config.integration.mjs",
-        "test-unit"                            : "UNIT_TEST_MODE=true playwright test -c test/playwright/playwright.config.unit.mjs",
+        "test-unit"                            : "playwright test -c test/playwright/playwright.config.unit.mjs",
         "watch-themes"                         : "node ./buildScripts/helpers/watchThemes.mjs"
     },
     "keywords"       : [
