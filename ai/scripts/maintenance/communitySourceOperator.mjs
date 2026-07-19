@@ -96,7 +96,7 @@ function validateArgs(args) {
  * @returns {Promise<Object|Object[]>}
  */
 async function runOperator({args, registry = SourceRegistryService}) {
-    await registry.initAsync?.();
+    await registry.ready?.();
 
     if (args.action === 'register') {
         const data = JSON.parse(fs.readFileSync(args.sourceFile, 'utf8'));

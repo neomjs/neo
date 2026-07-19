@@ -50,7 +50,7 @@ test.describe('Memory Core hosted community tools (#15156)', () => {
 
     test.beforeAll(async () => {
         ({callTool, listTools} = await import('../../../../../../../ai/mcp/server/memory-core/toolService.mjs'));
-        aiConfig         = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        aiConfig         = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         AdmissionService = (await import('../../../../../../../ai/services/memory-core/CommunityBatchAdmissionService.mjs')).default;
 
         originalAdmit     = AdmissionService.admitHostedBatch;

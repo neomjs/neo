@@ -27,7 +27,10 @@ import RequestContextService  from '../../../../../../ai/mcp/server/shared/servi
  * checkpoint CAS. The four reviewer boundary probes appear as the last five cases.
  */
 test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () => {
-    let AdmissionService, SourceRegistryService, originalEnv, testDbPath;
+    let AdmissionService, SourceRegistryService,
+        admissionDb, registryDb,
+        originalAdmissionDb, originalAttentionPolicy, originalEnv, originalLocalSubjectId, originalRegistryDb,
+        testDbPath;
 
     const
         SUBJECT = 'local-subject',
@@ -126,14 +129,49 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
         process.env.UNIT_TEST_MODE          = 'true';
         process.env.NEO_MEMORY_DB_PATH_TEST = testDbPath;
 
+        const Database = (await import('better-sqlite3')).default;
+
         SourceRegistryService = (await import('../../../../../../ai/services/memory-core/SourceRegistryService.mjs')).default;
         AdmissionService      = (await import('../../../../../../ai/services/memory-core/CommunityBatchAdmissionService.mjs')).default;
 
-        await SourceRegistryService.initAsync();
-        await AdmissionService.initAsync();
+        await SourceRegistryService.ready();
+        await AdmissionService.ready();
+
+        originalRegistryDb      = SourceRegistryService.db;
+        originalAdmissionDb     = AdmissionService.db;
+        originalLocalSubjectId  = SourceRegistryService.localSubjectId;
+        originalAttentionPolicy = AdmissionService.attentionPolicy;
+
+        registryDb  = new Database(testDbPath, {verbose: null});
+        admissionDb = new Database(testDbPath, {verbose: null});
+
+        registryDb.pragma('journal_mode = WAL');
+        registryDb.pragma('busy_timeout = 5000');
+        admissionDb.pragma('busy_timeout = 5000');
+
+        SourceRegistryService.set({db: registryDb});
+        AdmissionService.set({db: admissionDb});
+        SourceRegistryService.ensureSchema();
+        AdmissionService.ensureSchema();
     });
 
     test.afterAll(() => {
+        SourceRegistryService.set({
+            db            : originalRegistryDb,
+            localSubjectId: originalLocalSubjectId
+        });
+        AdmissionService.set({
+            db             : originalAdmissionDb,
+            attentionPolicy: originalAttentionPolicy
+        });
+
+        registryDb.close();
+        admissionDb.close();
+
+        for (const suffix of ['', '-wal', '-shm']) {
+            try { fs.unlinkSync(`${testDbPath}${suffix}`); } catch (e) {}
+        }
+
         Object.entries(originalEnv).forEach(([k, v]) => {
             v === undefined ? delete process.env[k] : (process.env[k] = v);
         });

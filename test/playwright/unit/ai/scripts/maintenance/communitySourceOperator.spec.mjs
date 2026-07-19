@@ -47,7 +47,7 @@ test.describe('communitySourceOperator — audited hosted bootstrap (#15156)', (
         const result = await runOperator({
             args,
             registry: {
-                async initAsync() { calls.push({type: 'init'}) },
+                async ready() { calls.push({type: 'ready'}) },
                 transitionLifecycleForTenant(tenantId, sourceInstanceId, toState, generation) {
                     calls.push({tenantId, sourceInstanceId, toState, generation});
                     return {lifecycleState: toState}
@@ -76,7 +76,7 @@ test.describe('communitySourceOperator — audited hosted bootstrap (#15156)', (
                 sourceInstanceId: 'source-1'
             },
             registry: {
-                async initAsync() {},
+                async ready() {},
                 listAuditForTenant: (tenantId, sourceInstanceId) => [{tenantId, sourceInstanceId}]
             }
         });
