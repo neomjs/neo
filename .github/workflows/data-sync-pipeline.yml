@@ -99,6 +99,7 @@ jobs:
           mkdir -p temp_pages/node_modules/neo.mjs/apps/devindex/resources/data
           mkdir -p temp_pages/node_modules/neo.mjs/apps/portal/resources/data
           mkdir -p temp_pages/node_modules/neo.mjs/resources/content
+          mkdir -p temp_pages/resources_pub/website/examples/devmode
 
           # Copy the data files
           cp apps/devindex/resources/data/users.jsonl temp_pages/node_modules/neo.mjs/apps/devindex/resources/data/
@@ -108,6 +109,10 @@ jobs:
           # deploys (#14496).
           rm -rf temp_pages/node_modules/neo.mjs/apps/portal/resources/data
           cp -r apps/portal/resources/data temp_pages/node_modules/neo.mjs/apps/portal/resources/
+
+          # Project the Neo-owned Workstation preview without mutating the legacy
+          # pages-side examples collection.
+          cp apps/portal/resources/images/examples/devmode/workstation.png temp_pages/resources_pub/website/examples/devmode/workstation.png
 
           cp -f apps/portal/sitemap.xml temp_pages/ 2>/dev/null || true
           cp -f apps/portal/llms.txt temp_pages/ 2>/dev/null || true
@@ -135,12 +140,13 @@ jobs:
           cd temp_pages
 
           # Check for changes and push
-          if [[ -n $(git status -s node_modules/neo.mjs/apps/devindex/resources/data/users.jsonl node_modules/neo.mjs/apps/portal/resources/data/ sitemap.xml llms.txt node_modules/neo.mjs/resources/content/ node_modules/neo.mjs/learn/) ]]; then
+          if [[ -n $(git status -s node_modules/neo.mjs/apps/devindex/resources/data/users.jsonl node_modules/neo.mjs/apps/portal/resources/data/ resources_pub/website/examples/devmode/workstation.png sitemap.xml llms.txt node_modules/neo.mjs/resources/content/ node_modules/neo.mjs/learn/) ]]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
             git add node_modules/neo.mjs/apps/devindex/resources/data/users.jsonl
             git add -A node_modules/neo.mjs/apps/portal/resources/data/
+            git add resources_pub/website/examples/devmode/workstation.png
             git add sitemap.xml 2>/dev/null || true
             git add llms.txt 2>/dev/null || true
             git add -A node_modules/neo.mjs/resources/content/
