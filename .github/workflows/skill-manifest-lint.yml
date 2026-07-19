@@ -23,7 +23,7 @@ on:
       - 'learn/guides/fundamentals/CodebaseOverview.md'
 
 concurrency:
-  group: skill-manifest-lint-${{ github.ref }}
+  group: skill-manifest-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:

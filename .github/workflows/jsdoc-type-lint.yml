@@ -23,7 +23,7 @@ on:
       - '.github/workflows/jsdoc-type-lint.yml'
 
 concurrency:
-  group: jsdoc-type-lint-${{ github.ref }}
+  group: jsdoc-type-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
