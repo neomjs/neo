@@ -97,10 +97,10 @@ In the example below, we create `MySpecialButton` by extending `Neo.button.Base`
 You can also add entirely new configuration properties to your custom components. To make a config "reactive" – meaning
 it automatically triggers a lifecycle method when its value changes – you **must** define it with a trailing underscore (`_`).
 
-For a reactive config like `myConfig_`, the framework provides this behavior:
+For a reactive config like `myConfig_`, the engine provides this behavior:
 - **Reading**: You can access the value directly: `this.myConfig`.
 - **Writing**: Assigning a new value (`this.myConfig = 'new value'`) triggers a prototype-based setter. This is the core of Neo.mjs reactivity.
-- **Hooks**: The framework provides three optional hooks for each reactive config: `beforeGet`, `beforeSet`, and `afterSet`. After a value is set, the `afterSetMyConfig(value, oldValue)` method is automatically called.
+- **Hooks**: The engine provides three optional hooks for each reactive config: `beforeGet`, `beforeSet`, and `afterSet`. After a value is set, the `afterSetMyConfig(value, oldValue)` method is automatically called.
 
 If you define a config without the trailing underscore, it will simply be a static property on the class instance and will not trigger any lifecycle methods.
 

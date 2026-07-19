@@ -29,7 +29,7 @@ However, in a multi-threaded environment like Neo.mjs, sending large VDOM trees 
 
 ## The Solution: Scoped Updates (Depth 1)
 
-By default, Neo.mjs uses **Scoped Updates**. When you change a reactive config on a component, the framework calculates the VDOM diff **only for that specific component**, ignoring its children.
+By default, Neo.mjs uses **Scoped Updates**. When you change a reactive config on a component, the engine calculates the VDOM diff **only for that specific component**, ignoring its children.
 
 ### How it Works
 

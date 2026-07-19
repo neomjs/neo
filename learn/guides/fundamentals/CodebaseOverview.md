@@ -490,7 +490,7 @@ Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. L
 
 ### Neo Theming Engine (`/resources/scss/` - 613 files, ~14.8k lines)
 
-Documenting the SCSS frameworks defining Neo's glassmorphism and application layouts, structurally detached from the core JS framework rendering engine.
+Documenting the SCSS frameworks defining Neo's glassmorphism and application layouts, structurally detached from the core JS rendering engine.
 
 ---
 
