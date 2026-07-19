@@ -698,6 +698,28 @@ class DockTabSortZone extends TabHeaderSortZone {
     }
 
     /**
+     * @summary Routes a detached dock cancel while its window-drag state is still observable,
+     * then delegates to the generic sort-zone cancellation which clears that state and restores
+     * the source DOM. The order is load-bearing: the base must reset `isWindowDragging` for its
+     * ordinary cancel cleanup, while the host needs the pre-reset fact to retire its live vessel.
+     * @param {Object} [data={}]
+     * @returns {Promise<void>}
+     */
+    async onDragCancel(data={}) {
+        let me           = this,
+            itemId       = me.dockItemIds?.[me.startIndex],
+            tabContainer = me.owner?.up?.();
+
+        if (me.isWindowDragging && itemId) {
+            tabContainer?.fire('dockTearOutCancel', {
+                itemId, sortZone: me, sourceNodeId: me.dockSourceNodeId
+            })
+        }
+
+        await super.onDragCancel(data)
+    }
+
+    /**
      * Extends the base drag-end: fires a `dockCrossZoneDrop` event on the owner tab.Container (`owner.up()`)
      * carrying the release point + dragged item id. The adapter wires the listener for it — the same
      * tab.Container node whose `moveTo` listener handles the within-container reorder — and its closure holds
@@ -712,8 +734,9 @@ class DockTabSortZone extends TabHeaderSortZone {
      *
      * A drag released while DETACHED ({@link Neo.draggable.container.SortZone#isWindowDragging})
      * fires `dockTearOutTerminal` instead of the in-window drop — the one signal a host may commit
-     * a `detachItem` on; a cancel while detached fires `dockTearOutCancel` first (vessel cleanup,
-     * zero model mutation), then the regular cancel event.
+     * a `detachItem` on. A cancel while detached routes `dockTearOutCancel` from
+     * {@link #onDragCancel} BEFORE the generic base clears `isWindowDragging`; this method then
+     * emits the regular cancel event after that vessel-cleanup signal.
      *
      * Cross-window gestures close through {@link Neo.manager.DragCoordinator#onDragEnd} FIRST: a
      * release over an engaged remote target commits there, and the coordinator arms
@@ -790,13 +813,6 @@ class DockTabSortZone extends TabHeaderSortZone {
 
         if (data.cancelled) {
             me.remoteDropCommitted = false;
-
-            // A cancel while detached also retires the tear-out: the host's handler closes its
-            // vessel — the committed document was never touched (zero-mutation invariant), so
-            // there is nothing to roll back.
-            if (me.isWindowDragging && itemId) {
-                tabContainer?.fire('dockTearOutCancel', {itemId, sortZone: me, sourceNodeId: me.dockSourceNodeId})
-            }
 
             itemId && tabContainer?.fire('dockCrossZoneDragCancel', {itemId, sourceNodeId: me.dockSourceNodeId})
         } else if (me.remoteDropCommitted) {
