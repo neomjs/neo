@@ -313,10 +313,10 @@ test.describe('generateRosterOnboarding — surface emitters (pure half)', () =>
 
         // Layer-1 operational fields
         expect(entry).toContain(`id         : '@neo-unit-probe',`);
-        expect(entry).toContain(`githubLogin     : '@neo-unit-probe',`);
-        expect(entry).toContain(`displayName     : 'Neo Unit Probe',`);
-        expect(entry).toContain(`modelFamily     : 'claude',`);
-        expect(entry).toContain('trustTier       : TRUST_TIERS.PEER_TRUSTED,');
+        expect(entry).toContain(`githubLogin: '@neo-unit-probe',`);
+        expect(entry).toContain(`displayName: 'Neo Unit Probe',`);
+        expect(entry).toContain(`modelFamily: 'claude',`);
+        expect(entry).toContain('trustTier  : TRUST_TIERS.PEER_TRUSTED,');
         expect(entry).not.toContain('identityContract');
 
         // pending-first-boot lifecycle state with the ACTUAL generation timestamp (no backfill)
