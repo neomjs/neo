@@ -14,10 +14,12 @@ import {test, expect} from '../../fixtures.mjs';
  *   abnormal source (no 9px acronym wall) and can never contradict the facts;
  * - the operator avatar-keeper invariant: a visible avatar at every card width (real image slot).
  *
- * Captured on the CARD's own width (294 / 360 / 480), the same axis the selected design renders
- * against — the grid is pinned to a single fixed-width track per width so the card-owned `@container`
- * modes engage (narrow <320 vs regular/wide). Goldens are created/refreshed under the visual/e2e
- * config only. Fidelity against the repaired mockup head is Phoebe's narrow/mobile design-check seat.
+ * Captured on the CARD's own width (294 / 360 / 720) in BOTH skins (neo-dark + neo-light, driven
+ * through the real ViewportController#setTheme) — the same axis the selected design renders against.
+ * The grid is pinned to a single fixed-width track per width so the card-owned `@container` modes
+ * engage (narrow <320 vs regular/wide); the contrast guard is a luminance delta, honest in either skin.
+ * Goldens are created/refreshed under the visual/e2e config only. Fidelity against the repaired mockup
+ * head is Phoebe's narrow/mobile design-check seat.
  *
  * Run: NEO_E2E_PORT=8121 npx playwright test agentos/AgentCardSynthesisRenderNL -c test/playwright/playwright.config.e2e.mjs --workers=1 --update-snapshots
  *
@@ -113,68 +115,85 @@ test.describe('AgentOS fleet cockpit — AgentCard evolved-D synthesis render at
 
         await page.evaluate(() => document.fonts.ready);
 
-        // capture at each CARD-width: pin the card grid to one fixed-width track so the card's own
-        // @container width modes engage (narrow <320 vs regular/wide), independent of viewport
-        for (const {label, width} of CARD_WIDTHS) {
-            const actual = await page.evaluate(w => {
-                const cards = document.querySelector('.fm-fleet-cards');
-                cards.style.gridTemplateColumns = `${w}px`;
-                cards.style.width               = `${w}px`;
-                cards.style.minWidth            = `${w}px`;
-                cards.style.maxWidth            = `${w}px`;
-                // release the cockpit's height constraint so the wall grows to content — the falsifier
-                // capture must show every card's FULL anatomy, not a scroll-clipped viewport
-                cards.style.height              = 'auto';
-                cards.style.maxHeight           = 'none';
-                const card = document.querySelector('.fm-agent-card');
-                return card ? Math.round(card.getBoundingClientRect().width) : null;
-            }, width);
+        // resolve the viewport's theme controller — the RA-3 both-theme gate renders the matrix in BOTH
+        // skins, driven through the real ViewportController#setTheme (never a CSS-class poke)
+        const [viewport]    = await app.queryComponent({className: 'AgentOS.view.Viewport'}, ['id']),
+              viewportState = await app.getComponent(viewport.properties.id, ['controller']),
+              controllerId  = viewportState.controller.id;
 
-            expect(actual, `the pinned single column renders the card at ~${width}px`).toBeGreaterThanOrEqual(width - 4);
-            expect(actual, `the pinned single column renders the card at ~${width}px`).toBeLessThanOrEqual(width + 4);
+        // capture the card-width matrix under one skin: pin the grid to one fixed-width track so the
+        // card's own @container width modes engage (narrow <320 vs regular/wide), independent of viewport
+        const captureWidthMatrix = async themeTag => {
+            for (const {label, width} of CARD_WIDTHS) {
+                const scope = `${themeTag} ${label}`;
 
-            await page.evaluate(() => document.fonts.ready);
+                const actual = await page.evaluate(w => {
+                    const cards = document.querySelector('.fm-fleet-cards');
+                    cards.style.gridTemplateColumns = `${w}px`;
+                    cards.style.width               = `${w}px`;
+                    cards.style.minWidth            = `${w}px`;
+                    cards.style.maxWidth            = `${w}px`;
+                    // release the cockpit's height constraint so the wall grows to content — the falsifier
+                    // capture must show every card's FULL anatomy, not a scroll-clipped viewport
+                    cards.style.height              = 'auto';
+                    cards.style.maxHeight           = 'none';
+                    const card = document.querySelector('.fm-agent-card');
+                    return card ? Math.round(card.getBoundingClientRect().width) : null;
+                }, width);
 
-            // render-fit + contrast guards (repaired-semantics pins, not just snapshot-green): every card
-            // must CONTAIN its full anatomy (no overflow clip), the source strip must sit inside the card
-            // boundary, and the name must read against the panel. Theme-agnostic: contrast is a luminance
-            // delta between the resolved name colour and the card background, so it holds in light + dark.
-            const fit = await page.evaluate(() => [...document.querySelectorAll('.fm-agent-card')].map(card => {
-                const rect  = card.getBoundingClientRect(),
-                      strip = card.querySelector('.fm-card-strip'),
-                      name  = card.querySelector('.fm-card-name .neo-button-text'),
-                      sRect = strip?.getBoundingClientRect(),
-                      lum   = c => { const [r, g, b] = c.match(/\d+/g).map(Number); return 0.299 * r + 0.587 * g + 0.114 * b };
-                return {
-                    clipped   : card.scrollHeight - card.clientHeight,
-                    stripBelow: sRect ? sRect.bottom - rect.bottom : -1,
-                    contrast  : name ? Math.abs(lum(getComputedStyle(name).color) - lum(getComputedStyle(card).backgroundColor)) : 0
-                }
-            }));
-            fit.forEach((g, i) => {
-                expect(g.clipped, `[${label}] card ${i} contains its full anatomy (no overflow clip)`).toBe(0);
-                expect(g.stripBelow, `[${label}] card ${i} source strip sits inside the card boundary`).toBeLessThanOrEqual(0);
-                expect(g.contrast, `[${label}] card ${i} name text reads against the panel (luminance delta)`).toBeGreaterThan(90)
-            });
+                expect(actual, `[${scope}] the pinned single column renders the card at ~${width}px`).toBeGreaterThanOrEqual(width - 4);
+                expect(actual, `[${scope}] the pinned single column renders the card at ~${width}px`).toBeLessThanOrEqual(width + 4);
 
-            // RA-2 narrow interaction swap (a semantic guard, not just snapshot-green): below 320px the
-            // inline toggle + restart give way to ONE ⋯ menu; at regular/wide the inline verbs show and
-            // the ⋯ hides. EXACTLY one lifecycle route is display-visible per width on every card — so no
-            // action is lost to a mystery icon, and no width double-presents the route.
-            const narrow = width < 320,
-                  routes = await page.evaluate(() => [...document.querySelectorAll('.fm-agent-card')].map(card => {
-                      const shown = sel => { const el = card.querySelector(sel); return !!el && getComputedStyle(el).display !== 'none' };
-                      return {
-                          menu  : shown('.fm-card-action-menu'),
-                          toggle: shown('.fm-card-action:not(.fm-card-action-menu):not(.fm-card-action-restart)')
-                      }
-                  }));
-            routes.forEach((r, i) => {
-                expect(r.menu,   `[${label}] card ${i}: the ⋯ menu is ${narrow ? 'the narrow route' : 'hidden at regular/wide'}`).toBe(narrow);
-                expect(r.toggle, `[${label}] card ${i}: the inline toggle is ${narrow ? 'hidden at narrow' : 'the regular/wide route'}`).toBe(!narrow)
-            });
+                await page.evaluate(() => document.fonts.ready);
 
-            await expect(page.locator('.fm-fleet-cards')).toHaveScreenshot(`agentcard-synthesis-${label}.png`)
+                // render-fit + contrast guards (repaired-semantics pins, not just snapshot-green): every card
+                // must CONTAIN its full anatomy (no overflow clip), the source strip must sit inside the card
+                // boundary, and the name must read against the panel. Contrast is a luminance delta between
+                // the resolved name colour and the card background — so this guard holds in BOTH skins.
+                const fit = await page.evaluate(() => [...document.querySelectorAll('.fm-agent-card')].map(card => {
+                    const rect  = card.getBoundingClientRect(),
+                          strip = card.querySelector('.fm-card-strip'),
+                          name  = card.querySelector('.fm-card-name .neo-button-text'),
+                          sRect = strip?.getBoundingClientRect(),
+                          lum   = c => { const [r, g, b] = c.match(/\d+/g).map(Number); return 0.299 * r + 0.587 * g + 0.114 * b };
+                    return {
+                        clipped   : card.scrollHeight - card.clientHeight,
+                        stripBelow: sRect ? sRect.bottom - rect.bottom : -1,
+                        contrast  : name ? Math.abs(lum(getComputedStyle(name).color) - lum(getComputedStyle(card).backgroundColor)) : 0
+                    }
+                }));
+                fit.forEach((g, i) => {
+                    expect(g.clipped, `[${scope}] card ${i} contains its full anatomy (no overflow clip)`).toBe(0);
+                    expect(g.stripBelow, `[${scope}] card ${i} source strip sits inside the card boundary`).toBeLessThanOrEqual(0);
+                    expect(g.contrast, `[${scope}] card ${i} name text reads against the panel (luminance delta)`).toBeGreaterThan(90)
+                });
+
+                // Lifecycle controls stay INLINE + visible at EVERY width (a semantic guard, not just
+                // snapshot-green): the real Start/Stop toggle is always a visible glyph, and there is NO
+                // overflow ⋯ menu hiding the action behind a generic affordance (operator UX direction).
+                const controls = await page.evaluate(() => [...document.querySelectorAll('.fm-agent-card')].map(card => {
+                    const shown = sel => { const el = card.querySelector(sel); return !!el && getComputedStyle(el).display !== 'none' };
+                    return {
+                        toggle : shown('.fm-card-action:not(.fm-card-action-restart)'),
+                        hasMenu: !!card.querySelector('.fm-card-action-menu')
+                    }
+                }));
+                controls.forEach((c, i) => {
+                    expect(c.toggle, `[${scope}] card ${i}: the primary lifecycle toggle is inline + visible`).toBe(true);
+                    expect(c.hasMenu, `[${scope}] card ${i}: no overflow ⋯ menu — controls are inline, not hidden`).toBe(false)
+                });
+
+                await expect(page.locator('.fm-fleet-cards')).toHaveScreenshot(`agentcard-synthesis-${themeTag}-${label}.png`)
+            }
+        };
+
+        for (const theme of ['neo-theme-neo-dark', 'neo-theme-neo-light']) {
+            await app.callMethod(controllerId, 'setTheme', [theme, false]);
+            await expect.poll(async () => (await app.getComponent(viewport.properties.id, ['theme'])).theme, {
+                message: `the viewport re-themes to ${theme}`, timeout: 15000, intervals: [250]
+            }).toBe(theme);
+
+            await captureWidthMatrix(theme.replace('neo-theme-neo-', ''))
         }
     });
 });

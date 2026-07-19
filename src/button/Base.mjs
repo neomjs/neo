@@ -341,13 +341,6 @@ class Button extends Component {
      */
     afterSetMenu(value, oldValue) {
         if (value) {
-            // A button that owns a menu IS a menu trigger: announce it to assistive tech (aria-haspopup)
-            // and keep aria-expanded live. The expanded state tracks the menu's OWN visibility via its
-            // hiddenChange event (below), so it stays honest whether the menu closes by re-clicking the
-            // trigger or by an outside-click dismissal — not only through toggleMenu.
-            this.changeVdomRootKey('aria-haspopup', 'menu');
-            this.changeVdomRootKey('aria-expanded', 'false');
-
             import('../menu/List.mjs').then(module => {
                 let me            = this,
                     isArray       = Array.isArray(value),
@@ -376,13 +369,7 @@ class Button extends Component {
                     config.stateProvider = {parent: stateProvider}
                 }
 
-                me.menuList = Neo.create(config);
-
-                // keep the trigger's aria-expanded honest against the menu's actual visibility, however
-                // it changes (trigger re-click OR outside-click dismissal)
-                me.menuList.on('hiddenChange', ({value: hidden}) => {
-                    me.changeVdomRootKey('aria-expanded', (!hidden).toString())
-                })
+                me.menuList = Neo.create(config)
             })
         }
     }

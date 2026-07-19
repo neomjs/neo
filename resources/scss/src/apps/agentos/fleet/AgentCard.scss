@@ -193,9 +193,9 @@
         height       : 32px;
         margin       : 0;
         padding      : 0;
-        border       : 1px solid var(--fm-line, color-mix(in srgb, var(--fm-ink-dim) 25%, transparent));
+        border       : 0;
         border-radius: 6px;
-        background   : color-mix(in srgb, var(--fm-ink-dim) 8%, transparent);
+        background   : transparent;
         color        : var(--fm-ink-dim);
 
         .neo-button-text {
@@ -208,9 +208,11 @@
             color: inherit;
         }
 
+        /* a LIGHT ghost control — the glyph alone carries the affordance, so the action stays
+           proportional to the identity/status; hover earns a subtle wash + the ink, never a heavy box */
         &:hover:not([disabled]) {
-            border-color: var(--fm-ink-dim);
-            color       : var(--fm-ink);
+            background: color-mix(in srgb, var(--fm-ink-dim) 12%, transparent);
+            color     : var(--fm-ink);
         }
 
         &[disabled] {
@@ -222,12 +224,6 @@
             outline       : 2px solid var(--fm-ink);
             outline-offset: 2px;
         }
-    }
-
-    /* the ⋯ overflow menu is a narrow-only affordance: hidden by default; the @container narrow block
-       below swaps it in when the inline toggle + restart give way (card responds to its own width) */
-    .fm-card-action-menu {
-        display: none;
     }
 
     /* ── work-row: the current lane, two-line clamped with head+tail middle elision ── */
@@ -294,8 +290,11 @@
 
     /* ══ card-owned width modes (ADR 0029): the card responds to ITS OWN width, not the viewport ══ */
 
-    /* narrow (<320px): a smaller avatar, the engine tag drops, and the actions become ONE 44px target
-       — one labelled action ≈ 16% of the row, never a two-target 34% rail */
+    /* narrow (<320px): a smaller avatar and the engine tag drops. The lifecycle controls stay INLINE and
+       VISIBLE (no overflow menu) — the real Start/Stop + Restart glyphs are self-evident where a generic
+       ⋯ was not — grown to a 44px touch target while the ghost styling keeps them light + proportional
+       (operator UX direction 2026-07-19). Restart still shows only while running, so it is usually one
+       control; both remain reachable + aria-labelled at every width. */
     @container (max-width: 319px) {
         .fm-card-avatar {
             width : 32px;
@@ -310,18 +309,6 @@
             width    : 44px;
             height   : 44px;
             font-size: 16px;
-        }
-
-        /* the selected narrow mechanic (mockup D / synthesis): the inline toggle + restart give way to
-           ONE 44px ⋯ menu carrying BOTH verbs at ≥44px touch height — every lifecycle action stays
-           reachable through a visible, labelled route, without the two-target rail tax. The swap is pure
-           @container CSS (display-toggled), so exactly one route is keyboard-reachable at each width. */
-        .fm-card-action:not(.fm-card-action-menu) {
-            display: none;
-        }
-
-        .fm-card-action-menu {
-            display: inline-flex;
         }
     }
 }

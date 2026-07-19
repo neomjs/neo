@@ -246,50 +246,28 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         card.destroy()
     });
 
-    test('RA-2 narrow overflow: the ⋯ menu carries BOTH lifecycle verbs, live-state, through the SAME B4 seam (#15536)', () => {
-        // The selected narrow mechanic (mockup D/synthesis): below 320px the inline toggle + restart give
-        // way to ONE 44px ⋯ menu. That menu must still reach EVERY lifecycle action and fire the identical
-        // `lifecycleIntent` the inline buttons do — so no valid action is lost to a mystery icon at narrow
-        // width (Emmy RA-2). The menu is populated once in onConstructed; its items read the LIVE record.
-        const card  = createCard({agentId: 'vega', state: 'off'});
-        const fired = [];
+    test('RA-2 a11y: the icon-only inline verbs carry a CONTEXTUAL, subject-named aria-label on the vdom ROOT — not the no-op `ariaLabel` config (#15536)', () => {
+        // The ⋯ overflow menu was dropped on operator UX direction (2026-07-19): a generic 3-dots trigger
+        // read as "no one knows what that means", so the narrow row keeps the REAL Start/Stop + Restart
+        // glyphs inline. They are icon-only (`.neo-button-text` is display:none), so the aria-label IS
+        // their only accessible name — and it must reach the DOM through the vdom ROOT (changeVdomRootKey),
+        // because `ariaLabel` is undeclared in Neo and sets a memory property with ZERO DOM effect (Emmy
+        // RA-2 falsified the memory-only claim). The power verb is CONTEXTUAL, matching the toggle; every
+        // verb names its subject (the FM roster names what it acts on).
+        const card = createCard({agentId: 'vega', state: 'off'});
 
-        card.on('lifecycleIntent', data => fired.push(data));
+        const toggle  = card.down({reference: 'control-toggle'}),
+              restart = card.down({reference: 'control-restart'});
 
-        const menuButton = card.down({reference: 'control-menu'}),
-              items      = menuButton.menu;
+        // off → the toggle's DOM name is "Start <subject>"; restart names its subject too. The trailing
+        // subject (non-empty after the verb) proves the roster names WHAT it acts on, not a bare verb.
+        expect(toggle.vdom['aria-label']).toMatch(/^Start .+/);
+        expect(restart.vdom['aria-label']).toMatch(/^Restart .+/);
 
-        // built from the initial record (off → Start), CONTEXTUAL like the inline toggle — power verb
-        // first, restart second. The live Start→Stop relabel rides the mounted menuList (async); this
-        // in-memory config carries the initial verb, and the handler below proves the LIVE state read.
-        expect(Array.isArray(items)).toBe(true);
-        expect(items.map(item => item.text)).toEqual(['Start', 'Restart']);
-
-        // off → the power item resolves to START against the live record and fires the SAME B4 event
-        items[0].handler();
-        expect(fired).toMatchObject([{action: 'start', agentId: 'vega'}]);
-
-        // running → the SAME power item now resolves to STOP — read from the live record at click time,
-        // with no menu re-set and no dynamic re-label (the state itself is shown on the card, not the item)
-        fired.length = 0;
+        // running → the SAME toggle's DOM name flips to "Stop <subject>" — read from the live record, so
+        // the accessible name tracks state without a second control (the state itself is shown on the card)
         applySet(card, {state: 'ok'});
-        items[0].handler();
-        expect(fired).toMatchObject([{action: 'stop', agentId: 'vega'}]);
-
-        // the restart item fires restart through the shared seam
-        fired.length = 0;
-        items[1].handler();
-        expect(fired).toMatchObject([{action: 'restart', agentId: 'vega'}]);
-
-        // the trigger names its subject in the DOM (aria-label on the vdom ROOT — not the no-op
-        // `ariaLabel` property) and declares itself a menu trigger; aria-expanded starts collapsed
-        expect(menuButton.vdom['aria-label']).toMatch(/ actions$/);
-        expect(menuButton.vdom['aria-haspopup']).toBe('menu');
-        expect(menuButton.vdom['aria-expanded']).toBe('false');
-
-        // the inline verbs are icon-only too, so they also carry a DOM aria-label (same mechanism)
-        expect(card.down({reference: 'control-toggle'}).vdom['aria-label']).toMatch(/^(Start|Stop) /);
-        expect(card.down({reference: 'control-restart'}).vdom['aria-label']).toMatch(/^Restart /);
+        expect(toggle.vdom['aria-label']).toMatch(/^Stop .+/);
 
         card.destroy()
     });
