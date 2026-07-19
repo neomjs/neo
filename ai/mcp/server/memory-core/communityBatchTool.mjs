@@ -24,17 +24,19 @@ const getEffectiveToolName = toolName => {
 
 /**
  * @summary Returns true when hosted community tools belong on the current MCP surface.
+ * @param {String} [transport=aiConfig.transport]
  * @returns {Boolean}
  */
-const areHostedCommunityToolsVisible = () => aiConfig.transport === 'streamable-http';
+const areHostedCommunityToolsVisible = (transport=aiConfig.transport) => transport === 'streamable-http';
 
 /**
  * @summary Fails closed when a local stdio client invokes the hosted connector facade.
  * @param {String} toolName
+ * @param {String} [transport=aiConfig.transport]
  * @returns {void}
  */
-const assertHostedCommunityToolAllowed = toolName => {
-    if (hostedCommunityToolNames.has(getEffectiveToolName(toolName)) && !areHostedCommunityToolsVisible()) {
+const assertHostedCommunityToolAllowed = (toolName, transport=aiConfig.transport) => {
+    if (hostedCommunityToolNames.has(getEffectiveToolName(toolName)) && !areHostedCommunityToolsVisible(transport)) {
         throw new Error(
             'Hosted community connector tools require the Memory Core streamable-http transport. ' +
             'Local workflows call CommunityBatchAdmissionService directly.'

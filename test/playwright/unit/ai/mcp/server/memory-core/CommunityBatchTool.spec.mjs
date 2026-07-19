@@ -19,7 +19,7 @@ import * as core      from '../../../../../../../src/core/_export.mjs';
 test.describe.configure({mode: 'serial'});
 
 test.describe('Memory Core hosted community tools (#15156)', () => {
-    let AdmissionService, aiConfig, callTool, listTools, originalAdmit, originalHealth, originalTransport;
+    let AdmissionService, createTransportVisibleToolFacade, hostedFacade, localFacade, originalAdmit, originalHealth;
 
     const envelope = () => ({
         source: {
@@ -49,23 +49,21 @@ test.describe('Memory Core hosted community tools (#15156)', () => {
     });
 
     test.beforeAll(async () => {
-        ({callTool, listTools} = await import('../../../../../../../ai/mcp/server/memory-core/toolService.mjs'));
-        aiConfig         = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
+        ({createTransportVisibleToolFacade} = await import(
+            '../../../../../../../ai/mcp/server/memory-core/toolService.mjs'
+        ));
+
+        hostedFacade     = createTransportVisibleToolFacade({resolveTransport: () => 'streamable-http'});
+        localFacade      = createTransportVisibleToolFacade({resolveTransport: () => 'stdio'});
         AdmissionService = (await import('../../../../../../../ai/services/memory-core/CommunityBatchAdmissionService.mjs')).default;
 
-        originalAdmit     = AdmissionService.admitHostedBatch;
-        originalHealth    = AdmissionService.getHostedSourceHealth;
-        originalTransport = aiConfig.transport;
+        originalAdmit  = AdmissionService.admitHostedBatch;
+        originalHealth = AdmissionService.getHostedSourceHealth;
     });
 
     test.afterAll(() => {
         AdmissionService.admitHostedBatch       = originalAdmit;
         AdmissionService.getHostedSourceHealth = originalHealth;
-        aiConfig.transport                      = originalTransport;
-    });
-
-    test.beforeEach(() => {
-        aiConfig.transport = 'streamable-http';
     });
 
     test('streamable-http lists both bounded tools and dispatches the authority-free envelope', async () => {
@@ -77,13 +75,13 @@ test.describe('Memory Core hosted community tools (#15156)', () => {
         };
         AdmissionService.getHostedSourceHealth = () => ({ready: true, code: 'COMMUNITY_SOURCE_READY'});
 
-        const names = listTools().tools.map(tool => tool.name);
+        const names = hostedFacade.listTools().tools.map(tool => tool.name);
         expect(names).toContain('admit_community_batch');
         expect(names).toContain('get_community_source_health');
 
-        await expect(callTool('admit_community_batch', envelope())).resolves.toEqual({status: 'accepted'});
+        await expect(hostedFacade.callTool('admit_community_batch', envelope())).resolves.toEqual({status: 'accepted'});
         expect(pushed).toEqual([envelope()]);
-        await expect(callTool('get_community_source_health', {source: envelope().source}))
+        await expect(hostedFacade.callTool('get_community_source_health', {source: envelope().source}))
             .resolves.toEqual({ready: true, code: 'COMMUNITY_SOURCE_READY'});
     });
 
@@ -97,7 +95,7 @@ test.describe('Memory Core hosted community tools (#15156)', () => {
         const forged = envelope();
         forged.batch.registrationEpoch = 2;
 
-        await expect(callTool('admit_community_batch', forged)).resolves.toMatchObject({
+        await expect(hostedFacade.callTool('admit_community_batch', forged)).resolves.toMatchObject({
             status: 'conflict',
             code  : 'COMMUNITY_BATCH_ENVELOPE_INVALID'
         });
@@ -120,12 +118,12 @@ test.describe('Memory Core hosted community tools (#15156)', () => {
         const withProse = envelope();
         withProse.batch.observations[0].title = 'must not disappear';
 
-        await expect(callTool('admit_community_batch', withProse)).resolves.toMatchObject({
+        await expect(hostedFacade.callTool('admit_community_batch', withProse)).resolves.toMatchObject({
             status: 'conflict',
             code  : 'COMMUNITY_BATCH_ENVELOPE_INVALID',
             errors: expect.arrayContaining(['OBSERVATION_0_CARRIES_PROSE_TITLE'])
         });
-        await expect(callTool('get_community_source_health', {
+        await expect(hostedFacade.callTool('get_community_source_health', {
             source     : envelope().source,
             accessToken: 'must not disappear'
         })).resolves.toEqual({ready: false, code: 'COMMUNITY_SOURCE_IDENTITY_INVALID'});
@@ -134,11 +132,24 @@ test.describe('Memory Core hosted community tools (#15156)', () => {
     });
 
     test('stdio hides and refuses hosted tools while direct service admission remains available', async () => {
-        aiConfig.transport = 'stdio';
-
-        const names = listTools().tools.map(tool => tool.name);
+        const names = localFacade.listTools().tools.map(tool => tool.name);
         expect(names).not.toContain('admit_community_batch');
         expect(names).not.toContain('get_community_source_health');
-        await expect(callTool('admit_community_batch', envelope())).rejects.toThrow(/streamable-http/);
+        await expect(localFacade.callTool('admit_community_batch', envelope())).rejects.toThrow(/streamable-http/);
+    });
+
+    test('transport authority resolves at call time and unknown transports fail closed', async () => {
+        let transport = 'stdio';
+
+        const facade = createTransportVisibleToolFacade({resolveTransport: () => transport});
+
+        expect(facade.listTools().tools.map(tool => tool.name)).not.toContain('admit_community_batch');
+
+        transport = 'streamable-http';
+        expect(facade.listTools().tools.map(tool => tool.name)).toContain('admit_community_batch');
+
+        transport = 'websocket';
+        expect(facade.listTools().tools.map(tool => tool.name)).not.toContain('admit_community_batch');
+        await expect(facade.callTool('admit_community_batch', envelope())).rejects.toThrow(/streamable-http/);
     });
 });

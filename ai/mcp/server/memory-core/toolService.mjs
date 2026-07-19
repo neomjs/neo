@@ -204,59 +204,86 @@ const toolService = Neo.create(ToolService, {
 const _callTool = toolService.callTool.bind(toolService);
 
 /**
- * @summary Applies hosted-transport visibility before returning Memory Core tools/list.
- * @param {Object} [options]
- * @returns {{tools: Object[], nextCursor: String|undefined}}
+ * @summary Creates the internal Memory Core facade around one call-time transport resolver.
+ *
+ * Production keeps the reactive Provider read at the use site. Tests inject a closed-over literal
+ * resolver into a separate facade instead of mutating the shared AiConfig singleton. The resolver
+ * is never part of MCP arguments or tool options, so callers cannot forge transport authority.
+ *
+ * @param {Object} [dependencies]
+ * @param {Function} [dependencies.resolveTransport]
+ * @returns {{callTool: Function, listTools: Function}}
  */
-const listTransportVisibleTools = ({cursor=0, limit, toolProjection} = {}) => {
-    const allTools = toolService.listTools({toolProjection}).tools.filter(tool => (
-        !hostedCommunityToolNames.has(tool.name) || areHostedCommunityToolsVisible()
-    ));
+const createTransportVisibleToolFacade = ({
+    resolveTransport=() => MemoryCoreConfig.transport
+} = {}) => {
+    /**
+     * @summary Applies hosted-transport visibility before returning Memory Core tools/list.
+     * @param {Object} [options]
+     * @returns {{tools: Object[], nextCursor: String|undefined}}
+     */
+    const listTools = ({cursor=0, limit, toolProjection} = {}) => {
+        const transport = resolveTransport();
 
-    if (!limit) return {tools: allTools, nextCursor: undefined};
+        const allTools = toolService.listTools({toolProjection}).tools.filter(tool => (
+            !hostedCommunityToolNames.has(tool.name) || areHostedCommunityToolsVisible(transport)
+        ));
 
-    const
-        start = Number(cursor) || 0,
-        end   = start + limit;
+        if (!limit) return {tools: allTools, nextCursor: undefined};
 
-    return {
-        tools     : allTools.slice(start, end),
-        nextCursor: end < allTools.length ? String(end) : undefined
-    }
-};
+        const
+            start = Number(cursor) || 0,
+            end   = start + limit;
 
-const callTool = async (name, args, options = {}) => {
-    const t0 = Date.now();
-
-    let result, success = false, error = null;
-
-    try {
-        assertHostedCommunityToolAllowed(name);
-        const boundaryRejection = getHostedCommunityBoundaryRejection(name, args);
-
-        if (boundaryRejection) {
-            result  = boundaryRejection;
-            success = true;
-            return result
+        return {
+            tools     : allTools.slice(start, end),
+            nextCursor: end < allTools.length ? String(end) : undefined
         }
-        result  = await _callTool(name, args, options);
-        success = true;
-        return result;
-    } catch (err) {
-        error = err;
-        throw err;
-    } finally {
-        MemoryCoreRecorderService.logToolCall({
-            toolName    : name,
-            args,
-            result,
-            success,
-            error,
-            failureStage: success ? null : 'dispatch',
-            t0
-        });
-    }
-};
-const listTools = listTransportVisibleTools;
+    };
 
-export {callTool, listTools, readLaneLandscapeConfig};
+    /**
+     * @summary Applies the hosted-transport guard before Memory Core tool dispatch.
+     * @param {String} name
+     * @param {Object} args
+     * @param {Object} [options]
+     * @returns {Promise<Object>}
+     */
+    const callTool = async (name, args, options = {}) => {
+        const t0 = Date.now();
+
+        let result, success = false, error = null;
+
+        try {
+            assertHostedCommunityToolAllowed(name, resolveTransport());
+            const boundaryRejection = getHostedCommunityBoundaryRejection(name, args);
+
+            if (boundaryRejection) {
+                result  = boundaryRejection;
+                success = true;
+                return result
+            }
+            result  = await _callTool(name, args, options);
+            success = true;
+            return result;
+        } catch (err) {
+            error = err;
+            throw err;
+        } finally {
+            MemoryCoreRecorderService.logToolCall({
+                toolName    : name,
+                args,
+                result,
+                success,
+                error,
+                failureStage: success ? null : 'dispatch',
+                t0
+            });
+        }
+    };
+
+    return {callTool, listTools}
+};
+
+const {callTool, listTools} = createTransportVisibleToolFacade();
+
+export {callTool, createTransportVisibleToolFacade, listTools, readLaneLandscapeConfig};
