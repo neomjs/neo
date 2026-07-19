@@ -101,6 +101,13 @@ class DragDrop extends Base {
          */
         isWindowDragging: false,
         /**
+         * True while the current popup embodiment is parked behind a source-owned conversion.
+         * Logical drag frames keep flowing; only physical pointer-follow moves pause.
+         * @member {Boolean} windowDragParked=false
+         * @protected
+         */
+        windowDragParked: false,
+        /**
          * @member {Boolean} moveHorizontal=true
          */
         moveHorizontal: true,
@@ -129,6 +136,8 @@ class DragDrop extends Base {
         remote: {
             app: [
                 'requestWindowManagementPermission',
+                'parkWindowDrag',
+                'resumeWindowDrag',
                 'setConfigs',
                 'setDragProxyElement',
                 'startWindowDrag'
@@ -151,6 +160,22 @@ class DragDrop extends Base {
          */
         scrollFactorTop: 1
     }
+
+    /**
+     * Monotonic physical-drag lifetime. Reset/start invalidates every older async native move.
+     * @member {Number} windowDragGeneration=0
+     * @protected
+     */
+    windowDragGeneration = 0
+
+    /**
+     * In-flight ordinary pointer-follow moves. Park snapshots and drains this set after pausing;
+     * ordinary moves remain concurrent so the native pointer embodiment never queues behind
+     * position-verification latency.
+     * @member {Set<Promise>} windowDragMovePromises
+     * @protected
+     */
+    windowDragMovePromises = new Set()
 
     /**
      * @param {Object} config
@@ -313,6 +338,9 @@ class DragDrop extends Base {
             scrollContainerRect   : null,
             scrollFactorLeft      : 1,
             scrollFactorTop       : 1,
+            windowDragGeneration  : (me.windowDragGeneration || 0) + 1,
+            windowDragMovePromises: new Set(),
+            windowDragParked      : false,
             windowName            : null
         })
     }
@@ -336,7 +364,24 @@ class DragDrop extends Base {
                 x = originalEvent.screenX - (me.offsetX || 0),
                 y = originalEvent.screenY - (me.offsetY || 0);
 
-            Neo.Main.windowMoveTo({windowName: me.popupName, x, y});
+            if (!me.windowDragParked) {
+                let movement;
+
+                try {
+                    movement = Neo.Main.windowMoveTo({windowName: me.popupName, x, y})
+                } catch {
+                    movement = false
+                }
+
+                if (typeof movement?.then === 'function') {
+                    const tracked = Promise.resolve(movement).catch(() => false).finally(() => {
+                        me.windowDragMovePromises?.delete(tracked)
+                    });
+
+                    me.windowDragMovePromises ??= new Set();
+                    me.windowDragMovePromises.add(tracked)
+                }
+            }
 
             DomEvents.sendMessageToApp({
                 ...me.getEventData(event),
@@ -633,13 +678,116 @@ class DragDrop extends Base {
     }
 
     /**
+     * @summary Pauses physical pointer-follow, drains every already-issued semantic-name move,
+     * then parks the exact opener-minted native handle generation.
+     *
+     * The pause happens before the first await, while `onDragMove()` continues publishing logical
+     * frames. A false/throwing native move re-enables pointer-follow and refuses admission; a
+     * reset/new start invalidates the completion without touching successor state.
+     * @param {Object} data
+     * @param {String} data.nativeHandleKey
+     * @param {String} data.targetWindowId
+     * @param {String} data.windowName
+     * @param {Number} data.x
+     * @param {Number} data.y
+     * @returns {Promise<Boolean>}
+     */
+    async parkWindowDrag({nativeHandleKey, targetWindowId, windowName, x, y} = {}) {
+        let me = this;
+
+        if (
+            !me.isWindowDragging || me.windowDragParked || windowName !== me.popupName ||
+            !nativeHandleKey || !targetWindowId || !Number.isFinite(x) || !Number.isFinite(y)
+        ) {
+            return false
+        }
+
+        const generation = me.windowDragGeneration;
+
+        me.windowDragParked = true;
+
+        await Promise.allSettled([...(me.windowDragMovePromises || [])]);
+
+        if (generation !== me.windowDragGeneration || !me.isWindowDragging || !me.windowDragParked) {
+            return false
+        }
+
+        let admitted = false;
+
+        try {
+            admitted = await Neo.Main.windowNativeMoveTo({nativeHandleKey, targetWindowId, x, y}) === true
+        } catch {
+            admitted = false
+        }
+
+        if (generation !== me.windowDragGeneration || !me.isWindowDragging) {
+            return false
+        }
+
+        admitted || (me.windowDragParked = false);
+
+        return admitted
+    }
+
+    /**
+     * @summary Re-shows the parked exact native generation at the pointer-owned global rect.
+     * Physical pointer-follow resumes only after strict success; refusal retains the parked phase
+     * so the source owner can retry without losing its sole recoverable handle.
+     * @param {Object} data
+     * @param {String} data.nativeHandleKey
+     * @param {String} data.targetWindowId
+     * @param {String} data.windowName
+     * @param {Number} data.x
+     * @param {Number} data.y
+     * @returns {Promise<Boolean>}
+     */
+    async resumeWindowDrag({nativeHandleKey, targetWindowId, windowName, x, y} = {}) {
+        let me = this;
+
+        if (
+            !me.isWindowDragging || !me.windowDragParked || windowName !== me.popupName ||
+            !nativeHandleKey || !targetWindowId || !Number.isFinite(x) || !Number.isFinite(y)
+        ) {
+            return false
+        }
+
+        const generation = me.windowDragGeneration;
+
+        let admitted = false;
+
+        try {
+            admitted = await Neo.Main.windowNativeMoveTo({nativeHandleKey, targetWindowId, x, y}) === true
+        } catch {
+            admitted = false
+        }
+
+        if (generation !== me.windowDragGeneration || !me.isWindowDragging) {
+            return false
+        }
+
+        admitted && (me.windowDragParked = false);
+
+        return admitted
+    }
+
+    /**
      * @param {Object} data
      * @param {String} data.popupHeight
      * @param {String} data.popupName
      * @param {String} data.popupWidth
      */
     startWindowDrag({popupHeight, popupName, popupWidth}) {
-        Object.assign(this, {isWindowDragging: true, popupHeight, popupName, popupWidth})
+        let me = this;
+
+        Object.assign(me, {
+            isWindowDragging      : true,
+            popupHeight,
+            popupName,
+            popupWidth,
+            windowDragGeneration  : (me.windowDragGeneration || 0) + 1,
+            windowDragMovePromises: new Set(),
+            windowDragParked      : false
+        })
     }
 }
 

@@ -125,12 +125,15 @@ function axisRatio(a, b, axis, extent) {
  *     satisfied — a detached vessel converts to a proxy. Must sit strictly above `revertThreshold`.
  * @param {Number} [config.revertThreshold=0.35] Composed ratio below which a converted vessel
  *     reverts to its detached embodiment. The gap to `convertThreshold` is the flicker-free dead band.
- * @param {Function} config.onConvertIn Actuation seam, fired exactly once per conversion with the
- *     final sample record: the host suspends the popup embodiment and embodies the proxy.
- * @param {Function} config.onConvertOut Actuation seam, fired exactly once per reversion with the
- *     final sample record: the host resumes the popup embodiment at the record's `sourceRect`.
- * @returns {Object} `{converted, reset, sample}` — the live conversion flag (getter), the silent
- *     idempotent terminal reset, and the per-frame sampler
+ * @param {Function} config.onConvertIn Strict admission seam, fired exactly once per conversion
+ *     attempt with the proposed final sample record. `true` admits synchronously;
+ *     `Promise<true>` admits only when it settles. Every other result refuses without changing
+ *     conversion ownership.
+ * @param {Function} config.onConvertOut Strict admission seam, fired exactly once per reversion
+ *     attempt with the proposed final sample record. Re-show refusal preserves conversion
+ *     ownership so the exact same vessel remains recoverable and the transition may be retried.
+ * @returns {Object} `{converted, reset, sample, targetConverted, transitioning,
+ *     transitionPromise}` — live admitted state plus the source-owned async admission latch
  */
 export function createVesselConversionSensor(config = {}) {
     const {
@@ -162,8 +165,13 @@ export function createVesselConversionSensor(config = {}) {
         )
     }
 
-    // The single-gesture conversion flag: true while the dragged vessel embodies as a proxy.
-    let converted = false;
+    // The admitted single-gesture conversion flag plus one generation-scoped platform transition.
+    // The coordinator still consumes a synchronous policy record; the promise never leaves this
+    // source owner. A reset invalidates the generation so a predecessor completion cannot mutate
+    // its successor gesture.
+    let converted  = false,
+        generation = 0,
+        transition = null;
 
     return {
         /**
@@ -174,12 +182,37 @@ export function createVesselConversionSensor(config = {}) {
         },
 
         /**
+         * The proposed state of an in-flight transition, otherwise the admitted state.
+         * @member {Boolean} targetConverted
+         */
+        get targetConverted() {
+            return transition?.targetConverted ?? converted
+        },
+
+        /**
+         * @member {Boolean} transitioning
+         */
+        get transitioning() {
+            return transition !== null
+        },
+
+        /**
+         * The current strict-admission settlement, or `null` when no platform effect is pending.
+         * @member {Promise<Boolean>|null} transitionPromise
+         */
+        get transitionPromise() {
+            return transition?.promise ?? null
+        },
+
+        /**
          * Terminal reset — SILENT and idempotent by contract: gesture terminals (commit, cancel,
          * close, park) are the outcome machine's choreography; the sensor only forgets. The next
          * gesture's samples decide fresh.
          */
         reset() {
-            converted = false
+            generation++;
+            converted  = false;
+            transition = null
         },
 
         /**
@@ -193,7 +226,8 @@ export function createVesselConversionSensor(config = {}) {
          * @param {Object} data.sourceRect Live `{x, y, width, height}` of the dragged vessel
          * @param {Object} data.targetRect Live `{x, y, width, height}` of the target vessel
          * @returns {Object} The sample record `{composed, converted, pointerInTarget, rx, ry,
-         *     sourceRect, targetRect}` — `converted` reflects the POST-decision state
+         *     sourceRect, targetRect}`. While strict async admission is pending it additionally
+         *     carries `transitioning: true`, and `converted` remains the prior admitted state.
          */
         sample({pointerInTarget, sourceRect, targetRect} = {}) {
             // Invalid geometry DOMINATES: a missing, degenerate, or non-finite rect forces the
@@ -207,23 +241,68 @@ export function createVesselConversionSensor(config = {}) {
                 ry         = measurable ? axisRatio(sourceRect, targetRect, 'y', 'height') : 0,
                 composed   = measurable ? clampRatio(composeRatios({rx, ry})) : 0;
 
-            let event = null;
+            let event = null,
+                next  = converted;
 
-            if (!converted) {
+            if (!transition && !converted) {
                 if (pointer && composed >= convertThreshold) {
-                    converted = true;
-                    event     = onConvertIn
+                    event = onConvertIn;
+                    next  = true
                 }
-            } else if (!pointer || composed < revertThreshold) {
-                converted = false;
-                event     = onConvertOut
+            } else if (!transition && (!pointer || composed < revertThreshold)) {
+                event = onConvertOut;
+                next  = false
             }
 
-            const record = {composed, converted, pointerInTarget: pointer, rx, ry, sourceRect, targetRect};
+            let record = {composed, converted, pointerInTarget: pointer, rx, ry, sourceRect, targetRect};
 
-            event?.(record);
+            if (transition) {
+                return {...record, transitioning: true}
+            }
 
-            return record
+            if (!event) {
+                return record
+            }
+
+            const proposed = {...record, converted: next};
+
+            let admission;
+
+            try {
+                admission = event(proposed)
+            } catch {
+                return record
+            }
+
+            if (admission === true) {
+                converted = next;
+                return proposed
+            }
+
+            if (typeof admission?.then !== 'function') {
+                return record
+            }
+
+            const token = ++generation,
+                  state = {promise: null, targetConverted: next, token};
+
+            transition = state;
+            state.promise = Promise.resolve(admission).then(value => {
+                if (transition !== state || generation !== token) return false;
+
+                value === true && (converted = next);
+                transition = null;
+
+                return value === true
+            }, () => {
+                if (transition === state && generation === token) {
+                    transition = null
+                }
+
+                return false
+            });
+
+            return {...record, transitioning: true}
         }
     }
 }

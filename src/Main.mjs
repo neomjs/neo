@@ -7,15 +7,25 @@ import DomEvents             from './main/DomEvents.mjs';
 import Observable            from './core/Observable.mjs';
 import WorkerManager         from './worker/Manager.mjs';
 
+let nativeWindowRoute;
+
 /**
- * @summary Consumes the opener's one-time exact-window capability during the target's connect handshake.
+ * @summary Consumes the opener's one-time exact-window capability once per target document.
  * @description The token is useful only while the opener still owns a matching pending `WindowProxy`. It is
- * removed on the first attempt, so reload, URL/name inference, and same-name reuse cannot reconstruct authority.
+ * removed on the first attempt, then the admitted route is cached inside this exact target realm so geometry
+ * observation and the shared-worker connect handshake can read the same authority in either order. A reload
+ * creates a new realm and loses the cache; URL/name inference and same-name reuse still cannot reconstruct it.
  * Cross-origin or independently opened windows deliberately remain unaddressable.
  * @param {Window} win
  * @returns {{capabilities: {close: Boolean, focus: Boolean, position: Boolean}, nativeHandleKey: String, ownerWindowId: String, targetWindowId: String}|null}
  */
 const resolveNativeWindowRoute = win => {
+    if (nativeWindowRoute !== undefined) {
+        return nativeWindowRoute
+    }
+
+    nativeWindowRoute = null;
+
     try {
         const
             opener     = win?.opener,
@@ -24,7 +34,7 @@ const resolveNativeWindowRoute = win => {
             token      = storageKey && win.sessionStorage?.getItem(storageKey);
 
         if (!opener || opener.closed || !openerMain || !token) {
-            return null
+            return nativeWindowRoute
         }
 
         win.sessionStorage.removeItem(storageKey);
@@ -36,7 +46,11 @@ const resolveNativeWindowRoute = win => {
         });
 
         if (route) {
+            nativeWindowRoute = route;
+
             win.addEventListener('pagehide', () => {
+                nativeWindowRoute = null;
+
                 try {
                     openerMain.releaseNativeWindowRoute({...route, win})
                 } catch {
@@ -45,11 +59,11 @@ const resolveNativeWindowRoute = win => {
             }, {once: true})
         }
 
-        return route
+        return nativeWindowRoute
     } catch {
         // Cross-origin opener/sessionStorage access is expected to fail closed. The window stays visible in
         // topology but intentionally exposes no native control route.
-        return null
+        return nativeWindowRoute
     }
 };
 
@@ -735,6 +749,24 @@ class Main extends core.Base {
     }
 
     /**
+     * @summary Lets the moved render target publish its observed geometry after a programmatic move.
+     * @description Browser window movement has no guaranteed resize or pointer-boundary event. The
+     * target realm's existing change detector therefore closes the mutation-to-observation edge
+     * without ever projecting requested coordinates into manager truth. Cross-origin or not-yet-
+     * initialized targets remain valid physical handles; geometry publication is best-effort and
+     * cannot change the strict movement verdict.
+     * @param {Window} win
+     * @private
+     */
+    #publishWindowGeometry(win) {
+        try {
+            win.Neo?.main?.addon?.WindowPosition?.checkMovement?.()
+        } catch {
+            // Cross-origin target realms are intentionally opaque.
+        }
+    }
+
+    /**
      * Moves one exact native handle and verifies the target reached the requested coordinates.
      * @param {Window} win
      * @param {Number|String} requestedX
@@ -747,6 +779,8 @@ class Main extends core.Base {
             x = Number(requestedX),
             y = Number(requestedY);
 
+        let admitted = false;
+
         if (!win || win.closed || typeof win.moveTo !== 'function' || !Number.isFinite(x) || !Number.isFinite(y)) {
             return false
         }
@@ -754,18 +788,22 @@ class Main extends core.Base {
         try {
             win.moveTo(x, y)
         } catch {
+            this.#publishWindowGeometry(win);
             return false
         }
 
         for (let attempt = 0; attempt < this.windowMovePollAttempts; attempt++) {
             if (Math.abs(win.screenX - x) <= 1 && Math.abs(win.screenY - y) <= 1) {
-                return true
+                admitted = true;
+                break
             }
 
             await new Promise(resolve => setTimeout(resolve, this.windowMovePollDelay))
         }
 
-        return false
+        this.#publishWindowGeometry(win);
+
+        return admitted
     }
 
     /**
@@ -905,7 +943,18 @@ class Main extends core.Base {
      */
     windowOpen({nativeCapabilities, url, useTotalHeight=true, windowFeatures, windowName}) {
         let existingWin = this.openWindows[windowName],
+            stagedUrl   = null,
             targetName;
+
+        try {
+            const resolved = typeof url === 'string' && new URL(url, window.location.href);
+
+            if (resolved?.origin === window.location.origin) {
+                stagedUrl = resolved.href
+            }
+        } catch {
+            // Invalid or inaccessible URLs retain the browser's direct-open behavior below.
+        }
 
         if (existingWin && !existingWin.win.closed) {
             targetName = existingWin.targetName
@@ -913,14 +962,14 @@ class Main extends core.Base {
             targetName = crypto.randomUUID()
         }
 
-        let openedWindow = window.open(url, targetName, windowFeatures),
+        // Same-origin children can connect to the shared worker immediately when the opener is
+        // warm. Open a blank same-origin realm first, mint its one-time route there, THEN navigate;
+        // opening the final URL before writing sessionStorage races the child's getWindowData()
+        // handshake and produces a connected but authority-less popup.
+        let openedWindow = window.open(stagedUrl ? 'about:blank' : url, targetName, windowFeatures),
             success      = !!openedWindow;
 
         if (success) {
-            if (useTotalHeight) {
-                openedWindow.resizeTo(openedWindow.outerWidth, openedWindow.innerHeight)
-            }
-
             this.#invalidateNativeWindowEntry(existingWin);
 
             const
@@ -949,6 +998,21 @@ class Main extends core.Base {
                 openedWindow.sessionStorage.setItem(this.nativeRouteStorageKey, token)
             } catch {
                 this.#pendingWindowRoutes.delete(token)
+            }
+
+            if (useTotalHeight) {
+                openedWindow.resizeTo(openedWindow.outerWidth, openedWindow.innerHeight)
+            }
+
+            if (stagedUrl) {
+                try {
+                    openedWindow.location.replace(stagedUrl)
+                } catch {
+                    this.#invalidateNativeWindowEntry(entry);
+                    delete this.openWindows[windowName];
+                    openedWindow.close();
+                    success = false
+                }
             }
         }
 

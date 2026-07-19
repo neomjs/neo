@@ -145,6 +145,17 @@ gap remains for row 4: Demo B exposes no `Neo.data.Store` (`list_stores` returne
 so its CounterPane heartbeat proves instance-local continuity but cannot honestly stand in for
 the required live-store-reference receipt. Both cells remain `NOT_YET_MEASURED`.
 
+**#15396 green control (2026-07-19, verdicts still pending):** the matrix runner now includes the
+full Demo B cross-window journey. Its macOS/Chrome headed round-trip externally observes exactly
+one `?popout=workbench` Playwright `Page`, instruments browser-realm `window.open` independently of
+the app counter, verifies that the same `Page` survives park → re-show → detached terminal, records
+requested-vs-observed park and restore coordinates, and verifies that the cover target remains
+focused after the source move. The worker independently proves identical CounterPane id, exact
+single remount, exact runtime window id / opaque handle, and zero transfer/local/remote double
+commit. This resolves the earlier competing-vessel false-green for this macOS journey; it does not
+mint a row verdict. Row 4 still lacks the contract's live-`data.Store` reference, rows 3/6/7 still
+need their complete per-row universal-invariant receipts, and Windows/Linux remain unmeasured.
+
 ⁵ Row 5 macOS — **`PASS_FALLBACK`** (2026-07-19, headed Chrome 150, 3/3 serial): the witness
 bound `Browser.setPermission` to Playwright's actual browser context, observed the
 `window-management` permission as `denied`, and observed `getScreenDetails()` reject with

@@ -379,6 +379,56 @@ handles by the semantic `windowName` passed to `Main.windowOpen()`. Those identi
 This is the generic multi-window Possession Interface consumed by inspection tooling. Product code still decides what a
 window *means* and which semantic transaction precedes a physical effect.
 
+#### §2.8.6 In-gesture vessel conversion and park (2026-07-19, #15396)
+
+Popup-to-proxy conversion is an admitted transition inside the existing outcome machine, not a new
+terminal state. A source may enter `HOVERING_CLAIM` only after its physical park effect returns strict
+`true`; leaving the claim may resume `DETACHED_MOVING` only after strict re-show admission. Promise
+dispatch is provisional authority: conversion and park owners retain their prior state until settlement,
+and a stale generation cannot mutate a successor gesture.
+
+The browser-runtime park mechanic is **target-cover**, behind generic exact-handle capabilities:
+
+1. resolve both connected generations from `manager.Window` and require opener-minted routes;
+2. verify that the target can cover the source vessel;
+3. focus the exact target route first;
+4. only after focus admission, pause pointer-follow and move the exact source route to the target origin.
+
+The order is load-bearing. A focus refusal leaves the source untouched and moving; a subsequent move
+refusal makes the DragDrop owner re-enable pointer-follow. No effectful half-park needs semantic-name
+recovery. Offscreen coordinates are not the browser-runtime default: the macOS/Chrome headed falsifier
+clamped a requested far-negative position back onto the visible desktop. Other platform mechanics remain
+host seams and require their own #15243 matrix receipts; they never change the pure conversion or park
+machines. Target-cover admission is also deliberately stricter than the size-neutral geometry predicate:
+when the source cannot fit behind the target, the host returns `false` and the sensor stays
+`DETACHED_MOVING`. The §2.8.4 min-axis metric remains reachable for every size pair; physical admission
+does not overclaim a safe park mechanic for a non-coverable pair. A future matrix-backed resize/hide seam
+may admit that case without changing the metric or state owners.
+
+Convert-out re-shows the **same** connected window through the same opaque handle generation and resumes
+physical pointer-follow at the live logical drag origin while preserving the pre-conversion extent. If no
+live origin is supplied, the park owner falls back to its recorded pre-conversion rect. The slot clears only
+after strict re-show success. Neither conversion direction owns a popup-acquisition seam, so a continuous
+park → re-show journey has zero mid-gesture `windowOpen` attempts by construction.
+
+Terminal disposition remains §2.8.2-owned:
+
+- `COMMITTED_TARGET` consumes the tear-out admission slot, commits model truth first, then closes that exact
+  parked route through §2.8.3's post-commit close policy. Strict close refusal retains both cleanup
+  authorities for an exact retry; an invalid correlated route never downgrades to same-name close;
+- `CANCELLED` / `REJECTED` restore the same vessel, unless an outer tear-out cancellation already retired it,
+  in which case the verified retirement settlement clears the park generation without resurrecting it;
+- after an admitted convert-out, `TERMINAL_DETACHED` follows the ordinary tear-out terminal and adopts the
+  re-shown vessel — no close and no reacquisition.
+
+The current binding witness is macOS/Chrome headed and gesture-level on the committed #15243 matrix runner:
+one real pointer journey acquires one externally observed tear-out `Page`, parks under a still-focused real
+target at the requested physical coordinates, leaves the claim, proves the identical `Page`, runtime
+`windowId`, opaque handle, external restore coordinates, and zero additional browser-realm `window.open`
+calls, then releases through `TERMINAL_DETACHED`. Unit witnesses additionally pin refusal, latest-frame
+replay, stale completion, terminal-during-transition, duplicate terminal, and exact-once retirement
+behavior. Windows/Linux cells and non-coverable park mechanics remain honestly owned by #15243.
+
 ## 3. Rejected Options
 
 - **Qt-ADS wholesale import** — Qt-ADS is the capability bar, not the design: its single-process, single-window-tree assumptions (native floating windows, one owning widget tree) do not survive the worker-owned/multi-window reality. Rejected in favor of extending `dockZone.v1` semantics.
@@ -443,6 +493,7 @@ Per the parent epic's discipline (one Contract-Ledgered leaf per capability), im
 | Whole-stack reintegration + vessel close policy | §2.8.2/§2.8.3 + §2.4 `transferNode` | #15247 (epic #15239) |
 | Coordinator teardown hygiene (exact-once terminals) | §2.8.2 invariant 4 | #15248 (epic #15239) |
 | Neural Link generic window identity + physical focus/position/close | §2.8.5 | #15514 |
+| Dual-window conversion + in-gesture park/re-show | §2.3 transition-policy hook + §2.8.6 | #15395 / #15396 (epic #15239) |
 
 ### JSON-First Guardrail (restated, applied)
 
