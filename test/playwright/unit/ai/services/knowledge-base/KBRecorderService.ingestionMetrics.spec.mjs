@@ -38,7 +38,7 @@ test.describe('KBRecorderService — ingestion metrics (#11665)', () => {
 
     test.beforeAll(async () => {
         KBRecorderService = (await import('../../../../../../ai/services/knowledge-base/KBRecorderService.mjs')).default;
-        await KBRecorderService.initAsync();
+        await KBRecorderService.ready();
     });
 
     test.beforeEach(() => {
