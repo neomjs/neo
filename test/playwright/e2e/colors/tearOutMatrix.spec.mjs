@@ -22,11 +22,10 @@ import {expect, test} from '../../fixtures.mjs';
  */
 
 // The colors app: three DashboardPanels (Grid / Pie Chart / Bar Chart) whose header toolbars
-// carry the explicit `neo-draggable` drag-handle cls. The dev server port rides NEO_E2E_PORT —
-// the same knob the e2e config uses to dodge a foreign server.
+// carry the explicit `neo-draggable` drag-handle cls. Relative navigation consumes the matrix
+// runner's baseURL directly, so a fallback port can never diverge from the server it launched.
 const
-    e2ePort    = Number(process.env.NEO_E2E_PORT) || 8080,
-    surfaceUrl = `http://localhost:${e2ePort}/apps/colors/index.html`,
+    surfaceUrl = '/apps/colors/index.html',
     itemHandle = '.neo-draggable',
     dragSteps  = 25;
 
@@ -257,10 +256,6 @@ test.describe('tear-out portability matrix — colors app, headed', () => {
     test.fixme('row 4 — object permanence: same instance id + live stores across detach and reintegration', async () => {
         // Receipts: component instance id and store references identical before detach and
         // after drag-back reintegration; data streamed uninterrupted across the transition.
-    });
-
-    test.fixme('row 5 — screen topology: getScreenDetails denied degrades to the documented fallback', async () => {
-        // Receipts: the full flow completes with the permission denied; denial never blocks.
     });
 
     test.fixme('row 6 — multi-window targeting: at most one target exposes one menu + one preview per gesture', async () => {
