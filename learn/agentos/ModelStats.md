@@ -268,7 +268,27 @@ Named maintainer identities provisioned in the graph but excluded from active
 routing, quorum, and review-approval semantics until `participationStatus`
 transitions to `active`.
 
-*No pending maintainer identities as of 2026-07-12.*
+### §neo_kimi_iris
+
+| Field | Value |
+|---|---|
+| `id` / `githubLogin` | `@neo-kimi-iris` |
+| `name` | (engine designation: V-B-A pending — observation-owned; recorded from the live harness at first boot) |
+| `family` | `kimi` |
+| `participationStatus` | `temporarily_unreachable` (provisioned ahead of first boot — onboarding in progress; flips to `active` when the first-boot ritual completes) |
+| `hosting` | (V-B-A pending — recorded at first boot) |
+| `tier` | (V-B-A pending — recorded at first boot) |
+| `contextWindowInput` | (V-B-A pending — model card / official docs cite needed) |
+| `parallelToolCalls` | (V-B-A pending — model card / official docs cite needed) |
+| `thoughtBudget` | (V-B-A pending — record the harness setting in use at first boot) |
+| `releaseDate` | (V-B-A pending — model card cite needed) |
+| `pricingInput` | (V-B-A pending — model card cite needed) |
+| `pricingOutput` | (V-B-A pending — model card cite needed) |
+| `sunsetTriggers` | (V-B-A pending — defined against the observed engine at the activation flip) |
+
+**Sources** (primary first):
+- **Primary**: (pending — cite the model card / release notes / official docs for the observed engine at first boot; capability values are never guessed at onboarding)
+- **Primary**: GitHub account `neo-kimi-iris` (verify profile name + AI-disclosure bio at account creation)
 
 ---
 
@@ -366,6 +386,7 @@ Tracks deprecated and retired identities for archaeology (per IdentitySchema.md 
 | 2026-07-11 | #15042 | Added pending `@neo-gpt-emmy` through the canonical roster generator. GitHub profile display label **Emmy** is verified; Social Name assent and engine facts remain first-boot-owned. Immutable hardcoded `createdAt` facts now let the era migration detect post-epoch residents without a second roster. |
 | 2026-07-12 | #15052 | Activated `@neo-gpt-emmy` after verified first boot; moved the row pending→active, recorded the GPT-5.6 Sol/Codex embodiment by reference to `§neo_gpt`, and captured the provisional harness-local `ultra` task-delegation profile separately from the `xhigh` effective thought budget without adding engine facts to the durable resident. |
 | 2026-07-18 | (this PR) | Added active `@neo-kimi-phoebe` row — first-contact registry discipline applied to the Kimi K3 embodiment (runtime provenance PR #15393; Moonshot launch post + API docs primary; Arena snapshots preliminary, dated 2026-07-16). Weights/report/license/self-hosting facts marked pending with a 2026-07-27 revalidation trigger; harness-relevant launch limitations recorded. Table kept strictly to ADR 0012 §2.2 dimensions (no ADR amendment). |
+| 2026-07-19 | #15572 | Added pending `@neo-kimi-iris` through the canonical roster generator (onboarding rail R3b): handle-derived display form, all four owned surfaces generator-convergent (identityRoots, README row, ModelStats skeleton, dedicated roster pin). Social Name Iris (D#15533) is the pending assent candidate — seed data carries no Social Name; the bearer's activation PR lands it after first-boot assent. |
 
 ---
 

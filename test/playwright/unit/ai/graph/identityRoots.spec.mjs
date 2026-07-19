@@ -243,6 +243,7 @@ test.describe('ai/graph/identityRoots — identity anti-lock-in', () => {
             '@neo-gpt'        : '2026-04-28T20:50:04.000Z',
             '@neo-gpt-emmy'   : '2026-07-11T17:42:14.374Z',
             '@neo-kimi-phoebe': '2026-07-18T00:00:00.000Z',
+            '@neo-kimi-iris'  : '2026-07-19T09:40:49Z',
             'AGENT:*'         : '2026-04-23T13:03:46.000Z'
         });
     });
@@ -273,5 +274,43 @@ test.describe('ai/graph/identityRoots — identity anti-lock-in', () => {
         for (const entry of agentIdentities) {
             expect(JSON.stringify(entry), `${entry.id} contains instrumental identity prose`).not.toMatch(poison);
         }
+    });
+});
+
+/**
+ * @summary Roster pin for the onboarded resident @neo-kimi-iris: Layer-1 identity invariants only.
+ *
+ * Lifecycle state (participationStatus) is deliberately unpinned — status flips are their own
+ * PRs. The engine-fact absence assertions hold until the activation flip lands source-cited
+ * capability fields; that PR updates this pin alongside the roster entry.
+ */
+test.describe('ai/graph/identityRoots — @neo-kimi-iris roster pin', () => {
+    const findIdentity = id => IDENTITIES.find(node => node.type === 'AgentIdentity' && node.id === id);
+
+    test('@neo-kimi-iris is a registered AgentIdentity root with Layer-1 operational fields', () => {
+        const entry = findIdentity('@neo-kimi-iris');
+
+        expect(entry, '@neo-kimi-iris must be a registered AgentIdentity root').toBeTruthy();
+        expect(entry).toMatchObject({
+            id        : '@neo-kimi-iris',
+            type      : 'AgentIdentity',
+            properties: {
+                githubLogin: '@neo-kimi-iris',
+                displayName: 'Neo Kimi Iris',
+                modelFamily: 'kimi',
+                accountType: 'agent',
+                trustTier  : 'peer-trusted'
+            }
+        });
+    });
+
+    test('@neo-kimi-iris commits no static wake template and no engine facts (observation-owned)', () => {
+        const entry = findIdentity('@neo-kimi-iris');
+
+        expect(entry.properties).not.toHaveProperty('subscriptionTemplate');
+        expect(entry.properties).not.toHaveProperty('modelAssignment');
+        expect(entry.properties).not.toHaveProperty('contextWindowInput');
+        expect(entry.properties).not.toHaveProperty('pricingInput');
+        expect(entry.properties).not.toHaveProperty('pricingOutput');
     });
 });

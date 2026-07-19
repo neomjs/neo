@@ -329,11 +329,11 @@ export function renderRosterEntry(plan) {
         name       : '${plan.displayForm}', // Handle-derived display form — the Social Name is the post-boot peer-naming ritual (bearer-assented), never onboarding seed data
         description: '${familyLabel} Agent Identity with version-free handle; engine designation pending first-boot observation.',
         properties : {
-            githubLogin     : '${plan.githubUsername}',
-            displayName     : '${plan.displayForm}',
-            modelFamily     : '${plan.family}',
-            accountType     : 'agent',
-            trustTier       : TRUST_TIERS.PEER_TRUSTED,
+            githubLogin: '${plan.githubUsername}',
+            displayName: '${plan.displayForm}',
+            modelFamily: '${plan.family}',
+            accountType: 'agent',
+            trustTier  : TRUST_TIERS.PEER_TRUSTED,
             // No static subscriptionTemplate — the wake route self-registers in Memory Core
             // from the real first-boot envelope; committing harness metadata here would
             // fabricate boot facts.
