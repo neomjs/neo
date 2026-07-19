@@ -98,6 +98,7 @@ const LOG_RETENTION_DAYS                = 30;
 const POLL_INTERVAL_MS                  = 3000;
 const CODEX_APP_SERVER_ADAPTER          = 'codex-app-server';
 const OPENCODE_SERVER_ADAPTER           = 'opencode-server';
+const KIMI_SERVER_ADAPTER               = 'kimi-server';
 const CODEX_TURN_START_PROOF_TIMEOUT_MS = Number(process.env.WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS) || 45000;
 const CODEX_TURN_START_PROOF_POLL_MS    = Number(process.env.WAKE_CODEX_TURN_START_PROOF_POLL_MS) || 1000;
 const CODEX_WAKE_SUBMIT_NONCE_PREFIX    = 'NEO_WAKE_SUBMIT_NONCE:';
@@ -1100,6 +1101,137 @@ async function deliverViaOpencodeServer(subscription, digest, evidenceLabel = ''
 }
 
 /**
+ * @summary Dispatches a wake digest into a live Kimi Code session through the seat's local
+ * `kimi server` REST surface (`POST /api/v1/sessions/{id}/prompts` — submitPrompt).
+ *
+ * Explicit route for subscriptions configured as `kimi-server`. It intentionally does not
+ * fall back to `osascript`/tmux; a route explicitly configured as `kimi-server` must fail
+ * visibly instead of recreating the GUI-focus delivery path (opencode-server parity).
+ *
+ * **Session authority — the wake envelope** (opencode-server envelope parity): the target
+ * session id comes from `~/.kimi-code/wake-envelope.json` (mode 0600, overridable via
+ * `harnessTargetMetadata.envelopePath`), written by the seat's SessionStart hook
+ * (`.kimi-code/hooks/wakeEnvelopeHook.mjs`) with the exact `{sessionId, cwd, updatedAt}` of
+ * the live session. The daemon re-reads the envelope on every delivery, so session rotation
+ * needs no graph write. Picking a session heuristically (e.g. freshest `updated_at` from the
+ * session index) is deliberately NOT the path: multiple resumed/child sessions can share one
+ * checkout, and a wake landing in the wrong session is a cross-session retarget. The envelope
+ * is the authority; a missing/mismatched envelope fails visibly. Set `harnessTargetMetadata.cwd`
+ * for multi-checkout seats (same OS user, several checkouts): the envelope refreshes per
+ * session, so for a single-seat checkout the cross-check is belt-and-suspenders, but for
+ * shared ones it is the stale-checkout guard.
+ *
+ * **Coordinate contract** (no seat-side writer needed — the harness persists both files
+ * itself at server start): the loopback coordinates come from `~/.kimi-code/server/lock`
+ * (`{pid, host, port, …}`), the bearer token from `~/.kimi-code/server.token` (persistent
+ * across restarts; rotated via `kimi server rotate-token`). Both paths are overridable via
+ * `harnessTargetMetadata.lockPath` / `harnessTargetMetadata.tokenPath` (test seams). The
+ * daemon re-reads both on every delivery, so server restarts and token rotation need no
+ * graph write.
+ *
+ * Probe evidence (2026-07-19, seat `@neo-kimi-iris`, kimi v0.27.0): loopback 127.0.0.1:58627
+ * with bearer auth default-on, `/openapi.json` enumerating the surface at runtime, hook stdin
+ * carrying `session_id` + `cwd` for every event (official hook contract), and the submitPrompt
+ * contract `{content: [{type: 'text', text}]}` → HTTP 200 with `{code: 0, data: {status:
+ * running|queued|blocked}}` — HTTP 200 also wraps typed application errors, so delivery counts
+ * only after parsing `code === 0`. A queued/blocked status still lands the digest in the
+ * session's own queue — the seat sees it when the active turn drains.
+ *
+ * @param {Object} subscription WAKE_SUBSCRIPTION node.
+ * @param {String} digest Wake digest body.
+ * @param {String} [evidenceLabel=''] Formatted wake scenario / route evidence for validation logs.
+ * @param {AbortSignal|null} [abortSignal=null] Shared attempt-bound signal from the delivery owner.
+ * @returns {Promise<void>}
+ */
+async function deliverViaKimiServer(subscription, digest, evidenceLabel = '', abortSignal = null) {
+    const meta         = subscription.properties?.harnessTargetMetadata || {};
+    const lockPath     = meta.lockPath     || path.join(os.homedir(), '.kimi-code', 'server', 'lock');
+    const tokenPath    = meta.tokenPath    || path.join(os.homedir(), '.kimi-code', 'server.token');
+    const envelopePath = meta.envelopePath || path.join(os.homedir(), '.kimi-code', 'wake-envelope.json');
+
+    let envelope, lock, token;
+
+    try {
+        envelope = JSON.parse(await fs.readFile(envelopePath, 'utf8'));
+    } catch (err) {
+        throw new Error(`kimi-server requires a readable wake envelope at '${envelopePath}' (${err.message})`);
+    }
+
+    const {sessionId, cwd} = envelope;
+
+    // Typed + authority-checked session target: a malformed envelope must never steer the digest
+    // into an arbitrary session. The optional metadata cwd cross-check catches a stale envelope
+    // written for a different seat checkout.
+    if (typeof sessionId !== 'string' || sessionId.length === 0) {
+        throw new Error(`kimi-server envelope at '${envelopePath}' requires 'sessionId' to be a non-empty string`);
+    }
+
+    if (typeof cwd !== 'string' || cwd.length === 0) {
+        throw new Error(`kimi-server envelope at '${envelopePath}' requires 'cwd' to be a non-empty string`);
+    }
+
+    if (typeof meta.cwd === 'string' && meta.cwd.length > 0 && meta.cwd !== cwd) {
+        throw new Error(`kimi-server envelope at '${envelopePath}' cwd '${cwd}' does not match harnessTargetMetadata.cwd '${meta.cwd}'`);
+    }
+
+    try {
+        lock = JSON.parse(await fs.readFile(lockPath, 'utf8'));
+    } catch (err) {
+        throw new Error(`kimi-server requires a readable server lock at '${lockPath}' (${err.message})`);
+    }
+
+    try {
+        token = (await fs.readFile(tokenPath, 'utf8')).trim();
+    } catch (err) {
+        throw new Error(`kimi-server requires a readable bearer token at '${tokenPath}' (${err.message})`);
+    }
+
+    const {host, port} = lock;
+
+    // Typed + authority-checked coordinates: a malformed lock must never steer the daemon's HTTP
+    // client off the seat's loopback server. Delivery is globally serialized, so the fetch is
+    // also deadline-bounded — one hung endpoint must not wedge every later wake route.
+    if (!['127.0.0.1', 'localhost', '::1'].includes(host)) {
+        throw new Error(`kimi-server lock at '${lockPath}' requires a loopback host (received '${host}')`);
+    }
+
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        throw new Error(`kimi-server lock at '${lockPath}' requires 'port' to be an integer in 1..65535`);
+    }
+
+    if (token.length === 0) {
+        throw new Error(`kimi-server token at '${tokenPath}' is empty`);
+    }
+
+    const deliverySignal = abortSignal
+        ? AbortSignal.any([abortSignal, AbortSignal.timeout(5000)])
+        : AbortSignal.timeout(5000);
+    const response = await fetch(`http://${host}:${port}/api/v1/sessions/${encodeURIComponent(sessionId)}/prompts`, {
+        method : 'POST',
+        headers: {
+            'content-type' : 'application/json',
+            'authorization': `Bearer ${token}`
+        },
+        body    : JSON.stringify({content: [{type: 'text', text: digest}]}),
+        redirect: 'error',
+        signal  : deliverySignal
+    });
+
+    if (response.status !== 200) {
+        throw new Error(`kimi-server submitPrompt expected HTTP 200, received ${response.status}`);
+    }
+
+    const body = await response.json();
+
+    if (body?.code !== 0) {
+        throw new Error(`kimi-server submitPrompt expected code 0, received ${JSON.stringify(body?.code ?? null)}`);
+    }
+
+    const status = body?.data?.status;
+    writeLog('INFO', `[Wake Daemon] Dispatched ${subscription.id} via kimi-server submitPrompt (session ${sessionId}${status ? `, status=${status}` : ''})${evidenceLabel}`);
+}
+
+/**
  * @summary Delivers a wake digest via osascript, retrying transient frontmost-loss races.
  *
  * macOS focus-stealing prevention makes a background daemon's `activate` / `set frontmost`
@@ -1529,6 +1661,11 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}, abortS
 
         if (adapter === OPENCODE_SERVER_ADAPTER) {
             await deliverViaOpencodeServer(subscription, dispatchDigest, evidenceLabel, abortSignal);
+            return 'delivered';
+        }
+
+        if (adapter === KIMI_SERVER_ADAPTER) {
+            await deliverViaKimiServer(subscription, dispatchDigest, evidenceLabel, abortSignal);
             return 'delivered';
         }
 
