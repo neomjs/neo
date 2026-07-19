@@ -210,7 +210,7 @@ test.describe('Neo.ai.graph.Database', () => {
         if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
 
         let storage = Neo.create(SQLite, { dbPath });
-        await storage.initAsync();
+        await storage.ready();
 
         let persistentDb = Neo.create(Database, {
             id     : 'sqlite-graph-test',
@@ -228,7 +228,7 @@ test.describe('Neo.ai.graph.Database', () => {
         persistentDb.destroy();
 
         let storageReload = Neo.create(SQLite, { dbPath });
-        await storageReload.initAsync();
+        await storageReload.ready();
 
         let reloadDb = Neo.create(Database, {
             id     : 'sqlite-graph-reload',
@@ -254,7 +254,7 @@ test.describe('Neo.ai.graph.Database', () => {
 
     test('SQLite storage rejects invalid node ids before persistence (#11698)', async () => {
         let storage = Neo.create(SQLite, { dbPath });
-        await storage.initAsync();
+        await storage.ready();
 
         try {
             expect(() => storage.addNodes([{ id: null, label: 'Broken', properties: {} }])).toThrow(/non-empty string id/);
@@ -266,7 +266,7 @@ test.describe('Neo.ai.graph.Database', () => {
 
     test('SQLite conditional deletion rejects non-dotted marker paths', async () => {
         let storage = Neo.create(SQLite, {dbPath});
-        await storage.initAsync();
+        await storage.ready();
 
         try {
             expect(() => storage.removeNodeIfUnreferenced('cleanup-candidate', {
@@ -286,7 +286,7 @@ test.describe('Neo.ai.graph.Database', () => {
         seedLegacyGraphFile();
 
         let storage = Neo.create(SQLite, { dbPath });
-        await storage.initAsync();
+        await storage.ready();
 
         try {
             expect(storage.db.prepare('SELECT COUNT(*) as c FROM Nodes').get().c).toBe(2);
@@ -323,7 +323,7 @@ test.describe('Neo.ai.graph.Database', () => {
         }
 
         const storage = Neo.create(SQLite, {dbPath});
-        await storage.initAsync();
+        await storage.ready();
 
         try {
             const columns = storage.db.prepare('PRAGMA table_info(GraphLog)').all().map(column => column.name);
@@ -419,7 +419,7 @@ test.describe('Neo.ai.graph.Database', () => {
         if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
 
         let storage = Neo.create(SQLite, { dbPath });
-        await storage.initAsync();
+        await storage.ready();
 
         // The pragma must be ON for the schema-declared `Edges` ON DELETE CASCADE to fire.
         // SQLite default is OFF; explicit init pragma is the only enable path per-connection.
@@ -447,7 +447,7 @@ test.describe('Neo.ai.graph.Database', () => {
         if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
 
         let storage = Neo.create(SQLite, { dbPath });
-        await storage.initAsync();
+        await storage.ready();
 
         // Mirror of the source-side test. The schema declares both source AND target FKs with
         // ON DELETE CASCADE; this test asserts the target-side cascade fires equivalently.
@@ -474,7 +474,7 @@ test.describe('Neo.ai.graph.Database', () => {
         if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
 
         let storage = Neo.create(SQLite, { dbPath });
-        await storage.initAsync();
+        await storage.ready();
 
         let dbTransaction = Neo.create(Database, {
             id     : 'sqlite-graph-transcation',
@@ -498,7 +498,7 @@ test.describe('Neo.ai.graph.Database', () => {
         dbTransaction.destroy();
 
         let storageReload = Neo.create(SQLite, { dbPath });
-        await storageReload.initAsync();
+        await storageReload.ready();
 
         let reloadDb = Neo.create(Database, {
             id     : 'sqlite-graph-txn-reload',
@@ -654,7 +654,7 @@ test.describe('Neo.ai.graph.Database', () => {
         if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
 
         let storagePrimary = Neo.create(SQLite, { dbPath });
-        await storagePrimary.initAsync();
+        await storagePrimary.ready();
         await storagePrimary.load();
         let dbPrimary = Neo.create(Database, { id: 'cache-p', storage: storagePrimary });
 
@@ -664,7 +664,7 @@ test.describe('Neo.ai.graph.Database', () => {
 
         // Spin up second standalone Neo Database instance mimicking another Node.js App Worker process securely!
         let storageSecondary = Neo.create(SQLite, { dbPath });
-        await storageSecondary.initAsync();
+        await storageSecondary.ready();
         let dbSecondary = Neo.create(Database, { id: 'cache-s', storage: storageSecondary });
         await storageSecondary.load();
 
@@ -698,14 +698,14 @@ test.describe('Neo.ai.graph.Database', () => {
         if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
 
         let storageFresh = Neo.create(SQLite, { dbPath });
-        await storageFresh.initAsync();
+        await storageFresh.ready();
         let dbFresh = Neo.create(Database, { id: 'cache-fresh', storage: storageFresh });
         await storageFresh.load(); // DB empty -> lastSyncId = 0
 
         expect(dbFresh.lastSyncId).toBe(0);
 
         let storageOther = Neo.create(SQLite, { dbPath });
-        await storageOther.initAsync();
+        await storageOther.ready();
         let dbOther = Neo.create(Database, { id: 'cache-other', storage: storageOther });
         await storageOther.load();
 
@@ -723,7 +723,7 @@ test.describe('Neo.ai.graph.Database', () => {
         if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
 
         let storage = Neo.create(SQLite, { dbPath });
-        await storage.initAsync();
+        await storage.ready();
         let db = Neo.create(Database, { id: 'bug-b', storage });
         await storage.load();
 
@@ -740,13 +740,13 @@ test.describe('Neo.ai.graph.Database', () => {
 
         // Setup Primary instance (Agent A)
         let storageA = Neo.create(SQLite, { dbPath });
-        await storageA.initAsync();
+        await storageA.ready();
         let dbA = Neo.create(Database, { id: 'cache-a', storage: storageA });
         await storageA.load();
 
         // Setup Secondary instance (Agent B)
         let storageB = Neo.create(SQLite, { dbPath });
-        await storageB.initAsync();
+        await storageB.ready();
         let dbB = Neo.create(Database, { id: 'cache-b', storage: storageB });
         await storageB.load();
 
