@@ -345,6 +345,11 @@ class DemoBWorkspace extends Container {
         me.dockModel        = DockZoneModel.clone(initialDocument);
         me.popupDocument    = DemoBWorkspace.createPopupDocument();
 
+        // Live-rect authority: every Demo-B render target publishes resize geometry into
+        // manager.Window. Movement-only snapshots make a post-resize conversion compare against
+        // stale extents, violating the metric before threshold calibration even begins.
+        Neo.main.addon.WindowPosition?.setConfigs({observeResize: true, windowId: me.windowId});
+
         // Both workspaces register under their STABLE semantic ids — the seams read/write the
         // live owner fields, so registry resolution always answers with committed truth.
         me.workspaceSet = createDockWorkspaceSet();
@@ -2813,6 +2818,10 @@ class DemoBWorkspace extends Container {
 
         if (params.get('hostId') !== me.id) return;
 
+        // Geometry-ready is part of child admission: do not publish the connected vessel to any
+        // ownership branch until its Main realm has installed resize observation.
+        await Neo.main.addon.WindowPosition?.setConfigs({observeResize: true, windowId});
+
         if (workspaceId === DemoBWorkspace.POPUP_WORKSPACE_ID) {
             if (flow !== 'workspace-target') return;
 
@@ -3399,10 +3408,30 @@ class DemoBWorkspace extends Container {
             onDockZoneDocumentChange: nextDocument => me.onWorkspaceDocumentChange(workspaceId, nextDocument),
             resolveComponentRef     : resolveComponentRef
                 || ((componentRef, item, itemId) => me.resolvePane(itemId, item)),
-            resolveRevealComponentRef: (componentRef, item, itemId) => me.resolvePane(itemId, item),
+            resolveVesselConversionSourceRect: data => me.resolveVesselConversionSourceRect(data),
+            resolveRevealComponentRef        : (componentRef, item, itemId) => me.resolvePane(itemId, item),
             workspaceId,
             ...(tearOut ? me.tearOutHandlers : null)
         })
+    }
+
+    /**
+     * @summary Resolves one tear-out item's exact live vessel rect for conversion sampling.
+     *
+     * Gesture admission owns `tearOutConnects`; terminal adoption owns `tearOutPanes`. Both race
+     * orders retain the same runtime window identity, and only that identity may select the
+     * manager-owned live rect. The logical drag proxy is intentionally ignored.
+     * @param {Object} data
+     * @param {String|null} data.itemId
+     * @returns {Object|null}
+     * @protected
+     */
+    resolveVesselConversionSourceRect({itemId}) {
+        let me       = this,
+            windowId = me.tearOutConnects[itemId]?.windowId ?? me.tearOutPanes[itemId]?.windowId,
+            rect     = windowId && Neo.manager?.Window?.get(windowId)?.innerRect;
+
+        return rect && {height: rect.height, width: rect.width, x: rect.x, y: rect.y}
     }
 
     /**

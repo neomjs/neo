@@ -412,5 +412,137 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
             // proxy-less call (torn down mid-gesture) stays safe — the flag still resets
             DockTabSortZone.prototype.endWindowDrag.call({dragProxy: null, isWindowDragging: true})
         })
+    });
+
+    test.describe('vessel conversion binding — source-owned decision and pointer stability', () => {
+        const sourceRect = {x: 20, y: 20, width: 200, height: 120};
+        const targetRect = {x: 0, y: 0, width: 800, height: 600};
+
+        function createZone(overrides = {}) {
+            const calls = [];
+            const zone  = {
+                dockItemIds              : ['graph'],
+                dockSourceNodeId         : 'tabs-main',
+                dragComponent            : {id: 'graph-button', reference: 'graph'},
+                enableVesselConversion   : true,
+                getVesselConversionSensor: DockTabSortZone.prototype.getVesselConversionSensor,
+                isWindowDragging         : true,
+                owner                    : {up: () => ({fire(name, data) {
+                    if (name === 'dockVesselConversionSourceRectRequest') {
+                        data.sourceRect = overrides.liveSourceRect ?? data.logicalRect;
+                        return
+                    }
+                    calls.push([name, data])
+                }})},
+                resolveVesselConversionSourceGeometry: DockTabSortZone.prototype.resolveVesselConversionSourceGeometry,
+                resetVesselConversion                : DockTabSortZone.prototype.resetVesselConversion,
+                startIndex                           : 0,
+                vesselConversionConvertThreshold     : 0.55,
+                vesselConversionPointerExitGraceMs   : 0,
+                vesselConversionPointerMissedAt      : null,
+                vesselConversionRevertThreshold      : 0.35,
+                vesselConversionSensor               : null,
+                vesselConversionLogicalRect          : null,
+                vesselConversionSourceRect           : null,
+                vesselConversionTargetId             : null,
+                vesselConversionTargetRect           : null,
+                ...overrides
+            };
+
+            return {calls, zone}
+        }
+
+        const resolve = (zone, overrides = {}) => DockTabSortZone.prototype.resolveRemoteDragTransition.call(zone, {
+            draggedItem      : {id: 'graph'},
+            now              : 100,
+            pointerInTarget  : true,
+            logicalSourceRect: sourceRect,
+            targetId         : 'workspace-a',
+            targetRect,
+            ...overrides
+        });
+
+        test('disabled or non-window sources return null — the generic coordinator path stays byte-identical', () => {
+            expect(resolve(createZone({enableVesselConversion: false}).zone)).toBeNull();
+            expect(resolve(createZone({isWindowDragging: false}).zone)).toBeNull()
+        });
+
+        test('the binding converts every size-pair direction through dock-owned lifecycle events', () => {
+            const pairs = [
+                [{x: 100, y: 100, width: 200,  height: 150}, {x: 0,   y: 0,   width: 1200, height: 800}],
+                [{x: 0,   y: 0,   width: 1200, height: 800}, {x: 300, y: 200, width: 200,  height: 150}],
+                [{x: 0,   y: 0,   width: 640,  height: 480}, {x: 0,   y: 0,   width: 600,  height: 500}]
+            ];
+
+            for (const [source, target] of pairs) {
+                const {calls, zone} = createZone();
+                const decision      = resolve(zone, {logicalSourceRect: source, targetRect: target});
+
+                expect(decision).toEqual({commitEligible: true, engage: true, retain: false});
+                expect(calls.map(([name]) => name)).toEqual(['dockVesselConversionIn']);
+                expect(calls[0][1]).toMatchObject({sourceNodeId: 'tabs-main', targetId: 'workspace-a'})
+            }
+        });
+
+        test('the live vessel resolver owns the metric denominator, never the logical proxy', () => {
+            const liveSourceRect = {x: 310, y: 220, width: 400, height: 300};
+            const {zone}         = createZone({liveSourceRect});
+
+            expect(resolve(zone, {
+                logicalSourceRect: {x: 20, y: 20, width: 40, height: 20},
+                targetRect       : {x: 300, y: 200, width: 420, height: 320}
+            })).toEqual({commitEligible: true, engage: true, retain: false});
+            expect(zone.vesselConversionSourceRect).toEqual(liveSourceRect);
+            expect(zone.vesselConversionLogicalRect).toEqual({x: 20, y: 20, width: 40, height: 20})
+        });
+
+        test('raw claim loss drops commit immediately while a bounded visual grace emits no flip', () => {
+            const {calls, zone} = createZone({vesselConversionPointerExitGraceMs: 50});
+
+            expect(resolve(zone)).toMatchObject({commitEligible: true, engage: true});
+            expect(resolve(zone, {now: 110, pointerInTarget: false, targetId: null, targetRect: null}))
+                .toEqual({commitEligible: false, engage: true, retain: true});
+            expect(resolve(zone, {now: 159, pointerInTarget: false, targetId: null, targetRect: null}))
+                .toEqual({commitEligible: false, engage: true, retain: true});
+
+            expect(calls.map(([name]) => name)).toEqual(['dockVesselConversionIn']);
+
+            expect(resolve(zone, {now: 160, pointerInTarget: false, targetId: null, targetRect: null}))
+                .toEqual({commitEligible: false, engage: false, retain: false});
+            expect(calls.map(([name]) => name)).toEqual([
+                'dockVesselConversionIn', 'dockVesselConversionOut'
+            ])
+        });
+
+        test('A→B target identity cannot inherit conversion — A exits before B decides fresh', () => {
+            const {calls, zone} = createZone();
+
+            resolve(zone);
+            resolve(zone, {targetId: 'workspace-b'});
+
+            expect(calls.map(([name]) => name)).toEqual([
+                'dockVesselConversionIn',
+                'dockVesselConversionOut',
+                'dockVesselConversionIn'
+            ]);
+            expect(calls[1][1].targetId).toBe('workspace-a');
+            expect(calls[2][1].targetId).toBe('workspace-b')
+        });
+
+        test('gesture reset is silent and clears every binding-owned identity/timestamp', () => {
+            const {calls, zone} = createZone({vesselConversionPointerExitGraceMs: 50});
+
+            resolve(zone);
+            resolve(zone, {now: 110, pointerInTarget: false, targetId: null, targetRect: null});
+            DockTabSortZone.prototype.resetVesselConversion.call(zone);
+
+            expect(calls.map(([name]) => name)).toEqual(['dockVesselConversionIn']);
+            expect(zone.vesselConversionSensor.converted).toBe(false);
+            expect(zone.vesselConversionPointerMissedAt).toBeNull();
+            expect(zone.vesselConversionLogicalRect).toBeNull();
+            expect(zone.vesselConversionSourceRect).toBeNull();
+            expect(zone.vesselConversionTargetId).toBeNull();
+            expect(zone.vesselConversionTargetRect).toBeNull()
+        })
     })
 });

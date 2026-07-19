@@ -42,12 +42,18 @@ test.describe('Neo.manager.DragCoordinator — teardown hygiene (#15248)', () =>
     test.beforeEach(() => {
         calls = [];
         DragCoordinator.activeTargetZone = null;
+        DragCoordinator.activeSourceZone = null;
+        DragCoordinator.activeTargetCommitEligible = false;
+        DragCoordinator.activeTransitionOwned = false;
         DragCoordinator.sortZones.clear();
         DragCoordinator.nativeWindowDropCandidates.clear()
     });
 
     test.afterEach(() => {
         DragCoordinator.activeTargetZone = null;
+        DragCoordinator.activeSourceZone = null;
+        DragCoordinator.activeTargetCommitEligible = false;
+        DragCoordinator.activeTransitionOwned = false;
         DragCoordinator.sortZones.clear();
         DragCoordinator.nativeWindowDropCandidates.clear()
     });
@@ -445,6 +451,9 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
 
     function resetCoordinator() {
         DragCoordinator.activeTargetZone = null;
+        DragCoordinator.activeSourceZone = null;
+        DragCoordinator.activeTargetCommitEligible = false;
+        DragCoordinator.activeTransitionOwned = false;
         DragCoordinator.sortZones.clear();
         DragCoordinator.nativeWindowDropCandidates.forEach(candidate => clearTimeout(candidate.timeoutId));
         DragCoordinator.nativeWindowDropCandidates.clear();
@@ -767,5 +776,133 @@ test.describe('Neo.manager.DragCoordinator — the §2.8.1 claim protocol', () =
         DragCoordinator.onWindowPositionChange({windowId: 'win-popup'});
 
         expect(DragCoordinator.nativeClaimArbiters.size).toBe(0)
+    });
+
+    test('conversion resolver receives one live INNER-viewport frame and owns engagement without legacy suspension', () => {
+        const frames = [];
+        const source = createSource();
+        const target = createZone('workspace-a', 'win-a');
+
+        source.isWindowDragging = true;
+        source.resolveRemoteDragTransition = frame => {
+            frames.push(frame);
+            return {commitEligible: true, engage: true, retain: false}
+        };
+
+        registerWindow('win-source', 2000, 0, 400, 400);
+        registerWindow('win-a', 80, 80, 440, 360, {
+            innerRect: new Rectangle(100, 120, 400, 300),
+            outerRect: new Rectangle(80, 80, 440, 360)
+        });
+        DragCoordinator.register(target);
+
+        move(source, 200, 200);
+
+        expect(frames[0]).toMatchObject({
+            pointerInTarget  : true,
+            logicalSourceRect: {x: 190, y: 190, width: 100, height: 60},
+            targetId         : 'workspace-a',
+            targetRect       : {x: 100, y: 120, width: 400, height: 300},
+            targetWindowId   : 'win-a'
+        });
+        expect(calls.filter(([name]) => name === 'suspend')).toEqual([]);
+        expect(calls.filter(([name]) => name === 'move')).toHaveLength(1);
+        expect(DragCoordinator.activeSourceZone).toBe(source);
+        expect(DragCoordinator.activeTargetCommitEligible).toBe(true);
+        expect(DragCoordinator.activeTransitionOwned).toBe(true);
+
+        WindowManager.get('win-a').innerRect = new Rectangle(110, 130, 360, 260);
+        move(source, 210, 210);
+
+        expect(frames[1].targetRect).toEqual({x: 110, y: 130, width: 360, height: 260})
+    });
+
+    test('async, throwing, and malformed transition decisions fail closed before preview', () => {
+        const variants = [
+            () => Promise.resolve({commitEligible: true, engage: true}),
+            () => { throw new Error('resolver failed') },
+            () => ({})
+        ];
+
+        for (const resolver of variants) {
+            resetCoordinator();
+            clearWindows();
+            calls = [];
+
+            const source = createSource();
+            const target = createZone('workspace-a', 'win-a');
+
+            source.isWindowDragging = true;
+            source.resolveRemoteDragTransition = resolver;
+
+            registerWindow('win-source', 2000, 0, 400, 400);
+            registerWindow('win-a', 0, 0, 800, 600);
+            DragCoordinator.register(target);
+
+            move(source, 300, 300);
+
+            expect(calls.filter(([name]) => name === 'move')).toEqual([]);
+            expect(calls.filter(([name]) => name === 'suspend')).toEqual([]);
+            expect(DragCoordinator.activeTargetZone).toBeNull()
+        }
+    });
+
+    test('a resolver failure after engagement cancels the source conversion before clearing preview', () => {
+        let   fail   = false;
+        const source = createSource();
+        const target = createZone('workspace-a', 'win-a');
+
+        source.isWindowDragging = true;
+        source.resolveRemoteDragTransition = () => {
+            if (fail) throw new Error('frame authority lost');
+
+            return {commitEligible: true, engage: true, retain: false}
+        };
+        source.cancelVesselConversion = () => calls.push(['cancel-conversion']);
+
+        registerWindow('win-source', 2000, 0, 400, 400);
+        registerWindow('win-a', 0, 0, 800, 600);
+        DragCoordinator.register(target);
+
+        move(source, 300, 300);
+        fail = true;
+        move(source, 310, 310);
+
+        expect(calls.filter(([name]) => ['cancel-conversion', 'leave'].includes(name))).toEqual([
+            ['cancel-conversion'], ['leave', 'workspace-a']
+        ]);
+        expect(DragCoordinator.activeTargetZone).toBeNull();
+        expect(DragCoordinator.activeTargetCommitEligible).toBe(false)
+    });
+
+    test('visual claim grace can retain hover, but release after raw loss cannot commit', () => {
+        let   rawClaim = true;
+        const source   = createSource();
+        const target   = createZone('workspace-a', 'win-a', {accepts: () => rawClaim});
+
+        source.isWindowDragging = true;
+        source.resolveRemoteDragTransition = frame => frame.pointerInTarget
+            ? {commitEligible: true, engage: true, retain: false}
+            : {commitEligible: false, engage: true, retain: true};
+        source.resetVesselConversion = () => calls.push(['reset']);
+
+        registerWindow('win-source', 2000, 0, 400, 400);
+        registerWindow('win-a', 0, 0, 800, 600);
+        DragCoordinator.register(target);
+
+        move(source, 300, 300);
+        rawClaim = false;
+        move(source, 310, 310);
+
+        expect(DragCoordinator.activeTargetZone).toBe(target);
+        expect(DragCoordinator.activeTargetCommitEligible).toBe(false);
+        expect(calls.filter(([name]) => name === 'leave')).toEqual([]);
+
+        DragCoordinator.onDragEnd({draggedItem: {id: 'tab-1'}, sourceSortZone: source});
+
+        expect(calls.filter(([name]) => name === 'drop')).toEqual([]);
+        expect(calls.filter(([name]) => name === 'dropOut')).toEqual([]);
+        expect(calls.filter(([name]) => name === 'leave')).toEqual([['leave', 'workspace-a']]);
+        expect(calls.filter(([name]) => name === 'reset')).toEqual([['reset']])
     })
 });
