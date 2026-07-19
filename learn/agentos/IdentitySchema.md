@@ -75,12 +75,36 @@ records—not the person node.
 
 ## Ingestion Mechanism
 
-Agent identities are seeded idempotently into the native graph using the `ai/scripts/setup/seedAgentIdentities.mjs` utility. The script interacts with the `Memory_GraphService` to upsert nodes, taking care to preserve the original `createdAt` timestamp if updating existing properties.
+Identity projection has two deliberately separate write authorities:
 
-**Usage:**
+- `GraphService.initAsync` is **additive-only**. Ordinary process boot provisions roots that are
+  absent so first binding works, but it never rewrites an existing identity from the process-local
+  registry snapshot. This prevents an MCP server running an older checkout from rewinding a newer
+  activation/status projection.
+- `ai/scripts/setup/seedAgentIdentities.mjs` is the **explicit canonical update** path. It upserts the
+  merged registry facts while preserving the persisted `createdAt` and runtime-added properties.
+
+After an intentional identity-root change merges, run the projection gate from the checkout that
+owns the target Memory Core deployment:
+
 ```bash
+git switch dev
+git pull --ff-only origin dev
 node ai/scripts/setup/seedAgentIdentities.mjs
 ```
+
+Restart the Memory Core server so its loaded module graph matches the pulled revision. Then verify
+the same resident through both read surfaces:
+
+```text
+get_node({id: '@<resident>', projection: 'full'})
+who_is_online({verbose: true})
+```
+
+Both projections must carry the merged `participationStatus`. A missing node, mismatch, stale
+runtime checkout, or unreachable graph fails the activation/status-flip gate; it is never reduced
+to a warning. `ai/scripts/fleet/onboardPeer.mjs` applies the same fail-closed comparison before a
+resident can reach launch.
 
 ## Test Pollution Hazard
 

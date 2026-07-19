@@ -13,11 +13,77 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../src/Neo.mjs';
-import * as core      from '../../../../../src/core/_export.mjs';
-import {IDENTITIES}   from '../../../../../ai/graph/identityRoots.mjs';
-import * as MIGRATION from '../../../../../ai/graph/identityRootsMigration.mjs';
+import {test, expect}        from '@playwright/test';
+import Neo                   from '../../../../../src/Neo.mjs';
+import * as core             from '../../../../../src/core/_export.mjs';
+import {IDENTITIES}          from '../../../../../ai/graph/identityRoots.mjs';
+import * as MIGRATION        from '../../../../../ai/graph/identityRootsMigration.mjs';
+import {seedAgentIdentities} from '../../../../../ai/scripts/setup/seedAgentIdentities.mjs';
+
+/**
+ * @summary The explicit identity projection path owns intentional canonical updates, while
+ * preserving graph-owned creation provenance and runtime-added properties.
+ */
+test.describe('ai/graph/identityRoots — explicit seed authority (#15431)', () => {
+    test('canonical facts update while persisted createdAt and runtime properties survive', async () => {
+        let record = {
+            id        : '@seed-witness',
+            type      : 'AgentIdentity',
+            name      : 'Pre-activation identity',
+            properties: {
+                createdAt          : '2026-07-19T09:40:49.000Z',
+                displayName        : 'Neo Kimi Iris',
+                participationStatus: 'temporarily_unreachable',
+                runtimeWitness     : 'must-survive'
+            }
+        };
+
+        const graphService = {
+            db: {
+                storage: {
+                    db: {
+                        prepare: () => ({get: () => ({data: JSON.stringify(record)})})
+                    }
+                }
+            },
+            getNode   : () => record,
+            ready     : async () => {},
+            upsertNode: update => {
+                record = {
+                    ...record,
+                    ...update,
+                    properties: {...record.properties, ...update.properties}
+                };
+            }
+        };
+
+        const processed = await seedAgentIdentities({
+            graphService,
+            identities: [{
+                id        : '@seed-witness',
+                type      : 'AgentIdentity',
+                name      : 'Iris',
+                properties: {
+                    createdAt          : '2026-07-19T20:00:00.000Z',
+                    displayName        : 'Iris',
+                    participationStatus: 'active'
+                }
+            }],
+            log: () => {}
+        });
+
+        expect(processed).toBe(1);
+        expect(record).toMatchObject({
+            name      : 'Iris',
+            properties: {
+                createdAt          : '2026-07-19T09:40:49.000Z',
+                displayName        : 'Iris',
+                participationStatus: 'active',
+                runtimeWitness     : 'must-survive'
+            }
+        });
+    });
+});
 
 /**
  * @summary Wake-route invariants for the same-app (Claude Desktop) AgentIdentity roots.
