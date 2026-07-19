@@ -53,7 +53,7 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
         }
 
         MemoryCoreRecorderService = (await import('../../../../../../ai/services/memory-core/MemoryCoreRecorderService.mjs')).default;
-        await MemoryCoreRecorderService.initAsync();
+        await MemoryCoreRecorderService.ready();
     });
 
     test.beforeEach(() => {

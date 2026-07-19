@@ -85,7 +85,7 @@ test.describe('Neo.ai.services.memory-core.SourceRegistryService', () => {
         process.env.NEO_MEMORY_DB_PATH_TEST = testDbPath;
 
         SourceRegistryService = (await import('../../../../../../ai/services/memory-core/SourceRegistryService.mjs')).default;
-        await SourceRegistryService.initAsync();
+        await SourceRegistryService.ready();
     });
 
     test.afterAll(() => {

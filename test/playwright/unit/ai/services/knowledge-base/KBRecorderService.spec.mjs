@@ -23,7 +23,7 @@ test.describe('Neo.ai.services.knowledge-base.KBRecorderService', () => {
 
     test.beforeAll(async () => {
         KBRecorderService = (await import('../../../../../../ai/services/knowledge-base/KBRecorderService.mjs')).default;
-        await KBRecorderService.initAsync();
+        await KBRecorderService.ready();
     });
 
     test.beforeEach(() => {

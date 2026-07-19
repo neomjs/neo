@@ -49,7 +49,7 @@ test.describe('Librarian Sub-Agent Orchestration', () => {
             servers: []
         });
 
-        await primaryAgent.initAsync();
+        await primaryAgent.ready();
 
         // We wrap the delegate method to verify it was executed correctly natively
         let delegateCalled      = false;
@@ -67,9 +67,9 @@ test.describe('Librarian Sub-Agent Orchestration', () => {
         // Since delegate_task is now injected natively into the Loop's tools array,
         // we can simply instruct the model to use the tool, and it will trigger it natively.
         const event = {
-            type: 'user:input',
+            type    : 'user:input',
             priority: 'high',
-            data: 'You must research the exact architectural purpose of Neo.component.Base. You do not have the context. Delegate this to the "librarian" sub-agent using the delegate_task tool. Once you get the result, formulate your final answer. Please include specific details retrieved from the architectural context.'
+            data    : 'You must research the exact architectural purpose of Neo.component.Base. You do not have the context. Delegate this to the "librarian" sub-agent using the delegate_task tool. Once you get the result, formulate your final answer. Please include specific details retrieved from the architectural context.'
         };
 
         try {
