@@ -184,7 +184,7 @@ class AgentCard extends Container {
                 }]
             }, {
                 ntype    : 'container',
-                cls      : ['fm-card-actions'],
+                cls      : ['fm-card-control-verbs'],
                 flex     : 'none',
                 reference: 'control-verbs',
                 layout   : {ntype: 'hbox', align: 'center'},
