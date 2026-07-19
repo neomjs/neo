@@ -454,7 +454,7 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         expect(listMessagesSchema.properties.limit.default).toBe(50);
         expect(listMessagesSchema.properties.offset.default).toBe(0);
 
-        expect(adapter.enum).toEqual(['osascript', 'tmux', 'codex-app-server', 'opencode-server']);
+        expect(adapter.enum).toEqual(['osascript', 'tmux', 'codex-app-server', 'opencode-server', 'kimi-server']);
 
         expect(coalesceWindow.type).toBe('integer');
         expect(coalesceWindow.minimum).toBe(0);
