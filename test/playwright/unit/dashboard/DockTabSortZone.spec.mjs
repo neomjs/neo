@@ -319,17 +319,42 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
             expect(fired[0][1]).toEqual({itemId: 'graph', sortZone: zone, sourceNodeId: 'tabs-main'})
         });
 
-        test('cancelled while DETACHED retires the vessel FIRST, then the regular cancel — zero commit events', async () => {
+        test('cancelled while DETACHED retires the vessel before generic cleanup clears the detached fact', async () => {
             const fired = [];
-            const zone  = zoneFor(fired, {isWindowDragging: true});
+            const zone  = zoneFor(fired, {
+                dragComponent   : {id: 'graph-button'},
+                fire            : (name, data) => fired.push([name, data]),
+                isWindowDragging: true
+            });
 
-            await runDragEnd(zone, {cancelled: true});
+            zone.onDragEnd = data => runDragEnd(zone, data);
 
-            // order matters: vessel cleanup precedes the generic cancel affordance reset
-            expect(fired.map(([name]) => name)).toEqual(['dockTearOutCancel', 'dockCrossZoneDragCancel']);
+            await DockTabSortZone.prototype.onDragCancel.call(zone, {key: 'Escape'});
+
+            // Order matters: vessel retirement observes the detached fact before the generic base
+            // clears it; the ordinary cancel signal and affordance reset still follow unchanged.
+            expect(fired.map(([name]) => name)).toEqual([
+                'dockTearOutCancel', 'dragCancel', 'dockCrossZoneDragCancel'
+            ]);
+            expect(zone.isWindowDragging, 'generic cleanup still restores the in-window state').toBe(false);
             // neither terminal nor drop — the zero-model-mutation invariant has no commit seam to reach
             expect(fired.some(([name]) => name === 'dockTearOutTerminal')).toBe(false);
             expect(fired.some(([name]) => name === 'dockCrossZoneDrop')).toBe(false)
+        });
+
+        test('an in-window cancel never emits a tear-out terminal', async () => {
+            const fired = [];
+            const zone  = zoneFor(fired, {
+                dragComponent: {id: 'graph-button'},
+                fire         : (name, data) => fired.push([name, data])
+            });
+
+            zone.onDragEnd = data => runDragEnd(zone, data);
+
+            await DockTabSortZone.prototype.onDragCancel.call(zone, {key: 'Escape'});
+
+            expect(fired.map(([name]) => name)).toEqual(['dragCancel', 'dockCrossZoneDragCancel']);
+            expect(fired.some(([name]) => name === 'dockTearOutCancel')).toBe(false)
         });
 
         test('an in-window release still routes the cross-zone drop exactly as before (regression pin)', async () => {

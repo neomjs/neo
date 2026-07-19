@@ -90,6 +90,24 @@ test.describe('AgentOS Demo B — real dock tear-out gesture', () => {
         return {popup, result: await resultPromise}
     }
 
+    /**
+     * Resolves the one worker-owned CounterPane identity carried by the workbench item.
+     * @param {Object} app Neural Link app wrapper.
+     * @returns {Promise<Object>}
+     */
+    async function getCounter(app) {
+        const found = await app.findInstances({
+            className: 'AgentOS.childapps.dockdemo.view.CounterPane'
+        }, ['id', 'isDestroyed', 'mounted', 'windowId']);
+
+        const counters = (Array.isArray(found) ? found : found ? [found] : [])
+            .map(counter => ({...counter.properties, id: counter.id}));
+
+        expect(counters, 'exactly one worker-owned CounterPane instance may exist').toHaveLength(1);
+
+        return counters[0]
+    }
+
     test('witness 1 — the vessel is born and SURVIVES deliberate post-birth moves (#15413 reap regression)', async ({page, neuralLink}) => {
         const ctx    = await boot({page, neuralLink}, 'survival'),
               before = await ctx.app.getComponent(ctx.wsId, ['dockModel']);
@@ -141,21 +159,78 @@ test.describe('AgentOS Demo B — real dock tear-out gesture', () => {
     });
 
     test('witness 3 — Escape while detached closes the vessel and mutates NEITHER document', async ({page, neuralLink}) => {
-        const ctx    = await boot({page, neuralLink}, 'cancel'),
-              before = await ctx.app.getComponent(ctx.wsId, ['dockModel']);
+        const ctx        = await boot({page, neuralLink}, 'cancel'),
+              before     = await ctx.app.getComponent(ctx.wsId, ['dockModel']),
+              paneBefore = await getCounter(ctx.app),
+              popupWait  = page.waitForEvent('popup', {timeout: 30000}),
+              resultWait = ctx.app.callMethod(ctx.wsId, 'executeTearOutStep', [{
+                  itemId      : 'workbench',
+                  sourceNodeId: 'workbench-tabs'
+              }, {cancel: true, postBirthMoves: 20}]),
+              popup      = await popupWait;
 
-        const {result} = await tearOut(ctx, {itemId: 'workbench', sourceNodeId: 'workbench-tabs'}, {cancel: true});
+        popup.on('pageerror', error => {
+            let value = String(error?.stack || error?.message || error || '');
+
+            value && value !== 'undefined' && ctx.popupErrors.push(value)
+        });
+
+        const popupClosed = popup.waitForEvent('close');
+        let vesselWindowId;
+
+        await expect.poll(async () => {
+            const state = await ctx.app.getComponent(ctx.wsId, ['tearOutConnects']);
+
+            vesselWindowId = state.tearOutConnects.workbench?.windowId || null;
+            return vesselWindowId
+        }, {
+            message: 'the admitted vessel must connect before the cancel terminal',
+            timeout: 5000
+        }).not.toBeNull();
+
+        const result = await resultWait;
+
+        await popupClosed;
 
         expect(result.errors).toEqual([]);
         expect(result.cancelled, 'Escape while detached must cancel').toBe(true);
         expect(result.proof.born, 'the vessel is born BEFORE the cancel — the cancel is the interesting phase').toBe(true);
         expect(result.proof.documentsUnchanged, 'a cancelled tear-out is zero-mutation by GUARD').toBe(true);
+        expect(popup.isClosed(), 'the cancelled native vessel must be physically retired').toBe(true);
 
         // The committed document must be byte-identical to the pre-gesture state.
         const after = await ctx.app.getComponent(ctx.wsId, ['dockModel']);
 
         expect(after.dockModel).toEqual(before.dockModel);
         expect(after.dockModel.nodes['workbench-tabs'].items, 'workbench stayed home').toEqual(['workbench']);
+
+        await expect.poll(async () => {
+            const state = await ctx.app.getComponent(ctx.wsId, [
+                      'tearOutConnects', 'tearOutPanes', 'tearOutPlacements'
+                  ]),
+                  pane  = await getCounter(ctx.app);
+
+            return {
+                connects: Object.keys(state.tearOutConnects).length,
+                paneId  : pane.id,
+                panes   : Object.keys(state.tearOutPanes).length,
+                places  : Object.keys(state.tearOutPlacements).length
+            }
+        }, {
+            message: 'cancel must retire every vessel record while preserving the live pane',
+            timeout: 5000
+        }).toEqual({connects: 0, paneId: paneBefore.id, panes: 0, places: 0});
+
+        const settled = await ctx.app.getComponent(ctx.wsId, [
+            'dockModel', 'tearOutConnects', 'tearOutPanes', 'tearOutPlacements'
+        ]);
+
+        await ctx.app.callMethod(ctx.wsId, 'onWindowDisconnect', [{windowId: vesselWindowId}]);
+
+        expect(await ctx.app.getComponent(ctx.wsId, [
+            'dockModel', 'tearOutConnects', 'tearOutPanes', 'tearOutPlacements'
+        ]), 'repeating the closed vessel terminal is a no-op').toEqual(settled);
+        expect((await getCounter(ctx.app)).id).toBe(paneBefore.id);
         expect(ctx.runtimeErrors).toEqual([]);
         expect(ctx.pageErrors).toEqual([]);
         expect(ctx.popupErrors).toEqual([])
