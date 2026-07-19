@@ -31,7 +31,7 @@ on:
       - '.github/workflows/config-template-ssot-lint.yml'
 
 concurrency:
-  group: config-template-ssot-lint-${{ github.ref }}
+  group: config-template-ssot-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:

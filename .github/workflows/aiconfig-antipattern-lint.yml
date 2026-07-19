@@ -17,7 +17,7 @@ on:
       - '.github/workflows/aiconfig-antipattern-lint.yml'
 
 concurrency:
-  group: aiconfig-antipattern-lint-${{ github.ref }}
+  group: aiconfig-antipattern-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:

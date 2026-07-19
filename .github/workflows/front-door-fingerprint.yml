@@ -15,7 +15,7 @@ on:
       - '.github/workflows/front-door-fingerprint.yml'
 
 concurrency:
-  group: front-door-fingerprint-${{ github.ref }}
+  group: front-door-fingerprint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
