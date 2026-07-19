@@ -39,9 +39,11 @@ import {normalizeAgentIdentityNodeId} from '../../graph/normalizeAgentIdentityNo
  * branch — the payload always travels as a reviewable branch + PR, never as a live edit to an
  * integration branch. The generator never pushes and never opens the PR itself.
  *
- * **Idempotency:** a resident already present in a surface reports EXISTS and emits no
- * duplicate; `--write` skips EXISTS surfaces, so a partially-applied payload completes on
- * re-run and a second run changes nothing.
+ * **Convergence:** every owned surface reports `MISSING`, `MATCH`, or `DIVERGENT` against the
+ * exact generated structure. A corrected rerun repairs only a structurally-recognizable
+ * generated block; ambiguous legacy prose refuses the whole payload before any file is
+ * written. Rotation mode updates the public roster + ModelStats mirrors only — durable roots
+ * and the migration epoch snapshot are verified boundaries and remain byte-stable.
  *
  * Everything decision-shaped is pure and fail-closed: planners return
  * `{valid, reason, ...}` / per-surface `{status, reason, ...}` and never throw; a missing
@@ -51,6 +53,8 @@ import {normalizeAgentIdentityNodeId} from '../../graph/normalizeAgentIdentityNo
  *   node ai/scripts/setup/generateRosterOnboarding.mjs --handle <s> --family <s>
  *       [--github-username <s>]                        # dry-run (default): print the payload
  *   node ai/scripts/setup/generateRosterOnboarding.mjs ... --write   # apply on a work branch
+ *   node ai/scripts/setup/generateRosterOnboarding.mjs --mode rotation
+ *       --handle <s> --family <s> --designation <s> [--github-username <s>]
  *   node ai/scripts/setup/generateRosterOnboarding.mjs --help        # print usage
  */
 
@@ -98,6 +102,17 @@ export const ENGINE_CLASS_FLAGS = Object.freeze([
 ]);
 
 /**
+ * @summary Canonical surface convergence states. These are artifact states, not write verbs:
+ * `DIVERGENT` may be safely repairable or may fail closed as ambiguous.
+ * @type {Object}
+ */
+export const SURFACE_STATES = Object.freeze({
+    DIVERGENT: 'DIVERGENT',
+    MATCH    : 'MATCH',
+    MISSING  : 'MISSING'
+});
+
+/**
  * @summary Vendor + display token per known model family, for README/ModelStats prose.
  * Unknown families render with the bare family token — never a guessed vendor.
  * @type {Object}
@@ -123,10 +138,17 @@ export const DISPLAY_TOKEN_OVERRIDES = Object.freeze({
  */
 export const SURFACE_PATHS = Object.freeze({
     identityRoots: 'ai/graph/identityRoots.mjs',
+    migration    : 'ai/graph/identityRootsMigration.mjs',
     modelStats   : 'learn/agentos/ModelStats.md',
     readme       : 'README.md',
     spec         : 'test/playwright/unit/ai/graph/identityRoots.spec.mjs'
 });
+
+/** @type {ReadonlyArray<String>} */
+export const ONBOARDING_SURFACE_KEYS = Object.freeze(['identityRoots', 'readme', 'modelStats', 'spec']);
+
+/** @type {ReadonlyArray<String>} */
+export const ROTATION_SURFACE_KEYS = Object.freeze(['identityRoots', 'readme', 'modelStats', 'spec', 'migration']);
 
 /**
  * @summary Escapes a literal value for safe embedding inside a RegExp source.
@@ -156,6 +178,27 @@ export function normalizeHandle(value, label) {
     }
 
     return {valid: true, reason: null, handle: normalizeAgentIdentityNodeId(body)}
+}
+
+/**
+ * @summary Normalizes a GitHub login using GitHub's strict username grammar: 1-39 characters,
+ * alphanumeric endpoints, and only single hyphens between segments. The returned value keeps
+ * the identity substrate's canonical `@` prefix.
+ * @param {String} value Raw GitHub login (with or without `@`)
+ * @returns {{valid: Boolean, reason: String|null, handle: String|null}}
+ */
+export function normalizeGithubUsername(value) {
+    if (typeof value !== 'string' || value.trim() === '') {
+        return {valid: false, reason: '--github-username requires a non-empty string', handle: null};
+    }
+
+    const body = value.trim().replace(/^@/, '');
+
+    if (body.length > 39 || !/^[a-z0-9](?:[a-z0-9]|-(?=[a-z0-9]))*$/.test(body)) {
+        return {valid: false, reason: `--github-username must be a lowercase GitHub login (1-39 chars, alphanumeric endpoints, no consecutive hyphens) — received '${value}'`, handle: null};
+    }
+
+    return {valid: true, reason: null, handle: `@${body}`}
 }
 
 /**
@@ -191,18 +234,26 @@ export function deriveSectionAnchor(handle) {
  * @param {Object} options
  * @param {String} options.handle The resident handle — the roster id and A2A address
  * @param {String} options.family Model family (e.g. 'claude' | 'gpt' | 'gemini')
+ * @param {'onboarding'|'rotation'} [options.mode='onboarding'] Ceremony mode
+ * @param {String} [options.designation] Exact ModelStats engine designation; rotation only
  * @param {String} [options.githubUsername] GitHub login (defaults to the handle)
  * @param {Date|String} [options.now] Clock override for deterministic tests; defaults to the real now
  * @returns {{valid: Boolean, reason: String|null, plan: Object|null}}
  */
 export function buildOnboardingPlan(options = {}) {
+    const mode = options.mode || 'onboarding';
+
+    if (!['onboarding', 'rotation'].includes(mode)) {
+        return {valid: false, reason: `--mode must be 'onboarding' or 'rotation' — received '${String(mode)}'`, plan: null};
+    }
+
     const socialLeaks = SOCIAL_NAME_CLASS_KEYS.filter(key => key in options);
 
     if (socialLeaks.length > 0) {
         return {valid: false, reason: `socialName-class inputs are rejected by design: ${socialLeaks.join(', ')} — Social Names are the post-boot peer-naming ritual (bearer-assented), never seed data`, plan: null};
     }
 
-    const engineLeaks = ENGINE_CLASS_KEYS.filter(key => key in options);
+    const engineLeaks = ENGINE_CLASS_KEYS.filter(key => key in options && !(mode === 'rotation' && key === 'designation'));
 
     if (engineLeaks.length > 0) {
         return {valid: false, reason: `engine-class inputs are rejected by design: ${engineLeaks.join(', ')} — engine facts are observation-owned and land through the source-cited ModelStats.md discipline at first boot, never as onboarding predictions`, plan: null};
@@ -218,7 +269,15 @@ export function buildOnboardingPlan(options = {}) {
         return {valid: false, reason: `--family must be a lowercase family token (e.g. 'claude') — received '${String(options.family)}'`, plan: null};
     }
 
-    const github = normalizeHandle(options.githubUsername === undefined ? resident.handle : options.githubUsername, '--github-username');
+    if (mode === 'onboarding' && 'designation' in options) {
+        return {valid: false, reason: 'engine-class inputs are rejected by onboarding: designation — engine facts are observation-owned and land through the source-cited ModelStats.md discipline at first boot', plan: null};
+    }
+
+    if (mode === 'rotation' && (typeof options.designation !== 'string' || options.designation.trim() === '' || /[\r\n|]/.test(options.designation))) {
+        return {valid: false, reason: '--designation requires one non-empty line without Markdown table delimiters in rotation mode', plan: null};
+    }
+
+    const github = normalizeGithubUsername(options.githubUsername === undefined ? resident.handle : options.githubUsername);
 
     if (!github.valid) {
         return {valid: false, reason: github.reason, plan: null};
@@ -237,6 +296,7 @@ export function buildOnboardingPlan(options = {}) {
         valid : true,
         reason: null,
         plan  : Object.freeze({
+            mode,
             handle,
             handleBody    : handle.slice(1),
             family        : options.family,
@@ -246,6 +306,7 @@ export function buildOnboardingPlan(options = {}) {
             githubBody    : github.handle.slice(1),
             displayForm   : deriveDisplayForm(handle),
             sectionAnchor : deriveSectionAnchor(handle),
+            designation   : mode === 'rotation' ? options.designation.trim() : null,
             since         : new Date(nowMs).toISOString()
         })
     }
@@ -389,9 +450,220 @@ test.describe('ai/graph/identityRoots — ${plan.handle} roster pin', () => {
 }
 
 /**
- * @summary Plans the `identityRoots.mjs` surface: EXISTS when the roster already carries the
- * resident's id; otherwise inserts the entry immediately before the `AGENT:*`
- * BroadcastSentinel entry (the roster's stable tail). Fail-closed when the anchor is missing.
+ * @summary Replaces one exact source range without broad substring rewriting.
+ * @param {String} source Complete source
+ * @param {{start: Number, end: Number}} range Half-open byte range
+ * @param {String} replacement Exact replacement
+ * @returns {String}
+ */
+export function replaceExactRange(source, range, replacement) {
+    return source.slice(0, range.start) + replacement + source.slice(range.end);
+}
+
+/**
+ * @summary Locates the one roster object whose structural `id` field equals the resident.
+ * @param {String} source identityRoots source
+ * @param {String} handle Canonical resident handle
+ * @returns {{valid: Boolean, reason: String|null, range: Object|null, block: String|null}}
+ */
+export function locateRosterEntry(source, handle) {
+    const lines   = source.split('\n'),
+          idLine  = new RegExp(`^\\s{8}id\\s*:\\s*'${escapeRegExp(handle)}',?$`),
+          matches = [];
+
+    for (let i = 0; i < lines.length; i++) {
+        if (idLine.test(lines[i])) {
+            matches.push(i);
+        }
+    }
+
+    if (matches.length === 0) {
+        return {valid: true, reason: null, range: null, block: null};
+    }
+
+    if (matches.length !== 1) {
+        return {valid: false, reason: `${handle} has ${matches.length} structural roster entries; refusing an ambiguous repair`, range: null, block: null};
+    }
+
+    const idIndex   = matches[0];
+    let   startLine = idIndex - 1,
+        endLine   = idIndex + 1;
+
+    while (startLine >= 0 && lines[startLine] !== '    {') {
+        startLine--;
+    }
+
+    while (endLine < lines.length && lines[endLine] !== '    },') {
+        endLine++;
+    }
+
+    if (startLine < 0 || endLine >= lines.length) {
+        return {valid: false, reason: `${handle} roster entry boundaries are not structurally recognizable; refusing a broad rewrite`, range: null, block: null};
+    }
+
+    const offsets = [];
+    let   offset  = 0;
+
+    for (const line of lines) {
+        offsets.push(offset);
+        offset += line.length + 1;
+    }
+
+    const start = offsets[startLine],
+          end   = offsets[endLine] + lines[endLine].length;
+
+    return {valid: true, reason: null, range: {start, end}, block: source.slice(start, end)};
+}
+
+/**
+ * @summary True only for the pending Layer-1 block emitted by this generator lineage.
+ * @param {String} block Candidate roster block
+ * @returns {Boolean}
+ */
+export function isGeneratedRosterEntry(block) {
+    return block.includes("statusReason       : 'First boot pending'") &&
+        block.includes("reactivationTrigger: 'Operator confirms participation activation after first boot'") &&
+        block.includes('// No capability fields — engine facts are observation-owned');
+}
+
+/**
+ * @summary Locates one exact maintainer table row by the desired GitHub login or the generator's
+ * original default (the resident handle). This lets a corrected login repair the original row
+ * without guessing across unrelated prose.
+ * @param {String} source README source
+ * @param {Object} plan Ceremony plan
+ * @param {String[]} [aliases=[]] Prior generated GitHub-login bodies that still own the row
+ * @returns {{valid: Boolean, reason: String|null, range: Object|null, row: String|null}}
+ */
+export function locateReadmeRow(source, plan, aliases = []) {
+    const candidates = new Set([plan.githubBody, plan.handleBody, ...aliases]),
+          matches    = [];
+    let offset = 0;
+
+    for (const line of source.split('\n')) {
+        if (line.startsWith('|') && [...candidates].some(login => line.includes(`](https://github.com/${login})`))) {
+            matches.push({start: offset, end: offset + line.length, row: line});
+        }
+
+        offset += line.length + 1;
+    }
+
+    if (matches.length === 0) {
+        return {valid: true, reason: null, range: null, row: null};
+    }
+
+    if (matches.length !== 1) {
+        return {valid: false, reason: `${plan.handle} resolves to ${matches.length} maintainer rows (desired/default login); refusing a duplicate or ambiguous rewrite`, range: null, row: null};
+    }
+
+    return {valid: true, reason: null, range: {start: matches[0].start, end: matches[0].end}, row: matches[0].row};
+}
+
+/**
+ * @summary Locates one exact ModelStats resident section by semantic anchor.
+ * @param {String} source ModelStats source
+ * @param {String} sectionAnchor Resident semantic anchor (without `§`)
+ * @returns {{valid: Boolean, reason: String|null, range: Object|null, section: String|null}}
+ */
+export function locateModelStatsSection(source, sectionAnchor) {
+    const heading = `### §${sectionAnchor}`,
+          starts  = [];
+    let cursor = 0;
+
+    while ((cursor = source.indexOf(heading, cursor)) !== -1) {
+        const atLineStart = cursor === 0 || source[cursor - 1] === '\n',
+              atLineEnd   = cursor + heading.length === source.length || source[cursor + heading.length] === '\n';
+
+        if (atLineStart && atLineEnd) {
+            starts.push(cursor);
+        }
+
+        cursor += heading.length;
+    }
+
+    if (starts.length === 0) {
+        return {valid: true, reason: null, range: null, section: null};
+    }
+
+    if (starts.length !== 1) {
+        return {valid: false, reason: `§${sectionAnchor} appears ${starts.length} times; refusing an ambiguous ModelStats repair`, range: null, section: null};
+    }
+
+    const start       = starts[0],
+          nextSection = source.indexOf('\n### §', start + heading.length),
+          nextDivider = source.indexOf('\n---\n', start + heading.length),
+          ends        = [nextSection, nextDivider].filter(index => index !== -1),
+          end         = ends.length > 0 ? Math.min(...ends) : source.length;
+
+    return {valid: true, reason: null, range: {start, end}, section: source.slice(start, end).trimEnd()};
+}
+
+/**
+ * @summary True only for the pending ModelStats skeleton emitted by this generator lineage.
+ * @param {String} section Candidate section
+ * @returns {Boolean}
+ */
+export function isGeneratedModelStatsSection(section) {
+    return section.includes('| `participationStatus` | `temporarily_unreachable`') &&
+        section.includes('V-B-A pending — observation-owned') &&
+        section.includes('capability values are never guessed at onboarding');
+}
+
+/**
+ * @summary Locates the dedicated generated roster pin structurally. Incidental quoted-handle
+ * mentions are deliberately ignored.
+ * @param {String} source identityRoots spec source
+ * @param {String} handle Canonical resident handle
+ * @returns {{valid: Boolean, reason: String|null, range: Object|null, block: String|null}}
+ */
+export function locateSpecPin(source, handle) {
+    const describe = `test.describe('ai/graph/identityRoots — ${handle} roster pin', () => {`,
+          starts   = [];
+    let cursor = 0;
+
+    while ((cursor = source.indexOf(describe, cursor)) !== -1) {
+        starts.push(cursor);
+        cursor += describe.length;
+    }
+
+    if (starts.length === 0) {
+        return {valid: true, reason: null, range: null, block: null};
+    }
+
+    if (starts.length !== 1) {
+        return {valid: false, reason: `${handle} has ${starts.length} dedicated roster-pin describes; refusing an ambiguous repair`, range: null, block: null};
+    }
+
+    const describeStart = starts[0],
+          docStart      = source.lastIndexOf('/**', describeStart),
+          secondTest    = source.indexOf(`test('${handle} commits no static wake template and no engine facts (observation-owned)'`, describeStart),
+          blockEnd      = secondTest === -1 ? -1 : source.indexOf('\n});', secondTest);
+
+    if (docStart === -1 || blockEnd === -1) {
+        return {valid: false, reason: `${handle} roster pin exists but its generated block boundaries are not recognizable`, range: null, block: null};
+    }
+
+    const end = blockEnd + '\n});'.length;
+
+    return {valid: true, reason: null, range: {start: docStart, end}, block: source.slice(docStart, end)};
+}
+
+/**
+ * @summary Constructs one normalized surface result.
+ * @param {Object} base Stable surface metadata
+ * @param {String} status One of {@link SURFACE_STATES}
+ * @param {String|null} reason Human-readable classification/diff
+ * @param {String|null} updated Complete updated source when writable
+ * @returns {Object}
+ */
+export function surfaceResult(base, status, reason, updated = null) {
+    return {...base, status, reason, updated, repairable: updated !== null};
+}
+
+/**
+ * @summary Classifies the `identityRoots.mjs` surface: MISSING inserts before the broadcast
+ * sentinel, MATCH requires the exact generated block, and DIVERGENT repairs only the
+ * recognizable pending generator shape. Activated/non-generated entries fail closed.
  * @param {String} source Current file content
  * @param {Object} plan A valid plan from {@link buildOnboardingPlan}
  * @returns {{surface: String, path: String, status: String, reason: String|null, anchor: String, snippet: String, updated: String|null}}
@@ -400,53 +672,108 @@ export function planRosterSurface(source, plan) {
     const base = {surface: 'identityRoots', path: SURFACE_PATHS.identityRoots, anchor: `immediately before the 'AGENT:*' BroadcastSentinel entry`, snippet: renderRosterEntry(plan)};
 
     if (typeof source !== 'string' || source === '') {
-        return {...base, status: 'invalid', reason: 'identityRoots source must be a non-empty string', updated: null};
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, 'identityRoots source must be a non-empty string');
     }
 
-    if (new RegExp(`id\\s*:\\s*'${escapeRegExp(plan.handle)}'`).test(source)) {
-        return {...base, status: 'exists', reason: `${plan.handle} already has an IDENTITIES roster entry`, updated: null};
+    const located = locateRosterEntry(source, plan.handle);
+
+    if (!located.valid) {
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, located.reason);
+    }
+
+    if (located.block) {
+        if (isGeneratedRosterEntry(located.block)) {
+            const sinceMatch   = located.block.match(/^\s*since\s*:\s*'([^']+)'/m),
+                  createdMatch = located.block.match(/^\s*createdAt\s*:\s*'([^']+)'/m),
+                  githubMatch  = located.block.match(/^\s*githubLogin\s*:\s*'@([^']+)'/m);
+
+            if (!sinceMatch || !createdMatch || sinceMatch[1] !== createdMatch[1] || !Number.isFinite(Date.parse(sinceMatch[1])) || !githubMatch) {
+                return surfaceResult(base, SURFACE_STATES.DIVERGENT, `${plan.handle} generated roster block has inconsistent immutable identity anchors (birth timestamp or githubLogin); refusing repair`);
+            }
+
+            // A rerun occurs later by definition. Preserve the actual first-generation time;
+            // corrected family/login input must not rewrite identity birth history.
+            base.snippet = renderRosterEntry({...plan, since: sinceMatch[1]});
+            base.previousGithubBody = githubMatch[1];
+        }
+
+        if (located.block === base.snippet) {
+            return surfaceResult(base, SURFACE_STATES.MATCH, `${plan.handle} roster entry exactly matches the generated Layer-1 block`);
+        }
+
+        if (!isGeneratedRosterEntry(located.block)) {
+            return surfaceResult(base, SURFACE_STATES.DIVERGENT, `${plan.handle} has an existing non-generated or activated roster entry; refusing to overwrite durable identity truth`);
+        }
+
+        return surfaceResult(
+            base,
+            SURFACE_STATES.DIVERGENT,
+            `${plan.handle} generated roster block differs from corrected input; exact block repair planned`,
+            replaceExactRange(source, located.range, base.snippet)
+        );
     }
 
     const sentinel = source.match(/\n    \{\n\s+id\s*:\s*'AGENT:\*'/);
 
     if (!sentinel) {
-        return {...base, status: 'invalid', reason: `insertion anchor not found: the 'AGENT:*' BroadcastSentinel entry is missing from ${SURFACE_PATHS.identityRoots}`, updated: null};
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, `insertion anchor not found: the 'AGENT:*' BroadcastSentinel entry is missing from ${SURFACE_PATHS.identityRoots}`);
     }
 
     const insertAt = sentinel.index + 1;
 
     return {
         ...base,
-        status : 'insert',
-        reason : null,
-        updated: source.slice(0, insertAt) + base.snippet + '\n' + source.slice(insertAt)
+        status    : SURFACE_STATES.MISSING,
+        reason    : `${plan.handle} has no structural roster entry`,
+        repairable: true,
+        updated   : source.slice(0, insertAt) + base.snippet + '\n' + source.slice(insertAt)
     };
 }
 
 /**
- * @summary Plans the README surface: EXISTS when the roster table already links the resident's
- * GitHub account; otherwise appends the row after the last row of the maintainer roster table.
- * Fail-closed when the table header is missing.
+ * @summary Classifies the README surface by the exact resident/default-login row. MISSING
+ * appends, MATCH is byte-equal, and DIVERGENT repairs only the generated pending row; activated
+ * or duplicate rows fail closed.
  * @param {String} source Current file content
  * @param {Object} plan A valid plan from {@link buildOnboardingPlan}
+ * @param {String[]} [aliases=[]] Prior generated GitHub-login bodies that still own the row
  * @returns {{surface: String, path: String, status: String, reason: String|null, anchor: String, snippet: String, updated: String|null}}
  */
-export function planReadmeSurface(source, plan) {
+export function planReadmeSurface(source, plan, aliases = []) {
     const base = {surface: 'readme', path: SURFACE_PATHS.readme, anchor: 'appended after the last row of the maintainer roster table', snippet: renderReadmeRow(plan)};
 
     if (typeof source !== 'string' || source === '') {
-        return {...base, status: 'invalid', reason: 'README source must be a non-empty string', updated: null};
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, 'README source must be a non-empty string');
     }
 
-    if (source.includes(`](https://github.com/${plan.githubBody})`)) {
-        return {...base, status: 'exists', reason: `@${plan.githubBody} already has a maintainer roster row`, updated: null};
+    const located = locateReadmeRow(source, plan, aliases);
+
+    if (!located.valid) {
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, located.reason);
+    }
+
+    if (located.row) {
+        if (located.row === base.snippet) {
+            return surfaceResult(base, SURFACE_STATES.MATCH, `${plan.handle} maintainer row exactly matches generated content`);
+        }
+
+        if (!located.row.includes('engine designation pending first boot') || !located.row.endsWith('| Machine Account |')) {
+            return surfaceResult(base, SURFACE_STATES.DIVERGENT, `${plan.handle} maintainer row is human-edited or activated; refusing to replace it as generated onboarding content`);
+        }
+
+        return surfaceResult(
+            base,
+            SURFACE_STATES.DIVERGENT,
+            `${plan.handle} generated maintainer row differs from corrected family/login input; exact row repair planned`,
+            replaceExactRange(source, located.range, base.snippet)
+        );
     }
 
     const lines     = source.split('\n'),
           headerIdx = lines.indexOf('| Name | Maintainer | Role | Identity |');
 
     if (headerIdx === -1) {
-        return {...base, status: 'invalid', reason: `insertion anchor not found: the '| Name | Maintainer | Role | Identity |' table header is missing from ${SURFACE_PATHS.readme}`, updated: null};
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, `insertion anchor not found: the '| Name | Maintainer | Role | Identity |' table header is missing from ${SURFACE_PATHS.readme}`);
     }
 
     let end = headerIdx + 1;
@@ -457,14 +784,13 @@ export function planReadmeSurface(source, plan) {
 
     lines.splice(end, 0, base.snippet);
 
-    return {...base, status: 'insert', reason: null, updated: lines.join('\n')};
+    return surfaceResult(base, SURFACE_STATES.MISSING, `${plan.handle} has no maintainer row`, lines.join('\n'));
 }
 
 /**
- * @summary Plans the ModelStats.md surface: EXISTS when the section anchor or the resident's
- * id/githubLogin cell is already present; otherwise inserts the skeleton inside the pending
- * identities section, before the divider that closes it. Fail-closed when the heading or
- * divider is missing.
+ * @summary Classifies the exact ModelStats semantic section. MISSING inserts the skeleton,
+ * MATCH is byte-equal, and DIVERGENT repairs only the recognizable pending generator section;
+ * human-edited/activated sections fail closed.
  * @param {String} source Current file content
  * @param {Object} plan A valid plan from {@link buildOnboardingPlan}
  * @returns {{surface: String, path: String, status: String, reason: String|null, anchor: String, snippet: String, updated: String|null}}
@@ -473,38 +799,57 @@ export function planModelStatsSurface(source, plan) {
     const base = {surface: 'modelStats', path: SURFACE_PATHS.modelStats, anchor: 'inside §pending_swarm_identities, before the closing divider', snippet: renderModelStatsSection(plan)};
 
     if (typeof source !== 'string' || source === '') {
-        return {...base, status: 'invalid', reason: 'ModelStats source must be a non-empty string', updated: null};
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, 'ModelStats source must be a non-empty string');
     }
 
-    if (source.includes(`### §${plan.sectionAnchor}\n`) || source.includes('| `id` / `githubLogin` | `' + plan.handle + '` |')) {
-        return {...base, status: 'exists', reason: `${plan.handle} already has a ModelStats section`, updated: null};
+    const located = locateModelStatsSection(source, plan.sectionAnchor);
+
+    if (!located.valid) {
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, located.reason);
+    }
+
+    if (located.section) {
+        if (located.section === base.snippet) {
+            return surfaceResult(base, SURFACE_STATES.MATCH, `${plan.handle} ModelStats section exactly matches generated content`);
+        }
+
+        if (!isGeneratedModelStatsSection(located.section)) {
+            return surfaceResult(base, SURFACE_STATES.DIVERGENT, `${plan.handle} ModelStats section is human-edited or activated; refusing to replace it as generated onboarding content`);
+        }
+
+        return surfaceResult(
+            base,
+            SURFACE_STATES.DIVERGENT,
+            `${plan.handle} generated ModelStats section differs from corrected family/login input; exact section repair planned`,
+            replaceExactRange(source, located.range, base.snippet)
+        );
     }
 
     const headingIdx = source.indexOf('\n## §pending_swarm_identities');
 
     if (headingIdx === -1) {
-        return {...base, status: 'invalid', reason: `insertion anchor not found: the '## §pending_swarm_identities' heading is missing from ${SURFACE_PATHS.modelStats}`, updated: null};
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, `insertion anchor not found: the '## §pending_swarm_identities' heading is missing from ${SURFACE_PATHS.modelStats}`);
     }
 
     const dividerIdx = source.indexOf('\n---\n', headingIdx);
 
     if (dividerIdx === -1) {
-        return {...base, status: 'invalid', reason: `insertion anchor not found: no '---' divider closes §pending_swarm_identities in ${SURFACE_PATHS.modelStats}`, updated: null};
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, `insertion anchor not found: no '---' divider closes §pending_swarm_identities in ${SURFACE_PATHS.modelStats}`);
     }
 
     return {
         ...base,
-        status : 'insert',
-        reason : null,
-        updated: source.slice(0, dividerIdx) + '\n' + base.snippet + '\n' + source.slice(dividerIdx)
+        status    : SURFACE_STATES.MISSING,
+        reason    : `${plan.handle} has no ModelStats section`,
+        repairable: true,
+        updated   : source.slice(0, dividerIdx) + '\n' + base.snippet + '\n' + source.slice(dividerIdx)
     };
 }
 
 /**
- * @summary Plans the roster-pin spec surface: EXISTS when the spec already references the
- * resident's handle as a quoted literal (any existing reference means a pin or invariant
- * already covers the identity — emitting another block would duplicate coverage); otherwise
- * appends the pin block at the end of the spec.
+ * @summary Classifies the dedicated structural roster-pin describe. Incidental quoted-handle
+ * references are ignored; MISSING appends the pin, MATCH is byte-equal, and a uniquely-bounded
+ * DIVERGENT generated pin is repaired exactly.
  * @param {String} source Current file content
  * @param {Object} plan A valid plan from {@link buildOnboardingPlan}
  * @returns {{surface: String, path: String, status: String, reason: String|null, anchor: String, snippet: String, updated: String|null}}
@@ -513,18 +858,34 @@ export function planSpecSurface(source, plan) {
     const base = {surface: 'spec', path: SURFACE_PATHS.spec, anchor: 'appended at the end of the spec file', snippet: renderSpecPin(plan)};
 
     if (typeof source !== 'string' || source === '') {
-        return {...base, status: 'invalid', reason: 'spec source must be a non-empty string', updated: null};
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, 'spec source must be a non-empty string');
     }
 
-    if (source.includes(`'${plan.handle}'`)) {
-        return {...base, status: 'exists', reason: `${plan.handle} is already referenced by the roster spec`, updated: null};
+    const located = locateSpecPin(source, plan.handle);
+
+    if (!located.valid) {
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, located.reason);
+    }
+
+    if (located.block) {
+        if (located.block === base.snippet) {
+            return surfaceResult(base, SURFACE_STATES.MATCH, `${plan.handle} dedicated roster pin exactly matches generated content`);
+        }
+
+        return surfaceResult(
+            base,
+            SURFACE_STATES.DIVERGENT,
+            `${plan.handle} dedicated generated roster pin differs from corrected identity input; exact block repair planned`,
+            replaceExactRange(source, located.range, base.snippet)
+        );
     }
 
     return {
         ...base,
-        status : 'insert',
-        reason : null,
-        updated: source.replace(/\s*$/, '\n') + '\n' + base.snippet + '\n'
+        status    : SURFACE_STATES.MISSING,
+        reason    : `${plan.handle} has no dedicated structural roster pin`,
+        repairable: true,
+        updated   : source.replace(/\s*$/, '\n') + '\n' + base.snippet + '\n'
     };
 }
 
@@ -542,20 +903,22 @@ export function planOnboardingSurfaces(plan, files = {}) {
         return {valid: false, reason: 'planOnboardingSurfaces requires a valid plan from buildOnboardingPlan', surfaces: []};
     }
 
-    for (const key of ['identityRoots', 'modelStats', 'readme', 'spec']) {
+    for (const key of ONBOARDING_SURFACE_KEYS) {
         if (typeof files[key] !== 'string') {
             return {valid: false, reason: `missing file content for surface '${key}'`, surfaces: []};
         }
     }
 
+    const roster  = planRosterSurface(files.identityRoots, plan),
+          aliases = roster.previousGithubBody ? [roster.previousGithubBody] : [];
     const surfaces = [
-        planRosterSurface(files.identityRoots, plan),
-        planReadmeSurface(files.readme, plan),
+        roster,
+        planReadmeSurface(files.readme, plan, aliases),
         planModelStatsSurface(files.modelStats, plan),
         planSpecSurface(files.spec, plan)
     ];
 
-    const invalid = surfaces.find(surface => surface.status === 'invalid');
+    const invalid = surfaces.find(surface => surface.status === SURFACE_STATES.DIVERGENT && !surface.repairable);
 
     return {
         valid : !invalid,
@@ -565,12 +928,272 @@ export function planOnboardingSurfaces(plan, files = {}) {
 }
 
 /**
+ * @summary Extracts the current engine designation from one ModelStats `name` row while
+ * preserving any identity/social annotation suffix for an exact row-only rotation.
+ * @param {String} section Resident ModelStats section
+ * @returns {{valid: Boolean, reason: String|null, designation: String|null, suffix: String, row: String|null}}
+ */
+export function extractModelStatsDesignation(section) {
+    const row = section.split('\n').find(line => line.startsWith('| `name` | '));
+
+    if (!row || !row.endsWith(' |')) {
+        return {valid: false, reason: 'the resident ModelStats section has no exact `name` row', designation: null, suffix: '', row: null};
+    }
+
+    const value   = row.slice('| `name` | '.length, -2).trim(),
+          markers = [' (GitHub profile', ' (Social Name', ' (engine designation'],
+          indexes = markers.map(marker => value.indexOf(marker)).filter(index => index !== -1),
+          cut     = indexes.length > 0 ? Math.min(...indexes) : value.length;
+
+    return {valid: true, reason: null, designation: value.slice(0, cut).trim(), suffix: value.slice(cut), row};
+}
+
+/**
+ * @summary Rotation boundary for durable roots: the resident must exist and must not carry a
+ * flat `modelDesignation`. The source is never rewritten by this mode.
+ * @param {String} source identityRoots source
+ * @param {Object} plan Rotation plan
+ * @returns {Object}
+ */
+export function planRotationIdentityBoundary(source, plan) {
+    const base = {surface: 'identityRoots', path: SURFACE_PATHS.identityRoots, anchor: 'durable resident boundary (verified, never written by rotation)', snippet: ''};
+
+    if (typeof source !== 'string' || source === '') {
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, 'identityRoots source must be a non-empty string');
+    }
+
+    const located = locateRosterEntry(source, plan.handle);
+
+    if (!located.valid || !located.block) {
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, located.reason || `${plan.handle} is missing from durable identity roots; rotation cannot onboard a resident`);
+    }
+
+    if (/^\s*modelDesignation\s*:/m.test(located.block)) {
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, `${plan.handle} still carries flat modelDesignation in durable roots; rotation refuses to perpetuate the ADR-0032 violation`);
+    }
+
+    return surfaceResult(base, SURFACE_STATES.MATCH, `${plan.handle} durable root exists without flat modelDesignation; byte-stable by construction`);
+}
+
+/**
+ * @summary Plans the ModelStats half of a rotation by changing only the exact `name` row and
+ * retaining identity/social annotations byte-for-byte.
+ * @param {String} source ModelStats source
+ * @param {Object} plan Rotation plan
+ * @returns {Object}
+ */
+export function planRotationModelStatsSurface(source, plan) {
+    const base = {surface: 'modelStats', path: SURFACE_PATHS.modelStats, anchor: `§${plan.sectionAnchor} exact name row`, snippet: `| \`name\` | ${plan.designation} |`};
+
+    if (typeof source !== 'string' || source === '') {
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, 'ModelStats source must be a non-empty string');
+    }
+
+    const located = locateModelStatsSection(source, plan.sectionAnchor);
+
+    if (!located.valid || !located.section) {
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, located.reason || `${plan.handle} has no ModelStats section; rotation cannot invent capability history`);
+    }
+
+    const extracted = extractModelStatsDesignation(located.section);
+
+    if (!extracted.valid) {
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, extracted.reason);
+    }
+
+    base.previousDesignation = extracted.designation;
+
+    if (extracted.designation === plan.designation) {
+        return surfaceResult(base, SURFACE_STATES.MATCH, `${plan.handle} ModelStats name already records '${plan.designation}'`);
+    }
+
+    const desiredRow = `| \`name\` | ${plan.designation}${extracted.suffix} |`,
+          rowStart   = source.indexOf(extracted.row, located.range.start);
+
+    if (rowStart === -1 || rowStart >= located.range.end) {
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, `${plan.handle} ModelStats name row could not be bounded inside its section`);
+    }
+
+    base.snippet = desiredRow;
+
+    return surfaceResult(
+        base,
+        SURFACE_STATES.DIVERGENT,
+        `${plan.handle} ModelStats designation '${extracted.designation}' differs from '${plan.designation}'; exact name-row rotation planned`,
+        replaceExactRange(source, {start: rowStart, end: rowStart + extracted.row.length}, desiredRow)
+    );
+}
+
+/**
+ * @summary Plans the README half of a rotation by replacing the exact prior ModelStats
+ * designation inside the one resident row. Vendor/harness suffixes remain byte-stable.
+ * @param {String} source README source
+ * @param {Object} plan Rotation plan
+ * @param {String} previousDesignation Exact current ModelStats designation
+ * @returns {Object}
+ */
+export function planRotationReadmeSurface(source, plan, previousDesignation) {
+    const base = {surface: 'readme', path: SURFACE_PATHS.readme, anchor: `${plan.handle} exact maintainer row`, snippet: plan.designation};
+
+    if (typeof source !== 'string' || source === '') {
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, 'README source must be a non-empty string');
+    }
+
+    const located = locateReadmeRow(source, plan);
+
+    if (!located.valid || !located.row) {
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, located.reason || `${plan.handle} has no unique maintainer row; rotation refuses to create one`);
+    }
+
+    const occurrences = previousDesignation ? located.row.split(previousDesignation).length - 1 : 0;
+
+    if (occurrences !== 1) {
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, `${plan.handle} README row does not contain the prior ModelStats designation '${previousDesignation}' exactly once; refusing a broad prose rewrite`);
+    }
+
+    if (previousDesignation === plan.designation) {
+        return surfaceResult(base, SURFACE_STATES.MATCH, `${plan.handle} README row exactly records '${plan.designation}'`);
+    }
+
+    const desiredRow = located.row.replace(previousDesignation, plan.designation);
+
+    base.snippet = desiredRow;
+
+    return surfaceResult(
+        base,
+        SURFACE_STATES.DIVERGENT,
+        `${plan.handle} README designation '${previousDesignation}' differs from '${plan.designation}'; exact row rotation planned`,
+        replaceExactRange(source, located.range, desiredRow)
+    );
+}
+
+/**
+ * @summary Rotation boundary for the focused identity spec: evidence must already mention the
+ * resident, but engine text is never generated into the durable-root pin.
+ * @param {String} source identityRoots spec source
+ * @param {Object} plan Rotation plan
+ * @returns {Object}
+ */
+export function planRotationSpecBoundary(source, plan) {
+    const base = {surface: 'spec', path: SURFACE_PATHS.spec, anchor: 'durable identity continuity evidence (verified, never engine-rewritten)', snippet: ''};
+
+    if (typeof source !== 'string' || !source.includes(`'${plan.handle}'`)) {
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, `${plan.handle} has no exact quoted identity reference in the focused roots spec; rotation evidence is incomplete`);
+    }
+
+    return surfaceResult(base, SURFACE_STATES.MATCH, `${plan.handle} has focused durable-identity evidence; rotation leaves it byte-stable`);
+}
+
+/**
+ * @summary Rotation boundary for the migration snapshot: require the epoch/map authority and
+ * leave it byte-stable even when the desired live designation differs from the seed.
+ * @param {String} source identityRootsMigration source
+ * @returns {Object}
+ */
+export function planRotationMigrationBoundary(source) {
+    const base = {surface: 'migration', path: SURFACE_PATHS.migration, anchor: 'MIGRATION_EPOCH + REGISTRY_MODEL_DESIGNATIONS snapshot (verified, never written)', snippet: ''};
+
+    if (typeof source !== 'string' || !source.includes('export const MIGRATION_EPOCH') || !source.includes('export const REGISTRY_MODEL_DESIGNATIONS')) {
+        return surfaceResult(base, SURFACE_STATES.DIVERGENT, 'migration epoch/designation snapshot authority is missing; refusing a rotation that could retroject history');
+    }
+
+    return surfaceResult(base, SURFACE_STATES.MATCH, 'migration epoch snapshot preserved byte-for-byte; the new embodiment belongs to the era layer');
+}
+
+/**
+ * @summary Plans the corrected rotation ceremony. Only README + ModelStats can be writable;
+ * roots, focused spec, and migration snapshot are explicit byte-stable boundaries.
+ * @param {Object} plan Valid rotation plan
+ * @param {Object} files Current five surface contents
+ * @returns {{valid: Boolean, reason: String|null, surfaces: Object[]}}
+ */
+export function planRotationSurfaces(plan, files = {}) {
+    if (!plan || plan.mode !== 'rotation') {
+        return {valid: false, reason: 'planRotationSurfaces requires a rotation plan', surfaces: []};
+    }
+
+    for (const key of ROTATION_SURFACE_KEYS) {
+        if (typeof files[key] !== 'string') {
+            return {valid: false, reason: `missing file content for rotation surface '${key}'`, surfaces: []};
+        }
+    }
+
+    const modelStats = planRotationModelStatsSurface(files.modelStats, plan),
+          previous   = modelStats.previousDesignation;
+    const surfaces = [
+        planRotationIdentityBoundary(files.identityRoots, plan),
+        planRotationReadmeSurface(files.readme, plan, previous),
+        modelStats,
+        planRotationSpecBoundary(files.spec, plan),
+        planRotationMigrationBoundary(files.migration)
+    ];
+    const invalid = surfaces.find(surface => surface.status === SURFACE_STATES.DIVERGENT && !surface.repairable);
+
+    return {valid: !invalid, reason: invalid ? invalid.reason : null, surfaces};
+}
+
+/**
+ * @summary Renders the review-gated PR-body draft from the actual writable surface set.
+ * Evidence remains checkbox placeholders because ticket/PR ids and live receipts do not exist
+ * at generation time.
+ * @param {Object} plan Ceremony plan
+ * @param {Object} planned Surface plan
+ * @returns {String[]}
+ */
+export function renderPrBodyDraft(plan, planned) {
+    const changed = planned.surfaces.filter(surface => surface.updated !== null),
+          lines   = [
+              '## Generated PR-body draft',
+              '',
+              'Resolves #TICKET',
+              '',
+              `Completes the ${plan.mode} identity ceremony for ${plan.handle}.`,
+              '',
+              '## Changed Surfaces'
+          ];
+
+    if (changed.length === 0) {
+        lines.push('- None — exact generated/current content already matches.');
+    } else {
+        for (const surface of changed) {
+            lines.push(`- \`${surface.path}\` — ${surface.status}: ${surface.reason}`);
+        }
+    }
+
+    lines.push('', '## Evidence',
+        '- [ ] focused generator unit spec',
+        '- [ ] fresh-process CLI: initial / zero-op / corrected divergence / ambiguous refusal / rotation',
+        '- [ ] generated identity-roots spec (when onboarding writes a pin)',
+        '- [ ] `node --check ai/scripts/setup/generateRosterOnboarding.mjs`',
+        '- [ ] `git diff --check`');
+
+    if (plan.mode === 'rotation') {
+        lines.push('- [ ] durable identity root unchanged (no model designation write)',
+            '- [ ] migration epoch/designation snapshot unchanged (no retrojection)',
+            '- [ ] ModelStats update-history row completed after PR number exists',
+            '- [ ] deployed graph mutation/reseed: out of scope');
+    }
+
+    return lines;
+}
+
+/**
  * @summary Advisory notes printed with every payload — adjacent concerns the generator
  * deliberately does NOT write (they are either untouchable by rule or editorial).
  * @param {Object} plan A valid plan from {@link buildOnboardingPlan}
  * @returns {String[]}
  */
 export function renderAdvisoryNotes(plan) {
+    if (plan.mode === 'rotation') {
+        return [
+            '[generateRosterOnboarding] rotation boundaries (printed, never written):',
+            '  - Durable identityRoots stay byte-stable: model/family/capability truth belongs to the EmbodiedEpisode era chain (ADR-0032).',
+            '  - identityRootsMigration stays byte-stable: MIGRATION_EPOCH seed facts are history, never retrojected to the new designation.',
+            '  - ModelStats §update_history: add the designation transition with ticket + PR ids once they exist.',
+            '  - Opening/persisting the new era is observation-owned and outside this generator; deployed graph mutation is out of scope.'
+        ];
+    }
+
     return [
         '[generateRosterOnboarding] advisory (printed, never written):',
         '  - ModelStats §update_history: add a row citing the onboarding PR number once the PR exists.',
@@ -588,15 +1211,16 @@ export function renderAdvisoryNotes(plan) {
  */
 export function renderOnboardingReport(plan, planned) {
     const lines = [
-        `[generateRosterOnboarding] four-surface onboarding payload for ${plan.handle} (family: ${plan.family})`,
+        `[generateRosterOnboarding] ${plan.mode} ceremony for ${plan.handle} (family: ${plan.family})`,
         ''
     ];
 
     for (const surface of planned.surfaces) {
         lines.push(`  [${surface.status.toUpperCase()}] ${surface.path}`);
 
-        if (surface.status === 'insert') {
+        if (surface.updated !== null) {
             lines.push(`      anchor: ${surface.anchor}`);
+            lines.push(`      ${surface.reason}`);
             lines.push(...surface.snippet.split('\n').map(line => `      ${line}`.replace(/\s+$/, '')));
         } else {
             lines.push(`      ${surface.reason}`);
@@ -606,6 +1230,7 @@ export function renderOnboardingReport(plan, planned) {
     }
 
     lines.push(...renderAdvisoryNotes(plan));
+    lines.push('', ...renderPrBodyDraft(plan, planned));
 
     return lines;
 }
@@ -647,9 +1272,12 @@ export function checkWriteGuard({branch} = {}) {
  */
 export function parseGenerateArgs(argv = []) {
     const valueFlags = {
+        '--designation'    : 'designation',
         '--family'         : 'family',
         '--github-username': 'githubUsername',
-        '--handle'         : 'handle'
+        '--handle'         : 'handle',
+        '--mode'           : 'mode',
+        '--repo-root'      : 'repoRoot'
     };
 
     const booleanFlags = {
@@ -666,7 +1294,7 @@ export function parseGenerateArgs(argv = []) {
             return {valid: false, reason: `${flag} is rejected by design — Social Names are the post-boot peer-naming ritual (bearer-assented), never seed data`, options: null};
         }
 
-        if (ENGINE_CLASS_FLAGS.includes(flag)) {
+        if (ENGINE_CLASS_FLAGS.includes(flag) && flag !== '--designation') {
             return {valid: false, reason: `${flag} is rejected by design — engine facts are observation-owned and land through the source-cited ModelStats.md discipline at first boot, never as onboarding predictions`, options: null};
         }
 
@@ -694,8 +1322,8 @@ export function parseGenerateArgs(argv = []) {
 }
 
 /**
- * @summary Reads the four surface files from the repo root — the side-effect half's only read
- * surface.
+ * @summary Reads the fixed ceremony authority files from the repo root — four writable
+ * onboarding surfaces plus the rotation-only migration snapshot boundary.
  * @param {String} repoRoot Absolute repo root path
  * @returns {Object} File contents keyed `{identityRoots, modelStats, readme, spec}`
  */
@@ -719,7 +1347,13 @@ export function currentGitBranch(repoRoot) {
     try {
         return execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {cwd: repoRoot, encoding: 'utf8'}).trim();
     } catch {
-        return null;
+        try {
+            // A freshly-created work branch can be unborn (no commit yet): rev-parse rejects
+            // it, while symbolic-ref still proves HEAD is bound to a named branch.
+            return execFileSync('git', ['symbolic-ref', '--short', 'HEAD'], {cwd: repoRoot, encoding: 'utf8'}).trim();
+        } catch {
+            return null;
+        }
     }
 }
 
@@ -728,11 +1362,14 @@ export function currentGitBranch(repoRoot) {
  * @returns {void}
  */
 function printUsage() {
-    console.log('Usage: node ai/scripts/setup/generateRosterOnboarding.mjs --handle <s> --family <s>');
-    console.log('           [--github-username <s>] [--write]');
+    console.log('Usage: node ai/scripts/setup/generateRosterOnboarding.mjs [--mode onboarding] --handle <s> --family <s>');
+    console.log('           [--github-username <s>] [--repo-root <path>] [--write]');
+    console.log('       node ai/scripts/setup/generateRosterOnboarding.mjs --mode rotation --handle <s> --family <s>');
+    console.log('           --designation <s> [--github-username <s>] [--repo-root <path>] [--write]');
     console.log('');
-    console.log('  (no flags)  Dry-run — print the four proposed file modifications without applying them.');
-    console.log('  --write     Apply the insertions (branch-guarded: refuses on dev/main; EXISTS surfaces skipped).');
+    console.log('  (no flags)  Dry-run — classify and print the exact onboarding/rotation plan without applying it.');
+    console.log('  --write     Apply every planned MISSING/repairable-DIVERGENT surface (branch-guarded).');
+    console.log('  --repo-root Override the fixed-surface repository root (used by fresh-process contract tests).');
     console.log('');
     console.log('  There is deliberately NO model/engine flag (engine facts are observation-owned; they land');
     console.log('  source-cited in ModelStats.md at first boot) and NO social-name flag (Social Names are the');
@@ -740,8 +1377,8 @@ function printUsage() {
 }
 
 /**
- * @summary CLI entry: parse → plan → print; `--write` applies the insertions behind the branch
- * guard. Dry-run touches nothing.
+ * @summary CLI entry: parse → classify/plan → print; `--write` applies the complete validated
+ * write set behind the branch guard. Dry-run touches nothing.
  * @returns {Promise<void>}
  */
 async function main() {
@@ -758,7 +1395,8 @@ async function main() {
         return;
     }
 
-    const built = buildOnboardingPlan(parsed.options);
+    const {repoRoot: requestedRoot, ...ceremonyOptions} = parsed.options,
+          built                                         = buildOnboardingPlan(ceremonyOptions);
 
     if (!built.valid) {
         console.error(`[generateRosterOnboarding] FATAL: ${built.reason}`);
@@ -767,8 +1405,9 @@ async function main() {
     }
 
     const {plan}   = built,
-          repoRoot = path.resolve(path.dirname(__filename), '../../..'),
-          planned  = planOnboardingSurfaces(plan, readSurfaceFiles(repoRoot));
+          repoRoot = requestedRoot ? path.resolve(requestedRoot) : path.resolve(path.dirname(__filename), '../../..'),
+          files    = readSurfaceFiles(repoRoot),
+          planned  = plan.mode === 'rotation' ? planRotationSurfaces(plan, files) : planOnboardingSurfaces(plan, files);
 
     console.log(renderOnboardingReport(plan, planned).join('\n'));
     console.log('');
@@ -793,7 +1432,7 @@ async function main() {
     let written = 0;
 
     for (const surface of planned.surfaces) {
-        if (surface.status === 'insert') {
+        if (surface.updated !== null) {
             fs.writeFileSync(path.join(repoRoot, surface.path), surface.updated);
             console.log(`  [WROTE] ${surface.path}`);
             written++;

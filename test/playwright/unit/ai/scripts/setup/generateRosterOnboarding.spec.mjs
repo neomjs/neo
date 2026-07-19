@@ -13,14 +13,17 @@ setup({
     }
 });
 
-import {test, expect}  from '@playwright/test';
-import fs              from 'node:fs';
-import path            from 'node:path';
-import {fileURLToPath} from 'node:url';
-import Neo             from '../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../src/core/_export.mjs';
+import {test, expect}            from '@playwright/test';
+import {execFileSync, spawnSync} from 'node:child_process';
+import fs                        from 'node:fs';
+import os                        from 'node:os';
+import path                      from 'node:path';
+import {fileURLToPath}           from 'node:url';
+import Neo                       from '../../../../../../src/Neo.mjs';
+import * as core                 from '../../../../../../src/core/_export.mjs';
 import {
     ENGINE_CLASS_KEYS,
+    SURFACE_STATES,
     SOCIAL_NAME_CLASS_KEYS,
     SURFACE_PATHS,
     buildOnboardingPlan,
@@ -32,15 +35,18 @@ import {
     planOnboardingSurfaces,
     planReadmeSurface,
     planRosterSurface,
+    planRotationSurfaces,
     planSpecSurface,
     renderModelStatsSection,
     renderOnboardingReport,
     renderReadmeRow,
     renderRosterEntry,
-    renderSpecPin
+    renderSpecPin,
+    renderPrBodyDraft
 } from '../../../../../../ai/scripts/setup/generateRosterOnboarding.mjs';
 
-const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..');
+const REPO_ROOT   = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..');
+const SCRIPT_PATH = path.join(REPO_ROOT, 'ai/scripts/setup/generateRosterOnboarding.mjs');
 
 const FIXED_NOW    = '2026-07-10T12:00:00.000Z';
 const BASE_OPTIONS = Object.freeze({
@@ -134,11 +140,112 @@ test.describe('existing', () => {
 });
 `;
 
+const MIGRATION_FIXTURE = `export const MIGRATION_EPOCH = '2026-07-04T00:00:00Z';
+export const REGISTRY_MODEL_DESIGNATIONS = Object.freeze({'@neo-gpt': 'GPT-5.5'});
+`;
+
 const FIXTURE_FILES = Object.freeze({
     identityRoots: ROSTER_FIXTURE,
+    migration    : MIGRATION_FIXTURE,
     modelStats   : MODEL_STATS_FIXTURE,
     readme       : README_FIXTURE,
     spec         : SPEC_FIXTURE
+});
+
+const ROTATION_FILES = Object.freeze({
+    identityRoots: `export const IDENTITIES = [
+    {
+        id         : '@neo-gpt',
+        type       : 'AgentIdentity',
+        name       : 'Euclid',
+        description: 'Stable resident compatibility prose',
+        properties : {
+            githubLogin        : '@neo-gpt',
+            displayName        : 'Euclid',
+            modelFamily        : 'gpt',
+            participationStatus: 'active'
+        }
+    },
+    {
+        id         : 'AGENT:*',
+        type       : 'BroadcastSentinel',
+        properties : {}
+    }
+];
+`,
+    migration : MIGRATION_FIXTURE,
+    modelStats: `# Model Stats Registry
+
+### §neo_gpt
+
+| Field | Value |
+|---|---|
+| \`id\` / \`githubLogin\` | \`@neo-gpt\` |
+| \`name\` | GPT-5.5 |
+| \`family\` | \`gpt\` (OpenAI) |
+
+## §update_history
+
+| Date | Identity | Change | Reference |
+|---|---|---|---|
+`,
+    readme: `# Fixture
+
+| Name | Maintainer | Role | Identity |
+|---|---|---|---|
+| Euclid | [@neo-gpt](https://github.com/neo-gpt) | AI maintainer (OpenAI GPT-5.5 / Codex) | Machine Account |
+`,
+    spec: `test.describe('identity continuity', () => {
+    test('pins @neo-gpt', () => {
+        expect(IDENTITIES.find(node => node.id === '@neo-gpt')).toBeTruthy();
+    });
+});
+`
+});
+
+const fixtureRoots = [];
+
+/**
+ * @summary Creates a real temporary git worktree carrying the generator's fixed surfaces.
+ * @param {Object} [files] Surface contents
+ * @returns {String} Temporary repo root
+ */
+function createFixtureRepo(files = FIXTURE_FILES) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-roster-generator-'));
+
+    fixtureRoots.push(root);
+
+    for (const [key, relative] of Object.entries(SURFACE_PATHS)) {
+        const target = path.join(root, relative);
+
+        fs.mkdirSync(path.dirname(target), {recursive: true});
+        fs.writeFileSync(target, files[key], 'utf8');
+    }
+
+    execFileSync('git', ['init', '-b', 'fixture/identity-ceremony'], {cwd: root, stdio: 'ignore'});
+
+    return root;
+}
+
+/**
+ * @summary Executes the real CLI in a fresh Node process against an isolated fixture repo.
+ * @param {String} root Fixture repo root
+ * @param {String[]} args CLI args before the injected repo-root
+ * @returns {{status: Number|null, stdout: String, stderr: String}}
+ */
+function runFreshCli(root, args) {
+    const result = spawnSync(process.execPath, [SCRIPT_PATH, ...args, '--repo-root', root], {
+        cwd     : REPO_ROOT,
+        encoding: 'utf8'
+    });
+
+    return {status: result.status, stdout: result.stdout, stderr: result.stderr};
+}
+
+test.afterAll(() => {
+    for (const root of fixtureRoots) {
+        fs.rmSync(root, {recursive: true, force: true});
+    }
 });
 
 test.describe('generateRosterOnboarding — plan construction (pure half)', () => {
@@ -281,28 +388,30 @@ test.describe('generateRosterOnboarding — surface emitters (pure half)', () =>
     });
 });
 
-test.describe('generateRosterOnboarding — surface planning (anchors + idempotency)', () => {
+test.describe('generateRosterOnboarding — surface planning (anchors + convergence)', () => {
 
-    test('roster surface: inserts immediately before the broadcast sentinel; a second run reports EXISTS', () => {
+    test('roster surface: MISSING inserts before the broadcast sentinel; exact rerun reports MATCH', () => {
         const plan  = buildPlan();
         const first = planRosterSurface(ROSTER_FIXTURE, plan);
 
-        expect(first.status).toBe('insert');
+        expect(first.status).toBe(SURFACE_STATES.MISSING);
         expect(first.updated).toContain(`id         : '@neo-unit-probe',`);
         expect(first.updated.indexOf(`'@neo-unit-probe'`)).toBeGreaterThan(first.updated.indexOf(`'@neo-existing'`));
         expect(first.updated.indexOf(`'@neo-unit-probe'`)).toBeLessThan(first.updated.indexOf(`'AGENT:*'`));
 
-        const second = planRosterSurface(first.updated, plan);
+        const laterPlan = buildPlan({now: '2026-07-11T12:00:00.000Z'}),
+              second    = planRosterSurface(first.updated, laterPlan);
 
-        expect(second.status).toBe('exists');
+        expect(second.status).toBe(SURFACE_STATES.MATCH);
         expect(second.updated).toBeNull();
+        expect(first.updated).toContain(`createdAt          : '${FIXED_NOW}'`);
     });
 
-    test('README surface: appends after the last roster-table row; a second run reports EXISTS', () => {
+    test('README surface: MISSING appends after the roster table; exact rerun reports MATCH', () => {
         const plan  = buildPlan();
         const first = planReadmeSurface(README_FIXTURE, plan);
 
-        expect(first.status).toBe('insert');
+        expect(first.status).toBe(SURFACE_STATES.MISSING);
 
         const lines  = first.updated.split('\n'),
               rowIdx = lines.indexOf(renderReadmeRow(plan));
@@ -313,15 +422,15 @@ test.describe('generateRosterOnboarding — surface planning (anchors + idempote
 
         const second = planReadmeSurface(first.updated, plan);
 
-        expect(second.status).toBe('exists');
+        expect(second.status).toBe(SURFACE_STATES.MATCH);
         expect(second.updated).toBeNull();
     });
 
-    test('ModelStats surface: inserts inside the pending section before its divider; a second run reports EXISTS', () => {
+    test('ModelStats surface: MISSING inserts inside pending; exact rerun reports MATCH', () => {
         const plan  = buildPlan();
         const first = planModelStatsSurface(MODEL_STATS_FIXTURE, plan);
 
-        expect(first.status).toBe('insert');
+        expect(first.status).toBe(SURFACE_STATES.MISSING);
 
         const sectionIdx = first.updated.indexOf('### §neo_unit_probe');
 
@@ -330,38 +439,111 @@ test.describe('generateRosterOnboarding — surface planning (anchors + idempote
 
         const second = planModelStatsSurface(first.updated, plan);
 
-        expect(second.status).toBe('exists');
+        expect(second.status).toBe(SURFACE_STATES.MATCH);
         expect(second.updated).toBeNull();
     });
 
-    test('spec surface: appends the pin at the end; a second run reports EXISTS', () => {
+    test('spec surface: MISSING appends the dedicated pin; exact rerun reports MATCH', () => {
         const plan  = buildPlan();
         const first = planSpecSurface(SPEC_FIXTURE, plan);
 
-        expect(first.status).toBe('insert');
+        expect(first.status).toBe(SURFACE_STATES.MISSING);
         expect(first.updated.trimEnd().endsWith('});')).toBe(true);
         expect(first.updated.indexOf('@neo-unit-probe roster pin')).toBeGreaterThan(first.updated.indexOf(`node.id === '@neo-existing'`));
 
         const second = planSpecSurface(first.updated, plan);
 
-        expect(second.status).toBe('exists');
+        expect(second.status).toBe(SURFACE_STATES.MATCH);
         expect(second.updated).toBeNull();
     });
 
-    test('a ModelStats anchor prefix-collision does not false-report EXISTS (§neo_x vs §neo_x_sibling)', () => {
+    test('incidental quoted-handle prose does not satisfy the dedicated structural spec pin', () => {
+        const incidental = SPEC_FIXTURE + "\nconst unrelatedExample = '@neo-unit-probe';\n",
+              result     = planSpecSurface(incidental, buildPlan());
+
+        expect(result.status).toBe(SURFACE_STATES.MISSING);
+        expect(result.updated).toContain('@neo-unit-probe roster pin');
+    });
+
+    test('corrected family/login input repairs every unambiguous generated block, then converges to MATCH', () => {
+        const initialPlan = buildPlan(),
+              initial     = planOnboardingSurfaces(initialPlan, FIXTURE_FILES),
+              applied     = Object.fromEntries(initial.surfaces.map(surface => [surface.surface, surface.updated]));
+
+        applied.migration = MIGRATION_FIXTURE;
+
+        const correctedPlan = buildPlan({family: 'gpt', githubUsername: '@neo-unit-probe-gh'}),
+              corrected     = planOnboardingSurfaces(correctedPlan, applied);
+
+        expect(corrected.valid).toBe(true);
+        expect(corrected.surfaces.map(surface => surface.status)).toEqual([
+            SURFACE_STATES.DIVERGENT,
+            SURFACE_STATES.DIVERGENT,
+            SURFACE_STATES.DIVERGENT,
+            SURFACE_STATES.DIVERGENT
+        ]);
+        expect(corrected.surfaces.every(surface => surface.repairable)).toBe(true);
+
+        const repaired = Object.fromEntries(corrected.surfaces.map(surface => [surface.surface, surface.updated]));
+
+        repaired.migration = MIGRATION_FIXTURE;
+
+        const converged = planOnboardingSurfaces(correctedPlan, repaired);
+
+        expect(converged.valid).toBe(true);
+        expect(converged.surfaces.map(surface => surface.status)).toEqual([
+            SURFACE_STATES.MATCH,
+            SURFACE_STATES.MATCH,
+            SURFACE_STATES.MATCH,
+            SURFACE_STATES.MATCH
+        ]);
+        expect((repaired.readme.match(/neo-unit-probe-gh/g) || [])).toHaveLength(2);
+        expect(repaired.readme).not.toContain('github.com/neo-unit-probe)');
+    });
+
+    test('a corrected custom login replaces the prior custom-login row instead of appending', () => {
+        const initialPlan = buildPlan({githubUsername: '@neo-unit-old'}),
+              initial     = planOnboardingSurfaces(initialPlan, FIXTURE_FILES),
+              applied     = Object.fromEntries(initial.surfaces.map(surface => [surface.surface, surface.updated])),
+              corrected   = planOnboardingSurfaces(buildPlan({githubUsername: '@neo-unit-new'}), applied),
+              readme      = corrected.surfaces.find(surface => surface.surface === 'readme');
+
+        expect(corrected.valid).toBe(true);
+        expect(readme.status).toBe(SURFACE_STATES.DIVERGENT);
+        expect((readme.updated.match(/github\.com\/neo-unit-new/g) || [])).toHaveLength(1);
+        expect(readme.updated).not.toContain('github.com/neo-unit-old');
+    });
+
+    test('ambiguous legacy content fails the whole plan before any partial write is applicable', () => {
+        const duplicate = README_FIXTURE.replace(
+                  '\nTrailing prose.',
+                  '\n| - | [@neo-unit-probe](https://github.com/neo-unit-probe) | legacy | Machine Account |\n| - | [@neo-unit-probe](https://github.com/neo-unit-probe) | duplicate | Machine Account |\n\nTrailing prose.'
+              ),
+              planned = planOnboardingSurfaces(buildPlan(), {...FIXTURE_FILES, readme: duplicate});
+
+        expect(planned.valid).toBe(false);
+        expect(planned.reason).toContain('2 maintainer rows');
+        expect(planned.surfaces.find(surface => surface.surface === 'readme')).toMatchObject({
+            status    : SURFACE_STATES.DIVERGENT,
+            repairable: false,
+            updated   : null
+        });
+    });
+
+    test('a ModelStats anchor prefix-collision does not false-report MATCH (§neo_x vs §neo_x_sibling)', () => {
         const sibling = MODEL_STATS_FIXTURE.replace('### §neo_gpt', '### §neo_unit_probe_sibling');
         const result  = planModelStatsSurface(sibling, buildPlan());
 
-        expect(result.status).toBe('insert');
+        expect(result.status).toBe(SURFACE_STATES.MISSING);
     });
 
     test('missing insertion anchors refuse loudly instead of guessing', () => {
         const plan = buildPlan();
 
-        expect(planRosterSurface('export const IDENTITIES = [];\n', plan).status).toBe('invalid');
-        expect(planReadmeSurface('# No table here\n', plan).status).toBe('invalid');
-        expect(planModelStatsSurface('# No pending heading\n', plan).status).toBe('invalid');
-        expect(planSpecSurface('', plan).status).toBe('invalid');
+        expect(planRosterSurface('export const IDENTITIES = [];\n', plan).status).toBe(SURFACE_STATES.DIVERGENT);
+        expect(planReadmeSurface('# No table here\n', plan).status).toBe(SURFACE_STATES.DIVERGENT);
+        expect(planModelStatsSurface('# No pending heading\n', plan).status).toBe(SURFACE_STATES.DIVERGENT);
+        expect(planSpecSurface('', plan).status).toBe(SURFACE_STATES.DIVERGENT);
     });
 
     test('planOnboardingSurfaces is fail-closed: missing file content or an invalid surface invalidates the payload', () => {
@@ -380,7 +562,12 @@ test.describe('generateRosterOnboarding — surface planning (anchors + idempote
         const healthy = planOnboardingSurfaces(plan, FIXTURE_FILES);
 
         expect(healthy.valid).toBe(true);
-        expect(healthy.surfaces.map(surface => surface.status)).toEqual(['insert', 'insert', 'insert', 'insert']);
+        expect(healthy.surfaces.map(surface => surface.status)).toEqual([
+            SURFACE_STATES.MISSING,
+            SURFACE_STATES.MISSING,
+            SURFACE_STATES.MISSING,
+            SURFACE_STATES.MISSING
+        ]);
     });
 
     test('the dry-run report prints status, anchor, and the exact snippet per surface, plus the advisory notes', () => {
@@ -388,43 +575,119 @@ test.describe('generateRosterOnboarding — surface planning (anchors + idempote
         const planned = planOnboardingSurfaces(plan, FIXTURE_FILES);
         const report  = renderOnboardingReport(plan, planned).join('\n');
 
-        expect(report).toContain('[INSERT] ai/graph/identityRoots.mjs');
-        expect(report).toContain('[INSERT] README.md');
-        expect(report).toContain('[INSERT] learn/agentos/ModelStats.md');
-        expect(report).toContain('[INSERT] test/playwright/unit/ai/graph/identityRoots.spec.mjs');
+        expect(report).toContain('[MISSING] ai/graph/identityRoots.mjs');
+        expect(report).toContain('[MISSING] README.md');
+        expect(report).toContain('[MISSING] learn/agentos/ModelStats.md');
+        expect(report).toContain('[MISSING] test/playwright/unit/ai/graph/identityRoots.spec.mjs');
         expect(report).toContain('anchor: immediately before the');
         expect(report).toContain('advisory (printed, never written)');
 
-        // EXISTS surfaces report the reason instead of a duplicate snippet
+        // MATCH surfaces report the reason instead of a duplicate snippet
         const readme   = planned.surfaces.find(surface => surface.surface === 'readme');
         const applied  = planOnboardingSurfaces(plan, {...FIXTURE_FILES, readme: readme.updated});
         const rerender = renderOnboardingReport(plan, applied).join('\n');
 
-        expect(rerender).toContain('[EXISTS] README.md');
+        expect(rerender).toContain('[MATCH] README.md');
+    });
+});
+
+test.describe('generateRosterOnboarding — rotation hindcast (#14901 / PR #14902)', () => {
+
+    test('rotates only README + ModelStats while roots, spec, and migration epoch stay byte-stable', () => {
+        const plan = buildPlan({
+                  designation: 'GPT-5.6 Sol',
+                  family     : 'gpt',
+                  handle     : '@neo-gpt',
+                  mode       : 'rotation'
+              }),
+              planned = planRotationSurfaces(plan, ROTATION_FILES);
+
+        expect(planned.valid).toBe(true);
+        expect(planned.surfaces.map(surface => surface.status)).toEqual([
+            SURFACE_STATES.MATCH,
+            SURFACE_STATES.DIVERGENT,
+            SURFACE_STATES.DIVERGENT,
+            SURFACE_STATES.MATCH,
+            SURFACE_STATES.MATCH
+        ]);
+        expect(planned.surfaces.filter(surface => surface.updated !== null).map(surface => surface.path)).toEqual([
+            'README.md',
+            'learn/agentos/ModelStats.md'
+        ]);
+        expect(planned.surfaces.find(surface => surface.surface === 'readme').updated).toContain('OpenAI GPT-5.6 Sol / Codex');
+        expect(planned.surfaces.find(surface => surface.surface === 'modelStats').updated).toContain('| `name` | GPT-5.6 Sol |');
+        expect(planned.surfaces.find(surface => surface.surface === 'identityRoots').updated).toBeNull();
+        expect(planned.surfaces.find(surface => surface.surface === 'migration').updated).toBeNull();
+        expect(ROTATION_FILES.migration).toContain("'@neo-gpt': 'GPT-5.5'");
+
+        const draft = renderPrBodyDraft(plan, planned).join('\n');
+
+        expect(draft).toContain('`README.md`');
+        expect(draft).toContain('`learn/agentos/ModelStats.md`');
+        expect(draft).not.toContain('`ai/graph/identityRoots.mjs` —');
+        expect(draft).not.toContain('`ai/graph/identityRootsMigration.mjs` —');
+        expect(draft).toContain('migration epoch/designation snapshot unchanged');
+    });
+
+    test('rerunning the repaired rotation is a five-surface MATCH', () => {
+        const plan  = buildPlan({designation: 'GPT-5.6 Sol', family: 'gpt', handle: '@neo-gpt', mode: 'rotation'}),
+              first = planRotationSurfaces(plan, ROTATION_FILES),
+              files = {
+                  ...ROTATION_FILES,
+                  modelStats: first.surfaces.find(surface => surface.surface === 'modelStats').updated,
+                  readme    : first.surfaces.find(surface => surface.surface === 'readme').updated
+              },
+              second = planRotationSurfaces(plan, files);
+
+        expect(second.valid).toBe(true);
+        expect(second.surfaces.every(surface => surface.status === SURFACE_STATES.MATCH)).toBe(true);
+        expect(second.surfaces.every(surface => surface.updated === null)).toBe(true);
+    });
+
+    test('a desired designation that is only a substring of the prior designation still rotates both mirrors', () => {
+        const plan  = buildPlan({designation: 'GPT-5.5', family: 'gpt', handle: '@neo-gpt', mode: 'rotation'}),
+              files = {
+                  ...ROTATION_FILES,
+                  modelStats: ROTATION_FILES.modelStats.replace('| `name` | GPT-5.5 |', '| `name` | GPT-5.5 Preview |'),
+                  readme    : ROTATION_FILES.readme.replace('OpenAI GPT-5.5 / Codex', 'OpenAI GPT-5.5 Preview / Codex')
+              },
+              planned = planRotationSurfaces(plan, files),
+              readme  = planned.surfaces.find(surface => surface.surface === 'readme');
+
+        expect(planned.valid).toBe(true);
+        expect(readme.status).toBe(SURFACE_STATES.DIVERGENT);
+        expect(readme.updated).toContain('OpenAI GPT-5.5 / Codex');
+        expect(readme.updated).not.toContain('GPT-5.5 Preview');
     });
 });
 
 test.describe('generateRosterOnboarding — live-file anchoring (the anchors must match the real shapes)', () => {
 
-    test('a fresh resident plans INSERT on all four REAL surfaces', () => {
+    test('a fresh resident plans MISSING on all four REAL onboarding surfaces', () => {
         const planned = planOnboardingSurfaces(buildPlan(), readRealFiles());
 
         expect(planned.valid).toBe(true);
-        expect(planned.surfaces.map(surface => surface.status)).toEqual(['insert', 'insert', 'insert', 'insert']);
+        expect(planned.surfaces.map(surface => surface.status)).toEqual([
+            SURFACE_STATES.MISSING,
+            SURFACE_STATES.MISSING,
+            SURFACE_STATES.MISSING,
+            SURFACE_STATES.MISSING
+        ]);
     });
 
-    test('an existing resident (@neo-fable) reports EXISTS on all four REAL surfaces — no duplicates possible', () => {
+    test('an activated resident (@neo-fable) is DIVERGENT and refuses onboarding overwrite', () => {
         const planned = planOnboardingSurfaces(buildPlan({handle: '@neo-fable'}), readRealFiles());
 
-        expect(planned.valid).toBe(true);
-        expect(planned.surfaces.map(surface => surface.status)).toEqual(['exists', 'exists', 'exists', 'exists']);
+        expect(planned.valid).toBe(false);
+        expect(planned.surfaces[0].status).toBe(SURFACE_STATES.DIVERGENT);
+        expect(planned.surfaces[0].repairable).toBe(false);
     });
 
     test('the applied REAL roster output is valid JavaScript and lands the Layer-1 entry (data-URL import)', async () => {
         const plan   = buildPlan();
         const result = planRosterSurface(readRealFiles().identityRoots, plan);
 
-        expect(result.status).toBe('insert');
+        expect(result.status).toBe(SURFACE_STATES.MISSING);
 
         const module_ = await import('data:text/javascript;base64,' + Buffer.from(result.updated, 'utf8').toString('base64'));
         const entry   = module_.IDENTITIES.find(node => node.id === '@neo-unit-probe');
@@ -473,7 +736,8 @@ test.describe('generateRosterOnboarding — CLI contract + write guard', () => {
 
         const designation = parseGenerateArgs(['--designation', 'some-engine-5']);
 
-        expect(designation.valid).toBe(false);
+        expect(designation.valid).toBe(true);
+        expect(buildOnboardingPlan({...BASE_OPTIONS, designation: 'some-engine-5'}).valid).toBe(false);
 
         const social = parseGenerateArgs(['--handle', '@neo-x', '--family', 'claude', '--social-name', 'Muse']);
 
@@ -498,5 +762,92 @@ test.describe('generateRosterOnboarding — CLI contract + write guard', () => {
             help          : false,
             write         : true
         });
+    });
+});
+
+test.describe('generateRosterOnboarding — fresh-process CLI convergence', () => {
+
+    const onboardingArgs = ['--handle', '@neo-unit-probe', '--family', 'claude'];
+
+    test('initial onboarding writes four surfaces; same-input rerun is a zero-op MATCH', () => {
+        const root = createFixtureRepo(),
+              dry  = runFreshCli(root, onboardingArgs);
+
+        expect(dry.status).toBe(0);
+        expect((dry.stdout.match(/\[MISSING\]/g) || [])).toHaveLength(4);
+
+        const write = runFreshCli(root, [...onboardingArgs, '--write']);
+
+        expect(write.status).toBe(0);
+        expect((write.stdout.match(/\[WROTE\]/g) || [])).toHaveLength(4);
+
+        const rerun = runFreshCli(root, onboardingArgs);
+
+        expect(rerun.status).toBe(0);
+        expect((rerun.stdout.match(/\[MATCH\]/g) || [])).toHaveLength(4);
+        expect(rerun.stdout).toContain('- None — exact generated/current content already matches.');
+    });
+
+    test('corrected input is DIVERGENT-but-repairable and produces no duplicate README row', () => {
+        const root = createFixtureRepo();
+
+        expect(runFreshCli(root, [...onboardingArgs, '--write']).status).toBe(0);
+
+        const correctedArgs = ['--handle', '@neo-unit-probe', '--family', 'gpt', '--github-username', '@neo-unit-probe-gh'],
+              dry           = runFreshCli(root, correctedArgs);
+
+        expect(dry.status).toBe(0);
+        expect((dry.stdout.match(/\[DIVERGENT\]/g) || [])).toHaveLength(4);
+
+        const write = runFreshCli(root, [...correctedArgs, '--write']);
+
+        expect(write.status).toBe(0);
+
+        const readme = fs.readFileSync(path.join(root, SURFACE_PATHS.readme), 'utf8');
+
+        expect((readme.match(/github\.com\/neo-unit-probe-gh/g) || [])).toHaveLength(1);
+        expect(readme).not.toContain('github.com/neo-unit-probe)');
+    });
+
+    test('ambiguous legacy content fails before any sibling surface changes', () => {
+        const root       = createFixtureRepo(),
+              beforeRoot = fs.readFileSync(path.join(root, SURFACE_PATHS.identityRoots), 'utf8'),
+              duplicate  = FIXTURE_FILES.readme.replace(
+                  '\nTrailing prose.',
+                  '\n| - | [@neo-unit-probe](https://github.com/neo-unit-probe) | legacy | Machine Account |\n| - | [@neo-unit-probe](https://github.com/neo-unit-probe) | duplicate | Machine Account |\n\nTrailing prose.'
+              );
+
+        fs.writeFileSync(path.join(root, SURFACE_PATHS.readme), duplicate, 'utf8');
+
+        const result = runFreshCli(root, [...onboardingArgs, '--write']);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('refusing a duplicate or ambiguous rewrite');
+        expect(fs.readFileSync(path.join(root, SURFACE_PATHS.identityRoots), 'utf8')).toBe(beforeRoot);
+    });
+
+    test('rotation changes public/stat mirrors only and preserves the July-4 seed snapshot', () => {
+        const root            = createFixtureRepo(ROTATION_FILES),
+              identityBefore  = fs.readFileSync(path.join(root, SURFACE_PATHS.identityRoots), 'utf8'),
+              migrationBefore = fs.readFileSync(path.join(root, SURFACE_PATHS.migration), 'utf8'),
+              specBefore      = fs.readFileSync(path.join(root, SURFACE_PATHS.spec), 'utf8'),
+              args            = ['--mode', 'rotation', '--handle', '@neo-gpt', '--family', 'gpt', '--designation', 'GPT-5.6 Sol', '--write'],
+              result          = runFreshCli(root, args);
+
+        expect(result.status).toBe(0);
+        expect((result.stdout.match(/\[WROTE\]/g) || [])).toHaveLength(2);
+        expect(fs.readFileSync(path.join(root, SURFACE_PATHS.identityRoots), 'utf8')).toBe(identityBefore);
+        expect(fs.readFileSync(path.join(root, SURFACE_PATHS.migration), 'utf8')).toBe(migrationBefore);
+        expect(fs.readFileSync(path.join(root, SURFACE_PATHS.spec), 'utf8')).toBe(specBefore);
+        expect(fs.readFileSync(path.join(root, SURFACE_PATHS.readme), 'utf8')).toContain('OpenAI GPT-5.6 Sol / Codex');
+        expect(fs.readFileSync(path.join(root, SURFACE_PATHS.modelStats), 'utf8')).toContain('| `name` | GPT-5.6 Sol |');
+    });
+
+    test('strict GitHub-login syntax fails in the real CLI process', () => {
+        const root   = createFixtureRepo(),
+              result = runFreshCli(root, [...onboardingArgs, '--github-username', '@bad--login']);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('no consecutive hyphens');
     });
 });
