@@ -281,8 +281,9 @@ test.describe('ai/graph/identityRoots — identity anti-lock-in', () => {
  * @summary Roster pin for the onboarded resident @neo-kimi-iris: Layer-1 identity invariants only.
  *
  * Lifecycle state (participationStatus) is deliberately unpinned — status flips are their own
- * PRs. The engine-fact absence assertions hold until the activation flip lands source-cited
- * capability fields; that PR updates this pin alongside the roster entry.
+ * PRs. The engine-fact absence assertions hold indefinitely — capability facts live in
+ * ModelStats.md by design (observation-owned); the activation flip updated the displayName pin
+ * alongside the roster entry.
  */
 test.describe('ai/graph/identityRoots — @neo-kimi-iris roster pin', () => {
     const findIdentity = id => IDENTITIES.find(node => node.type === 'AgentIdentity' && node.id === id);
@@ -296,7 +297,7 @@ test.describe('ai/graph/identityRoots — @neo-kimi-iris roster pin', () => {
             type      : 'AgentIdentity',
             properties: {
                 githubLogin: '@neo-kimi-iris',
-                displayName: 'Neo Kimi Iris',
+                displayName: 'Iris',
                 modelFamily: 'kimi',
                 accountType: 'agent',
                 trustTier  : 'peer-trusted'
