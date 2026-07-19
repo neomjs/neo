@@ -79,7 +79,7 @@ const PATHOLOGICAL_ROSTER = [
 const CARD_WIDTHS = [
     {label: 'narrow-294', width: 294},
     {label: 'regular-360', width: 360},
-    {label: 'roomy-480', width: 480}
+    {label: 'roomy-720', width: 720}   // the live-AC roomy width — the wide alignment mode at full breadth
 ];
 
 test.describe('AgentOS fleet cockpit — AgentCard evolved-D synthesis render at pathological density (card-width matrix)', () => {
