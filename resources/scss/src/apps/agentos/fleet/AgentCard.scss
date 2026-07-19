@@ -198,6 +198,13 @@
         background   : transparent;
         color        : var(--fm-ink-dim);
 
+        /* the hover wash + ink animate with the app's motion tokens (never a hard cut); the
+           reduced-motion guard hands those users the instant state, losing nothing informational —
+           the wash is affordance feedback, not signal (operator UX direction 2026-07-19) */
+        @media (prefers-reduced-motion: no-preference) {
+            transition: background var(--motion-fast) var(--ease-out-soft), color var(--motion-fast) var(--ease-out-soft);
+        }
+
         .neo-button-text {
             display: none;
         }

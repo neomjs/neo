@@ -28,8 +28,8 @@ import {describeTelltale}                        from './telltale.mjs';
  *   the three 9px markers; full facts stay reachable via the drill (detail), never hover-only.
  *
  * **Width modes are card-owned** (SCSS `@container`): narrow (<320px) scales the avatar to 32px,
- * hides the engine tag, and collapses the actions to one 44px target; regular/wide keep the full
- * identity. Severity changes the state-word's **weight** on a text-safe ink, never the dot's hue as
+ * hides the engine tag, and grows the inline lifecycle verbs to a 44px touch target — they stay
+ * visible (no overflow menu); regular/wide keep the full identity. Severity changes the state-word's **weight** on a text-safe ink, never the dot's hue as
  * text (the WCAG 1.4.1→1.4.3 trap avoided by construction — the visible state word is always the
  * colour-independent carrier).
  *
@@ -75,8 +75,9 @@ class AgentCard extends Container {
          */
         controller: AgentCardController,
         /**
-         * The family rail is a left `::before` on the card root (SCSS), so the root stacks the three
-         * anatomy rows directly — one container level fewer than the rail-as-child shape.
+         * The vbox stacks the three anatomy rows (head / work-row / strip). {@link AgentOS.view.fleet.FamilyRail}
+         * is a child — the family-colour owner — positioned by SCSS as a 3px full-height left accent, out of
+         * the vertical flow, so it costs no row height.
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @reactive
          */

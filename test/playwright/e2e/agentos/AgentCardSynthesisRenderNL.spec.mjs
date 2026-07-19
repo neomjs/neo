@@ -195,5 +195,22 @@ test.describe('AgentOS fleet cockpit — AgentCard evolved-D synthesis render at
 
             await captureWidthMatrix(theme.replace('neo-theme-neo-', ''))
         }
+
+        // Motion contract (RA-2 delta): the ghost hover animates with the app's motion tokens, and the
+        // reduced-motion contract is honored by construction — a reduced-motion user gets the instant state
+        // (the wash is affordance feedback, not signal, so nothing informational is lost). A static golden
+        // proves only the END state, so this is the deterministic motion witness: the animated background
+        // wash is present in the transition set under no-preference and absent under reduce (robust to the
+        // Button base's own outline-width transition).
+        const actionTransitionProperty = () => page.evaluate(() =>
+            getComputedStyle(document.querySelector('.fm-card-action')).transitionProperty);
+
+        await page.emulateMedia({reducedMotion: 'no-preference'});
+        expect(await actionTransitionProperty(), 'the ghost action animates its background wash under no-preference').toMatch(/background/);
+
+        await page.emulateMedia({reducedMotion: 'reduce'});
+        expect(await actionTransitionProperty(), 'reduced-motion users get the instant state — the wash is not animated').not.toMatch(/background/);
+
+        await page.emulateMedia({reducedMotion: null})
     });
 });
