@@ -123,6 +123,10 @@ sent-to-cull.jsonl
 # Per-seat OpenCode harness config (seat-personal; the #15392 seat-config generator emits it — never track it)
 /opencode.jsonc
 
+# Per-seat Kimi Code harness config (seat-personal; hook adapters under .kimi-code/hooks/ stay tracked, Claude/Codex parity)
+/.kimi-code/mcp.json
+/.kimi-code/config.toml
+
 # Playwright test results
 test/playwright/test-results/
 # Single-file Playwright runs via npx

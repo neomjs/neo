@@ -2066,54 +2066,42 @@ test.describe('Wake Daemon', () => {
         const subId   = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-kimi-server';
 
-        // Stub the seat's `kimi server`: captures the sessions GET (session resolution) and the
-        // submitPrompt POST. Session candidates pin the resolution contract: freshest non-archived
-        // session rooted at the seat checkout wins.
+        // Stub the seat's `kimi server`: captures the submitPrompt POST. The session authority
+        // comes from the wake envelope (SessionStart-hook writer contract), never from a
+        // session-index heuristic.
         const captured   = [];
         const stubServer = http.createServer((req, res) => {
             let body = '';
             req.on('data', chunk => body += chunk);
             req.on('end', () => {
                 captured.push({method: req.method, url: req.url, headers: req.headers, body});
-
-                if (req.method === 'GET' && req.url === '/api/v1/sessions') {
-                    res.writeHead(200, {'content-type': 'application/json'});
-                    res.end(JSON.stringify({code: 0, msg: 'success', data: {items: [
-                        {id: 'ses_kimi_stale', archived: false, updated_at: '2026-07-19T10:00:00.000Z', metadata: {cwd: '/seat/checkout'}},
-                        {id: 'ses_kimi_live',  archived: false, updated_at: '2026-07-19T20:00:00.000Z', metadata: {cwd: '/seat/checkout'}},
-                        {id: 'ses_other_cwd',  archived: false, updated_at: '2026-07-19T21:00:00.000Z', metadata: {cwd: '/other/checkout'}},
-                        {id: 'ses_archived',   archived: true,  updated_at: '2026-07-19T22:00:00.000Z', metadata: {cwd: '/seat/checkout'}}
-                    ]}}));
-                } else if (req.method === 'POST') {
-                    res.writeHead(200, {'content-type': 'application/json'});
-                    res.end(JSON.stringify({code: 0, msg: 'success', data: {
-                        prompt_id      : 'prompt_test',
-                        user_message_id: 'msg_test',
-                        status         : 'running',
-                        content        : []
-                    }}));
-                } else {
-                    res.writeHead(404);
-                    res.end();
-                }
+                res.writeHead(200, {'content-type': 'application/json'});
+                res.end(JSON.stringify({code: 0, msg: 'success', data: {
+                    prompt_id      : 'prompt_test',
+                    user_message_id: 'msg_test',
+                    status         : 'running',
+                    content        : []
+                }}));
             });
         });
         await new Promise(resolve => stubServer.listen(0, '127.0.0.1', resolve));
         const stubPort = stubServer.address().port;
 
-        const lockPath  = path.join(DAEMON_DIR, 'kimi-server-lock.json');
-        const tokenPath = path.join(DAEMON_DIR, 'kimi-server.token');
+        const lockPath     = path.join(DAEMON_DIR, 'kimi-server-lock.json');
+        const tokenPath    = path.join(DAEMON_DIR, 'kimi-server.token');
+        const envelopePath = path.join(DAEMON_DIR, 'kimi-wake-envelope.json');
         fs.writeJsonSync(lockPath, {host: '127.0.0.1', pid: 424242, port: stubPort, started_at: '2026-07-19T20:00:00.000Z'});
         fs.writeFileSync(tokenPath, 'kimi-test-token\n');
+        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_live', cwd: '/seat/checkout', updatedAt: '2026-07-19T20:00:00.000Z'});
 
         insertWakeSubscription(db, {
             subId,
             agentId,
             harnessTargetMetadata: {
                 adapter       : 'kimi-server',
+                envelopePath,
                 lockPath,
                 tokenPath,
-                cwd           : '/seat/checkout',
                 coalesceWindow: 1
             }
         });
@@ -2171,14 +2159,9 @@ test.describe('Wake Daemon', () => {
 
             await deliveryPromise;
 
-            expect(captured.length).toBe(2);
+            expect(captured.length).toBe(1);
 
-            const listCall = captured[0];
-            expect(listCall.method).toBe('GET');
-            expect(listCall.url).toBe('/api/v1/sessions');
-            expect(listCall.headers.authorization).toBe('Bearer kimi-test-token');
-
-            const submitCall = captured[1];
+            const submitCall = captured[0];
             expect(submitCall.method).toBe('POST');
             expect(submitCall.url).toBe('/api/v1/sessions/ses_kimi_live/prompts');
             expect(submitCall.headers.authorization).toBe('Bearer kimi-test-token');
@@ -2196,11 +2179,62 @@ test.describe('Wake Daemon', () => {
         }
     });
 
+    test('kimi-server fails visibly without a wake envelope instead of retargeting heuristically (#15579)', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-kimi-server-no-envelope';
+
+        // No envelope file: the adapter must refuse visibly (failed, never delivered), not fall
+        // back to a session-index pick or to osascript.
+        const lockPath  = path.join(DAEMON_DIR, 'kimi-server-lock-no-envelope.json');
+        const tokenPath = path.join(DAEMON_DIR, 'kimi-server-no-envelope.token');
+        fs.writeJsonSync(lockPath, {host: '127.0.0.1', pid: 424242, port: 1, started_at: '2026-07-19T20:00:00.000Z'});
+        fs.writeFileSync(tokenPath, 'kimi-test-token\n');
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'kimi-server',
+                envelopePath  : path.join(DAEMON_DIR, 'kimi-wake-envelope-MISSING.json'),
+                lockPath,
+                tokenPath,
+                coalesceWindow: 1
+            }
+        });
+
+        let stdoutLog = '';
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {
+                ...process.env,
+                NEO_MEMORY_DB_PATH: DB_PATH,
+                NEO_AI_DAEMON_DIR : DAEMON_DIR
+            }
+        });
+        daemonProcess.stdout.on('data', data => stdoutLog += data.toString());
+        // The fail-visible path logs through the error stream; fold it into the same buffer.
+        daemonProcess.stderr.on('data', data => stdoutLog += data.toString());
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {
+            agentId,
+            subject: 'Kimi Server Missing Envelope Wake'
+        });
+
+        // Give the daemon room to attempt (and possibly retry) the delivery.
+        await new Promise(resolve => setTimeout(resolve, 4000));
+
+        expect(stdoutLog).toContain('kimi-server requires a readable wake envelope');
+        expect(stdoutLog).not.toContain(`[Wake Dispatch] ${agentId}: outcome=delivered`);
+        expect(stdoutLog).not.toContain(`Dispatched ${subId} via kimi-server submitPrompt`);
+    });
+
     test('opencode-server shares the configured attempt abort and cannot report orphan success (#15394, #15414)', async () => {
         test.setTimeout(15000);
 
-        const subId   = 'sub_' + crypto.randomUUID();
-        const agentId = '@test-agent-opencode-shared-abort';
+        const subId    = 'sub_' + crypto.randomUUID();
+        const agentId  = '@test-agent-opencode-shared-abort';
         const requests = [];
 
         // Respond AFTER the 1s delivery-owner bound. If the route ignores the shared signal,
