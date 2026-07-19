@@ -4,14 +4,20 @@ import PasswordField      from '../../../../src/form/field/Password.mjs';
 import TextField          from '../../../../src/form/field/Text.mjs';
 import {listHarnessTypes} from '../../config/harnessTypes.mjs';
 
-import {resolveRegistryBridge, submitDefineAgent, validateDefinePayload} from './addAgentFlow.mjs';
+import {
+    createDefineAgentIntent,
+    isShellCredentialIngress,
+    resolveRegistryBridge,
+    submitDefineAgent,
+    validateDefinePayload
+} from './addAgentFlow.mjs';
 
 /**
  * @class AgentOS.view.fleet.AddAgentForm
  * @extends Neo.form.Container
  *
- * @summary The S5 add-agent surface (design SSOT Lane D1): username + PAT + harness type
- * → the Fleet Registry bridge, rendered to the cockpit token layer (`--fm-*`) under the
+ * @summary The S5 add-agent surface (design SSOT Lane D1): username + harness type, plus a PAT only
+ * for direct-browser ingress → the Fleet Registry bridge, rendered to the cockpit token layer (`--fm-*`) under the
  * honest-lifecycle contract — `idle → validating → submitting → readback-confirmed | gated |
  * rejected`, with the registry's canonical readback as the ONLY success truth.
  *
@@ -19,11 +25,13 @@ import {resolveRegistryBridge, submitDefineAgent, validateDefinePayload} from '.
  * validated public definition — the mounting owner (dock zone or detail tab, the S5 fork) wires
  * the roster write. It holds no store and no credential state:
  *
- * Credential boundary (the fleet credential matrix): the PAT lives in the password field only as long as a submission
- * needs it — never in browser persistent state, never in the URL, never logged or echoed — and the
- * field clears on EVERY settle, terminal state regardless. Bridge absent → the submit control is
- * **disabled-with-reason** (CARD-CONTRACT controls rule: never hidden), state `gated`, and no
- * fake affordance pretends a round-trip is possible.
+ * Credential boundary (the fleet credential matrix): a direct-browser PAT lives in the password
+ * field only as long as a submission needs it — never in browser persistent state, never in the URL,
+ * never logged or echoed — and the field clears on EVERY settle, terminal state regardless. A bridge
+ * marked `credentialIngress: 'shell'` removes that field before mount and sends public intent only;
+ * the native shell owns credential entry. Bridge absent → the submit control is
+ * **disabled-with-reason** (CARD-CONTRACT controls rule: never hidden), state `gated`, and no fake
+ * affordance pretends a round-trip is possible.
  */
 class AddAgentForm extends FormContainer {
     static config = {
@@ -137,15 +145,28 @@ class AddAgentForm extends FormContainer {
     onConstructed(...args) {
         super.onConstructed(...args);
 
-        const me = this;
+        const
+            me          = this,
+            bridge      = resolveRegistryBridge(me.bridgeResolver),
+            shellOwned  = isShellCredentialIngress(bridge),
+            secretField = me.getReference('field-credential');
 
         me.harnessType ??= listHarnessTypes()[0]?.type ?? null;
         me.syncHarnessChips();
 
-        if (!resolveRegistryBridge(me.bridgeResolver)?.defineAgent) {
+        if (shellOwned) {
+            secretField && me.remove(secretField);
+        }
+
+        if (!bridge?.defineAgent) {
             me.flowStatus = {
                 state : 'gated',
                 reason: 'Fleet Registry bridge unavailable — agent setup fails closed. Start the fleet server (npm run ai:fleet-server).'
+            }
+        } else if (shellOwned) {
+            me.flowStatus = {
+                state : 'idle',
+                reason: 'Credential entry is owned by the native shell and never enters App Worker state.'
             }
         }
     }
@@ -193,8 +214,12 @@ class AddAgentForm extends FormContainer {
      * @returns {String}
      */
     statusLineFor(state) {
+        const shellOwned = isShellCredentialIngress(resolveRegistryBridge(this.bridgeResolver));
+
         return {
-            'idle'              : 'PAT is submitted to the Brain-side registry and never stored in browser state.',
+            'idle'              : shellOwned
+                ? 'Credential entry is owned by the native shell and never enters App Worker state.'
+                : 'PAT is submitted to the Brain-side registry and never stored in browser state.',
             'validating'        : 'Checking the definition…',
             'submitting'        : 'Submitting through the Fleet Registry bridge…',
             'readback-confirmed': 'Agent added — roster renders the registry\'s canonical readback.'
@@ -228,18 +253,20 @@ class AddAgentForm extends FormContainer {
      */
     async onSubmitClick() {
         const
-            me      = this,
-            values  = await me.getSubmitValues(),
-            payload = {
+            me         = this,
+            values     = await me.getSubmitValues(),
+            bridge     = resolveRegistryBridge(me.bridgeResolver),
+            shellOwned = isShellCredentialIngress(bridge),
+            payload    = createDefineAgentIntent({
                 credential    : values.credential,
                 githubUsername: values.githubUsername,
                 harnessType   : me.harnessType
-            };
+            }, bridge);
 
         me.flowStatus = {state: 'validating', reason: ''};
 
         try {
-            const validation = validateDefinePayload(payload);
+            const validation = validateDefinePayload(payload, {credentialRequired: !shellOwned});
 
             // an incomplete definition never renders `submitting` — nothing is in flight
             if (!validation.valid) {
@@ -257,8 +284,7 @@ class AddAgentForm extends FormContainer {
                 me.fire('agentDefinitionAccepted', {agent: outcome.definition})
             }
         } finally {
-            const field = await me.getField('credential');
-            field?.reset('')
+            me.getReference('field-credential')?.reset('')
         }
     }
 }

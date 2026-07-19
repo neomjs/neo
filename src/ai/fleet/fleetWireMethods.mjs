@@ -55,3 +55,15 @@ export const FLEET_WIRE_METHODS = Object.freeze([
     'getBootIdentity', 'fleetActivity', 'fleetHistory', 'fleetRoster', 'fleetMailboxMirror', 'connectTenant', 'listTenants',
     'composeOperatorMessage', 'markFleetCaughtUp', 'resolveViewerIdentity'
 ]);
+
+/**
+ * @summary The wire verbs whose normal payload includes credential bytes. Direct-browser development
+ * may carry these through its authenticated in-memory bearer transport, but the packaged Electron
+ * shell replaces them with named preload-owned ingress so a Body/App-Worker request never supplies
+ * the secret. Keeping this classification beside {@link FLEET_WIRE_METHODS} prevents Electron main
+ * and the App Worker from inventing independent, drifting lists.
+ * @type {String[]}
+ */
+export const FLEET_CREDENTIAL_METHODS = Object.freeze(
+    FLEET_WIRE_METHODS.filter(method => method === 'defineAgent' || method === 'connectTenant')
+);

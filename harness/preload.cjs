@@ -6,6 +6,7 @@ const {contextBridge, ipcRenderer} = require('electron');
 // capabilities land with their consuming leaves (E5 carries the contract; additions amend the
 // shell ADR §2.3 first).
 contextBridge.exposeInMainWorld('neoShell', {
+    fleetRequest: request => ipcRenderer.invoke('fleet-request', request),
     shellVersion: process.versions.electron
 });
 
