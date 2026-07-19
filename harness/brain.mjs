@@ -321,15 +321,19 @@ export function assertIsolatedProfile({resolved, isolationRoot, chromaPort}) {
  * port must read as "held but not serving", never as attach-ready.
  * @param {Object} options
  * @param {Number|String} options.port
+ * @param {String} options.bearerToken Main-owned process bearer.
  * @param {Number} [options.timeoutMs=2500]
  * @param {Function} [options.fetchFn=fetch] Injection seam for tests.
  * @returns {Promise<Boolean>}
  */
-export async function probeFleetServing({port, timeoutMs = 2500, fetchFn = fetch}) {
+export async function probeFleetServing({port, bearerToken, timeoutMs = 2500, fetchFn = fetch}) {
     try {
         const response = await fetchFn(`http://127.0.0.1:${port}/fleet`, {
             body   : JSON.stringify({method: 'listAgents', params: {}}),
-            headers: {'content-type': 'application/json'},
+            headers: {
+                Authorization : `Bearer ${bearerToken}`,
+                'content-type': 'application/json'
+            },
             method : 'POST',
             signal : AbortSignal.timeout(timeoutMs)
         });
@@ -349,6 +353,7 @@ export async function probeFleetServing({port, timeoutMs = 2500, fetchFn = fetch
  * @param {Object} options
  * @param {String} options.orchestratorDataDir Resolved `AiConfig.orchestrator.dataDir`.
  * @param {Number|String} options.fleetPort Fleet transport port to probe.
+ * @param {String} options.bearerToken Main-owned process bearer.
  * @param {Function} [options.killFn=process.kill] Injection seam for tests.
  * @param {Function} [options.commandFn] pid → command line. Injection seam for tests.
  * @param {Function} [options.probePortFn=probePort] Injection seam for tests.
@@ -358,6 +363,7 @@ export async function probeFleetServing({port, timeoutMs = 2500, fetchFn = fetch
 export async function detectLiveBrain({
     orchestratorDataDir,
     fleetPort,
+    bearerToken,
     killFn       = process.kill,
     commandFn    = null,
     probePortFn  = probePort,
@@ -365,7 +371,7 @@ export async function detectLiveBrain({
 }) {
     const
         pidFile      = path.join(orchestratorDataDir, 'orchestrator-daemon.pid'),
-        fleetServing = await probeFleetFn({port: fleetPort}),
+        fleetServing = await probeFleetFn({bearerToken, port: fleetPort}),
         result       = {
             fleetPortHeld    : fleetServing || await probePortFn({port: fleetPort}),
             fleetServing,
@@ -536,11 +542,12 @@ export function awaitOrchestratorReady({child, timeoutMs = 30000}) {
  * @param {Object} options
  * @param {import('node:child_process').ChildProcess} options.child
  * @param {Number|String} options.port
+ * @param {String} options.bearerToken Main-owned process bearer.
  * @param {Number} [options.timeoutMs=15000]
  * @param {Function} [options.fetchFn=fetch] Injection seam for tests.
  * @returns {Promise<void>}
  */
-export function awaitFleetReady({child, port, timeoutMs = 15000, fetchFn = fetch}) {
+export function awaitFleetReady({child, port, bearerToken, timeoutMs = 15000, fetchFn = fetch}) {
     return new Promise((resolve, reject) => {
         let settled = false;
 
@@ -565,7 +572,10 @@ export function awaitFleetReady({child, port, timeoutMs = 15000, fetchFn = fetch
             try {
                 const response = await fetchFn(`http://127.0.0.1:${port}/fleet`, {
                     body   : JSON.stringify({method: 'listAgents', params: {}}),
-                    headers: {'content-type': 'application/json'},
+                    headers: {
+                        Authorization : `Bearer ${bearerToken}`,
+                        'content-type': 'application/json'
+                    },
                     method : 'POST'
                 });
 

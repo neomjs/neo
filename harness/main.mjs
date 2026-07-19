@@ -19,6 +19,7 @@ import {app, BrowserWindow, ipcMain, Menu, nativeImage, protocol, session, Tray}
 import {createReadStream}                                                        from 'node:fs';
 import {fileURLToPath}                                                           from 'node:url';
 import path                                                                      from 'node:path';
+import {resolveFleetBearer}                                                      from '../ai/services/fleet/fleetLaunchContract.mjs';
 import {createAppLifecycle}                                                      from './appLifecycle.mjs';
 import {
     APP_HOST,
@@ -65,8 +66,11 @@ const
     // The Arm-B Brain leg: DEFAULT-ON when packaged (a Finder double-click supplies no env — the
     // product IS the supervised organism; NEO_HARNESS_BRAIN=0 is the explicit opt-out) and opt-in
     // on a checkout (dev machines carry a canonical Brain; see brain.mjs#resolveBrainMode).
-    brainMode  = resolveBrainMode({env: process.env, packaged: packagedMode}),
-    smokeState = {
+    brainMode        = resolveBrainMode({env: process.env, packaged: packagedMode}),
+    // ONE main-owned secret per Electron boot. It crosses only into the Fleet child environment
+    // and main-process Authorization headers; preload/renderer/App-Worker receive no getter or byte.
+    fleetBearerToken = resolveFleetBearer({suppliedToken: process.env.NEO_FLEET_BEARER}),
+    smokeState       = {
         assetFailures : new Set(),
         assetsSeen    : new Set(),
         rendererErrors: []
@@ -635,7 +639,7 @@ async function bootProductBrain() {
     const
         fleetPort = Number(process.env.NEO_FLEET_PORT) || 8083,
         paths     = await resolveBrainPaths({env: packagedEnv, repoRoot: organismRoot}),
-        live      = await detectLiveBrain({fleetPort, orchestratorDataDir: paths.orchestratorDataDir}),
+        live      = await detectLiveBrain({bearerToken: fleetBearerToken, fleetPort, orchestratorDataDir: paths.orchestratorDataDir}),
         mode      = live.orchestratorAlive ? 'attach' : 'own';
 
     if (mode === 'own') {
@@ -663,13 +667,13 @@ async function bootProductBrain() {
 
         const fleet = startBrainChild({
             entry   : FLEET_SERVER_ENTRY,
-            env     : {...packagedEnv, NEO_FLEET_PORT: String(fleetPort)},
+            env     : {...packagedEnv, NEO_FLEET_BEARER: fleetBearerToken, NEO_FLEET_PORT: String(fleetPort)},
             onLog   : brainLog,
             repoRoot: organismRoot
         });
 
         registerBrainChild({child: fleet, label: 'fleet'});
-        await awaitFleetReady({child: fleet, port: fleetPort})
+        await awaitFleetReady({bearerToken: fleetBearerToken, child: fleet, port: fleetPort})
     }
 
     console.log(`HARNESS_BRAIN_MODE ${mode} fleetPort=${fleetPort} started=[${brainState.children.map(entry => entry.label).join(',') || 'none'}]`);
@@ -700,10 +704,11 @@ async function bootSmokeBrain() {
                 ...buildPackagedBrainEnv({dataRoot: isolationRoot}),
                 ELECTRON_RUN_AS_NODE    : '1',
                 NEO_CHROMA_PORT         : String(chromaPort),
+                NEO_FLEET_BEARER        : fleetBearerToken,
                 NEO_FLEET_PORT          : String(fleetPort),
                 NEO_HARNESS_ELECTRON_BIN: process.execPath
             }
-            : buildBrainProfile({chromaPort, fleetPort, isolationRoot}),
+            : {...buildBrainProfile({chromaPort, fleetPort, isolationRoot}), NEO_FLEET_BEARER: fleetBearerToken},
         resolved                = await resolveBrainPaths({env: profile, repoRoot: organismRoot}),
         matrixViolations        = assertIsolatedProfile({chromaPort, isolationRoot, resolved});
 
@@ -729,7 +734,7 @@ async function bootSmokeBrain() {
 
     await Promise.all([
         awaitOrchestratorReady({child: orchestrator}),
-        awaitFleetReady({child: fleet, port: fleetPort})
+        awaitFleetReady({bearerToken: fleetBearerToken, child: fleet, port: fleetPort})
     ]);
 
     return {

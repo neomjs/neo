@@ -81,6 +81,8 @@ function createFakeGroup({pid, diesOn}) {
 }
 
 test.describe('harness brain lifecycle', () => {
+    const bearerToken = 'A'.repeat(43);
+
     let workDir;
 
     test.beforeEach(async () => {
@@ -164,9 +166,15 @@ test.describe('harness brain lifecycle', () => {
     });
 
     test('probeFleetServing requires the wire envelope — occupancy alone is not fleet identity', async () => {
-        expect(await probeFleetServing({fetchFn: async () => ({json: async () => ({ok: true, result: []})}), port: 1})).toBe(true);
-        expect(await probeFleetServing({fetchFn: async () => ({json: async () => 'not the fleet protocol'}), port: 1})).toBe(false);
-        expect(await probeFleetServing({fetchFn: async () => { throw new Error('ECONNREFUSED') }, port: 1})).toBe(false)
+        const fetchFn = async (url, init) => {
+            expect(url).not.toContain(bearerToken);
+            expect(init.headers.Authorization).toBe(`Bearer ${bearerToken}`);
+            return {json: async () => ({ok: true, result: []})}
+        };
+
+        expect(await probeFleetServing({bearerToken, fetchFn, port: 1})).toBe(true);
+        expect(await probeFleetServing({bearerToken, fetchFn: async () => ({json: async () => 'not the fleet protocol'}), port: 1})).toBe(false);
+        expect(await probeFleetServing({bearerToken, fetchFn: async () => { throw new Error('ECONNREFUSED') }, port: 1})).toBe(false)
     });
 
     test('awaitReadyMarker resolves on the marker and never on PID existence alone', async () => {
@@ -225,6 +233,8 @@ test.describe('harness brain lifecycle', () => {
         const fetchFn = async (url, init) => {
             calls++;
             expect(url).toContain('/fleet');
+            expect(url).not.toContain(bearerToken);
+            expect(init.headers.Authorization).toBe(`Bearer ${bearerToken}`);
             expect(JSON.parse(init.body).method).toBe('listAgents');
 
             if (calls < 3) {
@@ -234,14 +244,14 @@ test.describe('harness brain lifecycle', () => {
             return {json: async () => ({ok: true, result: []})}
         };
 
-        await expect(awaitFleetReady({child, fetchFn, port: 18501, timeoutMs: 5000})).resolves.toBeUndefined();
+        await expect(awaitFleetReady({bearerToken, child, fetchFn, port: 18501, timeoutMs: 5000})).resolves.toBeUndefined();
         expect(calls).toBeGreaterThanOrEqual(3)
     });
 
     test('awaitFleetReady rejects when the transport child dies first', async () => {
         const
             child = createFakeChild(),
-            ready = awaitFleetReady({child, fetchFn: async () => { throw new Error('ECONNREFUSED') }, port: 18501, timeoutMs: 5000});
+            ready = awaitFleetReady({bearerToken, child, fetchFn: async () => { throw new Error('ECONNREFUSED') }, port: 18501, timeoutMs: 5000});
 
         child.exit(1);
         await expect(ready).rejects.toThrow(/fleet transport exited before ready/)
@@ -428,11 +438,15 @@ test.describe('harness brain lifecycle', () => {
         writeFileSync(path.join(dataDir, 'orchestrator-daemon.pid'), '8123', 'utf8');
 
         const live = await detectLiveBrain({
+            bearerToken,
             commandFn          : () => `node ${ORCHESTRATOR_ENTRY}`,
             fleetPort          : 18501,
             killFn             : () => true,
             orchestratorDataDir: dataDir,
-            probeFleetFn       : async () => true,
+            probeFleetFn       : async options => {
+                expect(options).toEqual({bearerToken, port: 18501});
+                return true
+            },
             probePortFn        : async () => true
         });
 
@@ -441,6 +455,7 @@ test.describe('harness brain lifecycle', () => {
         // A foreign HTTP server on the fleet port: occupied, but NOT the fleet protocol —
         // attach must not treat it as a reachable Brain surface.
         const squatted = await detectLiveBrain({
+            bearerToken,
             commandFn          : () => `node ${ORCHESTRATOR_ENTRY}`,
             fleetPort          : 18501,
             killFn             : () => true,
@@ -454,6 +469,7 @@ test.describe('harness brain lifecycle', () => {
 
         // A recycled pid running something else must NOT read as a live Brain.
         const foreign = await detectLiveBrain({
+            bearerToken,
             commandFn          : () => '/usr/bin/some-other-tool',
             fleetPort          : 18501,
             killFn             : () => true,
@@ -468,6 +484,7 @@ test.describe('harness brain lifecycle', () => {
 
         // No PID file at all.
         const missing = await detectLiveBrain({
+            bearerToken,
             fleetPort          : 18501,
             orchestratorDataDir: path.join(workDir, 'nowhere'),
             probeFleetFn       : async () => false,
