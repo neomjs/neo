@@ -251,6 +251,59 @@ class DiscussionSyncer extends Base {
     }
 
     /**
+     * @summary Projects the bounded GitHub comment/reply connections into explicit mirror-completeness
+     * evidence. Missing connection metadata is unknown, never assumed complete; a cap hit therefore
+     * survives in the artifact as a fail-closed signal for downstream deterministic consumers.
+     * @param {Object} discussion The fetched Discussion sync node.
+     * @returns {Object} Stable flat frontmatter fields for the v1 completeness contract.
+     * @private
+     */
+    #getConversationCompleteness(discussion) {
+        const
+            comments         = discussion.comments,
+            commentNodes     = comments?.nodes || [],
+            commentsObserved = commentNodes.length,
+            commentsTotal    = Number.isInteger(comments?.totalCount) ? comments.totalCount : null;
+
+        let repliesObserved = 0,
+            repliesTotal    = 0,
+            repliesKnown    = true,
+            repliesComplete = true;
+
+        for (const comment of commentNodes) {
+            const
+                replies  = comment.replies,
+                observed = replies?.nodes?.length || 0,
+                total    = Number.isInteger(replies?.totalCount) ? replies.totalCount : null;
+
+            repliesObserved += observed;
+
+            if (total === null || typeof replies?.pageInfo?.hasNextPage !== 'boolean') {
+                repliesKnown = false
+            } else {
+                repliesTotal    += total;
+                repliesComplete &&= replies.pageInfo.hasNextPage === false && observed === total
+            }
+        }
+
+        const
+            commentsKnown    = commentsTotal !== null && typeof comments?.pageInfo?.hasNextPage === 'boolean',
+            commentsComplete = commentsKnown &&
+                comments.pageInfo.hasNextPage === false && commentsObserved === commentsTotal,
+            complete      = commentsKnown && repliesKnown &&
+                commentsComplete && repliesComplete;
+
+        return {
+            conversationCompletenessSchemaVersion: 'discussion-conversation-completeness.v1',
+            conversationComplete                 : complete,
+            conversationCommentCountObserved     : commentsObserved,
+            conversationCommentCountTotal        : commentsTotal,
+            conversationReplyCountObserved       : repliesObserved,
+            conversationReplyCountTotal          : commentsComplete && repliesKnown ? repliesTotal : null
+        }
+    }
+
+    /**
      * @summary Renders a fetched discussion node to its synced Markdown (frontmatter + body + comments +
      * nested replies), applying the content-trust sanitizer + the frontmatter integrity gate.
      * Extracted from {@link #syncDiscussions} so the single-discussion force-refetch path renders
@@ -282,7 +335,8 @@ class DiscussionSyncer extends Base {
             routingDisposition             : routingDisposition.disposition,
             routingDispositionReason       : routingDisposition.reasonCode,
             routingDispositionEvidence     : routingDisposition.evidence,
-            contentTrust
+            contentTrust,
+            ...this.#getConversationCompleteness(discussion)
         };
 
         let body = projectedDiscussion.body || '';
