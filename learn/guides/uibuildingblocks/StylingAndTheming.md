@@ -180,7 +180,7 @@ Within each of these folders, the SCSS files are organized to mirror the compone
 
 For the automatic lazy-loading of theme files to work, it is **critical** that the path of an SCSS file mirrors the namespace of the JavaScript class it styles. The build process uses this convention to generate the `theme-map.json`.
 
-### Framework Components
+### Engine Components
 
 For standard engine components, the mapping is direct. The path within `resources/scss/src` (or a theme folder) matches the class path after `Neo.`.
 
@@ -200,7 +200,7 @@ Notice how `view/` is not present in the SCSS path. The engine's build tools and
 
 For the automatic lazy-loading of theme files to work, it is **critical** that the path of an SCSS file mirrors the namespace of the JavaScript class it styles. The build process uses this convention to generate the `theme-map.json`.
 
-### Framework Components
+### Engine Components
 
 For standard engine components, the mapping is direct. The path within `resources/scss/src` (or a theme folder) matches the class path after `Neo.`.
 
@@ -354,13 +354,13 @@ This enables several powerful workflows:
 
 1.  **Override Specific Variables:** To change just a few variables for an existing theme (e.g., `theme-dark`), you only need to create a file at the corresponding path in your workspace (e.g., `my-workspace/resources/scss/theme-dark/button/Base.scss`) and redefine only the variables you want to change. The build script will merge your changes with the original theme file from the engine.
 
-2.  **Create an Entirely New Theme:** You can create a brand new theme folder (e.g., `my-workspace/resources/scss/theme-corporate`) inside your workspace. By creating SCSS files that match the paths of the framework components, you can provide a complete set of CSS variable definitions for your theme. The build script will discover and compile your new theme, allowing you to build a unique look and feel from the ground up without ever touching the engine's source code.
+2.  **Create an Entirely New Theme:** You can create a brand new theme folder (e.g., `my-workspace/resources/scss/theme-corporate`) inside your workspace. By creating SCSS files that match the paths of the engine components, you can provide a complete set of CSS variable definitions for your theme. The build script will discover and compile your new theme, allowing you to build a unique look and feel from the ground up without ever touching the engine's source code.
 
 3.  **Style App-Specific Components:** If you create a component that is only used within a single application (e.g., `my-workspace/apps/my-app/view/MyComponent.mjs`), you can create its structural styles in your workspace at `my-workspace/resources/scss/src/apps/my-app/MyComponent.scss`. The build script will pick it up and process it just like a core component.
 
 4.  **Style Workspace-Shared Components:** For components intended to be shared across multiple apps in your workspace, you can create them in the workspace's main `src` folder. These components must use the `Neo` namespace (e.g., `my-workspace/src/component/MyWorkspaceWidget.mjs` defining `Neo.component.MyWorkspaceWidget`). You can then provide their structural styles in the corresponding path within your workspace's `resources/scss/src` folder (e.g., `my-workspace/resources/scss/src/component/MyWorkspaceWidget.scss`).
 
-This overlay approach is extremely powerful. It lets you maintain a clean separation between your application code and the framework, making engine upgrades significantly easier.
+This overlay approach is extremely powerful. It lets you maintain a clean separation between your application code and the engine, making engine upgrades significantly easier.
 
 ## 9. The Build Process
 

@@ -490,7 +490,7 @@ Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. L
 
 ### Neo Theming Engine (`/resources/scss/` - 613 files, ~14.8k lines)
 
-Documenting the SCSS frameworks defining Neo's glassmorphism and application layouts, structurally detached from the core JS framework rendering engine.
+Documenting the SCSS frameworks defining Neo's glassmorphism and application layouts, structurally detached from the core JS rendering engine.
 
 ---
 
@@ -587,7 +587,7 @@ Your most powerful tool is `ask_knowledge_base`. It reads multiple source files,
 synthesizes a grounded answer, and cites its references — all in a single call.
 
 > [!WARNING]
-> Do NOT attempt to answer Neo.mjs questions from training data. The framework evolves rapidly — your training data is almost certainly outdated for syntax-level details.
+> Do NOT attempt to answer Neo.mjs questions from training data. The engine evolves rapidly — your training data is almost certainly outdated for syntax-level details.
 
 **Example queries:**
 - `ask_knowledge_base(query='how does the reactive config system work?')`

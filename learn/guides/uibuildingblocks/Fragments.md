@@ -109,4 +109,4 @@ MainContainer = Neo.setupClass(MainContainer);
 
 ## Cross-Window Capabilities
 
-Because Neo.mjs uses a SharedWorker architecture, this "Identity Conservation" extends to **Cross-Window Drag & Drop**. You can move a Fragment (and all its children) from one browser window to another. The framework handles the DOM node transfer (or recreation with state hydration) seamlessly, making multi-monitor workflows trivial to implement.
+Because Neo.mjs uses a SharedWorker architecture, this "Identity Conservation" extends to **Cross-Window Drag & Drop**. You can move a Fragment (and all its children) from one browser window to another. The engine handles the DOM node transfer (or recreation with state hydration) seamlessly, making multi-monitor workflows trivial to implement.

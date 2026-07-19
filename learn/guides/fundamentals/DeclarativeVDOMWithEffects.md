@@ -32,7 +32,7 @@ class Button extends Component {
 To make the component reactive, developers must implement specific `afterSet` hooks for each config that affects the UI. The logic is imperative and fragmented.
 
 ```javascript readonly
-// Neo.button.Base - internal framework code
+// Neo.button.Base - internal engine code
 afterSetIconCls(value, oldValue) {
     let {iconNode} = this;
     // Imperative: Manually add/remove classes

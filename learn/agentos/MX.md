@@ -14,7 +14,7 @@ The load-bearing claim of MX is an inversion of traditional software priorities:
 
 For agent-facing infrastructure, the process of building—where models attempt tasks, hit friction, file tickets, and ship improvements—is the actual product. The artifact they produce (the feature, the bugfix, the documentation) is a by-product. 
 
-The harness exists so that models using it surface tooling gaps. The Golden Path then prioritizes those gaps. The surface itself is the forcing function that drives the evolution of the underlying framework.
+The harness exists so that models using it surface tooling gaps. The Golden Path then prioritizes those gaps. The surface itself is the forcing function that drives the evolution of the underlying substrate.
 
 ---
 

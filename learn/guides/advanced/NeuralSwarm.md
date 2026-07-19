@@ -19,7 +19,7 @@ While `HeaderCanvas.mjs` ("Luminous Flux") demonstrates *procedural* generation,
 
 ## The Challenge: Visualizing the Invisible
 
-The challenge was to visualize the "Neo.mjs Application Engine" concept. How do you show that a framework is multi-threaded, scalable, and agent-ready?
+The challenge was to visualize the "Neo.mjs Application Engine" concept. How do you show that an application engine is multi-threaded, scalable, and agent-ready?
 
 We established three metaphors:
 1.  **The Graph (Topology):** The application state isn't a static tree; it's a dynamic cluster of connected nodes (Components/Services).

@@ -31,7 +31,7 @@ monitors, all while sharing the same underlying data and application state.
 
 **Benefit**: For businesses, this translates to a significantly more powerful and intuitive user experience, leading to
 increased user satisfaction, reduced training times, and the ability to handle more complex tasks efficiently. For
-developers, it simplifies the creation of sophisticated multi-screen layouts, as the framework handles the underlying
+developers, it simplifies the creation of sophisticated multi-screen layouts, as the engine handles the underlying
 communication complexities.
 
 <details>

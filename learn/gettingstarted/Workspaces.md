@@ -106,7 +106,7 @@ export default MainView;
 
 
 Note the entry in `items:[]`. That's a description of the button that will be the single item in our 
-container. In Neo.mjs terms we're _configuring_ the button. Neo.mjs is a declarative framework, in 
+container. In Neo.mjs terms we're _configuring_ the button. Neo.mjs is a declarative application engine, in 
 which components and objects are described. It's an abstraction. In other words, the code describes 
 what we want, but not how it's done. In the code above, we want our container to have one item &mdash; 
 a button with some text. _How_ that's done isn't important. A non-declarative approach would be more

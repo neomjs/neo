@@ -42,7 +42,7 @@ This allows a single cached `appworker.js` to power any application in the works
 
 ## 2. Tree Levels & Path-Based Configuration
 
-Neo.mjs workspaces can contain applications at varying folder depths (e.g., `examples/button/base/` vs `examples/form/field/text/`). To handle this, the framework relies on **Path-Based Configuration**.
+Neo.mjs workspaces can contain applications at varying folder depths (e.g., `examples/button/base/` vs `examples/form/field/text/`). To handle this, the engine relies on **Path-Based Configuration**.
 
 Each application folder contains:
 1.  `index.html`: The boot file.
