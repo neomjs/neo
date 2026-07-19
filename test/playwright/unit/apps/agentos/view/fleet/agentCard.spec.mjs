@@ -156,7 +156,7 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
 
         expect(card.id).toBe(beforeId);
         expect(card.down({reference: 'source-strip'}).id).toBe(stripId);   // same instance, updated in place
-        expect(strip.html).toBe('RUN not nominal +1 ▸');
+        expect(strip.html).toBe('Runtime not nominal +1 ▸');   // full word, never the RUN/REP/ROS acronym wall
         expect(strip.cls).toContain('fm-strip-bad');
         expect(stateDot.state).toBe('off');
         expect(stateDot.live).toBe(false);
