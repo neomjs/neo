@@ -1,23 +1,23 @@
-import Component                          from '../../../../../src/component/Base.mjs';
-import Container                          from '../../../../../src/container/Base.mjs';
-import CounterPane                        from './CounterPane.mjs';
-import DockDropIndicators                 from '../../../../../src/dashboard/DockDropIndicators.mjs';
-import DockLayoutAdapter                  from '../../../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockMotionSignal                   from '../../../../../src/dashboard/DockMotionSignal.mjs';
-import DockPerspectiveStore               from '../../../../../src/dashboard/DockPerspectiveStore.mjs';
-import DockPreview                        from '../../../../../src/dashboard/DockPreview.mjs';
-import DockPreviewProducer                from '../../../../../src/dashboard/DockPreviewProducer.mjs';
-import DockProjectionReconciler           from '../../../../../src/dashboard/DockProjectionReconciler.mjs';
-import DockService                        from '../../../../../src/ai/client/DockService.mjs';
-import DockTopologyReconciler             from '../../../../../src/dashboard/DockTopologyReconciler.mjs';
-import DockZoneModel                      from '../../../../../src/dashboard/DockZoneModel.mjs';
-import InteractionService                 from '../../../../../src/ai/client/InteractionService.mjs';
-import {createDockKeyboardCommands}       from '../../../../../src/dashboard/DockKeyboardCommands.mjs';
-import {createDockTearOutHandlers}        from '../../../../../src/dashboard/DockTearOut.mjs';
-import {createDockWorkspaceSet}           from '../../../../../src/dashboard/DockWorkspaceSet.mjs';
-import TourRunner                         from '../../../../../src/ai/client/TourRunner.mjs';
+import Component                            from '../../../../../src/component/Base.mjs';
+import Container                            from '../../../../../src/container/Base.mjs';
+import CounterPane                          from './CounterPane.mjs';
+import DockDropIndicators                   from '../../../../../src/dashboard/DockDropIndicators.mjs';
+import DockLayoutAdapter                    from '../../../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockMotionSignal                     from '../../../../../src/dashboard/DockMotionSignal.mjs';
+import DockPerspectiveStore                 from '../../../../../src/dashboard/DockPerspectiveStore.mjs';
+import DockPreview                          from '../../../../../src/dashboard/DockPreview.mjs';
+import DockPreviewProducer                  from '../../../../../src/dashboard/DockPreviewProducer.mjs';
+import DockProjectionReconciler             from '../../../../../src/dashboard/DockProjectionReconciler.mjs';
+import DockService                          from '../../../../../src/ai/client/DockService.mjs';
+import DockTopologyReconciler               from '../../../../../src/dashboard/DockTopologyReconciler.mjs';
+import DockZoneModel                        from '../../../../../src/dashboard/DockZoneModel.mjs';
+import InteractionService                   from '../../../../../src/ai/client/InteractionService.mjs';
+import {createDockKeyboardCommands}         from '../../../../../src/dashboard/DockKeyboardCommands.mjs';
+import {createDockTearOutHandlers}          from '../../../../../src/dashboard/DockTearOut.mjs';
+import {createDockWorkspaceSet}             from '../../../../../src/dashboard/DockWorkspaceSet.mjs';
+import TourRunner                           from '../../../../../src/ai/client/TourRunner.mjs';
 import {PREVIEW_SCHEMA, previewToOperation} from '../../../../../src/dashboard/dockPreviewContract.mjs';
-import {demoBTourScript, initialDocument} from '../../../tour/demoBPerspectives.mjs';
+import {demoBTourScript, initialDocument}   from '../../../tour/demoBPerspectives.mjs';
 import '../../../../../src/button/Base.mjs';   // registers the `button` ntype the bars compose
 import '../../../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the projection emits
 import '../../../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype the bars use
@@ -256,6 +256,22 @@ class DemoBWorkspace extends Container {
      * @protected
      */
     tearOutConnects = {}
+    /**
+     * Product-semantic owner grants for popup vessels. The merged native-window identity spine
+     * proves the exact physical child; this map binds that child to one product flow + item +
+     * generation without trusting URL shape, item id, arrival order, or an existing pane entry.
+     * Keys are `${flow}:${itemId}` and values are `{generation, token}`.
+     * @member {Map} vesselOwnerGrants
+     * @protected
+     */
+    vesselOwnerGrants = new Map()
+    /**
+     * Monotonic product-vessel generation. A new admission for the same flow/item replaces the
+     * prior grant, so reload, replay, and same-name reuse cannot recover semantic ownership.
+     * @member {Number} vesselOwnerGrantGeneration=0
+     * @protected
+     */
+    vesselOwnerGrantGeneration = 0
     /**
      * Exact-position return truth: `tearOutPlacements[itemId] = {tabsNodeId, index}`, captured
      * at the detach terminal BEFORE the commit removes the item from the tree (`addTab` appends
@@ -1408,20 +1424,28 @@ class DemoBWorkspace extends Container {
             me.crossWindowStageReject  = reject
         });
 
-        let winData = await Neo.Main.getWindowData({windowId: me.windowId}),
-            left    = winData.screenLeft > 660
-                ? winData.screenLeft - 640
-                : winData.screenLeft + (winData.innerWidth || 1280) + 40,
-            top     = winData.screenTop;
+        let ownerGrant = me.createVesselOwnerGrant('workspace-target', workspaceId);
 
         try {
-            await Neo.Main.windowOpen({
-                url           : `./index.html?workspaceId=${workspaceId}&hostId=${me.id}`,
-                windowFeatures: `height=520,width=600,left=${left},top=${top}`,
-                windowId      : me.windowId,
-                windowName    : 'demo-b-cross-window'
-            })
+            let winData = await Neo.Main.getWindowData({windowId: me.windowId}),
+                left    = winData.screenLeft > 660
+                    ? winData.screenLeft - 640
+                    : winData.screenLeft + (winData.innerWidth || 1280) + 40,
+                top     = winData.screenTop,
+                opened  = await Neo.Main.windowOpen({
+                    url           : `./index.html?workspaceId=${workspaceId}&hostId=${me.id}`
+                        + `&vesselFlow=workspace-target&vesselGrant=${ownerGrant.token}`
+                        + `&vesselGeneration=${ownerGrant.generation}`,
+                    windowFeatures: `height=520,width=600,left=${left},top=${top}`,
+                    windowId      : me.windowId,
+                    windowName    : 'demo-b-cross-window'
+                });
+
+            if (opened === false) {
+                throw new Error('cross-window popup blocked')
+            }
         } catch (error) {
+            me.revokeVesselOwnerGrant('workspace-target', workspaceId);
             me.crossWindowStageReject?.(error);
             me.crossWindowStagePromise = null;
             me.crossWindowStageResolve = null;
@@ -1436,6 +1460,7 @@ class DemoBWorkspace extends Container {
         try {
             return await Promise.race([me.crossWindowStagePromise, timeout])
         } catch (error) {
+            me.revokeVesselOwnerGrant('workspace-target', workspaceId);
             me.crossWindowStagePromise = null;
             throw error
         }
@@ -2767,35 +2792,114 @@ class DemoBWorkspace extends Container {
         let url         = await Neo.Main.getByPath({path: 'document.URL', windowId}),
             params      = new URL(url).searchParams,
             workspaceId = params.get('workspaceId'),
-            itemId      = params.get('popout');
+            itemId      = params.get('popout'),
+            flow        = params.get('vesselFlow'),
+            grant       = params.get('vesselGrant'),
+            generation  = Number(params.get('vesselGeneration'));
 
         if (params.get('hostId') !== me.id) return;
 
         if (workspaceId === DemoBWorkspace.POPUP_WORKSPACE_ID) {
+            if (flow !== 'workspace-target') return;
+
+            if (!me.consumeVesselOwnerGrant({
+                data,
+                flow,
+                generation,
+                grant,
+                itemId: workspaceId,
+                windowId
+            })) return;
+
             await me.mountCrossWindowTarget(app, windowId);
             return
         }
 
         if (!itemId) return;
+        if (flow !== 'click-popout' && flow !== 'tear-out') return;
 
-        // Tear-out vessels connect through the SAME ?popout= shell but live in their own
-        // bookkeeping: post-terminal (tearOutPanes written) → adopt now; mid-gesture → record
-        // the connect for the terminal to consume (the race runs both orders). Either way the
-        // click-pop-out flow below never touches a tear-out window (no detachedPanes entry).
-        if (me.tearOutPanes[itemId]) {
-            me.reparentTearOutPane(itemId, {windowId});
+        if (!me.consumeVesselOwnerGrant({data, flow, generation, grant, itemId, windowId})) return;
+
+        // Click-popout creates its entry before windowOpen; tear-out deliberately does not.
+        // Keeping those births separate is load-bearing: an ungranted connect stays inert rather
+        // than becoming stray tearOutConnects state or stealing an existing detachedPanes entry.
+        if (flow === 'tear-out') {
+            if (me.tearOutPanes[itemId]) {
+                me.reparentTearOutPane(itemId, {windowId})
+            } else {
+                me.tearOutConnects[itemId] = {windowId}
+            }
             return
         }
 
         let entry = me.detachedPanes[itemId],
             pane  = me.paneCache[itemId];
 
-        if (entry && pane && me.popupDocument?.items?.[itemId]) {
+        if (flow === 'click-popout' && entry && pane && me.popupDocument?.items?.[itemId]) {
             entry.windowId = windowId;
             app.mainView.add(pane)
-        } else if (!entry) {
-            me.tearOutConnects[itemId] = {windowId}
         }
+    }
+
+    /**
+     * @summary Mints one product-semantic vessel grant and supersedes the prior generation for
+     * the same flow/item. The token is a bearer hint only; {@link #consumeVesselOwnerGrant}
+     * additionally requires the opener-minted native route for the exact connected child.
+     * @param {String} flow `workspace-target`, `click-popout`, or `tear-out`.
+     * @param {String} itemId
+     * @returns {{generation: Number, token: String}}
+     * @protected
+     */
+    createVesselOwnerGrant(flow, itemId) {
+        let grant = {
+            generation: ++this.vesselOwnerGrantGeneration,
+            token     : crypto.randomUUID()
+        };
+
+        this.vesselOwnerGrants.set(`${flow}:${itemId}`, grant);
+
+        return grant
+    }
+
+    /**
+     * @summary Consumes one exact product grant after validating the generic native route.
+     * Consumption precedes every reparent, making replay and same-name reuse inert.
+     * @param {Object} data
+     * @param {Object} data.windowData
+     * @param {String} flow
+     * @param {Number} generation
+     * @param {String} grant
+     * @param {String} itemId
+     * @param {String} windowId
+     * @returns {Boolean}
+     * @protected
+     */
+    consumeVesselOwnerGrant({data, flow, generation, grant, itemId, windowId}) {
+        let me     = this,
+            key    = `${flow}:${itemId}`,
+            stored = me.vesselOwnerGrants.get(key),
+            route  = data.windowData?.nativeRoute;
+
+        if (
+            !stored || !grant || stored.token !== grant || stored.generation !== generation ||
+            !route?.nativeHandleKey || route.ownerWindowId !== me.windowId || route.targetWindowId !== windowId
+        ) {
+            return false
+        }
+
+        me.vesselOwnerGrants.delete(key);
+
+        return true
+    }
+
+    /**
+     * @summary Revokes the current semantic grant for one flow/item admission.
+     * @param {String} flow
+     * @param {String} itemId
+     * @protected
+     */
+    revokeVesselOwnerGrant(flow, itemId) {
+        this.vesselOwnerGrants.delete(`${flow}:${itemId}`)
     }
 
     /**
@@ -2964,6 +3068,8 @@ class DemoBWorkspace extends Container {
             return {detached: false, errors: result.errors}
         }
 
+        let ownerGrant = me.createVesselOwnerGrant('click-popout', itemId);
+
         me.detachedPanes[itemId] = {tabsNodeId: home, windowId: null};
 
         // park BEFORE the re-projection tears the old tree down
@@ -2975,17 +3081,24 @@ class DemoBWorkspace extends Container {
         try {
             let winData = await Neo.Main.getWindowData({windowId: me.windowId});
 
-            await Neo.Main.windowOpen({
-                url           : `./index.html?popout=${itemId}&hostId=${me.id}`,
+            let opened = await Neo.Main.windowOpen({
+                url           : `./index.html?popout=${itemId}&hostId=${me.id}`
+                    + `&vesselFlow=click-popout&vesselGrant=${ownerGrant.token}`
+                    + `&vesselGeneration=${ownerGrant.generation}`,
                 windowFeatures: `height=420,width=560,left=${winData.screenLeft + 120},top=${winData.screenTop + 120}`,
                 windowId      : me.windowId,
                 windowName    : `demo-b-${itemId}`
-            })
+            });
+
+            if (opened === false) {
+                throw new Error('popup blocked')
+            }
         } catch (error) {
             // The vessel failed after the pure transfer result was staged. Restore BOTH pristine
             // inputs: the source's old home may have normalized away after losing its sole item,
             // so replaying another placement is weaker than the transfer's commit-or-neither truth.
             delete me.detachedPanes[itemId];
+            me.revokeVesselOwnerGrant('click-popout', itemId);
             me.popupDocument = popupBefore;
             me.onDockZoneDocumentChange(sourceBefore);
 
@@ -3295,7 +3408,8 @@ class DemoBWorkspace extends Container {
     async openTearOutVessel({itemId, proxyRect}) {
         let me         = this,
             {windowId} = me,
-            windowName = `tearout-${itemId}`;
+            windowName = `tearout-${itemId}`,
+            ownerGrant = me.createVesselOwnerGrant('tear-out', itemId);
 
         try {
             let winData = await Neo.Main.getWindowData({windowId}),
@@ -3304,16 +3418,22 @@ class DemoBWorkspace extends Container {
                 left    = Math.round((proxyRect?.x ?? 120) + winData.screenLeft),
                 top     = Math.round((proxyRect?.y ?? 120) + (winData.outerHeight - winData.innerHeight) + winData.screenTop),
                 opened  = await Neo.Main.windowOpen({
-                    url           : `./index.html?popout=${itemId}&hostId=${me.id}`,
+                    url           : `./index.html?popout=${itemId}&hostId=${me.id}`
+                        + `&vesselFlow=tear-out&vesselGrant=${ownerGrant.token}`
+                        + `&vesselGeneration=${ownerGrant.generation}`,
                     windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
                     windowId,
                     windowName
                 });
 
-            if (opened === false) return null;
+            if (opened === false) {
+                me.revokeVesselOwnerGrant('tear-out', itemId);
+                return null
+            }
 
             return {popupHeight: height, popupWidth: width, windowName}
         } catch (error) {
+            me.revokeVesselOwnerGrant('tear-out', itemId);
             return null
         }
     }
@@ -3333,6 +3453,7 @@ class DemoBWorkspace extends Container {
         let me = this;
 
         delete me.tearOutConnects[itemId];
+        me.revokeVesselOwnerGrant('tear-out', itemId);
 
         try {
             await Neo.Main.windowClose({names: [windowName], windowId: me.windowId})
@@ -3415,6 +3536,7 @@ class DemoBWorkspace extends Container {
             return {errors: result.errors, reattached: false}
         }
 
+        me.revokeVesselOwnerGrant('click-popout', itemId);
         delete me.detachedPanes[itemId];
 
         // Commit model ownership before awaiting the vessel. The deleted bookkeeping entry is
@@ -3687,6 +3809,7 @@ class DemoBWorkspace extends Container {
         me.crossWindowHosts.clear();
         me.crossWindowGeometry.clear();
         me.workspaceProjectionRequests.clear();
+        me.vesselOwnerGrants.clear();
         me.crossWindowStagePromise   = null;
         me.crossWindowStageResolve   = null;
         me.crossWindowStageReject    = null;
