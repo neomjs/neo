@@ -3,10 +3,10 @@ import {expect, test} from '../../fixtures.mjs';
 /**
  * @summary Headed macOS receipts for the dock-tier half of the tear-out portability matrix.
  *
- * Rows 4, 6, and 7 remain deliberately absent until their named product/test-host blockers are
- * repaired. Row 5 drives the real Demo B tear-out gesture with the Window Management permission
- * denied, then closes the native vessel and proves the complete fallback lifecycle against all
- * five universal invariants from the living matrix ledger.
+ * Rows 4 and 6 remain deliberately absent until their named product/test-host blockers are
+ * repaired. Row 5 drives the screen-topology fallback. Row 7 drives committed, cancelled, and
+ * blocked-acquisition terminals through the real Demo B gesture surface, then proves complete
+ * lifecycle cleanup and repeated-terminal idempotency against the living matrix ledger.
  *
  * Run: npx playwright test agentos/TearOutMatrixRows4To7NL.spec.mjs \
  *   -c test/playwright/playwright.config.matrix.mjs --workers=1
@@ -43,6 +43,160 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
             'tearOutPanes',
             'tearOutPlacements'
         ])
+    }
+
+    /**
+     * @param {Object} app Neural Link app wrapper.
+     * @param {String} wsId Demo B workspace component id.
+     * @returns {Promise<Object>}
+     */
+    function getTerminalLifecycleState(app, wsId) {
+        return app.getComponent(wsId, [
+            'dockModel',
+            'perspectiveStore.collection',
+            'tearOutAcquisitionAttempts',
+            'tearOutConnectAdmissions.size',
+            'tearOutConnects',
+            'tearOutHandlers.activeVessel',
+            'tearOutPanes',
+            'tearOutPlacements',
+            'tearOutRetirements.size',
+            'vesselOwnerGrants.size'
+        ])
+    }
+
+    /**
+     * @param {import('@playwright/test').Page} page
+     * @param {String} callbackName
+     * @returns {Promise<{pageErrors:String[], popupErrors:String[], popupPages:Object[], runtimeErrors:Object[]}>}
+     */
+    async function installErrorLedger(page, callbackName) {
+        const ledger = {pageErrors: [], popupErrors: [], popupPages: [], runtimeErrors: []};
+
+        await page.context().exposeFunction(callbackName, payload => ledger.runtimeErrors.push(payload));
+        await page.context().addInitScript(name => {
+            globalThis.addEventListener('error', event => globalThis[name]({
+                column : event.colno,
+                line   : event.lineno,
+                message: event.message,
+                source : event.filename,
+                type   : 'error'
+            }));
+            globalThis.addEventListener('unhandledrejection', event => globalThis[name]({
+                reason: String(event.reason?.stack || event.reason?.message || event.reason),
+                type  : 'unhandledrejection'
+            }))
+        }, callbackName);
+
+        page.on('pageerror', error => ledger.pageErrors.push(String(error?.stack || error?.message || error)));
+        page.context().on('page', popup => {
+            ledger.popupPages.push(popup);
+            popup.on('pageerror', error => ledger.popupErrors.push(String(error?.stack || error?.message || error)))
+        });
+
+        return ledger
+    }
+
+    /**
+     * @param {import('@playwright/test').Page} page
+     * @param {Object} neuralLink
+     * @returns {Promise<{app:Object, wsId:String}>}
+     */
+    async function bootDemoB(page, neuralLink) {
+        await page.goto('/apps/agentos/childapps/dockdemo/index.html?demo=b');
+        await page.locator('.agentos-dockdemo-counter-pane').waitFor({timeout: 30000});
+
+        const
+            app        = await neuralLink.connectToApp('AgentOSDockDemo'),
+            workspaces = await app.findInstances({
+                className: 'AgentOS.childapps.dockdemo.view.DemoBWorkspace'
+            }, ['id']),
+            wsId       = (Array.isArray(workspaces) ? workspaces[0] : workspaces)?.id;
+
+        expect(wsId, 'Demo B must expose one Neural Link workspace authority').toBeTruthy();
+
+        return {app, wsId}
+    }
+
+    /**
+     * @param {import('@playwright/test').Page} page
+     * @param {Object} app
+     * @param {String} wsId
+     * @returns {Promise<Object>}
+     */
+    async function getTerminalSnapshot(page, app, wsId) {
+        const
+            lifecycle = await getTerminalLifecycleState(app, wsId),
+            pane      = await getCounter(app),
+            homes     = Object.values(lifecycle.dockModel.nodes)
+                .filter(node => node.items?.includes('workbench'));
+
+        return {
+            homeCount      : homes.length,
+            lifecycle,
+            mainRenderCount: await page.locator('.agentos-dockdemo-counter-pane').count(),
+            pane           : {
+                id        : pane.id,
+                mountCount: pane.mountCount,
+                mounted   : pane.mounted,
+                windowId  : pane.windowId
+            },
+            popupUrls: page.context().pages()
+                .filter(candidate => candidate !== page && !candidate.isClosed())
+                .map(candidate => candidate.url())
+                .sort()
+        }
+    }
+
+    /**
+     * @param {Object} snapshot
+     */
+    function expectNoTearOutResidue(snapshot) {
+        expect(snapshot.lifecycle).toMatchObject({
+            'tearOutConnectAdmissions.size': 0,
+            'tearOutHandlers.activeVessel' : null,
+            'tearOutRetirements.size'      : 0,
+            'vesselOwnerGrants.size'       : 0,
+            tearOutConnects                : {},
+            tearOutPanes                   : {},
+            tearOutPlacements              : {}
+        });
+        expect(snapshot.homeCount).toBe(1);
+        expect(snapshot.mainRenderCount).toBe(1);
+        expect(snapshot.popupUrls).toEqual([])
+    }
+
+    /**
+     * @param {Object} app
+     * @param {String} wsId
+     * @param {String} name
+     * @param {Object} expectedDocument
+     * @returns {Promise<Object>}
+     */
+    async function persistDockReceipt(app, wsId, name, expectedDocument) {
+        expect(await app.callMethod(wsId, 'capturePerspective', [name]))
+            .toEqual({errors: [], saved: true});
+
+        const
+            collection = (await app.getComponent(wsId, [
+                'perspectiveStore.collection'
+            ]))['perspectiveStore.collection'],
+            stored     = collection.layouts[`demo-b-${name.toLowerCase()}`];
+
+        expect(stored.captureScope).toBe('window');
+        expect(stored.dockZone).toEqual(expectedDocument);
+        expect(JSON.parse(JSON.stringify(stored))).toEqual(stored);
+
+        return stored
+    }
+
+    /**
+     * @param {Object} ledger
+     */
+    function expectNoRuntimeErrors(ledger) {
+        expect(ledger.runtimeErrors).toEqual([]);
+        expect(ledger.pageErrors).toEqual([]);
+        expect(ledger.popupErrors).toEqual([])
     }
 
     test('row 5 — denied getScreenDetails falls back through window metrics without violating lifecycle invariants', async ({page, neuralLink}) => {
@@ -259,6 +413,258 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
             mountCounts: [paneBefore.mountCount, paneDetached.mountCount, paneReturned.mountCount],
             paneId     : paneBefore.id,
             vesselWindowId
+        }))
+    })
+
+    test('row 7 — committed drop cleans once and a repeated terminal is a no-op', async ({page, neuralLink}) => {
+        const ledger      = await installErrorLedger(page, '__recordMatrixRow7Drop');
+        const {app, wsId} = await bootDemoB(page, neuralLink);
+        const before      = await getTerminalSnapshot(page, app, wsId);
+
+        const
+            popupWait  = page.waitForEvent('popup', {timeout: 30000}),
+            resultWait = app.callMethod(wsId, 'executeTearOutStep', [{
+                itemId      : 'workbench',
+                sourceNodeId: 'workbench-tabs'
+            }, {postBirthMoves: 4}]),
+            popup      = await popupWait,
+            result     = await resultWait;
+
+        expect(result).toMatchObject({
+            applied: true,
+            errors : [],
+            proof  : {
+                born              : true,
+                committed         : true,
+                detachCommitted   : true,
+                itemAbsentFromTree: true,
+                itemKeptInCatalog : true,
+                survivedProbe     : true
+            }
+        });
+
+        await persistDockReceipt(app, wsId, 'Row7Drop', result.proof.documentAfter);
+
+        const
+            committed      = await getTerminalSnapshot(page, app, wsId),
+            detachedEntry  = committed.lifecycle.tearOutPanes.workbench,
+            vesselWindowId = detachedEntry.windowId;
+
+        expect(result.proof.documentBefore).toEqual(before.lifecycle.dockModel);
+        expect(committed.lifecycle.dockModel).toEqual(result.proof.documentAfter);
+        expect(committed.lifecycle).toMatchObject({
+            'tearOutConnectAdmissions.size': 0,
+            'tearOutHandlers.activeVessel' : null,
+            'tearOutRetirements.size'      : 0,
+            'vesselOwnerGrants.size'       : 0,
+            tearOutAcquisitionAttempts     : 1,
+            tearOutConnects                : {}
+        });
+        expect(Object.keys(committed.lifecycle.tearOutPanes)).toEqual(['workbench']);
+        expect(Object.keys(committed.lifecycle.tearOutPlacements)).toEqual(['workbench']);
+        expect(committed.homeCount).toBe(0);
+        expect(committed.mainRenderCount).toBe(0);
+        expect(committed.pane).toEqual({
+            id        : before.pane.id,
+            mountCount: before.pane.mountCount + 1,
+            mounted   : true,
+            windowId  : vesselWindowId
+        });
+        expect(committed.popupUrls).toEqual([popup.url()]);
+
+        expect(await app.callMethod(wsId, 'tearOutHandlers.onDockTearOutTerminal', [{
+            itemId: 'workbench'
+        }])).toBe(false);
+        expect(await getTerminalSnapshot(page, app, wsId)).toEqual(committed);
+
+        const popupClosed = popup.waitForEvent('close');
+
+        await popup.evaluate(() => window.close());
+        await popupClosed;
+
+        await expect.poll(async () => {
+            const snapshot = await getTerminalSnapshot(page, app, wsId);
+
+            return {
+                connects: Object.keys(snapshot.lifecycle.tearOutConnects).length,
+                homes   : snapshot.homeCount,
+                panes   : Object.keys(snapshot.lifecycle.tearOutPanes).length,
+                places  : Object.keys(snapshot.lifecycle.tearOutPlacements).length,
+                popups  : snapshot.popupUrls.length,
+                rendered: snapshot.mainRenderCount
+            }
+        }, {
+            intervals: [100, 250],
+            timeout  : 10000
+        }).toEqual({connects: 0, homes: 1, panes: 0, places: 0, popups: 0, rendered: 1});
+
+        const returnedBeforePersist = await getTerminalSnapshot(page, app, wsId);
+
+        await persistDockReceipt(app, wsId, 'Row7DropReturned', returnedBeforePersist.lifecycle.dockModel);
+
+        const returned = await getTerminalSnapshot(page, app, wsId);
+
+        expectNoTearOutResidue(returned);
+        expect(returned.lifecycle.dockModel).toEqual(returnedBeforePersist.lifecycle.dockModel);
+        expect(returned.lifecycle.tearOutAcquisitionAttempts).toBe(1);
+        expect(returned.pane).toEqual({
+            id        : before.pane.id,
+            mountCount: before.pane.mountCount + 2,
+            mounted   : true,
+            windowId  : before.pane.windowId
+        });
+
+        await app.callMethod(wsId, 'onWindowDisconnect', [{windowId: vesselWindowId}]);
+
+        expect(await getTerminalSnapshot(page, app, wsId)).toEqual(returned);
+        expectNoRuntimeErrors(ledger);
+
+        console.log('ROW7-DROP-RECEIPT', JSON.stringify({
+            acquisitionAttempts: returned.lifecycle.tearOutAcquisitionAttempts,
+            mountCounts        : [before.pane.mountCount, committed.pane.mountCount, returned.pane.mountCount],
+            paneId             : before.pane.id,
+            vesselWindowId
+        }))
+    });
+
+    test('row 7 — post-birth cancel restores the same pane and cleans once', async ({page, neuralLink}) => {
+        const ledger      = await installErrorLedger(page, '__recordMatrixRow7Cancel');
+        const {app, wsId} = await bootDemoB(page, neuralLink);
+        const before      = await getTerminalSnapshot(page, app, wsId);
+
+        const result = await app.callMethod(wsId, 'executeTearOutStep', [{
+            itemId      : 'workbench',
+            sourceNodeId: 'workbench-tabs'
+        }, {cancel: true, postBirthMoves: 4}]);
+
+        expect(result).toMatchObject({
+            applied  : false,
+            cancelled: true,
+            errors   : [],
+            proof    : {
+                born              : true,
+                cancellation      : {escapeDispatched: true, releaseDispatched: true, settled: true},
+                documentsUnchanged: true,
+                survivedProbe     : true
+            }
+        });
+
+        await expect.poll(async () => {
+            const snapshot = await getTerminalSnapshot(page, app, wsId);
+
+            return {
+                active : snapshot.lifecycle['tearOutHandlers.activeVessel'],
+                panes  : Object.keys(snapshot.lifecycle.tearOutPanes).length,
+                popups : snapshot.popupUrls.length,
+                windows: snapshot.homeCount
+            }
+        }, {
+            intervals: [100, 250],
+            timeout  : 10000
+        }).toEqual({active: null, panes: 0, popups: 0, windows: 1});
+
+        await persistDockReceipt(app, wsId, 'Row7Cancel', before.lifecycle.dockModel);
+
+        const cancelled = await getTerminalSnapshot(page, app, wsId);
+
+        expect(result.proof.documentBefore).toEqual(before.lifecycle.dockModel);
+        expect(result.proof.documentAfter).toEqual(before.lifecycle.dockModel);
+        expectNoTearOutResidue(cancelled);
+        expect(cancelled.lifecycle.dockModel).toEqual(before.lifecycle.dockModel);
+        expect(cancelled.lifecycle.tearOutAcquisitionAttempts).toBe(1);
+        expect(cancelled.pane).toEqual({
+            id        : before.pane.id,
+            mountCount: before.pane.mountCount + 2,
+            mounted   : true,
+            windowId  : before.pane.windowId
+        });
+        expect(ledger.popupPages).toHaveLength(1);
+        expect(ledger.popupPages[0].isClosed()).toBe(true);
+
+        expect(await app.callMethod(wsId, 'tearOutHandlers.onDockTearOutCancel', [{
+            itemId: 'workbench'
+        }])).toBe(false);
+        expect(await getTerminalSnapshot(page, app, wsId)).toEqual(cancelled);
+        expectNoRuntimeErrors(ledger);
+
+        console.log('ROW7-CANCEL-RECEIPT', JSON.stringify({
+            acquisitionAttempts: cancelled.lifecycle.tearOutAcquisitionAttempts,
+            mountCounts        : [before.pane.mountCount, cancelled.pane.mountCount],
+            paneId             : before.pane.id,
+            popupClosed        : ledger.popupPages[0].isClosed()
+        }))
+    });
+
+    test('row 7 — blocked acquisition cleans once without a model commit', async ({page, neuralLink}) => {
+        const ledger = await installErrorLedger(page, '__recordMatrixRow7Blocked');
+
+        await page.context().addInitScript(() => {
+            const nativeOpen = globalThis.open;
+
+            globalThis.__matrixRow7BlockOpen = false;
+            globalThis.__matrixRow7OpenCalls = [];
+            globalThis.open = function(url, target, features) {
+                const blocked = globalThis.__matrixRow7BlockOpen && url === 'about:blank';
+
+                globalThis.__matrixRow7OpenCalls.push({
+                    blocked,
+                    features: String(features ?? ''),
+                    target  : String(target ?? ''),
+                    url     : String(url ?? '')
+                });
+
+                if (blocked) return null;
+
+                return nativeOpen.call(this, url, target, features)
+            }
+        });
+
+        const {app, wsId} = await bootDemoB(page, neuralLink);
+        const before      = await getTerminalSnapshot(page, app, wsId);
+
+        await page.evaluate(() => {
+            globalThis.__matrixRow7BlockOpen = true
+        });
+
+        const result = await app.callMethod(wsId, 'executeTearOutStep', [{
+            itemId      : 'workbench',
+            sourceNodeId: 'workbench-tabs'
+        }, {postBirthMoves: 4}]);
+
+        const openCalls = await page.evaluate(() => globalThis.__matrixRow7OpenCalls);
+
+        expect(result.applied).toBe(false);
+        expect(result.errors).toHaveLength(1);
+        expect(result.errors[0]).toContain('tear-out vessel was not born after the boundary exit');
+        expect(result.proof).toMatchObject({
+            armed       : true,
+            born        : false,
+            cancellation: {escapeDispatched: true, releaseDispatched: true, settled: true}
+        });
+
+        expect(openCalls.length).toBeGreaterThan(0);
+        expect(openCalls.every(call => call.blocked && call.url === 'about:blank' && call.target)).toBe(true);
+
+        await persistDockReceipt(app, wsId, 'Row7Blocked', before.lifecycle.dockModel);
+
+        const blocked = await getTerminalSnapshot(page, app, wsId);
+
+        expectNoTearOutResidue(blocked);
+        expect(blocked.lifecycle.dockModel).toEqual(before.lifecycle.dockModel);
+        expect(blocked.lifecycle.tearOutAcquisitionAttempts).toBe(openCalls.length);
+        expect(blocked.pane).toEqual(before.pane);
+        expect(ledger.popupPages).toEqual([]);
+
+        expect(await app.callMethod(wsId, 'tearOutHandlers.onDockTearOutCancel', [{
+            itemId: 'workbench'
+        }])).toBe(false);
+        expect(await getTerminalSnapshot(page, app, wsId)).toEqual(blocked);
+        expectNoRuntimeErrors(ledger);
+
+        console.log('ROW7-BLOCKED-RECEIPT', JSON.stringify({
+            acquisitionAttempts: blocked.lifecycle.tearOutAcquisitionAttempts,
+            openCalls,
+            paneId             : before.pane.id
         }))
     })
 });
