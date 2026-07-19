@@ -367,12 +367,15 @@ class AgentCard extends Container {
             lane   = me.getReference('card-lane'),
             elided = AgentCard.elideLaneLine(record.laneLine);
 
-        lane.vdom = elided.whole !== undefined
-            ? {cn: [{tag: 'span', cls: ['fm-lane-whole'], html: elided.whole}]}
-            : {cn: [
+        // set the lane's CHILD nodes (mutating cn, not replacing the whole vdom — a full replace
+        // clobbers the component's root id/cls and the lane never mounts)
+        lane.vdom.cn = elided.whole !== undefined
+            ? [{tag: 'span', cls: ['fm-lane-whole'], html: elided.whole}]
+            : [
                 {tag: 'span', cls: ['fm-lane-elide'], html: elided.head},
                 {tag: 'span', cls: ['fm-lane-tail'],  html: elided.tail}
-            ]};
+            ];
+        lane.update();
 
         // a badge only for a REPORTED positive count: null/absent = no stamped count → no badge
         const laneCount = Number.isInteger(record.openLaneCount) && record.openLaneCount > 0 ? record.openLaneCount : null;

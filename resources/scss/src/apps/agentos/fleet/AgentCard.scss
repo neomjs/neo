@@ -9,6 +9,9 @@
     gap           : 8px;
     padding       : 10px 12px 10px 15px;   /* left pad clears the 3px rail + a gutter */
     overflow      : hidden;
+    background    : var(--fm-panel);
+    border        : 1px solid var(--fm-line-soft);
+    border-radius : 9px;
 
     /* the family accent — FamilyRail owns the colour (--fm-rail via its family class); the card
        positions it as a 3px full-height left edge so it costs no flow width */

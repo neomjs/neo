@@ -1,0 +1,136 @@
+import {test, expect} from '../../fixtures.mjs';
+
+/**
+ * @summary The #15536 evolved-D/synthesis AgentCard rendered against a pathological fleet at the
+ * card-width matrix — the mounted witness for the operator-selected composition, carrying the
+ * falsifiers the retired #15539 baseline established (the carry-forward where they earn permanence):
+ *
+ * - long display/engine names crowding the identity column;
+ * - two lanes sharing their first seven characters + 2-digit overflow counts — the narrow falsifier:
+ *   the head+tail middle elision must preserve each lane's DISTINGUISHING tail;
+ * - wake/throttle telltales + a pending control + a retained reject reason;
+ * - mixed session state (wedged/limited/idle/off) and the full source-health vocabulary
+ *   (wired-observed / wired-inferred / missing / not-wired) — the summary strip must NAME the
+ *   abnormal source (no 9px acronym wall) and can never contradict the facts;
+ * - the operator avatar-keeper invariant: a visible avatar at every card width (real image slot).
+ *
+ * Captured on the CARD's own width (294 / 360 / 480), the same axis the selected design renders
+ * against — the grid is pinned to a single fixed-width track per width so the card-owned `@container`
+ * modes engage (narrow <320 vs regular/wide). Goldens are created/refreshed under the visual/e2e
+ * config only. Fidelity against the repaired #15538 head is Phoebe's narrow/mobile design-check seat.
+ *
+ * Run: NEO_E2E_PORT=8121 npx playwright test agentos/AgentCardSynthesisRenderNL -c test/playwright/playwright.config.e2e.mjs --workers=1 --update-snapshots
+ *
+ * @see apps/agentos/view/fleet/AgentCard.mjs (the composition under test)
+ */
+
+// a deterministic generic-profile avatar at the real slot size; distinct hue per card stands in for
+// the production github face image (no flaky network fetch in the golden)
+const avatar = hue => 'data:image/svg+xml,' + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80">` +
+    `<rect width="80" height="80" fill="${hue}"/>` +
+    `<circle cx="40" cy="31" r="14" fill="#ffffff" opacity="0.92"/>` +
+    `<path d="M16 72 a24 22 0 0 1 48 0 Z" fill="#ffffff" opacity="0.92"/>` +
+    `</svg>`
+);
+
+// per-axis source-health facts honoring the closed contract (wired needs the producer literal +
+// observed/inferred confidence, else it fails closed to not-wired)
+const
+    roster  = (state, confidence = 'none') => ({source: 'fleet:listAgents',    state, confidence}),
+    repo    = (state, confidence = 'none') => ({source: 'fleet:fleetStatus',    state, confidence}),
+    runtime = (state, confidence = 'none') => ({source: 'fleet:runtimeStatus',  state, confidence});
+
+// two lanes sharing the first seven chars ("control") + 2-digit overflow — the tail-elision falsifier
+const PATHOLOGICAL_ROSTER = [
+    {
+        agentId      : 'stress-wedged', githubUsername: '@stress-wedged', displayName: 'Alexander Constantine Maximilianus',
+        engineTag    : 'opus-4.8-experimental-preview-turbo', family: 'claude', state: 'wedged', avatarUrl: avatar('#7c5cbf'),
+        laneLine     : 'control-plane restart actuator R3 seam reconciliation across the multi-window dock topology',
+        openLaneCount: 23,
+        wake         : {source: 'fleet:wake', state: 'suppressed', confidence: 'observed'},
+        throttle     : {source: 'fleet:throttle', state: 'rate-limited', confidence: 'observed'},
+        controlReason: {action: 'stop', kind: 'rejected', reason: 'fleet: stop rejected — resident holds an uncommitted transaction'},
+        sources      : {roster: roster('wired', 'observed'), repoStatus: repo('not-wired'), runtime: runtime('wired', 'observed')}
+    },
+    {
+        agentId      : 'stress-limited', githubUsername: '@stress-limited', displayName: 'Bartholomew Wolfgang Amadeus',
+        engineTag    : 'gpt-5.6-sol-turbo-preview', family: 'gpt', state: 'limited', avatarUrl: avatar('#2f9e6b'),
+        laneLine     : 'control-plane deployment-state bridge self-heal recent-event-limit tuning + overlay migration',
+        openLaneCount: 17,
+        pendingAction: 'start',
+        throttle     : {source: 'fleet:throttle', state: 'overage', confidence: 'observed'},
+        sources      : {roster: roster('wired', 'observed'), repoStatus: repo('wired', 'inferred'), runtime: runtime('missing')}
+    },
+    {
+        agentId: 'stress-idle', githubUsername: '@stress-idle', displayName: 'Clementina', engineTag: 'fable-5',
+        family : 'claude', state: 'idle', avatarUrl: avatar('#c0873a'), laneLine: 'awaiting review', openLaneCount: 3,
+        wake   : {source: 'fleet:wake', state: 'unknown', confidence: 'unobserved'},
+        sources: {roster: roster('not-wired'), repoStatus: repo('not-wired'), runtime: runtime('wired', 'observed')}
+    },
+    {
+        agentId: 'stress-off', githubUsername: '@stress-off', displayName: 'Dionysius', engineTag: '3.1-pro',
+        family : 'gemini', state: 'off', avatarUrl: avatar('#3f72c4'), laneLine: 'operator-benched', openLaneCount: null,
+        sources: {roster: roster('wired', 'observed'), repoStatus: repo('missing'), runtime: runtime('not-wired')}
+    }
+];
+
+// the card-OWN-width matrix (not viewport) — the axis the selected design renders against
+const CARD_WIDTHS = [
+    {label: 'narrow-294', width: 294},
+    {label: 'regular-360', width: 360},
+    {label: 'roomy-480', width: 480}
+];
+
+test.describe('AgentOS fleet cockpit — AgentCard evolved-D synthesis render at pathological density (card-width matrix)', () => {
+    test.setTimeout(150000);
+
+    test('the selected composition under long names, tail-elided shared-prefix lanes, mixed source health, telltales, and the avatar keeper', async ({page, neuralLink}) => {
+        await page.setViewportSize({width: 900, height: 1000});
+        await page.goto('/apps/agentos/index.html');
+        await expect(page.locator('.fm-fleet-cockpit')).toBeVisible({timeout: 60000});
+        await expect(page.locator('.fm-agent-card').first()).toBeVisible({timeout: 30000});
+
+        const app      = await neuralLink.connectToApp('AgentOS'),
+              [roster] = await app.findInstances({className: 'AgentOS.store.FleetRoster'}, ['id']),
+              storeId  = (Array.isArray(roster) ? roster[0] : roster)?.id;
+
+        expect(storeId, 'the provider-owned FleetRoster store must exist').toBeTruthy();
+
+        // replace the seed with the pathological fleet via the store's own API (clear → add)
+        await app.callMethod(storeId, 'clear');
+        await app.callMethod(storeId, 'add', [PATHOLOGICAL_ROSTER]);
+
+        await expect.poll(async () => (await app.queryComponent({className: 'AgentOS.view.fleet.AgentCard'}, ['id'])).length, {
+            message: 'the grid re-renders one card per pathological resident', timeout: 15000, intervals: [250]
+        }).toBe(PATHOLOGICAL_ROSTER.length);
+
+        // the avatar keeper must be painted before capture (data-URI decode is async)
+        await expect.poll(async () => page.evaluate(() => {
+            const imgs = [...document.querySelectorAll('.fm-card-avatar')];
+            return imgs.length === 4 && imgs.every(el => el.complete && el.naturalWidth > 0);
+        }), {message: 'every card avatar image is loaded', timeout: 15000, intervals: [250]}).toBe(true);
+
+        await page.evaluate(() => document.fonts.ready);
+
+        // capture at each CARD-width: pin the card grid to one fixed-width track so the card's own
+        // @container width modes engage (narrow <320 vs regular/wide), independent of viewport
+        for (const {label, width} of CARD_WIDTHS) {
+            const actual = await page.evaluate(w => {
+                const cards = document.querySelector('.fm-fleet-cards');
+                cards.style.gridTemplateColumns = `${w}px`;
+                cards.style.width               = `${w}px`;
+                cards.style.minWidth            = `${w}px`;
+                cards.style.maxWidth            = `${w}px`;
+                const card = document.querySelector('.fm-agent-card');
+                return card ? Math.round(card.getBoundingClientRect().width) : null;
+            }, width);
+
+            expect(actual, `the pinned single column renders the card at ~${width}px`).toBeGreaterThanOrEqual(width - 4);
+            expect(actual, `the pinned single column renders the card at ~${width}px`).toBeLessThanOrEqual(width + 4);
+
+            await page.evaluate(() => document.fonts.ready);
+            await expect(page.locator('.fm-fleet-cards')).toHaveScreenshot(`agentcard-synthesis-${label}.png`)
+        }
+    });
+});
