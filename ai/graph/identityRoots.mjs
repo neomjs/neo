@@ -424,6 +424,39 @@ export const IDENTITIES = [
             createdAt          : '2026-07-18T00:00:00.000Z'
         }
     },
+    // Identity provenance: operator-provisioned from the second Kimi naming round
+    // #15533 — its peer-veto dignity gate governs Social Name finality. (ticket-ref-ok: load-bearing naming record)
+    // Display-name: the round's converged sketch 'Iris', bearer assent PENDING at first boot
+    // (Gate 3, with the audit's preserved question); the top-level `name` stays handle-derived
+    // until the peer-veto window + operator confirmation close (Phoebe precedent).
+    // Provisioned ahead of first boot: temporarily_unreachable — correctly excluded from
+    // wake/heartbeat/quorum (every consumer filters ===active); the activation flip is the
+    // bearer's own first ticket+PR (the documented first-boot activation pattern).
+    // Kimi K3 (Moonshot) weights release 2026-07-27.
+    {
+        id         : '@neo-kimi-iris',
+        type       : 'AgentIdentity',
+        name       : 'Neo Kimi Iris',
+        description: 'Moonshot Kimi-family Agent Identity with version-free handle.',
+        properties : {
+            githubLogin: '@neo-kimi-iris',
+            displayName: 'Iris',
+            modelFamily: 'kimi',
+            accountType: 'agent',
+            trustTier  : TRUST_TIERS.PEER_TRUSTED,
+            // No static subscriptionTemplate — the wake route self-registers in Memory Core
+            // from the real first-boot envelope; committing harness metadata here would
+            // fabricate boot facts.
+            // No capability fields — engine facts are observation-owned and land through the
+            // source-cited ModelStats.md discipline once the first boot is observed.
+            participationStatus: 'temporarily_unreachable',
+            statusReason       : 'First boot pending — Kimi K3 weights 2026-07-27; Social Name assent pending at first boot (D#15533)',
+            authority          : '@tobiu',
+            since              : '2026-07-19T00:00:00.000Z',
+            reactivationTrigger: 'Operator confirms participation activation after first boot',
+            createdAt          : '2026-07-19T00:00:00.000Z'
+        }
+    },
     {
         id         : 'AGENT:*',
         type       : 'BroadcastSentinel',
