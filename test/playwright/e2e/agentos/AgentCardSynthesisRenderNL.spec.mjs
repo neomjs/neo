@@ -1,9 +1,9 @@
 import {test, expect} from '../../fixtures.mjs';
 
 /**
- * @summary The #15536 evolved-D/synthesis AgentCard rendered against a pathological fleet at the
+ * @summary The evolved-D/synthesis AgentCard rendered against a pathological fleet at the
  * card-width matrix — the mounted witness for the operator-selected composition, carrying the
- * falsifiers the retired #15539 baseline established (the carry-forward where they earn permanence):
+ * falsifiers the retired design-evidence baseline established (the carry-forward where they earn permanence):
  *
  * - long display/engine names crowding the identity column;
  * - two lanes sharing their first seven characters + 2-digit overflow counts — the narrow falsifier:
@@ -17,7 +17,7 @@ import {test, expect} from '../../fixtures.mjs';
  * Captured on the CARD's own width (294 / 360 / 480), the same axis the selected design renders
  * against — the grid is pinned to a single fixed-width track per width so the card-owned `@container`
  * modes engage (narrow <320 vs regular/wide). Goldens are created/refreshed under the visual/e2e
- * config only. Fidelity against the repaired #15538 head is Phoebe's narrow/mobile design-check seat.
+ * config only. Fidelity against the repaired mockup head is Phoebe's narrow/mobile design-check seat.
  *
  * Run: NEO_E2E_PORT=8121 npx playwright test agentos/AgentCardSynthesisRenderNL -c test/playwright/playwright.config.e2e.mjs --workers=1 --update-snapshots
  *
