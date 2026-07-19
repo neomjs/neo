@@ -25,13 +25,20 @@ One transition chain, end to end — no new window manager, no second dwell coor
    conversion to a real, URL-addressed OS popup on the shared heap.
 3. `src/main/addon/DragDrop.mjs` pointer-follow (`windowMoveTo`) — the moving embodiment.
 
-Witness suite: `test/playwright/e2e/colors/tearOutMatrix.spec.mjs` (headed real-browser runs;
-headless proves wiring, never native placement). The measurement surface is the colors app —
-the landed grammar's original live product surface (`useSharedWorkers: true`, `popupUrl` wired
-to its dedicated widget shell, explicit `neo-draggable` panel-header handles). Dock-tier
-surfaces (workstation, dockdemo) opt OUT of the grammar until the G1 leaf lands — they cannot
-serve as measurement surfaces yet. Density context for the G1 calibration remains the flagship
-workstation — 20 items / 9 nodes / 6 tab nodes (1·12·2·2·1·2 distribution).
+Witness family: headed real-browser runs under `test/playwright/playwright.config.matrix.mjs`;
+headless proves wiring, never native placement. Rows 1–3 use
+`test/playwright/e2e/colors/tearOutMatrix.spec.mjs` on the grammar's original live surface
+(`useSharedWorkers: true`, `popupUrl` wired to its dedicated widget shell, explicit
+`neo-draggable` panel-header handles). Rows 4–7 use Demo B, the merged dock-tier composition
+surface that owns worker-stable workspace identity, live pane instances, cross-window claims,
+and terminal machines. Density context for the G1 calibration remains the flagship workstation
+— 20 items / 9 nodes / 6 tab nodes (1·12·2·2·1·2 distribution).
+
+Runner provenance receipt (2026-07-19): the matrix config pins its one resolved port into
+`NEO_E2E_PORT`, while the Colors witness navigates relative to Playwright's configured
+`baseURL`. The web server and page therefore consume one authority; there is no fallback 8080
+route left for a foreign checkout to satisfy. A fresh unpinned row-2 run selected port `64544`
+and passed against that same server.
 
 ## Verdict vocabulary
 
@@ -56,9 +63,9 @@ design discussion, pause consuming implementation).
 | 1 | Hysteretic grammar (0.8 out / 0.6 in, direction-aware) | `NOT_YET_MEASURED` ¹ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 | 2 | Acquisition (`window.open` boolean; activation window) | `NOT_YET_MEASURED` ² | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 | 3 | Moving embodiment (requested-vs-observed `moveTo`) | `NOT_YET_MEASURED` ³ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
-| 4 | Object permanence / reintegration (same instance back) | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
-| 5 | Screen topology (`getScreenDetails` never a prerequisite) | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
-| 6 | Multi-window targeting (claim-protocol identity binding) | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
+| 4 | Object permanence / reintegration (same instance back) | `NOT_YET_MEASURED` ⁴ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
+| 5 | Screen topology (`getScreenDetails` never a prerequisite) | `PASS_FALLBACK` ⁵ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
+| 6 | Multi-window targeting (claim-protocol identity binding) | `NOT_YET_MEASURED` ⁴ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 | 7 | Terminal cleanup (exact-once, idempotent) | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 
 Environment note: the current fleet has a qualifying **macOS** headed environment. Windows and
@@ -123,6 +130,35 @@ geometry. Direct consumer warning: G1 ships this exact grammar to dock surfaces 
 the race predates G1 and must be attributed before dock-tier calibration lands on top of it.
 Requested-vs-observed `moveTo` sampling remains blocked behind the race (a 2 ms lifetime cannot
 be position-sampled).
+
+⁴ Rows 4 / 6 macOS — **qualified RED control, verdict pending** (2026-07-19, Chrome): a headed
+live Neural Link run of Demo B's real `executeCrossWindowStep()` opened both the intended
+`?workspaceId=demo-b-popup` target and an unintended `?popout=workbench` tear-out vessel. Worker
+truth then held two registered workspaces but three physical windows; the CounterPane's live
+`windowId` named the tear-out vessel while `crossWindowTargetWindowId` named the workspace
+target. The exact canonical full-journey control
+`DemoBPerspectivesNL.spec.mjs` failed because the intended popup never rendered the live
+CounterPane. The narrower `DemoBCrossWindowDragNL.spec.mjs` stayed green while logging three
+window connections, proving that its current receipt does not falsify competing-vessel identity.
+The composition repair belongs to #15396; this matrix does not absorb it. A second independent
+gap remains for row 4: Demo B exposes no `Neo.data.Store` (`list_stores` returned an empty set),
+so its CounterPane heartbeat proves instance-local continuity but cannot honestly stand in for
+the required live-store-reference receipt. Both cells remain `NOT_YET_MEASURED`.
+
+⁵ Row 5 macOS — **`PASS_FALLBACK`** (2026-07-19, headed Chrome 150, 3/3 serial): the witness
+bound `Browser.setPermission` to Playwright's actual browser context, observed the
+`window-management` permission as `denied`, and observed `getScreenDetails()` reject with
+`NotAllowedError`. Demo B's real boundary gesture still opened exactly one `?popout=workbench`
+vessel; exact-head source inspection identifies its ordinary `Neo.Main.getWindowData`
+screen/window-metrics path, while the headed receipt independently proves permission denial does
+not block it. All five
+universal invariants passed: the gesture survived four post-birth moves; the CounterPane kept
+the same `neo-component-1` identity with heartbeat `0 → 1 → 2` and mount count `1 → 2 → 3`;
+the real saved-perspective writer accepted both detached and returned documents into its
+JSON-only collection; detach removed the item from the tree while preserving its catalog entry
+and native `window.close()` restored exactly one semantic home; all three lifecycle maps cleared,
+and repeating the same disconnect terminal made no further state change. Main-page and popup
+window error ledgers were empty in every run; SharedWorker console output was not claimed.
 
 ## Per-row receipt requirements
 
