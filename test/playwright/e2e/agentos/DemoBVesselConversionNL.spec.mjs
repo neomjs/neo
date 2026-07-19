@@ -116,10 +116,11 @@ function sampleMetric(source, target) {
 /**
  * @summary Headed calibration witness for dual-window conversion composition.
  *
- * Demo B keeps physical park/re-show disabled until that lifecycle is ready, but this row explicitly
- * opts the source policy in after both vessels exist. It proves exact target/vessel identities, live post-resize
- * browser-to-worker geometry, reachability for each asymmetric size pair, a physical diagonal that
- * distinguishes `min(rx, ry)` from `rx * ry`, and the .55/.35 dead band over a slow physical crossing.
+ * Demo B composes strict physical park/re-show. This row proves exact target/vessel identities, live
+ * post-resize browser-to-worker geometry, reachability for each asymmetric size pair, a physical
+ * diagonal that distinguishes `min(rx, ry)` from `rx * ry`, and the .55/.35 dead band over a slow
+ * crossing. Before park, worker truth comes from the exact live vessel; while parked, the source
+ * binding deliberately switches to logical pointer position with the last exact physical extents.
  *
  * Run: NEO_E2E_PORT=8120 npx playwright test agentos/DemoBVesselConversionNL \
  *   -c test/playwright/playwright.config.matrix.mjs --workers=1
@@ -153,7 +154,7 @@ test.describe('AgentOS Demo B — vessel-conversion geometry readiness', () => {
               windowManager = await findOne(app, {className: 'Neo.manager.Window'}, ['id']);
 
         expect(sourceZone.properties).toMatchObject({
-            enableVesselConversion          : false,
+            enableVesselConversion          : true,
             vesselConversionConvertThreshold: .55,
             vesselConversionRevertThreshold : .35,
             vesselConversionSensor          : null,
@@ -164,7 +165,10 @@ test.describe('AgentOS Demo B — vessel-conversion geometry readiness', () => {
               targetStageWait           = app.callMethod(wsId, 'openCrossWindowStage'),
               [targetPage, targetStage] = await Promise.all([targetPopupWait, targetStageWait]);
 
-        await targetPage.waitForLoadState('domcontentloaded');
+        await targetPage.waitForURL(url => url.searchParams.get('workspaceId') === 'demo-b-popup', {
+            timeout  : 30000,
+            waitUntil: 'domcontentloaded'
+        });
 
         const vesselPopupWait = page.waitForEvent('popup', {timeout: 30000}),
               vesselOpenWait  = app.callMethod(wsId, 'openTearOutVessel', [{
@@ -173,7 +177,10 @@ test.describe('AgentOS Demo B — vessel-conversion geometry readiness', () => {
               }]),
               [vesselPage, vesselConfig] = await Promise.all([vesselPopupWait, vesselOpenWait]);
 
-        await vesselPage.waitForLoadState('domcontentloaded');
+        await vesselPage.waitForURL(url => url.searchParams.get('popout') === 'workbench', {
+            timeout  : 30000,
+            waitUntil: 'domcontentloaded'
+        });
 
         expect(targetPage.url()).toContain('workspaceId=demo-b-popup');
         expect(vesselPage.url()).toContain('popout=workbench');
@@ -268,7 +275,11 @@ test.describe('AgentOS Demo B — vessel-conversion geometry readiness', () => {
         expect(Math.abs(diagonal.min - diagonal.product), 'headed sample distinguishes min from product')
             .toBeGreaterThan(.08);
 
-        await app.setProperties(sourceZone.id, {enableVesselConversion: true, isWindowDragging: true});
+        await app.callMethod(sourceZone.id, 'startWindowDrag', [{
+            popupHeight: source.observed.height,
+            popupWidth : source.observed.width,
+            windowName : 'tearout-workbench'
+        }]);
 
         const requestedRatios = [.2, .5, .58, .5, .38, .32],
               expectedStates  = [false, false, true, true, true, false],
@@ -278,40 +289,66 @@ test.describe('AgentOS Demo B — vessel-conversion geometry readiness', () => {
             target = await awaitParity(app, windowManager.id, targetPage, ids.target);
             source = await awaitParity(app, windowManager.id, vesselPage, ids.source);
 
-            const {bounds: sourceBounds} = await sourceHandle.cdp.send('Browser.getWindowBounds', {
+            const beforeState            = await app.callMethod(sourceZone.id, 'getVesselConversionState'),
+                  {bounds: sourceBounds} = await sourceHandle.cdp.send('Browser.getWindowBounds', {
                       windowId: sourceHandle.windowId
                   }),
                   desiredX = target.observed.x + target.observed.width
                       - requestedRatio * Math.min(source.observed.width, target.observed.width),
                   desiredY = target.observed.y;
 
-            await setBounds(sourceHandle, {
-                ...sourceBounds,
-                left: Math.round(sourceBounds.left + desiredX - source.observed.x),
-                top : Math.round(sourceBounds.top  + desiredY - source.observed.y)
-            });
+            if (!beforeState.converted && !beforeState.transitioning) {
+                await setBounds(sourceHandle, {
+                    ...sourceBounds,
+                    left: Math.round(sourceBounds.left + desiredX - source.observed.x),
+                    top : Math.round(sourceBounds.top  + desiredY - source.observed.y)
+                });
 
-            source = await awaitParity(app, windowManager.id, vesselPage, ids.source);
+                source = await awaitParity(app, windowManager.id, vesselPage, ids.source)
+            }
 
-            const logicalSourceRect = {height: 20, width: 40, x: -9000, y: -9000},
-                  decision          = await app.callMethod(sourceZone.id, 'resolveRemoteDragTransition', [{
+            const logicalSourceRect = {height: 20, width: 40, x: desiredX, y: desiredY},
+                  frame             = {
                       draggedItem    : {dockItemId: 'workbench', id: 'calibration-probe'},
                       logicalSourceRect,
                       pointerInTarget: true,
                       targetId       : 'demo-b-popup',
                       targetRect     : target.observed
-                  }]),
-                  binding = await app.getComponent(sourceZone.id, [
+                  };
+
+            await app.callMethod(sourceZone.id, 'resolveRemoteDragTransition', [frame]);
+
+            await expect.poll(async () => {
+                const state = await app.callMethod(sourceZone.id, 'getVesselConversionState');
+
+                return state.transitioning
+            }, {
+                message  : `ratio ${requestedRatio} strict platform transition must settle`,
+                timeout  : 5000,
+                intervals: [25, 50, 100]
+            }).toBe(false);
+
+            const decision = await app.callMethod(sourceZone.id, 'resolveRemoteDragTransition', [frame]),
+                  binding  = await app.getComponent(sourceZone.id, [
                       'vesselConversionLogicalRect',
                       'vesselConversionSourceRect'
                   ]),
-                  metric = sampleMetric(source.observed, target.observed);
+                  park     = await app.getComponent(wsId, ['lastVesselParkReceipt']),
+                  metric = sampleMetric(binding.vesselConversionSourceRect, target.observed),
+                  expectedSourceRect = beforeState.converted
+                      ? {
+                          height: source.observed.height,
+                          width : source.observed.width,
+                          x     : logicalSourceRect.x,
+                          y     : logicalSourceRect.y
+                      }
+                      : source.observed;
 
             expect(binding.vesselConversionSourceRect,
-                'the owner resolver must supply the exact live vessel, not the fake logical proxy')
-                .toEqual(source.observed);
+                'pre-park uses exact live geometry; parked frames preserve exact extents at logical origin')
+                .toEqual(expectedSourceRect);
             expect(binding.vesselConversionLogicalRect).toEqual(logicalSourceRect);
-            calibration.push({decision, metric, requestedRatio, source: source.observed})
+            calibration.push({beforeState, decision, metric, park: park.lastVesselParkReceipt, requestedRatio, source: expectedSourceRect})
         }
 
         expect(calibration.map(({decision}) => decision.commitEligible)).toEqual(expectedStates);
@@ -334,7 +371,7 @@ test.describe('AgentOS Demo B — vessel-conversion geometry readiness', () => {
             .toEqual({commitEligible: false, engage: false, retain: false});
 
         await app.callMethod(sourceZone.id, 'resetVesselConversion');
-        await app.setProperties(sourceZone.id, {enableVesselConversion: false, isWindowDragging: false});
+        await app.callMethod(sourceZone.id, 'endWindowDrag');
 
         console.log('VESSEL-CONVERSION-CALIBRATION', JSON.stringify({calibration, diagonal, flips, receipts}))
     })

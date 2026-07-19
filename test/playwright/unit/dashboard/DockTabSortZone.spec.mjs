@@ -148,6 +148,21 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
                 TabHeaderSortZone.prototype.onDragStart = original
             }
         })
+
+        test('a successor start is refused while the predecessor terminal still owns the end latch', async () => {
+            const calls = [];
+            const zone  = {
+                dragEndActive: true,
+                owner        : {getDomRect: () => calls.push('measure')},
+                resetVesselConversion() {
+                    calls.push('reset')
+                }
+            };
+
+            await DockTabSortZone.prototype.onDragStart.call(zone, {path: []});
+
+            expect(calls, 'the predecessor retains physical + logical generation authority').toEqual([])
+        })
     });
 
     test.describe('releaseVoidsReorder — the release-boundary decision matrix', () => {
@@ -285,15 +300,16 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
         // Prototype-driven like every pin above: the drag-end decision chain is the unit; the
         // base lifecycle is stubbed to nothing so only the dock routing under test runs.
         const zoneFor = (fired, overrides = {}) => ({
-            dockItemIds        : ['audit', 'graph', 'inbox'],
-            dockSourceNodeId   : 'tabs-main',
-            dragComponent      : null,
-            isWindowDragging   : false,
-            owner              : {up: () => ({fire: (name, data) => fired.push([name, data])})},
-            releaseVoidsReorder: () => false,
-            remoteDropCommitted: false,
-            sortGroup          : null,
-            startIndex         : 1,
+            dockItemIds           : ['audit', 'graph', 'inbox'],
+            dockSourceNodeId      : 'tabs-main',
+            dragComponent         : null,
+            fireDockLifecycleEvent: DockTabSortZone.prototype.fireDockLifecycleEvent,
+            isWindowDragging      : false,
+            owner                 : {up: () => ({fire: (name, data) => fired.push([name, data])})},
+            releaseVoidsReorder   : () => false,
+            remoteDropCommitted   : false,
+            sortGroup             : null,
+            startIndex            : 1,
             ...overrides
         });
 
@@ -342,6 +358,33 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
             expect(fired.some(([name]) => name === 'dockCrossZoneDrop')).toBe(false)
         });
 
+        test('a converted detached cancel forwards the sole tear-out close settlement into Park', async () => {
+            const fired      = [];
+            const retirement = Promise.resolve(true);
+            const zone       = zoneFor(fired, {
+                dragComponent   : {dockItemId: 'graph', id: 'graph-button'},
+                fire            : (name, data) => fired.push([name, data]),
+                isWindowDragging: true,
+                owner           : {up: () => ({fire(name, data) {
+                    name === 'dockTearOutCancel' && (data.settlement = retirement);
+                    fired.push([name, data])
+                }})},
+                vesselConversionSensor: {converted: true, transitioning: false}
+            });
+
+            zone.onDragEnd = data => runDragEnd(zone, data);
+
+            await DockTabSortZone.prototype.onDragCancel.call(zone, {key: 'Escape'});
+
+            expect(fired.map(([name]) => name)).toEqual([
+                'dockTearOutCancel',
+                'dockVesselConversionRetired',
+                'dragCancel',
+                'dockCrossZoneDragCancel'
+            ]);
+            expect(fired[1][1]).toMatchObject({itemId: 'graph', retirement})
+        });
+
         test('an in-window cancel never emits a tear-out terminal', async () => {
             const fired = [];
             const zone  = zoneFor(fired, {
@@ -375,6 +418,93 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
 
             expect(fired, 'the item already left this document — every local commit seam stays silent').toEqual([]);
             expect(zone.remoteDropCommitted, 'the one-shot flag is consumed').toBe(false)
+        });
+
+        test('a converted remote commit emits one committed conversion terminal and no local terminal', async () => {
+            const fired = [];
+            const zone  = zoneFor(fired, {
+                dragComponent         : {dockItemId: 'graph', id: 'graph-button'},
+                sortGroup             : 'dock-cross-window',
+                vesselConversionSensor: {
+                    converted      : true,
+                    targetConverted: true,
+                    transitioning  : false
+                }
+            });
+
+            zone.dragCoordinator = {
+                onDragEnd() {
+                    zone.remoteDropCommitted = true
+                }
+            };
+
+            await runDragEnd(zone, {cancelled: false, clientX: 5000, clientY: 400});
+
+            expect(fired.map(([name]) => name)).toEqual(['dockVesselConversionTerminal']);
+            expect(fired[0][1]).toMatchObject({itemId: 'graph', outcome: 'committed', settlement: false})
+        });
+
+        test('a throwing remote target retires the parked provisional vessel before rethrowing', async () => {
+            const fired = [];
+            const zone  = zoneFor(fired, {
+                dragComponent         : {dockItemId: 'graph', id: 'graph-button'},
+                sortGroup             : 'dock-cross-window',
+                vesselConversionSensor: {
+                    converted      : true,
+                    targetConverted: true,
+                    transitioning  : false
+                }
+            });
+
+            zone.dragCoordinator = {
+                onDragEnd() {
+                    throw new Error('target commit failed')
+                }
+            };
+
+            await expect(runDragEnd(zone, {cancelled: false, clientX: 5000, clientY: 400}))
+                .rejects.toThrow('target commit failed');
+            expect(fired.map(([name]) => name)).toEqual([
+                'dockTearOutCancel', 'dockVesselConversionRetired'
+            ]);
+            expect(fired[1][1]).toMatchObject({itemId: 'graph', retirement: false})
+        });
+
+        test('a release during convert-out restores before the ordinary detached terminal', async () => {
+            let resolveRestore;
+
+            const restored = new Promise(resolve => resolveRestore = resolve),
+                  order    = [],
+                  fired    = [],
+                  zone     = zoneFor(fired, {
+                      dragComponent   : {dockItemId: 'graph', id: 'graph-button'},
+                      isWindowDragging: true,
+                      owner           : {up: () => ({fire(name, data) {
+                          order.push(name);
+                          name === 'dockVesselConversionTerminal' && (data.settlement = restored);
+                          fired.push([name, data])
+                      }})},
+                      resetVesselConversion() {
+                          order.push('reset')
+                      },
+                      vesselConversionSensor: {
+                          converted      : true,
+                          targetConverted: false,
+                          transitioning  : true
+                      }
+                  });
+
+            const running = runDragEnd(zone, {cancelled: false, clientX: 5000, clientY: 400});
+
+            await Promise.resolve();
+            expect(order).toEqual(['dockVesselConversionTerminal', 'reset']);
+
+            resolveRestore(true);
+            await running;
+
+            expect(order).toEqual([
+                'dockVesselConversionTerminal', 'reset', 'dockTearOutTerminal'
+            ])
         });
 
         test('the boundary events re-fire on the tab.Container with the dock identity attached', () => {
@@ -454,17 +584,31 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
                 isWindowDragging         : true,
                 owner                    : {up: () => ({fire(name, data) {
                     if (name === 'dockVesselConversionSourceRectRequest') {
-                        data.sourceRect = overrides.liveSourceRect ?? data.logicalRect;
+                        data.sourceRect = typeof overrides.liveSourceRect === 'function'
+                            ? overrides.liveSourceRect(data)
+                            : overrides.liveSourceRect ?? data.logicalRect;
                         return
+                    }
+                    if (name === 'dockVesselConversionIn') {
+                        data.admission = overrides.convertInAdmission ?? true
+                    } else if (name === 'dockVesselConversionOut') {
+                        data.admission = overrides.convertOutAdmission ?? true
                     }
                     calls.push([name, data])
                 }})},
                 resolveVesselConversionSourceGeometry: DockTabSortZone.prototype.resolveVesselConversionSourceGeometry,
+                resolveRemoteDragTransition          : DockTabSortZone.prototype.resolveRemoteDragTransition,
                 resetVesselConversion                : DockTabSortZone.prototype.resetVesselConversion,
+                scheduleVesselConversionReplay       : DockTabSortZone.prototype.scheduleVesselConversionReplay,
                 startIndex                           : 0,
                 vesselConversionConvertThreshold     : 0.55,
+                vesselConversionCancelPromise        : null,
+                vesselConversionEpoch                : 0,
+                vesselConversionItemId               : null,
                 vesselConversionPointerExitGraceMs   : 0,
                 vesselConversionPointerMissedAt      : null,
+                vesselConversionReplayFrame          : null,
+                vesselConversionReplayPromise        : null,
                 vesselConversionRevertThreshold      : 0.35,
                 vesselConversionSensor               : null,
                 vesselConversionLogicalRect          : null,
@@ -521,6 +665,119 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
             expect(zone.vesselConversionLogicalRect).toEqual({x: 20, y: 20, width: 40, height: 20})
         });
 
+        test('the coordinator frame carries actuator identity when no base reorder index exists', () => {
+            const {calls, zone} = createZone({dockItemIds: null, startIndex: null});
+
+            expect(resolve(zone, {draggedItem: {dockItemId: 'workbench'}}))
+                .toEqual({commitEligible: true, engage: true, retain: false});
+            expect(calls[0][1].itemId).toBe('workbench')
+        });
+
+        test('async park admission is fail-closed, then admitted frames use logical position with frozen exact extents', async () => {
+            let resolvePark,
+                physical = {x: 20, y: 20, width: 200, height: 120};
+
+            const admission     = new Promise(resolve => resolvePark = resolve),
+                  {calls, zone} = createZone({
+                      convertInAdmission: admission,
+                      liveSourceRect    : () => physical
+                  });
+
+            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, retain: false});
+            expect(zone.vesselConversionSensor.transitioning).toBe(true);
+
+            // Product park output is host-authored physical placement. That observation must not
+            // become the next user-trajectory sample.
+            physical = {x: -10000, y: -10000, width: 200, height: 120};
+            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, retain: false});
+
+            resolvePark(true);
+            await zone.vesselConversionSensor.transitionPromise;
+
+            expect(resolve(zone)).toEqual({commitEligible: true, engage: true, retain: false});
+            expect(zone.vesselConversionSourceRect).toEqual(sourceRect);
+            expect(calls.map(([name]) => name)).toEqual(['dockVesselConversionIn'])
+        });
+
+        test('the latest low-overlap frame replays after async park so stale admission cannot convert', async () => {
+            let resolvePark;
+
+            const admission     = new Promise(resolve => resolvePark = resolve),
+                  {calls, zone} = createZone({convertInAdmission: admission});
+
+            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, retain: false});
+
+            // The pointer remains inside the target but retreats below convertThreshold while the
+            // host effect is pending, then stops. No third browser frame may be required.
+            expect(resolve(zone, {
+                logicalSourceRect: {x: 760, y: 20, width: 200, height: 120}
+            })).toEqual({commitEligible: false, engage: false, retain: false});
+
+            const replay = zone.vesselConversionReplayPromise;
+
+            resolvePark(true);
+            await replay;
+
+            expect(zone.vesselConversionSensor.converted).toBe(false);
+            expect(zone.vesselConversionSensor.transitioning).toBe(false);
+            expect(calls.map(([name]) => name)).toEqual([
+                'dockVesselConversionIn', 'dockVesselConversionOut'
+            ])
+        });
+
+        test('the latest re-entry frame replays after async re-show without waiting for another move', async () => {
+            let resolveRestore;
+
+            const restoration   = new Promise(resolve => resolveRestore = resolve),
+                  {calls, zone} = createZone({convertOutAdmission: restoration});
+
+            expect(resolve(zone)).toEqual({commitEligible: true, engage: true, retain: false});
+            expect(resolve(zone, {pointerInTarget: false, targetId: null, targetRect: null}))
+                .toEqual({commitEligible: false, engage: false, retain: false});
+
+            expect(resolve(zone)).toEqual({commitEligible: false, engage: false, retain: false});
+
+            const replay = zone.vesselConversionReplayPromise;
+
+            resolveRestore(true);
+            await replay;
+
+            expect(zone.vesselConversionSensor.converted).toBe(true);
+            expect(calls.map(([name]) => name)).toEqual([
+                'dockVesselConversionIn', 'dockVesselConversionOut', 'dockVesselConversionIn'
+            ])
+        });
+
+        test('re-show replay ignores a stale parked manager rect after the pointer remains below threshold', async () => {
+            let resolveRestore,
+                physical = sourceRect;
+
+            const restoration   = new Promise(resolve => resolveRestore = resolve),
+                  {calls, zone} = createZone({
+                      convertOutAdmission: restoration,
+                      liveSourceRect     : () => physical
+                  });
+
+            expect(resolve(zone)).toEqual({commitEligible: true, engage: true, retain: false});
+            physical = {x: 0, y: 0, width: 200, height: 120};
+
+            expect(resolve(zone, {pointerInTarget: false, targetId: null, targetRect: null}))
+                .toEqual({commitEligible: false, engage: false, retain: false});
+            expect(resolve(zone, {
+                logicalSourceRect: {x: 760, y: 20, width: 200, height: 120}
+            })).toEqual({commitEligible: false, engage: false, retain: false});
+
+            const replay = zone.vesselConversionReplayPromise;
+
+            resolveRestore(true);
+            await replay;
+
+            expect(zone.vesselConversionSensor.converted).toBe(false);
+            expect(calls.map(([name]) => name)).toEqual([
+                'dockVesselConversionIn', 'dockVesselConversionOut'
+            ])
+        });
+
         test('raw claim loss drops commit immediately while a bounded visual grace emits no flip', () => {
             const {calls, zone} = createZone({vesselConversionPointerExitGraceMs: 50});
 
@@ -563,6 +820,7 @@ test.describe('Neo.dashboard.DockTabSortZone', () => {
 
             expect(calls.map(([name]) => name)).toEqual(['dockVesselConversionIn']);
             expect(zone.vesselConversionSensor.converted).toBe(false);
+            expect(zone.vesselConversionItemId).toBeNull();
             expect(zone.vesselConversionPointerMissedAt).toBeNull();
             expect(zone.vesselConversionLogicalRect).toBeNull();
             expect(zone.vesselConversionSourceRect).toBeNull();

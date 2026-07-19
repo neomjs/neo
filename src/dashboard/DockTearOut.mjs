@@ -33,23 +33,179 @@
  * @param {Function} seams.applyOperation Host model seam: `({operation, itemId}) => {document, errors}` —
  *     the workspace's pure reducer (`applyDockZoneOperation`). Called exactly once per successful
  *     tear-out, with `{operation: 'detachItem', itemId}`.
- * @param {Function} seams.closeVessel Host vessel retirement: `({itemId, windowName}) => void|Promise` —
- *     closes the OS window a retired gesture leaves behind. Never called for a committed tear-out.
- * @param {Function} seams.onDocumentChange Host view-sync seam: `(document, operation) => void` —
- *     receives the committed post-detach document (the same seam shape the adapter's `moveTo`
- *     listener feeds).
+ * @param {Function} seams.closeVessel Host vessel retirement:
+ *     `({itemId, windowName}) => Boolean|void|Promise<Boolean|void>` — closes the OS window a
+ *     retired gesture leaves behind. Explicit `false` refuses retirement and preserves the slot;
+ *     legacy void success remains admitted. Never called for a committed tear-out.
+ * @param {Function} seams.onDocumentChange Host view-sync seam: `(document, operation, vessel) => void` —
+ *     receives the committed post-detach document plus the exact admitted vessel generation (the
+ *     same document/operation seam shape the adapter's `moveTo` listener feeds).
  * @param {Function} seams.openVessel Host vessel acquisition:
- *     `({itemId, proxyRect, sortZone}) => Promise<{popupHeight, popupWidth, windowName}|null>` —
+ *     `({admissionToken, itemId, proxyRect, sortZone}) => Promise<{admissionToken, generation,
+ *     popupHeight, popupWidth, windowName}|null>` —
  *     the host performs the platform work (URL, geometry, `windowOpen`) and resolves FALSY on any
  *     failed admission (`windowOpen` returns a Boolean — a blocked popup never throws, so the host
  *     must check the Boolean, not catch).
- * @returns {Object} `{onDockTearOutCancel, onDockTearOutEntry, onDockTearOutExit, onDockTearOutTerminal}`
+ * @returns {Object} `{activeVessel, onDockTearOutCancel, onDockTearOutEntry,
+ *     onDockTearOutExit, onDockTearOutTerminal, onVesselRetired, retireActiveVessel}`
  */
 export function createDockTearOutHandlers({applyOperation, closeVessel, onDocumentChange, openVessel}) {
-    // The single-gesture vessel slot: `{itemId, windowName}` while a vessel is admitted, else null.
-    let activeVessel = null;
+    // The admitted slot is deliberately separate from provisional acquisition and cleanup-only
+    // late authority. A terminal can invalidate an in-flight host Promise before it settles; its
+    // result may then be retired, but can never become active/committable for a dead gesture.
+    let activeVessel        = null,
+        admissionGeneration = 0,
+        lateVessel          = null,
+        pendingAdmission    = null,
+        retirement          = null;
+
+    /**
+     * @summary Creates the exact vessel identity without widening its enumerable public payload.
+     * @param {String} itemId
+     * @param {Object} vessel
+     * @param {Number} fallbackGeneration
+     * @returns {Object}
+     */
+    const createVesselIdentity = (itemId, vessel, fallbackGeneration) => {
+        const identity = {itemId, windowName: vessel.windowName};
+
+        Object.defineProperties(identity, {
+            admissionToken: {
+                value: Number.isFinite(vessel.admissionToken) ? vessel.admissionToken : fallbackGeneration
+            },
+            generation: {
+                value: Number.isFinite(vessel.generation) ? vessel.generation : fallbackGeneration
+            }
+        });
+
+        return identity
+    };
+
+    /**
+     * @summary Invalidates one matching provisional admission before any gesture terminal acts.
+     * @param {String} itemId
+     * @returns {Boolean}
+     */
+    const invalidateAdmission = itemId => {
+        if (
+            !pendingAdmission || pendingAdmission.itemId !== itemId || pendingAdmission.invalidated
+        ) return false;
+
+        pendingAdmission.invalidated = true;
+        admissionGeneration++;
+
+        return true
+    };
+
+    /**
+     * @summary Retires the active vessel once and clears authority only after non-false success.
+     * @param {Object} vessel
+     * @returns {Boolean|Promise<Boolean>}
+     */
+    const retireVessel = vessel => {
+        if (retirement) return retirement.promise;
+
+        let result;
+
+        try {
+            result = closeVessel(vessel)
+        } catch {
+            return false
+        }
+
+        if (typeof result?.then !== 'function') {
+            if (result !== false) {
+                activeVessel === vessel && (activeVessel = null);
+                lateVessel   === vessel && (lateVessel   = null)
+            }
+
+            return result !== false
+        }
+
+        const state = {promise: null, vessel};
+
+        retirement = state;
+        state.promise = Promise.resolve(result).then(closed => {
+            if (retirement !== state) return false;
+
+            retirement = null;
+
+            if (closed !== false) {
+                activeVessel === vessel && (activeVessel = null);
+                lateVessel   === vessel && (lateVessel   = null)
+            }
+
+            return closed !== false
+        }, () => {
+            retirement === state && (retirement = null);
+            return false
+        });
+
+        return state.promise
+    };
 
     return {
+        /**
+         * @member {Object|null} activeVessel
+         */
+        get activeVessel() {
+            return activeVessel
+        },
+
+        /**
+         * @summary Retires the exact active vessel without discarding retry authority first.
+         *
+         * A committed remote target consumes the source vessel without traversing the detached
+         * terminal below. The conversion lifecycle therefore needs one exact, item-guarded close
+         * path. Strict refusal retains this private slot; every stale or other-item request is inert.
+         * @param {Object} identity
+         * @param {String} identity.itemId
+         * @param {String} identity.windowName
+         * @returns {Boolean|Promise<Boolean>}
+         */
+        retireActiveVessel({itemId, windowName} = {}) {
+            let vessel = activeVessel;
+
+            if (
+                !vessel || vessel.itemId !== itemId || vessel.windowName !== windowName
+            ) return false;
+
+            return retireVessel(vessel)
+        },
+
+        /**
+         * @summary Clears one exact vessel after its external owner observed physical retirement.
+         * @param {Object} identity
+         * @param {String} identity.itemId
+         * @param {String} identity.windowName
+         * @returns {Boolean}
+         */
+        onVesselRetired({admissionToken, generation, itemId, windowName} = {}) {
+            if (
+                pendingAdmission?.itemId === itemId &&
+                pendingAdmission.token === admissionToken
+            ) {
+                pendingAdmission.externallyRetired = true;
+                return invalidateAdmission(itemId)
+            }
+
+            const matches = vessel => Boolean(
+                vessel && vessel.itemId === itemId && vessel.windowName === windowName &&
+                (!Number.isFinite(generation) || vessel.generation === generation) &&
+                (!Number.isFinite(admissionToken) || vessel.admissionToken === admissionToken)
+            );
+
+            let vessel = matches(activeVessel) ? activeVessel : lateVessel;
+
+            if (!matches(vessel)) return false;
+
+            activeVessel === vessel && (activeVessel = null);
+            lateVessel   === vessel && (lateVessel   = null);
+            retirement = null;
+
+            return true
+        },
+
         /**
          * Cancel while detached: the vessel retires, the document was never touched. The zone's
          * base cleanup owns the embodiment teardown (the drag is over), so unlike entry there is
@@ -57,12 +213,13 @@ export function createDockTearOutHandlers({applyOperation, closeVessel, onDocume
          * @param {Object} data
          */
         onDockTearOutCancel(data) {
+            invalidateAdmission(data?.itemId);
+
             let vessel = activeVessel;
 
-            if (!vessel) return;
+            if (!vessel) return false;
 
-            activeVessel = null;
-            closeVessel(vessel)
+            return retireVessel(vessel)
         },
 
         /**
@@ -72,14 +229,15 @@ export function createDockTearOutHandlers({applyOperation, closeVessel, onDocume
          * @param {Object} data
          */
         onDockTearOutEntry(data) {
+            invalidateAdmission(data?.itemId);
+
             let vessel = activeVessel;
 
             data.sortZone?.endWindowDrag();
 
-            if (!vessel) return;
+            if (!vessel) return false;
 
-            activeVessel = null;
-            closeVessel(vessel)
+            return retireVessel(vessel)
         },
 
         /**
@@ -91,23 +249,65 @@ export function createDockTearOutHandlers({applyOperation, closeVessel, onDocume
          * @returns {Promise<void>}
          */
         async onDockTearOutExit(data) {
-            if (activeVessel) return;
+            if (activeVessel || retirement || pendingAdmission) return false;
 
-            let vessel = await openVessel({itemId: data.itemId, proxyRect: data.proxyRect, sortZone: data.sortZone});
+            if (lateVessel) {
+                const retired = await retireVessel(lateVessel);
+
+                if (!retired) {
+                    data.sortZone?.endWindowDrag();
+                    return false
+                }
+            }
+
+            const state = {
+                externallyRetired: false,
+                invalidated      : false,
+                itemId           : data.itemId,
+                token            : ++admissionGeneration
+            };
+
+            pendingAdmission = state;
+
+            let vessel;
+
+            try {
+                vessel = await openVessel({
+                    admissionToken: state.token,
+                    itemId        : data.itemId,
+                    proxyRect     : data.proxyRect,
+                    sortZone      : data.sortZone
+                })
+            } catch {
+                vessel = null
+            }
+
+            pendingAdmission === state && (pendingAdmission = null);
+
+            if (state.invalidated || state.token !== admissionGeneration) {
+                if (!state.externallyRetired && vessel?.windowName) {
+                    lateVessel = createVesselIdentity(data.itemId, vessel, state.token);
+                    await retireVessel(lateVessel)
+                }
+
+                return false
+            }
 
             if (!vessel) {
                 data.sortZone?.endWindowDrag();
-                return
+                return false
             }
 
-            activeVessel = {itemId: data.itemId, windowName: vessel.windowName};
+            activeVessel = createVesselIdentity(data.itemId, vessel, state.token);
 
             data.sortZone?.startWindowDrag({
                 dragData   : data,
                 popupHeight: vessel.popupHeight,
                 popupWidth : vessel.popupWidth,
                 windowName : vessel.windowName
-            })
+            });
+
+            return true
         },
 
         /**
@@ -122,11 +322,11 @@ export function createDockTearOutHandlers({applyOperation, closeVessel, onDocume
          * @param {Object} data
          */
         onDockTearOutTerminal(data) {
+            invalidateAdmission(data?.itemId);
+
             let vessel = activeVessel;
 
-            if (!vessel || vessel.itemId !== data.itemId) return;
-
-            activeVessel = null;
+            if (!vessel || vessel.itemId !== data.itemId) return false;
 
             let operation = {operation: 'detachItem', itemId: data.itemId},
                 result;
@@ -138,9 +338,11 @@ export function createDockTearOutHandlers({applyOperation, closeVessel, onDocume
             }
 
             if (result && !result.errors?.length && result.document) {
-                onDocumentChange(result.document, operation)
+                activeVessel = null;
+                onDocumentChange(result.document, operation, vessel);
+                return true
             } else {
-                closeVessel(vessel)
+                return retireVessel(vessel)
             }
         }
     }

@@ -3,7 +3,11 @@ import {setup} from '../../setup.mjs';
 setup({
     appConfig: {
         name: 'DashboardDockTearOutTest'
-    }
+    },
+    // This lifecycle machine is a pure module. Keeping both Neo facade mocks disabled makes the
+    // witness runnable in a fresh worker instead of depending on a sibling spec importing core.
+    mockLocalStorage: false,
+    mockMain        : false
 });
 
 import {test, expect}              from '@playwright/test';
@@ -20,7 +24,7 @@ import {createDockTearOutHandlers} from '../../../../src/dashboard/DockTearOut.m
  * assertion surface — the machine exposes nothing else.
  */
 test.describe('Neo.dashboard.DockTearOut — createDockTearOutHandlers', () => {
-    const harness = ({admit = true, commitErrors = [], commitThrows = false} = {}) => {
+    const harness = ({admit = true, closeResult = true, commitErrors = [], commitThrows = false, openResult = null} = {}) => {
         const calls = {applied: [], closed: [], ended: 0, opened: [], started: [], synced: []};
 
         const sortZone = {
@@ -36,10 +40,14 @@ test.describe('Neo.dashboard.DockTearOut — createDockTearOutHandlers', () => {
                     ? {document: null, errors: commitErrors}
                     : {document: {committed: true, detached: operation.itemId}, errors: []}
             },
-            closeVessel     : vessel => calls.closed.push(vessel),
+            closeVessel     : vessel => {
+                calls.closed.push(vessel);
+                return typeof closeResult === 'function' ? closeResult(vessel) : closeResult
+            },
             onDocumentChange: (document, operation) => calls.synced.push({document, operation}),
             openVessel      : async request => {
                 calls.opened.push(request);
+                if (openResult) return openResult(request);
                 return admit ? {popupHeight: 480, popupWidth: 640, windowName: `vessel-${request.itemId}`} : null
             }
         });
@@ -70,7 +78,9 @@ test.describe('Neo.dashboard.DockTearOut — createDockTearOutHandlers', () => {
 
         await handlers.onDockTearOutExit(data);
 
-        expect(calls.opened[0]).toEqual({itemId: 'graph', proxyRect: data.proxyRect, sortZone});
+        expect(calls.opened[0]).toEqual({
+            admissionToken: 1, itemId: 'graph', proxyRect: data.proxyRect, sortZone
+        });
         expect(calls.ended).toBe(0);
         expect(calls.started).toEqual([{
             dragData: data, popupHeight: 480, popupWidth: 640, windowName: 'vessel-graph'
@@ -93,6 +103,26 @@ test.describe('Neo.dashboard.DockTearOut — createDockTearOutHandlers', () => {
         // the slot is consumed: a duplicate terminal (stale event) commits nothing further
         handlers.onDockTearOutTerminal({itemId: 'graph', sortZone});
         expect(calls.applied).toHaveLength(1)
+    });
+
+    test('a composed remote terminal retires the exact active vessel once without model mutation', async () => {
+        const {calls, handlers, sortZone} = harness();
+
+        await handlers.onDockTearOutExit(exitData(sortZone));
+
+        expect(handlers.retireActiveVessel({itemId: 'inbox', windowName: 'vessel-graph'}),
+            'other-item retirement is inert').toBe(false);
+        expect(handlers.retireActiveVessel({itemId: 'graph', windowName: 'vessel-imposter'}),
+            'same-item wrong-window retirement is inert').toBe(false);
+        expect(handlers.retireActiveVessel({itemId: 'graph', windowName: 'vessel-graph'})).toBe(true);
+        expect(handlers.retireActiveVessel({itemId: 'graph', windowName: 'vessel-graph'}),
+            'duplicate retirement is inert').toBe(false);
+
+        handlers.onDockTearOutTerminal({itemId: 'graph', sortZone});
+        handlers.onDockTearOutCancel({itemId: 'graph', sortZone});
+
+        expect(calls.applied).toHaveLength(0);
+        expect(calls.closed).toEqual([{itemId: 'graph', windowName: 'vessel-graph'}])
     });
 
     test('a model refusal at the terminal retires the vessel instead of syncing — no window survives showing a still-docked item', async () => {
@@ -145,6 +175,110 @@ test.describe('Neo.dashboard.DockTearOut — createDockTearOutHandlers', () => {
         expect(calls.closed).toEqual([{itemId: 'graph', windowName: 'vessel-graph'}]);
         expect(calls.applied).toHaveLength(0);
         expect(calls.ended, 'cancel ends the drag — no embodiment to resume').toBe(0)
+    });
+
+    for (const [terminal, terminate] of [
+        ['cancel',   (handlers, sortZone) => handlers.onDockTearOutCancel({itemId: 'graph', sortZone})],
+        ['re-entry', (handlers, sortZone) => handlers.onDockTearOutEntry({itemId: 'graph', sortZone})],
+        ['release',  (handlers, sortZone) => handlers.onDockTearOutTerminal({itemId: 'graph', sortZone})]
+    ]) {
+        test(`a deferred vessel admission resolving after ${terminal} is retired and never published`, async () => {
+            let resolveOpen;
+
+            const {calls, handlers, sortZone} = harness({
+                openResult: () => new Promise(resolve => resolveOpen = resolve)
+            });
+
+            const admission = handlers.onDockTearOutExit(exitData(sortZone));
+
+            expect(terminate(handlers, sortZone), 'the terminal invalidates provisional authority').toBe(false);
+
+            resolveOpen({generation: 17, popupHeight: 480, popupWidth: 640, windowName: 'vessel-graph'});
+
+            await expect(admission).resolves.toBe(false);
+            expect(calls.started, 'a dead gesture can never start pointer-follow').toHaveLength(0);
+            expect(calls.closed, 'the late physical result is cleanup-only authority').toEqual([{
+                itemId: 'graph', windowName: 'vessel-graph'
+            }]);
+            expect(calls.applied, 'no terminal may adopt a late admission').toHaveLength(0);
+            expect(handlers.activeVessel).toBeNull()
+        })
+    }
+
+    test('an externally retired pending admission stays dead and a successor exit admits fresh', async () => {
+        let attempt = 0,
+            resolveOpen;
+
+        const {calls, handlers, sortZone} = harness({
+            openResult: request => ++attempt === 1
+                ? new Promise(resolve => resolveOpen = resolve)
+                : {
+                    admissionToken: request.admissionToken,
+                    generation    : 22,
+                    popupHeight   : 480,
+                    popupWidth    : 640,
+                    windowName    : 'vessel-graph'
+                }
+        });
+
+        const first = handlers.onDockTearOutExit(exitData(sortZone));
+
+        expect(handlers.onVesselRetired({
+            admissionToken: 1,
+            generation    : 17,
+            itemId        : 'graph',
+            windowName    : 'vessel-graph'
+        })).toBe(true);
+
+        resolveOpen({admissionToken: 1, generation: 17, windowName: 'vessel-graph'});
+
+        await expect(first).resolves.toBe(false);
+        expect(calls.closed, 'the already-dead physical generation is not closed by semantic name').toHaveLength(0);
+        expect(handlers.activeVessel).toBeNull();
+
+        await expect(handlers.onDockTearOutExit(exitData(sortZone))).resolves.toBe(true);
+        expect(calls.started).toHaveLength(1);
+        expect(handlers.activeVessel).toEqual({itemId: 'graph', windowName: 'vessel-graph'})
+    });
+
+    test('an explicit close refusal retains the active vessel and coalesces one in-flight retirement', async () => {
+        let resolveClose,
+            attempt = 0;
+
+        const closeResult                 = new Promise(resolve => resolveClose = resolve),
+              {calls, handlers, sortZone} = harness({
+                  closeResult: () => ++attempt === 1 ? closeResult : true
+              });
+
+        await handlers.onDockTearOutExit(exitData(sortZone));
+
+        const first  = handlers.onDockTearOutCancel({itemId: 'graph', sortZone}),
+              second = handlers.onDockTearOutCancel({itemId: 'graph', sortZone});
+
+        expect(calls.closed).toHaveLength(1);
+
+        resolveClose(false);
+
+        await expect(first).resolves.toBe(false);
+        await expect(second).resolves.toBe(false);
+
+        // Refusal preserves the private slot, so a later exact retry remains possible.
+        expect(handlers.activeVessel).toEqual({itemId: 'graph', windowName: 'vessel-graph'});
+        expect(handlers.retireActiveVessel({itemId: 'graph', windowName: 'vessel-graph'})).toBe(true);
+        expect(calls.closed).toHaveLength(2);
+        expect(handlers.activeVessel).toBeNull()
+    });
+
+    test('an externally observed exact disconnect clears a retained refusal without closing again', async () => {
+        const {calls, handlers, sortZone} = harness({closeResult: false});
+
+        await handlers.onDockTearOutExit(exitData(sortZone));
+        expect(handlers.onDockTearOutCancel({itemId: 'graph', sortZone})).toBe(false);
+
+        expect(handlers.onVesselRetired({itemId: 'other', windowName: 'vessel-graph'})).toBe(false);
+        expect(handlers.onVesselRetired({itemId: 'graph', windowName: 'vessel-graph'})).toBe(true);
+        expect(handlers.activeVessel).toBeNull();
+        expect(calls.closed).toHaveLength(1)
     });
 
     test('the hysteresis re-crossing arc: exit → entry → exit → terminal yields two vessels, ONE commit, one retirement', async () => {
