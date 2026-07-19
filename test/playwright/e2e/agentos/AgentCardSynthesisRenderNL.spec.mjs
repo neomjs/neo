@@ -122,6 +122,10 @@ test.describe('AgentOS fleet cockpit — AgentCard evolved-D synthesis render at
                 cards.style.width               = `${w}px`;
                 cards.style.minWidth            = `${w}px`;
                 cards.style.maxWidth            = `${w}px`;
+                // release the cockpit's height constraint so the wall grows to content — the falsifier
+                // capture must show every card's FULL anatomy, not a scroll-clipped viewport
+                cards.style.height              = 'auto';
+                cards.style.maxHeight           = 'none';
                 const card = document.querySelector('.fm-agent-card');
                 return card ? Math.round(card.getBoundingClientRect().width) : null;
             }, width);
@@ -130,6 +134,29 @@ test.describe('AgentOS fleet cockpit — AgentCard evolved-D synthesis render at
             expect(actual, `the pinned single column renders the card at ~${width}px`).toBeLessThanOrEqual(width + 4);
 
             await page.evaluate(() => document.fonts.ready);
+
+            // render-fit + contrast guards (repaired-semantics pins, not just snapshot-green): every card
+            // must CONTAIN its full anatomy (no overflow clip), the source strip must sit inside the card
+            // boundary, and the name must read against the panel. Theme-agnostic: contrast is a luminance
+            // delta between the resolved name colour and the card background, so it holds in light + dark.
+            const fit = await page.evaluate(() => [...document.querySelectorAll('.fm-agent-card')].map(card => {
+                const rect  = card.getBoundingClientRect(),
+                      strip = card.querySelector('.fm-card-strip'),
+                      name  = card.querySelector('.fm-card-name .neo-button-text'),
+                      sRect = strip?.getBoundingClientRect(),
+                      lum   = c => { const [r, g, b] = c.match(/\d+/g).map(Number); return 0.299 * r + 0.587 * g + 0.114 * b };
+                return {
+                    clipped   : card.scrollHeight - card.clientHeight,
+                    stripBelow: sRect ? sRect.bottom - rect.bottom : -1,
+                    contrast  : name ? Math.abs(lum(getComputedStyle(name).color) - lum(getComputedStyle(card).backgroundColor)) : 0
+                }
+            }));
+            fit.forEach((g, i) => {
+                expect(g.clipped, `[${label}] card ${i} contains its full anatomy (no overflow clip)`).toBe(0);
+                expect(g.stripBelow, `[${label}] card ${i} source strip sits inside the card boundary`).toBeLessThanOrEqual(0);
+                expect(g.contrast, `[${label}] card ${i} name text reads against the panel (luminance delta)`).toBeGreaterThan(90)
+            });
+
             await expect(page.locator('.fm-fleet-cards')).toHaveScreenshot(`agentcard-synthesis-${label}.png`)
         }
     });

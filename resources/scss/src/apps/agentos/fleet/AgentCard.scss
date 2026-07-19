@@ -8,7 +8,10 @@
     position      : relative;
     gap           : 8px;
     padding       : 10px 12px 10px 15px;   /* left pad clears the 3px rail + a gutter */
-    overflow      : hidden;
+    /* NO `overflow: hidden` on the card: as a grid item it would gain automatic-min-size 0 and let a
+       height-constrained card wall shrink it below its own anatomy, clipping the source strip /
+       control-status below the boundary. The card must always contain its full rows; the rail keeps
+       its own rounded corners, and the name ellipsis is scoped to `.neo-button-text`. */
     background    : var(--fm-panel);
     border        : 1px solid var(--fm-line-soft);
     border-radius : 9px;
@@ -77,6 +80,10 @@
             overflow     : hidden;
             white-space  : nowrap;
             text-overflow: ellipsis;
+            /* bind the child explicitly — the neo-button chrome sets its own text color that
+               overrides the Button-root `color`, so the name renders near-black on the dark panel
+               without this (the effective-selector contrast fix, not just root color) */
+            color        : var(--fm-ink);
         }
 
         &:hover .neo-button-text {
@@ -193,6 +200,12 @@
 
         .neo-button-text {
             display: none;
+        }
+
+        /* the glyph must follow the Button color (dim → ink on hover); the neo-button chrome
+           otherwise paints the icon near-black on the dark panel */
+        .neo-button-glyph {
+            color: inherit;
         }
 
         &:hover:not([disabled]) {
