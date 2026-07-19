@@ -2,32 +2,34 @@ import {setup} from '../../../../../setup.mjs';
 
 setup({
     appConfig: {
-        name: 'FleetCockpitFusionTourTest'
+        name: 'MissionControlWorkspaceTourTest'
     }
 });
 
-import {test, expect}       from '@playwright/test';
-import Neo                  from '../../../../../../../src/Neo.mjs';
-import * as core            from '../../../../../../../src/core/_export.mjs';
-import DockPerspectiveStore from '../../../../../../../src/dashboard/DockPerspectiveStore.mjs';
-import DockZoneModel        from '../../../../../../../src/dashboard/DockZoneModel.mjs';
-import FleetCockpit         from '../../../../../../../apps/agentos/view/fleet/FleetCockpit.mjs';
-import cockpitDockDocument  from '../../../../../../../apps/agentos/view/fleet/cockpitDockDocument.mjs';
-import {fusionTourScript}   from '../../../../../../../apps/agentos/tour/fusionFlagship.mjs';
+import {test, expect}          from '@playwright/test';
+import Neo                     from '../../../../../../../src/Neo.mjs';
+import * as core               from '../../../../../../../src/core/_export.mjs';
+import MissionControlWorkspace from '../../../../../../../apps/agentos/childapps/dockdemo/view/MissionControlWorkspace.mjs';
+import cockpitDockDocument     from '../../../../../../../apps/agentos/view/fleet/cockpitDockDocument.mjs';
+import {fusionTourScript}      from '../../../../../../../apps/agentos/tour/fusionFlagship.mjs';
 
 /**
- * Covers the fusion-tour hosting seam on the cockpit — the ROUTING decisions, in isolation
- * (the loadActivity spec's philosophy): `onTourBeat` maps each scripted cue to exactly one
- * cockpit collaborator, the share round-trip runs on the REAL perspective store, and the
- * one-stage guard refuses a second concurrent play. The full tour REPLAY on the real reducers
- * lives in the tour-script spec; the live vessel/e2e truth is the e2e leaf's.
+ * Covers the tour-hosting seam on the DEMO HOST — the ROUTING decisions, in isolation (the
+ * loadActivity spec's philosophy): `onTourBeat` maps each scripted cue to exactly one COMPOSED
+ * COCKPIT collaborator, the one-stage guard refuses a second concurrent play, and the terminal-
+ * truth/reversibility contracts hold. Since the host drives the cockpit's public verbs on the
+ * composed instance, every mock nests those verbs under a `cockpit` stub — exactly the seam the
+ * host reaches through at runtime. The full tour REPLAY on the real reducers lives in the tour-
+ * script spec; the live vessel/e2e truth is the e2e leaf's; the cockpit's own perspective-share
+ * verbs are pinned in the fleet perspective-share unit.
  */
-test.describe('Fleet cockpit — fusion tour hosting seam', () => {
-    const proto = FleetCockpit.prototype;
+test.describe('Mission-control demo host — tour hosting seam over the composed cockpit', () => {
+    const proto = MissionControlWorkspace.prototype;
 
     /**
-     * A spy host recording every collaborator call the cue executor can route to — each verb
-     * returns its REAL success shape so the receipt discipline holds.
+     * A spy host recording every composed-cockpit call the cue executor can route to — each verb
+     * returns its REAL success shape so the receipt discipline holds. The driven verbs live under
+     * `cockpit` (the host reaches them via its `cockpit` getter), the tour state on the host.
      * @returns {Object}
      */
     function makeSpyHost() {
@@ -35,22 +37,24 @@ test.describe('Fleet cockpit — fusion tour hosting seam', () => {
 
         return {
             calls,
-            cuePromise               : Promise.resolve(),
-            cueReceipts              : [],
-            cueErrors                : [],
-            executeTourCue           : proto.executeTourCue,
-            activatePerspective      : name  => (calls.push(['load', name]), {errors: [], switched: true}),
-            dockService              : {capturePerspective: params => (calls.push(['save', params.perspectiveName, params.replace]), Promise.resolve({errors: [], stored: true}))},
-            exportPerspectiveArtifact: name  => (calls.push(['export', name]), {errors: [], exported: true}),
-            importPerspectiveArtifact: ()    => (calls.push(['import']), {errors: [], imported: true}),
-            popOutAgentDetail        : ()    => (calls.push(['popout']), Promise.resolve({detached: true, errors: []})),
-            reattachAgentDetail      : ()    => (calls.push(['reattach']), Promise.resolve({errors: [], reattached: true})),
-            setTourCaption           : text  => calls.push(['caption', text]),
-            syncControlBar           : ()    => {}
+            cuePromise    : Promise.resolve(),
+            cueReceipts   : [],
+            cueErrors     : [],
+            executeTourCue: proto.executeTourCue,
+            setTourCaption: text => calls.push(['caption', text]),
+            cockpit       : {
+                activatePerspective      : name  => (calls.push(['load', name]), {errors: [], switched: true}),
+                dockService              : {capturePerspective: params => (calls.push(['save', params.perspectiveName, params.replace]), Promise.resolve({errors: [], stored: true}))},
+                exportPerspectiveArtifact: name  => (calls.push(['export', name]), {errors: [], exported: true}),
+                importPerspectiveArtifact: ()    => (calls.push(['import']), {errors: [], imported: true}),
+                popOutAgentDetail        : ()    => (calls.push(['popout']), Promise.resolve({detached: true, errors: []})),
+                reattachAgentDetail      : ()    => (calls.push(['reattach']), Promise.resolve({errors: [], reattached: true})),
+                syncControlBar           : ()    => {}
+            }
         }
     }
 
-    test('executeTourCue routes every cue class to exactly one collaborator and returns its receipt; unknown types fail closed', async () => {
+    test('executeTourCue routes every cue class to exactly one composed-cockpit collaborator and returns its receipt; unknown types fail closed', async () => {
         const host = makeSpyHost();
 
         expect((await proto.executeTourCue.call(host, {type: 'perspective-save', name: 'Mission Control'})).stored).toBe(true);
@@ -83,9 +87,9 @@ test.describe('Fleet cockpit — fusion tour hosting seam', () => {
     test('the settlement chain (the Workstation pattern): the runner never awaits cues, so onTourBeat chains them — a REFUSED verb folds into cueErrors, cue truth outranks a green log', async () => {
         const host = makeSpyHost();
 
-        // behavior keyed by NAME (the beat handlers chain onto microtasks, so a mutated spy
-        // would race the chain): "Ghost" refuses, everything else switches
-        host.activatePerspective = name => name === 'Ghost'
+        // behavior keyed by NAME (the beat handlers chain onto microtasks, so a mutated spy would
+        // race the chain): "Ghost" refuses, everything else switches
+        host.cockpit.activatePerspective = name => name === 'Ghost'
             ? {errors: ['no such perspective'], switched: false}
             : {errors: [], switched: true};
 
@@ -103,54 +107,6 @@ test.describe('Fleet cockpit — fusion tour hosting seam', () => {
         expect(host.calls.filter(call => call[0] === 'caption').some(call => call[1].includes('Surface cue failed'))).toBe(true)
     });
 
-    test('the share round-trip on the REAL store: export serializes the stored layout, import re-admits it through validation, fingerprint-stable', () => {
-        const store    = Neo.create(DockPerspectiveStore, {}),
-              captured = DockZoneModel.capturePerspective(cockpitDockDocument(), {layoutId: 'tour-shared-session', perspectiveName: 'Shared Session', title: 'Shared Session'});
-
-        expect(captured.errors).toEqual([]);
-        expect(store.savePerspective(captured.layout).saved).toBe(true);
-
-        // export half on a fake host carrying the real store
-        const exporter = {perspectiveStore: store, sharedPerspectiveArtifact: null};
-        const exported = proto.exportPerspectiveArtifact.call(exporter, 'Shared Session');
-
-        expect(exported).toEqual({errors: [], exported: true});
-        expect(typeof exporter.sharedPerspectiveArtifact).toBe('string');
-
-        // import half into a SECOND, empty store — the teammate's cockpit
-        const targetStore = Neo.create(DockPerspectiveStore, {}),
-              importer    = {
-                  perspectiveStore         : targetStore,
-                  sharedPerspectiveArtifact: exporter.sharedPerspectiveArtifact,
-                  syncControlBar           : () => {}
-              };
-
-        const imported = proto.importPerspectiveArtifact.call(importer);
-
-        expect(imported.errors).toEqual([]);
-        expect(imported.imported).toBe(true);
-
-        // fingerprint-stable across the trip: the re-admitted record equals the captured one
-        expect(targetStore.getPerspective('Shared Session').layout).toEqual(captured.layout);
-
-        store.destroy();
-        targetStore.destroy()
-    });
-
-    test('import fails closed: no held artifact and malformed JSON both refuse without touching the store', () => {
-        const store = Neo.create(DockPerspectiveStore, {});
-
-        expect(proto.importPerspectiveArtifact.call({perspectiveStore: store, sharedPerspectiveArtifact: null}).imported).toBe(false);
-
-        const malformed = proto.importPerspectiveArtifact.call({perspectiveStore: store, sharedPerspectiveArtifact: '{not json'});
-
-        expect(malformed.imported).toBe(false);
-        expect(malformed.errors[0]).toContain('not valid JSON');
-        expect(store.list()).toEqual([]);
-
-        store.destroy()
-    });
-
     test('one stage, one take: a play invoked while a tour runs is a guarded refusal, not a second runner', async () => {
         const result = await proto.playFusionTour.call({playTour: proto.playTour, tourRunner: {}});
 
@@ -158,25 +114,27 @@ test.describe('Fleet cockpit — fusion tour hosting seam', () => {
         expect(result.errors[0]).toContain('already running')
     });
 
-    test('a detached detail pane refuses the take fail-closed — reattach is a host decision, never an implicit tour side-effect', async () => {
-        const result = await proto.playFusionTour.call({playTour: proto.playTour, tourRunner: null, detachedDetail: {windowName: 'x'}});
+    test('a detached detail pane on the composed cockpit refuses the take fail-closed — reattach is a host decision, never an implicit tour side-effect', async () => {
+        const result = await proto.playFusionTour.call({playTour: proto.playTour, tourRunner: null, cockpit: {detachedDetail: {windowName: 'x'}}});
 
         expect(result.completed).toBe(false);
         expect(result.errors[0]).toContain('reattach before a take')
     });
 
-    test('the walkthrough cues route to their seams with receipts: the burst is bounded/honest/reversible, the drill selects through the controller — refusals fail closed', async () => {
+    test('the walkthrough cues route to the composed cockpit seams with receipts: the burst is bounded/honest/reversible, the drill selects through the controller — refusals fail closed', async () => {
         const streamSets = [];
         const selected   = [];
 
         const host = {
             tourStreamRestore: null,
-            getReference     : name => name === 'activity-stream'
-                ? {adapterState: 'sample', events: [{agentId: 'owner-held'}], set: config => streamSets.push(config)}
-                : name === 'fleet-grid'
-                    ? {store: {items: [{agentId: 'neo-fable'}, {agentId: 'neo-opus-ada'}]}}
-                    : null,
-            getController    : () => ({onAgentSelect: data => selected.push(data.agentId)})
+            cockpit          : {
+                getReference: name => name === 'activity-stream'
+                    ? {adapterState: 'sample', events: [{agentId: 'owner-held'}], set: config => streamSets.push(config)}
+                    : name === 'fleet-grid'
+                        ? {store: {items: [{agentId: 'neo-fable'}, {agentId: 'neo-opus-ada'}]}}
+                        : null,
+                getController: () => ({onAgentSelect: data => selected.push(data.agentId)})
+            }
         };
 
         const burst = await proto.executeTourCue.call(host, {type: 'activity-burst', count: 7});
@@ -199,18 +157,18 @@ test.describe('Fleet cockpit — fusion tour hosting seam', () => {
 
         // fail-closed refusals: unknown resident, missing stream, and every dishonest count
         await expect(proto.executeTourCue.call(host, {type: 'drill', name: 'no-such-agent'})).rejects.toThrow('no roster resident');
-        await expect(proto.executeTourCue.call({getReference: () => null}, {type: 'activity-burst', count: 3})).rejects.toThrow('no activity stream');
+        await expect(proto.executeTourCue.call({cockpit: {getReference: () => null}}, {type: 'activity-burst', count: 3})).rejects.toThrow('no activity stream');
         for (const bad of [undefined, 0, -5, 2.5, 201, 'many']) {
             await expect(proto.executeTourCue.call(host, {type: 'activity-burst', count: bad}), `count "${bad}" must refuse`)
                 .rejects.toThrow('explicit integer count')
         }
     });
 
-    test('restoreTourStream puts the owner-held state back exactly and goes inert after — the burst is reversible at the take terminal', () => {
+    test('restoreTourStream puts the composed cockpit\'s owner-held state back exactly and goes inert after — the burst is reversible at the take terminal', () => {
         const streamSets = [];
         const host       = {
             tourStreamRestore: {adapterState: 'sample', events: [{agentId: 'owner-held'}]},
-            getReference     : name => name === 'activity-stream' ? {set: config => streamSets.push(config)} : null
+            cockpit          : {getReference: name => name === 'activity-stream' ? {set: config => streamSets.push(config)} : null}
         };
 
         proto.restoreTourStream.call(host);
@@ -226,20 +184,18 @@ test.describe('Fleet cockpit — fusion tour hosting seam', () => {
     test('CURRENT-ATTEMPT terminal truth: a thrown refresh publishes a failed report for THIS take — a seeded stale success can never masquerade (the RA-1 falsifier)', async () => {
         const restored = [];
         const host     = {
-            id               : 'truth-stage',
-            dockService      : null,
-            detachedDetail   : null,
             playTour         : proto.playTour,
             restoreTourStream: () => restored.push(true),
             tourRunner       : null,
             tourStreamRestore: null,
             // the seeded STALE SUCCESS from a previous take — the exact masquerade RA-1 names
             lastTourReport: {completed: true, cueErrors: [], cueReceipts: 6, errors: [], log: ['old']},
-            refreshPromise: Promise.reject(new Error('refresh rejected by the falsifier')),
             resetTourStage: () => {},
             onTourBeat    : () => {},
             onTourComplete: () => {},
-            setTourCaption: () => {}
+            setTourCaption: () => {},
+            // the composed cockpit: refresh rejects after ownership is claimed
+            cockpit: {id: 'truth-stage', dockService: null, detachedDetail: null, refreshPromise: Promise.reject(new Error('refresh rejected by the falsifier'))}
         };
 
         const report = await proto.playFusionTour.call(host);
@@ -255,24 +211,19 @@ test.describe('Fleet cockpit — fusion tour hosting seam', () => {
     });
 
     test('single-flight under CONCURRENCY: ownership is claimed before any await, so a second call refuses while the first is parked in the refresh window', async () => {
-        // hold the pre-start refresh window OPEN — the exact window the falsifier exploited:
-        // before the fix, runner ownership was established only after this await, so a
-        // concurrent second call passed the guard and double-created runners
+        // hold the pre-start refresh window OPEN — the exact window the falsifier exploited
         let releaseRefresh;
 
         const host = {
-            id               : 'concurrency-stage',
-            dockService      : null,
-            detachedDetail   : null,
             playTour         : proto.playTour,
             restoreTourStream: () => {},
             tourRunner       : null,
             tourStreamRestore: null,
-            refreshPromise   : new Promise(resolve => releaseRefresh = resolve),
             resetTourStage   : () => {},
             onTourBeat       : () => {},
             onTourComplete   : () => {},
-            setTourCaption   : () => {}
+            setTourCaption   : () => {},
+            cockpit          : {id: 'concurrency-stage', dockService: null, detachedDetail: null, refreshPromise: new Promise(resolve => releaseRefresh = resolve)}
         };
 
         const first  = proto.playFusionTour.call(host).catch(error => ({completed: false, errors: [String(error)], crashed: true})),
@@ -285,13 +236,13 @@ test.describe('Fleet cockpit — fusion tour hosting seam', () => {
         releaseRefresh();
         await first;
 
-        // ownership fully released after the take settles (however it settled on the bare host)
+        // ownership fully released after the take settles
         expect(host.tourRunner).toBeNull()
     });
 
-    test('resetTourStage commits a fresh opening document through the standard commit loop — the replay seam', () => {
+    test('resetTourStage commits a fresh opening document through the composed cockpit\'s commit loop — the replay seam', () => {
         const commits = [];
-        const host    = {onDockZoneDocumentChange: document => commits.push(document)};
+        const host    = {cockpit: {onDockZoneDocumentChange: document => commits.push(document)}};
 
         const returned = proto.resetTourStage.call(host);
 
