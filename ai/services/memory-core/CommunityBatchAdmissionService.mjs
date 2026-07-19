@@ -1,12 +1,22 @@
-import fs                                                                           from 'fs-extra';
-import path                                                                         from 'path';
-import crypto                                                                       from 'crypto';
-import Base                                                                         from '../../../src/core/Base.mjs';
-import config                                                                       from '../../mcp/server/memory-core/config.mjs';
-import logger                                                                       from '../../mcp/server/memory-core/logger.mjs';
-import SourceRegistryService                                                        from './SourceRegistryService.mjs';
-import {classifyAttention}                                                          from './communityAttentionClassifier.mjs';
-import {canonicalBatchDigest, validateBatch, occurrenceIdentity, observationDigest} from './communityBatchContract.mjs';
+import fs                    from 'fs-extra';
+import path                  from 'path';
+import crypto                from 'crypto';
+import Base                  from '../../../src/core/Base.mjs';
+import config                from '../../mcp/server/memory-core/config.mjs';
+import logger                from '../../mcp/server/memory-core/logger.mjs';
+import SourceRegistryService from './SourceRegistryService.mjs';
+import {classifyAttention}   from './communityAttentionClassifier.mjs';
+import {
+    MAX_HOSTED_BATCH_BYTES,
+    MAX_HOSTED_OBSERVATIONS,
+    canonicalBatchDigest,
+    carriesCredentialMaterial,
+    carriesHostedAuthority,
+    validateBatch,
+    validateHostedEnvelope,
+    occurrenceIdentity,
+    observationDigest
+} from './communityBatchContract.mjs';
 
 /**
  * @summary Admission outcomes. These are RESULTS, not exceptions, because all are ordinary protocol
@@ -350,6 +360,140 @@ class CommunityBatchAdmissionService extends Base {
         }
 
         return {...outcome, digest}
+    }
+
+    /**
+     * @summary Authenticated hosted ingress over the same neutral admission transaction as local callers.
+     *
+     * The remote envelope cannot carry tenantId, sourceInstanceId, or registrationEpoch. Tenant comes
+     * from RequestContextService through SourceRegistryService; the neutral provider identity resolves
+     * the tenant-scoped registration; and the server injects the current source id + epoch into the exact
+     * canonical v1 batch before admission. Structured volume refusals happen before database mutation.
+     * @param {Object} envelope `{source, batch}` hosted connector payload.
+     * @param {Object} [limits] Test/operator seam for the synchronous work-volume bounds.
+     * @returns {Object}
+     */
+    admitHostedBatch(envelope, {
+        maxBytes        = MAX_HOSTED_BATCH_BYTES,
+        maxObservations = MAX_HOSTED_OBSERVATIONS
+    } = {}) {
+        const validation = validateHostedEnvelope(envelope, {maxBytes, maxObservations});
+
+        if (!validation.valid) {
+            const volumeExceeded = validation.errors.some(error => error.endsWith('_EXCEEDED'));
+
+            return {
+                status: 'conflict',
+                reason: 'HOSTED_BOUNDARY_REJECTED',
+                code  : volumeExceeded ? 'COMMUNITY_BATCH_VOLUME_EXCEEDED' : 'COMMUNITY_BATCH_ENVELOPE_INVALID',
+                errors: validation.errors,
+                volume: validation.volume,
+                limits: {maxBytes, maxObservations}
+            }
+        }
+
+        const registration = SourceRegistryService.resolveRegistration(envelope.source);
+
+        if (!registration) {
+            return {
+                status: 'conflict',
+                reason: 'REGISTRATION_NOT_ADMISSIBLE',
+                code  : 'COMMUNITY_SOURCE_NOT_FOUND'
+            }
+        }
+
+        const canonicalBatch = {
+            ...envelope.batch,
+            sourceInstanceId : registration.sourceInstanceId,
+            registrationEpoch: registration.registrationEpoch
+        };
+
+        return {
+            ...this.admitBatch(canonicalBatch),
+            health: this.getHostedSourceHealth({source: envelope.source})
+        }
+    }
+
+    /**
+     * @summary Returns bounded, credential-free readiness for one tenant-scoped hosted source.
+     *
+     * `lag` is explicitly last-receipt age, not provider-head lag (the provider remains connector-owned).
+     * Coverage gaps surface only as counts and stable codes so provider prose never enters a response.
+     * @param {Object} request
+     * @param {Object} request.source Neutral provider identity.
+     * @returns {Object}
+     */
+    getHostedSourceHealth({source} = {}) {
+        if (!source || typeof source !== 'object' || carriesHostedAuthority(source) || carriesCredentialMaterial(source)) {
+            return {ready: false, code: 'COMMUNITY_SOURCE_IDENTITY_INVALID'}
+        }
+
+        const registration = SourceRegistryService.resolveRegistration(source);
+
+        if (!registration) {
+            return {ready: false, code: 'COMMUNITY_SOURCE_NOT_FOUND'}
+        }
+
+        const tenantId = SourceRegistryService.resolveTenantId();
+
+        if (!tenantId) {
+            return {ready: false, code: 'COMMUNITY_SOURCE_TENANT_UNRESOLVED'}
+        }
+
+        const partitions = this.db.prepare(
+            `SELECT checkpoint.resource_family, checkpoint.checkpoint_version, checkpoint.coverage,
+                    checkpoint.last_receipt_id, checkpoint.updated_at, receipt.admitted_at
+             FROM mc_community_checkpoint AS checkpoint
+             LEFT JOIN mc_community_batch_receipt AS receipt
+               ON receipt.tenant_id = checkpoint.tenant_id
+              AND receipt.source_instance_id = checkpoint.source_instance_id
+              AND receipt.resource_family = checkpoint.resource_family
+              AND receipt.receipt_id = checkpoint.last_receipt_id
+             WHERE checkpoint.tenant_id = ? AND checkpoint.source_instance_id = ?
+             ORDER BY checkpoint.updated_at DESC, checkpoint.resource_family`
+        ).all(tenantId, registration.sourceInstanceId).map(row => {
+            const coverage = row.coverage ? JSON.parse(row.coverage) : null;
+
+            return {
+                resourceFamily   : row.resource_family,
+                checkpointVersion: row.checkpoint_version,
+                lastReceiptId    : row.last_receipt_id,
+                lastReceiptAt    : row.admitted_at,
+                gapCount         : Array.isArray(coverage?.gaps) ? coverage.gaps.length : 0
+            }
+        });
+
+        const
+            latest   = partitions[0] || null,
+            gapCount = partitions.reduce((sum, partition) => sum + partition.gapCount, 0),
+            ready    = registration.lifecycleState === 'ACTIVE';
+
+        return {
+            ready,
+            code             : ready ? 'COMMUNITY_SOURCE_READY' : `COMMUNITY_SOURCE_${registration.lifecycleState}`,
+            sourceInstanceId : registration.sourceInstanceId,
+            state            : registration.lifecycleState,
+            registrationEpoch: registration.registrationEpoch,
+            lastReceipt      : latest ? {
+                receiptId     : latest.lastReceiptId,
+                resourceFamily: latest.resourceFamily,
+                admittedAt    : latest.lastReceiptAt
+            } : null,
+            lag: latest?.lastReceiptAt ? {
+                code   : 'COMMUNITY_SOURCE_LAST_RECEIPT_AGE',
+                basis  : 'last-receipt-age',
+                valueMs: Math.max(0, Date.now() - latest.lastReceiptAt)
+            } : {
+                code   : 'COMMUNITY_SOURCE_NEVER_ADMITTED',
+                basis  : 'last-receipt-age',
+                valueMs: null
+            },
+            gaps: {
+                code : gapCount ? 'COMMUNITY_SOURCE_COVERAGE_GAPS' : 'COMMUNITY_SOURCE_NO_REPORTED_GAPS',
+                count: gapCount
+            },
+            partitions
+        }
     }
 
     /**

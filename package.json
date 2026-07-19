@@ -44,6 +44,8 @@
         "ai:graph-lifecycle-report"            : "node ./ai/scripts/maintenance/graphLifecycleReport.mjs",
         "ai:ingest-tenant"                     : "node ./ai/scripts/maintenance/ingestTenant.mjs",
         "ai:kb-push-client"                    : "node ./ai/scripts/maintenance/kbPushClient.mjs",
+        "ai:community-batch-push"              : "node ./ai/scripts/maintenance/communityBatchPushClient.mjs",
+        "ai:community-source-operator"         : "node ./ai/scripts/maintenance/communitySourceOperator.mjs",
         "ai:mcp-healthcheck"                   : "node ./ai/scripts/diagnostics/mcpHealthcheck.mjs",
         "ai:mcp-client"                        : "node ./ai/mcp/client/mcp-cli.mjs",
         "ai:mcp-server-file-system"            : "node ./ai/mcp/server/file-system/mcp-server.mjs",

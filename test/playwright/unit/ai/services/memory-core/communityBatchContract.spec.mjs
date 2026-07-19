@@ -17,7 +17,8 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import {
-    BATCH_SCHEMA_VERSION, MAX_PROVIDER_STATE_BYTES, canonicalBatchDigest, validateBatch,
+    BATCH_SCHEMA_VERSION, MAX_HOSTED_BATCH_BYTES, MAX_HOSTED_OBSERVATIONS, MAX_PROVIDER_STATE_BYTES,
+    canonicalBatchDigest, carriesCredentialMaterial, validateBatch, validateHostedEnvelope,
     occurrenceIdentity, observationDigest
 } from '../../../../../../ai/services/memory-core/communityBatchContract.mjs';
 
@@ -51,6 +52,20 @@ test.describe('community-activity-batch.v1 contract', () => {
         coverage                  : {fromBasis: 'c1', toBasis: 'c9', complete: true},
         ...over
     });
+
+    const hostedEnvelope = (over = {}) => {
+        const {sourceInstanceId, registrationEpoch, ...authorityFreeBatch} = batch();
+
+        return {
+            source: {
+                canonicalProviderHost: 'github.com',
+                resourceKind         : 'repository',
+                providerResourceId   : 'neomjs/neo'
+            },
+            batch: authorityFreeBatch,
+            ...over
+        }
+    };
 
     // ------------------------------------------------------------------ the batch digest ordering
 
@@ -151,5 +166,48 @@ test.describe('community-activity-batch.v1 contract', () => {
     test('missing required identity is refused', () => {
         expect(validateBatch(batch({sourceInstanceId: null})).errors).toContain('BATCH_MISSING_SOURCEINSTANCEID');
         expect(validateBatch(null)).toEqual({valid: false, errors: ['BATCH_NOT_AN_OBJECT']});
+    });
+
+    // ------------------------------------------------------------------ hosted authority + volume boundary
+
+    test('a hosted envelope carries neutral source identity but no tenant, source id, or epoch', () => {
+        expect(validateHostedEnvelope(hostedEnvelope())).toMatchObject({valid: true, errors: []});
+
+        expect(validateHostedEnvelope(hostedEnvelope({tenantId: 'forged'})).errors)
+            .toContain('HOSTED_AUTHORITY_FIELDS_FORBIDDEN');
+        expect(validateHostedEnvelope(hostedEnvelope({batch: batch()})).errors)
+            .toContain('HOSTED_AUTHORITY_FIELDS_FORBIDDEN');
+
+        const nestedForgery = hostedEnvelope();
+        nestedForgery.batch.observations[0].tenantId = 'forged';
+        expect(validateHostedEnvelope(nestedForgery).errors)
+            .toContain('HOSTED_AUTHORITY_FIELDS_FORBIDDEN');
+    });
+
+    test('credential-shaped material is refused rather than stripped or echoed', () => {
+        const envelope = hostedEnvelope();
+        envelope.batch.nextProviderState = {accessToken: 'do-not-store'};
+
+        expect(carriesCredentialMaterial(envelope)).toBe(true);
+        expect(validateHostedEnvelope(envelope).errors).toContain('HOSTED_CREDENTIAL_MATERIAL_FORBIDDEN');
+    });
+
+    test('hosted validation runs the canonical contract before OpenAPI can strip prose', () => {
+        const envelope = hostedEnvelope();
+        envelope.batch.observations[0].title = 'must not disappear';
+
+        expect(validateHostedEnvelope(envelope).errors).toContain('OBSERVATION_0_CARRIES_PROSE_TITLE');
+    });
+
+    test('hosted ingress enforces both observation-count and serialized-byte bounds', () => {
+        const tooMany = hostedEnvelope();
+        tooMany.batch.observations = Array.from({length: MAX_HOSTED_OBSERVATIONS + 1}, (_, index) => observation(`e${index}`));
+
+        expect(validateHostedEnvelope(tooMany).errors).toContain('HOSTED_BATCH_OBSERVATIONS_EXCEEDED');
+
+        const tooLarge = hostedEnvelope();
+        tooLarge.batch.nextProviderState = {cursor: 'x'.repeat(MAX_HOSTED_BATCH_BYTES)};
+
+        expect(validateHostedEnvelope(tooLarge).errors).toContain('HOSTED_BATCH_BYTES_EXCEEDED');
     });
 });

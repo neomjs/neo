@@ -41,6 +41,8 @@ tags:
     description: Agent active-turn liveness interval operations
   - name: Diagnostics
     description: On-demand operational diagnostics
+  - name: Community Sources
+    description: Authenticated hosted community-source admission and readiness
 
 # Harness tool-projection policy (mirrors neural-link / knowledge-base / github-workflow). A maintainer
 # harness spawned with `--tool-projection-mode harness-embedded` loads the read + write (core-maintainer)
@@ -56,6 +58,65 @@ x-neo-harness-tool-projection:
     - admin
 
 paths:
+  /community/batches/admit:
+    post:
+      summary: Admit hosted community batch
+      operationId: admit_community_batch
+      x-neo-tool-tier: write
+      x-pass-as-object: true
+      x-neo-tool-summary: Admit a bounded community batch after server-side tenant, source, and epoch resolution.
+      description: |
+        Hosted Streamable HTTP connector ingress. The authenticated request context supplies tenant
+        authority; the neutral provider identity resolves the registered source and current epoch.
+        Callers cannot submit tenantId, sourceInstanceId, registrationEpoch, or credential material.
+        Lost-response retries must reuse the same batchId and payload.
+      tags: [Community Sources]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HostedCommunityBatchRequest'
+      responses:
+        '200':
+          description: Admission, idempotent retry, conflict, or structured backpressure result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HostedCommunityBatchResponse'
+
+  /community/sources/health:
+    post:
+      summary: Get hosted community source health
+      operationId: get_community_source_health
+      x-neo-tool-tier: read
+      x-pass-as-object: true
+      x-neo-tool-summary: Read bounded readiness for a tenant-scoped registered community source.
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Resolves the source under the authenticated tenant and returns lifecycle state, current epoch,
+        last receipt, last-receipt age, and coverage-gap counts. Provider secrets and prose are never returned.
+      tags: [Community Sources]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [source]
+              properties:
+                source:
+                  $ref: '#/components/schemas/HostedCommunitySourceIdentity'
+      responses:
+        '200':
+          description: Source readiness or a stable not-found/invalid code.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HostedCommunitySourceHealth'
+
   /healthcheck:
     get:
       summary: Health Check
@@ -3424,6 +3485,213 @@ components:
         message:
           type: string
           example: "All summaries successfully deleted"
+
+    HostedCommunitySourceIdentity:
+      type: object
+      additionalProperties: false
+      required:
+        - canonicalProviderHost
+        - resourceKind
+        - providerResourceId
+      properties:
+        canonicalProviderHost:
+          type: string
+          minLength: 1
+          description: Canonical provider host, for example github.com.
+        resourceKind:
+          type: string
+          minLength: 1
+          description: Neutral provider resource kind, for example repository.
+        providerResourceId:
+          type: string
+          minLength: 1
+          description: Stable provider resource identifier. Never a credential or tenant id.
+
+    HostedCommunityObservation:
+      type: object
+      additionalProperties: false
+      required:
+        - providerEntityId
+        - occurrenceKind
+        - occurrenceCoordinate
+        - occurredAt
+        - actorKind
+      properties:
+        providerEntityId:
+          type: string
+          minLength: 1
+        occurrenceKind:
+          type: string
+          minLength: 1
+        occurrenceCoordinate:
+          type: string
+          minLength: 1
+        occurredAt:
+          type: string
+          minLength: 1
+        actorId:
+          type: string
+          nullable: true
+        actorKind:
+          type: string
+          enum: [user, bot, organization, mannequin, enterprise-user, unknown]
+        revisionOf:
+          type: string
+          nullable: true
+        absence:
+          type: string
+          enum: [deleted, inaccessible, unknown]
+          nullable: true
+        deletionEvidence:
+          type: object
+          nullable: true
+          additionalProperties: true
+
+    HostedCommunityCoverage:
+      type: object
+      additionalProperties: false
+      required: [fromBasis, toBasis, complete]
+      properties:
+        fromBasis:
+          type: string
+        toBasis:
+          type: string
+        complete:
+          type: boolean
+        gaps:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              fromBasis:
+                type: string
+              toBasis:
+                type: string
+
+    HostedCommunityAuthorityFreeBatch:
+      type: object
+      additionalProperties: false
+      required:
+        - schemaVersion
+        - resourceFamily
+        - adapterSchemaVersion
+        - providerStateSchemaVersion
+        - baseCheckpointVersion
+        - baseInventoryHash
+        - batchId
+        - observations
+        - nextProviderState
+        - nextInventoryHash
+        - coverage
+      properties:
+        schemaVersion:
+          type: string
+          enum: [community-activity-batch.v1]
+        resourceFamily:
+          type: string
+          minLength: 1
+        adapterSchemaVersion:
+          type: string
+          minLength: 1
+        providerStateSchemaVersion:
+          type: string
+          minLength: 1
+        baseCheckpointVersion:
+          type: integer
+          minimum: 0
+        baseInventoryHash:
+          type: string
+          nullable: true
+        batchId:
+          type: string
+          minLength: 1
+        observations:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/HostedCommunityObservation'
+        nextProviderState:
+          type: object
+          nullable: true
+          additionalProperties: true
+        nextInventoryHash:
+          type: string
+          nullable: true
+        coverage:
+          $ref: '#/components/schemas/HostedCommunityCoverage'
+
+    HostedCommunityBatchRequest:
+      type: object
+      additionalProperties: false
+      required: [source, batch]
+      properties:
+        source:
+          $ref: '#/components/schemas/HostedCommunitySourceIdentity'
+        batch:
+          $ref: '#/components/schemas/HostedCommunityAuthorityFreeBatch'
+
+    HostedCommunitySourceHealth:
+      type: object
+      required: [ready, code]
+      properties:
+        ready:
+          type: boolean
+        code:
+          type: string
+        sourceInstanceId:
+          type: string
+        state:
+          type: string
+        registrationEpoch:
+          type: integer
+        lastReceipt:
+          type: object
+          nullable: true
+          additionalProperties: true
+        lag:
+          type: object
+          additionalProperties: true
+        gaps:
+          type: object
+          additionalProperties: true
+        partitions:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+
+    HostedCommunityBatchResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [accepted, idempotent, conflict]
+        reason:
+          type: string
+        code:
+          type: string
+        errors:
+          type: array
+          items:
+            type: string
+        digest:
+          type: string
+        receipt:
+          type: object
+          additionalProperties: true
+        checkpoint:
+          type: object
+          additionalProperties: true
+        health:
+          $ref: '#/components/schemas/HostedCommunitySourceHealth'
+        volume:
+          type: object
+          additionalProperties: true
+        limits:
+          type: object
+          additionalProperties: true
 
     ErrorResponse:
       type: object

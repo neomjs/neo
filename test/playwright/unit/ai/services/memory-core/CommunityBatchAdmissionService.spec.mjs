@@ -27,7 +27,10 @@ import RequestContextService  from '../../../../../../ai/mcp/server/shared/servi
  * checkpoint CAS. The four reviewer boundary probes appear as the last five cases.
  */
 test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () => {
-    let AdmissionService, SourceRegistryService, originalEnv, testDbPath;
+    let AdmissionService, SourceRegistryService,
+        admissionDb, registryDb,
+        originalAdmissionDb, originalAttentionPolicy, originalEnv, originalLocalSubjectId, originalRegistryDb,
+        testDbPath;
 
     const
         SUBJECT = 'local-subject',
@@ -82,6 +85,20 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
             ...over
         }),
 
+        hostedEnvelope = (over = {}) => {
+            const {sourceInstanceId, registrationEpoch, ...batch} = batchAt('server-resolved');
+
+            return {
+                source: {
+                    canonicalProviderHost: source.canonicalProviderHost,
+                    resourceKind         : source.resourceKind,
+                    providerResourceId   : source.providerResourceId
+                },
+                batch,
+                ...over
+            }
+        },
+
         activeSource = () => {
             SourceRegistryService.localSubjectId = SUBJECT;
 
@@ -112,14 +129,49 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
         process.env.UNIT_TEST_MODE          = 'true';
         process.env.NEO_MEMORY_DB_PATH_TEST = testDbPath;
 
+        const Database = (await import('better-sqlite3')).default;
+
         SourceRegistryService = (await import('../../../../../../ai/services/memory-core/SourceRegistryService.mjs')).default;
         AdmissionService      = (await import('../../../../../../ai/services/memory-core/CommunityBatchAdmissionService.mjs')).default;
 
-        await SourceRegistryService.initAsync();
-        await AdmissionService.initAsync();
+        await SourceRegistryService.ready();
+        await AdmissionService.ready();
+
+        originalRegistryDb      = SourceRegistryService.db;
+        originalAdmissionDb     = AdmissionService.db;
+        originalLocalSubjectId  = SourceRegistryService.localSubjectId;
+        originalAttentionPolicy = AdmissionService.attentionPolicy;
+
+        registryDb  = new Database(testDbPath, {verbose: null});
+        admissionDb = new Database(testDbPath, {verbose: null});
+
+        registryDb.pragma('journal_mode = WAL');
+        registryDb.pragma('busy_timeout = 5000');
+        admissionDb.pragma('busy_timeout = 5000');
+
+        SourceRegistryService.set({db: registryDb});
+        AdmissionService.set({db: admissionDb});
+        SourceRegistryService.ensureSchema();
+        AdmissionService.ensureSchema();
     });
 
     test.afterAll(() => {
+        SourceRegistryService.set({
+            db            : originalRegistryDb,
+            localSubjectId: originalLocalSubjectId
+        });
+        AdmissionService.set({
+            db             : originalAdmissionDb,
+            attentionPolicy: originalAttentionPolicy
+        });
+
+        registryDb.close();
+        admissionDb.close();
+
+        for (const suffix of ['', '-wal', '-shm']) {
+            try { fs.unlinkSync(`${testDbPath}${suffix}`); } catch (e) {}
+        }
+
         Object.entries(originalEnv).forEach(([k, v]) => {
             v === undefined ? delete process.env[k] : (process.env[k] = v);
         });
@@ -127,7 +179,7 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
 
     test.beforeEach(() => {
         AdmissionService.db.exec('DELETE FROM mc_community_batch_receipt; DELETE FROM mc_community_observation; DELETE FROM mc_community_checkpoint;');
-        SourceRegistryService.db.exec('DELETE FROM mc_source_registration;');
+        SourceRegistryService.db.exec('DELETE FROM mc_source_registration_audit; DELETE FROM mc_source_registration;');
         SourceRegistryService.localSubjectId = SUBJECT;
         AdmissionService.attentionPolicy      = ATTENTION_POLICY;
     });
@@ -400,15 +452,82 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
 
     // ---------------------------------------------------------------- ingress parity + fail-loud
 
-    test('local and remote ingress reach one service and produce the same receipt contract', async () => {
+    test('local and hosted ingress admit byte-equivalent canonical batches and converge on one receipt', async () => {
         const id    = activeSource(),
               local = AdmissionService.admitBatch(batchAt(id));
 
+        SourceRegistryService.localSubjectId = null;
         const remote = await RequestContextService.run({userId: SUBJECT}, () =>
-            AdmissionService.admitBatch(batchAt(id)));   // same batchId + digest -> idempotent against the same row
+            AdmissionService.admitHostedBatch(hostedEnvelope()));
 
         expect(remote.status).toBe('idempotent');
         expect(remote.receipt.receiptId).toBe(local.receipt.receiptId);
+        expect(remote.digest).toBe(local.digest);
+        expect(remote.health).toMatchObject({ready: true, code: 'COMMUNITY_SOURCE_READY'});
+        expect(remote.health.lastReceipt.receiptId).toBe(local.receipt.receiptId);
+    });
+
+    test('hosted callers cannot stamp authority fields and a refusal writes nothing', async () => {
+        activeSource();
+        SourceRegistryService.localSubjectId = null;
+
+        const forged = hostedEnvelope();
+        forged.batch.registrationEpoch = 2;
+
+        const result = await RequestContextService.run({userId: SUBJECT}, () =>
+            AdmissionService.admitHostedBatch(forged));
+
+        expect(result.code).toBe('COMMUNITY_BATCH_ENVELOPE_INVALID');
+        expect(result.errors).toContain('HOSTED_AUTHORITY_FIELDS_FORBIDDEN');
+        expect(receiptCount()).toBe(0);
+    });
+
+    test('wrong-tenant lookup is indistinguishable from an unknown source and fails before mutation', async () => {
+        activeSource();
+        SourceRegistryService.localSubjectId = null;
+
+        const result = await RequestContextService.run({userId: 'other-tenant'}, () =>
+            AdmissionService.admitHostedBatch(hostedEnvelope()));
+
+        expect(result).toMatchObject({
+            status: 'conflict',
+            reason: 'REGISTRATION_NOT_ADMISSIBLE',
+            code  : 'COMMUNITY_SOURCE_NOT_FOUND'
+        });
+        expect(receiptCount()).toBe(0);
+    });
+
+    test('a hosted push resolves but cannot admit after operator revocation', async () => {
+        const id = activeSource();
+
+        SourceRegistryService.transitionLifecycle(id, 'REVOKED', {
+            expectedState: 'ACTIVE',
+            expectedEpoch: 2
+        });
+        SourceRegistryService.localSubjectId = null;
+
+        const result = await RequestContextService.run({userId: SUBJECT}, () =>
+            AdmissionService.admitHostedBatch(hostedEnvelope()));
+
+        expect(result).toMatchObject({
+            status: 'conflict',
+            reason: 'REGISTRATION_NOT_ADMISSIBLE',
+            health: {ready: false, code: 'COMMUNITY_SOURCE_REVOKED'}
+        });
+        expect(receiptCount()).toBe(0);
+    });
+
+    test('hosted work-volume refusal is structured and happens before source mutation', async () => {
+        activeSource();
+        SourceRegistryService.localSubjectId = null;
+
+        const result = await RequestContextService.run({userId: SUBJECT}, () =>
+            AdmissionService.admitHostedBatch(hostedEnvelope(), {maxBytes: 1024 * 1024, maxObservations: 1}));
+
+        expect(result.code).toBe('COMMUNITY_BATCH_VOLUME_EXCEEDED');
+        expect(result.volume.observations).toBe(2);
+        expect(result.limits.maxObservations).toBe(1);
+        expect(receiptCount()).toBe(0);
     });
 
     test('an auth failure cannot partially admit', () => {
