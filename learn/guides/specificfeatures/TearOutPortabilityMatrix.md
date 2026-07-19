@@ -64,7 +64,7 @@ design discussion, pause consuming implementation).
 | 2 | Acquisition (`window.open` boolean; activation window) | `NOT_YET_MEASURED` ² | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 | 3 | Moving embodiment (requested-vs-observed `moveTo`) | `NOT_YET_MEASURED` ³ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 | 4 | Object permanence / reintegration (same instance back) | `NOT_YET_MEASURED` ⁴ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
-| 5 | Screen topology (`getScreenDetails` never a prerequisite) | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
+| 5 | Screen topology (`getScreenDetails` never a prerequisite) | `PASS_FALLBACK` ⁵ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 | 6 | Multi-window targeting (claim-protocol identity binding) | `NOT_YET_MEASURED` ⁴ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 | 7 | Terminal cleanup (exact-once, idempotent) | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 
@@ -144,6 +144,21 @@ The composition repair belongs to #15396; this matrix does not absorb it. A seco
 gap remains for row 4: Demo B exposes no `Neo.data.Store` (`list_stores` returned an empty set),
 so its CounterPane heartbeat proves instance-local continuity but cannot honestly stand in for
 the required live-store-reference receipt. Both cells remain `NOT_YET_MEASURED`.
+
+⁵ Row 5 macOS — **`PASS_FALLBACK`** (2026-07-19, headed Chrome 150, 3/3 serial): the witness
+bound `Browser.setPermission` to Playwright's actual browser context, observed the
+`window-management` permission as `denied`, and observed `getScreenDetails()` reject with
+`NotAllowedError`. Demo B's real boundary gesture still opened exactly one `?popout=workbench`
+vessel; exact-head source inspection identifies its ordinary `Neo.Main.getWindowData`
+screen/window-metrics path, while the headed receipt independently proves permission denial does
+not block it. All five
+universal invariants passed: the gesture survived four post-birth moves; the CounterPane kept
+the same `neo-component-1` identity with heartbeat `0 → 1 → 2` and mount count `1 → 2 → 3`;
+the real saved-perspective writer accepted both detached and returned documents into its
+JSON-only collection; detach removed the item from the tree while preserving its catalog entry
+and native `window.close()` restored exactly one semantic home; all three lifecycle maps cleared,
+and repeating the same disconnect terminal made no further state change. Main-page and popup
+window error ledgers were empty in every run; SharedWorker console output was not claimed.
 
 ## Per-row receipt requirements
 

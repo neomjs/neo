@@ -35,8 +35,11 @@ process.env.NEO_E2E_PORT = String(PORT);
  *   contract authority this runner serves) and will need their own launch configuration.
  */
 export default defineConfig({
-    testDir      : './e2e/colors',
-    testMatch    : 'tearOutMatrix.spec.mjs',
+    testDir  : './e2e',
+    testMatch: [
+        '**/colors/tearOutMatrix.spec.mjs',
+        '**/agentos/TearOutMatrixRows4To7NL.spec.mjs'
+    ],
     outputDir    : './test-results/matrix/artifacts',
     fullyParallel: false, // native window placement is a global resource — strictly serial
     workers      : 1,
@@ -57,8 +60,8 @@ export default defineConfig({
     },
 
     webServer: {
-        command            : `npm run server-start -- --port ${PORT} --no-open`,
-        url                : `http://localhost:${PORT}`,
+        command: `npm run server-start -- --port ${PORT} --no-open`,
+        url    : `http://localhost:${PORT}`,
         // NEVER adopt an existing listener: reuse is how a server from ANOTHER checkout silently
         // serves the wrong tree to every probe (the foreign-server evidence class).
         reuseExistingServer: false

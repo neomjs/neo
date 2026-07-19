@@ -258,10 +258,6 @@ test.describe('tear-out portability matrix — colors app, headed', () => {
         // after drag-back reintegration; data streamed uninterrupted across the transition.
     });
 
-    test.fixme('row 5 — screen topology: getScreenDetails denied degrades to the documented fallback', async () => {
-        // Receipts: the full flow completes with the permission denied; denial never blocks.
-    });
-
     test.fixme('row 6 — multi-window targeting: at most one target exposes one menu + one preview per gesture', async () => {
         // Receipts: the claim protocol's identity binding only — arbitration is out of scope.
     });
