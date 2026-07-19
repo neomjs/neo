@@ -13,14 +13,13 @@
 //   §2.6     the app:// origin resolves the same source graph as dev HTTP through an explicit
 //            renderer-content allowlist; it never exposes the whole repository
 //
-// Slice-1 simplification, documented: window-all-closed quits the app. The §2.1.5 lifecycle
-// (suppress default quit, tray handle, hide-never-destroy) is the E8 leaf — it lands WITH a tray;
-// a skeleton without one must stay quittable.
+//   §2.1.5   one retained cockpit + tray; explicit quit owns exact-once Brain teardown
 
-import {app, BrowserWindow, ipcMain, protocol, session} from 'electron';
-import {createReadStream}                               from 'node:fs';
-import {fileURLToPath}                                  from 'node:url';
-import path                                             from 'node:path';
+import {app, BrowserWindow, ipcMain, Menu, nativeImage, protocol, session, Tray} from 'electron';
+import {createReadStream}                                                        from 'node:fs';
+import {fileURLToPath}                                                           from 'node:url';
+import path                                                                      from 'node:path';
+import {createAppLifecycle}                                                      from './appLifecycle.mjs';
 import {
     APP_HOST,
     CONTENT_SECURITY_POLICY,
@@ -60,7 +59,9 @@ const
     // DEV MODE, deliberately (operator decision 2026-07-10): the harness window loads the
     // zero-build SOURCE app — Neural Link possession needs real ESM, which minification destroys.
     APP_URL      = `app://${APP_HOST}/apps/agentos/index.html`,
-    smokeMode  = process.env.NEO_HARNESS_SMOKE === '1',
+    smokeMode            = process.env.NEO_HARNESS_SMOKE === '1',
+    lifecycleWitnessMode = process.env.NEO_HARNESS_LIFECYCLE_WITNESS === '1',
+    diagnosticMode       = smokeMode || lifecycleWitnessMode,
     // The Arm-B Brain leg: DEFAULT-ON when packaged (a Finder double-click supplies no env — the
     // product IS the supervised organism; NEO_HARNESS_BRAIN=0 is the explicit opt-out) and opt-in
     // on a checkout (dev machines carry a canonical Brain; see brain.mjs#resolveBrainMode).
@@ -73,7 +74,9 @@ const
     bootReports = new Map(),
     bootWaiters = new Map();
 
-let resolveHarnessAsset;
+let
+    brainBootPromise = Promise.resolve(null),
+    resolveHarnessAsset;
 
 // Packaged mode: every parent-side child spawn (Brain children, the config resolver) runs on the
 // bundled Electron runtime — the packaged env fragments add ELECTRON_RUN_AS_NODE per child.
@@ -106,7 +109,7 @@ function getSecureWebPreferences() {
  * @param {*} details
  */
 function recordSmokeFailure(type, details) {
-    if (!smokeMode) {
+    if (!diagnosticMode) {
         return
     }
 
@@ -220,6 +223,65 @@ function createHarnessWindow(url) {
 }
 
 /**
+ * Rebuilds the menu on each owner event because Linux does not project later MenuItem mutations
+ * until `setContextMenu()` is called again. The disabled state row and tooltip carry the triad;
+ * the macOS template icon remains monochrome by platform convention.
+ * @summary Creates the one durable tray handle and its state/menu projection controller.
+ * @param {Object} options
+ * @param {Function} options.onOpen Shows the retained cockpit.
+ * @param {Function} options.onQuit Enters explicit quit.
+ * @param {'running'|'degraded'|'stopped'} options.state Initial Brain state.
+ * @returns {Object}
+ */
+function createHarnessTray({onOpen, onQuit, state}) {
+    const
+        iconName = process.platform === 'darwin' ? 'neoTrayTemplate.png' : 'neoTray.png',
+        iconPath = path.join(harnessDir, 'assets', 'tray', iconName),
+        icon     = nativeImage.createFromPath(iconPath);
+
+    if (icon.isEmpty()) {
+        throw new Error(`Harness tray icon failed to load: ${iconPath}`)
+    }
+
+    const tray = new Tray(icon);
+    let menu;
+
+    /**
+     * @summary Rebuilds the platform menu from the lifecycle owner's current state.
+     * @param {'running'|'degraded'|'stopped'} nextState
+     */
+    function setState(nextState) {
+        const label = nextState[0].toUpperCase() + nextState.slice(1);
+
+        menu = Menu.buildFromTemplate([
+            {enabled: false, id: 'brain-state', label: `State: ${label}`},
+            {type: 'separator'},
+            {click: onOpen, id: 'open-cockpit', label: 'Open Cockpit'},
+            {click: onQuit, id: 'quit', label: 'Quit'}
+        ]);
+        tray.setContextMenu(menu);
+        tray.setToolTip(`Neo Harness — ${label}`)
+    }
+
+    setState(state);
+
+    return {
+        destroy: () => tray.destroy(),
+        invoke(action) {
+            const item = menu.getMenuItemById(action);
+
+            if (!item) {
+                return false
+            }
+
+            item.click(item);
+            return true
+        },
+        setState
+    }
+}
+
+/**
  * @summary Validates that an IPC event came from an allowlisted top-level Agent OS document.
  * @param {Electron.IpcMainEvent} event
  * @returns {Boolean}
@@ -280,7 +342,7 @@ function onBootReport(event, report) {
         senderId = event.sender.id,
         waiter   = bootWaiters.get(senderId);
 
-    smokeMode && console.log('HARNESS_BOOT_REPORT ' + JSON.stringify(normalized));
+    diagnosticMode && console.log('HARNESS_BOOT_REPORT ' + JSON.stringify(normalized));
 
     if (waiter) {
         clearTimeout(waiter.timer);
@@ -378,16 +440,108 @@ async function awaitRequiredAssets(timeoutMs = 3000) {
     }
 }
 
+/**
+ * @summary Waits for a lifecycle witness predicate without leaving a headed Electron run open.
+ * @param {Function} predicate
+ * @param {Number} [timeoutMs=3000]
+ * @returns {Promise<Boolean>}
+ */
+async function awaitLifecycleState(predicate, timeoutMs = 3000) {
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
+        if (predicate()) {
+            return true
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 50))
+    }
+
+    return false
+}
+
+/**
+ * The witness invokes the menu items retained by the actual Tray controller. It compares the
+ * BrowserWindow, WebContents, and viewport DOM identities around close → hide → Open Cockpit,
+ * then exits through that same tray's Quit item so the normal will-quit owner proves its drain.
+ * @summary Runs the headed same-renderer lifecycle witness and exits through the shipped tray.
+ * @param {BrowserWindow} win
+ * @returns {Promise<void>}
+ */
+async function runLifecycleWitness(win) {
+    const [boot, brain] = await Promise.all([awaitBootReport(win), brainBootPromise]);
+    const before        = {
+        browserWindowId: win.id,
+        viewportId     : boot.viewportId,
+        webContentsId  : win.webContents.id
+    };
+
+    win.close();
+
+    const
+        hidden      = await awaitLifecycleState(() => !win.isVisible()),
+        zeroVisible = await awaitLifecycleState(() => BrowserWindow.getAllWindows().every(item => !item.isVisible())),
+        openInvoked = appLifecycle.invokeTrayAction('open-cockpit'),
+        restored    = await awaitLifecycleState(() => win.isVisible());
+
+    const afterViewportId = await win.webContents.executeJavaScript(
+        `document.querySelector('[id^="neo-vnode-"], .neo-viewport')?.id ?? null`, true
+    );
+    const after = {
+        browserWindowId: win.id,
+        viewportId     : afterViewportId,
+        webContentsId  : win.webContents.id
+    };
+    const receipt = {
+        after,
+        before,
+        brainUp             : brain?.up === true,
+        destroyedAfterHide  : win.isDestroyed(),
+        hidden,
+        openInvoked,
+        rendererErrors      : [...smokeState.rendererErrors],
+        sameBrowserWindow   : after.browserWindowId === before.browserWindowId,
+        sameRenderer        : after.webContentsId === before.webContentsId,
+        sameViewportIdentity: Boolean(before.viewportId) && after.viewportId === before.viewportId,
+        state               : appLifecycle.brainState,
+        restored,
+        zeroVisible
+    };
+    const lifecyclePassed = receipt.brainUp &&
+        !receipt.destroyedAfterHide &&
+        receipt.hidden &&
+        receipt.openInvoked &&
+        receipt.rendererErrors.length === 0 &&
+        receipt.sameBrowserWindow &&
+        receipt.sameRenderer &&
+        receipt.sameViewportIdentity &&
+        receipt.state === 'running' &&
+        receipt.restored &&
+        receipt.zeroVisible;
+    // Preserve a failing combined receipt while still traversing the REAL tray Quit callback. A
+    // failed Brain leg must not short-circuit the lifecycle witness it is meant to exercise.
+    process.exitCode = lifecyclePassed ? 0 : 1;
+
+    const
+        quitInvoked = appLifecycle.invokeTrayAction('quit'),
+        passed      = lifecyclePassed && quitInvoked;
+
+    console.log('HARNESS_LIFECYCLE_RESULTS=' + JSON.stringify({...receipt, passed, quitInvoked}, null, 2));
+
+    if (!quitInvoked) {
+        await appLifecycle.exitTerminal(1)
+    }
+}
+
 app.on('web-contents-created', (event, contents) => configureWebContents(contents));
 
 process.on('unhandledRejection', async error => {
     recordSmokeFailure('main-unhandled-rejection', error);
     console.log('HARNESS_UNHANDLED ' + (error?.stack || error));
 
-    if (smokeMode) {
+    if (diagnosticMode) {
         // app.exit bypasses will-quit, so the failure net owns the Brain teardown explicitly.
-        await teardownBrain();
-        app.exit(2)
+        await appLifecycle.exitTerminal(2)
     }
 });
 
@@ -421,6 +575,40 @@ async function teardownBrain() {
     }
 
     return report
+}
+
+const appLifecycle = createAppLifecycle({
+    app,
+    onTeardownError(error) {
+        console.log('HARNESS_BRAIN_STOP_FAILED ' + (error?.stack || error))
+    },
+    onTeardownSettled(report) {
+        if (diagnosticMode) {
+            const
+                reports   = Object.values(report ?? {}),
+                cleanStop = reports.every(item => item.exited && item.groupEmpty && !item.forced);
+
+            console.log('HARNESS_BRAIN_STOP ' + JSON.stringify({cleanStop, report}))
+        }
+    },
+    smokeMode,
+    // Quit during boot waits for that bounded readiness contract before draining children. Without
+    // this join, an early will-quit can observe an empty owner and a late spawn becomes an orphan.
+    teardownBrain: async () => {
+        await brainBootPromise;
+        return teardownBrain()
+    }
+});
+
+/**
+ * @summary Registers one owned Brain child for both teardown and event-derived tray degradation.
+ * @param {Object} entry The existing brainState child record.
+ * @returns {Object}
+ */
+function registerBrainChild(entry) {
+    brainState.children.push(entry);
+    appLifecycle.watchBrainChild(entry.child);
+    return entry
 }
 
 /**
@@ -461,7 +649,7 @@ async function bootProductBrain() {
 
         const orchestrator = startBrainChild({entry: ORCHESTRATOR_ENTRY, env: packagedEnv, onLog: brainLog, repoRoot: organismRoot});
 
-        brainState.children.push({child: orchestrator, label: 'orchestrator'});
+        registerBrainChild({child: orchestrator, label: 'orchestrator'});
         await awaitOrchestratorReady({child: orchestrator})
     }
 
@@ -480,7 +668,7 @@ async function bootProductBrain() {
             repoRoot: organismRoot
         });
 
-        brainState.children.push({child: fleet, label: 'fleet'});
+        registerBrainChild({child: fleet, label: 'fleet'});
         await awaitFleetReady({child: fleet, port: fleetPort})
     }
 
@@ -527,10 +715,8 @@ async function bootSmokeBrain() {
         orchestrator = startBrainChild({entry: ORCHESTRATOR_ENTRY, env: profile, onLog: brainLog, repoRoot: organismRoot}),
         fleet        = startBrainChild({entry: FLEET_SERVER_ENTRY, env: profile, onLog: brainLog, repoRoot: organismRoot});
 
-    brainState.children.push(
-        {child: orchestrator, ...orchestrator.neoHarnessIdentity, label: 'orchestrator'},
-        {child: fleet,        ...fleet.neoHarnessIdentity,        label: 'fleet'}
-    );
+    registerBrainChild({child: orchestrator, ...orchestrator.neoHarnessIdentity, label: 'orchestrator'});
+    registerBrainChild({child: fleet,        ...fleet.neoHarnessIdentity,        label: 'fleet'});
     brainState.isolationRoot = isolationRoot;
     writeRunState({
         isolationRoot,
@@ -557,15 +743,6 @@ async function bootSmokeBrain() {
     }
 }
 
-app.on('will-quit', async event => {
-    if (brainState.children.length) {
-        event.preventDefault();
-        const stop = await teardownBrain();
-        smokeMode && console.log('HARNESS_BRAIN_STOP ' + JSON.stringify(stop));
-        app.quit()
-    }
-});
-
 app.whenReady().then(async () => {
     resolveHarnessAsset = await createHarnessAssetResolver(organismRoot);
     await protocol.handle('app', serveHarnessContent);
@@ -575,25 +752,53 @@ app.whenReady().then(async () => {
     session.defaultSession.setPermissionCheckHandler(() => false);
     session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => callback(false));
 
-    if (smokeMode) {
+    if (diagnosticMode) {
         // Preload diagnostics are smoke-only. Registering these in normal operation would cache
         // one unconsumed boot report per window even though no smoke waiter exists.
         ipcMain.on('shell-boot-report', onBootReport);
         ipcMain.on('shell-runtime-error', onRuntimeError)
     }
 
+    const win1 = createHarnessWindow(APP_URL);
+
+    appLifecycle.attachCockpitWindow(win1);
+
     // The Brain boots in parallel with the window — the UI never blocks on the supervisor, and
     // fail-closed surfaces render honestly until the transport is reachable. Boot rejection is
     // deterministic (readiness contract) and lands as up:false, never as a hung promise.
-    const brainBoot = brainMode
-        ? (smokeMode ? bootSmokeBrain() : bootProductBrain())
+    if (brainMode) {
+        appLifecycle.setBrainState('degraded')
+    }
+
+    brainBootPromise = brainMode
+        ? (diagnosticMode ? bootSmokeBrain() : bootProductBrain())
             .catch(error => {
                 console.log('HARNESS_BRAIN_BOOT_FAILED ' + error.message);
                 return {error: error.message, up: false}
             })
-        : null;
+            .then(boot => {
+                appLifecycle.settleBrainBoot(boot.up === true);
+                return boot
+            })
+        : Promise.resolve(null);
 
-    const win1 = createHarnessWindow(APP_URL);
+    if (!smokeMode) {
+        try {
+            // The boot promise is retained BEFORE Quit becomes reachable from the tray. An early
+            // tray click therefore cannot drain an empty owner while a late child still spawns.
+            appLifecycle.installTray(createHarnessTray)
+        } catch (error) {
+            // Fail reachable: without a tray, cockpit close remains ordinary and
+            // window-all-closed keeps the pre-E8 quit fallback.
+            console.log('HARNESS_TRAY_INIT_FAILED ' + error.message);
+            appLifecycle.setBrainState('degraded')
+        }
+    }
+
+    if (lifecycleWitnessMode) {
+        await runLifecycleWitness(win1);
+        return
+    }
 
     if (!smokeMode) {
         return
@@ -645,8 +850,8 @@ app.whenReady().then(async () => {
     // group teardown gated on group-empty AND released listeners.
     let brain = {mode: false};
 
-    if (brainBoot) {
-        const boot = await brainBoot;
+    if (brainMode) {
+        const boot = await brainBootPromise;
 
         let chromaListening = null,
             fleetFromWindow = null;
@@ -671,7 +876,7 @@ app.whenReady().then(async () => {
         }
 
         const
-            stop          = await teardownBrain(),
+            stop          = await appLifecycle.teardown(),
             stopReports   = Object.values(stop ?? {}),
             groupsEmpty   = stopReports.every(report => report.groupEmpty),
             portsReleased = boot.up
@@ -724,14 +929,11 @@ app.whenReady().then(async () => {
             brainPassed;
 
     console.log('HARNESS_SMOKE_RESULTS=' + JSON.stringify(results, null, 2));
-    app.exit(passed ? 0 : 1)
+    await appLifecycle.exitTerminal(passed ? 0 : 1)
 });
 
-// Slice-1 lifecycle simplification (see file top): quittable without a tray; E8 lands §2.1.5.
-app.on('window-all-closed', () => app.quit());
-
 // Smoke safety net — on timeout, capture compositor state before exiting.
-smokeMode && setTimeout(async () => {
+(smokeMode || lifecycleWitnessMode) && setTimeout(async () => {
     console.log('HARNESS_SMOKE_TIMEOUT');
 
     try {
@@ -750,7 +952,6 @@ smokeMode && setTimeout(async () => {
     }
 
     // app.exit bypasses will-quit, so the timeout net owns the Brain teardown explicitly.
-    await teardownBrain();
-    app.exit(1)
+    await appLifecycle.exitTerminal(1)
     // The Brain leg legitimately spends ~2min on a cold Chroma start; the UI-only smoke stays tight.
 }, brainMode ? 240000 : 60000);
