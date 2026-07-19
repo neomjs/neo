@@ -41,7 +41,7 @@ test.describe('DreamService Golden Path', () => {
             content: JSON.stringify({strategic_brief: 'Bounded Dream Golden Path synthesis.'})
         });
 
-        if (!SystemLifecycleService._initPromise) { await SystemLifecycleService.initAsync(); } else { await SystemLifecycleService.ready(); }
+        await SystemLifecycleService.ready();
 
         // A prior spec can clear the process-lifetime graph without re-running Base's one-shot
         // readiness promise. Seed this test's required system fixture explicitly; never destroy and

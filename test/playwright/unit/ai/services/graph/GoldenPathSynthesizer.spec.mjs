@@ -109,7 +109,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         TextEmbeddingService = (await import('../../../../../../ai/services.mjs')).Memory_TextEmbeddingService;
         logger = (await import('../../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
 
-        if (!SystemLifecycleService._initPromise) { await SystemLifecycleService.initAsync(); } else { await SystemLifecycleService.ready(); }
+        await SystemLifecycleService.ready();
     });
 
     test.beforeEach(() => {

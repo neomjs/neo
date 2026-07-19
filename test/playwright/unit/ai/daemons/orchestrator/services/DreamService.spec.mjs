@@ -127,7 +127,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         KBRecorderService      = (await import('../../../../../../../ai/services/knowledge-base/KBRecorderService.mjs')).default;
         logger                 = (await import('../../../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
 
-        if (!SystemLifecycleService._initPromise) { await SystemLifecycleService.initAsync(); } else { await SystemLifecycleService.ready(); }
+        await SystemLifecycleService.ready();
         await KBRecorderService.ready();
 
         hadNlActionLog = Boolean(GraphService.db.storage?.db?.prepare(
