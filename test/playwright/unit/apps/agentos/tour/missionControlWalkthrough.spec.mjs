@@ -78,6 +78,15 @@ test.describe.serial('apps/agentos/tour/missionControlWalkthrough', () => {
         expect(initialDocument).toEqual(cockpitDockDocument())
     });
 
+    test('the recorded close uses the time-neutral Start fleet contract', () => {
+        const
+            close      = missionControlTourScript.scenes.find(scene => scene.id === 's5'),
+            screenplay = JSON.stringify(missionControlTourScript);
+
+        expect(close.caption).toBe('The Start fleet action, the perspectives, the tear-out gestures — all of it runs from this surface. One line matters more than any feature:');
+        expect(screenplay).not.toMatch(/morning(?:-start)?/i)
+    });
+
     test('pure narration: ZERO document ops, so a full spec-mode replay leaves the committed stage byte-identical', async () => {
         createRunner();
 
