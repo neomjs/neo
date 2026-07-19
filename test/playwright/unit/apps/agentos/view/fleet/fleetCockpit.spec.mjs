@@ -206,7 +206,7 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         return {adapterState: 'sample', store}
     };
 
-    const makeCockpit = (grid, rosterWired = false, gridAdapterState = 'sample') => ({
+    const makeCockpit = (grid, rosterWired = false, gridAdapterState = 'sample', rosterSourceMode = 'sample') => ({
         clearDegradedReason: FleetCockpit.prototype.clearDegradedReason,
         degradeWiredSurface: FleetCockpit.prototype.degradeWiredSurface,
         getReference       : reference => reference === 'fleet-grid' ? grid : null,
@@ -220,16 +220,17 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         mapRosterRow      : FleetCockpit.prototype.mapRosterRow,
         reconcileRoster   : FleetCockpit.prototype.reconcileRoster,
         reconcileSelection: FleetCockpit.prototype.reconcileSelection,
+        rosterSourceMode,
         rosterWired,
         // the real banner sync: null getReference for the slot → guarded no-op, no stub drift
         syncSpineBanner    : FleetCockpit.prototype.syncSpineBanner
     });
 
-    const routeLoadRoster = async (bridge, {known, items, rosterWired} = {}) => {
+    const routeLoadRoster = async (bridge, {known, items, rosterSourceMode, rosterWired} = {}) => {
         bridge ? ((globalThis.AgentOS ??= {}).fleet = {registryBridge: bridge}) : clearBridge();
 
         const grid    = makeGrid(known, items),
-              cockpit = makeCockpit(grid, rosterWired);
+              cockpit = makeCockpit(grid, rosterWired, 'sample', rosterSourceMode);
 
         await FleetCockpit.prototype.loadRoster.call(cockpit);
 
@@ -299,12 +300,27 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         }
     });
 
-    test('a resolved EMPTY snapshot is the authoritative cold zero-state — the sample clears and the grid goes live (never seven fake maintainers)', async () => {
+    test('a resolved EMPTY first snapshot preserves the zero-call sample until a source is selected', async () => {
         const {cockpit, grid} = await routeLoadRoster({fleetRoster: async () => ({rows: []})});
 
-        expect(grid.store.cleared).toBe(1);   // the sample seed is replaced by the TRUE zero state
+        expect(FleetCockpit.config.rosterSourceMode).toBe('sample');
+        expect(grid.store.cleared).toBe(0);   // a fresh empty registry cannot erase first-run truth
+        expect(grid.store.added).toEqual([]);
+        expect(grid.adapterState).toBe('sample');
+        expect(cockpit.rosterSourceMode).toBe('sample');
+        expect(cockpit.rosterWired).toBe(false)
+    });
+
+    test('a resolved EMPTY first snapshot is authoritative after explicit source selection', async () => {
+        const {cockpit, grid} = await routeLoadRoster(
+            {fleetRoster: async () => ({rows: []})},
+            {rosterSourceMode: 'selected'}
+        );
+
+        expect(grid.store.cleared).toBe(1);
         expect(grid.store.added).toEqual([]);
         expect(grid.adapterState).toBe('live');
+        expect(cockpit.rosterSourceMode).toBe('selected');
         expect(cockpit.rosterWired).toBe(true)
     });
 
@@ -439,6 +455,7 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         // rows arrive MAPPED onto the record contract — durable id → agentId, runtime → session state
         expect(grid.store.added.map(row => [row.agentId, row.state])).toEqual([['vega', 'ok'], ['ada', 'off']]);
         expect(grid.adapterState).toBe('live');
+        expect(cockpit.rosterSourceMode).toBe('selected');
         expect(cockpit.rosterWired).toBe(true)
     });
 
