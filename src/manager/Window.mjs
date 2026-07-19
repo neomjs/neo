@@ -118,6 +118,12 @@ class Window extends Manager {
     }
 
     /**
+     * @summary Upserts a connected window over any geometry-first provisional record.
+     * @description Geometry publication can reach the App Worker before the SharedWorker connect event.
+     * In that ordering, `onWindowPositionChange()` registers a geometry-only placeholder. The connect
+     * event must enrich that exact record instead of losing its native route to duplicate-registration
+     * refusal. A later route-less reconnect deliberately replaces the authority with the fail-closed
+     * capability set, so a reload cannot inherit an earlier document's native handle.
      * Triggered when a new browser window connects to the SharedWorker.
      * In Shared Worker mode, `Neo.worker.App#onConnect` ensures that `windowData`
      * is fetched from the Main Thread and included in the payload.
@@ -138,7 +144,8 @@ class Window extends Manager {
 
         console.log('Window.onWindowConnect', {windowId, appName, chrome, innerRect, outerRect});
 
-        this.register({
+        const
+            item = {
             appName,
             capabilities: nativeRoute?.capabilities || {close: false, focus: false, position: false},
             chrome,
@@ -146,7 +153,14 @@ class Window extends Manager {
             innerRect,
             nativeRoute,
             outerRect
-        })
+            },
+            registeredItem = this.get(windowId);
+
+        if (registeredItem) {
+            Object.assign(registeredItem, item)
+        } else {
+            this.register(item)
+        }
     }
 
     /**

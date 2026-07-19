@@ -323,6 +323,12 @@ class DockLayoutAdapter extends Base {
      *     conversion policy. Consumers keep this false until their physical lifecycle is ready.
      * @param {Boolean} [options.enableStackDrag=false] Decorate the model-resolved stack root
      *     with one runtime-only whole-stack grip and arm its existing dock SortZone.
+     * @param {Function} [options.onDockVesselConversionIn] Source-owned strict park admission.
+     * @param {Function} [options.onDockVesselConversionOut] Source-owned strict re-show admission.
+     * @param {Function} [options.onDockVesselConversionTerminal] Source-owned parked-vessel
+     *     disposition after the coordinator resolves the gesture outcome.
+     * @param {Function} [options.onDockVesselConversionRetired] Clear-only acknowledgement when
+     *     another owning lifecycle has already retired the same source vessel.
      * @param {Function} [options.resolveVesselConversionSourceRect] Synchronous owner resolver for
      *     the exact dragged vessel's live global inner rect; threaded through a clone-safe listener.
      * @param {Function} [options.resolveComponentRef]
@@ -379,6 +385,10 @@ class DockLayoutAdapter extends Base {
             onDockTearOutEntry               : options.onDockTearOutEntry,
             onDockTearOutExit                : options.onDockTearOutExit,
             onDockTearOutTerminal            : options.onDockTearOutTerminal,
+            onDockVesselConversionIn         : options.onDockVesselConversionIn,
+            onDockVesselConversionOut        : options.onDockVesselConversionOut,
+            onDockVesselConversionTerminal   : options.onDockVesselConversionTerminal,
+            onDockVesselConversionRetired    : options.onDockVesselConversionRetired,
             onDockZoneDocumentChange         : options.onDockZoneDocumentChange,
             resolveComponentRef              : options.resolveComponentRef || (() => null),
             resolveVesselConversionSourceRect: options.resolveVesselConversionSourceRect,
@@ -869,12 +879,31 @@ class DockLayoutAdapter extends Base {
                 dockVesselConversionSourceRectRequest: data => {
                     data.sourceRect = context.resolveVesselConversionSourceRect?.(data) ?? null
                 },
+                // Strict lifecycle admission rides the same mutable-record pattern as the
+                // synchronous rect request: the projected zone owns decision state; the host
+                // owns platform effects. Promise settlement remains behind the source policy.
+                dockVesselConversionIn: data => {
+                    data.admission = context.onDockVesselConversionIn?.(data) ?? false
+                },
+                dockVesselConversionOut: data => {
+                    data.admission = context.onDockVesselConversionOut?.(data) ?? false
+                },
+                dockVesselConversionTerminal: data => {
+                    data.settlement = context.onDockVesselConversionTerminal?.(data) ?? false
+                },
+                dockVesselConversionRetired: data => {
+                    data.settlement = context.onDockVesselConversionRetired?.(data) ?? false
+                },
                 // Tear-out gesture seams (§2.8): the zone re-fires the inherited boundary events here.
                 // Cancel retires the host's vessel with zero model mutation; entry is a resumed
                 // in-window gesture (vessel closes, no outcome); exit is where the host acquires its
                 // vessel per the admission contract (Boolean `windowOpen`, fail-closed) and engages
                 // `startWindowDrag`; terminal is the ONE seam a host may commit `detachItem` on.
-                dockTearOutCancel  : data => context.onDockTearOutCancel?.(data),
+                dockTearOutCancel  : data => {
+                    const settlement = context.onDockTearOutCancel?.(data) ?? false;
+
+                    Object.hasOwn(data, 'settlement') && (data.settlement = settlement)
+                },
                 dockTearOutEntry   : data => context.onDockTearOutEntry?.(data),
                 dockTearOutExit    : data => context.onDockTearOutExit?.(data),
                 dockTearOutTerminal: data => context.onDockTearOutTerminal?.(data),

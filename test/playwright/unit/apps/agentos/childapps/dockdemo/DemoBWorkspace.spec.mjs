@@ -26,33 +26,94 @@ import {demoBTourScript, initialDocument} from '../../../../../../../apps/agento
  * @param {Object} [options={}]
  * @param {Error|null} [options.openError=null]
  * @param {Error|null} [options.closeError=null]
- * @returns {{openCount: Number, closeCount: Number, closeCalls: Object[], restore: Function}}
+ * @param {Boolean|Function} [options.nativeCloseResult=true]
+ * @param {Boolean|Function} [options.nativeFocusResult=true]
+ * @param {Boolean} [options.nativeMoveResult=true]
+ * @param {Boolean} [options.parkResult=true]
+ * @param {Boolean} [options.resumeResult=true]
+ * @returns {Object}
  */
-function installWindowVessel({openError = null, closeError = null} = {}) {
+function installWindowVessel({
+    openError=null,
+    closeError=null,
+    nativeCloseResult=true,
+    nativeFocusResult=true,
+    nativeMoveResult=true,
+    parkResult=true,
+    resumeResult=true
+} = {}) {
     let previous = {
-            getWindowData: Neo.Main.getWindowData,
-            windowClose  : Neo.Main.windowClose,
-            windowOpen   : Neo.Main.windowOpen
+            dragDrop          : Neo.main.addon.DragDrop,
+            getWindowData     : Neo.Main.getWindowData,
+            windowClose       : Neo.Main.windowClose,
+            windowNativeClose : Neo.Main.windowNativeClose,
+            windowNativeFocus : Neo.Main.windowNativeFocus,
+            windowNativeMoveTo: Neo.Main.windowNativeMoveTo,
+            windowOpen        : Neo.Main.windowOpen
         },
-        state = {closeCalls: [], closeCount: 0, openCount: 0};
+        state = {
+            closeCalls: [], closeCount: 0, nativeCloseCalls: [], nativeMoveCalls: [],
+            events    : [], focusCalls: [], openCalls: [], openCount: 0, parkCalls: [], resumeCalls: []
+        };
 
     Neo.Main.getWindowData = async () => ({screenLeft: 10, screenTop: 20});
-    Neo.Main.windowOpen    = async () => {
+    Neo.Main.windowOpen    = async data => {
+        state.openCalls.push(data);
         state.openCount++;
-        if (openError) throw openError
+        if (openError) throw openError;
+        return true
     };
     Neo.Main.windowClose   = async data => {
         state.closeCalls.push(data);
         state.closeCount++;
         if (closeError) throw closeError
     };
+    Neo.Main.windowNativeClose = async data => {
+        state.nativeCloseCalls.push(data);
+        return typeof nativeCloseResult === 'function' ? nativeCloseResult(data) : nativeCloseResult
+    };
+    Neo.Main.windowNativeFocus = async data => {
+        state.focusCalls.push(data);
+        state.events.push('focus');
+        return typeof nativeFocusResult === 'function' ? nativeFocusResult(data) : nativeFocusResult
+    };
+    Neo.Main.windowNativeMoveTo = async data => {
+        state.nativeMoveCalls.push(data);
+        return nativeMoveResult
+    };
+    Neo.main.addon.DragDrop = {
+        parkWindowDrag: async data => {
+            state.parkCalls.push(data);
+            state.events.push('park');
+            return parkResult
+        },
+        resumeWindowDrag: async data => {
+            state.resumeCalls.push(data);
+            return resumeResult
+        }
+    };
 
     return {
         get closeCount() { return state.closeCount },
         get closeCalls() { return state.closeCalls },
-        get openCount()  { return state.openCount },
+        get events() { return state.events },
+        get focusCalls() { return state.focusCalls },
+        get nativeCloseCalls() { return state.nativeCloseCalls },
+        get nativeMoveCalls() { return state.nativeMoveCalls },
+        get openCalls() { return state.openCalls },
+        get openCount() { return state.openCount },
+        get parkCalls() { return state.parkCalls },
+        get resumeCalls() { return state.resumeCalls },
         restore() {
-            Object.assign(Neo.Main, previous)
+            Neo.main.addon.DragDrop = previous.dragDrop;
+            Object.assign(Neo.Main, {
+                getWindowData     : previous.getWindowData,
+                windowClose       : previous.windowClose,
+                windowNativeClose : previous.windowNativeClose,
+                windowNativeFocus : previous.windowNativeFocus,
+                windowNativeMoveTo: previous.windowNativeMoveTo,
+                windowOpen        : previous.windowOpen
+            })
         }
     }
 }
@@ -62,15 +123,17 @@ function installWindowVessel({openError = null, closeError = null} = {}) {
  * Each registered child carries the production-shaped native route minted by its opener;
  * URL parameters alone therefore never stand in for physical-window authority.
  * @param {Neo.component.Base} workspace
- * @returns {{addedTo: Function, connect: Function, restore: Function}}
+ * @returns {{addedTo: Function, connect: Function, register: Function, restore: Function}}
  */
 function installWindowConnectHarness(workspace) {
     let previous = {
             getByPath    : Neo.Main.getByPath,
             getWindowData: Neo.Main.getWindowData,
+            managerGet   : Neo.manager.Window.get,
             windowOpen   : Neo.Main.windowOpen
         },
-        windows = new Map();
+        managerRecords = new Map(),
+        windows        = new Map();
 
     Neo.Main.getByPath = async ({windowId}) => windows.get(windowId)?.url;
     Neo.Main.getWindowData = async () => ({
@@ -79,6 +142,7 @@ function installWindowConnectHarness(workspace) {
         screenLeft : 10,
         screenTop  : 20
     });
+    Neo.manager.Window.get = windowId => managerRecords.get(windowId) ?? previous.managerGet.call(Neo.manager.Window, windowId);
 
     return {
         addedTo(windowId) {
@@ -86,9 +150,20 @@ function installWindowConnectHarness(workspace) {
         },
 
         async connect(windowId, url) {
-            let added = [];
+            let added       = [],
+                nativeRoute = {
+                    capabilities   : {close: true, focus: true, position: true},
+                    nativeHandleKey: `handle-${windowId}`,
+                    ownerWindowId  : workspace.windowId,
+                    targetWindowId : windowId
+                };
 
             windows.set(windowId, {added, url: new URL(url, 'https://example.test').href});
+            managerRecords.set(windowId, {
+                innerRect: {height: 320, width: 480, x: 40, y: 60},
+                outerRect: {height: 360, width: 480, x: 40, y: 60},
+                nativeRoute
+            });
             Neo.apps[windowId] = {
                 mainView: {
                     add: pane => added.push(pane)
@@ -97,18 +172,35 @@ function installWindowConnectHarness(workspace) {
 
             await workspace.onWindowConnect({
                 windowData: {
-                    nativeRoute: {
-                        nativeHandleKey: `handle-${windowId}`,
-                        ownerWindowId  : workspace.windowId,
-                        targetWindowId : windowId
-                    }
+                    nativeRoute
                 },
                 windowId
             })
         },
 
+        register(windowId, {
+            innerRect={height: 520, width: 600, x: 874, y: 55},
+            outerRect={height: 560, width: 600, x: 874, y: 55}
+        } = {}) {
+            managerRecords.set(windowId, {
+                innerRect,
+                outerRect,
+                nativeRoute: {
+                    capabilities   : {close: true, focus: true, position: true},
+                    nativeHandleKey: `handle-${windowId}`,
+                    ownerWindowId  : workspace.windowId,
+                    targetWindowId : windowId
+                }
+            })
+        },
+
         restore() {
-            Object.assign(Neo.Main, previous);
+            Object.assign(Neo.Main, {
+                getByPath    : previous.getByPath,
+                getWindowData: previous.getWindowData,
+                windowOpen   : previous.windowOpen
+            });
+            Neo.manager.Window.get = previous.managerGet;
             windows.forEach((value, windowId) => delete Neo.apps[windowId])
         }
     }
@@ -335,12 +427,15 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoBWorkspace', () => {
     });
 
     test('tear-out connect-before-terminal consumes its grant and a replay stays inert', async () => {
-        const harness = installWindowConnectHarness(workspace),
-              pane    = workspace.resolvePane('timeline', initialDocument.items.timeline);
-        let tearOutUrl;
+        const harness      = installWindowConnectHarness(workspace),
+              pane         = workspace.resolvePane('timeline', initialDocument.items.timeline),
+              sourceParent = pane.parent,
+              sourceIndex  = sourceParent.items.indexOf(pane),
+              before       = JSON.stringify(workspace.getDockZoneDocument());
+        let tearOutOpen;
 
         Neo.Main.windowOpen = async data => {
-            tearOutUrl = data.url;
+            tearOutOpen = data;
             return true
         };
 
@@ -349,24 +444,407 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoBWorkspace', () => {
                 itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}
             })).toMatchObject({windowName: 'tearout-timeline'});
 
-            const params = new URL(tearOutUrl, 'https://example.test').searchParams;
+            const tearOutUrl = tearOutOpen.url;
+            const params     = new URL(tearOutUrl, 'https://example.test').searchParams;
 
+            expect(tearOutOpen.nativeCapabilities).toEqual({close: true, position: true});
             expect(params.get('vesselFlow')).toBe('tear-out');
             expect(params.get('vesselGrant')).toBeTruthy();
             expect(params.get('vesselGeneration')).toBeTruthy();
 
             await harness.connect('tear-child', tearOutUrl);
             expect(workspace.tearOutConnects.timeline).toEqual({windowId: 'tear-child'});
+            expect(harness.addedTo('tear-child'), 'the admitted moving vessel renders the live pane pre-terminal')
+                .toEqual([pane]);
+            expect(JSON.stringify(workspace.getDockZoneDocument()), 'render embodiment mutates no document truth')
+                .toBe(before);
+            expect(sourceParent.items, 'the hidden stand-in keeps card/header indices stable')
+                .toHaveLength(3);
+            expect(sourceParent.items[sourceIndex].cls).toContain('neo-dashboard-dock-vessel-placeholder');
 
             workspace.adoptTearOutPane('timeline');
-            expect(harness.addedTo('tear-child')).toEqual([pane]);
+            expect(harness.addedTo('tear-child'), 'terminal promotion never reparents twice').toEqual([pane]);
             expect(workspace.tearOutPanes.timeline.windowId).toBe('tear-child');
+            expect(workspace.tearOutConnects.timeline, 'committed ownership has only one lifecycle map').toBeUndefined();
 
             await harness.connect('tear-replay', tearOutUrl);
             expect(harness.addedTo('tear-replay')).toEqual([]);
             expect(workspace.tearOutPanes.timeline.windowId).toBe('tear-child')
         } finally {
             harness.restore()
+        }
+    });
+
+    test('a refused close during pane stage retains the exact route but never publishes the generation', async () => {
+        let admitClose = false;
+
+        const vessel   = installWindowVessel({nativeCloseResult: () => admitClose}),
+              harness  = installWindowConnectHarness(workspace),
+              stage    = workspace.tearOutEmbodiment.stage,
+              restore  = workspace.tearOutEmbodiment.restore,
+              restored = [];
+
+        let resolveStage,
+            stageEnteredResolve;
+
+        const stageEntered = new Promise(resolve => stageEnteredResolve = resolve),
+              stageResult  = new Promise(resolve => resolveStage = resolve),
+              sortZone     = {endWindowDrag() {}, startWindowDrag() {}};
+
+        workspace.tearOutEmbodiment.stage = data => {
+            stageEnteredResolve(data);
+            return stageResult
+        };
+        workspace.tearOutEmbodiment.restore = data => {
+            restored.push(data);
+            return true
+        };
+
+        try {
+            await workspace.tearOutHandlers.onDockTearOutExit({
+                itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}, sortZone
+            });
+
+            const open           = vessel.openCalls.at(-1),
+                  params         = new URL(open.url, 'https://example.test').searchParams,
+                  admissionToken = Number(params.get('vesselAdmission')),
+                  generation     = Number(params.get('vesselGeneration')),
+                  connecting     = harness.connect('tear-stage-race', open.url);
+
+            await expect(stageEntered).resolves.toEqual({itemId: 'timeline', windowId: 'tear-stage-race'});
+            expect(workspace.tearOutConnectAdmissions.get('timeline')).toEqual({
+                admissionToken, generation, invalidated: false, windowId: 'tear-stage-race'
+            });
+
+            await expect(workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'timeline', sortZone})).resolves.toBe(false);
+
+            expect(workspace.tearOutConnectAdmissions.get('timeline')).toEqual({
+                admissionToken, generation, invalidated: true, windowId: 'tear-stage-race'
+            });
+            expect(workspace.tearOutRetirements.has('timeline')).toBe(true);
+            expect(workspace.tearOutHandlers.activeVessel).toEqual({
+                itemId: 'timeline', windowName: 'tearout-timeline'
+            });
+
+            resolveStage(true);
+            await connecting;
+
+            expect(restored).toEqual([{itemId: 'timeline', windowId: 'tear-stage-race'}]);
+            expect(workspace.tearOutConnects.timeline, 'the dead generation never becomes route authority').toBeUndefined();
+            expect(workspace.tearOutPanes.timeline).toBeUndefined();
+
+            admitClose = true;
+
+            await expect(workspace.tearOutHandlers.onDockTearOutCancel({itemId: 'timeline', sortZone})).resolves.toBe(true);
+            expect(workspace.tearOutConnectAdmissions.has('timeline')).toBe(false);
+            expect(workspace.tearOutRetirements.has('timeline')).toBe(false);
+            expect(workspace.tearOutHandlers.activeVessel).toBeNull();
+            expect(vessel.nativeCloseCalls).toEqual([
+                {nativeHandleKey: 'handle-tear-stage-race', targetWindowId: 'tear-stage-race', windowId: workspace.windowId},
+                {nativeHandleKey: 'handle-tear-stage-race', targetWindowId: 'tear-stage-race', windowId: workspace.windowId}
+            ])
+        } finally {
+            workspace.tearOutEmbodiment.stage   = stage;
+            workspace.tearOutEmbodiment.restore = restore;
+            harness.restore();
+            vessel.restore()
+        }
+    });
+
+    test('a disconnect during staged committed ownership reintegrates instead of taking the pre-terminal branch', async () => {
+        const vessel   = installWindowVessel(),
+              harness  = installWindowConnectHarness(workspace),
+              stage    = workspace.tearOutEmbodiment.stage,
+              isStaged = workspace.tearOutEmbodiment.isStaged,
+              restore  = workspace.tearOutEmbodiment.restore,
+              restored = [],
+              sortZone = {endWindowDrag() {}, startWindowDrag() {}};
+
+        let resolveStage,
+            stageEnteredResolve,
+            staged = false;
+
+        const stageEntered = new Promise(resolve => stageEnteredResolve = resolve),
+              stageResult  = new Promise(resolve => resolveStage = resolve);
+
+        workspace.tearOutEmbodiment.stage = data => {
+            staged = true;
+            stageEnteredResolve(data);
+            return stageResult
+        };
+        workspace.tearOutEmbodiment.isStaged = () => staged;
+        workspace.tearOutEmbodiment.restore = data => {
+            restored.push(data);
+            staged = false;
+            return true
+        };
+
+        try {
+            await workspace.tearOutHandlers.onDockTearOutExit({
+                itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}, sortZone
+            });
+
+            const connecting = harness.connect('tear-stage-committed', vessel.openCalls.at(-1).url);
+
+            await expect(stageEntered).resolves.toEqual({itemId: 'timeline', windowId: 'tear-stage-committed'});
+            expect(workspace.tearOutHandlers.onDockTearOutTerminal({itemId: 'timeline', sortZone})).toBe(true);
+            expect(DockZoneModel.findContainingTabsId(workspace.getDockZoneDocument(), 'timeline')).toBeNull();
+            expect(workspace.tearOutPanes.timeline.windowId).toBeNull();
+
+            workspace.onWindowDisconnect({windowId: 'tear-stage-committed'});
+
+            expect(DockZoneModel.findContainingTabsId(workspace.getDockZoneDocument(), 'timeline'))
+                .toBe('side-tabs');
+            expect(workspace.tearOutPanes.timeline).toBeUndefined();
+            expect(workspace.tearOutConnectAdmissions.has('timeline')).toBe(false);
+            expect(restored).toEqual([{itemId: 'timeline', windowId: 'tear-stage-committed'}]);
+
+            resolveStage(false);
+            await connecting;
+
+            expect(workspace.tearOutConnects.timeline).toBeUndefined();
+            expect(workspace.tearOutPanes.timeline).toBeUndefined()
+        } finally {
+            workspace.tearOutEmbodiment.stage     = stage;
+            workspace.tearOutEmbodiment.isStaged = isStaged;
+            workspace.tearOutEmbodiment.restore   = restore;
+            harness.restore();
+            vessel.restore()
+        }
+    });
+
+    test('vessel conversion parks, restores, and retires only the exact manager-owned native route', async () => {
+        let admitClose = false;
+
+        const vessel       = installWindowVessel({nativeCloseResult: () => admitClose}),
+              harness      = installWindowConnectHarness(workspace),
+              pane         = workspace.resolvePane('timeline', initialDocument.items.timeline),
+              sourceParent = pane.parent,
+              sourceIndex  = sourceParent.items.indexOf(pane);
+
+        try {
+            await workspace.openTearOutVessel({
+                itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}
+            });
+            await harness.connect('tear-child', vessel.openCalls.at(-1).url);
+            harness.register('target-child');
+            workspace.crossWindowTargetWindowId = 'target-child';
+
+            expect(workspace.resolveVesselConversionSourceRect({itemId: 'timeline'})).toEqual({
+                height: 320, width: 480, x: 40, y: 60
+            });
+            await expect(workspace.parkTearOutVessel({
+                itemId: 'timeline', windowName: 'tearout-timeline'
+            })).resolves.toBe(true);
+            expect(vessel.events).toEqual(['focus', 'park', 'focus']);
+            expect(vessel.focusCalls).toEqual([{
+                nativeHandleKey: 'handle-target-child',
+                targetWindowId : 'target-child',
+                windowId       : workspace.windowId
+            }, {
+                nativeHandleKey: 'handle-target-child',
+                targetWindowId : 'target-child',
+                windowId       : workspace.windowId
+            }]);
+            expect(vessel.parkCalls).toEqual([{
+                nativeHandleKey: 'handle-tear-child',
+                targetWindowId : 'tear-child',
+                windowId       : workspace.windowId,
+                windowName     : 'tearout-timeline',
+                x              : 874,
+                y              : 55
+            }]);
+
+            const liveRect = {height: 320, width: 480, x: 420, y: 240};
+
+            await expect(workspace.reshowTearOutVessel({
+                itemId: 'timeline', rect: liveRect, terminal: false, windowName: 'tearout-timeline'
+            })).resolves.toBe(true);
+            expect(vessel.resumeCalls.at(-1)).toMatchObject({
+                nativeHandleKey: 'handle-tear-child', targetWindowId: 'tear-child', x: 420, y: 240
+            });
+
+            await expect(workspace.reshowTearOutVessel({
+                itemId: 'timeline', rect: liveRect, terminal: true, windowName: 'tearout-timeline'
+            })).resolves.toBe(true);
+            expect(vessel.nativeMoveCalls.at(-1)).toMatchObject({
+                nativeHandleKey: 'handle-tear-child', targetWindowId: 'tear-child', x: 420, y: 240
+            });
+
+            const route = Neo.manager.Window.get('tear-child').nativeRoute;
+
+            route.ownerWindowId = 'wrong-owner';
+            await expect(workspace.parkTearOutVessel({
+                itemId: 'timeline', windowName: 'tearout-timeline'
+            })).resolves.toBe(false);
+            await expect(workspace.closeTearOutVessel({
+                itemId: 'timeline', windowName: 'tearout-timeline'
+            })).resolves.toBe(false);
+            expect(vessel.closeCalls, 'a stale exact route must never downgrade to same-name close').toEqual([]);
+            expect(vessel.nativeCloseCalls).toEqual([]);
+
+            route.ownerWindowId = workspace.windowId;
+            route.capabilities.position = false;
+            await expect(workspace.reshowTearOutVessel({
+                itemId: 'timeline', rect: liveRect, terminal: true, windowName: 'tearout-timeline'
+            })).resolves.toBe(false);
+            route.capabilities.position = true;
+
+            await expect(workspace.closeTearOutVessel({
+                itemId: 'timeline', windowName: 'tearout-timeline'
+            })).resolves.toBe(false);
+            expect(workspace.tearOutConnects.timeline, 'strict close refusal retains recovery routing')
+                .toEqual({windowId: 'tear-child'});
+            expect(sourceParent.items[sourceIndex], 'refused close leaves content home, not in a doomed vessel')
+                .toBe(pane);
+            expect(workspace.tearOutEmbodiment.isStaged('timeline')).toBe(false);
+            expect(workspace.tearOutRetirements.has('timeline'), 'late connects stay fenced during retry authority')
+                .toBe(true);
+
+            admitClose = true;
+
+            await expect(workspace.closeTearOutVessel({
+                itemId: 'timeline', windowName: 'tearout-timeline'
+            })).resolves.toBe(true);
+            expect(workspace.tearOutConnects.timeline).toBeUndefined();
+            expect(workspace.tearOutRetirements.has('timeline')).toBe(false);
+            expect(vessel.nativeCloseCalls).toEqual([
+                {nativeHandleKey: 'handle-tear-child', targetWindowId: 'tear-child', windowId: workspace.windowId},
+                {nativeHandleKey: 'handle-tear-child', targetWindowId: 'tear-child', windowId: workspace.windowId}
+            ])
+        } finally {
+            harness.restore();
+            vessel.restore()
+        }
+    });
+
+    test('pre-terminal disconnect clears both retained lifecycle owners for a successor gesture', () => {
+        const previousTearOut = workspace.tearOutHandlers,
+              previousPark    = workspace.vesselParkHandlers,
+              calls           = [];
+
+        workspace.tearOutConnects.timeline = {windowId: 'tear-pending'};
+        workspace.tearOutHandlers = {
+            onVesselRetired: data => calls.push(['tear-out', data])
+        };
+        workspace.vesselParkHandlers = {
+            onVesselRetired: data => calls.push(['park', data])
+        };
+
+        try {
+            workspace.onWindowDisconnect({windowId: 'tear-pending'});
+
+            expect(workspace.tearOutConnects.timeline).toBeUndefined();
+            expect(calls).toEqual([
+                ['tear-out', {itemId: 'timeline', windowName: 'tearout-timeline'}],
+                ['park', {itemId: 'timeline', retirement: true}]
+            ])
+        } finally {
+            workspace.tearOutHandlers       = previousTearOut;
+            workspace.vesselParkHandlers    = previousPark;
+            delete workspace.tearOutConnects.timeline
+        }
+    });
+
+    test('a successor boundary exit retries retained retirement before opening a fresh vessel', async () => {
+        const previousTearOut = workspace.tearOutHandlers,
+              previousPark    = workspace.vesselParkHandlers,
+              calls           = [],
+              active          = {itemId: 'timeline', windowName: 'tearout-timeline'},
+              data            = {sortZone: {endWindowDrag: () => calls.push('end')}};
+
+        workspace.tearOutHandlers = {
+            activeVessel      : active,
+            onDockTearOutExit : async value => calls.push(['exit', value]),
+            retireActiveVessel: async value => {
+                calls.push(['retire', value]);
+                return true
+            }
+        };
+        workspace.vesselParkHandlers = {
+            onVesselRetired: value => calls.push(['park-retired', value])
+        };
+
+        try {
+            await expect(workspace.onDockTearOutExit(data)).resolves.toBe(true);
+            expect(calls).toEqual([
+                ['retire', active],
+                ['park-retired', {itemId: 'timeline', retirement: true}],
+                ['exit', data]
+            ]);
+
+            calls.length = 0;
+            workspace.tearOutHandlers.retireActiveVessel = async value => {
+                calls.push(['retire', value]);
+                return false
+            };
+
+            await expect(workspace.onDockTearOutExit(data)).resolves.toBe(false);
+            expect(calls).toEqual([['retire', active], 'end'])
+        } finally {
+            workspace.tearOutHandlers    = previousTearOut;
+            workspace.vesselParkHandlers = previousPark
+        }
+    });
+
+    test('a target-focus refusal leaves the source vessel moving and never dispatches a park effect', async () => {
+        const vessel  = installWindowVessel({nativeFocusResult: false}),
+              harness = installWindowConnectHarness(workspace);
+
+        try {
+            await workspace.openTearOutVessel({
+                itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}
+            });
+            await harness.connect('tear-child', vessel.openCalls.at(-1).url);
+            harness.register('target-child');
+            workspace.crossWindowTargetWindowId = 'target-child';
+
+            await expect(workspace.parkTearOutVessel({
+                itemId: 'timeline', windowName: 'tearout-timeline'
+            })).resolves.toBe(false);
+            expect(vessel.events).toEqual(['focus']);
+            expect(vessel.parkCalls).toEqual([])
+        } finally {
+            harness.restore();
+            vessel.restore()
+        }
+    });
+
+    test('a post-move cover-focus refusal restores the source rect before refusing park ownership', async () => {
+        let focusCalls = 0;
+
+        const vessel  = installWindowVessel({nativeFocusResult: () => ++focusCalls === 1}),
+              harness = installWindowConnectHarness(workspace);
+
+        try {
+            await workspace.openTearOutVessel({
+                itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}
+            });
+            await harness.connect('tear-child', vessel.openCalls.at(-1).url);
+            harness.register('target-child');
+            workspace.crossWindowTargetWindowId = 'target-child';
+
+            await expect(workspace.parkTearOutVessel({
+                itemId: 'timeline', windowName: 'tearout-timeline'
+            })).resolves.toBe(false);
+            expect(vessel.events).toEqual(['focus', 'park', 'focus']);
+            expect(vessel.resumeCalls).toEqual([{
+                nativeHandleKey: 'handle-tear-child',
+                targetWindowId : 'tear-child',
+                windowId       : workspace.windowId,
+                windowName     : 'tearout-timeline',
+                x              : 40,
+                y              : 60
+            }]);
+            expect(workspace.lastVesselParkReceipt).toMatchObject({
+                compensated: true,
+                moved      : true,
+                parked     : false,
+                refocused  : false
+            })
+        } finally {
+            harness.restore();
+            vessel.restore()
         }
     });
 
@@ -384,7 +862,16 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoBWorkspace', () => {
             await workspace.openTearOutVessel({
                 itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}
             });
-            workspace.adoptTearOutPane('timeline');
+
+            const operation = {operation: 'detachItem', itemId: 'timeline'},
+                  result    = workspace.applyTearOutOperation(operation);
+
+            expect(result.errors).toEqual([]);
+            workspace.onTearOutDocumentChange(result.document, operation);
+            await workspace.refreshPromise;
+
+            expect(pane.isDestroyed, 'terminal-first projection preserves the live pane for its late child')
+                .toBeFalsy();
 
             await harness.connect('tear-after-terminal', tearOutUrl);
 
@@ -695,6 +1182,84 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoBWorkspace', () => {
         expect(preview.previewId).toContain('preview:group:popup-tabs:');
         expect(indicators.candidateSet.groupNodeId).toBe('popup-tabs');
         expect(renderer.dockPreview).toBe(preview)
+    });
+
+    test('main projection binds the conversion lifecycle to Park while popup projection stays source-disabled', () => {
+        const calls    = [];
+        const findTabs = (config, nodeId) => {
+            if (config?.ntype === 'tab-container' && config.dockNodeId === nodeId) return config;
+
+            for (const item of config?.items || []) {
+                const found = findTabs(item, nodeId);
+
+                if (found) return found
+            }
+
+            return null
+        };
+
+        workspace.tearOutConnects.timeline = {windowId: 'tear-child'};
+        workspace.vesselParkHandlers = {
+            onConversionIn(data) {
+                calls.push(['in', data]);
+                return true
+            },
+            onConversionOut(data) {
+                calls.push(['out', data]);
+                return true
+            },
+            onGestureTerminal(data) {
+                calls.push(['terminal', data]);
+                return Promise.resolve(true)
+            },
+            onVesselRetired(data) {
+                calls.push(['retired', data]);
+                return true
+            }
+        };
+
+        const mainTabs  = findTabs(workspace.projectDockModel(), 'side-tabs'),
+              popupTabs = findTabs(workspace.projectDockModel(
+                  null,
+                  DemoBWorkspace.POPUP_WORKSPACE_ID,
+                  DemoBWorkspace.createPopupDocument()
+              ), 'popup-tabs');
+
+        expect(mainTabs.headerToolbar.sortZoneConfig.enableVesselConversion).toBe(true);
+        expect(popupTabs.headerToolbar.sortZoneConfig.enableVesselConversion).toBe(false);
+
+        const converted = {
+                  admission: false,
+                  itemId   : 'timeline',
+                  record   : {sourceRect: {height: 320, width: 480, x: 40, y: 60}}
+              },
+              reverted = {
+                  admission  : false,
+                  itemId     : 'timeline',
+                  logicalRect: {height: 320, width: 480, x: 420, y: 240}
+              },
+              terminal = {itemId: 'timeline', outcome: 'committed', settlement: false},
+              retired  = {itemId: 'timeline', retirement: Promise.resolve(true), settlement: false};
+
+        mainTabs.listeners.dockVesselConversionIn(converted);
+        mainTabs.listeners.dockVesselConversionOut(reverted);
+        mainTabs.listeners.dockVesselConversionTerminal(terminal);
+        mainTabs.listeners.dockVesselConversionRetired(retired);
+
+        expect(converted.admission).toBe(true);
+        expect(reverted.admission).toBe(true);
+        expect(terminal.settlement).toBeInstanceOf(Promise);
+        expect(retired.settlement).toBe(true);
+        expect(calls).toEqual([
+            ['in', {
+                itemId    : 'timeline',
+                sourceRect: {height: 320, width: 480, x: 40, y: 60},
+                windowName: 'tearout-timeline'
+            }],
+            ['out', {rect: {height: 320, width: 480, x: 420, y: 240}}],
+            ['terminal', terminal],
+            ['retired', retired]
+        ])
     });
 
     test('popup projection alone owns the stack grip and routes one terminal to the optional park machine', () => {
