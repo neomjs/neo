@@ -51,7 +51,7 @@ async reInitAsync()   // Neo.core.Base
 
 It **resets the ready gate** (`#readyPromise` + `#readyResolver` to a fresh unresolved pair, `isReady`
 to `false`) and **re-runs only the async-init leg** (`await initAsync(); isReady = true`), returning the
-reset ready promise. Two conditions are normative:
+reset ready promise. Three conditions are normative:
 
 - **C1 — mechanical fence, not documentation.** JS has no enforced `protected`. `reInitAsync()` throws
   unless `Neo.config.unitTestMode` is true. Because this ADR also deletes the bespoke `_initPromise`
@@ -62,6 +62,14 @@ reset ready promise. Two conditions are normative:
   Instance-manager registration, and listener setup — one-time construction concerns. Re-firing them
   risks double-registration and re-opening the #12597 cross-spec leak class. The seam re-runs `initAsync`
   only. In `unitTestMode`, `initRemote()` is already a no-op, so the re-run touches no remote registration.
+- **C3 — a bounded state machine, not an unrestricted second `initAsync()`** (added after @neo-gpt's
+  early-architecture review on PR #15554, whose exact-head probes falsified the unspoken assumptions). The
+  seam admits ONLY a live singleton — it throws for an ordinary or destroyed/destroying instance, and
+  before the FIRST init has ever settled (a later failed re-init still counts as ever-initialized and may
+  recover). It COALESCES a concurrent re-init onto the in-flight one (single-flight — the async leg never
+  runs twice at once). And it settles the reset `ready()` promise on both success AND `initAsync()`
+  failure, so `ready()` observers are never left pending forever. Without it, the public method
+  mechanically permits a broader, less deterministic state space than the singleton-only contract claims.
 
 The `_initPromise = null; initAsync()` reach-in migrates to `await X.reInitAsync()`; a first-init external
 `initAsync()` wait migrates to `await X.ready()`; the bespoke `_initPromise` guards are deleted; and a

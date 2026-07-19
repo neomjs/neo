@@ -216,6 +216,21 @@ class Base {
      */
     #readyResolver = null
     /**
+     * Single-flight guard for {@link Neo.core.Base#reInitAsync}: the in-flight re-init promise, or null.
+     * A concurrent `reInitAsync()` coalesces onto this instead of running the async-init leg a second time.
+     * @member {Promise<void>|null} #reInitPromise
+     * @private
+     */
+    #reInitPromise = null
+    /**
+     * True once the initial async init has completed at least once (the first `isReady` → true). It
+     * distinguishes "never initialized" (reInitAsync rejects) from "was ready, a later re-init failed"
+     * (reInitAsync recovers).
+     * @member {Boolean} #everReady=false
+     * @private
+     */
+    #everReady = false
+    /**
      * A promise that resolves when the remote methods are registered.
      * @member {Promise<void>|null} #remotesReadyPromise
      * @private
@@ -358,6 +373,7 @@ class Base {
         if (value) {
             let me = this;
 
+            me.#everReady = true;
             me.#readyResolver?.();
 
             // We can only fire the event in case the Observable mixin is included.
@@ -983,27 +999,74 @@ class Base {
      * `unitTestMode`, `initRemote()` is a no-op ({@link Neo.core.Base#initRemote} guards on it), so the
      * re-run touches no remote registration.
      *
-     * @returns {Promise<void>} the reset ready promise — resolves when the re-init completes
+     * It is a small state machine, not an unrestricted second `initAsync()`: it admits ONLY a live
+     * singleton (throws for ordinary or destroyed/destroying instances and before the initial init
+     * settles), COALESCES a concurrent re-init onto the in-flight one (single-flight — the async leg never
+     * runs twice at once), and settles the reset `ready()` promise on both success AND `initAsync()`
+     * failure, so observers are never left pending forever.
+     *
+     * @returns {Promise<void>} the reset ready promise — resolves when the re-init completes, rejects if `initAsync()` does
      * @see Neo.core.Base#ready
      */
     async reInitAsync() {
-        if (!Neo.config.unitTestMode) {
-            throw new Error(`Neo.core.Base#reInitAsync() is a unitTestMode-only seam — re-running initAsync() in production is a fatal double-init: ${this.className}`)
-        }
-
         let me = this;
 
-        // Reset the ready gate to its pre-init state first, so `ready()` consumers await THIS re-init...
-        me.#readyPromise = new Promise(resolve => {
-            me.#readyResolver = resolve
+        if (!Neo.config.unitTestMode) {
+            throw new Error(`Neo.core.Base#reInitAsync() is a unitTestMode-only seam — re-running initAsync() in production is a fatal double-init: ${me.className}`)
+        }
+        // Singleton-only: the reach-in this replaces only ever targeted process-singletons. An ordinary
+        // instance re-running its async leg has no test-isolation meaning and would double its side effects.
+        if (me.singleton !== true) {
+            throw new Error(`Neo.core.Base#reInitAsync() is singleton-only — ${me.className} is not a singleton`)
+        }
+        if (me.isDestroying || me.isDestroyed) {
+            throw new Error(`Neo.core.Base#reInitAsync() on a destroyed/destroying instance: ${me.className}`)
+        }
+        // Single-flight: a concurrent re-init COALESCES onto the in-flight one, so the async-init leg
+        // (the "fatal" double-init) never runs twice at once.
+        if (me.#reInitPromise) {
+            return me.#reInitPromise
+        }
+        // Re-init only means anything AFTER the FIRST init settled (even if a later re-init failed);
+        // before that first settle, `ready()` is the wait.
+        if (!me.#everReady) {
+            throw new Error(`Neo.core.Base#reInitAsync() before the initial init completed — await ready() first: ${me.className}`)
+        }
+
+        me.#reInitPromise = me.#runReInitAsync();
+        return me.#reInitPromise
+    }
+
+    /**
+     * @summary The single-flight body of {@link Neo.core.Base#reInitAsync}.
+     *
+     * Resets the ready gate capturing BOTH resolve + reject, then re-runs the async-init leg. The reset
+     * `ready()` promise settles on success (via `isReady`→`afterSetIsReady`) AND on failure (rejected here),
+     * so `ready()` observers are never stranded pending forever when `initAsync()` rejects.
+     * @returns {Promise<void>}
+     * @private
+     */
+    async #runReInitAsync() {
+        let me = this,
+            readyReject;
+
+        me.#readyPromise = new Promise((resolve, reject) => {
+            me.#readyResolver = resolve;
+            readyReject       = reject
         });
         me.isReady = false;
 
-        // ...then re-run only the async-init leg. `afterSetIsReady` resolves the new promise + fires `ready`.
-        await me.initAsync();
-        me.isReady = true;
-
-        return me.#readyPromise
+        try {
+            // re-run only the async-init leg. `afterSetIsReady` resolves the new promise + fires `ready`.
+            await me.initAsync();
+            me.isReady = true;
+            return me.#readyPromise
+        } catch (error) {
+            readyReject(error);
+            throw error
+        } finally {
+            me.#reInitPromise = null
+        }
     }
 
     /**

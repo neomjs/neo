@@ -190,10 +190,6 @@ export class TestLifecycleHelper {
             GraphService._initPromise = null;
         }
 
-        if (SystemLifecycleService) {
-            await SystemLifecycleService.reInitAsync();
-        }
-
         await resetMemoryCoreLifecycle();
 
         if (fs && testDbPath) {

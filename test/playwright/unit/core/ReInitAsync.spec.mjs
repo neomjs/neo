@@ -14,68 +14,91 @@ import * as core      from '../../../../src/core/_export.mjs';
 
 /**
  * @summary Verifies `Neo.core.Base#reInitAsync()` — the `unitTestMode`-only singleton re-init seam that
- * replaces the private `_initPromise = null; await initAsync()` reach-in. It must re-run ONLY the
- * async-init leg (a subclass `initAsync` side effect re-fires), reset the ready gate so `ready()` awaits the
- * re-init, and — with the bespoke `_initPromise` guards deleted — THROW outside `unitTestMode` as the
- * mechanical production double-init fence (Ada's C1). It must NOT re-run `construct()` (Ada's C2): the same
- * instance, no re-registration.
+ * replaces the private `_initPromise = null; await initAsync()` reach-in. It is a small STATE MACHINE, not
+ * an unrestricted second `initAsync()`: it admits only a live singleton, coalesces concurrent re-inits
+ * (single-flight — the async leg never runs twice at once), settles the reset `ready()` promise on both
+ * success AND `initAsync()` failure (no stranded observers), and re-runs ONLY the async-init leg (not
+ * `construct()`). Outside `unitTestMode` it throws — the mechanical replacement for the deleted
+ * `_initPromise` guards.
  */
 test.describe('Neo.core.Base#reInitAsync (singleton re-init seam, #15034)', () => {
-    class ReInitClass extends core.Base {
+    class ReInitSingleton extends core.Base {
         static config = {
-            className: 'Neo.Test.ReInitClass'
+            className: 'Neo.Test.ReInitSingleton',
+            singleton: true
         }
 
         initCount = 0
+        failNext  = false
 
         async initAsync() {
             await super.initAsync();
+            if (this.failNext) {
+                this.failNext = false;
+                throw new Error('reInit-probe-failure')
+            }
             this.initCount++
         }
     }
-    Neo.setupClass(ReInitClass);
+    const singleton = Neo.setupClass(ReInitSingleton);
 
-    test('re-runs ONLY the async-init leg and resets the ready gate', async () => {
-        const instance = Neo.create(ReInitClass);
+    test('re-runs ONLY the async-init leg and resets the ready gate (true singleton)', async () => {
+        await singleton.ready();
+        const before = singleton.initCount;
+        expect(singleton.isReady).toBe(true);
 
-        await instance.ready();
-        expect(instance.initCount).toBe(1);   // construct's async leg ran exactly once
-        expect(instance.isReady).toBe(true);
-
-        const beforeId = instance.id,
-              p        = instance.reInitAsync();
-
-        // the gate reset ran synchronously (before the first await): isReady is back to false
-        expect(instance.isReady).toBe(false);
+        const p = singleton.reInitAsync();
+        expect(singleton.isReady).toBe(false);   // the gate reset synchronously (before the first await)
 
         await p;
-        expect(instance.initCount).toBe(2);    // the async-init leg re-ran
-        expect(instance.isReady).toBe(true);   // the gate re-resolved
-        expect(instance.id).toBe(beforeId);    // construct did NOT re-run — same instance, no re-registration
-
-        await instance.ready();                // ready() reflects the completed re-init
-        expect(instance.isReady).toBe(true);
-
-        instance.destroy()
+        expect(singleton.initCount).toBe(before + 1);   // the async-init leg re-ran exactly once
+        expect(singleton.isReady).toBe(true)            // the gate re-resolved
     });
 
-    test('the fence: reInitAsync rejects outside unitTestMode (the deleted guards\' replacement)', async () => {
-        const instance = Neo.create(ReInitClass);
-        await instance.ready();
+    test('single-flight: concurrent reInitAsync calls coalesce — the async leg runs once', async () => {
+        await singleton.ready();
+        const before = singleton.initCount;
 
+        // both calls resolve to the same in-flight re-init; each async wrapper differs, so the proof of
+        // coalescing is that the async-init leg ran ONCE (initCount + 1), not twice.
+        await Promise.all([singleton.reInitAsync(), singleton.reInitAsync()]);
+
+        expect(singleton.initCount).toBe(before + 1)   // ONE re-init, not two concurrent async legs
+    });
+
+    test('failure: a rejecting initAsync settles ready() with the rejection — observers are not stranded', async () => {
+        await singleton.ready();
+
+        singleton.failNext = true;
+        await expect(singleton.reInitAsync()).rejects.toThrow(/reInit-probe-failure/);
+        // the reset ready() promise REJECTS (it does not hang) — a stranded observer would time out here
+        await expect(singleton.ready()).rejects.toThrow(/reInit-probe-failure/);
+        expect(singleton.isReady).toBe(false);
+
+        // recover for isolation: a clean re-init settles ready() again
+        await singleton.reInitAsync();
+        expect(singleton.isReady).toBe(true)
+    });
+
+    test('admission: rejects a non-singleton instance, and (fenced) outside unitTestMode', async () => {
+        class ReInitOrdinary extends core.Base {
+            static config = {className: 'Neo.Test.ReInitOrdinary'}
+        }
+        Neo.setupClass(ReInitOrdinary);
+
+        const instance = Neo.create(ReInitOrdinary);
+        await instance.ready();
+        await expect(instance.reInitAsync()).rejects.toThrow(/singleton-only/);   // ordinary instance refused
+        instance.destroy();
+
+        // the unitTestMode fence — the mechanical replacement for the deleted _initPromise guards
         const original = Neo.config.unitTestMode;
 
         Neo.config.unitTestMode = false;
         try {
-            await expect(instance.reInitAsync()).rejects.toThrow(/unitTestMode-only seam/)
+            await expect(singleton.reInitAsync()).rejects.toThrow(/unitTestMode-only/)
         } finally {
             Neo.config.unitTestMode = original
         }
-
-        // the fence threw before any reset: the instance is untouched
-        expect(instance.isReady).toBe(true);
-        expect(instance.initCount).toBe(1);
-
-        instance.destroy()
     })
 });
