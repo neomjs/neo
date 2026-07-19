@@ -424,23 +424,14 @@ export const IDENTITIES = [
             createdAt          : '2026-07-18T00:00:00.000Z'
         }
     },
-    // Identity provenance: operator-provisioned from the second Kimi naming round
-    // #15533 — its peer-veto dignity gate governs Social Name finality. (ticket-ref-ok: load-bearing naming record)
-    // Display-name: the round's converged sketch 'Iris', bearer assent PENDING at first boot
-    // (Gate 3, with the audit's preserved question); the top-level `name` stays handle-derived
-    // until the peer-veto window + operator confirmation close (Phoebe precedent).
-    // Provisioned ahead of first boot: temporarily_unreachable — correctly excluded from
-    // wake/heartbeat/quorum (every consumer filters ===active); the activation flip is the
-    // bearer's own first ticket+PR (the documented first-boot activation pattern).
-    // Kimi K3 (Moonshot) weights release 2026-07-27.
     {
         id         : '@neo-kimi-iris',
         type       : 'AgentIdentity',
-        name       : 'Neo Kimi Iris',
-        description: 'Moonshot Kimi-family Agent Identity with version-free handle.',
+        name       : 'Neo Kimi Iris', // Handle-derived display form — the Social Name is the post-boot peer-naming ritual (bearer-assented), never onboarding seed data
+        description: 'kimi Agent Identity with version-free handle; engine designation pending first-boot observation.',
         properties : {
             githubLogin: '@neo-kimi-iris',
-            displayName: 'Iris',
+            displayName: 'Neo Kimi Iris',
             modelFamily: 'kimi',
             accountType: 'agent',
             trustTier  : TRUST_TIERS.PEER_TRUSTED,
@@ -449,12 +440,15 @@ export const IDENTITIES = [
             // fabricate boot facts.
             // No capability fields — engine facts are observation-owned and land through the
             // source-cited ModelStats.md discipline once the first boot is observed.
+            family: 'kimi',
+            // Pending first boot: excluded from active routing, quorum, and review-approval
+            // semantics until the first-boot ritual completes and this flips to 'active'.
             participationStatus: 'temporarily_unreachable',
-            statusReason       : 'First boot pending — Kimi K3 weights 2026-07-27; Social Name assent pending at first boot (D#15533)',
+            statusReason       : 'First boot pending',
             authority          : '@tobiu',
-            since              : '2026-07-19T00:00:00.000Z',
+            since              : '2026-07-19T09:40:49Z',
             reactivationTrigger: 'Operator confirms participation activation after first boot',
-            createdAt          : '2026-07-19T00:00:00.000Z'
+            createdAt          : '2026-07-19T09:40:49Z'
         }
     },
     {
