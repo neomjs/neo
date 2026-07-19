@@ -1,6 +1,7 @@
-import BaseViewport   from '../../../../../src/container/Viewport.mjs';
-import DemoAWorkspace from './DemoAWorkspace.mjs';
-import DemoBWorkspace from './DemoBWorkspace.mjs';
+import BaseViewport            from '../../../../../src/container/Viewport.mjs';
+import DemoAWorkspace          from './DemoAWorkspace.mjs';
+import DemoBWorkspace          from './DemoBWorkspace.mjs';
+import MissionControlWorkspace from './MissionControlWorkspace.mjs';
 
 /**
  * @summary Viewport of the dock-demo childapp: mounts one of the showcase workspaces by URL.
@@ -10,6 +11,8 @@ import DemoBWorkspace from './DemoBWorkspace.mjs';
  *
  * - default        → Demo A (dock choreography — `DemoAWorkspace`)
  * - `?demo=b`      → Demo B (perspectives + pop-out — `DemoBWorkspace`)
+ * - `?demo=mission`→ the real Fleet Manager under a demo/witness tour host that COMPOSES the
+ *   production `FleetCockpit` and owns its playback — `MissionControlWorkspace`
  * - `?popout=<id>` → an EMPTY pop-out host: this window carries no workspace of its own;
  *   the opener's workspace reparents the live pane into this viewport on connect (the
  *   shared-heap contract — one App Worker, two render targets).
@@ -55,8 +58,9 @@ class Viewport extends BaseViewport {
         }
 
         const workspaceByMode = {
-            a: DemoAWorkspace,
-            b: DemoBWorkspace
+            a      : DemoAWorkspace,
+            b      : DemoBWorkspace,
+            mission: MissionControlWorkspace
         };
 
         me.add({
