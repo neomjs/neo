@@ -16,8 +16,11 @@ import {expect, test} from '../../fixtures.mjs';
  *    detail instance before detach and after reintegration; the vessel terminally closes; the grid
  *    census is unchanged.
  * 4. **Universal invariants** — gesture continuity (native clicks), same-instance permanence,
- *    JSON-only persisted state (dock document), exact-once (single detail instance), idempotent
- *    cleanup (zero popup residue).
+ *    JSON-only persisted state (the REAL perspective writer: the live document saved through
+ *    `DockPerspectiveStore`'s landed validation seam and read back byte-identical), exact-once
+ *    (a single detail instance asserted by census, not first-match), idempotent cleanup (a
+ *    repeated disconnect terminal on the retired window id is a byte-equal no-op), and an empty
+ *    three-realm error ledger (main page, popup, worker runtime).
  *
  * Row 4's receipt is deliberately NOT the drill round-trip (which proves instance continuity
  * without the store axis) and NOT Demo B's CounterPane (not store-backed) — it is the
@@ -34,11 +37,31 @@ test.describe('matrix row 4 — AgentDetail permanence with live FleetRoster con
     test.setTimeout(150000);
 
     test('store identity + live mutation survive detach and reintegration on the same instances', async ({page, neuralLink}) => {
-        const pageErrors = [];
+        // the full error ledger (row-7 sibling shape): main-page errors, popup errors, and
+        // worker runtime errors via an exposed callback — every realm the receipt touches
+        const ledger = {pageErrors: [], popupErrors: [], runtimeErrors: []};
+
+        await page.context().exposeFunction('row4RuntimeError', payload => ledger.runtimeErrors.push(payload));
+        await page.context().addInitScript(name => {
+            globalThis.addEventListener('error', event => globalThis[name]({
+                column : event.colno,
+                line   : event.lineno,
+                message: event.message,
+                source : event.filename,
+                type   : 'error'
+            }));
+            globalThis.addEventListener('unhandledrejection', event => globalThis[name]({
+                reason: String(event.reason?.stack || event.reason?.message || event.reason),
+                type  : 'unhandledrejection'
+            }))
+        }, 'row4RuntimeError');
 
         page.on('pageerror', error => {
             const value = error == null ? '' : String(error.stack || error.message || error);
-            value && value !== 'undefined' && pageErrors.push(value)
+            value && value !== 'undefined' && ledger.pageErrors.push(value)
+        });
+        page.context().on('page', popup => {
+            popup.on('pageerror', error => ledger.popupErrors.push(String(error?.stack || error?.message || error)))
         });
 
         await page.goto('/apps/agentos/index.html');
@@ -62,10 +85,13 @@ test.describe('matrix row 4 — AgentDetail permanence with live FleetRoster con
               baselineLane = target.properties.record.laneLine;
 
         const queryDetail = async () => {
-            const matches = await app.queryComponent({className: 'AgentOS.view.fleet.AgentDetail'}, ['record', 'id', 'windowId']);
+            const matches = await app.queryComponent({className: 'AgentOS.view.fleet.AgentDetail'}, ['record', 'id', 'windowId']),
+                  found   = (Array.isArray(matches) ? matches : [matches]).filter(Boolean);
 
-            return (Array.isArray(matches) ? matches : [matches]).filter(Boolean)[0]
+            return {count: found.length, detail: found[0]}
         };
+
+        const detailIdOf = async () => (await queryDetail()).detail?.id;
 
         // ── tooth 1: native drill → pop-out, same instance into the vessel ──────────────────
         await page.locator(`[id="${targetCardId}"] .fm-card-drill`).click();
@@ -74,7 +100,7 @@ test.describe('matrix row 4 — AgentDetail permanence with live FleetRoster con
 
         await expect(detail).toBeVisible({timeout: 15000});
 
-        const drilled = await queryDetail();
+        const drilled = (await queryDetail()).detail;
 
         expect(drilled?.properties?.record?.agentId, 'the inspector drilled into the exact resident').toBe(firstAgentId);
 
@@ -89,9 +115,9 @@ test.describe('matrix row 4 — AgentDetail permanence with live FleetRoster con
         await popup.waitForLoadState('domcontentloaded');
         await expect(popup.locator('.fm-agent-detail')).toBeVisible({timeout: 30000});
         await expect(page.locator('.fm-agent-detail')).toHaveCount(0);
-        expect((await queryDetail())?.id, 'the OS-window hop reparents the SAME instance').toBe(detailId);
+        expect(await detailIdOf(), 'the OS-window hop reparents the SAME instance').toBe(detailId);
 
-        const vesselWindowId = (await queryDetail())?.properties?.windowId;
+        const vesselWindowId = (await queryDetail()).detail?.properties?.windowId;
 
         expect(vesselWindowId, 'the vessel exposes its runtime window id while detached').toBeTruthy();
 
@@ -104,7 +130,7 @@ test.describe('matrix row 4 — AgentDetail permanence with live FleetRoster con
 
         // the store's recordChange must reach the DETACHED inspector: the vessel renders the
         // mutated lane — streaming stays live across the hop (polled, never assumed)
-        await expect.poll(async () => (await queryDetail())?.properties?.record?.laneLine, {
+        await expect.poll(async () => (await queryDetail()).detail?.properties?.record?.laneLine, {
             message  : 'the detached inspector received the live store mutation',
             timeout  : 10000,
             intervals: [200]
@@ -121,7 +147,11 @@ test.describe('matrix row 4 — AgentDetail permanence with live FleetRoster con
         expect(popup.isClosed(), 'the vessel terminally closed on reattach').toBe(true);
         await expect(page.locator('.fm-agent-detail')).toBeVisible({timeout: 30000});
 
-        const home = await queryDetail();
+        const homeResult = await queryDetail();
+
+        expect(homeResult.count, 'exactly one AgentDetail instance exists after reintegration').toBe(1);
+
+        const home = homeResult.detail;
 
         expect(home?.id, 'the detail instance survives the whole round trip').toBe(detailId);
         expect(home?.properties?.record?.agentId, 'the same record identity after reintegration').toBe(firstAgentId);
@@ -168,14 +198,26 @@ test.describe('matrix row 4 — AgentDetail permanence with live FleetRoster con
         expect(stored?.layout?.dockZone, 'the stored layout round-trips the live document byte-identically').toEqual(document);
 
         // idempotent cleanup: the vessel-close terminal repeated against the RETIRED window id
-        // is a no-op — same home state, no new vessel, no state change (the row-7 sibling's
-        // repeated-disconnect shape, through the cockpit's re-entrancy-disciplined path)
+        // is a FULL no-op — snapshot the home state, repeat the terminal, and require byte-equal
+        // state (the row-7 sibling's settled-snapshot shape, through the cockpit's
+        // re-entrancy-disciplined path)
+        const settled = {
+            detailId  : await detailIdOf(),
+            document,
+            popupCount: page.context().pages().filter(candidate => candidate !== page && !candidate.isClosed()).length
+        };
+
         await app.callMethod(holderId, 'onWindowDisconnect', [{windowId: vesselWindowId}]);
 
-        expect((await queryDetail())?.id, 'a repeated disconnect terminal changes nothing').toBe(detailId);
-        expect(page.context().pages().filter(candidate => candidate !== page && !candidate.isClosed()),
-            'no popup residue after reintegration').toEqual([]);
-        expect(pageErrors, 'no page errors on the row-4 receipt path').toEqual([]);
+        expect({
+            detailId  : await detailIdOf(),
+            document  : (await app.getDockTopology(holderId))?.document ?? await app.getDockTopology(holderId),
+            popupCount: page.context().pages().filter(candidate => candidate !== page && !candidate.isClosed()).length
+        }, 'a repeated disconnect terminal changes no state').toEqual(settled);
+
+        expect(ledger.runtimeErrors, 'no worker runtime errors on the receipt path').toEqual([]);
+        expect(ledger.pageErrors, 'no main-page errors on the receipt path').toEqual([]);
+        expect(ledger.popupErrors, 'no popup errors on the receipt path').toEqual([]);
 
         // restore the baseline lane so the receipt leaves the fixture as found
         await app.callMethod(targetCardId, 'record.set', [{laneLine: baselineLane}]);
