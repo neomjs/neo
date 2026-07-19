@@ -890,6 +890,36 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoBWorkspace', () => {
         popupHost.destroy()
     });
 
+    test('resolveFocusedDockItem prefers the dockItemId STAMP and falls back for live panes (#15517)', () => {
+        const sideTabs  = workspace.getReference('dock-host-b').down({dockNodeId: 'side-tabs'}),
+              toolbar   = sideTabs.down({ntype: 'tab-header-toolbar'}),
+              buttons   = toolbar.items,
+              sideItems = workspace.getDockZoneDocument().nodes['side-tabs'].items;
+
+        // DemoB's panes are LIVE instances — the adapter passes them through untouched by design,
+        // so their buttons carry NO stamp and keep the positional fallback (the untouched discipline)
+        expect(buttons.length).toBe(sideItems.length);
+        buttons.forEach(button => expect(button.dockItemId).toBeUndefined());
+
+        // non-1:1 order: move the second header to the front WITHOUT touching the document.
+        // A stamped button resolves STRUCTURALLY — the positional slot would mis-map
+        const moved = buttons[1];
+
+        moved.dockItemId = 'timeline'; // the stamp, as written by the projection for plain configs
+        toolbar.remove(moved, false);
+        toolbar.insert(0, moved);
+
+        expect(toolbar.items.indexOf(moved)).toBe(0);
+
+        const focused = workspace.resolveFocusedDockItem({path: [{id: moved.id}]});
+
+        expect(focused.itemId, 'the stamp branch wins over the reordered position').toBe('timeline');
+        expect(sideItems[0], '…while the positional slot now names a different item').not.toBe('timeline');
+        expect(focused.itemLabel).toBe('Timeline');
+        expect(focused.workspaceId).toBe(DemoBWorkspace.MAIN_WORKSPACE_ID)
+    });
+
+
     test('resolveFocusedDockItem answers popup-origin identity from the POPUP workspace document', () => {
         // stage a real transfer so the popup document owns the workbench item
         const detached = DockZoneModel.transferItem(

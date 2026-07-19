@@ -6,16 +6,19 @@ setup({
     }
 });
 
-import {test, expect}     from '@playwright/test';
-import Neo                from '../../../../src/Neo.mjs';
-import * as core          from '../../../../src/core/_export.mjs';
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../src/Neo.mjs';
+import * as core      from '../../../../src/core/_export.mjs';
+import '../../../../src/manager/Instance.mjs'; // defines Neo.get — the container child-add path resolves parents through it
 import Component          from '../../../../src/component/Base.mjs';
 import DockLayoutAdapter  from '../../../../src/dashboard/DockLayoutAdapter.mjs';
 import DockRail           from '../../../../src/dashboard/DockRail.mjs';
 import DockSplitter       from '../../../../src/dashboard/DockSplitter.mjs';
 import DockTabEnterButton from '../../../../src/dashboard/DockTabEnterButton.mjs';
 import DockZoneModel      from '../../../../src/dashboard/DockZoneModel.mjs';
-import TabOverflowPlugin  from '../../../../src/tab/plugin/Overflow.mjs';
+import '../../../../src/dashboard/Panel.mjs'; // registers the `dashboard-panel` ntype the projected items use
+import TabContainer      from '../../../../src/tab/Container.mjs';
+import TabOverflowPlugin from '../../../../src/tab/plugin/Overflow.mjs';
 
 const createModel = () => ({
     schema: 'neo.harness.dockZone.v1',
@@ -264,6 +267,48 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         expect(result.items[0].activeIndex).toBe(1);
         expect(result.items[0].items.map(item => item.header.text)).toEqual(['Strategy', 'Swarm']);
         expect(result.items[0].items.map(item => item.data.dockItemId)).toEqual(['strategy', 'swarm']);
+    });
+
+    test('the dockItemId stamp reaches header CONFIGS and live header BUTTONS, order-agnostic (#15517)', () => {
+        let result = DockLayoutAdapter.project(createModel(), {
+            resolveComponentRef: componentRef => componentRef === 'missing' ? null : ({
+                ntype    : 'dashboard-panel',
+                reference: componentRef
+            })
+        });
+
+        // config level: resolver-returned plain configs carry the stamp in their header
+        expect(result.items[0].items.map(item => item.header.dockItemId)).toEqual(['strategy', 'swarm']);
+
+        // the placeholder path (absent resolver) carries it too — locate by the stamped node id,
+        // agnostic to the interleaved splitter positions
+        const sideSplit   = result.items.find(item => item.dockNodeType === 'split'),
+              missingTabs = sideSplit.items.find(item => item.dockNodeId === 'missing-tabs');
+
+        expect(missingTabs.items[0].header.dockItemId).toBe('missing');
+
+        // button level: a real tab.Container built from the projection carries the stamp on
+        // every header BUTTON instance — and it follows the button, not the position
+        const tabContainer = Neo.create({
+            module: TabContainer,
+            ...result.items[0]
+        });
+        let buttons = tabContainer.getTabBar().items;
+
+        expect(buttons.map(button => button.dockItemId)).toEqual(['strategy', 'swarm']);
+
+        // non-1:1 order: reorder the buttons — the stamp stays with ITS button
+        const moved = buttons[1];
+
+        tabContainer.getTabBar().remove(moved, false);
+        tabContainer.getTabBar().insert(0, moved);
+        buttons = tabContainer.getTabBar().items;
+
+        expect(buttons[0]).toBe(moved);
+        expect(buttons[0].dockItemId).toBe('swarm');
+        expect(buttons[1].dockItemId).toBe('strategy');
+
+        tabContainer.destroy()
     });
 
     test('a transient addTab correlation decorates only the exact target header without mutating the model', () => {
