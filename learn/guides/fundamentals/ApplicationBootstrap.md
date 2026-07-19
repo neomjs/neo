@@ -20,7 +20,7 @@ myapp/
 │   └── Viewport.mjs // The app main view
 ├── app.mjs          // The entry-point for your code inside the app worker
 ├── index.html       // The entry-point for a main-thread
-└── neo-config.json  // Framework global configs for your app
+└── neo-config.json  // Engine global configs for your app
 ```
 
 ### 1. Entry Point: index.html
@@ -44,7 +44,7 @@ The bootstrap process begins with a minimal HTML file:
 The only JavaScript file imported is the `MicroLoader.mjs`, which is loaded as an ES module.
 
 > **Note:** You don't need to create these files manually. Neo.mjs provides CLI tools to generate the basic
-> application structure. You can use `npm run create-app` inside the framework repo or `npx neo-app` to generate
+> application structure. You can use `npm run create-app` inside the Neo.mjs repo or `npx neo-app` to generate
 > a workspace with the same structure.
 
 ### 2. MicroLoader: Configuration Loading

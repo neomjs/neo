@@ -411,8 +411,8 @@ reapplied.
 
 ## Collections and Records: A Powerful Combination
 
-While `Neo.collection.Base` is designed to manage any type of JavaScript object, its full potential within the Neo.mjs
-framework is often realized when combined with `Neo.data.Model` instances (Records) through `Neo.data.Store`.
+While `Neo.collection.Base` is designed to manage any type of JavaScript object, its full potential within Neo.mjs
+is often realized when combined with `Neo.data.Model` instances (Records) through `Neo.data.Store`.
 `Neo.data.Store` extends `Neo.collection.Base`, specializing it for the management of structured, reactive data.
 
 When a `Neo.data.Store` holds `Records`:

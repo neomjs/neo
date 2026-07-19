@@ -1,6 +1,6 @@
 # Unit Testing with Playwright
 
-Neo.mjs uses a unique "Single-Thread Simulation" architecture for its unit tests. By running the core framework logic inside a single Node.js thread (via Playwright), we can test complex multi-threaded interactions without the complexity or overhead of real browser workers.
+Neo.mjs uses a unique "Single-Thread Simulation" architecture for its unit tests. By running the core engine logic inside a single Node.js thread (via Playwright), we can test complex multi-threaded interactions without the complexity or overhead of real browser workers.
 
 ## Why Unit Test This Way?
 
@@ -59,7 +59,7 @@ npx playwright test -c test/playwright/playwright.config.unit.mjs -g "sort"
 
 The unit tests located in `test/playwright/unit/` are the backbone of our testing strategy. They run in a **Node.js environment**, effectively simulating the Neo.mjs App Worker (and parts of the VDom/Data workers) within a single thread.
 
-This architecture allows us to test core logic, state management, and VDOM diffing at extreme speeds, but it requires a specific import strategy to manually "assemble" the framework's parts that are usually distributed across workers.
+This architecture allows us to test core logic, state management, and VDOM diffing at extreme speeds, but it requires a specific import strategy to manually "assemble" the engine's parts that are usually distributed across workers.
 
 ### The "Single Thread" Simulation
 
@@ -95,7 +95,7 @@ import Neo       from '../../../../src/Neo.mjs';
 import * as core from '../../../../src/core/_export.mjs'; // REQUIRED
 ```
 
-**Why?** `Neo.mjs` is the bare namespace root. While it contains the class system logic (like `Neo.create`), it does **not** include many global utility methods that the framework relies on.
+**Why?** `Neo.mjs` is the bare namespace root. While it contains the class system logic (like `Neo.create`), it does **not** include many global utility methods that the engine relies on.
 For example, **`Neo.isString`** is defined in `src/core/Util.mjs` and **`Neo.isEqual`** is defined in `src/core/Compare.mjs`. If you do not import `core/_export.mjs`, these methods will be undefined, causing failures in config setters and type checking.
 
 #### 2. The VDOM Engine (`VdomHelper` + Renderer)
@@ -151,7 +151,7 @@ setup({
     }
 });
 
-// 2. Imports Phase: Assemble the Framework
+// 2. Imports Phase: Assemble the Engine
 import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs'; // <--- AUGMENT NEO NAMESPACE

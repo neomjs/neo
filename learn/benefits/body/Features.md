@@ -52,7 +52,7 @@ your project. More on this in
 *   **RPC Layer**: A robust Remote Procedure Call (RPC) layer facilitates seamless, cross-realm communication,
   extending even to backend integrations. Learn more in
   [The Neo.mjs RPC Layer](#/learn/benefits.RPCLayer).
-*   **Extensibility & Scalability**: The framework is designed for maximum extensibility, allowing you to easily integrate
+*   **Extensibility & Scalability**: The engine is designed for maximum extensibility, allowing you to easily integrate
   custom logic and scale your applications from small prototypes to large-scale enterprise solutions.
 *   **Class Config System**: A unified, declarative class config system simplifies component definition and management,
   ensuring consistency across your entire application.

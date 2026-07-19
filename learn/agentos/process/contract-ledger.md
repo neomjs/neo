@@ -19,7 +19,7 @@ To standardize how we talk about API contracts and feature surfaces, we define f
 | **T1** | Implicit | No documented contract. The agent guesses the consumer's intent based on vague ticket prose. | **High Risk.** Guarantees multi-cycle PR friction. Forbidden for public surfaces. |
 | **T2** | Scattered | The contract exists across PR comments, GitHub issues, or inline code, but lacks centralized structural alignment. | **Medium Risk.** Prone to edge-case gaps and fallback ambiguity. |
 | **T3** | Explicit Matrix | A formal, centralized **Contract Ledger** matrix defining the exact Surface, Source of Authority, Behavior, Fallback, Docs, and Evidence. | **Safe.** The baseline required for any public/consumed surface modification. |
-| **T4** | Executable | The T3 Contract Ledger is backed by executable tests (e.g., OpenAPI validation, Playwright suite, TypeScript interfaces) enforcing the contract at runtime. | **Gold Standard.** Required for core framework public APIs and critical memory-core schemas. |
+| **T4** | Executable | The T3 Contract Ledger is backed by executable tests (e.g., OpenAPI validation, Playwright suite, TypeScript interfaces) enforcing the contract at runtime. | **Gold Standard.** Required for core engine public APIs and critical memory-core schemas. |
 
 ## The Contract Ledger Matrix Schema
 
@@ -101,7 +101,7 @@ The Contract Ledger is required for any ticket where:
 
 **Heuristic clusters that hit this trigger:**
 - Memory Core MCP tools (Agent-consumed).
-- Core framework class configs and public methods (Human-consumed).
+- Core engine class configs and public methods (Human-consumed).
 - OpenAPI specifications and REST endpoints (System-consumed).
 - Swarm governance rules and SKILL files (Agent-consumed).
 

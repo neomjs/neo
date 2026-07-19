@@ -192,7 +192,7 @@ This means that after `Neo.setupClass(MyClass)` is executed, your class becomes 
   * **Improve Readability**: Clearly show the dependencies of your module.
   * **Enhance Tooling**: Enable better static analysis, auto-completion, and refactoring support in modern IDEs.
   * **Ensure Consistency**: Promote a consistent and predictable coding style.
-* **Framework Internal Use**: The global `Neo` namespace is heavily utilized internally by the engine itself for
+* **Engine Internal Use**: The global `Neo` namespace is heavily utilized internally by the engine itself for
   its class registry, dependency resolution, and dynamic instantiation (e.g., when using `ntype` or `module` configs).
 
 Understanding this mechanism clarifies how Neo.mjs manages its class system and provides the underlying flexibility for

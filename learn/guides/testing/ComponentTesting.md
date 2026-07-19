@@ -143,7 +143,7 @@ The `neo` fixture provides the following methods:
 | `destroyComponent(id)` | Destroys a component instance. |
 | `setConfig(id, config)` | Updates one or more configs on an instance. |
 | `getConfig(id, key)` | Retrieves a config value from an instance. |
-| `waitForReady()` | Waits for the Neo framework to be fully initialized. |
+| `waitForReady()` | Waits for Neo.mjs to be fully initialized. |
 | `page` | Access to the underlying Playwright Page object. |
 
 ## Advanced: Loading Modules

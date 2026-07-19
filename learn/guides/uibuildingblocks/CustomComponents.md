@@ -8,7 +8,7 @@ user interfaces simply by creating configuration objects for these existing comp
 Vue, where creating custom components is a core part of the development workflow.
 
 However, there are times when you need to create something truly unique or encapsulate a specific set of configurations
-and logic for reuse. In these scenarios, creating a custom component by extending a framework class is the perfect
+and logic for reuse. In these scenarios, creating a custom component by extending an engine class is the perfect
 solution.
 
 This guide will walk you through the process.
@@ -77,7 +77,7 @@ This means that after `Neo.setupClass(MyClass)` is executed, your class becomes 
     *   **Improve Readability**: Clearly show the dependencies of your module.
     *   **Enhance Tooling**: Enable better static analysis, auto-completion, and refactoring support in modern IDEs.
     *   **Ensure Consistency**: Promote a consistent and predictable coding style.
-*   **Framework Internal Use**: The global `Neo` namespace is heavily utilized internally by the engine itself for its class registry, dependency resolution, and dynamic instantiation (e.g., when using `ntype` or `module` configs).
+*   **Engine Internal Use**: The global `Neo` namespace is heavily utilized internally by the engine itself for its class registry, dependency resolution, and dynamic instantiation (e.g., when using `ntype` or `module` configs).
 
 Understanding this mechanism clarifies how Neo.mjs manages its class system and provides the underlying flexibility for its configuration-driven approach.
 
@@ -97,10 +97,10 @@ In the example below, we create `MySpecialButton` by extending `Neo.button.Base`
 You can also add entirely new configuration properties to your custom components. To make a config "reactive" – meaning
 it automatically triggers a lifecycle method when its value changes – you **must** define it with a trailing underscore (`_`).
 
-For a reactive config like `myConfig_`, the framework provides this behavior:
+For a reactive config like `myConfig_`, the engine provides this behavior:
 - **Reading**: You can access the value directly: `this.myConfig`.
 - **Writing**: Assigning a new value (`this.myConfig = 'new value'`) triggers a prototype-based setter. This is the core of Neo.mjs reactivity.
-- **Hooks**: The framework provides three optional hooks for each reactive config: `beforeGet`, `beforeSet`, and `afterSet`. After a value is set, the `afterSetMyConfig(value, oldValue)` method is automatically called.
+- **Hooks**: The engine provides three optional hooks for each reactive config: `beforeGet`, `beforeSet`, and `afterSet`. After a value is set, the `afterSetMyConfig(value, oldValue)` method is automatically called.
 
 If you define a config without the trailing underscore, it will simply be a static property on the class instance and will not trigger any lifecycle methods.
 
