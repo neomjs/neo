@@ -157,6 +157,23 @@ test.describe('AgentOS fleet cockpit — AgentCard evolved-D synthesis render at
                 expect(g.contrast, `[${label}] card ${i} name text reads against the panel (luminance delta)`).toBeGreaterThan(90)
             });
 
+            // RA-2 narrow interaction swap (a semantic guard, not just snapshot-green): below 320px the
+            // inline toggle + restart give way to ONE ⋯ menu; at regular/wide the inline verbs show and
+            // the ⋯ hides. EXACTLY one lifecycle route is display-visible per width on every card — so no
+            // action is lost to a mystery icon, and no width double-presents the route.
+            const narrow = width < 320,
+                  routes = await page.evaluate(() => [...document.querySelectorAll('.fm-agent-card')].map(card => {
+                      const shown = sel => { const el = card.querySelector(sel); return !!el && getComputedStyle(el).display !== 'none' };
+                      return {
+                          menu  : shown('.fm-card-action-menu'),
+                          toggle: shown('.fm-card-action:not(.fm-card-action-menu):not(.fm-card-action-restart)')
+                      }
+                  }));
+            routes.forEach((r, i) => {
+                expect(r.menu,   `[${label}] card ${i}: the ⋯ menu is ${narrow ? 'the narrow route' : 'hidden at regular/wide'}`).toBe(narrow);
+                expect(r.toggle, `[${label}] card ${i}: the inline toggle is ${narrow ? 'hidden at narrow' : 'the regular/wide route'}`).toBe(!narrow)
+            });
+
             await expect(page.locator('.fm-fleet-cards')).toHaveScreenshot(`agentcard-synthesis-${label}.png`)
         }
     });

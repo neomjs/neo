@@ -246,6 +246,45 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         card.destroy()
     });
 
+    test('RA-2 narrow overflow: the ⋯ menu carries BOTH lifecycle verbs, live-state, through the SAME B4 seam (#15536)', () => {
+        // The selected narrow mechanic (mockup D/synthesis): below 320px the inline toggle + restart give
+        // way to ONE 44px ⋯ menu. That menu must still reach EVERY lifecycle action and fire the identical
+        // `lifecycleIntent` the inline buttons do — so no valid action is lost to a mystery icon at narrow
+        // width (Emmy RA-2). The menu is populated once in onConstructed; its items read the LIVE record.
+        const card  = createCard({agentId: 'vega', state: 'off'});
+        const fired = [];
+
+        card.on('lifecycleIntent', data => fired.push(data));
+
+        const menuButton = card.down({reference: 'control-menu'}),
+              items      = menuButton.menu;
+
+        // set ONCE (onConstructed), never per record — two verbs, power first, restart second
+        expect(Array.isArray(items)).toBe(true);
+        expect(items.map(item => item.text)).toEqual(['Power', 'Restart']);
+
+        // off → the power item resolves to START against the live record and fires the SAME B4 event
+        items[0].handler();
+        expect(fired).toMatchObject([{action: 'start', agentId: 'vega'}]);
+
+        // running → the SAME power item now resolves to STOP — read from the live record at click time,
+        // with no menu re-set and no dynamic re-label (the state itself is shown on the card, not the item)
+        fired.length = 0;
+        applySet(card, {state: 'ok'});
+        items[0].handler();
+        expect(fired).toMatchObject([{action: 'stop', agentId: 'vega'}]);
+
+        // the restart item fires restart through the shared seam
+        fired.length = 0;
+        items[1].handler();
+        expect(fired).toMatchObject([{action: 'restart', agentId: 'vega'}]);
+
+        // the trigger names its subject (like the inline verbs) and disables in lockstep with them
+        expect(menuButton.ariaLabel).toMatch(/ actions$/);
+
+        card.destroy()
+    });
+
     test('drill-in (gate-1): the dedicated native drill Button fires ONE agentSelect {agentId}', () => {
         const card  = createCard({agentId: 'vega', displayName: 'Vega', state: 'ok'});
         const fired = [];

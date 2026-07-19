@@ -224,6 +224,12 @@
         }
     }
 
+    /* the ⋯ overflow menu is a narrow-only affordance: hidden by default; the @container narrow block
+       below swaps it in when the inline toggle + restart give way (card responds to its own width) */
+    .fm-card-action-menu {
+        display: none;
+    }
+
     /* ── work-row: the current lane, two-line clamped with head+tail middle elision ── */
     .fm-card-work-row {
         min-height: 30px;
@@ -306,11 +312,16 @@
             font-size: 16px;
         }
 
-        /* only the primary (contextual toggle) survives at narrow as the single 44px target; restart
-           reaches through the drill/detail so the narrow row never pays a two-target rail tax.
-           (First-pass simplification of the mockup's ⋯-menu; flagged for Phoebe's narrow design-check.) */
-        .fm-card-action-restart {
+        /* the selected narrow mechanic (mockup D / synthesis): the inline toggle + restart give way to
+           ONE 44px ⋯ menu carrying BOTH verbs at ≥44px touch height — every lifecycle action stays
+           reachable through a visible, labelled route, without the two-target rail tax. The swap is pure
+           @container CSS (display-toggled), so exactly one route is keyboard-reachable at each width. */
+        .fm-card-action:not(.fm-card-action-menu) {
             display: none;
+        }
+
+        .fm-card-action-menu {
+            display: inline-flex;
         }
     }
 }

@@ -206,6 +206,19 @@ class AgentCard extends Container {
                     hidden   : true,
                     iconCls  : 'fa-solid fa-rotate',
                     reference: 'control-restart'
+                }, {
+                    // Narrow-only overflow: below 320px the inline toggle + restart give way to ONE 44px
+                    // ⋯ menu (a card-owned width mode, swapped purely by @container CSS — the hidden
+                    // route is display:none, so it is never keyboard-reachable at that width, and no
+                    // worker-side width logic is needed). button.Base#menu supplies aria-haspopup /
+                    // aria-expanded; the menu itself is populated ONCE in onConstructed (never per record)
+                    // so afterSetMenu cannot leak a prior menuList, and its items read the card's LIVE
+                    // record at click time — the power verb resolves start/stop against the current state
+                    // with no dynamic re-label.
+                    module   : Button,
+                    cls      : ['fm-card-action', 'fm-card-action-menu'],
+                    iconCls  : 'fa-solid fa-ellipsis',
+                    reference: 'control-menu'
                 }]
             }]
         }, {
@@ -275,7 +288,25 @@ class AgentCard extends Container {
      */
     onConstructed(...args) {
         super.onConstructed(...args);
-        this.applyRecord()
+
+        let me = this;
+
+        // Populate the narrow ⋯ menu ONCE — never per record. afterSetMenu creates a floating menuList
+        // without destroying a prior one, so a per-record re-set would leak; set once, it cannot. The
+        // item handlers close over the card and reuse the SAME controller verbs the inline buttons fire,
+        // reading the live record at click time — so the power item resolves start/stop against the
+        // current state without a dynamic re-label (the state itself is shown on the card, not the item).
+        me.getReference('control-menu').menu = [{
+            iconCls: 'fa-solid fa-power-off',
+            text   : 'Power',
+            handler: () => me.getController().onToggleLifecycle()
+        }, {
+            iconCls: 'fa-solid fa-rotate',
+            text   : 'Restart',
+            handler: () => me.getController().onLifecycleIntent({component: {action: 'restart'}})
+        }];
+
+        me.applyRecord()
     }
 
     /**
@@ -422,6 +453,13 @@ class AgentCard extends Container {
             disabled,
             ariaLabel: `Restart ${nameSlot.text}`,
             hidden   : recordState === 'off'
+        });
+
+        // the narrow overflow trigger names its subject like the inline verbs do; the menu it opens
+        // carries the same power+restart actions, disabled in lockstep with the inline pair
+        me.getReference('control-menu').set({
+            disabled,
+            ariaLabel: `${nameSlot.text} actions`
         });
 
         // the control round-trip only — the runtime-source gating is already shown by the disabled
