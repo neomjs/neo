@@ -58,6 +58,63 @@ function installWindowVessel({openError = null, closeError = null} = {}) {
 }
 
 /**
+ * @summary Installs exact child-window connection seams for vessel-owner tests.
+ * Each registered child carries the production-shaped native route minted by its opener;
+ * URL parameters alone therefore never stand in for physical-window authority.
+ * @param {Neo.component.Base} workspace
+ * @returns {{addedTo: Function, connect: Function, restore: Function}}
+ */
+function installWindowConnectHarness(workspace) {
+    let previous = {
+            getByPath    : Neo.Main.getByPath,
+            getWindowData: Neo.Main.getWindowData,
+            windowOpen   : Neo.Main.windowOpen
+        },
+        windows = new Map();
+
+    Neo.Main.getByPath = async ({windowId}) => windows.get(windowId)?.url;
+    Neo.Main.getWindowData = async () => ({
+        innerHeight: 700,
+        outerHeight: 740,
+        screenLeft : 10,
+        screenTop  : 20
+    });
+
+    return {
+        addedTo(windowId) {
+            return windows.get(windowId)?.added ?? []
+        },
+
+        async connect(windowId, url) {
+            let added = [];
+
+            windows.set(windowId, {added, url: new URL(url, 'https://example.test').href});
+            Neo.apps[windowId] = {
+                mainView: {
+                    add: pane => added.push(pane)
+                }
+            };
+
+            await workspace.onWindowConnect({
+                windowData: {
+                    nativeRoute: {
+                        nativeHandleKey: `handle-${windowId}`,
+                        ownerWindowId  : workspace.windowId,
+                        targetWindowId : windowId
+                    }
+                },
+                windowId
+            })
+        },
+
+        restore() {
+            Object.assign(Neo.Main, previous);
+            windows.forEach((value, windowId) => delete Neo.apps[windowId])
+        }
+    }
+}
+
+/**
  * @summary Contract specs for the Demo-B workspace: the dock-holder contract, the live
  * perspective capture→load round-trip over the real store, pane-instance permanence across
  * re-projections, the pop-out bookkeeping guards, and the store-born switcher. The window
@@ -168,6 +225,174 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoBWorkspace', () => {
         result = await workspace.popOutPane('workbench');
         expect(result.detached).toBe(false);
         expect(result.errors.join()).toContain('workbench')
+    });
+
+    test('a competing G1 child cannot steal a pane already owned by the workspace target', async () => {
+        const harness = installWindowConnectHarness(workspace),
+              pane    = workspace.resolvePane('workbench', initialDocument.items.workbench),
+              moved   = DockZoneModel.transferItem(
+                  workspace.dockModel,
+                  DemoBWorkspace.createPopupDocument(),
+                  {
+                      itemId: 'workbench', sourceWorkspaceId: 'demo-b-main', targetWorkspaceId: 'demo-b-popup',
+                      target: {operation: 'addTab', tabsNodeId: 'popup-tabs'}
+                  }
+              );
+
+        workspace.dockModel     = moved.sourceDocument;
+        workspace.popupDocument = moved.targetDocument;
+        workspace.detachedPanes.workbench = {
+            tabsNodeId: 'workbench-tabs',
+            windowId  : 'workspace-target',
+            windowName: 'demo-b-cross-window'
+        };
+
+        try {
+            await harness.connect(
+                'competing-g1',
+                `https://example.test/?popout=workbench&hostId=${workspace.id}`
+            );
+
+            expect(harness.addedTo('competing-g1')).toEqual([]);
+            expect(workspace.detachedPanes.workbench.windowId).toBe('workspace-target');
+            expect(workspace.paneCache.workbench).toBe(pane)
+        } finally {
+            harness.restore()
+        }
+    });
+
+    test('the workspace stage consumes one exact target grant instead of trusting its URL shape', async () => {
+        const harness = installWindowConnectHarness(workspace),
+              mounts  = [];
+        let stageUrl;
+
+        workspace.timeout = () => new Promise(() => {});
+        workspace.mountCrossWindowTarget = async (app, windowId) => {
+            mounts.push(windowId);
+            workspace.crossWindowStageResolve?.({
+                hostId: 'workspace-host', windowId, workspaceId: DemoBWorkspace.POPUP_WORKSPACE_ID
+            })
+        };
+        Neo.Main.windowOpen = async data => {
+            stageUrl = data.url;
+
+            const wrongFlowUrl = new URL(stageUrl, 'https://example.test');
+
+            wrongFlowUrl.searchParams.set('vesselFlow', 'click-popout');
+            await harness.connect('wrong-flow-child', wrongFlowUrl);
+
+            await harness.connect('workspace-child', stageUrl);
+            return true
+        };
+
+        try {
+            expect(await workspace.openCrossWindowStage()).toMatchObject({windowId: 'workspace-child'});
+
+            const params = new URL(stageUrl, 'https://example.test').searchParams;
+
+            expect(params.get('vesselFlow')).toBe('workspace-target');
+            expect(params.get('vesselGrant')).toBeTruthy();
+            expect(params.get('vesselGeneration')).toBeTruthy();
+            expect(harness.addedTo('wrong-flow-child')).toEqual([]);
+            expect(mounts).toEqual(['workspace-child']);
+
+            await harness.connect('workspace-replay', stageUrl);
+            expect(mounts).toEqual(['workspace-child'])
+        } finally {
+            harness.restore()
+        }
+    });
+
+    test('click pop-out consumes its exact owner grant once even when connect beats open settlement', async () => {
+        const harness = installWindowConnectHarness(workspace),
+              pane    = workspace.resolvePane('workbench', initialDocument.items.workbench);
+        let clickUrl;
+
+        Neo.Main.windowOpen = async data => {
+            clickUrl = data.url;
+            await harness.connect('click-child', clickUrl);
+            return true
+        };
+
+        try {
+            expect(await workspace.popOutPane('workbench')).toEqual({detached: true, errors: []});
+
+            const params = new URL(clickUrl, 'https://example.test').searchParams;
+
+            expect(params.get('vesselFlow')).toBe('click-popout');
+            expect(params.get('vesselGrant')).toBeTruthy();
+            expect(params.get('vesselGeneration')).toBeTruthy();
+            expect(harness.addedTo('click-child')).toEqual([pane]);
+            expect(workspace.detachedPanes.workbench.windowId).toBe('click-child');
+
+            await harness.connect('click-replay', clickUrl);
+
+            expect(harness.addedTo('click-replay')).toEqual([]);
+            expect(workspace.detachedPanes.workbench.windowId).toBe('click-child')
+        } finally {
+            harness.restore()
+        }
+    });
+
+    test('tear-out connect-before-terminal consumes its grant and a replay stays inert', async () => {
+        const harness = installWindowConnectHarness(workspace),
+              pane    = workspace.resolvePane('timeline', initialDocument.items.timeline);
+        let tearOutUrl;
+
+        Neo.Main.windowOpen = async data => {
+            tearOutUrl = data.url;
+            return true
+        };
+
+        try {
+            expect(await workspace.openTearOutVessel({
+                itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}
+            })).toMatchObject({windowName: 'tearout-timeline'});
+
+            const params = new URL(tearOutUrl, 'https://example.test').searchParams;
+
+            expect(params.get('vesselFlow')).toBe('tear-out');
+            expect(params.get('vesselGrant')).toBeTruthy();
+            expect(params.get('vesselGeneration')).toBeTruthy();
+
+            await harness.connect('tear-child', tearOutUrl);
+            expect(workspace.tearOutConnects.timeline).toEqual({windowId: 'tear-child'});
+
+            workspace.adoptTearOutPane('timeline');
+            expect(harness.addedTo('tear-child')).toEqual([pane]);
+            expect(workspace.tearOutPanes.timeline.windowId).toBe('tear-child');
+
+            await harness.connect('tear-replay', tearOutUrl);
+            expect(harness.addedTo('tear-replay')).toEqual([]);
+            expect(workspace.tearOutPanes.timeline.windowId).toBe('tear-child')
+        } finally {
+            harness.restore()
+        }
+    });
+
+    test('tear-out terminal-before-connect adopts only the granted child', async () => {
+        const harness = installWindowConnectHarness(workspace),
+              pane    = workspace.resolvePane('timeline', initialDocument.items.timeline);
+        let tearOutUrl;
+
+        Neo.Main.windowOpen = async data => {
+            tearOutUrl = data.url;
+            return true
+        };
+
+        try {
+            await workspace.openTearOutVessel({
+                itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}
+            });
+            workspace.adoptTearOutPane('timeline');
+
+            await harness.connect('tear-after-terminal', tearOutUrl);
+
+            expect(harness.addedTo('tear-after-terminal')).toEqual([pane]);
+            expect(workspace.tearOutPanes.timeline.windowId).toBe('tear-after-terminal')
+        } finally {
+            harness.restore()
+        }
     });
 
     test('reattachPane falls back to the first tabs node when the remembered home left the tree', async () => {
