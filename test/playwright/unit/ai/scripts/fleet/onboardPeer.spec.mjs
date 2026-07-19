@@ -22,6 +22,7 @@ import {
     deriveAuthHandoff,
     normalizeToken,
     originDevRosterHasResident,
+    originDevRosterIdentity,
     parseOnboardArgs,
     planOnboarding,
     renderPlan
@@ -117,6 +118,10 @@ test.describe('onboardPeer — intent construction (pure half)', () => {
 
         expect(present).toBe(true);
         expect(invocation).toEqual(['git', ['show', 'origin/dev:ai/graph/identityRoots.mjs'], {cwd: '/repo', encoding: 'utf8'}]);
+        expect(originDevRosterIdentity({
+            residentId  : 'neo-gpt-2',
+            execFileImpl: () => "export const IDENTITIES = [{id: '@neo-gpt-2', properties: {participationStatus: 'active'}}];"
+        })).toEqual({id: '@neo-gpt-2', participationStatus: 'active'});
         expect(originDevRosterHasResident({
             residentId  : 'neo-gpt-2',
             execFileImpl: () => "// retired: {id: '@neo-gpt-2'}\nexport const IDENTITIES = [{id: '@neo-gpt-20'}];"
@@ -171,7 +176,12 @@ test.describe('onboardPeer — the two-phase planner', () => {
         expect(generator).not.toContain('<family>');
         expect(parseGenerateArgs(['--handle', 'neo-gpt-2', '--github-username', 'neo-gpt-2', '--family', 'gpt']).valid).toBe(true);
         expect(plan.gateMessage).toContain('membership ceremony');
+        expect(plan.gateMessage).toContain('git switch dev');
+        expect(plan.gateMessage).toContain('git pull --ff-only origin dev');
+        expect(plan.gateMessage).toContain('seedAgentIdentities.mjs');
         expect(plan.gateMessage).toContain('restart the Memory Core');
+        expect(plan.gateMessage).toContain("get_node({id:'@neo-gpt-2', projection:'full'})");
+        expect(plan.gateMessage).toContain('who_is_online({verbose:true})');
         // Phase A NEVER contains a launch segment — launching an un-rostered resident is refused by omission
         expect(plan.segments.some(segment => segment.key === 'launch')).toBe(false);
     });
@@ -226,7 +236,10 @@ test.describe('onboardPeer — the two-phase planner', () => {
         const preflight = plan.segments.find(segment => segment.key === 'preflight');
 
         expect(preflight.action).toBe('REFUSE');
-        expect(preflight.detail).toContain('restart the Memory Core server');
+        expect(preflight.detail).toContain('git switch dev');
+        expect(preflight.detail).toContain('git pull --ff-only origin dev');
+        expect(preflight.detail).toContain('seedAgentIdentities.mjs');
+        expect(preflight.detail).toContain('restart Memory Core');
         expect(plan.segments.some(segment => segment.key === 'launch')).toBe(false);
     });
 
@@ -240,12 +253,49 @@ test.describe('onboardPeer — the two-phase planner', () => {
 
     test('PHASE B happy path: seeded node → launch CREATE + auth PRINT', () => {
         const intent = buildIntent(REPO_OPTIONS),
-              seeded = planOnboarding({intent, facts: {agent: buildAgent(), rosterHasResident: true, graphNodeSeeded: true, running: false}});
+              seeded = planOnboarding({
+                  intent,
+                  facts: {
+                      agent                      : buildAgent(),
+                      expectedParticipationStatus: 'active',
+                      graphNodeSeeded            : true,
+                      graphParticipationStatus   : 'active',
+                      rosterHasResident          : true,
+                      running                    : false
+                  }
+              });
 
         expect(seeded.phase).toBe('B');
         expect(seeded.segments.find(segment => segment.key === 'preflight').action).toBe('OK');
+        expect(seeded.segments.find(segment => segment.key === 'preflight').detail).toContain("participationStatus 'active'");
         expect(seeded.segments.find(segment => segment.key === 'launch').action).toBe('CREATE');
         expect(seeded.segments.find(segment => segment.key === 'auth').action).toBe('PRINT');
+    });
+
+    test('PHASE B REFUSE: a stale graph status cannot launch until pull → seed → full/liveness verification', () => {
+        const intent = buildIntent(REPO_OPTIONS),
+              plan   = planOnboarding({
+                  intent,
+                  facts: {
+                      agent                      : buildAgent(),
+                      expectedParticipationStatus: 'active',
+                      graphNodeSeeded            : true,
+                      graphParticipationStatus   : 'temporarily_unreachable',
+                      rosterHasResident          : true,
+                      running                    : false
+                  }
+              }),
+              preflight = plan.segments.find(segment => segment.key === 'preflight');
+
+        expect(preflight.action).toBe('REFUSE');
+        expect(preflight.detail).toContain("expects '@neo-gpt-2' participationStatus 'active'");
+        expect(preflight.detail).toContain("projects 'temporarily_unreachable'");
+        expect(preflight.detail).toContain('git switch dev');
+        expect(preflight.detail).toContain('git pull --ff-only origin dev');
+        expect(preflight.detail).toContain('seedAgentIdentities.mjs');
+        expect(preflight.detail).toContain("get_node({id:'@neo-gpt-2', projection:'full'})");
+        expect(preflight.detail).toContain('who_is_online({verbose:true})');
+        expect(plan.segments.some(segment => segment.key === 'launch')).toBe(false);
     });
 
     test('PHASE B re-run on a running agent reports launch EXISTS (start short-circuits at the owner)', () => {
