@@ -44,12 +44,14 @@ export const BRAIN_FILES = Object.freeze([
     'buildScripts/util/sanitizer.mjs'
 ]);
 
-// Subtrees inside staged trees that are NOT runtime surface: demo/example apps (their deps are
-// demo deps), and the temporal-summary daemon — not runtime-enabled yet AND carrying a phantom
-// `yaml` import the repo never declares (recorded finding; its enablement ticket owns the fix).
+// Coordinates inside staged trees that are NOT runtime surface. Entries may name a subtree or one
+// exact file: demo/example apps carry demo deps; the temporal-summary daemon is not runtime-enabled;
+// and the Genesis probe is a checkout-only operator command whose browser runtime is supplied by
+// the checkout rather than the double-clickable organism. Runtime diagnostics stay staged.
 export const TREE_EXCLUDES = Object.freeze([
     'ai/examples',
-    'ai/daemons/temporal-summary'
+    'ai/daemons/temporal-summary',
+    'ai/scripts/diagnostics/genesisProbe.mjs'
 ]);
 
 /**
