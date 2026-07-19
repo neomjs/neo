@@ -4,6 +4,7 @@ import {mkdirSync, writeFileSync} from 'node:fs';
 import {tmpdir}                   from 'node:os';
 import {
     BRAIN_TREES,
+    TREE_EXCLUDES,
     assertNoInstanceOverlays,
     buildNodeShim,
     buildOrganismManifest,
@@ -31,6 +32,12 @@ test.describe('harness pack stage', () => {
 
         // node_modules-prefixed allowlist entries come from the staged dependency install.
         expect([...trees, ...files].some(entry => entry.includes('node_modules'))).toBe(false)
+    });
+
+    test('the Genesis probe is checkout-only without excluding runtime diagnostics wholesale', () => {
+        expect(TREE_EXCLUDES).toContain('ai/scripts/diagnostics/genesisProbe.mjs');
+        expect(TREE_EXCLUDES).not.toContain('ai/scripts/diagnostics');
+        expect(TREE_EXCLUDES).not.toContain('ai/scripts/diagnostics/mcpHealthcheck.mjs')
     });
 
     test('extractBarePackages keeps package names only — no relative, builtin, alias, or subpath noise', () => {
