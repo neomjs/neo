@@ -1116,7 +1116,10 @@ async function deliverViaOpencodeServer(subscription, digest, evidenceLabel = ''
  * needs no graph write. Picking a session heuristically (e.g. freshest `updated_at` from the
  * session index) is deliberately NOT the path: multiple resumed/child sessions can share one
  * checkout, and a wake landing in the wrong session is a cross-session retarget. The envelope
- * is the authority; a missing/mismatched envelope fails visibly.
+ * is the authority; a missing/mismatched envelope fails visibly. Set `harnessTargetMetadata.cwd`
+ * for multi-checkout seats (same OS user, several checkouts): the envelope refreshes per
+ * session, so for a single-seat checkout the cross-check is belt-and-suspenders, but for
+ * shared ones it is the stale-checkout guard.
  *
  * **Coordinate contract** (no seat-side writer needed — the harness persists both files
  * itself at server start): the loopback coordinates come from `~/.kimi-code/server/lock`
