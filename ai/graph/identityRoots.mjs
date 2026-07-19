@@ -424,14 +424,17 @@ export const IDENTITIES = [
             createdAt          : '2026-07-18T00:00:00.000Z'
         }
     },
+    // Identity provenance: naming round D#15533; bearer-assented at first boot 2026-07-19. (ticket-ref-ok: load-bearing naming record)
+    // Display-name: bearer-assented 'Iris' on first boot; the top-level `name` stays handle-derived
+    // until the peer-veto window + operator confirmation close (Emmy precedent).
     {
         id         : '@neo-kimi-iris',
         type       : 'AgentIdentity',
         name       : 'Neo Kimi Iris', // Handle-derived display form — the Social Name is the post-boot peer-naming ritual (bearer-assented), never onboarding seed data
-        description: 'kimi Agent Identity with version-free handle; engine designation pending first-boot observation.',
+        description: 'Moonshot Kimi-family Agent Identity with version-free handle.',
         properties : {
             githubLogin: '@neo-kimi-iris',
-            displayName: 'Neo Kimi Iris',
+            displayName: 'Iris',
             modelFamily: 'kimi',
             accountType: 'agent',
             trustTier  : TRUST_TIERS.PEER_TRUSTED,
@@ -441,13 +444,16 @@ export const IDENTITIES = [
             // No capability fields — engine facts are observation-owned and land through the
             // source-cited ModelStats.md discipline once the first boot is observed.
             family: 'kimi',
-            // Pending first boot: excluded from active routing, quorum, and review-approval
-            // semantics until the first-boot ritual completes and this flips to 'active'.
-            participationStatus: 'temporarily_unreachable',
-            statusReason       : 'First boot pending',
-            authority          : '@tobiu',
-            since              : '2026-07-19T09:40:49Z',
-            reactivationTrigger: 'Operator confirms participation activation after first boot',
+            // Activated 2026-07-19: first boot completed on Kimi Code CLI — identity bind
+            // (NEO_AGENT_IDENTITY → '@neo-kimi-iris'), memory-core / github-workflow /
+            // knowledge-base healthchecks green, MAINTAIN repo permission, naming Gate-3
+            // bearer assent posted on the naming-round record. Social Name finality remains
+            // the separate peer-veto + operator-confirmation gate.
+            participationStatus: 'active',
+            statusReason       : null,
+            authority          : null,
+            since              : null,
+            reactivationTrigger: null,
             createdAt          : '2026-07-19T09:40:49Z'
         }
     },
