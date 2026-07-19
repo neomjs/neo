@@ -1,23 +1,23 @@
-import Component                          from '../../../../../src/component/Base.mjs';
-import Container                          from '../../../../../src/container/Base.mjs';
-import CounterPane                        from './CounterPane.mjs';
-import DockDropIndicators                 from '../../../../../src/dashboard/DockDropIndicators.mjs';
-import DockLayoutAdapter                  from '../../../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockMotionSignal                   from '../../../../../src/dashboard/DockMotionSignal.mjs';
-import DockPerspectiveStore               from '../../../../../src/dashboard/DockPerspectiveStore.mjs';
-import DockPreview                        from '../../../../../src/dashboard/DockPreview.mjs';
-import DockPreviewProducer                from '../../../../../src/dashboard/DockPreviewProducer.mjs';
-import DockProjectionReconciler           from '../../../../../src/dashboard/DockProjectionReconciler.mjs';
-import DockService                        from '../../../../../src/ai/client/DockService.mjs';
-import DockTopologyReconciler             from '../../../../../src/dashboard/DockTopologyReconciler.mjs';
-import DockZoneModel                      from '../../../../../src/dashboard/DockZoneModel.mjs';
-import InteractionService                 from '../../../../../src/ai/client/InteractionService.mjs';
-import {createDockKeyboardCommands}       from '../../../../../src/dashboard/DockKeyboardCommands.mjs';
-import {createDockTearOutHandlers}        from '../../../../../src/dashboard/DockTearOut.mjs';
-import {createDockWorkspaceSet}           from '../../../../../src/dashboard/DockWorkspaceSet.mjs';
-import TourRunner                         from '../../../../../src/ai/client/TourRunner.mjs';
+import Component                            from '../../../../../src/component/Base.mjs';
+import Container                            from '../../../../../src/container/Base.mjs';
+import CounterPane                          from './CounterPane.mjs';
+import DockDropIndicators                   from '../../../../../src/dashboard/DockDropIndicators.mjs';
+import DockLayoutAdapter                    from '../../../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockMotionSignal                     from '../../../../../src/dashboard/DockMotionSignal.mjs';
+import DockPerspectiveStore                 from '../../../../../src/dashboard/DockPerspectiveStore.mjs';
+import DockPreview                          from '../../../../../src/dashboard/DockPreview.mjs';
+import DockPreviewProducer                  from '../../../../../src/dashboard/DockPreviewProducer.mjs';
+import DockProjectionReconciler             from '../../../../../src/dashboard/DockProjectionReconciler.mjs';
+import DockService                          from '../../../../../src/ai/client/DockService.mjs';
+import DockTopologyReconciler               from '../../../../../src/dashboard/DockTopologyReconciler.mjs';
+import DockZoneModel                        from '../../../../../src/dashboard/DockZoneModel.mjs';
+import InteractionService                   from '../../../../../src/ai/client/InteractionService.mjs';
+import {createDockKeyboardCommands}         from '../../../../../src/dashboard/DockKeyboardCommands.mjs';
+import {createDockTearOutHandlers}          from '../../../../../src/dashboard/DockTearOut.mjs';
+import {createDockWorkspaceSet}             from '../../../../../src/dashboard/DockWorkspaceSet.mjs';
+import TourRunner                           from '../../../../../src/ai/client/TourRunner.mjs';
 import {PREVIEW_SCHEMA, previewToOperation} from '../../../../../src/dashboard/dockPreviewContract.mjs';
-import {demoBTourScript, initialDocument} from '../../../tour/demoBPerspectives.mjs';
+import {demoBTourScript, initialDocument}   from '../../../tour/demoBPerspectives.mjs';
 import '../../../../../src/button/Base.mjs';   // registers the `button` ntype the bars compose
 import '../../../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the projection emits
 import '../../../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype the bars use
@@ -554,13 +554,16 @@ class DemoBWorkspace extends Container {
 
     /**
      * @summary Resolve the dock item the keydown acted on: the event path's tab-header button →
-     * its header toolbar index → the owning projected tab-container's `dockNodeId` → its
-     * WORKSPACE's document tabs node items at that index. The document is the authority on
-     * purpose: DemoB's panes are LIVE instances, which the adapter's item decoration deliberately
-     * passes through untouched — only the freshly-projected CONTAINER configs carry dock
-     * metadata, so the container's node id + the committed document answer identity where the
-     * card cannot. Which document is answered by host containment ({@link #resolveDockWorkspaceId}),
-     * so a popup-origin keydown resolves against the popup workspace's truth.
+     * its `dockItemId` STAMP when present (structural identity — the projection writes it into
+     * every header config it builds, so identity never depends on header order ≡ document
+     * order), else the positional fallback: header toolbar index → the owning projected
+     * tab-container's `dockNodeId` → its WORKSPACE's document tabs node items at that index.
+     * The document is the authority on purpose: DemoB's panes are LIVE instances, which the
+     * adapter's item decoration deliberately passes through untouched — only freshly-projected
+     * CONTAINER configs carry dock metadata, so the container's node id + the committed document
+     * answer identity where the card cannot. Which document is answered by host containment
+     * ({@link #resolveDockWorkspaceId}), so a popup-origin keydown resolves against the popup
+     * workspace's truth.
      * @param {Object} data The keydown DomEvent payload (carries the component path).
      * @returns {Object|null} `{itemId, itemLabel, workspaceId}` or `null` when the focus is not a dock tab header.
      * @protected
@@ -574,16 +577,27 @@ class DemoBWorkspace extends Container {
         if (!button) return null;
 
         let toolbar      = button.up({ntype: 'tab-header-toolbar'}) || button.parent,
-            index        = toolbar?.items?.indexOf(button) ?? -1,
             tabContainer = toolbar?.up({ntype: 'tab-container'}),
             workspaceId  = me.resolveDockWorkspaceId(tabContainer),
-            document     = workspaceId ? me.getWorkspaceDocument(workspaceId) : null,
+            document     = workspaceId ? me.getWorkspaceDocument(workspaceId) : null;
+
+        // structural identity first: the projection's own stamp, immune to any future
+        // pinning/reorder/hidden-class change in header order
+        if (button.dockItemId) {
+            return {
+                itemId   : button.dockItemId,
+                itemLabel: document?.items?.[button.dockItemId]?.title ?? button.dockItemId,
+                workspaceId
+            }
+        }
+
+        let index = toolbar?.items?.indexOf(button) ?? -1,
             // the projection filters rail-hidden items out of the tab flow — mirror it so the
             // header index maps to the same list the strip renders
-            nodeItems    = document?.nodes?.[tabContainer?.dockNodeId]?.items?.filter(id =>
+            nodeItems = document?.nodes?.[tabContainer?.dockNodeId]?.items?.filter(id =>
                 document.items?.[id]?.autoHidden !== true
             ),
-            itemId       = index > -1 && Array.isArray(nodeItems) ? nodeItems[index] : null;
+            itemId    = index > -1 && Array.isArray(nodeItems) ? nodeItems[index] : null;
 
         if (!itemId) return null;
 
