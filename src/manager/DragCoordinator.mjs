@@ -46,6 +46,29 @@ class DragCoordinator extends Manager {
     activeTargetZone = null
 
     /**
+     * Source whose optional transition resolver owns the active remote hover.
+     * @member {Neo.draggable.container.SortZone|null} activeSourceZone=null
+     * @protected
+     */
+    activeSourceZone = null
+
+    /**
+     * Whether the current raw pointer frame still licenses a commit into
+     * {@link #activeTargetZone}. Visual debounce may retain a hover while this is false.
+     * @member {Boolean} activeTargetCommitEligible=false
+     * @protected
+     */
+    activeTargetCommitEligible = false
+
+    /**
+     * Whether the source resolver (rather than the coordinator's legacy suspend/resume pair)
+     * owns the active hover transition.
+     * @member {Boolean} activeTransitionOwned=false
+     * @protected
+     */
+    activeTransitionOwned = false
+
+    /**
      * Per-moving-popup claim arbiters for native-titlebar gestures (windowId → arbiter). One
      * native drag IS one gesture, so each moving popup owns exactly one token (harness docking
      * design record §2.8.1).
@@ -320,14 +343,21 @@ class DragCoordinator extends Manager {
      * @param {DOMRect} proxyRect
      */
     handleVoid(sourceSortZone, draggedItem, proxyRect) {
-        let me = this;
+        let me              = this,
+            transitionOwned = me.activeTransitionOwned;
 
         if (me.activeTargetZone) {
             me.activeTargetZone.onRemoteDragLeave();
             me.activeTargetZone = null;
 
+            me.activeSourceZone           = null;
+            me.activeTargetCommitEligible = false;
+            me.activeTransitionOwned      = false;
+
             // Resume source drag (re-open popup)
-            sourceSortZone.resumeWindowDrag(draggedItem.reference || draggedItem.id, proxyRect)
+            if (!transitionOwned) {
+                sourceSortZone.resumeWindowDrag(draggedItem.reference || draggedItem.id, proxyRect)
+            }
         }
     }
 
@@ -396,6 +426,7 @@ class DragCoordinator extends Manager {
      * @param {Neo.component.Base} data.draggedItem
      * @param {Number} data.offsetX
      * @param {Number} data.offsetY
+     * @param {Object} data.proxyRect Pointer-follow proxy geometry in source-window coordinates.
      * @param {Number} data.screenX
      * @param {Number} data.screenY
      * @param {Neo.draggable.container.SortZone} data.sourceSortZone
@@ -429,6 +460,77 @@ class DragCoordinator extends Manager {
             }
         }
 
+
+        const
+            resolver = typeof sourceSortZone.resolveRemoteDragTransition === 'function'
+                ? sourceSortZone.resolveRemoteDragTransition.bind(sourceSortZone)
+                : null,
+            rawTargetSortZone = targetSortZone,
+            transitionTarget  = rawTargetSortZone || me.activeTargetZone,
+            transitionWindow  = transitionTarget && Window.get(transitionTarget.windowId),
+            // Claim acceptance and conversion geometry share ONE coordinate family. The target's
+            // dock-accepting region lives in its viewport, so feeding the outer frame here would
+            // let browser chrome inflate the overlap independently of the pointer claim.
+            transitionRect    = transitionWindow?.innerRect,
+            logicalSourceRect = {
+                height: proxyRect.height,
+                width : proxyRect.width,
+                x     : screenX - offsetX,
+                y     : screenY - offsetY
+            };
+
+        let transitionOwned = false;
+
+        if (resolver) {
+            let transition;
+
+            try {
+                transition = resolver({
+                    draggedItem,
+                    now            : Date.now(),
+                    pointerInTarget: Boolean(claimed?.zone),
+                    logicalSourceRect,
+                    targetId       : claimed?.stableId ?? me.activeTargetZone?.stableTargetId ?? null,
+                    targetRect     : transitionRect && {
+                        height: transitionRect.height,
+                        width : transitionRect.width,
+                        x     : transitionRect.x,
+                        y     : transitionRect.y
+                    },
+                    targetWindowId: transitionTarget?.windowId ?? null
+                })
+            } catch (error) {
+                transition = false
+            }
+
+            // Conversion policy is a synchronous, finite decision. A Promise, malformed record,
+            // or legacy-only candidate fails closed rather than smuggling a stale target through.
+            if (transition == null) {
+                // Source is outside its opt-in conversion phase; preserve the generic path.
+            } else if (
+                typeof transition?.then === 'function' ||
+                typeof transition !== 'object'        ||
+                typeof transition.commitEligible !== 'boolean' ||
+                typeof transition.engage !== 'boolean'          ||
+                typeof transition.retain !== 'boolean'
+            ) {
+                transitionOwned = true;
+                targetSortZone = null;
+                sourceSortZone.cancelVesselConversion?.()
+            } else if (transition.retain === true && !rawTargetSortZone && me.activeTargetZone) {
+                transitionOwned = true;
+                me.activeTargetCommitEligible = false;
+                me.activeTransitionOwned      = true;
+                return
+            } else {
+                transitionOwned = true;
+
+                if (transition.engage !== true || transition.commitEligible !== true || !claimed?.zone) {
+                    targetSortZone = null
+                }
+            }
+        }
+
         if (targetSortZone) {
             let targetWindow    = Window.get(targetSortZone.windowId),
                 localX          = screenX - targetWindow.innerRect.x,
@@ -447,12 +549,16 @@ class DragCoordinator extends Manager {
 
                 // Suspend source drag (close popup, etc)
                 // We only do this once when leaving the void/source context
-                if (!me.activeTargetZone) {
+                if (!me.activeTargetZone && !transitionOwned) {
                     sourceSortZone.suspendWindowDrag(draggedItem.reference || draggedItem.id)
                 }
 
+                me.activeSourceZone = sourceSortZone;
                 me.activeTargetZone = targetSortZone
             }
+
+            me.activeTargetCommitEligible = true;
+            me.activeTransitionOwned      = transitionOwned;
 
             targetSortZone.onRemoteDragMove({
                 draggedItem,
@@ -490,6 +596,11 @@ class DragCoordinator extends Manager {
             me.activeTargetZone.onRemoteDragLeave();
             me.activeTargetZone = null
         }
+
+        sourceSortZone.resetVesselConversion?.();
+        me.activeSourceZone           = null;
+        me.activeTargetCommitEligible = false;
+        me.activeTransitionOwned      = false;
 
         for (const [windowId, candidate] of me.nativeWindowDropCandidates.entries()) {
             if (candidate.sourceSortZone === sourceSortZone || candidate.targetSortZone === sourceSortZone) {
@@ -604,16 +715,20 @@ class DragCoordinator extends Manager {
         me.pointerClaimArbiter?.reset();
         me.pointerClaimArbiter = null;
 
-        if (me.activeTargetZone) {
-            // The TARGET decides whether the gesture committed: onRemoteDrop() returns the committed
-            // operation, or null when there was no preview, no operation, or the commit declined.
-            // Engagement is not commitment, so its answer cannot be discarded.
-            // `finally`, because a throwing commit is the REJECTED terminal — and a terminal that
-            // leaves `activeTargetZone` populated hands the next release a commit destination from a
-            // gesture that already failed. The error is not swallowed: cleanup is exact-once on every
-            // terminal, including the ones that raise.
-            try {
-                let result = me.activeTargetZone.onRemoteDrop(data.draggedItem);
+        try {
+            if (me.activeTargetZone && me.activeTransitionOwned && !me.activeTargetCommitEligible) {
+                me.activeTargetZone.onRemoteDragLeave?.();
+                me.activeTargetZone = null
+            } else if (me.activeTargetZone) {
+                // The TARGET decides whether the gesture committed: onRemoteDrop() returns the committed
+                // operation, or null when there was no preview, no operation, or the commit declined.
+                // Engagement is not commitment, so its answer cannot be discarded.
+                // `finally`, because a throwing commit is the REJECTED terminal — and a terminal that
+                // leaves `activeTargetZone` populated hands the next release a commit destination from a
+                // gesture that already failed. The error is not swallowed: cleanup is exact-once on every
+                // terminal, including the ones that raise.
+                try {
+                    let result = me.activeTargetZone.onRemoteDrop(data.draggedItem);
 
                 // Source retirement follows the OUTCOME, not the attempt. Retiring unconditionally
                 // armed the source's `remoteDropCommitted`, whose whole meaning is "a remote target
@@ -633,20 +748,26 @@ class DragCoordinator extends Manager {
                 // would arm the flag after the decision it exists to inform. An ASYNC target's outcome
                 // is not knowable this tick at all, so retirement waits for the resolution; that is
                 // sound only because an async target's source cleanup carries no same-call reader.
-                if (typeof result?.then === 'function') {
-                    result.then(operation => {
-                        if (operation) {
-                            data.sourceSortZone.onRemoteDropOut(data.draggedItem)
-                        }
-                    })
-                } else if (result) {
-                    data.sourceSortZone.onRemoteDropOut(data.draggedItem)
+                    if (typeof result?.then === 'function') {
+                        result.then(operation => {
+                            if (operation) {
+                                data.sourceSortZone.onRemoteDropOut(data.draggedItem)
+                            }
+                        })
+                    } else if (result) {
+                        data.sourceSortZone.onRemoteDropOut(data.draggedItem)
+                    }
+                } finally {
+                    me.activeTargetZone = null
                 }
-            } finally {
-                me.activeTargetZone = null
+            } else if (data.sourceSortZone.isWindowDragging) {
+                data.sourceSortZone.onTerminalWindowDrop?.(data.draggedItem)
             }
-        } else if (data.sourceSortZone.isWindowDragging) {
-            data.sourceSortZone.onTerminalWindowDrop?.(data.draggedItem)
+        } finally {
+            data.sourceSortZone.resetVesselConversion?.();
+            me.activeSourceZone           = null;
+            me.activeTargetCommitEligible = false;
+            me.activeTransitionOwned      = false
         }
     }
 
@@ -692,8 +813,19 @@ class DragCoordinator extends Manager {
         // owner's. Losing the reference first makes that unreachable — the zone keeps painting a hover
         // for a gesture that no longer exists.
         if (me.activeTargetZone === sortZone) {
+            me.activeSourceZone?.cancelVesselConversion?.();
             me.activeTargetZone.onRemoteDragLeave?.();
-            me.activeTargetZone = null
+            me.activeTargetZone = null;
+            me.activeSourceZone = null;
+            me.activeTargetCommitEligible = false;
+            me.activeTransitionOwned      = false
+        } else if (me.activeSourceZone === sortZone) {
+            me.activeTargetZone?.onRemoteDragLeave?.();
+            sortZone.resetVesselConversion?.();
+            me.activeTargetZone = null;
+            me.activeSourceZone = null;
+            me.activeTargetCommitEligible = false;
+            me.activeTransitionOwned      = false
         }
 
         // Claim hygiene mirrors the activeTargetZone rule above: a departed zone must not stay
@@ -736,9 +868,11 @@ class DragCoordinator extends Manager {
                 sortGroup: me.activeTargetZone.sortGroup,
                 windowId : me.activeTargetZone.windowId
             } : null,
-            nativeGestures     : Array.from(me.nativeClaimArbiters.keys()),
-            pointerGestureToken: me.pointerClaimArbiter?.token ?? null,
-            sortZones          : Array.from(me.sortZones.entries()).map(([group, map]) => ({
+            activeTargetCommitEligible: me.activeTargetCommitEligible,
+            activeTransitionOwned     : me.activeTransitionOwned,
+            nativeGestures            : Array.from(me.nativeClaimArbiters.keys()),
+            pointerGestureToken       : me.pointerClaimArbiter?.token ?? null,
+            sortZones                 : Array.from(me.sortZones.entries()).map(([group, map]) => ({
                 group,
                 windows: Array.from(map.keys())
             }))

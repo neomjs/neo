@@ -319,12 +319,21 @@ class DockLayoutAdapter extends Base {
      * re-projection loop) with no error surfacing anywhere.
      * @param {Object} model
      * @param {Object} [options={}]
+     * @param {Boolean} [options.enableVesselConversion=false] Arms the optional source-owned
+     *     conversion policy. Consumers keep this false until their physical lifecycle is ready.
      * @param {Boolean} [options.enableStackDrag=false] Decorate the model-resolved stack root
      *     with one runtime-only whole-stack grip and arm its existing dock SortZone.
+     * @param {Function} [options.resolveVesselConversionSourceRect] Synchronous owner resolver for
+     *     the exact dragged vessel's live global inner rect; threaded through a clone-safe listener.
      * @param {Function} [options.resolveComponentRef]
      * @param {Function} [options.resolveRevealComponentRef] Durable resolver retained by edge rails.
      * @param {Object|null} [options.tabInsertDescriptor] Runtime-only normalized `addTab`
      * correlation consumed by this projection; never part of `model`.
+     * @param {Number} [options.vesselConversionConvertThreshold] Provisional convert-in threshold;
+     *     omitted values leave the SortZone default intact.
+     * @param {Number} [options.vesselConversionPointerExitGraceMs] Binding-owned visual-only grace;
+     *     commit eligibility still drops on the first raw claim miss.
+     * @param {Number} [options.vesselConversionRevertThreshold] Provisional convert-out threshold.
      * @returns {Object}
      * @static
      */
@@ -358,25 +367,30 @@ class DockLayoutAdapter extends Base {
             // tab.Container. The HOST owns vessel acquisition + the `detachItem` commit at the
             // terminal; the projection only threads the opt-in + the closure seams. Absent = fully
             // in-window, the unchanged default.
-            enableDockTearOut        : options.enableDockTearOut === true,
-            items                    : model.items || {},
-            nodes                    : model.nodes,
-            onDockCrossZoneDragCancel: options.onDockCrossZoneDragCancel,
-            onDockCrossZoneDragMove  : options.onDockCrossZoneDragMove,
-            onDockCrossZoneDrop      : options.onDockCrossZoneDrop,
-            onDockStackDragTerminal  : options.onDockStackDragTerminal,
-            onDockTearOutCancel      : options.onDockTearOutCancel,
-            onDockTearOutEntry       : options.onDockTearOutEntry,
-            onDockTearOutExit        : options.onDockTearOutExit,
-            onDockTearOutTerminal    : options.onDockTearOutTerminal,
-            onDockZoneDocumentChange : options.onDockZoneDocumentChange,
-            resolveComponentRef      : options.resolveComponentRef || (() => null),
-            resolveRevealComponentRef: options.resolveRevealComponentRef
+            enableDockTearOut                : options.enableDockTearOut === true,
+            enableVesselConversion           : options.enableVesselConversion === true,
+            items                            : model.items || {},
+            nodes                            : model.nodes,
+            onDockCrossZoneDragCancel        : options.onDockCrossZoneDragCancel,
+            onDockCrossZoneDragMove          : options.onDockCrossZoneDragMove,
+            onDockCrossZoneDrop              : options.onDockCrossZoneDrop,
+            onDockStackDragTerminal          : options.onDockStackDragTerminal,
+            onDockTearOutCancel              : options.onDockTearOutCancel,
+            onDockTearOutEntry               : options.onDockTearOutEntry,
+            onDockTearOutExit                : options.onDockTearOutExit,
+            onDockTearOutTerminal            : options.onDockTearOutTerminal,
+            onDockZoneDocumentChange         : options.onDockZoneDocumentChange,
+            resolveComponentRef              : options.resolveComponentRef || (() => null),
+            resolveVesselConversionSourceRect: options.resolveVesselConversionSourceRect,
+            resolveRevealComponentRef        : options.resolveRevealComponentRef
                 || options.resolveComponentRef
                 || (() => null),
             stackDragNodeId,
-            tabInsertDescriptor: options.tabInsertDescriptor ?? null,
-            workspaceId        : options.workspaceId ?? null
+            tabInsertDescriptor               : options.tabInsertDescriptor ?? null,
+            vesselConversionConvertThreshold  : options.vesselConversionConvertThreshold,
+            vesselConversionPointerExitGraceMs: options.vesselConversionPointerExitGraceMs,
+            vesselConversionRevertThreshold   : options.vesselConversionRevertThreshold,
+            workspaceId                       : options.workspaceId ?? null
         });
 
         config.cls = [...new Set([...(config.cls || []), 'neo-dashboard'])];
@@ -817,9 +831,19 @@ class DockLayoutAdapter extends Base {
                     // boundary-exit grammar reads the LIVE proxy rect, and while the proxy is clamped
                     // to the tab-strip boundary the intersection ratio never drops — the exit cannot
                     // fire. The tear-out gesture is the proxy LEAVING the strip, so it must overdrag.
-                    allowOverdrag     : context.enableDockTearOut === true,
-                    enableProxyToPopup: context.enableDockTearOut === true,
-                    sortGroup         : context.crossWindowSortGroup
+                    allowOverdrag         : context.enableDockTearOut === true,
+                    enableVesselConversion: context.enableVesselConversion === true,
+                    enableProxyToPopup    : context.enableDockTearOut === true,
+                    sortGroup             : context.crossWindowSortGroup,
+                    ...(Number.isFinite(context.vesselConversionConvertThreshold)
+                        ? {vesselConversionConvertThreshold: context.vesselConversionConvertThreshold}
+                        : null),
+                    ...(Number.isFinite(context.vesselConversionPointerExitGraceMs)
+                        ? {vesselConversionPointerExitGraceMs: context.vesselConversionPointerExitGraceMs}
+                        : null),
+                    ...(Number.isFinite(context.vesselConversionRevertThreshold)
+                        ? {vesselConversionRevertThreshold: context.vesselConversionRevertThreshold}
+                        : null)
                 }
             },
             items    : projectedItems,
@@ -839,6 +863,12 @@ class DockLayoutAdapter extends Base {
                 // the generic SortZone. The host composes its vessel-park policy at this closure;
                 // no app callback enters sortZoneConfig or committed dock state.
                 dockStackDragTerminal: data => context.onDockStackDragTerminal?.(data),
+                // Clone-safe live-vessel authority: the SortZone mutates this synchronous request
+                // record; the workspace closure resolves its exact item→window join. No function
+                // enters sortZoneConfig and the generic coordinator remains dock-blind.
+                dockVesselConversionSourceRectRequest: data => {
+                    data.sourceRect = context.resolveVesselConversionSourceRect?.(data) ?? null
+                },
                 // Tear-out gesture seams (§2.8): the zone re-fires the inherited boundary events here.
                 // Cancel retires the host's vessel with zero model mutation; entry is a resumed
                 // in-window gesture (vessel closes, no outcome); exit is where the host acquires its

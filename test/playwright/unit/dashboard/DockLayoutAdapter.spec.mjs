@@ -705,6 +705,51 @@ test.describe('Neo.dashboard.DockLayoutAdapter', () => {
         })
     });
 
+    test.describe('vessel-conversion projection threading — policy stays source-owned', () => {
+        test('the explicit opt-in and finite calibration scalars reach every projected dock sort zone', () => {
+            const liveRect = {height: 240, width: 320, x: 40, y: 60};
+            const result   = DockLayoutAdapter.project(createModel(), {
+                enableVesselConversion            : true,
+                resolveComponentRef               : componentRef => ({ntype: 'dashboard-panel', reference: componentRef}),
+                resolveVesselConversionSourceRect : () => liveRect,
+                vesselConversionConvertThreshold  : 0.62,
+                vesselConversionPointerExitGraceMs: 40,
+                vesselConversionRevertThreshold   : 0.38
+            });
+            const config = result.items[0].headerToolbar.sortZoneConfig;
+
+            expect(config).toMatchObject({
+                enableVesselConversion            : true,
+                vesselConversionConvertThreshold  : 0.62,
+                vesselConversionPointerExitGraceMs: 40,
+                vesselConversionRevertThreshold   : 0.38
+            });
+            expect(config).not.toHaveProperty('resolveVesselConversionSourceRect');
+
+            const request = {sourceRect: null};
+
+            result.items[0].listeners.dockVesselConversionSourceRectRequest(request);
+            expect(request.sourceRect).toBe(liveRect)
+        });
+
+        test('the default is fail-closed and does not mint placeholder calibration into the projection', () => {
+            const result = DockLayoutAdapter.project(createModel(), {
+                resolveComponentRef: componentRef => ({ntype: 'dashboard-panel', reference: componentRef})
+            });
+            const config = result.items[0].headerToolbar.sortZoneConfig;
+
+            expect(config.enableVesselConversion).toBe(false);
+            expect(config).not.toHaveProperty('vesselConversionConvertThreshold');
+            expect(config).not.toHaveProperty('vesselConversionPointerExitGraceMs');
+            expect(config).not.toHaveProperty('vesselConversionRevertThreshold');
+
+            const request = {sourceRect: {height: 1, width: 1, x: 0, y: 0}};
+
+            result.items[0].listeners.dockVesselConversionSourceRectRequest(request);
+            expect(request.sourceRect).toBeNull()
+        })
+    });
+
     test.describe('whole-stack projection threading — one model-derived grip', () => {
         test('a live pane gets a reversible runtime header overlay with its original restored exactly', () => {
             const pane    = Neo.create(Component, {header: {text: 'Live pane'}}),

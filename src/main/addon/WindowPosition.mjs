@@ -113,27 +113,42 @@ class WindowPosition extends Base {
      */
     checkMovement() {
         let me                      = this,
-            {Manager}               = Neo.worker,
             win                     = window,
-            {screenLeft, screenTop} = win,
-            winData;
+            {screenLeft, screenTop} = win;
 
         if (me.screenLeft !== screenLeft || me.screenTop !== screenTop) {
-            winData = Neo.Main.getWindowData();
-
             me.adjustWindowPositions && me.adjustPositions();
 
-            Manager.sendMessage('app', {
-                action: 'windowPositionChange',
-                data  : {
-                    appName: Manager.appName,
-                    ...winData
-                }
-            });
+            me.publishGeometry();
 
             me.screenLeft = screenLeft;
             me.screenTop  = screenTop
         }
+    }
+
+    /**
+     * @summary Publishes this render target's current position AND size to the App Worker.
+     *
+     * Movement and resize share this one authority so {@link Neo.manager.Window} never combines a
+     * fresh origin with stale extents. The full `getWindowData()` snapshot is clone-safe and is
+     * consumed by the existing `windowPositionChange` route.
+     * @protected
+     */
+    publishGeometry() {
+        let {Manager} = Neo.worker,
+            winData   = Neo.Main.getWindowData();
+
+        Manager.sendMessage('app', {
+            action: 'windowPositionChange',
+            data  : {
+                appName: Manager.appName,
+                ...winData,
+                // `sendMessage()` also stamps this on the envelope, but App.onWindowPositionChange
+                // deliberately forwards the nested payload only. Keep the registered render-target
+                // identity inside that payload or live updates cannot reach their manager.Window row.
+                windowId: Manager.windowId
+            }
+        })
     }
 
     /**
@@ -224,7 +239,11 @@ class WindowPosition extends Base {
 
                 me.adjustPositions()
             }
-        })
+        });
+
+        // A fixed-origin resize is still a geometry change. The conversion metric consumes live
+        // extents every frame, so movement-only publication would make its post-resize decision stale.
+        me.publishGeometry()
     }
 
     /**
@@ -244,6 +263,7 @@ class WindowPosition extends Base {
      */
     setConfigs(data) {
         delete data.appName;
+        delete data.windowId;
         this.set(data)
     }
 
