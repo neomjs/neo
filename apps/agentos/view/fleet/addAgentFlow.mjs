@@ -9,10 +9,12 @@
  * first-class `gated` outcome — disabled-with-reason at the surface, never a fake success and
  * never browser-side persistence.
  *
- * Credential boundary (the fleet credential matrix): the PAT enters this module inside the submit payload, travels to
- * the injected bridge, and is referenced afterwards ONLY to reject an accidental echo in the
- * readback. It is never stored, logged, or included in any outcome object — outcomes carry public
- * definition fields and operator-facing reasons exclusively.
+ * Credential boundary (the fleet credential matrix): a direct-browser bridge receives the PAT in
+ * the submit payload, while a shell-owned credential ingress receives only the public definition
+ * intent and resolves its credential outside the App Worker. A direct PAT is referenced after the
+ * submit ONLY to reject an accidental echo in the readback. It is never stored, logged, or included
+ * in any outcome object — outcomes carry public definition fields and operator-facing reasons
+ * exclusively.
  *
  * @see apps/agentos/view/fleet/AddAgentForm.mjs — the rendering consumer
  * @see apps/agentos/view/Accounts.mjs — the keeper-view ancestor this logic is lifted from
@@ -36,14 +38,25 @@ const SECRET_KEYS = ['authorization', 'credential', 'password', 'pat', 'token'];
  * @summary Validate the define-agent payload before any bridge contact. Pure + synchronous: the
  * surface renders `validating` around this call and never submits an incomplete definition.
  * @param {Object} payload
- * @param {String} payload.credential     The PAT (write-only — validated for presence, never inspected further).
+ * @param {String} [payload.credential]   The PAT in direct-browser mode (write-only — validated for
+ *     presence, never inspected further).
  * @param {String} payload.githubUsername
  * @param {String} payload.harnessType
+ * @param {Object}  [options]
+ * @param {Boolean} [options.credentialRequired=true] Whether this ingress owns credential entry.
  * @returns {{valid: Boolean, reason: String}} Operator-facing reason when invalid.
  */
-export function validateDefinePayload({credential, githubUsername, harnessType}={}) {
-    if (!githubUsername?.trim() || !harnessType || !credential) {
-        return {valid: false, reason: 'GitHub username, harness type, and PAT are required.'}
+export function validateDefinePayload(
+    {credential, githubUsername, harnessType}={},
+    {credentialRequired=true}={}
+) {
+    if (!githubUsername?.trim() || !harnessType || (credentialRequired && !credential)) {
+        return {
+            valid : false,
+            reason: credentialRequired
+                ? 'GitHub username, harness type, and PAT are required.'
+                : 'GitHub username and harness type are required.'
+        }
     }
 
     return {valid: true, reason: ''}
@@ -91,6 +104,38 @@ export function resolveRegistryBridge(resolver=null) {
 }
 
 /**
+ * @summary Whether credential entry belongs to the native shell rather than the App Worker.
+ * The explicit bridge marker is the authority; an absent/unknown marker preserves the existing
+ * direct-browser contract.
+ * @param {Object|null} bridge
+ * @returns {Boolean}
+ */
+export function isShellCredentialIngress(bridge) {
+    return bridge?.credentialIngress === 'shell'
+}
+
+/**
+ * @summary Project a form payload onto the exact define-agent request allowed across the bridge.
+ * Shell mode carries public intent only; direct-browser mode preserves the credential-bearing
+ * request. Explicit projection prevents unrelated form or caller fields from crossing either mode.
+ * @param {Object}      payload
+ * @param {Object|null} bridge
+ * @returns {Object}
+ */
+export function createDefineAgentIntent(payload={}, bridge=null) {
+    const intent = {
+        githubUsername: payload.githubUsername?.trim(),
+        harnessType   : payload.harnessType
+    };
+
+    if (!isShellCredentialIngress(bridge)) {
+        intent.credential = payload.credential
+    }
+
+    return intent
+}
+
+/**
  * @summary The full submit round-trip as one typed outcome — the flow's only async step.
  *
  * Outcome shapes (state ∈ the terminal vocabulary):
@@ -104,13 +149,15 @@ export function resolveRegistryBridge(resolver=null) {
  * @returns {Promise<Object>} One terminal outcome — this function never throws.
  */
 export async function submitDefineAgent({bridgeResolver=null, payload}) {
-    const validation = validateDefinePayload(payload);
+    const
+        bridge     = resolveRegistryBridge(bridgeResolver),
+        shellOwned = isShellCredentialIngress(bridge),
+        request    = createDefineAgentIntent(payload, bridge),
+        validation = validateDefinePayload(request, {credentialRequired: !shellOwned});
 
     if (!validation.valid) {
         return {state: 'rejected', reason: validation.reason}
     }
-
-    const bridge = resolveRegistryBridge(bridgeResolver);
 
     if (!bridge?.defineAgent) {
         return {
@@ -122,11 +169,7 @@ export async function submitDefineAgent({bridgeResolver=null, payload}) {
     let outcome;
 
     try {
-        outcome = await bridge.defineAgent({
-            credential    : payload.credential,
-            githubUsername: payload.githubUsername.trim(),
-            harnessType   : payload.harnessType
-        })
+        outcome = await bridge.defineAgent(request)
     } catch (error) {
         // transport failure: the reason stays generic — an error message assembled elsewhere is
         // not a surface we allow to carry credential bytes into the DOM
@@ -137,7 +180,7 @@ export async function submitDefineAgent({bridgeResolver=null, payload}) {
         return {state: 'rejected', reason: outcome.reason || 'Agent definition was rejected. Nothing was changed.'}
     }
 
-    const readback = validateReadback(outcome, payload.credential);
+    const readback = validateReadback(outcome, request.credential);
 
     if (!readback.valid) {
         return {state: 'rejected', reason: readback.reason}

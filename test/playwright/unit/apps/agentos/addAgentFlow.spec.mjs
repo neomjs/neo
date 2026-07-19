@@ -14,6 +14,8 @@ import AddAgentForm   from '../../../../../apps/agentos/view/fleet/AddAgentForm.
 
 import {
     ADD_AGENT_STATES,
+    createDefineAgentIntent,
+    isShellCredentialIngress,
     submitDefineAgent,
     validateDefinePayload,
     validateReadback
@@ -41,6 +43,21 @@ test.describe('AgentOS.view.fleet.addAgentFlow — the pure flow half (#15242)',
         expect(validateDefinePayload({credential: '',  githubUsername: 'user', harnessType: 'codex'}).valid).toBe(false);
         expect(validateDefinePayload({credential: 'x', githubUsername: 'user', harnessType: ''}).valid).toBe(false);
         expect(validateDefinePayload(cleanPayload())).toEqual({valid: true, reason: ''})
+    });
+
+    test('shell credential ingress validates and projects public intent only', () => {
+        const bridge = {credentialIngress: 'shell'};
+
+        expect(isShellCredentialIngress(bridge)).toBe(true);
+        expect(validateDefinePayload(
+            {githubUsername: 'neo-kimi-phoebe', harnessType: 'opencode'},
+            {credentialRequired: false}
+        )).toEqual({valid: true, reason: ''});
+        expect(createDefineAgentIntent({...cleanPayload(), command: 'must-not-cross'}, bridge)).toEqual({
+            githubUsername: 'neo-kimi-phoebe',
+            harnessType   : 'opencode'
+        });
+        expect(createDefineAgentIntent(cleanPayload(), {})).toEqual(cleanPayload())
     });
 
     test('the readback guard fails closed on every poisoned shape and passes the canonical one', () => {
@@ -107,6 +124,28 @@ test.describe('AgentOS.view.fleet.addAgentFlow — the pure flow half (#15242)',
         expect(confirmed.definition).toEqual(cleanReadback());
         expect(ADD_AGENT_STATES).toContain(confirmed.state)
     });
+
+    test('shell submit crosses the generic bridge with public intent only', async () => {
+        let received;
+
+        const confirmed = await submitDefineAgent({
+            bridgeResolver: () => ({
+                credentialIngress: 'shell',
+                defineAgent      : async payload => {
+                    received = payload;
+                    return cleanReadback()
+                }
+            }),
+            payload: {...cleanPayload(), command: 'must-not-cross', env: {TOKEN: CREDENTIAL}}
+        });
+
+        expect(received).toEqual({
+            githubUsername: 'neo-kimi-phoebe',
+            harnessType   : 'opencode'
+        });
+        expect(JSON.stringify(received)).not.toContain(CREDENTIAL);
+        expect(confirmed.state).toBe('readback-confirmed')
+    });
 });
 
 test.describe('AgentOS.view.fleet.AddAgentForm — flow wiring + the credential-settle rule (#15242)', () => {
@@ -125,9 +164,13 @@ test.describe('AgentOS.view.fleet.AddAgentForm — flow wiring + the credential-
     test('a confirmed round-trip fires agentDefinitionAccepted with the readback AND clears the PAT field', async () => {
         const
             fired = [],
+            calls = [],
             form  = Neo.create(AddAgentForm, {
                 appName       : 'AgentOSAddAgentFlowTest',
-                bridgeResolver: () => ({defineAgent: async () => cleanReadback()})
+                bridgeResolver: () => ({defineAgent: async payload => {
+                    calls.push(payload);
+                    return cleanReadback()
+                }})
             });
 
         form.on('agentDefinitionAccepted', data => fired.push(data));
@@ -144,8 +187,42 @@ test.describe('AgentOS.view.fleet.AddAgentForm — flow wiring + the credential-
         expect(form.flowStatus.state).toBe('readback-confirmed');
         expect(fired).toHaveLength(1);
         expect(fired[0].agent).toEqual(cleanReadback());
+        expect(calls).toEqual([cleanPayload()]);
         // the settle rule: no terminal state leaves credential bytes in the field
         expect(credentialField.value ?? '').toBe('');
+
+        form.destroy()
+    });
+
+    test('shell mode renders no PAT field and submits only public intent', async () => {
+        let received;
+
+        const form = Neo.create(AddAgentForm, {
+            appName       : 'AgentOSAddAgentFlowTest',
+            bridgeResolver: () => ({
+                credentialIngress: 'shell',
+                defineAgent      : async payload => {
+                    received = payload;
+                    return cleanReadback()
+                }
+            })
+        });
+
+        expect(form.items.some(item => item.name === 'credential')).toBe(false);
+        expect(form.flowStatus.reason).toContain('native shell');
+
+        const usernameField = await form.getField('githubUsername');
+
+        usernameField.value = 'neo-kimi-phoebe';
+        form.harnessType    = 'opencode';
+
+        await form.onSubmitClick();
+
+        expect(received).toEqual({
+            githubUsername: 'neo-kimi-phoebe',
+            harnessType   : 'opencode'
+        });
+        expect(form.flowStatus.state).toBe('readback-confirmed');
 
         form.destroy()
     });

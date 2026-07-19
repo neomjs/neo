@@ -15,11 +15,13 @@
 //
 //   §2.1.5   one retained cockpit + tray; explicit quit owns exact-once Brain teardown
 
-import {app, BrowserWindow, ipcMain, Menu, nativeImage, protocol, session, Tray} from 'electron';
-import {createReadStream}                                                        from 'node:fs';
-import {fileURLToPath}                                                           from 'node:url';
-import path                                                                      from 'node:path';
-import {createAppLifecycle}                                                      from './appLifecycle.mjs';
+import {app, BrowserWindow, clipboard, ipcMain, Menu, nativeImage, protocol, session, Tray} from 'electron';
+import {createReadStream}                                                                   from 'node:fs';
+import {fileURLToPath}                                                                      from 'node:url';
+import path                                                                                 from 'node:path';
+import {resolveFleetBearer}                                                                 from '../ai/services/fleet/fleetLaunchContract.mjs';
+import {createAppLifecycle}                                                                 from './appLifecycle.mjs';
+import {createFleetCapability}                                                              from './fleetCapability.mjs';
 import {
     APP_HOST,
     CONTENT_SECURITY_POLICY,
@@ -65,11 +67,16 @@ const
     // The Arm-B Brain leg: DEFAULT-ON when packaged (a Finder double-click supplies no env — the
     // product IS the supervised organism; NEO_HARNESS_BRAIN=0 is the explicit opt-out) and opt-in
     // on a checkout (dev machines carry a canonical Brain; see brain.mjs#resolveBrainMode).
-    brainMode  = resolveBrainMode({env: process.env, packaged: packagedMode}),
-    smokeState = {
+    brainMode        = resolveBrainMode({env: process.env, packaged: packagedMode}),
+    // ONE main-owned secret per Electron boot. It crosses only into the Fleet child environment
+    // and main-process Authorization headers; preload/renderer/App-Worker receive no getter or byte.
+    fleetBearerToken = resolveFleetBearer({suppliedToken: process.env.NEO_FLEET_BEARER}),
+    smokeState       = {
         assetFailures : new Set(),
         assetsSeen    : new Set(),
-        rendererErrors: []
+        fleetMethods  : [],
+        rendererErrors: [],
+        secretLeaks   : new Set()
     },
     bootReports = new Map(),
     bootWaiters = new Map();
@@ -113,7 +120,12 @@ function recordSmokeFailure(type, details) {
         return
     }
 
-    const message = `${type}: ${String(details?.message ?? details ?? 'unknown').slice(0, 500)}`;
+    const
+        raw           = String(details?.message ?? details ?? 'unknown'),
+        containsToken = raw.includes(fleetBearerToken),
+        message       = `${type}: ${containsToken ? '[secret-bearing detail redacted]' : raw.slice(0, 500)}`;
+
+    containsToken && smokeState.secretLeaks.add(type);
 
     if (!smokeState.rendererErrors.includes(message)) {
         smokeState.rendererErrors.push(message)
@@ -297,6 +309,106 @@ function isTrustedIpcSender(event) {
 }
 
 /**
+ * @summary Collects one Fleet credential in Electron-main custody. The modal deliberately contains
+ * no input element or script: `before-input-event` prevents renderer dispatch, main reads paste
+ * through Electron's clipboard API, and the page receives only a character count in its title.
+ * @param {Object} options
+ * @param {Electron.IpcMainInvokeEvent} options.event Trusted originating IPC event.
+ * @param {String} options.method Credential-bearing Fleet verb.
+ * @returns {Promise<String|null>} The ephemeral credential, or `null` when canceled.
+ */
+function promptFleetCredential({event, method}) {
+    const
+        MAX_LENGTH = 1024,
+        parent     = BrowserWindow.fromWebContents(event.sender),
+        promptWin  = new BrowserWindow({
+            backgroundColor: '#151922',
+            fullscreenable : false,
+            height         : 250,
+            maximizable    : false,
+            minimizable    : false,
+            modal          : Boolean(parent),
+            parent         : parent?.isDestroyed() ? undefined : parent,
+            resizable      : false,
+            show           : false,
+            title          : 'Fleet credential — 0 characters',
+            width          : 540,
+            webPreferences : {
+                contextIsolation: true,
+                nodeIntegration : false,
+                sandbox         : true,
+                webSecurity     : true
+            }
+        }),
+        promptLabel = method === 'connectTenant' ? 'tenant PAT' : 'GitHub PAT',
+        documentUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(`<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
+<title>Fleet credential</title><style>
+body{background:#151922;color:#edf2ff;font:16px/1.5 system-ui,sans-serif;margin:0;padding:32px}
+h1{font-size:20px;margin:0 0 16px}p{color:#b9c4d8;margin:8px 0}.hint{color:#8ea4c8;font-size:14px}
+</style></head><body><h1>Enter ${promptLabel}</h1><p>Paste or type the credential, then press Enter.</p>
+<p class="hint">The page receives no key, paste, or credential data. Escape cancels; Backspace edits. The title shows length only.</p></body></html>`);
+
+    return new Promise(resolve => {
+        let credential = '', settled = false;
+
+        const
+            updateTitle = () => promptWin.setTitle(`Fleet credential — ${credential.length} characters`),
+            complete    = value => {
+                if (settled) return;
+
+                settled = true;
+
+                const output = value;
+
+                credential = '';
+                !promptWin.isDestroyed() && promptWin.destroy();
+                resolve(output)
+            };
+
+        promptWin.webContents.on('before-input-event', (inputEvent, input) => {
+            inputEvent.preventDefault();
+
+            if (input.type !== 'keyDown') return;
+
+            if (input.key === 'Escape') {
+                complete(null)
+            } else if (input.key === 'Enter') {
+                complete(credential.trim() || null)
+            } else if (input.key === 'Backspace') {
+                credential = credential.slice(0, -1);
+                updateTitle()
+            } else if ((input.control || input.meta) && input.key?.toLowerCase() === 'v') {
+                credential = clipboard.readText().trim().slice(0, MAX_LENGTH);
+                updateTitle()
+            } else if (input.key?.length === 1 && !input.alt && !input.control && !input.meta && credential.length < MAX_LENGTH) {
+                credential += input.key;
+                updateTitle()
+            }
+        });
+
+        promptWin.once('closed', () => complete(null));
+        promptWin.webContents.once('render-process-gone', () => complete(null));
+        promptWin.once('ready-to-show', () => {
+            promptWin.show();
+            promptWin.focus()
+        });
+        promptWin.loadURL(documentUrl).catch(() => complete(null))
+    })
+}
+
+// The handler closures own the only renderer→Fleet route in the packaged topology. The Brain
+// promise is read at call time so an early-rendering UI receives a named not-ready envelope while a
+// later call joins the exact boot the lifecycle owner retained.
+const fleetCapability = createFleetCapability({
+    bearerToken       : fleetBearerToken,
+    credentialProvider: promptFleetCredential,
+    getBrain          : () => brainBootPromise,
+    isTrustedSender   : isTrustedIpcSender,
+    onAdmitted        : ({method}) => diagnosticMode && smokeState.fleetMethods.push(method)
+});
+
+/**
  * @summary Reduces an untrusted boot-report payload to its allowlisted primitive fields.
  * @param {*} report
  * @returns {Object|null}
@@ -425,6 +537,45 @@ function awaitPopupWindow(primary, timeoutMs = 10000) {
 }
 
 /**
+ * @summary Invokes the one preload Fleet capability from a real BrowserWindow and applies an
+ * independent main-side bearer census to the reply. Used only by the headed smoke.
+ * @param {BrowserWindow} win
+ * @param {Object} request Public Fleet request.
+ * @param {Number} [timeoutMs=8000]
+ * @returns {Promise<Object>}
+ */
+async function invokeFleetFromWindow(win, request, timeoutMs = 8000) {
+    if (!win || win.isDestroyed()) {
+        return {error: 'window unavailable', ok: false}
+    }
+
+    const encoded = JSON.stringify(request);
+    const reply   = await Promise.race([
+        win.webContents.executeJavaScript(
+            `Promise.resolve(globalThis.neoShell?.fleetRequest(${encoded}) ?? ` +
+            `{ok:false,error:'capability unavailable'})` +
+            `.then(envelope => ({envelope,shellKeys:Object.keys(globalThis.neoShell || {}).sort()}))` +
+            `.catch(() => ({envelope:{ok:false,error:'capability rejected'},shellKeys:[]}))`,
+            true
+        ),
+        new Promise(resolve => setTimeout(() => resolve({
+            envelope : {error: 'capability probe timed out', ok: false},
+            shellKeys: []
+        }), timeoutMs))
+    ]);
+
+    if (JSON.stringify(reply).includes(fleetBearerToken)) {
+        smokeState.secretLeaks.add('ipc-reply');
+        return {
+            envelope : {error: 'secret-bearing reply rejected by smoke census', ok: false},
+            shellKeys: []
+        }
+    }
+
+    return reply
+}
+
+/**
  * @summary Gives asynchronous stylesheet and image requests a bounded window to hit the protocol.
  * @param {Number} timeoutMs
  * @returns {Promise<void>}
@@ -548,7 +699,12 @@ process.on('unhandledRejection', async error => {
 const brainState = {children: [], isolationRoot: null};
 
 function brainLog(line) {
-    console.log('HARNESS_BRAIN ' + line.slice(0, 300))
+    if (line.includes(fleetBearerToken)) {
+        smokeState.secretLeaks.add('brain-log');
+        console.log('HARNESS_BRAIN [secret-bearing line redacted]')
+    } else {
+        console.log('HARNESS_BRAIN ' + line.slice(0, 300))
+    }
 }
 
 /**
@@ -635,7 +791,7 @@ async function bootProductBrain() {
     const
         fleetPort = Number(process.env.NEO_FLEET_PORT) || 8083,
         paths     = await resolveBrainPaths({env: packagedEnv, repoRoot: organismRoot}),
-        live      = await detectLiveBrain({fleetPort, orchestratorDataDir: paths.orchestratorDataDir}),
+        live      = await detectLiveBrain({bearerToken: fleetBearerToken, fleetPort, orchestratorDataDir: paths.orchestratorDataDir}),
         mode      = live.orchestratorAlive ? 'attach' : 'own';
 
     if (mode === 'own') {
@@ -658,18 +814,18 @@ async function bootProductBrain() {
         // a foreign server squatting the port — spawning into it would EADDRINUSE, and skipping
         // the spawn would report a Brain that the window cannot actually reach.
         if (live.fleetPortHeld) {
-            throw new Error(`fleet port ${fleetPort} is held by a foreign listener (no listAgents envelope) — free the port or set NEO_FLEET_PORT`)
+            throw new Error(`fleet port ${fleetPort} cannot be reused: ${live.fleetRefusalReason || 'listener did not prove canonical Fleet identity'} — free the port or set NEO_FLEET_PORT`)
         }
 
         const fleet = startBrainChild({
             entry   : FLEET_SERVER_ENTRY,
-            env     : {...packagedEnv, NEO_FLEET_PORT: String(fleetPort)},
+            env     : {...packagedEnv, NEO_FLEET_BEARER: fleetBearerToken, NEO_FLEET_PORT: String(fleetPort)},
             onLog   : brainLog,
             repoRoot: organismRoot
         });
 
         registerBrainChild({child: fleet, label: 'fleet'});
-        await awaitFleetReady({child: fleet, port: fleetPort})
+        await awaitFleetReady({bearerToken: fleetBearerToken, child: fleet, port: fleetPort})
     }
 
     console.log(`HARNESS_BRAIN_MODE ${mode} fleetPort=${fleetPort} started=[${brainState.children.map(entry => entry.label).join(',') || 'none'}]`);
@@ -700,10 +856,11 @@ async function bootSmokeBrain() {
                 ...buildPackagedBrainEnv({dataRoot: isolationRoot}),
                 ELECTRON_RUN_AS_NODE    : '1',
                 NEO_CHROMA_PORT         : String(chromaPort),
+                NEO_FLEET_BEARER        : fleetBearerToken,
                 NEO_FLEET_PORT          : String(fleetPort),
                 NEO_HARNESS_ELECTRON_BIN: process.execPath
             }
-            : buildBrainProfile({chromaPort, fleetPort, isolationRoot}),
+            : {...buildBrainProfile({chromaPort, fleetPort, isolationRoot}), NEO_FLEET_BEARER: fleetBearerToken},
         resolved                = await resolveBrainPaths({env: profile, repoRoot: organismRoot}),
         matrixViolations        = assertIsolatedProfile({chromaPort, isolationRoot, resolved});
 
@@ -729,7 +886,7 @@ async function bootSmokeBrain() {
 
     await Promise.all([
         awaitOrchestratorReady({child: orchestrator}),
-        awaitFleetReady({child: fleet, port: fleetPort})
+        awaitFleetReady({bearerToken: fleetBearerToken, child: fleet, port: fleetPort})
     ]);
 
     return {
@@ -758,6 +915,8 @@ app.whenReady().then(async () => {
         ipcMain.on('shell-boot-report', onBootReport);
         ipcMain.on('shell-runtime-error', onRuntimeError)
     }
+
+    ipcMain.handle('fleet-request', fleetCapability.request);
 
     const win1 = createHarnessWindow(APP_URL);
 
@@ -845,9 +1004,9 @@ app.whenReady().then(async () => {
     }
 
     // The Brain leg (Arm B): the isolated organism proven through its OWN consumable surfaces —
-    // the resolved-leaf isolation matrix, genuine orchestrator + fleet readiness, a REAL wire
-    // verb from the renderer (the AC's "window reaches the fleet transport"), then full-tree
-    // group teardown gated on group-empty AND released listeners.
+    // the resolved-leaf isolation matrix, genuine orchestrator + Fleet readiness, authenticated
+    // capability calls from both real windows, a fresh App-Worker crossing after popup close, a
+    // genuine off-origin rejection, then full-tree teardown gated on group-empty AND released listeners.
     let brain = {mode: false};
 
     if (brainMode) {
@@ -863,16 +1022,60 @@ app.whenReady().then(async () => {
             // and a cold start on a fresh persist dir takes ~a minute.
             chromaListening = await awaitPortListening({host: 'localhost', port: boot.chromaPort, timeoutMs: 120000});
 
-            fleetFromWindow = await Promise.race([
-                win1.webContents.executeJavaScript(
-                    `fetch('http://127.0.0.1:${boot.fleetPort}/fleet', {` +
-                    `method: 'POST', headers: {'content-type': 'application/json'},` +
-                    `body: '{"method":"listAgents","params":{}}'` +
-                    `}).then(r => r.json()).then(j => ({ok: j.ok === true}))` +
-                    `.catch(e => ({ok: false, error: String(e).slice(0, 200)}))`, true
+            const
+                request             = {method: 'listAgents', params: {}},
+                primary             = await invokeFleetFromWindow(win1, request),
+                popup               = await invokeFleetFromWindow(win2, request),
+                firstWorkerCrossing = await awaitLifecycleState(
+                    () => smokeState.fleetMethods.includes('fleetRoster'),
+                    20000
                 ),
-                new Promise(resolve => setTimeout(() => resolve({error: 'renderer-probe-wedged', ok: false}), 8000))
-            ])
+                rosterCountAtClose  = smokeState.fleetMethods.filter(method => method === 'fleetRoster').length;
+
+            win2 && !win2.isDestroyed() && win2.close();
+
+            const
+                popupClosed           = Boolean(win2) && await awaitLifecycleState(() => win2.isDestroyed(), 3000),
+                primaryAfterPopup     = await invokeFleetFromWindow(win1, request),
+                workerAfterPopupClose = await awaitLifecycleState(
+                    () => smokeState.fleetMethods.filter(method => method === 'fleetRoster').length > rosterCountAtClose,
+                    20000
+                ),
+                forgedWindow            = new BrowserWindow({show: false, webPreferences: getSecureWebPreferences()});
+
+            let forgedSender;
+
+            try {
+                await forgedWindow.loadURL('data:text/html;charset=utf-8,<title>forged Fleet sender</title>');
+                forgedSender = await invokeFleetFromWindow(forgedWindow, request)
+            } catch {
+                forgedSender = {envelope: {error: 'off-origin window failed to load', ok: false}, shellKeys: []}
+            } finally {
+                !forgedWindow.isDestroyed() && forgedWindow.destroy()
+            }
+
+            const
+                expectedShellKeys = ['fleetRequest', 'shellVersion'],
+                probes            = [primary, popup, primaryAfterPopup, forgedSender],
+                surfaceExact      = probes.every(probe =>
+                    JSON.stringify(probe.shellKeys) === JSON.stringify(expectedShellKeys)
+                ),
+                urlSecretFree     = BrowserWindow.getAllWindows().every(win =>
+                    !win.webContents.getURL().includes(fleetBearerToken)
+                );
+
+            fleetFromWindow = {
+                firstWorkerCrossing,
+                fleetMethods: [...smokeState.fleetMethods],
+                forgedSender,
+                popup,
+                popupClosed,
+                primary,
+                primaryAfterPopup,
+                surfaceExact,
+                urlSecretFree,
+                workerAfterPopupClose
+            }
         }
 
         const
@@ -882,6 +1085,11 @@ app.whenReady().then(async () => {
             portsReleased = boot.up
                 ? !(await probePort({host: 'localhost', port: boot.chromaPort})) && !(await probePort({port: boot.fleetPort}))
                 : null;
+
+        if (fleetFromWindow) {
+            fleetFromWindow.secretLeaks = [...smokeState.secretLeaks];
+            fleetFromWindow.secretFree  = fleetFromWindow.urlSecretFree && fleetFromWindow.secretLeaks.length === 0
+        }
 
         brain = {mode: true, ...boot, chromaListening, fleetFromWindow, groupsEmpty, portsReleased, stop}
     }
@@ -915,7 +1123,16 @@ app.whenReady().then(async () => {
             brain.up === true &&
             (brain.matrixViolations ?? ['unresolved']).length === 0 &&
             brain.chromaListening === true &&
-            brain.fleetFromWindow?.ok === true &&
+            brain.fleetFromWindow?.primary?.envelope?.ok === true &&
+            brain.fleetFromWindow?.popup?.envelope?.ok === true &&
+            brain.fleetFromWindow?.popupClosed === true &&
+            brain.fleetFromWindow?.primaryAfterPopup?.envelope?.ok === true &&
+            brain.fleetFromWindow?.forgedSender?.envelope?.ok === false &&
+            brain.fleetFromWindow?.forgedSender?.envelope?.error === 'fleet: untrusted shell sender' &&
+            brain.fleetFromWindow?.firstWorkerCrossing === true &&
+            brain.fleetFromWindow?.workerAfterPopupClose === true &&
+            brain.fleetFromWindow?.surfaceExact === true &&
+            brain.fleetFromWindow?.secretFree === true &&
             brain.groupsEmpty === true &&
             brain.portsReleased === true &&
             Object.values(brain.stop ?? {}).every(report => report.exited && !report.forced)

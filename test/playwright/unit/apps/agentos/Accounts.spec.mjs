@@ -66,6 +66,84 @@ test.describe('AgentOS.view.Accounts credential boundary', () => {
         expect(calls[4]).toEqual(['clear'])
     });
 
+    test('shell creation sends public intent only and never hands a PAT to the App-Worker bridge', async () => {
+        const
+            credential = 'ghp_must_not_cross_shell_boundary',
+            canonical  = {
+                id            : 'resident-shell',
+                githubUsername: 'canonical-login',
+                harnessType   : 'opencode'
+            },
+            calls      = [],
+            form       = {
+                getSubmitValues: async () => ({
+                    credential,
+                    githubUsername: '  submitted-login  ',
+                    harnessType   : 'opencode'
+                }),
+                validate: async () => true
+            },
+            previousOS = globalThis.AgentOS,
+            stub       = {
+                clearCredentialField       : async () => calls.push(['clear']),
+                fire                       : (name, data) => calls.push(['fire', name, data]),
+                getReference               : reference => reference === 'agent-form' ? form : null,
+                submitToFleetRegistryBridge: Accounts.prototype.submitToFleetRegistryBridge,
+                updateBridgeStatus         : (state, message) => calls.push(['status', state, message]),
+                upsertPublicAgentDefinition: (definition, submittedCredential) => {
+                    calls.push(['upsert', definition, submittedCredential])
+                }
+            };
+
+        globalThis.AgentOS = {
+            ...previousOS,
+            fleet: {
+                ...previousOS?.fleet,
+                registryBridge: {
+                    credentialIngress: 'shell',
+                    defineAgent      : async payload => {
+                        calls.push(['submit', payload]);
+                        return canonical
+                    }
+                }
+            }
+        };
+
+        try {
+            await Accounts.prototype.onSubmitAgentClick.call(stub)
+        } finally {
+            globalThis.AgentOS = previousOS
+        }
+
+        expect(calls[0]).toEqual(['submit', {
+            githubUsername: 'submitted-login',
+            harnessType   : 'opencode'
+        }]);
+        expect(JSON.stringify(calls[0])).not.toContain(credential);
+        expect(calls[1]).toEqual(['upsert', canonical, undefined]);
+        expect(calls[2]).toEqual(['fire', 'agentDefinitionAccepted', {agent: canonical}]);
+        expect(calls[3]).toEqual(['status', 'is-live', 'Agent added. Credential entry stayed in the native shell.']);
+        expect(calls[4]).toEqual(['clear'])
+    });
+
+    test('shell mode removes the Accounts PAT field before mount', () => {
+        const
+            previousOS = globalThis.AgentOS,
+            bridge     = {credentialIngress: 'shell', defineAgent: async () => ({})};
+
+        globalThis.AgentOS = {...previousOS, fleet: {...previousOS?.fleet, registryBridge: bridge}};
+
+        let view;
+
+        try {
+            view = Neo.create(Accounts, {appName: 'AgentOSAccountsTest'});
+            expect(view.getReference('agent-form').items.some(item => item.name === 'credential')).toBe(false)
+        } finally {
+            view?.destroy();
+            globalThis.AgentOS = previousOS
+        }
+    });
+
     test('controlled registry rejection renders its reason without a Body mutation and still clears the PAT', async () => {
         const
             calls = [],

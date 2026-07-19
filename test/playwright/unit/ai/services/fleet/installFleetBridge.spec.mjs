@@ -33,7 +33,45 @@ test.describe('installFleetBridge — App-Worker wiring of the dev-server app<->
         const bridge = installFleetBridge({url: fleetUrl, fetchImpl: okFetch(), target});
 
         expect(target.AgentOS.fleet.registryBridge).toBe(bridge);
-        expect(Object.keys(bridge).sort()).toEqual([...FLEET_WIRE_METHODS].sort())
+        expect(Object.keys(bridge).sort()).toEqual([...FLEET_WIRE_METHODS].sort());
+        expect(bridge.credentialIngress).toBe('worker');
+        expect(Object.getOwnPropertyDescriptor(bridge, 'credentialIngress')).toMatchObject({
+            enumerable: false,
+            value     : 'worker'
+        })
+    });
+
+    test('accepts one injected packaged-shell sender and forwards the exact method envelope', async () => {
+        const
+            calls  = [],
+            target = {},
+            bridge = installFleetBridge({
+                credentialIngress: 'shell',
+                send             : async request => {
+                    calls.push(request);
+                    return {ok: true, result: [{id: 'alice'}]}
+                },
+                target
+            }),
+            result = await bridge.listAgents({status: 'running'});
+
+        expect(result).toEqual([{id: 'alice'}]);
+        expect(calls).toEqual([{method: 'listAgents', params: {status: 'running'}}]);
+        expect(target.AgentOS.fleet.registryBridge).toBe(bridge);
+        expect(bridge.credentialIngress).toBe('shell');
+        expect(Object.keys(bridge).sort()).toEqual([...FLEET_WIRE_METHODS].sort());
+        expect(Object.getOwnPropertyDescriptor(bridge, 'credentialIngress')).toMatchObject({
+            enumerable: false,
+            value     : 'shell'
+        })
+    });
+
+    test('rejects mixed direct-browser and injected-shell transport ownership', () => {
+        const send = async () => ({ok: true, result: null});
+
+        expect(() => installFleetBridge({send, target: {}, url: fleetUrl})).toThrow(/mutually exclusive/);
+        expect(() => installFleetBridge({bearerToken: testBearer, send, target: {}})).toThrow(/mutually exclusive/);
+        expect(() => installFleetBridge({credentialIngress: 'shell', target: {}, url: fleetUrl})).toThrow(/requires an injected send/)
     });
 
     test('defineAgent POSTs {method, params} with the Authorization bearer + resolves the envelope result', async () => {

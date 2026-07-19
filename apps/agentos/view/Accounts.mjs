@@ -1,4 +1,10 @@
 import AgentConfigCard                                           from './fleet/AgentConfigCard.mjs';
+import {
+    createDefineAgentIntent,
+    isShellCredentialIngress,
+    resolveRegistryBridge,
+    validateDefinePayload
+}                                                                from './fleet/addAgentFlow.mjs';
 import {getDefinitionsWriteGeneration, runConfigIntentRoundTrip} from './fleet/configIntentRoundTrip.mjs';
 import Button                                                    from '../../../src/button/Base.mjs';
 import DashboardPanel                                            from '../../../src/dashboard/Panel.mjs';
@@ -19,10 +25,11 @@ import Toolbar                                                   from '../../../
  * roster + lifecycle. It also surfaces a **basic NL-MCP connect entry** (the external-harness
  * `manage_connection` start path) through the same fail-closed injected-bridge discipline.
  *
- * Capability-security boundary (the load-bearing reason this is its own surface): a credential is
- * collected only long enough to submit it to the Brain-side Fleet Registry bridge. If that bridge is
- * absent, submission fails closed, the PAT field is cleared, and **nothing is stored in the browser /
- * App Worker** — only the Brain's canonical redacted response reaches the shared
+ * Capability-security boundary (the load-bearing reason this is its own surface): direct-browser
+ * mode collects a credential only long enough to submit it to the Brain-side Fleet Registry bridge;
+ * shell mode renders no credential field and submits only public intent. If that bridge is absent,
+ * submission fails closed, the PAT field is cleared, and **nothing is stored in the browser / App
+ * Worker** — only the Brain's canonical redacted response reaches the shared
  * `AgentDefinitions` roster, never a credential byte (mirrors
  * `AgentOS.model.AgentDefinition`'s deliberately credential-free shape). An accepted definition
  * emits `agentDefinitionAccepted`; the Viewport composition root owns the separate Fleet-cockpit
@@ -195,7 +202,22 @@ class Accounts extends DashboardPanel {
      */
     onConstructed(...args) {
         super.onConstructed(...args);
-        this.getReference('agent-config-card')?.on({configIntent: this.onAgentConfigIntent, scope: this})
+
+        const
+            me         = this,
+            bridge     = resolveRegistryBridge(),
+            form       = me.getReference('agent-form'),
+            credential = form?.items.find(item => item.name === 'credential');
+
+        me.getReference('agent-config-card')?.on({configIntent: me.onAgentConfigIntent, scope: me});
+
+        if (isShellCredentialIngress(bridge)) {
+            credential && form.remove(credential);
+            me.updateBridgeStatus(
+                'is-live',
+                'Credential entry is owned by the native shell and never enters App Worker state.'
+            )
+        }
     }
 
     /**
@@ -407,17 +429,21 @@ class Accounts extends DashboardPanel {
      * @returns {Promise<void>}
      */
     async onLoadSampleClick() {
-        const form = this.getReference('agent-form');
+        const
+            bridge = resolveRegistryBridge(),
+            form   = this.getReference('agent-form');
 
-        await form.setValues({
+        await form.setValues(createDefineAgentIntent({
             credential    : '',
             githubUsername: 'neo-gpt',
             harnessType   : 'codex'
-        });
+        }, bridge));
 
         this.updateBridgeStatus(
             'is-waiting',
-            'Sample loaded. Enter a PAT to add the agent; the value clears after the attempt.'
+            isShellCredentialIngress(bridge)
+                ? 'Sample loaded. The native shell will supply the credential when you add the agent.'
+                : 'Sample loaded. Enter a PAT to add the agent; the value clears after the attempt.'
         )
     }
 
@@ -432,22 +458,18 @@ class Accounts extends DashboardPanel {
      */
     async onSubmitAgentClick() {
         const
-            form   = this.getReference('agent-form'),
-            valid  = await form.validate(),
-            values = await form.getSubmitValues();
+            bridge     = resolveRegistryBridge(),
+            shellOwned = isShellCredentialIngress(bridge),
+            form       = this.getReference('agent-form'),
+            valid      = await form.validate(),
+            values     = await form.getSubmitValues(),
+            payload    = createDefineAgentIntent(values, bridge),
+            validation = validateDefinePayload(payload, {credentialRequired: !shellOwned});
 
-        const githubUsername = values.githubUsername?.trim();
-
-        if (!valid || !githubUsername || !values.harnessType || !values.credential) {
-            this.updateBridgeStatus('is-error', 'Agent setup incomplete. GitHub username, harness type, and PAT are required.');
+        if (!valid || !validation.valid) {
+            this.updateBridgeStatus('is-error', `Agent setup incomplete. ${validation.reason}`);
             return
         }
-
-        const payload = {
-            credential : values.credential,
-            githubUsername,
-            harnessType: values.harnessType
-        };
 
         try {
             const outcome = await this.submitToFleetRegistryBridge(payload);
@@ -459,9 +481,19 @@ class Accounts extends DashboardPanel {
 
             this.upsertPublicAgentDefinition(outcome, payload.credential);
             this.fire('agentDefinitionAccepted', {agent: outcome});
-            this.updateBridgeStatus('is-live', 'Agent added. PAT was not retained in the app worker.')
+            this.updateBridgeStatus(
+                'is-live',
+                shellOwned
+                    ? 'Agent added. Credential entry stayed in the native shell.'
+                    : 'Agent added. PAT was not retained in the app worker.'
+            )
         } catch (error) {
-            this.updateBridgeStatus('is-error', 'Could not add agent. Nothing was stored in browser state; PAT field was cleared.')
+            this.updateBridgeStatus(
+                'is-error',
+                shellOwned
+                    ? 'Could not add agent. No credential entered App Worker state.'
+                    : 'Could not add agent. Nothing was stored in browser state; PAT field was cleared.'
+            )
         } finally {
             await this.clearCredentialField()
         }
@@ -502,13 +534,13 @@ class Accounts extends DashboardPanel {
      *     `{status:'rejected', reason}` domain outcome.
      */
     async submitToFleetRegistryBridge(payload) {
-        const bridge = globalThis.AgentOS?.fleet?.registryBridge;
+        const bridge = resolveRegistryBridge();
 
         if (!bridge?.defineAgent) {
             throw new Error('Fleet Registry bridge unavailable')
         }
 
-        return bridge.defineAgent(payload)
+        return bridge.defineAgent(createDefineAgentIntent(payload, bridge))
     }
 
     /**
