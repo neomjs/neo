@@ -12,14 +12,11 @@ in here (it lives in `apps/`); the Brain never moves in here (it lives in `ai/`)
 0034 E-leaf arc this root accumulates the whole vessel: main process, preload capability contract,
 Brain lifecycle glue, window policy, packaging/signing, updater, tray.
 
-**Scope shipped here (slices 1–2 of the #13033 build plan):** the shell skeleton — privileged
-`app://` origin serving an explicit renderer-content allowlist from the repo root, one harness
-window, the fail-closed content/window/navigation/permission posture — and the multi-window proof:
-a renderer-initiated `window.open` popup materializes through `setWindowOpenHandler` and joins the
-SAME shared workers. **Not here yet:**
-Agent-OS hosting (the in-process vs child-process topology spike is the next slice; ADR 0034 §2.1
-frames it, #13033's intake carries the four-falsifier decision gate), tray/app lifecycle (E8),
-packaging/signing (E6/E7).
+**Scope shipped here:** the privileged `app://` shell and fail-closed content/window policy; the
+multi-window same-SharedWorker proof; supervised Agent-OS hosting; unsigned packaging; and the E8
+retained-cockpit + tray lifecycle. A renderer-initiated `window.open` popup still materializes
+through `setWindowOpenHandler` and joins the SAME shared workers. Signing/notarization, updater,
+and first-run product UX remain later release-line leaves.
 
 ## Run
 
@@ -32,6 +29,7 @@ npm start            # prepares missing dev assets, then boots the harness windo
 npm run start:brain  # the window + the SUPERVISED Agent OS (Arm B — see below)
 npm run smoke        # boot + popup + shared-worker + clean-runtime evidence, JSON verdict
 npm run smoke:brain  # the full verdict incl. the Brain leg (up + clean teardown + no orphan)
+npm run witness:lifecycle # headed close→hide→tray-open identity + tray-quit teardown receipt
 ```
 
 Prerequisite for the Brain legs: a fresh per-clone `ai/config.mjs` — if the orchestrator child
@@ -90,6 +88,38 @@ token (the leader's entry script), cleared on clean stop, and swept on the next 
 after the recorded identity re-verifies — a bare PGID is an observation, not ownership. The same
 rule governs attach: `fleetServing` requires the `listAgents` wire envelope, and a foreign
 listener squatting the fleet port fails the product boot closed instead of reading as a Brain.
+
+## App lifecycle + tray (E8)
+
+`appLifecycle.mjs` owns one retained cockpit reference and one tray reference for the app lifetime.
+Only the primary cockpit receives close interception: while the tray is reachable, Close becomes
+`hide()`; Open Cockpit restores and focuses that same `BrowserWindow`, `WebContents`, renderer, and
+SharedWorker-backed UI identity. Popup windows keep ordinary close semantics. `window-all-closed`
+is intentionally inert while the product tray exists; if tray construction fails, close-to-quit is
+restored so the process cannot become hidden and unreachable. macOS Dock activation also restores
+the retained cockpit rather than constructing a replacement.
+
+The tray is a projection, not a health service. It starts `stopped`, becomes `degraded` while Brain
+boot is unresolved or after a boot/owned-child failure, becomes `running` only when the existing
+Brain readiness promise resolves, and returns to `stopped` after owned teardown settles. Each state
+rebuilds the disabled state row plus Open Cockpit and Quit; no poller and no agent actuator live in
+the shell. The menu is reset on every transition because Electron requires `setContextMenu()` again
+for changed Linux menus. The shipped icon is a transparent PNG; macOS consumes the 16px + `@2x`
+black-alpha Template pair described by Electron's [Tray](https://www.electronjs.org/docs/latest/api/tray)
+and [nativeImage](https://www.electronjs.org/docs/latest/api/native-image) contracts.
+
+Quit is a two-pass Electron exit: tray/app-menu/OS intent first marks explicit quit so cockpit close
+is allowed, then `will-quit` prevents exit while one memoized shutdown promise joins any in-flight
+Brain boot and drains exactly the child tree this harness owns. A final `app.quit()` passes only
+after that promise settles. Repeated intents share both the boot join and teardown. Smoke/error
+paths keep their bounded `app.exit(...)` behavior through the same exact-once drain and never create
+a tray.
+
+`npm run witness:lifecycle` boots the isolated Brain profile in visible Electron, closes the
+cockpit, observes zero visible windows without destruction, invokes the actual tray menu's Open
+Cockpit item, and verifies unchanged `BrowserWindow.id`, `webContents.id`, and viewport identity.
+It then invokes the same tray's Quit item; `HARNESS_LIFECYCLE_RESULTS` and `HARNESS_BRAIN_STOP`
+provide the renderer-identity and clean process-group receipts.
 
 ## Packaging (E6 — the unsigned leg)
 
@@ -171,8 +201,9 @@ allowlist), so required `dist/development/css/*` stays reachable. Recorded in AD
 4. **Never match `URL.origin` for custom schemes in the main process** — Node's parser returns
    `'null'` (it knows nothing of the renderer's privileged registration). The §2.3.2 allowlist
    matches `protocol` + `host`.
-5. **`window-all-closed` default quits Electron.** The skeleton keeps quit-on-close deliberately
-   (no tray yet); E8 lands ADR 0034 §2.1.5's suppress + tray + hide-never-destroy semantics.
+5. **Hide only after the tray exists.** The retained cockpit's close handler suppresses destruction
+   only while the tray is reachable. A tray load/construction failure preserves ordinary close and
+   `window-all-closed` quit, avoiding a resident process with no recovery surface.
 6. **Bare tool commands in the supervised tree resolve via PATH — guarantee it.** The
    orchestrator's `chroma` task works under `npm run` by accident of npm's `.bin` prepending; a
    packaged shell has no npm in the chain. `startBrainChild` prepends the repo's

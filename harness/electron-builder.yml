@@ -11,10 +11,12 @@ directories:
 
 files:
     - main.mjs
+    - appLifecycle.mjs
     - brain.mjs
     - contentPolicy.mjs
     - preload.cjs
     - package.json
+    - assets/tray/**
 
 extraResources:
     - from: .stage/organism
