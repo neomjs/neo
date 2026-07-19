@@ -1,4 +1,5 @@
-import TabHeaderSortZone from '../draggable/tab/header/toolbar/SortZone.mjs';
+import {createVesselConversionSensor} from './DockVesselConversion.mjs';
+import TabHeaderSortZone              from '../draggable/tab/header/toolbar/SortZone.mjs';
 
 /**
  * @class Neo.dashboard.DockTabSortZone
@@ -93,7 +94,34 @@ class DockTabSortZone extends TabHeaderSortZone {
          * in-window. Threaded by {@link Neo.dashboard.DockLayoutAdapter} (`crossWindowSortGroup`).
          * @member {String|null} sortGroup=null
          */
-        sortGroup: null
+        sortGroup: null,
+        /**
+         * Opts this source into the dual-window conversion decision. The coordinator remains
+         * dock-blind: it offers stable-claim frames, while this zone owns the sensor and decides
+         * whether a remote preview may engage. Disabled is byte-identical to the pre-conversion
+         * coordinator path.
+         * @member {Boolean} enableVesselConversion=false
+         */
+        enableVesselConversion: false,
+        /**
+         * Provisional min-axis overlap required to enter the existing HOVERING_CLAIM transition.
+         * Production opt-in remains off until the physical park/re-show lifecycle is ready and
+         * headed calibration replaces this placeholder.
+         * @member {Number} vesselConversionConvertThreshold=0.55
+         */
+        vesselConversionConvertThreshold: 0.55,
+        /**
+         * Provisional min-axis overlap below which the conversion reverts. See the convert
+         * threshold's calibration gate above.
+         * @member {Number} vesselConversionRevertThreshold=0.35
+         */
+        vesselConversionRevertThreshold: 0.35,
+        /**
+         * Binding-owned raw-claim miss grace. During this interval the visual preview is retained,
+         * but commit eligibility drops immediately; a release can never land on a stale claim.
+         * @member {Number} vesselConversionPointerExitGraceMs=0
+         */
+        vesselConversionPointerExitGraceMs: 0
     }
 
     /**
@@ -133,6 +161,52 @@ class DockTabSortZone extends TabHeaderSortZone {
      * @protected
      */
     dragCoordinator = null
+
+    /**
+     * One pure conversion sensor per source zone, reset at every gesture terminal.
+     * @member {Object|null} vesselConversionSensor=null
+     * @protected
+     */
+    vesselConversionSensor = null
+
+    /**
+     * Stable identity of the target whose geometry owns the current sensor state.
+     * @member {String|null} vesselConversionTargetId=null
+     * @protected
+     */
+    vesselConversionTargetId = null
+
+    /**
+     * Last live target rect for a bounded raw-claim miss. Copied per frame so mutable manager
+     * rectangles cannot rewrite an already-made decision.
+     * @member {Object|null} vesselConversionTargetRect=null
+     * @protected
+     */
+    vesselConversionTargetRect = null
+
+    /**
+     * First raw-claim miss timestamp for the active converted target.
+     * @member {Number|null} vesselConversionPointerMissedAt=null
+     * @protected
+     */
+    vesselConversionPointerMissedAt = null
+
+    /**
+     * Last exact live dragged-vessel rect resolved by the source owner. This is the geometry the
+     * conversion sensor measures; a proxy or requested birth size can never substitute for it.
+     * @member {Object|null} vesselConversionSourceRect=null
+     * @protected
+     */
+    vesselConversionSourceRect = null
+
+    /**
+     * Last logical pointer-follow rect supplied by the coordinator. This is deliberately distinct
+     * from {@link #vesselConversionSourceRect}: conversion measures the exact live vessel, while
+     * later re-show choreography needs the pointer-owned logical destination.
+     * @member {Object|null} vesselConversionLogicalRect=null
+     * @protected
+     */
+    vesselConversionLogicalRect = null
 
     /**
      * Warms the cross-window {@link Neo.manager.DragCoordinator} OFF the drag hot path: a `sortGroup`
@@ -212,6 +286,211 @@ class DockTabSortZone extends TabHeaderSortZone {
 
         me.dragProxy && (me.dragProxy.style = {opacity: 1});
         me.isWindowDragging = false
+    }
+
+    /**
+     * @summary Ends a non-terminal conversion because its target disappeared.
+     *
+     * Unlike {@link #resetVesselConversion}, this path emits the sensor's convert-out seam before
+     * forgetting state, so the physical-lifecycle owner receives exactly one convert-out seam when
+     * a target unregisters mid-gesture. Gesture terminals use the silent reset instead: their
+     * outcome choreography owns disposition and must not be double-driven by a synthetic reversion.
+     */
+    cancelVesselConversion() {
+        let me = this;
+
+        if (me.vesselConversionSensor?.converted) {
+            me.vesselConversionSensor.sample({
+                pointerInTarget: false,
+                sourceRect     : me.vesselConversionSourceRect,
+                targetRect     : me.vesselConversionTargetRect
+            })
+        }
+
+        me.resetVesselConversion()
+    }
+
+    /**
+     * @summary Returns the source-owned conversion sensor, creating it lazily for an active drag.
+     * @returns {Object}
+     * @protected
+     */
+    getVesselConversionSensor() {
+        let me = this;
+
+        return me.vesselConversionSensor ??= createVesselConversionSensor({
+            convertThreshold: me.vesselConversionConvertThreshold,
+            revertThreshold : me.vesselConversionRevertThreshold,
+            onConvertIn(record) {
+                let itemId = me.dragComponent?.dockItemId ?? me.dockItemIds?.[me.startIndex] ?? null;
+
+                me.owner?.up?.()?.fire('dockVesselConversionIn', {
+                    itemId,
+                    logicalRect : me.vesselConversionLogicalRect && {...me.vesselConversionLogicalRect},
+                    record,
+                    sortZone    : me,
+                    sourceNodeId: me.dockSourceNodeId,
+                    targetId    : me.vesselConversionTargetId
+                })
+            },
+            onConvertOut(record) {
+                let itemId = me.dragComponent?.dockItemId ?? me.dockItemIds?.[me.startIndex] ?? null;
+
+                me.owner?.up?.()?.fire('dockVesselConversionOut', {
+                    itemId,
+                    logicalRect : me.vesselConversionLogicalRect && {...me.vesselConversionLogicalRect},
+                    record,
+                    sortZone    : me,
+                    sourceNodeId: me.dockSourceNodeId,
+                    targetId    : me.vesselConversionTargetId
+                })
+            }
+        })
+    }
+
+    /**
+     * @summary Resolves the exact live tear-out vessel rect through the clone-safe owner seam.
+     *
+     * A projected SortZone cannot carry a function config through the component clone boundary.
+     * The zone therefore fires a synchronous request on its tab.Container; the workspace-owned
+     * listener resolves the current item→vessel identity and writes `sourceRect`. Missing,
+     * thenable, degenerate, or non-finite answers fail closed. The coordinator's logical proxy rect
+     * is context only and can never become the conversion denominator.
+     * @param {Object} data
+     * @param {Object} data.draggedItem
+     * @param {Object|null} data.logicalRect
+     * @returns {Object|null}
+     * @protected
+     */
+    resolveVesselConversionSourceGeometry({draggedItem, logicalRect}) {
+        let me      = this,
+            itemId  = draggedItem?.dockItemId ?? me.dockItemIds?.[me.startIndex] ?? null,
+            request = {draggedItem, itemId, logicalRect, sourceRect: null},
+            rect;
+
+        me.owner?.up?.()?.fire('dockVesselConversionSourceRectRequest', request);
+        rect = request.sourceRect;
+
+        if (
+            typeof rect?.then === 'function' ||
+            !['x', 'y', 'width', 'height'].every(key => Number.isFinite(rect?.[key])) ||
+            rect.width <= 0 || rect.height <= 0
+        ) {
+            return null
+        }
+
+        return {height: rect.height, width: rect.width, x: rect.x, y: rect.y}
+    }
+
+    /**
+     * @summary Resolves one stable-claim frame into remote-preview and commit eligibility.
+     *
+     * This is the production binding for {@link Neo.dashboard.DockVesselConversion}. The manager
+     * supplies the logical pointer-follow rect plus live target geometry after deterministic claim
+     * arbitration; this dock-owned source resolves its exact live vessel rect, samples the pure
+     * sensor, and returns a synchronous policy record. Raw pointer loss
+     * drops commit eligibility immediately. A bounded grace may retain the already-rendered hover
+     * without feeding `pointerInTarget=false` into the deliberately undamped sensor until expiry.
+     * Target identity is part of the binding (the sensor itself is intentionally identity-free):
+     * switching A→B first reverts A, then B must clear its own geometry threshold.
+     * @param {Object} frame
+     * @param {Object} frame.draggedItem
+     * @param {Number} frame.now
+     * @param {Boolean} frame.pointerInTarget
+     * @param {Object} frame.logicalSourceRect
+     * @param {String|null} frame.targetId
+     * @param {Object|null} frame.targetRect
+     * @returns {{commitEligible: Boolean, engage: Boolean, retain: Boolean}|null} `null` keeps the
+     *     legacy coordinator path when conversion is disabled or the source is not in a window drag.
+     */
+    resolveRemoteDragTransition({draggedItem, logicalSourceRect, now=Date.now(), pointerInTarget, targetId, targetRect} = {}) {
+        let me = this;
+
+        if (!me.enableVesselConversion || !me.isWindowDragging) {
+            return null
+        }
+
+        if (!draggedItem) {
+            return {commitEligible: false, engage: false, retain: false}
+        }
+
+        let liveSourceRect = me.resolveVesselConversionSourceGeometry({draggedItem, logicalRect: logicalSourceRect}),
+            grace          = Number.isFinite(me.vesselConversionPointerExitGraceMs)
+                ? Math.max(0, me.vesselConversionPointerExitGraceMs)
+                : 0;
+
+        me.vesselConversionLogicalRect = logicalSourceRect ? {...logicalSourceRect} : null;
+
+        if (!liveSourceRect) {
+            me.cancelVesselConversion();
+            return {commitEligible: false, engage: false, retain: false}
+        }
+
+        me.vesselConversionSourceRect = liveSourceRect;
+
+        let sensor = me.getVesselConversionSensor();
+
+        if (pointerInTarget === true && targetId != null && targetRect) {
+            if (me.vesselConversionTargetId != null && me.vesselConversionTargetId !== targetId) {
+                sensor.converted && sensor.sample({
+                    pointerInTarget: false,
+                    sourceRect     : me.vesselConversionSourceRect,
+                    targetRect     : me.vesselConversionTargetRect
+                });
+                sensor.reset()
+            }
+
+            me.vesselConversionPointerMissedAt = null;
+            me.vesselConversionTargetId        = targetId;
+            me.vesselConversionTargetRect      = {...targetRect};
+
+            let record = sensor.sample({
+                pointerInTarget: true,
+                sourceRect     : me.vesselConversionSourceRect,
+                targetRect     : me.vesselConversionTargetRect
+            });
+
+            return {commitEligible: record.converted, engage: record.converted, retain: false}
+        }
+
+        if (!sensor.converted) {
+            me.vesselConversionPointerMissedAt = null;
+            return {commitEligible: false, engage: false, retain: false}
+        }
+
+        me.vesselConversionPointerMissedAt ??= now;
+
+        if (now - me.vesselConversionPointerMissedAt < grace) {
+            let record = sensor.sample({
+                pointerInTarget: true,
+                sourceRect     : me.vesselConversionSourceRect,
+                targetRect     : me.vesselConversionTargetRect
+            });
+
+            return {commitEligible: false, engage: record.converted, retain: record.converted}
+        }
+
+        sensor.sample({
+            pointerInTarget: false,
+            sourceRect     : me.vesselConversionSourceRect,
+            targetRect     : me.vesselConversionTargetRect
+        });
+
+        return {commitEligible: false, engage: false, retain: false}
+    }
+
+    /**
+     * @summary Silently clears all conversion binding state at a gesture terminal.
+     */
+    resetVesselConversion() {
+        let me = this;
+
+        me.vesselConversionSensor?.reset();
+        me.vesselConversionLogicalRect     = null;
+        me.vesselConversionPointerMissedAt = null;
+        me.vesselConversionSourceRect      = null;
+        me.vesselConversionTargetId        = null;
+        me.vesselConversionTargetRect      = null
     }
 
     /**
@@ -297,6 +576,8 @@ class DockTabSortZone extends TabHeaderSortZone {
      */
     async onDragStart(data) {
         let me = this;
+
+        me.resetVesselConversion?.();
 
         if (me.isStackHandleDrag?.(data)) {
             let pathIds     = new Set((data.path || []).map(node => node.id).filter(Boolean)),
@@ -485,7 +766,8 @@ class DockTabSortZone extends TabHeaderSortZone {
                 me.dragComponent   = null;
                 me.dragElement     = null;
                 me.stackDragActive = false;
-                me.startIndex      = -1
+                me.startIndex      = -1;
+                me.resetVesselConversion?.()
             }
 
             if (commitError) {
@@ -529,7 +811,11 @@ class DockTabSortZone extends TabHeaderSortZone {
             tabContainer.fire('dockCrossZoneDrop', {clientX, clientY, itemId, sourceNodeId: me.dockSourceNodeId})
         }
 
-        await super.processDragEnd(data)
+        try {
+            await super.processDragEnd(data)
+        } finally {
+            me.resetVesselConversion?.()
+        }
     }
 
     /**
@@ -597,6 +883,15 @@ class DockTabSortZone extends TabHeaderSortZone {
      */
     resolveDragCoordinator() {
         return this._dragCoordinatorPromise ??= import('../manager/DragCoordinator.mjs').then(module => this.dragCoordinator = module.default)
+    }
+
+    /**
+     * Resets the pure binding before the ordinary SortZone teardown.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        this.resetVesselConversion();
+        super.destroy(...args)
     }
 }
 

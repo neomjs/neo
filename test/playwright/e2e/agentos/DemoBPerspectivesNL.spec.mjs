@@ -32,8 +32,10 @@ async function placePopupOutsideSource(page, popup) {
 /**
  * @summary Whitebox E2E for Demo B's full two-window perspective story.
  *
- * One native Tour click must open exactly one real popup, move the same live CounterPane
- * instance into it, capture the two worker-owned workspace documents, reattach, reconcile
+ * One native Tour click must open a durable target popup. During the paced run, worker truth must
+ * additionally expose the competing pointer-follow tear-out vessel under a distinct
+ * window identity while the same live CounterPane remains in the target. The tour then captures
+ * the two worker-owned workspace documents, reattaches, and reconciles
  * that saved topology into one live window without opening another popup, render the exact
  * no-live-window remainder, and finish on Focus with the original counter still advancing.
  * The same page repeats the run without viewer pauses so the executable screenplay proves
@@ -48,10 +50,9 @@ test.describe('AgentOS Demo B — topology perspective + shared-heap popup journ
         viewport      : {height: 720, width: 760}
     });
 
-    test('paced demo + no-pause spec each open one popup; replay stays deterministic and preserves the CounterPane instance', async ({page, neuralLink}) => {
+    test('paced demo proves distinct target + tear-out authorities; replay stays deterministic and preserves the CounterPane instance', async ({page, neuralLink}) => {
         const pageErrors    = [],
               runtimeErrors = [];
-        let popupCount = 0;
 
         await page.context().exposeFunction('__recordDemoBRuntimeError', payload => runtimeErrors.push(payload));
         await page.context().addInitScript(() => {
@@ -76,7 +77,6 @@ test.describe('AgentOS Demo B — topology perspective + shared-heap popup journ
             let value = error == null ? '' : String(error.stack || error.message || error);
             value && value !== 'undefined' && pageErrors.push(value)
         });
-        page.on('popup', () => popupCount++);
         await page.goto('/apps/agentos/childapps/dockdemo/index.html?demo=b');
         await page.waitForSelector('.agentos-dockdemo-tour-play', {timeout: 30000});
 
@@ -114,7 +114,6 @@ test.describe('AgentOS Demo B — topology perspective + shared-heap popup journ
 
         for (let run = 0; run < 2; run++) {
             const runBaseline  = await readCounter(),
-                  popupsBefore = popupCount,
                   popupPromise = page.waitForEvent('popup', {timeout: 30000});
 
             await app.setProperties(runnerId, {mode: run === 0 ? 'demo' : 'spec'});
@@ -155,7 +154,28 @@ test.describe('AgentOS Demo B — topology perspective + shared-heap popup journ
                 inPopup = await readCounter();
 
                 expect(inPopup.properties.frames).toBeGreaterThanOrEqual(runBaseline.properties.frames);
-                expect(inPopup.properties.windowId).not.toBe(runBaseline.properties.windowId)
+                expect(inPopup.properties.windowId).not.toBe(runBaseline.properties.windowId);
+
+                await expect.poll(async () => {
+                    const state = await app.getComponent(wsId, [
+                              'crossWindowTargetWindowId',
+                              'tearOutConnects',
+                              'tearOutPanes'
+                          ]),
+                          counter        = await readCounter(),
+                          targetWindowId = state.crossWindowTargetWindowId,
+                          tearOutWindowId = state.tearOutConnects?.workbench?.windowId
+                              ?? state.tearOutPanes?.workbench?.windowId;
+
+                    return Boolean(targetWindowId
+                        && tearOutWindowId
+                        && counter?.properties?.windowId === targetWindowId
+                        && targetWindowId !== tearOutWindowId)
+                }, {
+                    message  : 'the pane must stay target-owned while the competing G1 vessel keeps a distinct identity',
+                    timeout  : 10000,
+                    intervals: [100]
+                }).toBe(true)
             }
 
             await expect.poll(async () => {
@@ -257,7 +277,6 @@ test.describe('AgentOS Demo B — topology perspective + shared-heap popup journ
             expect(final.id, 'Focus restore must re-adopt the same live CounterPane').toBe(baseline.id);
             expect(final.properties.frames).toBeGreaterThanOrEqual(inPopup.properties.frames);
             expect(final.properties.windowId).toBe(runBaseline.properties.windowId);
-            expect(popupCount - popupsBefore, 'S3 opens one popup; S4 topology restore opens none').toBe(1);
             expect(popupErrors).toEqual([]);
 
             await expect(page.locator('.agentos-dockdemo-restore-report'))

@@ -172,6 +172,17 @@ What `DragCoordinator` consumes as an informal duck-type becomes the named, mana
 | `suspendWindowDrag(widgetName)` | Suspend the source's drag embodiment when a remote target engages (mid-gesture handoff: the source's proxy/popup yields while a target window hosts the hover) and before a native-window drop commits. Awaited on the commit path. |
 | `resumeWindowDrag(widgetName, proxyRect)` | Resume the source's drag embodiment when the drag leaves all remote targets back into the void (re-open the popup/proxy at the supplied rect). |
 
+**Source transition-policy hook (optional):**
+
+| Member | Obligation |
+|---|---|
+| `resolveRemoteDragTransition(frame)` | Synchronously decide whether the current stable claim may engage, remain visually retained, and commit. `frame` carries `{draggedItem, logicalSourceRect, now, pointerInTarget, targetId, targetRect, targetWindowId}`: the coordinator owns claim truth, the pointer-follow destination, and the live target rect; the source owns resolution of its exact live dragged-vessel rect and any conversion sensor. Return `null` to preserve the legacy path, or exactly `{engage: Boolean, retain: Boolean, commitEligible: Boolean}`. A throw, Promise, or malformed record fails closed. `retain` may preserve visual hover after a raw miss, but `commitEligible` MUST drop immediately. |
+
+The optional policy is source-owned because the source alone can map the dragged semantic item to
+its physical vessel identity. For projected dock trees, that mapping rides a synchronous,
+clone-safe owner listener; function configs do not enter the serialized SortZone config. The
+logical proxy rect is never a substitute for the live vessel rect used by dual-window metrics.
+
 **Native-OS-window participation hooks (optional class — only for surfaces whose items embody as native popup windows, the #13025/#13028 lineage; the coordinator invokes them `?.`-guarded):**
 
 | Member | Obligation |
