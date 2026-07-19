@@ -1,10 +1,10 @@
-import {Client as McpSdkClient} from '@modelcontextprotocol/sdk/client/index.js';
-import {SSEClientTransport}     from '@modelcontextprotocol/sdk/client/sse.js';
-import {StdioClientTransport}   from '@modelcontextprotocol/sdk/client/stdio.js';
+import {Client as McpSdkClient}        from '@modelcontextprotocol/sdk/client/index.js';
+import {SSEClientTransport}            from '@modelcontextprotocol/sdk/client/sse.js';
+import {StdioClientTransport}          from '@modelcontextprotocol/sdk/client/stdio.js';
 import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import Base                     from '../../../src/core/Base.mjs';
-import ClientConfig             from './config.mjs';
-import ToolService              from '../ToolService.mjs';
+import Base                            from '../../../src/core/Base.mjs';
+import ClientConfig                    from './config.mjs';
+import ToolService                     from '../ToolService.mjs';
 
 /**
  * @summary A generic MCP Client that can connect to local or remote MCP servers.
@@ -37,6 +37,14 @@ class Client extends Base {
          * @member {String} clientVersion='1.0.0'
          */
         clientVersion: '1.0.0',
+        /**
+         * Narrow entrypoint-injected connection object for one transient client instance.
+         *
+         * This narrow bootstrap boundary keeps credentials out of the shared reactive ClientConfig
+         * Provider. `null` keeps the normal named config lookup path.
+         * @member {Object|null} connectionConfig=null
+         */
+        connectionConfig: null,
         /**
          * The command to run (e.g. "node")
          * @member {String|null} command=null // Will be loaded from config
@@ -79,7 +87,7 @@ class Client extends Base {
         url: null,
         /**
          * The logical name of the MCP server to connect to (e.g., 'github-workflow').
-         * This name will be used to look up connection details from ClientConfig.
+         * This name looks up ClientConfig unless one transient `connectionConfig` was injected.
          * @member {String} serverName_='github-workflow'
          * @reactive
          */
@@ -303,14 +311,14 @@ class Client extends Base {
     }
 
     /**
-     * Loads the server connection details from the ClientConfig singleton.
+     * Loads instance-injected connection details or the named ClientConfig entry.
      * @param {String} serverName The name of the server to load.
      * @protected
      */
     loadServerConfig(serverName) {
         const me = this;
 
-        const serverConfig = ClientConfig.mcpServers[serverName];
+        const serverConfig = me.connectionConfig ?? ClientConfig.mcpServers[serverName];
         if (!serverConfig) {
             throw new Error(`MCP Client: Server config not found for '${serverName}' in ai/mcp/client/config.mjs`);
         }

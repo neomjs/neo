@@ -7,15 +7,15 @@ import fg              from 'fast-glob';
 import semver          from 'semver';
 import {sanitizeInput} from '../../util/sanitizer.mjs';
 
-const ROOT_DIR          = process.cwd();
-const LEARN_DIR         = path.resolve(ROOT_DIR, 'learn');
-const PORTAL_DIR        = path.resolve(ROOT_DIR, 'apps/portal');
-const TREE_FILE_PATH    = path.join(LEARN_DIR, 'tree.json');
+const ROOT_DIR       = process.cwd();
+const LEARN_DIR      = path.resolve(ROOT_DIR, 'learn');
+const PORTAL_DIR     = path.resolve(ROOT_DIR, 'apps/portal');
+const TREE_FILE_PATH = path.join(LEARN_DIR, 'tree.json');
 // Location of the JSON index we will generate in the next step
-const RELEASES_PATH     = path.resolve(PORTAL_DIR, 'resources/data/releases.json');
-const DEFAULT_BASE_PATH = '/learn';
-const GIT_LOG_CHUNK_SIZE = 200;
-const STATUS_RENAME_CODES = new Set(['R', 'C']);
+const RELEASES_PATH                               = path.resolve(PORTAL_DIR, 'resources/data/releases.json');
+const DEFAULT_BASE_PATH                           = '/learn';
+const GIT_LOG_CHUNK_SIZE                          = 200;
+const STATUS_RENAME_CODES                         = new Set(['R', 'C']);
 const RELEASE_NOTE_NEO_GITHUB_SOURCE_LINK_PATTERN = /https:\/\/github\.com\/neomjs\/neo\/(?:blob|tree)\/([^/\s)]+)\/[^\s)]+/g;
 const RELEASE_NOTE_DISALLOWED_SOURCE_REF_PATTERN  = /^(?:main|v\d+(?:\.\d+){0,2}(?:[-.\w]*)?)$/;
 
@@ -63,6 +63,7 @@ const PRIORITIES = new Map([
     ['agentos/NeuralLink'                           , 1.0],
     ['agentos/tooling/NeuralLinkCapabilityMatrix'   , 0.8],
     ['agentos/tooling/GenesisNeuralLinkProbe'       , 0.8],
+    ['agentos/tooling/CommunitySourceRunbook'       , 0.7],
     ['agentos/KnowledgeBase'                        , 1.0],
     ['agentos/MemoryCore'                           , 1.0],
     ['agentos/SelfHealing'                          , 1.0],
@@ -295,8 +296,8 @@ function getChangedGitPaths() {
                 continue;
             }
 
-            const status = entry.slice(0, 2);
-            let gitPath  = entry.slice(3);
+            const status  = entry.slice(0, 2);
+            let   gitPath = entry.slice(3);
 
             if (STATUS_RENAME_CODES.has(status[0]) || STATUS_RENAME_CODES.has(status[1])) {
                 i++;
@@ -384,7 +385,7 @@ function chunkArray(items, size) {
  * @returns {Map<String, String>} Map of filePath -> ISO date string
  */
 function getGitLastModifiedBatch(filePaths) {
-    const dateMap = new Map();
+    const dateMap     = new Map();
     const uniquePaths = Array.from(new Set(filePaths));
 
     if (uniquePaths.length === 0) {
@@ -487,7 +488,7 @@ async function getExistingSitemapLastmodMap(sitemapPath) {
         return lastmodMap;
     }
 
-    const sitemap = await fs.readFile(sitemapPath, 'utf-8');
+    const sitemap  = await fs.readFile(sitemapPath, 'utf-8');
     const urlRegex = /<url>[\s\S]*?<loc>(.*?)<\/loc>[\s\S]*?<lastmod>(.*?)<\/lastmod>[\s\S]*?<\/url>/g;
 
     for (const match of sitemap.matchAll(urlRegex)) {
@@ -579,8 +580,8 @@ function getNameFromExamplePath(examplePath) {
  */
 async function collectExampleRoutes() {
     let files = await fg('{apps,examples}/**/index.html', {
-        cwd    : ROOT_DIR,
-        ignore : ['**/node_modules/**']
+        cwd   : ROOT_DIR,
+        ignore: ['**/node_modules/**']
     });
 
     // Filter out paths containing "childapps"
@@ -590,8 +591,8 @@ async function collectExampleRoutes() {
     files.sort((a, b) => a.localeCompare(b));
 
     return Promise.all(files.map(async (file) => {
-        const filePath = path.resolve(ROOT_DIR, file);
-        const content  = await fs.readFile(filePath, 'utf-8');
+        const filePath   = path.resolve(ROOT_DIR, file);
+        const content    = await fs.readFile(filePath, 'utf-8');
         const titleMatch = content.match(/<title>(.*?)<\/title>/i);
 
         return {
@@ -609,8 +610,8 @@ async function collectExampleRoutes() {
  */
 async function collectReleaseRoutes() {
     const files = await fg('resources/content/release-notes/**/*.md', {
-        cwd    : ROOT_DIR,
-        ignore : ['**/node_modules/**']
+        cwd   : ROOT_DIR,
+        ignore: ['**/node_modules/**']
     });
 
     const releases = await Promise.all(files.map(async file => {
@@ -655,15 +656,15 @@ async function collectIssueRoutes() {
         'resources/content/issues/**/*.md',
         'resources/content/archive/issues/**/issue-*.md'
     ], {
-        cwd    : ROOT_DIR,
-        ignore : ['**/node_modules/**']
+        cwd   : ROOT_DIR,
+        ignore: ['**/node_modules/**']
     });
 
     const issues = files.map(file => {
-        const filePath = path.resolve(ROOT_DIR, file);
-        const fileName = path.basename(file, '.md'); // e.g., 'issue-8186'
+        const filePath       = path.resolve(ROOT_DIR, file);
+        const fileName       = path.basename(file, '.md'); // e.g., 'issue-8186'
         const issueNumberStr = fileName.startsWith('issue-') ? fileName.substring(6) : fileName;
-        const issueNumber = parseInt(issueNumberStr, 10);
+        const issueNumber    = parseInt(issueNumberStr, 10);
 
         return {
             category: 'tickets',
@@ -685,15 +686,15 @@ async function collectPullRoutes() {
         'resources/content/pulls/**/pr-*.md',
         'resources/content/archive/pulls/**/pr-*.md'
     ], {
-        cwd    : ROOT_DIR,
-        ignore : ['**/node_modules/**']
+        cwd   : ROOT_DIR,
+        ignore: ['**/node_modules/**']
     });
 
     const pulls = files.map(file => {
-        const filePath = path.resolve(ROOT_DIR, file);
-        const fileName = path.basename(file, '.md');
+        const filePath      = path.resolve(ROOT_DIR, file);
+        const fileName      = path.basename(file, '.md');
         const pullNumberStr = fileName.startsWith('pr-') ? fileName.substring(3) : fileName;
-        const pullNumber = parseInt(pullNumberStr, 10);
+        const pullNumber    = parseInt(pullNumberStr, 10);
 
         return {
             category: 'pull-requests',
@@ -715,15 +716,15 @@ async function collectDiscussionRoutes() {
         'resources/content/discussions/**/discussion-*.md',
         'resources/content/archive/discussions/**/discussion-*.md'
     ], {
-        cwd    : ROOT_DIR,
-        ignore : ['**/node_modules/**']
+        cwd   : ROOT_DIR,
+        ignore: ['**/node_modules/**']
     });
 
     const discussions = files.map(file => {
-        const filePath = path.resolve(ROOT_DIR, file);
-        const fileName = path.basename(file, '.md');
+        const filePath            = path.resolve(ROOT_DIR, file);
+        const fileName            = path.basename(file, '.md');
         const discussionNumberStr = fileName.startsWith('discussion-') ? fileName.substring(11) : fileName;
-        const discussionNumber = parseInt(discussionNumberStr, 10);
+        const discussionNumber    = parseInt(discussionNumberStr, 10);
 
         return {
             category     : 'discussions',
@@ -903,7 +904,7 @@ export async function getSitemapXml(options={}) {
         throw new Error('getSitemapXml requires a baseUrl option to produce absolute URLs.');
     }
 
-    const allRoutes = await collectAllRoutes();
+    const allRoutes      = await collectAllRoutes();
     const filteredRoutes = allRoutes.filter(({id}) =>
         includeTopLevel || !id.startsWith('/')
     );
@@ -1057,9 +1058,9 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
         }
     }
 
-    const topLevelRoutes = allRoutes.filter(route => route.category === 'top-level');
-    const releaseRoutes  = allRoutes.filter(route => route.category === 'release-notes');
-    const ticketRoutes   = allRoutes.filter(route => route.category === 'tickets');
+    const topLevelRoutes   = allRoutes.filter(route => route.category === 'top-level');
+    const releaseRoutes    = allRoutes.filter(route => route.category === 'release-notes');
+    const ticketRoutes     = allRoutes.filter(route => route.category === 'tickets');
     const pullRoutes       = allRoutes.filter(route => route.category === 'pull-requests');
     const discussionRoutes = allRoutes.filter(route => route.category === 'discussions');
     const exampleRoutes    = allRoutes.filter(route => route.category === 'file');
@@ -1068,7 +1069,7 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
     content += `## Main Pages\n\n`;
     const topLevelUrls = topLevelRoutes.map(route => {
         // Beautify route name: /about-us -> About Us
-        const name  = route.id.substring(1).split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+        const name = route.id.substring(1).split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
         let urlStr;
         if (route.filePath && route.filePath.endsWith('.md')) {
@@ -1086,7 +1087,7 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
     if (exampleRoutes.length > 0) {
         content += `## Demo Apps and Examples\n\n`;
         const exampleUrls = exampleRoutes.map(route => {
-            const url   = new URL(route.id, baseUrl).toString();
+            const url = new URL(route.id, baseUrl).toString();
             return `- [${route.name}](${url})`;
         });
         content += exampleUrls.join('\n') + '\n\n';
@@ -1105,9 +1106,9 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
         content += `## Release Notes\n\n`;
         content += `Here you find the full history of Neo.mjs updates.\n\n`;
         const mappedUrls = releaseRoutes.map(route => {
-            const name = `v${route.version}`;
+            const name      = `v${route.version}`;
             const cleanPath = route.id.startsWith('/') ? route.id.substring(1) : route.id;
-            const urlStr = new URL(`raw/${cleanPath}.md`, baseUrl).toString();
+            const urlStr    = new URL(`raw/${cleanPath}.md`, baseUrl).toString();
             return `- [${name}](${urlStr})`;
         });
         content += mappedUrls.join('\n') + '\n\n';
@@ -1150,9 +1151,9 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
         content += `## GitHub Tickets\n\n`;
         content += `Here you find historical technical discussions and GitHub issues.\n\n`;
         const mappedUrls = ticketRoutes.map(route => {
-            const name = `Ticket #${route.issueNum}`;
+            const name      = `Ticket #${route.issueNum}`;
             const cleanPath = route.id.startsWith('/') ? route.id.substring(1) : route.id;
-            const urlStr = new URL(`raw/${cleanPath}.md`, baseUrl).toString();
+            const urlStr    = new URL(`raw/${cleanPath}.md`, baseUrl).toString();
             return `- [${name}](${urlStr})`;
         });
         content += mappedUrls.join('\n') + '\n\n';
@@ -1162,9 +1163,9 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
         content += `## GitHub Pull Requests\n\n`;
         content += `Here you find problem-to-solution records from Neo.mjs pull requests.\n\n`;
         const mappedUrls = pullRoutes.map(route => {
-            const name = `Pull Request #${route.pullNum}`;
+            const name      = `Pull Request #${route.pullNum}`;
             const cleanPath = route.id.startsWith('/') ? route.id.substring(1) : route.id;
-            const urlStr = new URL(`raw/${cleanPath}.md`, baseUrl).toString();
+            const urlStr    = new URL(`raw/${cleanPath}.md`, baseUrl).toString();
             return `- [${name}](${urlStr})`;
         });
         content += mappedUrls.join('\n') + '\n\n';
@@ -1174,9 +1175,9 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
         content += `## GitHub Discussions\n\n`;
         content += `Here you find Ideation Sandbox and architectural discussion records.\n\n`;
         const mappedUrls = discussionRoutes.map(route => {
-            const name = `Discussion #${route.discussionNum}`;
+            const name      = `Discussion #${route.discussionNum}`;
             const cleanPath = route.id.startsWith('/') ? route.id.substring(1) : route.id;
-            const urlStr = new URL(`raw/${cleanPath}.md`, baseUrl).toString();
+            const urlStr    = new URL(`raw/${cleanPath}.md`, baseUrl).toString();
             return `- [${name}](${urlStr})`;
         });
         content += mappedUrls.join('\n') + '\n\n';
@@ -1214,17 +1215,17 @@ async function runCli() {
 
     switch (format) {
         case 'array': {
-            const routes  = await getContentRoutes({basePath, includeTopLevel});
+            const routes = await getContentRoutes({basePath, includeTopLevel});
             outputContent = JSON.stringify(routes, null, 2);
             break;
         }
         case 'objects': {
-            const routes  = await getContentRouteObjects({basePath, includeTopLevel});
+            const routes = await getContentRouteObjects({basePath, includeTopLevel});
             outputContent = JSON.stringify(routes, null, 2);
             break;
         }
         case 'urls': {
-            const urls    = await getContentUrls({baseUrl, basePath, includeTopLevel});
+            const urls = await getContentUrls({baseUrl, basePath, includeTopLevel});
             outputContent = JSON.stringify(urls, null, 2);
             break;
         }

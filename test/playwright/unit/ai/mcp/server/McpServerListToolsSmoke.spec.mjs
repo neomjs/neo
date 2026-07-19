@@ -139,6 +139,12 @@ function getDefaultListedOperationIds(server) {
         return operationIds.filter(name => name !== 'ingest_source_files');
     }
 
+    if (server.name === 'memory-core') {
+        const hostedOnly = new Set(['admit_community_batch', 'get_community_source_health']);
+
+        return operationIds.filter(name => !hostedOnly.has(name))
+    }
+
     return operationIds;
 }
 
@@ -572,18 +578,18 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
 
     test('github-workflow exposes compact list descriptions plus lazy-loaded handbook detail (#13736)', async () => {
         const
-            server       = servers.find(item => item.name === 'github-workflow'),
-            {tools}      = await listTools(server),
-            byName       = Object.fromEntries(tools.map(tool => [tool.name, tool])),
-            moduleUrl    = pathToFileURL(path.join(repoRoot, server.toolServicePath)).href,
-            {callTool}   = await import(moduleUrl),
-            handbook     = await callTool('get_mcp_tool_handbook', {toolId: 'update_issue_relationship'}),
+            server         = servers.find(item => item.name === 'github-workflow'),
+            {tools}        = await listTools(server),
+            byName         = Object.fromEntries(tools.map(tool => [tool.name, tool])),
+            moduleUrl      = pathToFileURL(path.join(repoRoot, server.toolServicePath)).href,
+            {callTool}     = await import(moduleUrl),
+            handbook       = await callTool('get_mcp_tool_handbook', {toolId: 'update_issue_relationship'}),
             reviewHandbook = await callTool('get_mcp_tool_handbook', {toolId: 'manage_pr_review'}),
-            missing      = await callTool('get_mcp_tool_handbook', {toolId: 'missing_tool'}),
-            relationship = byName.update_issue_relationship,
-            conversation = byName.get_conversation,
-            review       = byName.manage_pr_review,
-            handbookTool = byName.get_mcp_tool_handbook;
+            missing        = await callTool('get_mcp_tool_handbook', {toolId: 'missing_tool'}),
+            relationship   = byName.update_issue_relationship,
+            conversation   = byName.get_conversation,
+            review         = byName.manage_pr_review,
+            handbookTool   = byName.get_mcp_tool_handbook;
 
         expect(handbookTool.description.length).toBeLessThanOrEqual(120);
         expect(handbookTool.annotations.readOnlyHint).toBe(true);

@@ -103,6 +103,29 @@ test.describe('Neo.ai.mcp.client.Client transport config', () => {
         client.destroy();
     });
 
+    test('uses an entrypoint-injected connection without mutating the shared config Provider', () => {
+        const
+            before           = JSON.stringify(ClientConfig.mcpServers),
+            connectionConfig = {
+                transportType   : 'streamable-http',
+                url             : 'http://127.0.0.1:13094/mcp',
+                transportOptions: {requestInit: {headers: {Authorization: 'Bearer transient'}}}
+            },
+            client = Neo.create(TransportConfigClient, {
+                connectionConfig,
+                serverName: 'transient-community-source'
+            });
+
+        client.loadServerConfig('transient-community-source');
+
+        expect(client.transportType).toBe('streamable-http');
+        expect(client.transportOptions).toEqual(connectionConfig.transportOptions);
+        expect(client.createTransport()).toBeInstanceOf(StreamableHTTPClientTransport);
+        expect(JSON.stringify(ClientConfig.mcpServers)).toBe(before);
+
+        client.destroy();
+    });
+
     test('creates deprecated SSE transports for legacy remote servers', () => {
         const serverName = addServerConfig({
             transportType: 'sse',

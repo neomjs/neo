@@ -23,6 +23,14 @@ import {makeOpenWorkCensusReader}    from '../../../services/github-workflow/ope
 import {synthesizeTemporalBirdView}  from '../../../services/memory-core/helpers/temporalBirdViewSynthesizer.mjs';
 import GitHubWorkflowConfig          from '../github-workflow/config.mjs';
 import MemoryCoreConfig              from './config.mjs';
+import {
+    admitCommunityBatch,
+    areHostedCommunityToolsVisible,
+    assertHostedCommunityToolAllowed,
+    getHostedCommunityBoundaryRejection,
+    getCommunitySourceHealth,
+    hostedCommunityToolNames
+} from './communityBatchTool.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
@@ -144,6 +152,7 @@ const serviceMapping = {
     // confirmation an agent can supply is not a guard. An operator path, if ever needed,
     // routes through DestructiveOperationGuard — never through tool re-exposure.
     get_all_summaries           : SummaryService         .listSummaries           .bind(SummaryService),
+    get_community_source_health : getCommunitySourceHealth,
     get_context_frontier        : MemoryService          .getContextFrontier      .bind(MemoryService),
     get_neighbors               : GraphService           .getNeighbors            .bind(GraphService),
     get_node                    : GraphService           .getNode                 .bind(GraphService),
@@ -178,6 +187,7 @@ const serviceMapping = {
     list_permissions             : PermissionService      .listPermissions         .bind(PermissionService),
     manage_wake_subscription     : WakeSubscriptionService.manage                  .bind(WakeSubscriptionService),
     record_turn_presence         : TurnPresenceService    .recordTurnPresence      .bind(TurnPresenceService),
+    admit_community_batch        : admitCommunityBatch,
     who_is_online                : WakeSubscriptionService.whoIsOnline             .bind(WakeSubscriptionService),
     purge_session                : SessionService         .purgeSession            .bind(SessionService),
     resume_session               : SessionService         .validateSessionForResume.bind(SessionService),
@@ -193,12 +203,42 @@ const toolService = Neo.create(ToolService, {
 
 const _callTool = toolService.callTool.bind(toolService);
 
+/**
+ * @summary Applies hosted-transport visibility before returning Memory Core tools/list.
+ * @param {Object} [options]
+ * @returns {{tools: Object[], nextCursor: String|undefined}}
+ */
+const listTransportVisibleTools = ({cursor=0, limit, toolProjection} = {}) => {
+    const allTools = toolService.listTools({toolProjection}).tools.filter(tool => (
+        !hostedCommunityToolNames.has(tool.name) || areHostedCommunityToolsVisible()
+    ));
+
+    if (!limit) return {tools: allTools, nextCursor: undefined};
+
+    const
+        start = Number(cursor) || 0,
+        end   = start + limit;
+
+    return {
+        tools     : allTools.slice(start, end),
+        nextCursor: end < allTools.length ? String(end) : undefined
+    }
+};
+
 const callTool = async (name, args, options = {}) => {
     const t0 = Date.now();
 
     let result, success = false, error = null;
 
     try {
+        assertHostedCommunityToolAllowed(name);
+        const boundaryRejection = getHostedCommunityBoundaryRejection(name, args);
+
+        if (boundaryRejection) {
+            result  = boundaryRejection;
+            success = true;
+            return result
+        }
         result  = await _callTool(name, args, options);
         success = true;
         return result;
@@ -217,6 +257,6 @@ const callTool = async (name, args, options = {}) => {
         });
     }
 };
-const listTools = toolService.listTools.bind(toolService);
+const listTools = listTransportVisibleTools;
 
 export {callTool, listTools, readLaneLandscapeConfig};

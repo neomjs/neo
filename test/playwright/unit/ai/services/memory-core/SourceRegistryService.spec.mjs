@@ -95,7 +95,11 @@ test.describe('Neo.ai.services.memory-core.SourceRegistryService', () => {
     });
 
     test.beforeEach(() => {
-        SourceRegistryService.db.exec('DELETE FROM mc_source_registration;');
+        SourceRegistryService.db.exec(`
+            DROP TRIGGER IF EXISTS fail_source_audit;
+            DELETE FROM mc_source_registration_audit;
+            DELETE FROM mc_source_registration;
+        `);
         // Fail-closed default: this process is NOT an explicit local-single-user deployment.
         SourceRegistryService.localSubjectId = null;
     });
@@ -130,6 +134,59 @@ test.describe('Neo.ai.services.memory-core.SourceRegistryService', () => {
         expect(reg.tenantId).toBe('local-subject');
         expect(reg.lifecycleState).toBe('REQUESTED');
         expect(reg.registrationEpoch).toBe(1);
+    });
+
+    test('the co-located operator path provisions an explicit tenant and writes an audit trail', () => {
+        const reg = SourceRegistryService.registerForTenant('tenant-a', sample, {actorId: 'deploy-operator'});
+
+        const provisioned = SourceRegistryService.transitionLifecycleForTenant(
+            'tenant-a', reg.sourceInstanceId, 'PROVISIONED', {
+                actorId      : 'deploy-operator',
+                expectedState: 'REQUESTED',
+                expectedEpoch: 1
+            }
+        );
+
+        expect(provisioned.registrationEpoch).toBe(2);
+        expect(SourceRegistryService.listAuditForTenant('tenant-a', reg.sourceInstanceId).map(event => event.action))
+            .toEqual(['REGISTERED', 'PROVISIONED']);
+    });
+
+    test('operator registration refuses credential-shaped fields before any row or audit is written', () => {
+        expect(() => SourceRegistryService.registerForTenant('tenant-a', {
+            ...sample,
+            credentialRef: 'vault://github/token'
+        }, {actorId: 'deploy-operator'})).toThrow('SOURCE_REGISTRATION_CREDENTIAL_MATERIAL_FORBIDDEN');
+
+        expect(SourceRegistryService.db.prepare('SELECT count(*) AS c FROM mc_source_registration').get().c).toBe(0);
+        expect(SourceRegistryService.db.prepare('SELECT count(*) AS c FROM mc_source_registration_audit').get().c).toBe(0);
+    });
+
+    test('an audit-write failure rolls back the operator authority mutation', () => {
+        const reg = SourceRegistryService.registerForTenant('tenant-a', sample, {actorId: 'deploy-operator'});
+
+        SourceRegistryService.db.exec(`
+            CREATE TRIGGER fail_source_audit BEFORE INSERT ON mc_source_registration_audit
+            WHEN NEW.action = 'PROVISIONED'
+            BEGIN
+                SELECT RAISE(ABORT, 'forced audit failure');
+            END;
+        `);
+
+        expect(() => SourceRegistryService.transitionLifecycleForTenant(
+            'tenant-a', reg.sourceInstanceId, 'PROVISIONED', {
+                actorId      : 'deploy-operator',
+                expectedState: 'REQUESTED',
+                expectedEpoch: 1
+            }
+        )).toThrow();
+
+        expect(SourceRegistryService.getRegistrationForTenant('tenant-a', reg.sourceInstanceId)).toMatchObject({
+            lifecycleState   : 'REQUESTED',
+            registrationEpoch: 1
+        });
+        expect(SourceRegistryService.listAuditForTenant('tenant-a', reg.sourceInstanceId).map(event => event.action))
+            .toEqual(['REGISTERED']);
     });
 
     // ---------------------------------------------------------------- isolation (AC4)
