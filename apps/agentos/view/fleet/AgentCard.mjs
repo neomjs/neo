@@ -396,12 +396,14 @@ class AgentCard extends Container {
         telltale.changeVdomRootKey('aria-label', ariaLabel);
         telltale.changeVdomRootKey('title', title);
 
-        // the source strip: ONE honest word-line; the level cls colours the ::before dot
+        // the source strip: ONE honest word-line, a PURE role=status — no ▸/disclosure affordance on a
+        // non-interactive node (the card-name drill → detail IS the disclosure route). The level cls
+        // colours the ::before dot; summary.text is a controlled literal from summarizeFleetSources.
         const strip = me.getReference('source-strip');
 
         strip.set({
             cls : ['fm-card-strip', `fm-strip-${summary.level}`],
-            html: `${summary.text} ▸`
+            html: summary.text
         });
         strip.changeVdomRootKey('aria-label', summary.ariaLabel);
 

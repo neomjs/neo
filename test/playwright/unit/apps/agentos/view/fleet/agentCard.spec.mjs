@@ -141,7 +141,7 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
               stateDot = card.down({ntype: 'fm-state-dot'});
 
         // all sources wired + observed → the honest nominal summary; the dot pulses live
-        expect(strip.html).toBe('all sources nominal ▸');
+        expect(strip.html).toBe('all sources nominal');
         expect(strip.cls).toContain('fm-strip-ok');
         expect(stateDot.state).toBe('ok');
         expect(stateDot.live).toBe(true);
@@ -156,7 +156,7 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
 
         expect(card.id).toBe(beforeId);
         expect(card.down({reference: 'source-strip'}).id).toBe(stripId);   // same instance, updated in place
-        expect(strip.html).toBe('Runtime not nominal +1 ▸');   // full word, never the RUN/REP/ROS acronym wall
+        expect(strip.html).toBe('Runtime not nominal +1');   // pure status: full word, no ▸ affordance, never the RUN/REP/ROS acronym wall
         expect(strip.cls).toContain('fm-strip-bad');
         expect(stateDot.state).toBe('off');
         expect(stateDot.live).toBe(false);
@@ -174,7 +174,7 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
             ...observedSources,
             runtime: {source: 'fleet:runtimeStatus', state: 'wired', confidence: 'inferred'}
         }});
-        expect(strip.html).toBe('all sources nominal ▸');
+        expect(strip.html).toBe('all sources nominal');
         expect(stateDot.state).toBe('ok');
         expect(stateDot.live).toBe(false);
         expect(card.down({reference: 'control-toggle'}).disabled).toBe(false);
