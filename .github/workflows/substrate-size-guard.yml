@@ -29,7 +29,7 @@ on:
       - 'package.json'
 
 concurrency:
-  group: substrate-size-guard-${{ github.ref }}
+  group: substrate-size-guard-${{ github.run_attempt == '1' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:

@@ -7,7 +7,9 @@ on:
     branches: [dev]
 
 concurrency:
-  group: tests-${{ github.workflow }}-${{ github.ref }}
+  # Initial attempts share the ref stream so new heads still supersede old work.
+  # Reruns retain their original run_id and cannot cancel a newer head (#15593).
+  group: tests-${{ github.workflow }}-${{ github.run_attempt == '1' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 
@@ -60,6 +62,42 @@ jobs:
               }
 
               return null;
+            }
+
+            async function isCurrentPullRequestHead() {
+              if (eventName !== 'pull_request') {
+                return true;
+              }
+
+              const pull = await github.rest.pulls.get({
+                owner      : context.repo.owner,
+                repo       : context.repo.repo,
+                pull_number: context.payload.pull_request.number
+              });
+              const eventHead = context.payload.pull_request.head.sha;
+              const liveHead  = pull.data.head.sha;
+
+              if (eventHead === liveHead) {
+                return true;
+              }
+
+              const reason = `stale workflow head ${eventHead}; live PR head is ${liveHead}`;
+
+              core.notice(`Skipping expensive test suites: ${reason}`);
+              core.setOutput('run_integration', 'false');
+              core.setOutput('run_unit', 'false');
+              core.setOutput('run_components', 'false');
+              core.setOutput('skip_reason', reason);
+              await core.summary
+                .addHeading('Stale workflow attempt')
+                .addRaw(`Skipped expensive test suites because ${reason}.`)
+                .write();
+
+              return false;
+            }
+
+            if (!await isCurrentPullRequestHead()) {
+              return;
             }
 
             const files = await getChangedFiles();
@@ -162,12 +200,46 @@ jobs:
             run: ${{ needs.changes.outputs.run_components }}
 
     steps:
+      # Re-run failed jobs does not re-run successful prerequisite jobs. Keep this
+      # job-local gate so an obsolete failed suite cannot consume a full runner.
+      - name: Verify current pull-request head
+        id: head
+        uses: actions/github-script@v9
+        with:
+          script: |
+            if (context.eventName !== 'pull_request') {
+              core.setOutput('current', 'true');
+              return;
+            }
+
+            const pull = await github.rest.pulls.get({
+              owner      : context.repo.owner,
+              repo       : context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+            const eventHead = context.payload.pull_request.head.sha;
+            const liveHead  = pull.data.head.sha;
+            const current   = eventHead === liveHead;
+
+            core.setOutput('current', String(current));
+
+            if (!current) {
+              const reason = `stale workflow head ${eventHead}; live PR head is ${liveHead}`;
+
+              core.notice(`Skipping expensive test suite: ${reason}`);
+              core.setOutput('skip_reason', reason);
+              await core.summary
+                .addHeading('Stale workflow attempt')
+                .addRaw(`Skipped the expensive test suite because ${reason}.`)
+                .write();
+            }
+
       - name: Checkout repository
-        if: ${{ matrix.run == 'true' }}
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
         uses: actions/checkout@v6
 
       - name: Setup Node.js
-        if: ${{ matrix.run == 'true' }}
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
         uses: actions/setup-node@v6
         with:
           node-version: '24'
@@ -179,32 +251,32 @@ jobs:
       # components suite runs browser-against-dev-server. No suite needs the
       # canonical KB artifact in CI.
       - name: Skip Knowledge Base download in prepare lifecycle
-        if: ${{ matrix.run == 'true' }}
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
         run: mkdir -p .neo-ai-data
 
       - name: Install dependencies
-        if: ${{ matrix.run == 'true' }}
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
         run: npm ci
 
       # Required for the unit-test runner per bootstrapWorktree.mjs precedent.
       # Harmless for the other suites.
       - name: Bundle parse5
-        if: ${{ matrix.run == 'true' }}
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
         run: npm run bundle-parse5
 
       # The components suite launches real Chromium against the dev server; unit and
       # integration run browserless, so browser provisioning stays scoped to this suite.
       - name: Install Playwright Chromium
-        if: ${{ matrix.run == 'true' && matrix.suite == 'components' }}
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' && matrix.suite == 'components' }}
         run: npx playwright install --with-deps chromium
 
       - name: Skip ${{ matrix.suite }} tests
-        if: ${{ matrix.run != 'true' }}
+        if: ${{ matrix.run != 'true' || steps.head.outputs.current != 'true' }}
         run: |
-          echo "${{ matrix.suite }} skipped: ${{ needs.changes.outputs.skip_reason }}"
+          echo "${{ matrix.suite }} skipped: ${{ steps.head.outputs.skip_reason || needs.changes.outputs.skip_reason }}"
 
       - name: Run ${{ matrix.suite }} tests
-        if: ${{ matrix.run == 'true' }}
+        if: ${{ matrix.run == 'true' && steps.head.outputs.current == 'true' }}
         run: npm run test-${{ matrix.suite }}
         env:
           NEO_INTEGRATION_STACK_TIMEOUT_MS: '240000'
@@ -212,7 +284,7 @@ jobs:
           NEO_TEST_SKIP_CI: ${{ matrix.suite == 'unit' && 'true' || '' }}
 
       - name: Upload test artifacts on failure
-        if: failure()
+        if: ${{ failure() && matrix.run == 'true' && steps.head.outputs.current == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: test-results-${{ matrix.suite }}-${{ github.run_id }}

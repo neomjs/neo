@@ -15,7 +15,7 @@ on:
       - '.github/workflows/check-examples-body-only.yml'
 
 concurrency:
-  group: check-examples-body-only-${{ github.ref }}
+  group: check-examples-body-only-${{ github.run_attempt == '1' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:

@@ -15,7 +15,7 @@ on:
       - '.github/workflows/check-retired-primitives.yml'
 
 concurrency:
-  group: check-retired-primitives-${{ github.ref }}
+  group: check-retired-primitives-${{ github.run_attempt == '1' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:

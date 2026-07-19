@@ -15,7 +15,7 @@ on:
       - '.github/workflows/aiconfig-test-mutation-lint.yml'
 
 concurrency:
-  group: aiconfig-test-mutation-lint-${{ github.ref }}
+  group: aiconfig-test-mutation-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
