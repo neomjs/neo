@@ -288,25 +288,7 @@ class AgentCard extends Container {
      */
     onConstructed(...args) {
         super.onConstructed(...args);
-
-        let me = this;
-
-        // Populate the narrow ⋯ menu ONCE — never per record. afterSetMenu creates a floating menuList
-        // without destroying a prior one, so a per-record re-set would leak; set once, it cannot. The
-        // item handlers close over the card and reuse the SAME controller verbs the inline buttons fire,
-        // reading the live record at click time — so the power item resolves start/stop against the
-        // current state without a dynamic re-label (the state itself is shown on the card, not the item).
-        me.getReference('control-menu').menu = [{
-            iconCls: 'fa-solid fa-power-off',
-            text   : 'Power',
-            handler: () => me.getController().onToggleLifecycle()
-        }, {
-            iconCls: 'fa-solid fa-rotate',
-            text   : 'Restart',
-            handler: () => me.getController().onLifecycleIntent({component: {action: 'restart'}})
-        }];
-
-        me.applyRecord()
+        this.applyRecord()
     }
 
     /**
@@ -443,24 +425,44 @@ class AgentCard extends Container {
             src: record.avatarUrl ?? null
         });
 
-        me.getReference('control-toggle').set({
-            disabled,
-            ariaLabel: `${recordState === 'off' ? 'Start' : 'Stop'} ${nameSlot.text}`,
-            iconCls  : recordState === 'off' ? 'fa-solid fa-play' : 'fa-solid fa-stop'
-        });
+        const
+            toggle  = me.getReference('control-toggle'),
+            restart = me.getReference('control-restart'),
+            menu    = me.getReference('control-menu');
 
-        me.getReference('control-restart').set({
-            disabled,
-            ariaLabel: `Restart ${nameSlot.text}`,
-            hidden   : recordState === 'off'
-        });
+        toggle.set({disabled, iconCls: recordState === 'off' ? 'fa-solid fa-play' : 'fa-solid fa-stop'});
+        restart.set({disabled, hidden: recordState === 'off'});
+        menu.set({disabled});
 
-        // the narrow overflow trigger names its subject like the inline verbs do; the menu it opens
-        // carries the same power+restart actions, disabled in lockstep with the inline pair
-        me.getReference('control-menu').set({
-            disabled,
-            ariaLabel: `${nameSlot.text} actions`
-        });
+        // The accessible name must reach the DOM via the vdom root: `ariaLabel` is NOT a Neo config (it
+        // maps to nothing), and these controls are icon-only (`.neo-button-text` is display:none), so the
+        // aria-label IS their only accessible name. The ⋯ trigger additionally carries aria-haspopup +
+        // live aria-expanded from button.Base#menu. The FM roster names its subject on every verb.
+        toggle.changeVdomRootKey('aria-label', `${recordState === 'off' ? 'Start' : 'Stop'} ${nameSlot.text}`);
+        restart.changeVdomRootKey('aria-label', `Restart ${nameSlot.text}`);
+        menu.changeVdomRootKey('aria-label', `${nameSlot.text} actions`);
+
+        // The ⋯ menu carries the SAME two verbs as the inline pair, CONTEXTUAL like them: the power item
+        // is Start when off / Stop when running (matching the toggle), Restart is fixed. The item handlers
+        // close over the card and reuse the shared controller verbs, reading the live record at click. The
+        // menu is set ONCE (which creates the floating menuList); thereafter the SAME menuList's items are
+        // updated in place — re-`menu`-setting would leak a fresh menuList (afterSetMenu never destroys
+        // the prior one). The state itself is shown on the card; the menu names the ACTION.
+        const menuItems = [{
+            handler: () => me.getController().onToggleLifecycle(),
+            iconCls: recordState === 'off' ? 'fa-solid fa-play' : 'fa-solid fa-stop',
+            text   : recordState === 'off' ? 'Start' : 'Stop'
+        }, {
+            handler: () => me.getController().onLifecycleIntent({component: {action: 'restart'}}),
+            iconCls: 'fa-solid fa-rotate',
+            text   : 'Restart'
+        }];
+
+        if (menu.menuList) {
+            menu.menuList.items = menuItems
+        } else {
+            menu.menu ??= menuItems
+        }
 
         // the control round-trip only — the runtime-source gating is already shown by the disabled
         // controls + the source strip ("RUN not nominal"), so the status line never duplicates it

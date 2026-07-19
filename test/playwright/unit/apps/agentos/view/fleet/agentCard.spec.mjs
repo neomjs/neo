@@ -259,9 +259,11 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         const menuButton = card.down({reference: 'control-menu'}),
               items      = menuButton.menu;
 
-        // set ONCE (onConstructed), never per record — two verbs, power first, restart second
+        // built from the initial record (off → Start), CONTEXTUAL like the inline toggle — power verb
+        // first, restart second. The live Start→Stop relabel rides the mounted menuList (async); this
+        // in-memory config carries the initial verb, and the handler below proves the LIVE state read.
         expect(Array.isArray(items)).toBe(true);
-        expect(items.map(item => item.text)).toEqual(['Power', 'Restart']);
+        expect(items.map(item => item.text)).toEqual(['Start', 'Restart']);
 
         // off → the power item resolves to START against the live record and fires the SAME B4 event
         items[0].handler();
@@ -279,8 +281,15 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         items[1].handler();
         expect(fired).toMatchObject([{action: 'restart', agentId: 'vega'}]);
 
-        // the trigger names its subject (like the inline verbs) and disables in lockstep with them
-        expect(menuButton.ariaLabel).toMatch(/ actions$/);
+        // the trigger names its subject in the DOM (aria-label on the vdom ROOT — not the no-op
+        // `ariaLabel` property) and declares itself a menu trigger; aria-expanded starts collapsed
+        expect(menuButton.vdom['aria-label']).toMatch(/ actions$/);
+        expect(menuButton.vdom['aria-haspopup']).toBe('menu');
+        expect(menuButton.vdom['aria-expanded']).toBe('false');
+
+        // the inline verbs are icon-only too, so they also carry a DOM aria-label (same mechanism)
+        expect(card.down({reference: 'control-toggle'}).vdom['aria-label']).toMatch(/^(Start|Stop) /);
+        expect(card.down({reference: 'control-restart'}).vdom['aria-label']).toMatch(/^Restart /);
 
         card.destroy()
     });
