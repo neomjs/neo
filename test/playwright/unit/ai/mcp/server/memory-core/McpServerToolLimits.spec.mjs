@@ -80,21 +80,24 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
         const metadata = tool.inputSchema.properties.harnessTargetMetadata;
 
         expect(metadata.required).toBeUndefined();
-        expect(metadata.description).toContain("not for adapter 'opencode-server'");
+        expect(metadata.description).toContain("not for adapters 'opencode-server' or 'kimi-server'");
         expect(Object.keys(metadata.properties)).toEqual(expect.arrayContaining([
             'addressType',
             'adapter',
             'appName',
             'coalesceWindow',
+            'cwd',
             'daemonSocketPath',
             'envelopePath',
             'focusSeedKey',
             'instanceAddress',
+            'lockPath',
             'tabShortcut',
             'tmuxSession',
+            'tokenPath',
             'url'
         ]));
-        expect(metadata.properties.adapter.enum).toEqual(['osascript', 'tmux', 'codex-app-server', 'opencode-server']);
+        expect(metadata.properties.adapter.enum).toEqual(['osascript', 'tmux', 'codex-app-server', 'opencode-server', 'kimi-server']);
         expect(metadata.properties.envelopePath.type).toBe('string');
         expect(metadata.properties.addressType.enum).toEqual(['userDataDir', 'pid', 'tmuxSession', 'webhookUrl']);
     });

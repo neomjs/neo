@@ -90,11 +90,12 @@ class WakeSubscriptionService extends Base {
      * Delivery-adapter identifiers accepted in `harnessTargetMetadata.adapter`. The first three
      * dispatch through GUI/CLI control planes (osascript, tmux, the Codex app-server);
      * `opencode-server` routes through the seat's embedded HTTP server via its seat envelope
-     * and is exempt from the bridge-daemon `appName` requirement.
+     * and is exempt from the bridge-daemon `appName` requirement; `kimi-server` routes through
+     * the seat's local `kimi server` REST surface via its wake envelope (same exemption).
      *
      * @protected
      */
-    validAdapters = ['osascript', 'tmux', 'codex-app-server', 'opencode-server']
+    validAdapters = ['osascript', 'tmux', 'codex-app-server', 'opencode-server', 'kimi-server']
 
     /**
      * In-memory write-through cache for sub-millisecond trigger evaluation.
@@ -1040,9 +1041,10 @@ class WakeSubscriptionService extends Base {
         if (metadata.adapter !== undefined && !this.validAdapters.includes(metadata.adapter)) {
             throw new Error(`Invalid adapter '${metadata.adapter}'. Must be one of: ${this.validAdapters.join(', ')}`);
         }
-        // The osascript-style bridge-daemon routes need an appName target; the opencode-server
-        // adapter routes by seat envelope instead and is exempt (its authority is the envelope file).
-        if (harnessTarget === 'bridge-daemon' && metadata.adapter !== 'opencode-server' && !metadata.appName) {
+        // The osascript-style bridge-daemon routes need an appName target; the opencode-server and
+        // kimi-server adapters route by seat envelope instead and are exempt (their authority is
+        // the envelope file).
+        if (harnessTarget === 'bridge-daemon' && !['opencode-server', 'kimi-server'].includes(metadata.adapter) && !metadata.appName) {
             throw new Error('Shape C (bridge-daemon) requires harnessTargetMetadata.appName.');
         }
         if (metadata.envelopePath !== undefined && typeof metadata.envelopePath !== 'string') {
