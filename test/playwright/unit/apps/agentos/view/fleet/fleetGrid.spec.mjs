@@ -207,7 +207,8 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
 
         // ...and the one affected card re-rendered its record: lane line + the B4 pending render
         const card = agentCards(grid).find(c => c.record === record);
-        expect(card.down({reference: 'card-lane'}).text).toBe('rebuilt on records');
+        // the lane renders as an inert text node under `vdom.cn` (a whole short lane), not root `.text`
+        expect(card.down({reference: 'card-lane'}).vdom.cn[0].text).toBe('rebuilt on records');
         expect(card.down({reference: 'control-verbs'}).items.every(button => button.disabled)).toBe(true);
         expect(card.down({reference: 'control-status'}).text).toBe('start…');
 
