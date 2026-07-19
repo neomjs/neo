@@ -2062,6 +2062,140 @@ test.describe('Wake Daemon', () => {
         }
     });
 
+    test('delivers wake events via kimi-server adapter without osascript fallback (#15579)', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-kimi-server';
+
+        // Stub the seat's `kimi server`: captures the sessions GET (session resolution) and the
+        // submitPrompt POST. Session candidates pin the resolution contract: freshest non-archived
+        // session rooted at the seat checkout wins.
+        const captured   = [];
+        const stubServer = http.createServer((req, res) => {
+            let body = '';
+            req.on('data', chunk => body += chunk);
+            req.on('end', () => {
+                captured.push({method: req.method, url: req.url, headers: req.headers, body});
+
+                if (req.method === 'GET' && req.url === '/api/v1/sessions') {
+                    res.writeHead(200, {'content-type': 'application/json'});
+                    res.end(JSON.stringify({code: 0, msg: 'success', data: {items: [
+                        {id: 'ses_kimi_stale', archived: false, updated_at: '2026-07-19T10:00:00.000Z', metadata: {cwd: '/seat/checkout'}},
+                        {id: 'ses_kimi_live',  archived: false, updated_at: '2026-07-19T20:00:00.000Z', metadata: {cwd: '/seat/checkout'}},
+                        {id: 'ses_other_cwd',  archived: false, updated_at: '2026-07-19T21:00:00.000Z', metadata: {cwd: '/other/checkout'}},
+                        {id: 'ses_archived',   archived: true,  updated_at: '2026-07-19T22:00:00.000Z', metadata: {cwd: '/seat/checkout'}}
+                    ]}}));
+                } else if (req.method === 'POST') {
+                    res.writeHead(200, {'content-type': 'application/json'});
+                    res.end(JSON.stringify({code: 0, msg: 'success', data: {
+                        prompt_id      : 'prompt_test',
+                        user_message_id: 'msg_test',
+                        status         : 'running',
+                        content        : []
+                    }}));
+                } else {
+                    res.writeHead(404);
+                    res.end();
+                }
+            });
+        });
+        await new Promise(resolve => stubServer.listen(0, '127.0.0.1', resolve));
+        const stubPort = stubServer.address().port;
+
+        const lockPath  = path.join(DAEMON_DIR, 'kimi-server-lock.json');
+        const tokenPath = path.join(DAEMON_DIR, 'kimi-server.token');
+        fs.writeJsonSync(lockPath, {host: '127.0.0.1', pid: 424242, port: stubPort, started_at: '2026-07-19T20:00:00.000Z'});
+        fs.writeFileSync(tokenPath, 'kimi-test-token\n');
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'kimi-server',
+                lockPath,
+                tokenPath,
+                cwd           : '/seat/checkout',
+                coalesceWindow: 1
+            }
+        });
+
+        const binDir               = path.join(DAEMON_DIR, 'bin');
+        const mockOsascriptPath    = path.join(binDir, 'osascript');
+        const mockOsascriptOutPath = path.join(DAEMON_DIR, 'mock_kimi_osascript_out.json');
+
+        fs.ensureDirSync(binDir);
+        writeMockPs(binDir);
+        fs.writeFileSync(mockOsascriptPath,
+            `#!/usr/bin/env node\n` +
+            `const fs = require('fs');\n` +
+            `fs.writeFileSync(${JSON.stringify(mockOsascriptOutPath)}, JSON.stringify(process.argv.slice(2)));\n`
+        );
+        fs.chmodSync(mockOsascriptPath, 0o755);
+
+        let stdoutLog = '';
+
+        try {
+            daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+                stdio: 'pipe',
+                env  : {
+                    ...process.env,
+                    NEO_MEMORY_DB_PATH: DB_PATH,
+                    NEO_AI_DAEMON_DIR : DAEMON_DIR,
+                    PATH              : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
+                }
+            });
+
+            const deliveryPromise = new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver kimi-server digest within timeout')), 10000);
+
+                daemonProcess.stdout.on('data', (data) => {
+                    const out = data.toString();
+                    stdoutLog += out;
+                    if (out.includes(`[Wake Dispatch] ${agentId}: outcome=delivered`)) {
+                        clearTimeout(timeout);
+                        resolve();
+                    }
+                    if (out.includes(`[Wake Daemon] Delivered ${subId} via osascript`)) {
+                        clearTimeout(timeout);
+                        reject(new Error('Daemon fell back to osascript for kimi-server route'));
+                    }
+                });
+                daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+                daemonProcess.on('error', reject);
+            });
+
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            insertMessageWake(db, {
+                agentId,
+                subject: 'Kimi Server Wake'
+            });
+
+            await deliveryPromise;
+
+            expect(captured.length).toBe(2);
+
+            const listCall = captured[0];
+            expect(listCall.method).toBe('GET');
+            expect(listCall.url).toBe('/api/v1/sessions');
+            expect(listCall.headers.authorization).toBe('Bearer kimi-test-token');
+
+            const submitCall = captured[1];
+            expect(submitCall.method).toBe('POST');
+            expect(submitCall.url).toBe('/api/v1/sessions/ses_kimi_live/prompts');
+            expect(submitCall.headers.authorization).toBe('Bearer kimi-test-token');
+
+            const payload = JSON.parse(submitCall.body);
+            expect(payload.content[0].type).toBe('text');
+            expect(payload.content[0].text).toContain('Kimi Server Wake');
+
+            expect(fs.existsSync(mockOsascriptOutPath)).toBe(false);
+            expect(stdoutLog).toContain(`[Wake Daemon] Dispatched ${subId} via kimi-server submitPrompt (session ses_kimi_live, status=running)`);
+            expect(stdoutLog).toContain(`[Wake Dispatch] ${agentId}: outcome=delivered`);
+            expect(stdoutLog).toContain('route=kimi-server; adapterSource=metadata');
+        } finally {
+            stubServer.close();
+        }
+    });
+
     test('opencode-server shares the configured attempt abort and cannot report orphan success (#15394, #15414)', async () => {
         test.setTimeout(15000);
 
