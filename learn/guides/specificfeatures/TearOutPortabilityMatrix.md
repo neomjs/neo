@@ -51,10 +51,10 @@ and passed against that same server.
 
 **Universal invariants — REQUIRED in every completed cell** (a cell's verdict is admissible only
 when its receipts assert all five): gesture continuity · same-instance permanence · JSON-only
-persisted state · exact-once commit · idempotent cleanup. The current qualified probes do NOT
-yet assert them — which is exactly why every cell below remains `NOT_YET_MEASURED`. Any
-confirmed `FAIL` on a universal invariant fires the epic's `revalidationTrigger` (reopen the
-design discussion, pause consuming implementation).
+persisted state · exact-once commit · idempotent cleanup. A completed cell names its full receipt
+below; cells whose probes do not yet assert all five remain `NOT_YET_MEASURED`. Any confirmed
+`FAIL` on a universal invariant fires the epic's `revalidationTrigger` (reopen the design
+discussion, pause consuming implementation).
 
 ## The matrix
 
@@ -66,7 +66,7 @@ design discussion, pause consuming implementation).
 | 4 | Object permanence / reintegration (same instance back) | `NOT_YET_MEASURED` ⁴ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 | 5 | Screen topology (`getScreenDetails` never a prerequisite) | `PASS_FALLBACK` ⁵ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 | 6 | Multi-window targeting (claim-protocol identity binding) | `NOT_YET_MEASURED` ⁴ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
-| 7 | Terminal cleanup (exact-once, idempotent) | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
+| 7 | Terminal cleanup (exact-once, idempotent) | `PASS_NATIVE` ⁶ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 
 Environment note: the current fleet has a qualifying **macOS** headed environment. Windows and
 Linux columns require real desktop sessions (a virtual display proves wiring, not native
@@ -153,7 +153,7 @@ requested-vs-observed park and restore coordinates, and verifies that the cover 
 focused after the source move. The worker independently proves identical CounterPane id, exact
 single remount, exact runtime window id / opaque handle, and zero transfer/local/remote double
 commit. This resolves the earlier competing-vessel false-green for this macOS journey; it does not
-mint a row verdict. Row 4 still lacks the contract's live-`data.Store` reference, rows 3/6/7 still
+mint a row verdict. Row 4 still lacks the contract's live-`data.Store` reference, rows 3/6 still
 need their complete per-row universal-invariant receipts, and Windows/Linux remain unmeasured.
 
 ⁵ Row 5 macOS — **`PASS_FALLBACK`** (2026-07-19, headed Chrome 150, 3/3 serial): the witness
@@ -170,6 +170,21 @@ JSON-only collection; detach removed the item from the tree while preserving its
 and native `window.close()` restored exactly one semantic home; all three lifecycle maps cleared,
 and repeating the same disconnect terminal made no further state change. Main-page and popup
 window error ledgers were empty in every run; SharedWorker console output was not claimed.
+
+⁶ Row 7 macOS — **`PASS_NATIVE`** (2026-07-19, headed Chrome 150, 4/4 file run): three terminal
+branches drove Demo B's real boundary-gesture surface and worker lifecycle. A committed drop
+opened one native vessel, detached exactly once, kept the same CounterPane while its mount count
+advanced `1 → 2`, treated a repeated drop terminal as a no-op, and restored exactly one semantic
+home on native close with mount count `3`; a repeated disconnect made no further state change. A
+post-birth cancel kept the document byte-equivalent, restored that same pane with mount count
+`1 → 3`, cleared every lifecycle owner/map, and treated a repeated cancel as a no-op. The blocked
+control returned `null` from a test-owned wrapper at the real browser `window.open` boundary on
+every retry: three browser calls in this run matched the worker's acquisition counter exactly,
+while the pane stayed mounted once, the model stayed unchanged, no popup existed, every owner/map
+was empty, and a repeated cancel remained a no-op. Every terminal persisted its real perspective
+writer output through a JSON round-trip; page, popup, and browser-runtime error ledgers stayed
+empty. The controlled `window.open` failure proves row 7's fail-closed cleanup only — it does NOT
+advance row 2's real popup-blocking / activation verdict.
 
 ## Per-row receipt requirements
 
