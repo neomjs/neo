@@ -191,7 +191,7 @@ class FleetCockpit extends Container {
         baseCls: ['fm-fleet-cockpit'],
         /**
          * The B4÷C2 composition root: catches each card's `lifecycleIntent` and the whole-fleet
-         * "▶ Start morning fleet" click, driving both through the C2 adapter to honest per-card
+         * "▶ Start fleet" click, driving both through the C2 adapter to honest per-card
          * round-trip state. See {@link AgentOS.view.fleet.FleetCockpitController}.
          * @member {Neo.controller.Component} controller=FleetCockpitController
          */
@@ -915,10 +915,10 @@ class FleetCockpit extends Container {
                     role     : 'status'
                 },
                 '->', {
-                    // The morning-start outcome summary — written by the controller after the
-                    // staged bring-up settles ("N started · M rejected · K excluded"; per-member
-                    // reasons ride the title). Empty + hidden until a start ran; hover reaches the
-                    // reasons — the honest summary state, no separate progress modal (the health
+                    // The fleet-start outcome summary — written by the controller after the
+                    // staged bring-up settles ("N started · U UNKNOWN · M rejected · K excluded";
+                    // per-member reasons ride the title). Empty + hidden until a start ran; hover
+                    // reaches the reasons — the honest summary state, no separate progress modal (the health
                     // bar stays the live progression surface).
                     ntype    : 'component',
                     cls      : ['fm-fleet-start-summary'],
@@ -938,7 +938,7 @@ class FleetCockpit extends Container {
                     module : Button,
                     cls    : ['fm-fleet-start'],
                     iconCls: 'fa-solid fa-play',
-                    text   : 'Start morning fleet',
+                    text   : 'Start fleet',
                     handler: 'onStartFleet'
                 }
             ]
@@ -2492,7 +2492,7 @@ class FleetCockpit extends Container {
      * becomes `agentId`; identity facts (`family` / `engineTag` / the authoritative
      * `participationStatus`) flow through (null = unclassified / tagless / no identity root,
      * never guessed); the launch-derived truths (`launchable` / `authMode`, stamped Brain-side by
-     * the roster assembler) flow through tri-state so the morning-start eligibility partition
+     * the roster assembler) flow through tri-state so the fleet-start eligibility partition
      * reads the wire, never a cockpit guess; the runtime `lifecycle.state` maps onto the
      * cockpit's session-state vocabulary only when `sources.runtime` is usable; missing /
      * not-wired / malformed source truth forces `off`, so placeholder can never render as fact.

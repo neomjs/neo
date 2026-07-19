@@ -56,7 +56,7 @@ class DockLayoutAdapter extends Base {
                 missingComponentRef: true
             },
             dockItemId: itemId,
-            header    : {text: title},
+            header    : {text: title, dockItemId: itemId},
             ntype     : 'dashboard-panel'
         }
     }
@@ -108,7 +108,14 @@ class DockLayoutAdapter extends Base {
 
         config.data       = data;
         config.dockItemId = itemId;
-        config.header     = config.header || {text: item?.title || itemId};
+        // The stamp must reach the HEADER too: tab.Container builds each header button from this
+        // object, so the button instance then carries the identity structurally — the keyboard
+        // focus path never has to map header position back into document order. (Live panes skip
+        // this decorator by design; their identity resolves through the committed document.)
+        config.header     = {
+            ...(config.header || {text: item?.title || itemId}),
+            dockItemId: itemId
+        };
 
         return config
     }

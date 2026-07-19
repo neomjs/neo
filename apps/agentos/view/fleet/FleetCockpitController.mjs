@@ -12,7 +12,7 @@ import {partitionFleetStart, renderFleetStartSummary, summarizeFleetStart} from 
  * honest per-record round-trip state, never an optimistic success:
  * - `onAgentLifecycleIntent` — catches a single card's `lifecycleIntent` (resolved up the controller
  *   chain via the card's listener) and dispatches it for that card's record.
- * - `onStartFleet` — the design SSOT §01 "▶ Start morning fleet" one-click: fans `start` out to every
+ * - `onStartFleet` — the design SSOT §01 "▶ Start fleet" one-click: fans `start` out to every
  *   rendered card, so each resident drives its own honest round-trip.
  *
  * @class AgentOS.view.fleet.FleetCockpitController
@@ -28,8 +28,32 @@ class FleetCockpitController extends Controller {
     }
 
     /**
-     * @summary The one-click morning start — the STAGED fleet bring-up: partition, cascade,
-     * honest summary.
+     * The active fleet-start batch. Repeated activations join this Promise until its summary and
+     * one roster reconciliation have settled, so a partially completed batch can never re-fan-out
+     * already-settled members or race a second summary.
+     * @member {Promise<Object>|null} startFleetPromise=null
+     * @protected
+     */
+    startFleetPromise = null
+
+    /**
+     * @summary Join the active one-click fleet-start batch, or create exactly one new batch.
+     * @returns {Promise<Object>} The one authoritative batch outcome summary.
+     */
+    onStartFleet() {
+        const me = this;
+
+        if (!me.startFleetPromise) {
+            me.startFleetPromise = me.executeStartFleetBatch().finally(() => {
+                me.startFleetPromise = null
+            })
+        }
+
+        return me.startFleetPromise
+    }
+
+    /**
+     * @summary Execute the STAGED fleet bring-up: partition, per-card cascade, honest summary.
      *
      * The cockpit owns the wire (the cards stay intent-only). The action reads the roster STORE
      * (the full fleet truth — a folded idle card is still a member) and partitions it through the
@@ -41,13 +65,14 @@ class FleetCockpitController extends Controller {
      * pending; there is no fleet-wide spinner to lie N ways at once).
      *
      * After the cascade settles, the outcome summary renders into the chrome
-     * (`fleet-start-summary`): started / rejected / excluded counts with per-member reasons
+     * (`fleet-start-summary`): started / UNKNOWN / rejected / excluded counts with per-member reasons
      * reachable from it — and the roster is re-polled ONCE so every resident that actually
      * started advances to live runtime truth ({@link #refreshRosterOnSettle}).
      * @returns {Promise<Object>} The outcome summary (see `summarizeFleetStart`) — for tests and
      *     callers; the chrome render is the operator-facing half.
+     * @protected
      */
-    async onStartFleet() {
+    async executeStartFleetBatch() {
         const
             me      = this,
             records = me.getRosterRecords(),
@@ -70,18 +95,19 @@ class FleetCockpitController extends Controller {
 
     /**
      * @summary The full roster truth for fleet-level actions: the grid store's records — a folded
-     * idle card is still a fleet member — with the rendered-cards fallback for compositions that
-     * mount the controller without the grid reference.
+     * idle card is still a fleet member. A present Store is authoritative even when empty; the
+     * rendered-cards fallback is only for compositions that mount the controller without the grid
+     * Store reference.
      * @returns {Object[]}
      */
     getRosterRecords() {
-        const storeItems = this.getReference('fleet-grid')?.store?.items;
+        const store = this.getReference('fleet-grid')?.store;
 
-        return storeItems?.length ? [...storeItems] : this.getAgentCards().map(card => card.record).filter(Boolean)
+        return store ? [...(store.items ?? [])] : this.getAgentCards().map(card => card.record).filter(Boolean)
     }
 
     /**
-     * @summary Write the morning-start outcome into the chrome summary slot: the compact counts
+     * @summary Write the fleet-start outcome into the chrome summary slot: the compact counts
      * line as the element text, the per-member reasons as its title (hover-reachable), hidden
      * again when cleared (`null` — a new run starts with no stale outcome showing).
      * @param {Object|null} summary From `summarizeFleetStart`, or null to clear.
