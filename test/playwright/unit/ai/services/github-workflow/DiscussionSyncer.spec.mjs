@@ -13,13 +13,16 @@ setup({
     }
 });
 
-import {test, expect}               from '@playwright/test';
-import Neo                          from '../../../../../../src/Neo.mjs';
-import * as core                    from '../../../../../../src/core/_export.mjs';
-import fs                           from 'fs-extra';
-import matter                       from 'gray-matter';
-import path                         from 'path';
-import {FETCH_DISCUSSIONS_FOR_SYNC} from '../../../../../../ai/services/github-workflow/queries/discussionQueries.mjs';
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
+import fs             from 'fs-extra';
+import matter         from 'gray-matter';
+import path           from 'path';
+import {
+    FETCH_DISCUSSIONS_FOR_SYNC,
+    FETCH_SINGLE_DISCUSSION_FOR_SYNC
+} from '../../../../../../ai/services/github-workflow/queries/discussionQueries.mjs';
 
 test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
     let aiConfig;
@@ -108,6 +111,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         expect(content).toMatch(/^routingDispositionSchemaVersion: discussion-routing-disposition\.v1$/m);
         expect(content).toMatch(/^routingDisposition: undetermined$/m);
         expect(content).toMatch(/^routingDispositionReason: untrusted-or-unclassified-root-author$/m);
+        expect(content).toMatch(/^conversationComplete: true$/m);
     });
 
     test('COMPLETE-membership red-proof: a new discussion ranks PAST the marooned on-disk backlog into chunk-2 (#15452)', async () => {
@@ -220,6 +224,88 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         const answerFlagMatches = FETCH_DISCUSSIONS_FOR_SYNC.match(/\bisAnswer\b/g) || [];
 
         expect(answerFlagMatches).toHaveLength(2);
+    });
+
+    test('bulk and force-refetch queries carry the same nested exhaustion evidence', () => {
+        for (const query of [FETCH_DISCUSSIONS_FOR_SYNC, FETCH_SINGLE_DISCUSSION_FOR_SYNC]) {
+            expect(query.match(/\btotalCount\b/g)).toHaveLength(2);
+            expect(query.match(/\bendCursor\b/g)).toHaveLength(query === FETCH_DISCUSSIONS_FOR_SYNC ? 3 : 2);
+            expect(query.match(/\bhasNextPage\b/g)).toHaveLength(query === FETCH_DISCUSSIONS_FOR_SYNC ? 3 : 2)
+        }
+    });
+
+    test('persists explicit incompleteness when the top-level comment connection is capped', async () => {
+        const discussion = buildDiscussion(24009, {
+            comments: {
+                nodes     : Array.from({length: 50}, (_, index) => ({
+                    author   : {login: 'neo-test'},
+                    body     : `Comment ${index}`,
+                    createdAt: `2026-05-02T01:${String(index).padStart(2, '0')}:00Z`,
+                    replies  : {nodes: [], totalCount: 0, pageInfo: {hasNextPage: false, endCursor: null}}
+                })),
+                totalCount: 51,
+                pageInfo  : {hasNextPage: true, endCursor: 'comment-50'}
+            }
+        });
+
+        GraphqlService.query = async () => ({
+            repository: {discussions: {nodes: [discussion], pageInfo: {hasNextPage: false, endCursor: null}}}
+        });
+
+        await DiscussionSyncer.syncDiscussions({discussions: {}});
+
+        const parsed = matter(await fs.readFile(
+            path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-24009.md'),
+            'utf8'
+        ));
+
+        expect(parsed.data).toMatchObject({
+            conversationComplete            : false,
+            conversationCommentCountObserved: 50,
+            conversationCommentCountTotal   : 51,
+            conversationReplyCountObserved  : 0,
+            conversationReplyCountTotal     : null
+        })
+    });
+
+    test('persists explicit incompleteness when a nested reply connection is capped', async () => {
+        const discussion = buildDiscussion(24010, {
+            comments: {
+                nodes: [{
+                    author   : {login: 'neo-test'},
+                    body     : 'Parent comment',
+                    createdAt: '2026-05-02T01:00:00Z',
+                    replies  : {
+                        nodes: Array.from({length: 20}, (_, index) => ({
+                            author   : {login: 'neo-test'},
+                            body     : `Reply ${index}`,
+                            createdAt: `2026-05-02T02:${String(index).padStart(2, '0')}:00Z`
+                        })),
+                        totalCount: 21,
+                        pageInfo  : {hasNextPage: true, endCursor: 'reply-20'}
+                    }
+                }]
+            }
+        });
+
+        GraphqlService.query = async () => ({
+            repository: {discussions: {nodes: [discussion], pageInfo: {hasNextPage: false, endCursor: null}}}
+        });
+
+        await DiscussionSyncer.syncDiscussions({discussions: {}});
+
+        const parsed = matter(await fs.readFile(
+            path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-24010.md'),
+            'utf8'
+        ));
+
+        expect(parsed.data).toMatchObject({
+            conversationComplete            : false,
+            conversationCommentCountObserved: 1,
+            conversationCommentCountTotal   : 1,
+            conversationReplyCountObserved  : 20,
+            conversationReplyCountTotal     : 21
+        })
     });
 
     test('marks accepted Q&A comments with a parseable answer callout', async () => {
@@ -675,7 +761,10 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         await expect(fs.pathExists(targetPath)).resolves.toBe(true);
 
         const parsed = matter(await fs.readFile(targetPath, 'utf8'));
-        expect(parsed.data.number).toBe(discussionNumber);
+        expect(parsed.data).toMatchObject({
+            number              : discussionNumber,
+            conversationComplete: true
+        });
 
         // Metadata refreshed with the live hash (no longer the stale one) + the resolved path.
         expect(metadata.discussions[discussionNumber].contentHash).not.toBe('STALE-HASH');
@@ -703,6 +792,21 @@ function buildDiscussion(number, config = {}) {
         comments = {nodes: []}
     } = config;
 
+    const normalizedComments = {
+        ...comments,
+        nodes     : (comments.nodes || []).map(comment => ({
+            ...comment,
+            replies: {
+                ...(comment.replies || {}),
+                nodes     : comment.replies?.nodes || [],
+                totalCount: comment.replies?.totalCount ?? comment.replies?.nodes?.length ?? 0,
+                pageInfo  : comment.replies?.pageInfo || {hasNextPage: false, endCursor: null}
+            }
+        })),
+        totalCount: comments.totalCount ?? comments.nodes?.length ?? 0,
+        pageInfo  : comments.pageInfo || {hasNextPage: false, endCursor: null}
+    };
+
     return {
         number,
         title    : `Discussion ${number}`,
@@ -713,6 +817,6 @@ function buildDiscussion(number, config = {}) {
         category : {name: category},
         createdAt: '2026-05-01T00:00:00Z',
         updatedAt: '2026-05-02T00:00:00Z',
-        comments
+        comments : normalizedComments
     };
 }
