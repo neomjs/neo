@@ -261,21 +261,29 @@ If `bound` is false, verify in order:
 
 1. `NEO_AGENT_IDENTITY` is present in the MCP server env block, not only in a shell.
 2. The `@<login>` node exists in `ai/graph/identityRoots.mjs`.
-3. `node ai/scripts/setup/seedAgentIdentities.mjs` has run against the active Memory
-   Core graph path.
-4. The harness was restarted after seeding.
+3. The checkout that owns the active Memory Core deployment has pulled merged `dev`.
+4. `node ai/scripts/setup/seedAgentIdentities.mjs` has run against that deployment's graph path.
+5. The Memory Core server was restarted after the pull and seed.
+6. `get_node({id: '@<login>', projection: 'full'})` and `who_is_online({verbose: true})`
+   both report the merged `participationStatus`.
+
+Ordinary Memory Core boot only provisions missing roots. It intentionally does not overwrite an
+existing identity, because a stale MCP checkout must never rewind newer operator/activation state.
+Merged identity changes therefore use the explicit pull → seed → restart → full-node/liveness gate.
 
 ## Bring Up The Team
 
 Provision teammates incrementally:
 
 1. Add one identity root.
-2. Seed the graph.
-3. Bind one harness with `NEO_AGENT_IDENTITY`.
-4. Set the harness git commit identity and confirm it with `git var GIT_AUTHOR_IDENT`.
-5. Verify `healthcheck.identity.bound`.
-6. Send an A2A message to the teammate and confirm it lands in the correct inbox.
-7. Repeat for the next teammate.
+2. Merge the roster/activation change and pull `dev` in the owning Memory Core runtime checkout.
+3. Run `node ai/scripts/setup/seedAgentIdentities.mjs`, then restart Memory Core.
+4. Verify the full identity node and verbose liveness projection agree with the merged status.
+5. Bind one harness with `NEO_AGENT_IDENTITY`.
+6. Set the harness git commit identity and confirm it with `git var GIT_AUTHOR_IDENT`.
+7. Verify `healthcheck.identity.bound`.
+8. Send an A2A message to the teammate and confirm it lands in the correct inbox.
+9. Repeat for the next teammate.
 
 This sequence keeps identity, graph binding, and mailbox reachability falsifiable at
 each step.

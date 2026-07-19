@@ -180,28 +180,12 @@ class GraphService extends Base {
 
                 // --- 2. AGENT IDENTITY SUBSTRATE SEEDING ---
                 // Eliminates the "seed → restart-again" recovery loop for fresh local setups.
-                // Auto-provision identity roots at boot so bindAgentIdentity doesn't throw on fresh setups.
+                // Ordinary boot is additive-only: a stale process may provision a missing root, but
+                // must never replay its process-local registry over an existing graph identity.
+                // Intentional canonical updates belong to seedAgentIdentities.mjs after the owning
+                // runtime checkout has pulled the merged registry.
                 try {
-                    for (const identity of IDENTITIES) {
-                        // We use getAdjacentNodes as a trigger for lazy-loading into the cache
-                        this.db.getAdjacentNodes(identity.id, 'both');
-
-                        if (!this.db.nodes.has(identity.id)) {
-                            this.upsertGlobalNode(identity);
-                        } else {
-                            // Defensive createdAt retention: Peek SQLite to preserve original timestamp
-                            const row = storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(identity.id);
-                            if (row) {
-                                const rawData = JSON.parse(row.data);
-                                if (rawData.properties?.createdAt) {
-                                    const preserved = {...identity, properties: {...identity.properties, createdAt: rawData.properties.createdAt}};
-                                    this.upsertGlobalNode(preserved);
-                                    continue;
-                                }
-                            }
-                            this.upsertGlobalNode(identity);
-                        }
-                    }
+                    this.provisionMissingIdentityRoots();
                 } catch (error) {
                     logger.warn(`[GraphService] Non-fatal DB contention during Identity Substrate seed: ${error.message}`);
                 }
@@ -218,6 +202,34 @@ class GraphService extends Base {
         })();
 
         await this._initPromise;
+    }
+
+    /**
+     * @summary Add canonical AgentIdentity and BroadcastSentinel roots that are absent from the
+     * mounted graph, without rewriting records already owned by the persisted projection.
+     *
+     * This is the ordinary-boot half of the identity write-authority split. Existing records may
+     * contain a newer activation state, operator provenance, or runtime-added properties than the
+     * process-local registry snapshot. Leaving them byte-stable prevents a stale MCP checkout from
+     * making identity state last-boot-wins. Intentional registry updates remain the responsibility
+     * of `ai/scripts/setup/seedAgentIdentities.mjs`.
+     * @param {Object[]} [identities=IDENTITIES] Canonical roots to provision when missing.
+     * @returns {Number} Number of roots created during this pass.
+     */
+    provisionMissingIdentityRoots(identities = IDENTITIES) {
+        let created = 0;
+
+        for (const identity of identities) {
+            // Trigger the cache-coherent SQLite lazy load before deciding the root is absent.
+            this.db.getAdjacentNodes(identity.id, 'both');
+
+            if (!this.db.nodes.has(identity.id)) {
+                this.upsertGlobalNode(identity);
+                created++;
+            }
+        }
+
+        return created;
     }
 
     /**

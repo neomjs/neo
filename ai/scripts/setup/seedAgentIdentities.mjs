@@ -1,11 +1,14 @@
 /**
  * Operational Context:
- * Idempotent recovery tool. In healthy operation, this script runs exactly once — at initial Memory
- * Core provisioning — and the seeded nodes persist for the lifetime of the graph. If you find yourself
- * needing to re-run it, something upstream wiped the AgentIdentity nodes; the known hazard is
- * test-pollution via the :memory: override leak in MailboxService.spec.mjs / PermissionService.spec.mjs
- * (see "Test pollution hazard" section in learn/agentos/IdentitySchema.md). Re-seeding is safe —
- * existing createdAt is preserved — but the upstream cause should be fixed rather than masked.
+ * Explicit canonical projection tool. Run it once for initial Memory Core provisioning and again
+ * after an intentional merged change to `identityRoots.mjs` (activation/status flip, naming fact,
+ * or schema-backed capability update). The owning runtime checkout MUST pull the merged revision
+ * before invoking this script; otherwise the operator would intentionally project stale registry
+ * data. Ordinary GraphService boot is additive-only and never rewrites an existing identity.
+ *
+ * Re-seeding is idempotent and preserves the persisted `createdAt`. If identities disappeared
+ * without an intentional registry change, investigate the upstream wipe (the historical hazard is
+ * test-pollution via the :memory: override leak described in learn/agentos/IdentitySchema.md).
  *
  * @summary Seeds initial system, AgentIdentity, and BroadcastSentinel nodes into the Neo.mjs Memory Core Native Graph.
  *
@@ -28,27 +31,44 @@
  * to prevent silent wipes during idle or fresh Memory Core states prior to their first activity edges.
  *
  * Idempotent re-run is safe: existing nodes preserve their original `createdAt` via the defensive
- * SQLite peek below; new properties merge on top.
+ * SQLite peek below; canonical properties update and runtime-added properties remain merged.
  *
  * Usage: node ai/scripts/setup/seedAgentIdentities.mjs
  */
 
-import { Memory_GraphService } from '../../services.mjs';
-import { IDENTITIES }          from '../../graph/identityRoots.mjs';
+import path            from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {IDENTITIES}    from '../../graph/identityRoots.mjs';
 
-async function seed() {
-    console.log('Awaiting Memory Graph Service readiness...');
-    await Memory_GraphService.ready();
+const __filename = fileURLToPath(import.meta.url);
 
-    console.log('Seeding Agent Identities...');
+/**
+ * @summary Intentionally project the current canonical identity registry into one Memory Core
+ * graph while preserving each existing root's original creation provenance.
+ * @param {Object} [options]
+ * @param {Object} [options.graphService] Injectable GraphService; defaults lazily to the configured
+ * Memory Core service so importing this module in a unit test never mounts production storage.
+ * @param {Object[]} [options.identities=IDENTITIES] Registry entries to project.
+ * @param {Function} [options.log=console.log] Progress sink.
+ * @returns {Promise<Number>} Number of identity roots processed.
+ */
+export async function seedAgentIdentities({graphService, identities = IDENTITIES, log = console.log} = {}) {
+    if (!graphService) {
+        ({Memory_GraphService: graphService} = await import('../../services.mjs'));
+    }
+
+    log('Awaiting Memory Graph Service readiness...');
+    await graphService.ready();
+
+    log('Seeding Agent Identities...');
     let seededCount = 0;
 
-    for (const identity of IDENTITIES) {
-        const existing = Memory_GraphService.getNode({ id: identity.id });
+    for (const identity of identities) {
+        const existing = graphService.getNode({id: identity.id});
 
         if (!existing) {
-            Memory_GraphService.upsertNode(identity);
-            console.log(`Created AgentIdentity: ${identity.id}`);
+            graphService.upsertNode(identity);
+            log(`Created AgentIdentity: ${identity.id}`);
         } else {
             // Defensive `createdAt` retention logic:
             // We peek directly at the raw SQLite `Nodes` table to check if the existing node has a `createdAt` timestamp.
@@ -56,9 +76,9 @@ async function seed() {
             // If `upsertNode` semantics ever change to 'preserve existing properties if not in update payload',
             // this manual peek could be refactored or removed.
             let hasCreatedAt = false;
-            if (Memory_GraphService.db && Memory_GraphService.db.storage) {
-                const stmt = Memory_GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?');
-                const row = stmt.get(identity.id);
+            if (graphService.db?.storage) {
+                const stmt = graphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?');
+                const row  = stmt.get(identity.id);
                 if (row && row.data) {
                     try {
                         const parsed = JSON.parse(row.data);
@@ -75,17 +95,29 @@ async function seed() {
             }
 
             const updatedIdentity = { ...identity, properties: propertiesToUpdate };
-            Memory_GraphService.upsertNode(updatedIdentity);
-            console.log(`Updated AgentIdentity (${hasCreatedAt ? 'retained original' : 'added new'} createdAt): ${identity.id}`);
+            graphService.upsertNode(updatedIdentity);
+            log(`Updated AgentIdentity (${hasCreatedAt ? 'retained original' : 'added new'} createdAt): ${identity.id}`);
         }
         seededCount++;
     }
 
-    console.log(`Successfully processed ${seededCount} identities in the native graph.`);
+    log(`Successfully processed ${seededCount} identities in the native graph.`);
+
+    return seededCount;
+}
+
+/**
+ * @summary Run the explicit projection as a one-shot CLI and preserve its historical process exit.
+ * @returns {Promise<void>}
+ */
+async function main() {
+    await seedAgentIdentities();
     process.exit(0);
 }
 
-seed().catch(err => {
-    console.error('Failed to seed AgentIdentities:', err);
-    process.exit(1);
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+    main().catch(err => {
+        console.error('Failed to seed AgentIdentities:', err);
+        process.exit(1);
+    });
+}

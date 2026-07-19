@@ -24,14 +24,16 @@ import {normalizeAgentIdentityNodeId}                 from '../../graph/normaliz
  *   3. `roster`  — PRINT the roster-generator invocation. The roster PR + its cross-family
  *      review IS the membership ceremony; this script never writes committed files.
  *
- * **The operator gate (printed, never automated):** merge the roster PR, pull, and restart the
- * Memory Core server — boot seeding materializes the resident's `AgentIdentity` node (with its
- * `subscriptionTemplate`) from the committed roster; the peer's FIRST boot then materializes the
- * wake route itself via the wake-subscription `bootstrap` action from the real boot envelope.
+ * **The operator gate (printed, never automated):** merge the roster PR, pull the owning Memory
+ * Core runtime checkout, explicitly project the merged identity registry, and restart the server.
+ * Ordinary boot only materializes missing roots; the explicit seed owns intentional status/fact
+ * updates. The peer's FIRST boot then materializes the wake route itself via the wake-subscription
+ * `bootstrap` action from the real boot envelope.
  *
  * **Phase B — after the gate (launch):**
- *   4. `preflight` — verify the roster entry exists on merged `origin/dev` AND the graph node is
- *      seeded (read-only probe). Refuse with the exact missing operator step named.
+ *   4. `preflight` — verify the roster entry exists on merged `origin/dev` AND the graph's full
+ *      identity projection carries the same `participationStatus` (read-only probe). Refuse with
+ *      the exact pull → seed → full-node/liveness verification sequence named.
  *   5. `launch`    — `FleetManager.startAgent(id)` (provision-then-start, supervised child in
  *      its isolated instance home via the curated per-family template).
  *   6. `auth`      — use the long-lived lifecycle owner's auth-mode/status projection to hand off
@@ -76,13 +78,28 @@ export const CURATED_HARNESS_TYPES = LAUNCHABLE_HARNESS_TYPES;
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
 
 /**
- * @summary Parse the merged roster source without executing it and return only literal ids from
- * the canonical exported `IDENTITIES` array. AST parsing makes comments and unrelated strings
- * inert; a missing/non-literal authority shape fails closed rather than guessing membership.
- * @param {String} source The `origin/dev:ai/graph/identityRoots.mjs` source text.
- * @returns {Set<String>} Literal identity ids declared by the exported roster array.
+ * @summary Return a named property from an object-expression node without executing source.
+ * @param {Object} objectExpression Acorn ObjectExpression node.
+ * @param {String} name Property name.
+ * @returns {Object|undefined} Matching Acorn Property node.
  */
-function parseIdentityRootIds(source) {
+function getObjectProperty(objectExpression, name) {
+    return objectExpression?.type === 'ObjectExpression'
+        ? objectExpression.properties.find(property => property.type === 'Property'
+            && !property.computed
+            && (property.key?.name === name || property.key?.value === name))
+        : undefined
+}
+
+/**
+ * @summary Parse the merged roster source without executing it and return the literal identity
+ * facts needed by the onboarding gate. AST parsing makes comments, spreads, computed properties,
+ * and unrelated strings inert; a missing/non-literal authority shape fails closed rather than
+ * guessing membership or lifecycle state.
+ * @param {String} source The `origin/dev:ai/graph/identityRoots.mjs` source text.
+ * @returns {Map<String, {id: String, participationStatus: String|null}>} Literal identity facts.
+ */
+function parseIdentityRoots(source) {
     const ast = acorn.parse(String(source), {ecmaVersion: 'latest', sourceType: 'module'});
 
     let identities;
@@ -102,35 +119,42 @@ function parseIdentityRootIds(source) {
         throw new Error('merged roster must export IDENTITIES as a literal array');
     }
 
-    const ids = new Set();
+    const roots = new Map();
 
     for (const element of identities.elements) {
         if (element?.type !== 'ObjectExpression') continue;
 
-        const idProperty = element.properties.find(property => property.type === 'Property'
-            && !property.computed
-            && (property.key?.name === 'id' || property.key?.value === 'id'));
+        const
+            idProperty         = getObjectProperty(element, 'id'),
+            propertiesProperty = getObjectProperty(element, 'properties'),
+            statusProperty     = getObjectProperty(propertiesProperty?.value, 'participationStatus'),
+            id                 = idProperty?.value?.type === 'Literal' ? idProperty.value.value : null,
+            statusValue        = statusProperty?.value?.type === 'Literal' ? statusProperty.value.value : null;
 
-        if (idProperty?.value?.type === 'Literal' && typeof idProperty.value.value === 'string') {
-            ids.add(idProperty.value.value);
+        if (typeof id === 'string') {
+            roots.set(id, {
+                id,
+                participationStatus: typeof statusValue === 'string' ? statusValue : null
+            });
         }
     }
 
-    return ids
+    return roots
 }
 
 /**
- * @summary Verify membership against the merged roster authority (`origin/dev`), never the
- * conductor's current feature-branch worktree. This keeps Phase B locked until the ceremony PR
- * actually merged and the operator refreshed the remote-tracking ref. Git is invoked shell-free;
- * failures refuse instead of silently treating stale or unavailable authority as membership.
+ * @summary Read one resident's literal identity facts from the merged roster authority
+ * (`origin/dev`), never the conductor's current feature-branch worktree. This keeps Phase B locked
+ * until the ceremony/status PR actually merged and the operator refreshed the remote-tracking ref.
+ * Git is invoked shell-free; failures refuse instead of silently treating stale or unavailable
+ * authority as membership.
  * @param {Object} options
  * @param {String} options.residentId Normalized resident handle.
  * @param {String} [options.repoRoot] Repository working directory.
  * @param {Function} [options.execFileImpl] Injectable `execFileSync` seam.
- * @returns {Boolean} Whether the merged roster contains the exact resident id.
+ * @returns {{id: String, participationStatus: String|null}|null} Merged identity facts or null.
  */
-export function originDevRosterHasResident({residentId, repoRoot = REPO_ROOT, execFileImpl = execFileSync} = {}) {
+export function originDevRosterIdentity({residentId, repoRoot = REPO_ROOT, execFileImpl = execFileSync} = {}) {
     const normalized = normalizeToken(residentId, 'residentId');
 
     if (!normalized.valid) {
@@ -148,15 +172,24 @@ export function originDevRosterHasResident({residentId, repoRoot = REPO_ROOT, ex
         throw new Error("onboardPeer: cannot verify the merged roster at origin/dev; run 'git fetch origin dev' and re-run", {cause: error});
     }
 
-    let ids;
+    let roots;
 
     try {
-        ids = parseIdentityRootIds(source)
+        roots = parseIdentityRoots(source)
     } catch (error) {
         throw new Error('onboardPeer: cannot parse the merged identity roster at origin/dev; refresh the ref and re-run', {cause: error});
     }
 
-    return ids.has(normalizeAgentIdentityNodeId(normalized.token))
+    return roots.get(normalizeAgentIdentityNodeId(normalized.token)) ?? null
+}
+
+/**
+ * @summary Verify exact resident membership against the merged `origin/dev` roster authority.
+ * @param {Object} options See {@link originDevRosterIdentity}.
+ * @returns {Boolean} Whether the merged roster contains the exact resident id.
+ */
+export function originDevRosterHasResident(options = {}) {
+    return Boolean(originDevRosterIdentity(options))
 }
 
 /**
@@ -306,8 +339,9 @@ export function buildOnboardingIntent(options = {}) {
  * current phase and the exact per-segment delta. Facts arrive observed (the CLI gathers them;
  * tests inject them) so the planner stays side-effect-free: `agent` (the registry's public
  * definition, or null), `rosterHasResident` (the merged `origin/dev` roster),
- * `graphNodeSeeded` (read-only graph probe; `null` = no graph reachable), and `running` /
- * `authRequired` (lifecycle status).
+ * `expectedParticipationStatus` (literal merged-roster status), `graphNodeSeeded` and
+ * `graphParticipationStatus` (read-only graph probe; `null` reachability remains explicit), and
+ * `running` / `authRequired` (lifecycle status).
  * @param {Object} options
  * @param {Object} options.intent A valid intent from {@link buildOnboardingIntent}
  * @param {Object} options.facts Observed facts as described above
@@ -315,9 +349,11 @@ export function buildOnboardingIntent(options = {}) {
  */
 export function planOnboarding({intent, facts = {}} = {}) {
     const
-        segments = [],
-        push     = (key, action, detail) => segments.push({key, action, detail}),
-        agent    = facts.agent ?? null;
+        segments            = [],
+        push                = (key, action, detail) => segments.push({key, action, detail}),
+        agent               = facts.agent ?? null,
+        identityNodeId      = normalizeAgentIdentityNodeId(intent.residentId),
+        statusGateRequested = Object.hasOwn(facts, 'expectedParticipationStatus');
 
     // --- Phase A segments (always evaluated: re-runs report EXISTS honestly) -----------------
     if (!agent) {
@@ -357,7 +393,7 @@ export function planOnboarding({intent, facts = {}} = {}) {
         return {
             phase      : 'A',
             segments,
-            gateMessage: `'${intent.residentId}' is not in the merged origin/dev roster. Next: run the roster generator above on a feature branch, open the PR (the cross-family-reviewed membership ceremony), merge it, pull/fetch origin/dev, restart the Memory Core server (boot seeding creates the identity node + wake template), then re-run this command.`
+            gateMessage: `'${intent.residentId}' is not in the merged origin/dev roster. Next: run the roster generator above on a feature branch, open the PR (the cross-family-reviewed membership ceremony), and merge it. In the owning Memory Core runtime checkout run 'git switch dev', 'git pull --ff-only origin dev', then 'node ai/scripts/setup/seedAgentIdentities.mjs', restart the Memory Core server, and re-run this command. The gate stays closed until get_node({id:'${identityNodeId}', projection:'full'}) and who_is_online({verbose:true}) both report the merged participationStatus.`
         }
     }
 
@@ -369,13 +405,28 @@ export function planOnboarding({intent, facts = {}} = {}) {
     if (facts.graphNodeSeeded !== true) {
         push('preflight', 'REFUSE',
             facts.graphNodeSeeded === false
-                ? `roster entry present but the graph carries no '${intent.residentId}' AgentIdentity node — restart the Memory Core server so boot seeding materializes it, then re-run`
+                ? `roster entry present but the graph carries no '${identityNodeId}' AgentIdentity node — in the owning Memory Core runtime checkout run 'git switch dev', 'git pull --ff-only origin dev', then 'node ai/scripts/setup/seedAgentIdentities.mjs', restart Memory Core, and re-run; unverifiable identity state never reaches launch`
                 : 'the configured Memory Core graph is not reachable read-only — start or reconnect the owning Memory Core server and re-run; unverifiable identity state never reaches launch');
 
         return {phase: 'B', segments, gateMessage: null}
     }
 
-    push('preflight', 'OK', `roster entry + seeded '${intent.residentId}' AgentIdentity node verified`);
+    if (statusGateRequested && typeof facts.expectedParticipationStatus !== 'string') {
+        push('preflight', 'REFUSE', `merged origin/dev carries no literal participationStatus for '${identityNodeId}' — refresh/reconcile the roster authority; lifecycle state is never guessed`);
+
+        return {phase: 'B', segments, gateMessage: null}
+    }
+
+    if (statusGateRequested && facts.graphParticipationStatus !== facts.expectedParticipationStatus) {
+        push('preflight', 'REFUSE',
+            `merged origin/dev expects '${identityNodeId}' participationStatus '${facts.expectedParticipationStatus}', but the graph projects '${facts.graphParticipationStatus ?? 'missing'}' — in the owning Memory Core runtime checkout run 'git switch dev', 'git pull --ff-only origin dev', then 'node ai/scripts/setup/seedAgentIdentities.mjs', restart Memory Core, and re-run. The gate stays closed until get_node({id:'${identityNodeId}', projection:'full'}) and who_is_online({verbose:true}) both report '${facts.expectedParticipationStatus}'`);
+
+        return {phase: 'B', segments, gateMessage: null}
+    }
+
+    push('preflight', 'OK', statusGateRequested
+        ? `merged roster + full '${identityNodeId}' graph projection agree on participationStatus '${facts.expectedParticipationStatus}'`
+        : `roster entry + seeded '${identityNodeId}' AgentIdentity node verified`);
 
     push('launch', facts.running ? 'EXISTS' : 'CREATE',
         facts.running
@@ -627,16 +678,32 @@ async function main() {
         fleet.fleetRuntimeStatus()
     ]);
 
-    // Read-only graph probe: absent file / absent node are DISTINCT facts (null = unverifiable).
-    let   graphNodeSeeded = null;
-    const graphPath       = memoryCoreConfig.storagePaths.graph;
+    const rosterIdentity = originDevRosterIdentity({residentId: intent.residentId});
+
+    // Read-only full-node probe: absent file / absent node / malformed projection are DISTINCT
+    // facts. The planner compares persisted lifecycle truth with the exact merged roster record.
+    let
+        graphNodeSeeded          = null,
+        graphParticipationStatus = null;
+    const graphPath = memoryCoreConfig.storagePaths.graph;
 
     if (typeof graphPath === 'string' && graphPath !== ':memory:' && existsSync(graphPath)) {
         const {default: Database} = await import('better-sqlite3');
         const sqlite              = new Database(graphPath, {readonly: true});
 
         try {
-            graphNodeSeeded = Boolean(sqlite.prepare('SELECT id FROM Nodes WHERE id = ? LIMIT 1').get(normalizeAgentIdentityNodeId(intent.residentId)));
+            const row = sqlite.prepare('SELECT data FROM Nodes WHERE id = ? LIMIT 1').get(normalizeAgentIdentityNodeId(intent.residentId));
+
+            graphNodeSeeded = Boolean(row);
+
+            if (row?.data) {
+                try {
+                    graphParticipationStatus = JSON.parse(row.data).properties?.participationStatus ?? null;
+                } catch {
+                    // Malformed persisted identity data is unverifiable, never launchable.
+                    graphNodeSeeded = null;
+                }
+            }
         } finally {
             sqlite.close();
         }
@@ -644,10 +711,12 @@ async function main() {
 
     const facts = {
         agent,
-        rosterHasResident: originDevRosterHasResident({residentId: intent.residentId}),
+        rosterHasResident          : Boolean(rosterIdentity),
+        expectedParticipationStatus: rosterIdentity?.participationStatus ?? null,
         graphNodeSeeded,
-        running          : Boolean(runtimeRows.find(row => row.agentId === intent.agentId)?.running),
-        authRequired     : null
+        graphParticipationStatus,
+        running                    : Boolean(runtimeRows.find(row => row.agentId === intent.agentId)?.running),
+        authRequired               : null
     };
 
     const plan = planOnboarding({intent, facts});

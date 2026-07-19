@@ -1045,6 +1045,67 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         expect(broadcast.type).toBe('BroadcastSentinel');
     });
 
+    test('boot provisioning adds missing identity roots without rewriting persisted state (#15431)', () => {
+        const
+            existingId       = '@boot-existing',
+            missingId        = '@boot-missing',
+            persistedCreated = '2026-07-19T19:15:34.000Z';
+
+        // Simulate a graph projection that is newer than this process-local registry snapshot.
+        // Writing through storage keeps the falsifier on the persisted authority, not RAM alone.
+        GraphService.db.storage.addNodes([{
+            id        : existingId,
+            label     : 'AgentIdentity',
+            properties: {
+                createdAt          : persistedCreated,
+                displayName        : 'Persisted Iris',
+                participationStatus: 'active',
+                runtimeWitness     : 'must-survive'
+            }
+        }]);
+
+        GraphService.db.nodes.clearSilent();
+        GraphService.db.vicinityLoadedNodes.delete(existingId);
+
+        const before  = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(existingId).data;
+        const created = GraphService.provisionMissingIdentityRoots([{
+            id        : existingId,
+            type      : 'AgentIdentity',
+            name      : 'Stale local identity',
+            properties: {
+                createdAt          : '2026-07-19T09:40:49.000Z',
+                displayName        : 'Neo Kimi Iris',
+                participationStatus: 'temporarily_unreachable'
+            }
+        }, {
+            id        : missingId,
+            type      : 'AgentIdentity',
+            name      : 'Fresh identity',
+            properties: {
+                createdAt          : '2026-07-19T20:00:00.000Z',
+                participationStatus: 'temporarily_unreachable'
+            }
+        }]);
+
+        const
+            after   = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(existingId).data,
+            missing = JSON.parse(GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(missingId).data);
+
+        expect(created).toBe(1);
+        expect(after).toBe(before);
+        expect(JSON.parse(after).properties).toMatchObject({
+            createdAt          : persistedCreated,
+            displayName        : 'Persisted Iris',
+            participationStatus: 'active',
+            runtimeWitness     : 'must-survive'
+        });
+        expect(missing).toMatchObject({
+            id        : missingId,
+            label     : 'AgentIdentity',
+            properties: {participationStatus: 'temporarily_unreachable', userId: null}
+        });
+    });
+
     test('cross-tenant data isolation and identity stamping', async () => {
         const RequestContextService = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
 
