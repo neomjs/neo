@@ -133,44 +133,51 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         card.destroy()
     });
 
-    test('source markers update in place; absent runtime fails the state dot closed and never pulses', () => {
+    test('the source strip summarizes health in place; absent runtime fails the state dot closed and never pulses (#15536)', () => {
         const card     = createCard({agentId: 'vega', state: 'ok'}),
               beforeId = card.id,
-              runtime  = card.down({reference: 'source-runtime'}),
-              markerId = runtime.id,
+              strip    = card.down({reference: 'source-strip'}),
+              stripId  = strip.id,
               stateDot = card.down({ntype: 'fm-state-dot'});
 
-        expect(runtime.text).toBe('RUN OBSERVED');
+        // all sources wired + observed → the honest nominal summary; the dot pulses live
+        expect(strip.html).toBe('all sources nominal ▸');
+        expect(strip.cls).toContain('fm-strip-ok');
         expect(stateDot.state).toBe('ok');
         expect(stateDot.live).toBe(true);
 
+        // repo missing + runtime not-wired: the summary NAMES the abnormal source (action-owning runtime
+        // first) with a +1 overflow, the dot fails closed to off, the control cluster disables — in place
         applySet(card, {sources: {
-            roster    : {source: 'fleet:listAgents',    state: 'wired', confidence: 'observed'},
-            repoStatus: {source: 'fleet:fleetStatus',   state: 'missing', confidence: 'none'},
+            roster    : {source: 'fleet:listAgents',    state: 'wired',     confidence: 'observed'},
+            repoStatus: {source: 'fleet:fleetStatus',   state: 'missing',   confidence: 'none'},
             runtime   : {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none'}
         }});
 
         expect(card.id).toBe(beforeId);
-        expect(card.down({reference: 'source-runtime'}).id).toBe(markerId);
-        expect(runtime.text).toBe('RUN NOT WIRED');
-        expect(card.down({reference: 'source-repo-status'}).text).toBe('REP MISSING');
+        expect(card.down({reference: 'source-strip'}).id).toBe(stripId);   // same instance, updated in place
+        expect(strip.html).toBe('RUN not nominal +1 ▸');
+        expect(strip.cls).toContain('fm-strip-bad');
         expect(stateDot.state).toBe('off');
         expect(stateDot.live).toBe(false);
         expect(card.down({reference: 'control-toggle'}).iconCls).toBe('fa-solid fa-stop');
         expect(card.down({reference: 'control-toggle'}).disabled).toBe(true);
         expect(card.down({reference: 'control-restart'}).hidden).toBe(false);
         expect(card.down({reference: 'control-restart'}).disabled).toBe(true);
-        expect(card.down({reference: 'control-status'}).text).toBe('NOT WIRED');
+        // the runtime-source gating is shown by the disabled controls + the strip, NOT duplicated in the
+        // control-status line (which is reserved for the control round-trip: pending / timeout / rejected)
+        expect(card.down({reference: 'control-status'}).hidden).toBe(true);
 
+        // all wired again (runtime merely INFERRED): the summary recovers to nominal and the controls
+        // re-enable, but the dot does NOT pulse — an inferred runtime is ok, not a live observation
         applySet(card, {sources: {
             ...observedSources,
             runtime: {source: 'fleet:runtimeStatus', state: 'wired', confidence: 'inferred'}
         }});
-        expect(runtime.text).toBe('RUN INFERRED');
+        expect(strip.html).toBe('all sources nominal ▸');
         expect(stateDot.state).toBe('ok');
         expect(stateDot.live).toBe(false);
         expect(card.down({reference: 'control-toggle'}).disabled).toBe(false);
-        expect(card.down({reference: 'control-status'}).hidden).toBe(true);
 
         card.destroy()
     });
@@ -361,11 +368,11 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         const card = createCard({agentId: 'vega', state: 'wedged'});
 
         // the visible word is the redundant NON-colour carrier WCAG 1.4.1 requires — the dot's hue is no
-        // longer the sole signal. It is the name-row item right after the dot so the two channels pair at
-        // one glance, ahead of the drill name: [state-dot] [state text] [name] … (trailing
-        // provenance/engine items are not part of this adjacency contract)
-        const refs = card.down({reference: 'name-row'}).items.map(item => item.reference);
-        expect(refs.slice(0, 3)).toEqual(['state-dot', 'card-state', 'card-name']);
+        // longer the sole signal. In the D-synthesis identity column the state-line pairs the two channels
+        // at one glance: [state-dot] [state text] adjacent, beneath the name-line's drill name.
+        const stateRefs = card.down({reference: 'state-line'}).items.map(item => item.reference);
+        expect(stateRefs.slice(0, 2)).toEqual(['state-dot', 'card-state']);
+        expect(card.down({reference: 'name-line'}).items[0].reference).toBe('card-name');
 
         // the word comes from stateLabel — the SAME closed-set resolver StateDot names ITSELF with, so the
         // card can never introduce a second state vocabulary; colour (dot) and word derive from one state
@@ -418,8 +425,9 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         const badge = () => card.down({reference: 'card-lane-count'});
 
         // the measured 7–17 open lanes cannot read as one line: the line keeps the CURRENT lane,
-        // the badge carries the honest total
-        expect(card.down({reference: 'card-lane'}).text).toBe('harness-UI shell + left-rail nav');
+        // the badge carries the honest total. A short lane renders whole (one fm-lane-whole span);
+        // the head+tail middle elision only engages for a long lane.
+        expect(card.down({reference: 'card-lane'}).vdom.cn[0].html).toBe('harness-UI shell + left-rail nav');
         expect(badge().hidden).toBe(false);
         expect(badge().text).toBe('17 lanes');
 

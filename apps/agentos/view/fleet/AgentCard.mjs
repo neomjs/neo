@@ -324,16 +324,14 @@ class AgentCard extends Container {
                     : resolvedState,
             // severity = weight: the exceptional resolved states take ink + weight on the word
             hot           = displayState === 'wedged' || displayState === 'limited',
-            // the runtime source's own reason feeds the control-status honesty line when it gates
-            sourceReason  = runtimeWired
-                ? null
-                : sources.runtime.state === 'missing' ? 'RUN MISSING' : 'RUN NOT WIRED',
             disabled      = Boolean(pendingAction) || !runtimeWired || controlReason?.kind === 'unauthorized';
 
         me.getReference('family-rail').family = record.family ?? null;
 
         me.getReference('state-dot').set({
-            live : displayState === 'ok',
+            // a pulse means a first-hand observation: an ok state pulses only when the runtime fact is
+            // OBSERVED, never when merely inferred (state-honesty — the dot never overclaims liveness)
+            live : displayState === 'ok' && sources.runtime.confidence === 'observed',
             state: displayState
         });
 
@@ -420,14 +418,16 @@ class AgentCard extends Container {
             hidden   : recordState === 'off'
         });
 
+        // the control round-trip only — the runtime-source gating is already shown by the disabled
+        // controls + the source strip ("RUN not nominal"), so the status line never duplicates it
         me.getReference('control-status').set({
-            hidden: !pendingAction && !controlReason && !sourceReason,
+            hidden: !pendingAction && !controlReason,
             // pending takes visual priority over a prior reason, so a new attempt never shows a stale
             // rejection; a timeout reads as an unfinished "…" (retry stays open), not a resolved "⚠"
             text  : pendingAction
                 ? `${pendingAction}…`
                 : !controlReason
-                    ? sourceReason ?? ''
+                    ? ''
                     : controlReason.kind === 'timeout'
                         ? `${controlReason.action}… stale — no response`
                         : `⚠ ${controlReason.kind}: ${controlReason.reason}`
