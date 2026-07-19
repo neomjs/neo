@@ -11,26 +11,27 @@ import {describeNameProvenance, resolveNameSlot} from './nameSlot.mjs';
 import {describeTelltale}                        from './telltale.mjs';
 
 /**
- * The resident card: the cockpit's atom — the #15536 evolved-D/synthesis composition (operator
- * SELECT 2026-07-19: B/C identity-first hierarchy + D's narrow mechanics + A as roomy alignment).
+ * The resident card: the cockpit's atom — the evolved-D/synthesis composition (operator SELECT
+ * 2026-07-19: B/C identity-first hierarchy + D's narrow mechanics + A as roomy alignment).
  * Composes the class-based fleet primitives (FamilyRail + StateDot) with a profile avatar, a
  * two-line identity column, contextual actions, a tail-aware lane, and an honest source-summary
- * strip into the card anatomy — responsive to the card's OWN width via `@container` (ADR 0029:
- * layout-blind to docking; never viewport media queries).
+ * strip into the card anatomy — responsive to the card's OWN width via `@container`: layout-blind
+ * to docking, never viewport media queries.
  *
- * Anatomy (top-to-bottom, family rail as a left `::before`):
+ * Anatomy (top-to-bottom, the family rail a left accent owned by FamilyRail):
  * - **head** — avatar spanning a two-line **identity** column: `name-line` (name · provenance ·
  *   engine) over `state-line` (dot · state-word · lane-count badge · telltale), with the contextual
  *   lifecycle **actions** right-aligned;
  * - **work-row** — the current lane, two-line clamped with head+tail middle elision so two lanes
- *   sharing a prefix still distinguish by their preserved tail (the #14592 narrow falsifier);
+ *   sharing a prefix still distinguish by their preserved tail (the narrow-density falsifier);
  * - **strip** — ONE honest source word-line ("all sources nominal" / "REP not nominal"), retiring
  *   the three 9px markers; full facts stay reachable via the drill (detail), never hover-only.
  *
  * **Width modes are card-owned** (SCSS `@container`): narrow (<320px) scales the avatar to 32px,
  * hides the engine tag, and collapses the actions to one 44px target; regular/wide keep the full
  * identity. Severity changes the state-word's **weight** on a text-safe ink, never the dot's hue as
- * text (the WCAG 1.4.1→1.4.3 trap avoided by construction). #15512/#15534 state-as-text holds.
+ * text (the WCAG 1.4.1→1.4.3 trap avoided by construction — the visible state word is always the
+ * colour-independent carrier).
  *
  * **Data-driven from its `record`** — one {@link AgentOS.model.FleetAgent} record (a row of the
  * shared {@link AgentOS.store.FleetRoster} Store) is the card's single data surface. Live field
@@ -244,7 +245,7 @@ class AgentCard extends Container {
 
     /**
      * @summary Split a long lane into a short context head + a preserved distinguishing tail with an
-     * elided middle. Two lanes sharing a prefix (the #14592 narrow falsifier) still distinguish by
+     * elided middle. Two lanes sharing a prefix (the narrow-density falsifier) still distinguish by
      * their tail. A lane short enough for the two-line clamp is returned whole (no elision).
      * @param {String} text The lane line.
      * @returns {{whole: String}|{head: String, tail: String}}
@@ -366,12 +367,15 @@ class AgentCard extends Container {
             elided = AgentCard.elideLaneLine(record.laneLine);
 
         // set the lane's CHILD nodes (mutating cn, not replacing the whole vdom — a full replace
-        // clobbers the component's root id/cls and the lane never mounts)
+        // clobbers the component's root id/cls and the lane never mounts). Each fragment renders as an
+        // inert `text` node, NEVER `html`: record.laneLine is remote fleet data, and Neo's vdom `html`
+        // is innerHTML — a text node cannot execute an adapter-supplied lane string (mirrors the
+        // AgentDetail telltale contract: escaping is forgettable, a text node cannot be got wrong).
         lane.vdom.cn = elided.whole !== undefined
-            ? [{tag: 'span', cls: ['fm-lane-whole'], html: elided.whole}]
+            ? [{tag: 'span', cls: ['fm-lane-whole'], text: elided.whole}]
             : [
-                {tag: 'span', cls: ['fm-lane-elide'], html: elided.head},
-                {tag: 'span', cls: ['fm-lane-tail'],  html: elided.tail}
+                {tag: 'span', cls: ['fm-lane-elide'], text: elided.head},
+                {tag: 'span', cls: ['fm-lane-tail'],  text: elided.tail}
             ];
         lane.update();
 

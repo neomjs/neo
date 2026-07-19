@@ -427,7 +427,8 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         // the measured 7–17 open lanes cannot read as one line: the line keeps the CURRENT lane,
         // the badge carries the honest total. A short lane renders whole (one fm-lane-whole span);
         // the head+tail middle elision only engages for a long lane.
-        expect(card.down({reference: 'card-lane'}).vdom.cn[0].html).toBe('harness-UI shell + left-rail nav');
+        // inert text node (not html/innerHTML) — remote lane strings must never execute
+        expect(card.down({reference: 'card-lane'}).vdom.cn[0].text).toBe('harness-UI shell + left-rail nav');
         expect(badge().hidden).toBe(false);
         expect(badge().text).toBe('17 lanes');
 
