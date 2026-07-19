@@ -1,9 +1,30 @@
-/* Agent card — the resident's anatomy: family rail · avatar · body (name-row + lane line), all scoped
-   under the component root. Geometry + the avatar frame only; every color reads from the token layer. */
+/* Agent card — the #15536 evolved-D/synthesis anatomy (operator SELECT 2026-07-19): family rail
+   (absolute left edge) · head (avatar spanning identity[name-line · state-line] · actions) ·
+   work-row (tail-aware lane) · source strip · control-status. Width modes are CARD-OWNED via
+   `@container` (ADR 0029: the card responds to its OWN width, never the viewport). Geometry + the
+   token layer only; every colour reads from `--fm-*`. */
 .fm-agent-card {
-    align-items: stretch;
-    gap        : 8px;
-    padding    : 8px 10px;
+    container-type: inline-size;   /* the card is its own width-query context (card-owned responsiveness) */
+    position      : relative;
+    gap           : 8px;
+    padding       : 10px 12px 10px 15px;   /* left pad clears the 3px rail + a gutter */
+    overflow      : hidden;
+
+    /* the family accent — FamilyRail owns the colour (--fm-rail via its family class); the card
+       positions it as a 3px full-height left edge so it costs no flow width */
+    .fm-family-rail {
+        position     : absolute;
+        left         : 0;
+        top          : 0;
+        bottom       : 0;
+        width        : 3px;
+        border-radius: 9px 0 0 9px;
+    }
+
+    /* ── head: avatar spanning the two-line identity column, actions right-pinned ── */
+    .fm-card-head {
+        gap: 10px;
+    }
 
     .fm-card-avatar {
         width        : 40px;
@@ -14,33 +35,21 @@
         background   : color-mix(in srgb, var(--fm-ink-dim) 20%, transparent);
     }
 
-    .fm-card-body {
-        gap     : 2px;
-        overflow: hidden;
+    .fm-card-identity {
+        flex     : 1;
+        min-width: 0;   /* lets the name ellipsize instead of overflowing the card */
+        gap      : 4px;
     }
 
-    .fm-card-name-row {
-        gap: 6px;
+    .fm-card-name-line {
+        gap      : 8px;
+        min-width: 0;
     }
 
-    /* the State line (WCAG 1.4.1), folded inline beside the dot. --fm-ink-dim, NOT a --fm-state-* hue:
-       the state tokens are dot-tuned to the 3:1 non-text floor (--fm-state-off ≈ 3:1) and fail the
-       4.5:1 TEXT floor — so the word joins the secondary-metadata ink register (matching engine/lane)
-       and the adjacent DOT carries the colour. Literal lowercase vocabulary from stateLabel(). */
-    .fm-card-state {
-        flex       : none;
-        font-family: var(--fm-font-mono);
-        font-size  : 10px;
-        line-height: 1;
-        white-space: nowrap;
-        color      : var(--fm-ink-dim);
-    }
-
-    /* the drill Button (gate-1): the keyboard-operable target that opens the resident. Reset the
-       neo-button chrome so the resident's NAME reads as the card title (a text-link drill), not a chip;
-       hover + focus-visible signal its interactivity — the card itself is a non-interactive listitem. */
+    /* the drill Button (gate-1): the resident NAME reads as the card title (a text-link drill), not a
+       chip — reset the neo-button chrome; hover + focus-visible signal interactivity. */
     .fm-card-name {
-        flex        : 1;
+        flex        : 0 1 auto;
         min-width   : 0;
         min-height  : 0;
         margin      : 0;
@@ -49,6 +58,7 @@
         background  : none;
         box-shadow  : none;
         font        : inherit;
+        font-size   : 14px;
         font-weight : 600;
         color       : var(--fm-ink);
         text-align  : start;
@@ -77,8 +87,7 @@
         }
     }
 
-    /* the durable-id fallback register: when no display name is folded, the id renders as the
-       drill target in mono — display state OVER the anchor, and honestly the anchor itself here */
+    /* the durable-id fallback register: the id renders as the drill target in mono */
     .fm-card-name-id .neo-button-text {
         font-family: var(--fm-font-mono);
         font-weight: 500;
@@ -86,9 +95,7 @@
         color      : var(--fm-ink-dim);
     }
 
-    /* the name-provenance chip — the freshness-pill register: a compact mono word stating how
-       the rendered name is grounded (named = trail wired · declared = registry display state ·
-       id = the durable anchor itself); the long copy rides title/aria-label */
+    /* the name-provenance chip — the freshness-pill register */
     .fm-name-provenance {
         flex         : none;
         font-family  : var(--fm-font-mono);
@@ -109,43 +116,36 @@
         flex       : none;
         font-family: var(--fm-font-mono);
         font-size  : 10px;
-        color      : var(--fm-ink-dim);
+        color      : color-mix(in srgb, var(--fm-ink-dim) 75%, transparent);
     }
 
-    .fm-card-lane-row {
-        gap      : 6px;
+    /* ── the state line: dot · state-word · lane-count badge (right-pinned) · telltale ── */
+    .fm-card-state-line {
+        gap      : 8px;
         min-width: 0;
     }
 
-    .fm-card-lane {
-        font-size    : 11px;
-        color        : var(--fm-ink-dim);
-        overflow     : hidden;
-        white-space  : nowrap;
-        text-overflow: ellipsis;
+    /* the visible State line (WCAG 1.4.1). --fm-ink-dim, NEVER a --fm-state-* hue (dot-tuned to the
+       3:1 non-text floor). Severity adds WEIGHT + full ink via fm-state-hot — never a hue on the
+       word (the 1.4.1→1.4.3 trap avoided by construction). Literal lowercase from stateLabel(). */
+    .fm-card-state {
+        flex       : none;
+        font-family: var(--fm-font-mono);
+        font-size  : 10px;
+        line-height: 1;
+        white-space: nowrap;
+        color      : var(--fm-ink-dim);
+
+        &.fm-state-hot {
+            color      : var(--fm-ink);
+            font-weight: 600;
+        }
     }
 
-    /* the open-lane count badge — the honest total the single lane line cannot carry; only
-       rendered on a reported count, so an unknown never poses as zero */
-    // The S2 telltale chip. Exception-based: hidden while nominal, so any pixels here mean a
-    // deviation on at least one axis. Colored with --fm-state-limited because BOTH themes already
-    // define it and the design mock uses it for rate-limited — inventing a token would mean styling
-    // one theme and guessing the other.
-    .fm-card-telltale {
-        flex         : none;
-        font-family  : var(--fm-font-mono);
-        font-size    : 10px;
-        line-height  : 1;
-        color        : var(--fm-state-limited);
-        background   : color-mix(in srgb, var(--fm-state-limited) 12%, transparent);
-        border       : 1px solid color-mix(in srgb, var(--fm-state-limited) 30%, transparent);
-        border-radius: 999px;
-        padding      : 2px 7px;
-        white-space  : nowrap;
-    }
-
+    /* the open-lane count badge — right-pinned; openLaneCount ONLY, never the engine */
     .fm-card-lane-count {
         flex         : none;
+        margin-left  : auto;
         font-family  : var(--fm-font-mono);
         font-size    : 10px;
         line-height  : 1;
@@ -157,26 +157,144 @@
         white-space  : nowrap;
     }
 
-    .fm-card-source-health {
-        flex-wrap : wrap;
-        gap       : 4px 7px;
-        min-width : 0;
-        overflow  : visible;
-        padding-top: 2px;
+    /* the S2 telltale chip — hidden while nominal; any pixels mean a deviation on ≥1 axis */
+    .fm-card-telltale {
+        flex         : none;
+        font-family  : var(--fm-font-mono);
+        font-size    : 10px;
+        line-height  : 1;
+        color        : var(--fm-state-limited);
+        background    : color-mix(in srgb, var(--fm-state-limited) 12%, transparent);
+        border       : 1px solid color-mix(in srgb, var(--fm-state-limited) 30%, transparent);
+        border-radius: 999px;
+        padding      : 2px 7px;
+        white-space  : nowrap;
     }
 
-    .fm-card-controls {
+    /* ── actions: native buttons, contextual, never dominant. 32px regular, one 44px target narrow ── */
+    .fm-card-actions {
         flex: none;
-        gap : 2px;
+        gap : 6px;
     }
 
-    .fm-card-control-verbs {
-        gap        : 2px;
+    .fm-card-action {
+        min-width    : 0;
+        width        : 32px;
+        height       : 32px;
+        margin       : 0;
+        padding      : 0;
+        border       : 1px solid var(--fm-line, color-mix(in srgb, var(--fm-ink-dim) 25%, transparent));
+        border-radius: 6px;
+        background   : color-mix(in srgb, var(--fm-ink-dim) 8%, transparent);
+        color        : var(--fm-ink-dim);
+
+        .neo-button-text {
+            display: none;
+        }
+
+        &:hover:not([disabled]) {
+            border-color: var(--fm-ink-dim);
+            color       : var(--fm-ink);
+        }
+
+        &[disabled] {
+            opacity: .45;
+            cursor : not-allowed;
+        }
+
+        &:focus-visible {
+            outline       : 2px solid var(--fm-ink);
+            outline-offset: 2px;
+        }
+    }
+
+    /* ── work-row: the current lane, two-line clamped with head+tail middle elision ── */
+    .fm-card-work-row {
+        min-height: 30px;
+    }
+
+    .fm-card-lane {
+        flex                     : 1;
+        min-width                : 0;
+        font-size                : 12.5px;
+        line-height              : 1.35;
+        color                    : var(--fm-ink);
+        overflow                 : hidden;
+        display                  : -webkit-box;
+        -webkit-line-clamp       : 2;
+        line-clamp               : 2;
+        -webkit-box-orient       : vertical;
+
+        /* the preserved distinguishing tail reads full-ink; the elided context head recedes */
+        .fm-lane-tail {
+            color: var(--fm-ink);
+        }
+
+        .fm-lane-elide {
+            color: color-mix(in srgb, var(--fm-ink-dim) 80%, transparent);
+        }
+    }
+
+    /* ── the source strip: ONE honest word-line; the ::before dot reads the fm-strip-<level> cls ── */
+    .fm-card-strip {
+        display    : flex;
         align-items: center;
+        gap        : 8px;
+        font-family: var(--fm-font-mono);
+        font-size  : 10px;
+        color      : var(--fm-ink-dim);
+
+        &::before {
+            content      : '';
+            flex         : none;
+            width        : 7px;
+            height       : 7px;
+            border-radius: 50%;
+            background   : var(--fm-state-off);
+        }
+
+        &.fm-strip-ok::before {
+            background: var(--fm-state-ok, #34d399);
+        }
+
+        &.fm-strip-bad::before {
+            background: var(--fm-state-wedged);
+        }
     }
 
+    /* the honest control round-trip surface — hidden until a pending intent / terminal reason */
     .fm-card-control-status {
-        font-size: 10px;
-        color    : var(--fm-ink-dim);
+        font-family: var(--fm-font-mono);
+        font-size  : 10px;
+        line-height: 1.3;
+        color      : var(--fm-ink-dim);
+    }
+
+    /* ══ card-owned width modes (ADR 0029): the card responds to ITS OWN width, not the viewport ══ */
+
+    /* narrow (<320px): a smaller avatar, the engine tag drops, and the actions become ONE 44px target
+       — one labelled action ≈ 16% of the row, never a two-target 34% rail */
+    @container (max-width: 319px) {
+        .fm-card-avatar {
+            width : 32px;
+            height: 32px;
+        }
+
+        .fm-card-engine {
+            display: none;
+        }
+
+        .fm-card-action {
+            width    : 44px;
+            height   : 44px;
+            font-size: 16px;
+        }
+
+        /* only the primary (contextual toggle) survives at narrow as the single 44px target; restart
+           reaches through the drill/detail so the narrow row never pays a two-target rail tax.
+           (First-pass simplification of the mockup's ⋯-menu; flagged for Phoebe's narrow design-check.) */
+        .fm-card-action-restart {
+            display: none;
+        }
     }
 }
