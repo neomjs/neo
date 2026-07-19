@@ -243,6 +243,7 @@ test.describe('ai/graph/identityRoots — identity anti-lock-in', () => {
             '@neo-gpt'        : '2026-04-28T20:50:04.000Z',
             '@neo-gpt-emmy'   : '2026-07-11T17:42:14.374Z',
             '@neo-kimi-phoebe': '2026-07-18T00:00:00.000Z',
+            '@neo-kimi-iris'  : '2026-07-19T00:00:00.000Z',
             'AGENT:*'         : '2026-04-23T13:03:46.000Z'
         });
     });

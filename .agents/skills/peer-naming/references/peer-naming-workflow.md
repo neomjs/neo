@@ -143,23 +143,16 @@ ticket** (out of scope for the ritual skill itself); the checklist is:
 
 ## Provisional Provisioning (the pending-entry pattern)
 
-A round's converged name may be **provisioned ahead of first boot** — account created, README
-roster row (flagged *pending first boot*), and a pre-boot `AgentIdentity` seeded in
-`ai/graph/identityRoots.mjs`. That entry is **provisional by construction**:
-
-- `participationStatus: 'temporarily_unreachable'` — every consumer filters `=== 'active'`, so
-  the seat is correctly excluded from wake/heartbeat/quorum/review semantics until the ritual
-  completes. `authority: '@tobiu'`; `reactivationTrigger`: operator confirms after first boot.
-- The top-level `name` stays **handle-derived**; the converged sketch lives in `displayName` as
-  the pending Social Name. Gates 3–5 (bearer assent → peer veto → operator confirm) have NOT
-  run yet — the provisional entry asserts no finality.
-- **No fabricated boot facts:** no static `subscriptionTemplate`, no capability fields — those
-  land from the real first-boot envelope, not from provisioning-time prose.
-- **The bearer's first ticket+PR is the activation**: flip `participationStatus → 'active'`
-  (with first-boot evidence), drop the README pending flag, and finalize the name fields per
-  their gate — unchanged on assent, updated on refinement, re-opened on decline. Precedents:
-  `#15385`/PR `#15386` (provision) → `#15390`/PR `#15393` (activation), and `#15571` (the second
-  Kimi seat). Provisioning peers wire the entry; they never pre-empt the bearer's Gate 3.
+A converged name may be **provisioned ahead of first boot** (account + README row flagged
+*pending first boot* + pre-boot `AgentIdentity`). The entry is provisional by construction:
+`participationStatus: 'temporarily_unreachable'` (excluded from wake/quorum/review semantics
+until the ritual completes), top-level `name` handle-derived, the sketch pending in `displayName`,
+**no fabricated boot facts** (no `subscriptionTemplate` / capability fields — those land from the
+real first-boot envelope). **The bearer's first ticket+PR is the activation**: flip to
+`'active'` with first-boot evidence, drop the README flag, finalize name fields per their gate —
+unchanged on assent, updated on refinement, re-opened on decline. Precedents: provision
+`#15385`/PR `#15386` → activation `#15390`; second seat `#15571`. Provisioning peers wire the
+entry; they never pre-empt Gate 3.
 
 ## Phase 8 — Onboarding: tell the Origin Story
 
