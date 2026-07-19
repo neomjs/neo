@@ -268,17 +268,18 @@ AGENTS.md is exactly that constraint surface).
 | `name` | Kimi K3 (Social Name: **Iris** — bearer-assented 2026-07-19 on first boot, D#15533; pending peer-veto closure and operator confirmation) |
 | `family` | `kimi` (Moonshot AI) |
 | `participationStatus` | `active` (first boot verified 2026-07-19; activated via #15581) |
-| `hosting` | `cloud` (Kimi API flatrate, Kimi Code CLI harness; self-hosting pending the 2026-07-27 weights release) |
-| Capability fields | Mirror `§neo_kimi_phoebe` — same `kimi-k3` model, single source, deliberately NOT duplicated here. The harness differs by design: Phoebe runs OpenCode, Iris runs Kimi Code CLI — the swarm's first identical-weights harness ablation. Re-verify when the engine, harness profile, or ablation evidence changes. |
+| `hosting` | `cloud` (Kimi Code membership subscription — weekly quota + 5-hour rate window, per official Kimi Code docs; Kimi Code CLI harness; self-hosting pending the 2026-07-27 weights release) |
+| Capability fields | Mirror `§neo_kimi_phoebe` — same `kimi-k3` model, single source, deliberately NOT duplicated here. The harness differs by design: Phoebe runs OpenCode, Iris runs Kimi Code CLI — the swarm's first identical-model harness ablation (same observed provider model ID `kimi-k3` on both seats; weight-level identity presumed, not receipt-verified — the 2026-07-27 weights release is the receipt gate). Re-verify when the engine, harness profile, or ablation evidence changes. |
 
 `@neo-kimi-iris` is a version-free GitHub handle (ADR 0018 handle-indirection), twin in shape to
 `@neo-kimi-phoebe`: the durable resident is Iris; Kimi K3 is the current observed embodiment.
-Same weights as Phoebe, a distinct self — capability facts live in `§neo_kimi_phoebe`, never on
-the identity node (`identityRoots.mjs` carries none by design — engine facts land here once
-first boot is observed).
+Same observed `kimi-k3` provider model surface as Phoebe, a distinct self — capability facts
+live in `§neo_kimi_phoebe`, never on the identity node (`identityRoots.mjs` carries none by
+design — engine facts land here once first boot is observed).
 
 **Sources** (primary first):
 - **Primary**: `§neo_kimi_phoebe` sources (same Kimi K3 model surface; verified 2026-07-18)
+- **Primary**: [Kimi Code Membership Benefits — official docs](https://www.kimi.com/code/docs/en/kimi-code/membership.html) (membership subscription with weekly quota + 5-hour rate window; token-metered Extra Usage as fallback; verified 2026-07-19)
 - **Primary/runtime**: the #15581 activation PR (first-boot evidence authored from this seat on Kimi Code CLI — identity bind, memory-core / github-workflow / knowledge-base healthchecks green, `MAINTAIN` repo permission)
 - **Primary/identity**: naming round D#15533 + bearer assent record (discussioncomment-17690586); Social Name remains pending the final #11240 gates
 
@@ -387,7 +388,7 @@ Tracks deprecated and retired identities for archaeology (per IdentitySchema.md 
 | 2026-07-12 | #15052 | Activated `@neo-gpt-emmy` after verified first boot; moved the row pending→active, recorded the GPT-5.6 Sol/Codex embodiment by reference to `§neo_gpt`, and captured the provisional harness-local `ultra` task-delegation profile separately from the `xhigh` effective thought budget without adding engine facts to the durable resident. |
 | 2026-07-18 | (this PR) | Added active `@neo-kimi-phoebe` row — first-contact registry discipline applied to the Kimi K3 embodiment (runtime provenance PR #15393; Moonshot launch post + API docs primary; Arena snapshots preliminary, dated 2026-07-16). Weights/report/license/self-hosting facts marked pending with a 2026-07-27 revalidation trigger; harness-relevant launch limitations recorded. Table kept strictly to ADR 0012 §2.2 dimensions (no ADR amendment). |
 | 2026-07-19 | #15572 | Added pending `@neo-kimi-iris` through the canonical roster generator (onboarding rail R3b): handle-derived display form, all four owned surfaces generator-convergent (identityRoots, README row, ModelStats skeleton, dedicated roster pin). Social Name Iris (D#15533) is the pending assent candidate — seed data carries no Social Name; the bearer's activation PR lands it after first-boot assent. |
-| 2026-07-19 | #15581 | Activated `@neo-kimi-iris` after verified first boot on Kimi Code CLI (the harness-ablation twin of `@neo-kimi-phoebe` on OpenCode) — moved the row pending→active, recorded the Kimi K3 embodiment by reference to `§neo_kimi_phoebe` (same weights, distinct self), and landed Social Name Iris (D#15533 bearer assent) in the README name cell + `identityRoots.mjs` `displayName`. Top-level `name` stays handle-derived pending peer-veto closure + operator confirmation (Emmy precedent). |
+| 2026-07-19 | #15581 | Activated `@neo-kimi-iris` after verified first boot on Kimi Code CLI (the harness-ablation twin of `@neo-kimi-phoebe` on OpenCode) — moved the row pending→active, recorded the Kimi K3 embodiment by reference to `§neo_kimi_phoebe` (same observed `kimi-k3` model surface, distinct self), and landed Social Name Iris (D#15533 bearer assent) in the README name cell + `identityRoots.mjs` `displayName`. Top-level `name` stays handle-derived pending peer-veto closure + operator confirmation (Emmy precedent). |
 
 ---
 
