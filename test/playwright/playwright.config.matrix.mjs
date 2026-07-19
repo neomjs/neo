@@ -40,7 +40,8 @@ export default defineConfig({
         '**/colors/tearOutMatrix.spec.mjs',
         '**/agentos/TearOutMatrixRows4To7NL.spec.mjs',
         '**/agentos/DemoBVesselConversionNL.spec.mjs',
-        '**/agentos/DemoBCrossWindowDragNL.spec.mjs'
+        '**/agentos/DemoBCrossWindowDragNL.spec.mjs',
+        '**/agentos/FleetPermanenceMatrixRow4NL.spec.mjs'
     ],
     outputDir    : './test-results/matrix/artifacts',
     fullyParallel: false, // native window placement is a global resource — strictly serial

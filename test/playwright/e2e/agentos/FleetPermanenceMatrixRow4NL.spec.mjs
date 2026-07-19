@@ -23,7 +23,9 @@ import {expect, test} from '../../fixtures.mjs';
  * without the store axis) and NOT Demo B's CounterPane (not store-backed) — it is the
  * `FleetRoster` record's live identity across detach and reintegration.
  *
- * Run: NEO_E2E_PORT=8172 npx playwright test agentos/FleetPermanenceMatrixRow4NL -c test/playwright/playwright.config.e2e.mjs --workers=1
+ * Run: npx playwright test agentos/FleetPermanenceMatrixRow4NL -c test/playwright/playwright.config.matrix.mjs --workers=1
+ * (the matrix runner — headed by default, real Chrome, strict serial; the e2e config's GPU flags
+ * are headless-calibrated and crash headed macOS Chrome, and CI must not run this config)
  *
  * @see learn/guides/specificfeatures/TearOutPortabilityMatrix.md (the living ledger this feeds)
  * @see apps/agentos/view/fleet/AgentDetail.mjs (record-driven inspector under test)
@@ -60,7 +62,7 @@ test.describe('matrix row 4 — AgentDetail permanence with live FleetRoster con
               baselineLane = target.properties.record.laneLine;
 
         const queryDetail = async () => {
-            const matches = await app.queryComponent({className: 'AgentOS.view.fleet.AgentDetail'}, ['record', 'id']);
+            const matches = await app.queryComponent({className: 'AgentOS.view.fleet.AgentDetail'}, ['record', 'id', 'windowId']);
 
             return (Array.isArray(matches) ? matches : [matches]).filter(Boolean)[0]
         };
@@ -88,6 +90,10 @@ test.describe('matrix row 4 — AgentDetail permanence with live FleetRoster con
         await expect(popup.locator('.fm-agent-detail')).toBeVisible({timeout: 30000});
         await expect(page.locator('.fm-agent-detail')).toHaveCount(0);
         expect((await queryDetail())?.id, 'the OS-window hop reparents the SAME instance').toBe(detailId);
+
+        const vesselWindowId = (await queryDetail())?.properties?.windowId;
+
+        expect(vesselWindowId, 'the vessel exposes its runtime window id while detached').toBeTruthy();
 
         // ── tooth 2: live-store continuity — mutate the record WHILE the detail is windowed.
         // The dot-path scopes onto the card's LIVE store record: record.set → recordChange →
@@ -131,15 +137,42 @@ test.describe('matrix row 4 — AgentDetail permanence with live FleetRoster con
             'the grid census is unchanged by the round trip').toBe(cards.length);
 
         // ── tooth 4: universal invariants + zero residue ────────────────────────────────────
-        // gesture continuity: every hop above was a native click; JSON-only persisted state:
-        // the dock document round-trips as JSON; exact-once: one detail instance throughout;
-        // idempotent cleanup: no popup residue after the vessel retired
+        // gesture continuity: every hop above was a native click; exact-once: one detail
+        // instance throughout; idempotent cleanup: no popup residue after the vessel retired
         const cockpits = await app.findInstances({className: 'AgentOS.view.fleet.FleetCockpit'}, ['id']),
               holderId = (Array.isArray(cockpits) ? cockpits[0] : cockpits)?.id,
               topology = await app.getDockTopology(holderId),
               document = topology?.document ?? topology;
 
-        expect(JSON.parse(JSON.stringify(document)), 'the dock document persists JSON-only').toEqual(document);
+        // JSON-only persisted state: the REAL perspective writer, not a serializability probe —
+        // the live document saved through DockPerspectiveStore's landed validation seam and read
+        // back byte-identical (the row-7 sibling's persistDockReceipt shape, on the Fleet surface)
+        const layoutRecord = {
+                captureScope     : 'window',
+                dockZone         : document,
+                layoutId         : 'matrix-row-4',
+                metadata         : {},
+                perspectiveName  : 'matrix-row-4',
+                schema           : 'neo.harness.dockLayout.v2',
+                title            : 'matrix-row-4',
+                windowFingerprint: null
+            },
+            saveResult = await app.callMethod(holderId, 'perspectiveStore.savePerspective', [layoutRecord, {activate: false, replace: true}]);
+
+        expect(saveResult?.errors, `the real perspective writer refused: ${JSON.stringify(saveResult?.errors)}`).toEqual([]);
+        expect(saveResult?.saved, 'the live document persisted through the real writer').toBe(true);
+
+        const stored = await app.callMethod(holderId, 'perspectiveStore.getPerspective', ['matrix-row-4']);
+
+        expect(stored?.layout?.captureScope).toBe('window');
+        expect(stored?.layout?.dockZone, 'the stored layout round-trips the live document byte-identically').toEqual(document);
+
+        // idempotent cleanup: the vessel-close terminal repeated against the RETIRED window id
+        // is a no-op — same home state, no new vessel, no state change (the row-7 sibling's
+        // repeated-disconnect shape, through the cockpit's re-entrancy-disciplined path)
+        await app.callMethod(holderId, 'onWindowDisconnect', [{windowId: vesselWindowId}]);
+
+        expect((await queryDetail())?.id, 'a repeated disconnect terminal changes nothing').toBe(detailId);
         expect(page.context().pages().filter(candidate => candidate !== page && !candidate.isClosed()),
             'no popup residue after reintegration').toEqual([]);
         expect(pageErrors, 'no page errors on the row-4 receipt path').toEqual([]);
