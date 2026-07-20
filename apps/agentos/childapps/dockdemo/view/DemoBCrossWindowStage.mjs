@@ -17,9 +17,16 @@ import {previewToOperation} from '../../../../../src/dashboard/dockPreviewContra
  * `workspace.crossWindowStageResolve` directly, making those fields the host's public stage
  * contract. This module owns the CODE that manipulates them; the workspace owns the fields.
  *
- * Phase-1 scope note: stage semantics remain the current singleton pair (main + popup). The
- * per-workspace parameterization (a second registered popup claimant, `demo-b-popup-2`) is the
- * follow-up landing ON THIS SEAM — the seams below are the parameterization surface.
+ * **Facade-routing rule:** only spec-witnessed seams route back through the host's wrappable
+ * facades (currently `commitWholeStackReturn` → `adoptCommittedTransferPair` /
+ * `retireReturnedPopupWorkspace`, whose order-witness wraps the workspace methods). Every other
+ * internal call (`mountTarget` → `waitForGeometry` → `measureGeometry`, etc.) uses this
+ * module's own functions directly. A future witness wrapping a workspace facade the module
+ * does NOT route through will silently not fire — extend the routing set WITH the witness.
+ *
+ * The stage is parameterized by workspace id: `demo-b-main` plus any number of registered
+ * popup claim targets (`demo-b-popup`, `demo-b-popup-2`), each with its own host-owned stage
+ * continuation and target window id, staged through the same registration semantics.
  */
 
 /**
@@ -28,7 +35,8 @@ import {previewToOperation} from '../../../../../src/dashboard/dockPreviewContra
  * @param {Object} seams.registries Stable host-owned collections, captured once:
  *     `{hosts: Map, participations: Map, geometry: Map, projectionRequests: Map, detachedPanes: Object}`.
  * @param {Neo.dashboard.DockWorkspaceSet} seams.workspaceSet The host's workspace-set registry.
- * @param {Object} seams.workspaceIds `{main, popup}` semantic workspace ids.
+ * @param {Object} seams.workspaceIds `{main, popup, popup2}` semantic workspace ids (`popup2`
+ *     optional — the stage parameterizes over every popup id the host registers).
  * @param {String} seams.sortGroup The shared cross-window coordinator sort group.
  * @param {String} seams.hostComponentId The workspace component id, stamped into stage URLs as `hostId`.
  * @param {Function} seams.applyWorkspaceOperation `(workspaceId, descriptor) => {document, errors}|null`
@@ -44,31 +52,32 @@ import {previewToOperation} from '../../../../../src/dashboard/dockPreviewContra
  * @param {Function} seams.commitCrossWindowTransfer `(data)` — the host's gesture transfer commit (Phase 2 surface).
  * @param {Function} seams.createPopupDocument `() => Object` — a valid empty popup workspace document.
  * @param {Function} seams.createVesselOwnerGrant `(flow, itemId) => {generation, token}`
- * @param {Function} seams.ensurePopupRegistered `() => Boolean` — re-registers the popup workspace's live accessors.
- * @param {Function} seams.getPopupDocument `() => Object|null`
- * @param {Function} seams.getStagePromise `() => Promise|null`
- * @param {Function} seams.getStageReject `() => Function|null`
- * @param {Function} seams.getStageResolve `() => Function|null`
+ * @param {Function} seams.ensurePopupRegistered `(workspaceId) => Boolean` — re-registers the popup workspace's live accessors.
+ * @param {Function} seams.getPopupDocument `(workspaceId) => Object|null`
+ * @param {Function} seams.getStagePromise `(workspaceId) => Promise|null`
+ * @param {Function} seams.getStageReject `(workspaceId) => Function|null`
+ * @param {Function} seams.getStageResolve `(workspaceId) => Function|null`
  * @param {Function} seams.getStageGeneration `() => Number`
- * @param {Function} seams.getTargetWindowId `() => String|null`
+ * @param {Function} seams.getStageWindowName `(workspaceId) => String` — the popup's native window name.
+ * @param {Function} seams.getTargetWindowId `(workspaceId) => String|null`
  * @param {Function} seams.getWindowId `() => String` — the host's own window id.
  * @param {Function} seams.getWorkspaceDocument `(workspaceId) => Object|null`
  * @param {Function} seams.hitTestWorkspace `(workspaceId, localX, localY) => Boolean`
  * @param {Function} seams.hostTimeout `(ms) => Promise` — rides the host's `core.Base#timeout` so destroy cancels pending waits.
  * @param {Function} seams.incrementTransferCommits `()` — bumps the host's gesture proof counter.
  * @param {Function} seams.isHostDestroyed `() => Boolean`
- * @param {Function} seams.onKbdLiveMounted `(liveComponent)` — publishes the mounted target's announcement region to the host.
+ * @param {Function} seams.onKbdLiveMounted `(liveComponent, workspaceId)` — publishes the mounted target's announcement region to the host.
  * @param {Function} seams.onWorkspaceDocumentChange `(workspaceId, document, options?) => Promise`
  * @param {Function} seams.projectDockModel `(resolveComponentRef|null, workspaceId) => Object`
  * @param {Function} seams.refreshWorkspace `(workspaceId, document) => Promise`
  * @param {Function} seams.renderWorkspacePreview `(workspaceId, data) => Object|null`
  * @param {Function} seams.resolveGesture `(receipt)` — consumes the host's gesture settlement resolver.
  * @param {Function} seams.revokeVesselOwnerGrant `(flow, itemId)`
- * @param {Function} seams.setPopupDocument `(document)`
- * @param {Function} seams.setStagePromise `(promise|null)`
- * @param {Function} seams.setStageReject `(fn|null)`
- * @param {Function} seams.setStageResolve `(fn|null)`
- * @param {Function} seams.setTargetWindowId `(windowId|null)`
+ * @param {Function} seams.setPopupDocument `(workspaceId, document)`
+ * @param {Function} seams.setStagePromise `(workspaceId, promise|null)`
+ * @param {Function} seams.setStageReject `(workspaceId, fn|null)`
+ * @param {Function} seams.setStageResolve `(workspaceId, fn|null)`
+ * @param {Function} seams.setTargetWindowId `(workspaceId, windowId|null)`
  * @returns {Object} `{adoptPair, commitWholeStackReturn, createParticipation, isTargetCurrent,
  *     measureGeometry, mountTarget, openStage, positionStage, reconcilePair,
  *     retireReturnedWorkspace, waitForGeometry}`
@@ -93,6 +102,7 @@ export function createCrossWindowStage(seams) {
         getStageReject,
         getStageResolve,
         getStageGeneration,
+        getStageWindowName,
         getTargetWindowId,
         getWindowId,
         getWorkspaceDocument,
@@ -123,9 +133,9 @@ export function createCrossWindowStage(seams) {
      * @returns {Boolean}
      */
     function isTargetCurrent(workspaceId, windowId, host, generation) {
-        let expectedWindowId = workspaceId === workspaceIds.popup
-            ? getTargetWindowId()
-            : getWindowId();
+        let expectedWindowId = workspaceId === workspaceIds.main
+            ? getWindowId()
+            : getTargetWindowId(workspaceId);
 
         return !isHostDestroyed()
             && getStageGeneration() === generation
@@ -188,11 +198,11 @@ export function createCrossWindowStage(seams) {
      * back to the host through the `onKbdLiveMounted` / `attachKeydown` seams.
      * @param {Neo.app.Base} app
      * @param {String} windowId
+     * @param {String} [workspaceId=workspaceIds.popup] the popup workspace to mount.
      * @returns {Promise<Object|null>}
      */
-    async function mountTarget(app, windowId) {
-        let workspaceId  = workspaceIds.popup,
-            generation   = getStageGeneration(),
+    async function mountTarget(app, windowId, workspaceId = workspaceIds.popup) {
+        let generation   = getStageGeneration(),
             [live, host] = app.mainView.add([{
                 cls   : ['agentos-dockdemo-kbd-live'],
                 height: 14,
@@ -211,9 +221,9 @@ export function createCrossWindowStage(seams) {
                 layout: {ntype: 'fit'}
             }]);
 
-        setTargetWindowId(windowId);
+        setTargetWindowId(workspaceId, windowId);
         registries.hosts.set(workspaceId, host);
-        onKbdLiveMounted(live);
+        onKbdLiveMounted(live, workspaceId);
         attachKeydown(host);
 
         try {
@@ -254,16 +264,16 @@ export function createCrossWindowStage(seams) {
 
             let receipt = {windowId, workspaceId, hostId: host.id};
 
-            getStageResolve()?.(receipt);
-            setStageResolve(null);
-            setStageReject(null);
+            getStageResolve(workspaceId)?.(receipt);
+            setStageResolve(workspaceId, null);
+            setStageReject(workspaceId, null);
 
             return receipt
         } catch (error) {
             if (getStageGeneration() === generation) {
-                getStageReject()?.(error);
-                setStageResolve(null);
-                setStageReject(null)
+                getStageReject(workspaceId)?.(error);
+                setStageResolve(workspaceId, null);
+                setStageReject(workspaceId, null)
             }
 
             if (isTargetCurrent(workspaceId, windowId, host, generation)) {
@@ -275,14 +285,16 @@ export function createCrossWindowStage(seams) {
     }
 
     /**
-     * @summary Opens two non-overlapping active workspaces and resolves from the worker connect
-     * + measured geometry contract, never from a blind sleep.
+     * @summary Opens a non-overlapping popup workspace render target and resolves from the
+     * worker connect + measured geometry contract, never from a blind sleep. Parameterized by
+     * popup workspace id — each registered popup stages through the same seams, with its own
+     * host-owned continuation, target window id, and native window name.
+     * @param {String} [workspaceId=workspaceIds.popup] the popup workspace to stage.
      * @returns {Promise<Object>}
      */
-    async function openStage() {
-        let workspaceId = workspaceIds.popup,
-            host        = registries.hosts.get(workspaceId),
-            windowId    = getTargetWindowId();
+    async function openStage(workspaceId = workspaceIds.popup) {
+        let host     = registries.hosts.get(workspaceId),
+            windowId = getTargetWindowId(workspaceId);
 
         // A physical popup close can precede the worker disconnect callback. Reuse only a
         // complete, live owner bundle; a partial/destroyed cache must enter the ordinary cold
@@ -297,15 +309,15 @@ export function createCrossWindowStage(seams) {
             }
         }
 
-        if (getStagePromise()) return getStagePromise();
+        if (getStagePromise(workspaceId)) return getStagePromise(workspaceId);
 
-        if (Object.keys(getPopupDocument()?.items || {}).length) {
+        if (Object.keys(getPopupDocument(workspaceId)?.items || {}).length) {
             return Promise.reject(new Error('popup workspace is not empty; cross-window stage refuses split ownership'))
         }
 
-        ensurePopupRegistered();
+        ensurePopupRegistered(workspaceId);
         bumpStageGeneration();
-        setPopupDocument(createPopupDocument());
+        setPopupDocument(workspaceId, createPopupDocument());
 
         let stageResolve, stageReject,
             stagePromise = new Promise((resolve, reject) => {
@@ -313,9 +325,9 @@ export function createCrossWindowStage(seams) {
                 stageReject  = reject
             });
 
-        setStagePromise(stagePromise);
-        setStageResolve(stageResolve);
-        setStageReject(stageReject);
+        setStagePromise(workspaceId, stagePromise);
+        setStageResolve(workspaceId, stageResolve);
+        setStageReject(workspaceId, stageReject);
 
         let ownerGrant = createVesselOwnerGrant('workspace-target', workspaceId);
 
@@ -331,7 +343,7 @@ export function createCrossWindowStage(seams) {
                         + `&vesselGeneration=${ownerGrant.generation}`,
                     windowFeatures: `height=520,width=600,left=${left},top=${top}`,
                     windowId      : getWindowId(),
-                    windowName    : 'demo-b-cross-window'
+                    windowName    : getStageWindowName(workspaceId)
                 });
 
             if (opened === false) {
@@ -339,10 +351,10 @@ export function createCrossWindowStage(seams) {
             }
         } catch (error) {
             revokeVesselOwnerGrant('workspace-target', workspaceId);
-            getStageReject()?.(error);
-            setStagePromise(null);
-            setStageResolve(null);
-            setStageReject(null);
+            getStageReject(workspaceId)?.(error);
+            setStagePromise(workspaceId, null);
+            setStageResolve(workspaceId, null);
+            setStageReject(workspaceId, null);
             throw error
         }
 
@@ -354,7 +366,7 @@ export function createCrossWindowStage(seams) {
             return await Promise.race([stagePromise, timeout])
         } catch (error) {
             revokeVesselOwnerGrant('workspace-target', workspaceId);
-            setStagePromise(null);
+            setStagePromise(workspaceId, null);
             throw error
         }
     }
@@ -410,10 +422,10 @@ export function createCrossWindowStage(seams) {
 
         registries.hosts.delete(workspaceIds.popup);
         registries.projectionRequests.delete(workspaceIds.popup);
-        setTargetWindowId(null);
-        setStagePromise(null);
-        setStageResolve(null);
-        setStageReject(null);
+        setTargetWindowId(workspaceIds.popup, null);
+        setStagePromise(workspaceIds.popup, null);
+        setStageResolve(workspaceIds.popup, null);
+        setStageReject(workspaceIds.popup, null);
 
         return workspaceSet.unregister(workspaceIds.popup)
     }
@@ -523,7 +535,7 @@ export function createCrossWindowStage(seams) {
     async function positionStage({attempts=120, delay=16}={}) {
         let WindowManager = (await import('../../../../../src/manager/Window.mjs')).default,
             sourceWindow  = WindowManager.get(getWindowId()),
-            targetWindow  = WindowManager.get(getTargetWindowId()),
+            targetWindow  = WindowManager.get(getTargetWindowId(workspaceIds.popup)),
             sourceData    = await Neo.Main.getWindowData({windowId: getWindowId()}),
             screen        = sourceData?.screen,
             sourceRect    = sourceWindow?.innerRect,
@@ -581,14 +593,14 @@ export function createCrossWindowStage(seams) {
 
         await Neo.Main.windowMoveTo({
             windowId  : getWindowId(),
-            windowName: 'demo-b-cross-window',
+            windowName: getStageWindowName(workspaceIds.popup),
             x         : desired.x,
             y         : desired.y
         });
 
         for (let attempt = 0; attempt <= attempts && !isHostDestroyed(); attempt++) {
             sourceWindow = WindowManager.get(getWindowId());
-            targetWindow = WindowManager.get(getTargetWindowId());
+            targetWindow = WindowManager.get(getTargetWindowId(workspaceIds.popup));
             sourceRect   = sourceWindow?.innerRect;
             targetRect   = targetWindow?.innerRect;
 
