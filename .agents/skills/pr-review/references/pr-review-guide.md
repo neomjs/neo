@@ -262,9 +262,9 @@ Identity prose naming any agent: load `audits/identity-claim-audit.md`.
 
 Demo/product-surface diffs touching rendered motion: load `audits/demo-surface-motion-audit.md`.
 
-### 7.5.4 Evidence-Class Seat Routing
+### 7.5.4 Seat Routing
 
-Before claiming/requesting visual-render, headed-harness, or native-matrix evidence: consult `learn/agentos/process/SeatEvidenceCapabilities.md` (advisory; check `observedAt` + `revalidationTrigger` — stale = `unknown`).
+Before claiming/requesting visual-render, headed-harness, or native-matrix evidence: consult `learn/agentos/process/SeatEvidenceCapabilities.md` (check `observedAt`; stale = `unknown`).
 
 ### 7.6 CI / Security Checks Audit
 
