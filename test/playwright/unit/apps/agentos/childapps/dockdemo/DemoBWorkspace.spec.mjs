@@ -1129,7 +1129,7 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoBWorkspace', () => {
                 names   : ['demo-b-cross-window'],
                 windowId: workspace.windowId
             }]);
-            expect(workspace.workspaceSet.ids()).toEqual([DemoBWorkspace.MAIN_WORKSPACE_ID]);
+            expect(workspace.workspaceSet.ids()).toEqual([DemoBWorkspace.MAIN_WORKSPACE_ID, DemoBWorkspace.POPUP2_WORKSPACE_ID]);
             expect(workspace.getWorkspaceDocument(DemoBWorkspace.POPUP_WORKSPACE_ID)).toBeNull();
 
             // A later explicit stage is a new lifetime: registration is restored against the current
@@ -1889,6 +1889,117 @@ test.describe.serial('AgentOS.childapps.dockdemo.view.DemoBWorkspace', () => {
             tabsId     : 'side-tabs',
             workspaceId: DemoBWorkspace.MAIN_WORKSPACE_ID
         }])
+    });
+
+    test('construct registers three claim targets through the same workspace-set semantics', () => {
+        expect(workspace.workspaceSet.ids()).toEqual([
+            DemoBWorkspace.MAIN_WORKSPACE_ID,
+            DemoBWorkspace.POPUP_WORKSPACE_ID,
+            DemoBWorkspace.POPUP2_WORKSPACE_ID
+        ]);
+        expect(workspace.workspaceSet.getDocument(DemoBWorkspace.POPUP2_WORKSPACE_ID)).toBe(workspace.popup2Document);
+
+        // fail-closed re-registration mirrors popup-1's discipline
+        expect(workspace.ensurePopupWorkspaceRegistered(DemoBWorkspace.POPUP2_WORKSPACE_ID)).toBe(true);
+        expect(workspace.workspaceSet.getDocument(DemoBWorkspace.POPUP2_WORKSPACE_ID)).toBe(workspace.popup2Document)
+    });
+
+    test('the second popup stages through the same seams with its own continuation and window name', async () => {
+        const harness = installWindowConnectHarness(workspace);
+        let stageUrl, stageWindowName;
+
+        workspace.timeout = () => new Promise(() => {});
+        workspace.mountCrossWindowTarget = async (app, windowId, workspaceId) => {
+            const resolve = workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID
+                ? workspace.crossWindowStage2Resolve
+                : workspace.crossWindowStageResolve;
+
+            resolve?.({hostId: 'workspace-host', windowId, workspaceId})
+        };
+        Neo.Main.windowOpen = async data => {
+            stageUrl        = data.url;
+            stageWindowName = data.windowName;
+            await harness.connect('workspace-2-child', stageUrl);
+            return true
+        };
+
+        try {
+            const receipt = await workspace.openCrossWindowStage(DemoBWorkspace.POPUP2_WORKSPACE_ID);
+
+            expect(receipt).toMatchObject({windowId: 'workspace-2-child', workspaceId: DemoBWorkspace.POPUP2_WORKSPACE_ID});
+            expect(stageWindowName).toBe('demo-b-cross-window-2');
+
+            const params = new URL(stageUrl, 'https://example.test').searchParams;
+
+            expect(params.get('workspaceId')).toBe('demo-b-popup-2');
+            expect(params.get('vesselFlow')).toBe('workspace-target');
+            expect(params.get('vesselGrant')).toBeTruthy();
+
+            // popup-1's stage continuation is untouched by the popup-2 stage
+            expect(workspace.crossWindowStagePromise).toBe(null);
+            expect(workspace.crossWindowStageResolve).toBe(null)
+        } finally {
+            harness.restore()
+        }
+    });
+
+    test('a second-popup disconnect retires only its own stage; the last popup retires the main participation', () => {
+        const participationOf = () => ({destroyed: false, destroy() { this.destroyed = true }}),
+              main            = participationOf(),
+              popup           = participationOf(),
+              popup2          = participationOf();
+
+        workspace.crossWindowTargetWindowId  = 'win-popup-1';
+        workspace.crossWindowTarget2WindowId = 'win-popup-2';
+        workspace.crossWindowHosts.set(DemoBWorkspace.POPUP_WORKSPACE_ID, {isDestroyed: false});
+        workspace.crossWindowHosts.set(DemoBWorkspace.POPUP2_WORKSPACE_ID, {isDestroyed: false});
+        workspace.crossWindowParticipations.set(DemoBWorkspace.MAIN_WORKSPACE_ID, main);
+        workspace.crossWindowParticipations.set(DemoBWorkspace.POPUP_WORKSPACE_ID, popup);
+        workspace.crossWindowParticipations.set(DemoBWorkspace.POPUP2_WORKSPACE_ID, popup2);
+        workspace.crossWindowGeometry.set(DemoBWorkspace.MAIN_WORKSPACE_ID, {});
+        workspace.crossWindowGeometry.set(DemoBWorkspace.POPUP_WORKSPACE_ID, {});
+        workspace.crossWindowGeometry.set(DemoBWorkspace.POPUP2_WORKSPACE_ID, {});
+        workspace.kbdLivePopup2 = Neo.create(Component, {});
+
+        // popup-2 leaves: its own stage retires; the staged sibling pair (main + popup-1) survives
+        workspace.onWindowDisconnect({windowId: 'win-popup-2'});
+
+        expect(popup2.destroyed).toBe(true);
+        expect(popup.destroyed).toBe(false);
+        expect(main.destroyed).toBe(false);
+        expect(workspace.crossWindowParticipations.has(DemoBWorkspace.POPUP2_WORKSPACE_ID)).toBe(false);
+        expect(workspace.crossWindowParticipations.has(DemoBWorkspace.MAIN_WORKSPACE_ID)).toBe(true);
+        expect(workspace.crossWindowTarget2WindowId).toBe(null);
+        expect(workspace.crossWindowTargetWindowId).toBe('win-popup-1');
+        expect(workspace.kbdLivePopup2).toBe(null);
+
+        // popup-1 leaves: no popup target remains, so the main participation retires with it
+        workspace.onWindowDisconnect({windowId: 'win-popup-1'});
+
+        expect(popup.destroyed).toBe(true);
+        expect(main.destroyed).toBe(true);
+        expect(workspace.crossWindowParticipations.has(DemoBWorkspace.MAIN_WORKSPACE_ID)).toBe(false);
+        expect(workspace.crossWindowTargetWindowId).toBe(null)
+    });
+
+    test('announceKeyboardOutcome carries the same terminal-derived truth into ALL staged windows', () => {
+        const popupLive  = Neo.create(Component, {}),
+              popup2Live = Neo.create(Component, {});
+
+        workspace.kbdLivePopup  = popupLive;
+        workspace.kbdLivePopup2 = popup2Live;
+        workspace.announceKeyboardOutcome({message: 'Workbench moved to Main window. Focus moved with it.'});
+
+        expect(workspace.getReference('kbd-live-b').text).toBe('Workbench moved to Main window. Focus moved with it.');
+        expect(popupLive.text).toBe('Workbench moved to Main window. Focus moved with it.');
+        expect(popup2Live.text).toBe('Workbench moved to Main window. Focus moved with it.');
+
+        // a destroyed popup-2 region degrades silently — the other regions still announce
+        popup2Live.destroy();
+        workspace.announceKeyboardOutcome({message: 'Move cancelled. Workbench stays where it is.'});
+
+        expect(workspace.getReference('kbd-live-b').text).toBe('Move cancelled. Workbench stays where it is.');
+        expect(popupLive.text).toBe('Move cancelled. Workbench stays where it is.')
     });
 
     test('destroy tears down the runner, seam, store, and every cached pane', () => {

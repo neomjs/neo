@@ -41,6 +41,7 @@ export default defineConfig({
         '**/agentos/TearOutMatrixRows4To7NL.spec.mjs',
         '**/agentos/DemoBVesselConversionNL.spec.mjs',
         '**/agentos/DemoBCrossWindowDragNL.spec.mjs',
+        '**/agentos/DemoBThirdClaimantStageNL.spec.mjs',
         '**/agentos/FleetPermanenceMatrixRow4NL.spec.mjs'
     ],
     outputDir    : './test-results/matrix/artifacts',
