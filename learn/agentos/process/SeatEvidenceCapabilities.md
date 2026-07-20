@@ -69,11 +69,11 @@ expectation, not a ban; counter-receipts are how ceilings retire).
 | `headed-native-browser` | unknown | — | unmeasured | — | — |
 | `ci-virtual-display` | positive | 2026-07-20 | GitHub Actions ubuntu | routine CI green | n/a |
 
-### @neo-opus-* (Claude-family seats)
+### @neo-opus-* (Claude-family seats; shared macOS host — same machine as the Kimi/GPT seats, separate checkouts)
 
 | Class | State | Observed | Grain | Receipt | Revalidation |
 |---|---|---|---|---|---|
-| `visual-render` | negative | 2026-07-18 | Grace's in-app browser wedged (300s timeout) on the AgentCard design evidence | #15536/#15538 review thread | re-run after harness update |
+| `visual-render` | negative | 2026-07-18 | **harness-scoped** (Grace's in-app browser wedged, 300s timeout, on the AgentCard design evidence) — host scope unconfirmed; do not generalize to the host without a run | #15536/#15538 review thread | re-run after harness update |
 | `headed-electron` | unknown | — | unmeasured | — | — |
 | `headed-native-browser` | unknown | — | unmeasured | — | — |
 | `ci-virtual-display` | positive | 2026-07-20 | GitHub Actions ubuntu | routine CI green | n/a |
