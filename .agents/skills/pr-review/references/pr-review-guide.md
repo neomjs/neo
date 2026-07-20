@@ -264,7 +264,7 @@ Demo/product-surface diffs touching rendered motion: load `audits/demo-surface-m
 
 ### 7.5.4 Evidence-Class Seat Routing
 
-Before claiming or requesting visual-render, headed-harness, or native-matrix evidence: consult `learn/agentos/process/SeatEvidenceCapabilities.md`. Records are advisory (a `negative` is an expectation, not a ban; counter-receipts retire ceilings). Honor the freshness obligation: read `observedAt` + `revalidationTrigger`, not just the state cell — a stale record is `unknown`. Do not route a receipt to a seat whose record is `negative` for that class without naming why the attempt is worth the cycle.
+Before claiming/requesting visual-render, headed-harness, or native-matrix evidence: consult `learn/agentos/process/SeatEvidenceCapabilities.md` (advisory, never identity-typing). Freshness obligation: check `observedAt` + `revalidationTrigger` — a stale record is `unknown`.
 
 ### 7.6 CI / Security Checks Audit
 
