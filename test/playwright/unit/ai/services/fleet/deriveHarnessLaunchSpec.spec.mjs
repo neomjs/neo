@@ -109,7 +109,7 @@ test.describe('deriveHarnessLaunchSpec (per-family harness launch templates)', (
     });
 
     test('LAUNCHABLE_HARNESS_TYPES is the frozen alphabetical template subset AND every entry is a registered harness type', () => {
-        expect(LAUNCHABLE_HARNESS_TYPES).toEqual(['antigravity', 'claude-code', 'claude-desktop', 'codex', 'codex-desktop', 'opencode']);
+        expect(LAUNCHABLE_HARNESS_TYPES).toEqual(['antigravity', 'claude-code', 'claude-desktop', 'codex', 'codex-desktop', 'kimi-code', 'opencode']);
         expect(Object.isFrozen(LAUNCHABLE_HARNESS_TYPES)).toBe(true);
 
         // The lockstep invariant the module also guards at import: launch vocabulary ⊆ the shared
@@ -132,6 +132,7 @@ test.describe('deriveHarnessLaunchSpec (per-family harness launch templates)', (
         expect(getHarnessAuthMode('claude-desktop')).toBe('in-app');
         expect(getHarnessAuthMode('antigravity')).toBe('in-app');
         expect(getHarnessAuthMode('opencode')).toBe('env-key');
+        expect(getHarnessAuthMode('kimi-code')).toBe('env-key');
         expect(getHarnessAuthMode('native-neo')).toBeNull();
         expect(getHarnessAuthMode(undefined)).toBeNull();
     });
@@ -165,6 +166,23 @@ test.describe('deriveHarnessLaunchSpec (per-family harness launch templates)', (
         const other = deriveHarnessLaunchSpec({harnessType: 'opencode', instanceHome: '/srv/instances/p/oc', binaryPath: '/usr/local/bin/opencode'});
         spec.args.push('--extra');
         expect(other.args).toEqual(['serve', '--hostname', '127.0.0.1', '--port', '0']);
+        expect(spec.env).not.toBe(other.env);
+    });
+
+    test('kimi-code: the resident web-server template with the single-var KIMI_CODE_HOME isolation (#15612)', () => {
+        const spec = deriveHarnessLaunchSpec({harnessType: 'kimi-code', instanceHome: '/srv/instances/p/kimi', binaryPath: '/usr/local/bin/kimi'});
+
+        expect(spec).toEqual({
+            command         : '/usr/local/bin/kimi',
+            args            : ['web', '--no-open', '--port', '0'],
+            env             : {KIMI_CODE_HOME: '/srv/instances/p/kimi'},
+            versionProbeArgs: ['--version']
+        });
+
+        // fresh spec per call — a mutating caller never bleeds into the template
+        const other = deriveHarnessLaunchSpec({harnessType: 'kimi-code', instanceHome: '/srv/instances/p/kimi', binaryPath: '/usr/local/bin/kimi'});
+        spec.args.push('--extra');
+        expect(other.args).toEqual(['web', '--no-open', '--port', '0']);
         expect(spec.env).not.toBe(other.env);
     });
 

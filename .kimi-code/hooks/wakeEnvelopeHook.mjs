@@ -27,8 +27,13 @@ import path from 'node:path';
  *
  * Sibling of `.claude/hooks/turnPresenceHook.mjs` and `.codex/hooks/codex-context.mjs` —
  * same adapter contract shape: stdin JSON in, bounded local write, no Neo singleton imports.
+ *
+ * Home resolution: `KIMI_CODE_HOME` when set (Fleet-launched seats run with an isolated harness
+ * home, and the envelope must land beside the seat's own `server/instances` coordinates), else
+ * the ambient `~/.kimi-code` (interactive seats).
  */
-const ENVELOPE_PATH = path.join(os.homedir(), '.kimi-code', 'wake-envelope.json');
+const KIMI_HOME     = process.env.KIMI_CODE_HOME || path.join(os.homedir(), '.kimi-code');
+const ENVELOPE_PATH = path.join(KIMI_HOME, 'wake-envelope.json');
 
 let input = '';
 
