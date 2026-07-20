@@ -71,6 +71,20 @@ class DemoBWorkspace extends Container {
      * @static
      */
     static POPUP_WORKSPACE_ID = 'demo-b-popup'
+    /**
+     * Stable worker-owned workspace id for the second popup document — the third registered
+     * claim target the row-6 arbitration receipt measures (a real workspace-set composition,
+     * never a vacuous witness).
+     * @member {String} POPUP2_WORKSPACE_ID='demo-b-popup-2'
+     * @static
+     */
+    static POPUP2_WORKSPACE_ID = 'demo-b-popup-2'
+    /**
+     * Native window name of the second popup render target.
+     * @member {String} POPUP2_WINDOW_NAME='demo-b-cross-window-2'
+     * @static
+     */
+    static POPUP2_WINDOW_NAME = 'demo-b-cross-window-2'
     static config = {
         /**
          * @member {String} className='AgentOS.childapps.dockdemo.view.DemoBWorkspace'
@@ -112,6 +126,13 @@ class DemoBWorkspace extends Container {
      * @member {Object|null} popupDocument=null
      */
     popupDocument = null
+    /**
+     * The second popup render target's worker-owned dock-zone document. Registered through the
+     * same workspace-set seam as the first popup; topology capture stays main+popup-1 scoped,
+     * so this document never enters perspective records.
+     * @member {Object|null} popup2Document=null
+     */
+    popup2Document = null
     /**
      * The worker-owned `{workspaceId → document}` registry (§2.1 workspace-set composition):
      * both workspaces register their document accessors here, foreign-document resolution rides
@@ -188,6 +209,12 @@ class DemoBWorkspace extends Container {
      */
     crossWindowTargetWindowId = null
     /**
+     * The popup render target currently bound to {@link #POPUP2_WORKSPACE_ID}.
+     * @member {String|null} crossWindowTarget2WindowId=null
+     * @protected
+     */
+    crossWindowTarget2WindowId = null
+    /**
      * Connect-settled promise for the deterministic two-window stage.
      * @member {Promise|null} crossWindowStagePromise=null
      * @protected
@@ -206,6 +233,24 @@ class DemoBWorkspace extends Container {
      * @protected
      */
     crossWindowStageReject = null
+    /**
+     * Connect-settled promise for the second popup's stage.
+     * @member {Promise|null} crossWindowStage2Promise=null
+     * @protected
+     */
+    crossWindowStage2Promise = null
+    /**
+     * Resolver for {@link #crossWindowStage2Promise}.
+     * @member {Function|null} crossWindowStage2Resolve=null
+     * @protected
+     */
+    crossWindowStage2Resolve = null
+    /**
+     * Rejecter for {@link #crossWindowStage2Promise}.
+     * @member {Function|null} crossWindowStage2Reject=null
+     * @protected
+     */
+    crossWindowStage2Reject = null
     /**
      * Monotonic target-ownership generation. Every open attempt captures the current value;
      * disconnect and destroy advance it so an awaited popup mount cannot resurrect stale state.
@@ -333,6 +378,12 @@ class DemoBWorkspace extends Container {
      */
     kbdLivePopup = null
     /**
+     * The second popup workspace's announcement region instance.
+     * @member {Neo.component.Base|null} kbdLivePopup2=null
+     * @protected
+     */
+    kbdLivePopup2 = null
+    /**
      * The window the most recent keyboard command originated in — recorded per keydown from the
      * routing host's own `windowId`. Focus mechanics need the ORIGIN because focus-stealing rules
      * are directional: a popup may focus its opener (it holds the keystroke's activation), while
@@ -378,6 +429,7 @@ class DemoBWorkspace extends Container {
 
         me.dockModel        = DockZoneModel.clone(initialDocument);
         me.popupDocument    = DemoBWorkspace.createPopupDocument();
+        me.popup2Document   = DemoBWorkspace.createPopupDocument();
 
         // Live-rect authority: every Demo-B render target publishes resize geometry into
         // manager.Window. Movement-only snapshots make a post-resize conversion compare against
@@ -396,6 +448,11 @@ class DemoBWorkspace extends Container {
         me.workspaceSet.register(DemoBWorkspace.POPUP_WORKSPACE_ID, {
             getDocument: () => me.popupDocument,
             setDocument: document => me.popupDocument = document
+        });
+
+        me.workspaceSet.register(DemoBWorkspace.POPUP2_WORKSPACE_ID, {
+            getDocument: () => me.popup2Document,
+            setDocument: document => me.popup2Document = document
         });
 
         me.dockPreviewProducer = Neo.create(DockPreviewProducer);
@@ -425,21 +482,36 @@ class DemoBWorkspace extends Container {
             commitCrossWindowTransfer: data => me.commitCrossWindowTransfer(data),
             createPopupDocument      : () => DemoBWorkspace.createPopupDocument(),
             createVesselOwnerGrant   : (flow, itemId) => me.createVesselOwnerGrant(flow, itemId),
-            ensurePopupRegistered    : () => me.ensurePopupWorkspaceRegistered(),
-            getPopupDocument         : () => me.popupDocument,
-            getStageGeneration       : () => me.crossWindowStageGeneration,
-            getStagePromise          : () => me.crossWindowStagePromise,
-            getStageReject           : () => me.crossWindowStageReject,
-            getStageResolve          : () => me.crossWindowStageResolve,
-            getTargetWindowId        : () => me.crossWindowTargetWindowId,
-            getWindowId              : () => me.windowId,
-            getWorkspaceDocument     : workspaceId => me.getWorkspaceDocument(workspaceId),
-            hitTestWorkspace         : (workspaceId, localX, localY) => me.hitTestWorkspace(workspaceId, localX, localY),
-            hostComponentId          : me.id,
-            hostTimeout              : ms => me.timeout(ms),
-            incrementTransferCommits : () => me.crossWindowStats.transferCommits++,
-            isHostDestroyed          : () => me.isDestroyed,
-            onKbdLiveMounted         : live => me.kbdLivePopup = live,
+            ensurePopupRegistered    : workspaceId => me.ensurePopupWorkspaceRegistered(workspaceId),
+            getPopupDocument         : workspaceId => workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID
+                ? me.popup2Document
+                : me.popupDocument,
+            getStageGeneration: () => me.crossWindowStageGeneration,
+            getStagePromise   : workspaceId => workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID
+                ? me.crossWindowStage2Promise
+                : me.crossWindowStagePromise,
+            getStageReject           : workspaceId => workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID
+                ? me.crossWindowStage2Reject
+                : me.crossWindowStageReject,
+            getStageResolve          : workspaceId => workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID
+                ? me.crossWindowStage2Resolve
+                : me.crossWindowStageResolve,
+            getStageWindowName       : workspaceId => workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID
+                ? DemoBWorkspace.POPUP2_WINDOW_NAME
+                : 'demo-b-cross-window',
+            getTargetWindowId        : workspaceId => workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID
+                ? me.crossWindowTarget2WindowId
+                : me.crossWindowTargetWindowId,
+            getWindowId             : () => me.windowId,
+            getWorkspaceDocument    : workspaceId => me.getWorkspaceDocument(workspaceId),
+            hitTestWorkspace        : (workspaceId, localX, localY) => me.hitTestWorkspace(workspaceId, localX, localY),
+            hostComponentId         : me.id,
+            hostTimeout             : ms => me.timeout(ms),
+            incrementTransferCommits: () => me.crossWindowStats.transferCommits++,
+            isHostDestroyed         : () => me.isDestroyed,
+            onKbdLiveMounted        : (live, workspaceId) => workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID
+                ? me.kbdLivePopup2 = live
+                : me.kbdLivePopup = live,
             onWorkspaceDocumentChange: (workspaceId, document, options) => me.onWorkspaceDocumentChange(workspaceId, document, options),
             projectDockModel         : (resolveComponentRef, workspaceId) => me.projectDockModel(resolveComponentRef, workspaceId),
             refreshWorkspace         : (workspaceId, document) => me.refreshWorkspace(workspaceId, document),
@@ -456,13 +528,27 @@ class DemoBWorkspace extends Container {
                 me.crossWindowGestureResolve = null
             },
             revokeVesselOwnerGrant: (flow, itemId) => me.revokeVesselOwnerGrant(flow, itemId),
-            setPopupDocument      : document => me.popupDocument = document,
-            setStagePromise       : promise => me.crossWindowStagePromise = promise,
-            setStageReject        : reject => me.crossWindowStageReject = reject,
-            setStageResolve       : resolve => me.crossWindowStageResolve = resolve,
-            setTargetWindowId     : windowId => me.crossWindowTargetWindowId = windowId,
-            sortGroup             : DemoBWorkspace.CROSS_WINDOW_SORT_GROUP,
-            workspaceIds          : {main: DemoBWorkspace.MAIN_WORKSPACE_ID, popup: DemoBWorkspace.POPUP_WORKSPACE_ID},
+            setPopupDocument      : (workspaceId, document) => workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID
+                ? me.popup2Document = document
+                : me.popupDocument = document,
+            setStagePromise          : (workspaceId, promise) => workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID
+                ? me.crossWindowStage2Promise = promise
+                : me.crossWindowStagePromise = promise,
+            setStageReject           : (workspaceId, reject) => workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID
+                ? me.crossWindowStage2Reject = reject
+                : me.crossWindowStageReject = reject,
+            setStageResolve          : (workspaceId, resolve) => workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID
+                ? me.crossWindowStage2Resolve = resolve
+                : me.crossWindowStageResolve = resolve,
+            setTargetWindowId        : (workspaceId, windowId) => workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID
+                ? me.crossWindowTarget2WindowId = windowId
+                : me.crossWindowTargetWindowId = windowId,
+            sortGroup   : DemoBWorkspace.CROSS_WINDOW_SORT_GROUP,
+            workspaceIds: {
+                main  : DemoBWorkspace.MAIN_WORKSPACE_ID,
+                popup : DemoBWorkspace.POPUP_WORKSPACE_ID,
+                popup2: DemoBWorkspace.POPUP2_WORKSPACE_ID
+            },
             workspaceSet          : me.workspaceSet
         });
 
@@ -596,12 +682,14 @@ class DemoBWorkspace extends Container {
      * @protected
      */
     announceKeyboardOutcome({message}) {
-        let me    = this,
-            main  = me.getReference('kbd-live-b'),
-            popup = me.kbdLivePopup;
+        let me     = this,
+            main   = me.getReference('kbd-live-b'),
+            popup  = me.kbdLivePopup,
+            popup2 = me.kbdLivePopup2;
 
         main && (main.text = message);
-        popup && !popup.isDestroyed && (popup.text = message)
+        popup && !popup.isDestroyed && (popup.text = message);
+        popup2 && !popup2.isDestroyed && (popup2.text = message)
     }
 
     /**
@@ -769,8 +857,9 @@ class DemoBWorkspace extends Container {
     enumerateKeyboardTargets({itemId}) {
         let me     = this,
             labels = {
-                [DemoBWorkspace.MAIN_WORKSPACE_ID] : 'Main window',
-                [DemoBWorkspace.POPUP_WORKSPACE_ID]: 'Popup window'
+                [DemoBWorkspace.MAIN_WORKSPACE_ID]  : 'Main window',
+                [DemoBWorkspace.POPUP_WORKSPACE_ID] : 'Popup window',
+                [DemoBWorkspace.POPUP2_WORKSPACE_ID]: 'Popup window 2'
             };
 
         return me.workspaceSet.ids().flatMap(workspaceId => {
@@ -949,7 +1038,9 @@ class DemoBWorkspace extends Container {
 
         // popup-workspace target: the MAIN window opened it, so ITS Main actor holds the handle
         if (targetWindowId !== me.windowId) {
-            return me.focusNamedWindow('demo-b-cross-window')
+            return me.focusNamedWindow(workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID
+                ? DemoBWorkspace.POPUP2_WINDOW_NAME
+                : 'demo-b-cross-window')
         }
 
         // main-window target from a popup origin: route the verb to the POPUP's main thread
@@ -981,16 +1072,24 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * @summary (Re-)registers the popup workspace's live accessors before a cold stage opens.
+     * @summary (Re-)registers a popup workspace's live accessors before a cold stage opens.
      *
      * A successful whole-stack return explicitly unregisters the emptied popup entry. The next
      * user-authored stage is a NEW workspace lifetime, so it re-registers the same semantic id
      * against the current owner fields before any participation adapter may resolve it.
+     * @param {String} [workspaceId=DemoBWorkspace.POPUP_WORKSPACE_ID] the popup to (re-)register.
      * @returns {Boolean}
      * @protected
      */
-    ensurePopupWorkspaceRegistered() {
+    ensurePopupWorkspaceRegistered(workspaceId=DemoBWorkspace.POPUP_WORKSPACE_ID) {
         let me = this;
+
+        if (workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID) {
+            return me.workspaceSet.register(workspaceId, {
+                getDocument: () => me.popup2Document,
+                setDocument: document => me.popup2Document = document
+            })
+        }
 
         return me.workspaceSet.register(DemoBWorkspace.POPUP_WORKSPACE_ID, {
             getDocument: () => me.popupDocument,
@@ -1274,6 +1373,8 @@ class DemoBWorkspace extends Container {
             me.dockModel = document
         } else if (workspaceId === DemoBWorkspace.POPUP_WORKSPACE_ID) {
             me.popupDocument = document
+        } else if (workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID) {
+            me.popup2Document = document
         } else {
             return Promise.reject(new Error(`unknown Demo-B workspace "${workspaceId}"`))
         }
@@ -1348,16 +1449,17 @@ class DemoBWorkspace extends Container {
      * @returns {Promise<Object|null>}
      * @protected
      */
-    async mountCrossWindowTarget(app, windowId) {
-        return this.crossWindowStage.mountTarget(app, windowId)
+    async mountCrossWindowTarget(app, windowId, workspaceId=DemoBWorkspace.POPUP_WORKSPACE_ID) {
+        return this.crossWindowStage.mountTarget(app, windowId, workspaceId)
     }
 
     /**
      * Facade over the extracted cross-window stage module.
+     * @param {String} [workspaceId=DemoBWorkspace.POPUP_WORKSPACE_ID] the popup workspace to stage.
      * @returns {Promise<Object>}
      */
-    async openCrossWindowStage() {
-        return this.crossWindowStage.openStage()
+    async openCrossWindowStage(workspaceId=DemoBWorkspace.POPUP_WORKSPACE_ID) {
+        return this.crossWindowStage.openStage(workspaceId)
     }
 
     /**
@@ -2807,7 +2909,7 @@ class DemoBWorkspace extends Container {
         // ownership branch until its Main realm has installed resize observation.
         await Neo.main.addon.WindowPosition?.setConfigs({observeResize: true, windowId});
 
-        if (workspaceId === DemoBWorkspace.POPUP_WORKSPACE_ID) {
+        if (workspaceId === DemoBWorkspace.POPUP_WORKSPACE_ID || workspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID) {
             if (flow !== 'workspace-target') return;
 
             if (!me.consumeVesselOwnerGrant({
@@ -2819,7 +2921,7 @@ class DemoBWorkspace extends Container {
                 windowId
             })) return;
 
-            await me.mountCrossWindowTarget(app, windowId);
+            await me.mountCrossWindowTarget(app, windowId, workspaceId);
             return
         }
 
@@ -2979,8 +3081,15 @@ class DemoBWorkspace extends Container {
 
         if (me.isDestroyed) return;
 
-        if (data.windowId === me.crossWindowTargetWindowId) {
-            let workspaceId    = DemoBWorkspace.POPUP_WORKSPACE_ID,
+        let disconnectedWorkspaceId = data.windowId === me.crossWindowTargetWindowId
+                ? DemoBWorkspace.POPUP_WORKSPACE_ID
+                : data.windowId === me.crossWindowTarget2WindowId
+                    ? DemoBWorkspace.POPUP2_WORKSPACE_ID
+                    : null;
+
+        if (disconnectedWorkspaceId) {
+            let isPopup2       = disconnectedWorkspaceId === DemoBWorkspace.POPUP2_WORKSPACE_ID,
+                workspaceId    = disconnectedWorkspaceId,
                 detachedItemId = Object.entries(me.detachedPanes)
                     .find(([, entry]) => entry.windowId === data.windowId)?.[0];
 
@@ -2992,22 +3101,45 @@ class DemoBWorkspace extends Container {
                 applied: false,
                 errors : ['cross-window target disconnected before the gesture settled']
             });
-            me.crossWindowStageReject?.(new Error('cross-window target disconnected before readiness settled'));
 
-            for (const id of [DemoBWorkspace.MAIN_WORKSPACE_ID, workspaceId]) {
-                me.crossWindowParticipations.get(id)?.destroy();
-                me.crossWindowParticipations.delete(id);
-                me.crossWindowGeometry.delete(id)
+            if (isPopup2) {
+                me.crossWindowStage2Reject?.(new Error('cross-window target disconnected before readiness settled'))
+            } else {
+                me.crossWindowStageReject?.(new Error('cross-window target disconnected before readiness settled'))
+            }
+
+            me.crossWindowParticipations.get(workspaceId)?.destroy();
+            me.crossWindowParticipations.delete(workspaceId);
+            me.crossWindowGeometry.delete(workspaceId);
+
+            // The main participation serves every staged popup pair: it retires only when the
+            // LAST popup target is gone, never while a sibling stage remains live.
+            let siblingTargetId = isPopup2 ? me.crossWindowTargetWindowId : me.crossWindowTarget2WindowId;
+
+            if (!siblingTargetId) {
+                me.crossWindowParticipations.get(DemoBWorkspace.MAIN_WORKSPACE_ID)?.destroy();
+                me.crossWindowParticipations.delete(DemoBWorkspace.MAIN_WORKSPACE_ID);
+                me.crossWindowGeometry.delete(DemoBWorkspace.MAIN_WORKSPACE_ID)
             }
 
             me.crossWindowHosts.delete(workspaceId);
-            me.crossWindowTargetWindowId = null;
-            me.crossWindowStagePromise   = null;
-            me.crossWindowStageResolve   = null;
-            me.crossWindowStageReject    = null;
+
+            if (isPopup2) {
+                me.crossWindowTarget2WindowId = null;
+                me.crossWindowStage2Promise   = null;
+                me.crossWindowStage2Resolve   = null;
+                me.crossWindowStage2Reject    = null;
+                me.kbdLivePopup2              = null
+            } else {
+                me.crossWindowTargetWindowId = null;
+                me.crossWindowStagePromise   = null;
+                me.crossWindowStageResolve   = null;
+                me.crossWindowStageReject    = null;
+                me.kbdLivePopup              = null
+            }
+
             me.crossWindowGestureResolve = null;
             me.crossWindowGestureContext = null;
-            me.kbdLivePopup              = null;
 
             // A post-commit manual close is a terminal vessel event, not ownership loss.
             // A pre-commit close has no detached entry and remains a cancelled gesture.
@@ -4310,6 +4442,7 @@ class DemoBWorkspace extends Container {
         });
         me.crossWindowGestureResolve?.({applied: false, errors: ['Demo-B workspace destroyed']});
         me.crossWindowStageReject?.(new Error('Demo-B workspace destroyed'));
+        me.crossWindowStage2Reject?.(new Error('Demo-B workspace destroyed'));
         me.crossWindowParticipations.forEach(participation => participation.destroy());
         me.crossWindowParticipations.clear();
         me.crossWindowHosts.clear();
@@ -4323,6 +4456,9 @@ class DemoBWorkspace extends Container {
         me.crossWindowStagePromise   = null;
         me.crossWindowStageResolve   = null;
         me.crossWindowStageReject    = null;
+        me.crossWindowStage2Promise  = null;
+        me.crossWindowStage2Resolve  = null;
+        me.crossWindowStage2Reject   = null;
         me.crossWindowGestureResolve = null;
         me.crossWindowGestureContext = null;
 
