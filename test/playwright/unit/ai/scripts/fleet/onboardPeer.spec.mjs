@@ -133,7 +133,7 @@ test.describe('onboardPeer — intent construction (pure half)', () => {
     test('only curated harness families are accepted, with a named refusal', () => {
         // The curated set IS the launch-templated subset — one derived truth, widened in lockstep
         // with deriveHarnessLaunchSpec. `native-neo` stays registered-but-unlaunchable.
-        expect(CURATED_HARNESS_TYPES).toEqual(['antigravity', 'claude-code', 'claude-desktop', 'codex', 'codex-desktop', 'opencode']);
+        expect(CURATED_HARNESS_TYPES).toEqual(['antigravity', 'claude-code', 'claude-desktop', 'codex', 'codex-desktop', 'kimi-code', 'opencode']);
         expect(CURATED_HARNESS_TYPES).not.toContain('native-neo');
 
         const built = buildOnboardingIntent({...BASE_OPTIONS, harnessType: 'gemini-cli'});
