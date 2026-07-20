@@ -46,9 +46,14 @@ test.describe('generateKimiSeatConfig (Kimi Code seat scaffold emission, #15612)
         expect(toml).toContain('default_permission_mode = "auto"');
         expect(toml).toContain('default_model           = "kimi-code/k3"');
 
-        for (const server of KIMI_SEAT_SERVERS) {
-            expect(toml).toContain(`pattern  = "mcp__${server.name.replaceAll('-', '_')}__*"`);
-        }
+        // The harness FACT (living reference: a production kimi seat's hand-built config.toml,
+        // daily-driven since 2026-07-19): tool ids keep server names VERBATIM, hyphens and all.
+        // Asserting the literal hyphenated form — not a transform — so the tautology cannot regrow.
+        expect(toml).toContain('pattern  = "mcp__neo-mjs-memory-core__*"');
+        expect(toml).toContain('pattern  = "mcp__neo-mjs-github-workflow__*"');
+        expect(toml).toContain('pattern  = "mcp__neo-mjs-knowledge-base__*"');
+        expect(toml).toContain('pattern  = "mcp__neo-mjs-neural-link__*"');
+        expect(toml).not.toContain('mcp__neo_mjs_');
 
         // The wake-envelope SessionStart hook: git-tracked, KIMI_CODE_HOME-aware.
         expect(toml).toContain('event   = "SessionStart"');
