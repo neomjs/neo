@@ -340,7 +340,7 @@ paths:
         stable `reason` code (`handoff-not-found`, `handoff-read-failed`,
         `handoff-too-large`) — never a silent empty string. Read-only: no identity mutation,
         team-visible operational content. Remote/container agents use this to read the
-        morning surface without a repo checkout (#15599).
+        morning surface without a repo checkout.
       tags: [Diagnostics]
       requestBody:
         required: false
