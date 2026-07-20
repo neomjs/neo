@@ -62,22 +62,34 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         stores.length = 0
     });
 
-    test('healthCounts is the pure tally — five canonical categories; unknown/guest folds into off (no 6th key, no undercount)', () => {
+    test('healthCounts is the pure tally — six canonical categories through the SAME resolver the cards render; unknown/guest folds into off (no 7th key, no undercount)', () => {
+        // roster-only rows (no sources) resolve participation-active states to `unobserved`,
+        // exactly as the cards display them — the tally and the card grain can never diverge
         const counts = healthCounts(roster(['ok', 'ok', 'idle', 'off', 'limited', 'wedged']));
-        expect(counts).toEqual({ok: 2, idle: 1, wedged: 1, limited: 1, off: 1});
+        expect(counts).toEqual({ok: 0, idle: 0, wedged: 0, limited: 0, unobserved: 5, off: 1});
 
-        // zero-fill: exactly the five canonical keys, present even when absent
-        expect(healthCounts([])).toEqual({ok: 0, idle: 0, wedged: 0, limited: 0, off: 0});
+        // a wired runtime keeps the row state as session truth in the tally too
+        const wiredSources = {
+            roster    : {source: 'fleet:listAgents',    state: 'wired', confidence: 'observed'},
+            repoStatus: {source: 'fleet:fleetStatus',   state: 'wired', confidence: 'observed'},
+            runtime   : {source: 'fleet:runtimeStatus', state: 'wired', confidence: 'observed'}
+        };
+        expect(healthCounts([{agentId: 'a1', state: 'ok', sources: wiredSources}])).toEqual(
+            {ok: 1, idle: 0, wedged: 0, limited: 0, unobserved: 0, off: 0}
+        );
 
-        // unknown / guest / unsupported → off (benched), matching the grid's benched tier — NEVER a literal 6th key
+        // zero-fill: exactly the six canonical keys, present even when absent
+        expect(healthCounts([])).toEqual({ok: 0, idle: 0, wedged: 0, limited: 0, unobserved: 0, off: 0});
+
+        // unknown / guest / unsupported → off (benched), matching the grid's benched tier — NEVER a literal 7th key
         const withGuest = healthCounts(roster(['ok', 'mysterious', 'guest']));
-        expect(withGuest).toEqual({ok: 1, idle: 0, wedged: 0, limited: 0, off: 2});
-        expect(Object.keys(withGuest).sort()).toEqual(['idle', 'limited', 'off', 'ok', 'wedged']);
-        // the five visible counts sum to the roster size — the bar can never undercount
+        expect(withGuest).toEqual({ok: 0, idle: 0, wedged: 0, limited: 0, unobserved: 1, off: 2});
+        expect(Object.keys(withGuest).sort()).toEqual(['idle', 'limited', 'off', 'ok', 'unobserved', 'wedged']);
+        // the six visible counts sum to the roster size — the bar can never undercount
         expect(Object.values(withGuest).reduce((a, b) => a + b, 0)).toBe(3);
 
         // non-array guard
-        expect(healthCounts(null)).toEqual({ok: 0, idle: 0, wedged: 0, limited: 0, off: 0})
+        expect(healthCounts(null)).toEqual({ok: 0, idle: 0, wedged: 0, limited: 0, unobserved: 0, off: 0})
     });
 
     test('rankFleet tiers deterministically (online → idle → benched, sorted by agentId) with the fold threshold', () => {
@@ -176,9 +188,10 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         expect(lastId()).not.toBe(first.agentId);
 
         // the grid seats its store onto the header health bar — counts derive from the same records
+        // (roster-only rows tally as `unobserved`, exactly as the cards display them)
         const bar = grid.getReference('fleet-health');
         expect(bar.store).toBe(store);
-        expect(swatchOf(bar, 'ok').count).toBe(2);
+        expect(swatchOf(bar, 'unobserved').count).toBe(3);
 
         first.set({state: 'off'});
 
@@ -187,7 +200,7 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         expect(agentCards(grid).at(-1).down({ntype: 'fm-state-dot'}).state).toBe('off');
 
         // ...and the store-bound health bar re-tallied through ITS OWN record seam (no array push)
-        expect(swatchOf(bar, 'ok').count).toBe(1);
+        expect(swatchOf(bar, 'unobserved').count).toBe(2);
         expect(swatchOf(bar, 'off').count).toBe(1);
 
         grid.destroy()
@@ -233,9 +246,8 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         const store = makeStore(roster(['ok', 'ok', 'idle', 'off'])),
               bar   = Neo.create(HealthBar, {appName, store});
 
-        expect(bar.items.length).toBe(5);
-        expect(swatchOf(bar, 'ok').count).toBe(2);
-        expect(swatchOf(bar, 'idle').count).toBe(1);
+        expect(bar.items.length).toBe(6);
+        expect(swatchOf(bar, 'unobserved').count).toBe(3);
         expect(swatchOf(bar, 'off').count).toBe(1);
         expect(swatchOf(bar, 'wedged').count).toBe(0);   // zero still renders (confirms "none")
 
@@ -244,17 +256,20 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         store.items[2].set({state: 'wedged'});                   // idle → wedged, via the record seam
         expect(bar.items.map(sw => sw.id)).toEqual(idsBefore);   // not recreated → the count transition can animate
         expect(swatchOf(bar, 'idle').count).toBe(0);
-        expect(swatchOf(bar, 'wedged').count).toBe(1);
+        // an unwired canonical state stays unobserved in the tally — wedged only counts as session
+        // truth under a wired runtime (exactly the card's own honesty rule)
+        expect(swatchOf(bar, 'wedged').count).toBe(0);
+        expect(swatchOf(bar, 'unobserved').count).toBe(3);
 
         // a store load (roster growth) re-tallies too
         store.add({agentId: 'agent-99', state: 'ok'});
-        expect(swatchOf(bar, 'ok').count).toBe(3);
+        expect(swatchOf(bar, 'unobserved').count).toBe(4);
 
-        // guest/unknown folds into the VISIBLE off swatch — the five-swatch bar never undercounts a roster
+        // guest/unknown folds into the VISIBLE off swatch — the six-swatch bar never undercounts a roster
         store.items[0].set({state: 'mysterious'});
-        expect(bar.items.length).toBe(5);              // still no 6th swatch
+        expect(bar.items.length).toBe(6);              // still no 7th swatch
         expect(swatchOf(bar, 'off').count).toBe(2);    // off + mysterious rendered as benched
-        expect(swatchOf(bar, 'ok').count).toBe(2);
+        expect(swatchOf(bar, 'unobserved').count).toBe(3);
 
         bar.destroy()
     });

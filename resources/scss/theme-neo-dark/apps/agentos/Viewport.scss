@@ -48,6 +48,9 @@
     // Distinct from the five resolved states; exact palette is design-owner-tunable.
     --fm-state-starting: #38bdf8;
     --fm-state-stopping: #94a3b8;
+    // participation-active with no session observation: slate-blue "signal pending", distinct
+    // from off's dead grey (#616d7c) — ≥3:1 against card surfaces (non-text floor).
+    --fm-state-unobserved: #6b7f94;
     --fm-state-off     : #616d7c;
 
     --fm-family-claude : #d99a5b;

@@ -1,33 +1,36 @@
 import Container    from '../../../../src/container/Base.mjs';
 import HealthSwatch from './HealthSwatch.mjs';
+import {resolveFleetDisplayState} from './sourceHealth.mjs';
 
 /**
- * Canonical category order for the health summary — the five session-state buckets in the SSOT
- * legend order (working · idle · wedged · rate-limited · benched/offline). One vocabulary shared
- * with {@link HealthSwatch} / {@link StateDot} on the agent-health axis.
+ * Canonical category order for the health summary — the six session-state buckets in the SSOT
+ * legend order (working · idle · wedged · rate-limited · unobserved · benched/offline). One
+ * vocabulary shared with {@link HealthSwatch} / {@link StateDot} on the agent-health axis.
  * @type {String[]}
  */
-const HEALTH_ORDER = ['ok', 'idle', 'wedged', 'limited', 'off'];
+const HEALTH_ORDER = ['ok', 'idle', 'wedged', 'limited', 'unobserved', 'off'];
 
 /**
  * @summary Pure fleet → per-category counts — the scale-to-a-glance tally.
- * Buckets each agent's session `state` into the five canonical categories — the SSOT legend has no
- * sixth category, so an unknown / guest / unsupported runtime state folds into `off` (benched-offline),
- * matching the grid's benched tier, rather than a literal key the five-swatch bar would never render.
- * Every agent therefore lands in a RENDERED bucket and the visible bar total can never undercount the
- * roster. Pure + serializable; the bar renders its result, so the tally is unit-provable in isolation.
- * @param {Object[]} agents Roster entries carrying a `state` field — FleetAgent records or plain rows.
- * @returns {Object} `{ok, idle, wedged, limited, off}` — exactly the five canonical keys (zero-filled); the counts sum to the roster length.
+ * Buckets each agent through {@link resolveFleetDisplayState} — the SAME resolver the AgentCard
+ * renders from, so the glance tally and every card can never diverge: a roster-only active row
+ * counts as `unobserved` here exactly as the card displays it, while an explicit operator-benched
+ * `off` counts as benched in both. Unknown/guest rows fold into `off` (never a 7th key). Every
+ * agent lands in a RENDERED bucket and the visible bar total can never undercount the roster.
+ * Pure + serializable; the bar renders its result, so the tally is unit-provable in isolation.
+ * @param {Object[]} agents Roster entries carrying `state` + `sources` fields — FleetAgent records or plain rows.
+ * @returns {Object} `{ok, idle, wedged, limited, unobserved, off}` — exactly the six canonical keys (zero-filled); the counts sum to the roster length.
  */
 export function healthCounts(agents) {
     const list   = Array.isArray(agents) ? agents : [],
-          counts = {ok: 0, idle: 0, wedged: 0, limited: 0, off: 0};
+          counts = {ok: 0, idle: 0, wedged: 0, limited: 0, unobserved: 0, off: 0};
 
     list.forEach(agent => {
-        // canonical state → its own bucket; anything else (guest/unknown/absent) → off, never a 6th key
-        const bucket = Object.hasOwn(counts, agent?.state) ? agent.state : 'off';
+        // canonical state → its own bucket; anything else (guest/unknown/absent) → off, never a 7th key
+        const resolved = resolveFleetDisplayState({state: agent?.state, sources: agent?.sources}),
+              key      = Object.hasOwn(counts, resolved) ? resolved : 'off';
 
-        counts[bucket] += 1
+        counts[key] += 1
     });
 
     return counts

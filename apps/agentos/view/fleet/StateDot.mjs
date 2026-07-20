@@ -19,6 +19,9 @@ const STATE_TOKEN = {
     // neither cleanly `off` nor confirmed `ok`; the dot must not assert a resolved state mid-request.
     starting: '--fm-state-starting',
     stopping: '--fm-state-stopping',
+    // participation-active with NO session observation: the slate signal-pending token, visually
+    // distinct from off's dead grey — no liveness claimed, no benched verdict claimed.
+    unobserved: '--fm-state-unobserved',
     off     : '--fm-state-off'
 };
 
@@ -60,6 +63,7 @@ const STATE_LABEL = {
     limited : 'rate-limited',
     starting: 'starting',
     stopping: 'stopping',
+    unobserved: 'unobserved',
     off     : 'benched / offline'
 };
 
