@@ -1,35 +1,44 @@
-import AgentCardController     from './AgentCardController.mjs';
-import Button                  from '../../../../src/button/Base.mjs';
-import Container               from '../../../../src/container/Base.mjs';
-import FamilyRail              from './FamilyRail.mjs';
-import Image                   from '../../../../src/component/Image.mjs';
-import SourceHealthMarker      from './SourceHealthMarker.mjs';
-import StateDot, {stateLabel}  from './StateDot.mjs';
-import {normalizeFleetSources} from './sourceHealth.mjs';
+import AgentCardController    from './AgentCardController.mjs';
+import Button                 from '../../../../src/button/Base.mjs';
+import Container              from '../../../../src/container/Base.mjs';
+import FamilyRail             from './FamilyRail.mjs';
+import Image                  from '../../../../src/component/Image.mjs';
+import StateDot, {stateLabel} from './StateDot.mjs';
+
+import {normalizeFleetSources, summarizeFleetSources} from './sourceHealth.mjs';
 
 import {describeNameProvenance, resolveNameSlot} from './nameSlot.mjs';
 import {describeTelltale}                        from './telltale.mjs';
 
 /**
- * The resident card: the cockpit's atom. Composes the class-based fleet primitives (FamilyRail +
- * StateDot + SourceHealthMarker) with a profile avatar, name, engine tag, and the lane row —
- * current-lane line plus the open-lane count badge (measured density evidence: 7–17 open lanes
- * per active agent; the badge carries the honest total the single line cannot) — into the SSOT
- * card anatomy.
+ * The resident card: the cockpit's atom — the evolved-D/synthesis composition (operator SELECT
+ * 2026-07-19: B/C identity-first hierarchy + D's narrow mechanics + A as roomy alignment).
+ * Composes the class-based fleet primitives (FamilyRail + StateDot) with a profile avatar, a
+ * two-line identity column, contextual actions, a tail-aware lane, and an honest source-summary
+ * strip into the card anatomy — responsive to the card's OWN width via `@container`: layout-blind
+ * to docking, never viewport media queries.
+ *
+ * Anatomy (top-to-bottom, the family rail a left accent owned by FamilyRail):
+ * - **head** — avatar spanning a two-line **identity** column: `name-line` (name · provenance ·
+ *   engine) over `state-line` (dot · state-word · lane-count badge · telltale), with the contextual
+ *   lifecycle **actions** right-aligned;
+ * - **work-row** — the current lane, two-line clamped with head+tail middle elision so two lanes
+ *   sharing a prefix still distinguish by their preserved tail (the narrow-density falsifier);
+ * - **strip** — ONE honest source word-line ("all sources nominal" / "REP not nominal"), retiring
+ *   the three 9px markers; full facts stay reachable via the drill (detail), never hover-only.
+ *
+ * **Width modes are card-owned** (SCSS `@container`): narrow (<320px) scales the avatar to 32px,
+ * hides the engine tag, and grows the inline lifecycle verbs to a 44px touch target — they stay
+ * visible (no overflow menu); regular/wide keep the full identity. Severity changes the state-word's **weight** on a text-safe ink, never the dot's hue as
+ * text (the WCAG 1.4.1→1.4.3 trap avoided by construction — the visible state word is always the
+ * colour-independent carrier).
  *
  * **Data-driven from its `record`** — one {@link AgentOS.model.FleetAgent} record (a row of the
- * shared {@link AgentOS.store.FleetRoster} Store) is the card's single data surface; there is no
- * per-card `state.Provider` and no per-field config to thread. The Store is the per-row reactive
- * layer: live field changes flow `record.set()` → the store's `recordChange` → the owning
- * {@link AgentOS.view.fleet.FleetGrid} → {@link #applyRecord}, which updates the child components
- * in place. A plain field-bag `record` (the dock-blueprint restore case) renders its snapshot the
- * same way.
- *
- * Render rules at card grain (the institution-cockpit render-model): **avatar**, **displayName**,
- * and **engineTag** are mutable versioned DISPLAY STATE over the durable `agentId` — a field change
- * re-renders in place on the SAME card instance and NEVER re-keys (identity is the id, not the
- * presentation). The **family** rail rebinds in place on a family swap. Session **state** is what
- * the resident is doing now, never identity.
+ * shared {@link AgentOS.store.FleetRoster} Store) is the card's single data surface. Live field
+ * changes flow `record.set()` → the store's `recordChange` → {@link AgentOS.view.fleet.FleetGrid}
+ * → {@link #applyRecord}, which updates the child components in place. `avatar`, `displayName`, and
+ * `engineTag` are mutable versioned DISPLAY STATE over the durable `agentId` — a field change
+ * re-renders on the SAME instance and NEVER re-keys.
  *
  * @class AgentOS.view.fleet.AgentCard
  * @extends Neo.container.Base
@@ -52,43 +61,40 @@ class AgentCard extends Container {
         baseCls: ['fm-agent-card'],
         /**
          * The card is a NON-interactive listitem — the FM roster is a ranked responsive list, not a 2D
-         * data matrix. The keyboard-operable drill target is the dedicated
-         * native `card-name` Button (below), NOT the card root; lifecycle toggle/restart are sibling
-         * native Buttons, so every control is a real element in ordinary Tab order (drill → toggle →
-         * restart). Set via the Component.Base `role` config so it renders to the vdom ROOT through
-         * `changeVdomRootKey` (a raw `this.vdom.role` write does NOT flush to the mounted DOM).
+         * data matrix. The keyboard-operable drill target is the dedicated native `card-name` Button;
+         * lifecycle toggle/restart are sibling native Buttons, so every control is a real element in
+         * ordinary Tab order (drill → toggle → restart). Set via the Component.Base `role` config so it
+         * renders to the vdom ROOT through `changeVdomRootKey`.
          * @member {String} role='listitem'
          */
         role: 'listitem',
         /**
-         * Turns the controls-slot buttons into a single `lifecycleIntent` event (the B4 emit); the
+         * Turns the actions-slot buttons into a single `lifecycleIntent` event (the B4 emit); the
          * Lane C (C2) round-trip consumes it. See {@link AgentOS.view.fleet.AgentCardController}.
          * @member {Neo.controller.Component} controller=AgentCardController
          */
         controller: AgentCardController,
         /**
-         * @member {Object} layout={ntype:'hbox',align:'stretch'}
+         * The vbox stacks the three anatomy rows (head / work-row / strip). {@link AgentOS.view.fleet.FamilyRail}
+         * is a child — the family-colour owner — positioned by SCSS as a 3px full-height left accent, out of
+         * the vertical flow, so it costs no row height.
+         * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @reactive
          */
-        layout: {ntype: 'hbox', align: 'stretch'},
+        layout: {ntype: 'vbox', align: 'stretch'},
         /**
-         * The card's data surface: an {@link AgentOS.model.FleetAgent} record (store-backed, live)
-         * or a plain field bag with the same keys (dock-blueprint snapshot). `agentId` is the
-         * DURABLE identity; every other field is display state over it. `sources` carries the
-         * roster / repository / runtime provenance that gates honest session rendering;
-         * `pendingAction` + `controlReason` are the B4/C2 control seam the C2 adapter writes via
-         * `record.set()`.
+         * The card's data surface: an {@link AgentOS.model.FleetAgent} record (store-backed, live) or a
+         * plain field bag with the same keys (dock-blueprint snapshot). `agentId` is the DURABLE
+         * identity; every other field is display state over it. `sources` gates honest session
+         * rendering; `pendingAction` + `controlReason` are the B4/C2 control seam.
          * @member {Object|null} record_=null
          * @reactive
          */
         record_: null,
         /**
-         * The card anatomy — family rail · avatar · body (name-row [state dot + name + engine tag] +
-         * lane row [current-lane line + open-lane count badge] + per-source health markers) ·
-         * controls slot (start/stop/restart → a
-         * single `lifecycleIntent` event for the Lane C round-trip). Each child is a referenced,
-         * in-place-updated surface fed from the record by {@link #applyRecord}; foot meta is a sibling
-         * leaf.
+         * The anatomy — head (avatar · identity[name-line · state-line] · actions) · work-row (lane) ·
+         * source strip. Each referenced child is fed from the record by {@link #applyRecord}; FamilyRail
+         * is retained as the family-color owner but rendered as the card's 3px left rail (SCSS).
          * @member {Object[]} items
          */
         items: [{
@@ -96,168 +102,180 @@ class AgentCard extends Container {
             flex     : 'none',
             reference: 'family-rail'
         }, {
-            module   : Image,
-            cls      : ['fm-card-avatar'],
-            flex     : 'none',
-            reference: 'card-avatar'
-        }, {
             ntype : 'container',
-            cls   : ['fm-card-body'],
-            flex  : 1,
-            layout: {ntype: 'vbox', align: 'stretch'},
-
-            items: [{
-                ntype    : 'container',
-                cls      : ['fm-card-name-row'],
-                reference: 'name-row',
-                layout   : {ntype: 'hbox', align: 'center'},
-
-                items: [{
-                    module   : StateDot,
-                    flex     : 'none',
-                    reference: 'state-dot'
-                }, {
-                    // the visible State line (WCAG 1.4.1), folded INLINE beside the dot rather than onto
-                    // its own row: the density contract can't spend a scarce row on one state word at
-                    // 7–17 lanes, and adjacency pairs the colour (dot) and the colour-INDEPENDENT word at
-                    // one glance. Coloured with --fm-ink-dim (a text-safe ink), NEVER a --fm-state-* hue:
-                    // those are dot-tuned to the 3:1 non-text floor (--fm-state-off ≈ 3:1) and fail the
-                    // 4.5:1 TEXT floor — the dot carries the hue, the word carries the colour-free name.
-                    ntype    : 'component',
-                    cls      : ['fm-card-state'],
-                    flex     : 'none',
-                    reference: 'card-state'
-                }, {
-                    // the dedicated native drill Button: the keyboard-operable target
-                    // that opens the resident. A native <button> owns Enter/Space; its accessible name is
-                    // the resident's name (set in applyRecord). The `fm-card-drill` marker scopes the
-                    // FleetGrid Up/Down efficiency jump + arrow-scroll suppression to drill targets only.
-                    module   : Button,
-                    // `neo-selection` opts JUST this drill Button into the main-thread arrow-key
-                    // preventDefault rule (DomEvents.onKeyDown) so the FleetGrid drill-to-drill Up/Down
-                    // jump never scrolls the viewport — scoped to the drill target, not the whole card.
-                    cls      : ['fm-card-name', 'fm-card-drill', 'neo-selection'],
-                    flex     : 1,
-                    handler  : 'onCardSelect',
-                    reference: 'card-name'
-                }, {
-                    // the name-slot provenance chip, density-calibrated: the `named` word only for
-                    // a wired naming-layer trail (the divergent state), a quiet outline glyph for
-                    // declared-proxy (today's uniform reality — long copy on title/aria), and NO
-                    // chip for the durable-id case (the name slot's mono register IS that signal).
-                    // applyRecord writes it.
-                    ntype    : 'component',
-                    flex     : 'none',
-                    reference: 'name-provenance'
-                }, {
-                    ntype    : 'component',
-                    cls      : ['fm-card-engine'],
-                    flex     : 'none',
-                    reference: 'card-engine'
-                }]
-            }, {
-                // the lane ROW: current-lane text + the open-lane count badge. The measured
-                // density evidence puts 7–17 open lanes on an active agent — one truncated line
-                // cannot carry that, so the line shows the CURRENT lane and the badge carries the
-                // honest total. The badge only renders on a reported count (null = unknown = no badge).
-                ntype : 'container',
-                cls   : ['fm-card-lane-row'],
-                layout: {ntype: 'hbox', align: 'center'},
-
-                items: [{
-                    ntype    : 'component',
-                    cls      : ['fm-card-lane'],
-                    flex     : 1,
-                    reference: 'card-lane'
-                }, {
-                    ntype    : 'component',
-                    cls      : ['fm-card-lane-count'],
-                    flex     : 'none',
-                    hidden   : true,
-                    reference: 'card-lane-count'
-                }, {
-                    // The S2 telltale: ONE compound chip for both axes, hidden while nominal. The
-                    // density contract buys card pixels with exceptions, so two simultaneous
-                    // exceptions must not cost two chips — the full two-axis readout lives in detail.
-                    ntype    : 'component',
-                    cls      : ['fm-card-telltale'],
-                    flex     : 'none',
-                    hidden   : true,
-                    reference: 'card-telltale'
-                }]
-            }, {
-                ntype    : 'container',
-                cls      : ['fm-card-source-health'],
-                reference: 'source-health',
-                role     : 'group',
-                vdom     : {'aria-label': 'Source health'},
-                layout   : {ntype: 'hbox', align: 'center'},
-                // Runtime comes first: at constrained card widths the action-owning source must
-                // remain the first visible / wrapped fact.
-                items    : [{
-                    module   : SourceHealthMarker,
-                    reference: 'source-runtime',
-                    sourceKey: 'runtime'
-                }, {
-                    module   : SourceHealthMarker,
-                    reference: 'source-roster',
-                    sourceKey: 'roster'
-                }, {
-                    module   : SourceHealthMarker,
-                    reference: 'source-repo-status',
-                    sourceKey: 'repoStatus'
-                }]
-            }]
-        }, {
-            ntype : 'container',
-            cls   : ['fm-card-controls'],
+            cls   : ['fm-card-head'],
             flex  : 'none',
-            layout: {ntype: 'vbox', align: 'stretch'},
+            layout: {ntype: 'hbox', align: 'center'},
 
             items: [{
+                module   : Image,
+                cls      : ['fm-card-avatar'],
+                flex     : 'none',
+                reference: 'card-avatar'
+            }, {
+                ntype    : 'container',
+                cls      : ['fm-card-identity'],
+                flex     : 1,
+                reference: 'identity',
+                layout   : {ntype: 'vbox', align: 'stretch'},
+
+                items: [{
+                    ntype    : 'container',
+                    cls      : ['fm-card-name-line'],
+                    reference: 'name-line',
+                    layout   : {ntype: 'hbox', align: 'center'},
+
+                    items: [{
+                        // the dedicated native drill Button — the keyboard-operable target that opens the
+                        // resident. A native <button> owns Enter/Space; its accessible name is the
+                        // resident's name (applyRecord). `neo-selection` opts JUST this drill Button into
+                        // the main-thread arrow-key preventDefault rule so the FleetGrid drill-to-drill
+                        // Up/Down jump never scrolls the viewport.
+                        module   : Button,
+                        cls      : ['fm-card-name', 'fm-card-drill', 'neo-selection'],
+                        flex     : 'none',
+                        handler  : 'onCardSelect',
+                        reference: 'card-name'
+                    }, {
+                        // the name-slot provenance chip, density-calibrated (applyRecord writes it)
+                        ntype    : 'component',
+                        flex     : 'none',
+                        reference: 'name-provenance'
+                    }, {
+                        // the engine tag — lives beside the name at regular+, hides at narrow (SCSS)
+                        ntype    : 'component',
+                        cls      : ['fm-card-engine'],
+                        flex     : 'none',
+                        reference: 'card-engine'
+                    }]
+                }, {
+                    ntype    : 'container',
+                    cls      : ['fm-card-state-line'],
+                    reference: 'state-line',
+                    layout   : {ntype: 'hbox', align: 'center'},
+
+                    items: [{
+                        module   : StateDot,
+                        flex     : 'none',
+                        reference: 'state-dot'
+                    }, {
+                        // the visible State line (WCAG 1.4.1) named via the SAME closed-set stateLabel the
+                        // dot names itself with — colour (dot) and text can never disagree. Coloured with
+                        // --fm-ink-dim (text-safe), NEVER a --fm-state-* hue (dot-tuned to the 3:1 non-text
+                        // floor). Severity adds WEIGHT via `fm-state-hot`, never a hue on the word.
+                        ntype    : 'component',
+                        cls      : ['fm-card-state'],
+                        flex     : 'none',
+                        reference: 'card-state'
+                    }, {
+                        // the open-lane count badge (openLaneCount ONLY — never the engine); right-pinned
+                        // in the state-line (SCSS margin-left:auto). null count = no badge (never "0 lanes").
+                        ntype    : 'component',
+                        cls      : ['fm-card-lane-count'],
+                        flex     : 'none',
+                        hidden   : true,
+                        reference: 'card-lane-count'
+                    }, {
+                        // the S2 telltale: ONE compound chip for both axes, hidden while nominal
+                        ntype    : 'component',
+                        cls      : ['fm-card-telltale'],
+                        flex     : 'none',
+                        hidden   : true,
+                        reference: 'card-telltale'
+                    }]
+                }]
+            }, {
                 ntype    : 'container',
                 cls      : ['fm-card-control-verbs'],
+                flex     : 'none',
                 reference: 'control-verbs',
                 layout   : {ntype: 'hbox', align: 'center'},
 
                 items: [{
-                    // ONE power toggle — start when off, stop when running. Only one of the two is
-                    // ever valid for a given state, so we render the contextual action; a disabled
-                    // play on a running resident (or a disabled stop on a stopped one) is bloat,
-                    // not safety.
+                    // ONE power toggle — start when off, stop when running. Only one is ever valid for a
+                    // given state, so we render the contextual action; a disabled inverse is bloat.
                     module   : Button,
+                    cls      : ['fm-card-action'],
                     handler  : 'onToggleLifecycle',
                     reference: 'control-toggle'
                 }, {
-                    // restart is meaningful only while running — a stopped resident starts via the
-                    // toggle
+                    // restart is meaningful only while running — a stopped resident starts via the toggle
                     module   : Button,
                     action   : 'restart',
+                    cls      : ['fm-card-action', 'fm-card-action-restart'],
                     handler  : 'onLifecycleIntent',
                     hidden   : true,
                     iconCls  : 'fa-solid fa-rotate',
                     reference: 'control-restart'
                 }]
-            }, {
-                ntype    : 'component',
-                cls      : ['fm-card-control-status'],
-                reference: 'control-status',
-                hidden   : true
             }]
+        }, {
+            ntype : 'container',
+            cls   : ['fm-card-work-row'],
+            flex  : 'none',
+            layout: {ntype: 'hbox', align: 'start'},
+
+            items: [{
+                // the current lane — two-line clamped (SCSS) with head+tail middle elision (applyRecord),
+                // so two lanes sharing a prefix still distinguish by their preserved tail
+                ntype    : 'component',
+                cls      : ['fm-card-lane'],
+                flex     : 1,
+                reference: 'card-lane'
+            }]
+        }, {
+            // ONE honest source word-line: the fm-strip-<level> cls colours the ::before dot; the text
+            // is summary-default and NAMES the abnormal source. Full facts reach via the drill (detail).
+            ntype    : 'component',
+            cls      : ['fm-card-strip'],
+            reference: 'source-strip',
+            role     : 'status',
+            vdom     : {'aria-label': 'Source health'}
+        }, {
+            // the honest control round-trip surface — hidden until a pending intent or a terminal
+            // reason exists; renders the B4/C2 matrix (pending "…", timeout stale, "⚠ rejected: reason")
+            // WITHOUT faking success. Kept distinct from the source strip so a control failure never
+            // masquerades as a source fact.
+            ntype    : 'component',
+            cls      : ['fm-card-control-status'],
+            reference: 'control-status',
+            role     : 'status',
+            hidden   : true
         }]
     }
 
     /**
-     * @summary Populate the referenced child surfaces once constructed (the anatomy exists from
-     * static config; its content is record-derived).
+     * @summary Split a long lane into a short context head + a preserved distinguishing tail with an
+     * elided middle. Two lanes sharing a prefix (the narrow-density falsifier) still distinguish by
+     * their tail. A lane short enough for the two-line clamp is returned whole (no elision).
+     * @param {String} text The lane line.
+     * @returns {{whole: String}|{head: String, tail: String}}
+     * @private
+     */
+    static elideLaneLine(text) {
+        const line = (text ?? '').trim();
+
+        // short enough for the two-line clamp to render whole — no semantic elision needed
+        if (line.length <= 52) {
+            return {whole: line}
+        }
+
+        // keep a short head for context + a generous tail (the distinguishing end), eliding the
+        // middle; trim each to a word boundary so the elision reads cleanly
+        const
+            head = line.slice(0, 20).replace(/\s+\S*$/, '').trim(),
+            tail = line.slice(-30).replace(/^\S*\s+/, '').trim();
+
+        return {head: `${head} — … — `, tail}
+    }
+
+    /**
+     * @summary Populate the referenced child surfaces once constructed (the anatomy exists from static
+     * config; its content is record-derived).
      * @param {...*} args
      */
     onConstructed(...args) {
         super.onConstructed(...args);
-
-        // The card is a NON-interactive listitem — it takes no tabIndex. Keyboard
-        // operability lives on the native child Buttons (drill / toggle / restart), which supply their
-        // own Enter/Space and Tab order. The drill Button's accessible name is record-derived (applyRecord).
         this.applyRecord()
     }
 
@@ -275,17 +293,12 @@ class AgentCard extends Container {
     /**
      * @summary Render the record onto the card's referenced children, in place.
      *
-     * The one read-side consumer of the record contract: display fields land on the rail / avatar /
-     * name-row / lane surfaces. Source facts are normalized once, update the three reusable markers,
-     * and gate the state dot so missing runtime evidence cannot render as live. The B4/C2 control
-     * seam renders the honest round-trip matrix — the card RENDERS what Lane-C writes, never fakes
-     * success, and each terminal kind renders DISTINCTLY:
-     *   unauthorized → the reason shows AND the control cluster stays disabled — you cannot retry
-     *                  into a closed door;
-     *   timeout      → stale-pending: the outcome is UNKNOWN (the verb may still be running, we
-     *                  just lost the answer), so it reads as an unfinished "…", not a resolved "⚠"
-     *                  failure, and retry stays open;
-     *   rejected     → the "⚠ reason" with retry open.
+     * Display fields land on the rail / avatar / identity / lane / strip surfaces. Source facts are
+     * summarized once (the strip names the abnormal source and can never contradict the detail
+     * markers — both read {@link #summarizeFleetSources}). The state dot is gated so missing runtime
+     * evidence cannot render as live; severity adds WEIGHT to the state word, never a hue. The B4/C2
+     * control seam renders the honest round-trip: unauthorized disables the cluster, timeout reads as
+     * an unfinished "…" with retry open, rejected shows "⚠ reason".
      */
     applyRecord() {
         let me     = this,
@@ -299,43 +312,37 @@ class AgentCard extends Container {
             controlReason = record.controlReason ?? null,
             pendingAction = record.pendingAction ?? null,
             sources       = normalizeFleetSources(record.sources),
-            runtime       = sources.runtime,
-            sourceUsable  = runtime.state === 'wired',
+            summary       = summarizeFleetSources(record.sources),
+            // the runtime fact gates a resolved session state: a runtime observation renders as a
+            // resolved state only when the source is wired (else 'off'); a transitional pendingAction is
+            // a first-party fact (we sent the intent) and takes precedence with no runtime-source gate
+            runtimeWired  = sources.runtime.state === 'wired',
             recordState   = record.state ?? 'off',
-            // a runtime observation only renders as a resolved state when the source is wired; a
-            // transitional state, in contrast, is a FIRST-PARTY fact (we sent the intent, it is in
-            // flight) so `pendingAction` takes precedence and needs no runtime-source gate.
-            resolvedState = sourceUsable ? recordState : 'off',
+            resolvedState = runtimeWired ? recordState : 'off',
             displayState  = pendingAction === 'stop'
                 ? 'stopping'
-                : pendingAction  // 'start' | 'restart' both transition toward running
+                : pendingAction // 'start' | 'restart' both transition toward running
                     ? 'starting'
                     : resolvedState,
-            sourceReason  = sourceUsable
-                ? null
-                : runtime.state === 'missing'
-                    ? 'MISSING'
-                    : 'NOT WIRED',
-            disabled      = Boolean(pendingAction) || Boolean(sourceReason) || controlReason?.kind === 'unauthorized';
+            // severity = weight: the exceptional resolved states take ink + weight on the word
+            hot           = displayState === 'wedged' || displayState === 'limited',
+            disabled      = Boolean(pendingAction) || !runtimeWired || controlReason?.kind === 'unauthorized';
 
         me.getReference('family-rail').family = record.family ?? null;
+
         me.getReference('state-dot').set({
-            live : displayState === 'ok' && runtime.confidence === 'observed',
+            // a pulse means a first-hand observation: an ok state pulses only when the runtime fact is
+            // OBSERVED, never when merely inferred (state-honesty — the dot never overclaims liveness)
+            live : displayState === 'ok' && sources.runtime.confidence === 'observed',
             state: displayState
         });
-        // the visible State line: the SAME displayState the dot renders, named via the SAME closed-set
-        // stateLabel the dot names itself with — so colour (dot) and text can never disagree and no
-        // second state vocabulary is introduced (WCAG 1.4.1). An unrecognized state passes through as
-        // its literal word (stateLabel's contract) while the dot degrades to off: the word rescues a new
-        // runtime state colour alone would silently show as "off".
-        me.getReference('card-state').text = stateLabel(displayState);
-        // a badge only for a REPORTED positive count: null/absent = the roster DTO carries no
-        // stamped count — rendering "0 lanes" there would fabricate a fact no producer stated
-        const laneCount = Number.isInteger(record.openLaneCount) && record.openLaneCount > 0 ? record.openLaneCount : null;
 
-        // the name slot: the folded display name as MUTABLE DISPLAY STATE over the durable id —
-        // a record with no folded name renders the id itself in the mono register (never a blank
-        // drill target), and the provenance chip states how the rendered name is grounded
+        me.getReference('card-state').set({
+            cls : hot ? ['fm-card-state', 'fm-state-hot'] : ['fm-card-state'],
+            text: stateLabel(displayState)
+        });
+
+        // the name slot: the folded display name as MUTABLE DISPLAY STATE over the durable id
         const
             nameSlot   = resolveNameSlot(record),
             nameButton = me.getReference('card-name'),
@@ -352,56 +359,85 @@ class AgentCard extends Container {
             provenance.changeVdomRootKey('aria-label', nameSlot.provenance.label)
         }
 
-        me.getReference('card-engine').text        = record.engineTag ?? '';
-        me.getReference('card-lane').text          = record.laneLine ?? '';
+        me.getReference('card-engine').text = record.engineTag ?? '';
+
+        // the lane: head+tail middle elision so a shared prefix cannot collapse two lanes to the same
+        // visible fragment — the preserved tail distinguishes them
+        const
+            lane   = me.getReference('card-lane'),
+            elided = AgentCard.elideLaneLine(record.laneLine);
+
+        // set the lane's CHILD nodes (mutating cn, not replacing the whole vdom — a full replace
+        // clobbers the component's root id/cls and the lane never mounts). Each fragment renders as an
+        // inert `text` node, NEVER `html`: record.laneLine is remote fleet data, and Neo's vdom `html`
+        // is innerHTML — a text node cannot execute an adapter-supplied lane string (mirrors the
+        // AgentDetail telltale contract: escaping is forgettable, a text node cannot be got wrong).
+        lane.vdom.cn = elided.whole !== undefined
+            ? [{tag: 'span', cls: ['fm-lane-whole'], text: elided.whole}]
+            : [
+                {tag: 'span', cls: ['fm-lane-elide'], text: elided.head},
+                {tag: 'span', cls: ['fm-lane-tail'],  text: elided.tail}
+            ];
+        lane.update();
+
+        // a badge only for a REPORTED positive count: null/absent = no stamped count → no badge
+        const laneCount = Number.isInteger(record.openLaneCount) && record.openLaneCount > 0 ? record.openLaneCount : null;
 
         me.getReference('card-lane-count').set({
             hidden: laneCount === null,
             text  : laneCount === null ? '' : `${laneCount} ${laneCount === 1 ? 'lane' : 'lanes'}`
         });
 
-        // The record's axes are passed WHOLE to the describer: `unknown` is a state the producer
-        // emits when it looked and could not see, and `null` is the absence of an observation. The
-        // card never collapses the two — defaulting an absent axis to `unknown` would report
-        // blindness nobody claimed, which is the inverse of the failure the taxonomy prevents.
-        const telltale                         = me.getReference('card-telltale'),
-              {ariaLabel, hidden, text, title} = describeTelltale({throttle: record.throttle, wake: record.wake});
+        // the S2 telltale: both axes passed WHOLE (unknown ≠ null — the card never collapses the two)
+        const
+            telltale                         = me.getReference('card-telltale'),
+            {ariaLabel, hidden, text, title} = describeTelltale({throttle: record.throttle, wake: record.wake});
 
         telltale.set({hidden, text});
-
-        // The chip is a glyph-dense exception marker: the text says `wake off` and the operator's
-        // next question is "and the throttle?". `title` answers it on hover without a drill-in, and
-        // `aria-label` is the only way a screen-reader user gets the chip at all. Cleared to null when
-        // hidden — a stale label on an invisible node is a claim about an agent that is now fine.
         telltale.changeVdomRootKey('aria-label', ariaLabel);
         telltale.changeVdomRootKey('title', title);
-        me.getReference('source-roster').health    = sources.roster;
-        me.getReference('source-repo-status').health = sources.repoStatus;
-        me.getReference('source-runtime').health   = runtime;
+
+        // the source strip: ONE honest word-line, a PURE role=status — no ▸/disclosure affordance on a
+        // non-interactive node (the card-name drill → detail IS the disclosure route). The level cls
+        // colours the ::before dot; summary.text is a controlled literal from summarizeFleetSources.
+        const strip = me.getReference('source-strip');
+
+        strip.set({
+            cls : ['fm-card-strip', `fm-strip-${summary.level}`],
+            html: summary.text
+        });
+        strip.changeVdomRootKey('aria-label', summary.ariaLabel);
 
         me.getReference('card-avatar').set({
             alt: record.displayName ?? '',
             src: record.avatarUrl ?? null
         });
 
-        me.getReference('control-toggle').set({
-            disabled,
-            iconCls: recordState === 'off' ? 'fa-solid fa-play' : 'fa-solid fa-stop'
-        });
+        const
+            toggle  = me.getReference('control-toggle'),
+            restart = me.getReference('control-restart');
 
-        me.getReference('control-restart').set({
-            disabled,
-            hidden: recordState === 'off'
-        });
+        toggle.set({disabled, iconCls: recordState === 'off' ? 'fa-solid fa-play' : 'fa-solid fa-stop'});
+        // restart is meaningful only while running; at every card width it stays a real, visible control
+        // (no hidden overflow) — the narrow row simply keeps both verbs as light, proportional icons
+        restart.set({disabled, hidden: recordState === 'off'});
 
+        // The accessible name must reach the DOM via the vdom root: `ariaLabel` is NOT a Neo config (it
+        // maps to nothing), and these controls are icon-only (`.neo-button-text` is display:none), so the
+        // aria-label IS their only accessible name. The FM roster names its subject on every verb.
+        toggle.changeVdomRootKey('aria-label', `${recordState === 'off' ? 'Start' : 'Stop'} ${nameSlot.text}`);
+        restart.changeVdomRootKey('aria-label', `Restart ${nameSlot.text}`);
+
+        // the control round-trip only — the runtime-source gating is already shown by the disabled
+        // controls + the source strip ("RUN not nominal"), so the status line never duplicates it
         me.getReference('control-status').set({
-            hidden: !pendingAction && !controlReason && !sourceReason,
-            // pending takes visual priority over a prior reason, so a new attempt never shows a
-            // stale rejection (complements C2 clearing controlReason on a new accepted intent)
+            hidden: !pendingAction && !controlReason,
+            // pending takes visual priority over a prior reason, so a new attempt never shows a stale
+            // rejection; a timeout reads as an unfinished "…" (retry stays open), not a resolved "⚠"
             text  : pendingAction
                 ? `${pendingAction}…`
                 : !controlReason
-                    ? sourceReason ?? ''
+                    ? ''
                     : controlReason.kind === 'timeout'
                         ? `${controlReason.action}… stale — no response`
                         : `⚠ ${controlReason.kind}: ${controlReason.reason}`

@@ -314,4 +314,30 @@
     .fm-detail-telltale-reason {
         color: var(--fm-ink-dim);
     }
+
+    // The three-source provenance readout — the drill-in counterpart to the card's one word-line.
+    .fm-detail-sources {
+        display    : flex;
+        flex-wrap  : wrap;
+        gap        : 6px 10px;
+        font-family: var(--fm-font-mono);
+        font-size  : 11px;
+        line-height: 1.4;
+    }
+
+    .fm-detail-sources-axis {
+        color: var(--fm-ink-dim);
+    }
+
+    // A source that is not wired (or missing) earns the state colour; a wired one stays dim, because in
+    // the detail a healthy source is information the operator asked for, not an alert. The state also
+    // rides the TEXT ("not wired" / "missing"), so colour is never the sole bearer of meaning (WCAG 1.4.1).
+    .fm-detail-sources-not-wired,
+    .fm-detail-sources-missing {
+        color: var(--fm-state-limited);
+    }
+
+    .fm-detail-sources-producer {
+        color: var(--fm-ink-dim);
+    }
 }

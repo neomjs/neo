@@ -62,6 +62,17 @@ test.describe('AgentOS fleet cockpit — native Button→detail live drill (#146
         await expect(detail.locator('.fm-detail-name')).not.toBeEmpty();
         await expect(detail.locator('.fm-detail-pane')).toHaveCount(4);
 
+        // The three-source provenance readout renders in the MOUNTED DOM (not merely worker vdom) — the
+        // drill-in counterpart to the card's one honest word-line. All three sources state themselves
+        // unconditionally, so every label is present regardless of each source's wired/not-wired state;
+        // this is the resident-detail contract the compact card deliberately cannot carry.
+        await expect(detail.locator('.fm-detail-sources')).toBeVisible();
+
+        const sourceReadout = await detail.locator('.fm-detail-sources').innerText();
+        expect(sourceReadout, 'the inspector states the runtime source fact in the mounted DOM').toMatch(/Runtime:/);
+        expect(sourceReadout, 'the inspector states the repository source fact').toMatch(/Repository:/);
+        expect(sourceReadout, 'the inspector states the roster source fact').toMatch(/Roster:/);
+
         const dockAfterDrill = await readDockModel();
         expect(dockAfterDrill.items.detail.autoHidden, 'the dedicated Button must commit the reveal').toBe(false);
 
