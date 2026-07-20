@@ -16,6 +16,7 @@
     &.fm-state-limited  { --fm-dot: var(--fm-state-limited); }
     &.fm-state-starting { --fm-dot: var(--fm-state-starting); }
     &.fm-state-stopping { --fm-dot: var(--fm-state-stopping); }
+    &.fm-state-unobserved { --fm-dot: var(--fm-state-unobserved); }
     &.fm-state-off      { --fm-dot: var(--fm-state-off); }
 
     @media (prefers-reduced-motion: no-preference) {
