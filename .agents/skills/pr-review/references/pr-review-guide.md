@@ -264,7 +264,7 @@ Demo/product-surface diffs touching rendered motion: load `audits/demo-surface-m
 
 ### 7.5.4 Evidence-Class Seat Routing
 
-Before claiming/requesting visual-render, headed-harness, or native-matrix evidence: consult `learn/agentos/process/SeatEvidenceCapabilities.md` (advisory, never identity-typing). Freshness obligation: check `observedAt` + `revalidationTrigger` — a stale record is `unknown`.
+Before claiming/requesting visual-render, headed-harness, or native-matrix evidence: consult `learn/agentos/process/SeatEvidenceCapabilities.md` (advisory; check `observedAt` + `revalidationTrigger` — stale = `unknown`).
 
 ### 7.6 CI / Security Checks Audit
 
