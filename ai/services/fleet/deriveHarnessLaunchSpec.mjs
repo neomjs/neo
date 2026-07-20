@@ -74,6 +74,14 @@ const HARNESS_LAUNCH_CONTRACTS = {
         authMode        : 'env-key',
         modeArgs        : ['serve', '--hostname', '127.0.0.1', '--port', '0'],
         versionProbeArgs: ['--version']
+    },
+    // v0.28+: `kimi web` is the resident server mode (`kimi server` is hard-deprecated). Isolation
+    // is the single KIMI_CODE_HOME var — config AND state unify beneath it. Probe record in the fn JSDoc.
+    'kimi-code': {
+        authMode        : 'env-key',
+        homeEnvVar      : 'KIMI_CODE_HOME',
+        modeArgs        : ['web', '--no-open', '--port', '0'],
+        versionProbeArgs: ['--version']
     }
 };
 
@@ -207,6 +215,25 @@ export function getHarnessAuthMode(harnessType) {
  *   flatrate property — the OpenCode+Kimi path), so NO per-home auth step exists; OAuth via
  *   `opencode auth login` writes provider state into the data home but is not the fleet path,
  *   and no documented marker exists, so `authRequired` stays honestly `null`.
+ *
+ * - **`'kimi-code'`** → `{command: binaryPath, args: ['web', '--no-open', '--port', '0'], env:
+ *   {KIMI_CODE_HOME: instanceHome}}`. The resident `web` server mode is the supervisable shape
+ *   (v0.28 hard-deprecated the `server` subcommand in its favor): stdio-indifferent (stays
+ *   resident on an EOF'd stdin) and SIGTERM-clean; `--port 0` auto-assigns, with the bound port
+ *   + bearer token printed on the startup banner (the supervisor's discovery surface, opencode
+ *   parity). Isolation is the single `KIMI_CODE_HOME` var: config and state unify beneath it.
+ *   Probed (kimi 0.28.0, darwin-arm64, 2026-07-20): `web --no-open --port 0` alive at 5s on an
+ *   EOF'd stdin, bound-port banner line, clean SIGTERM exit, isolation census
+ *   `<home>/{device_id, server/, server.token, workspaces.json, telemetry/}`, and a per-home
+ *   `server/instances/{server_id}.json` carrying `{pid, host, port, heartbeat_at}` — the exact
+ *   coordinate contract the wake daemon's kimi-server adapter discovers, so a
+ *   Fleet-launched kimi seat is wake-addressable by construction (daemon subscriptions point
+ *   `harnessTargetMetadata.lockPath`/envelope overrides at the instance home; the tracked
+ *   SessionStart hook `.kimi-code/hooks/wakeEnvelopeHook.mjs` is `KIMI_CODE_HOME`-aware).
+ *   `--version` answers in ~0.3s without booting. Auth is `'env-key'`: the flatrate API key
+ *   rides the seat env (the portable-flatrate property), so NO per-home auth step exists;
+ *   OAuth file storage under the home is the interactive alternative, and no documented marker
+ *   exists, so `authRequired` stays honestly `null`.
  *
  * `open -n -a …` launches remain **excluded by design**: `open` detaches — the spawned process is
  * the launcher, not the harness — so the Fleet Manager could never supervise (signal, reap, or
