@@ -7,6 +7,7 @@
         "auth.autoProvisionIdentitySources",
         "auth.clientId",
         "auth.clientSecret",
+        "auth.githubApiBaseUrl",
         "auth.gitlabApiBaseUrl",
         "auth.host",
         "auth.issuerUrl",

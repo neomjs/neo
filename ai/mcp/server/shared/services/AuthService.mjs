@@ -76,6 +76,13 @@ class AuthService extends Base {
             return
         }
 
+        // GitHub-PAT mode installs the same naked-401 bearer path against the GitHub `/user`
+        // endpoint and returns early — the OIDC flow below does not apply.
+        if (aiConfig.auth.mode === 'github-pat') {
+            this.setupGithubPat({app, aiConfig, logger}, {requireBearerAuth, InvalidTokenError});
+            return
+        }
+
         const {mcpAuthMetadataRouter, getOAuthProtectedResourceMetadataUrl} = await import('@modelcontextprotocol/sdk/server/auth/router.js');
         const {checkResourceAllowed}                                        = await import('@modelcontextprotocol/sdk/shared/auth-utils.js');
 
@@ -300,14 +307,14 @@ class AuthService extends Base {
     }
 
     /**
-     * @summary Normalizes a GitLab-PAT allowlist config leaf.
+     * @summary Normalizes a PAT allowlist config leaf.
      *
      * Config templates resolve CSV env vars to arrays; the string branch is a compatibility guard
      * for stale gitignored overlays copied into worktrees before the `csv` type existed.
      * @param {String[]|String|null|undefined} value
      * @returns {String[]}
      */
-    #normalizeGitlabPatAllowlist(value) {
+    #normalizePatAllowlist(value) {
         if (Array.isArray(value)) {
             return value.map(item => String(item).trim()).filter(Boolean)
         }
@@ -371,8 +378,8 @@ class AuthService extends Base {
             apiBaseUrl       = aiConfig.auth.gitlabApiBaseUrl.replace(/\/+$/, ''),
             ttlSeconds       = aiConfig.auth.patCacheTtlSeconds,
             ttlMs            = ttlSeconds * 1000,
-            allowedClientIds = this.#normalizeGitlabPatAllowlist(aiConfig.auth.allowedClientIds),
-            allowedUsers     = this.#normalizeGitlabPatAllowlist(aiConfig.auth.allowedUsers),
+            allowedClientIds = this.#normalizePatAllowlist(aiConfig.auth.allowedClientIds),
+            allowedUsers     = this.#normalizePatAllowlist(aiConfig.auth.allowedUsers),
             requireClientId  = allowedClientIds.length > 0,
             requireUser      = allowedUsers.length > 0,
             cache            = new Map(); // tokenHash -> {user, tokenInfo, expiresAt} (cache-freshness, ms)
@@ -465,6 +472,131 @@ class AuthService extends Base {
                 logger.info(`[AuthService] GitLab PAT validated for user: ${user.name || user.username}${appSuffix}`);
 
                 return buildInfo(token, user, tokenInfo)
+            }
+        }
+    }
+
+    /**
+     * @summary Installs the GitHub-PAT bearer middleware.
+     *
+     * Same naked-401 contract as `setupGitlabPat`: NO `mcpAuthMetadataRouter`, NO
+     * `resourceMetadataUrl` — a missing/invalid token yields a bare `WWW-Authenticate: Bearer`
+     * 401 with no `resource_metadata` breadcrumb, so OAuth-aware clients do not attempt Dynamic
+     * Client Registration against an identity provider that has none. PATs carry no audience
+     * claim, so `aud` enforcement is intentionally absent.
+     * @param {Object}   options
+     * @param {Object}   options.app      The Express application instance
+     * @param {Object}   options.aiConfig The server configuration object
+     * @param {Object}   options.logger   The logger instance
+     * @param {Object}   deps
+     * @param {Function} deps.requireBearerAuth SDK bearer-auth middleware factory
+     * @param {Function} deps.InvalidTokenError SDK error class for rejected tokens
+     */
+    setupGithubPat({app, aiConfig, logger}, {requireBearerAuth, InvalidTokenError}) {
+        const verifier = this.createGithubPatVerifier({aiConfig, logger, InvalidTokenError});
+
+        app.use(requireBearerAuth({verifier, requiredScopes: []}));
+
+        logger.info(`[AuthService] Authorization enabled (mode: github-pat, GitHub API: ${aiConfig.auth.githubApiBaseUrl})`)
+    }
+
+    /**
+     * Builds the `{verifyAccessToken}` verifier for GitHub-PAT mode. The verifier presents the
+     * incoming bearer token to `GET {githubApiBaseUrl}/user`; a `200` resolves the identity
+     * (`userId` = GitHub `login`, `source` = `'github-pat'`) in the same AuthInfo shape the
+     * GitLab-PAT verifier produces and `RequestContextService` already consumes. An optional
+     * `auth.allowedUsers` allowlist can gate the resolved GitHub login (default-off). There is
+     * deliberately no client-id gate: GitHub PATs expose no OAuth-app identity comparable to
+     * GitLab's `/oauth/token/info`. Successful validations are cached by SHA-256 token hash for
+     * `auth.patCacheTtlSeconds` so a revoked PAT clears within that bounded window; failures are
+     * never cached (a transient GitHub error must not lock a client out). The raw token is never
+     * logged — only its resolved identity.
+     *
+     * GitHub request-contract notes: a `User-Agent` header is REQUIRED (GitHub rejects UA-less
+     * requests with 403), and `X-GitHub-Api-Version` pins the REST contract. Classic PATs echo
+     * their granted scopes in the `x-oauth-scopes` response header; fine-grained PATs omit it
+     * (scopes resolve to `[]` — identity, not permission introspection, is the contract here).
+     * @param {Object}   options
+     * @param {Object}   options.aiConfig
+     * @param {Object}   options.logger
+     * @param {Function} options.InvalidTokenError
+     * @returns {{verifyAccessToken: Function}}
+     */
+    createGithubPatVerifier({aiConfig, logger, InvalidTokenError}) {
+        const
+            apiBaseUrl   = aiConfig.auth.githubApiBaseUrl.replace(/\/+$/, ''),
+            ttlSeconds   = aiConfig.auth.patCacheTtlSeconds,
+            ttlMs        = ttlSeconds * 1000,
+            allowedUsers = this.#normalizePatAllowlist(aiConfig.auth.allowedUsers),
+            requireUser  = allowedUsers.length > 0,
+            cache        = new Map(); // tokenHash -> {user, scopes, expiresAt} (cache-freshness, ms)
+
+        // AuthInfo shape mirrors the GitLab-PAT verifier: `expiresAt` is REQUIRED by the SDK
+        // `requireBearerAuth` (it rejects expiry-less auth info before `req.auth` is set), and
+        // GitHub `/user` does not return the PAT's own expiry, so we use the re-validation
+        // horizon: one cache window from now (Unix seconds). Built per-call so `expiresAt`
+        // stays request-fresh on cache hits.
+        const buildInfo = (token, user, scopes) => ({
+            token,
+            clientId : user.login,
+            scopes,
+            expiresAt: Math.floor(Date.now() / 1000) + ttlSeconds,
+            userId   : user.login,
+            username : user.name || user.login,
+            // Provenance tag read by RequestContextService.getSource(); distinguishes a GitHub-PAT
+            // identity from OIDC / gitlab-pat / stdio env-var / gh-CLI sources.
+            source   : 'github-pat',
+            // Provider-neutral identity metadata consumed by Memory Core's request-time
+            // AgentIdentity auto-provisioner. The raw bearer token remains in AuthInfo only for
+            // the SDK middleware boundary and is never copied into graph identity properties.
+            authProvider       : 'github',
+            authSource         : 'github-pat',
+            providerBaseUrl    : apiBaseUrl,
+            providerUserId     : user.id == null ? undefined : String(user.id),
+            providerUsername   : user.login,
+            providerDisplayName: user.name || user.login
+        });
+
+        return {
+            verifyAccessToken: async (token) => {
+                const
+                    tokenHash = createHash('sha256').update(token).digest('hex'),
+                    cached    = cache.get(tokenHash);
+
+                if (cached && cached.expiresAt > Date.now()) {
+                    return buildInfo(token, cached.user, cached.scopes)
+                }
+
+                const userResponse = await fetch(`${apiBaseUrl}/user`, {
+                    headers: {
+                        'Accept'              : 'application/vnd.github+json',
+                        'Authorization'       : `Bearer ${token}`,
+                        'User-Agent'          : 'neo-agent-os',
+                        'X-GitHub-Api-Version': '2022-11-28'
+                    }
+                });
+
+                if (!userResponse.ok) {
+                    cache.delete(tokenHash);
+                    throw new InvalidTokenError(`GitHub PAT validation failed (HTTP ${userResponse.status})`)
+                }
+
+                // Classic PATs advertise granted scopes here; fine-grained PATs omit the header.
+                const
+                    scopeHeader = userResponse.headers?.get?.('x-oauth-scopes') || '',
+                    scopes      = scopeHeader.split(',').map(scope => scope.trim()).filter(Boolean),
+                    user        = await userResponse.json();
+
+                if (requireUser && !allowedUsers.includes(user.login)) {
+                    cache.delete(tokenHash);
+                    throw new InvalidTokenError('GitHub user is not allowed')
+                }
+
+                cache.set(tokenHash, {user, scopes, expiresAt: Date.now() + ttlMs});
+
+                logger.info(`[AuthService] GitHub PAT validated for user: ${user.name || user.login}`);
+
+                return buildInfo(token, user, scopes)
             }
         }
     }
