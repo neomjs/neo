@@ -60,6 +60,8 @@ The server exposes the following tools, which are derived from its OpenAPI speci
 | :--- | :--- |
 | **Health** | |
 | `healthcheck` | Confirms the server is running and can connect to the ChromaDB instance. |
+| **Diagnostics** | |
+| `get_sandman_handoff` | Reads the Sandman handoff (Dream Pipeline morning surface) with freshness metadata (`stale` flag past the window, overridable per call); a missing file returns an explicit null-reason payload. Serves remote/container agents without a repo checkout. |
 | **Memories** | |
 | `add_memory` | Stores a new agent interaction (prompt, thought, response) as a memory. |
 | `get_session_memories` | Retrieves all memories for a specific session, in chronological order. |

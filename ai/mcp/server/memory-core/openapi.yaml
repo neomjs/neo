@@ -322,6 +322,44 @@ paths:
               schema:
                 type: object
 
+  /handoff/sandman:
+    post:
+      summary: Get Sandman Handoff
+      operationId: get_sandman_handoff
+      x-neo-tool-tier: read
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      x-neo-tool-summary: Read the Sandman handoff (Dream Pipeline morning surface) with freshness metadata.
+      description: |
+        Reads `sandman_handoff.md` at the resolved `handoffFilePath` config leaf
+        (`NEO_HANDOFF_FILE_PATH` override honored inside the leaf) and returns
+        `{content, path, mtimeMs, ageMs, staleAfterMs, stale}`. The `stale` flag fires past
+        the freshness window (default 36h — nightly cadence + slack; overridable per call).
+        A missing or unreadable handoff returns an explicit `content: null` payload with a
+        stable `reason` code (`handoff-not-found`, `handoff-read-failed`,
+        `handoff-too-large`) — never a silent empty string. Read-only: no identity mutation,
+        team-visible operational content. Remote/container agents use this to read the
+        morning surface without a repo checkout.
+      tags: [Diagnostics]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                staleAfterMs:
+                  type: number
+                  description: Optional freshness window override in milliseconds.
+      responses:
+        '200':
+          description: Handoff payload with freshness metadata, or an explicit null-reason envelope.
+          content:
+            application/json:
+              schema:
+                type: object
+
   /rem/pipeline-state:
     post:
       summary: Get REM Pipeline State

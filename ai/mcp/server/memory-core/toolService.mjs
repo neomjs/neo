@@ -15,6 +15,7 @@ import WakeSubscriptionService       from '../../../services/memory-core/WakeSub
 import TurnPresenceService           from '../../../services/memory-core/TurnPresenceService.mjs';
 import MemoryCoreRecorderService     from '../../../services/memory-core/MemoryCoreRecorderService.mjs';
 import {readDeploymentStateSnapshot} from '../../../services/memory-core/helpers/deploymentStateBridgeStore.mjs';
+import {readSandmanHandoff}          from '../../../services/memory-core/helpers/sandmanHandoffStore.mjs';
 import {exploreLaneLandscape}        from '../../../services/graph/exploreLaneLandscape.mjs';
 import {exploreMemoryHistory}        from '../../../services/memory-core/helpers/exploreMemoryHistory.mjs';
 import {makeChatModelGenerate}       from '../../../services/memory-core/helpers/chatModelGenerate.mjs';
@@ -40,6 +41,15 @@ const readDeploymentInspection = args => readDeploymentStateSnapshot({
     filePath    : AiConfig.orchestrator.deploymentStateBridge.snapshotPath,
     staleAfterMs: args?.staleAfterMs ?? AiConfig.orchestrator.deploymentStateBridge.staleAfterMs,
     maxBytes    : AiConfig.orchestrator.deploymentStateBridge.maxSnapshotBytes
+});
+
+// `get_sandman_handoff` — serves the Dream Pipeline's morning surface to agents with no repo
+// checkout. The path rides the resolved `handoffFilePath` formula leaf (prod/test by
+// construction; `NEO_HANDOFF_FILE_PATH` is honored inside the leaf) — never a second path source.
+// The freshness default (36h, nightly cadence + slack) lives in the helper; per-call override wins.
+const readSandmanHandoffTool = args => readSandmanHandoff({
+    filePath    : AiConfig.handoffFilePath,
+    staleAfterMs: args?.staleAfterMs
 });
 
 // `explore_memory_history` — the Memory/session temporal Bird View runtime op. The pure composition
@@ -178,6 +188,7 @@ const serviceMapping = {
                               HealthService          .getSqliteHolderDiagnostics.bind(HealthService),
     get_deployment_state_snapshot: readDeploymentInspection,
     inspect_deployment           : readDeploymentInspection,
+    get_sandman_handoff          : readSandmanHandoffTool,
     mark_read                    : MailboxService         .markRead                .bind(MailboxService),
     archive_message              : MailboxService         .archiveMessage          .bind(MailboxService),
     delete_message               : MailboxService         .deleteMessage           .bind(MailboxService),

@@ -261,6 +261,7 @@ const expectedMemoryCoreToolTiers = {
     inspect_deployment           : 'extended',
     get_rem_pipeline_state       : 'extended',
     get_sqlite_holder_diagnostics: 'extended',
+    get_sandman_handoff          : 'read',
     who_is_online                : 'read',
     add_memory                   : 'write',
     get_session_memories         : 'read',

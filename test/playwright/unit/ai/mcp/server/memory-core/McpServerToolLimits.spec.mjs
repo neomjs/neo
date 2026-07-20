@@ -76,8 +76,8 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
 
     test('manage_wake_subscription surfaces bridge metadata contract', async () => {
         const { tools } = await toolService.listTools();
-        const tool = tools.find(item => item.name === 'manage_wake_subscription');
-        const metadata = tool.inputSchema.properties.harnessTargetMetadata;
+        const tool      = tools.find(item => item.name === 'manage_wake_subscription');
+        const metadata  = tool.inputSchema.properties.harnessTargetMetadata;
 
         expect(metadata.required).toBeUndefined();
         expect(metadata.description).toContain("not for adapters 'opencode-server' or 'kimi-server'");
@@ -104,8 +104,8 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
 
     test('get_neighbors output schema exposes semanticVectorId contract (#11680)', async () => {
         const { tools } = await toolService.listTools();
-        const tool = tools.find(item => item.name === 'get_neighbors');
-        const neighbor = tool.outputSchema.properties.neighbors.items;
+        const tool      = tools.find(item => item.name === 'get_neighbors');
+        const neighbor  = tool.outputSchema.properties.neighbors.items;
 
         expect(neighbor.properties.semanticVectorId.type).toBe('string');
         expect(neighbor.properties.semanticVectorId.description).toContain('semantic vector identifier');
@@ -114,7 +114,7 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
 
     test('get_rem_pipeline_state surfaces the REM axis-count output contract (#12087)', async () => {
         const { tools } = await toolService.listTools();
-        const tool = tools.find(item => item.name === 'get_rem_pipeline_state');
+        const tool      = tools.find(item => item.name === 'get_rem_pipeline_state');
 
         expect(tool).toBeTruthy();
         expect(tool.annotations.readOnlyHint).toBe(true);
@@ -135,7 +135,7 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
 
     test('healthcheck exposes diagnostic options through the MCP schema (#13460)', async () => {
         const { tools } = await toolService.listTools();
-        const tool = tools.find(item => item.name === 'healthcheck');
+        const tool      = tools.find(item => item.name === 'healthcheck');
 
         expect(tool).toBeTruthy();
         expect(tool.annotations.readOnlyHint).toBe(true);
@@ -149,7 +149,7 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
 
     test('get_sqlite_holder_diagnostics exposes read-only grouped holder contract (#13475)', async () => {
         const { tools } = await toolService.listTools();
-        const tool = tools.find(item => item.name === 'get_sqlite_holder_diagnostics');
+        const tool      = tools.find(item => item.name === 'get_sqlite_holder_diagnostics');
 
         expect(tool).toBeTruthy();
         expect(tool.annotations.readOnlyHint).toBe(true);
@@ -164,8 +164,17 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
         expect(tool.outputSchema.properties.warnings.items.properties.code.type).toBe('string');
     });
 
+    test('get_sandman_handoff exposes the read-only handoff freshness contract (#15599)', async () => {
+        const { tools } = await toolService.listTools();
+        const tool      = tools.find(item => item.name === 'get_sandman_handoff');
+
+        expect(tool).toBeTruthy();
+        expect(tool.annotations.readOnlyHint).toBe(true);
+        expect(tool.inputSchema.properties.staleAfterMs.type).toBe('number');
+    });
+
     test('healthcheck dispatch passes diagnostic options as one object (#13460)', async () => {
-        const observedArgs = [];
+        const observedArgs   = [];
         const spyToolService = Neo.create(ToolService, {
             openApiFilePath: path.join(repoRoot, 'ai/mcp/server/memory-core/openapi.yaml'),
             serviceMapping : {
