@@ -1101,6 +1101,90 @@ async function deliverViaOpencodeServer(subscription, digest, evidenceLabel = ''
 }
 
 /**
+ * @summary Resolves the kimi-server loopback coordinates across the two harness generations.
+ *
+ * Precedence (first hit wins):
+ * 1. Explicit `harnessTargetMetadata.lockPath` override (test seam + operator pin).
+ * 2. Legacy v0.27 `~/.kimi-code/server/lock` (`kimi server`, hard-deprecated in v0.28).
+ * 3. Live scan of v0.28+ `~/.kimi-code/server/instances/{server_id}.json` (`kimi web`).
+ *
+ * Instance liveness is **pid-based** (`process.kill(pid, 0)`, EPERM counts as alive), NOT
+ * heartbeat-based: the instance file's `heartbeat_at` is upstream-throttled — 39-minute idle
+ * gaps were observed on a definitively live server (2026-07-20, seat `@neo-kimi-iris`, kimi
+ * v0.28.0) — so a heartbeat freshness gate would produce false fail-closed wake drops. A
+ * pid-reused candidate (wrong process at a recycled pid) degrades fail-visibly at the
+ * bearer/HTTP layer downstream, never silently.
+ *
+ * Zero live instances → actionable error naming both generations and the `kimi web`
+ * remediation. Multiple live instances → fail closed (never pick arbitrarily); the operator
+ * disambiguates via `harnessTargetMetadata.lockPath`.
+ *
+ * @param {Object} meta The subscription's `harnessTargetMetadata` (already default-resolved).
+ * @returns {Promise<{lock: Object, lockSource: String}>} The coordinate payload + its origin.
+ */
+async function resolveKimiServerLock(meta) {
+    if (typeof meta.lockPath === 'string' && meta.lockPath.length > 0) {
+        try {
+            return {lock: JSON.parse(await fs.readFile(meta.lockPath, 'utf8')), lockSource: `override '${meta.lockPath}'`};
+        } catch (err) {
+            throw new Error(`kimi-server requires a readable server lock at '${meta.lockPath}' (${err.message})`);
+        }
+    }
+
+    const legacyPath = path.join(os.homedir(), '.kimi-code', 'server', 'lock');
+
+    try {
+        return {lock: JSON.parse(await fs.readFile(legacyPath, 'utf8')), lockSource: `legacy v0.27 lock '${legacyPath}'`};
+    } catch (err) {
+        // v0.28+ seats never write the legacy lock — fall through to the instance scan.
+    }
+
+    const instancesDir = path.join(os.homedir(), '.kimi-code', 'server', 'instances');
+    const notFound     = `kimi-server found no v0.27 lock at '${legacyPath}' and no live v0.28 instance in '${instancesDir}' — is 'kimi web' running on this seat?`;
+
+    let entries = [];
+
+    try {
+        entries = await fs.readdir(instancesDir);
+    } catch (err) {
+        throw new Error(`${notFound} (${err.message})`);
+    }
+
+    const live = [];
+
+    for (const entry of entries) {
+        if (!entry.endsWith('.json')) continue;
+
+        const instancePath = path.join(instancesDir, entry);
+
+        try {
+            const candidate = JSON.parse(await fs.readFile(instancePath, 'utf8'));
+
+            if (Number.isInteger(candidate.pid) && candidate.pid > 0) {
+                try {
+                    process.kill(candidate.pid, 0);
+                    live.push({candidate, instancePath});
+                } catch (killErr) {
+                    if (killErr.code === 'EPERM') live.push({candidate, instancePath}); // exists, owned by another user
+                }
+            }
+        } catch (err) {
+            // Unparseable instance file: not a coordinate source.
+        }
+    }
+
+    if (live.length === 0) {
+        throw new Error(notFound);
+    }
+
+    if (live.length > 1) {
+        throw new Error(`kimi-server found ${live.length} live v0.28 instances in '${instancesDir}' and cannot pick one arbitrarily — set harnessTargetMetadata.lockPath to disambiguate`);
+    }
+
+    return {lock: live[0].candidate, lockSource: `v0.28 instance '${live[0].instancePath}'`};
+}
+
+/**
  * @summary Dispatches a wake digest into a live Kimi Code session through the seat's local
  * `kimi server` REST surface (`POST /api/v1/sessions/{id}/prompts` — submitPrompt).
  *
@@ -1121,13 +1205,17 @@ async function deliverViaOpencodeServer(subscription, digest, evidenceLabel = ''
  * session, so for a single-seat checkout the cross-check is belt-and-suspenders, but for
  * shared ones it is the stale-checkout guard.
  *
- * **Coordinate contract** (no seat-side writer needed — the harness persists both files
- * itself at server start): the loopback coordinates come from `~/.kimi-code/server/lock`
- * (`{pid, host, port, …}`), the bearer token from `~/.kimi-code/server.token` (persistent
- * across restarts; rotated via `kimi server rotate-token`). Both paths are overridable via
- * `harnessTargetMetadata.lockPath` / `harnessTargetMetadata.tokenPath` (test seams). The
- * daemon re-reads both on every delivery, so server restarts and token rotation need no
- * graph write.
+ * **Coordinate contract — two harness generations** (no seat-side writer needed — the harness
+ * persists the coordinate files itself): the bearer token comes from `~/.kimi-code/server.token`
+ * (persistent across restarts; rotation is harness-managed). The loopback coordinates are
+ * generation-dependent: v0.27 (`kimi server`, hard-deprecated in v0.28) wrote
+ * `~/.kimi-code/server/lock` (`{pid, host, port, …}`); v0.28+ (`kimi web`) writes
+ * `~/.kimi-code/server/instances/{server_id}.json` (`{server_id, pid, host, port, started_at,
+ * heartbeat_at, host_version}`). Discovery precedence: explicit `harnessTargetMetadata.lockPath`
+ * override → legacy v0.27 lock → live v0.28 instance scan (pid-liveness; zero live → actionable
+ * error, multiple live → fail closed). `lockPath` / `tokenPath` metadata stay authoritative
+ * test seams. The daemon re-reads coordinates on every delivery, so server restarts and token
+ * rotation need no graph write.
  *
  * Probe evidence (2026-07-19, seat `@neo-kimi-iris`, kimi v0.27.0): loopback 127.0.0.1:58627
  * with bearer auth default-on, `/openapi.json` enumerating the surface at runtime, hook stdin
@@ -1137,6 +1225,14 @@ async function deliverViaOpencodeServer(subscription, digest, evidenceLabel = ''
  * only after parsing `code === 0`. A queued/blocked status still lands the digest in the
  * session's own queue — the seat sees it when the active turn drains.
  *
+ * Probe evidence (2026-07-20, seat `@neo-kimi-iris`, kimi v0.28.0): `kimi server`
+ * hard-deprecated (no `server/lock` written); `kimi web` resident on 127.0.0.1:58627 writing
+ * `server/instances/{server_id}.json`; `heartbeat_at` upstream-throttled (39-min idle gaps on a
+ * definitively live server) so instance liveness is pid-based, never heartbeat-based;
+ * `/openapi.json` still enumerates `POST /api/v1/sessions/{id}/prompts`; a live TUI-hosted
+ * session is listed by the REST surface and accepts submitPrompt (`code: 0, status:
+ * "running"`).
+ *
  * @param {Object} subscription WAKE_SUBSCRIPTION node.
  * @param {String} digest Wake digest body.
  * @param {String} [evidenceLabel=''] Formatted wake scenario / route evidence for validation logs.
@@ -1145,7 +1241,6 @@ async function deliverViaOpencodeServer(subscription, digest, evidenceLabel = ''
  */
 async function deliverViaKimiServer(subscription, digest, evidenceLabel = '', abortSignal = null) {
     const meta         = subscription.properties?.harnessTargetMetadata || {};
-    const lockPath     = meta.lockPath     || path.join(os.homedir(), '.kimi-code', 'server', 'lock');
     const tokenPath    = meta.tokenPath    || path.join(os.homedir(), '.kimi-code', 'server.token');
     const envelopePath = meta.envelopePath || path.join(os.homedir(), '.kimi-code', 'wake-envelope.json');
 
@@ -1174,11 +1269,8 @@ async function deliverViaKimiServer(subscription, digest, evidenceLabel = '', ab
         throw new Error(`kimi-server envelope at '${envelopePath}' cwd '${cwd}' does not match harnessTargetMetadata.cwd '${meta.cwd}'`);
     }
 
-    try {
-        lock = JSON.parse(await fs.readFile(lockPath, 'utf8'));
-    } catch (err) {
-        throw new Error(`kimi-server requires a readable server lock at '${lockPath}' (${err.message})`);
-    }
+    const {lock: resolvedLock, lockSource} = await resolveKimiServerLock(meta);
+    lock = resolvedLock;
 
     try {
         token = (await fs.readFile(tokenPath, 'utf8')).trim();
@@ -1192,11 +1284,11 @@ async function deliverViaKimiServer(subscription, digest, evidenceLabel = '', ab
     // client off the seat's loopback server. Delivery is globally serialized, so the fetch is
     // also deadline-bounded — one hung endpoint must not wedge every later wake route.
     if (!['127.0.0.1', 'localhost', '::1'].includes(host)) {
-        throw new Error(`kimi-server lock at '${lockPath}' requires a loopback host (received '${host}')`);
+        throw new Error(`kimi-server lock from ${lockSource} requires a loopback host (received '${host}')`);
     }
 
     if (!Number.isInteger(port) || port < 1 || port > 65535) {
-        throw new Error(`kimi-server lock at '${lockPath}' requires 'port' to be an integer in 1..65535`);
+        throw new Error(`kimi-server lock from ${lockSource} requires 'port' to be an integer in 1..65535`);
     }
 
     if (token.length === 0) {

@@ -2230,6 +2230,355 @@ test.describe('Wake Daemon', () => {
         expect(stdoutLog).not.toContain(`Dispatched ${subId} via kimi-server submitPrompt`);
     });
 
+    test('kimi-server discovers a single live v0.28 instance without override or legacy lock (#15596)', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-kimi-v028-discovery';
+
+        // Stub the seat's `kimi web` REST surface: captures the submitPrompt POST.
+        const captured   = [];
+        const stubServer = http.createServer((req, res) => {
+            let body = '';
+            req.on('data', chunk => { body += chunk; });
+            req.on('end', () => {
+                captured.push({method: req.method, url: req.url, authorization: req.headers.authorization, body});
+                res.writeHead(200, {'content-type': 'application/json'});
+                res.end(JSON.stringify({code: 0, data: {status: 'running'}}));
+            });
+        });
+        await new Promise(resolve => stubServer.listen(0, '127.0.0.1', resolve));
+        const stubPort = stubServer.address().port;
+
+        // Fixture HOME: only a v0.28 instance file (pid = this test runner = alive), no legacy lock.
+        const fakeHome     = path.join(DAEMON_DIR, 'kimi-home-v028');
+        const instancesDir = path.join(fakeHome, '.kimi-code', 'server', 'instances');
+        fs.ensureDirSync(instancesDir);
+        fs.writeJsonSync(path.join(instancesDir, '01TESTINSTANCE0000000000000.json'), {
+            server_id   : '01TESTINSTANCE0000000000000',
+            pid         : process.pid,
+            host        : '127.0.0.1',
+            port        : stubPort,
+            started_at  : Date.now(),
+            heartbeat_at: Date.now(),
+            host_version: '0.28.0'
+        });
+
+        const tokenPath    = path.join(DAEMON_DIR, 'kimi-server-v028.token');
+        const envelopePath = path.join(DAEMON_DIR, 'kimi-wake-envelope-v028.json');
+        fs.writeFileSync(tokenPath, 'kimi-test-token\n');
+        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_v028', cwd: '/seat/checkout', updatedAt: '2026-07-20T10:00:00.000Z'});
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'kimi-server',
+                envelopePath,
+                tokenPath,
+                coalesceWindow: 1
+                // no lockPath: discovery must find the v0.28 instance under HOME
+            }
+        });
+
+        const binDir = path.join(DAEMON_DIR, 'bin');
+        fs.ensureDirSync(binDir);
+        writeMockPs(binDir);
+
+        let stdoutLog = '';
+
+        try {
+            daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+                stdio: 'pipe',
+                env  : {
+                    ...process.env,
+                    HOME              : fakeHome,
+                    NEO_MEMORY_DB_PATH: DB_PATH,
+                    NEO_AI_DAEMON_DIR : DAEMON_DIR,
+                    PATH              : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
+                }
+            });
+
+            const deliveryPromise = new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => reject(new Error('Daemon failed to discover the v0.28 instance + deliver within timeout')), 10000);
+
+                daemonProcess.stdout.on('data', (data) => {
+                    const out = data.toString();
+                    stdoutLog += out;
+                    if (out.includes(`[Wake Dispatch] ${agentId}: outcome=delivered`)) {
+                        clearTimeout(timeout);
+                        resolve();
+                    }
+                });
+                daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+                daemonProcess.on('error', reject);
+            });
+
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            insertMessageWake(db, {
+                agentId,
+                subject: 'Kimi v0.28 Discovery Wake'
+            });
+
+            await deliveryPromise;
+
+            expect(captured.length).toBe(1);
+            expect(captured[0].method).toBe('POST');
+            expect(captured[0].url).toBe('/api/v1/sessions/ses_kimi_v028/prompts');
+            expect(captured[0].authorization).toBe('Bearer kimi-test-token');
+            expect(stdoutLog).toContain(`Dispatched ${subId} via kimi-server submitPrompt (session ses_kimi_v028, status=running)`);
+        } finally {
+            stubServer.close();
+        }
+    });
+
+    test('kimi-server rejects a dead-pid v0.28 instance and names both generations (#15596)', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-kimi-v028-dead-pid';
+
+        // A pid that is guaranteed dead: spawn + await exit, then reuse its pid.
+        const deadChild = spawn(process.execPath, ['-e', ''], {stdio: 'ignore'});
+        await new Promise(resolve => deadChild.on('exit', resolve));
+        const deadPid = deadChild.pid;
+
+        const fakeHome     = path.join(DAEMON_DIR, 'kimi-home-dead');
+        const instancesDir = path.join(fakeHome, '.kimi-code', 'server', 'instances');
+        fs.ensureDirSync(instancesDir);
+        fs.writeJsonSync(path.join(instancesDir, '01DEADINSTANCE000000000000.json'), {
+            server_id   : '01DEADINSTANCE000000000000',
+            pid         : deadPid,
+            host        : '127.0.0.1',
+            port        : 1,
+            started_at  : Date.now(),
+            heartbeat_at: Date.now(),
+            host_version: '0.28.0'
+        });
+
+        const tokenPath    = path.join(DAEMON_DIR, 'kimi-server-dead.token');
+        const envelopePath = path.join(DAEMON_DIR, 'kimi-wake-envelope-dead.json');
+        fs.writeFileSync(tokenPath, 'kimi-test-token\n');
+        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_dead', cwd: '/seat/checkout', updatedAt: '2026-07-20T10:00:00.000Z'});
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'kimi-server',
+                envelopePath,
+                tokenPath,
+                coalesceWindow: 1
+            }
+        });
+
+        let stdoutLog = '';
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {
+                ...process.env,
+                HOME              : fakeHome,
+                NEO_MEMORY_DB_PATH: DB_PATH,
+                NEO_AI_DAEMON_DIR : DAEMON_DIR
+            }
+        });
+
+        daemonProcess.stdout.on('data', (data) => { stdoutLog += data.toString(); });
+        // The fail-visible path logs through the error stream; fold it into the same buffer.
+        daemonProcess.stderr.on('data', (data) => { stdoutLog += data.toString(); });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {
+            agentId,
+            subject: 'Kimi v0.28 Dead Instance Wake'
+        });
+
+        // Give the daemon room to attempt (and possibly retry) the delivery.
+        await new Promise(resolve => setTimeout(resolve, 4000));
+
+        expect(stdoutLog).toContain('no v0.27 lock');
+        expect(stdoutLog).toContain('no live v0.28 instance');
+        expect(stdoutLog).toContain(`'kimi web'`);
+        expect(stdoutLog).not.toContain(`[Wake Dispatch] ${agentId}: outcome=delivered`);
+        expect(stdoutLog).not.toContain(`Dispatched ${subId} via kimi-server submitPrompt`);
+    });
+
+    test('kimi-server fails closed on multiple live v0.28 instances instead of picking arbitrarily (#15596)', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-kimi-v028-ambiguous';
+
+        const captured   = [];
+        const stubServer = http.createServer((req, res) => {
+            captured.push({url: req.url});
+            res.writeHead(200, {'content-type': 'application/json'});
+            res.end(JSON.stringify({code: 0, data: {status: 'running'}}));
+        });
+        await new Promise(resolve => stubServer.listen(0, '127.0.0.1', resolve));
+        const stubPort = stubServer.address().port;
+
+        // Two LIVE instance files (both pid = this test runner) on different ports: the daemon
+        // must refuse to guess, even though either would answer HTTP.
+        const fakeHome     = path.join(DAEMON_DIR, 'kimi-home-ambiguous');
+        const instancesDir = path.join(fakeHome, '.kimi-code', 'server', 'instances');
+        fs.ensureDirSync(instancesDir);
+
+        for (const [serverId, port] of [['01AMBIGUOUSINSTANCE000000A', stubPort], ['01AMBIGUOUSINSTANCE000000B', stubPort + 1]]) {
+            fs.writeJsonSync(path.join(instancesDir, `${serverId}.json`), {
+                server_id   : serverId,
+                pid         : process.pid,
+                host        : '127.0.0.1',
+                port,
+                started_at  : Date.now(),
+                heartbeat_at: Date.now(),
+                host_version: '0.28.0'
+            });
+        }
+
+        const tokenPath    = path.join(DAEMON_DIR, 'kimi-server-ambiguous.token');
+        const envelopePath = path.join(DAEMON_DIR, 'kimi-wake-envelope-ambiguous.json');
+        fs.writeFileSync(tokenPath, 'kimi-test-token\n');
+        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_ambiguous', cwd: '/seat/checkout', updatedAt: '2026-07-20T10:00:00.000Z'});
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'kimi-server',
+                envelopePath,
+                tokenPath,
+                coalesceWindow: 1
+            }
+        });
+
+        let stdoutLog = '';
+
+        try {
+            daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+                stdio: 'pipe',
+                env  : {
+                    ...process.env,
+                    HOME              : fakeHome,
+                    NEO_MEMORY_DB_PATH: DB_PATH,
+                    NEO_AI_DAEMON_DIR : DAEMON_DIR
+                }
+            });
+
+            daemonProcess.stdout.on('data', (data) => { stdoutLog += data.toString(); });
+            // The fail-visible path logs through the error stream; fold it into the same buffer.
+            daemonProcess.stderr.on('data', (data) => { stdoutLog += data.toString(); });
+
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            insertMessageWake(db, {
+                agentId,
+                subject: 'Kimi v0.28 Ambiguous Wake'
+            });
+
+            await new Promise(resolve => setTimeout(resolve, 4000));
+
+            expect(stdoutLog).toContain('cannot pick one arbitrarily');
+            expect(stdoutLog).toContain('lockPath');
+            expect(stdoutLog).not.toContain(`[Wake Dispatch] ${agentId}: outcome=delivered`);
+            expect(captured.length).toBe(0);
+        } finally {
+            stubServer.close();
+        }
+    });
+
+    test('kimi-server legacy v0.27 lock takes precedence over the v0.28 instance scan (#15596)', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-kimi-legacy-precedence';
+
+        const captured   = [];
+        const stubServer = http.createServer((req, res) => {
+            let body = '';
+            req.on('data', chunk => { body += chunk; });
+            req.on('end', () => {
+                captured.push({method: req.method, url: req.url, body});
+                res.writeHead(200, {'content-type': 'application/json'});
+                res.end(JSON.stringify({code: 0, data: {status: 'running'}}));
+            });
+        });
+        await new Promise(resolve => stubServer.listen(0, '127.0.0.1', resolve));
+        const stubPort = stubServer.address().port;
+
+        // Fixture HOME with BOTH generations present: the legacy lock (live stub) and a v0.28
+        // instance file (dead pid, port 1). Discovery must return the legacy lock before ever
+        // scanning instances.
+        const fakeHome     = path.join(DAEMON_DIR, 'kimi-home-legacy');
+        const instancesDir = path.join(fakeHome, '.kimi-code', 'server', 'instances');
+        fs.ensureDirSync(instancesDir);
+        fs.writeJsonSync(path.join(fakeHome, '.kimi-code', 'server', 'lock'), {
+            host: '127.0.0.1',
+            pid : 424242,
+            port: stubPort
+        });
+        fs.writeJsonSync(path.join(instancesDir, '01SHOULDNOTBEREAD0000000.json'), {
+            server_id   : '01SHOULDNOTBEREAD0000000',
+            pid         : 1, // launchd on macOS: alive, but the port is unusable — any read fails delivery
+            host        : '127.0.0.1',
+            port        : 1,
+            started_at  : Date.now(),
+            heartbeat_at: Date.now(),
+            host_version: '0.28.0'
+        });
+
+        const tokenPath    = path.join(DAEMON_DIR, 'kimi-server-legacy.token');
+        const envelopePath = path.join(DAEMON_DIR, 'kimi-wake-envelope-legacy.json');
+        fs.writeFileSync(tokenPath, 'kimi-test-token\n');
+        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_legacy', cwd: '/seat/checkout', updatedAt: '2026-07-20T10:00:00.000Z'});
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'kimi-server',
+                envelopePath,
+                tokenPath,
+                coalesceWindow: 1
+            }
+        });
+
+        let stdoutLog = '';
+
+        try {
+            daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+                stdio: 'pipe',
+                env  : {
+                    ...process.env,
+                    HOME              : fakeHome,
+                    NEO_MEMORY_DB_PATH: DB_PATH,
+                    NEO_AI_DAEMON_DIR : DAEMON_DIR
+                }
+            });
+
+            const deliveryPromise = new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver via legacy v0.27 lock within timeout')), 10000);
+
+                daemonProcess.stdout.on('data', (data) => {
+                    const out = data.toString();
+                    stdoutLog += out;
+                    if (out.includes(`[Wake Dispatch] ${agentId}: outcome=delivered`)) {
+                        clearTimeout(timeout);
+                        resolve();
+                    }
+                });
+                daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+                daemonProcess.on('error', reject);
+            });
+
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            insertMessageWake(db, {
+                agentId,
+                subject: 'Kimi Legacy Precedence Wake'
+            });
+
+            await deliveryPromise;
+
+            expect(captured.length).toBe(1);
+            expect(captured[0].url).toBe('/api/v1/sessions/ses_kimi_legacy/prompts');
+            expect(stdoutLog).toContain(`Dispatched ${subId} via kimi-server submitPrompt (session ses_kimi_legacy, status=running)`);
+        } finally {
+            stubServer.close();
+        }
+    });
+
     test('opencode-server shares the configured attempt abort and cannot report orphan success (#15394, #15414)', async () => {
         test.setTimeout(15000);
 
