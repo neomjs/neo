@@ -238,6 +238,11 @@ class ConfigBase extends ConfigProvider {
                 // Optional username allowlist for PAT modes ('gitlab-pat' / 'github-pat'). Empty means any resolved user.
                 allowedUsers      : leaf([], 'NEO_AUTH_ALLOWED_USERS', 'csv'),
                 // Auth provenance sources that may create missing AgentIdentity graph nodes at request time.
+                // 'github-pat' is deliberately NOT in the default: github.com is a public identity
+                // surface, so auto-provisioning must be opt-in for deployments that scope their caller
+                // set (allowedUsers, GHES, private network). Auth success without a bound AgentIdentity
+                // leaves graph-gated tools fail-closed rather than broken — authentication does not
+                // imply Agent OS admission; the exclusion keeps admission explicit instead of ambient.
                 autoProvisionIdentitySources: leaf(['gitlab-pat'], 'NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES', 'csv')
             },
             /**
