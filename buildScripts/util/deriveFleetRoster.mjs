@@ -1,0 +1,129 @@
+import fs           from 'node:fs';
+import path         from 'node:path';
+import {IDENTITIES} from '../../ai/graph/identityRoots.mjs';
+
+/**
+ * @summary Derives the AgentOS cockpit roster seed (`apps/agentos/resources/data/fleetRoster.json`)
+ * from the authoritative identity registry — never hand-paint the sample again.
+ *
+ * **Authority chain (read before editing the output):**
+ * - Identity, canonical names, family, `participationStatus`, bench reasons: `ai/graph/identityRoots.mjs`
+ *   (imported, not parsed — the one durable registry; C1-clean plain-data module).
+ * - Engine tags: `learn/agentos/ModelStats.md` — observation-owned engine facts the registry
+ *   deliberately does NOT carry (era discipline). Mirrored below via a small explicit map whose
+ *   every entry names its ModelStats § anchor; an unmapped identity emits `null` (honest absence,
+ *   never a fabricated tag).
+ * - Session `state`: registry participation is NOT live session truth. This snapshot maps
+ *   `active → 'ok'` and any known non-active status → `'off'`, and stamps the provenance per row
+ *   (`sources.roster`) plus the `_meta` block, so "this is a registry snapshot" is visible in the
+ *   data itself. Live session state is the wired roster path's job (`FleetCockpit.loadRoster`).
+ *
+ * **Honesty invariants (the model's own contract, `apps/agentos/model/FleetAgent.mjs`):**
+ * - `openLaneCount` stays `null` — the model renders NO badge for null; a derived count would be
+ *   a fabricated one ("never a fake 0").
+ * - `laneLine` carries only the registry's `statusReason` (bench reason); no invented lane lines.
+ * - `participationStatus` is stamped per row (the roster-DTO tri-state truth) — the fleet view's
+ *   eligibility logic reads it, so the derived seed feeds the authoritative field, not just prose.
+ *
+ * Usage: `node buildScripts/util/deriveFleetRoster.mjs [--check]` (with `--check`: verify the
+ * committed file is byte-identical to a fresh derivation — the CI guard against hand-painting).
+ */
+
+const OUTPUT = path.resolve('apps/agentos/resources/data/fleetRoster.json');
+
+/**
+ * Observation-owned engine tags, mirrored from learn/agentos/ModelStats.md (§ anchor per entry).
+ * An identity missing here emits `engineTag: null` — honest absence, never an invented tag.
+ * @type {Object<String,String>}
+ */
+const ENGINE_TAG_BY_ID = {
+    'neo-opus-ada'   : 'opus-4.8',    // §neo_opus
+    'neo-opus-grace' : 'opus-4.8',    // §neo_claude_opus
+    'neo-opus-vega'  : 'opus-4.8',    // §neo_opus_vega
+    'neo-fable'      : 'fable-5',     // §neo_fable
+    'neo-fable-clio' : 'fable-5',     // §neo_fable_clio (mirrors §neo_fable)
+    'neo-gemini-pro' : '3.1-pro',     // §neo_gemini_pro
+    'neo-gpt'        : 'gpt-5.6-sol', // §neo_gpt
+    'neo-gpt-emmy'   : 'gpt-5.6-sol', // §neo_gpt_emmy (mirrors §neo_gpt)
+    'neo-kimi-phoebe': 'kimi-k3',     // §neo_kimi_phoebe
+    'neo-kimi-iris'  : 'kimi-k3'      // §neo_kimi_iris
+};
+
+/**
+ * Map one registry entry to a roster row, or null when the entry is not a roster resident
+ * (system nodes, the broadcast sentinel, non-agent accounts).
+ * @param {Object} entry one `IDENTITIES` element (`{id, type, properties}`)
+ * @returns {Object|null}
+ */
+function toRosterRow(entry) {
+    const props = entry?.properties || {};
+
+    if (entry.type !== 'AgentIdentity' || props.accountType !== 'agent' || !props.participationStatus) {
+        return null;
+    }
+
+    const
+        agentId = entry.id.replace(/^@/, ''),
+        status  = props.participationStatus;
+
+    return {
+        agentId,
+        githubUsername     : (props.githubLogin || '').replace(/^@/, '') || null,
+        displayName        : props.displayName || entry.name,
+        engineTag          : ENGINE_TAG_BY_ID[agentId] ?? null,
+        family             : props.family ?? props.modelFamily ?? null,
+        state              : status === 'active' ? 'ok' : 'off',
+        avatarUrl          : `https://github.com/${agentId}.png?size=80`,
+        laneLine           : props.statusReason ?? null,
+        participationStatus: status,
+        openLaneCount      : null,
+        sources            : {roster: 'identityRoots-snapshot'}
+    };
+}
+
+/**
+ * Derive the full roster document (`{_meta, data}`) from the registry.
+ * @returns {Object}
+ */
+export function deriveFleetRoster() {
+    const
+        generatedAt = new Date().toISOString(),
+        data        = IDENTITIES.map(toRosterRow).filter(Boolean);
+
+    return {
+        _meta: {
+            generatedAt,
+            authority : 'ai/graph/identityRoots.mjs',
+            engineTags: 'learn/agentos/ModelStats.md (observation-owned, mirrored per-entry in the generator)',
+            generator : 'buildScripts/util/deriveFleetRoster.mjs',
+            note      : 'Registry snapshot — participation truth, not live session state. Regenerate, do not hand-edit.'
+        },
+        data
+    };
+}
+
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL('', import.meta.url).pathname);
+
+if (isMain) {
+    const
+        next      = JSON.stringify(deriveFleetRoster(), null, 4) + '\n',
+        checkMode = process.argv.includes('--check');
+
+    if (checkMode) {
+        const current = fs.existsSync(OUTPUT) ? fs.readFileSync(OUTPUT, 'utf8') : '';
+
+        // --check compares structure, not the timestamp: hand-painting is any data drift, not a clock tick.
+        const strip = doc => { const parsed = JSON.parse(doc); delete parsed._meta.generatedAt; return JSON.stringify(parsed); };
+
+        if (current && strip(current) === strip(next)) {
+            console.log('deriveFleetRoster: committed seed is in sync with the registry');
+            process.exit(0);
+        }
+
+        console.error('deriveFleetRoster: committed seed is STALE — run `node buildScripts/util/deriveFleetRoster.mjs`');
+        process.exit(1);
+    }
+
+    fs.writeFileSync(OUTPUT, next);
+    console.log(`deriveFleetRoster: wrote ${OUTPUT} (${deriveFleetRoster().data.length} residents, registry-derived)`);
+}
