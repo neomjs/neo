@@ -234,11 +234,14 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
         expect(detail.down({ntype: 'fm-state-dot'}).state).toBe('ok');
         expect(detail.down({ntype: 'fm-state-dot'}).live).toBe(true);
 
+        // missing runtime evidence resolves a participation-active resident to 'unobserved' — the
+        // SAME truth the grid card renders (one resolver, three surfaces), never live, never a
+        // false benched verdict
         applySet(detail, {sources: {
             ...observedSources,
             runtime: {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none'}
         }});
-        expect(detail.down({ntype: 'fm-state-dot'}).state).toBe('off');
+        expect(detail.down({ntype: 'fm-state-dot'}).state).toBe('unobserved');
         expect(detail.down({ntype: 'fm-state-dot'}).live).toBe(false);
 
         detail.destroy()

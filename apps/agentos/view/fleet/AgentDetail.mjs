@@ -8,7 +8,7 @@ import TabContainer                                   from '../../../../src/tab/
 import {runConfigIntentRoundTrip}                     from './configIntentRoundTrip.mjs';
 import {describeTelltaleReadout}                      from './telltale.mjs';
 import {classifyPaneFreshness, describePaneFreshness} from './agentFreshness.mjs';
-import {normalizeFleetSources}                        from './sourceHealth.mjs';
+import {normalizeFleetSources, resolveFleetDisplayState} from './sourceHealth.mjs';
 
 /**
  * The SSOT drill-in panes (design §B3: "thought-stream, lane, repo, and PRs"), each with the honest
@@ -595,8 +595,10 @@ class AgentDetail extends Container {
         const
             sources      = normalizeFleetSources(record.sources),
             runtime      = sources.runtime,
-            sourceUsable = runtime.state === 'wired',
-            state        = sourceUsable ? (record.state ?? 'off') : 'off',
+            // the drill-in dot renders the SAME resolved truth as the card and the health tally —
+            // one resolver, three surfaces: a roster-only active resident reads `unobserved` here
+            // exactly as the grid displays it, never a contradictory `off`
+            state        = resolveFleetDisplayState({state: record.state, sources: record.sources}),
             agentId      = record.agentId ?? '';
 
         me.getReference('family-rail').family = record.family ?? null;

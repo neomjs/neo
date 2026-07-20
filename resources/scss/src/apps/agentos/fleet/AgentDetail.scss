@@ -326,7 +326,8 @@
     }
 
     .fm-detail-sources-axis {
-        color: var(--fm-ink-dim);
+        display: block; // one line per source — a run-together can never read as one broken sentence
+        color  : var(--fm-ink-dim);
     }
 
     // A source that is not wired (or missing) earns the state colour; a wired one stays dim, because in
