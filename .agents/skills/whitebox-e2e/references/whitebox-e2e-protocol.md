@@ -16,6 +16,8 @@ When tasked with creating new end-to-end tests for the Neo.mjs framework, you mu
 Whitebox E2E tests belong in `test/playwright/e2e/`.
 Always use the custom `neuralLink` Playwright fixture provided by the Neo.mjs team.
 
+**Host capability pre-flight:** consult `learn/agentos/process/SeatEvidenceCapabilities.md` before authoring/routing headed work (check `observedAt`; stale = `unknown`; records advisory, counter-receipts retire ceilings).
+
 ```javascript
 import { test, expect } from '../../fixtures.mjs';
 
