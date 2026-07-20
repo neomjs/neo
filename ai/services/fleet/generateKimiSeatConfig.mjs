@@ -126,7 +126,10 @@ function renderConfigToml({defaultModel}) {
             '[[permission.rules]]',
             'decision = "allow"',
             'scope    = "user"',
-            `pattern  = "mcp__${server.name.replaceAll('-', '_')}__*"`
+            // Kimi matches patterns against the VERBATIM tool id — hyphens preserved
+            // (`mcp__neo-mjs-memory-core__*`); dash-to-underscore canonicalization is a
+            // different MCP host's convention and would leave these rules dead.
+            `pattern  = "mcp__${server.name}__*"`
         ].join('\n')
     ).join('\n\n');
 
