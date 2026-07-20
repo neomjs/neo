@@ -1,6 +1,7 @@
 import Component                            from '../../../../../src/component/Base.mjs';
 import Container                            from '../../../../../src/container/Base.mjs';
 import CounterPane                          from './CounterPane.mjs';
+import {createCrossWindowStage}             from './DemoBCrossWindowStage.mjs';
 import DockDropIndicators                   from '../../../../../src/dashboard/DockDropIndicators.mjs';
 import DockLayoutAdapter                    from '../../../../../src/dashboard/DockLayoutAdapter.mjs';
 import DockMotionSignal                     from '../../../../../src/dashboard/DockMotionSignal.mjs';
@@ -401,6 +402,69 @@ class DemoBWorkspace extends Container {
         me.dockService      = Neo.create(DockService, {});
         me.interactionService = Neo.create(InteractionService, {});
         me.perspectiveStore = Neo.create(DockPerspectiveStore, {});
+
+        // The cross-window stage choreography (decomposition Phase 1): a pure decision
+        // machine over host-injected seams. Stage STATE stays host-owned by contract — the
+        // unit spec's stage doubles write `crossWindowTargetWindowId` and call
+        // `crossWindowStageResolve` directly, so those fields remain this component's public
+        // stage surface while the module owns the code manipulating them.
+        me.crossWindowStage = createCrossWindowStage({
+            adoptCommittedTransferPair  : pair => me.adoptCommittedTransferPair(pair),
+            retireReturnedPopupWorkspace: () => me.retireReturnedPopupWorkspace(),
+            applyWorkspaceOperation     : (workspaceId, descriptor) => me.applyWorkspaceOperation(workspaceId, descriptor),
+            attachKeydown               : host => host.addDomListeners([{keydown: me.onDockHostKeyDown, scope: me}]),
+            bumpStageGeneration         : () => me.crossWindowStageGeneration++,
+            chainProjection             : body => {
+                me.refreshPromise = me.refreshPromise
+                    .then(() => me.timeout(0))
+                    .then(body);
+
+                return me.refreshPromise
+            },
+            clearWorkspaceAffordances: workspaceId => me.clearWorkspaceAffordances(workspaceId),
+            commitCrossWindowTransfer: data => me.commitCrossWindowTransfer(data),
+            createPopupDocument      : () => DemoBWorkspace.createPopupDocument(),
+            createVesselOwnerGrant   : (flow, itemId) => me.createVesselOwnerGrant(flow, itemId),
+            ensurePopupRegistered    : () => me.ensurePopupWorkspaceRegistered(),
+            getPopupDocument         : () => me.popupDocument,
+            getStageGeneration       : () => me.crossWindowStageGeneration,
+            getStagePromise          : () => me.crossWindowStagePromise,
+            getStageReject           : () => me.crossWindowStageReject,
+            getStageResolve          : () => me.crossWindowStageResolve,
+            getTargetWindowId        : () => me.crossWindowTargetWindowId,
+            getWindowId              : () => me.windowId,
+            getWorkspaceDocument     : workspaceId => me.getWorkspaceDocument(workspaceId),
+            hitTestWorkspace         : (workspaceId, localX, localY) => me.hitTestWorkspace(workspaceId, localX, localY),
+            hostComponentId          : me.id,
+            hostTimeout              : ms => me.timeout(ms),
+            incrementTransferCommits : () => me.crossWindowStats.transferCommits++,
+            isHostDestroyed          : () => me.isDestroyed,
+            onKbdLiveMounted         : live => me.kbdLivePopup = live,
+            onWorkspaceDocumentChange: (workspaceId, document, options) => me.onWorkspaceDocumentChange(workspaceId, document, options),
+            projectDockModel         : (resolveComponentRef, workspaceId) => me.projectDockModel(resolveComponentRef, workspaceId),
+            refreshWorkspace         : (workspaceId, document) => me.refreshWorkspace(workspaceId, document),
+            registries               : {
+                detachedPanes     : me.detachedPanes,
+                geometry          : me.crossWindowGeometry,
+                hosts             : me.crossWindowHosts,
+                participations    : me.crossWindowParticipations,
+                projectionRequests: me.workspaceProjectionRequests
+            },
+            renderWorkspacePreview: (workspaceId, data) => me.renderWorkspacePreview(workspaceId, data),
+            resolveGesture        : receipt => {
+                me.crossWindowGestureResolve?.(receipt);
+                me.crossWindowGestureResolve = null
+            },
+            revokeVesselOwnerGrant: (flow, itemId) => me.revokeVesselOwnerGrant(flow, itemId),
+            setPopupDocument      : document => me.popupDocument = document,
+            setStagePromise       : promise => me.crossWindowStagePromise = promise,
+            setStageReject        : reject => me.crossWindowStageReject = reject,
+            setStageResolve       : resolve => me.crossWindowStageResolve = resolve,
+            setTargetWindowId     : windowId => me.crossWindowTargetWindowId = windowId,
+            sortGroup             : DemoBWorkspace.CROSS_WINDOW_SORT_GROUP,
+            workspaceIds          : {main: DemoBWorkspace.MAIN_WORKSPACE_ID, popup: DemoBWorkspace.POPUP_WORKSPACE_ID},
+            workspaceSet          : me.workspaceSet
+        });
 
         me.tearOutEmbodiment = createDockVesselEmbodiment({
             resolvePane: itemId => me.paneCache[itemId]
@@ -1277,440 +1341,71 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * Creates the target-side participation adapter lazily after the popup window has joined.
-     * The dynamic import keeps the DragCoordinator/Window chain out of headless holder tests
-     * until a real cross-window stage exists.
-     * @param {String} workspaceId
-     * @param {String} windowId
-     * @returns {Promise<Neo.dashboard.DockCrossWindowParticipation>}
-     * @protected
-     */
-    async createCrossWindowParticipation(workspaceId, windowId, host, generation) {
-        let me            = this,
-            Participation = (await import('../../../../../src/dashboard/DockCrossWindowParticipation.mjs')).default;
-
-        if (!me.isCrossWindowTargetCurrent(workspaceId, windowId, host, generation)) {
-            return null
-        }
-
-        me.crossWindowParticipations.get(workspaceId)?.destroy();
-
-        let participation = Neo.create(Participation, {
-            clearPreview: () => me.clearWorkspaceAffordances(workspaceId),
-            commitLocal : operation => {
-                let result = me.applyWorkspaceOperation(workspaceId, operation);
-
-                if (result && !result.errors?.length && result.document) {
-                    me.onWorkspaceDocumentChange(workspaceId, result.document)
-                }
-
-                return result
-            },
-            commitTransfer    : data => me.commitCrossWindowTransfer(data),
-            getDocument       : () => me.getWorkspaceDocument(workspaceId),
-            getForeignDocument: sourceWorkspaceId => me.getWorkspaceDocument(sourceWorkspaceId),
-            hitTest           : (localX, localY) => me.hitTestWorkspace(workspaceId, localX, localY),
-            previewFor        : data => me.renderWorkspacePreview(workspaceId, data),
-            previewToOperation,
-            sortGroup         : DemoBWorkspace.CROSS_WINDOW_SORT_GROUP,
-            windowId,
-            workspaceId
-        });
-
-        me.crossWindowParticipations.set(workspaceId, participation);
-
-        return participation
-    }
-
-    /**
-     * Checks that an async popup continuation still belongs to the live target generation.
-     * @param {String} workspaceId
-     * @param {String} windowId
-     * @param {Neo.container.Base} host
-     * @param {Number} generation
-     * @returns {Boolean}
-     * @protected
-     */
-    isCrossWindowTargetCurrent(workspaceId, windowId, host, generation) {
-        let me               = this,
-            expectedWindowId = workspaceId === DemoBWorkspace.POPUP_WORKSPACE_ID
-                ? me.crossWindowTargetWindowId
-                : me.windowId;
-
-        return !me.isDestroyed
-            && me.crossWindowStageGeneration === generation
-            && expectedWindowId === windowId
-            && me.crossWindowHosts.get(workspaceId) === host
-            && !host.isDestroyed
-    }
-
-    /**
-     * Mounts the popup workspace projection into a newly connected render target, registers its
-     * target participation, and resolves only after real DOM geometry is measurable.
-     *
-     * The keyboard surface composes here too: the popup window gets its own aria-live
-     * announcement region (same terminal-derived truth as the main window's — the a11y-parity
-     * AC) and the same chorded key routing on its host, so a focused popup item can drive the
-     * return command exactly like a main-window one. One handler, one machine, two windows.
+     * Facade over the extracted cross-window stage module — the spec-stable
+     * public seam. The choreography lives in {@link AgentOS.childapps.dockdemo.view.DemoBCrossWindowStage}.
      * @param {Neo.app.Base} app
      * @param {String} windowId
-     * @returns {Promise<Object>}
+     * @returns {Promise<Object|null>}
      * @protected
      */
     async mountCrossWindowTarget(app, windowId) {
-        let me           = this,
-            workspaceId  = DemoBWorkspace.POPUP_WORKSPACE_ID,
-            generation   = me.crossWindowStageGeneration,
-            [live, host] = app.mainView.add([{
-                cls   : ['agentos-dockdemo-kbd-live'],
-                height: 14,
-                ntype : 'component',
-                role  : 'status',
-                vdom  : {'aria-live': 'polite', cn: []}
-            }, {
-                module: Container,
-                cls   : ['agentos-dockdemo-dock-host', 'neo-dashboard'],
-                flex  : 1,
-                items : [me.projectDockModel(null, workspaceId), {
-                    module: DockPreview
-                }, {
-                    module: DockDropIndicators
-                }],
-                layout: {ntype: 'fit'}
-            }]);
-
-        me.crossWindowTargetWindowId = windowId;
-        me.crossWindowHosts.set(workspaceId, host);
-        me.kbdLivePopup = live;
-
-        host.addDomListeners([
-            {keydown: me.onDockHostKeyDown, scope: me}
-        ]);
-
-        try {
-            await app.mainView.promiseUpdate();
-
-            if (!me.isCrossWindowTargetCurrent(workspaceId, windowId, host, generation)) {
-                return null
-            }
-
-            let participation     = await me.createCrossWindowParticipation(workspaceId, windowId, host, generation),
-                mainWorkspaceId   = DemoBWorkspace.MAIN_WORKSPACE_ID,
-                mainHost          = me.crossWindowHosts.get(mainWorkspaceId),
-                mainParticipation = mainHost && await me.createCrossWindowParticipation(
-                    mainWorkspaceId,
-                    me.windowId,
-                    mainHost,
-                    generation
-                );
-
-            if (!participation || !mainParticipation
-                || !me.isCrossWindowTargetCurrent(workspaceId, windowId, host, generation)
-                || !me.isCrossWindowTargetCurrent(mainWorkspaceId, me.windowId, mainHost, generation)) {
-                participation?.destroy();
-                mainParticipation?.destroy();
-                return null
-            }
-
-            let [geometry, mainGeometry] = await Promise.all([
-                me.waitForWorkspaceGeometry(workspaceId),
-                me.waitForWorkspaceGeometry(mainWorkspaceId)
-            ]);
-
-            if (!geometry || !mainGeometry
-                || !me.isCrossWindowTargetCurrent(workspaceId, windowId, host, generation)
-                || !me.isCrossWindowTargetCurrent(mainWorkspaceId, me.windowId, mainHost, generation)) {
-                throw new Error('both cross-window workspace geometries must be measurable')
-            }
-
-            let receipt = {windowId, workspaceId, hostId: host.id};
-
-            me.crossWindowStageResolve?.(receipt);
-            me.crossWindowStageResolve = null;
-            me.crossWindowStageReject  = null;
-
-            return receipt
-        } catch (error) {
-            if (me.crossWindowStageGeneration === generation) {
-                me.crossWindowStageReject?.(error);
-                me.crossWindowStageResolve = null;
-                me.crossWindowStageReject  = null
-            }
-
-            if (me.isCrossWindowTargetCurrent(workspaceId, windowId, host, generation)) {
-                throw error
-            }
-
-            return null
-        }
+        return this.crossWindowStage.mountTarget(app, windowId)
     }
 
     /**
-     * Opens two non-overlapping active workspaces and resolves from the worker connect + measured
-     * geometry contract, never from a blind sleep.
+     * Facade over the extracted cross-window stage module.
      * @returns {Promise<Object>}
      */
     async openCrossWindowStage() {
-        let me          = this,
-            workspaceId = DemoBWorkspace.POPUP_WORKSPACE_ID,
-            host        = me.crossWindowHosts.get(workspaceId),
-            windowId    = me.crossWindowTargetWindowId;
-
-        // A physical popup close can precede the worker disconnect callback. Reuse only a
-        // complete, live owner bundle; a partial/destroyed cache must enter the ordinary cold
-        // open path instead of handing the gesture a stale target id.
-        if (windowId && host && !host.isDestroyed
-            && me.crossWindowParticipations.has(workspaceId)
-            && me.crossWindowGeometry.has(workspaceId)) {
-            return {
-                hostId: host.id,
-                windowId,
-                workspaceId
-            }
-        }
-
-        if (me.crossWindowStagePromise) return me.crossWindowStagePromise;
-
-        if (Object.keys(me.popupDocument?.items || {}).length) {
-            return Promise.reject(new Error('popup workspace is not empty; cross-window stage refuses split ownership'))
-        }
-
-        me.ensurePopupWorkspaceRegistered();
-        me.crossWindowStageGeneration++;
-        me.popupDocument = DemoBWorkspace.createPopupDocument();
-
-        me.crossWindowStagePromise = new Promise((resolve, reject) => {
-            me.crossWindowStageResolve = resolve;
-            me.crossWindowStageReject  = reject
-        });
-
-        let ownerGrant = me.createVesselOwnerGrant('workspace-target', workspaceId);
-
-        try {
-            let winData = await Neo.Main.getWindowData({windowId: me.windowId}),
-                left    = winData.screenLeft > 660
-                    ? winData.screenLeft - 640
-                    : winData.screenLeft + (winData.innerWidth || 1280) + 40,
-                top     = winData.screenTop,
-                opened  = await Neo.Main.windowOpen({
-                    url           : `./index.html?workspaceId=${workspaceId}&hostId=${me.id}`
-                        + `&vesselFlow=workspace-target&vesselGrant=${ownerGrant.token}`
-                        + `&vesselGeneration=${ownerGrant.generation}`,
-                    windowFeatures: `height=520,width=600,left=${left},top=${top}`,
-                    windowId      : me.windowId,
-                    windowName    : 'demo-b-cross-window'
-                });
-
-            if (opened === false) {
-                throw new Error('cross-window popup blocked')
-            }
-        } catch (error) {
-            me.revokeVesselOwnerGrant('workspace-target', workspaceId);
-            me.crossWindowStageReject?.(error);
-            me.crossWindowStagePromise = null;
-            me.crossWindowStageResolve = null;
-            me.crossWindowStageReject  = null;
-            throw error
-        }
-
-        let timeout = me.timeout(10000).then(() => {
-            throw new Error('cross-window target did not connect and become measurable within 10s')
-        });
-
-        try {
-            return await Promise.race([me.crossWindowStagePromise, timeout])
-        } catch (error) {
-            me.revokeVesselOwnerGrant('workspace-target', workspaceId);
-            me.crossWindowStagePromise = null;
-            throw error
-        }
+        return this.crossWindowStage.openStage()
     }
 
     /**
-     * @summary The SYNCHRONOUS half of the operation-agnostic transfer-commit core: the stats
-     * increment plus the workspace-set's both-or-neither adoption of a committed document PAIR —
-     * whatever executor produced it (`transferItem` today; the whole-stack return's
-     * `transferNode` pair binds here next). A refused adoption is the core's first exit: the
-     * vessel bookkeeping any caller performs after this must never diverge from document truth.
+     * Facade over the extracted cross-window stage module: the SYNCHRONOUS
+     * adoption half of the transfer-commit core. Kept as a workspace method because the unit
+     * spec wraps it directly.
      * @param {Object} pair
-     * @param {Object} pair.sourceDocument
-     * @param {String} pair.sourceWorkspaceId
-     * @param {Object} pair.targetDocument
-     * @param {String} pair.targetWorkspaceId
      * @returns {Boolean} false when the workspace-set refused the pair.
      * @protected
      */
-    adoptCommittedTransferPair({sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId}) {
-        this.crossWindowStats.transferCommits++;
-
-        return this.workspaceSet.adoptTransfer({sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId})
+    adoptCommittedTransferPair(pair) {
+        return this.crossWindowStage.adoptPair(pair)
     }
 
     /**
-     * @summary The reconcile half of the transfer-commit core. Target-first is load-bearing: it
-     * adopts the cached pane across the window boundary before the source shell can classify the
-     * now-absent item as a retirement. The `guard` seam is checked before each projection so a
-     * caller with supersession semantics (the pointer gesture's ownership fences) keeps them
-     * without the core knowing gesture state; guard-stopped reconciles are the CALLER's outcome
-     * to interpret.
+     * Facade over the extracted cross-window stage module: the reconcile half
+     * of the transfer-commit core (target-first, guard-checked).
      * @param {Object} pair
-     * @param {Object} pair.sourceDocument
-     * @param {String} pair.sourceWorkspaceId
-     * @param {Object} pair.targetDocument
-     * @param {String} pair.targetWorkspaceId
      * @param {Object} [options]
      * @param {Function} [options.guard] `() => Boolean` — false stops before the next projection.
      * @returns {Promise<Boolean>} true when both projections ran.
      * @protected
      */
-    async reconcileTransferPair({sourceDocument, sourceWorkspaceId, targetDocument, targetWorkspaceId}, {guard = () => true} = {}) {
-        let me = this;
-
-        if (!guard()) return false;
-
-        await me.refreshWorkspace(targetWorkspaceId, targetDocument);
-
-        if (!guard()) return false;
-
-        await me.refreshWorkspace(sourceWorkspaceId, sourceDocument);
-
-        return true
+    async reconcileTransferPair(pair, options) {
+        return this.crossWindowStage.reconcilePair(pair, options)
     }
 
     /**
-     * @summary Retires the logically emptied popup workspace after its stack returned.
-     *
-     * Document adoption and target-first projection precede this call. The popup render target
-     * may already have closed (disconnect raced the deferred projection) or may remain alive when
-     * its platform close failed; either way its participation, geometry, registry entry and stage
-     * identity retire exactly once. A later open is a new lifetime and explicitly re-registers via
-     * {@link #ensurePopupWorkspaceRegistered}.
+     * Facade over the extracted cross-window stage module: retires the
+     * logically emptied popup workspace after its stack returned. Kept as a workspace method
+     * because the unit spec wraps it directly.
      * @returns {Boolean} true when the popup registry entry existed and was removed.
      * @protected
      */
     retireReturnedPopupWorkspace() {
-        let me = this;
-
-        me.crossWindowStageGeneration++;
-
-        for (const workspaceId of [DemoBWorkspace.MAIN_WORKSPACE_ID, DemoBWorkspace.POPUP_WORKSPACE_ID]) {
-            me.crossWindowParticipations.get(workspaceId)?.destroy();
-            me.crossWindowParticipations.delete(workspaceId);
-            me.crossWindowGeometry.delete(workspaceId)
-        }
-
-        me.crossWindowHosts.delete(DemoBWorkspace.POPUP_WORKSPACE_ID);
-        me.workspaceProjectionRequests.delete(DemoBWorkspace.POPUP_WORKSPACE_ID);
-        me.crossWindowTargetWindowId = null;
-        me.crossWindowStagePromise   = null;
-        me.crossWindowStageResolve   = null;
-        me.crossWindowStageReject    = null;
-
-        return me.workspaceSet.unregister(DemoBWorkspace.POPUP_WORKSPACE_ID)
+        return this.crossWindowStage.retireReturnedWorkspace()
     }
 
     /**
-     * @summary Commits the popup's model-resolved stack back into the main workspace as one atomic
-     * `transferNode`, then reconciles target-first and retires the emptied popup registry entry.
-     *
-     * The owner re-validates both semantic workspace direction and source stack identity before
-     * accepting the executor pair. Adoption is SYNCHRONOUS — the truth the coordinator consumes
-     * before it retires the source gesture. View reconciliation is deferred, target-first, and
-     * cannot roll model truth back: a render-target disappearance or close failure merely leaves
-     * an honest empty/retired popup surface while main ownership remains committed.
+     * Facade over the extracted cross-window stage module: commits the popup's
+     * model-resolved stack back into the main workspace as one atomic `transferNode`, then
+     * reconciles target-first and retires the emptied popup registry entry.
      * @param {Object} data
      * @returns {Promise<Object>|Boolean} a truthy accepted lifecycle, or false before adoption.
      * @protected
      */
     commitWholeStackReturn(data) {
-        let me = this,
-            {
-                descriptor,
-                sourceDocument,
-                sourceWorkspaceId,
-                targetDocument,
-                targetWorkspaceId
-            } = data,
-            sourceBefore = me.getWorkspaceDocument(sourceWorkspaceId);
-
-        if (descriptor?.operation !== 'transferNode'
-            || sourceWorkspaceId !== DemoBWorkspace.POPUP_WORKSPACE_ID
-            || targetWorkspaceId !== DemoBWorkspace.MAIN_WORKSPACE_ID
-            || DockZoneModel.resolveStackRoot(sourceBefore) !== descriptor.nodeId) {
-            return false
-        }
-
-        let nodeIds = DockZoneModel.reachableNodeIds({nodes: sourceBefore.nodes, root: descriptor.nodeId}),
-            itemIds = [...new Set([...nodeIds].flatMap(nodeId =>
-                sourceBefore.nodes[nodeId]?.type === 'tabs' ? sourceBefore.nodes[nodeId].items || [] : []
-            ))];
-
-        if (!itemIds.length || !me.adoptCommittedTransferPair({
-            sourceDocument,
-            sourceWorkspaceId,
-            targetDocument,
-            targetWorkspaceId
-        })) {
-            return false
-        }
-
-        // The pair is committed NOW. Clear every click-detach entry synchronously so a physical
-        // disconnect racing the deferred projections cannot route any member through transferItem
-        // again. The pane instances themselves move through the target-first reconciler below.
-        itemIds.forEach(itemId => delete me.detachedPanes[itemId]);
-
-        me.refreshPromise = me.refreshPromise
-            .then(() => me.timeout(0))
-            .then(async () => {
-                let errors = [];
-
-                try {
-                    if (!me.isDestroyed) {
-                        await me.refreshWorkspace(targetWorkspaceId, targetDocument)
-                    }
-
-                    if (!me.isDestroyed) {
-                        await me.refreshWorkspace(sourceWorkspaceId, sourceDocument)
-                    }
-                } catch (error) {
-                    errors.push(`projection after stack return failed: ${error?.message || String(error)}`)
-                }
-
-                let retired = me.isDestroyed ? false : me.retireReturnedPopupWorkspace();
-
-                if (!me.isDestroyed) {
-                    // Direct return never creates a park slot: its committed terminal is therefore
-                    // intentionally a no-op for the vessel-park machine. This owner closes the now
-                    // empty popup after adoption + retirement, without making platform-close
-                    // success part of model truth.
-                    try {
-                        let closing = Neo.Main.windowClose({
-                            names   : ['demo-b-cross-window'],
-                            windowId: me.windowId
-                        });
-
-                        closing?.catch?.(() => {})
-                    } catch {
-                        // best-effort vessel retirement; committed ownership never rolls back
-                    }
-                }
-
-                let receipt = {
-                    applied         : true,
-                    errors,
-                    itemIds,
-                    sourceWorkspaceId,
-                    targetWorkspaceId,
-                    workspaceRetired: retired
-                };
-
-                me.crossWindowGestureResolve?.(receipt);
-                me.crossWindowGestureResolve = null;
-
-                return receipt
-            });
-
-        return me.refreshPromise
+        return this.crossWindowStage.commitWholeStackReturn(data)
     }
 
     /**
@@ -2138,108 +1833,17 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * @summary Places the popup outside the source viewport and proves the Window manager sees
-     * two non-overlapping rectangles. Browsers may ignore `window.open(left=...)`; therefore the
-     * requested feature is only an intent, while the live Window manager projection is the
-     * readiness authority used by global drag hit-testing.
+     * Facade over the extracted cross-window stage module: places the popup
+     * outside the source viewport and proves the Window manager sees two non-overlapping
+     * rectangles. The observed manager rectangles are the readiness authority.
      * @param {Object} [options={}]
      * @param {Number} [options.attempts=120]
      * @param {Number} [options.delay=16]
      * @returns {Promise<Object>}
      * @protected
      */
-    async positionCrossWindowStage({attempts=120, delay=16}={}) {
-        let me            = this,
-            WindowManager = (await import('../../../../../src/manager/Window.mjs')).default,
-            sourceWindow  = WindowManager.get(me.windowId),
-            targetWindow  = WindowManager.get(me.crossWindowTargetWindowId),
-            sourceData    = await Neo.Main.getWindowData({windowId: me.windowId}),
-            screen        = sourceData?.screen,
-            sourceRect    = sourceWindow?.innerRect,
-            targetRect    = targetWindow?.innerRect,
-            gap           = 40,
-            candidates, desired, overlaps, snapshot;
-
-        if (!sourceRect || !targetRect || !screen) {
-            return {ready: false, reason: 'window geometry or screen bounds are unavailable'}
-        }
-
-        overlaps = sourceRect.x < targetRect.right
-            && sourceRect.right > targetRect.x
-            && sourceRect.y < targetRect.bottom
-            && sourceRect.bottom > targetRect.y;
-
-        // A headed harness or the platform itself may already have established a valid stage.
-        // The observed manager rectangles are the authority; moving again can be denied or
-        // clamped and must never turn a ready physical arrangement back into an overlap.
-        if (!overlaps) {
-            return {
-                desired: {x: targetRect.x, y: targetRect.y},
-                ready  : true,
-                reused : true,
-                source : sourceRect,
-                target : targetRect
-            }
-        }
-
-        candidates = [{x: sourceRect.right + gap, y: sourceRect.y}, {
-            x: sourceRect.x - targetRect.width - gap,
-            y: sourceRect.y
-        }, {
-            x: sourceRect.x,
-            y: sourceRect.bottom + gap
-        }, {
-            x: sourceRect.x,
-            y: sourceRect.y - targetRect.height - gap
-        }];
-
-        desired = candidates.find(point => point.x >= screen.availLeft
-            && point.y >= screen.availTop
-            && point.x + targetRect.width <= screen.availLeft + screen.availWidth
-            && point.y + targetRect.height <= screen.availTop + screen.availHeight);
-
-        if (!desired) {
-            return {
-                ready : false,
-                reason: 'the available screen cannot hold both configured viewports without overlap',
-                screen,
-                source: sourceRect,
-                target: targetRect
-            }
-        }
-
-        await Neo.Main.windowMoveTo({
-            windowId  : me.windowId,
-            windowName: 'demo-b-cross-window',
-            x         : desired.x,
-            y         : desired.y
-        });
-
-        for (let attempt = 0; attempt <= attempts && !me.isDestroyed; attempt++) {
-            sourceWindow = WindowManager.get(me.windowId);
-            targetWindow = WindowManager.get(me.crossWindowTargetWindowId);
-            sourceRect   = sourceWindow?.innerRect;
-            targetRect   = targetWindow?.innerRect;
-
-            overlaps = sourceRect && targetRect
-                && sourceRect.x < targetRect.right
-                && sourceRect.right > targetRect.x
-                && sourceRect.y < targetRect.bottom
-                && sourceRect.bottom > targetRect.y;
-
-            snapshot = {
-                desired,
-                ready : !!sourceRect && !!targetRect && !overlaps,
-                source: sourceRect,
-                target: targetRect
-            };
-
-            if (snapshot.ready || attempt === attempts) break;
-
-            await me.timeout(delay)
-        }
-
-        return snapshot || {desired, ready: false}
+    async positionCrossWindowStage(options) {
+        return this.crossWindowStage.positionStage(options)
     }
 
     /**
@@ -3674,75 +3278,20 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * Measures one active workspace's host and tabs geometry. The result is window-local and
-     * runtime-only; it is invalidated by every projection refresh and never enters a document.
+     * Facade over the extracted cross-window stage module: measures one active
+     * workspace's host and tabs geometry (window-local, runtime-only).
      * @param {String} workspaceId
      * @returns {Promise<Object|null>}
      * @protected
      */
     async measureWorkspaceGeometry(workspaceId) {
-        let me       = this,
-            host     = me.crossWindowHosts.get(workspaceId),
-            document = me.getWorkspaceDocument(workspaceId),
-            nodes    = document?.nodes || {};
-
-        if (!host || host.isDestroyed) return null;
-
-        let zoneEntries = Object.keys(nodes)
-                .filter(nodeId => nodes[nodeId].type === 'tabs')
-                .map(nodeId => ({nodeId, container: host.down({dockNodeId: nodeId})}))
-                .filter(zone => zone.container),
-            rootId      = nodes[document.root]?.type === 'edge-zone'
-                ? (nodes[document.root].zones?.center ?? document.root)
-                : document.root,
-            [hostRect, ...zoneRects] = await host.getDomRect(
-                [host.id, ...zoneEntries.map(zone => zone.container.id)],
-                host.windowId
-            ),
-            geometry;
-
-        geometry = hostRect && {
-            hostRect,
-            root : {nodeId: rootId, rect: hostRect},
-            zones: zoneEntries
-                .map((zone, index) => ({
-                    nodeId: zone.nodeId,
-                    // An empty root tabs surface is the whole workspace admission area. Browser
-                    // layout still gives its tab chrome a non-zero strip, but using that strip as
-                    // the remote claim rect makes otherwise reachable vessel overlap impossible.
-                    rect  : zone.nodeId === rootId
-                        && nodes[zone.nodeId].items?.length === 0
-                            ? hostRect
-                            : zoneRects[index],
-                    orientation: Object.values(nodes).find(node =>
-                        node.type === 'split' && node.children?.includes(zone.nodeId)
-                    )?.orientation ?? null
-                }))
-                .filter(zone => zone.rect)
-        };
-
-        if (!geometry
-            || geometry.hostRect.width < 1
-            || geometry.hostRect.height < 1
-            || geometry.zones.length < 1
-            || geometry.zones.some(zone => zone.rect.width < 1 || zone.rect.height < 1)) {
-            me.crossWindowGeometry.delete(workspaceId);
-            return null
-        }
-
-        me.crossWindowGeometry.set(workspaceId, geometry);
-
-        let indicators = host.down({ntype: 'dashboard-dock-drop-indicators'});
-
-        indicators && (indicators.hostRect = geometry.hostRect);
-
-        return geometry
+        return this.crossWindowStage.measureGeometry(workspaceId)
     }
 
     /**
-     * Waits for main-thread paint evidence instead of assuming a worker update acknowledgement
-     * implies measurable geometry. Every retry is routed through the host's own render target;
-     * the bounded delay is cadence only, while non-zero host + zone rects are the readiness fact.
+     * Facade over the extracted cross-window stage module: waits for
+     * main-thread paint evidence instead of assuming a worker update acknowledgement implies
+     * measurable geometry.
      * @param {String} workspaceId
      * @param {Object} [options={}]
      * @param {Number} [options.attempts=120]
@@ -3750,16 +3299,8 @@ class DemoBWorkspace extends Container {
      * @returns {Promise<Object|null>}
      * @protected
      */
-    async waitForWorkspaceGeometry(workspaceId, {attempts=120, delay=16}={}) {
-        let me       = this,
-            geometry = await me.measureWorkspaceGeometry(workspaceId);
-
-        if (!geometry && attempts > 0 && !me.isDestroyed) {
-            await me.timeout(delay);
-            return me.waitForWorkspaceGeometry(workspaceId, {attempts: attempts - 1, delay})
-        }
-
-        return geometry
+    async waitForWorkspaceGeometry(workspaceId, options) {
+        return this.crossWindowStage.waitForGeometry(workspaceId, options)
     }
 
     /**
