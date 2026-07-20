@@ -226,6 +226,17 @@ class AgentDetail extends Container {
                     ntype    : 'component',
                     cls      : ['fm-detail-telltale'],
                     reference: 'detail-telltale'
+                }, {
+                    // The full three-source provenance readout — the drill-in counterpart to the card's
+                    // ONE honest word-line. The card names only the abnormal source(s) (20 compact cards
+                    // cannot each spend three lines on provenance); the resident detail states all three
+                    // unconditionally, each with the producer that reported it — the evidence the summary
+                    // had no room for. Reads the SAME normalizeFleetSources output as the card's strip, so
+                    // detail and card can never disagree about a source's health. Sibling to the telltale
+                    // by design: both are resident identity state, not freshness-gated pane content.
+                    ntype    : 'component',
+                    cls      : ['fm-detail-sources'],
+                    reference: 'detail-sources'
                 }]
             }]
         }, {
@@ -640,6 +651,38 @@ class AgentDetail extends Container {
         });
 
         telltale.update();
+
+        // The three-source provenance readout — the drill-in counterpart to the card's one word-line.
+        // Each source states itself unconditionally (like the telltale's axes): a wired source names its
+        // confidence AND its producer; a not-wired / missing source says so plainly. State rides the TEXT
+        // ("not wired" / "missing"), never colour alone (WCAG 1.4.1). Built as `text` VDOM nodes, never an
+        // `html` string — `fact.source` is a producer literal that crossed a process boundary, and Neo
+        // routes `html` to innerHTML; a text node is inert by construction.
+        const
+            sourceLabels  = {runtime: 'Runtime', repoStatus: 'Repository', roster: 'Roster'},
+            sourceOrder   = ['runtime', 'repoStatus', 'roster'],
+            detailSources = me.getReference('detail-sources');
+
+        detailSources.vdom.cn = sourceOrder.flatMap(key => {
+            const
+                fact      = sources[key],
+                stateText = fact.state === 'wired' ? `wired · ${fact.confidence}` : fact.state.replace(/-/g, ' '),
+                nodes     = [{
+                    tag : 'span',
+                    cls : ['fm-detail-sources-axis', `fm-detail-sources-${fact.state}`],
+                    text: `${sourceLabels[key]}: ${stateText}`
+                }];
+
+            // the producer literal is the provenance evidence — which adapter reported this fact; the
+            // card's one-word summary cannot carry it, which is the point of the drill-in
+            if (fact.source) {
+                nodes.push({tag: 'span', cls: ['fm-detail-sources-producer'], text: `— ${fact.source}`})
+            }
+
+            return nodes
+        });
+
+        detailSources.update();
 
         me.getReference('detail-avatar').set({
             alt: record.displayName ?? agentId,

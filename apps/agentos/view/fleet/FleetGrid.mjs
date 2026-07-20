@@ -1,8 +1,9 @@
-import AgentCard from './AgentCard.mjs';
-import Button    from '../../../../src/button/Base.mjs';
-import Component from '../../../../src/component/Base.mjs';
-import Container from '../../../../src/container/Base.mjs';
-import HealthBar from './HealthBar.mjs';
+import AgentCard    from './AgentCard.mjs';
+import Button       from '../../../../src/button/Base.mjs';
+import Component    from '../../../../src/component/Base.mjs';
+import Container    from '../../../../src/container/Base.mjs';
+import FocusManager from '../../../../src/manager/Focus.mjs';
+import HealthBar    from './HealthBar.mjs';
 
 /**
  * Whether a session state is "online" — present and engaged (working, or present-but-blocked /
@@ -332,13 +333,23 @@ class FleetGrid extends Container {
 
         // capture the focused resident AND which semantic child (drill / toggle / restart) held focus
         // BEFORE the destroy/recreate — so gate-3 restores the EXACT child on the resident's rebuilt card,
-        // never the card root and never a different agent. containsFocus is maintained by manager.Focus on
-        // focusin/out; a removed/reordered agent above the focus must never silently hand focus elsewhere.
+        // never the card root and never a different agent.
+        //
+        // The focused card is the one that is BOTH still marked `containsFocus` AND named by the
+        // authoritative most-recent focus path (manager.Focus.history[0]). A `containsFocus` scan ALONE
+        // is not enough: a same-app focus move slower than manager.Focus.maxFocusInOutGap (50ms) — which
+        // a dense card's re-render can induce between the outgoing focusout and the incoming focusin —
+        // is classified as a fresh `focusEnter`, which never clears the PRIOR card's `containsFocus`. Two
+        // cards then read as focused at once and a first-match scan restores the stale one (the wrong
+        // agent's control). Intersecting with the live focus path names the card that actually holds
+        // focus; the `containsFocus` term is retained so we still restore ONLY when focus genuinely
+        // remains in the grid — a background refresh must never steal focus.
         const
-            focusedCard     = me.getAgentCards().find(card => card.containsFocus),
+            focusPath       = FocusManager.history[0]?.componentPath ?? [],
+            focusedCard     = me.getAgentCards().find(card => card.containsFocus && focusPath.includes(card.id)),
             residentFocusId = focusedCard?.record?.agentId ?? null,
             focusedChildRef = focusedCard
-                ? (SEMANTIC_CHILD_REFS.find(ref => focusedCard.getReference(ref)?.containsFocus) ?? null)
+                ? (SEMANTIC_CHILD_REFS.find(ref => focusPath.includes(focusedCard.getReference(ref)?.id)) ?? null)
                 : null;
 
         cardsContainer.removeAll(true);

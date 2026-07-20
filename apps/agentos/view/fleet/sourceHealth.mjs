@@ -81,6 +81,43 @@ export function normalizeFleetSources(value) {
 }
 
 /**
+ * @summary Summarize the three normalized source facts into ONE honest word-line for the card's
+ * source strip — the "no acronym wall" contract that retires the three 9px markers on the compact
+ * card: all-wired → "all sources nominal"; otherwise NAME the abnormal source(s), action-owning
+ * `runtime` first, with a `+N` overflow when several are degraded. Visible text names sources in
+ * full words (Runtime / Repository / Roster) — the same names the accessible label carries, so the
+ * card and the a11y tree never diverge. Summary and the (detail-view) markers agree by construction
+ * — both read this same {@link #normalizeFleetSources} output, so the card can never summarize a
+ * state the facts deny.
+ * @param {*} value Source collection; malformed values fail closed (→ not-wired → named abnormal).
+ * @returns {{level: String, text: String, ariaLabel: String}} `level` is `ok` (all nominal) or `bad`.
+ */
+export function summarizeFleetSources(value) {
+    const
+        sources = normalizeFleetSources(value),
+        // directly-understandable full words, never opaque acronyms — the visible strip carries the
+        // same names as the accessible label so no RUN/REP/ROS wall is reintroduced on the card
+        labels  = {runtime: 'Runtime', repoStatus: 'Repository', roster: 'Roster'},
+        // action-owning runtime first: the abnormal source the operator most needs named leads
+        order    = ['runtime', 'repoStatus', 'roster'],
+        abnormal = order.filter(key => sources[key].state !== 'wired');
+
+    if (abnormal.length === 0) {
+        return {level: 'ok', text: 'all sources nominal', ariaLabel: 'Source health: all sources nominal.'}
+    }
+
+    const
+        first = abnormal[0],
+        extra = abnormal.length > 1 ? ` +${abnormal.length - 1}` : '';
+
+    return {
+        level    : 'bad',
+        text     : `${labels[first]} not nominal${extra}`,
+        ariaLabel: `Source health: ${abnormal.map(key => labels[key]).join(', ')} not nominal.`
+    }
+}
+
+/**
  * @summary Normalize one DTO row's source facts and session state as one atomic honesty contract. A
  * lifecycle/runtime mismatch downgrades runtime provenance to `not-wired` + `none`, so downstream
  * cards cannot show `RUN OBSERVED` or enable controls while the lifecycle fact itself is unusable.

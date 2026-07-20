@@ -351,6 +351,55 @@ test.describe('Fleet cockpit AgentDetail — drill-in inspector (#14608)', () =>
         detail.destroy()
     });
 
+    test('the drill-in states all three source facts unconditionally — the counterpart to the card\'s one word-line', () => {
+        // the default fixture wires all three (roster/repo/runtime observed). The detail is the opposite
+        // of the card's exception-based strip: every source states itself, with its producer, always —
+        // an operator who drilled in needs "runtime: wired, observed by X" confirmed, never omitted.
+        const detail  = createDetail({agentId: 'vega', state: 'ok'}),
+              sources = detail.down({reference: 'detail-sources'});
+
+        // the same sink guard the telltale carries: ANY html on this node re-opens the innerHTML hole
+        expect(sources.html).toBeFalsy();
+
+        const texts = (sources.vdom.cn ?? []).map(node => node.text ?? '');
+
+        // all three, in full words, each with confidence AND its producer literal — the provenance the
+        // compact card had no room for, which is the entire point of the drill-in
+        expect(texts.some(text => text.includes('Runtime: wired · observed'))).toBe(true);
+        expect(texts.some(text => text.includes('Repository: wired · observed'))).toBe(true);
+        expect(texts.some(text => text.includes('Roster: wired · observed'))).toBe(true);
+        expect(texts.some(text => text.includes('fleet:runtimeStatus'))).toBe(true);
+
+        detail.destroy()
+    });
+
+    test('a not-wired source states its condition in TEXT and earns the state colour — never colour alone', () => {
+        // runtime reader absent → normalizeFleetSources fails it closed to not-wired. The detail must SAY
+        // "not wired", not merely tint it — colour is never the sole bearer of the meaning (WCAG 1.4.1).
+        const detail = createDetail({
+            agentId: 'vega',
+            state  : 'ok',
+            sources: {
+                roster    : {source: 'fleet:listAgents',  state: 'wired', confidence: 'observed'},
+                repoStatus: {source: 'fleet:fleetStatus', state: 'wired', confidence: 'observed'},
+                runtime   : null // absent → fails closed to not-wired + none
+            }
+        });
+
+        const nodes       = detail.down({reference: 'detail-sources'}).vdom.cn ?? [],
+              runtimeNode = nodes.find(node => (node.text ?? '').startsWith('Runtime:'));
+
+        expect(runtimeNode.text).toContain('not wired');
+        expect(runtimeNode.cls).toContain('fm-detail-sources-not-wired');
+
+        // the readout stays unconditional — the two wired sources still state themselves
+        const texts = nodes.map(node => node.text ?? '');
+        expect(texts.some(text => text.includes('Repository: wired · observed'))).toBe(true);
+        expect(texts.some(text => text.includes('Roster: wired · observed'))).toBe(true);
+
+        detail.destroy()
+    });
+
     test('§2.2.1 wall-clock aging: a later `now` re-classifies fresh → lost in place (time-reactive, not just re-seat)', () => {
         const detail = createDetail({agentId: 'vega', state: 'ok'}, {
             paneLedgers: {lane: {observedAt: '2026-07-11T23:59:50.000Z', freshnessTtl: 30_000}} // 10s before NOW → fresh
