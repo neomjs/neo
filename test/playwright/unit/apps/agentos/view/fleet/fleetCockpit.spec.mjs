@@ -252,23 +252,26 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         expect(FleetRoster.config.singleton).toBeFalsy();
         expect(FleetRoster.config.url).toBe('../../apps/agentos/resources/data/fleetRoster.json');
 
-        // the JSON sample seed: the seven REAL maintainer identities — no invented agents
+        // the JSON sample seed: the ten REAL maintainer identities, registry-derived — no invented agents
         const seed = JSON.parse(readFileSync(seedPath, 'utf8')).data;
-        expect(seed).toHaveLength(7);
-        const knownHandles = ['neo-fable', 'neo-fable-clio', 'neo-gemini-pro', 'neo-gpt', 'neo-opus-ada', 'neo-opus-grace', 'neo-opus-vega'];
+        expect(seed).toHaveLength(10);
+        const knownHandles = ['neo-fable', 'neo-fable-clio', 'neo-gemini-pro', 'neo-gpt', 'neo-gpt-emmy', 'neo-kimi-iris', 'neo-kimi-phoebe', 'neo-opus-ada', 'neo-opus-grace', 'neo-opus-vega'];
         expect(seed.map(row => row.agentId).sort()).toEqual(knownHandles);
 
         // engine tags pinned to the registry designations at seed time — this front-door surface
         // must not silently reintroduce a stale model designation
         const engineTags = Object.fromEntries(seed.map(row => [row.agentId, row.engineTag]));
         expect(engineTags).toEqual({
-            'neo-fable'     : 'fable-5',
-            'neo-fable-clio': 'fable-5',
-            'neo-gemini-pro': '3.1-pro',
-            'neo-gpt'       : 'gpt-5.6-sol',
-            'neo-opus-ada'  : 'opus-4.8',
-            'neo-opus-grace': 'opus-4.8',
-            'neo-opus-vega' : 'opus-4.8'
+            'neo-fable'      : 'fable-5',
+            'neo-fable-clio' : 'fable-5',
+            'neo-gemini-pro' : '3.1-pro',
+            'neo-gpt'        : 'gpt-5.6-sol',
+            'neo-gpt-emmy'   : 'gpt-5.6-sol',
+            'neo-kimi-iris'  : 'kimi-k3',
+            'neo-kimi-phoebe': 'kimi-k3',
+            'neo-opus-ada'   : 'opus-4.8',
+            'neo-opus-grace' : 'opus-4.8',
+            'neo-opus-vega'  : 'opus-4.8'
         });
 
         // seed rows hydrate as records exposing the model fields — incl the B4/C2 control seam defaults
