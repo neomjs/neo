@@ -5,7 +5,7 @@ import FamilyRail             from './FamilyRail.mjs';
 import Image                  from '../../../../src/component/Image.mjs';
 import StateDot, {stateLabel} from './StateDot.mjs';
 
-import {normalizeFleetSources, summarizeFleetSources} from './sourceHealth.mjs';
+import {normalizeFleetSources, resolveFleetDisplayState, summarizeFleetSources} from './sourceHealth.mjs';
 
 import {describeNameProvenance, resolveNameSlot} from './nameSlot.mjs';
 import {describeTelltale}                        from './telltale.mjs';
@@ -313,12 +313,15 @@ class AgentCard extends Container {
             pendingAction = record.pendingAction ?? null,
             sources       = normalizeFleetSources(record.sources),
             summary       = summarizeFleetSources(record.sources),
-            // the runtime fact gates a resolved session state: a runtime observation renders as a
-            // resolved state only when the source is wired (else 'off'); a transitional pendingAction is
-            // a first-party fact (we sent the intent) and takes precedence with no runtime-source gate
+            // the runtime fact gates a resolved session state: a wired runtime renders the row's
+            // state as session truth; without one, an explicit `off` stays the operator-benched
+            // participation fact it is, while every other state renders `unobserved` — never a
+            // false `benched / offline` verdict, never fabricated liveness (the pulse still
+            // requires an OBSERVED confidence). A transitional pendingAction is a first-party
+            // fact (we sent the intent) and takes precedence with no runtime-source gate
             runtimeWired  = sources.runtime.state === 'wired',
             recordState   = record.state ?? 'off',
-            resolvedState = runtimeWired ? recordState : 'off',
+            resolvedState = resolveFleetDisplayState({state: record.state, sources: record.sources}),
             displayState  = pendingAction === 'stop'
                 ? 'stopping'
                 : pendingAction // 'start' | 'restart' both transition toward running
