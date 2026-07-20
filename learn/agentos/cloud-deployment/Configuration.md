@@ -45,12 +45,13 @@ A deployment's `config.mjs` is gitignored and copied from `config.template.mjs`.
 | `transport` | `'stdio'` | `'stdio'` (local single-repo) or `'streamable-http'` (a cloud deployment serving remote tenants). These are the only supported server values. |
 | `mcpHttpPort` | `3000` | The port the Streamable HTTP transport listens on (only when `transport === 'streamable-http'`). |
 | `publicUrl` | `null` | Canonical public URL — required behind a reverse proxy for OAuth 2.1 / OIDC audience claims and protected-resource advertising. |
-| `auth.mode` | `'oidc'` | Server-side bearer strategy for Streamable HTTP: `'oidc'` uses OIDC introspection + audience enforcement; `'gitlab-pat'` validates a GitLab OAuth token or PAT against `/api/v4/user` and returns a bare bearer challenge on failure. |
+| `auth.mode` | `'oidc'` | Server-side bearer strategy for Streamable HTTP: `'oidc'` uses OIDC introspection + audience enforcement; `'gitlab-pat'` validates a GitLab OAuth token or PAT against `/api/v4/user`; `'github-pat'` validates a GitHub PAT (classic or fine-grained) against `/user`. Both PAT modes return a bare bearer challenge on failure. |
 | `auth.issuerUrl` / `auth.host` / `auth.realm` | `null` / `null` / `'master'` | OIDC authority inputs for the default server mode. `issuerUrl` is preferred when the provider publishes discovery metadata directly. |
 | `auth.clientId` / `auth.clientSecret` | `null` / `''` | OIDC introspection client credentials for deployments that require them. |
 | `auth.trustProxyIdentity` | `false` | Accept identity from a trusted reverse-proxy header after the ingress strips spoofable client-supplied headers. |
 | `auth.gitlabApiBaseUrl` | `'https://gitlab.com'` | GitLab API root used only by `auth.mode === 'gitlab-pat'`; set to a self-managed GitLab host when needed. |
-| `auth.allowedClientIds` / `auth.allowedUsers` | `[]` / `[]` | Optional hardening gates for GitLab bearer mode. Empty means any token that resolves to a valid GitLab user is accepted. |
+| `auth.githubApiBaseUrl` | `'https://api.github.com'` | GitHub API root used only by `auth.mode === 'github-pat'`; set to a GitHub Enterprise Server host when needed. |
+| `auth.allowedClientIds` / `auth.allowedUsers` | `[]` / `[]` | Optional hardening gates. `allowedClientIds` applies to GitLab bearer mode only (GitHub PATs expose no OAuth-app identity); `allowedUsers` gates the resolved username in either PAT mode. Empty means any token that resolves to a valid user is accepted. |
 
 Compose healthchecks use `ai/scripts/diagnostics/mcpHealthcheck.mjs` against the
 same `/mcp` route as external callers. When a deployment sets

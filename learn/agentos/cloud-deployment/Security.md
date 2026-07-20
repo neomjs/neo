@@ -58,7 +58,7 @@ The invariant that holds regardless of the transport: **the tenant tuple is
 server-derived from the authenticated identity, never trusted from the
 payload.**
 
-The shipped Streamable HTTP deployment has three identity shapes:
+The shipped Streamable HTTP deployment has four identity shapes:
 
 - **OIDC server mode** (`NEO_AUTH_MODE=oidc`, the default) validates
   `Authorization: Bearer <token>` through the configured issuer, enforces the
@@ -69,6 +69,11 @@ The shipped Streamable HTTP deployment has three identity shapes:
   GitLab's `/api/v4/user`, and derives identity from the returned username. This
   mode intentionally has no OIDC audience claim or protected-resource metadata;
   failed requests return a bare `WWW-Authenticate: Bearer` challenge.
+- **GitHub bearer mode** (`NEO_AUTH_MODE=github-pat`) accepts a GitHub Personal
+  Access Token (classic or fine-grained) as the bearer, validates it against
+  GitHub's `/user`, and derives identity from the returned login. Same bare-401
+  contract as GitLab bearer mode; `NEO_AUTH_GITHUB_API_BASE_URL` points the
+  verifier at a GitHub Enterprise Server host when needed.
 - **Trusted proxy identity** (`NEO_AUTH_TRUST_PROXY_IDENTITY=true`) lets an
   authenticated reverse proxy inject `X-Preferred-Username` /
   `X-Auth-Request-Preferred-Username`. The reference Caddy ingress strips any

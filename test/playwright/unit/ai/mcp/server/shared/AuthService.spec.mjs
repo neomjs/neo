@@ -456,6 +456,301 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitLab-PAT midd
 });
 
 /**
+ * Unit coverage for the GitHub-PAT verifier in `AuthService`, mirroring the GitLab-PAT describe
+ * above. `globalThis.fetch` is stubbed so no live GitHub call is made — covering the identity
+ * mapping, the GitHub request contract (User-Agent / Accept / X-GitHub-Api-Version headers),
+ * `x-oauth-scopes` scope extraction (classic PAT) vs its absence (fine-grained PAT), the
+ * allowlist gate, the GHES base-url override, the success cache, and the TTL boundary.
+ */
+test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitHub-PAT verifier', () => {
+    let AuthService;
+    let originalFetch;
+
+    class FakeInvalidTokenError extends Error {}
+
+    const logger   = {info: () => {}, warn: () => {}, error: () => {}};
+    const aiConfig = {
+        auth: {
+            githubApiBaseUrl  : 'https://github.example.com/',
+            patCacheTtlSeconds: 300
+        }
+    };
+
+    function withAuth(overrides) {
+        return {auth: {...aiConfig.auth, ...overrides}}
+    }
+
+    test.beforeAll(async () => {
+        AuthService = (await import('../../../../../../../ai/mcp/server/shared/services/AuthService.mjs')).default;
+    });
+
+    test.beforeEach(() => {
+        originalFetch = globalThis.fetch;
+    });
+
+    test.afterEach(() => {
+        globalThis.fetch = originalFetch;
+    });
+
+    test('maps a GitHub /user 200 to the identity shape, with the GitHub request contract honored', async () => {
+        let calledUrl, calledHeaders;
+
+        globalThis.fetch = async (url, opts) => {
+            calledUrl     = url;
+            calledHeaders = opts?.headers;
+            return {
+                ok     : true,
+                headers: {get: name => name === 'x-oauth-scopes' ? 'repo, read:user' : null},
+                json   : async () => ({id: 42, login: 'octocat', name: 'The Octocat'})
+            };
+        };
+
+        const verifier = AuthService.createGithubPatVerifier({aiConfig, logger, InvalidTokenError: FakeInvalidTokenError}),
+              info     = await verifier.verifyAccessToken('ghp_abc');
+
+        // Trailing slash on the configured base URL is trimmed before appending the API path.
+        expect(calledUrl).toBe('https://github.example.com/user');
+        expect(calledHeaders.Authorization).toBe('Bearer ghp_abc');
+        // GitHub rejects UA-less requests with 403; the version header pins the REST contract.
+        expect(calledHeaders['User-Agent']).toBeTruthy();
+        expect(calledHeaders.Accept).toBe('application/vnd.github+json');
+        expect(calledHeaders['X-GitHub-Api-Version']).toBe('2022-11-28');
+        expect(info.userId).toBe('octocat');
+        expect(info.username).toBe('The Octocat');
+        expect(info.source).toBe('github-pat');
+        expect(info.authProvider).toBe('github');
+        expect(info.authSource).toBe('github-pat');
+        expect(info.providerBaseUrl).toBe('https://github.example.com');
+        expect(info.providerUserId).toBe('42');
+        expect(info.providerUsername).toBe('octocat');
+        expect(info.providerDisplayName).toBe('The Octocat');
+        // Classic PATs echo granted scopes in x-oauth-scopes.
+        expect(info.scopes).toEqual(['repo', 'read:user']);
+        expect(typeof info.expiresAt).toBe('number');
+        expect(info.expiresAt).toBeGreaterThan(Math.floor(Date.now() / 1000));
+    });
+
+    test('falls back to login and empty scopes when name and x-oauth-scopes are absent (fine-grained PAT)', async () => {
+        globalThis.fetch = async () => ({ok: true, json: async () => ({id: 9, login: 'fine-grained-bot', name: null})});
+
+        const verifier = AuthService.createGithubPatVerifier({aiConfig, logger, InvalidTokenError: FakeInvalidTokenError}),
+              info     = await verifier.verifyAccessToken('github_pat_x');
+
+        expect(info.username).toBe('fine-grained-bot');
+        expect(info.userId).toBe('fine-grained-bot');
+        expect(info.providerDisplayName).toBe('fine-grained-bot');
+        expect(info.scopes).toEqual([]);
+    });
+
+    test('allows a configured GitHub login and rejects an unlisted user without caching the failure', async () => {
+        let calls = 0;
+
+        globalThis.fetch = async () => {
+            calls++;
+            return {ok: true, json: async () => ({login: calls < 3 ? 'outsider' : 'neo-kimi-phoebe'})}
+        };
+
+        const verifier = AuthService.createGithubPatVerifier({
+            aiConfig         : withAuth({allowedUsers: ['neo-kimi-phoebe']}),
+            logger,
+            InvalidTokenError: FakeInvalidTokenError
+        });
+
+        await expect(verifier.verifyAccessToken('ghp-outsider')).rejects.toThrow('GitHub user is not allowed');
+        // The failure is not cached: a later correction on the allowlist/retry path re-fetches.
+        await expect(verifier.verifyAccessToken('ghp-outsider')).rejects.toThrow('GitHub user is not allowed');
+        const info = await verifier.verifyAccessToken('ghp-outsider');
+
+        expect(calls).toBe(3);
+        expect(info.userId).toBe('neo-kimi-phoebe');
+    });
+
+    test('rejects a non-OK GitHub response and does not cache the failure', async () => {
+        let calls = 0;
+
+        globalThis.fetch = async () => {
+            calls++;
+            return calls === 1
+                ? {ok: false, status: 401, json: async () => ({})}
+                : {ok: true, json: async () => ({login: 'octocat'})}
+        };
+
+        const verifier = AuthService.createGithubPatVerifier({aiConfig, logger, InvalidTokenError: FakeInvalidTokenError});
+
+        await expect(verifier.verifyAccessToken('ghp-bad')).rejects.toThrow('GitHub PAT validation failed (HTTP 401)');
+        const info = await verifier.verifyAccessToken('ghp-bad');
+
+        expect(calls).toBe(2);
+        expect(info.userId).toBe('octocat');
+    });
+
+    test('caches a successful validation per token and re-validates past the TTL window', async () => {
+        let calls = 0;
+
+        globalThis.fetch = async () => {
+            calls++;
+            return {ok: true, json: async () => ({login: 'octocat'})}
+        };
+
+        const cachedVerifier = AuthService.createGithubPatVerifier({aiConfig, logger, InvalidTokenError: FakeInvalidTokenError});
+
+        await cachedVerifier.verifyAccessToken('ghp-cached');
+        await cachedVerifier.verifyAccessToken('ghp-cached');
+        expect(calls).toBe(1);
+
+        const noCacheVerifier = AuthService.createGithubPatVerifier({
+            aiConfig         : withAuth({patCacheTtlSeconds: 0}),
+            logger,
+            InvalidTokenError: FakeInvalidTokenError
+        });
+
+        await noCacheVerifier.verifyAccessToken('ghp-uncached');
+        await noCacheVerifier.verifyAccessToken('ghp-uncached');
+        // TTL 0: expiresAt = now + 0 is never strictly greater than a later Date.now() → re-fetch.
+        expect(calls).toBe(3);
+    });
+});
+
+/**
+ * @summary Consumed-boundary coverage: drives the GitHub-PAT verifier through the REAL SDK
+ * `requireBearerAuth` middleware (installed by `setupGithubPat`), not in isolation — the same
+ * boundary discipline as the GitLab-PAT describe above (SDK AuthInfo contract + naked-401 shape).
+ */
+test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitHub-PAT middleware boundary', () => {
+    let AuthService, requireBearerAuth, InvalidTokenError, originalFetch;
+
+    const logger   = {info: () => {}, warn: () => {}, error: () => {}};
+    const aiConfig = {auth: {mode: 'github-pat', githubApiBaseUrl: 'https://api.github.com', patCacheTtlSeconds: 300}};
+
+    test.beforeAll(async () => {
+        AuthService       = (await import('../../../../../../../ai/mcp/server/shared/services/AuthService.mjs')).default;
+        requireBearerAuth = (await import('@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js')).requireBearerAuth;
+        InvalidTokenError = (await import('@modelcontextprotocol/sdk/server/auth/errors.js')).InvalidTokenError;
+    });
+
+    test.beforeEach(() => { originalFetch = globalThis.fetch; });
+    test.afterEach(()  => { globalThis.fetch = originalFetch; });
+
+    function mockReq(authHeader) {
+        const headers = authHeader ? {authorization: authHeader} : {};
+        return {headers, get(name) { return headers[String(name).toLowerCase()]; }};
+    }
+
+    // Minimal Express-style response double recording status + headers (lower-cased) + body.
+    function mockRes() {
+        return {
+            statusCode: 200, headers: {}, body: undefined, ended: false,
+            status(code) { this.statusCode = code; return this; },
+            set(field, value) {
+                if (field && typeof field === 'object') {
+                    Object.entries(field).forEach(([k, v]) => { this.headers[String(k).toLowerCase()] = v; });
+                } else {
+                    this.headers[String(field).toLowerCase()] = value;
+                }
+                return this;
+            },
+            setHeader(field, value) { this.headers[String(field).toLowerCase()] = value; return this; },
+            header(field, value)    { this.headers[String(field).toLowerCase()] = value; return this; },
+            getHeader(field)        { return this.headers[String(field).toLowerCase()]; },
+            json(payload) { this.body = payload; this.ended = true; return this; },
+            send(payload) { this.body = payload; this.ended = true; return this; },
+            end(payload)  { if (payload !== undefined) this.body = payload; this.ended = true; return this; }
+        };
+    }
+
+    // Installs the REAL SDK requireBearerAuth via setupGithubPat; returns the captured middleware.
+    // The single-middleware assertion also confirms the naked-401 shape (no mcpAuthMetadataRouter).
+    function installPatMiddleware(config = aiConfig) {
+        const middlewares = [],
+              app         = {use: mw => middlewares.push(mw)};
+
+        AuthService.setupGithubPat({app, aiConfig: config, logger}, {requireBearerAuth, InvalidTokenError});
+
+        expect(middlewares.length).toBe(1);
+        return middlewares[0];
+    }
+
+    test('a valid GitHub PAT passes requireBearerAuth → next() called + req.auth populated', async () => {
+        globalThis.fetch = async () => ({ok: true, json: async () => ({id: 7, login: 'octocat', name: 'The Octocat'})});
+
+        const mw  = installPatMiddleware(),
+              req = mockReq('Bearer ghp-valid'),
+              res = mockRes();
+
+        let nextErr = 'unset';
+        await mw(req, res, err => { nextErr = err; });
+
+        expect(nextErr).toBeUndefined();                     // next() invoked with no error
+        expect(res.ended).toBe(false);                       // no 401 short-circuit
+        expect(req.auth?.userId).toBe('octocat');
+        expect(req.auth?.source).toBe('github-pat');
+        expect(req.auth?.authProvider).toBe('github');
+        expect(req.auth?.providerUsername).toBe('octocat');
+        expect(req.auth?.providerUserId).toBe('7');
+        expect(typeof req.auth?.expiresAt).toBe('number');   // the SDK requires + propagates this
+    });
+
+    test('a missing token yields a naked 401 — WWW-Authenticate: Bearer, no resource_metadata', async () => {
+        const mw  = installPatMiddleware(),
+              req = mockReq(),
+              res = mockRes();
+
+        let nextCalled = false;
+        await mw(req, res, () => { nextCalled = true; });
+
+        expect(nextCalled).toBe(false);
+        expect(res.statusCode).toBe(401);
+        const wwwAuth = String(res.headers['www-authenticate'] || '');
+        expect(wwwAuth).toContain('Bearer');
+        expect(wwwAuth).not.toContain('resource_metadata');
+    });
+
+    test('an invalid PAT (GitHub 401) is rejected — next() not called', async () => {
+        globalThis.fetch = async () => ({ok: false, status: 401, json: async () => ({})});
+
+        const mw  = installPatMiddleware(),
+              req = mockReq('Bearer ghp-bad'),
+              res = mockRes();
+
+        let nextCalled = false;
+        await mw(req, res, () => { nextCalled = true; });
+
+        expect(nextCalled).toBe(false);
+        expect(res.statusCode).toBe(401);
+    });
+
+    test('allowedUsers gate passes through real requireBearerAuth with GitHub login identity intact', async () => {
+        globalThis.fetch = async () => ({ok: true, json: async () => ({login: 'neo-kimi-phoebe', name: 'Phoebe'})});
+
+        const mw  = installPatMiddleware({auth: {...aiConfig.auth, allowedUsers: ['neo-kimi-phoebe']}}),
+              req = mockReq('Bearer ghp-valid'),
+              res = mockRes();
+
+        let nextErr = 'unset';
+        await mw(req, res, err => { nextErr = err; });
+
+        expect(nextErr).toBeUndefined();
+        expect(res.ended).toBe(false);
+        expect(req.auth?.userId).toBe('neo-kimi-phoebe');
+        expect(req.auth?.username).toBe('Phoebe');
+    });
+
+    test('allowedUsers gate rejects an unlisted user through real requireBearerAuth', async () => {
+        globalThis.fetch = async () => ({ok: true, json: async () => ({login: 'outsider'})});
+
+        const mw  = installPatMiddleware({auth: {...aiConfig.auth, allowedUsers: ['neo-kimi-phoebe']}}),
+              req = mockReq('Bearer ghp-outsider'),
+              res = mockRes();
+
+        let nextCalled = false;
+        await mw(req, res, () => { nextCalled = true; });
+
+        expect(nextCalled).toBe(false);
+        expect(res.statusCode).toBe(401);
+    });
+});
+
+/**
  * @summary Consumed-boundary coverage for the possession-only local-bearer strategy.
  *
  * Drives the verifier through the real SDK middleware so header parsing, AuthInfo expiry, strict
