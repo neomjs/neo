@@ -181,6 +181,9 @@ class ConfigBase extends ConfigProvider {
              *   bearer token, validated against `{gitlabApiBaseUrl}/api/v4/user`. No `aud` claim and
              *   no PRM advertisement (a naked `401` on failure) — the lighter path for clients that
              *   authenticate with a long-lived PAT from an env var instead of an OAuth dance.
+             * - `'github-pat'`: a GitHub Personal Access Token (classic or fine-grained) presented
+             *   as the bearer token, validated against `{githubApiBaseUrl}/user`. Same naked-401
+             *   contract as `'gitlab-pat'`; the resolved GitHub login becomes the caller identity.
              * - `'local-bearer'`: a generated process-lifetime possession credential for an
              *   explicitly loopback-bound listener. It performs no identity lookup or provisioning.
              * @type {Object}
@@ -193,7 +196,7 @@ class ConfigBase extends ConfigProvider {
                 clientId          : leaf(null, 'NEO_OAUTH_CLIENT_ID', 'string'),
                 clientSecret      : leaf('', 'NEO_OAUTH_CLIENT_SECRET', 'string'),
                 trustProxyIdentity: leaf(false, 'NEO_AUTH_TRUST_PROXY_IDENTITY', 'boolean'),
-                // Authorization strategy selector: 'oidc' (default) | 'gitlab-pat' | 'local-bearer'.
+                // Authorization strategy selector: 'oidc' (default) | 'gitlab-pat' | 'github-pat' | 'local-bearer'.
                 mode              : leaf('oidc', 'NEO_AUTH_MODE', 'string'),
                 /**
                  * @summary Disposable process-lifetime possession credential for local-bearer mode.
@@ -219,11 +222,20 @@ class ConfigBase extends ConfigProvider {
                         reason        : 'PAT validation cannot certify readiness without a GitLab API base URL.'
                     }]
                 }),
+                // GitHub API base URL used by 'github-pat' mode for token validation (GHES configurable).
+                githubApiBaseUrl  : leaf('https://api.github.com', 'NEO_AUTH_GITHUB_API_BASE_URL', 'string', {
+                    requiredFor: [{
+                        entrypoints   : '*',
+                        modes         : ['github-pat'],
+                        consumerClaims: ['readiness'],
+                        reason        : 'PAT validation cannot certify readiness without a GitHub API base URL.'
+                    }]
+                }),
                 // Bounded TTL (seconds) for the per-token PAT validation cache → a revoked PAT clears within this window.
                 patCacheTtlSeconds: leaf(300, 'NEO_AUTH_PAT_CACHE_TTL_SECONDS', 'number'),
                 // Optional GitLab OAuth app binding for 'gitlab-pat' mode. Empty means no app gate.
                 allowedClientIds  : leaf([], 'NEO_AUTH_ALLOWED_CLIENT_IDS', 'csv'),
-                // Optional GitLab username allowlist for 'gitlab-pat' mode. Empty means any resolved GitLab user.
+                // Optional username allowlist for PAT modes ('gitlab-pat' / 'github-pat'). Empty means any resolved user.
                 allowedUsers      : leaf([], 'NEO_AUTH_ALLOWED_USERS', 'csv'),
                 // Auth provenance sources that may create missing AgentIdentity graph nodes at request time.
                 autoProvisionIdentitySources: leaf(['gitlab-pat'], 'NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES', 'csv')
