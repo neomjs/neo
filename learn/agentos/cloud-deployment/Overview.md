@@ -58,6 +58,8 @@ A cloud deployment keeps all its vector data in **one** ChromaDB store named `un
 
 The Memory Core's edge graph is **not** stored in Chroma — it lives in a separate SQLite database.
 
+Remote agents read the Dream Pipeline's morning surface (`sandman_handoff.md`) through the Memory Core `get_sandman_handoff` tool — read-only, freshness-flagged, no repo checkout required (#15599). The handoff's writer-side persistence in containers is deployment-owned (a volume/mount decision), not part of the MCP surface.
+
 There is no separate Chroma instance per tenant. Every piece of content is tagged with its owner when it's written and filtered by owner when it's read, so each tenant sees its own content plus Neo's shared library — never another tenant's private data.
 
 ## Default-source inheritance
