@@ -63,9 +63,9 @@ discussion, pause consuming implementation).
 | 1 | Hysteretic grammar (0.8 out / 0.6 in, direction-aware) | `NOT_YET_MEASURED` ¹ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 | 2 | Acquisition (`window.open` boolean; activation window) | `NOT_YET_MEASURED` ² | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 | 3 | Moving embodiment (requested-vs-observed `moveTo`) | `NOT_YET_MEASURED` ³ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
-| 4 | Object permanence / reintegration (same instance back) | `NOT_YET_MEASURED` ⁴ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
+| 4 | Object permanence / reintegration (same instance back) | `PASS_NATIVE` ⁴ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 | 5 | Screen topology (`getScreenDetails` never a prerequisite) | `PASS_FALLBACK` ⁵ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
-| 6 | Multi-window targeting (claim-protocol identity binding) | `NOT_YET_MEASURED` ⁴ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
+| 6 | Multi-window targeting (claim-protocol identity binding) | `NOT_YET_MEASURED` ⁷ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 | 7 | Terminal cleanup (exact-once, idempotent) | `PASS_NATIVE` ⁶ | `NOT_YET_MEASURED` | `NOT_YET_MEASURED` |
 
 Environment note: the current fleet has a qualifying **macOS** headed environment. Windows and
@@ -131,8 +131,32 @@ the race predates G1 and must be attributed before dock-tier calibration lands o
 Requested-vs-observed `moveTo` sampling remains blocked behind the race (a 2 ms lifetime cannot
 be position-sampled).
 
-⁴ Rows 4 / 6 macOS — **qualified RED control, verdict pending** (2026-07-19, Chrome): a headed
-live Neural Link run of Demo B's real `executeCrossWindowStep()` opened both the intended
+⁴ Row 4 macOS — **`PASS_NATIVE`** (2026-07-19, headed Chrome 150, 1/1,
+`test/playwright/e2e/agentos/FleetPermanenceMatrixRow4NL.spec.mjs`): the live-`data.Store`
+receipt the earlier RED control named missing (Demo B exposes no store; the Fleet surface is
+the honest product path). The native card drill seated the `AgentDetail` inspector; the shell
+toggle moved the SAME App-Worker instance into the real vessel window. While detached, the
+drilled resident's live `FleetAgent` record was mutated through the store (`record.set` via the
+card's live-record dot-path): the store's `recordChange` reached the DETACHED inspector — the
+vessel rendered the mutated lane (polled, DOM-observed via `toContainText`), proving streaming stays live
+across the hop. Reattach terminally closed the vessel; the SAME detail instance, the same record
+identity (same store, same key, mutation persisted — one continuous record, never a re-fetched
+copy), and an unchanged grid census completed the permanence proof. All five universal
+invariants asserted: gesture continuity (native clicks throughout), same-instance permanence
+(detail id stable across both hops), JSON-only persisted state (dock document round-trip),
+exact-once (single detail instance; single vessel terminal close), idempotent cleanup (zero
+popup residue, empty error ledgers). The witness restores the fixture's baseline lane at exit.
+
+⁷ Row 6 macOS — **verdict blocked on a design authority, not a test** (2026-07-19): the cell
+requires at least three REGISTERED claim targets; today's Demo B exposes three physical windows
+but only two registered workspaces, and counting the competing tear-out vessel as a claimant is
+a false receipt (see the competing-vessel RED control preserved below). A third registered
+workspace is a production/design question (Demo B workspace-set composition), outside the
+matrix's test-only scope. The cell remains `NOT_YET_MEASURED` until that authority lands;
+no simulated third page will stand in.
+
+**Rows 4 / 6 — earlier RED controls (2026-07-19, Chrome, preserved):** a headed live Neural Link
+run of Demo B's real `executeCrossWindowStep()` opened both the intended
 `?workspaceId=demo-b-popup` target and an unintended `?popout=workbench` tear-out vessel. Worker
 truth then held two registered workspaces but three physical windows; the CounterPane's live
 `windowId` named the tear-out vessel while `crossWindowTargetWindowId` named the workspace
@@ -140,10 +164,8 @@ target. The exact canonical full-journey control
 `DemoBPerspectivesNL.spec.mjs` failed because the intended popup never rendered the live
 CounterPane. The narrower `DemoBCrossWindowDragNL.spec.mjs` stayed green while logging three
 window connections, proving that its current receipt does not falsify competing-vessel identity.
-The composition repair belongs to #15396; this matrix does not absorb it. A second independent
-gap remains for row 4: Demo B exposes no `Neo.data.Store` (`list_stores` returned an empty set),
-so its CounterPane heartbeat proves instance-local continuity but cannot honestly stand in for
-the required live-store-reference receipt. Both cells remain `NOT_YET_MEASURED`.
+The composition repair belongs to #15396; this matrix does not absorb it. Row 4's former second
+gap (Demo B exposes no `Neo.data.Store`) is now CLOSED by the Fleet-surface receipt above.
 
 **#15396 green control (2026-07-19, verdicts still pending):** the matrix runner now includes the
 full Demo B cross-window journey. Its macOS/Chrome headed round-trip externally observes exactly
@@ -153,7 +175,7 @@ requested-vs-observed park and restore coordinates, and verifies that the cover 
 focused after the source move. The worker independently proves identical CounterPane id, exact
 single remount, exact runtime window id / opaque handle, and zero transfer/local/remote double
 commit. This resolves the earlier competing-vessel false-green for this macOS journey; it does not
-mint a row verdict. Row 4 still lacks the contract's live-`data.Store` reference, rows 3/6 still
+mint a row verdict. Rows 3/6 still
 need their complete per-row universal-invariant receipts, and Windows/Linux remain unmeasured.
 
 ⁵ Row 5 macOS — **`PASS_FALLBACK`** (2026-07-19, headed Chrome 150, 3/3 serial): the witness
