@@ -227,7 +227,7 @@
         "url"                          : "^0.11.4",
         "webpack"                      : "^5.108.3",
         "webpack-cli"                  : "^7.1.0",
-        "webpack-dev-server"           : "^5.2.3",
+        "webpack-dev-server"           : "^6.0.0",
         "webpack-hook-plugin"          : "^1.0.7",
         "webpack-node-externals"       : "^3.0.0",
         "ws"                           : "^8.21.0",
