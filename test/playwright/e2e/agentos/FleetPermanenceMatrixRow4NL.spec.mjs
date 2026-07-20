@@ -200,20 +200,26 @@ test.describe('matrix row 4 — AgentDetail permanence with live FleetRoster con
         // idempotent cleanup: the vessel-close terminal repeated against the RETIRED window id
         // is a FULL no-op — snapshot the home state, repeat the terminal, and require byte-equal
         // state (the row-7 sibling's settled-snapshot shape, through the cockpit's
-        // re-entrancy-disciplined path)
-        const settled = {
-            detailId  : await detailIdOf(),
-            document,
-            popupCount: page.context().pages().filter(candidate => candidate !== page && !candidate.isClosed()).length
-        };
+        // re-entrancy-disciplined path). The census rides both sides: a duplicate AgentDetail
+        // created by the repeated terminal would escape an id-only comparison.
+        const settledQuery = await queryDetail(),
+              settled      = {
+                  detailCount: settledQuery.count,
+                  detailId   : settledQuery.detail?.id,
+                  document,
+                  popupCount : page.context().pages().filter(candidate => candidate !== page && !candidate.isClosed()).length
+              };
 
         await app.callMethod(holderId, 'onWindowDisconnect', [{windowId: vesselWindowId}]);
 
+        const repeatedQuery = await queryDetail();
+
         expect({
-            detailId  : await detailIdOf(),
-            document  : (await app.getDockTopology(holderId))?.document ?? await app.getDockTopology(holderId),
-            popupCount: page.context().pages().filter(candidate => candidate !== page && !candidate.isClosed()).length
-        }, 'a repeated disconnect terminal changes no state').toEqual(settled);
+            detailCount: repeatedQuery.count,
+            detailId   : repeatedQuery.detail?.id,
+            document   : (await app.getDockTopology(holderId))?.document ?? await app.getDockTopology(holderId),
+            popupCount : page.context().pages().filter(candidate => candidate !== page && !candidate.isClosed()).length
+        }, 'a repeated disconnect terminal changes no state — same census, same instance, same document, same popups').toEqual(settled);
 
         expect(ledger.runtimeErrors, 'no worker runtime errors on the receipt path').toEqual([]);
         expect(ledger.pageErrors, 'no main-page errors on the receipt path').toEqual([]);

@@ -138,7 +138,7 @@ the honest product path). The native card drill seated the `AgentDetail` inspect
 toggle moved the SAME App-Worker instance into the real vessel window. While detached, the
 drilled resident's live `FleetAgent` record was mutated through the store (`record.set` via the
 card's live-record dot-path): the store's `recordChange` reached the DETACHED inspector — the
-vessel rendered the mutated lane (polled and pixel-verified), proving streaming stays live
+vessel rendered the mutated lane (polled, DOM-observed via `toContainText`), proving streaming stays live
 across the hop. Reattach terminally closed the vessel; the SAME detail instance, the same record
 identity (same store, same key, mutation persisted — one continuous record, never a re-fetched
 copy), and an unchanged grid census completed the permanence proof. All five universal
