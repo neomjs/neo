@@ -73,7 +73,13 @@ The shipped Streamable HTTP deployment has four identity shapes:
   Access Token (classic or fine-grained) as the bearer, validates it against
   GitHub's `/user`, and derives identity from the returned login. Same bare-401
   contract as GitLab bearer mode; `NEO_AUTH_GITHUB_API_BASE_URL` points the
-  verifier at a GitHub Enterprise Server host when needed.
+  verifier at a GitHub Enterprise Server host when needed. **Posture note:**
+  github.com is a *public* identity surface — anyone can mint a valid PAT, so
+  with the default empty allowlist ANY GitHub user authenticates (read-tier MCP
+  access plus identity-less writes; graph-gated tools stay fail-closed while
+  `github-pat` is excluded from `autoProvisionIdentitySources`). A deployment
+  that is not deliberately public SHOULD set `NEO_AUTH_ALLOWED_USERS` (or scope
+  the surface equivalently — GHES boundary, private network).
 - **Trusted proxy identity** (`NEO_AUTH_TRUST_PROXY_IDENTITY=true`) lets an
   authenticated reverse proxy inject `X-Preferred-Username` /
   `X-Auth-Request-Preferred-Username`. The reference Caddy ingress strips any
