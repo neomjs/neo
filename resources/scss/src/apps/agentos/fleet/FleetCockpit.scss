@@ -12,6 +12,14 @@
         box-shadow: none;
         color     : var(--fm-ink-dim);
         min-width : 0;
+        transition: background var(--motion-fast) var(--ease-out-soft), color var(--motion-fast) var(--ease-out-soft);
+
+        /* the quiet rail keeps its navigation read — a hover affordance in the same idiom as the
+           bar buttons (panel lift + ink), never the primary blue slab */
+        &:hover {
+            background: var(--fm-panel);
+            color     : var(--fm-ink);
+        }
 
         .neo-button-glyph,
         .neo-button-text {

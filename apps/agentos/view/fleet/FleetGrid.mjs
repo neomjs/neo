@@ -302,7 +302,7 @@ class FleetGrid extends Container {
 
         // header — updated in place (the health bar is store-bound and tallies itself)
         me.getReference('fleet-title').text = `Fleet · ${rank.total} agents`;
-        me.getReference('fleet-stale').text = adapterState === 'stale' ? 'stale — reconnecting' : adapterState === 'sample' ? 'sample roster' : '';
+        me.getReference('fleet-stale').text = adapterState === 'stale' ? 'stale — reconnecting' : adapterState === 'sample' ? 'static roster · offline' : '';
         me.getReference('fleet-head').cls   = ['fm-fleet-head', `is-${adapterState}`];
 
         // card set — rebuilt (the visible cards change with the roster)

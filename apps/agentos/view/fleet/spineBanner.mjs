@@ -1,8 +1,9 @@
 /**
  * @module apps/agentos/view/fleet/spineBanner
  * @summary The cockpit's per-SPINE honesty line: derives ONE shell-level status from the
- * owner-held surface truths, so the surface names WHY it shows sample or last-known data
- * instead of failing silent. Render-only over existing truth — this module produces no probes.
+ * owner-held surface truths, so the surface names WHY it shows static (derived, offline) or
+ * last-known data instead of failing silent. Render-only over existing truth — this module
+ * produces no probes.
  *
  * Precedence: `sample` (unreachable — cold) beats `stale` (reachable but degraded) beats `live`.
  * A fully live spine renders NOTHING — nominal earns zero pixels, the same exception-based
@@ -67,8 +68,8 @@ export function deriveSpineBanner({grid, stream}) {
             // the fallback for SILENCE, which is the only state that actually implies an offline
             // server.
             text: reason
-                ? `Fleet data unavailable — showing sample data · ${reason}`
-                : 'Fleet server offline — showing sample data · start it: npm run ai:fleet-server'
+                ? `Fleet data unavailable — showing the static roster · ${reason}`
+                : 'Fleet server offline — showing the static roster · start it: npm run ai:fleet-server'
         }
     }
 

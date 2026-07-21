@@ -31,7 +31,7 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
         const {text} = deriveSpineBanner({grid: {state: 'sample'}, stream: {state: 'live'}});
 
         expect(text).toContain('Fleet server offline');
-        expect(text).toContain('sample data');
+        expect(text).toContain('the static roster');
         // the shipped transport command — also the correct mid-session restart remedy once a
         // composed launcher exists, since the app server survives a fleet-transport loss
         expect(text).toContain('npm run ai:fleet-server')
@@ -53,7 +53,7 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
 
         expect(kind).toBe('cold');
         expect(text).toContain('fleet activity source not wired');
-        expect(text).toContain('sample data');
+        expect(text).toContain('the static roster');
         expect(text).not.toContain('Fleet server offline');
         expect(text).not.toContain('npm run ai:fleet-server')
     });
