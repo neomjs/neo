@@ -72,6 +72,8 @@ test.describe('Neo.dashboard.DockRail', () => {
         expect(tabsOf(rail)).toHaveLength(1);
         expect(tabsOf(rail)[0].text).toBe('Terminal');
         expect(tabsOf(rail)[0].dockItemId).toBe('terminal');
+        expect(tabsOf(rail)[0].flex).toBe('none');
+        expect(tabsOf(rail)[0].wrapperStyle.flex).toBe('none');
 
         let terminalButton = tabsOf(rail)[0];
 
@@ -84,6 +86,8 @@ test.describe('Neo.dashboard.DockRail', () => {
         expect(tabsOf(rail)).toHaveLength(2);
         expect(tabsOf(rail)[0]).toBe(terminalButton);
         expect(tabsOf(rail)[1].text).toBe('Inspector');
+        expect(tabsOf(rail).map(tab => tab.flex)).toEqual(['none', 'none']);
+        expect(tabsOf(rail).map(tab => tab.wrapperStyle.flex)).toEqual(['none', 'none']);
 
         // Title flips update the surviving instance in place; leavers are removed.
         rail.railItems = [{dockEdge: 'right', dockItemId: 'terminal', restorable: true, title: 'Console'}];
