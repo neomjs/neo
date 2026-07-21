@@ -2,9 +2,10 @@
    availability) over the freshness-labeled panes (thought-stream · lane · repo · PRs), scoped under
    the component root. Geometry + the avatar frame only; every color reads from the token layer. */
 .fm-agent-detail {
-    gap    : 10px;
-    padding: 10px 12px;
-    overflow: hidden;
+    container-type: inline-size;
+    gap           : 10px;
+    overflow      : hidden;
+    padding       : 10px 12px;
 
     /* one continuous surface with the panel below — layout containers inside the detail
        otherwise inherit Neo's stock dark container background, reading as mismatched boxes */
@@ -140,6 +141,29 @@
 
         &.is-unobserved {
             color: var(--fm-ink-dim);
+        }
+    }
+
+    /* A 340px detail leaves 316px of content and is the last exact title + provenance row fit.
+       Below that measured boundary, stack deliberately inside the detail's own width context: the
+       full provenance remains readable and the intrinsic head keeps the body out of its geometry. */
+    @container (max-width: 315px) {
+        .fm-detail-pane-head {
+            align-items   : flex-start;
+            flex-direction: column;
+            gap           : 4px;
+        }
+
+        .fm-detail-pane-title {
+            flex         : none;
+            overflow     : hidden;
+            text-overflow: ellipsis;
+            white-space  : nowrap;
+            width        : 100%;
+        }
+
+        .fm-freshness {
+            align-self: flex-start;
         }
     }
 

@@ -12,7 +12,9 @@ import {test, expect} from '../../fixtures.mjs';
  * 2. **detail → pop-out**: the SAME App-Worker instance re-renders in the real vessel window;
  *    the fixture-driven activity stream keeps TICKING through the hop (monotone event count —
  *    continuity observed, not inferred) — and a MAIN-window gesture drill re-seats the WINDOWED
- *    inspector (one heap, two render targets).
+ *    inspector (one heap, two render targets). The vessel also owns the 271px responsive receipt:
+ *    every title + full freshness pill stays inside an intrinsic-height head, with no body overlap,
+ *    while the 480px composition remains a row.
  * 3. **pop-out → reattach**: the same shell toggle brings the SAME instance home; the grid is
  *    consistent (card census unchanged, the item back on its rail) and the tick count never
  *    reset.
@@ -133,6 +135,94 @@ test.describe('AgentOS fleet cockpit — the drill round-trip journey (card → 
         await expect(popup.locator('.fm-freshness')).toHaveCount(4);
         for (const chip of await popup.locator('.fm-freshness').all()) {
             await expect(chip).not.toBeEmpty()
+        }
+
+        // The Retina-corrected narrow vessel is 271 CSS px (542 physical px at 2x). A screenshot
+        // alone can hide the old failure: titles and pills painted outside a 20px flexed head while
+        // the body began underneath them. Read every rect so the receipt proves containment, no
+        // overlap, and verbatim provenance in both skins; then restore the 480px live composition.
+        const readPaneGeometry = () => popup.locator('.fm-detail-pane').evaluateAll(panes => panes.map(pane => {
+            const
+                body  = pane.querySelector('.fm-detail-pane-body'),
+                chip  = pane.querySelector('.fm-freshness'),
+                head  = pane.querySelector('.fm-detail-pane-head'),
+                title = pane.querySelector('.fm-detail-pane-title'),
+                rect  = node => {
+                    const {bottom, height, left, right, top, width} = node.getBoundingClientRect();
+
+                    return {bottom, height, left, right, top, width}
+                };
+
+            return {
+                body     : rect(body),
+                chip     : rect(chip),
+                chipText : chip.textContent.trim(),
+                direction: getComputedStyle(head).flexDirection,
+                head     : rect(head),
+                pane     : rect(pane),
+                title    : rect(title),
+                titleText: title.textContent.trim()
+            }
+        }));
+
+        const wideGeometry = await readPaneGeometry();
+
+        expect(wideGeometry, 'the wide detail renders all four SSOT panes').toHaveLength(4);
+        wideGeometry.forEach(({direction}, index) => {
+            expect(direction, `wide pane ${index} keeps the 480px title + provenance row`).toBe('row')
+        });
+
+        const [popupViewport] = await app.queryComponent({className: 'AgentOSWidget.view.Viewport'}, ['id', 'theme']),
+              popupViewportId = popupViewport.properties.id,
+              originalTheme   = popupViewport.properties.theme,
+              narrowDetail    = popup.locator('.fm-agent-detail'),
+              narrowThemeTags = [
+                  ['neo-theme-neo-dark',  'dark'],
+                  ['neo-theme-neo-light', 'light']
+              ];
+
+        try {
+            await app.setProperties(detailId, {width: 271});
+            await expect.poll(async () => Math.round((await narrowDetail.boundingBox())?.width ?? 0), {
+                message: 'the real vessel renders the detail at the 271 CSS px receipt width'
+            }).toBe(271);
+
+            for (const [theme, tag] of narrowThemeTags) {
+                await app.setProperties(popupViewportId, {theme});
+                await expect.poll(async () => (await app.getComponent(popupViewportId, ['theme'])).theme, {
+                    message: `the vessel viewport applies ${theme}`
+                }).toBe(theme);
+                await expect(popup.locator(`#${popupViewportId}`)).toHaveClass(new RegExp(`(?:^|\\s)${theme}(?:\\s|$)`));
+                await popup.evaluate(() => document.fonts.ready);
+
+                const narrowGeometry = await readPaneGeometry();
+
+                narrowGeometry.forEach((geometry, index) => {
+                    const
+                        epsilon  = 0.75,
+                        contains = (outer, inner) => inner.left >= outer.left - epsilon
+                            && inner.right <= outer.right + epsilon
+                            && inner.top >= outer.top - epsilon
+                            && inner.bottom <= outer.bottom + epsilon,
+                        provenance = wideGeometry[index].chipText;
+
+                    expect(geometry.direction, `[${tag}] ${geometry.titleText}: narrow anatomy is a deliberate stack`).toBe('column');
+                    expect(contains(geometry.head, geometry.title), `[${tag}] ${geometry.titleText}: title stays inside its head`).toBe(true);
+                    expect(contains(geometry.head, geometry.chip), `[${tag}] ${geometry.titleText}: provenance stays inside its head`).toBe(true);
+                    expect(contains(geometry.pane, geometry.head), `[${tag}] ${geometry.titleText}: head stays inside its pane`).toBe(true);
+                    expect(geometry.body.top, `[${tag}] ${geometry.titleText}: body starts after the intrinsic-height head`).toBeGreaterThanOrEqual(geometry.head.bottom - epsilon);
+                    expect(geometry.title.height, `[${tag}] ${geometry.titleText}: title remains one line`).toBeLessThan(20);
+                    expect(geometry.chipText, `[${tag}] ${geometry.titleText}: provenance remains verbatim`).toBe(provenance)
+                });
+
+                await expect(narrowDetail).toHaveScreenshot(`agent-detail-${tag}-narrow-271.png`)
+            }
+        } finally {
+            await app.setProperties(detailId, {width: null});
+            await app.setProperties(popupViewportId, {theme: originalTheme});
+            await expect.poll(async () => Math.round((await narrowDetail.boundingBox())?.width ?? 0), {
+                message: 'the live vessel returns to its 480px composition after the narrow receipt'
+            }).toBe(480)
         }
 
         // ticking continuity through the hop: the pre-hop 30 SURVIVED (no reset), and the pane
