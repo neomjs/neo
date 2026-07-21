@@ -1,13 +1,13 @@
-import AgentConfigCard                                from './AgentConfigCard.mjs';
-import Container                                      from '../../../../src/container/Base.mjs';
-import FamilyRail                                     from './FamilyRail.mjs';
-import Image                                          from '../../../../src/component/Image.mjs';
-import MailboxPane                                    from './MailboxPane.mjs';
-import StateDot                                       from './StateDot.mjs';
-import TabContainer                                   from '../../../../src/tab/Container.mjs';
-import {runConfigIntentRoundTrip}                     from './configIntentRoundTrip.mjs';
-import {describeTelltaleReadout}                      from './telltale.mjs';
-import {classifyPaneFreshness, describePaneFreshness} from './agentFreshness.mjs';
+import AgentConfigCard                                   from './AgentConfigCard.mjs';
+import Container                                         from '../../../../src/container/Base.mjs';
+import FamilyRail                                        from './FamilyRail.mjs';
+import Image                                             from '../../../../src/component/Image.mjs';
+import MailboxPane                                       from './MailboxPane.mjs';
+import StateDot                                          from './StateDot.mjs';
+import TabContainer                                      from '../../../../src/tab/Container.mjs';
+import {runConfigIntentRoundTrip}                        from './configIntentRoundTrip.mjs';
+import {describeTelltaleReadout}                         from './telltale.mjs';
+import {classifyPaneFreshness, describePaneFreshness}    from './agentFreshness.mjs';
 import {normalizeFleetSources, resolveFleetDisplayState} from './sourceHealth.mjs';
 
 /**
@@ -37,8 +37,11 @@ const paneConfig = pane => ({
     layout: {ntype: 'vbox', align: 'stretch'},
 
     items: [{
-        ntype : 'container',
-        cls   : ['fm-detail-pane-head'],
+        ntype: 'container',
+        cls  : ['fm-detail-pane-head'],
+        // The vbox stretch default otherwise gives this head `flex: 1 1 0%`, pinning its height
+        // below wrapped title/provenance content. The body owns the remaining vertical space.
+        flex  : 'none',
         layout: {ntype: 'hbox', align: 'center'},
 
         items: [{
@@ -593,8 +596,8 @@ class AgentDetail extends Container {
         }
 
         const
-            sources      = normalizeFleetSources(record.sources),
-            runtime      = sources.runtime,
+            sources = normalizeFleetSources(record.sources),
+            runtime = sources.runtime,
             // the drill-in dot renders the SAME resolved truth as the card and the health tally —
             // one resolver, three surfaces: a roster-only active resident reads `unobserved` here
             // exactly as the grid displays it, never a contradictory `off`
