@@ -6,6 +6,12 @@
     padding: 10px 12px;
     overflow: hidden;
 
+    /* one continuous surface with the panel below — layout containers inside the detail
+       otherwise inherit Neo's stock dark container background, reading as mismatched boxes */
+    .neo-container {
+        background-color: transparent;
+    }
+
     /* honest empty state — muted, centered; never reads as a loaded-but-blank inspector */
     .fm-detail-empty {
         padding   : 24px 8px;
