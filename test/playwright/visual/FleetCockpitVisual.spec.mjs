@@ -89,8 +89,8 @@ test.describe('FM cockpit — visual baselines (the design-gate scope floor)', (
 
         await page.locator('.agent-shell').getByText('Accounts', {exact: true}).click();
         await expect(page.locator('.agent-panel-accounts')).toBeVisible({timeout: 30000});
-        // The card's class is fm-agent-config-card (the Accounts trio renamed baseCls); the
-        // reference-only `.agent-config-card` selector went stale with that restructure.
+        // The card's class is fm-agent-config-card (introduced by the define-agent config-card
+        // re-skin); the older reference-only `.agent-config-card` selector went stale with it.
         await expect(page.locator('.fm-agent-config-card')).toBeVisible();
         await page.evaluate(() => document.fonts.ready);
 
