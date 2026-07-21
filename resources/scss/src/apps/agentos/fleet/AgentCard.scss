@@ -311,12 +311,17 @@
 
     /* ══ card-owned width modes (ADR 0029): the card responds to ITS OWN width, not the viewport ══ */
 
-    /* narrow (<320px): a smaller avatar and the engine tag drops. The lifecycle controls stay INLINE and
-       VISIBLE (no overflow menu) — the real Start/Stop + Restart glyphs are self-evident where a generic
+    /* narrow (<320px OUTER): a smaller avatar and the engine tag drops. The lifecycle controls stay INLINE
+       and VISIBLE (no overflow menu) — the real Start/Stop + Restart glyphs are self-evident where a generic
        ⋯ was not — grown to a 44px touch target while the ghost styling keeps them light + proportional
        (operator UX direction 2026-07-19). Restart still shows only while running, so it is usually one
-       control; both remain reachable + aria-labelled at every width. */
-    @container (max-width: 319px) {
+       control; both remain reachable + aria-labelled at every width.
+       Box-model correction: container size queries evaluate the CONTENT box, and the card carries 28px
+       horizontal padding + 2px border, so the <320px outer intent is 289px here. The previous 319px value
+       fired at ≤349px outer — hiding the engine where the head plainly has capacity and inflating both
+       controls to 44px (a 94px action group = 31.5% of a 298px head): the breakpoint manufactured the
+       scarcity it was meant to absorb. */
+    @container (max-width: 289px) {
         .fm-card-avatar {
             width : 32px;
             height: 32px;

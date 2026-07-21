@@ -1,6 +1,11 @@
 /* The harness shell — everything scoped under the viewport root (its cls) for isolation:
    top chrome, the left-rail keeper-view nav, the agent-button hierarchy, and the Home/Chat surfaces. */
 .agent-os-viewport.neo-viewport {
+    /* The keeper-view nav's active tab indicator reads as FM signal — the stock theme's
+       neutral-contrast white strip is a foreign accent inside the FM tonal stack (shell-scope
+       only; the framework token itself is untouched). */
+    --tab-indicator-background-color-active: var(--fm-signal);
+
     .agent-top-toolbar {
         min-height: 50px;
         padding   : 0 20px;
