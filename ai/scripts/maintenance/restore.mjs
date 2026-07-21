@@ -20,6 +20,7 @@ import {
     Memory_StorageRouter,
     Shared_DestructiveOperationGuard
 } from '../../services.mjs';
+import {buildEmbeddingWriteCanaryBlock} from '../../services/memory-core/HealthService.mjs';
 
 /**
  * @module ai/scripts/maintenance/restore
@@ -49,6 +50,11 @@ import {
  * - **Pre-flight integrity validation BEFORE any write.** The bundle is fully validated —
  *   subdirs present, JSONL parseable, `bundle-meta.json` (if present) parsed — before any
  *   write touches a service. A torn / partial bundle fails fast.
+ * - **Embedding-provider preflight BEFORE any re-ingest.** Bundles capture logical JSONL, so
+ *   embedded substrates restore by re-embedding through the active provider. A cold or absent
+ *   provider (fresh host, model never pulled) refuses the restore before any write with the
+ *   provider and remediation named — never a mid-import stall. `--skip-embed-preflight` is the
+ *   documented escape hatch.
  * - **Topology compatibility check.** The system natively assumes a `shared_topology`.
  *   If the bundle is explicitly marked as a legacy federated bundle (`chromaUnified: false`),
  *   the restore refuses unless the operator passes `--force-topology-mismatch`.
@@ -103,6 +109,44 @@ const REQUIRED_BUNDLE_SUBDIRS = ['kb', 'mc', 'graph', 'concepts', 'trajectories'
 const OPTIONAL_BUNDLE_SUBDIRS = ['mailbox'];
 
 /**
+ * Preflights the active embedding provider before any re-ingest write.
+ *
+ * Bundles capture logical JSONL state, so every embedded substrate restores by re-embedding
+ * through the active provider. A cold or absent provider (fresh host, model never pulled)
+ * otherwise surfaces as a stall deep inside the import — the worst failure shape. This check
+ * reuses the healthcheck write-canary probe and refuses BEFORE any write, naming the provider
+ * and the remediation in the error.
+ *
+ * @param {Object} options
+ * @param {Boolean} [options.skipEmbedPreflight=false] Operator escape hatch for providers the probe cannot cover.
+ * @param {Function|null} [options.embedText=null] Test seam matching `TextEmbeddingService.embedText`.
+ * @param {Number} [options.timeoutMs=30000] Max time to wait for the provider (matches the cold-embedder canary budget).
+ * @param {Object} [options.logger=console]
+ * @returns {Promise<Object>} the canary block on success, or a skipped marker
+ */
+export async function preflightEmbeddingProvider({skipEmbedPreflight=false, embedText=null, timeoutMs=30000, logger=console}={}) {
+    if (skipEmbedPreflight) {
+        logger.warn?.('[Restore] Embedding provider preflight skipped via --skip-embed-preflight.');
+        return {status: 'skipped', provider: null, dimensions: null, durationMs: 0}
+    }
+
+    const canary = await buildEmbeddingWriteCanaryBlock({embedText, timeoutMs});
+
+    if (canary.status !== 'healthy') {
+        throw new Error(
+            `Embedding provider preflight failed: ${canary.error} (provider=${canary.provider}). ` +
+            `Restore re-embeds imported records through the active embedding provider — make the provider ` +
+            `reachable and the embedding model available first (e.g. 'ollama pull <embedding-model>'), ` +
+            `or pass --skip-embed-preflight to bypass this check.`
+        );
+    }
+
+    logger.log(`[Restore] Embedding provider preflight healthy (${canary.provider}, ${canary.dimensions} dims, ${canary.durationMs}ms).`);
+
+    return canary
+}
+
+/**
  * Executes a full-substrate restore from a previously-produced bundle.
  *
  * @param {Object}   options
@@ -118,6 +162,8 @@ const OPTIONAL_BUNDLE_SUBDIRS = ['mailbox'];
  * @param {String[]}[options.filterEdgeTypes=[]]           Per-incident customization: drop graph edges with these types. Example today's-incident set: `['CONTAINS', 'DISCOVERED_IN', 'EVALUATED_BY']`.
  * @param {String[]}[options.onlySubstrate=null]           If provided, restore ONLY these substrates (subset of `['kb','mc','graph','concepts','trajectories','mailbox']`). Null = all (existing behavior).
  * @param {String}  [options.postRestoreHook=null]         Post-restore hook name. Currently supported: `'filesystem-ingestor'` (regenerates FILE/DIRECTORY/CONTAINS deterministically from current filesystem). Null = none.
+ * @param {Boolean} [options.skipEmbedPreflight=false]     Skip the embedding-provider preflight (operator escape hatch for providers the probe cannot cover).
+ * @param {Function|null} [options.embedText=null]         Test seam for the preflight probe; production callers leave null.
  * @param {Object}  [options.logger=console]               Log sink; useful for tests.
  * @returns {Promise<{bundleRoot: String, mode: String, subsystems: Object, meta: Object|null, topology: Object, postRestoreHook: Object|null}>}
  */
@@ -134,6 +180,8 @@ export async function runRestore({
     filterEdgeTypes         = [],
     onlySubstrate           = null,
     postRestoreHook         = null,
+    skipEmbedPreflight      = false,
+    embedText               = null,
     logger                  = console
 } = {}) {
     if (!bundleRoot) {
@@ -165,6 +213,8 @@ export async function runRestore({
         KB_LifecycleService.ready(),
         Memory_LifecycleService.ready()
     ]);
+
+    await preflightEmbeddingProvider({embedText, logger, skipEmbedPreflight});
 
     if (mode === 'replace' && !force) {
         const occupancy = await assessTargetOccupancy({trajectoriesTargetFile, sentToCullTargetFile, conceptsTargetDir});
@@ -560,9 +610,9 @@ async function restoreFlatDir({sourceDir, targetDir, mode, force, confirmation, 
         await Shared_DestructiveOperationGuard.assertDestructiveTargetAllowed({
             operation: `restore.${subsystem}.replace`,
             subsystem,
-            mode  : 'replace',
-            target: {path: targetDir, repoRoot: PROJECT_ROOT},
-            source: {path: sourceDir},
+            mode     : 'replace',
+            target   : {path: targetDir, repoRoot: PROJECT_ROOT},
+            source   : {path: sourceDir},
             confirmation
         });
         await fs.emptyDir(targetDir);
@@ -620,9 +670,9 @@ async function restoreFlatFile({sourceDir, targetFile, mode, force, confirmation
         await Shared_DestructiveOperationGuard.assertDestructiveTargetAllowed({
             operation: `restore.${subsystem}.replace`,
             subsystem,
-            mode  : 'replace',
-            target: {path: targetFile, repoRoot: PROJECT_ROOT},
-            source: {path: sourceFile},
+            mode     : 'replace',
+            target   : {path: targetFile, repoRoot: PROJECT_ROOT},
+            source   : {path: sourceFile},
             confirmation
         });
     } else if (await fs.pathExists(targetFile)) {
@@ -812,6 +862,7 @@ export function parseArgs(argv) {
     let   filterEdgeTypes       = [];
     let   onlySubstrate         = null;
     let   postRestoreHook       = null;
+    let   skipEmbedPreflight    = false;
 
     const splitCsv = s => String(s).split(',').map(t => t.trim()).filter(Boolean);
 
@@ -839,6 +890,8 @@ export function parseArgs(argv) {
             postRestoreHook = argv[++i];
         } else if (arg.startsWith('--post-restore-hook=')) {
             postRestoreHook = arg.slice('--post-restore-hook='.length);
+        } else if (arg === '--skip-embed-preflight') {
+            skipEmbedPreflight = true;
         } else if (arg.startsWith('--')) {
             throw new Error(`Unknown flag: ${arg}`);
         } else {
@@ -853,7 +906,7 @@ export function parseArgs(argv) {
         throw new Error(`Unexpected positional arguments: ${positional.slice(1).join(' ')}`);
     }
 
-    return {bundleRoot: positional[0], mode, force, forceTopologyMismatch, filterLabels, filterEdgeTypes, onlySubstrate, postRestoreHook}
+    return {bundleRoot: positional[0], mode, force, forceTopologyMismatch, filterLabels, filterEdgeTypes, onlySubstrate, postRestoreHook, skipEmbedPreflight}
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -871,7 +924,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     } catch (error) {
         console.error(error.message);
         console.error('Usage: node ./ai/scripts/maintenance/restore.mjs <bundle-path> [--mode merge|replace] [--force] [--force-topology-mismatch]');
-        console.error('       [--filter-labels=<csv>] [--filter-edge-types=<csv>] [--only-substrate=<csv>] [--post-restore-hook=<name>]');
+        console.error('       [--filter-labels=<csv>] [--filter-edge-types=<csv>] [--only-substrate=<csv>] [--post-restore-hook=<name>] [--skip-embed-preflight]');
         console.error('Example (today\'s graph wipe restore):');
         console.error('  npm run ai:restore -- <bundle-path> --mode merge --only-substrate=graph \\');
         console.error('    --filter-labels=FILE,DIRECTORY,KB_GAP,TOOLING_GAP \\');

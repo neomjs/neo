@@ -376,7 +376,8 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
     });
 
     test('parseArgs: positional bundle path + --mode + --force + --force-topology-mismatch', () => {
-        // #11141: parseArgs return shape extended with filterLabels/filterEdgeTypes/onlySubstrate/postRestoreHook.
+        // parseArgs return shape grew over time: filterLabels/filterEdgeTypes/onlySubstrate/postRestoreHook,
+        // and later skipEmbedPreflight with the embedding-preflight escape hatch.
         // Defaults preserved when those flags are absent (covered separately in restore-filters.spec.mjs).
         expect(parseArgs(['/some/bundle'])).toEqual({
             bundleRoot           : '/some/bundle',
@@ -386,7 +387,8 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
             filterLabels         : [],
             filterEdgeTypes      : [],
             onlySubstrate        : null,
-            postRestoreHook      : null
+            postRestoreHook      : null,
+            skipEmbedPreflight   : false
         });
         expect(parseArgs(['/some/bundle', '--mode', 'replace', '--force'])).toEqual({
             bundleRoot           : '/some/bundle',
@@ -396,7 +398,8 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
             filterLabels         : [],
             filterEdgeTypes      : [],
             onlySubstrate        : null,
-            postRestoreHook      : null
+            postRestoreHook      : null,
+            skipEmbedPreflight   : false
         });
         expect(parseArgs(['/some/bundle', '--force-topology-mismatch'])).toEqual({
             bundleRoot           : '/some/bundle',
@@ -406,7 +409,8 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
             filterLabels         : [],
             filterEdgeTypes      : [],
             onlySubstrate        : null,
-            postRestoreHook      : null
+            postRestoreHook      : null,
+            skipEmbedPreflight   : false
         });
         expect(() => parseArgs([])).toThrow(/Missing required argument/);
         expect(() => parseArgs(['/x', '--unknown-flag'])).toThrow(/Unknown flag/);
