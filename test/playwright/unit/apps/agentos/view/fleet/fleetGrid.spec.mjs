@@ -314,11 +314,11 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         grid.destroy()
     });
 
-    test('labels the seeded roster honestly — a sample marker until the live source wires', () => {
+    test('labels the seeded roster honestly — a static-provenance marker until the live source wires', () => {
         const grid = Neo.create(FleetGrid, {appName, adapterState: 'sample', store: makeStore(roster(['ok']))});
 
         expect(head(grid).cls).toContain('is-sample');
-        expect(head(grid).items.find(i => i.cls.includes('fm-fleet-stale')).text).toBe('sample roster');
+        expect(head(grid).items.find(i => i.cls.includes('fm-fleet-stale')).text).toBe('static roster · offline');
         expect(agentCards(grid).length).toBe(1);
 
         grid.destroy()
