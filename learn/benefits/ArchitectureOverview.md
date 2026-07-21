@@ -468,6 +468,7 @@ Post-M6 ([#10986](https://github.com/neomjs/neo/issues/10986)) the per-MCP-serve
 | Package | Purpose | Key Classes | Decisions |
 |---|---|---|---|
 | `harness/` | The Electron packaging root — the optional native embodiment around the harness app (Body apps run without it): boots the dev-mode source app on the privileged `app://` origin, resolves the repo-root source graph through an explicit renderer-content allowlist for Neural-Link possession depth, supervises the Brain children it owns, and retains the cockpit behind an event-derived tray lifecycle; fail-closed content/window/navigation/permission posture; harness UI source stays in `apps/`, the Brain stays in `ai/`; produces packaged artifacts and release receipts without ceding product-source ownership | `main.mjs`, `appLifecycle.mjs`, `brain.mjs`, `contentPolicy.mjs`, `preload.cjs` | [ADR 0020](../agentos/decisions/0020-agent-harness-concept.md), [ADR 0034](../agentos/decisions/0034-electron-shell-architecture.md), [ADR 0037](../agentos/decisions/0037-fleet-manager-outward-door-topology.md) |
+| `.claude/hooks/`, `.codex/hooks/`, `.kimi-code/hooks/` | Thin harness-native payload adapters; shared policy and persistence remain owned by `ai/` | `turnPresenceHook.mjs`, `codex-context.mjs`, stop-hook adapters | [ADR 0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md), [ADR 0035](../agentos/decisions/0035-live-lane-awareness-composition.md) |
 
 ## Architectural Decision Records
 
