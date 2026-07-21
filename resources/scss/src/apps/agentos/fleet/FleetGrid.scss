@@ -1,15 +1,11 @@
 /* Fleet grid — a health-summary header over a density-ranked card grid (3-col desktop, collapsing
    responsively), all scoped under the component root. Every color from the token layer. */
 .fm-fleet-grid {
-    padding   : 16px;
-    gap       : 12px;
-    /* the derived roster (10+ residents) overflows the zone height at cockpit splits — the grid
-       itself owns the vertical scroll path, never the dock projection (min-height for the flex
-       chain so the overflow can actually engage) */
-    min-height: 0;
-    overflow-y: auto;
+    padding: 16px;
+    gap    : 12px;
 
     .fm-fleet-head {
+        flex       : none; /* pinned: the summary must never scroll away with the roster */
         gap        : 10px;
         font-family: var(--fm-font-mono);
         font-size  : 11px;
@@ -30,10 +26,16 @@
     }
 
     .fm-fleet-cards {
+        /* the scroll-OWNING region: the derived roster (10+ residents) overflows the zone height
+           at cockpit splits; only the cards scroll, the summary header stays pinned above
+           (min-height lets the flex chain engage the overflow) */
         display              : grid;
+        flex                 : 1;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap                  : 9px;
         align-content        : start;
+        min-height           : 0;
+        overflow-y           : auto;
 
         @media (max-width: 1024px) {
             grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -125,7 +125,7 @@ test.describe('AgentOS fleet grid — keyboard a11y (native list/listitem + dril
         await wireAuthenticatedFleetBridge({app, fleetUrl: fleet.endpoint, bearerToken: fleet.bearerToken});
         await reloadRoster(app);
 
-        // The production fleetRoster read path, backed by the test-owned loopback, must replace the
+        // The production fleetRoster read path, backed by the test-owned loopback, must replace
         // the static (derived) roster with the three deterministic residents before any keyboard claim.
         await expect(page.locator('.fm-fleet-title')).toHaveText('Fleet · 3 agents', {timeout: 30000});
 
