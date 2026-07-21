@@ -24,7 +24,7 @@ and first-run product UX remain later release-line leaves.
 cd /path/to/neo      # repo root
 npm install         # source-mode runtime + canonical theme builder dependencies
 cd harness
-npm install
+npm ci              # the tracked lockfile pins the Electron toolchain — reproducible by construction
 npm start            # prepares missing dev assets, then boots the harness window (UI only)
 npm run start:brain  # the window + the SUPERVISED Agent OS (Arm B — see below)
 npm run smoke        # boot + popup + shared-worker + clean-runtime evidence, JSON verdict
