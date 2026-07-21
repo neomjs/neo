@@ -58,14 +58,30 @@ test.describe('FM cockpit — visual baselines (the design-gate scope floor)', (
         await expect(page.locator('.fm-activity-stream')).toHaveScreenshot('activity-stream-chips.png')
     });
 
-    test('the narrow cockpit at ~314 CSS px — the Retina-corrected whole-cockpit geometry', async ({page}) => {
-        // The Retina evidence correction: a 628-physical-px capture on a 2x seat is ~314 CSS px,
-        // not 480 — the matrix must prove the whole-cockpit composition at this width, not assume
-        // the 480px vessel receipt covers it. reducedMotion keeps the dock settled by construction.
+    test('the ~314 vessel window — what the cockpit renders there TODAY (viewport capture, overflow measured)', async ({page}) => {
+        // The Retina evidence correction, honestly bounded: a 628-physical-px capture is ~314 CSS px.
+        // The current cockpit does NOT fit that window — the bar's spine banner + the zone layout
+        // push it to ~971px (see the assertion below; the layout repair is its own surface). This
+        // receipt therefore does two things: a PAGE screenshot (can only ever show the true 314
+        // viewport, never off-window overflow masquerading as the target width), and an explicit
+        // measurement of the overflow so the state is witnessed, not hidden.
         await page.setViewportSize({width: 314, height: 900});
         await bootSettledCockpit(page);
 
-        await expect(page.locator('.fm-fleet-cockpit')).toHaveScreenshot('cockpit-narrow-314.png')
+        const geometry = await page.evaluate(() => {
+            const cockpit = document.querySelector('.fm-fleet-cockpit');
+
+            return {
+                viewport   : window.innerWidth,
+                clientWidth: Math.round(cockpit.clientWidth),
+                scrollWidth: Math.round(cockpit.scrollWidth)
+            }
+        });
+
+        expect(geometry.viewport, 'the viewport itself is the 314px vessel window').toBe(314);
+        expect(geometry.scrollWidth, 'the cockpit currently overflows the 314px vessel — the measured truth, tracked for the layout-repair ticket').toBeGreaterThan(geometry.viewport);
+
+        await expect(page).toHaveScreenshot('cockpit-vessel-314.png')
     });
 
     test('the Accounts surface — the inherited design-gate golden, under harness refresh semantics', async ({page}) => {

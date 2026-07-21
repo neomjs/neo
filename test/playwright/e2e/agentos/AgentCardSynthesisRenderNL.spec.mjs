@@ -14,10 +14,14 @@ import {test, expect} from '../../fixtures.mjs';
  *   abnormal source (no 9px acronym wall) and can never contradict the facts;
  * - the operator avatar-keeper invariant: a visible avatar at every card width (real image slot).
  *
- * Captured on the CARD's own width (294 / 360 / 720) in BOTH skins (neo-dark + neo-light, driven
- * through the real ViewportController#setTheme) — the same axis the selected design renders against.
- * The grid is pinned to a single fixed-width track per width so the card-owned `@container` modes
- * engage (narrow <320 vs regular/wide); the contrast guard is a luminance delta, honest in either skin.
+ * Captured on the CARD's own width (294 / 319 / 320 / 328 / 360 / 720) in BOTH skins (neo-dark +
+ * neo-light, driven through the real ViewportController#setTheme) — the same axis the selected
+ * design renders against. The 319/320 pair is the box-model transition: container queries evaluate
+ * the content box (outer − 28px padding − 2px border), so 319 outer = 289 content (last narrow:
+ * engine hidden, 44px touch targets) and 320 outer = 290 content (first regular: engine shown,
+ * 32px controls); 328 is the operator's exact realistic case. The grid is pinned to a single
+ * fixed-width track per width so the card-owned `@container` modes engage; the contrast guard is a
+ * luminance delta, honest in either skin.
  * Goldens are created/refreshed under the visual/e2e config only. Fidelity against the repaired mockup
  * head is Phoebe's narrow/mobile design-check seat.
  *
