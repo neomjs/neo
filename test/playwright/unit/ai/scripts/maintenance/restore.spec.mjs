@@ -40,6 +40,10 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
 
     const silentLogger = {log: () => {}, warn: () => {}, error: () => {}};
 
+    // Flow specs stub the SDK service layer; the embedding-provider preflight rides along
+    // through a healthy seam so no live provider is required.
+    const healthyEmbedText = async () => new Array(4096).fill(0.1);
+
     /**
      * Builds a synthetic well-formed bundle directory under workRoot.
      */
@@ -176,6 +180,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
 
         const result = await runRestore({
             bundleRoot,
+            embedText             : healthyEmbedText,
             mode                  : 'merge',
             conceptsTargetDir     : conceptsTgt,
             trajectoriesTargetFile: trajTgt,
@@ -214,7 +219,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
         const bundleRoot = buildSyntheticBundle({bundleName: 'corrupt-missing-mc', omitSubdirs: ['mc']});
 
         await expect(
-            runRestore({bundleRoot, logger: silentLogger})
+            runRestore({bundleRoot, embedText: healthyEmbedText, logger: silentLogger})
         ).rejects.toThrow(/Required bundle subdirectory missing: mc/);
 
         // No SDK writes attempted
@@ -228,7 +233,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
         const bundleRoot = buildSyntheticBundle({bundleName: 'topo-mismatch', chromaUnified: false});
 
         await expect(
-            runRestore({bundleRoot, logger: silentLogger})
+            runRestore({bundleRoot, embedText: healthyEmbedText, logger: silentLogger})
         ).rejects.toThrow(/Topology mismatch: bundle was taken under legacy federated mode, but current deployment is permanently unified\./);
 
         expect(calls.kb).toHaveLength(0);
@@ -236,6 +241,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
 
         const result = await runRestore({
             bundleRoot,
+            embedText             : healthyEmbedText,
             forceTopologyMismatch : true,
             conceptsTargetDir     : path.join(workRoot, 'topo-targets', 'concepts'),
             trajectoriesTargetFile: path.join(workRoot, 'topo-targets', 'trajectories.jsonl'),
@@ -254,7 +260,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
         Memory_StorageRouter.getMemoryCollection = async () => ({count: async () => 42});
 
         await expect(
-            runRestore({bundleRoot, mode: 'replace', force: false, logger: silentLogger})
+            runRestore({bundleRoot, embedText: healthyEmbedText, mode: 'replace', force: false, logger: silentLogger})
         ).rejects.toThrow(/Refusing replace mode without --force.*mc\.memories=42/);
 
         expect(calls.kb).toHaveLength(0);
@@ -272,6 +278,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
 
         const result = await runRestore({
             bundleRoot,
+            embedText             : healthyEmbedText,
             mode                  : 'replace',
             confirmation          : 'CONFIRM_PRODUCTION_DESTRUCTIVE_AI_SUBSTRATE',
             conceptsTargetDir     : conceptsTgt,
@@ -319,6 +326,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
 
         const result = await runRestore({
             bundleRoot,
+            embedText             : healthyEmbedText,
             mode                  : 'merge',
             conceptsTargetDir     : conceptsTgt,
             trajectoriesTargetFile: trajTgt,
@@ -345,6 +353,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
 
         const result = await runRestore({
             bundleRoot,
+            embedText             : healthyEmbedText,
             conceptsTargetDir     : path.join(workRoot, 'legacy-targets', 'concepts'),
             trajectoriesTargetFile: path.join(workRoot, 'legacy-targets', 'trajectories.jsonl'),
             sentToCullTargetFile  : path.join(workRoot, 'legacy-targets', 'sent-to-cull.jsonl'),
@@ -360,7 +369,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
     test('rejects unknown mode at orchestrator entry', async () => {
         const bundleRoot = buildSyntheticBundle({bundleName: 'unknown-mode', chromaUnified: true});
         await expect(
-            runRestore({bundleRoot, mode: 'wipe', logger: silentLogger})
+            runRestore({bundleRoot, embedText: healthyEmbedText, mode: 'wipe', logger: silentLogger})
         ).rejects.toThrow(/Unknown mode: wipe/);
     });
 
@@ -369,14 +378,15 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
         fs.writeFileSync(path.join(bundleRoot, 'kb', 'broken.jsonl'), 'this-is-not-json\n');
 
         await expect(
-            runRestore({bundleRoot, logger: silentLogger})
+            runRestore({bundleRoot, embedText: healthyEmbedText, logger: silentLogger})
         ).rejects.toThrow(/Bundle JSONL parse error at kb\/broken\.jsonl/);
 
         expect(calls.kb).toHaveLength(0);
     });
 
     test('parseArgs: positional bundle path + --mode + --force + --force-topology-mismatch', () => {
-        // #11141: parseArgs return shape extended with filterLabels/filterEdgeTypes/onlySubstrate/postRestoreHook.
+        // parseArgs return shape grew over time: filterLabels/filterEdgeTypes/onlySubstrate/postRestoreHook,
+        // and later skipEmbedPreflight with the embedding-preflight escape hatch.
         // Defaults preserved when those flags are absent (covered separately in restore-filters.spec.mjs).
         expect(parseArgs(['/some/bundle'])).toEqual({
             bundleRoot           : '/some/bundle',
@@ -386,7 +396,8 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
             filterLabels         : [],
             filterEdgeTypes      : [],
             onlySubstrate        : null,
-            postRestoreHook      : null
+            postRestoreHook      : null,
+            skipEmbedPreflight   : false
         });
         expect(parseArgs(['/some/bundle', '--mode', 'replace', '--force'])).toEqual({
             bundleRoot           : '/some/bundle',
@@ -396,7 +407,8 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
             filterLabels         : [],
             filterEdgeTypes      : [],
             onlySubstrate        : null,
-            postRestoreHook      : null
+            postRestoreHook      : null,
+            skipEmbedPreflight   : false
         });
         expect(parseArgs(['/some/bundle', '--force-topology-mismatch'])).toEqual({
             bundleRoot           : '/some/bundle',
@@ -406,7 +418,8 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
             filterLabels         : [],
             filterEdgeTypes      : [],
             onlySubstrate        : null,
-            postRestoreHook      : null
+            postRestoreHook      : null,
+            skipEmbedPreflight   : false
         });
         expect(() => parseArgs([])).toThrow(/Missing required argument/);
         expect(() => parseArgs(['/x', '--unknown-flag'])).toThrow(/Unknown flag/);
