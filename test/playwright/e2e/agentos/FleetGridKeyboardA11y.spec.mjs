@@ -126,7 +126,7 @@ test.describe('AgentOS fleet grid — keyboard a11y (native list/listitem + dril
         await reloadRoster(app);
 
         // The production fleetRoster read path, backed by the test-owned loopback, must replace the
-        // sample roster with the three deterministic residents before any keyboard claim.
+        // the static (derived) roster with the three deterministic residents before any keyboard claim.
         await expect(page.locator('.fm-fleet-title')).toHaveText('Fleet · 3 agents', {timeout: 30000});
 
         const
