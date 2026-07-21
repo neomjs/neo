@@ -14,10 +14,14 @@ import {test, expect} from '../../fixtures.mjs';
  *   abnormal source (no 9px acronym wall) and can never contradict the facts;
  * - the operator avatar-keeper invariant: a visible avatar at every card width (real image slot).
  *
- * Captured on the CARD's own width (294 / 360 / 720) in BOTH skins (neo-dark + neo-light, driven
- * through the real ViewportController#setTheme) — the same axis the selected design renders against.
- * The grid is pinned to a single fixed-width track per width so the card-owned `@container` modes
- * engage (narrow <320 vs regular/wide); the contrast guard is a luminance delta, honest in either skin.
+ * Captured on the CARD's own width (294 / 319 / 320 / 328 / 360 / 720) in BOTH skins (neo-dark +
+ * neo-light, driven through the real ViewportController#setTheme) — the same axis the selected
+ * design renders against. The 319/320 pair is the box-model transition: container queries evaluate
+ * the content box (outer − 28px padding − 2px border), so 319 outer = 289 content (last narrow:
+ * engine hidden, 44px touch targets) and 320 outer = 290 content (first regular: engine shown,
+ * 32px controls); 328 is the operator's exact realistic case. The grid is pinned to a single
+ * fixed-width track per width so the card-owned `@container` modes engage; the contrast guard is a
+ * luminance delta, honest in either skin.
  * Goldens are created/refreshed under the visual/e2e config only. Fidelity against the repaired mockup
  * head is Phoebe's narrow/mobile design-check seat.
  *
@@ -77,11 +81,17 @@ const PATHOLOGICAL_ROSTER = [
     }
 ];
 
-// the card-OWN-width matrix (not viewport) — the axis the selected design renders against
+// the card-OWN-width matrix (not viewport) — the axis the selected design renders against.
+// The 319/320 pair is the box-model boundary: container queries evaluate the CONTENT box
+// (outer − 28px padding − 2px border), so 319 outer = 289 content (last narrow) and
+// 320 outer = 290 content (first regular). 328 is the operator's exact realistic case.
 const CARD_WIDTHS = [
-    {label: 'narrow-294', width: 294},
-    {label: 'regular-360', width: 360},
-    {label: 'roomy-720', width: 720}   // the live-AC roomy width — the wide alignment mode at full breadth
+    {label: 'narrow-294'  , width: 294, narrow: true},
+    {label: 'boundary-319', width: 319, narrow: true},
+    {label: 'boundary-320', width: 320, narrow: false},
+    {label: 'boundary-328', width: 328, narrow: false},
+    {label: 'regular-360' , width: 360, narrow: false},
+    {label: 'roomy-720'   , width: 720, narrow: false}   // the live-AC roomy width — the wide alignment mode at full breadth
 ];
 
 test.describe('AgentOS fleet cockpit — AgentCard evolved-D synthesis render at pathological density (card-width matrix)', () => {
@@ -124,7 +134,7 @@ test.describe('AgentOS fleet cockpit — AgentCard evolved-D synthesis render at
         // capture the card-width matrix under one skin: pin the grid to one fixed-width track so the
         // card's own @container width modes engage (narrow <320 vs regular/wide), independent of viewport
         const captureWidthMatrix = async themeTag => {
-            for (const {label, width} of CARD_WIDTHS) {
+            for (const {label, width, narrow} of CARD_WIDTHS) {
                 const scope = `${themeTag} ${label}`;
 
                 const actual = await page.evaluate(w => {
@@ -181,6 +191,27 @@ test.describe('AgentOS fleet cockpit — AgentCard evolved-D synthesis render at
                 controls.forEach((c, i) => {
                     expect(c.toggle, `[${scope}] card ${i}: the primary lifecycle toggle is inline + visible`).toBe(true);
                     expect(c.hasMenu, `[${scope}] card ${i}: no overflow ⋯ menu — controls are inline, not hidden`).toBe(false)
+                });
+
+                // Capacity classification guard (the regression witness for the content-box breakpoint):
+                // the engine tag is hidden only where the head genuinely cannot hold it (narrow class),
+                // and controls compact to 32px wherever capacity exists. The 319/320 pair pins the exact
+                // transition — previously the 319px content-box error hid the engine at 328 outer while
+                // inflating controls to 44px (94px = 31.5% of a 298px head), manufacturing the scarcity
+                // the rule was meant to absorb.
+                const capacity = await page.evaluate(() => [...document.querySelectorAll('.fm-agent-card')].map(card => {
+                    const engine = card.querySelector('.fm-card-engine'),
+                          action = card.querySelector('.fm-card-action');
+
+                    return {
+                        engineShown: !!engine && getComputedStyle(engine).display !== 'none',
+                        actionSize : action ? Math.round(action.getBoundingClientRect().width) : null
+                    }
+                }));
+
+                capacity.forEach((c, i) => {
+                    expect(c.engineShown, `[${scope}] card ${i}: engine tag ${narrow ? 'hidden at genuine narrow' : 'shown — head has capacity'}`).toBe(!narrow);
+                    expect(c.actionSize, `[${scope}] card ${i}: controls ${narrow ? '44px touch target at genuine narrow' : 'compact 32px where capacity exists'}`).toBe(narrow ? 44 : 32)
                 });
 
                 await expect(page.locator('.fm-fleet-cards')).toHaveScreenshot(`agentcard-synthesis-${themeTag}-${label}.png`)

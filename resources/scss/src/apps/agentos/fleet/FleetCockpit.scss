@@ -3,6 +3,15 @@
 .fm-fleet-cockpit {
     background: var(--fm-ground);
 
+    /* The dock projection's tab zones are NAVIGATION vessels inside the FM tonal stack — the generic
+       tab body must not leak the stock theme's surface + borders (stock rgb(14,15,13) + rgb(69,75,66)
+       against --fm-ground). The pane owns the visible boundary; the tab body stays a layout/overflow
+       wrapper. Mirrors the Workstation layer's scoping, FM-side only. */
+    .neo-tab-container > .neo-tab-body-container {
+        background: transparent;
+        border    : 0;
+    }
+
     /* the right-edge dock rail's tabs are NAVIGATION, not actions — the framework's primary
        blue slab never reaches the rail (mirrors the workstation layer's treatment), and the
        framework button min-width must not push the tab 34px past the viewport edge */
@@ -34,8 +43,11 @@
 
         /* Button hierarchy (ledger D1): the SSOT's quiet, panel-toned base — the default theme's
            same-weight blue slab never reaches the bar. Mirrors the chrome's agent-button pair
-           (Viewport.scss); only the primary action reaches for the signal. */
-        .neo-button.fm-preset-button {
+           (Viewport.scss); only the primary action reaches for the signal. The shell-owned pop-out
+           toggle joins the quiet base here: windowing a pane is a secondary cockpit action, while
+           Start fleet remains the sole signal/primary on the bar (operator hierarchy direction). */
+        .neo-button.fm-preset-button,
+        .neo-button.fm-detail-window-toggle {
             border       : 1px solid var(--fm-line);
             border-radius: 6px;
             background   : var(--fm-panel-2);
