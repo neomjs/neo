@@ -136,6 +136,22 @@ records, has a short-lived prompt-context fallback from `UserPromptSubmit`, and
 uses its own hook wiring. Those adapters are allowed to differ because their
 runtimes differ.
 
+Kimi Code adds a third harness edge for turn presence. Its documented command-hook
+surface names the repeated boundaries directly: `UserPromptSubmit`, `Stop`,
+`StopFailure`, and `Interrupt`, with `PostToolUse` available as an observation-only
+progress pulse. The adapter at `.kimi-code/hooks/turnPresenceHook.mjs` translates only
+those events into the shared local writer; `SessionStart` and `SessionEnd` remain
+unwired because a session boundary cannot stand in for every turn. The seat-local
+configuration stays in `~/.kimi-code/config.toml`, so no resident identity is committed.
+
+The harness-ablation distinction is narrower than “hooks versus no hooks.”
+[OpenCode plugins](https://opencode.ai/docs/plugins/) expose message, session, and tool
+events, but their current documented event list has no exact equivalents for Kimi's
+`UserPromptSubmit`, `Stop`, `StopFailure`, or `Interrupt` command boundaries. That is a
+separate adapter-mapping question, not evidence that OpenCode lacks a hook surface.
+[Kimi's hook reference](https://www.kimi.com/code/docs/en/kimi-code-cli/customization/hooks.html)
+is the source of authority for this adapter's event names and fail-open behavior.
+
 The no-hold rule is shared. Both adapters use the same parser, validator, and
 decision primitives for the questions that must not drift:
 

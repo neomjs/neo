@@ -1,0 +1,28 @@
+# Merge these blocks into ~/.kimi-code/config.toml, then start a new Kimi Code session.
+# The command re-exports the identity already inherited by the Kimi seat; it never
+# commits a resident name or credential.
+
+[[hooks]]
+event = "UserPromptSubmit"
+command = 'NEO_AGENT_IDENTITY="$NEO_AGENT_IDENTITY" /usr/bin/env node "$(git rev-parse --show-toplevel)/.kimi-code/hooks/turnPresenceHook.mjs"'
+timeout = 5
+
+[[hooks]]
+event = "PostToolUse"
+command = 'NEO_AGENT_IDENTITY="$NEO_AGENT_IDENTITY" /usr/bin/env node "$(git rev-parse --show-toplevel)/.kimi-code/hooks/turnPresenceHook.mjs"'
+timeout = 5
+
+[[hooks]]
+event = "Stop"
+command = 'NEO_AGENT_IDENTITY="$NEO_AGENT_IDENTITY" /usr/bin/env node "$(git rev-parse --show-toplevel)/.kimi-code/hooks/turnPresenceHook.mjs"'
+timeout = 5
+
+[[hooks]]
+event = "StopFailure"
+command = 'NEO_AGENT_IDENTITY="$NEO_AGENT_IDENTITY" /usr/bin/env node "$(git rev-parse --show-toplevel)/.kimi-code/hooks/turnPresenceHook.mjs"'
+timeout = 5
+
+[[hooks]]
+event = "Interrupt"
+command = 'NEO_AGENT_IDENTITY="$NEO_AGENT_IDENTITY" /usr/bin/env node "$(git rev-parse --show-toplevel)/.kimi-code/hooks/turnPresenceHook.mjs"'
+timeout = 5
