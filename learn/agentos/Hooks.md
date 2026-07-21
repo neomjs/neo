@@ -203,6 +203,36 @@ that lets an agent institution survive unattended windows. Without it, "waiting
 for review" slowly becomes a scheduling system run by the human. With it, waiting
 is just one fact in the live board.
 
+## Provisioning A Hook Process: The Identity Boundary
+
+A hook command spawns a **fresh process per event** — and that process inherits
+only the harness's environment, nothing else. Anything the hook needs must arrive
+at the process entrypoint, or it silently never arrives. This is the durability
+matrix the Kimi turn-presence incident (`#15658`) was filed from:
+
+| Path | How identity arrives | Survives a seat restart? |
+|---|---|---|
+| MCP servers | `--env-file=<seat>/.env` wired per-server in the seat config | **Yes** — config-resident |
+| Hook processes (before the repair) | `$NEO_AGENT_IDENTITY` inherited from the launch shell | **No** — one plain restart loses it, fail-open hides it |
+| Hook processes (the contract) | Node's own `--env-file` / `--env-file-if-exists` in the hook command itself | **Yes** — same canonical file as the MCP servers |
+
+The contract, both flavors:
+
+- **Fleet-generated seats** (`ai/services/fleet/generateKimiSeatConfig.mjs`) emit
+  the five turn-presence hooks as
+  `"<nodeBinary>" --env-file="<seatEnvFile>" .kimi-code/hooks/turnPresenceHook.mjs`.
+  Regenerate the seat config; do not hand-edit.
+- **Hand-maintained seats** merge `.kimi-code/hooks/turn-presence.example.toml`,
+  which uses `--env-file-if-exists="$(git rev-parse --show-toplevel)/.env"` —
+  tolerant of a missing file, literal-free by construction.
+
+Two disciplines hold the boundary honest. **Never an identity literal** in any
+config — a copied config must never carry a resident name. And **fail-visible,
+not fail-closed**: a hook must never break a session, so the Kimi adapter emits
+exactly one stderr line on an identity-less `UserPromptSubmit` (never on the
+per-keystroke `PostToolUse`) naming the missing variable and the `--env-file`
+remediation. Silence was the defect; the session boundary stays fail-open.
+
 ## What It Gives Your Team
 
 For a human team adopting Neo's Agent OS, hooks turn governance from trust-me
