@@ -72,7 +72,7 @@ const createFourEdgeRailDocument = () => {
                 kind        : 'panel',
                 pinnable    : true,
                 pinned      : false,
-                title       : `${edge[0].toUpperCase()}${edge.slice(1)} ${index + 1}`
+                title       : `${edge[0].toUpperCase()}${edge.slice(1)} perspectives ${index + 1}`
             }
         });
 
@@ -254,13 +254,20 @@ test.describe('Dock auto-hide reveal/pin journey (Neural Link)', () => {
                 const
                     railRect = element.getBoundingClientRect(),
                     tabData  = [...element.querySelectorAll('.neo-dashboard-dock-rail-tab')].map(tab => {
-                        const rect = tab.getBoundingClientRect();
+                        const
+                            rect      = tab.getBoundingClientRect(),
+                            labelRect = tab.querySelector('.neo-button-text').getBoundingClientRect();
 
                         return {
-                            flex       : getComputedStyle(tab).flex,
-                            mainExtent : isVertical ? rect.height : rect.width,
-                            mainStart  : isVertical ? rect.top : rect.left,
-                            writingMode: getComputedStyle(tab).writingMode
+                            crossExtent   : isVertical ? rect.width : rect.height,
+                            flex          : getComputedStyle(tab).flex,
+                            labelMainEnd  : isVertical ? labelRect.bottom : labelRect.right,
+                            labelMainStart: isVertical ? labelRect.top : labelRect.left,
+                            labelRect     : {bottom: labelRect.bottom, left: labelRect.left, right: labelRect.right, top: labelRect.top},
+                            mainExtent    : isVertical ? rect.height : rect.width,
+                            mainStart     : isVertical ? rect.top : rect.left,
+                            rect          : {bottom: rect.bottom, left: rect.left, right: rect.right, top: rect.top},
+                            writingMode   : getComputedStyle(tab).writingMode
                         }
                     });
 
@@ -278,7 +285,25 @@ test.describe('Dock auto-hide reveal/pin journey (Neural Link)', () => {
             geometry.tabs.forEach((tab, index) => {
                 expect(tab.flex, `${edge} tab ${index}: explicit intrinsic main-axis flex`).toBe('0 0 auto');
                 expect(tab.writingMode, `${edge} tab ${index}: edge-appropriate text flow`)
-                    .toBe(vertical ? 'vertical-rl' : 'horizontal-tb')
+                    .toBe(vertical ? 'vertical-rl' : 'horizontal-tb');
+
+                // The hit area must contain its label on both axes: a theme-pinned fixed
+                // button height otherwise clips vertical labels to a 48px box.
+                expect(tab.rect.left,   `${edge} tab ${index}: label contained (left)`  ).toBeLessThanOrEqual(tab.labelRect.left   + 0.5);
+                expect(tab.rect.top,    `${edge} tab ${index}: label contained (top)`   ).toBeLessThanOrEqual(tab.labelRect.top    + 0.5);
+                expect(tab.rect.right,  `${edge} tab ${index}: label contained (right)` ).toBeGreaterThanOrEqual(tab.labelRect.right  - 0.5);
+                expect(tab.rect.bottom, `${edge} tab ${index}: label contained (bottom)`).toBeGreaterThanOrEqual(tab.labelRect.bottom - 0.5);
+
+                // The 14px strip owns the cross axis: a theme min-width must not jut past it.
+                expect(tab.crossExtent, `${edge} tab ${index}: tab fills exactly the 14px cross axis`)
+                    .toBeGreaterThanOrEqual(geometry.crossExtent - 0.5);
+                expect(tab.crossExtent, `${edge} tab ${index}: tab does not overflow the 14px cross axis`)
+                    .toBeLessThanOrEqual(geometry.crossExtent + 0.5);
+
+                if (index > 0) {
+                    expect(tab.labelMainStart, `${edge} tab ${index}: adjacent labels never overlap`)
+                        .toBeGreaterThanOrEqual(geometry.tabs[index - 1].labelMainEnd - 0.5)
+                }
             });
             expect(geometry.tabs[1].mainStart, `${edge}: document order advances along the edge`)
                 .toBeGreaterThan(geometry.tabs[0].mainStart);
@@ -291,7 +316,7 @@ test.describe('Dock auto-hide reveal/pin journey (Neural Link)', () => {
             await tabs.first().click();
             await expect(overlay, `${edge}: the intrinsic tab remains clickable`).toBeVisible({timeout: 10000});
             await expect(overlay.locator('.neo-dashboard-dock-reveal-title'), `${edge}: reveal resolves the clicked item`)
-                .toHaveText(`${edge[0].toUpperCase()}${edge.slice(1)} 1`);
+                .toHaveText(`${edge[0].toUpperCase()}${edge.slice(1)} perspectives 1`);
             await page.keyboard.press('Escape');
             await expect(overlay, `${edge}: Escape dismisses the runtime-only reveal`).toBeHidden()
         }

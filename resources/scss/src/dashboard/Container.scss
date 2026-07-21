@@ -158,9 +158,27 @@
     }
 }
 
-.neo-dashboard-dock-rail-tab {
-    font-size: 11px;
+// Scoped to 0,3,0 (tab) and 0,4,0 (label) on purpose: the neo themes pin `.neo-button` to a fixed
+// physical `height: var(--button-height)` (= 48px) and `min-width: var(--cmp-button-height)`
+// (0,2,0), which clamps a vertical rail tab to a 48px hit box (68-99px labels overflow and
+// overlap their neighbors) and defeats the 14px cross-axis stretch on every edge; the generic
+// button margin and padding (0,1,0 source-order tie the rail always lost) shrink or inflate the
+// strip anatomy, and the label span carries its own token'd font-size/line-height — consumer
+// text metrics set the vertical label's line-box cross extent (production AgentOS measured an
+// 18px label inside the 14px strip). Rail tabs size intrinsically on the main axis (label +
+// padding) and fill the strip edge-to-edge on the cross axis — the generic button token contract
+// and the consumer's inherited text metrics do not own this anatomy.
+// Equal-specificity load-order ties are not a contract.
+.neo-dashboard .neo-button.neo-dashboard-dock-rail-tab {
+    height   : auto;
+    margin   : 0;
+    min-width: 0;
     padding  : 4px 1px;
+
+    .neo-button-text {
+        font-size  : 11px;
+        line-height: 1;
+    }
 }
 
 .neo-dashboard-dock-edge-band {
