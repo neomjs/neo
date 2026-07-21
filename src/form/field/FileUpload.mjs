@@ -783,11 +783,17 @@ class FileUpload extends Field {
 
     /**
      * Creates a URL substituting the passed parameter names in at the places where the name
-     * occurs within `{}` in the pattern.
+     * occurs within `{}` in the pattern. A null or absent pattern passes through unchanged,
+     * so documented-optional URL configs (status / delete / download) stay inert instead of
+     * crashing on `replace`.
      * @param {String} urlPattern
      * @param {Object} params
      */
     createUrl(urlPattern, params) {
+        if (urlPattern == null) {
+            return urlPattern
+        }
+
         for (const paramName in params) {
             urlPattern = urlPattern.replace(`{${paramName}}`, params[paramName]);
         }
@@ -801,7 +807,7 @@ class FileUpload extends Field {
     beforeGetDocumentStatusUrl(documentStatusUrl) {
         const me = this;
 
-        return typeof documentStatusUrl === 'function'? documentStatusUrl.call(me, me) : me.createUrl(documentStatusUrl, {
+        return typeof documentStatusUrl === 'function'? documentStatusUrl.call(me, me) : documentStatusUrl && me.createUrl(documentStatusUrl, {
             [me.documentIdParameter] : me.documentId
         });
     }
@@ -809,7 +815,7 @@ class FileUpload extends Field {
     beforeGetDocumentDeleteUrl(documentDeleteUrl) {
         const me = this;
 
-        return typeof documentDeleteUrl === 'function'? documentDeleteUrl.call(me, me) : me.createUrl(documentDeleteUrl, {
+        return typeof documentDeleteUrl === 'function'? documentDeleteUrl.call(me, me) : documentDeleteUrl && me.createUrl(documentDeleteUrl, {
             [me.documentIdParameter] : me.documentId
         });
     }
@@ -817,7 +823,7 @@ class FileUpload extends Field {
     beforeGetDownloadUrl(downloadUrl) {
         const me = this;
 
-        return typeof downloadUrl === 'function'? downloadUrl.call(me, me) : me.createUrl(downloadUrl, {
+        return typeof downloadUrl === 'function'? downloadUrl.call(me, me) : downloadUrl && me.createUrl(downloadUrl, {
             [me.documentIdParameter] : me.documentId
         });
     }
