@@ -58,6 +58,16 @@ test.describe('FM cockpit — visual baselines (the design-gate scope floor)', (
         await expect(page.locator('.fm-activity-stream')).toHaveScreenshot('activity-stream-chips.png')
     });
 
+    test('the narrow cockpit at ~314 CSS px — the Retina-corrected whole-cockpit geometry', async ({page}) => {
+        // The Retina evidence correction: a 628-physical-px capture on a 2x seat is ~314 CSS px,
+        // not 480 — the matrix must prove the whole-cockpit composition at this width, not assume
+        // the 480px vessel receipt covers it. reducedMotion keeps the dock settled by construction.
+        await page.setViewportSize({width: 314, height: 900});
+        await bootSettledCockpit(page);
+
+        await expect(page.locator('.fm-fleet-cockpit')).toHaveScreenshot('cockpit-narrow-314.png')
+    });
+
     test('the Accounts surface — the inherited design-gate golden, under harness refresh semantics', async ({page}) => {
         await bootSettledCockpit(page);
 
