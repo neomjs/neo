@@ -3,6 +3,22 @@
 .fm-fleet-cockpit {
     background: var(--fm-ground);
 
+    /* the right-edge dock rail's tabs are NAVIGATION, not actions — the framework's primary
+       blue slab never reaches the rail (mirrors the workstation layer's treatment), and the
+       framework button min-width must not push the tab 34px past the viewport edge */
+    .neo-dashboard-dock-rail-tab.neo-button {
+        background: transparent;
+        border    : 0;
+        box-shadow: none;
+        color     : var(--fm-ink-dim);
+        min-width : 0;
+
+        .neo-button-glyph,
+        .neo-button-text {
+            color: inherit;
+        }
+    }
+
     .fm-cockpit-bar {
         flex   : none;
         padding: 6px 10px;
