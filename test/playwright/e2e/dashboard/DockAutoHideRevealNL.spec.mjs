@@ -46,6 +46,43 @@ const tuckInspector = async ({ app, holderId, page }) => {
     await page.waitForTimeout(1000)
 };
 
+/**
+ * @summary Builds one real projected rail on every edge, with two auto-hidden items apiece. The
+ * center item keeps the edge-zone document renderable while every edge band exercises the same
+ * adapter path production workspaces use.
+ * @returns {Object}
+ */
+const createFourEdgeRailDocument = () => {
+    const
+        items = {
+            center: {componentRef: 'Center', title: 'Center', kind: 'panel'}
+        },
+        nodes = {
+            root         : {type: 'edge-zone', zones: {center: 'center-tabs'}},
+            'center-tabs': {type: 'tabs', items: ['center'], activeItemId: 'center'}
+        };
+
+    for (const edge of ['top', 'right', 'bottom', 'left']) {
+        const itemIds = [`${edge}-one`, `${edge}-two`];
+
+        itemIds.forEach((itemId, index) => {
+            items[itemId] = {
+                autoHidden  : true,
+                componentRef: `${edge}-${index + 1}`,
+                kind        : 'panel',
+                pinnable    : true,
+                pinned      : false,
+                title       : `${edge[0].toUpperCase()}${edge.slice(1)} ${index + 1}`
+            }
+        });
+
+        nodes[`${edge}-tabs`] = {type: 'tabs', items: itemIds, activeItemId: itemIds[0]};
+        nodes.root.zones[edge] = `${edge}-tabs`
+    }
+
+    return {schema: 'neo.harness.dockZone.v1', root: 'root', items, nodes}
+};
+
 test.describe('Dock auto-hide reveal/pin journey (Neural Link)', () => {
     test.setTimeout(90000);
     test.use({ viewport: { width: 1600, height: 900 } });
@@ -128,8 +165,9 @@ test.describe('Dock auto-hide reveal/pin journey (Neural Link)', () => {
         const railId        = Array.isArray(railInstances) ? railInstances[0]?.id : railInstances?.id;
         await app.setProperties(railId, { autoHideRevealOnHover: true, revealDismissGraceMs: 400, revealDwellMs: 100 });
 
-        const railBox = await railTab.boundingBox();
-        await page.mouse.move(railBox.x + railBox.width / 2, railBox.y + railBox.height / 2);
+        // Target Playwright's visible actionability point. At a clipped viewport edge, the raw DOM
+        // center can sit outside the viewport even though the rendered rail affordance is visible.
+        await railTab.hover();
         await page.waitForTimeout(350); // > dwell
         await expect(overlay, 'opt-in hover must reveal after the dwell').toBeVisible();
 
@@ -186,5 +224,79 @@ test.describe('Dock auto-hide reveal/pin journey (Neural Link)', () => {
         await expect(page.locator('.neo-dashboard-dock-rail-tab'), 'the retired rail tab must leave the DOM').toHaveCount(0);
         await expect(page.locator('.neo-tab-header-button', { hasText: 'Inspector' }).first(),
             'the pinned inspector must re-enter the rendered tab flow').toBeVisible({ timeout: 10000 });
+    });
+
+    test('all four edge rails keep intrinsic tab click areas while preserving reveal semantics', async ({ page, neuralLink }) => {
+        const { app, holderId, readModel } = await bootDockExample({ page, neuralLink });
+        const document                     = createFourEdgeRailDocument();
+
+        // Drive the example's real view-sync seam so DockLayoutAdapter projects all four rails.
+        await app.callMethod(holderId, 'onDockZoneDocumentChange', [document]);
+        await expect.poll(async () => {
+            const rails = await app.findInstances({ntype: 'dashboard-dock-rail'}, ['edge', 'id']);
+            return Array.isArray(rails) ? rails.length : rails ? 1 : 0
+        }, {message: 'the committed four-edge document projects one rail per edge', timeout: 15000}).toBe(4);
+
+        await expect(page.locator('.neo-dashboard-dock-edge-rail')).toHaveCount(4);
+
+        const committedSnapshot = JSON.stringify(await readModel());
+
+        for (const edge of ['top', 'right', 'bottom', 'left']) {
+            const
+                rail     = page.locator(`.neo-dashboard-dock-edge-rail-${edge}`),
+                tabs     = rail.locator('.neo-dashboard-dock-rail-tab'),
+                vertical = edge === 'left' || edge === 'right';
+
+            await expect(rail, `${edge}: one rendered rail`).toHaveCount(1);
+            await expect(tabs, `${edge}: both auto-hidden items stay reachable`).toHaveCount(2);
+
+            const geometry = await rail.evaluate((element, isVertical) => {
+                const
+                    railRect = element.getBoundingClientRect(),
+                    tabData  = [...element.querySelectorAll('.neo-dashboard-dock-rail-tab')].map(tab => {
+                        const rect = tab.getBoundingClientRect();
+
+                        return {
+                            flex       : getComputedStyle(tab).flex,
+                            mainExtent : isVertical ? rect.height : rect.width,
+                            mainStart  : isVertical ? rect.top : rect.left,
+                            writingMode: getComputedStyle(tab).writingMode
+                        }
+                    });
+
+                return {
+                    crossExtent: isVertical ? railRect.width : railRect.height,
+                    gap        : parseFloat(getComputedStyle(element).gap) || 0,
+                    mainExtent : isVertical ? railRect.height : railRect.width,
+                    tabs       : tabData
+                }
+            }, vertical);
+
+            const occupied = geometry.tabs.reduce((sum, tab) => sum + tab.mainExtent, 0)
+                + geometry.gap * (geometry.tabs.length - 1);
+
+            geometry.tabs.forEach((tab, index) => {
+                expect(tab.flex, `${edge} tab ${index}: explicit intrinsic main-axis flex`).toBe('0 0 auto');
+                expect(tab.writingMode, `${edge} tab ${index}: edge-appropriate text flow`)
+                    .toBe(vertical ? 'vertical-rl' : 'horizontal-tb')
+            });
+            expect(geometry.tabs[1].mainStart, `${edge}: document order advances along the edge`)
+                .toBeGreaterThan(geometry.tabs[0].mainStart);
+            expect(geometry.crossExtent, `${edge}: shared strip keeps its 14px cross-axis extent`).toBe(14);
+            expect(geometry.gap, `${edge}: shared strip keeps the 2px document-order gap`).toBe(2);
+            expect(occupied, `${edge}: two tabs do not divide and consume the entire rail`).toBeLessThan(geometry.mainExtent * 0.75);
+
+            const overlay = rail.locator('.neo-dashboard-dock-reveal-overlay');
+
+            await tabs.first().click();
+            await expect(overlay, `${edge}: the intrinsic tab remains clickable`).toBeVisible({timeout: 10000});
+            await expect(overlay.locator('.neo-dashboard-dock-reveal-title'), `${edge}: reveal resolves the clicked item`)
+                .toHaveText(`${edge[0].toUpperCase()}${edge.slice(1)} 1`);
+            await page.keyboard.press('Escape');
+            await expect(overlay, `${edge}: Escape dismisses the runtime-only reveal`).toBeHidden()
+        }
+
+        expect(JSON.stringify(await readModel()), 'four-edge reveal/dismiss gestures never mutate committed truth')
+            .toBe(committedSnapshot)
     });
 });

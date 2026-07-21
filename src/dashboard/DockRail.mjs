@@ -325,6 +325,11 @@ class DockRail extends Container {
      * Builds one rail-tab button config from rail-item metadata. The button carries its
      * `dockItemId` (instance-based click/hover resolution — no id bookkeeping) and stays enabled
      * regardless of policy: reveal is policy-free, the overlay pin is the gated affordance.
+     *
+     * Tabs are intrinsic on the rail's main axis. The rail keeps `align: 'stretch'` for the cross
+     * axis, but that generic Flexbox policy otherwise supplies `flex: 1` to children without an
+     * explicit value, making every tab divide the full edge extent equally. This value must be in
+     * the creation config so the parent layout consumes it during its child-attribute pass.
      * @param {Object} railItem {dockEdge, dockItemId, restorable, title}
      * @param {String} edge
      * @returns {Object}
@@ -341,6 +346,7 @@ class DockRail extends Container {
                 {mouseenter: me.onTabHoverIn,  scope: me},
                 {mouseleave: me.onTabHoverOut, scope: me}
             ],
+            flex           : 'none',
             // Explicitly bound: the button invokes function-type handlers as plain calls — the
             // rail, not the button, must be `this` inside the handler.
             handler        : me.onTabClick.bind(me),
