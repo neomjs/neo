@@ -104,7 +104,7 @@ export function generateKimiSeatConfig({canonicalRoot, seatEnvFile, workspaceRoo
     });
 
     return {files: [
-        {path: path.posix.join(kimiHome, 'config.toml'),                 content: renderConfigToml({defaultModel})},
+        {path: path.posix.join(kimiHome, 'config.toml'),                 content: renderConfigToml({defaultModel, nodeBinary, seatEnvFile})},
         {path: path.posix.join(workspaceRoot, '.kimi-code', 'mcp.json'), content: renderMcpJson({root, seatEnvFile, workspaceRoot, nodeBinary, environment, servers})},
         {path: path.posix.join(memoryDir, 'MEMORY.md'),                  content: renderMemoryMd()},
         {path: path.posix.join(memoryDir, 'seat-pointers.md'),           content: renderSeatPointersMd()},
@@ -114,13 +114,19 @@ export function generateKimiSeatConfig({canonicalRoot, seatEnvFile, workspaceRoo
 
 /**
  * Render the seat's `config.toml`: permission posture + default model + the wake-envelope
- * SessionStart hook (git-tracked, present in every neo checkout). Provider/model resolution
- * stays with the harness's managed defaults (see the module JSDoc).
+ * SessionStart hook + the five turn-presence hooks (git-tracked, present in every neo checkout).
+ * The turn-presence commands ride Node's own `--env-file` against the seat's `.env` — the same
+ * file the MCP servers trust (constraint #2) — so hook processes get `NEO_AGENT_IDENTITY` with
+ * zero launch-shell discipline and zero identity literals. Provider/model resolution stays with
+ * the harness's managed defaults (see the module JSDoc).
  * @param {Object} options
+ * @param {String} options.defaultModel Default model alias.
+ * @param {String} options.nodeBinary   Absolute node binary — the hook process entrypoint.
+ * @param {String} options.seatEnvFile  Absolute seat `.env` — the identity + credential source.
  * @returns {String}
  * @private
  */
-function renderConfigToml({defaultModel}) {
+function renderConfigToml({defaultModel, nodeBinary, seatEnvFile}) {
     const permissionRules = KIMI_SEAT_SERVERS.map(server =>
         [
             '[[permission.rules]]',
@@ -144,6 +150,8 @@ function renderConfigToml({defaultModel}) {
         '#    calls (2026-07-18 incident, opencode-seat parity); default mode is auto.',
         '# 4. WAKE: the SessionStart hook is git-tracked and KIMI_CODE_HOME-aware; a Fleet seat\'s',
         '#    envelope lands beside its own server/instances coordinates (#15596 contract).',
+        '# 5. TURN PRESENCE: the five hooks below ride Node\'s --env-file against the seat\'s own .env',
+        '#    (the same identity source the MCP servers use) — no launch-shell export, no literals.',
         '',
         'default_permission_mode = "auto"',
         `default_model           = "${defaultModel}"`,
@@ -156,8 +164,36 @@ function renderConfigToml({defaultModel}) {
         'event   = "SessionStart"',
         'command = "node .kimi-code/hooks/wakeEnvelopeHook.mjs"',
         'timeout = 5',
-        ''
+        '',
+        ...renderTurnPresenceHooks({nodeBinary, seatEnvFile})
     ].join('\n');
+}
+
+/**
+ * Render the five turn-presence hook blocks. The command pins the seat's node binary and
+ * rides Node's `--env-file` against the seat's `.env`, so `NEO_AGENT_IDENTITY` reaches the hook
+ * process from the same canonical source as the MCP servers — never an identity literal, never a
+ * launch-shell inheritance assumption. TOML literal strings keep the inner quotes verbatim.
+ * @param {Object} options
+ * @param {String} options.nodeBinary  Absolute node binary.
+ * @param {String} options.seatEnvFile Absolute seat `.env`.
+ * @returns {String[]}
+ * @private
+ */
+function renderTurnPresenceHooks({nodeBinary, seatEnvFile}) {
+    return [
+        'UserPromptSubmit',
+        'PostToolUse',
+        'Stop',
+        'StopFailure',
+        'Interrupt'
+    ].flatMap(event => [
+        '[[hooks]]',
+        `event   = "${event}"`,
+        `command = '"${nodeBinary}" --env-file="${seatEnvFile}" .kimi-code/hooks/turnPresenceHook.mjs'`,
+        'timeout = 5',
+        ''
+    ]);
 }
 
 /**

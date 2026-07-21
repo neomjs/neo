@@ -129,7 +129,7 @@ test.describe('Kimi Code turn-presence hook adapter', () => {
             expect(Object.keys(block).sort()).toEqual(['command', 'event', 'timeout']);
             expect(block.timeout).toBe(5);
             expect(block.command).toBe(
-                'NEO_AGENT_IDENTITY="$NEO_AGENT_IDENTITY" /usr/bin/env node "$(git rev-parse --show-toplevel)/.kimi-code/hooks/turnPresenceHook.mjs"'
+                'node --env-file-if-exists="$(git rev-parse --show-toplevel)/.env" "$(git rev-parse --show-toplevel)/.kimi-code/hooks/turnPresenceHook.mjs"'
             );
             expect(block.command).not.toMatch(/@neo-/)
         })
@@ -243,6 +243,43 @@ test.describe('Kimi Code turn-presence hook adapter', () => {
 
             expect(readTurnPresenceNodes(fixture.db)).toHaveLength(0)
         } finally {
+            destroyGraphFixture(fixture)
+        }
+    });
+
+    test('missing identity warns once on UserPromptSubmit, never on PostToolUse, always fail-open', async () => {
+        const fixture       = createGraphFixture();
+        const writes        = [];
+        const originalWrite = process.stderr.write;
+
+        process.stderr.write = chunk => { writes.push(String(chunk)); return true };
+
+        try {
+            await expect(recordKimiTurnPresence({
+                env        : {NEO_MEMORY_DB_PATH: fixture.dbPath},
+                hookPayload: {hook_event_name: 'UserPromptSubmit'},
+                rootDir
+            })).resolves.toBeUndefined();
+            expect(writes).toHaveLength(1);
+            expect(writes[0]).toContain('NEO_AGENT_IDENTITY unresolved');
+            expect(writes[0]).toContain('--env-file-if-exists');
+
+            writes.length = 0;
+            await expect(recordKimiTurnPresence({
+                env        : {NEO_MEMORY_DB_PATH: fixture.dbPath},
+                hookPayload: {hook_event_name: 'PostToolUse', tool_name: 'Shell'},
+                rootDir
+            })).resolves.toBeUndefined();
+            expect(writes).toHaveLength(0);
+
+            await expect(recordKimiTurnPresence({
+                env        : {NEO_AGENT_IDENTITY: '@test-kimi', NEO_MEMORY_DB_PATH: fixture.dbPath},
+                hookPayload: {hook_event_name: 'UserPromptSubmit'},
+                rootDir
+            })).resolves.toMatchObject({status: 'recorded'});
+            expect(writes).toHaveLength(0)
+        } finally {
+            process.stderr.write = originalWrite;
             destroyGraphFixture(fixture)
         }
     });

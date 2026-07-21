@@ -60,6 +60,27 @@ test.describe('generateKimiSeatConfig (Kimi Code seat scaffold emission, #15612)
         expect(toml).toContain('command = "node .kimi-code/hooks/wakeEnvelopeHook.mjs"');
     });
 
+    test('golden shape: config.toml emits the five turn-presence hooks on the --env-file boundary (#15658)', () => {
+        const toml = findFile(generateKimiSeatConfig(PARAMS).files, 'config.toml').content;
+
+        // The seat's identity reaches the hook process from the SAME canonical source as the MCP
+        // servers: Node's own --env-file against the seat's .env — never an identity literal.
+        for (const event of ['UserPromptSubmit', 'PostToolUse', 'Stop', 'StopFailure', 'Interrupt']) {
+            expect(toml).toContain(`event   = "${event}"`);
+        }
+
+        const hookBlocks = toml.split('[[hooks]]').slice(1);
+        expect(hookBlocks).toHaveLength(6); // SessionStart + the five turn-presence events
+
+        const turnPresenceBlocks = hookBlocks.filter(block => block.includes('turnPresenceHook.mjs'));
+        expect(turnPresenceBlocks).toHaveLength(5);
+        turnPresenceBlocks.forEach(block => {
+            expect(block).toContain(`command = '"/usr/local/bin/node" --env-file="/seat/checkout/.env" .kimi-code/hooks/turnPresenceHook.mjs'`);
+            expect(block).toContain('timeout = 5');
+            expect(block).not.toMatch(/@neo-/)
+        });
+    });
+
     test('emission list: five files across both roots + the memory dir', () => {
         const paths = generateKimiSeatConfig(PARAMS).files.map(file => file.path);
 

@@ -3,6 +3,7 @@ import {
     readHookPayload,
     recordTurnPresenceFromHook
 } from '../../ai/mcp/server/memory-core/helpers/TurnPresenceHookWriter.mjs';
+import {normalizeAgentIdentityNodeId} from '../../ai/graph/normalizeAgentIdentityNodeId.mjs';
 
 const EVENT_MAP = Object.freeze({
     Interrupt: Object.freeze({
@@ -84,6 +85,16 @@ export async function recordKimiTurnPresence({
             reason: 'unsupported-hook-event',
             status: 'noop'
         }
+    }
+
+    // Fail-visible, bounded: an unprovisioned seat must be DETECTABLE, never session-breaking.
+    // One line only on UserPromptSubmit — PostToolUse fires per tool call, and one fresh process
+    // per event means a per-process line is not a real throttle there.
+    if (event.eventName === 'UserPromptSubmit' && !normalizeAgentIdentityNodeId(env.NEO_AGENT_IDENTITY)) {
+        process.stderr.write(
+            'kimi turnPresenceHook: NEO_AGENT_IDENTITY unresolved — provision the seat env ' +
+            '(node --env-file-if-exists=<checkout>/.env … turnPresenceHook.mjs); presence write skipped (fail-open)\n'
+        )
     }
 
     const {action, eventName, source, terminalState} = event;
