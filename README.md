@@ -1,6 +1,9 @@
 
 <p align="center">
-  <img height="100"src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/logo/neo_logo_text_primary.svg" alt="Neo.mjs Logo">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./resources/images/logo/neo_logo_text_primary_dark.svg">
+    <img height="100" src="./resources/images/logo/neo_logo_text_primary.svg" alt="Neo.mjs Logo">
+  </picture>
 </p>
 </br>
 <p align="center">
@@ -18,7 +21,7 @@
 
 <p align="center">
   <a href="https://www.youtube.com/watch?v=H5zR63tVrmo">
-    <img width="851" alt="Neo.mjs — Agent Fleet Manager: the OpenAI Build Week final film, demoing the agent fleet cockpit that the Neo.mjs swarm designed, built, reviewed, and shipped inside the competition window" src="https://img.youtube.com/vi/H5zR63tVrmo/maxresdefault.jpg">
+    <img width="851" alt="Neo.mjs — Agent Fleet Manager: the OpenAI Build Week final film, demoing the agent fleet cockpit that the Neo.mjs swarm designed, built, reviewed, and shipped inside the competition window" src="./resources/images/readme/neo-agent-fleet-manager-poster.jpg">
   </a>
   </br>
   <a href="https://www.youtube.com/watch?v=H5zR63tVrmo">▶ Watch Neo.mjs — Agent Fleet Manager</a>
