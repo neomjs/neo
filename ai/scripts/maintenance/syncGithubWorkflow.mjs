@@ -13,18 +13,16 @@ import {
  * issue / PR / discussion / release-notes substrate emission into
  * `resources/content/`.
  *
- * **Why a CLI dual to the MCP `sync_all` tool exists:**
+ * **Why this operator CLI is the canonical manual entry point:**
  *
- * Both invocation surfaces resolve to the same `GH_SyncService.runFullSync()`
- * orchestration entry point (referenced at `ai/services/github-workflow/SyncService.mjs`
- * + delegated to by `ai/services/github-workflow/toolService.mjs`'s `sync_all`
- * MCP handler). The MCP path is bound to MCP-request-response timing — fine for
- * delta-syncs (the "cached for fast no-ops" path) but inadequate for clean-slate
- * full emission after a clean-slate mirror purge (~8.5k issues + ~2.8k PRs + ~165
- * discussions + ~166 release notes via GraphQL pagination = many minutes).
+ * The scheduled `githubWorkflowSync` lane and this CLI resolve to the same
+ * `GH_SyncService.runFullSync()` orchestration entry point. The long-running sync
+ * is deliberately absent from the agent MCP surface: clean-slate emission can span
+ * ~8.5k issues + ~2.8k PRs + ~165 discussions + ~166 release notes and must stay
+ * behind the shared heavy-maintenance lease rather than an MCP request timeout.
  *
- * The CLI dual:
- * - bypasses the MCP request-timeout ceiling
+ * The CLI:
+ * - avoids an MCP request-timeout ceiling
  * - surfaces full stderr/stdout progress (each syncer logs phase-by-phase via
  *   `ai/mcp/server/github-workflow/logger.mjs`)
  * - leaves the underlying service untouched (no special-case "full vs delta"
@@ -39,7 +37,7 @@ import {
  *
  * The authority boundary is the regeneratable-cache model: this script exists
  * to rebuild workflow mirrors outside the MCP request-timeout envelope while preserving
- * the same service path as `sync_all`.
+ * the same service path as the scheduled `githubWorkflowSync` lane.
  *
  * @example
  *   npm run ai:sync-github-workflow

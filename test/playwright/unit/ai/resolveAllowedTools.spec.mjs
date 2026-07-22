@@ -7,7 +7,7 @@ const tools = [
     {name: 'signal_state_transition', inputSchema: {}},
     {name: 'create_issue',            inputSchema: {}},
     {name: 'manage_issue_labels',     inputSchema: {}},
-    {name: 'sync_all',                inputSchema: {}}
+    {name: 'list_issues',             inputSchema: {}}
 ];
 
 test.describe('resolveAllowedTools (#9980 MCP tool-level capability gating)', () => {
@@ -30,10 +30,10 @@ test.describe('resolveAllowedTools (#9980 MCP tool-level capability gating)', ()
     });
 
     test('preserves allowlist multiplicity and original order, not the allowlist order', () => {
-        const allowedTools = {'github-workflow': ['sync_all', 'signal_state_transition']};
+        const allowedTools = {'github-workflow': ['list_issues', 'signal_state_transition']};
         const result       = resolveAllowedTools({tools, allowedTools, serverName: 'github-workflow'});
         // filtered from the source list, so source order wins
-        expect(result.map(t => t.name)).toEqual(['signal_state_transition', 'sync_all']);
+        expect(result.map(t => t.name)).toEqual(['signal_state_transition', 'list_issues']);
     });
 
     test('an explicit empty allowlist denies every tool from that server', () => {

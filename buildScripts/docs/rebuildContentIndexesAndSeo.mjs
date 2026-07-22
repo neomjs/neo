@@ -22,8 +22,8 @@ const DEFAULT_BASE_URL = 'https://neomjs.com';
  * `apps/portal/resources/data`, `apps/portal/sitemap.xml`, or
  * `apps/portal/llms.txt` stale relative to the emitted markdown corpus. Release
  * and CI callers can opt into the remote GitHub label index via
- * `includeLabelIndex`; the label builder is intentionally loaded lazily so
- * `sync_all` does not import the GitHub Workflow SDK label path.
+ * `includeLabelIndex`; the label builder is intentionally loaded lazily so the
+ * scheduled GitHub Workflow sync does not import the SDK label path.
  */
 
 /**

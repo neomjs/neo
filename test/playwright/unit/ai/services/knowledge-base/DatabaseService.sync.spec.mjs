@@ -33,7 +33,7 @@ test.describe('Neo.ai.services.knowledge-base.DatabaseService sync', () => {
             // distinct evidence. Correct refusal, wrong test to fail: an ADR assertion should not be
             // coupled to the health of a different source's corpus.
             //
-            // The coupling cannot be resolved by repairing the corpus first — `sync_all` is
+            // The coupling cannot be resolved by repairing the corpus first — the operator sync CLI is
             // dev-branch-gated, so the repair only runs post-merge, on dev. Waiting for a clean corpus
             // to land the code that cleans it is circular. So the pull source is scoped out HERE,
             // leaving the fail-closed consumer fully intact: `PullRequestSource.spec.mjs` covers the

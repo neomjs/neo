@@ -182,7 +182,7 @@ function main() {
           scanPaths = options.dirs.split(',').map(s => s.trim()).filter(Boolean),
           ignores   = options.ignore.split(',').map(s => s.trim()).filter(Boolean);
 
-    // Targeted skip for the generated-data class (data-sync pipeline / sync_all): they commit
+    // Targeted skip for the generated-data class (data-sync pipeline / GitHub Workflow sync): they commit
     // resources/content/ which legitimately carries ticket-refs (the actual issue/PR/discussion bodies),
     // so the archaeology gate does not apply. A clean opt-out, distinct from blunt `--no-verify`.
     if (options.skip || process.env.NEO_SKIP_TICKET_ARCHAEOLOGY === '1') {

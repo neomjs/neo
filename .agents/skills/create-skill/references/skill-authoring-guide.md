@@ -104,8 +104,8 @@ Since the agent relies on this when executing the specific task, make it detaile
 
 ### The "Map vs World Atlas" Constraint Placement
 
-When documenting a constraint for a specific MCP tool (e.g., "Do not run `sync_all` on a feature branch"), you MUST NOT pollute high-level global workflow files (the "Map", like `pull-request-workflow.md` or `ticket-intake.md`) with tool-specific edge cases.
-Instead, extract tool-specific constraints into dedicated, granular payload files (the "World Atlas") and only reference them when that specific tool is invoked.
+When documenting a rare workflow constraint (e.g., the clean-slate hard-cut for environment-variable renames), you MUST NOT pollute high-level global workflow files (the "Map", like `pull-request-workflow.md` or `ticket-intake.md`) with its full edge-case detail.
+Instead, extract rare constraints into dedicated, granular payload files (the "World Atlas") and reference them only when their trigger fires.
 - **The Map:** General routing, global lifecycle rules. Keep this clean and high-level to prevent context bloat.
 - **The Atlas:** Tool-specific quirks, edge cases, payload shapes, and strict operational constraints.
 
@@ -140,7 +140,7 @@ Map vs World Atlas applies **recursively**. A workflow file (`references/<workfl
 - Skill reference integrity catches dangling numeric refs, broken relative links, and deleted-file refs; fix them in the same PR.
 
 **Empirical precedent:**
-- `pull-request` skill: workflow + 4 sub-rule siblings (`env-var-rename-rule.md`, `mcp-config-template-change-guide.md`, `sync-all-constraints.md`, `review-response-protocol.md`) — each conditionally loaded per workflow body trigger pointer
+- `pull-request` skill: workflow + conditionally loaded sub-rule siblings such as `env-var-rename-rule.md`, `mcp-config-template-change-guide.md`, and `review-response-protocol.md`
 - `pr-review` skill: `audits/mcp-tool-description-budget.md` + `audits/loading-runtime-effect.md` — extracted edge-cases
 
 **HNSW topography frame:** workflow Maps + sub-rule Atlases form the Middle Layer of the Hierarchical Navigable Small World structure that skill substrate empirically resembles. See Discussion #11314 §1.5 for full Top/Middle/Bottom-Layer topography.

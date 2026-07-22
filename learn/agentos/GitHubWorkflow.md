@@ -70,7 +70,7 @@ The core of the server is its ability to maintain state consistency between the 
 *   **Push (Local → Remote):** The server scans for modified local Markdown files. It uses **Content Hashing** (SHA-256) to detect actual changes. If a file has changed, the server pushes updates (Title, Body) to GitHub via GraphQL mutations.
 *   **Pull (Remote → Local):** The server fetches the latest data from GitHub. New issues are created locally, and updated issues overwrite local versions.
 
-When `sync_all` is called, `SyncService` executes a precise 8-step orchestration logic to ensure data integrity:
+When the scheduled `githubWorkflowSync` lane runs—or an operator invokes `npm run ai:sync-github-workflow`—`SyncService` executes a precise 8-step orchestration logic to ensure data integrity:
 
 1.  **Load Metadata:** Reads `.sync-metadata.json` to understand the previous state.
 2.  **Fetch Releases:** `ReleaseSyncer` fetches the latest release data. This is done *first* because the archive logic depends on knowing available releases.
@@ -85,11 +85,12 @@ When `sync_all` is called, `SyncService` executes a precise 8-step orchestration
 
 The server exposes a comprehensive suite of tools via the Model Context Protocol (MCP), mapped directly to service methods.
 
-### 4.1 Synchronization & Health
+### 4.1 Health & Operator Synchronization
 
-*   **`sync_all`**: Triggers the full bi-directional sync workflow described above.
 *   **`healthcheck`**: Verifies `gh` CLI status. Returns cached healthy results for speed, but performs immediate checks if the system was previously unhealthy.
 *   **`get_viewer_permission`**: Returns the bot's permission level (`ADMIN`, `WRITE`, `READ`).
+
+The full bi-directional sync is intentionally not an agent MCP tool. The orchestrator owns the scheduled `githubWorkflowSync` lane; operators retain `npm run ai:sync-github-workflow` as the canonical manual rebuild path.
 
 ### 4.2 Issue Management
 

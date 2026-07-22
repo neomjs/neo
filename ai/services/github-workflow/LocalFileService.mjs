@@ -1,7 +1,7 @@
-import aiConfig  from '../../mcp/server/github-workflow/config.mjs';
-import Base      from '../../../src/core/Base.mjs';
-import fs        from 'fs-extra';
-import logger    from '../../mcp/server/github-workflow/logger.mjs';
+import aiConfig from '../../mcp/server/github-workflow/config.mjs';
+import Base     from '../../../src/core/Base.mjs';
+import fs       from 'fs-extra';
+import logger   from '../../mcp/server/github-workflow/logger.mjs';
 import {
     findContentIndexEntry,
     readContentIndex,
@@ -12,8 +12,8 @@ import {
  * @summary Service for local file system lookups related to the GitHub workflow.
  *
  * This service provides efficient mechanisms to locate and read local content files by ID.
- * ADR 0004 retires ID-derived folder math, so ID lookup is backed by
- * `resources/content/_index.json` instead of deriving a path from the GitHub number.
+ * ID lookup is backed by `resources/content/_index.json` instead of deriving a path from the
+ * GitHub number.
  *
  * @class Neo.ai.services.github-workflow.LocalFileService
  * @extends Neo.core.Base
@@ -34,7 +34,7 @@ class LocalFileService extends Base {
     }
 
     /**
-     * @summary Reads a content file through the ADR 0004 `_index.json` lookup surface.
+     * @summary Reads a content file through the `_index.json` lookup surface.
      *
      * Missing entries return `NOT_FOUND` with a regeneration hint; entries whose files no longer
      * exist return `STALE_INDEX` so callers can distinguish bad index data from absent content.
@@ -57,7 +57,7 @@ class LocalFileService extends Base {
                 logger.warn(`[LocalFileService] ${label} index entry not found for #${normalizedId}`);
                 return {
                     error  : 'File not found',
-                    message: `No local markdown index entry found for ${label.toLowerCase()} #${normalizedId}. Run sync_all to regenerate resources/content/_index.json.`,
+                    message: `No local markdown index entry found for ${label.toLowerCase()} #${normalizedId}. Use live GitHub for current state; the scheduled githubWorkflowSync lane regenerates resources/content/_index.json.`,
                     code   : 'NOT_FOUND'
                 };
             }
@@ -68,7 +68,7 @@ class LocalFileService extends Base {
                 logger.warn(`[LocalFileService] ${label} indexed path is stale for #${normalizedId}: ${filePath}`);
                 return {
                     error  : 'Stale content index',
-                    message: `Indexed markdown file for ${label.toLowerCase()} #${normalizedId} does not exist. Run sync_all to regenerate resources/content/_index.json.`,
+                    message: `Indexed markdown file for ${label.toLowerCase()} #${normalizedId} does not exist. Use live GitHub for current state; the scheduled githubWorkflowSync lane regenerates resources/content/_index.json.`,
                     code   : 'STALE_INDEX'
                 };
             }
@@ -88,8 +88,8 @@ class LocalFileService extends Base {
     /**
      * Finds and returns the content of a local issue file by its number.
      *
-     * ADR 0004 §3.2 replaces ID-derived folder lookup with the content index because
-     * ordinal-100 chunk position is no longer derivable from the GitHub issue number.
+     * The content index replaces ID-derived folder lookup because ordinal-100 chunk position is
+     * no longer derivable from the GitHub issue number.
      *
      * @param {string} issueNumber The issue number, with or without a leading '#'.
      * @returns {Promise<object>} A promise that resolves to the file content or a structured error.
@@ -101,9 +101,8 @@ class LocalFileService extends Base {
     /**
      * Finds and returns the content of a local discussion file by its number.
      *
-     * ADR 0004 §3.5 removes flat-path and recursive lookup assumptions from the
-     * primary read path. The syncers own `_index.json` maintenance; this service
-     * consumes that index directly.
+     * The primary read path avoids flat-path and recursive lookup assumptions. The syncers own
+     * `_index.json` maintenance; this service consumes that index directly.
      *
      * @param {string} discussionNumber The discussion number, with or without a leading '#'.
      * @returns {Promise<object>} A promise that resolves to the file content or a structured error.
