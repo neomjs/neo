@@ -504,6 +504,13 @@ test.describe('Tier 1 Config Immutability', () => {
             retention : {
                 keepMinimum: 3,
                 maxDays    : 30
+            },
+            offHostSync: {
+                argv        : [],
+                command     : '',
+                envAllowlist: [],
+                killGraceMs : 5000,
+                timeoutMs   : 600000
             }
         });
         expect(Config.maintenance.defrag).toEqual({

@@ -1,4 +1,5 @@
 import {createHash}                         from 'node:crypto';
+import path                                 from 'node:path';
 import Base                                 from '../../../../src/core/Base.mjs';
 import AiConfig                             from '../../../config.mjs';
 import {probeProviderParallelModelCapacity} from '../../../services/graph/providerReadinessHelper.mjs';
@@ -8,6 +9,7 @@ import {
     createDeploymentStateSnapshot,
     writeDeploymentStateSnapshot
 } from '../../../services/memory-core/helpers/deploymentStateBridgeStore.mjs';
+import {readBackupReceipt}           from '../../../services/memory-core/helpers/offHostSyncStore.mjs';
 import {readRecentRecoveryRunStates} from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
 import {
     queryHealLedger,
@@ -182,6 +184,7 @@ export class DeploymentStateBridgeService extends Base {
         const selfHeal          = await this.collectSelfHealSnapshot();
         const tenantRepoSync    = await this.collectTenantRepoSyncSnapshot({observedAt: generatedAt});
         const bridgeDiagnostics = this.collectBridgeDiagnostics({services, observedAt: generatedAt});
+        const maintenance       = await this.collectMaintenanceSnapshot();
 
         return createDeploymentStateSnapshot({
             generatedAt,
@@ -189,8 +192,47 @@ export class DeploymentStateBridgeService extends Base {
             bridgeDiagnostics,
             recoveryRuns,
             selfHeal,
-            tenantRepoSync
+            tenantRepoSync,
+            maintenance
         });
+    }
+
+    /**
+     * Projects the durable backup receipt (`AiConfig.backupPath/last-backup-receipt.json`) into the
+     * snapshot with explicit freshness semantics: absent-before-first-run omits the block entirely
+     * (never fabricated); unreadable/corrupt/oversize/wrong-version receipts project a stable
+     * `{status: 'unreadable', kind, finishedAt}` shape so consumers never infer corruption from an
+     * absent block. The receipt file survives orchestrator restart by construction; the projection
+     * is last-known, never refreshed-on-read.
+     * @returns {Promise<Object|null>}
+     */
+    async collectMaintenanceSnapshot({receiptPath = path.join(AiConfig.backupPath, 'last-backup-receipt.json')} = {}) {
+
+        try {
+            const outcome = await readBackupReceipt({filePath: receiptPath});
+
+            if (outcome.status === 'missing') return null;
+
+            if (outcome.status === 'unreadable') {
+                return {
+                    lastBackup: {
+                        finishedAt: outcome.finishedAt,
+                        kind      : outcome.kind,
+                        status    : 'unreadable'
+                    }
+                }
+            }
+
+            return {lastBackup: outcome.receipt}
+        } catch (error) {
+            return {
+                lastBackup: {
+                    finishedAt: null,
+                    kind      : 'corrupt',
+                    status    : 'unreadable'
+                }
+            }
+        }
     }
 
     /**
