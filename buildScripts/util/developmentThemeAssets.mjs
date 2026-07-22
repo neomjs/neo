@@ -80,6 +80,71 @@ export function getExpectedDevelopmentCss(repoRoot = REPO_ROOT) {
 }
 
 /**
+ * @summary Converts the canonical non-partial SCSS source tree into the complete theme-map class
+ * census — every class the runtime can ask the map for. Derivation mirrors the builder's
+ * `getScssFiles` exactly: dot-joined relative path; the `apps.*` namespace stays top-level,
+ * everything else takes the `Neo.` prefix. The map itself is never the census authority: it is
+ * additive and can retain retired class paths.
+ * @param {String} [repoRoot] Repository root.
+ * @returns {Object[]} `{className, root}` entries, sorted by className then root.
+ */
+export function getExpectedThemeClasses(repoRoot = REPO_ROOT) {
+    const entries = [];
+
+    function visit(dir, rootName, relativePath) {
+        for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
+            if (entry.isSymbolicLink()) continue;
+
+            const fullPath = path.join(dir, entry.name);
+
+            if (entry.isDirectory()) {
+                visit(fullPath, rootName, `${relativePath}/${entry.name}`)
+            } else if (entry.name.endsWith('.scss') && !entry.name.startsWith('_')) {
+                const base     = entry.name.slice(0, -'.scss'.length),
+                      relative = relativePath === '' ? base : `${relativePath.substring(1)}/${base}`;
+
+                let className = relative.split('/').join('.');
+
+                if (!className.startsWith('apps.')) className = 'Neo.' + className;
+
+                entries.push({className, root: rootName})
+            }
+        }
+    }
+
+    const scssRoot = path.join(repoRoot, 'resources/scss');
+
+    if (!fs.existsSync(scssRoot)) return [];
+
+    fs.readdirSync(scssRoot, {withFileTypes: true}).forEach(entry => {
+        if (entry.isDirectory() && !entry.isSymbolicLink() && (entry.name === 'src' || entry.name.includes('theme'))) {
+            visit(path.join(scssRoot, entry.name), entry.name, '')
+        }
+    });
+
+    return entries.sort((a, b) => a.className.localeCompare(b.className) || a.root.localeCompare(b.root))
+}
+
+/**
+ * @summary Returns true when the nested theme-map namespace tree holds a leaf array for the class
+ * that includes the given source root. Runtime reachability (`src/worker/App.mjs` resolves theme
+ * folders through exactly these per-class entries) requires both: the class present and the root
+ * listed. A fresh CSS file on disk without this entry is a file the runtime never requests.
+ * @param {Object} themeMap Parsed `resources/theme-map.json`.
+ * @param {String} className Dot-joined class name, e.g. `Neo.button.Base`.
+ * @param {String} root Source root directory name, e.g. `src` or `theme-neo-dark`.
+ * @returns {Boolean}
+ */
+function themeMapHasClass(themeMap, className, root) {
+    const leaf = className.split('.').reduce(
+        (ns, segment) => (ns && typeof ns === 'object') ? ns[segment] : undefined,
+        themeMap
+    );
+
+    return Array.isArray(leaf) && leaf.includes(root)
+}
+
+/**
  * @summary Returns true when a repo-relative output path traverses a symbolic-link segment.
  * @param {String} repoRoot Repository root.
  * @param {String} target Absolute output path within the repository.
@@ -108,24 +173,28 @@ function hasSymlinkSegment(repoRoot, target) {
 /**
  * @summary Inspects whether this checkout has a complete, current development theme build.
  * Every non-partial SCSS input must have a local CSS output at least as new as the newest SCSS
- * source. The independently generated theme map is held to the same freshness boundary.
+ * source. The independently generated theme map is held to the same freshness boundary AND to a
+ * completeness boundary: every census class must be present with its source root, or the runtime
+ * never requests that stylesheet (a fresh file on disk the map does not reach is unstyled).
  * @param {Object} [options]
  * @param {String} [options.repoRoot] Repository root to inspect.
- * @returns {{expectedCss: String[], invalidMap: String|null, missing: String[], newestScss: Number,
- *            ready: Boolean, stale: String[], symlinked: String[]}}
+ * @returns {{expectedCss: String[], invalidMap: String|null, mapMissing: String[], missing: String[],
+ *            newestScss: Number, ready: Boolean, stale: String[], symlinked: String[]}}
  */
 export function inspectDevelopmentThemeAssets({repoRoot = REPO_ROOT} = {}) {
     const
         cssRoot    = path.join(repoRoot, 'dist/development/css'),
         mapPath    = path.join(repoRoot, 'resources/theme-map.json'),
         newestScss = newestMtime(path.join(repoRoot, 'resources/scss'), '.scss'),
+        mapMissing = [],
         missing    = [],
         stale      = [],
         symlinked  = [];
 
     let expectedCss = getExpectedDevelopmentCss(repoRoot),
         invalidMap  = null,
-        mapStat;
+        mapStat,
+        themeMap;
 
     if (hasSymlinkSegment(repoRoot, mapPath)) {
         symlinked.push('resources/theme-map.json')
@@ -136,10 +205,11 @@ export function inspectDevelopmentThemeAssets({repoRoot = REPO_ROOT} = {}) {
             if (!mapStat.isFile()) {
                 missing.push('resources/theme-map.json')
             } else {
-                const themeMap = JSON.parse(fs.readFileSync(mapPath, 'utf8'));
+                themeMap = JSON.parse(fs.readFileSync(mapPath, 'utf8'));
 
                 if (!themeMap || typeof themeMap !== 'object' || Object.keys(themeMap).length === 0) {
-                    invalidMap = 'theme-map contains no class entries'
+                    invalidMap = 'theme-map contains no class entries';
+                    themeMap   = null
                 }
             }
         } catch (error) {
@@ -149,6 +219,14 @@ export function inspectDevelopmentThemeAssets({repoRoot = REPO_ROOT} = {}) {
                 invalidMap = error.message
             }
         }
+    }
+
+    if (themeMap) {
+        getExpectedThemeClasses(repoRoot).forEach(({className, root}) => {
+            if (!themeMapHasClass(themeMap, className, root)) {
+                mapMissing.push(`${className} (${root})`)
+            }
+        })
     }
 
     if (!hasSymlinkSegment(repoRoot, cssRoot)) {
@@ -188,9 +266,10 @@ export function inspectDevelopmentThemeAssets({repoRoot = REPO_ROOT} = {}) {
     return {
         expectedCss,
         invalidMap,
+        mapMissing,
         missing  : [...new Set(missing)].sort(),
         newestScss,
-        ready    : newestScss > 0 && !invalidMap && missing.length === 0 && stale.length === 0 && symlinked.length === 0,
+        ready    : newestScss > 0 && !invalidMap && mapMissing.length === 0 && missing.length === 0 && stale.length === 0 && symlinked.length === 0,
         stale    : [...new Set(stale)].sort(),
         symlinked: [...new Set(symlinked)].sort()
     }
@@ -262,6 +341,7 @@ export async function ensureDevelopmentThemeAssets({
     if (!state.ready) {
         const details = [
             state.invalidMap && `invalid map: ${state.invalidMap}`,
+            state.mapMissing.length > 0 && `map missing entries: ${state.mapMissing.join(', ')}`,
             state.missing.length > 0   && `missing: ${state.missing.join(', ')}`,
             state.stale.length > 0     && `stale: ${state.stale.join(', ')}`,
             state.symlinked.length > 0 && `symlinked: ${state.symlinked.join(', ')}`

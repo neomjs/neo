@@ -66,6 +66,67 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
         expect(builds).toBe(0)
     });
 
+    test('a fresh map missing one census root entry is incomplete and triggers exactly one build', async () => {
+        const root   = createRoot();
+        let   builds = 0;
+
+        seedScss(root, 1000);
+        materialize(root, 2000);
+        writeFile(root, 'resources/theme-map.json', 3000, JSON.stringify({
+            Neo: {Global: ['src']} // fresh, parseable, non-empty — but theme-neo-dark is not reachable
+        }));
+
+        const state = inspectDevelopmentThemeAssets({repoRoot: root});
+
+        expect(state.ready).toBe(false);
+        expect(state.invalidMap).toBe(null);
+        expect(state.mapMissing).toEqual(['Neo.Global (theme-neo-dark)']);
+
+        const result = await ensureDevelopmentThemeAssets({
+            repoRoot: root,
+            build   : async () => {
+                builds++;
+                materialize(root, 4000)
+            },
+            logger: {log() {}}
+        });
+
+        expect(result.built).toBe(true);
+        expect(result.state.ready).toBe(true);
+        expect(builds).toBe(1)
+    });
+
+    test('a fresh map missing a census class entirely is incomplete and triggers exactly one build', async () => {
+        const root   = createRoot();
+        let   builds = 0;
+
+        seedScss(root, 1000);
+        writeFile(root, 'resources/scss/src/button/Base.scss', 1000);
+        materialize(root, 2000);
+        writeFile(root, 'dist/development/css/src/button/Base.css', 2000);
+
+        const state = inspectDevelopmentThemeAssets({repoRoot: root});
+
+        expect(state.ready).toBe(false);
+        expect(state.mapMissing).toEqual(['Neo.button.Base (src)']);
+
+        const result = await ensureDevelopmentThemeAssets({
+            repoRoot: root,
+            build   : async () => {
+                builds++;
+                materialize(root, 4000);
+                writeFile(root, 'resources/theme-map.json', 4000, JSON.stringify({
+                    Neo: {Global: ['src', 'theme-neo-dark'], button: {Base: ['src']}}
+                }))
+            },
+            logger: {log() {}}
+        });
+
+        expect(result.built).toBe(true);
+        expect(result.state.ready).toBe(true);
+        expect(builds).toBe(1)
+    });
+
     test('the SCSS source tree, not additive retired theme-map entries, owns the CSS census', () => {
         const root = createRoot();
 
