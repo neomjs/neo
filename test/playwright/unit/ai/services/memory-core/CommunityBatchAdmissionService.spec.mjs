@@ -44,7 +44,14 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
         },
 
         ATTENTION_POLICY = {
-            responseBearingKinds     : ['issue.opened', 'issue.comment', 'pull.opened'],
+            responseBearingKinds     : [
+                'issue.opened',
+                'issue.comment',
+                'pull_request.opened',
+                'pull_request.comment',
+                'pull_request.review-submitted',
+                'pull_request.review-comment'
+            ],
             rosteredActorIds         : ['neo-opus-ada', 'neo-gpt'],
             recordedActorDispositions: {}
         },
@@ -198,15 +205,37 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
         expect(result.checkpoint.inventoryHash).toBe('inv-batch-1');
     });
 
-    test('the same batchId + same digest is an idempotent retry — no second receipt', () => {
-        const id    = activeSource(),
-              first = AdmissionService.admitBatch(batchAt(id));
+    test('an idempotent retry repairs legacy nullable projections without reminting receipt or sequence', () => {
+        const id            = activeSource(),
+              legacyPayload = observation('e1', {
+                  parentProviderEntityId: 'pull-42',
+                  providerState         : 'CHANGES_REQUESTED',
+                  sourceAssociation     : 'MEMBER'
+              }),
+              first  = AdmissionService.admitBatch(batchAt(id, {observations: [legacyPayload, observation('e2')]})),
+              before = AdmissionService.listObservations(id, {providerEntityId: 'e1'})[0];
 
-        const retry = AdmissionService.admitBatch(batchAt(id, {observations: [observation('e2'), observation('e1')]}));
+        AdmissionService.db.prepare(
+            `UPDATE mc_community_observation
+             SET parent_provider_entity_id = NULL, provider_state = NULL, source_association = NULL
+             WHERE observation_row_id = ?`
+        ).run(before.observationRowId);
+
+        const retry = AdmissionService.admitBatch(batchAt(id, {observations: [observation('e2'), legacyPayload]})),
+              after = AdmissionService.listObservations(id, {providerEntityId: 'e1'})[0];
 
         expect(retry.status).toBe('idempotent');
         expect(retry.receipt.receiptId).toBe(first.receipt.receiptId);
+        expect(after).toMatchObject({
+            observationRowId      : before.observationRowId,
+            receiptId             : before.receiptId,
+            admittedSequence      : before.admittedSequence,
+            parentProviderEntityId: 'pull-42',
+            providerState         : 'CHANGES_REQUESTED',
+            sourceAssociation     : 'MEMBER'
+        });
         expect(receiptCount()).toBe(1);
+        expect(AdmissionService.getCheckpoint(id, 'issues').checkpointVersion).toBe(1);
     });
 
     test('the same batchId + a DIFFERENT digest is an integrity conflict, never an overwrite', () => {
@@ -349,15 +378,34 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
     // ---------------------------------------------------------------- observation ledger (dedup / revision)
 
     test('overlapping observations across different batchIds dedup by identity + digest', () => {
-        const id = activeSource(),
-              r1 = AdmissionService.admitBatch(batchAt(id, {batchId: 'b1', observations: [observation('e1')]})).receipt;
+        const id      = activeSource(),
+              payload = observation('e1', {sourceAssociation: 'MEMBER'}),
+              r1      = AdmissionService.admitBatch(batchAt(id, {batchId: 'b1', observations: [payload]})).receipt,
+              before  = AdmissionService.listObservations(id, {providerEntityId: 'e1'})[0];
+
+        AdmissionService.db.prepare(
+            `UPDATE mc_community_observation SET source_association = NULL WHERE observation_row_id = ?`
+        ).run(before.observationRowId);
 
         // b2 carries the SAME observation (same identity + digest) plus a new one.
-        AdmissionService.admitBatch(chained(id, r1, {batchId: 'b2', observations: [observation('e1'), observation('e2')]}));
+        const replay = AdmissionService.admitBatch(chained(id, r1, {
+            batchId     : 'b2',
+            observations: [payload, observation('e2')]
+        }));
 
-        const rows = AdmissionService.listObservations(id);
+        const rows    = AdmissionService.listObservations(id),
+              deduped = rows.find(row => row.providerEntityId === 'e1');
+
+        expect(replay.status).toBe('accepted');
+        expect(replay.receipt.admittedSequence).toBe(2);
         expect(rows, 'e1 admitted once despite arriving in two batches').toHaveLength(2);
         expect(rows.filter(r => r.providerEntityId === 'e1')).toHaveLength(1);
+        expect(deduped).toMatchObject({
+            observationRowId : before.observationRowId,
+            receiptId        : before.receiptId,
+            admittedSequence : before.admittedSequence,
+            sourceAssociation: 'MEMBER'
+        })
     });
 
     test('the same occurrence identity with a different digest is an integrity conflict', () => {
@@ -388,6 +436,73 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
         expect(history[1].revisionOf).toBe('e1:create');
     });
 
+    test('provider-neutral parent, state, and association metadata survive the admission round trip', () => {
+        const id = activeSource();
+
+        const result = AdmissionService.admitBatch(batchAt(id, {observations: [observation('review-7', {
+            parentProviderEntityId: 'pull-42',
+            occurrenceKind        : 'pull.review.submitted',
+            providerState         : 'CHANGES_REQUESTED',
+            sourceAssociation     : 'MEMBER'
+        })]}));
+
+        expect(result.status).toBe('accepted');
+        expect(AdmissionService.listObservations(id)).toEqual([
+            expect.objectContaining({
+                providerEntityId      : 'review-7',
+                parentProviderEntityId: 'pull-42',
+                providerState         : 'CHANGES_REQUESTED',
+                sourceAssociation     : 'MEMBER'
+            })
+        ])
+    });
+
+    test('ensureSchema adds nullable observation metadata columns to an existing ledger', () => {
+        const Database  = AdmissionService.db.constructor,
+              legacyDb  = new Database(':memory:'),
+              currentDb = AdmissionService.db;
+
+        legacyDb.exec(`
+            CREATE TABLE mc_community_observation (
+                observation_row_id    TEXT    PRIMARY KEY,
+                tenant_id             TEXT    NOT NULL,
+                source_instance_id    TEXT    NOT NULL,
+                occurrence_identity   TEXT    NOT NULL,
+                occurrence_digest     TEXT    NOT NULL,
+                provider_entity_id    TEXT    NOT NULL,
+                occurrence_kind       TEXT    NOT NULL,
+                occurrence_coordinate TEXT    NOT NULL,
+                occurred_at           TEXT    NOT NULL,
+                actor_id              TEXT,
+                actor_kind            TEXT    NOT NULL,
+                revision_of           TEXT,
+                absence               TEXT,
+                deletion_evidence     TEXT,
+                attention_disposition TEXT    NOT NULL,
+                attention_reason      TEXT    NOT NULL,
+                receipt_id            TEXT    NOT NULL,
+                admitted_sequence     INTEGER NOT NULL,
+                admitted_at           INTEGER NOT NULL
+            )
+        `);
+
+        try {
+            AdmissionService.set({db: legacyDb});
+            AdmissionService.ensureSchema();
+            AdmissionService.ensureSchema();
+
+            const columns = new Set(legacyDb.prepare(`PRAGMA table_info(mc_community_observation)`).all()
+                .map(column => column.name));
+
+            expect(columns.has('parent_provider_entity_id')).toBe(true);
+            expect(columns.has('provider_state')).toBe(true);
+            expect(columns.has('source_association')).toBe(true)
+        } finally {
+            AdmissionService.set({db: currentDb});
+            legacyDb.close()
+        }
+    });
+
     // ---------------------------------------------------------------- attention (§2.1)
 
     test('an external response-bearing occurrence is attention-eligible', () => {
@@ -398,6 +513,46 @@ test.describe('Neo.ai.services.memory-core.CommunityBatchAdmissionService', () =
         const [row] = AdmissionService.listObservations(id);
         expect(row.attentionDisposition).toBe('eligible');
         expect(row.attentionReason).toBe('external-response-bearing');
+    });
+
+    test('PR/review output inherits response-bearing eligibility without promoting state context', () => {
+        const id = activeSource();
+
+        const occurrences = [
+            observation('pull-1', {occurrenceKind: 'pull_request.opened'}),
+            observation('comment-1', {occurrenceKind: 'pull_request.comment'}),
+            observation('review-1', {occurrenceKind: 'pull_request.review-submitted'}),
+            observation('inline-1', {occurrenceKind: 'pull_request.review-comment'}),
+            observation('close-1', {occurrenceKind: 'pull_request.closed'}),
+            observation('internal-review-1', {
+                actorId       : 'neo-gpt',
+                occurrenceKind: 'pull_request.review-submitted'
+            })
+        ];
+
+        expect(AdmissionService.admitBatch(batchAt(id, {
+            resourceFamily: 'pulls',
+            observations  : occurrences
+        })).status).toBe('accepted');
+
+        const rows = new Map(AdmissionService.listObservations(id)
+            .map(row => [row.providerEntityId, row]));
+
+        ['pull-1', 'comment-1', 'review-1', 'inline-1'].forEach(providerEntityId => {
+            expect(rows.get(providerEntityId)).toMatchObject({
+                attentionDisposition: 'eligible',
+                attentionReason     : 'external-response-bearing'
+            })
+        });
+
+        expect(rows.get('close-1')).toMatchObject({
+            attentionDisposition: 'ineligible',
+            attentionReason     : 'not-response-bearing'
+        });
+        expect(rows.get('internal-review-1')).toMatchObject({
+            attentionDisposition: 'ineligible',
+            attentionReason     : 'rostered-actor'
+        })
     });
 
     test('a bot is not attention-eligible in v1', () => {

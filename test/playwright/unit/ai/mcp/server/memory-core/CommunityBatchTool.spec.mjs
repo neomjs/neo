@@ -36,11 +36,14 @@ test.describe('Memory Core hosted community tools (#15156)', () => {
             baseInventoryHash         : null,
             batchId                   : 'batch-1',
             observations              : [{
-                providerEntityId    : '1',
-                occurrenceKind      : 'issue.opened',
-                occurrenceCoordinate: '1:create',
-                occurredAt          : '2026-07-18T10:00:00Z',
-                actorKind           : 'user'
+                providerEntityId      : 'review-1',
+                parentProviderEntityId: 'pull-1',
+                occurrenceKind        : 'pull.review.submitted',
+                occurrenceCoordinate  : 'review-1:create',
+                occurredAt            : '2026-07-18T10:00:00Z',
+                actorKind             : 'user',
+                providerState         : 'APPROVED',
+                sourceAssociation     : 'MEMBER'
             }],
             nextProviderState: {cursor: 'p2'},
             nextInventoryHash: 'inv-1',

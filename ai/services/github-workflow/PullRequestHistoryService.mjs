@@ -314,7 +314,10 @@ function appendGraphqlChildren(target, ids, nodes, kind) {
  * @param {Object} options
  * @returns {Promise<Object>}
  */
-async function exhaustGraphqlConversation({pullRequest, query, owner, repo}) {
+export async function exhaustGraphqlConversation({
+    pullRequest, query, owner, repo,
+    childrenQuery = FETCH_PULL_REQUEST_HISTORY_CHILDREN
+}) {
     const comments       = [],
           reviews        = [],
           commentIds     = new Set(),
@@ -341,7 +344,7 @@ async function exhaustGraphqlConversation({pullRequest, query, owner, repo}) {
             throw new Error(`PullRequestHistoryService: PR #${pullRequest.number} child pagination has no progress cursor`)
         }
 
-        const data = await query(FETCH_PULL_REQUEST_HISTORY_CHILDREN, {
+        const data = await query(childrenQuery, {
                   owner,
                   repo,
                   prNumber  : pullRequest.number,
@@ -403,7 +406,30 @@ async function exhaustGraphqlConversation({pullRequest, query, owner, repo}) {
  * @param {Object} options
  * @returns {Promise<{reviewComments: Object[], pageQueries: Number}>}
  */
-async function readReviewCommentPass({pullRequest, rest, owner, repo}) {
+function projectReviewComment(comment, includeActorMetadata) {
+    return {
+        id      : String(comment.id),
+        reviewId: comment.pull_request_review_id == null ? null : String(comment.pull_request_review_id),
+        ...(includeActorMetadata ? {nodeId: comment.node_id ?? null} : {}),
+        author  : {
+            login: comment.user?.login || null,
+            ...(includeActorMetadata ? {__typename: comment.user?.type || null} : {})
+        },
+        ...(includeActorMetadata ? {authorAssociation: comment.author_association ?? null} : {}),
+        body       : comment.body || '',
+        createdAt  : comment.created_at,
+        updatedAt  : comment.updated_at,
+        url        : comment.html_url,
+        inReplyToId: comment.in_reply_to_id == null ? null : String(comment.in_reply_to_id)
+    }
+}
+
+/**
+ * @summary Reads one complete, explicitly ordered pass of one PR's inline review comments.
+ * @param {Object} options
+ * @returns {Promise<{reviewComments: Object[], pageQueries: Number}>}
+ */
+async function readReviewCommentPass({pullRequest, rest, owner, repo, includeActorMetadata}) {
     const reviewComments = [],
           ids            = new Set();
     let page = 1;
@@ -428,16 +454,7 @@ async function readReviewCommentPass({pullRequest, rest, owner, repo}) {
             }
 
             ids.add(comment.id);
-            reviewComments.push({
-                id         : String(comment.id),
-                reviewId   : comment.pull_request_review_id == null ? null : String(comment.pull_request_review_id),
-                author     : {login: comment.user?.login || null},
-                body       : comment.body || '',
-                createdAt  : comment.created_at,
-                updatedAt  : comment.updated_at,
-                url        : comment.html_url,
-                inReplyToId: comment.in_reply_to_id == null ? null : String(comment.in_reply_to_id)
-            })
+            reviewComments.push(projectReviewComment(comment, includeActorMetadata))
         }
 
         if (raw.length < REST_PAGE_SIZE) break;
@@ -453,11 +470,16 @@ async function readReviewCommentPass({pullRequest, rest, owner, repo}) {
  * A PR `updatedAt` value is not a mechanical snapshot token for this distinct REST collection. Two complete,
  * ordered passes must therefore agree byte-for-byte before the service can claim child exhaustion.
  * @param {Object} options
+ * @param {Boolean} [options.includeActorMetadata=false] Opt-in provider identity metadata for
+ * reconciliation without changing the resolved-history projection or its revision digest.
  * @returns {Promise<{reviewComments: Object[], evidence: Object}>}
  */
-async function exhaustReviewComments({pullRequest, rest, owner, repo}) {
-    const first        = await readReviewCommentPass({pullRequest, rest, owner, repo}),
-          verification = await readReviewCommentPass({pullRequest, rest, owner, repo});
+export async function exhaustReviewComments({
+    pullRequest, rest, owner, repo, includeActorMetadata = false
+}) {
+    const options      = {pullRequest, rest, owner, repo, includeActorMetadata},
+          first        = await readReviewCommentPass(options),
+          verification = await readReviewCommentPass(options);
 
     if (JSON.stringify(first.reviewComments) !== JSON.stringify(verification.reviewComments)) {
         throw new Error(`PullRequestHistoryService: PR #${pullRequest.number} review comments mutated during verification`)
@@ -467,6 +489,119 @@ async function exhaustReviewComments({pullRequest, rest, owner, repo}) {
         reviewComments: first.reviewComments,
         evidence      : {
             fetched         : first.reviewComments.length,
+            exhausted       : true,
+            pageQueries     : first.pageQueries + verification.pageQueries,
+            snapshotVerified: true,
+            validationPasses: 2
+        }
+    }
+}
+
+/**
+ * @summary Reads one repository-wide pass of inline review comments. GitHub's repository endpoint
+ * avoids a guaranteed two-REST-requests-per-PR floor while retaining stable ordering, duplicate-id
+ * rejection, and the PR-number correlation needed to restore independent child families.
+ * @param {Object} options
+ * @returns {Promise<{entries: Object[], pageQueries: Number}>}
+ */
+async function readRepositoryReviewCommentPass({rest, owner, repo, includeActorMetadata}) {
+    const entries = [],
+          ids     = new Set();
+
+    let page = 1;
+
+    for (;;) {
+        const raw = await rest(
+            'GET',
+            `/repos/${owner}/${repo}/pulls/comments` +
+            `?per_page=${REST_PAGE_SIZE}&page=${page}&sort=created&direction=asc`
+        );
+
+        if (!Array.isArray(raw)) {
+            throw new Error('PullRequestHistoryService: repository review-comment page is not an array')
+        }
+
+        for (const comment of raw) {
+            const match = typeof comment?.pull_request_url === 'string'
+                ? comment.pull_request_url.match(/\/pulls\/(\d+)$/)
+                : null;
+
+            if (!Number.isInteger(comment?.id) || !match) {
+                throw new Error('PullRequestHistoryService: repository review comment is missing its stable id or PR correlation')
+            }
+            if (ids.has(comment.id)) {
+                throw new Error(`PullRequestHistoryService: duplicate review-comment id ${comment.id}`)
+            }
+
+            ids.add(comment.id);
+            entries.push({
+                pullRequestNumber: Number(match[1]),
+                comment          : projectReviewComment(comment, includeActorMetadata)
+            })
+        }
+
+        if (raw.length < REST_PAGE_SIZE) break;
+        page++
+    }
+
+    return {entries, pageQueries: page}
+}
+
+/**
+ * @summary Exhausts and independently revalidates the repository-wide inline review-comment
+ * collection, then groups the verified snapshot by PR number. This is the reconciliation path:
+ * its request count scales with comment pages, not repository PR count.
+ * @param {Object} options
+ * @param {Boolean} [options.includeActorMetadata=false]
+ * @returns {Promise<{reviewCommentsByPullRequestNumber: Map<Number,Object[]>, failuresByPullRequestNumber: Map<Number,String>, evidence: Object}>}
+ */
+export async function exhaustRepositoryReviewComments({
+    rest, owner, repo, includeActorMetadata = false
+}) {
+    const options      = {rest, owner, repo, includeActorMetadata},
+          first        = await readRepositoryReviewCommentPass(options),
+          verification = await readRepositoryReviewCommentPass(options);
+
+    const group = entries => {
+              const groups = new Map();
+
+              for (const {pullRequestNumber, comment} of entries) {
+                  if (!groups.has(pullRequestNumber)) {
+                      groups.set(pullRequestNumber, [])
+                  }
+
+                  groups.get(pullRequestNumber).push(comment)
+              }
+
+              return groups
+          },
+          firstGroups                       = group(first.entries),
+          verificationGroups                = group(verification.entries),
+          reviewCommentsByPullRequestNumber = new Map(),
+          failuresByPullRequestNumber       = new Map(),
+          pullRequestNumbers                = new Set([
+              ...firstGroups.keys(), ...verificationGroups.keys()
+          ]);
+
+    for (const pullRequestNumber of pullRequestNumbers) {
+        const firstComments        = firstGroups.get(pullRequestNumber) ?? [],
+              verificationComments = verificationGroups.get(pullRequestNumber) ?? [];
+
+        if (JSON.stringify(firstComments) !== JSON.stringify(verificationComments)) {
+            failuresByPullRequestNumber.set(
+                pullRequestNumber,
+                `PullRequestHistoryService: PR #${pullRequestNumber} repository review comments mutated during verification`
+            )
+        } else {
+            reviewCommentsByPullRequestNumber.set(pullRequestNumber, firstComments)
+        }
+    }
+
+    return {
+        reviewCommentsByPullRequestNumber,
+        failuresByPullRequestNumber,
+        evidence: {
+            fetched         : first.entries.length,
             exhausted       : true,
             pageQueries     : first.pageQueries + verification.pageQueries,
             snapshotVerified: true,
