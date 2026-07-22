@@ -19,6 +19,22 @@ export function resolveFleetWindowId({fallbackWindowId, apps = Neo.apps, windows
     return live?.id ?? (apps?.[fallbackWindowId] ? fallbackWindowId : null)
 }
 
+/**
+ * @summary Resolves the AgentOS Fleet transport from the authoritative serialized worker URL.
+ *
+ * Both initial worker creation and late `startWorker()` registration already carry the absolute
+ * main-thread `location.href`. Deriving the scheme from that value keeps one URL authority instead
+ * of adding a second `protocol` field that can drift between producer paths. A missing or malformed
+ * `href` throws before bridge installation, preserving the fail-closed transport boundary.
+ *
+ * @param {Object} urlConfig
+ * @param {String} urlConfig.href Absolute main-thread URL serialized into `Neo.config.url`.
+ * @returns {'shell'|'browser'}
+ */
+export function resolveFleetTransportMode({href}) {
+    return new URL(href).protocol === 'app:' ? 'shell' : 'browser'
+}
+
 export const onStart = () => {
     const
         fallbackWindowId = Neo.bootingWindowId,
@@ -34,7 +50,7 @@ export const onStart = () => {
     // Without the bearer the bridge installs fail-closed: every call rejects locally, named.
     const bearerToken = globalThis.AgentOS?.fleet?.bearerToken ?? null;
 
-    if (Neo.config.url.protocol === 'app:') {
+    if (resolveFleetTransportMode(Neo.config.url) === 'shell') {
         const route = () => resolveFleetWindowId({fallbackWindowId});
 
         installFleetBridge({
