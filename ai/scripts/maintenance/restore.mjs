@@ -307,18 +307,22 @@ export async function runRestore({
 }
 
 /**
- * Validates the bundle directory layout and JSONL parseability without writing any state.
+ * Validates the bundle directory layout and every JSONL row without writing any state.
  *
  * Required subdirs (`kb`, `mc`, `graph`, `concepts`, `trajectories`) MUST exist; missing
  * any one fails the bundle. Optional subdirs (`mailbox`) are tolerated
- * absent. JSONL files in any subdir are sample-parsed (first non-empty line) — full-file
- * parsing is the SDK's responsibility downstream. `bundle-meta.json` is parsed if present;
- * absence triggers a console warning but does not fail (legacy bundles).
+ * absent. Every JSONL file is fully streamed: each line is parsed, and each vector-collection
+ * (kb/mc) row must carry a non-empty string `id` plus a valid expected-dimension vector —
+ * a corrupt final row fails the bundle exactly like a corrupt first one. Streamed per-collection
+ * row totals are compared against the declared `bundle-meta.json` counts below.
+ * `bundle-meta.json` is parsed if present; absence triggers a console warning but does not
+ * fail (legacy bundles).
  *
  * @param {String} bundleRoot
  * @param {Object} layout
  * @param {Object} logger
- * @returns {Promise<Object|null>} Parsed `bundle-meta.json` content, or `null` for legacy bundles.
+ * @returns {Promise<Object|null>} Parsed `bundle-meta.json` content (with any embedding advisories
+ *     attached as `embeddingAdvisories`), or `null` for legacy bundles.
  */
 export async function validateBundle(bundleRoot, layout, logger = console, expectedDimension = AiConfig.vectorDimension) {
     if (!await fs.pathExists(bundleRoot)) {
@@ -345,10 +349,13 @@ export async function validateBundle(bundleRoot, layout, logger = console, expec
     }
 
     // Full streaming structural + vector validation: every row of every JSONL is parsed, and every
-    // vector collection (kb/mc) row must carry a valid expected-dimension vector BEFORE any mutation.
-    // Line-1 sampling cannot satisfy the gate — a corrupt final row is the exact shape this closes.
-    const readline   = (await import('readline')).default;
-    const allSubdirs = [...REQUIRED_BUNDLE_SUBDIRS, ...OPTIONAL_BUNDLE_SUBDIRS];
+    // vector collection (kb/mc) row must carry a non-empty string id plus a valid
+    // expected-dimension vector BEFORE any mutation. Line-1 sampling cannot satisfy the gate — a
+    // corrupt final row is the exact shape this closes. Streamed kb/mc totals feed the declared
+    // count check below.
+    const readline       = (await import('readline')).default;
+    const allSubdirs     = [...REQUIRED_BUNDLE_SUBDIRS, ...OPTIONAL_BUNDLE_SUBDIRS];
+    const streamedCounts = {kb: 0, mc: 0};
     for (const subdir of allSubdirs) {
         const dir = layout[subdir];
         if (!await fs.pathExists(dir)) continue;
@@ -370,6 +377,12 @@ export async function validateBundle(bundleRoot, layout, logger = console, expec
                 }
 
                 if (subdir === 'kb' || subdir === 'mc') {
+                    streamedCounts[subdir]++;
+
+                    if (typeof row?.id !== 'string' || row.id.length === 0) {
+                        throw new Error(`Bundle vector invariant violation at ${subdir}/${file} (line ${lineNo}): missing-id`);
+                    }
+
                     const reason = classifyRowVector(row, expectedDimension);
                     if (reason) {
                         throw new Error(`Bundle vector invariant violation at ${subdir}/${file} (line ${lineNo}): ${reason} (row id: ${row?.id ?? 'unknown'})`);
@@ -394,52 +407,118 @@ export async function validateBundle(bundleRoot, layout, logger = console, expec
         logger.warn?.('[Restore] bundle-meta.json absent; topology compatibility check will be skipped (legacy bundle).');
     }
 
-    // Embedding compatibility preflight: the declared contract (or the legacy fallback) must match
-    // the destination's expected embedding space BEFORE any replace-mode truncate. Provider
-    // readiness is never consulted — admission is evidence, not authority.
-    assertEmbeddingCompatibility({bundleRoot, expectedDimension, logger, meta});
+    // Embedding compatibility preflight BEFORE any replace-mode truncate. Hard gates bind only to
+    // evidence the bundle itself proves (schema shape, declared-vs-streamed counts, declared-vs-
+    // expected dimension, per-row vectors). Provider/model identity is advisory: no write-time
+    // vector provenance exists in the substrate, and admission never contacts a provider.
+    validateEmbeddingContractSchema({expectedDimension, meta, streamedCounts});
+    assessEmbeddingCompatibility({expectedDimension, logger, meta});
 
     return meta
 }
 
 /**
- * Compares the bundle's declared embedding contract with the destination's expected embedding
- * space and fails closed with a structured incompatibility receipt BEFORE any mutation. A legacy
- * bundle (no `embedding` key in its meta) is validated against the destination's expected
- * dimension only — the fallback is explicit, never fabricated. The destination fingerprint comes
- * from the active config (never a live provider call).
+ * Validates the declared `meta.embedding` block against schema-v1 and against the bundle's own
+ * streamed evidence. All checks here are hard gates: they compare the declaration with facts the
+ * bundle carries (row totals, row dimension), never with an assumption about vector provenance.
  * @param {Object} options
- * @param {String} options.bundleRoot
- * @param {Number} options.expectedDimension
- * @param {Object} [options.logger]
+ * @param {Number} options.expectedDimension Destination's expected vector dimension.
  * @param {Object|null} options.meta Parsed bundle-meta.json.
+ * @param {Object} options.streamedCounts `{kb, mc}` row totals observed during the streaming pass.
  * @returns {void}
- * @throws {Error} structured incompatibility receipt: collection, declared vs expected fingerprint.
+ * @throws {Error} classified contract violation: `invalid-embedding-schema`,
+ *     `unsupported-schema-version`, `dimension-contract-mismatch`, or `count-contract-mismatch`.
  */
-export function assertEmbeddingCompatibility({bundleRoot, expectedDimension, logger = console, meta}) {
-    const
-        provider = AiConfig.embeddingProvider,
-        model    = provider === 'ollama'
-            ? AiConfig.ollama.embeddingModel
-            : AiConfig.openAiCompatible.embeddingModel,
-        expectedFingerprint = `${provider}:${model}:${expectedDimension}`;
+export function validateEmbeddingContractSchema({expectedDimension, meta, streamedCounts}) {
+    const declared = meta?.embedding;
+
+    if (!declared) {
+        return // legacy bundle — the advisory path classifies the unknown provenance
+    }
+
+    const fail = (reason, detail) => {
+        throw new Error(`Bundle embedding contract violation: ${reason} (${detail})`)
+    };
+
+    if (declared.schemaVersion !== 1) {
+        fail('unsupported-schema-version', `expected 1, got ${JSON.stringify(declared.schemaVersion)}`);
+    }
+    if (!Number.isInteger(declared.dimension) || declared.dimension <= 0) {
+        fail('invalid-embedding-schema', `dimension must be a positive integer, got ${JSON.stringify(declared.dimension)}`);
+    }
+    if (declared.dimension !== expectedDimension) {
+        fail('dimension-contract-mismatch', `bundle declares dimension ${declared.dimension}, destination expects ${expectedDimension}`);
+    }
 
     for (const collection of ['kb', 'mc']) {
-        const declared = meta?.embedding?.[collection];
+        const block = declared[collection];
 
-        if (!declared) {
-            logger.warn?.(`[Restore] ${collection}: no declared embedding contract (legacy bundle) — validating against the live expected dimension only.`);
-            continue
+        if (!block || typeof block !== 'object') {
+            fail('invalid-embedding-schema', `missing per-collection block '${collection}'`);
         }
-
-        if (declared.fingerprint !== expectedFingerprint) {
-            throw new Error(
-                `Embedding-space incompatibility at ${collection}: bundle declares ` +
-                `'${declared.fingerprint}' but the destination expects '${expectedFingerprint}'. ` +
-                `Re-embedding is an orchestrator-selected action, never implicit — resolve the space difference deliberately before restoring.`
-            )
+        if (block.count !== null && (!Number.isInteger(block.count) || block.count < 0)) {
+            fail('invalid-embedding-schema', `${collection}.count must be null or a non-negative integer, got ${JSON.stringify(block.count)}`);
+        }
+        if (block.count !== null && block.count !== streamedCounts[collection]) {
+            fail('count-contract-mismatch', `${collection} declares ${block.count} row(s) but the bundle streams ${streamedCounts[collection]}`);
         }
     }
+
+    if (declared.expectedConsumer !== undefined) {
+        const {model, provider} = declared.expectedConsumer ?? {};
+
+        if (typeof provider !== 'string' || provider.length === 0 || typeof model !== 'string' || model.length === 0) {
+            fail('invalid-embedding-schema', 'expectedConsumer requires non-empty provider and model strings');
+        }
+    }
+}
+
+/**
+ * Classifies the bundle's semantic-space provenance as structured advisories — never as a hard
+ * gate. A config snapshot (backup-time or destination-time) is NOT write-time vector provenance:
+ * no persisted record of which provider/model embedded the stored rows exists in the substrate.
+ * The only row-verifiable semantic fact — vector dimension — is enforced upstream as a hard gate;
+ * provider/model divergence is classified here for the restore orchestrator's recovery receipt,
+ * which owns any re-embed/reconfigure decision. Admission never contacts a provider and never
+ * re-embeds. Advisories are attached to `meta.embeddingAdvisories` AND logged.
+ * @param {Object} options
+ * @param {Number} options.expectedDimension Destination's expected vector dimension.
+ * @param {Object} [options.logger]
+ * @param {Object|null} options.meta Parsed bundle-meta.json.
+ * @returns {Object[]} The advisory list (empty when the bundle carries no embedding block to classify).
+ */
+export function assessEmbeddingCompatibility({expectedDimension, logger = console, meta}) {
+    const declared = meta?.embedding;
+
+    if (!declared) {
+        logger.warn?.(`[Restore][embedding-advisory] reason=semantic-provenance-unverified — no declared embedding contract (legacy bundle); validating rows against the destination's expected dimension ${expectedDimension} only.`);
+        return []
+    }
+
+    const
+        advisories = [],
+        consumer   = declared.expectedConsumer,
+        provider   = AiConfig.embeddingProvider,
+        model      = provider === 'ollama'
+            ? AiConfig.ollama.embeddingModel
+            : AiConfig.openAiCompatible.embeddingModel;
+
+    if (!consumer) {
+        advisories.push({reason: 'semantic-provenance-unverified', detail: 'embedding block declares no expectedConsumer'});
+    } else if (consumer.provider !== provider || consumer.model !== model) {
+        advisories.push({
+            reason     : 'consumer-expectation-mismatch',
+            bundle     : {model: consumer.model, provider: consumer.provider},
+            destination: {model, provider}
+        });
+    }
+
+    for (const advisory of advisories) {
+        logger.warn?.(`[Restore][embedding-advisory] reason=${advisory.reason} ${JSON.stringify(advisory)} — semantic-space classification is orchestrator-owned; restore admission proceeds on row-verifiable evidence only.`);
+    }
+
+    meta.embeddingAdvisories = advisories;
+    return advisories
 }
 
 /**

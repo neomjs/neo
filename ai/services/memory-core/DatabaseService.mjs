@@ -7,6 +7,7 @@ import Base                                                       from '../../..
 import StorageRouter                                              from './managers/StorageRouter.mjs';
 import DestructiveOperationGuard                                  from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
 import {partitionRowsByVectorValidity, summarizeVectorRejections} from './helpers/vectorWriteInvariant.mjs';
+import {validateJsonlSourceFile}                                  from './helpers/vectorJsonlSourceValidation.mjs';
 
 /**
  * @summary Service for exporting and importing memory core data.
@@ -496,6 +497,19 @@ class DatabaseService extends Base {
             let preservedDeliveryState = [];
 
             if (mode === 'replace') {
+                // Prove the FULL source before any destructive operation: every row of every file
+                // must parse, and every Chroma-bound row must carry a non-empty id plus a valid
+                // same-dimension vector (graph backups are parse-checked only — their rows are
+                // nodes/edges, not vectors). Without this pass, a corrupt final row would truncate
+                // a subsystem and only then be discovered by the per-batch write gate below.
+                for (const filePath of filesToImport) {
+                    await validateJsonlSourceFile({
+                        filePath,
+                        expectedDimension: aiConfig.vectorDimension,
+                        vectorRows       : !path.basename(filePath).startsWith('graph-backup')
+                    });
+                }
+
                 // Truncate ONLY the subsystems that this import will restore — selected
                 // by the same filename heuristic the per-file dispatch loop uses below.
                 // Truncating subsystems that aren't being restored would be destructive

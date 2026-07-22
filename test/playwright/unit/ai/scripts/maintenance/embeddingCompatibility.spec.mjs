@@ -17,11 +17,12 @@ import * as core                from '../../../../../../src/core/_export.mjs';
 import fs                       from 'node:fs';
 import os                       from 'node:os';
 import path                     from 'node:path';
-import AiConfig                 from '../../../../../../ai/config.mjs';
+import AiConfig                 from '../../../../../../ai/config.template.mjs';
 import {buildEmbeddingContract} from '../../../../../../ai/scripts/maintenance/backup.mjs';
 import {
-    assertEmbeddingCompatibility,
-    validateBundle
+    assessEmbeddingCompatibility,
+    validateBundle,
+    validateEmbeddingContractSchema
 } from '../../../../../../ai/scripts/maintenance/restore.mjs';
 
 const
@@ -56,54 +57,50 @@ function buildBundle({subdirs = ['kb', 'mc', 'graph', 'concepts', 'trajectories'
     return {bundleRoot, layout}
 }
 
-function liveMeta(fingerprint) {
-    return {
-        bundleVersion: 1,
-        embedding    : {
-            kb: {count: 1, dimension: DIM, fingerprint, model: 'm', provider: 'p', schemaVersion: 1},
-            mc: {count: 1, dimension: DIM, fingerprint, model: 'm', provider: 'p', schemaVersion: 1}
-        }
-    }
-}
-
-const expectedFingerprint = () => {
+const liveConsumer = () => {
     const provider = AiConfig.embeddingProvider;
-    const model    = provider === 'ollama' ? AiConfig.ollama.embeddingModel : AiConfig.openAiCompatible.embeddingModel;
 
-    return `${provider}:${model}:${DIM}`
+    return {
+        model: provider === 'ollama' ? AiConfig.ollama.embeddingModel : AiConfig.openAiCompatible.embeddingModel,
+        provider
+    }
 };
+
+function liveMeta({consumer = liveConsumer(), dimension = DIM, kbCount = 1, mcCount = 1, schemaVersion = 1} = {}) {
+    const embedding = {
+        dimension,
+        kb: {count: kbCount},
+        mc: {count: mcCount},
+        schemaVersion
+    };
+
+    if (consumer) embedding.expectedConsumer = consumer;
+
+    return {bundleVersion: 1, embedding}
+}
 
 test.describe('embedding compatibility contract (#15691)', () => {
     test.afterAll(() => {
         fs.rmSync(TMP_ROOT, {force: true, recursive: true})
     });
 
-    test('the backup declares a versioned per-collection embedding contract with counts and fingerprint', () => {
+    test('the backup stamps write-time facts (dimension, counts) plus an advisory consumer expectation — never vector provenance', () => {
         const contract = buildEmbeddingContract({subsystems: {kb: 12000, mc: 450}});
 
-        for (const collection of ['kb', 'mc']) {
-            expect(contract[collection].schemaVersion).toBe(1);
-            expect(contract[collection].dimension).toBe(DIM);
-            expect(contract[collection].provider).toBe(AiConfig.embeddingProvider);
-            expect(typeof contract[collection].model).toBe('string');
-            expect(contract[collection].fingerprint).toBe(expectedFingerprint());
-        }
-        expect(contract.kb.count).toBe(12000);
-        expect(contract.mc.count).toBe(450);
+        expect(contract.schemaVersion).toBe(1);
+        expect(contract.dimension).toBe(AiConfig.vectorDimension);
+        expect(contract.expectedConsumer.provider).toBe(AiConfig.embeddingProvider);
+        expect(typeof contract.expectedConsumer.model).toBe('string');
+        expect(contract.kb).toEqual({count: 12000});
+        expect(contract.mc).toEqual({count: 450});
+        // No fingerprint, no producer claim: a config snapshot is not write-time vector provenance.
+        expect('fingerprint' in contract).toBe(false);
+        expect('fingerprint' in contract.kb).toBe(false);
     });
 
     test('a corrupt FINAL row cannot slip past the line-1 sample era — full streaming catches it', async () => {
-        const {bundleRoot, layout} = buildBundle({
-            kbRows: [
-                {embedding: vector(), id: 'kb-1', metadata: {}},
-                {embedding: vector(), id: 'kb-2', metadata: {}},
-                {embedding: vector(), id: 'kb-final-corrupt', metadata: {}, note: 'not-an-array'}
-            ],
-            meta: liveMeta(expectedFingerprint())
-        });
+        const {bundleRoot, layout} = buildBundle({kbRows: []});
 
-        // The final row's embedding is deliberately not an array — but JSON.parse still needs a valid
-        // vector, so place it as a string field that classifyRowVector rejects.
         fs.writeFileSync(path.join(layout.kb, 'kb.jsonl'), [
             JSON.stringify({embedding: vector(), id: 'kb-1', metadata: {}}),
             JSON.stringify({embedding: vector(), id: 'kb-2', metadata: {}}),
@@ -115,35 +112,76 @@ test.describe('embedding compatibility contract (#15691)', () => {
 
     test('wrong-dimension and non-finite vectors fail with the row id and reason', async () => {
         const {bundleRoot, layout} = buildBundle({
-            kbRows: [{embedding: [0.1, 0.2], id: 'kb-wrong-dim', metadata: {}}],
-            meta  : liveMeta(expectedFingerprint())
+            kbRows: [{embedding: [0.1, 0.2], id: 'kb-wrong-dim', metadata: {}}]
         });
 
         await expect(validateBundle(bundleRoot, layout, SILENT, DIM)).rejects.toThrow(/wrong-dimension.*kb-wrong-dim/);
 
         const second = buildBundle({
-            kbRows: [{embedding: [...vector(), NaN], id: 'kb-nonfinite', metadata: {}}],
-            meta  : liveMeta(expectedFingerprint())
+            kbRows: [{embedding: [...vector(), NaN], id: 'kb-nonfinite', metadata: {}}]
         });
 
         await expect(validateBundle(second.bundleRoot, second.layout, SILENT, DIM)).rejects.toThrow(/non-finite|wrong-dimension/)
     });
 
-    test('a fingerprint mismatch fails BEFORE any mutation with the declared vs expected receipt', () => {
-        expect(() => assertEmbeddingCompatibility({
-            bundleRoot       : '/x',
-            expectedDimension: DIM,
-            logger           : SILENT,
-            meta             : liveMeta('other-provider:other-model:768')
-        })).toThrow(/Embedding-space incompatibility at kb: bundle declares 'other-provider:other-model:768' but the destination expects/)
+    test('a vector row without a non-empty string id fails as missing-id', async () => {
+        const {bundleRoot, layout} = buildBundle({
+            kbRows: [{embedding: vector(), metadata: {}}]
+        });
+
+        await expect(validateBundle(bundleRoot, layout, SILENT, DIM)).rejects.toThrow(/missing-id/)
     });
 
-    test('a compatible bundle passes admission with zero embedding-provider contact', async () => {
-        const {bundleRoot, layout} = buildBundle({meta: liveMeta(expectedFingerprint())});
+    test('the declared schema, dimension, and counts are hard gates bound to the bundle\'s own evidence', async () => {
+        // Unsupported schema version
+        let bundle = buildBundle({meta: liveMeta({schemaVersion: 2})});
+        await expect(validateBundle(bundle.bundleRoot, bundle.layout, SILENT, DIM)).rejects.toThrow(/unsupported-schema-version/);
+
+        // Declared dimension contradicts the destination's expectation
+        bundle = buildBundle({meta: liveMeta({dimension: 768})});
+        await expect(validateBundle(bundle.bundleRoot, bundle.layout, SILENT, DIM)).rejects.toThrow(/dimension-contract-mismatch/);
+
+        // Declared count contradicts the streamed row total
+        bundle = buildBundle({meta: liveMeta({kbCount: 5})});
+        await expect(validateBundle(bundle.bundleRoot, bundle.layout, SILENT, DIM)).rejects.toThrow(/count-contract-mismatch.*declares 5.*streams 1/);
+
+        // Malformed per-collection block
+        bundle = buildBundle({meta: liveMeta({kbCount: -1})});
+        await expect(validateBundle(bundle.bundleRoot, bundle.layout, SILENT, DIM)).rejects.toThrow(/invalid-embedding-schema/);
+    });
+
+    test('a consumer-expectation mismatch is an advisory classification, never a hard refusal', async () => {
+        const {bundleRoot, layout} = buildBundle({
+            meta: liveMeta({consumer: {model: 'other-model', provider: 'other-provider'}})
+        });
+        const warnings = [];
+
+        const meta = await validateBundle(bundleRoot, layout, {log: () => {}, warn: message => warnings.push(message)}, DIM);
+
+        expect(meta.embeddingAdvisories).toHaveLength(1);
+        expect(meta.embeddingAdvisories[0].reason).toBe('consumer-expectation-mismatch');
+        expect(meta.embeddingAdvisories[0].bundle).toEqual({model: 'other-model', provider: 'other-provider'});
+        expect(warnings.some(message => message.includes('consumer-expectation-mismatch'))).toBe(true);
+    });
+
+    test('an embedding block without expectedConsumer classifies provenance as unverified, not as a failure', () => {
+        const meta       = liveMeta({consumer: null});
+        const advisories = assessEmbeddingCompatibility({
+            expectedDimension: DIM,
+            logger           : SILENT,
+            meta
+        });
+
+        expect(advisories).toHaveLength(1);
+        expect(advisories[0].reason).toBe('semantic-provenance-unverified');
+    });
+
+    test('a compatible bundle passes admission with zero embedding-provider contact and no advisories', async () => {
+        const {bundleRoot, layout} = buildBundle({meta: liveMeta()});
         const meta                 = await validateBundle(bundleRoot, layout, SILENT, DIM);
 
-        expect(meta.embedding.kb.fingerprint).toBe(expectedFingerprint());
-        expect(meta.embedding.mc.fingerprint).toBe(expectedFingerprint());
+        expect(meta.embeddingAdvisories).toEqual([]);
+        expect(meta.embedding.dimension).toBe(DIM);
     });
 
     test('legacy bundle (no embedding contract) validates rows against the live expected dimension and proceeds', async () => {
@@ -152,7 +190,7 @@ test.describe('embedding compatibility contract (#15691)', () => {
         const meta                 = await validateBundle(bundleRoot, layout, {log: () => {}, warn: message => warnings.push(message)}, DIM);
 
         expect(meta.bundleVersion).toBe(1);
-        expect(warnings.some(message => message.includes('no declared embedding contract'))).toBe(true);
+        expect(warnings.some(message => message.includes('semantic-provenance-unverified'))).toBe(true);
     });
 
     test('a matching legacy-shape row set with wrong dimension still fails — the fallback is not a bypass', async () => {

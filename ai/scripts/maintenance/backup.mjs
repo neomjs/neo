@@ -149,10 +149,16 @@ export function resolveBackupRetention({
 }
 
 /**
- * Builds the versioned embedding-space contract declared in `bundle-meta.json` for every vector
- * collection: which provider/model produced the vectors, the dimension, the exported counts, and
- * the fingerprint a restore admission can compare against without touching a live provider.
- * Counts come from the integrity check's per-subsystem source counts (authoritative at write time).
+ * Builds the versioned embedding-space block declared in `bundle-meta.json`.
+ *
+ * Truth discipline: the block separates what the bundle can prove from what it cannot.
+ * - `dimension` + per-collection `count` are write-time facts: the counts come from the integrity
+ *   check's per-subsystem source counts, and the exported rows themselves carry the dimension.
+ * - `expectedConsumer` is the backup host's ACTIVE config at backup time. It is NOT write-time
+ *   vector provenance: no persisted record of which provider/model embedded the stored rows exists
+ *   in the substrate, so a config snapshot must never be presented as one. Restore admission treats
+ *   it as advisory context for the orchestrator's semantic-space classification, never as a hard
+ *   gate, and never contacts a provider to verify it.
  * @param {Object} options
  * @param {Object} options.subsystems runBackup's subsystem receipt map (kb/mc entries carry counts).
  * @returns {Object}
@@ -162,22 +168,18 @@ export function buildEmbeddingContract({subsystems}) {
         provider = AiConfig.embeddingProvider,
         model    = provider === 'ollama'
             ? AiConfig.ollama.embeddingModel
-            : AiConfig.openAiCompatible.embeddingModel,
-        dimension   = AiConfig.vectorDimension,
-        fingerprint = `${provider}:${model}:${dimension}`;
+            : AiConfig.openAiCompatible.embeddingModel;
 
     const contractOf = key => ({
-        count        : typeof subsystems[key] === 'number' ? subsystems[key] : subsystems[key]?.count ?? null,
-        dimension,
-        model,
-        provider,
-        fingerprint,
-        schemaVersion: 1
+        count: typeof subsystems[key] === 'number' ? subsystems[key] : subsystems[key]?.count ?? null
     });
 
     return {
-        kb: contractOf('kb'),
-        mc: contractOf('mc')
+        dimension       : AiConfig.vectorDimension,
+        expectedConsumer: {model, provider},
+        kb              : contractOf('kb'),
+        mc              : contractOf('mc'),
+        schemaVersion   : 1
     }
 }
 
