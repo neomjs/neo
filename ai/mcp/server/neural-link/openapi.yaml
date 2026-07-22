@@ -2685,7 +2685,7 @@ components:
         args:
           type: array
           items: {}
-          description: Arguments to pass to the method (heterogeneous — any JSON-serializable value)
+          description: Arguments to pass to the method (heterogeneous — any JSON-serializable value). Pass values natively; strings are forwarded verbatim, and some MCP clients narrow an empty `items` schema to string in their tool listings, silently stringifying objects. For object-bearing wires, the in-process `NeuralLink_InstanceService.callMethod` path is the documented workaround.
         sessionId:
           type: string
           description: The target App Worker Session ID
