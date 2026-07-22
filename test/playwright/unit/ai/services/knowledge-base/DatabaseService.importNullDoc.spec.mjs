@@ -71,11 +71,19 @@ test.describe('KB_DatabaseService.importDatabase — null-document handling (#11
         return filePath;
     }
 
+
+    // Full-dimension vectors: the atomic vector-write invariant gates every imported KB row, so
+    // fixtures must satisfy the real contract (the mock collection ignores the values themselves).
+    const DIM = 4096;
+    function vec(seed = 0.1) {
+        return new Array(DIM).fill(seed)
+    }
+
     test('omits documents field when every record in batch has document: null (KB steady-state shape)', async () => {
         const filePath = writeBackupFile('kb-all-null.jsonl', [
-            {id: 'id-1', embedding: [0.1, 0.2], metadata: {kind: 'class', content: 'class A {}'}, document: null},
-            {id: 'id-2', embedding: [0.3, 0.4], metadata: {kind: 'method', content: 'method foo()'}, document: null},
-            {id: 'id-3', embedding: [0.5, 0.6], metadata: {kind: 'module', content: 'export default {}'}, document: null}
+            {id: 'id-1', embedding: vec(0.1), metadata: {kind: 'class', content: 'class A {}'}, document: null},
+            {id: 'id-2', embedding: vec(0.3), metadata: {kind: 'method', content: 'method foo()'}, document: null},
+            {id: 'id-3', embedding: vec(0.5), metadata: {kind: 'module', content: 'export default {}'}, document: null}
         ]);
 
         const result = await KB_DatabaseService.importDatabase({
@@ -99,8 +107,8 @@ test.describe('KB_DatabaseService.importDatabase — null-document handling (#11
 
     test('includes documents field with strings when every record carries a non-null document (MC-style records)', async () => {
         const filePath = writeBackupFile('kb-all-strings.jsonl', [
-            {id: 'id-1', embedding: [0.1, 0.2], metadata: {kind: 'memory'}, document: 'memory body 1'},
-            {id: 'id-2', embedding: [0.3, 0.4], metadata: {kind: 'memory'}, document: 'memory body 2'}
+            {id: 'id-1', embedding: vec(0.1), metadata: {kind: 'memory'}, document: 'memory body 1'},
+            {id: 'id-2', embedding: vec(0.3), metadata: {kind: 'memory'}, document: 'memory body 2'}
         ]);
 
         const result = await KB_DatabaseService.importDatabase({
@@ -116,9 +124,9 @@ test.describe('KB_DatabaseService.importDatabase — null-document handling (#11
 
     test('substitutes empty strings for null documents in mixed batch (defensive — preserves field for non-null entries)', async () => {
         const filePath = writeBackupFile('kb-mixed.jsonl', [
-            {id: 'id-1', embedding: [0.1, 0.2], metadata: {kind: 'class'},   document: null},
-            {id: 'id-2', embedding: [0.3, 0.4], metadata: {kind: 'memory'},  document: 'memory body'},
-            {id: 'id-3', embedding: [0.5, 0.6], metadata: {kind: 'class'},   document: null}
+            {id: 'id-1', embedding: vec(0.1), metadata: {kind: 'class'},   document: null},
+            {id: 'id-2', embedding: vec(0.3), metadata: {kind: 'memory'},  document: 'memory body'},
+            {id: 'id-3', embedding: vec(0.5), metadata: {kind: 'class'},   document: null}
         ]);
 
         const result = await KB_DatabaseService.importDatabase({
@@ -136,7 +144,7 @@ test.describe('KB_DatabaseService.importDatabase — null-document handling (#11
     test('handles batch boundary correctly — 501 all-null records (BATCH_SIZE=500) still omits documents on both batches', async () => {
         const records = [];
         for (let i = 0; i < 501; i++) {
-            records.push({id: `id-${i}`, embedding: [i, i + 1], metadata: {n: i}, document: null});
+            records.push({id: `id-${i}`, embedding: vec(i), metadata: {n: i}, document: null});
         }
         const filePath = writeBackupFile('kb-501-null.jsonl', records);
 
@@ -163,11 +171,11 @@ test.describe('KB_DatabaseService.importDatabase — null-document handling (#11
 
         const headRecords = Array.from({length: 500}, (_, index) => ({
             id       : `head-${index}`,
-            embedding: [index],
+            embedding: vec(index),
             metadata : {index},
             document : null
         }));
-        const tailRecord = {id: 'tail-500', embedding: [500], metadata: {index: 500}, document: null};
+        const tailRecord = {id: 'tail-500', embedding: vec(500), metadata: {index: 500}, document: null};
 
         let releaseTail;
         const tailGate                 = new Promise(resolve => { releaseTail = resolve; });
@@ -216,7 +224,7 @@ test.describe('KB_DatabaseService.importDatabase — null-document handling (#11
         const filePath = writeBackupFile('kb-shape-reproducer.jsonl', [
             {
                 id       : 'h-1',
-                embedding: [0.001, 0.002, 0.003],
+                embedding: vec(0.001),
                 metadata : {
                     source    : 'src/canvas/_export.mjs',
                     name      : 'src/canvas/_export.mjs - [Module Context]',
@@ -243,5 +251,33 @@ test.describe('KB_DatabaseService.importDatabase — null-document handling (#11
         // forwarding its null document would surface a DATABASE_IMPORT_ERROR.
         expect(result.imported).toBe(1);
         expect('documents' in capturedUpsertCalls[0]).toBe(false);
+    });
+
+    test('replace mode: a corrupt FINAL row proves the full source BEFORE any truncate or write', async () => {
+        const filePath = writeBackupFile('kb-corrupt-final.jsonl', [
+            {id: 'ok-1', embedding: vec(0.1), metadata: {kind: 'class'}, document: null},
+            {id: 'ok-2', embedding: vec(0.2), metadata: {kind: 'class'}, document: null},
+            {id: 'corrupt-final', embedding: 'not-a-vector', metadata: {kind: 'class'}, document: null}
+        ]);
+
+        let   truncateCalls    = 0;
+        const originalTruncate = KB_DatabaseService.truncateDatabase.bind(KB_DatabaseService);
+        KB_DatabaseService.truncateDatabase = async (...args) => {
+            truncateCalls++;
+            return originalTruncate(...args);
+        };
+
+        try {
+            await expect(KB_DatabaseService.importDatabase({
+                action: 'import',
+                file  : filePath,
+                mode  : 'replace'
+            })).rejects.toThrow(/Source validation failed.*missing-embedding|wrong-dimension|not persisted/);
+
+            expect(truncateCalls).toBe(0);
+            expect(capturedUpsertCalls).toHaveLength(0);
+        } finally {
+            KB_DatabaseService.truncateDatabase = originalTruncate;
+        }
     });
 });

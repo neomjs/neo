@@ -88,9 +88,11 @@ test.describe('restore hardening regression (#11150 / #11151)', () => {
         const bundle   = path.join(workRoot, 'bundle');
         const subdirs  = ['kb', 'mc', 'graph', 'concepts', 'trajectories'];
         for (const s of subdirs) await fsExtra.ensureDir(path.join(bundle, s));
-        // Plant one JSONL file per subdir
-        await fsExtra.writeFile(path.join(bundle, 'kb', 'k.jsonl'), '{"id":"k1"}\n');
-        await fsExtra.writeFile(path.join(bundle, 'mc', 'm.jsonl'), '{"id":"m1"}\n');
+        // Plant one JSONL file per subdir; vector-collection rows carry full-dimension vectors
+        // because the embedding-compatibility invariant gates every kb/mc row.
+        const vec = new Array(4096).fill(0.1);
+        await fsExtra.writeFile(path.join(bundle, 'kb', 'k.jsonl'), JSON.stringify({id: 'k1', embedding: vec, metadata: {}}) + '\n');
+        await fsExtra.writeFile(path.join(bundle, 'mc', 'm.jsonl'), JSON.stringify({id: 'm1', embedding: vec, metadata: {}}) + '\n');
         await fsExtra.writeFile(path.join(bundle, 'graph', 'g.jsonl'), '{"type":"node","data":{"id":"g1"}}\n');
         await fsExtra.writeFile(path.join(bundle, 'concepts', 'nodes.jsonl'), '{"id":"c1"}\n');
         await fsExtra.writeFile(path.join(bundle, 'trajectories', 'trajectories.jsonl'), '{"x":1}\n');

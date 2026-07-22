@@ -55,6 +55,57 @@ test.describe('KB_DatabaseService — manageDatabaseBackup (#10129 Phase 1)', ()
         }
     });
 
+    test('the import vector invariant rejects invalid rows fail-loud BEFORE any upsert (#15691)', async () => {
+        const upserts        = [];
+        const fakeCollection = {
+            name  : 'fake-kb-import',
+            upsert: async args => { upserts.push(args) }
+        };
+
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => fakeCollection;
+
+        const importFile = path.join(tmpBackupDir, 'import-bad-vector.jsonl');
+        fs.writeFileSync(importFile, [
+            JSON.stringify({id: 'good-1', embedding: new Array(4096).fill(0.1), metadata: {kind: 'class'}, document: 'doc'}),
+            JSON.stringify({id: 'bad-wrong-dim', embedding: [0.1, 0.2], metadata: {kind: 'class'}, document: 'doc'}),
+            JSON.stringify({id: 'bad-nonfinite', embedding: [...new Array(4095).fill(0.1), NaN], metadata: {kind: 'class'}, document: 'doc'})
+        ].join('\n') + '\n');
+
+        await expect(KB_DatabaseService.manageDatabaseBackup({
+            action: 'import',
+            file  : importFile,
+            mode  : 'merge'
+        })).rejects.toThrow(/vector invariant rejected .*row\(s\)/);
+
+        expect(upserts).toHaveLength(0); // fail-loud BEFORE any write — never half-persisted
+    });
+
+    test('the import vector invariant passes a fully-valid file through to upsert (#15691)', async () => {
+        const upserts        = [];
+        const fakeCollection = {
+            name  : 'fake-kb-import-valid',
+            upsert: async args => { upserts.push(args) }
+        };
+
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => fakeCollection;
+
+        const importFile = path.join(tmpBackupDir, 'import-valid-vector.jsonl');
+        fs.writeFileSync(importFile, [
+            JSON.stringify({id: 'good-1', embedding: new Array(4096).fill(0.1), metadata: {kind: 'class'}, document: 'doc-1'}),
+            JSON.stringify({id: 'good-2', embedding: new Array(4096).fill(0.2), metadata: {kind: 'method'}, document: 'doc-2'})
+        ].join('\n') + '\n');
+
+        const result = await KB_DatabaseService.manageDatabaseBackup({
+            action: 'import',
+            file  : importFile,
+            mode  : 'merge'
+        });
+
+        expect(result.imported).toBe(2);
+        expect(upserts).toHaveLength(1);
+        expect(upserts[0].embeddings).toHaveLength(2);
+    });
+
     test('exports a populated collection as a timestamped JSONL artifact', async () => {
         const fakeRows = [
             {id: 'id-1', embedding: [0.1, 0.2], metadata: {kind: 'class'},  document: 'doc-1'},
@@ -130,9 +181,11 @@ test.describe('KB_DatabaseService — manageDatabaseBackup (#10129 Phase 1)', ()
 
     test('rejects unsupported actions at the dispatcher layer', async () => {
         // No openapi operation is registered for `manage_database_backup` in KB (retired per
-        // #10132 script-over-tool reduction), so `makeSafe` no-match passthrough forwards
+        // #10132 script-over-tool reduction — ticket-ref-ok: load-bearing history for why no
+        // no-match passthrough applies), so `makeSafe` no-match passthrough forwards
         // args raw — the manual `throw new Error('Unknown action...')` inside the dispatcher
-        // is the rejection path. `'import'` and `'truncate'` were added in #10871 AC-B; this
+        // is the rejection path. `'import'` and `'truncate'` were added in #10871 AC-B (ticket-ref-ok:
+        // load-bearing anchor for the dispatcher contract under test); this
         // assertion uses an unambiguously-unsupported action to keep the dispatcher rejection
         // contract under test.
         await expect(

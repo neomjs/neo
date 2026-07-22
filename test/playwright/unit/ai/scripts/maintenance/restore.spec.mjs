@@ -174,7 +174,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
         const trajTgt     = path.join(workRoot, 'happy-merge-targets', 'trajectories.jsonl');
         const mailboxTgt  = path.join(workRoot, 'happy-merge-targets', 'sent-to-cull.jsonl');
 
-        const result = await runRestore({
+        const result = await runRestore({ expectedDimension: 1,
             bundleRoot,
             mode                  : 'merge',
             conceptsTargetDir     : conceptsTgt,
@@ -214,7 +214,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
         const bundleRoot = buildSyntheticBundle({bundleName: 'corrupt-missing-mc', omitSubdirs: ['mc']});
 
         await expect(
-            runRestore({bundleRoot, logger: silentLogger})
+            runRestore({ expectedDimension: 1, bundleRoot, logger: silentLogger})
         ).rejects.toThrow(/Required bundle subdirectory missing: mc/);
 
         // No SDK writes attempted
@@ -228,13 +228,13 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
         const bundleRoot = buildSyntheticBundle({bundleName: 'topo-mismatch', chromaUnified: false});
 
         await expect(
-            runRestore({bundleRoot, logger: silentLogger})
+            runRestore({ expectedDimension: 1, bundleRoot, logger: silentLogger})
         ).rejects.toThrow(/Topology mismatch: bundle was taken under legacy federated mode, but current deployment is permanently unified\./);
 
         expect(calls.kb).toHaveLength(0);
         expect(calls.mc).toHaveLength(0);
 
-        const result = await runRestore({
+        const result = await runRestore({ expectedDimension: 1,
             bundleRoot,
             forceTopologyMismatch : true,
             conceptsTargetDir     : path.join(workRoot, 'topo-targets', 'concepts'),
@@ -254,7 +254,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
         Memory_StorageRouter.getMemoryCollection = async () => ({count: async () => 42});
 
         await expect(
-            runRestore({bundleRoot, mode: 'replace', force: false, logger: silentLogger})
+            runRestore({ expectedDimension: 1, bundleRoot, mode: 'replace', force: false, logger: silentLogger})
         ).rejects.toThrow(/Refusing replace mode without --force.*mc\.memories=42/);
 
         expect(calls.kb).toHaveLength(0);
@@ -270,7 +270,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
         // Targets empty so --force-not-needed-due-to-empty-targets passes the pre-flight occupancy check.
         // Goal of this test: assert guard fires for flat substrates AND mode=replace forwards through SDK.
 
-        const result = await runRestore({
+        const result = await runRestore({ expectedDimension: 1,
             bundleRoot,
             mode                  : 'replace',
             confirmation          : 'CONFIRM_PRODUCTION_DESTRUCTIVE_AI_SUBSTRATE',
@@ -317,7 +317,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
         fs.writeFileSync(trajTgt, '{"existing":"operator-trajectory"}\n');
         fs.writeFileSync(mailboxTgt, '{"existing":"operator-mailbox"}\n');
 
-        const result = await runRestore({
+        const result = await runRestore({ expectedDimension: 1,
             bundleRoot,
             mode                  : 'merge',
             conceptsTargetDir     : conceptsTgt,
@@ -343,7 +343,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
         const bundleRoot = buildSyntheticBundle({bundleName: 'legacy-no-meta', chromaUnified: true});
         fs.unlinkSync(path.join(bundleRoot, 'bundle-meta.json'));
 
-        const result = await runRestore({
+        const result = await runRestore({ expectedDimension: 1,
             bundleRoot,
             conceptsTargetDir     : path.join(workRoot, 'legacy-targets', 'concepts'),
             trajectoriesTargetFile: path.join(workRoot, 'legacy-targets', 'trajectories.jsonl'),
@@ -351,7 +351,10 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
             logger                : silentLogger
         });
 
-        expect(result.meta).toBeNull();
+        // A legacy bundle carries no meta file; the orchestrator still receives the structured
+        // unknown-provenance receipt rather than a bare null.
+        expect(result.meta.legacy).toBe(true);
+        expect(result.meta.embeddingAdvisories[0].reason).toBe('semantic-provenance-unverified');
         expect(result.topology.bundleChromaUnified).toBeUndefined();
         expect(result.topology.match).toBe(true);
         expect(calls.kb).toHaveLength(1);
@@ -360,7 +363,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
     test('rejects unknown mode at orchestrator entry', async () => {
         const bundleRoot = buildSyntheticBundle({bundleName: 'unknown-mode', chromaUnified: true});
         await expect(
-            runRestore({bundleRoot, mode: 'wipe', logger: silentLogger})
+            runRestore({ expectedDimension: 1, bundleRoot, mode: 'wipe', logger: silentLogger})
         ).rejects.toThrow(/Unknown mode: wipe/);
     });
 
@@ -369,7 +372,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
         fs.writeFileSync(path.join(bundleRoot, 'kb', 'broken.jsonl'), 'this-is-not-json\n');
 
         await expect(
-            runRestore({bundleRoot, logger: silentLogger})
+            runRestore({ expectedDimension: 1, bundleRoot, logger: silentLogger})
         ).rejects.toThrow(/Bundle JSONL parse error at kb\/broken\.jsonl/);
 
         expect(calls.kb).toHaveLength(0);
@@ -422,7 +425,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
             trajectories: path.join(bundleRoot, 'trajectories'),
             mailbox     : path.join(bundleRoot, 'mailbox')
         };
-        const meta = await validateBundle(bundleRoot, layout, silentLogger);
+        const meta = await validateBundle(bundleRoot, layout, silentLogger, 1);
         expect(meta.bundleVersion).toBe(1);
         expect(meta.topology.chromaUnified).toBe(true);
     });
@@ -438,8 +441,10 @@ test.describe('verifyLatestBackupRestorable — read-only restorability probe (#
         for (const sub of ['kb', 'mc', 'graph', 'concepts', 'trajectories']) {
             fs.mkdirSync(path.join(bundleRoot, sub), {recursive: true});
         }
+        // The embedding-compatibility invariant requires a full 4096-dim vector on
+        // vector-collection rows — the fixture row carries one explicitly.
         fs.writeFileSync(path.join(bundleRoot, 'mc', 'memory-backup.jsonl'),
-            torn ? '{this is not valid json\n' : '{"id":"m-1"}\n');
+            torn ? '{this is not valid json\n' : JSON.stringify({id: 'm-1', embedding: new Array(4096).fill(0.1), metadata: {t: 'prompt'}}) + '\n');
         return bundleRoot;
     };
 
