@@ -111,9 +111,7 @@ test.describe('Neo.form.field.ComboBox', () => {
         await expect(inputField).not.toBeFocused();
     });
 
-    // Exact-equality on font-derived width fails on Linux CI (different default font metrics than
-    // macOS) — needs a tolerance band or a font-independent layout invariant before this gates.
-    test.fixme('Input wrapper fills remaining width after a left label', async ({page}) => {
+    test('Input wrapper fills remaining width after a left label', async ({page}) => {
         componentId = await createComboBox(page, {
             labelPosition: 'left',
             labelWidth   : 100,
@@ -121,19 +119,28 @@ test.describe('Neo.form.field.ComboBox', () => {
         });
 
         const sizes = await page.locator(`#${componentId}`).evaluate(element => {
-            const label   = element.querySelector('.neo-textfield-label'),
-                  wrapper = element.querySelector('.neo-input-wrapper'),
-                  input   = element.querySelector('input.neo-textfield-input:not(.neo-typeahead-input)');
+            const fieldRect   = element.getBoundingClientRect(),
+                  label       = element.querySelector('.neo-textfield-label'),
+                  labelRect   = label.getBoundingClientRect(),
+                  wrapper     = element.querySelector('.neo-input-wrapper'),
+                  wrapperRect = wrapper.getBoundingClientRect(),
+                  input       = element.querySelector('input.neo-textfield-input:not(.neo-typeahead-input)');
 
             return {
+                fieldRight  : fieldRect.right,
                 inputWidth  : input.getBoundingClientRect().width,
-                labelWidth  : label.getBoundingClientRect().width,
-                wrapperWidth: wrapper.getBoundingClientRect().width
+                labelRight  : labelRect.right,
+                labelWidth  : labelRect.width,
+                wrapperLeft : wrapperRect.left,
+                wrapperRight: wrapperRect.right
             };
         });
 
-        expect(Math.round(sizes.labelWidth)).toBe(100);
-        expect(Math.round(sizes.wrapperWidth)).toBe(240);
+        // Font rasterization can shift fractional geometry across hosts, so assert the layout contract:
+        // the configured label consumes the left edge and the wrapper spans every remaining pixel.
+        expect(Math.abs(sizes.labelWidth - 100)).toBeLessThan(1);
+        expect(Math.abs(sizes.wrapperLeft - sizes.labelRight)).toBeLessThan(1);
+        expect(Math.abs(sizes.wrapperRight - sizes.fieldRight)).toBeLessThan(1);
         expect(sizes.inputWidth).toBeGreaterThan(200);
     });
 
