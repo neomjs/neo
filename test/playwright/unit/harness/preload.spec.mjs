@@ -9,12 +9,17 @@ const mainPath    = new URL('../../../../harness/main.mjs', import.meta.url);
  * @summary Executes the CommonJS preload against capability-shaped Electron mocks without booting
  * Electron. Timers and DOM diagnostics are retained as inert seams; the test owns only the exposed
  * bridge contract.
- * @param {Object} [options={}] Mock clock and DOM surfaces.
+ * @param {Object} [options={}] Mock clock, DOM, and timer-registration surfaces.
+ * @param {Object} [options.clock]
+ * @param {Object} [options.dom]
+ * @param {Boolean} [options.precedeWithUnrelatedTimer=false]
  * @returns {Promise<Object>}
  */
-async function loadPreload({clock={now: 0}, dom={}} = {}) {
+async function loadPreload({clock={now: 0}, dom={}, precedeWithUnrelatedTimer=false} = {}) {
     const
-        intervals     = [],
+        intervals     = precedeWithUnrelatedTimer
+            ? [{cleared: false, fn: function unrelatedTimer() {}}]
+            : [],
         invokes       = [],
         exposed       = {},
         sends         = [],
@@ -64,6 +69,20 @@ async function loadPreload({clock={now: 0}, dom={}} = {}) {
     });
 
     return {exposed, intervals, invokes, sends}
+}
+
+/**
+ * @summary Resolves the product first-paint reporter by its semantic callback name and fails loud
+ * when the production preload exposes a missing or ambiguous timer seam.
+ * @param {Object[]} intervals
+ * @returns {Object}
+ */
+function getFirstPaintReporter(intervals) {
+    const reporters = intervals.filter(({fn}) => fn.name === 'reportFirstPaint');
+
+    expect(reporters, 'exactly one named first-paint reporter').toHaveLength(1);
+
+    return reporters[0]
 }
 
 test.describe('Electron harness preload capability', () => {
@@ -119,10 +138,14 @@ test.describe('Electron harness preload capability', () => {
                         '.fm-fleet-cockpit .fm-agent-card'                                     : cards,
                         '.fm-fleet-cockpit .fm-fusion-tour, .fm-fleet-cockpit .fm-tour-caption': []
                     }
-                }
-            });
+                },
+                precedeWithUnrelatedTimer: true
+            }),
+            firstPaintReporter = getFirstPaintReporter(intervals);
 
-        intervals[1].fn();
+        expect(intervals.findIndex(interval => interval === firstPaintReporter)).toBeGreaterThan(0);
+
+        firstPaintReporter.fn();
 
         expect(sends).toContainEqual(['shell-first-paint-report', {
             activityLabel       : 'sample · live feed pending',
@@ -133,7 +156,7 @@ test.describe('Electron harness preload capability', () => {
             timedOut            : false,
             tourControlCount    : 0
         }]);
-        expect(intervals[1].cleared).toBe(true)
+        expect(firstPaintReporter.cleared).toBe(true)
     })
 
     test('times out honestly when demo controls or missing cards prevent the product receipt', async () => {
@@ -156,13 +179,14 @@ test.describe('Electron harness preload capability', () => {
                         '.fm-fleet-cockpit .fm-fusion-tour, .fm-fleet-cockpit .fm-tour-caption': [{}]
                     }
                 }
-            });
+            }),
+            firstPaintReporter = getFirstPaintReporter(intervals);
 
-        intervals[1].fn();
+        firstPaintReporter.fn();
         expect(sends.filter(([channel]) => channel === 'shell-first-paint-report')).toEqual([]);
 
         clock.now = 60001;
-        intervals[1].fn();
+        firstPaintReporter.fn();
 
         expect(sends).toContainEqual(['shell-first-paint-report', {
             activityLabel       : 'sample · live feed pending',
@@ -173,6 +197,6 @@ test.describe('Electron harness preload capability', () => {
             timedOut            : true,
             tourControlCount    : 1
         }]);
-        expect(intervals[1].cleared).toBe(true)
+        expect(firstPaintReporter.cleared).toBe(true)
     })
 });

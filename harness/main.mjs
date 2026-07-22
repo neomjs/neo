@@ -438,7 +438,9 @@ function sanitizeBootReport(report) {
 }
 
 /**
- * @summary Reduces an untrusted first-paint report to bounded semantic primitives.
+ * @summary Reduces an untrusted first-paint report to bounded semantic primitives, stamping
+ * shell-launch-to-accepted-receipt `firstPaintMs` while preserving renderer-load-to-semantic-ready
+ * `rendererFirstPaintMs`.
  * @param {*} report
  * @returns {Object|null}
  */
