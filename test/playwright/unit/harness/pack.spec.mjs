@@ -10,6 +10,7 @@ import {
     buildOrganismManifest,
     deriveCopySpecs,
     extractBarePackages,
+    extractLocalMjsImports,
     isInstanceOverlayPath
 } from '../../../../harness/pack.mjs';
 import {buildPackagedBrainEnv, resolveBrainMode} from '../../../../harness/brain.mjs';
@@ -28,8 +29,7 @@ test.describe('harness pack stage', () => {
 
         expect(builderConfig).toContain('- fleetCapability.mjs');
 
-        const localMainImports = [...mainSource.matchAll(/from\s+['"]\.\/([^'"]+\.mjs)['"]/g)]
-            .map(match => match[1]);
+        const localMainImports = extractLocalMjsImports(mainSource);
 
         for (const importedFile of localMainImports) {
             expect(builderConfig).toContain(`- ${importedFile}`)
@@ -80,6 +80,27 @@ test.describe('harness pack stage', () => {
         ].join('\n');
 
         expect(extractBarePackages(source)).toEqual(['@scope/pkg', 'better-sqlite3', 'chromadb', 'dotenv', 'fs-extra'])
+    });
+
+    test('extractLocalMjsImports covers every literal local module shape without parsing comments or expressions', () => {
+        const source = [
+            "import StaticDefault from './static-default.mjs';",
+            "export {named} from './re-export.mjs';",
+            "import './side-effect.mjs';",
+            "const lazy = import('./dynamic.mjs');",
+            "const variable = import(runtimeSpecifier);",
+            "import '../outside-root.mjs';",
+            "// import './line-comment.mjs';",
+            "/* import './block-comment.mjs'; */",
+            "import 'bare-package';"
+        ].join('\n');
+
+        expect(extractLocalMjsImports(source)).toEqual([
+            'dynamic.mjs',
+            're-export.mjs',
+            'side-effect.mjs',
+            'static-default.mjs'
+        ])
     });
 
     test('buildOrganismManifest pins scanned packages to repo-declared versions and fails loud on undeclared imports', () => {
