@@ -91,11 +91,14 @@ class WakeSubscriptionService extends Base {
      * dispatch through GUI/CLI control planes (osascript, tmux, the Codex app-server);
      * `opencode-server` routes through the seat's embedded HTTP server via its seat envelope
      * and is exempt from the bridge-daemon `appName` requirement; `kimi-server` routes through
-     * the seat's local `kimi server` REST surface via its wake envelope (same exemption).
+     * the seat's local `kimi server` REST surface via its wake envelope (same exemption);
+     * `kimi-pull-bridge` appends the digest to the seat's local wake-outbox for the owning
+     * session's own cron poll to steer in-process (same envelope authority, same exemption;
+     * never touches the web-server twin surface).
      *
      * @protected
      */
-    validAdapters = ['osascript', 'tmux', 'codex-app-server', 'opencode-server', 'kimi-server']
+    validAdapters = ['osascript', 'tmux', 'codex-app-server', 'opencode-server', 'kimi-server', 'kimi-pull-bridge']
 
     /**
      * In-memory write-through cache for sub-millisecond trigger evaluation.
@@ -1043,12 +1046,15 @@ class WakeSubscriptionService extends Base {
         }
         // The osascript-style bridge-daemon routes need an appName target; the opencode-server and
         // kimi-server adapters route by seat envelope instead and are exempt (their authority is
-        // the envelope file).
-        if (harnessTarget === 'bridge-daemon' && !['opencode-server', 'kimi-server'].includes(metadata.adapter) && !metadata.appName) {
+        // the envelope file); kimi-pull-bridge shares the envelope authority (same exemption).
+        if (harnessTarget === 'bridge-daemon' && !['opencode-server', 'kimi-server', 'kimi-pull-bridge'].includes(metadata.adapter) && !metadata.appName) {
             throw new Error('Shape C (bridge-daemon) requires harnessTargetMetadata.appName.');
         }
         if (metadata.envelopePath !== undefined && typeof metadata.envelopePath !== 'string') {
             throw new Error('harnessTargetMetadata.envelopePath must be a string when provided.');
+        }
+        if (metadata.outboxPath !== undefined && typeof metadata.outboxPath !== 'string') {
+            throw new Error('harnessTargetMetadata.outboxPath must be a string when provided.');
         }
         if (metadata.appName && !this.validAppNames.includes(metadata.appName)) {
             throw new Error(`Invalid appName '${metadata.appName}'. Must be one of: ${this.validAppNames.join(', ')}`);

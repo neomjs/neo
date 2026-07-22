@@ -4088,4 +4088,234 @@ test.describe('Wake Daemon', () => {
         const output = await deliveryPromise;
         expect(output).toContain('Deliberate self-handoff');
     });
+
+    test('delivers wake events via kimi-pull-bridge into the seat outbox without web contact (#15665)', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-kimi-pull-bridge';
+
+        const envelopePath = path.join(DAEMON_DIR, 'kimi-pull-envelope.json');
+        const outboxPath   = path.join(DAEMON_DIR, 'kimi-pull-outbox.jsonl');
+        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_pull', cwd: '/seat/checkout', updatedAt: '2026-07-22T12:00:00.000Z'});
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'kimi-pull-bridge',
+                envelopePath,
+                outboxPath,
+                coalesceWindow: 1
+            }
+        });
+
+        // No lock/token/instance fixtures on purpose: the adapter must never consult web-server
+        // coordinates. The mock osascript guards against any GUI fallback.
+        const binDir               = path.join(DAEMON_DIR, 'bin');
+        const mockOsascriptPath    = path.join(binDir, 'osascript');
+        const mockOsascriptOutPath = path.join(DAEMON_DIR, 'mock_kimi_pull_osascript_out.json');
+
+        fs.ensureDirSync(binDir);
+        writeMockPs(binDir);
+        fs.writeFileSync(mockOsascriptPath,
+            `#!/usr/bin/env node\n` +
+            `const fs = require('fs');\n` +
+            `fs.writeFileSync(${JSON.stringify(mockOsascriptOutPath)}, JSON.stringify(process.argv.slice(2)));\n`
+        );
+        fs.chmodSync(mockOsascriptPath, 0o755);
+
+        let stdoutLog = '';
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {
+                ...process.env,
+                NEO_MEMORY_DB_PATH: DB_PATH,
+                NEO_AI_DAEMON_DIR : DAEMON_DIR,
+                PATH              : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
+            }
+        });
+
+        const deliveryPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver kimi-pull-bridge digest within timeout')), 10000);
+
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                stdoutLog += out;
+                if (out.includes(`[Wake Dispatch] ${agentId}: outcome=delivered`)) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+                if (out.includes(`[Wake Daemon] Delivered ${subId} via osascript`)) {
+                    clearTimeout(timeout);
+                    reject(new Error('Daemon fell back to osascript for kimi-pull-bridge route'));
+                }
+            });
+            daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {
+            agentId,
+            subject: 'Kimi Pull Bridge Wake'
+        });
+
+        await deliveryPromise;
+
+        const lines = fs.readFileSync(outboxPath, 'utf8').trim().split('\n');
+        expect(lines.length).toBe(1);
+
+        const entry = JSON.parse(lines[0]);
+        expect(entry.wakeId).toBeTruthy();
+        expect(entry.subscriptionId).toBe(subId);
+        expect(entry.agentIdentity).toBe(agentId);
+        expect(entry.digest).toContain('Kimi Pull Bridge Wake');
+        expect(entry.writtenAt).toBeTruthy();
+
+        expect((fs.statSync(outboxPath).mode & 0o777).toString(8)).toBe('600');
+        expect(fs.existsSync(mockOsascriptOutPath)).toBe(false);
+        expect(stdoutLog).toContain(`[Wake Daemon] Dispatched ${subId} via kimi-pull-bridge (outbox ${outboxPath}, wake ${entry.wakeId})`);
+        expect(stdoutLog).toContain(`[Wake Dispatch] ${agentId}: outcome=delivered`);
+        expect(stdoutLog).toContain('route=kimi-pull-bridge; adapterSource=metadata');
+    });
+
+    test('kimi-pull-bridge fails visibly without a wake envelope instead of retargeting (#15665)', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-kimi-pull-no-envelope';
+
+        const envelopePath = path.join(DAEMON_DIR, 'kimi-pull-no-envelope.json'); // deliberately absent
+        const outboxPath   = path.join(DAEMON_DIR, 'kimi-pull-no-envelope-outbox.jsonl');
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'kimi-pull-bridge',
+                envelopePath,
+                outboxPath,
+                coalesceWindow: 1
+            }
+        });
+
+        const binDir = path.join(DAEMON_DIR, 'bin');
+        fs.ensureDirSync(binDir);
+        writeMockPs(binDir);
+
+        let stdoutLog = '';
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {
+                ...process.env,
+                NEO_MEMORY_DB_PATH: DB_PATH,
+                NEO_AI_DAEMON_DIR : DAEMON_DIR,
+                PATH              : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
+            }
+        });
+
+        const refusalPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon did not log the kimi-pull-bridge envelope refusal within timeout')), 10000);
+
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                stdoutLog += out;
+                if (out.includes('kimi-pull-bridge requires a readable wake envelope')) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            // The fail-visible path logs through the error stream; fold it into the same buffer.
+            daemonProcess.stderr.on('data', (data) => {
+                const out = data.toString();
+                stdoutLog += out;
+                if (out.includes('kimi-pull-bridge requires a readable wake envelope')) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {
+            agentId,
+            subject: 'Kimi Pull Bridge No Envelope'
+        });
+
+        await refusalPromise;
+
+        expect(fs.existsSync(outboxPath)).toBe(false);
+        expect(stdoutLog).not.toContain(`Dispatched ${subId} via kimi-pull-bridge`);
+    });
+
+    test('kimi-pull-bridge refuses an envelope written for a different checkout cwd (#15665)', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-kimi-pull-cwd-mismatch';
+
+        const envelopePath = path.join(DAEMON_DIR, 'kimi-pull-cwd-envelope.json');
+        const outboxPath   = path.join(DAEMON_DIR, 'kimi-pull-cwd-outbox.jsonl');
+        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_pull_cwd', cwd: '/other/checkout', updatedAt: '2026-07-22T12:00:00.000Z'});
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {
+                adapter       : 'kimi-pull-bridge',
+                cwd           : '/seat/checkout',
+                envelopePath,
+                outboxPath,
+                coalesceWindow: 1
+            }
+        });
+
+        const binDir = path.join(DAEMON_DIR, 'bin');
+        fs.ensureDirSync(binDir);
+        writeMockPs(binDir);
+
+        let stdoutLog = '';
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {
+                ...process.env,
+                NEO_MEMORY_DB_PATH: DB_PATH,
+                NEO_AI_DAEMON_DIR : DAEMON_DIR,
+                PATH              : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
+            }
+        });
+
+        const refusalPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon did not log the kimi-pull-bridge cwd refusal within timeout')), 10000);
+
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                stdoutLog += out;
+                if (out.includes('does not match harnessTargetMetadata.cwd')) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            // The fail-visible path logs through the error stream; fold it into the same buffer.
+            daemonProcess.stderr.on('data', (data) => {
+                const out = data.toString();
+                stdoutLog += out;
+                if (out.includes('does not match harnessTargetMetadata.cwd')) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {
+            agentId,
+            subject: 'Kimi Pull Bridge Cwd Mismatch'
+        });
+
+        await refusalPromise;
+
+        expect(fs.existsSync(outboxPath)).toBe(false);
+        expect(stdoutLog).not.toContain(`Dispatched ${subId} via kimi-pull-bridge`);
+    });
 });

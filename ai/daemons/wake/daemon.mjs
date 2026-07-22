@@ -99,6 +99,7 @@ const POLL_INTERVAL_MS                  = 3000;
 const CODEX_APP_SERVER_ADAPTER          = 'codex-app-server';
 const OPENCODE_SERVER_ADAPTER           = 'opencode-server';
 const KIMI_SERVER_ADAPTER               = 'kimi-server';
+const KIMI_PULL_BRIDGE_ADAPTER          = 'kimi-pull-bridge';
 const CODEX_TURN_START_PROOF_TIMEOUT_MS = Number(process.env.WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS) || 45000;
 const CODEX_TURN_START_PROOF_POLL_MS    = Number(process.env.WAKE_CODEX_TURN_START_PROOF_POLL_MS) || 1000;
 const CODEX_WAKE_SUBMIT_NONCE_PREFIX    = 'NEO_WAKE_SUBMIT_NONCE:';
@@ -1324,6 +1325,80 @@ async function deliverViaKimiServer(subscription, digest, evidenceLabel = '', ab
 }
 
 /**
+ * `kimi-pull-bridge` — the pull-inversion wake route for Kimi seats. Instead of POSTing
+ * into a `kimi web` process (whose prompt route materializes the serverside twin per the pinned
+ * `prompts.ts` `resume()` semantics), the daemon appends one wake line to the seat's local
+ * outbox. The owning interactive session's own cron poll (registered in-process by the agent)
+ * fires via `agent.turn.steer` in the OWNING TUI process and consumes the outbox — execution-owner
+ * delivery with zero inbound surface on the TUI. `delivered` here means durable in the seat
+ * outbox; the seat's poll is the steer leg.
+ *
+ * Probe lineage (live seat, kimi v0.28.1): an external outbox write followed by the in-process
+ * cron fire delivered owner-natively with the exact owner tuple and a causal turn receipt; the
+ * external cron-dir write path was falsified in the same round (resume-mirror only, never
+ * re-read mid-session).
+ *
+ * Seat authority is the same wake envelope the `kimi-server` adapter uses (SessionStart-hook
+ * writer): it names the live session + cwd, and an optional `meta.cwd` cross-check catches a
+ * stale envelope written for a different checkout. This adapter deliberately has NO web-server
+ * fallback — a route configured as `kimi-pull-bridge` must fail loudly rather than deliver into
+ * the twin surface.
+ *
+ * Outbox contract: JSONL, one object per wake (`{wakeId, subscriptionId, agentIdentity, digest,
+ * writtenAt}`), append-only on the daemon side, file mode 0600 at creation. The seat consumes
+ * read-and-rewrite-without-consumed, so an append landing mid-consume survives. `wakeId` is a
+ * fresh uuid per dispatch — the seat's idempotency key on consume.
+ * @param {Object} subscription WAKE_SUBSCRIPTION node.
+ * @param {String} digest Wake digest body.
+ * @param {String} [evidenceLabel=''] Formatted wake scenario / route evidence for validation logs.
+ * @returns {Promise<void>}
+ */
+async function deliverViaKimiPullBridge(subscription, digest, evidenceLabel = '') {
+    const meta         = subscription.properties?.harnessTargetMetadata || {};
+    const envelopePath = meta.envelopePath || path.join(os.homedir(), '.kimi-code', 'wake-envelope.json');
+    const outboxPath   = meta.outboxPath   || path.join(os.homedir(), '.kimi-code', 'wake-outbox.jsonl');
+
+    let envelope;
+
+    try {
+        envelope = JSON.parse(await fs.readFile(envelopePath, 'utf8'));
+    } catch (err) {
+        throw new Error(`kimi-pull-bridge requires a readable wake envelope at '${envelopePath}' (${err.message})`);
+    }
+
+    const {sessionId, cwd} = envelope;
+
+    // Same typed + authority-checked seat contract as the kimi-server adapter: a malformed
+    // envelope must never route the digest, and the metadata cwd cross-check catches a stale
+    // envelope written for a different seat checkout.
+    if (typeof sessionId !== 'string' || sessionId.length === 0) {
+        throw new Error(`kimi-pull-bridge envelope at '${envelopePath}' requires 'sessionId' to be a non-empty string`);
+    }
+
+    if (typeof cwd !== 'string' || cwd.length === 0) {
+        throw new Error(`kimi-pull-bridge envelope at '${envelopePath}' requires 'cwd' to be a non-empty string`);
+    }
+
+    if (typeof meta.cwd === 'string' && meta.cwd.length > 0 && meta.cwd !== cwd) {
+        throw new Error(`kimi-pull-bridge envelope at '${envelopePath}' cwd '${cwd}' does not match harnessTargetMetadata.cwd '${meta.cwd}'`);
+    }
+
+    const wakeId = crypto.randomUUID(),
+          entry  = {
+              wakeId,
+              subscriptionId: subscription.id,
+              agentIdentity : subscription.properties?.agentIdentity ?? null,
+              digest,
+              writtenAt     : new Date().toISOString()
+          };
+
+    await fs.ensureDir(path.dirname(outboxPath));
+    await fs.appendFile(outboxPath, JSON.stringify(entry) + '\n', {mode: 0o600});
+
+    writeLog('INFO', `[Wake Daemon] Dispatched ${subscription.id} via kimi-pull-bridge (outbox ${outboxPath}, wake ${wakeId})${evidenceLabel}`);
+}
+
+/**
  * @summary Delivers a wake digest via osascript, retrying transient frontmost-loss races.
  *
  * macOS focus-stealing prevention makes a background daemon's `activate` / `set frontmost`
@@ -1758,6 +1833,11 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}, abortS
 
         if (adapter === KIMI_SERVER_ADAPTER) {
             await deliverViaKimiServer(subscription, dispatchDigest, evidenceLabel, abortSignal);
+            return 'delivered';
+        }
+
+        if (adapter === KIMI_PULL_BRIDGE_ADAPTER) {
+            await deliverViaKimiPullBridge(subscription, dispatchDigest, evidenceLabel);
             return 'delivered';
         }
 
