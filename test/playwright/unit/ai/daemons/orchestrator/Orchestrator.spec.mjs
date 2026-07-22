@@ -229,6 +229,110 @@ function restoreConfigObject(target, prior) {
 }
 
 test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
+    test('freeze re-probe forwards one bounded signal and clears its deadline after success (#15694)', async () => {
+        const orchestrator = Object.create(Orchestrator.prototype);
+
+        let captured;
+        const result = await orchestrator.probeFrozenCollectionHealth('memory', {
+            timeoutMs : 10,
+            embedTexts: async (texts, provider, options) => {
+                captured = {texts, provider, options};
+                return [new Array(AiConfig.vectorDimension).fill(0.1)];
+            }
+        });
+
+        expect(result).toEqual({embedderHealthy: true, dimensionConsistent: true});
+        expect(captured).toMatchObject({
+            texts   : ['__freeze-reprobe-health-canary__'],
+            provider: AiConfig.embeddingProvider,
+            options : {operationLabel: 'Orchestrator freeze re-probe'}
+        });
+        expect(captured.options.signal).toBeInstanceOf(AbortSignal);
+
+        await new Promise(resolve => setTimeout(resolve, 20));
+        expect(captured.options.signal.aborted).toBe(false);
+    });
+
+    test('freeze re-probe aborts a hung embedding with the structured consumer deadline (#15694)', async () => {
+        const orchestrator = Object.create(Orchestrator.prototype);
+
+        let probeSignal;
+        const result = await orchestrator.probeFrozenCollectionHealth('memory', {
+            timeoutMs : 5,
+            embedTexts: async (texts, provider, options) => new Promise((resolve, reject) => {
+                probeSignal = options.signal;
+                options.signal.addEventListener('abort', () => reject(options.signal.reason), {once: true});
+            })
+        });
+
+        expect(result).toEqual({embedderHealthy: false, dimensionConsistent: false});
+        expect(probeSignal.aborted).toBe(true);
+        expect(probeSignal.reason).toMatchObject({
+            code          : 'EMBEDDING_PROBE_TIMEOUT',
+            operationLabel: 'Orchestrator freeze re-probe',
+            timeoutMs     : 5
+        });
+    });
+
+    test('freeze re-probe resolves fail-closed when an adapter ignores cancellation (#15694)', async () => {
+        test.setTimeout(1000);
+
+        const orchestrator = Object.create(Orchestrator.prototype);
+
+        let probeSignal;
+        const result = await orchestrator.probeFrozenCollectionHealth('memory', {
+            timeoutMs : 5,
+            embedTexts: async (texts, provider, options) => {
+                probeSignal = options.signal;
+                return new Promise(() => {});
+            }
+        });
+
+        expect(result).toEqual({embedderHealthy: false, dimensionConsistent: false});
+        expect(probeSignal.aborted).toBe(true);
+        expect(probeSignal.reason).toMatchObject({
+            code          : 'EMBEDDING_PROBE_TIMEOUT',
+            operationLabel: 'Orchestrator freeze re-probe',
+            timeoutMs     : 5
+        });
+    });
+
+    test('freeze re-probe stays failed when an abort listener resolves a valid vector (#15694)', async () => {
+        const orchestrator = Object.create(Orchestrator.prototype);
+
+        const result = await orchestrator.probeFrozenCollectionHealth('memory', {
+            timeoutMs : 5,
+            embedTexts: async (texts, provider, options) => new Promise(resolve => {
+                options.signal.addEventListener('abort', () => {
+                    resolve([new Array(AiConfig.vectorDimension).fill(0.1)]);
+                }, {once: true});
+            })
+        });
+
+        expect(result).toEqual({embedderHealthy: false, dimensionConsistent: false});
+    });
+
+    test('freeze re-probe keeps every provider and caller cancellation failure frozen (#15694)', async () => {
+        const failures = [
+            Object.assign(new Error('OpenAI timeout'), {code: 'OPENAI_COMPATIBLE_REQUEST_TIMEOUT'}),
+            Object.assign(new Error('Ollama timeout'), {code: 'PROVIDER_TIMEOUT'}),
+            Object.assign(new Error('caller cancellation'), {name: 'AbortError', code: 'ABORT_ERR'}),
+            new Error('generic embedding failure')
+        ];
+
+        for (const failure of failures) {
+            const orchestrator = Object.create(Orchestrator.prototype);
+            const result       = await orchestrator.probeFrozenCollectionHealth('session', {
+                timeoutMs : 50,
+                embedTexts: async () => {
+                    throw failure;
+                }
+            });
+
+            expect(result).toEqual({embedderHealthy: false, dimensionConsistent: false});
+        }
+    });
+
     test('boot-identity caller seam: initBootIdentitySource() + poll() writes a codebook-valid advisory fact the fleet reader serves', async () => {
         const dir          = fs.mkdtempSync(path.join(os.tmpdir(), 'orch-boot-identity-')),
               orchestrator = createTestOrchestrator();

@@ -462,6 +462,12 @@ test.describe('Tier 1 Config Immutability', () => {
             });
             isolatedConfig.setEnvOverride('NEO_RECOVERY_ACTUATOR_HEAL_LEDGER_MAX_EVENTS', 1234);
             expect(isolatedConfig.orchestrator.recoveryActuator.healLedger.maxEvents).toBe(1234);
+
+            expect(isolatedConfig.orchestrator.recoveryActuator.freezeReprobeTimeoutMs).toBe(
+                Number(process.env.NEO_RECOVERY_ACTUATOR_FREEZE_REPROBE_TIMEOUT_MS) || 30000
+            );
+            isolatedConfig.setEnvOverride('NEO_RECOVERY_ACTUATOR_FREEZE_REPROBE_TIMEOUT_MS', 4321);
+            expect(isolatedConfig.orchestrator.recoveryActuator.freezeReprobeTimeoutMs).toBe(4321);
         } finally {
             isolatedConfig.destroy();
         }

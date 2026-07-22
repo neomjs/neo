@@ -163,6 +163,54 @@ export function buildEmbeddingProviderBlock(cfg) {
 }
 
 /**
+ * @summary Creates the structural caller-owned deadline error shared by embedding-probe consumers.
+ * @param {String} operationLabel Bounded diagnostic label.
+ * @param {Number} timeoutMs Consumer-owned deadline in milliseconds.
+ * @returns {Error}
+ */
+export function createEmbeddingProbeTimeoutError(operationLabel, timeoutMs) {
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+        throw new TypeError(`Embedding probe timeoutMs must be a positive number, got ${timeoutMs}`);
+    }
+
+    const error = new Error(`${operationLabel} timed out after ${timeoutMs}ms`);
+    error.code           = 'EMBEDDING_PROBE_TIMEOUT';
+    error.operationLabel = operationLabel;
+    error.timeoutMs      = timeoutMs;
+
+    return error;
+}
+
+const EMBEDDING_PROBE_PUBLIC_REASON_MAX_LENGTH = 96;
+
+/**
+ * @summary Maps provider failures to a bounded public receipt without exposing provider payloads.
+ * @param {Error} error Embedding failure observed by the health consumer.
+ * @returns {{error: String, errorClassification: String, errorCode: String}}
+ */
+function describeEmbeddingProbeFailure(error) {
+    const knownCode = [
+        'ABORT_ERR',
+        'EMBEDDING_PROBE_TIMEOUT',
+        'OPENAI_COMPATIBLE_REQUEST_TIMEOUT',
+        'PROVIDER_TIMEOUT'
+    ].includes(error?.code) ? error.code : error?.name === 'AbortError' ? 'ABORT_ERR' : 'EMBEDDING_PROVIDER_ERROR';
+    const errorClassification = knownCode === 'EMBEDDING_PROBE_TIMEOUT'
+        ? 'consumer-probe-timeout'
+        : ['OPENAI_COMPATIBLE_REQUEST_TIMEOUT', 'PROVIDER_TIMEOUT'].includes(knownCode)
+            ? 'provider-timeout'
+            : knownCode === 'ABORT_ERR'
+                ? 'upstream-abort'
+                : 'provider-failure';
+
+    return {
+        error    : `${errorClassification}:${knownCode}`.substring(0, EMBEDDING_PROBE_PUBLIC_REASON_MAX_LENGTH),
+        errorClassification,
+        errorCode: knownCode
+    };
+}
+
+/**
  * @summary Probes the active embedding write path used by Memory Core writes.
  *
  * Memory writes fail before ChromaDB insertion when the active embedding provider cannot return a
@@ -177,7 +225,8 @@ export function buildEmbeddingProviderBlock(cfg) {
  * @param {Function} [options.now=Date.now] Time source for deterministic tests.
  * @param {Number} [options.timeoutMs=aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs] Max time to wait for the provider.
  * @returns {Promise<{status: String, provider: String, dimensions: Number|null,
- *     expectedDimensions: Number|null, durationMs: Number, error: String|undefined}>}
+ *     expectedDimensions: Number|null, durationMs: Number, error: String|undefined,
+ *     errorClassification: String|undefined, errorCode: String|undefined}>}
  */
 export async function buildEmbeddingWriteCanaryBlock({
     cfg       = aiConfig,
@@ -189,18 +238,31 @@ export async function buildEmbeddingWriteCanaryBlock({
     const readNow            = typeof now === 'function' ? now : () => (typeof now === 'number' ? now : now.getTime()),
           startedAt          = readNow(),
           provider           = cfg.embeddingProvider || 'openAiCompatible',
-          expectedDimensions = cfg.vectorDimension ?? null;
+          expectedDimensions = cfg.vectorDimension ?? null,
+          operationLabel     = 'Embedding write canary';
+
+    let timeoutId;
 
     try {
-        const probe = embedText || (async (text, explicitProvider) => {
+        const probe = embedText || (async (text, explicitProvider, options) => {
             const {default: TextEmbeddingService} = await import('./TextEmbeddingService.mjs');
-            return TextEmbeddingService.embedText(text, explicitProvider);
+            return TextEmbeddingService.embedText(text, explicitProvider, options);
         });
-        const embedding = await withTimeout(
-                  Promise.resolve(probe(input, provider)),
-                  timeoutMs,
-                  'Embedding write canary'
-              ),
+        const controller    = new AbortController(),
+              timeoutError  = createEmbeddingProbeTimeoutError(operationLabel, timeoutMs),
+              deadline      = new Promise((_, reject) => {
+                  timeoutId = setTimeout(() => {
+                      reject(timeoutError);
+                      controller.abort(timeoutError);
+                  }, timeoutMs);
+              }),
+              embedding    = await Promise.race([
+                  Promise.resolve(probe(input, provider, {
+                      signal: controller.signal,
+                      operationLabel
+                  })),
+                  deadline
+              ]),
               dimensions = Array.isArray(embedding) ? embedding.length : null,
               durationMs = Math.max(0, readNow() - startedAt);
 
@@ -234,14 +296,18 @@ export async function buildEmbeddingWriteCanaryBlock({
             durationMs
         };
     } catch (error) {
+        const failure = describeEmbeddingProbeFailure(error);
+
         return {
             status    : 'failed',
             provider,
             dimensions: null,
             expectedDimensions,
             durationMs: Math.max(0, readNow() - startedAt),
-            error     : error.message
+            ...failure
         };
+    } finally {
+        clearTimeout(timeoutId);
     }
 }
 
