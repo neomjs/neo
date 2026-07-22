@@ -304,7 +304,7 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
             expect(run(file).status).toBe(0);
         });
 
-        test('#15057: a destructuring-with-defaults declarator is left untouched, never mis-split into invalid JS', () => {
+        test('#15072: a destructuring-with-defaults declarator is left untouched, never mis-split into invalid JS', () => {
             // The default `=` inside `{blockedNodes = []}` is NOT the assignment operator. Before the guard,
             // --fix sliced the line at that first `=` and erased `[], ...} = focusContradiction` into a
             // SyntaxError. Such a line now fails to match as a declaration, breaks the run, and is preserved
@@ -323,6 +323,30 @@ test.describe('check-block-alignment.mjs (#13556)', () => {
             expect(fs.readFileSync(file, 'utf8')).toBe(original);    // byte-identical: the default `=` is never an alignment column
             expect(run(file).status).toBe(0);                        // check mode: no drift, so the author is never told to --fix
             execFileSync('node', ['--check', file], {stdio: 'pipe'}); // throws if --fix left the file un-parseable
+        });
+
+        test('#15703: a multiline callback arrow breaks the declaration run and stays byte-identical', () => {
+            // The `=` inside `=>` is not an assignment operator. A callback body line can share the
+            // comma-block continuation indent, so the parser must reject it before reconstruction.
+            const original = [
+                'function selectObservations(observations) {',
+                '    const',
+                '        selected = observations.filter(',
+                '        observation => observation.keep',
+                '    ),',
+                '        count = selected.length;',
+                '',
+                '    return {selected, count}',
+                '}'
+            ].join('\n');
+            const file = write('callback-arrow.mjs', original);
+
+            expect(run('--fix', file).status).toBe(0);
+            expect(fs.readFileSync(file, 'utf8')).toBe(original);
+            expect(run(file).status).toBe(0);
+            expect(run('--fix', file).status).toBe(0);
+            expect(fs.readFileSync(file, 'utf8')).toBe(original);
+            execFileSync(process.execPath, ['--check', file], {stdio: 'pipe'});
         });
 
         test('#13896: --fix aligns repeated-keyword declaration blocks', () => {

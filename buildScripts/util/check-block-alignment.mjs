@@ -206,15 +206,17 @@ function evaluateColonAlignment(lines, maskedLines = []) {
 // Excluding it makes such a line fail to match as a declaration, so it breaks the alignment run (stays
 // untouched) instead of being mis-split at its first `=` by splitAssignment — which erased a valid
 // `{blockedNodes = [], …} = focusContradiction` into a SyntaxError. Default-FREE patterns (`{record}`) carry
-// no `=`, so they still match and align exactly as before — only defaulted patterns are excluded.
+// no `=`, so they still match and align exactly as before — only defaulted patterns are excluded. The bare
+// declaration patterns also reject `=>`: a multiline callback can share the continuation indent, but its
+// arrow is not an assignment operator and must break the run before splitAssignment reconstructs it.
 const
     LONE_KEYWORD = /^\s*(?:const|let|var)\s*$/,        // a lone `const`/`let`/`var` line (opens a comma-block)
     DECL_BINDING = String.raw`(?:[A-Za-z_$][\w$]*|\{[^}=]+\}|\[[^\]=]+\])`,
-    BARE_DECL    = new RegExp(`^(\\s+)${DECL_BINDING}\\s*=\\s*.+$`); // its indented `binding = value` comma-block continuation
+    BARE_DECL    = new RegExp(`^(\\s+)${DECL_BINDING}\\s*=(?!>)\\s*.+$`); // its indented `binding = value` comma-block continuation
 
 const
     KEYWORD_DECL           = new RegExp(`^(\\s*)(const|let|var)\\s+(${DECL_BINDING})\\s*=\\s*(.+)$`),
-    BARE_DECL_CONTINUATION = new RegExp(`^(\\s+)${DECL_BINDING}\\s*=\\s*.+$`);
+    BARE_DECL_CONTINUATION = new RegExp(`^(\\s+)${DECL_BINDING}\\s*=(?!>)\\s*.+$`);
 
 /**
  * @summary The leading whitespace of a line.
@@ -227,8 +229,9 @@ function leadingWhitespace(line) {
 
 /**
  * @summary Splits an assignment line at its assignment `=` into `{left, value}`. The first `=` on a
- * declaration line is always the assignment operator (keywords/identifiers carry none), so a
- * value-internal `===` / `=>` is preserved in `value`.
+ * declaration line admitted by the binding patterns is always the assignment operator
+ * (keywords/identifiers carry none, and bare callback arrows are rejected), so a value-internal
+ * `===` / `=>` is preserved in `value`.
  * @param {String} line
  * @returns {{left: String, value: String}}
  */
