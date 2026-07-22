@@ -69,6 +69,10 @@ test.describe('communitySourceOperator — audited hosted bootstrap (#15156)', (
     });
 
     test('audit is a co-located registry read, not an MCP admin operation', async () => {
+        const audit = [
+            {auditId: 'z-audit', action: 'REGISTERED'},
+            {auditId: 'a-audit', action: 'PROVISIONED'}
+        ];
         const result = await runOperator({
             args: {
                 action          : 'audit',
@@ -77,10 +81,11 @@ test.describe('communitySourceOperator — audited hosted bootstrap (#15156)', (
             },
             registry: {
                 async ready() {},
-                listAuditForTenant: (tenantId, sourceInstanceId) => [{tenantId, sourceInstanceId}]
+                listAuditForTenant: () => audit
             }
         });
 
-        expect(result).toEqual([{tenantId: 'tenant-a', sourceInstanceId: 'source-1'}]);
+        expect(result).toBe(audit);
+        expect(result.map(event => event.action)).toEqual(['REGISTERED', 'PROVISIONED'])
     });
 });
