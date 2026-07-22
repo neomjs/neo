@@ -8,6 +8,10 @@ import {
     ensureDevelopmentThemeAssets,
     inspectDevelopmentThemeAssets
 } from '../../../../../../buildScripts/util/developmentThemeAssets.mjs';
+import webpackServerConfig, {
+    createDevelopmentThemeFreshnessHooks,
+    DEVELOPMENT_THEME_RECHECK_INTERVAL_MS
+} from '../../../../../../buildScripts/webpack/webpack.server.config.mjs';
 
 /**
  * @summary Pins the ordinary E2E theme preflight across fresh, missing, stale, failed-build,
@@ -243,5 +247,113 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
 
         expect(state.ready).toBe(false);
         expect(state.symlinked).toContain('dist/development/css/src/Global.css')
+    })
+});
+
+/**
+ * @summary Pins the development-server consumer: startup inspection, bounded request-time
+ * revalidation, transition-based warning de-duplication, and fail-soft request handling.
+ */
+test.describe('webpack development-theme freshness hooks (#15666)', () => {
+    test('the live config wires a 5s guard before static serving', () => {
+        const staticMiddleware = {name: 'express-static', middleware() {}};
+        const middlewares      = webpackServerConfig.devServer.setupMiddlewares([staticMiddleware]);
+
+        expect(DEVELOPMENT_THEME_RECHECK_INTERVAL_MS).toBe(5000);
+        expect(webpackServerConfig.devServer.static.watch).toBe(false);
+        expect(typeof webpackServerConfig.devServer.onListening).toBe('function');
+        expect(middlewares[0].name).toBe('development-theme-freshness');
+        expect(middlewares[1]).toBe(staticMiddleware)
+    });
+
+    test('startup + bounded CSS requests warn once per fresh-to-stale transition', () => {
+        const
+            readyStates = [false, false, true, false],
+            warnings    = [];
+
+        let inspections = 0,
+            nextCalls   = 0,
+            now         = 0;
+
+        const hooks = createDevelopmentThemeFreshnessHooks({
+            inspect: () => ({ready: readyStates[inspections++]}),
+            logger : {warn: message => warnings.push(message)},
+            now    : () => now
+        });
+        const middleware = hooks.setupMiddlewares([])[0].middleware;
+
+        hooks.onListening();
+
+        const requestAt = time => {
+            now = time;
+            middleware(
+                {url: '/dist/development/css/src/Global.css?theme=dark'},
+                {},
+                () => nextCalls++
+            )
+        };
+
+        requestAt(4999);  // startup result is reused
+        requestAt(5000);  // stale revalidation, warning stays de-duped
+        requestAt(9999);  // second result is reused
+        requestAt(10000); // rebuild observed: fresh
+        requestAt(15000); // next fresh -> stale transition warns again
+
+        expect(inspections).toBe(4);
+        expect(nextCalls).toBe(5);
+        expect(warnings).toHaveLength(2);
+        warnings.forEach(message => {
+            expect(message).toContain(DEVELOPMENT_THEME_BUILD_COMMAND)
+        })
+    });
+
+    test('inspection errors never block responses and stay de-duped until a successful check', () => {
+        const warnings = [];
+
+        let inspections = 0,
+            mode        = 'error',
+            nextCalls   = 0,
+            now         = 0;
+
+        const hooks = createDevelopmentThemeFreshnessHooks({
+            inspect: () => {
+                inspections++;
+                if (mode === 'error') throw new Error('fixture inspection failed');
+                return {ready: true}
+            },
+            logger: {warn: message => warnings.push(message)},
+            now   : () => now
+        });
+        const middleware = hooks.setupMiddlewares([])[0].middleware;
+
+        expect(() => hooks.onListening()).not.toThrow();
+
+        now = 5000;
+        expect(() => middleware(
+            {url: '/dist/development/css/src/Global.css'},
+            {},
+            () => nextCalls++
+        )).not.toThrow();
+
+        expect(inspections).toBe(2);
+        expect(nextCalls).toBe(1);
+        expect(warnings).toHaveLength(1);
+
+        mode = 'fresh';
+        now  = 10000;
+        middleware({url: '/dist/development/css/src/Global.css'}, {}, () => nextCalls++);
+
+        mode = 'error';
+        now  = 15000;
+        middleware({url: '/dist/development/css/src/Global.css'}, {}, () => nextCalls++);
+
+        now = 20000;
+        middleware({url: '/src/Neo.mjs'}, {}, () => nextCalls++);
+
+        expect(inspections).toBe(4); // the non-theme request never inspects
+        expect(nextCalls).toBe(4);
+        expect(warnings).toHaveLength(2); // a successful check reset the error transition
+        expect(warnings[0]).toContain('fixture inspection failed');
+        expect(warnings[0]).toContain(DEVELOPMENT_THEME_BUILD_COMMAND)
     })
 });
