@@ -54,7 +54,11 @@ export function validateOffHostSyncConfig(config = {}) {
 
     // Validate EVERY key before the disabled early-return: a disabled hook with malformed keys is a
     // validation failure, not a silent pass.
+    if (config === null || typeof config !== 'object' || Array.isArray(config)) return fail('config must be an object');
     if (typeof command !== 'string') return fail('command must be a string');
+    if (command.includes('\0') || argv.some(token => typeof token === 'string' && token.includes('\0'))) {
+        return fail('command/argv must not contain NUL bytes')
+    }
     if (!Array.isArray(argv) || argv.some(token => typeof token !== 'string')) return fail('argv must be an array of strings');
 
     for (const token of argv) {
@@ -105,21 +109,26 @@ export function buildSyncChildEnv(allowlist, processEnv = process.env) {
 
 /**
  * Redacts allowlisted env VALUES from diagnostic text (longest-value-first, overlap-safe), then
- * bounds the result. Redaction happens before bounding so a secret can never straddle a cut.
+ * bounds the result. Redaction happens before bounding so a secret can never straddle a cut. Every
+ * allowlisted value redacts regardless of length — the allowlist IS the credential set; base-env
+ * values (PATH/HOME/USER/TMPDIR) redact only when long enough to carry meaning (≥6), so ordinary
+ * diagnostics are not mangled.
  * @param {String} text
- * @param {Object} env The exact child env (values to redact).
+ * @param {Object} env The exact child env (allowlisted values always redact; base values ≥6 only).
  * @param {Number} [maxBytes=MAX_TAIL_BYTES]
+ * @param {String[]} [allowlist=[]] The envAllowlist names (values at these keys always redact).
  * @returns {String}
  */
-export function redactAndBound(text, env, maxBytes = MAX_TAIL_BYTES) {
+export function redactAndBound(text, env, maxBytes = MAX_TAIL_BYTES, allowlist = []) {
     let out = String(text ?? '');
 
-    const values = Object.values(env)
-        .filter(value => typeof value === 'string' && value.length >= 6)
+    const values = Object.entries(env)
+        .filter(([name, value]) => typeof value === 'string' && (allowlist.includes(name) || value.length >= 6))
+        .map(([, value]) => value)
         .sort((a, b) => b.length - a.length);
 
     for (const value of values) {
-        out = out.split(value).join('***')
+        if (value.length > 0) out = out.split(value).join('***')
     }
 
     return Buffer.byteLength(out, 'utf8') <= maxBytes
@@ -163,7 +172,7 @@ export async function runOffHostSync({config, bundleDir, bundleName, execFileImp
             settled = true;
             killTimer && clearTimeout(killTimer);
 
-            const stderrTail = redactAndBound(error?.stderr ?? error?.message ?? '', childEnv);
+            const stderrTail = redactAndBound(error?.stderr ?? error?.message ?? '', childEnv, MAX_TAIL_BYTES, config.envAllowlist);
 
             resolve({
                 completionScope: 'direct-child',

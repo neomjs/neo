@@ -9,7 +9,7 @@ import {
     createDeploymentStateSnapshot,
     writeDeploymentStateSnapshot
 } from '../../../services/memory-core/helpers/deploymentStateBridgeStore.mjs';
-import {readBackupReceipt}           from '../../../scripts/maintenance/offHostSync.mjs';
+import {readBackupReceipt}           from '../../../services/memory-core/helpers/offHostSyncStore.mjs';
 import {readRecentRecoveryRunStates} from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
 import {
     queryHealLedger,

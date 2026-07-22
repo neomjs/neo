@@ -570,78 +570,103 @@ async function copyJsonlSource(source, destDir, logger=console) {
  * @returns {Promise<Object>} the lease outcome (same shape as `withHeavyMaintenanceLease`'s)
  */
 export async function runBackupWithOffHostSync() {
-    const receiptPath = path.join(AiConfig.backupPath, 'last-backup-receipt.json');
-    const startedAt   = Date.now();
+    // The sync + BOTH receipts live INSIDE the self-acquired lease: success receipts and the
+    // truthful not-run failure receipt are persisted before the lease releases.
+    return withHeavyMaintenanceLease(async () => {
+        const backupStartedAt = Date.now();
 
-    try {
-        // The sync + receipt lifetime extends the exclusive-heavy lease: everything below runs
-        // INSIDE the lease callback, so the lease releases only after the bounded receipt rename.
-        return await withHeavyMaintenanceLease(async () => {
-            const result = await runBackup();
+        let result, backupError = null;
 
-            const
-                {bundleRoot, completedAt} = result,
-                bundleName                = path.basename(bundleRoot),
-                validation                = validateOffHostSyncConfig(AiConfig.maintenance.backup.offHostSync);
+        try {
+            result = await runBackup()
+        } catch (error) {
+            backupError = error
+        }
 
-            let syncOutcome = null,
-                syncStatus  = 'disabled';
+        const
+            allowlist   = AiConfig.maintenance.backup.offHostSync.envAllowlist,
+            receiptPath = path.join(AiConfig.backupPath, 'last-backup-receipt.json');
 
-            if (validation.error) {
-                syncStatus = 'validation-failed';
-                console.warn(`[Backup] offHostSync validation failed: ${validation.error} — skipping the off-host sync, the local bundle is unaffected.`);
-            } else if (validation.enabled) {
-                syncOutcome = await runOffHostSync({bundleDir: bundleRoot, bundleName, config: validation.value});
+        if (backupError) {
+            // Only a backup/lease failure reaches this branch: the truthful not-run receipt, written
+            // while the lease is still held. A receipt write failure never masks the backup failure.
+            await writeBackupReceipt({
+                filePath: receiptPath,
+                receipt : buildBackupReceipt({
+                    backup: {
+                        durationMs: Date.now() - backupStartedAt,
+                        error     : redactAndBound(backupError?.stack ?? backupError?.message ?? String(backupError), buildSyncChildEnv(allowlist), undefined, allowlist),
+                        status    : 'failed'
+                    },
+                    bundleCompletedAt: null,
+                    bundleName       : null,
+                    syncStatus       : 'not-run-backup-failed'
+                })
+            }).catch(receiptError => {
+                console.warn(`[Backup] failed to write the failure receipt: ${receiptError.message}`)
+            });
 
-                if (syncOutcome.status !== 'success') {
-                    console.warn(`[Backup] offHostSync ${syncOutcome.status} (terminatedVia=${syncOutcome.terminatedVia}): ${syncOutcome.stderrTail}`);
+            throw backupError
+        }
+
+        const
+            {bundleRoot, completedAt} = result,
+            bundleName                = path.basename(bundleRoot),
+            validation                = validateOffHostSyncConfig(AiConfig.maintenance.backup.offHostSync),
+            backupDurationMs          = Date.now() - backupStartedAt;
+
+        let syncOutcome = null,
+            syncStatus  = 'disabled';
+
+        if (validation.error) {
+            syncStatus = 'validation-failed';
+            console.warn(`[Backup] offHostSync validation failed: ${validation.error} — skipping the off-host sync, the local bundle is unaffected.`);
+        } else if (validation.enabled) {
+            try {
+                syncOutcome = await runOffHostSync({bundleDir: bundleRoot, bundleName, config: validation.value})
+            } catch (syncError) {
+                // An unexpected spawn/config error is a SYNC outcome — the completed local bundle
+                // never becomes backup.status: 'failed' because the hook broke.
+                syncOutcome = {
+                    completionScope: 'direct-child',
+                    descendants    : 'unknown',
+                    durationMs     : null,
+                    exitCode       : null,
+                    signal         : null,
+                    status         : 'failed',
+                    stderrTail     : redactAndBound(syncError?.message ?? String(syncError), buildSyncChildEnv(allowlist), undefined, allowlist),
+                    terminatedVia  : 'exit'
                 }
             }
 
-            try {
-                await writeBackupReceipt({
-                    filePath: receiptPath,
-                    receipt : buildBackupReceipt({
-                        backup: {
-                            durationMs: Date.now() - startedAt,
-                            error     : null,
-                            status    : 'success'
-                        },
-                        bundleCompletedAt: completedAt,
-                        bundleName,
-                        offHostSync      : syncOutcome,
-                        syncStatus
-                    })
-                });
-            } catch (receiptError) {
-                // A receipt write failure degrades observability, never the successful backup's truth.
-                console.warn(`[Backup] failed to write the receipt after a successful backup: ${receiptError.message}`)
+            if (syncOutcome.status !== 'success') {
+                console.warn(`[Backup] offHostSync ${syncOutcome.status} (terminatedVia=${syncOutcome.terminatedVia}): ${syncOutcome.stderrTail}`);
             }
+        }
 
-            return result
-        }, {owner: 'backup', reason: 'manual-cli', staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs, metadata: {script: 'ai/scripts/maintenance/backup.mjs'}});
-        // Held: no backup ran — no receipt. Completed: sync + receipt already ran inside the lease.
-    } catch (error) {
-        // Only a runBackup/lease failure reaches here: the truthful not-run receipt. A receipt write
-        // failure never masks the backup failure.
-        await writeBackupReceipt({
-            filePath: receiptPath,
-            receipt : buildBackupReceipt({
-                backup: {
-                    durationMs: Date.now() - startedAt,
-                    error     : redactAndBound(error?.stack ?? error?.message ?? String(error), buildSyncChildEnv(AiConfig.maintenance.backup.offHostSync.envAllowlist)),
-                    status    : 'failed'
-                },
-                bundleCompletedAt: null,
-                bundleName       : null,
-                syncStatus       : 'not-run-backup-failed'
-            })
-        }).catch(receiptError => {
-            console.warn(`[Backup] failed to write the failure receipt: ${receiptError.message}`)
-        });
+        try {
+            await writeBackupReceipt({
+                filePath: receiptPath,
+                receipt : buildBackupReceipt({
+                    backup: {
+                        durationMs: backupDurationMs,
+                        error     : null,
+                        status    : 'success'
+                    },
+                    bundleCompletedAt: completedAt,
+                    bundleName,
+                    offHostSync      : syncOutcome,
+                    syncStatus
+                })
+            });
+        } catch (receiptError) {
+            // A receipt write failure degrades observability, never the successful backup's truth.
+            console.warn(`[Backup] failed to write the receipt after a successful backup: ${receiptError.message}`)
+        }
 
-        throw error
-    }
+        return result
+    }, {owner: 'backup', reason: 'manual-cli', staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs, metadata: {script: 'ai/scripts/maintenance/backup.mjs'}});
+    // Held: no backup ran — no receipt. Completed: sync + receipt already ran inside the lease.
 }
 
 // Auto-run under the shared heavy-maintenance lease so this CLI cannot collide with the

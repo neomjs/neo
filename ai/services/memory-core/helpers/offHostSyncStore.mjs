@@ -1,5 +1,6 @@
-import fs   from 'fs-extra';
-import path from 'path';
+import crypto from 'node:crypto';
+import fs     from 'fs-extra';
+import path   from 'path';
 
 /**
  * @module ai/services/memory-core/helpers/offHostSyncStore
@@ -56,7 +57,20 @@ export function buildBackupReceipt({backup, bundleName, bundleCompletedAt, finis
  * @param {Object} options.receipt Envelope from {@link buildBackupReceipt}.
  * @returns {Promise<{filePath: String, bytes: Number}>}
  */
-export async function writeBackupReceipt({filePath, receipt}) {
+let writeCounter = 0;
+
+/**
+ * Writes the receipt atomically: a per-write unique temp path (pid + timestamp + monotonic counter
+ * + random suffix — two writes inside the same millisecond on the same pid never collide), fsync,
+ * rename. A torn write leaves the previous receipt intact. The stale-temp sweep only removes temps
+ * older than this write's own timestamp, so it can never delete another live writer's in-flight temp.
+ * @param {Object} options
+ * @param {String} options.filePath Receipt destination (inside `AiConfig.backupPath`).
+ * @param {Object} options.receipt Envelope from {@link buildBackupReceipt}.
+ * @param {Number} [options.now=Date.now()] Injectable clock (tests pin two writes into the same ms).
+ * @returns {Promise<{filePath: String, bytes: Number}>}
+ */
+export async function writeBackupReceipt({filePath, receipt, now = Date.now()}) {
     const
         payload = JSON.stringify(receipt, null, 2),
         bytes   = Buffer.byteLength(payload, 'utf8');
@@ -65,7 +79,11 @@ export async function writeBackupReceipt({filePath, receipt}) {
         throw new Error(`backup receipt exceeds the ${MAX_RECEIPT_BYTES}-byte cap (${bytes} bytes)`)
     }
 
-    const tempPath = `${filePath}.tmp-${process.pid}-${Date.now()}`;
+    const
+        counter  = ++writeCounter,
+        suffix   = crypto.randomBytes(4).toString('hex'),
+        tempName = `${path.basename(filePath)}.tmp-${process.pid}-${now}-${counter}-${suffix}`,
+        tempPath = path.join(path.dirname(filePath), tempName);
 
     await fs.promises.mkdir(path.dirname(filePath), {recursive: true});
     const handle = await fs.promises.open(tempPath, 'w');
@@ -77,10 +95,16 @@ export async function writeBackupReceipt({filePath, receipt}) {
     }
     await fs.promises.rename(tempPath, filePath);
 
-    // Stale-temp sweep: best-effort, never blocks the receipt
+    // Stale-temp sweep: only temps OLDER than this write's timestamp — a live writer's current-ms
+    // temp is untouchable. Best-effort, never blocks the receipt.
     try {
+        const prefix = `${path.basename(filePath)}.tmp-`;
         for (const entry of await fs.promises.readdir(path.dirname(filePath))) {
-            if (entry.startsWith(`${path.basename(filePath)}.tmp-`)) {
+            if (!entry.startsWith(prefix) || entry === tempName) continue;
+
+            const entryMs = Number(entry.slice(prefix.length).split('-')[1]);
+
+            if (!Number.isFinite(entryMs) || entryMs < now) {
                 await fs.promises.rm(path.join(path.dirname(filePath), entry), {force: true})
             }
         }
@@ -99,15 +123,23 @@ export async function writeBackupReceipt({filePath, receipt}) {
 export async function readBackupReceipt({filePath}) {
     let raw;
 
+    // The 64 KiB cap is enforced BEFORE whole-file allocation: a stat precedes the read, so an
+    // oversize artifact is never materialized into memory.
     try {
-        raw = await fs.promises.readFile(filePath, 'utf8')
+        const stat = await fs.promises.stat(filePath);
+        if (stat.size > MAX_RECEIPT_BYTES) {
+            return {finishedAt: null, kind: 'oversize', status: 'unreadable'}
+        }
     } catch (error) {
         if (error.code === 'ENOENT') return {status: 'missing'};
         return {finishedAt: null, kind: 'corrupt', status: 'unreadable'}
     }
 
-    if (Buffer.byteLength(raw, 'utf8') > MAX_RECEIPT_BYTES) {
-        return {finishedAt: null, kind: 'oversize', status: 'unreadable'}
+    try {
+        raw = await fs.promises.readFile(filePath, 'utf8')
+    } catch (error) {
+        if (error.code === 'ENOENT') return {status: 'missing'};
+        return {finishedAt: null, kind: 'corrupt', status: 'unreadable'}
     }
 
     let parsed;
@@ -149,8 +181,9 @@ export function validateReceiptShape(parsed) {
     if (backup.status !== 'success' && backup.status !== 'failed') return null;
     if (typeof backup.durationMs !== 'number') return null;
     if (!(backup.error === null || typeof backup.error === 'string')) return null;
+    // Provenance is a basename, never an absolute/host path.
+    if (parsed.bundleName !== null && (typeof parsed.bundleName !== 'string' || parsed.bundleName.includes('/'))) return null;
     if (!(parsed.finishedAt === null || typeof parsed.finishedAt === 'string')) return null;
-    if (!(parsed.bundleName === null || typeof parsed.bundleName === 'string')) return null;
     if (!(parsed.bundleCompletedAt === null || typeof parsed.bundleCompletedAt === 'string')) return null;
 
     if (!offHostSync || typeof offHostSync !== 'object') return null;
@@ -163,8 +196,12 @@ export function validateReceiptShape(parsed) {
     if (offHostSync.descendants !== 'unknown') return null;
     if (typeof offHostSync.stderrTail !== 'string') return null;
 
+    // Read-side bounds: a hostile or legacy writer's oversized diagnostics are sanitized at the
+    // projection boundary, never projected wholesale.
+    const boundError = backup.error === null ? null : Buffer.from(backup.error, 'utf8').subarray(0, MAX_TAIL_BYTES).toString('utf8');
+
     return {
-        backup           : {durationMs: backup.durationMs, error: backup.error, status: backup.status},
+        backup           : {durationMs: backup.durationMs, error: boundError, status: backup.status},
         bundleCompletedAt: parsed.bundleCompletedAt,
         bundleName       : parsed.bundleName,
         finishedAt       : parsed.finishedAt,
@@ -175,7 +212,7 @@ export function validateReceiptShape(parsed) {
             exitCode       : offHostSync.exitCode,
             signal         : offHostSync.signal,
             status         : offHostSync.status,
-            stderrTail     : offHostSync.stderrTail,
+            stderrTail     : Buffer.from(offHostSync.stderrTail, 'utf8').subarray(0, MAX_TAIL_BYTES).toString('utf8'),
             terminatedVia  : offHostSync.terminatedVia
         },
         schemaVersion    : OFFHOST_SYNC_SCHEMA_VERSION
