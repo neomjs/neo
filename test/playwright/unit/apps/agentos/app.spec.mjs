@@ -23,4 +23,13 @@ test.describe('AgentOS packaged Fleet window routing', () => {
         expect(resolveFleetWindowId({apps: {popup: {}}, fallbackWindowId: 'popup', windows})).toBe('popup');
         expect(resolveFleetWindowId({apps: {}, fallbackWindowId: 'popup', windows})).toBeNull()
     })
+
+    test('derives shell versus browser transport from the existing worker URL envelope', async () => {
+        const {resolveFleetTransportMode} = await import('../../../../../apps/agentos/app.mjs');
+
+        expect(resolveFleetTransportMode({href: 'app://neo-agentos/index.html', search: ''})).toBe('shell');
+        expect(resolveFleetTransportMode({href: 'http://127.0.0.1:8080/apps/agentos/', search: '?fleetUrl=x'})).toBe('browser');
+        expect(resolveFleetTransportMode({href: 'https://example.test/apps/agentos/', search: ''})).toBe('browser');
+        expect(() => resolveFleetTransportMode({search: ''})).toThrow()
+    })
 });
