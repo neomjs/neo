@@ -171,11 +171,11 @@ test.describe('KB_DatabaseService.importDatabase — null-document handling (#11
 
         const headRecords = Array.from({length: 500}, (_, index) => ({
             id       : `head-${index}`,
-            embedding: [index],
+            embedding: vec(index),
             metadata : {index},
             document : null
         }));
-        const tailRecord = {id: 'tail-500', embedding: [500], metadata: {index: 500}, document: null};
+        const tailRecord = {id: 'tail-500', embedding: vec(500), metadata: {index: 500}, document: null};
 
         let releaseTail;
         const tailGate                 = new Promise(resolve => { releaseTail = resolve; });

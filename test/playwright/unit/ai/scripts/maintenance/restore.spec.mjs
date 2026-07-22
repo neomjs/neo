@@ -351,7 +351,10 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
             logger                : silentLogger
         });
 
-        expect(result.meta).toBeNull();
+        // A legacy bundle carries no meta file; the orchestrator still receives the structured
+        // unknown-provenance receipt rather than a bare null.
+        expect(result.meta.legacy).toBe(true);
+        expect(result.meta.embeddingAdvisories[0].reason).toBe('semantic-provenance-unverified');
         expect(result.topology.bundleChromaUnified).toBeUndefined();
         expect(result.topology.match).toBe(true);
         expect(calls.kb).toHaveLength(1);
