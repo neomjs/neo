@@ -34,7 +34,7 @@ import AiConfig              from '../../config.mjs';
 import memoryCoreConfig      from '../../mcp/server/memory-core/config.mjs';
 import {assertConfigFresh}   from '../../scripts/setup/initServerConfigs.mjs';
 import {WAKE_LANE_DIRECTIVE} from './wakeLaneDirective.mjs';
-import {withAppendLock}      from '../../services/memory-core/helpers/walAppendLock.mjs';
+import {withOutboxLock}      from './outboxLock.mjs';
 import nodeCrypto            from 'node:crypto';
 
 import fs                               from 'fs-extra';
@@ -1342,9 +1342,11 @@ async function deliverViaKimiServer(subscription, digest, evidenceLabel = '', ab
  * (`subscriptionId` + digest body), so a retry of the same coalesced wake re-appends the SAME id
  * — the seat consumer's idempotency key on consume.
  *
- * Durability protocol (both sides, one lock): the append runs under
- * `withAppendLock(outboxPath)`, the same cross-process lock the consumer holds for its
- * read-and-compact, so an append can never interleave with a consume and erase either side.
+ * Durability protocol (both sides, one lock): the append runs under `withOutboxLock(outboxPath)` —
+ * the STRICT sibling lock with no TTL and no unlocked fall-through (a live consumer is never
+ * reclaimed mid-compact, and a writer that cannot acquire within its bounded wait throws instead
+ * of writing unlocked) — the same lock the consumer holds for its read-and-compact, so an append
+ * can never interleave with a consume and erase either side.
  * Path confinement: the outbox must resolve inside the seat home (the envelope's directory),
  * with no symlinked parent or file; an existing outbox with a permissive mode is repaired to
  * 0600 (and the repair logged) rather than silently preserved. The owner epoch comes from the
@@ -1448,7 +1450,7 @@ async function deliverViaKimiPullBridge(subscription, digest, evidenceLabel = ''
           };
 
     await fs.ensureDir(outboxParent);
-    await withAppendLock(outboxPath, () => fs.appendFile(outboxPath, JSON.stringify(entry) + '\n', {mode: 0o600}));
+    await withOutboxLock(outboxPath, () => fs.appendFile(outboxPath, JSON.stringify(entry) + '\n', {mode: 0o600}));
 
     writeLog('INFO', `[Wake Daemon] Queued ${subscription.id} via kimi-pull-bridge (outbox ${outboxPath}, wake ${wakeId}, owner ${sessionId}@${processEpoch})${evidenceLabel}`);
 }

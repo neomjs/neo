@@ -8,7 +8,7 @@ import http                                                                     
 import os                                                                                      from 'os';
 import { collapseDuplicateShapeCRoutes, getActiveHarnessPresence, getNodesData, getEdgesData } from '../../../../../../ai/daemons/wake/queries.mjs';
 import { SQLITE_IN_CLAUSE_BATCH_SIZE }                                                         from '../../../../../../ai/graph/storage/constants.mjs';
-import { withAppendLock }                                                                      from '../../../../../../ai/services/memory-core/helpers/walAppendLock.mjs';
+import { withOutboxLock }                                                                      from '../../../../../../ai/daemons/wake/outboxLock.mjs';
 
 /**
  * @summary Stubs `ps` for subprocess daemon tests so instance-resolution branches do not depend
@@ -4464,16 +4464,18 @@ test.describe('Wake Daemon', () => {
         daemonProcess.stderr.on('data', data => stdoutLog += data.toString());
 
         // The adversarial interleave the contract exists for: the consumer holds the lock for its
-        // compact WHILE the daemon's first flush attempt lands in the same window. The append
-        // must wait out the hold and land after it — never be erased by a stale snapshot rewrite.
+        // compact WHILE the daemon's first flush attempt lands in the same window — held for 2.6s,
+        // past the borrowed WAL helper's 2s TTL that previously let a producer reclaim a live
+        // consumer. Under the strict lock the append must wait out the full hold and land after
+        // it — never be erased by a stale snapshot rewrite.
         // (The 1s warmup matches the sibling specs: inserting after tail-sync, so the wake is
         // evaluated as genuinely new rather than folded into the boot backlog.)
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        await withAppendLock(outboxPath, async () => {
+        await withOutboxLock(outboxPath, async () => {
             insertMessageWake(db, {agentId, subject: 'Wake Landing Mid-Consume'});
 
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            await new Promise(resolve => setTimeout(resolve, 2600));
 
             const heldLines = fs.readFileSync(outboxPath, 'utf8').trim().split('\n').filter(Boolean);
             expect(heldLines.length).toBe(1);
