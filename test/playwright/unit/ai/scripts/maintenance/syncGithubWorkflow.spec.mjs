@@ -17,8 +17,8 @@ const cliScriptPath = path.resolve(process.cwd(), 'ai/scripts/maintenance/syncGi
  */
 test.describe('syncGithubWorkflow CLI dev-branch guard (#12780)', () => {
     test('delegates when the active branch is dev', async () => {
-        let delegateCalls = 0;
-        const guarded = buildSyncGithubWorkflowDevBranchGuard(async (...args) => {
+        let   delegateCalls = 0;
+        const guarded       = buildSyncGithubWorkflowDevBranchGuard(async (...args) => {
             delegateCalls++;
             return {args};
         }, async () => 'dev');
@@ -30,8 +30,8 @@ test.describe('syncGithubWorkflow CLI dev-branch guard (#12780)', () => {
     });
 
     test('rejects feature branches before delegate work begins', async () => {
-        let delegateCalls = 0;
-        const guarded = buildSyncGithubWorkflowDevBranchGuard(async () => {
+        let   delegateCalls = 0;
+        const guarded       = buildSyncGithubWorkflowDevBranchGuard(async () => {
             delegateCalls++;
         }, async () => 'codex/feature');
 
@@ -40,13 +40,19 @@ test.describe('syncGithubWorkflow CLI dev-branch guard (#12780)', () => {
     });
 
     test('rejects main before delegate work begins', async () => {
-        let delegateCalls = 0;
-        const guarded = buildSyncGithubWorkflowDevBranchGuard(async () => {
+        let   delegateCalls = 0;
+        const guarded       = buildSyncGithubWorkflowDevBranchGuard(async () => {
             delegateCalls++;
         }, async () => 'main');
 
         await expect(guarded()).rejects.toThrow(/syncGithubWorkflow REJECTED.*main.*not 'dev'/);
         expect(delegateCalls).toBe(0);
+    });
+
+    test('names the scheduled githubWorkflowSync lane in remediation', async () => {
+        const guarded = buildSyncGithubWorkflowDevBranchGuard(async () => {}, async () => 'codex/feature');
+
+        await expect(guarded()).rejects.toThrow(/scheduled githubWorkflowSync lane/);
     });
 
     test('rejects detached HEAD before delegate work begins', async () => {

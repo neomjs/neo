@@ -225,7 +225,6 @@ const expectedGithubWorkflowToolTiers = {
     get_discussion_conversation: 'read',
     manage_discussion_comment  : 'extended',
     update_issue_relationship  : 'write',
-    sync_all                   : 'extended',
     get_viewer_permission      : 'read',
     signal_state_transition    : 'write'
 };
@@ -245,7 +244,6 @@ const githubWorkflowDangerousReadForbidden = [
     'manage_discussion',
     'manage_discussion_comment',
     'update_issue_relationship',
-    'sync_all',
     'signal_state_transition'
 ];
 

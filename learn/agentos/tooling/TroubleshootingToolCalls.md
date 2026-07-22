@@ -34,13 +34,13 @@ You may have learned a rule for disambiguating tool names that share the same na
 
 The most critical mistake is to over-generalize this rule. **Do not assume that all tools on a server require a prefix.**
 
-Some tools may have names that are unique across all servers. These tools are often registered without a prefix.
+Some tools may have names that are unique across all servers. Harnesses can still expose those names differently, so the live tool list—not a remembered prefix rule—is authoritative.
 
 **Example:**
 *   `healthcheck` (ambiguous) -> requires `neo_mjs_github_workflow__healthcheck()`
-*   `sync_all` (unique) -> can be called directly as `sync_all()`
+*   `get_pull_request_diff` (unique) -> call the exact name advertised by the current tool surface
 
-If your attempt to call a prefixed tool name fails, your next hypothesis should be to try calling the tool without the prefix.
+If a remembered tool name fails, inspect the current tool surface before retrying; do not synthesize alternate names from stale guidance.
 
 ## Conclusion
 

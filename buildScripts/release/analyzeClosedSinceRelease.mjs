@@ -25,11 +25,11 @@ import {fileURLToPath} from 'url';
  *   - Optional exhaustive PR and issue lists for release-note appendices
  */
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
-const neoRoot    = path.resolve(__dirname, '../..');
-const issuesDir  = path.join(neoRoot, 'resources/content/issues');
-const pullsDir   = path.join(neoRoot, 'resources/content/pulls');
+const __filename    = fileURLToPath(import.meta.url);
+const __dirname     = path.dirname(__filename);
+const neoRoot       = path.resolve(__dirname, '../..');
+const issuesDir     = path.join(neoRoot, 'resources/content/issues');
+const pullsDir      = path.join(neoRoot, 'resources/content/pulls');
 const DEFAULT_LIMIT = 15;
 
 /**
@@ -263,7 +263,7 @@ function markdownCounts(rows, limit) {
  */
 function renderText(report, options) {
     const {closedIssues, mergedPulls, labelCounts, parentCounts, epicIssues, authorCounts, scopeCounts} = report;
-    const lines = [
+    const lines                                                                                         = [
         `Release appendix report since ${options.cutoff}`,
         '',
         `Merged PRs: ${mergedPulls.length}`,
@@ -310,7 +310,7 @@ function renderText(report, options) {
  */
 function renderMarkdown(report, options) {
     const {closedIssues, mergedPulls, labelCounts, parentCounts, epicIssues, authorCounts, scopeCounts} = report;
-    const lines = [
+    const lines                                                                                         = [
         '# Release Appendix Report',
         '',
         `Generated from local recursive content mirrors on ${new Date().toISOString()}.`,
@@ -320,7 +320,7 @@ function renderMarkdown(report, options) {
         `- Cutoff: \`${options.cutoff}\` (explicit previous-release boundary).`,
         '- PR source: `resources/content/pulls/**/*.md` with `state: MERGED` and `mergedAt >= cutoff`.',
         '- Issue source: `resources/content/issues/**/*.md` with `state: CLOSED` and `closedAt >= cutoff`.',
-        '- Freshness: local mirror only. Run `sync_all` or live GitHub count checks immediately before release cut.',
+        '- Freshness: local mirror only. Operators can run `npm run ai:sync-github-workflow`; otherwise use live GitHub count checks immediately before release cut.',
         '',
         '## Summary',
         '',

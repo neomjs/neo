@@ -91,7 +91,7 @@ test.describe('check-ticket-archaeology guard', () => {
  * Boy-scout whole-touched-file behavior: the guard scans each passed file in FULL — touching a
  * file obligates cleaning ALL its ticket-archaeology, not just the author's added lines (operator-directed,
  * exactly like check-block-alignment). This reduces the grandfathered backlog as files are naturally touched
- * (the prior added-lines-only scope froze it). Plus the generated-data skip-flag (data-sync / sync_all).
+ * (the prior added-lines-only scope froze it). Plus the generated-data skip-flag (data-sync / GitHub Workflow sync).
  *
  * CLI-invoked from REPO_ROOT against an isolated temp file, so the real argv-mode path — including the
  * whole-file scan + the skip gate — is exercised end-to-end.
