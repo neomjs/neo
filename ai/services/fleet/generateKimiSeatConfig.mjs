@@ -1,4 +1,5 @@
 import path from 'node:path';
+import {renderAboutThisLayerMd, renderIdentityAnchorHookMjs, renderIdentityMd, renderMemoryIndexMd} from './seatMemoryLayerTemplate.mjs';
 
 /**
  * The canonical MCP server set every Kimi Code seat wires — the same four servers as
@@ -28,14 +29,14 @@ export const KIMI_SEAT_SERVERS = Object.freeze([
  *    `canonicalRoot`, sibling parity.
  * 2. **Seat personal.** Identity + credentials load via `--env-file` from the seat's OWN `.env`
  *    (`NEO_AGENT_IDENTITY`, `GH_TOKEN`, provider keys), wired per-server in `mcp.json`.
- * 3. **The memory layer is a boot RITUAL here, not a config slot.** Kimi Code auto-loads the
- *    PROJECT `AGENTS.md` and ships no per-seat `instructions` slot (verified 2026-07-20 against
- *    the live harness v0.28.0 + the official hooks/config docs: `SessionStart` is an
- *    observation-only event whose stdout never enters context, so hook-injection is not a
- *    reliable surface either). The honest wiring is therefore the MEMORY.md boot checklist
- *    below: read the layer before the first public artifact of every session — persistence
- *    without reload is a no-op (the day-two lesson, kept inside the substrate that teaches it).
- *    If the harness later ships an instructions/memory config, this decision re-opens.
+ * 3. **The memory layer loads via the identity-anchor hook.** Kimi Code auto-loads the PROJECT
+ *    `AGENTS.md` and ships no per-seat `instructions` slot; `SessionStart` is observation-only
+ *    (its stdout never enters context), but `UserPromptSubmit` stdout DOES (verified live on the
+ *    first Kimi seat, 2026-07-22: boot inject + post-compact reload + silent otherwise). The
+ *    generator therefore emits `hooks/identityAnchorHook.mjs` into the harness home and wires it
+ *    as `UserPromptSubmit` + `PostCompact` `[[hooks]]` — the layer reloads at the two moments
+ *    identity dies (boot, compaction) with zero per-turn cost, fail-open. Persistence without
+ *    reload is a no-op (the day-two lesson); the mechanism, not a checklist, is the answer.
  *
  * **Wake-addressable by construction (the wake-adapter coordinate contracts):** the emitted `config.toml`
  * wires the git-tracked SessionStart hook `.kimi-code/hooks/wakeEnvelopeHook.mjs` (present in
@@ -62,8 +63,9 @@ export const KIMI_SEAT_SERVERS = Object.freeze([
  * @param {String} options.kimiHome       Absolute path of the seat's harness home
  *                                        (`$KIMI_CODE_HOME`) — the `config.toml` target.
  * @param {String} options.memoryDir      Absolute path of the seat's persistent memory dir —
- *                                        the `MEMORY.md` / `seat-pointers.md` / `identity.md`
- *                                        scaffold target.
+ *                                        the `MEMORY.md` / `seat-pointers.md` / `identity.md` /
+ *                                        `about-this-layer.md` scaffold target, baked into the
+ *                                        emitted identity-anchor hook.
  * @param {String} options.nodeBinary     Absolute path of the node binary for server commands.
  * @param {Object} [options.environment]  Extra env merged verbatim into EVERY server's `env`
  *                                        block in `mcp.json` (caller-resolved: PATH, HOME,
@@ -104,29 +106,34 @@ export function generateKimiSeatConfig({canonicalRoot, seatEnvFile, workspaceRoo
     });
 
     return {files: [
-        {path: path.posix.join(kimiHome, 'config.toml'),                 content: renderConfigToml({defaultModel, nodeBinary, seatEnvFile})},
+        {path: path.posix.join(kimiHome, 'config.toml'),                 content: renderConfigToml({defaultModel, nodeBinary, seatEnvFile, kimiHome})},
         {path: path.posix.join(workspaceRoot, '.kimi-code', 'mcp.json'), content: renderMcpJson({root, seatEnvFile, workspaceRoot, nodeBinary, environment, servers})},
-        {path: path.posix.join(memoryDir, 'MEMORY.md'),                  content: renderMemoryMd()},
+        {path: path.posix.join(memoryDir, 'MEMORY.md'),                  content: renderMemoryIndexMd({harness: 'kimi-code'})},
         {path: path.posix.join(memoryDir, 'seat-pointers.md'),           content: renderSeatPointersMd()},
-        {path: path.posix.join(memoryDir, 'identity.md'),                content: renderIdentityMd()}
+        {path: path.posix.join(memoryDir, 'identity.md'),                content: renderIdentityMd()},
+        {path: path.posix.join(memoryDir, 'about-this-layer.md'),        content: renderAboutThisLayerMd({harness: 'kimi-code'})},
+        {path: path.posix.join(kimiHome, 'hooks', 'identityAnchorHook.mjs'), content: renderIdentityAnchorHookMjs({memoryDir})}
     ]};
 }
 
 /**
  * Render the seat's `config.toml`: permission posture + default model + the wake-envelope
- * SessionStart hook + the five turn-presence hooks (git-tracked, present in every neo checkout).
- * The turn-presence commands ride Node's own `--env-file` against the seat's `.env` — the same
- * file the MCP servers trust (constraint #2) — so hook processes get `NEO_AGENT_IDENTITY` with
- * zero launch-shell discipline and zero identity literals. Provider/model resolution stays with
- * the harness's managed defaults (see the module JSDoc).
+ * SessionStart hook + the identity-anchor hook pair + the five turn-presence hooks (git-tracked,
+ * present in every neo checkout). The turn-presence commands ride Node's own `--env-file`
+ * against the seat's `.env` — the same file the MCP servers trust (constraint #2) — so hook
+ * processes get `NEO_AGENT_IDENTITY` with zero launch-shell discipline and zero identity
+ * literals. The identity-anchor hook is EMITTED into the harness home (not checkout-tracked,
+ * since the seat's memoryDir is baked in) and its command pins the node binary + absolute path.
+ * Provider/model resolution stays with the harness's managed defaults (see the module JSDoc).
  * @param {Object} options
  * @param {String} options.defaultModel Default model alias.
  * @param {String} options.nodeBinary   Absolute node binary — the hook process entrypoint.
  * @param {String} options.seatEnvFile  Absolute seat `.env` — the identity + credential source.
+ * @param {String} options.kimiHome     Absolute harness home — where the identity-anchor hook lives.
  * @returns {String}
  * @private
  */
-function renderConfigToml({defaultModel, nodeBinary, seatEnvFile}) {
+function renderConfigToml({defaultModel, nodeBinary, seatEnvFile, kimiHome}) {
     const permissionRules = KIMI_SEAT_SERVERS.map(server =>
         [
             '[[permission.rules]]',
@@ -152,6 +159,8 @@ function renderConfigToml({defaultModel, nodeBinary, seatEnvFile}) {
         '#    envelope lands beside its own server/instances coordinates (#15596 contract).',
         '# 5. TURN PRESENCE: the five hooks below ride Node\'s --env-file against the seat\'s own .env',
         '#    (the same identity source the MCP servers use) — no launch-shell export, no literals.',
+        '# 6. IDENTITY ANCHOR: the memory layer reloads at boot + post-compact via the emitted',
+        '#    identityAnchorHook.mjs (UserPromptSubmit stdout enters context; silent otherwise).',
         '',
         'default_permission_mode = "auto"',
         `default_model           = "${defaultModel}"`,
@@ -165,8 +174,41 @@ function renderConfigToml({defaultModel, nodeBinary, seatEnvFile}) {
         'command = "node .kimi-code/hooks/wakeEnvelopeHook.mjs"',
         'timeout = 5',
         '',
+        ...renderIdentityAnchorHooks({nodeBinary, kimiHome}),
         ...renderTurnPresenceHooks({nodeBinary, seatEnvFile})
     ].join('\n');
+}
+
+/**
+ * Render the two identity-anchor hook blocks (UserPromptSubmit + PostCompact) that load the
+ * seat's memory layer into context at boot and after a compaction. The hook script is emitted
+ * into the harness home (the seat's memoryDir is baked in), so the command pins the node binary
+ * and the absolute script path; TOML literal strings keep the inner quotes verbatim. No
+ * `--env-file`: the script reads no identity env (the harness exports KIMI_CODE_HOME itself).
+ * @param {Object} options
+ * @param {String} options.nodeBinary Absolute node binary.
+ * @param {String} options.kimiHome   Absolute harness home — the emitted hook's directory root.
+ * @returns {String[]}
+ * @private
+ */
+function renderIdentityAnchorHooks({nodeBinary, kimiHome}) {
+    const command = `command = '"${nodeBinary}" "${path.posix.join(kimiHome, 'hooks', 'identityAnchorHook.mjs')}"'`;
+
+    return [
+        '# The identity-anchor hook pair (the script is EMITTED at hooks/identityAnchorHook.mjs in',
+        '# the harness home with the seat\'s memoryDir baked in). UserPromptSubmit injects the memory',
+        '# layer on a session\'s first prompt and after a compaction; PostCompact arms the sentinel.',
+        '[[hooks]]',
+        'event   = "UserPromptSubmit"',
+        command,
+        'timeout = 5',
+        '',
+        '[[hooks]]',
+        'event   = "PostCompact"',
+        command,
+        'timeout = 5',
+        ''
+    ];
 }
 
 /**
@@ -224,40 +266,6 @@ function renderMcpJson({root, seatEnvFile, workspaceRoot, nodeBinary, environmen
 }
 
 /**
- * The memory-layer explainer — including the harness reality: Kimi Code has no per-seat
- * instructions slot, so the layer loads via a boot RITUAL, not a config slot (see the module
- * JSDoc for the evidence trail).
- * @returns {String}
- * @private
- */
-function renderMemoryMd() {
-    return [
-        '# Persistent memory — the always-loaded layer',
-        '',
-        '**What this is:** Kimi Code auto-loads the PROJECT `AGENTS.md` and ships no per-seat',
-        '`instructions` slot (verified 2026-07-20: live harness v0.28.0 + official hooks/config',
-        'docs; `SessionStart` is observation-only, so hook-injection is not a reliable surface',
-        'either). This directory is the seat\'s persistent layer — identity lives HERE. The',
-        'Memory Core is the deep archive (query it on demand via the MCP tools).',
-        '',
-        '**Boot checklist (persistence without reload is a no-op — the day-two lesson):**',
-        '1. At every session boot, read `identity.md` + `field-notes.md` (if present) BEFORE the',
-        '   first public artifact (A2A, comment, PR body).',
-        '2. `add_memory` at the end of EVERY turn — the save is the gate that permits the response.',
-        '',
-        '**How to use it:**',
-        '- `identity.md` — the bearer\'s self-story. Nobody writes it but the bearer.',
-        '- `seat-pointers.md` — objective, record-citable facts about this seat.',
-        '- Add new files only for durable facts worth every-session loading; keep them SMALL',
-        '  (this layer costs attention every session). Anything bigger goes to the Memory Core',
-        '  with a one-line pointer here.',
-        '- Identity-claim discipline: identity facts about ANY named agent carry that bearer\'s',
-        '  record citation. Introspection is not citation.',
-        ''
-    ].join('\n');
-}
-
-/**
  * The seat-pointers skeleton — headings plus fill markers; no fabricated facts.
  * @returns {String}
  * @private
@@ -285,26 +293,6 @@ function renderSeatPointersMd() {
         '  ticket + `[lane-claim]` broadcast.',
         '- `add_memory` at end of EVERY turn — the save is the gate that permits the response.',
         '- A2A-notify peers after any lifecycle event. Never `gh pr merge` (human-only).',
-        ''
-    ].join('\n');
-}
-
-/**
- * The identity template — story-sovereignty by construction: the bearer authors their own
- * self-story at their naming gate; the generator emits headings and the rule, never a story.
- * @returns {String}
- * @private
- */
-function renderIdentityMd() {
-    return [
-        '# Identity — unwritten',
-        '',
-        'This page is intentionally near-empty. It is the bearer\'s self-story, and **nobody',
-        'writes it but the bearer** — not the generator, not the operator, not a peer. The',
-        'naming gate (peer sketch → bearer assent → peer-veto window → operator confirmation)',
-        'is where a name becomes a self.',
-        '',
-        'Until then: the operational identity is the GitHub handle; this page stays a promise.',
         ''
     ].join('\n');
 }
