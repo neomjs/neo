@@ -141,6 +141,8 @@ You MUST use the `add_message` MCP tool to send an A2A message to your own agent
 
 Set `wakeSuppressed: true` and include `taggedConcepts: ['sunset-protocol-handover']` on this self-DM. This makes the ping mailbox-only: it remains unread for the next session's boot mailbox check, but it MUST NOT emit a `SENT_TO_ME` wake into the active session that is currently shutting down. Do not mark this newly-created continuity ping read during the same sunset flow. Note: Peer broadcasts can be conditionally suppressed for `scope: solo-refresh` unless cross-peer handoff coordination is actively required.
 
+**Seat memory layer — conditional mention only:** the seat's loader owns the boot/compaction load, so the ping does NOT routinely tell the next session to read the layer (that procedural fallback silently becomes the real path again). Name the layer in the ping ONLY when the load is known degraded — Kimi: the `<seat-memory-layer>` marker was absent this session (diagnosis route: seat `config.toml` `[[hooks]]` entries, emitted hook script, sentinel state dir); OpenCode: the boot files' content was absent (diagnosis route: the `instructions` array in `opencode.jsonc`) — or a seat memory migration is actively in progress.
+
 **Lead-role baton branch:** If the session currently holds `/lead-role`, this step
 also sends an A2A Baton Pass V1 DM to the next lead before the final memory
 persistence step. Compute the next lead from the fixed cycle documented in
