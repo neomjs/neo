@@ -20,7 +20,9 @@ import Neo             from '../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 import fs              from 'fs';
+import fsExtra         from 'fs-extra';
 import path            from 'path';
+import {Readable}      from 'stream';
 
 // Serial: this spec mutates KB_ChromaManager.getKnowledgeBaseCollection singleton via beforeAll.
 test.describe.configure({mode: 'serial'});
@@ -89,9 +91,9 @@ test.describe('KB_DatabaseService.importDatabase — null-document handling (#11
         expect(upsert.ids).toEqual(['id-1', 'id-2', 'id-3']);
         expect(upsert.embeddings).toHaveLength(3);
         expect(upsert.metadatas).toHaveLength(3);
-        // The fix: `documents` field MUST be absent from the upsert payload when every
-        // record's document is null. Pre-#11653, this field was passed as [null,null,null]
-        // which Chroma rejects with "Expected each document to be a string, but got object".
+        // The `documents` field MUST be absent from the upsert payload when every
+        // record's document is null. Passing [null,null,null] makes Chroma reject
+        // the request with "Expected each document to be a string, but got object".
         expect('documents' in upsert).toBe(false);
     });
 
@@ -155,15 +157,67 @@ test.describe('KB_DatabaseService.importDatabase — null-document handling (#11
         expect(capturedUpsertCalls[1].ids).toHaveLength(1);
     });
 
+    test('flushes the first 500 rows before the JSONL stream reaches EOF', async () => {
+        const filePath = path.join(tmpDir, 'kb-gated-stream.jsonl');
+        fs.writeFileSync(filePath, 'stream content is supplied by the gated fixture\n');
+
+        const headRecords = Array.from({length: 500}, (_, index) => ({
+            id       : `head-${index}`,
+            embedding: [index],
+            metadata : {index},
+            document : null
+        }));
+        const tailRecord = {id: 'tail-500', embedding: [500], metadata: {index: 500}, document: null};
+
+        let releaseTail;
+        const tailGate                 = new Promise(resolve => { releaseTail = resolve; });
+        const originalCreateReadStream = fsExtra.createReadStream;
+
+        fsExtra.createReadStream = () => Readable.from((async function * gatedJsonl() {
+            for (const record of headRecords) {
+                yield `${JSON.stringify(record)}\n`;
+            }
+
+            // A whole-file materializer deadlocks here because only the first store
+            // write releases EOF. A streaming importer flushes row 500, then proceeds.
+            await tailGate;
+            yield `${JSON.stringify(tailRecord)}\n`;
+        })());
+
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => ({
+            upsert: async args => {
+                capturedUpsertCalls.push(args);
+                if (capturedUpsertCalls.length === 1) releaseTail();
+            }
+        });
+
+        let timeoutId;
+        try {
+            const result = await Promise.race([
+                KB_DatabaseService.importDatabase({file: filePath, mode: 'merge'}),
+                new Promise((_, reject) => {
+                    timeoutId = setTimeout(() => reject(new Error('first KB batch was not flushed before EOF')), 5000);
+                })
+            ]);
+
+            expect(result.imported).toBe(501);
+            expect(capturedUpsertCalls.map(call => call.ids.length)).toEqual([500, 1]);
+        } finally {
+            clearTimeout(timeoutId);
+            releaseTail();
+            fsExtra.createReadStream = originalCreateReadStream;
+        }
+    });
+
     test('reproducer for the 2026-05-19 restore failure: real KB backup shape (24,418 records all-null docs) succeeds', async () => {
         // Synthetic minimal reproducer mirroring the actual `backup-2026-05-19T13-08-14.283Z`
         // shape audit: 100% of records have `document: null`; metadata carries `content`,
         // `source`, `name`, `hash`, `kind`, `className`, `type`, `id`.
         const filePath = writeBackupFile('kb-shape-reproducer.jsonl', [
             {
-                id: 'h-1',
+                id       : 'h-1',
                 embedding: [0.001, 0.002, 0.003],
-                metadata: {
+                metadata : {
                     source    : 'src/canvas/_export.mjs',
                     name      : 'src/canvas/_export.mjs - [Module Context]',
                     line_start: 1,
@@ -185,8 +239,8 @@ test.describe('KB_DatabaseService.importDatabase — null-document handling (#11
             mode  : 'merge'
         });
 
-        // Pre-#11653: this throws `DATABASE_IMPORT_ERROR: Expected each document to be a string, but got object`.
-        // Post-#11653: imports cleanly because `documents` is omitted from the upsert.
+        // The real backup shape imports cleanly because `documents` is omitted;
+        // forwarding its null document would surface a DATABASE_IMPORT_ERROR.
         expect(result.imported).toBe(1);
         expect('documents' in capturedUpsertCalls[0]).toBe(false);
     });

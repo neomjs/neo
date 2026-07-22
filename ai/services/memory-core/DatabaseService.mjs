@@ -435,7 +435,11 @@ class DatabaseService extends Base {
      * @param {String}        options.mode The import mode: 'merge' or 'replace'.
      * @param {Boolean}      [options.reEmbed=false] If true, regenerates embeddings for all records.
      * @param {String|Object} [options.confirmation] Explicit production confirmation token.
-     * @returns {Promise<{imported: number, total: number, mode: string}>}
+     * Chroma-backed JSONL files are parsed, validated, existence-filtered, and
+     * written inside the existing 250-row bound; neither rows nor merge IDs are
+     * retained for the full file.
+     *
+     * @returns {Promise<{message: string, imported: number, mode: string, counts: Object}>}
      */
     async importDatabase({file, mode, reEmbed=false, confirmation, preserveDeliveryReadState = false}) {
         try {
@@ -567,26 +571,6 @@ class DatabaseService extends Base {
                     ? subsystemCounts.memories
                     : isTemporalSummaryBackup ? subsystemCounts.temporalSummaries : subsystemCounts.summaries;
 
-                const fileStream = fs.createReadStream(filePath);
-                const rl         = readline.createInterface({input: fileStream, crlfDelay: Infinity});
-                const records    = [];
-
-                for await (const line of rl) {
-                    if (line.trim()) {
-                        records.push(JSON.parse(line));
-                    }
-                }
-
-                if (records.length === 0) {
-                    logger.log(`No records found in ${filePath}. Skipping.`);
-                    continue;
-                }
-
-                if (reEmbed) {
-                    logger.log(`Re-embedding enabled. Stripping ${records.length} existing embeddings...`);
-                    records.forEach(r => delete r.embedding);
-                }
-
                 // Chroma has TWO upsert/add limits: (1) record-count cap ~5461; (2) HTTP
                 // body size cap that 413-rejects large payloads. With 4096-dim qwen3
                 // embeddings (~32KB each) + document text, per-record is ~35-40KB.
@@ -596,31 +580,43 @@ class DatabaseService extends Base {
                 //   - 4000 records: "413: Payload Too Large"
                 const CHROMA_UPSERT_CHUNK_SIZE = 250;
 
-                let fileInserted        = 0;
-                let fileSkippedExisting = 0;
-                let fileFailed          = 0;
+                let fileInserted         = 0;
+                let fileSkippedExisting  = 0;
+                let fileFailed           = 0;
+                let batch                = [];
+                let batchNumber          = 0;
+                let fileRecordsProcessed = 0;
 
-                if (mode === 'merge') {
-                    // Preserve-live merge, matching graph-side INSERT OR IGNORE semantics. Chunked
-                    // existence-check via `collection.get({ids})`, then `collection.add()` for the
-                    // missing-ID subset only. Live records are NOT overwritten, so the running
-                    // daemon's authoritative state survives.
-                    const existingIds = new Set();
-                    for (let i = 0; i < records.length; i += CHROMA_UPSERT_CHUNK_SIZE) {
-                        const chunkIds  = records.slice(i, i + CHROMA_UPSERT_CHUNK_SIZE).map(r => r.id);
-                        const existence = await collection.get({ids: chunkIds, include: []});
-                        existence.ids.forEach(id => existingIds.add(id));
+                const flushBatch = async () => {
+                    if (batch.length === 0) return;
+
+                    // Detach before awaiting the store so rows and ID state stay scoped to
+                    // this one Chroma request. The async readline loop is naturally paused
+                    // until the flush completes.
+                    let chunk = batch;
+                    batch = [];
+                    batchNumber++;
+                    fileRecordsProcessed += chunk.length;
+
+                    if (reEmbed) {
+                        chunk.forEach(record => delete record.embedding);
                     }
 
-                    const missing = records.filter(r => !existingIds.has(r.id));
-                    fileSkippedExisting = existingIds.size;
+                    if (mode === 'merge') {
+                        // Preserve-live merge, matching graph-side INSERT OR IGNORE semantics.
+                        // Existence state is deliberately batch-local: after add() settles,
+                        // both the Set and missing rows can be collected before the next read.
+                        const chunkIds    = chunk.map(record => record.id);
+                        const existence   = await collection.get({ids: chunkIds, include: []});
+                        const existingIds = new Set(existence.ids);
 
-                    if (existingIds.size > 0) {
-                        logger.log(`  merge mode: ${existingIds.size} live ID(s) preserved; ${missing.length} new record(s) to insert.`);
-                    }
+                        chunk = chunk.filter(record => !existingIds.has(record.id));
+                        fileSkippedExisting += existingIds.size;
 
-                    for (let i = 0; i < missing.length; i += CHROMA_UPSERT_CHUNK_SIZE) {
-                        let chunk = missing.slice(i, i + CHROMA_UPSERT_CHUNK_SIZE);
+                        if (existingIds.size > 0) {
+                            logger.log(`  merge batch ${batchNumber}: ${existingIds.size} live ID(s) preserved; ${chunk.length} new record(s) to insert.`);
+                        }
+
                         // reEmbed strips vectors (Chroma re-embeds), so the invariant guards only the
                         // explicit-embedding path: reject any row lacking a valid same-dimension vector.
                         if (!reEmbed) {
@@ -633,7 +629,7 @@ class DatabaseService extends Base {
                             chunk = valid;
                         }
                         if (chunk.length === 0) {
-                            continue;
+                            return;
                         }
                         try {
                             await collection.add({
@@ -645,19 +641,12 @@ class DatabaseService extends Base {
                             fileInserted += chunk.length;
                         } catch (e) {
                             fileFailed += chunk.length;
-                            logger.error(`[importMemories] add failed for chunk ${Math.floor(i / CHROMA_UPSERT_CHUNK_SIZE) + 1}: ${e.message}`);
+                            logger.error(`[importMemories] add failed for chunk ${batchNumber}: ${e.message}`);
                         }
-                        if (missing.length > CHROMA_UPSERT_CHUNK_SIZE) {
-                            logger.log(`  added chunk ${Math.floor(i / CHROMA_UPSERT_CHUNK_SIZE) + 1}/${Math.ceil(missing.length / CHROMA_UPSERT_CHUNK_SIZE)} (${chunk.length} records)`);
-                        }
-                    }
-                } else {
-                    // Replace mode: subsystem already truncated above; upsert is safe
-                    // (no live rows to collide with). Fail-fast on chunk error matches
-                    // fail-fast behavior; the outer try/catch wraps it as DATABASE_IMPORT_ERROR.
-                    let replaceRejected = 0;
-                    for (let i = 0; i < records.length; i += CHROMA_UPSERT_CHUNK_SIZE) {
-                        let chunk = records.slice(i, i + CHROMA_UPSERT_CHUNK_SIZE);
+                    } else {
+                        // Replace mode: subsystem already truncated above; upsert is safe
+                        // (no live rows to collide with). Fail-fast on chunk error matches
+                        // fail-fast behavior; the outer try/catch wraps it as DATABASE_IMPORT_ERROR.
                         // reEmbed strips vectors (Chroma re-embeds), so the invariant guards only the
                         // explicit-embedding path: reject any row lacking a valid same-dimension vector.
                         if (!reEmbed) {
@@ -665,12 +654,12 @@ class DatabaseService extends Base {
                             if (rejected.length > 0) {
                                 const {count, byReason} = summarizeVectorRejections(rejected);
                                 logger.error(`[importMemories] vector-write invariant rejected ${count} row(s) without a valid same-dimension vector ${JSON.stringify(byReason)} — not persisted`);
-                                replaceRejected += rejected.length;
+                                fileFailed += rejected.length;
                             }
                             chunk = valid;
                         }
                         if (chunk.length === 0) {
-                            continue;
+                            return;
                         }
                         await collection.upsert({
                             ids       : chunk.map(r => r.id),
@@ -678,12 +667,28 @@ class DatabaseService extends Base {
                             metadatas : chunk.map(r => r.metadata),
                             documents : chunk.map(r => r.document)
                         });
-                        if (records.length > CHROMA_UPSERT_CHUNK_SIZE) {
-                            logger.log(`  upserted chunk ${Math.floor(i / CHROMA_UPSERT_CHUNK_SIZE) + 1}/${Math.ceil(records.length / CHROMA_UPSERT_CHUNK_SIZE)} (${chunk.length} records)`);
-                        }
+                        fileInserted += chunk.length;
                     }
-                    fileFailed   += replaceRejected;
-                    fileInserted  = records.length - replaceRejected;
+                };
+
+                const fileStream = fs.createReadStream(filePath);
+                const rl         = readline.createInterface({input: fileStream, crlfDelay: Infinity});
+
+                for await (const line of rl) {
+                    if (!line.trim()) continue;
+
+                    batch.push(JSON.parse(line));
+
+                    if (batch.length === CHROMA_UPSERT_CHUNK_SIZE) {
+                        await flushBatch();
+                    }
+                }
+
+                await flushBatch();
+
+                if (fileRecordsProcessed === 0) {
+                    logger.log(`No records found in ${filePath}. Skipping.`);
+                    continue;
                 }
 
                 chromaCounts.inserted            += fileInserted;

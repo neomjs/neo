@@ -39,20 +39,24 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
     function buildFakeCollection({name, liveIds = []}) {
         const live        = new Set(liveIds);
         const addCalls    = [];
+        const calls       = [];
         const upsertCalls = [];
 
         return {
             name,
             _live: live,
             addCalls,
+            calls,
             upsertCalls,
             get  : async ({ids = [], include}) => {
+                calls.push({type: 'get', ids: [...ids]});
                 // Existence-check shape: `get({ids, include: []})` — return live overlap.
                 const overlap = ids.filter(id => live.has(id));
                 return {ids: overlap};
             },
             add: async (payload) => {
                 addCalls.push(payload);
+                calls.push({type: 'add', ids: [...payload.ids]});
                 // Merge mode contract: `add()` rejects on duplicate ID (Chroma's
                 // insert-only primitive). Assert that here so a regression in the
                 // preflight filter would surface as a test failure.
@@ -65,6 +69,7 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
             },
             upsert: async (payload) => {
                 upsertCalls.push(payload);
+                calls.push({type: 'upsert', ids: [...payload.ids]});
                 for (const id of payload.ids) {
                     live.add(id);
                 }
@@ -195,6 +200,36 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
         expect(memoryCollection.upsertCalls.length).toBe(0);
     });
 
+    test('merge mode: each 250-row existence check is followed by its write before the next batch', async () => {
+        const memoryCollection = buildFakeCollection({name: 'fake-memories', liveIds: []});
+        Memory_StorageRouter.getMemoryCollection  = async () => memoryCollection;
+        Memory_StorageRouter.getSummaryCollection = async () => buildFakeCollection({name: 'fake-summaries'});
+
+        const backupFile = path.join(tmpDir, `memory-backup-bounded-merge-${Date.now()}.jsonl`);
+        const records    = Array.from({length: 501}, (_, index) => ({
+            id       : `bounded-${index}`,
+            embedding: validEmbedding,
+            metadata : {index},
+            document : `document-${index}`
+        }));
+        await writeJsonl(backupFile, records);
+
+        const result = await Memory_DatabaseService.manageDatabaseBackup({
+            action: 'import',
+            file  : backupFile,
+            mode  : 'merge'
+        });
+
+        expect(result.imported).toBe(501);
+        expect(memoryCollection.calls.map(call => call.type)).toEqual([
+            'get', 'add',
+            'get', 'add',
+            'get', 'add'
+        ]);
+        expect(memoryCollection.calls.map(call => call.ids.length)).toEqual([250, 250, 250, 250, 1, 1]);
+        expect(Math.max(...memoryCollection.calls.map(call => call.ids.length))).toBe(250);
+    });
+
     test('merge mode: atomic vector-write invariant rejects rows lacking a valid same-dimension vector', async () => {
         // The gate (non-reEmbed) must reject missing / empty / wrong-dimension embeddings fail-loud, so a
         // metadata-only row is never half-persisted (the corruption shape the invariant exists to prevent).
@@ -294,6 +329,38 @@ test.describe('Memory_DatabaseService — Chroma preserve-live parity for #impor
             expect(result.counts.memories.inserted).toBe(2);
             // add() is the merge-mode primitive; never called in replace mode
             expect(memoryCollection.addCalls.length).toBe(0);
+        } finally {
+            Memory_DatabaseService.truncateDatabase = originalTruncate;
+        }
+    });
+
+    test('replace mode: streams 501 records through bounded 250-row upserts', async () => {
+        const memoryCollection = buildFakeCollection({name: 'fake-memories', liveIds: []});
+        Memory_StorageRouter.getMemoryCollection  = async () => memoryCollection;
+        Memory_StorageRouter.getSummaryCollection = async () => buildFakeCollection({name: 'fake-summaries'});
+
+        const originalTruncate = Memory_DatabaseService.truncateDatabase.bind(Memory_DatabaseService);
+        Memory_DatabaseService.truncateDatabase = async () => ({message: 'stubbed for bounded replace test'});
+
+        try {
+            const backupFile = path.join(tmpDir, `memory-backup-bounded-replace-${Date.now()}.jsonl`);
+            const records    = Array.from({length: 501}, (_, index) => ({
+                id       : `replace-${index}`,
+                embedding: validEmbedding,
+                metadata : {index},
+                document : `document-${index}`
+            }));
+            await writeJsonl(backupFile, records);
+
+            const result = await Memory_DatabaseService.manageDatabaseBackup({
+                action: 'import',
+                file  : backupFile,
+                mode  : 'replace'
+            });
+
+            expect(result.imported).toBe(501);
+            expect(memoryCollection.calls.map(call => call.type)).toEqual(['upsert', 'upsert', 'upsert']);
+            expect(memoryCollection.upsertCalls.map(call => call.ids.length)).toEqual([250, 250, 1]);
         } finally {
             Memory_DatabaseService.truncateDatabase = originalTruncate;
         }

@@ -155,7 +155,7 @@ class DatabaseService extends Base {
         logger.log(`Found ${count} documents in ${collection.name} to export.`);
 
         await fs.ensureDir(backupPath);
-        const timestamp = new Date().toISOString().replace(/:/g, '-');
+        const timestamp   = new Date().toISOString().replace(/:/g, '-');
         const backupFile  = path.join(backupPath, `${filePrefix}-${timestamp}.jsonl`);
         const writeStream = fs.createWriteStream(backupFile);
 
@@ -267,6 +267,9 @@ class DatabaseService extends Base {
      * @param {String}        options.file               Absolute path to a JSONL file OR a directory containing `.jsonl` files.
      * @param {String}       [options.mode='merge']      `'merge'` upserts on top of existing data; `'replace'` truncates the collection first via the destructive-operation guard.
      * @param {String|Object} [options.confirmation]     Explicit production confirmation token (forwarded to `truncateDatabase` when mode is `'replace'`).
+     * Parsing and Chroma writes share the existing 500-row bound: a source file is
+     * never materialized in full before its first write.
+     *
      * @returns {Promise<{message: String, imported: Number, mode: String}>}
      */
     async importDatabase({file, mode = 'merge', confirmation} = {}) {
@@ -314,21 +317,6 @@ class DatabaseService extends Base {
             for (const filePath of sourceFiles) {
                 logger.log(`Importing: ${filePath}`);
 
-                const fileStream = fs.createReadStream(filePath);
-                const rl         = readline.createInterface({input: fileStream, crlfDelay: Infinity});
-                const records    = [];
-
-                for await (const line of rl) {
-                    if (line.trim()) {
-                        records.push(JSON.parse(line));
-                    }
-                }
-
-                if (records.length === 0) {
-                    logger.log(`No records found in ${filePath}. Skipping.`);
-                    continue;
-                }
-
                 // KB chunks store content in `metadata.content`, not in Chroma's
                 // primary `document` slot — so 100% of KB backup records carry `document: null`.
                 // Chroma's `collection.upsert` rejects null entries in the `documents` array
@@ -336,19 +324,49 @@ class DatabaseService extends Base {
                 // `documents` field entirely when every record in the batch has a null doc;
                 // substitute empty strings for any remaining nulls in mixed batches so each
                 // array element satisfies Chroma's string-shape requirement uniformly.
-                const BATCH_SIZE = 500;
-                for (let i = 0; i < records.length; i += BATCH_SIZE) {
-                    const batch      = records.slice(i, i + BATCH_SIZE);
+                const BATCH_SIZE   = 500;
+                const fileStream   = fs.createReadStream(filePath);
+                const rl           = readline.createInterface({input: fileStream, crlfDelay: Infinity});
+                let   batch        = [];
+                let   fileImported = 0;
+
+                const flushBatch = async () => {
+                    if (batch.length === 0) return;
+
+                    // Detach the full batch before awaiting Chroma. The readline loop cannot
+                    // grow it while the write is pending, and the completed rows become
+                    // collectible as soon as this flush returns.
+                    const writeBatch = batch;
+                    batch = [];
+
                     const upsertArgs = {
-                        ids       : batch.map(r => r.id),
-                        embeddings: batch.map(r => r.embedding),
-                        metadatas : batch.map(r => r.metadata)
+                        ids       : writeBatch.map(r => r.id),
+                        embeddings: writeBatch.map(r => r.embedding),
+                        metadatas : writeBatch.map(r => r.metadata)
                     };
-                    if (batch.some(r => r.document != null)) {
-                        upsertArgs.documents = batch.map(r => r.document ?? '');
+                    if (writeBatch.some(r => r.document != null)) {
+                        upsertArgs.documents = writeBatch.map(r => r.document ?? '');
                     }
                     await collection.upsert(upsertArgs);
-                    imported += batch.length;
+
+                    imported     += writeBatch.length;
+                    fileImported += writeBatch.length;
+                };
+
+                for await (const line of rl) {
+                    if (!line.trim()) continue;
+
+                    batch.push(JSON.parse(line));
+
+                    if (batch.length === BATCH_SIZE) {
+                        await flushBatch();
+                    }
+                }
+
+                await flushBatch();
+
+                if (fileImported === 0) {
+                    logger.log(`No records found in ${filePath}. Skipping.`);
                 }
             }
 
