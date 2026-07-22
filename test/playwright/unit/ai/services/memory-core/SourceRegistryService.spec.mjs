@@ -136,20 +136,112 @@ test.describe('Neo.ai.services.memory-core.SourceRegistryService', () => {
         expect(reg.registrationEpoch).toBe(1);
     });
 
-    test('the co-located operator path provisions an explicit tenant and writes an audit trail', () => {
-        const reg = SourceRegistryService.registerForTenant('tenant-a', sample, {actorId: 'deploy-operator'});
+    test('same-clock reverse UUIDs preserve causal operator-audit order through a durable sequence', () => {
+        const
+            originalNow        = Date.now,
+            originalRandomUUID = crypto.randomUUID,
+            uuids              = [
+                '00000000-0000-4000-8000-000000000001', // source id
+                'ffffffff-ffff-4fff-8fff-ffffffffffff', // REGISTERED audit: sorts last by UUID
+                '00000000-0000-4000-8000-000000000000'  // PROVISIONED audit: sorts first by UUID
+            ];
 
-        const provisioned = SourceRegistryService.transitionLifecycleForTenant(
-            'tenant-a', reg.sourceInstanceId, 'PROVISIONED', {
-                actorId      : 'deploy-operator',
-                expectedState: 'REQUESTED',
-                expectedEpoch: 1
-            }
-        );
+        let uuidIndex = 0;
 
-        expect(provisioned.registrationEpoch).toBe(2);
-        expect(SourceRegistryService.listAuditForTenant('tenant-a', reg.sourceInstanceId).map(event => event.action))
-            .toEqual(['REGISTERED', 'PROVISIONED']);
+        Date.now         = () => 123456789;
+        crypto.randomUUID = () => uuids[uuidIndex++];
+
+        try {
+            const reg = SourceRegistryService.registerForTenant('tenant-a', sample, {actorId: 'deploy-operator'});
+
+            const provisioned = SourceRegistryService.transitionLifecycleForTenant(
+                'tenant-a', reg.sourceInstanceId, 'PROVISIONED', {
+                    actorId      : 'deploy-operator',
+                    expectedState: 'REQUESTED',
+                    expectedEpoch: 1
+                }
+            );
+
+            const events = SourceRegistryService.listAuditForTenant('tenant-a', reg.sourceInstanceId);
+
+            expect(provisioned.registrationEpoch).toBe(2);
+            expect(events.map(event => event.action)).toEqual(['REGISTERED', 'PROVISIONED']);
+
+            const stored = SourceRegistryService.db.prepare(
+                `SELECT audit_sequence FROM mc_source_registration_audit
+                 WHERE tenant_id = ? AND source_instance_id = ? ORDER BY audit_sequence`
+            ).all('tenant-a', reg.sourceInstanceId);
+
+            expect(stored).toHaveLength(2);
+            expect(stored[1].audit_sequence).toBeGreaterThan(stored[0].audit_sequence)
+        } finally {
+            Date.now          = originalNow;
+            crypto.randomUUID = originalRandomUUID
+        }
+    });
+
+    test('ensureSchema migrates legacy audit rows in prior deterministic order and is idempotent', () => {
+        const
+            Database  = SourceRegistryService.db.constructor,
+            legacyDb  = new Database(':memory:'),
+            currentDb = SourceRegistryService.db;
+
+        legacyDb.exec(`
+            CREATE TABLE mc_source_registration_audit (
+                audit_id           TEXT    PRIMARY KEY,
+                tenant_id          TEXT    NOT NULL,
+                source_instance_id TEXT    NOT NULL,
+                actor_id           TEXT    NOT NULL,
+                action             TEXT    NOT NULL,
+                from_state         TEXT,
+                to_state           TEXT    NOT NULL,
+                registration_epoch INTEGER NOT NULL,
+                recorded_at        INTEGER NOT NULL
+            );
+            CREATE INDEX idx_mc_source_registration_audit_tenant_source
+                ON mc_source_registration_audit(tenant_id, source_instance_id, recorded_at);
+            INSERT INTO mc_source_registration_audit VALUES
+                ('z-audit', 'tenant-a', 'source-a', 'operator', 'INSERTED_FIRST',  null, 'REQUESTED', 1, 1000),
+                ('a-audit', 'tenant-a', 'source-a', 'operator', 'INSERTED_SECOND', null, 'REQUESTED', 1, 1000);
+        `);
+
+        try {
+            SourceRegistryService.set({db: legacyDb});
+            SourceRegistryService.ensureSchema();
+            SourceRegistryService.ensureSchema();
+
+            const
+                columns = legacyDb.prepare(`PRAGMA table_info(mc_source_registration_audit)`).all(),
+                rows    = legacyDb.prepare(
+                    `SELECT audit_sequence, audit_id FROM mc_source_registration_audit ORDER BY audit_sequence`
+                ).all();
+
+            expect(columns.find(column => column.name === 'audit_sequence')).toMatchObject({
+                type: 'INTEGER',
+                pk  : 1
+            });
+            expect(columns.find(column => column.name === 'audit_id')).toMatchObject({
+                notnull: 1,
+                pk     : 0
+            });
+            expect(rows.map(row => row.audit_id)).toEqual(['a-audit', 'z-audit']);
+            expect(rows[1].audit_sequence).toBeGreaterThan(rows[0].audit_sequence);
+            expect(legacyDb.prepare(
+                `PRAGMA index_info(idx_mc_source_registration_audit_tenant_source)`
+            ).all().map(column => column.name)).toEqual([
+                'tenant_id', 'source_instance_id', 'audit_sequence'
+            ]);
+            expect(() => legacyDb.prepare(
+                `INSERT INTO mc_source_registration_audit (
+                    audit_id, tenant_id, source_instance_id, actor_id, action, from_state,
+                    to_state, registration_epoch, recorded_at
+                 ) VALUES ('a-audit', 'tenant-a', 'source-a', 'operator', 'DUPLICATE', null,
+                    'REQUESTED', 1, 1001)`
+            ).run()).toThrow()
+        } finally {
+            SourceRegistryService.set({db: currentDb});
+            legacyDb.close()
+        }
     });
 
     test('operator registration refuses credential-shaped fields before any row or audit is written', () => {

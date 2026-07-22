@@ -32,6 +32,23 @@ const LIFECYCLE_TRANSITIONS = {
 const EPOCH_ADVANCING_STATES = new Set(['PROVISIONED']);
 
 /**
+ * @summary Canonical durable audit-table columns shared by fresh creation and legacy migration.
+ * @member {String}
+ */
+const SOURCE_REGISTRATION_AUDIT_COLUMNS_SQL = `
+    audit_sequence     INTEGER PRIMARY KEY AUTOINCREMENT,
+    audit_id           TEXT    UNIQUE NOT NULL,
+    tenant_id          TEXT    NOT NULL,
+    source_instance_id TEXT    NOT NULL,
+    actor_id           TEXT    NOT NULL,
+    action             TEXT    NOT NULL,
+    from_state         TEXT,
+    to_state           TEXT    NOT NULL,
+    registration_epoch INTEGER NOT NULL,
+    recorded_at        INTEGER NOT NULL
+`;
+
+/**
  * @summary Server-authoritative, tenant-scoped registry of neutral community source identities.
  *
  * This is a dedicated Memory-Core operational table — NOT the Native Edge Graph, NOT the Knowledge
@@ -113,49 +130,84 @@ class SourceRegistryService extends Base {
     }
 
     /**
-     * Creates the dedicated registration table and indexes if absent. The UNIQUE identity index is
-     * scoped by `tenant_id` so provider identity is tenant-private; a rename updates
-     * `display_locator` without forking `source_instance_id`.
+     * @summary Creates the dedicated registry schema and migrates legacy audit rows to a durable
+     * append sequence. The one-time rebuild preserves the old `(recorded_at, audit_id)` read order;
+     * future reads use the AUTOINCREMENT sequence, never wall-clock or UUID coincidence.
+     *
+     * The UNIQUE registration identity index is scoped by `tenant_id` so provider identity is
+     * tenant-private; a rename updates `display_locator` without forking `source_instance_id`.
      * @returns {void}
      */
     ensureSchema() {
         if (!this.db) return;
 
-        this.db.exec(`
-            CREATE TABLE IF NOT EXISTS mc_source_registration (
-                source_instance_id      TEXT    PRIMARY KEY,
-                tenant_id               TEXT    NOT NULL,
-                provider                TEXT    NOT NULL,
-                canonical_provider_host TEXT    NOT NULL,
-                resource_kind           TEXT    NOT NULL,
-                provider_resource_id    TEXT    NOT NULL,
-                display_locator         TEXT,
-                grant_ref               TEXT,
-                provider_capabilities   TEXT,
-                registration_epoch      INTEGER NOT NULL DEFAULT 1,
-                lifecycle_state         TEXT    NOT NULL DEFAULT 'REQUESTED',
-                created_at              INTEGER NOT NULL,
-                updated_at              INTEGER NOT NULL
-            );
-            CREATE INDEX IF NOT EXISTS idx_mc_source_registration_tenant
-                ON mc_source_registration(tenant_id);
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_mc_source_registration_identity
-                ON mc_source_registration(tenant_id, canonical_provider_host, resource_kind, provider_resource_id);
+        // Multiple Memory Core processes can open one store during rollout. Serialize schema
+        // inspection + rebuild so no second process can observe or attempt a partial migration.
+        this.db.transaction(() => {
+            this.db.exec(`
+                CREATE TABLE IF NOT EXISTS mc_source_registration (
+                    source_instance_id      TEXT    PRIMARY KEY,
+                    tenant_id               TEXT    NOT NULL,
+                    provider                TEXT    NOT NULL,
+                    canonical_provider_host TEXT    NOT NULL,
+                    resource_kind           TEXT    NOT NULL,
+                    provider_resource_id    TEXT    NOT NULL,
+                    display_locator         TEXT,
+                    grant_ref               TEXT,
+                    provider_capabilities   TEXT,
+                    registration_epoch      INTEGER NOT NULL DEFAULT 1,
+                    lifecycle_state         TEXT    NOT NULL DEFAULT 'REQUESTED',
+                    created_at              INTEGER NOT NULL,
+                    updated_at              INTEGER NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_mc_source_registration_tenant
+                    ON mc_source_registration(tenant_id);
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_mc_source_registration_identity
+                    ON mc_source_registration(tenant_id, canonical_provider_host, resource_kind, provider_resource_id);
 
-            CREATE TABLE IF NOT EXISTS mc_source_registration_audit (
-                audit_id           TEXT    PRIMARY KEY,
-                tenant_id          TEXT    NOT NULL,
-                source_instance_id TEXT    NOT NULL,
-                actor_id           TEXT    NOT NULL,
-                action             TEXT    NOT NULL,
-                from_state         TEXT,
-                to_state           TEXT    NOT NULL,
-                registration_epoch INTEGER NOT NULL,
-                recorded_at        INTEGER NOT NULL
+                CREATE TABLE IF NOT EXISTS mc_source_registration_audit (
+                    ${SOURCE_REGISTRATION_AUDIT_COLUMNS_SQL}
+                );
+            `);
+
+            const auditColumns = new Set(
+                this.db.prepare(`PRAGMA table_info(mc_source_registration_audit)`).all()
+                    .map(column => column.name)
             );
-            CREATE INDEX IF NOT EXISTS idx_mc_source_registration_audit_tenant_source
-                ON mc_source_registration_audit(tenant_id, source_instance_id, recorded_at);
-        `);
+
+            if (!auditColumns.has('audit_sequence')) {
+                this.db.exec(`
+                    DROP INDEX IF EXISTS idx_mc_source_registration_audit_tenant_source;
+                    ALTER TABLE mc_source_registration_audit
+                        RENAME TO mc_source_registration_audit_legacy;
+                    CREATE TABLE mc_source_registration_audit (
+                        ${SOURCE_REGISTRATION_AUDIT_COLUMNS_SQL}
+                    );
+                    INSERT INTO mc_source_registration_audit (
+                        audit_id, tenant_id, source_instance_id, actor_id, action, from_state,
+                        to_state, registration_epoch, recorded_at
+                    )
+                    SELECT audit_id, tenant_id, source_instance_id, actor_id, action, from_state,
+                           to_state, registration_epoch, recorded_at
+                    FROM mc_source_registration_audit_legacy
+                    ORDER BY recorded_at, audit_id;
+                    DROP TABLE mc_source_registration_audit_legacy;
+                `)
+            }
+
+            const auditIndexColumns = this.db.prepare(
+                `PRAGMA index_info(idx_mc_source_registration_audit_tenant_source)`
+            ).all().map(column => column.name);
+
+            if (auditIndexColumns.length && auditIndexColumns.join(',') !== 'tenant_id,source_instance_id,audit_sequence') {
+                this.db.exec(`DROP INDEX idx_mc_source_registration_audit_tenant_source`)
+            }
+
+            this.db.exec(`
+                CREATE INDEX IF NOT EXISTS idx_mc_source_registration_audit_tenant_source
+                    ON mc_source_registration_audit(tenant_id, source_instance_id, audit_sequence);
+            `)
+        }).immediate()
     }
 
     /**
@@ -445,7 +497,7 @@ class SourceRegistryService extends Base {
     listAuditForTenant(tenantId, sourceInstanceId) {
         return this.db.prepare(
             `SELECT * FROM mc_source_registration_audit
-             WHERE tenant_id = ? AND source_instance_id = ? ORDER BY recorded_at, audit_id`
+             WHERE tenant_id = ? AND source_instance_id = ? ORDER BY audit_sequence`
         ).all(tenantId, sourceInstanceId).map(row => ({
             auditId          : row.audit_id,
             tenantId         : row.tenant_id,
