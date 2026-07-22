@@ -85,8 +85,18 @@ test.describe('Neo.ai.services.memory-core.heartbeatPulseEvaluator — match() (
     const OWNER     = '@neo-opus-vega';
     const edgeTrace = {entity_type: 'edges', entity_id: 'EDGE:e1', log_id: 7};
 
-    const sub  = (over = {}) => ({trigger: 'SENT_TO_ME', harnessTarget: 'mcp-notifications', agentIdentity: OWNER, filters: {}, ...over});
-    const msg  = (props = {}) => ({id: 'MESSAGE:m1', label: 'MESSAGE', properties: {from: '@neo-gpt', subject: 'hi', priority: 'normal', ...props}});
+    const sub = (over = {}) => ({trigger: 'SENT_TO_ME', harnessTarget: 'mcp-notifications', agentIdentity: OWNER, filters: {}, ...over});
+    const msg = (props = {}) => ({
+        id        : 'MESSAGE:m1',
+        label     : 'MESSAGE',
+        properties: {
+            from    : '@neo-gpt',
+            priority: 'normal',
+            sentAt  : '2026-07-22T10:00:00.000Z',
+            subject : 'hi',
+            ...props
+        }
+    });
     const data = (entity, {node = null, receipts = false} = {}) => ({entity, getNode: () => node, hasDeliveryReceipts: () => receipts});
 
     // --- guards ---
@@ -109,7 +119,11 @@ test.describe('Neo.ai.services.memory-core.heartbeatPulseEvaluator — match() (
     test('sent_to_me: an unread direct SENT_TO to the owner fires', () => {
         const node = msg();
         expect(match(sub(), data({type: 'SENT_TO', source: node.id, target: OWNER}, {node}), edgeTrace))
-            .toMatchObject({type: 'sent_to_me', payload: {messageId: node.id, from: '@neo-gpt'}, logId: 7});
+            .toMatchObject({
+                type   : 'sent_to_me',
+                payload: {messageId: node.id, from: '@neo-gpt', sentAt: '2026-07-22T10:00:00.000Z'},
+                logId  : 7
+            });
     });
 
     test('sent_to_me: an already-read direct message does NOT fire (daemon over-wake fix)', () => {
