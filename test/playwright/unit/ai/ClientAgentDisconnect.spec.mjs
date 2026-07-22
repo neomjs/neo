@@ -92,7 +92,9 @@ test.describe('Neo.ai.Client - agent disconnect lock release', () => {
         const result = client.handleAgentDisconnected({agentId: 'neo-opus-ada', sessionId: 'sess-1'});
 
         expect(result.released).toBe(1);
-        expect(client.writeGuard.heldLocks()).toEqual([lock('neo-opus-ada', 'sess-2', ['root', 'b'])])
+        expect(client.writeGuard.heldLocks()).toEqual([
+            expect.objectContaining(lock('neo-opus-ada', 'sess-2', ['root', 'b']))
+        ])
     });
 
     test('an unknown disconnected writer is a no-op', () => {
@@ -101,7 +103,9 @@ test.describe('Neo.ai.Client - agent disconnect lock release', () => {
         const result = client.handleAgentDisconnected({agentId: 'neo-opus-vega', sessionId: 'sess-2'});
 
         expect(result.released).toBe(0);
-        expect(client.writeGuard.heldLocks()).toEqual([lock('neo-opus-ada', 'sess-1', ['root', 'panel'])])
+        expect(client.writeGuard.heldLocks()).toEqual([
+            expect.objectContaining(lock('neo-opus-ada', 'sess-1', ['root', 'panel']))
+        ])
     });
 
     test('half-stamped disconnect frames fail closed and do not sweep broad selectors', () => {
@@ -121,9 +125,9 @@ test.describe('Neo.ai.Client - agent disconnect lock release', () => {
         }
 
         expect(client.writeGuard.heldLocks()).toEqual([
-            lock('neo-opus-ada',  'sess-1', ['root', 'a']),
-            lock('neo-opus-ada',  'sess-2', ['root', 'b']),
-            lock('neo-opus-vega', 'sess-1', ['root', 'c'])
+            expect.objectContaining(lock('neo-opus-ada',  'sess-1', ['root', 'a'])),
+            expect.objectContaining(lock('neo-opus-ada',  'sess-2', ['root', 'b'])),
+            expect.objectContaining(lock('neo-opus-vega', 'sess-1', ['root', 'c']))
         ])
     });
 

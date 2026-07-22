@@ -99,6 +99,11 @@ class InstanceService extends Service {
             reverseConfig = this.safeSerialize(createConfig),
             parent        = parentId ? Neo.getComponent(parentId) : null;
 
+        let acquisition = null,
+            instance,
+            mutationStarted = false,
+            rollbackComplete = false;
+
         if (parentId) {
             if (!parent) {
                 throw new Error(`Parent component not found: ${parentId}`)
@@ -108,43 +113,58 @@ class InstanceService extends Service {
                 throw new Error(`Parent is not a container: ${parentId}`)
             }
 
-            this.assertWritable(context, parentId)
+            acquisition = this.assertWritable(context, parentId)
         }
 
-        const instance = createConfig.ntype ? Neo.ntype(createConfig) : Neo.create(createConfig);
+        try {
+            // Construction can register an instance before throwing, so failures from this point are
+            // conservatively unknown unless the parent-add rollback below completes.
+            mutationStarted = true;
+            instance = createConfig.ntype ? Neo.ntype(createConfig) : Neo.create(createConfig);
 
-        if (!instance) {
-            throw new Error('create_instance: Neo.create returned no instance.')
-        }
-
-        let attachedInstance = instance;
-
-        if (parent) {
-            try {
-                attachedInstance = parent.add(instance)
-            } catch (error) {
-                instance.destroy();
-                throw error
+            if (!instance) {
+                throw new Error('create_instance: Neo.create returned no instance.')
             }
+
+            let attachedInstance = instance;
+
+            if (parent) {
+                try {
+                    attachedInstance = parent.add(instance)
+                } catch (error) {
+                    instance.destroy();
+                    rollbackComplete = true;
+                    throw error
+                }
+            }
+
+            this.recordUndo(context, this.buildCreateInstanceReverse({
+                config  : reverseConfig,
+                context,
+                instance: attachedInstance,
+                parentId
+            }));
+
+            const result = {
+                id       : attachedInstance.id,
+                className: attachedInstance.className
+            };
+
+            if (parentId) {
+                result.parentId = parentId
+            }
+
+            this.finishWritable(acquisition);
+
+            return result
+        } catch (error) {
+            this.failWritable(
+                acquisition,
+                error,
+                rollbackComplete ? 'rollback-complete' : mutationStarted ? 'unknown' : 'pre-mutation'
+            );
+            throw error
         }
-
-        this.recordUndo(context, this.buildCreateInstanceReverse({
-            config  : reverseConfig,
-            context,
-            instance: attachedInstance,
-            parentId
-        }));
-
-        const result = {
-            id       : attachedInstance.id,
-            className: attachedInstance.className
-        };
-
-        if (parentId) {
-            result.parentId = parentId
-        }
-
-        return result
     }
 
     /**
@@ -337,12 +357,12 @@ class InstanceService extends Service {
         }
 
         return {
-            sequenceId       : `${id}:${++this.undoSequence}`,
-            originWriter     : {agentId: context.agentId, sessionId: context.sessionId},
+            sequenceId  : `${id}:${++this.undoSequence}`,
+            originWriter: {agentId: context.agentId, sessionId: context.sessionId},
             targetSubtreePath,
-            forward          : {tool: 'create_instance', args: forwardArgs},
-            reverse          : {tool: 'destroy_instance', args: {id}},
-            label            : `create ${config.ntype || config.className || 'instance'}${parentId ? ` in ${parentId}` : ''}`
+            forward     : {tool: 'create_instance', args: forwardArgs},
+            reverse     : {tool: 'destroy_instance', args: {id}},
+            label       : `create ${config.ntype || config.className || 'instance'}${parentId ? ` in ${parentId}` : ''}`
         }
     }
 
@@ -369,8 +389,15 @@ class InstanceService extends Service {
         }
 
         if (Neo.getComponent(id)) {
-            this.assertWritable(context, id);
-            instance.destroy(true)
+            const acquisition = this.assertWritable(context, id);
+
+            try {
+                instance.destroy(true);
+                this.finishWritable(acquisition)
+            } catch (error) {
+                this.failWritable(acquisition, error, 'unknown');
+                throw error
+            }
         } else {
             instance.destroy()
         }
@@ -381,13 +408,15 @@ class InstanceService extends Service {
     /**
      * Enforces the multi-writer write-lock before a write-class op mutates: composes the {@link Neo.ai.admitWrite}
      * decision with this heap's {@link Neo.ai.Client#writeGuard} and **throws** a deny (no mutation) when the write is
-     * not admitted. A bare / legacy frame (no `context`) is unguarded — backward-compatible with non-agent callers.
+     * not admitted. On enforced admission it starts in-flight protection and returns the fenced acquisition receipt
+     * to the operation owner. A bare / legacy frame (no `context`) is unguarded and returns `null`.
      * @param {Object|null} context The Bridge-stamped `{agentId, sessionId}` writer pair, or null/undefined (legacy).
      * @param {String} id The target component id whose subtree the write locks.
+     * @returns {Object|null} Fenced acquisition receipt for an enforced write, otherwise `null`.
      * @protected
      */
     assertWritable(context, id) {
-        const {admitted, reason, conflict} = admitWrite({
+        const {admitted, reason, conflict, acquisition} = admitWrite({
             context,
             componentId: id,
             parentOf   : cid => Neo.getComponent(cid)?.parentId,
@@ -397,6 +426,44 @@ class InstanceService extends Service {
         if (!admitted) {
             const heldBy = conflict ? ` (held by ${conflict.agentId} / ${conflict.sessionId})` : '';
             throw new Error(`Write denied for ${id}: ${reason}${heldBy}`)
+        }
+
+        if (acquisition) {
+            const writeGuard = this.client?.writeGuard,
+                  {began}    = writeGuard?.beginWrite(acquisition) || {began: false};
+
+            if (!began) {
+                if (acquisition.created) {
+                    writeGuard?.releaseWrite(acquisition)
+                }
+                throw new Error(`Write denied for ${id}: stale-acquisition`)
+            }
+        }
+
+        return acquisition
+    }
+
+    /**
+     * @summary End a successful write operation while retaining its held lease.
+     * @param {Object|null} acquisition Fenced receipt returned by {@link assertWritable}.
+     * @protected
+     */
+    finishWritable(acquisition) {
+        if (acquisition) {
+            this.client?.writeGuard?.endWrite(acquisition)
+        }
+    }
+
+    /**
+     * @summary End a failed write with phase-aware release/retain semantics and an observable receipt.
+     * @param {Object|null} acquisition Fenced receipt returned by {@link assertWritable}.
+     * @param {Error} error The operation failure.
+     * @param {'pre-mutation'|'rollback-complete'|'unknown'} mutationDisposition Proven mutation phase.
+     * @protected
+     */
+    failWritable(acquisition, error, mutationDisposition) {
+        if (acquisition) {
+            this.client?.writeGuard?.endWrite(acquisition, {failed: true, mutationDisposition, error})
         }
     }
 
@@ -415,20 +482,29 @@ class InstanceService extends Service {
             throw new Error(`Instance not found: ${id}`)
         }
 
-        this.assertWritable(context, id);
+        const acquisition = this.assertWritable(context, id);
 
-        // Capture the reverse (the pre-set values) BEFORE mutating, so an agent can undo this write. Best-effort +
-        // fail-closed: only an enforcement-granted *agent* write (a writer identity in `context`) is captured, and a
-        // malformed / unserializable reverse is dropped, never thrown into the write path. A replay
-        // (`context.undoReplay`, set by {@link #undo} / {@link #redo}) is NOT captured — re-applying a captured op
-        // must never enqueue a new transaction.
-        const undoOp = context?.undoReplay ? null : this.buildSetReverse({context, id, instance, properties});
+        let mutationStarted = false;
 
-        instance.set(properties);
+        try {
+            // Capture the reverse (the pre-set values) BEFORE mutating, so an agent can undo this write. Best-effort +
+            // fail-closed: only an enforcement-granted *agent* write (a writer identity in `context`) is captured, and a
+            // malformed / unserializable reverse is dropped, never thrown into the write path. A replay
+            // (`context.undoReplay`, set by {@link #undo} / {@link #redo}) is NOT captured — re-applying a captured op
+            // must never enqueue a new transaction.
+            const undoOp = context?.undoReplay ? null : this.buildSetReverse({context, id, instance, properties});
 
-        this.recordUndo(context, undoOp);
+            mutationStarted = true;
+            instance.set(properties);
 
-        return {success: true}
+            this.recordUndo(context, undoOp);
+            this.finishWritable(acquisition);
+
+            return {success: true}
+        } catch (error) {
+            this.failWritable(acquisition, error, mutationStarted ? 'unknown' : 'pre-mutation');
+            throw error
+        }
     }
 
     /**
@@ -462,12 +538,12 @@ class InstanceService extends Service {
         });
 
         return {
-            sequenceId       : `${id}:${++this.undoSequence}`,
-            originWriter     : {agentId: context.agentId, sessionId: context.sessionId},
+            sequenceId  : `${id}:${++this.undoSequence}`,
+            originWriter: {agentId: context.agentId, sessionId: context.sessionId},
             targetSubtreePath,
-            forward          : {tool: 'set_instance_properties', args: {id, properties}},
-            reverse          : {tool: 'set_instance_properties', args: {id, properties: oldValues}},
-            label            : `set ${Object.keys(properties).join(', ')} on ${id}`
+            forward     : {tool: 'set_instance_properties', args: {id, properties}},
+            reverse     : {tool: 'set_instance_properties', args: {id, properties: oldValues}},
+            label       : `set ${Object.keys(properties).join(', ')} on ${id}`
         }
     }
 
@@ -515,12 +591,12 @@ class InstanceService extends Service {
         }
 
         return {
-            sequenceId       : `${newId}:${++this.undoSequence}`,
-            originWriter     : {agentId: context.agentId, sessionId: context.sessionId},
+            sequenceId  : `${newId}:${++this.undoSequence}`,
+            originWriter: {agentId: context.agentId, sessionId: context.sessionId},
             targetSubtreePath,
-            forward          : {tool: 'create_component', args: {parentId: id, config: args[0]}},
-            reverse          : {tool: 'call_method', args: {id: newId, method: 'destroy', args: [true]}},
-            label            : `create ${args[0].ntype || args[0].className || 'component'} in ${id}`
+            forward     : {tool: 'create_component', args: {parentId: id, config: args[0]}},
+            reverse     : {tool: 'call_method', args: {id: newId, method: 'destroy', args: [true]}},
+            label       : `create ${args[0].ntype || args[0].className || 'component'} in ${id}`
         }
     }
 
@@ -579,12 +655,12 @@ class InstanceService extends Service {
         }
 
         return {
-            sequenceId       : `${id}:${++this.undoSequence}`,
-            originWriter     : {agentId: context.agentId, sessionId: context.sessionId},
+            sequenceId  : `${id}:${++this.undoSequence}`,
+            originWriter: {agentId: context.agentId, sessionId: context.sessionId},
             targetSubtreePath,
-            forward          : {tool: 'remove_component', args: {componentId: id}},
-            reverse          : {tool: 'call_method', args: {id: parentId, method: 'insert', args: [index, config]}},
-            label            : `remove ${id} from ${parentId}`
+            forward     : {tool: 'remove_component', args: {componentId: id}},
+            reverse     : {tool: 'call_method', args: {id: parentId, method: 'insert', args: [index, config]}},
+            label       : `remove ${id} from ${parentId}`
         }
     }
 
@@ -1050,19 +1126,30 @@ class InstanceService extends Service {
             throw new Error(`Method not found: ${method} on instance ${id}`)
         }
 
-        this.assertWritable(context, id);
+        const acquisition = this.assertWritable(context, id);
 
-        // remove_component reverse-capture must snapshot the component's re-creatable state BEFORE destroy runs (the
-        // instance is gone afterwards); create_component's capture is post-call (the new child's id is the `add`
-        // return). A server-stamped marker + the canonical shape gate each; a generic call_method + an undo replay
-        // capture nothing. See {@link #buildRemoveReverse} / {@link #buildCreateReverse}.
-        const removeOp = this.buildRemoveReverse({context, id, method, args, undoKind, instance});
+        let mutationStarted = false;
 
-        const result = await scope[methodName].call(scope, ...args);
+        try {
+            // remove_component reverse-capture must snapshot the component's re-creatable state BEFORE destroy runs (the
+            // instance is gone afterwards); create_component's capture is post-call (the new child's id is the `add`
+            // return). A server-stamped marker + the canonical shape gate each; a generic call_method + an undo replay
+            // capture nothing. See {@link #buildRemoveReverse} / {@link #buildCreateReverse}.
+            const removeOp = this.buildRemoveReverse({context, id, method, args, undoKind, instance});
 
-        this.recordUndo(context, removeOp || this.buildCreateReverse({context, id, method, args, undoKind, result}));
+            mutationStarted = true;
+            const result = await scope[methodName].call(scope, ...args);
 
-        return {result: this.safeSerialize(result)}
+            this.recordUndo(context, removeOp || this.buildCreateReverse({context, id, method, args, undoKind, result}));
+            const serializedResult = this.safeSerialize(result);
+
+            this.finishWritable(acquisition);
+
+            return {result: serializedResult}
+        } catch (error) {
+            this.failWritable(acquisition, error, mutationStarted ? 'unknown' : 'pre-mutation');
+            throw error
+        }
     }
 }
 
