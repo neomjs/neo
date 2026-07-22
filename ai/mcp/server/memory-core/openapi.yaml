@@ -3561,6 +3561,11 @@ components:
         providerEntityId:
           type: string
           minLength: 1
+        parentProviderEntityId:
+          type: string
+          minLength: 1
+          nullable: true
+          description: Stable provider entity id of the containing resource, when this occurrence is a child.
         occurrenceKind:
           type: string
           minLength: 1
@@ -3576,6 +3581,16 @@ components:
         actorKind:
           type: string
           enum: [user, bot, organization, mannequin, enterprise-user, unknown]
+        providerState:
+          type: string
+          minLength: 1
+          nullable: true
+          description: Provider-native categorical state for this occurrence.
+        sourceAssociation:
+          type: string
+          minLength: 1
+          nullable: true
+          description: Provider-native actor association with the containing source.
         revisionOf:
           type: string
           nullable: true
