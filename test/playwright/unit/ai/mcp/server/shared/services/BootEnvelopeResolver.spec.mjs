@@ -52,7 +52,23 @@ test.describe('Neo.ai.mcp.server.shared.services.BootEnvelopeResolver (#12418)',
         expect(BootEnvelopeResolver.resolveOverrideMetadata({
             NEO_HARNESS_INSTANCE_ADDRESS     : '',
             NEO_HARNESS_INSTANCE_ADDRESS_TYPE: '   '
+        }, {
+            enableParentChainFallback: false
         })).toBeNull();
+    });
+
+    test('empty-string env vars still permit the Electron parent-chain fallback', () => {
+        expect(BootEnvelopeResolver.resolveOverrideMetadata({
+            NEO_HARNESS_INSTANCE_ADDRESS     : '',
+            NEO_HARNESS_INSTANCE_ADDRESS_TYPE: '   '
+        }, {
+            bootPid : 90001,
+            platform: 'darwin',
+            psOutput: PS_ELECTRON_PARENT_CHAIN
+        })).toEqual({
+            instanceAddress: NEO_DIR,
+            addressType    : 'userDataDir'
+        });
     });
 
     test('userDataDir envelope yields the generic address override the daemon reads', () => {
