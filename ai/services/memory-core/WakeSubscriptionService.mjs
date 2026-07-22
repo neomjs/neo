@@ -872,7 +872,7 @@ class WakeSubscriptionService extends Base {
             throw new Error(`Invalid harnessTarget '${harnessTarget}'. Must be one of: ${this.validHarnessTargets.join(', ')}`);
         }
 
-        const finalMetadata = {...harnessTargetMetadata};
+        const finalMetadata = this._retireWebCoordinatesForPullBridge({...harnessTargetMetadata});
 
         if (harnessTarget === 'a2a-webhook' && !finalMetadata.url) {
             throw new Error("Shape B (a2a-webhook) requires harnessTargetMetadata.url.");
@@ -1008,7 +1008,7 @@ class WakeSubscriptionService extends Base {
         const updated = {...subscription};
         if (filters               !== undefined) updated.filters               = filters;
         if (harnessTarget         !== undefined) updated.harnessTarget         = harnessTarget;
-        if (harnessTargetMetadata !== undefined) updated.harnessTargetMetadata = {...subscription.harnessTargetMetadata, ...harnessTargetMetadata};
+        if (harnessTargetMetadata !== undefined) updated.harnessTargetMetadata = this._retireWebCoordinatesForPullBridge({...subscription.harnessTargetMetadata, ...harnessTargetMetadata});
         this.validateHarnessTargetMetadata(updated.harnessTarget, updated.harnessTargetMetadata || {});
         updated.updatedAt = new Date().toISOString();
 
@@ -1022,6 +1022,28 @@ class WakeSubscriptionService extends Base {
         this.subscriptionCache.set(subscriptionId, updated);
 
         return {subscriptionId, currentState: updated};
+    }
+
+    /**
+     * Retires `kimi-server` web coordinates (`lockPath`, `tokenPath`) from subscription metadata
+     * when the route is the `kimi-pull-bridge`. The pull route reads the wake envelope and writes
+     * the seat outbox; a stale web coordinate merge-retained across the adapter switch would
+     * resurrect the twin surface the migration exists to leave behind. Retirement is atomic with
+     * the route change, on subscribe and update alike; re-selecting `kimi-server` later requires
+     * re-adding coordinates explicitly.
+     * @param {Object} metadata The harnessTargetMetadata candidate.
+     * @returns {Object} Metadata with web coordinates retired when the adapter is the pull-bridge.
+     * @protected
+     */
+    _retireWebCoordinatesForPullBridge(metadata = {}) {
+        if (metadata?.adapter !== 'kimi-pull-bridge') return metadata;
+
+        const retired = {...metadata};
+
+        delete retired.lockPath;
+        delete retired.tokenPath;
+
+        return retired
     }
 
     /**

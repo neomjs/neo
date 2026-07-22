@@ -9,8 +9,10 @@ import path from 'node:path';
  *
  * The Kimi hook contract passes `{hook_event_name, session_id, cwd}` on stdin for every event
  * (official hook reference). This writer maps that payload onto the wake-envelope contract:
- * `~/.kimi-code/wake-envelope.json` (mode 0600) carrying `{sessionId, cwd, updatedAt}`. The
- * wake daemon re-reads the envelope on every delivery, so session rotation (startup/resume)
+ * `~/.kimi-code/wake-envelope.json` (mode 0600) carrying `{sessionId, cwd, pid, updatedAt}` —
+ * `pid` is the hook's parent process (the interactive TUI itself), the owner-process epoch the
+ * `kimi-pull-bridge` adapter validates liveness against before queueing a wake for the seat.
+ * The wake daemon re-reads the envelope on every delivery, so session rotation (startup/resume)
  * needs no graph write and a wake can never be steered into a heuristic "latest" session —
  * the envelope is the session authority, not the session index.
  *
@@ -47,7 +49,7 @@ process.stdin.on('end', () => {
         if (typeof sessionId === 'string' && sessionId.length > 0 && typeof cwd === 'string' && cwd.length > 0) {
             fs.writeFileSync(
                 ENVELOPE_PATH,
-                JSON.stringify({sessionId, cwd, updatedAt: new Date().toISOString()}, null, 2),
+                JSON.stringify({sessionId, cwd, pid: process.ppid, updatedAt: new Date().toISOString()}, null, 2),
                 {mode: 0o600}
             );
         }

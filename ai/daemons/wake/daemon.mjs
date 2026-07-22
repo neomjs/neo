@@ -34,6 +34,8 @@ import AiConfig              from '../../config.mjs';
 import memoryCoreConfig      from '../../mcp/server/memory-core/config.mjs';
 import {assertConfigFresh}   from '../../scripts/setup/initServerConfigs.mjs';
 import {WAKE_LANE_DIRECTIVE} from './wakeLaneDirective.mjs';
+import {withAppendLock}      from '../../services/memory-core/helpers/walAppendLock.mjs';
+import nodeCrypto            from 'node:crypto';
 
 import fs                               from 'fs-extra';
 import os                               from 'os';
@@ -1325,29 +1327,33 @@ async function deliverViaKimiServer(subscription, digest, evidenceLabel = '', ab
 }
 
 /**
- * `kimi-pull-bridge` — the pull-inversion wake route for Kimi seats. Instead of POSTing
- * into a `kimi web` process (whose prompt route materializes the serverside twin per the pinned
+ * `kimi-pull-bridge` — the pull-inversion wake route for Kimi seats. Instead of POSTing into a
+ * `kimi web` process (whose prompt route materializes the serverside twin per the pinned
  * `prompts.ts` `resume()` semantics), the daemon appends one wake line to the seat's local
- * outbox. The owning interactive session's own cron poll (registered in-process by the agent)
- * fires via `agent.turn.steer` in the OWNING TUI process and consumes the outbox — execution-owner
- * delivery with zero inbound surface on the TUI. `delivered` here means durable in the seat
- * outbox; the seat's poll is the steer leg.
+ * outbox. The owning interactive session's own consumer (a repo-owned poll the agent registers
+ * in-process) fires via `agent.turn.steer` in the OWNING TUI process and consumes the outbox —
+ * execution-owner delivery with zero inbound surface on the TUI.
  *
- * Probe lineage (live seat, kimi v0.28.1): an external outbox write followed by the in-process
- * cron fire delivered owner-natively with the exact owner tuple and a causal turn receipt; the
- * external cron-dir write path was falsified in the same round (resume-mirror only, never
- * re-read mid-session).
+ * The enqueue is **durable-acceptance, not owner-acknowledgement**: this adapter returns
+ * `delivered` when the entry is durably queued under the cross-process append lock with a
+ * validated owner tuple — `{agentIdentity, sessionId, processEpoch}` — inside. Owner-ack (a
+ * nonce-correlated consume receipt from the owner process) is the seat-side consumer's layer,
+ * not this daemon's return path. `wakeId` is a content digest of the logical wake
+ * (`subscriptionId` + digest body), so a retry of the same coalesced wake re-appends the SAME id
+ * — the seat consumer's idempotency key on consume.
  *
- * Seat authority is the same wake envelope the `kimi-server` adapter uses (SessionStart-hook
- * writer): it names the live session + cwd, and an optional `meta.cwd` cross-check catches a
- * stale envelope written for a different checkout. This adapter deliberately has NO web-server
- * fallback — a route configured as `kimi-pull-bridge` must fail loudly rather than deliver into
- * the twin surface.
+ * Durability protocol (both sides, one lock): the append runs under
+ * `withAppendLock(outboxPath)`, the same cross-process lock the consumer holds for its
+ * read-and-compact, so an append can never interleave with a consume and erase either side.
+ * Path confinement: the outbox must resolve inside the seat home (the envelope's directory),
+ * with no symlinked parent or file; an existing outbox with a permissive mode is repaired to
+ * 0600 (and the repair logged) rather than silently preserved. The owner epoch comes from the
+ * wake envelope's `pid` (written by the seat's SessionStart hook as the interactive TUI's own
+ * process); a dead epoch fails closed with an actionable error — a rotated seat writes a fresh
+ * envelope.
  *
- * Outbox contract: JSONL, one object per wake (`{wakeId, subscriptionId, agentIdentity, digest,
- * writtenAt}`), append-only on the daemon side, file mode 0600 at creation. The seat consumes
- * read-and-rewrite-without-consumed, so an append landing mid-consume survives. `wakeId` is a
- * fresh uuid per dispatch — the seat's idempotency key on consume.
+ * This adapter deliberately has NO web-server fallback — a route configured as
+ * `kimi-pull-bridge` must fail loudly rather than deliver into the twin surface.
  * @param {Object} subscription WAKE_SUBSCRIPTION node.
  * @param {String} digest Wake digest body.
  * @param {String} [evidenceLabel=''] Formatted wake scenario / route evidence for validation logs.
@@ -1356,7 +1362,7 @@ async function deliverViaKimiServer(subscription, digest, evidenceLabel = '', ab
 async function deliverViaKimiPullBridge(subscription, digest, evidenceLabel = '') {
     const meta         = subscription.properties?.harnessTargetMetadata || {};
     const envelopePath = meta.envelopePath || path.join(os.homedir(), '.kimi-code', 'wake-envelope.json');
-    const outboxPath   = meta.outboxPath   || path.join(os.homedir(), '.kimi-code', 'wake-outbox.jsonl');
+    const outboxPath   = path.resolve(meta.outboxPath || path.join(os.homedir(), '.kimi-code', 'wake-outbox.jsonl'));
 
     let envelope;
 
@@ -1366,11 +1372,10 @@ async function deliverViaKimiPullBridge(subscription, digest, evidenceLabel = ''
         throw new Error(`kimi-pull-bridge requires a readable wake envelope at '${envelopePath}' (${err.message})`);
     }
 
-    const {sessionId, cwd} = envelope;
+    const {sessionId, cwd, pid: processEpoch} = envelope;
 
-    // Same typed + authority-checked seat contract as the kimi-server adapter: a malformed
-    // envelope must never route the digest, and the metadata cwd cross-check catches a stale
-    // envelope written for a different seat checkout.
+    // Same typed + authority-checked seat contract as the kimi-server adapter, extended with the
+    // owner-process epoch the pull contract queues for.
     if (typeof sessionId !== 'string' || sessionId.length === 0) {
         throw new Error(`kimi-pull-bridge envelope at '${envelopePath}' requires 'sessionId' to be a non-empty string`);
     }
@@ -1383,19 +1388,69 @@ async function deliverViaKimiPullBridge(subscription, digest, evidenceLabel = ''
         throw new Error(`kimi-pull-bridge envelope at '${envelopePath}' cwd '${cwd}' does not match harnessTargetMetadata.cwd '${meta.cwd}'`);
     }
 
-    const wakeId = crypto.randomUUID(),
+    if (!Number.isInteger(processEpoch)) {
+        throw new Error(`kimi-pull-bridge envelope at '${envelopePath}' requires an integer 'pid' (owner process epoch) — refresh it via the seat's SessionStart hook`);
+    }
+
+    try {
+        process.kill(processEpoch, 0);
+    } catch (err) {
+        if (err.code === 'ESRCH') {
+            throw new Error(`kimi-pull-bridge envelope at '${envelopePath}' names a dead owner process (pid ${processEpoch}) — the seat's TUI rotated; refusing to queue a wake for a stale owner`);
+        }
+        // EPERM = alive but unsignalable from this uid — still alive, and the seat's own process.
+    }
+
+    // Path confinement: the outbox must live inside the seat home (the envelope's directory),
+    // with no symlinked parent directory or symlinked outbox file. Comparisons run on realpaths —
+    // on macOS the tmp root itself is a `/var` → `/private/var` symlink, so a naive literal
+    // prefix check would refuse every legitimate seat path.
+    const seatDir     = path.dirname(path.resolve(envelopePath)),
+          realSeatDir = await fs.realpath(seatDir);
+
+    if (!outboxPath.startsWith(seatDir + path.sep) && !outboxPath.startsWith(realSeatDir + path.sep)) {
+        throw new Error(`kimi-pull-bridge outboxPath '${outboxPath}' escapes the seat home '${seatDir}' — refusing to write outside the seat authority`);
+    }
+
+    const outboxParent = path.dirname(outboxPath);
+
+    if (await fs.pathExists(outboxParent)) {
+        const realParent = await fs.realpath(outboxParent);
+
+        if (realParent !== realSeatDir && !realParent.startsWith(realSeatDir + path.sep)) {
+            throw new Error(`kimi-pull-bridge outboxPath '${outboxPath}' resolves through a symlink outside the seat home '${seatDir}'`);
+        }
+    }
+
+    if (await fs.pathExists(outboxPath) && (await fs.lstat(outboxPath)).isSymbolicLink()) {
+        throw new Error(`kimi-pull-bridge outboxPath '${outboxPath}' is a symbolic link — refusing to write through it`);
+    }
+
+    // Least privilege: an existing outbox with a permissive mode is repaired, never preserved.
+    if (await fs.pathExists(outboxPath)) {
+        const stat = await fs.stat(outboxPath);
+
+        if ((stat.mode & 0o777) !== 0o600) {
+            await fs.chmod(outboxPath, 0o600);
+            writeLog('WARN', `[Wake Daemon] Repaired wake outbox permissions to 0600 at '${outboxPath}'`);
+        }
+    }
+
+    const wakeId = nodeCrypto.createHash('sha256').update(`${subscription.id}:${digest}`).digest('hex').slice(0, 16),
           entry  = {
               wakeId,
               subscriptionId: subscription.id,
               agentIdentity : subscription.properties?.agentIdentity ?? null,
+              sessionId,
+              processEpoch,
               digest,
               writtenAt     : new Date().toISOString()
           };
 
-    await fs.ensureDir(path.dirname(outboxPath));
-    await fs.appendFile(outboxPath, JSON.stringify(entry) + '\n', {mode: 0o600});
+    await fs.ensureDir(outboxParent);
+    await withAppendLock(outboxPath, () => fs.appendFile(outboxPath, JSON.stringify(entry) + '\n', {mode: 0o600}));
 
-    writeLog('INFO', `[Wake Daemon] Dispatched ${subscription.id} via kimi-pull-bridge (outbox ${outboxPath}, wake ${wakeId})${evidenceLabel}`);
+    writeLog('INFO', `[Wake Daemon] Queued ${subscription.id} via kimi-pull-bridge (outbox ${outboxPath}, wake ${wakeId}, owner ${sessionId}@${processEpoch})${evidenceLabel}`);
 }
 
 /**

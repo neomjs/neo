@@ -2,12 +2,13 @@ import { test, expect }                                                         
 import fs                                                                                      from 'fs-extra';
 import path                                                                                    from 'path';
 import Database                                                                                from 'better-sqlite3';
-import { spawn }                                                                               from 'child_process';
+import { spawn, spawnSync }                                                                    from 'child_process';
 import crypto                                                                                  from 'crypto';
 import http                                                                                    from 'http';
 import os                                                                                      from 'os';
 import { collapseDuplicateShapeCRoutes, getActiveHarnessPresence, getNodesData, getEdgesData } from '../../../../../../ai/daemons/wake/queries.mjs';
 import { SQLITE_IN_CLAUSE_BATCH_SIZE }                                                         from '../../../../../../ai/graph/storage/constants.mjs';
+import { withAppendLock }                                                                      from '../../../../../../ai/services/memory-core/helpers/walAppendLock.mjs';
 
 /**
  * @summary Stubs `ps` for subprocess daemon tests so instance-resolution branches do not depend
@@ -4095,7 +4096,7 @@ test.describe('Wake Daemon', () => {
 
         const envelopePath = path.join(DAEMON_DIR, 'kimi-pull-envelope.json');
         const outboxPath   = path.join(DAEMON_DIR, 'kimi-pull-outbox.jsonl');
-        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_pull', cwd: '/seat/checkout', updatedAt: '2026-07-22T12:00:00.000Z'});
+        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_pull', cwd: '/seat/checkout', pid: process.pid, updatedAt: '2026-07-22T12:00:00.000Z'});
 
         insertWakeSubscription(db, {
             subId,
@@ -4166,15 +4167,17 @@ test.describe('Wake Daemon', () => {
         expect(lines.length).toBe(1);
 
         const entry = JSON.parse(lines[0]);
-        expect(entry.wakeId).toBeTruthy();
+        expect(entry.wakeId).toMatch(/^[0-9a-f]{16}$/);
         expect(entry.subscriptionId).toBe(subId);
         expect(entry.agentIdentity).toBe(agentId);
+        expect(entry.sessionId).toBe('ses_kimi_pull');
+        expect(entry.processEpoch).toBe(process.pid);
         expect(entry.digest).toContain('Kimi Pull Bridge Wake');
         expect(entry.writtenAt).toBeTruthy();
 
         expect((fs.statSync(outboxPath).mode & 0o777).toString(8)).toBe('600');
         expect(fs.existsSync(mockOsascriptOutPath)).toBe(false);
-        expect(stdoutLog).toContain(`[Wake Daemon] Dispatched ${subId} via kimi-pull-bridge (outbox ${outboxPath}, wake ${entry.wakeId})`);
+        expect(stdoutLog).toContain(`[Wake Daemon] Queued ${subId} via kimi-pull-bridge (outbox ${outboxPath}, wake ${entry.wakeId}, owner ses_kimi_pull@${process.pid})`);
         expect(stdoutLog).toContain(`[Wake Dispatch] ${agentId}: outcome=delivered`);
         expect(stdoutLog).toContain('route=kimi-pull-bridge; adapterSource=metadata');
     });
@@ -4254,7 +4257,7 @@ test.describe('Wake Daemon', () => {
 
         const envelopePath = path.join(DAEMON_DIR, 'kimi-pull-cwd-envelope.json');
         const outboxPath   = path.join(DAEMON_DIR, 'kimi-pull-cwd-outbox.jsonl');
-        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_pull_cwd', cwd: '/other/checkout', updatedAt: '2026-07-22T12:00:00.000Z'});
+        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_pull_cwd', cwd: '/other/checkout', pid: process.pid, updatedAt: '2026-07-22T12:00:00.000Z'});
 
         insertWakeSubscription(db, {
             subId,
@@ -4317,5 +4320,183 @@ test.describe('Wake Daemon', () => {
 
         expect(fs.existsSync(outboxPath)).toBe(false);
         expect(stdoutLog).not.toContain(`Dispatched ${subId} via kimi-pull-bridge`);
+    });
+
+    test('kimi-pull-bridge fails closed on a dead owner process epoch (#15665)', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-kimi-pull-dead-epoch';
+
+        // A guaranteed-dead pid: spawn + immediately exit a child, then reuse its pid.
+        const deadPid      = spawnSync(process.execPath, ['-e', '']).pid;
+        const envelopePath = path.join(DAEMON_DIR, 'kimi-pull-dead-envelope.json');
+        const outboxPath   = path.join(DAEMON_DIR, 'kimi-pull-dead-outbox.jsonl');
+        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_dead', cwd: '/seat/checkout', pid: deadPid, updatedAt: '2026-07-22T12:00:00.000Z'});
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {adapter: 'kimi-pull-bridge', envelopePath, outboxPath, coalesceWindow: 1}
+        });
+
+        const binDir = path.join(DAEMON_DIR, 'bin');
+        fs.ensureDirSync(binDir);
+        writeMockPs(binDir);
+
+        let stdoutLog = '';
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, PATH: `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`}
+        });
+        daemonProcess.stdout.on('data', data => stdoutLog += data.toString());
+        // The fail-visible path logs through the error stream; fold it into the same buffer.
+        daemonProcess.stderr.on('data', data => stdoutLog += data.toString());
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {agentId, subject: 'Kimi Pull Bridge Dead Epoch'});
+        await new Promise(resolve => setTimeout(resolve, 4000));
+
+        expect(stdoutLog).toContain('dead owner process');
+        expect(fs.existsSync(outboxPath)).toBe(false);
+        expect(stdoutLog).not.toContain(`Queued ${subId} via kimi-pull-bridge`);
+    });
+
+    test('kimi-pull-bridge repairs a permissive existing outbox to 0600 (#15665)', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-kimi-pull-mode-repair';
+
+        const envelopePath = path.join(DAEMON_DIR, 'kimi-pull-repair-envelope.json');
+        const outboxPath   = path.join(DAEMON_DIR, 'kimi-pull-repair-outbox.jsonl');
+        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_repair', cwd: '/seat/checkout', pid: process.pid, updatedAt: '2026-07-22T12:00:00.000Z'});
+        fs.writeFileSync(outboxPath, '', {mode: 0o644});
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {adapter: 'kimi-pull-bridge', envelopePath, outboxPath, coalesceWindow: 1}
+        });
+
+        const binDir = path.join(DAEMON_DIR, 'bin');
+        fs.ensureDirSync(binDir);
+        writeMockPs(binDir);
+
+        let stdoutLog = '';
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, PATH: `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`}
+        });
+        daemonProcess.stdout.on('data', data => stdoutLog += data.toString());
+        daemonProcess.stderr.on('data', data => stdoutLog += data.toString());
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {agentId, subject: 'Kimi Pull Bridge Mode Repair'});
+        await new Promise(resolve => setTimeout(resolve, 4000));
+
+        expect((fs.statSync(outboxPath).mode & 0o777).toString(8)).toBe('600');
+        expect(stdoutLog).toContain('Repaired wake outbox permissions to 0600');
+        expect(fs.readFileSync(outboxPath, 'utf8')).toContain('Kimi Pull Bridge Mode Repair');
+    });
+
+    test('kimi-pull-bridge refuses an outboxPath that escapes the seat home (#15665)', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-kimi-pull-escape';
+
+        const envelopePath = path.join(DAEMON_DIR, 'kimi-pull-escape-envelope.json');
+        const outboxPath   = path.join(os.tmpdir(), `kimi-pull-escape-${crypto.randomUUID()}.jsonl`);
+        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_escape', cwd: '/seat/checkout', pid: process.pid, updatedAt: '2026-07-22T12:00:00.000Z'});
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {adapter: 'kimi-pull-bridge', envelopePath, outboxPath, coalesceWindow: 1}
+        });
+
+        const binDir = path.join(DAEMON_DIR, 'bin');
+        fs.ensureDirSync(binDir);
+        writeMockPs(binDir);
+
+        let stdoutLog = '';
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, PATH: `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`}
+        });
+        daemonProcess.stdout.on('data', data => stdoutLog += data.toString());
+        // The fail-visible path logs through the error stream; fold it into the same buffer.
+        daemonProcess.stderr.on('data', data => stdoutLog += data.toString());
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        insertMessageWake(db, {agentId, subject: 'Kimi Pull Bridge Escape'});
+        await new Promise(resolve => setTimeout(resolve, 4000));
+
+        expect(stdoutLog).toContain('escapes the seat home');
+        expect(fs.existsSync(outboxPath)).toBe(false);
+        expect(stdoutLog).not.toContain(`Queued ${subId} via kimi-pull-bridge`);
+    });
+
+    test('an append landing mid-consume survives via the shared append lock (#15665)', async () => {
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-kimi-pull-race';
+
+        const envelopePath = path.join(DAEMON_DIR, 'kimi-pull-race-envelope.json');
+        const outboxPath   = path.join(DAEMON_DIR, 'kimi-pull-race-outbox.jsonl');
+        fs.writeJsonSync(envelopePath, {sessionId: 'ses_kimi_race', cwd: '/seat/checkout', pid: process.pid, updatedAt: '2026-07-22T12:00:00.000Z'});
+        fs.writeFileSync(outboxPath, JSON.stringify({wakeId: 'preexisting', digest: 'stale pre-consume entry'}) + '\n', {mode: 0o600});
+
+        insertWakeSubscription(db, {
+            subId,
+            agentId,
+            harnessTargetMetadata: {adapter: 'kimi-pull-bridge', envelopePath, outboxPath, coalesceWindow: 1}
+        });
+
+        const binDir = path.join(DAEMON_DIR, 'bin');
+        fs.ensureDirSync(binDir);
+        writeMockPs(binDir);
+
+        let stdoutLog = '';
+
+        daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, PATH: `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`}
+        });
+        daemonProcess.stdout.on('data', data => stdoutLog += data.toString());
+        daemonProcess.stderr.on('data', data => stdoutLog += data.toString());
+
+        // The adversarial interleave the contract exists for: the consumer holds the lock for its
+        // compact WHILE the daemon's first flush attempt lands in the same window. The append
+        // must wait out the hold and land after it — never be erased by a stale snapshot rewrite.
+        // (The 1s warmup matches the sibling specs: inserting after tail-sync, so the wake is
+        // evaluated as genuinely new rather than folded into the boot backlog.)
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        await withAppendLock(outboxPath, async () => {
+            insertMessageWake(db, {agentId, subject: 'Wake Landing Mid-Consume'});
+
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            const heldLines = fs.readFileSync(outboxPath, 'utf8').trim().split('\n').filter(Boolean);
+            expect(heldLines.length).toBe(1);
+            expect(heldLines[0]).toContain('stale pre-consume entry');
+
+            fs.writeFileSync(outboxPath, '', {mode: 0o600});
+        });
+
+        let survivingLines = [];
+
+        for (let attempt = 0; attempt < 20; attempt++) {
+            survivingLines = fs.existsSync(outboxPath)
+                ? fs.readFileSync(outboxPath, 'utf8').trim().split('\n').filter(Boolean)
+                : [];
+
+            if (survivingLines.length > 0) break;
+
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        if (survivingLines.length !== 1) console.log('--- RACE DEBUG daemon log tail ---\n' + stdoutLog.slice(-3000));
+
+        expect(survivingLines.length).toBe(1);
+        expect(survivingLines[0]).toContain('Wake Landing Mid-Consume');
     });
 });
