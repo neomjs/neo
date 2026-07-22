@@ -1,8 +1,33 @@
 #!/usr/bin/env node
-import fs          from 'node:fs';
-import os          from 'node:os';
-import path        from 'node:path';
-import {spawnSync} from 'node:child_process';
+import fs              from 'node:fs';
+import os              from 'node:os';
+import path            from 'node:path';
+import {spawnSync}     from 'node:child_process';
+import {pathToFileURL} from 'node:url';
+
+import {normalizeAgentIdentityNodeId} from '../../ai/graph/normalizeAgentIdentityNodeId.mjs';
+
+/**
+ * @summary Normalizes a provisioned seat identity to the canonical `@handle` form the wake
+ * daemon's exact-match identity leg expects: trims, strips ONE layer of matching surrounding
+ * quotes (the `.env` parse artifact — `NEO_AGENT_IDENTITY="handle"` would otherwise keep the
+ * literal quotes), then delegates `@`-canonicalization to the graph SSOT
+ * (`normalizeAgentIdentityNodeId`). Non-strings (e.g. a missing value's `null`) pass through
+ * unchanged, preserving the hook's fail-open posture.
+ * @param {*} raw The raw identity from `process.env.NEO_AGENT_IDENTITY` or the checkout `.env`.
+ * @returns {*} Canonical `@handle`, or the unchanged non-string input.
+ */
+export function normalizeAgentIdentity(raw) {
+    if (typeof raw !== 'string') return raw;
+
+    const trimmed = raw.trim(),
+          quoted  = trimmed.length > 1 && (
+              (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+              (trimmed.startsWith("'") && trimmed.endsWith("'"))
+          );
+
+    return normalizeAgentIdentityNodeId(quoted ? trimmed.slice(1, -1) : trimmed)
+}
 
 /**
  * @summary Kimi Code `SessionStart` hook: refreshes the seat's wake envelope with the exact
@@ -41,15 +66,18 @@ const CHECKOUT_ROOT = path.resolve(import.meta.dirname, '../..');
 
 /**
  * @summary Reads the seat's agent identity for the envelope's owner-identity leg: first from the
- * process env, then from the checkout's `.env` (the fleet seat config provisions it there).
+ * process env, then from the checkout's `.env` (the fleet seat config provisions it there). Both
+ * sources flow through `normalizeAgentIdentity` — the daemon compares the envelope value EXACTLY
+ * against the subscription's canonical `@handle`, so a quoted or `@`-less provisioned value must
+ * never reach the envelope.
  * @returns {String|null}
  */
 function readAgentIdentity() {
-    if (process.env.NEO_AGENT_IDENTITY) return process.env.NEO_AGENT_IDENTITY;
+    if (process.env.NEO_AGENT_IDENTITY) return normalizeAgentIdentity(process.env.NEO_AGENT_IDENTITY);
 
     try {
         const match = fs.readFileSync(path.join(CHECKOUT_ROOT, '.env'), 'utf8').match(/^NEO_AGENT_IDENTITY=(.+)$/m);
-        return match ? match[1].trim() : null
+        return match ? normalizeAgentIdentity(match[1]) : null
     } catch {
         return null
     }
@@ -70,32 +98,42 @@ function readProcessStartTime(pid) {
     }
 }
 
-let input = '';
+/**
+ * @summary Runs the stdin adapter while preserving Kimi Code's fail-open hook boundary.
+ * @returns {void}
+ */
+function main() {
+    let input = '';
 
-process.stdin.on('data', chunk => { input += chunk });
+    process.stdin.on('data', chunk => { input += chunk });
 
-process.stdin.on('end', () => {
-    try {
-        const payload                      = JSON.parse(input),
-              {session_id: sessionId, cwd} = payload || {};
+    process.stdin.on('end', () => {
+        try {
+            const payload                      = JSON.parse(input),
+                  {session_id: sessionId, cwd} = payload || {};
 
-        if (typeof sessionId === 'string' && sessionId.length > 0 && typeof cwd === 'string' && cwd.length > 0) {
-            fs.writeFileSync(
-                ENVELOPE_PATH,
-                JSON.stringify({
-                    sessionId,
-                    cwd,
-                    pid          : process.ppid,
-                    pidStartedAt : readProcessStartTime(process.ppid),
-                    agentIdentity: readAgentIdentity(),
-                    updatedAt    : new Date().toISOString()
-                }, null, 2),
-                {mode: 0o600}
-            );
+            if (typeof sessionId === 'string' && sessionId.length > 0 && typeof cwd === 'string' && cwd.length > 0) {
+                fs.writeFileSync(
+                    ENVELOPE_PATH,
+                    JSON.stringify({
+                        sessionId,
+                        cwd,
+                        pid          : process.ppid,
+                        pidStartedAt : readProcessStartTime(process.ppid),
+                        agentIdentity: readAgentIdentity(),
+                        updatedAt    : new Date().toISOString()
+                    }, null, 2),
+                    {mode: 0o600}
+                );
+            }
+        } catch {
+            // Fail-open: a malformed payload or write failure must never disturb the session.
         }
-    } catch {
-        // Fail-open: a malformed payload or write failure must never disturb the session.
-    }
 
-    process.exit(0);
-});
+        process.exit(0);
+    });
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    main();
+}
