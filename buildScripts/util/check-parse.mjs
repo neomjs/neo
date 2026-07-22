@@ -40,6 +40,6 @@ if (unparseable.length > 0) {
         console.error(`  ${file}`);
         if (detail) console.error(detail.split('\n').map(line => `    ${line}`).join('\n'));
     }
-    console.error('\nA syntax error must never be committed. If a mechanical fixer (e.g. check-block-alignment --fix) produced it, revert that rewrite and align the block by hand, then report the input as a fixer bug (see #15057).');
+    console.error('\nA syntax error must never be committed. If a mechanical fixer (e.g. check-block-alignment --fix) produced it, revert that rewrite and align the block by hand, then report the input as a fixer bug (see #15072).');
     process.exit(1);
 }
