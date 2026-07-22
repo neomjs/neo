@@ -20,6 +20,8 @@ import path           from 'path';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import PullRequestHistoryService, {
+    exhaustRepositoryReviewComments,
+    exhaustReviewComments,
     fetchResolvedPullRequestsForHistory,
     scanPullRequestCorpus,
     synthesizePullRequestHistory
@@ -529,6 +531,109 @@ test.describe('Neo.ai.services.github-workflow.PullRequestHistoryService', () =>
         expect(result.coverage.childEvidence.failures).toHaveLength(1);
         expect(result.coverage.childEvidence.failures[0].reason).toMatch(/review comments?.*(mutat|mismatch|snapshot)/i);
         expect(result.synthesisAvailable).toBe(false)
+    });
+
+    test('keeps resolved-history review-comment revisions stable unless reconciliation opts into actor metadata', async () => {
+        const pull = pullRequest({number: 502, mergedAt: '2026-07-06T12:00:00.000Z'}),
+              rest = async () => [{
+                  id                    : 8002,
+                  node_id               : 'PRRC_8002',
+                  pull_request_review_id: 89,
+                  user                  : {login: 'external-reviewer', type: 'User'},
+                  author_association    : 'CONTRIBUTOR',
+                  body                  : 'metadata boundary',
+                  created_at            : '2026-07-04T00:00:00.000Z',
+                  updated_at            : '2026-07-04T00:00:00.000Z',
+                  html_url              : 'https://github.com/neomjs/neo/pull/502#discussion_r8002'
+              }],
+              history = await exhaustReviewComments({pullRequest: pull, rest, owner: 'neomjs', repo: 'neo'}),
+              reconciliation = await exhaustReviewComments({
+                  pullRequest         : pull,
+                  rest,
+                  owner               : 'neomjs',
+                  repo                : 'neo',
+                  includeActorMetadata: true
+              });
+
+        expect(history.reviewComments[0].author).toEqual({login: 'external-reviewer'});
+        expect(history.reviewComments[0]).not.toHaveProperty('authorAssociation');
+        expect(reconciliation.reviewComments[0].author).toEqual({login: 'external-reviewer', __typename: 'User'});
+        expect(reconciliation.reviewComments[0]).toMatchObject({
+            nodeId: 'PRRC_8002', authorAssociation: 'CONTRIBUTOR'
+        })
+    });
+
+    test('repository-wide review-comment verification scales with pages and groups 101 comments by PR', async () => {
+        const paths         = [],
+              reviewComment = (id, pullRequestNumber) => ({
+                  id,
+                  node_id               : `PRRC_${id}`,
+                  pull_request_review_id: 700 + pullRequestNumber,
+                  pull_request_url      : `https://api.github.com/repos/neomjs/neo/pulls/${pullRequestNumber}`,
+                  user                  : {login: `reviewer-${pullRequestNumber}`, type: 'User'},
+                  author_association    : 'MEMBER',
+                  body                  : `comment-${id}`,
+                  created_at            : '2026-07-04T00:00:00.000Z',
+                  updated_at            : '2026-07-04T00:00:00.000Z',
+                  html_url              : `https://github.com/neomjs/neo/pull/${pullRequestNumber}#discussion_r${id}`
+              }),
+              result = await exhaustRepositoryReviewComments({
+                  owner               : 'neomjs',
+                  repo                : 'neo',
+                  includeActorMetadata: true,
+                  rest                : async (method, requestPath) => {
+                      expect(method).toBe('GET');
+                      paths.push(requestPath);
+
+                      const page = Number(new URL(`https://api.github.test${requestPath}`).searchParams.get('page'));
+
+                      return page === 1
+                          ? Array.from({length: 100}, (_, index) => reviewComment(index + 1, index % 2 ? 10 : 9))
+                          : [reviewComment(101, 9)]
+                  }
+              });
+
+        expect(paths).toHaveLength(4);
+        expect(paths.map(requestPath => Number(
+            new URL(`https://api.github.test${requestPath}`).searchParams.get('page')
+        ))).toEqual([1, 2, 1, 2]);
+        expect(paths.every(requestPath => requestPath.startsWith('/repos/neomjs/neo/pulls/comments?'))).toBe(true);
+        expect(result.reviewCommentsByPullRequestNumber.get(9)).toHaveLength(51);
+        expect(result.reviewCommentsByPullRequestNumber.get(10)).toHaveLength(50);
+        expect(result.failuresByPullRequestNumber.size).toBe(0);
+        expect(result.evidence).toMatchObject({fetched: 101, pageQueries: 4, snapshotVerified: true})
+    });
+
+    test('repository-wide verification isolates one PR comment mutation from stable sibling groups', async () => {
+        let pass = 0;
+
+        const reviewComment = (id, pullRequestNumber, updatedAt) => ({
+                  id,
+                  node_id               : `PRRC_${id}`,
+                  pull_request_review_id: 700 + pullRequestNumber,
+                  pull_request_url      : `https://api.github.com/repos/neomjs/neo/pulls/${pullRequestNumber}`,
+                  user                  : {login: 'reviewer', type: 'User'},
+                  author_association    : 'MEMBER',
+                  body                  : `comment-${id}`,
+                  created_at            : '2026-07-04T00:00:00.000Z',
+                  updated_at            : updatedAt,
+                  html_url              : `https://github.com/neomjs/neo/pull/${pullRequestNumber}#discussion_r${id}`
+              }),
+              result = await exhaustRepositoryReviewComments({
+                  owner: 'neomjs',
+                  repo : 'neo',
+                  rest : async () => {
+                      pass++;
+                      return [
+                          reviewComment(1, 9, pass === 1 ? '2026-07-04T00:00:00.000Z' : '2026-07-04T00:01:00.000Z'),
+                          reviewComment(2, 10, '2026-07-04T00:00:00.000Z')
+                      ]
+                  }
+              });
+
+        expect(result.failuresByPullRequestNumber.has(9)).toBe(true);
+        expect(result.reviewCommentsByPullRequestNumber.has(9)).toBe(false);
+        expect(result.reviewCommentsByPullRequestNumber.get(10)).toHaveLength(1)
     });
 
     test('rejects a map observation that cites a child absent from that exact evidence batch', async () => {

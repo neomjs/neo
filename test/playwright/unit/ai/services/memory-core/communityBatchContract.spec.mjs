@@ -120,6 +120,31 @@ test.describe('community-activity-batch.v1 contract', () => {
         expect(validateBatch(batch())).toEqual({valid: true, errors: []});
     });
 
+    test('provider-neutral parent, state, and association metadata accept absent, null, or non-empty strings', () => {
+        expect(validateBatch(batch({observations: [observation('e1', {
+            parentProviderEntityId: 'pull-42',
+            providerState         : 'CHANGES_REQUESTED',
+            sourceAssociation     : 'MEMBER'
+        })]}))).toEqual({valid: true, errors: []});
+        expect(validateBatch(batch({observations: [observation('e1', {
+            parentProviderEntityId: null,
+            providerState         : null,
+            sourceAssociation     : null
+        })]}))).toEqual({valid: true, errors: []});
+
+        const invalid = validateBatch(batch({observations: [observation('e1', {
+            parentProviderEntityId: {},
+            providerState         : '',
+            sourceAssociation     : '   '
+        })]}));
+
+        expect(invalid.errors).toEqual(expect.arrayContaining([
+            'OBSERVATION_0_PARENTPROVIDERENTITYID_INVALID',
+            'OBSERVATION_0_PROVIDERSTATE_INVALID',
+            'OBSERVATION_0_SOURCEASSOCIATION_INVALID'
+        ]))
+    });
+
     test('a reduced batch missing v1 authority fields is refused', () => {
         const {resourceFamily, baseCheckpointVersion, nextInventoryHash, ...reduced} = batch();
         const {valid, errors}                                                        = validateBatch(reduced);

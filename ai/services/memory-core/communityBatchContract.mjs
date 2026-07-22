@@ -45,8 +45,9 @@ const
      * inventory, and a batch that changes no opaque provider state carries `null`. Presence is still
      * required so a reduced batch (an omitted key) fails loudly rather than defaulting.
      */
-    NULLABLE_BATCH_KEYS       = new Set(['baseInventoryHash', 'nextInventoryHash', 'nextProviderState']),
-    REQUIRED_OBSERVATION_KEYS = ['providerEntityId', 'occurrenceKind', 'occurrenceCoordinate', 'occurredAt', 'actorKind'],
+    NULLABLE_BATCH_KEYS              = new Set(['baseInventoryHash', 'nextInventoryHash', 'nextProviderState']),
+    OPTIONAL_OBSERVATION_STRING_KEYS = ['parentProviderEntityId', 'providerState', 'sourceAssociation'],
+    REQUIRED_OBSERVATION_KEYS        = ['providerEntityId', 'occurrenceKind', 'occurrenceCoordinate', 'occurredAt', 'actorKind'],
     /**
      * Provider prose never enters an automatic durable row. A batch carrying any of these is
      * REJECTED rather than silently stripped: stripping would let a connector believe prose was
@@ -420,6 +421,14 @@ export function validateBatch(batch) {
             if (observation.actorKind !== undefined && !ACTOR_KINDS.has(observation.actorKind)) {
                 errors.push(`OBSERVATION_${index}_ACTOR_KIND_INVALID`)
             }
+
+            OPTIONAL_OBSERVATION_STRING_KEYS.forEach(key => {
+                const value = observation[key];
+
+                if (value !== undefined && value !== null && (typeof value !== 'string' || !value.trim())) {
+                    errors.push(`OBSERVATION_${index}_${key.toUpperCase()}_INVALID`)
+                }
+            });
 
             if (observation.absence !== undefined && !ABSENCE_DISPOSITIONS.has(observation.absence)) {
                 errors.push(`OBSERVATION_${index}_ABSENCE_DISPOSITION_INVALID`)

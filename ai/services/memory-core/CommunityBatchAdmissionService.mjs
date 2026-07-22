@@ -117,8 +117,9 @@ class CommunityBatchAdmissionService extends Base {
     }
 
     /**
-     * Creates the admission tables if absent. Receipt identity is scoped by `resourceFamily` (the CAS
-     * partition), so a `batchId` reused across families never collides.
+     * Creates the admission tables if absent and upgrades older observation ledgers in place. Receipt
+     * identity is scoped by `resourceFamily` (the CAS partition), so a `batchId` reused across families
+     * never collides. Additive nullable observation columns preserve existing rows and callers.
      * @returns {void}
      */
     ensureSchema() {
@@ -154,11 +155,14 @@ class CommunityBatchAdmissionService extends Base {
                 occurrence_identity   TEXT    NOT NULL,
                 occurrence_digest     TEXT    NOT NULL,
                 provider_entity_id    TEXT    NOT NULL,
+                parent_provider_entity_id TEXT,
                 occurrence_kind       TEXT    NOT NULL,
                 occurrence_coordinate TEXT    NOT NULL,
                 occurred_at           TEXT    NOT NULL,
                 actor_id              TEXT,
                 actor_kind            TEXT    NOT NULL,
+                provider_state        TEXT,
+                source_association    TEXT,
                 revision_of           TEXT,
                 absence               TEXT,
                 deletion_evidence     TEXT,
@@ -186,6 +190,24 @@ class CommunityBatchAdmissionService extends Base {
                 PRIMARY KEY (tenant_id, source_instance_id, resource_family)
             );
         `);
+
+        // Serialize the inspect-and-alter sequence: multiple Memory Core processes can open the same
+        // store during rollout, and two unlocked readers could otherwise both attempt the same ALTER.
+        this.db.transaction(() => {
+            const observationColumns = new Set(
+                this.db.prepare(`PRAGMA table_info(mc_community_observation)`).all().map(column => column.name)
+            );
+
+            if (!observationColumns.has('parent_provider_entity_id')) {
+                this.db.exec(`ALTER TABLE mc_community_observation ADD COLUMN parent_provider_entity_id TEXT`)
+            }
+            if (!observationColumns.has('provider_state')) {
+                this.db.exec(`ALTER TABLE mc_community_observation ADD COLUMN provider_state TEXT`)
+            }
+            if (!observationColumns.has('source_association')) {
+                this.db.exec(`ALTER TABLE mc_community_observation ADD COLUMN source_association TEXT`)
+            }
+        }).immediate()
     }
 
     /**
@@ -193,12 +215,13 @@ class CommunityBatchAdmissionService extends Base {
      *
      * Never throws for an ordinary protocol outcome — a conflict is a returned status. The transaction
      * runs the nine admission steps in order: (1) verify the ACTIVE registration + epoch INSIDE the
-     * boundary; (2) check the partition-scoped `batchId` receipt; (3) return the prior result for the
-     * same digest; (4) fail closed for the same `batchId` with a different digest; (5) verify the base
-     * checkpoint version + inventory hash; (6) dedup overlapping observations by occurrence identity +
-     * digest; (7) fail closed when the same occurrence carries a different digest; (8) admit a genuinely
-     * new occurrence as an immutable fact; (9) persist provider state/inventory/coverage/receipt and
-     * advance the partition.
+     * boundary; (2) check the partition-scoped `batchId` receipt; (3) for the same digest, repair only
+     * nullable materialized projections and return the prior result; (4) fail closed for the same
+     * `batchId` with a different digest; (5) verify the base checkpoint version + inventory hash;
+     * (6) dedup overlapping observations by occurrence identity + digest, applying the same bounded
+     * projection repair; (7) fail closed when the same occurrence carries a different digest; (8) admit
+     * a genuinely new occurrence as an immutable fact; (9) persist provider state/inventory/coverage/
+     * receipt and advance the partition.
      * @param {Object} batch A `community-activity-batch.v1` payload.
      * @returns {Object} `{status, digest, receipt?, checkpoint?, errors?, reason?}`
      * @throws {Error} `BATCH_ADMISSION_NO_TENANT` | `ATTENTION_POLICY_NOT_CONFIGURED` (fail closed).
@@ -247,6 +270,38 @@ class CommunityBatchAdmissionService extends Base {
                     return {status: ADMISSION_STATUS.CONFLICT, reason: 'REGISTRATION_NOT_ADMISSIBLE'}
                 }
 
+                // These nullable columns can be materialized after the occurrence digest already covered
+                // their payload values. An exact digest match therefore authorizes filling a storage hole,
+                // but never rewriting a non-null projection. The WHERE digest repeats that proof at the
+                // mutation boundary.
+                const
+                    backfillProjectionStatement = this.db.prepare(
+                        `UPDATE mc_community_observation
+                         SET parent_provider_entity_id = COALESCE(parent_provider_entity_id, @parentProviderEntityId),
+                             provider_state            = COALESCE(provider_state, @providerState),
+                             source_association        = COALESCE(source_association, @sourceAssociation)
+                         WHERE tenant_id = @tenantId
+                           AND source_instance_id = @sourceInstanceId
+                           AND occurrence_identity = @identity
+                           AND occurrence_digest = @digest
+                           AND ((parent_provider_entity_id IS NULL AND @parentProviderEntityId IS NOT NULL)
+                             OR (provider_state IS NULL AND @providerState IS NOT NULL)
+                             OR (source_association IS NULL AND @sourceAssociation IS NOT NULL))`
+                    ),
+                    backfillObservationProjection = (
+                        observation,
+                        identity = occurrenceIdentity(sourceInstanceId, observation),
+                        oDigest  = observationDigest(observation)
+                    ) => backfillProjectionStatement.run({
+                        digest                : oDigest,
+                        identity,
+                        parentProviderEntityId: observation.parentProviderEntityId ?? null,
+                        providerState         : observation.providerState ?? null,
+                        sourceAssociation     : observation.sourceAssociation ?? null,
+                        sourceInstanceId,
+                        tenantId
+                    }).changes;
+
                 // Steps 2-4 — the partition-scoped batch idempotency key.
                 const existing = this.db.prepare(
                     `SELECT * FROM mc_community_batch_receipt
@@ -254,9 +309,13 @@ class CommunityBatchAdmissionService extends Base {
                 ).get(tenantId, sourceInstanceId, resourceFamily, batchId);
 
                 if (existing) {
-                    return existing.digest === digest
-                        ? {status: ADMISSION_STATUS.IDEMPOTENT, receipt: this.#toReceipt(existing)}
-                        : {status: ADMISSION_STATUS.CONFLICT, reason: 'DIGEST_MISMATCH', receipt: this.#toReceipt(existing)}
+                    if (existing.digest === digest) {
+                        observations.forEach(observation => backfillObservationProjection(observation));
+
+                        return {status: ADMISSION_STATUS.IDEMPOTENT, receipt: this.#toReceipt(existing)}
+                    }
+
+                    return {status: ADMISSION_STATUS.CONFLICT, reason: 'DIGEST_MISMATCH', receipt: this.#toReceipt(existing)}
                 }
 
                 // Step 5 — the checkpoint CAS: the batch's declared base must equal current server state.
@@ -290,10 +349,11 @@ class CommunityBatchAdmissionService extends Base {
                 const insertObservation = this.db.prepare(
                     `INSERT INTO mc_community_observation (
                         observation_row_id, tenant_id, source_instance_id, occurrence_identity, occurrence_digest,
-                        provider_entity_id, occurrence_kind, occurrence_coordinate, occurred_at, actor_id,
-                        actor_kind, revision_of, absence, deletion_evidence, attention_disposition,
-                        attention_reason, receipt_id, admitted_sequence, admitted_at
-                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                        provider_entity_id, parent_provider_entity_id, occurrence_kind, occurrence_coordinate,
+                        occurred_at, actor_id, actor_kind, provider_state, source_association, revision_of,
+                        absence, deletion_evidence, attention_disposition, attention_reason, receipt_id,
+                        admitted_sequence, admitted_at
+                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
                 );
 
                 for (const observation of observations) {
@@ -304,8 +364,12 @@ class CommunityBatchAdmissionService extends Base {
                           ).get(tenantId, identity);
 
                     if (prior) {
-                        // Step 6 — same identity + same digest: already durable, dedup silently.
-                        if (prior.occurrence_digest === oDigest) continue;
+                        // Step 6 — same identity + same digest: keep the immutable occurrence row and
+                        // repair only nullable projections that older admission code failed to materialize.
+                        if (prior.occurrence_digest === oDigest) {
+                            backfillObservationProjection(observation, identity, oDigest);
+                            continue
+                        }
                         // Step 7 — same identity + different digest: integrity conflict, abort.
                         throw new ObservationConflict('OBSERVATION_DIGEST_MISMATCH')
                     }
@@ -315,9 +379,10 @@ class CommunityBatchAdmissionService extends Base {
 
                     insertObservation.run(
                         crypto.randomUUID(), tenantId, sourceInstanceId, identity, oDigest,
-                        observation.providerEntityId, observation.occurrenceKind, observation.occurrenceCoordinate,
-                        observation.occurredAt, observation.actorId || null, observation.actorKind,
-                        observation.revisionOf || null, observation.absence || null,
+                        observation.providerEntityId, observation.parentProviderEntityId ?? null,
+                        observation.occurrenceKind, observation.occurrenceCoordinate, observation.occurredAt,
+                        observation.actorId || null, observation.actorKind, observation.providerState ?? null,
+                        observation.sourceAssociation ?? null, observation.revisionOf || null, observation.absence || null,
                         observation.deletionEvidence ? JSON.stringify(observation.deletionEvidence) : null,
                         disposition, reason, receiptId, nextSeq, now
                     )
@@ -556,25 +621,28 @@ class CommunityBatchAdmissionService extends Base {
               ).all(tenantId, sourceInstanceId);
 
         return rows.map(row => ({
-            observationRowId    : row.observation_row_id,
-            tenantId            : row.tenant_id,
-            sourceInstanceId    : row.source_instance_id,
-            occurrenceIdentity  : row.occurrence_identity,
-            occurrenceDigest    : row.occurrence_digest,
-            providerEntityId    : row.provider_entity_id,
-            occurrenceKind      : row.occurrence_kind,
-            occurrenceCoordinate: row.occurrence_coordinate,
-            occurredAt          : row.occurred_at,
-            actorId             : row.actor_id,
-            actorKind           : row.actor_kind,
-            revisionOf          : row.revision_of,
-            absence             : row.absence,
-            deletionEvidence    : row.deletion_evidence ? JSON.parse(row.deletion_evidence) : null,
-            attentionDisposition: row.attention_disposition,
-            attentionReason     : row.attention_reason,
-            receiptId           : row.receipt_id,
-            admittedSequence    : row.admitted_sequence,
-            admittedAt          : row.admitted_at
+            observationRowId      : row.observation_row_id,
+            tenantId              : row.tenant_id,
+            sourceInstanceId      : row.source_instance_id,
+            occurrenceIdentity    : row.occurrence_identity,
+            occurrenceDigest      : row.occurrence_digest,
+            providerEntityId      : row.provider_entity_id,
+            parentProviderEntityId: row.parent_provider_entity_id,
+            occurrenceKind        : row.occurrence_kind,
+            occurrenceCoordinate  : row.occurrence_coordinate,
+            occurredAt            : row.occurred_at,
+            actorId               : row.actor_id,
+            actorKind             : row.actor_kind,
+            providerState         : row.provider_state,
+            sourceAssociation     : row.source_association,
+            revisionOf            : row.revision_of,
+            absence               : row.absence,
+            deletionEvidence      : row.deletion_evidence ? JSON.parse(row.deletion_evidence) : null,
+            attentionDisposition  : row.attention_disposition,
+            attentionReason       : row.attention_reason,
+            receiptId             : row.receipt_id,
+            admittedSequence      : row.admitted_sequence,
+            admittedAt            : row.admitted_at
         }))
     }
 
