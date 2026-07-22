@@ -102,6 +102,51 @@ test.describe('orchestrator/scheduling/remConsolidationLivenessWatchdog', () => 
         expect(r.stalled).toBe(false);
     });
 
+    // ── down-time exclusion (uptimeMs caps the stall clock) ───────────────────────────────────────
+    test('host-offline gap: a cycle older than the process uptime is digest-resume, not a stall', () => {
+        const r = evaluateConsolidationStallAlarm({
+            hasCycle  : true, stalenessMs: 23_400_000, undigestedCount: 22, thresholdMs: 21_600_000,
+            uptimeMs  : 300_000,
+            alarmState: {alarmed: true, stalledSince: 1}
+        });
+        expect(r.stalled).toBe(false);
+        expect(r.downTimeSuppressed).toBe(true);
+        expect(r.effectiveStalenessMs).toBe(300_000);
+        expect(r.nextAlarmState).toEqual({alarmed: false, stalledSince: null}); // latch still clears
+    });
+
+    test('alive-but-starved still alarms: uptime past the threshold with no fresh cycle', () => {
+        const r = evaluateConsolidationStallAlarm({
+            hasCycle: true, stalenessMs: 23_400_000, undigestedCount: 22, thresholdMs: 21_600_000,
+            uptimeMs: 25_200_000
+        });
+        expect(r.stalled).toBe(true);
+        expect(r.shouldAlarm).toBe(true);
+        expect(r.downTimeSuppressed).toBe(false);
+        expect(r.effectiveStalenessMs).toBe(23_400_000);
+    });
+
+    test('no recorded cycle + fresh boot gives the process a fair chance (no instant alarm)', () => {
+        const r = evaluateConsolidationStallAlarm({
+            hasCycle: false, stalenessMs: 0, undigestedCount: 5, thresholdMs: 6_000, uptimeMs: 5_000
+        });
+        expect(r.stalled).toBe(false);
+    });
+
+    test('no recorded cycle + uptime past the threshold is a genuine starvation stall', () => {
+        const r = evaluateConsolidationStallAlarm({
+            hasCycle: false, stalenessMs: 0, undigestedCount: 5, thresholdMs: 6_000, uptimeMs: 7_000
+        });
+        expect(r.stalled).toBe(true);
+        expect(r.shouldAlarm).toBe(true);
+    });
+
+    test('callers that omit uptimeMs keep the legacy wall-clock semantics', () => {
+        const r = evaluateConsolidationStallAlarm({hasCycle: true, stalenessMs: 10_000, undigestedCount: 5, thresholdMs: 6_000});
+        expect(r.stalled).toBe(true);
+        expect(r.downTimeSuppressed).toBe(false);
+    });
+
     // ── getDueTask (pure cadence) ────────────────────────────────────────────────────────────────
     test('getDueTask fires when the check cadence has elapsed', () => {
         expect(getDueTask({state: {lastRunAt: 0}, now: 2000, remConsolidationWatchdogCheckMs: 1000}))

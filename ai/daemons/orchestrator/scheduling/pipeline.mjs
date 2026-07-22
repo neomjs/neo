@@ -836,8 +836,17 @@ async function runRemConsolidationLivenessWatchdogTask({taskName, reason, servic
         const alarmState  = state?.remConsolidationAlarm ?? null;
         const thresholdMs = runtime.remConsolidationWatchdogThresholdMs;
 
-        const {stalled, shouldAlarm, nextAlarmState} = evaluateConsolidationStallAlarm({
-            hasCycle, readFault: readFault || backlogReadFault, stalenessMs, undigestedCount, thresholdMs, alarmState
+        const {stalled, shouldAlarm, downTimeSuppressed, effectiveStalenessMs, nextAlarmState} = evaluateConsolidationStallAlarm({
+            hasCycle,
+            readFault      : readFault || backlogReadFault,
+            stalenessMs,
+            undigestedCount,
+            thresholdMs,
+            // Down-time exclusion: host-off / orchestrator-stopped intervals are time no cycle could
+            // have run, so the stall clock is capped by this process's uptime (the evaluator defaults
+            // to legacy wall-clock behavior for callers that do not pass it).
+            uptimeMs       : Math.round(process.uptime() * 1000),
+            alarmState
         });
 
         // Stamp the stall-onset timestamp (the clock-free evaluator leaves it null on the latching
@@ -911,6 +920,13 @@ async function runRemConsolidationLivenessWatchdogTask({taskName, reason, servic
             }
         } else {
             services.healthService?.recordTaskOutcome?.(taskName, 'completed', details);
+
+            if (downTimeSuppressed) {
+                // Digest-resume note (INFO, never the swarm alarm): the cycle gap spans host-offline
+                // time, so the stall clock resumed from boot instead of alerting. The healthy-check
+                // latch clear above already handles the drain verification on the next cycles.
+                runtime.writeLog?.('INFO', `[Orchestrator] rem-consolidation-liveness-watchdog: digest-resume — cycle gap of ${stalenessMs}ms spans host-offline time (uptime ${effectiveStalenessMs}ms); resuming the stall clock from boot instead of alarming (undigested: ${undigestedCount}).`);
+            }
         }
 
         services.taskStateService.markCompleted(taskName);
