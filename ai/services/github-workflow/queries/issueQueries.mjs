@@ -320,11 +320,17 @@ export const FETCH_ISSUES_FOR_SYNC = `
  * - $maxLabels: Int!
  * - $maxAssignees: Int!
  *
+ * `orderField` exists because freshness sweeps cannot use the UPDATED_AT default: an
+ * updated-descending page buries an untouched fresh filing below older issues that merely
+ * received recent activity (measured live 2026-07-22: 4 of the latest-20 filings displaced).
+ * The duplicate-sweep evidence bar is creation order, so `CREATED_AT` is the sweep's field.
+ *
  * @param {Object}  options
  * @param {Boolean} options.withAssigneeFilter Include `filterBy: {assignee: $assignee}` + its variable declaration.
+ * @param {String} [options.orderField='UPDATED_AT'] GraphQL IssueOrderField — `UPDATED_AT` or `CREATED_AT`.
  * @returns {String} The GraphQL query text.
  */
-const buildIssuesListQuery = ({withAssigneeFilter}) => `
+export const buildIssuesListQuery = ({withAssigneeFilter, orderField = 'UPDATED_AT'}) => `
   query FetchIssuesList(
     $owner: String!
     $repo: String!
@@ -341,7 +347,7 @@ const buildIssuesListQuery = ({withAssigneeFilter}) => `
         after: $cursor
         states: $states
         ${withAssigneeFilter ? 'filterBy: {assignee: $assignee}' : ''}
-        orderBy: {field: UPDATED_AT, direction: DESC}
+        orderBy: {field: ${orderField}, direction: DESC}
       ) {
         totalCount
         pageInfo {

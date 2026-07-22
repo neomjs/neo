@@ -1,11 +1,11 @@
-import aiConfig                                                                                                                                                                                                from '../../mcp/server/github-workflow/config.mjs';
-import Base                                                                                                                                                                                                    from '../../../src/core/Base.mjs';
-import GraphqlService                                                                                                                                                                                          from './GraphqlService.mjs';
-import RepositoryService                                                                                                                                                                                       from './RepositoryService.mjs';
-import logger                                                                                                                                                                                                  from '../../mcp/server/github-workflow/logger.mjs';
-import {projectConversationTrust}                                                                                                                                                                              from './shared/conversationTrust.mjs';
-import {GET_ISSUE_LABEL_IDS, GET_PULL_REQUEST_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, GET_ISSUE_ASSIGNEES, GET_ISSUE_CONVERSATION, FETCH_ISSUES_FOR_SYNC, FETCH_ISSUES_LIST, FETCH_ISSUES_LIST_NO_FILTER} from './queries/issueQueries.mjs';
-import {GET_PULL_REQUEST_ID}                                                                                                                                                                                   from './queries/pullRequestQueries.mjs';
+import aiConfig                                                                                                                                                                                                                      from '../../mcp/server/github-workflow/config.mjs';
+import Base                                                                                                                                                                                                                          from '../../../src/core/Base.mjs';
+import GraphqlService                                                                                                                                                                                                                from './GraphqlService.mjs';
+import RepositoryService                                                                                                                                                                                                             from './RepositoryService.mjs';
+import logger                                                                                                                                                                                                                        from '../../mcp/server/github-workflow/logger.mjs';
+import {projectConversationTrust}                                                                                                                                                                                                    from './shared/conversationTrust.mjs';
+import {GET_ISSUE_LABEL_IDS, GET_PULL_REQUEST_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, GET_ISSUE_ASSIGNEES, GET_ISSUE_CONVERSATION, FETCH_ISSUES_FOR_SYNC, FETCH_ISSUES_LIST, FETCH_ISSUES_LIST_NO_FILTER, buildIssuesListQuery} from './queries/issueQueries.mjs';
+import {GET_PULL_REQUEST_ID}                                                                                                                                                                                                         from './queries/pullRequestQueries.mjs';
 import {
     ADD_LABELS,
     REMOVE_LABELS,
@@ -1285,9 +1285,10 @@ class IssueService extends Base {
      * @param {string}          [options.assignee]          Filter issues by a single assignee login
      * @param {'full'|'summary'|'title'|'title_only'} [options.projection='full'] Response shape projection
      * @param {string}          [options.cursor]            Cursor for pagination; pass a prior `endCursor`
+     * @param {'updated'|'created'} [options.sort='updated'] Order field: `updated` (default) or `created` — creation order is the freshness-sweep evidence (updated-desc buries untouched fresh filings below recently-updated older issues)
      * @returns {Promise<object>} `{count, totalCount, truncated, endCursor, issues}`
      */
-    async listIssues({limit=30, state='open', labels=null, assignee=null, projection='full', cursor=null} = {}) {
+    async listIssues({limit=30, state='open', labels=null, assignee=null, projection='full', cursor=null, sort='updated'} = {}) {
         const normalizedProjection = this.normalizeIssueListProjection(projection);
 
         if (!normalizedProjection) {
@@ -1295,6 +1296,14 @@ class IssueService extends Base {
                 error  : 'Bad Request',
                 message: `Invalid projection '${projection}'. Expected one of: full, summary, title, title_only.`,
                 code   : 'INVALID_PROJECTION'
+            };
+        }
+
+        if (sort !== 'updated' && sort !== 'created') {
+            return {
+                error  : 'Bad Request',
+                message: `Invalid sort '${sort}'. Expected one of: updated, created.`,
+                code   : 'INVALID_SORT'
             };
         }
 
@@ -1325,6 +1334,15 @@ class IssueService extends Base {
         // argument AND the variable entirely, so the query constant is selected by assignee
         // presence rather than passing null through.
         const hasAssigneeFilter = Boolean(assignee);
+        const orderField        = sort === 'created' ? 'CREATED_AT' : 'UPDATED_AT';
+
+        // Freshness sweeps (duplicate detection) need creation order: an updated-descending page
+        // buries an untouched fresh filing below older issues that merely received recent activity
+        // (measured live 2026-07-22: 4 of the latest-20 filings displaced). `sort: 'created'`
+        // builds the CREATED_AT variant per call; the default path keeps the shared constants.
+        const listQuery = orderField === 'UPDATED_AT'
+            ? (hasAssigneeFilter ? FETCH_ISSUES_LIST : FETCH_ISSUES_LIST_NO_FILTER)
+            : buildIssuesListQuery({withAssigneeFilter: hasAssigneeFilter, orderField});
 
         const variables = {
             owner: aiConfig.owner,
@@ -1338,7 +1356,7 @@ class IssueService extends Base {
         };
 
         try {
-            const data   = await GraphqlService.query(hasAssigneeFilter ? FETCH_ISSUES_LIST : FETCH_ISSUES_LIST_NO_FILTER, variables);
+            const data   = await GraphqlService.query(listQuery, variables);
             let   issues = data.repository.issues.nodes || [];
 
             // ALL-label semantics, applied to the rows this page returned. See `variables` above for
