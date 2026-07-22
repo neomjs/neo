@@ -11,8 +11,13 @@ const CURRENT_SNAPSHOT_SECTIONS = [
     'bridgeDiagnostics',
     'recoveryRuns',
     'selfHeal',
-    'tenantRepoSync'
+    'tenantRepoSync',
+    'maintenance'
 ];
+
+// Additive schema-compatible sections: produced when present, tolerated absent in older snapshots
+// (a snapshot predating the section's introduction stays valid, never degraded for its absence).
+const ADDITIVE_SNAPSHOT_SECTIONS = ['maintenance'];
 
 const CURRENT_PRODUCER_METADATA = Object.freeze({
     name         : 'orchestrator-deployment-state-bridge',
@@ -46,6 +51,7 @@ export function createDeploymentStateSnapshot({
     recoveryRuns = null,
     selfHeal = null,
     tenantRepoSync = null,
+    maintenance = null,
     producer = CURRENT_PRODUCER_METADATA
 } = {}) {
     if (!Number.isFinite(generatedAt)) {
@@ -66,7 +72,8 @@ export function createDeploymentStateSnapshot({
         bridgeDiagnostics,
         recoveryRuns,
         selfHeal,
-        tenantRepoSync
+        tenantRepoSync,
+        maintenance
     };
 }
 
@@ -217,7 +224,9 @@ function unavailable({filePath = null, reason, details = null}) {
 
 function inspectSnapshotSchema(snapshot) {
     const
-        missingSections = CURRENT_SNAPSHOT_SECTIONS.filter(section => !Object.hasOwn(snapshot || {}, section)),
+        missingSections = CURRENT_SNAPSHOT_SECTIONS
+            .filter(section => !ADDITIVE_SNAPSHOT_SECTIONS.includes(section))
+            .filter(section => !Object.hasOwn(snapshot || {}, section)),
         producer        = sanitizeProducerMetadata(snapshot?.producer),
         producerMissing = !snapshot?.producer;
 
