@@ -782,12 +782,15 @@ class FileUpload extends Field {
     }
 
     /**
-     * Creates a URL substituting the passed parameter names in at the places where the name
-     * occurs within `{}` in the pattern. A null or absent pattern passes through unchanged,
-     * so documented-optional URL configs (status / delete / download) stay inert instead of
-     * crashing on `replace`.
-     * @param {String} urlPattern
+     * @summary Creates a URL by substituting non-nullish parameter values into matching tokens.
+     *
+     * A null or absent pattern passes through unchanged, so documented-optional URL configs
+     * (status / delete / download) stay inert instead of crashing on `replace`. A nullish value
+     * is rejected only when its token is present; token-free URL configs remain valid.
+     * @param {String|null|undefined} urlPattern
      * @param {Object} params
+     * @returns {String|null|undefined}
+     * @throws {TypeError} When a present pattern token has a nullish parameter value.
      */
     createUrl(urlPattern, params) {
         if (urlPattern == null) {
@@ -795,8 +798,19 @@ class FileUpload extends Field {
         }
 
         for (const paramName in params) {
-            urlPattern = urlPattern.replace(`{${paramName}}`, params[paramName]);
+            const
+                token      = `{${paramName}}`,
+                paramValue = params[paramName];
+
+            if (urlPattern.includes(token)) {
+                if (paramValue == null) {
+                    throw new TypeError(`Cannot substitute nullish URL parameter: ${paramName}`)
+                }
+
+                urlPattern = urlPattern.replace(token, paramValue)
+            }
         }
+
         return urlPattern;
     }
 
