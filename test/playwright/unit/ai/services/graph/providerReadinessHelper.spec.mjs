@@ -22,10 +22,13 @@ const LMS_BIN = path.join(os.homedir(), '.lmstudio', 'bin');
 const SEP     = process.platform === 'win32' ? ';' : ':';
 
 test.describe('lmsExecOptions — embedding-readiness PATH fix', () => {
-    let lmsExecOptions;
+    let fetchLmsLoadedModels, lmsExecOptions;
 
     test.beforeAll(async () => {
-        lmsExecOptions = (await import('../../../../../../ai/services/graph/providerReadinessHelper.mjs')).lmsExecOptions;
+        const mod = await import('../../../../../../ai/services/graph/providerReadinessHelper.mjs');
+
+        fetchLmsLoadedModels = mod.fetchLmsLoadedModels;
+        lmsExecOptions       = mod.lmsExecOptions;
     });
 
     test('augments PATH with the LM Studio bin dir', () => {
@@ -65,5 +68,67 @@ test.describe('lmsExecOptions — embedding-readiness PATH fix', () => {
         expect(opts.env.FOO).toBe('bar'); // caller env preserved (not clobbered)
         expect(entries).toContain('/custom/bin'); // caller PATH preserved
         expect(entries).toContain(LMS_BIN);       // lms bin dir augmented onto the caller PATH
+    });
+
+    test('pre-aborted loaded-model probes reject before spawning a child', async () => {
+        const
+            controller = new AbortController(),
+            reason     = new Error('cancel before provider preflight'),
+            calls      = [];
+
+        controller.abort(reason);
+
+        let observed;
+        try {
+            await fetchLmsLoadedModels({
+                timeoutMs : 100,
+                signal    : controller.signal,
+                execFileFn: (...args) => calls.push(args)
+            });
+        } catch (error) {
+            observed = error;
+        }
+
+        expect(observed).toBe(reason);
+        expect(calls).toEqual([]);
+    });
+
+    test('signal-owned loaded-model probes do not coalesce or poison sibling callers', async () => {
+        const
+            firstController  = new AbortController(),
+            secondController = new AbortController(),
+            callbacks        = [],
+            signals          = [],
+            execFileFn       = (file, args, options, callback) => {
+                signals.push(options.signal);
+                callbacks.push(callback);
+            },
+            firstPromise     = fetchLmsLoadedModels({
+                timeoutMs: 100,
+                signal   : firstController.signal,
+                execFileFn
+            }),
+            secondPromise    = fetchLmsLoadedModels({
+                timeoutMs: 100,
+                signal   : secondController.signal,
+                execFileFn
+            }),
+            reason           = new Error('cancel only the first preflight');
+
+        expect(signals).toEqual([firstController.signal, secondController.signal]);
+
+        firstController.abort(reason);
+        callbacks[0](Object.assign(new Error('child aborted'), {name: 'AbortError'}));
+        callbacks[1](null, JSON.stringify([{identifier: 'embedding-model'}]), '');
+
+        let observed;
+        try {
+            await firstPromise;
+        } catch (error) {
+            observed = error;
+        }
+
+        expect(observed).toBe(reason);
+        await expect(secondPromise).resolves.toEqual([{id: 'embedding-model'}]);
     });
 });

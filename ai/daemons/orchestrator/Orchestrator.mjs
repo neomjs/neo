@@ -6,7 +6,9 @@ import path            from 'path';
 import Base            from '../../../src/core/Base.mjs';
 import ClassSystemUtil from '../../../src/util/ClassSystem.mjs';
 import AiConfig        from '../../config.mjs';
-import HealthService   from '../../services/memory-core/HealthService.mjs';
+import HealthService, {
+    createEmbeddingProbeTimeoutError
+}                      from '../../services/memory-core/HealthService.mjs';
 import SQLite          from '../../graph/storage/SQLite.mjs';
 import MaintenanceBackpressureService, {
     DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
@@ -573,16 +575,44 @@ export class Orchestrator extends Base {
      * consistency. Any error → an inconclusive reading, so `decideFreezeReprobe` fails closed to stay-frozen. The
      * embedder fault is systemic, so the canary is collection-agnostic (the parameter satisfies the cycle contract).
      * @param {String} [collectionName] The frozen collection (unused — the embedder health is systemic).
+     * @param {Object} [options={}] Test-isolation seams; production callers omit this object.
+     * @param {Function} [options.embedTexts] Embedding transport seam.
+     * @param {Number} [options.timeoutMs] Deadline override for deterministic tests.
      * @returns {Promise<{embedderHealthy: Boolean, dimensionConsistent: Boolean}>}
      */
-    async probeFrozenCollectionHealth(collectionName) {
+    async probeFrozenCollectionHealth(collectionName, options = {}) {
+        const
+            embedTexts     = options.embedTexts || ((texts, provider, embedOptions) => TextEmbeddingService.embedTexts(texts, provider, embedOptions)),
+            operationLabel = 'Orchestrator freeze re-probe',
+            timeoutMs      = options.timeoutMs ?? AiConfig.orchestrator.recoveryActuator.freezeReprobeTimeoutMs;
+
+        let timeoutId;
+
         try {
-            const [vector] = await TextEmbeddingService.embedTexts(['__freeze-reprobe-health-canary__'], AiConfig.embeddingProvider),
+            const controller    = new AbortController(),
+                  timeoutError  = createEmbeddingProbeTimeoutError(operationLabel, timeoutMs),
+                  deadline      = new Promise((_, reject) => {
+                      timeoutId = setTimeout(() => {
+                          reject(timeoutError);
+                          controller.abort(timeoutError);
+                      }, timeoutMs);
+                  });
+
+            const [vector] = await Promise.race([
+                      embedTexts(
+                          ['__freeze-reprobe-health-canary__'],
+                          AiConfig.embeddingProvider,
+                          {signal: controller.signal, operationLabel}
+                      ),
+                      deadline
+                  ]),
                   ok       = Array.isArray(vector) && vector.length === AiConfig.vectorDimension;
 
             return {embedderHealthy: ok, dimensionConsistent: ok};
         } catch (error) {
             return {embedderHealthy: false, dimensionConsistent: false}; // inconclusive → stay frozen (fail closed)
+        } finally {
+            clearTimeout(timeoutId);
         }
     }
 

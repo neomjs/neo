@@ -374,16 +374,61 @@ export function getLmsLoadedModels(payload) {
  * @param {Function} [options.execFileFn=execFile] Child-process seam for tests.
  * @param {String} [options.freshness='force'] `routine` enables TTL caching; `force` bypasses completed cache.
  * @param {Number} [options.cacheTtlMs] Required for routine caching.
+ * @param {AbortSignal} [options.signal] Caller-owned cancellation signal. Signal-bearing probes are
+ *     intentionally not coalesced because one caller must not abort another caller's shared child.
  * @returns {Promise<Object[]>}
  */
 export function fetchLmsLoadedModels({
     timeoutMs,
     execFileFn = execFile,
     freshness  = PROVIDER_DISCOVERY_FORCE,
-    cacheTtlMs
+    cacheTtlMs,
+    signal
 } = {}) {
     if (typeof timeoutMs !== 'number') {
         return Promise.reject(new TypeError('fetchLmsLoadedModels: timeoutMs is required'));
+    }
+
+    const runProbe = () => new Promise((resolve, reject) => {
+        if (signal?.aborted) {
+            const abortError = signal.reason instanceof Error ? signal.reason : Object.assign(
+                new Error('fetchLmsLoadedModels aborted'),
+                {name: 'AbortError', code: 'ABORT_ERR'}
+            );
+
+            reject(abortError);
+            return;
+        }
+
+        execFileFn('lms', ['ps', '--json'], lmsExecOptions({timeout: timeoutMs, ...(signal ? {signal} : {})}), (error, stdout = '', stderr = '') => {
+            if (error) {
+                const isCallerAbort = signal?.aborted && (
+                    error === signal.reason ||
+                    error?.cause === signal.reason ||
+                    error?.name === 'AbortError' ||
+                    error?.code === 'ABORT_ERR'
+                );
+
+                if (isCallerAbort) {
+                    reject(signal.reason instanceof Error ? signal.reason : error);
+                    return;
+                }
+
+                reject(new Error(`lms ps --json failed: ${error.message}${stderr ? `; stderr=${stderr.trim()}` : ''}`));
+                return;
+            }
+
+            try {
+                resolve(getLmsLoadedModels(JSON.parse(stdout || '[]')));
+            } catch (parseError) {
+                reject(new Error(`lms ps --json returned invalid JSON: ${parseError.message}`));
+            }
+        });
+    });
+
+    if (signal) {
+        assertProviderDiscoveryFreshness({freshness, cacheTtlMs, caller: 'fetchLmsLoadedModels'});
+        return runProbe();
     }
 
     return runProviderDiscoveryProbe({
@@ -391,22 +436,7 @@ export function fetchLmsLoadedModels({
         freshness,
         cacheTtlMs,
         caller: 'fetchLmsLoadedModels',
-        runProbe() {
-            return new Promise((resolve, reject) => {
-                execFileFn('lms', ['ps', '--json'], lmsExecOptions({timeout: timeoutMs}), (error, stdout = '', stderr = '') => {
-                    if (error) {
-                        reject(new Error(`lms ps --json failed: ${error.message}${stderr ? `; stderr=${stderr.trim()}` : ''}`));
-                        return;
-                    }
-
-                    try {
-                        resolve(getLmsLoadedModels(JSON.parse(stdout || '[]')));
-                    } catch (parseError) {
-                        reject(new Error(`lms ps --json returned invalid JSON: ${parseError.message}`));
-                    }
-                });
-            });
-        }
+        runProbe
     });
 }
 

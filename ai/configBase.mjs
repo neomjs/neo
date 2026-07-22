@@ -1097,6 +1097,9 @@ class ConfigBase extends ConfigProvider {
                     maxBackoffMs               : leaf(HOUR_MS, 'NEO_RECOVERY_ACTUATOR_MAX_BACKOFF_MS', 'number'),
                     verifyCooldownMs           : leaf(60 * 1000, 'NEO_RECOVERY_ACTUATOR_VERIFY_COOLDOWN_MS', 'number'),
                     healthyObservationThreshold: leaf(1, 'NEO_RECOVERY_ACTUATOR_HEALTHY_OBSERVATION_THRESHOLD', 'number'),
+                    // Due-only freeze re-probes own a transport deadline distinct from healthcheck cadence.
+                    // The orchestrator reads this leaf at the use site; consumers never re-derive it from env.
+                    freezeReprobeTimeoutMs     : leaf(30 * 1000, 'NEO_RECOVERY_ACTUATOR_FREEZE_REPROBE_TIMEOUT_MS', 'number'),
                     /**
                      * Heal-event ledger retention (the observability sink must not become its own disk leak). The
                      * append-time auto-prune keeps the newest `maxEvents` once the file crosses `pruneTriggerBytes`.

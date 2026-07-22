@@ -382,7 +382,7 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
             const provider = Neo.create(OllamaProvider, {
                 embeddingModel: 'qwen3-embedding-test',
                 host,
-                modelName: 'gemma4-test'
+                modelName     : 'gemma4-test'
             });
 
             const error = await provider.embed('hello', {
@@ -428,6 +428,46 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
             // Honored upstream signal → an AbortError, NOT a hang and NOT the provider-timeout shape.
             expect(error.code === 'ABORT_ERR' || error.name === 'AbortError').toBe(true);
             expect(error.code).not.toBe('PROVIDER_TIMEOUT');
+        } finally {
+            await new Promise(resolve => server.close(resolve));
+        }
+    });
+
+    test('Ollama.embed() honors options.signal and closes a hung native transport (#15694)', async () => {
+        let markRequestReceived;
+        let socketClosed = false;
+
+        const requestReceived = new Promise(resolve => markRequestReceived = resolve);
+        const server          = http.createServer((req, res) => {
+            res.on('close', () => socketClosed = true);
+            req.on('data', () => {});
+            req.on('end', () => markRequestReceived());
+        });
+        await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+        const host = `http://127.0.0.1:${server.address().port}`;
+
+        try {
+            const
+                provider   = Neo.create(OllamaProvider, {
+                    embeddingModel: 'qwen3-embedding-test',
+                    host,
+                    modelName     : 'gemma4-test'
+                }),
+                controller = new AbortController(),
+                promise    = provider.embed('hello', {
+                    signal        : controller.signal,
+                    timeoutMs     : 1000,
+                    operationLabel: 'native embedding cancellation probe'
+                });
+
+            await requestReceived;
+            controller.abort(new Error('cancel native embedding transport'));
+
+            const error = await promise.then(() => null, item => item);
+
+            expect(error.code === 'ABORT_ERR' || error.name === 'AbortError').toBe(true);
+            expect(error.code).not.toBe('PROVIDER_TIMEOUT');
+            await expect.poll(() => socketClosed).toBe(true);
         } finally {
             await new Promise(resolve => server.close(resolve));
         }
