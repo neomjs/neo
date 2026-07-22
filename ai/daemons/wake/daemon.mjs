@@ -34,12 +34,14 @@ import AiConfig              from '../../config.mjs';
 import memoryCoreConfig      from '../../mcp/server/memory-core/config.mjs';
 import {assertConfigFresh}   from '../../scripts/setup/initServerConfigs.mjs';
 import {WAKE_LANE_DIRECTIVE} from './wakeLaneDirective.mjs';
+import {withOutboxLock}      from './outboxLock.mjs';
+import nodeCrypto            from 'node:crypto';
 
 import fs                               from 'fs-extra';
 import os                               from 'os';
 import path                             from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
-import { spawn, execSync }              from 'child_process';
+import { spawn, execSync, spawnSync }   from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -71,6 +73,7 @@ import {
 import {
     computeFlushDelayMs,
     computeFlushHoldMs,
+    isMessageWakeFresh,
     resolveCoalesceWindowMs
 } from './coalescePolicy.mjs';
 import {
@@ -99,6 +102,7 @@ const POLL_INTERVAL_MS                  = 3000;
 const CODEX_APP_SERVER_ADAPTER          = 'codex-app-server';
 const OPENCODE_SERVER_ADAPTER           = 'opencode-server';
 const KIMI_SERVER_ADAPTER               = 'kimi-server';
+const KIMI_PULL_BRIDGE_ADAPTER          = 'kimi-pull-bridge';
 const CODEX_TURN_START_PROOF_TIMEOUT_MS = Number(process.env.WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS) || 45000;
 const CODEX_TURN_START_PROOF_POLL_MS    = Number(process.env.WAKE_CODEX_TURN_START_PROOF_POLL_MS) || 1000;
 const CODEX_WAKE_SUBMIT_NONCE_PREFIX    = 'NEO_WAKE_SUBMIT_NONCE:';
@@ -531,7 +535,15 @@ function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
     const {payload, logId} = result;
     switch (result.type) {
         case 'sent_to_me':
-            return {type: 'message', messageId: payload.messageId, from: payload.from, subject: payload.subject, priority: payload.priority, logId};
+            return {
+                type     : 'message',
+                messageId: payload.messageId,
+                from     : payload.from,
+                subject  : payload.subject,
+                priority : payload.priority,
+                sentAt   : payload.sentAt,
+                logId
+            };
         case 'task_state_changed':
             return {
                 type               : 'task',
@@ -779,6 +791,62 @@ function isMessageReadFor(db, messageId, recipient) {
     return node ? node.readAt != null : false;
 }
 
+/**
+ * @summary Partitions message events by canonical mailbox age at the delivery boundary.
+ *
+ * The event's `sentAt` comes from the immutable MESSAGE node through the shared `SENT_TO_ME`
+ * evaluator. GraphLog position is intentionally not consulted: projection replay can append a new
+ * position for an old message. Suppressed events are returned to the caller so it can still advance
+ * durable consumption state without exposing their subjects or mutating mailbox read state.
+ *
+ * @param {Object[]} messages Coalesced message wake events.
+ * @param {Number}   [now=Date.now()] Current epoch ms, shared across one partition pass.
+ * @returns {{eligible: Object[], suppressed: Object[], oldestAgeMs: Number|null}}
+ * @private
+ */
+function partitionMessageWakesByFreshness(messages, now = Date.now()) {
+    const eligible    = [], suppressed = [];
+    let   oldestAgeMs = null;
+
+    for (const message of messages) {
+        if (isMessageWakeFresh({sentAt: message.sentAt, now})) {
+            eligible.push(message);
+            continue;
+        }
+
+        suppressed.push(message);
+
+        const sentAtMs = typeof message.sentAt === 'string' ? Date.parse(message.sentAt) : NaN,
+              ageMs    = now - sentAtMs;
+
+        if (Number.isFinite(ageMs) && ageMs >= 0) {
+            oldestAgeMs = Math.max(oldestAgeMs ?? 0, ageMs);
+        }
+    }
+
+    return {eligible, suppressed, oldestAgeMs}
+}
+
+/**
+ * @summary Emits bounded stale-wake observability without copying mailbox content into daemon logs.
+ * @param {Object} opts
+ * @param {String} opts.identity Target agent identity.
+ * @param {String} opts.subId Subscription id fallback.
+ * @param {String} opts.phase Delivery phase (`initial` or `retry`).
+ * @param {Object[]} opts.suppressed Suppressed message events.
+ * @param {Number|null} opts.oldestAgeMs Oldest parseable non-future age.
+ * @returns {void}
+ * @private
+ */
+function logSuppressedMessageWakes({identity, subId, phase, suppressed, oldestAgeMs}) {
+    if (suppressed.length === 0) return;
+
+    writeLog('INFO',
+        `[Wake Daemon] Suppressed ${suppressed.length} stale/invalid message wake event(s) for ` +
+        `${identity || subId} at ${phase} delivery; oldestAgeMs=${oldestAgeMs ?? 'unknown'}.`
+    );
+}
+
 // WAKE_LANE_DIRECTIVE — the standing lifecycle-first directive, appended in buildWakeDigest ONLY to
 // pure-heartbeat digests (the idle-watchdog nudge; message / task / permission wakes omit it — they
 // already carry actionable content). Its single canonical, testable authority is `./wakeLaneDirective.mjs`
@@ -881,6 +949,19 @@ async function flushSubscription(subId) {
           duplicateMessages = messageClaims.duplicates;
     messages = messageClaims.claimed;
 
+    // Canonical mailbox-age gate: stable-id claims happen first so an old replay is durably consumed,
+    // then only still-live messages may affect digest count, preview, or priority. Mailbox state stays
+    // untouched; old unread material remains available to explicit inbox recovery.
+    const messageFreshness = partitionMessageWakesByFreshness(messages);
+    messages = messageFreshness.eligible;
+    logSuppressedMessageWakes({
+        identity,
+        subId,
+        phase      : 'initial',
+        suppressed : messageFreshness.suppressed,
+        oldestAgeMs: messageFreshness.oldestAgeMs
+    });
+
     // Mixed-wake heartbeat suppression (digest content only): a heartbeat is the idle-watchdog nudge,
     // but when it coalesces with an actionable wake (message / task / permission) the agent is already
     // being woken — so the redundant heartbeat is dropped FROM THE DIGEST. A heartbeat-only queue still
@@ -893,7 +974,7 @@ async function flushSubscription(subId) {
         heartbeats = [];
     }
 
-    const consumedMessages = [...messages, ...duplicateMessages];
+    const consumedMessages = [...messages, ...messageFreshness.suppressed, ...duplicateMessages];
 
     // Nothing genuinely-new survived (the delta was entirely already-read or already-woken) → suppress.
     // A stable-id duplicate may carry a newer GraphLog row, so consume that position before returning.
@@ -1321,6 +1402,175 @@ async function deliverViaKimiServer(subscription, digest, evidenceLabel = '', ab
 
     const status = body?.data?.status;
     writeLog('INFO', `[Wake Daemon] Dispatched ${subscription.id} via kimi-server submitPrompt (session ${sessionId}${status ? `, status=${status}` : ''})${evidenceLabel}`);
+}
+
+/**
+ * @summary Reads a process's `ps lstart` start time — the reuse-safe half of an owner-process
+ * epoch. A dead pid whose number was reassigned by the OS reports a different start time, so the
+ * comparison distinguishes "alive" from "alive but a different process".
+ * @param {Number} pid
+ * @returns {String|null}
+ */
+function readProcessStartTime(pid) {
+    try {
+        const out = spawnSync('ps', ['-p', String(pid), '-o', 'lstart=']).stdout?.toString().trim();
+        return out || null
+    } catch {
+        return null
+    }
+}
+
+/**
+ * `kimi-pull-bridge` — the pull-inversion wake route for Kimi seats. Instead of POSTing into a
+ * `kimi web` process (whose prompt route materializes the serverside twin per the pinned
+ * `prompts.ts` `resume()` semantics), the daemon appends one wake line to the seat's local
+ * outbox. The owning interactive session's own consumer (a repo-owned poll the agent registers
+ * in-process) fires via `agent.turn.steer` in the OWNING TUI process and consumes the outbox —
+ * execution-owner delivery with zero inbound surface on the TUI.
+ *
+ * The enqueue is **durable-acceptance, not owner-acknowledgement**: this adapter returns
+ * `delivered` when the entry is durably queued under the cross-process append lock with a
+ * validated owner tuple — `{agentIdentity, sessionId, processEpoch}` — inside. Owner-ack (a
+ * nonce-correlated consume receipt from the owner process) is the seat-side consumer's layer,
+ * not this daemon's return path. `wakeId` is a content digest of the logical wake
+ * (`subscriptionId` + digest body), so a retry of the same coalesced wake re-appends the SAME id
+ * — the seat consumer's idempotency key on consume.
+ *
+ * Durability protocol (both sides, one lock): the append runs under `withOutboxLock(outboxPath)` —
+ * the STRICT sibling lock with no TTL and no unlocked fall-through (a live consumer is never
+ * reclaimed mid-compact, and a writer that cannot acquire within its bounded wait throws instead
+ * of writing unlocked) — the same lock the consumer holds for its read-and-compact, so an append
+ * can never interleave with a consume and erase either side.
+ * Path confinement: the outbox must resolve inside the seat home (the envelope's directory),
+ * with no symlinked parent or file; an existing outbox with a permissive mode is repaired to
+ * 0600 (and the repair logged) rather than silently preserved. The owner epoch comes from the
+ * wake envelope's `pid` (written by the seat's SessionStart hook as the interactive TUI's own
+ * process); a dead epoch fails closed with an actionable error — a rotated seat writes a fresh
+ * envelope.
+ *
+ * This adapter deliberately has NO web-server fallback — a route configured as
+ * `kimi-pull-bridge` must fail loudly rather than deliver into the twin surface.
+ * @param {Object} subscription WAKE_SUBSCRIPTION node.
+ * @param {String} digest Wake digest body.
+ * @param {String} [evidenceLabel=''] Formatted wake scenario / route evidence for validation logs.
+ * @returns {Promise<void>}
+ */
+async function deliverViaKimiPullBridge(subscription, digest, evidenceLabel = '') {
+    const meta         = subscription.properties?.harnessTargetMetadata || {};
+    const envelopePath = meta.envelopePath || path.join(os.homedir(), '.kimi-code', 'wake-envelope.json');
+    const outboxPath   = path.resolve(meta.outboxPath || path.join(os.homedir(), '.kimi-code', 'wake-outbox.jsonl'));
+
+    let envelope;
+
+    try {
+        envelope = JSON.parse(await fs.readFile(envelopePath, 'utf8'));
+    } catch (err) {
+        throw new Error(`kimi-pull-bridge requires a readable wake envelope at '${envelopePath}' (${err.message})`);
+    }
+
+    const {sessionId, cwd, pid: processEpoch} = envelope;
+
+    // Same typed + authority-checked seat contract as the kimi-server adapter, extended with the
+    // owner-process epoch the pull contract queues for.
+    if (typeof sessionId !== 'string' || sessionId.length === 0) {
+        throw new Error(`kimi-pull-bridge envelope at '${envelopePath}' requires 'sessionId' to be a non-empty string`);
+    }
+
+    if (typeof cwd !== 'string' || cwd.length === 0) {
+        throw new Error(`kimi-pull-bridge envelope at '${envelopePath}' requires 'cwd' to be a non-empty string`);
+    }
+
+    if (typeof meta.cwd === 'string' && meta.cwd.length > 0 && meta.cwd !== cwd) {
+        throw new Error(`kimi-pull-bridge envelope at '${envelopePath}' cwd '${cwd}' does not match harnessTargetMetadata.cwd '${meta.cwd}'`);
+    }
+
+    if (!Number.isInteger(processEpoch)) {
+        throw new Error(`kimi-pull-bridge envelope at '${envelopePath}' requires an integer 'pid' (owner process epoch) — refresh it via the seat's SessionStart hook`);
+    }
+
+    try {
+        process.kill(processEpoch, 0);
+    } catch (err) {
+        if (err.code === 'ESRCH') {
+            throw new Error(`kimi-pull-bridge envelope at '${envelopePath}' names a dead owner process (pid ${processEpoch}) — the seat's TUI rotated; refusing to queue a wake for a stale owner`);
+        }
+        // EPERM = alive but unsignalable from this uid — still alive, and the seat's own process.
+    }
+
+    // Reuse-safe epoch: a dead pid whose number was reassigned by the OS fails the start-time
+    // comparison. The envelope records the owner's `ps lstart` at SessionStart; a live pid with a
+    // different start time is a different process.
+    if (typeof envelope.pidStartedAt !== 'string' || envelope.pidStartedAt.length === 0) {
+        throw new Error(`kimi-pull-bridge envelope at '${envelopePath}' requires 'pidStartedAt' (owner process start time) — refresh it via the seat's SessionStart hook`);
+    }
+
+    const liveStartedAt = readProcessStartTime(processEpoch);
+
+    if (liveStartedAt !== envelope.pidStartedAt) {
+        throw new Error(`kimi-pull-bridge envelope at '${envelopePath}' epoch mismatch for pid ${processEpoch}: recorded start '${envelope.pidStartedAt}' vs live '${liveStartedAt}' — a rotated or pid-reused owner`);
+    }
+
+    // Identity leg: the subscription's owner must be the seat's owner. The envelope carries the
+    // seat's provisioned identity; a mismatch means the route targets a different seat entirely.
+    if (typeof envelope.agentIdentity !== 'string' || envelope.agentIdentity.length === 0) {
+        throw new Error(`kimi-pull-bridge envelope at '${envelopePath}' requires 'agentIdentity' — provision the seat identity and refresh via the SessionStart hook`);
+    }
+
+    if (subscription.properties?.agentIdentity !== envelope.agentIdentity) {
+        throw new Error(`kimi-pull-bridge subscription identity '${subscription.properties?.agentIdentity}' does not match seat owner '${envelope.agentIdentity}'`);
+    }
+
+    // Path confinement: the outbox must live inside the seat home (the envelope's directory),
+    // with no symlinked parent directory or symlinked outbox file. Comparisons run on realpaths —
+    // on macOS the tmp root itself is a `/var` → `/private/var` symlink, so a naive literal
+    // prefix check would refuse every legitimate seat path.
+    const seatDir     = path.dirname(path.resolve(envelopePath)),
+          realSeatDir = await fs.realpath(seatDir);
+
+    if (!outboxPath.startsWith(seatDir + path.sep) && !outboxPath.startsWith(realSeatDir + path.sep)) {
+        throw new Error(`kimi-pull-bridge outboxPath '${outboxPath}' escapes the seat home '${seatDir}' — refusing to write outside the seat authority`);
+    }
+
+    const outboxParent = path.dirname(outboxPath);
+
+    if (await fs.pathExists(outboxParent)) {
+        const realParent = await fs.realpath(outboxParent);
+
+        if (realParent !== realSeatDir && !realParent.startsWith(realSeatDir + path.sep)) {
+            throw new Error(`kimi-pull-bridge outboxPath '${outboxPath}' resolves through a symlink outside the seat home '${seatDir}'`);
+        }
+    }
+
+    if (await fs.pathExists(outboxPath) && (await fs.lstat(outboxPath)).isSymbolicLink()) {
+        throw new Error(`kimi-pull-bridge outboxPath '${outboxPath}' is a symbolic link — refusing to write through it`);
+    }
+
+    // Least privilege: an existing outbox with a permissive mode is repaired, never preserved.
+    if (await fs.pathExists(outboxPath)) {
+        const stat = await fs.stat(outboxPath);
+
+        if ((stat.mode & 0o777) !== 0o600) {
+            await fs.chmod(outboxPath, 0o600);
+            writeLog('WARN', `[Wake Daemon] Repaired wake outbox permissions to 0600 at '${outboxPath}'`);
+        }
+    }
+
+    const wakeId = nodeCrypto.createHash('sha256').update(`${subscription.id}:${digest}`).digest('hex').slice(0, 16),
+          entry  = {
+              wakeId,
+              subscriptionId: subscription.id,
+              agentIdentity : subscription.properties?.agentIdentity ?? null,
+              sessionId,
+              processEpoch,
+              pidStartedAt  : envelope.pidStartedAt,
+              digest,
+              writtenAt     : new Date().toISOString()
+          };
+
+    await fs.ensureDir(outboxParent);
+    await withOutboxLock(outboxPath, () => fs.appendFile(outboxPath, JSON.stringify(entry) + '\n', {mode: 0o600}));
+
+    writeLog('INFO', `[Wake Daemon] Queued ${subscription.id} via kimi-pull-bridge (outbox ${outboxPath}, wake ${wakeId}, owner ${sessionId}@${processEpoch})${evidenceLabel}`);
 }
 
 /**
@@ -1761,6 +2011,11 @@ async function deliverDigest(subscription, digest, deliveryEvidence = {}, abortS
             return 'delivered';
         }
 
+        if (adapter === KIMI_PULL_BRIDGE_ADAPTER) {
+            await deliverViaKimiPullBridge(subscription, dispatchDigest, evidenceLabel);
+            return 'delivered';
+        }
+
         if (adapter === 'tmux') {
             const tmuxSession = addressType === 'tmuxSession' && instanceAddress
                 ? instanceAddress
@@ -2177,12 +2432,23 @@ async function attemptDeliveryRetries() {
         const snapshot = entry.events;
         entry.events   = {messages: [], tasks: [], permissions: [], heartbeats: []};
 
-        // Re-apply the read-state reconcile the initial digest used (see `flushSubscription`): a message
-        // the recipient read between the failed delivery and this retry must NOT be re-delivered. The
-        // watermark filter is deliberately NOT re-applied — it advanced past these events on the first
-        // attempt, and the retry's whole job is to re-deliver those below-watermark events; only the
-        // read-state axis is reconciled here.
-        const liveMessages = snapshot.messages.filter(ev => !isMessageReadFor(db, ev.messageId, entry.identity));
+        // Re-apply BOTH delivery-time eligibility axes used by the initial digest: a message read
+        // between attempts must not re-deliver, and a message that crosses the canonical age horizon
+        // while queued must not regain urgency through retry. The watermark is deliberately NOT
+        // re-applied — it advanced past these events on the first attempt, and retry exists to deliver
+        // the still-eligible below-watermark snapshot.
+        const attemptNow       = Date.now(),
+              unreadMessages   = snapshot.messages.filter(ev => !isMessageReadFor(db, ev.messageId, entry.identity)),
+              messageFreshness = partitionMessageWakesByFreshness(unreadMessages, attemptNow),
+              liveMessages     = messageFreshness.eligible;
+
+        logSuppressedMessageWakes({
+            identity   : entry.identity,
+            subId,
+            phase      : 'retry',
+            suppressed : messageFreshness.suppressed,
+            oldestAgeMs: messageFreshness.oldestAgeMs
+        });
 
         if (liveMessages.length === 0 && snapshot.tasks.length === 0 &&
             snapshot.permissions.length === 0 && snapshot.heartbeats.length === 0
@@ -2190,9 +2456,10 @@ async function attemptDeliveryRetries() {
             // The swap above is synchronous, so the live entry cannot have gained events yet —
             // the entry retires whole.
             pendingDeliveryRetries.delete(subId);
-            writeLog('INFO',
-                `[Wake Daemon] Retry for ${subId} dropped: all queued messages were read before re-delivery.`
-            );
+            const dropReason = unreadMessages.length === 0
+                ? 'all queued messages were read before re-delivery'
+                : 'all queued messages became stale or invalid before re-delivery';
+            writeLog('INFO', `[Wake Daemon] Retry for ${subId} dropped: ${dropReason}.`);
             continue;
         }
 
@@ -2216,7 +2483,7 @@ async function attemptDeliveryRetries() {
             // Restore the undelivered snapshot INTO the live entry — union with anything merged
             // during the await (the sets are disjoint by watermark, so concat is loss-free).
             entry.events = {
-                messages   : [...snapshot.messages,    ...entry.events.messages],
+                messages   : [...liveMessages,         ...entry.events.messages],
                 tasks      : [...snapshot.tasks,       ...entry.events.tasks],
                 permissions: [...snapshot.permissions, ...entry.events.permissions],
                 heartbeats : [...snapshot.heartbeats,  ...entry.events.heartbeats]

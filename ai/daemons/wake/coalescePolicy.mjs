@@ -1,6 +1,6 @@
 /**
- * @summary Pure policy governing the wake daemon's event-coalescing shape: the rolling window,
- * the hard flush cap, and the post-flush refractory.
+ * @summary Pure policy governing the wake daemon's event-coalescing and message-admission shape:
+ * the rolling window, hard flush cap, post-flush refractory, and canonical mailbox-age horizon.
  *
  * **Failure mode this replaces (the wake-per-message cadence):** the daemon's original
  * 30-second FIXED window armed on the first queued event and flushed at window end. That bundles
@@ -22,11 +22,14 @@
  *   (Per-recipient mirror of the swarm-idle `swarmWakeCooldownSeconds` precedent.)
  * - **Explicit immediate wins:** a subscription whose override resolves the window to `0` opted
  *   into per-event dispatch; neither the refractory nor the cap applies to it.
+ * - **Canonical message age:** a MESSAGE may create live interruption urgency for one hour after
+ *   its server-stamped `sentAt`. Older, future, missing, or malformed timestamps stay mailbox data
+ *   but fail closed for wake delivery; replay GraphLog position never substitutes for authored age.
  *
  * Kept pure (no timers, DB, config, or daemon state) so the policy is unit-testable in isolation,
  * mirroring the daemon's other focused modules (`flushDeferPolicy.mjs`, `queries.mjs`,
  * `wokenWatermark.mjs`). The daemon supplies `firstQueuedAt` / `lastFlushAt`; this module only
- * decides delays.
+ * decides delays and message-age admission.
  *
  * @module ai/daemons/wake/coalescePolicy
  */
@@ -48,6 +51,43 @@ export const COALESCE_HARD_CAP_MS = 300000;
  * @type {Number}
  */
 export const POST_FLUSH_REFRACTORY_MS = 120000;
+
+/**
+ * Maximum age (ms) at which a canonical mailbox MESSAGE may still create a live wake. Older
+ * messages remain authoritative mailbox history, but replaying them cannot manufacture current
+ * interruption urgency. This is a mechanism safety ceiling, not an operator-tunable route policy.
+ * @type {Number}
+ */
+export const MESSAGE_WAKE_MAX_AGE_MS = 60 * 60 * 1000;
+
+/**
+ * @summary Returns whether a canonical mailbox timestamp is still eligible for live wake delivery.
+ *
+ * `MailboxService.addMessage()` owns `sentAt` and stamps it with `Date#toISOString()`. Requiring
+ * that exact canonical shape makes missing, malformed, numeric, and future timestamps fail closed;
+ * GraphLog insertion time is deliberately irrelevant because projection replay can make an old
+ * message look newly inserted. The one-hour boundary is closed.
+ *
+ * @param {Object} opts
+ * @param {String} opts.sentAt Canonical mailbox `sentAt` ISO timestamp.
+ * @param {Number} [opts.now=Date.now()] Current epoch ms.
+ * @param {Number} [opts.maxAgeMs=MESSAGE_WAKE_MAX_AGE_MS] Mechanism ceiling; injectable for pure
+ *     policy witnesses, not wired to runtime configuration.
+ * @returns {Boolean} Whether the message may contribute to a live wake digest.
+ */
+export function isMessageWakeFresh({sentAt, now = Date.now(), maxAgeMs = MESSAGE_WAKE_MAX_AGE_MS}) {
+    if (typeof sentAt !== 'string' || !Number.isFinite(now) || !Number.isFinite(maxAgeMs) || maxAgeMs < 0) {
+        return false
+    }
+
+    const sentAtMs = Date.parse(sentAt);
+
+    if (!Number.isFinite(sentAtMs) || new Date(sentAtMs).toISOString() !== sentAt) return false;
+
+    const ageMs = now - sentAtMs;
+
+    return ageMs >= 0 && ageMs <= maxAgeMs
+}
 
 /**
  * @summary Resolves one subscription's effective coalescing window in ms.
