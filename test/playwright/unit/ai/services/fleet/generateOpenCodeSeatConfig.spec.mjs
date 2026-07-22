@@ -25,7 +25,10 @@ test.describe('generateOpenCodeSeatConfig (OpenCode seat scaffold emission)', ()
             expected = name => ['/usr/local/bin/node', '--env-file=/seat/checkout/.env', `/canonical/ai/mcp/server/${name}/mcp-server.mjs`];
 
         expect(config.$schema).toBe('https://opencode.ai/config.json');
-        expect(config.instructions).toEqual(['/seat/memory/MEMORY.md', '/seat/memory/seat-pointers.md', '/seat/memory/identity.md']);
+        // The always-loaded slot carries the boot files ONLY — detail files (seat-pointers,
+        // about-this-layer) load on demand by path; every instructions entry costs context
+        // every turn (the 27.2KB → ~10KB hot-index reshape).
+        expect(config.instructions).toEqual(['/seat/memory/MEMORY.md', '/seat/memory/identity.md']);
 
         // The four canonical servers, organs-rooted; the Neural Link additionally binds --cwd.
         expect(config.mcp['neo-mjs-memory-core']).toEqual({type: 'local', command: expected('memory-core'), enabled: true, environment: PARAMS.environment});
@@ -40,7 +43,7 @@ test.describe('generateOpenCodeSeatConfig (OpenCode seat scaffold emission)', ()
         expect(externalDirectory).toMatchObject({'*': 'ask', '/seat/**': 'allow', '/seat/checkout/**': 'allow', '/canonical/**': 'allow', '/opt/fleet/**': 'allow'});
     });
 
-    test('emission list: four scaffold files by default, the wake hook only when wakeHookPath is given', () => {
+    test('emission list: five scaffold files by default, the wake hook only when wakeHookPath is given', () => {
         const
             withHook = generateOpenCodeSeatConfig(PARAMS).files.map(file => file.path),
             noHook   = generateOpenCodeSeatConfig({...PARAMS, wakeHookPath: undefined}).files.map(file => file.path);
@@ -50,9 +53,32 @@ test.describe('generateOpenCodeSeatConfig (OpenCode seat scaffold emission)', ()
             '/seat/memory/MEMORY.md',
             '/seat/memory/seat-pointers.md',
             '/seat/memory/identity.md',
+            '/seat/memory/about-this-layer.md',
             '/seat/write-wake-envelope.mjs'
         ]);
-        expect(noHook).toEqual(withHook.slice(0, 4));
+        expect(noHook).toEqual(withHook.slice(0, 5));
+    });
+
+    test('memory scaffold: MEMORY.md is the capped hot index (Grace-pattern), weak-spots empty at birth (#15697)', () => {
+        const files  = generateOpenCodeSeatConfig(PARAMS).files,
+              memory = files.find(file => file.path.endsWith('MEMORY.md')).content;
+
+        // The cap discipline travels with the file it governs: thresholds, measurement, levers.
+        expect(memory).toContain('<17KB');
+        expect(memory).toContain('24.6KB');
+        expect(memory).toContain('wc -c');
+        expect(memory).toContain('move-to-ARCHIVE');
+        // The weak-spots section exists but starts EMPTY — the index accretes from the seat's
+        // own public record, never from another seat's mistakes.
+        expect(memory).toContain('Weak-spots');
+        expect(memory).toContain('Empty at birth');
+        // The opencode load-mechanism line names the instructions slot.
+        expect(memory).toContain('instructions');
+
+        const about = files.find(file => file.path.endsWith('about-this-layer.md')).content;
+        expect(about).toContain('Grace-pattern');
+        expect(about).toContain('opencode.jsonc');
+        expect(about).toContain('story-sovereignty');
     });
 
     test('purity: identical params emit byte-identical files (deterministic, no hidden inputs)', () => {

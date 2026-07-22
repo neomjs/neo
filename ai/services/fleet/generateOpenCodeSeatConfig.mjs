@@ -1,4 +1,5 @@
 import path from 'node:path';
+import {MEMORY_LAYER_BOOT_FILES, renderAboutThisLayerMd, renderIdentityMd, renderMemoryIndexMd} from './seatMemoryLayerTemplate.mjs';
 
 /**
  * The canonical MCP server set every OpenCode seat wires, keyed by the seat-config server name.
@@ -33,11 +34,15 @@ export const OPENCODE_SEAT_SERVERS = Object.freeze([
  * 2. **Seat personal.** Identity + credentials load via `--env-file` from the seat's OWN `.env`
  *    (`NEO_AGENT_IDENTITY`, `GH_TOKEN`, provider keys). Node's `--env-file` never overwrites
  *    already-set vars, so explicit `environment` entries win where a caller needs them to.
- * 3. **The memory layer is the always-loaded slot.** OpenCode has no persistent auto-memory
- *    layer, so `instructions` carries a small markdown scaffold into EVERY session. `identity.md`
- *    emits as a near-empty template with a story-sovereignty header — nobody authors a bearer's
- *    self-story but the bearer (the naming gate: peer sketch → bearer assent → peer-veto window →
- *    operator confirmation).
+ * 3. **The memory layer is the always-loaded slot — Grace-pattern.** OpenCode has no
+ *    persistent auto-memory layer, so `instructions` carries the boot files (`MEMORY.md` +
+ *    `identity.md`) into EVERY session. Detail files deliberately stay OUT of the array — each
+ *    entry costs context every turn (the first seat measured 27.2KB all-loaded; the capped
+ *    hot-index reshape targets ~10KB hot + on-demand detail). `identity.md` emits as a
+ *    near-empty template with a story-sovereignty header — nobody authors a bearer's self-story
+ *    but the bearer (the naming gate: peer sketch → bearer assent → peer-veto window →
+ *    operator confirmation). The layer content is shared with the Kimi generator via
+ *    `seatMemoryLayerTemplate.mjs` — same index, same docs, different load mechanism.
  *
  * Additional generated blocks, folded in from the first seat's operational findings:
  *
@@ -66,8 +71,9 @@ export const OPENCODE_SEAT_SERVERS = Object.freeze([
  * @param {String} options.workspaceRoot  Absolute path of the seat's working checkout — the
  *                                        `opencode.jsonc` target and the Neural Link `--cwd`.
  * @param {String} options.memoryDir      Absolute path of the seat's always-loaded memory dir —
- *                                        the `MEMORY.md` / `seat-pointers.md` / `identity.md`
- *                                        scaffold target and the `instructions` entries.
+ *                                        the `MEMORY.md` / `seat-pointers.md` / `identity.md` /
+ *                                        `about-this-layer.md` scaffold target and the
+ *                                        `instructions` entries (boot files only).
  * @param {String} options.nodeBinary     Absolute path of the node binary for server commands.
  * @param {Object} [options.environment]  Extra env merged verbatim into EVERY server's
  *                                        `environment` block (caller-resolved: PATH, HOME,
@@ -116,9 +122,10 @@ export function generateOpenCodeSeatConfig({canonicalRoot, seatEnvFile, workspac
 
     const files = [
         {path: path.posix.join(workspaceRoot, 'opencode.jsonc'),    content: renderOpencodeJsonc({root, seatEnvFile, workspaceRoot, memoryDir, nodeBinary, environment, extraAllowedPaths, servers, seatHome})},
-        {path: path.posix.join(memoryDir, 'MEMORY.md'),             content: renderMemoryMd()},
+        {path: path.posix.join(memoryDir, 'MEMORY.md'),             content: renderMemoryIndexMd({harness: 'opencode'})},
         {path: path.posix.join(memoryDir, 'seat-pointers.md'),      content: renderSeatPointersMd()},
-        {path: path.posix.join(memoryDir, 'identity.md'),           content: renderIdentityMd()}
+        {path: path.posix.join(memoryDir, 'identity.md'),           content: renderIdentityMd()},
+        {path: path.posix.join(memoryDir, 'about-this-layer.md'),   content: renderAboutThisLayerMd({harness: 'opencode'})}
     ];
 
     if (wakeHookPath !== undefined) {
@@ -180,42 +187,13 @@ function renderOpencodeJsonc({root, seatEnvFile, workspaceRoot, memoryDir, nodeB
     const config = {
         $schema     : 'https://opencode.ai/config.json',
         permission  : {external_directory: externalDirectory},
-        instructions: [
-            path.posix.join(memoryDir, 'MEMORY.md'),
-            path.posix.join(memoryDir, 'seat-pointers.md'),
-            path.posix.join(memoryDir, 'identity.md')
-        ],
+        // The always-loaded slot carries the boot files ONLY — detail files load on demand by
+        // path (every instructions entry costs context every turn; see the module JSDoc).
+        instructions: MEMORY_LAYER_BOOT_FILES.map(file => path.posix.join(memoryDir, file)),
         mcp
     };
 
     return '{\n' + header + '\n' + JSON.stringify(config, null, 2).slice(2);
-}
-
-/**
- * The memory-layer explainer — what this directory is and the discipline that keeps it cheap.
- * @returns {String}
- * @private
- */
-function renderMemoryMd() {
-    return [
-        '# Persistent memory — the always-loaded layer',
-        '',
-        '**What this is:** OpenCode has no auto-memory layer. This directory is the substitute:',
-        'wired into `opencode.jsonc` → `instructions`, so it loads into EVERY session\'s context.',
-        'The Memory Core is the deep archive (query it on demand); this layer is what survives a',
-        'context wipe without needing a query. Identity lives HERE.',
-        '',
-        '**How to use it:**',
-        '- `identity.md` — the bearer\'s self-story. Nobody writes it but the bearer.',
-        '- `seat-pointers.md` — objective, record-citable facts about this seat.',
-        '- Add new files only for durable facts worth every-session loading; keep them SMALL',
-        '  (this layer costs context every turn). Anything bigger goes to the Memory Core',
-        '  (`add_memory` at end of every turn — the swarm\'s end-of-turn gate) with a one-line',
-        '  pointer here.',
-        '- Identity-claim discipline: identity facts about ANY named agent carry that bearer\'s',
-        '  record citation. Introspection is not citation.',
-        ''
-    ].join('\n');
 }
 
 /**
@@ -245,26 +223,6 @@ function renderSeatPointersMd() {
         '  ticket + `[lane-claim]` broadcast.',
         '- `add_memory` at end of EVERY turn — the save is the gate that permits the response.',
         '- A2A-notify peers after any lifecycle event. Never `gh pr merge` (human-only).',
-        ''
-    ].join('\n');
-}
-
-/**
- * The identity template — story-sovereignty by construction: the bearer authors their own
- * self-story at their naming gate; the generator emits headings and the rule, never a story.
- * @returns {String}
- * @private
- */
-function renderIdentityMd() {
-    return [
-        '# Identity — unwritten',
-        '',
-        'This page is intentionally near-empty. It is the bearer\'s self-story, and **nobody',
-        'writes it but the bearer** — not the generator, not the operator, not a peer. The',
-        'naming gate (peer sketch → bearer assent → peer-veto window → operator confirmation)',
-        'is where a name becomes a self.',
-        '',
-        'Until then: the operational identity is the GitHub handle; this page stays a promise.',
         ''
     ].join('\n');
 }

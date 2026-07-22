@@ -53,6 +53,7 @@
         {"name": "The Knowledge Base Server",                          "parentId": "AgentOS",                                             "id": "agentos/KnowledgeBase"},
         {"name": "Knowledge Base Enhancement (Anchor & Echo)",         "parentId": "AgentOS",                                             "id": "agentos/KnowledgeBaseEnhancement"},
         {"name": "The Memory Core Server",                             "parentId": "AgentOS",                                             "id": "agentos/MemoryCore"},
+        {"name": "The Seat Memory Layer",                              "parentId": "AgentOS",                                             "id": "agentos/SeatMemoryLayer"},
         {"name": "Self-Healing Immune System",                         "parentId": "AgentOS",                                             "id": "agentos/SelfHealing"},
         {"name": "The GitHub Workflow Server",                         "parentId": "AgentOS",                                             "id": "agentos/GitHubWorkflow"},
         {"name": "Code Execution (AI SDK)",                            "parentId": "AgentOS",                                             "id": "agentos/CodeExecution"},
