@@ -21,8 +21,8 @@ import * as core      from '../../../../../../../src/core/_export.mjs';
  * Unit coverage for the GitLab-PAT verifier in `AuthService`. Exercises the verifier
  * factory in isolation — `globalThis.fetch` is stubbed so no live GitLab call is made — covering
  * the identity mapping, the `name`-absent fallback, the non-OK rejection (with no failure caching),
- * the success cache (per-token), and the TTL boundary. A minimal stand-in for the SDK
- * `InvalidTokenError` avoids importing the MCP SDK in a unit spec.
+ * the success cache (per-token), the TTL boundary, and the one-budget upstream deadline. A
+ * minimal stand-in for the SDK `InvalidTokenError` avoids importing the MCP SDK in a unit spec.
  */
 test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitLab-PAT verifier', () => {
     let AuthService;
@@ -33,8 +33,9 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitLab-PAT veri
     const logger   = {info: () => {}, warn: () => {}, error: () => {}};
     const aiConfig = {
         auth: {
-            gitlabApiBaseUrl  : 'https://gitlab.example.com/',
-            patCacheTtlSeconds: 300
+            gitlabApiBaseUrl      : 'https://gitlab.example.com/',
+            patCacheTtlSeconds    : 300,
+            patValidationTimeoutMs: 5000
         }
     };
 
@@ -46,7 +47,7 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitLab-PAT veri
         const calls = [];
 
         globalThis.fetch = async (url, opts = {}) => {
-            calls.push({url, headers: opts.headers});
+            calls.push({url, headers: opts.headers, signal: opts.signal});
 
             const response = responses.shift();
             if (!response) {
@@ -75,12 +76,23 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitLab-PAT veri
         globalThis.fetch = originalFetch;
     });
 
+    test('fails fast when the PAT validation deadline cannot map to a safe timer', () => {
+        for (const value of [0, -1, 1.5, 2_147_483_648]) {
+            expect(() => AuthService.createGitlabPatVerifier({
+                aiConfig         : withAuth({patValidationTimeoutMs: value}),
+                logger,
+                InvalidTokenError: FakeInvalidTokenError
+            })).toThrow('AuthService: auth.patValidationTimeoutMs must be an integer from 1 to 2147483647')
+        }
+    });
+
     test('maps a GitLab /user 200 to the RequestContextService identity shape', async () => {
-        let calledUrl, calledHeaders;
+        let calledUrl, calledHeaders, calledSignal;
 
         globalThis.fetch = async (url, opts) => {
             calledUrl     = url;
             calledHeaders = opts?.headers;
+            calledSignal  = opts?.signal;
             return {ok: true, json: async () => ({id: 42, username: 'octocat', name: 'The Octocat'})};
         };
 
@@ -90,6 +102,7 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitLab-PAT veri
         // Trailing slash on the configured base URL is trimmed before appending the API path.
         expect(calledUrl).toBe('https://gitlab.example.com/api/v4/user');
         expect(calledHeaders.Authorization).toBe('Bearer glpat-abc');
+        expect(calledSignal).toBeInstanceOf(AbortSignal);
         expect(info.userId).toBe('octocat');
         expect(info.username).toBe('The Octocat');
         expect(info.source).toBe('gitlab-pat');
@@ -162,11 +175,69 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitLab-PAT veri
         ]);
         expect(calls[0].headers.Authorization).toBe('Bearer secret-token-value');
         expect(calls[1].headers.Authorization).toBe('Bearer secret-token-value');
+        expect(calls[0].signal).toBe(calls[1].signal); // One wall-clock deadline across both fetches.
         expect(info.userId).toBe('neo-gpt');          // Memory Core tenant identity remains GitLab username.
         expect(info.username).toBe('Neo GPT');
         expect(info.clientId).toBe('mcp-oauth-app');
         expect(info.scopes).toEqual(['read_user', 'api']);
         expect(logEntries.join('\n')).not.toContain('secret-token-value');
+    });
+
+    test('times out the full GitLab sequence and does not cache the failure', async () => {
+        const
+            signals = [],
+            urls    = [];
+
+        let calls = 0;
+
+        globalThis.fetch = async (url, {signal} = {}) => {
+            signals.push(signal);
+            urls.push(String(url));
+            calls++;
+
+            if (calls === 1 || calls === 3) {
+                return {ok: true, json: async () => ({username: 'neo-gpt'})}
+            }
+
+            if (calls === 2) {
+                return new Promise((_, reject) => {
+                    if (signal.aborted) {
+                        reject(signal.reason);
+                        return
+                    }
+
+                    signal.addEventListener('abort', () => reject(signal.reason), {once: true})
+                })
+            }
+
+            return {ok: true, json: async () => ({application: {uid: 'mcp-oauth-app'}})}
+        };
+
+        const verifier = AuthService.createGitlabPatVerifier({
+            aiConfig         : withAuth({allowedClientIds: ['mcp-oauth-app'], patValidationTimeoutMs: 10}),
+            logger,
+            InvalidTokenError: FakeInvalidTokenError
+        });
+
+        await expect(verifier.verifyAccessToken('glpat-timeout'))
+            .rejects.toThrow('GitLab PAT validation timed out after 10ms');
+        expect(calls).toBe(2);
+        expect(signals[0]).toBe(signals[1]);
+        expect(urls).toEqual([
+            'https://gitlab.example.com/api/v4/user',
+            'https://gitlab.example.com/oauth/token/info'
+        ]);
+
+        const info = await verifier.verifyAccessToken('glpat-timeout');
+
+        expect(info.userId).toBe('neo-gpt');
+        expect(calls).toBe(4); // Timeout was not cached; both upstream calls run again.
+        expect(signals[2]).toBe(signals[3]);
+        expect(signals[2]).not.toBe(signals[0]);
+        expect(urls.slice(2)).toEqual([
+            'https://gitlab.example.com/api/v4/user',
+            'https://gitlab.example.com/oauth/token/info'
+        ])
     });
 
     test('rejects tokens from non-listed GitLab OAuth apps', async () => {
@@ -255,7 +326,11 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitLab-PAT veri
         };
 
         const verifier = AuthService.createGitlabPatVerifier({
-            aiConfig         : {auth: {gitlabApiBaseUrl: 'https://gitlab.example.com', patCacheTtlSeconds: 0}},
+            aiConfig         : {auth: {
+                gitlabApiBaseUrl      : 'https://gitlab.example.com',
+                patCacheTtlSeconds    : 0,
+                patValidationTimeoutMs: 5000
+            }},
             logger,
             InvalidTokenError: FakeInvalidTokenError
         });
@@ -282,7 +357,12 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitLab-PAT midd
     let AuthService, requireBearerAuth, InvalidTokenError, originalFetch;
 
     const logger   = {info: () => {}, warn: () => {}, error: () => {}};
-    const aiConfig = {auth: {mode: 'gitlab-pat', gitlabApiBaseUrl: 'https://gitlab.example.com', patCacheTtlSeconds: 300}};
+    const aiConfig = {auth: {
+        mode                  : 'gitlab-pat',
+        gitlabApiBaseUrl      : 'https://gitlab.example.com',
+        patCacheTtlSeconds    : 300,
+        patValidationTimeoutMs: 5000
+    }};
 
     test.beforeAll(async () => {
         AuthService       = (await import('../../../../../../../ai/mcp/server/shared/services/AuthService.mjs')).default;
@@ -460,7 +540,8 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitLab-PAT midd
  * above. `globalThis.fetch` is stubbed so no live GitHub call is made — covering the identity
  * mapping, the GitHub request contract (User-Agent / Accept / X-GitHub-Api-Version headers),
  * `x-oauth-scopes` scope extraction (classic PAT) vs its absence (fine-grained PAT), the
- * allowlist gate, the GHES base-url override, the success cache, and the TTL boundary.
+ * allowlist gate, the GHES base-url override, the success cache, the TTL boundary, and the
+ * one-budget upstream deadline.
  */
 test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitHub-PAT verifier', () => {
     let AuthService;
@@ -471,8 +552,9 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitHub-PAT veri
     const logger   = {info: () => {}, warn: () => {}, error: () => {}};
     const aiConfig = {
         auth: {
-            githubApiBaseUrl  : 'https://github.example.com/',
-            patCacheTtlSeconds: 300
+            githubApiBaseUrl      : 'https://github.example.com/',
+            patCacheTtlSeconds    : 300,
+            patValidationTimeoutMs: 5000
         }
     };
 
@@ -492,12 +574,21 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitHub-PAT veri
         globalThis.fetch = originalFetch;
     });
 
+    test('fails fast on an invalid GitHub PAT validation deadline', () => {
+        expect(() => AuthService.createGithubPatVerifier({
+            aiConfig         : withAuth({patValidationTimeoutMs: 0}),
+            logger,
+            InvalidTokenError: FakeInvalidTokenError
+        })).toThrow('AuthService: auth.patValidationTimeoutMs must be an integer from 1 to 2147483647')
+    });
+
     test('maps a GitHub /user 200 to the identity shape, with the GitHub request contract honored', async () => {
-        let calledUrl, calledHeaders;
+        let calledUrl, calledHeaders, calledSignal;
 
         globalThis.fetch = async (url, opts) => {
             calledUrl     = url;
             calledHeaders = opts?.headers;
+            calledSignal  = opts?.signal;
             return {
                 ok     : true,
                 headers: {get: name => name === 'x-oauth-scopes' ? 'repo, read:user' : null},
@@ -511,6 +602,7 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitHub-PAT veri
         // Trailing slash on the configured base URL is trimmed before appending the API path.
         expect(calledUrl).toBe('https://github.example.com/user');
         expect(calledHeaders.Authorization).toBe('Bearer ghp_abc');
+        expect(calledSignal).toBeInstanceOf(AbortSignal);
         // GitHub rejects UA-less requests with 403; the version header pins the REST contract.
         expect(calledHeaders['User-Agent']).toBeTruthy();
         expect(calledHeaders.Accept).toBe('application/vnd.github+json');
@@ -528,6 +620,47 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitHub-PAT veri
         expect(info.scopes).toEqual(['repo', 'read:user']);
         expect(typeof info.expiresAt).toBe('number');
         expect(info.expiresAt).toBeGreaterThan(Math.floor(Date.now() / 1000));
+    });
+
+    test('times out a hung GitHub validation and revalidates on the next request', async () => {
+        const urls  = [];
+        let   calls = 0;
+
+        globalThis.fetch = async (url, {signal} = {}) => {
+            urls.push(String(url));
+            calls++;
+
+            if (calls === 1) {
+                return new Promise((_, reject) => {
+                    if (signal.aborted) {
+                        reject(signal.reason);
+                        return
+                    }
+
+                    signal.addEventListener('abort', () => reject(signal.reason), {once: true})
+                })
+            }
+
+            return {ok: true, json: async () => ({login: 'octocat'})}
+        };
+
+        const verifier = AuthService.createGithubPatVerifier({
+            aiConfig         : withAuth({patValidationTimeoutMs: 10}),
+            logger,
+            InvalidTokenError: FakeInvalidTokenError
+        });
+
+        await expect(verifier.verifyAccessToken('ghp-timeout'))
+            .rejects.toThrow('GitHub PAT validation timed out after 10ms');
+
+        const info = await verifier.verifyAccessToken('ghp-timeout');
+
+        expect(info.userId).toBe('octocat');
+        expect(calls).toBe(2); // Timeout was not cached.
+        expect(urls).toEqual([
+            'https://github.example.com/user',
+            'https://github.example.com/user'
+        ])
     });
 
     test('falls back to login and empty scopes when name and x-oauth-scopes are absent (fine-grained PAT)', async () => {
@@ -620,7 +753,12 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — GitHub-PAT midd
     let AuthService, requireBearerAuth, InvalidTokenError, originalFetch;
 
     const logger   = {info: () => {}, warn: () => {}, error: () => {}};
-    const aiConfig = {auth: {mode: 'github-pat', githubApiBaseUrl: 'https://api.github.com', patCacheTtlSeconds: 300}};
+    const aiConfig = {auth: {
+        mode                  : 'github-pat',
+        githubApiBaseUrl      : 'https://api.github.com',
+        patCacheTtlSeconds    : 300,
+        patValidationTimeoutMs: 5000
+    }};
 
     test.beforeAll(async () => {
         AuthService       = (await import('../../../../../../../ai/mcp/server/shared/services/AuthService.mjs')).default;

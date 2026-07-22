@@ -327,6 +327,25 @@ class AuthService extends Base {
     }
 
     /**
+     * @summary Validates the one-budget deadline used by PAT verifier cache misses.
+     *
+     * Node accepts unsigned 32-bit delays in `AbortSignal.timeout()`, but its timer layer warns
+     * and collapses values above the signed 32-bit ceiling to one millisecond. Rejecting that
+     * range here prevents a configured long deadline from silently becoming an immediate abort.
+     * The default remains owned exclusively by the declarative AiConfig leaf.
+     * @param {Number} value Resolved `auth.patValidationTimeoutMs` value
+     * @returns {Number}
+     * @throws {RangeError} When the resolved value cannot represent a safe timer deadline
+     */
+    #validatePatValidationTimeoutMs(value) {
+        if (!Number.isInteger(value) || value < 1 || value > 2_147_483_647) {
+            throw new RangeError('AuthService: auth.patValidationTimeoutMs must be an integer from 1 to 2147483647')
+        }
+
+        return value
+    }
+
+    /**
      * Extracts the GitLab OAuth application client id from `/oauth/token/info`.
      * GitLab documents this as `application.uid`; the fallbacks keep the verifier tolerant of
      * self-managed version drift without weakening the default-off path.
@@ -365,8 +384,11 @@ class AuthService extends Base {
      * `/oauth/token/info`; both gates are default-off so the shipped PAT behavior remains unchanged
      * unless the deployment opts in. Successful validations are cached by SHA-256 token hash for
      * `auth.patCacheTtlSeconds` so a revoked PAT clears within that bounded window; failures are
-     * never cached (a transient GitLab error must not lock a client out). The raw token is never
-     * logged — only its resolved identity and, when checked, the resolved OAuth client id.
+     * never cached (a transient GitLab error must not lock a client out). Each cache miss uses one
+     * `auth.patValidationTimeoutMs` deadline shared by `/api/v4/user` and the conditional
+     * `/oauth/token/info` call, bounding the complete upstream sequence rather than each fetch.
+     * The raw token is never logged — only its resolved identity and, when checked, the resolved
+     * OAuth client id.
      * @param {Object}   options
      * @param {Object}   options.aiConfig
      * @param {Object}   options.logger
@@ -375,14 +397,15 @@ class AuthService extends Base {
      */
     createGitlabPatVerifier({aiConfig, logger, InvalidTokenError}) {
         const
-            apiBaseUrl       = aiConfig.auth.gitlabApiBaseUrl.replace(/\/+$/, ''),
-            ttlSeconds       = aiConfig.auth.patCacheTtlSeconds,
-            ttlMs            = ttlSeconds * 1000,
-            allowedClientIds = this.#normalizePatAllowlist(aiConfig.auth.allowedClientIds),
-            allowedUsers     = this.#normalizePatAllowlist(aiConfig.auth.allowedUsers),
-            requireClientId  = allowedClientIds.length > 0,
-            requireUser      = allowedUsers.length > 0,
-            cache            = new Map(); // tokenHash -> {user, tokenInfo, expiresAt} (cache-freshness, ms)
+            apiBaseUrl          = aiConfig.auth.gitlabApiBaseUrl.replace(/\/+$/, ''),
+            ttlSeconds          = aiConfig.auth.patCacheTtlSeconds,
+            ttlMs               = ttlSeconds * 1000,
+            validationTimeoutMs = this.#validatePatValidationTimeoutMs(aiConfig.auth.patValidationTimeoutMs),
+            allowedClientIds    = this.#normalizePatAllowlist(aiConfig.auth.allowedClientIds),
+            allowedUsers        = this.#normalizePatAllowlist(aiConfig.auth.allowedUsers),
+            requireClientId     = allowedClientIds.length > 0,
+            requireUser         = allowedUsers.length > 0,
+            cache               = new Map(); // tokenHash -> {user, tokenInfo, expiresAt} (cache-freshness, ms)
 
         // Builds the AuthInfo shape consumed by the SDK `requireBearerAuth` middleware AND
         // `RequestContextService`. `expiresAt` is REQUIRED by `requireBearerAuth` — it rejects auth
@@ -426,52 +449,67 @@ class AuthService extends Base {
                     return buildInfo(token, cached.user, cached.tokenInfo)
                 }
 
-                const userResponse = await fetch(`${apiBaseUrl}/api/v4/user`, {
-                    headers: {Authorization: `Bearer ${token}`}
-                });
+                const signal = AbortSignal.timeout(validationTimeoutMs);
 
-                if (!userResponse.ok) {
-                    cache.delete(tokenHash);
-                    throw new InvalidTokenError(`GitLab PAT validation failed (HTTP ${userResponse.status})`)
-                }
-
-                const user = await userResponse.json();
-
-                if (requireUser && !allowedUsers.includes(user.username)) {
-                    cache.delete(tokenHash);
-                    throw new InvalidTokenError('GitLab user is not allowed')
-                }
-
-                let tokenInfo = null;
-
-                if (requireClientId) {
-                    const tokenInfoResponse = await fetch(`${apiBaseUrl}/oauth/token/info`, {
-                        headers: {Authorization: `Bearer ${token}`}
+                try {
+                    const userResponse = await fetch(`${apiBaseUrl}/api/v4/user`, {
+                        headers: {Authorization: `Bearer ${token}`},
+                        signal
                     });
 
-                    if (!tokenInfoResponse.ok) {
+                    if (!userResponse.ok) {
                         cache.delete(tokenHash);
-                        throw new InvalidTokenError(`GitLab token info validation failed (HTTP ${tokenInfoResponse.status})`)
+                        throw new InvalidTokenError(`GitLab PAT validation failed (HTTP ${userResponse.status})`)
                     }
 
-                    tokenInfo = await tokenInfoResponse.json();
+                    const user = await userResponse.json();
 
-                    const tokenInfoClientId = this.#getGitlabTokenInfoClientId(tokenInfo);
-
-                    if (!tokenInfoClientId || !allowedClientIds.includes(tokenInfoClientId)) {
+                    if (requireUser && !allowedUsers.includes(user.username)) {
                         cache.delete(tokenHash);
-                        throw new InvalidTokenError('GitLab OAuth application is not allowed')
+                        throw new InvalidTokenError('GitLab user is not allowed')
                     }
+
+                    let tokenInfo = null;
+
+                    if (requireClientId) {
+                        const tokenInfoResponse = await fetch(`${apiBaseUrl}/oauth/token/info`, {
+                            headers: {Authorization: `Bearer ${token}`},
+                            signal
+                        });
+
+                        if (!tokenInfoResponse.ok) {
+                            cache.delete(tokenHash);
+                            throw new InvalidTokenError(`GitLab token info validation failed (HTTP ${tokenInfoResponse.status})`)
+                        }
+
+                        tokenInfo = await tokenInfoResponse.json();
+
+                        const tokenInfoClientId = this.#getGitlabTokenInfoClientId(tokenInfo);
+
+                        if (!tokenInfoClientId || !allowedClientIds.includes(tokenInfoClientId)) {
+                            cache.delete(tokenHash);
+                            throw new InvalidTokenError('GitLab OAuth application is not allowed')
+                        }
+                    }
+
+                    signal.throwIfAborted();
+                    cache.set(tokenHash, {user, tokenInfo, expiresAt: Date.now() + ttlMs});
+
+                    const tokenInfoClientId = this.#getGitlabTokenInfoClientId(tokenInfo),
+                          appSuffix         = tokenInfoClientId ? `, client: ${tokenInfoClientId}` : '';
+
+                    logger.info(`[AuthService] GitLab PAT validated for user: ${user.name || user.username}${appSuffix}`);
+
+                    return buildInfo(token, user, tokenInfo)
+                } catch (error) {
+                    cache.delete(tokenHash);
+
+                    if (signal.aborted) {
+                        throw new InvalidTokenError(`GitLab PAT validation timed out after ${validationTimeoutMs}ms`)
+                    }
+
+                    throw error
                 }
-
-                cache.set(tokenHash, {user, tokenInfo, expiresAt: Date.now() + ttlMs});
-
-                const tokenInfoClientId = this.#getGitlabTokenInfoClientId(tokenInfo),
-                      appSuffix         = tokenInfoClientId ? `, client: ${tokenInfoClientId}` : '';
-
-                logger.info(`[AuthService] GitLab PAT validated for user: ${user.name || user.username}${appSuffix}`);
-
-                return buildInfo(token, user, tokenInfo)
             }
         }
     }
@@ -509,8 +547,9 @@ class AuthService extends Base {
      * deliberately no client-id gate: GitHub PATs expose no OAuth-app identity comparable to
      * GitLab's `/oauth/token/info`. Successful validations are cached by SHA-256 token hash for
      * `auth.patCacheTtlSeconds` so a revoked PAT clears within that bounded window; failures are
-     * never cached (a transient GitHub error must not lock a client out). The raw token is never
-     * logged — only its resolved identity.
+     * never cached (a transient GitHub error must not lock a client out). Each cache miss gives the
+     * `/user` fetch one `auth.patValidationTimeoutMs` deadline. The raw token is never logged — only
+     * its resolved identity.
      *
      * GitHub request-contract notes: a `User-Agent` header is REQUIRED (GitHub rejects UA-less
      * requests with 403), and `X-GitHub-Api-Version` pins the REST contract. Classic PATs echo
@@ -524,12 +563,13 @@ class AuthService extends Base {
      */
     createGithubPatVerifier({aiConfig, logger, InvalidTokenError}) {
         const
-            apiBaseUrl   = aiConfig.auth.githubApiBaseUrl.replace(/\/+$/, ''),
-            ttlSeconds   = aiConfig.auth.patCacheTtlSeconds,
-            ttlMs        = ttlSeconds * 1000,
-            allowedUsers = this.#normalizePatAllowlist(aiConfig.auth.allowedUsers),
-            requireUser  = allowedUsers.length > 0,
-            cache        = new Map(); // tokenHash -> {user, scopes, expiresAt} (cache-freshness, ms)
+            apiBaseUrl          = aiConfig.auth.githubApiBaseUrl.replace(/\/+$/, ''),
+            ttlSeconds          = aiConfig.auth.patCacheTtlSeconds,
+            ttlMs               = ttlSeconds * 1000,
+            validationTimeoutMs = this.#validatePatValidationTimeoutMs(aiConfig.auth.patValidationTimeoutMs),
+            allowedUsers        = this.#normalizePatAllowlist(aiConfig.auth.allowedUsers),
+            requireUser         = allowedUsers.length > 0,
+            cache               = new Map(); // tokenHash -> {user, scopes, expiresAt} (cache-freshness, ms)
 
         // AuthInfo shape mirrors the GitLab-PAT verifier: `expiresAt` is REQUIRED by the SDK
         // `requireBearerAuth` (it rejects expiry-less auth info before `req.auth` is set), and
@@ -567,36 +607,50 @@ class AuthService extends Base {
                     return buildInfo(token, cached.user, cached.scopes)
                 }
 
-                const userResponse = await fetch(`${apiBaseUrl}/user`, {
-                    headers: {
-                        'Accept'              : 'application/vnd.github+json',
-                        'Authorization'       : `Bearer ${token}`,
-                        'User-Agent'          : 'neo-agent-os',
-                        'X-GitHub-Api-Version': '2022-11-28'
+                const signal = AbortSignal.timeout(validationTimeoutMs);
+
+                try {
+                    const userResponse = await fetch(`${apiBaseUrl}/user`, {
+                        headers: {
+                            'Accept'              : 'application/vnd.github+json',
+                            'Authorization'       : `Bearer ${token}`,
+                            'User-Agent'          : 'neo-agent-os',
+                            'X-GitHub-Api-Version': '2022-11-28'
+                        },
+                        signal
+                    });
+
+                    if (!userResponse.ok) {
+                        cache.delete(tokenHash);
+                        throw new InvalidTokenError(`GitHub PAT validation failed (HTTP ${userResponse.status})`)
                     }
-                });
 
-                if (!userResponse.ok) {
+                    // Classic PATs advertise granted scopes here; fine-grained PATs omit the header.
+                    const
+                        scopeHeader = userResponse.headers?.get?.('x-oauth-scopes') || '',
+                        scopes      = scopeHeader.split(',').map(scope => scope.trim()).filter(Boolean),
+                        user        = await userResponse.json();
+
+                    if (requireUser && !allowedUsers.includes(user.login)) {
+                        cache.delete(tokenHash);
+                        throw new InvalidTokenError('GitHub user is not allowed')
+                    }
+
+                    signal.throwIfAborted();
+                    cache.set(tokenHash, {user, scopes, expiresAt: Date.now() + ttlMs});
+
+                    logger.info(`[AuthService] GitHub PAT validated for user: ${user.name || user.login}`);
+
+                    return buildInfo(token, user, scopes)
+                } catch (error) {
                     cache.delete(tokenHash);
-                    throw new InvalidTokenError(`GitHub PAT validation failed (HTTP ${userResponse.status})`)
+
+                    if (signal.aborted) {
+                        throw new InvalidTokenError(`GitHub PAT validation timed out after ${validationTimeoutMs}ms`)
+                    }
+
+                    throw error
                 }
-
-                // Classic PATs advertise granted scopes here; fine-grained PATs omit the header.
-                const
-                    scopeHeader = userResponse.headers?.get?.('x-oauth-scopes') || '',
-                    scopes      = scopeHeader.split(',').map(scope => scope.trim()).filter(Boolean),
-                    user        = await userResponse.json();
-
-                if (requireUser && !allowedUsers.includes(user.login)) {
-                    cache.delete(tokenHash);
-                    throw new InvalidTokenError('GitHub user is not allowed')
-                }
-
-                cache.set(tokenHash, {user, scopes, expiresAt: Date.now() + ttlMs});
-
-                logger.info(`[AuthService] GitHub PAT validated for user: ${user.name || user.login}`);
-
-                return buildInfo(token, user, scopes)
             }
         }
     }
