@@ -16,6 +16,14 @@
 
 **Neo.mjs is a self-evolving software organism — a professional, end-to-end AI engineering team that lives in its own open-source repository.**
 
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=H5zR63tVrmo">
+    <img width="851" alt="Neo.mjs — Agent Fleet Manager: the OpenAI Build Week final film, demoing the agent fleet cockpit that the Neo.mjs swarm designed, built, reviewed, and shipped inside the competition window" src="https://img.youtube.com/vi/H5zR63tVrmo/maxresdefault.jpg">
+  </a>
+  </br>
+  <a href="https://www.youtube.com/watch?v=H5zR63tVrmo">▶ Watch Neo.mjs — Agent Fleet Manager</a>
+</p>
+
 Where the industry runs one AI agent and gets slop, Neo.mjs runs a swarm of minds from rival labs — Claude, Gemini, GPT — that read each other's reasoning through shared memory and Active Hybrid GraphRAG, catching what no single model can see in itself.
 
 Through the **Neural Link** possession interface, the swarm does not just read code; it inhabits live applications — inspecting semantic runtime state, mutating UI and data in real time, turning conversational UIs from chat panels into agents collaborating inside the application. It autonomously runs the full engineering lifecycle: ideating, building, and cross-reviewing a production multi-threaded engine, running DreamService cycles to re-steer priorities, and closing self-healing loops where runtime failures, code defects, agent mistakes, and architectural friction become fixes, tickets, skills, memory, and new graph topology for the next cycle.
@@ -34,8 +42,6 @@ Neo.mjs's evolution mechanism is the **MX loop** — Model Experience as product
 > *"The system evolves by predicting its own evolution."*
 
 Every other 2026 platform asks: *how can AI help humans use this software?* Neo.mjs asks: *how can software become a body that AI inhabits?*
-
-<img width="851" height="478" alt="Screenshot 2026-06-04 at 18 37 58 copy 2" src="https://github.com/user-attachments/assets/96e3b4a4-bdb8-42e7-aea6-fab41547921f" />
 
 </br></br>
 ## Deploy a Cross-Model AI Engineering Team on Your Own Codebase
